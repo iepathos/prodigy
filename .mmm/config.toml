@@ -1,0 +1,4 @@
+name = "mmm"
+version = "0.1.0"
+max_iterations = 10
+auto_commit = true
