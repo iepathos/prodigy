@@ -1205,7 +1205,10 @@ async fn execute_claude_cli_direct(command: &str, args: Vec<String>) -> Result<S
     };
 
     // Build command with arguments
-    let mut cmd_args = vec![slash_command.to_string()];
+    let mut cmd_args = vec![
+        "--dangerously-skip-permissions".to_string(),
+        slash_command.to_string(),
+    ];
     cmd_args.extend(args);
 
     debug!("Executing Claude CLI: claude {}", cmd_args.join(" "));

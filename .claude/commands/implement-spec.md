@@ -1,6 +1,6 @@
 # Implement Spec Command
 
-Implements a Git Good specification by reading the spec file, executing the implementation, and updating .eidolon context files.  Read the files in .eidolon to get general project context.
+Implements a Git Good specification by reading the spec file, executing the implementation, and updating .mmm context files.  Read the files in .mmm to get general project context.
 
 ## Usage
 
@@ -13,7 +13,7 @@ Example: `/implement-spec 01` to implement the project structure specification.
 ## What This Command Does
 
 1. **Reads the Project Context**
-   - Read the .eidolon context files to get general understanding of the project.
+   - Read the .mmm context files to get general understanding of the project.
    - Files are read in this order to build context:
      - PROJECT.md (current state and capabilities)
      - ARCHITECTURE.md (system design)
@@ -53,7 +53,7 @@ Example: `/implement-spec 01` to implement the project structure specification.
 ### Step 1: Read Context Files and Locate Specification
 
 The command will:
-- First read all .eidolon context files in order (PROJECT.md, ARCHITECTURE.md, CONVENTIONS.md, ROADMAP.md, DECISIONS.md)
+- First read all .mmm context files in order (PROJECT.md, ARCHITECTURE.md, CONVENTIONS.md, ROADMAP.md, DECISIONS.md)
 - Build comprehensive understanding of project state and conventions
 - Look up the spec number in SPEC_INDEX.md
 - Read the corresponding spec file
@@ -78,7 +78,7 @@ Based on the spec type:
 
 ### Step 4: Context Updates
 
-Update .eidolon files:
+Update .mmm files:
 - **PROJECT.md**: Update "Current State" percentage and "What Exists"
 - **ARCHITECTURE.md**: Add architectural details for new components
 - **ROADMAP.md**: Mark spec as completed, update progress
@@ -107,7 +107,7 @@ Final steps:
 3. **Documentation**
    - Add inline documentation for new code
    - Update module-level documentation
-   - Keep .eidolon files current
+   - Keep .mmm files current
 
 4. **Testing**
    - Add unit tests for new functionality

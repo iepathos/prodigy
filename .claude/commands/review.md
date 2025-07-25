@@ -11,7 +11,7 @@ SCOPE: $ARGUMENTS (optional - specify scope like "src/parser", "tests", specific
 ### Phase 1: Project Context and Scope Analysis
 
 1. **Read Project Context**
-   - Read .eidolon context files (PROJECT.md, ARCHITECTURE.md, CONVENTIONS.md, DECISIONS.md)
+   - Read .mmm context files (PROJECT.md, ARCHITECTURE.md, CONVENTIONS.md, DECISIONS.md)
    - Understand project goals, architecture patterns, and coding standards
    - Identify recently completed specifications from ROADMAP.md
 

@@ -1,0 +1,84 @@
+# PROJECT.md - Memento Mori (mmm)
+
+## Overview
+
+Memento Mori (mmm) is a Rust CLI tool for implementing self-sufficient loops with Claude CLI, enabling automated specification processing and iterative development.
+
+## Current State
+
+- **Project Status**: Active Development
+- **Core Features**: Specification engine, workflow automation, Claude integration
+- **Latest Version**: 0.1.0
+
+## What Exists
+
+### Core Components
+- **Specification Engine**: Parse and execute development specifications
+- **Workflow Engine**: YAML-based workflow automation with conditions
+- **Claude Integration**: API client with caching and context management
+- **Command System**: Extensible command registry and dispatcher
+- **State Management**: SQLite-based state persistence
+- **Monitoring**: Analytics, metrics, and performance tracking
+- **Plugin System**: Dynamic plugin loading with security sandbox
+
+### Project Structure
+```
+mmm/
+├── .claude/           # Claude CLI custom commands
+├── .mmm/              # Project context files
+├── specs/             # Development specifications
+├── src/               # Rust source code
+├── templates/         # Workflow templates
+└── migrations/        # Database migrations
+```
+
+## Key Capabilities
+
+1. **Specification Processing**
+   - Load and parse Markdown specifications
+   - Execute specs iteratively with Claude
+   - Track progress and completion state
+
+2. **Workflow Automation**
+   - YAML workflow definitions
+   - Conditional execution with Pest parser
+   - Checkpoint and state management
+
+3. **Claude Integration**
+   - API client with retry logic
+   - Response caching
+   - Context window management
+   - Token usage tracking
+
+4. **Project Management**
+   - Health checks and validation
+   - Template-based project creation
+   - Specification lifecycle management
+
+5. **Monitoring & Analytics**
+   - Performance metrics collection
+   - Dashboard visualization
+   - Alert system for issues
+   - Export capabilities
+
+## Technology Stack
+
+- **Language**: Rust (2021 edition)
+- **CLI Framework**: Clap v4
+- **Async Runtime**: Tokio
+- **Database**: SQLite with SQLx
+- **Serialization**: Serde (JSON, YAML, TOML)
+- **Web Framework**: Axum (for dashboard)
+- **Parsing**: Pest (for conditions)
+
+## Development Philosophy
+
+- **Self-Sufficient Loops**: Enable automated development cycles
+- **Specification-Driven**: Use specs as source of truth
+- **Extensible**: Plugin system for custom functionality
+- **Observable**: Comprehensive monitoring and analytics
+- **Secure**: Sandboxed plugin execution
+
+## Next Steps
+
+See ROADMAP.md for planned features and development priorities.

@@ -1,4 +1,4 @@
-# Eidolon Product Manager Command
+# Product Manager Command
 
 Act as a Product Manager, evaluating the current state and proposing next steps for you to review.
 
@@ -18,7 +18,7 @@ Act as a Product Manager, evaluating the current state and proposing next steps 
    - Recommend architectural improvements
 
 3. **Update Project Context**
-   - Suggest updates to .eidolon/ documentation
+   - Suggest updates to .mmm/ documentation
    - Propose CLAUDE.md improvements
    - Recommend new patterns or conventions
    - Flag outdated documentation
@@ -79,7 +79,7 @@ Based on the analysis, the command will propose:
 
 The command will suggest specific updates to:
 
-**.eidolon/ Directory:**
+**.mmm/ Directory:**
 - PROJECT.md - Current capabilities and limitations
 - ARCHITECTURE.md - System design documentation
 - CONVENTIONS.md - Coding patterns and standards
@@ -104,7 +104,7 @@ Based on the latest analysis, here's what this command has found:
 - **CLI & Web UI**: Complete command interface and Vue.js dashboard
 
 ### 🚧 Gaps Identified
-- **Missing .eidolon/ directory**: Context management system not initialized
+- **Missing .mmm/ directory**: Context management system not initialized
 - **Database Persistence**: SQLx added but not implemented
 - **Agent Spawning**: Has TODO - actual Claude Code process spawning needed
 - **Test Coverage**: Limited integration tests, no coverage reporting
@@ -112,7 +112,7 @@ Based on the latest analysis, here's what this command has found:
 ### 📋 Proposed Next Steps
 
 **High Priority (Blocking Issues):**
-1. **Initialize .eidolon/ Context System**
+1. **Initialize .mmm/ Context System**
    - Create directory structure
    - Generate initial PROJECT.md, ARCHITECTURE.md, etc.
    - Specialization: Product Manager
@@ -142,7 +142,7 @@ Based on the latest analysis, here's what this command has found:
    - Specialization: Backend Engineer
 
 6. **Run Self-Improvement**
-   - Execute eidolon-self-improvement.yaml
+   - Execute self-improvement workflow
    - Monitor recursive improvement
    - Specialization: Product Manager
 
@@ -159,7 +159,7 @@ Based on the latest analysis, here's what this command has found:
 
 ## Context Update Recommendations
 
-### Create .eidolon/PROJECT.md
+### Create .mmm/PROJECT.md
 - Project overview
 
 ### Update CLAUDE.md
@@ -170,7 +170,7 @@ Based on the latest analysis, here's what this command has found:
 1. **Priority Agreement**: Do you agree with the priority ordering above?
 2. **Resource Allocation**: How many agents should work on each task?
 3. **Timeline**: What's your target timeline for high priority items?
-4. **Context Creation**: Should we initialize .eidolon/ now?
+4. **Context Creation**: Should we initialize .mmm/ now?
 5. **Self-Improvement**: Ready to run the self-improvement spec?
 
 This PM analysis provides you with actionable recommendations without automatically creating tasks in the system.

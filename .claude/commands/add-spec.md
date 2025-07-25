@@ -11,7 +11,7 @@ DESCRIPTION: $ARGUMENTS (required - natural language description of the feature 
 ### Phase 1: Project Context Analysis
 
 1. **Read Project Context**
-   - Read .eidolon context files to understand current project state
+   - Read .mmm context files to understand current project state
    - Files read in order: PROJECT.md, ARCHITECTURE.md, CONVENTIONS.md, ROADMAP.md, DECISIONS.md
    - Understand existing capabilities and architectural patterns
    - Identify current technology stack and dependencies
