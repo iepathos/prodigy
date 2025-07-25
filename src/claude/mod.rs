@@ -199,8 +199,7 @@ impl ClaudeManager {
             "add-spec" | "claude-add-spec" => "/add-spec",
             _ => {
                 return Err(crate::error::Error::NotFound(format!(
-                    "Unknown Claude CLI command: {}",
-                    command
+                    "Unknown Claude CLI command: {command}"
                 )))
             }
         };
@@ -215,7 +214,7 @@ impl ClaudeManager {
             .output()
             .await
             .map_err(|e| {
-                crate::error::Error::Other(format!("Failed to execute Claude CLI: {}", e))
+                crate::error::Error::Other(format!("Failed to execute Claude CLI: {e}"))
             })?;
 
         if output.status.success() {
@@ -229,8 +228,7 @@ impl ClaudeManager {
         } else {
             let error = String::from_utf8_lossy(&output.stderr);
             Err(crate::error::Error::Other(format!(
-                "Claude CLI command failed: {}",
-                error
+                "Claude CLI command failed: {error}"
             )))
         }
     }

@@ -306,6 +306,7 @@ async fn acknowledge_alert(
     Ok(StatusCode::NO_CONTENT)
 }
 
+#[allow(dead_code)]
 async fn run_analytics(
     Json(params): Json<AnalyticsRequest>,
     State(state): State<DashboardState>,
@@ -321,6 +322,7 @@ async fn run_analytics(
     Ok(Json(AnalyticsResponse { analyses }))
 }
 
+#[allow(dead_code)]
 async fn generate_report(
     Json(params): Json<GenerateReportRequest>,
     State(state): State<DashboardState>,
@@ -434,11 +436,14 @@ struct AlertsQuery {
 
 #[derive(Debug, Deserialize)]
 struct AnalyticsRequest {
+    #[allow(dead_code)]
     start: Option<DateTime<Utc>>,
+    #[allow(dead_code)]
     end: Option<DateTime<Utc>>,
 }
 
 impl AnalyticsRequest {
+    #[allow(dead_code)]
     fn timeframe(&self) -> TimeFrame {
         TimeFrame {
             start: self
@@ -450,18 +455,23 @@ impl AnalyticsRequest {
 }
 
 #[derive(Debug, Serialize)]
+#[allow(dead_code)]
 struct AnalyticsResponse {
     analyses: Vec<super::analytics::Analysis>,
 }
 
 #[derive(Debug, Deserialize)]
 struct GenerateReportRequest {
+    #[allow(dead_code)]
     template_name: String,
+    #[allow(dead_code)]
     start: Option<DateTime<Utc>>,
+    #[allow(dead_code)]
     end: Option<DateTime<Utc>>,
 }
 
 impl GenerateReportRequest {
+    #[allow(dead_code)]
     fn timeframe(&self) -> TimeFrame {
         TimeFrame {
             start: self
@@ -473,6 +483,7 @@ impl GenerateReportRequest {
 }
 
 #[derive(Debug, Serialize)]
+#[allow(dead_code)]
 struct GenerateReportResponse {
     report_id: String,
     status: String,
@@ -480,6 +491,7 @@ struct GenerateReportResponse {
 
 #[derive(Debug, Deserialize)]
 struct ExportReportQuery {
+    #[allow(dead_code)]
     format: ExportFormat,
 }
 

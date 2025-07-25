@@ -228,6 +228,7 @@ impl CheckpointManager {
 mod tests {
     use super::*;
 
+    #[allow(dead_code)]
     struct MockNotificationService;
 
     impl NotificationService for MockNotificationService {

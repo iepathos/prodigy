@@ -208,7 +208,9 @@ pub enum TraceStatus {
 pub struct DefaultPluginAPI {
     project_manager: std::sync::Arc<crate::project::ProjectManager>,
     state_manager: std::sync::Arc<crate::state::StateManager>,
+    #[allow(dead_code)]
     claude_manager: std::sync::Arc<crate::claude::ClaudeManager>,
+    #[allow(dead_code)]
     workflow_engine: std::sync::Arc<crate::workflow::WorkflowEngine>,
     // monitor: std::sync::Arc<crate::monitor::Monitor>, // TODO: Fix Monitor type
     plugin_id: super::PluginId,

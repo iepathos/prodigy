@@ -186,6 +186,7 @@ impl WorkflowEngine {
 }
 
 pub struct WorkflowDebugger {
+    #[allow(dead_code)]
     engine: WorkflowEngine,
     breakpoints: Arc<RwLock<Vec<String>>>,
 }

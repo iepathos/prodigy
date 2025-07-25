@@ -551,8 +551,11 @@ impl PluginMarketplace {
 #[derive(Debug, Deserialize)]
 struct SearchResponse {
     plugins: Vec<PluginListing>,
+    #[allow(dead_code)]
     total: usize,
+    #[allow(dead_code)]
     page: usize,
+    #[allow(dead_code)]
     per_page: usize,
 }
 

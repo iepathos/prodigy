@@ -206,6 +206,7 @@ impl TraceStorage {
         Self { pool }
     }
 
+    #[allow(dead_code)]
     pub async fn create_tables(&self) -> Result<()> {
         sqlx::query(
             r#"

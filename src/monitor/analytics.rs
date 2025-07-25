@@ -41,6 +41,7 @@ pub trait Analyzer: Send + Sync {
 }
 
 pub struct AnalyticsEngine {
+    #[allow(dead_code)]
     metrics_db: Arc<MetricsDatabase>,
     analyzers: Vec<Box<dyn Analyzer>>,
 }

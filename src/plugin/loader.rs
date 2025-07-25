@@ -6,6 +6,7 @@ use super::{Plugin, PluginMetadata};
 
 /// Plugin loader handles loading plugins from various sources
 pub struct PluginLoader {
+    #[allow(dead_code)]
     supported_formats: Vec<PluginFormat>,
 }
 

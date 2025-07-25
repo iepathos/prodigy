@@ -160,6 +160,7 @@ pub struct ReportGenerator {
     metrics_db: Arc<MetricsDatabase>,
     analytics_engine: Arc<AnalyticsEngine>,
     claude_manager: Arc<ClaudeManager>,
+    #[allow(dead_code)]
     template_engine: Tera,
 }
 

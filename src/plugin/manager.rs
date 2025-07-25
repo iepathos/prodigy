@@ -20,6 +20,7 @@ pub struct PluginManager {
     loader: Arc<PluginLoader>,
     sandbox: Arc<PluginSandbox>,
     permission_manager: Arc<RwLock<PermissionManager>>,
+    #[allow(dead_code)]
     security_policy: SecurityPolicy,
     loaded_plugins: Arc<RwLock<HashMap<PluginId, LoadedPlugin>>>,
     event_bus: Arc<RwLock<EventBus>>,
@@ -38,7 +39,9 @@ struct LoadedPlugin {
     plugin: Box<dyn Plugin>,
     status: PluginStatus,
     api: Arc<dyn PluginAPI>,
+    #[allow(dead_code)]
     load_time: chrono::DateTime<chrono::Utc>,
+    #[allow(dead_code)]
     last_activity: chrono::DateTime<chrono::Utc>,
 }
 

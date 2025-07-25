@@ -179,14 +179,14 @@ impl CommandRegistry {
         ];
 
         for (cmd_name, description) in commands {
-            let cmd_file = claude_dir.join(format!("{}.md", cmd_name));
+            let cmd_file = claude_dir.join(format!("{cmd_name}.md"));
 
             if cmd_file.exists() {
                 self.register_command(CommandConfig {
-                    name: format!("claude-{}", cmd_name),
+                    name: format!("claude-{cmd_name}"),
                     aliases: vec![cmd_name.to_string()],
                     description: description.to_string(),
-                    template: format!("claude-cli-{}", cmd_name),
+                    template: format!("claude-cli-{cmd_name}"),
                     task_type: "claude-cli".to_string(),
                     pre_processors: vec!["prepare-claude-context".to_string()],
                     post_processors: vec!["process-claude-output".to_string()],

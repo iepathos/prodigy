@@ -990,11 +990,11 @@ async fn handle_spec_command(
 
             let mut claude_manager = mmm::claude::ClaudeManager::new(claude_config)?;
 
-            println!("🚀 Creating specification for: {}", description);
+            println!("🚀 Creating specification for: {description}");
             let result = claude_manager
                 .execute_command("add-spec", vec![description])
                 .await?;
-            println!("{}", result);
+            println!("{result}");
         }
 
         Info { spec_id } => {
@@ -1012,7 +1012,7 @@ async fn handle_spec_command(
                 );
 
                 if let Some(objective) = &spec.metadata.objective {
-                    println!("Objective: {}", objective);
+                    println!("Objective: {objective}");
                 }
 
                 if !spec.metadata.acceptance_criteria.is_empty() {
@@ -1027,19 +1027,18 @@ async fn handle_spec_command(
                 }
 
                 if let Some(priority) = spec.metadata.priority {
-                    println!("Priority: {}", priority);
+                    println!("Priority: {priority}");
                 }
 
                 if let Some(hours) = spec.metadata.estimated_hours {
-                    println!("Estimated Hours: {:.1}", hours);
+                    println!("Estimated Hours: {hours:.1}");
                 }
 
                 println!("\nContent:");
                 println!("{}", spec.content);
             } else {
                 return Err(mmm::Error::Spec(format!(
-                    "Specification '{}' not found",
-                    spec_id
+                    "Specification '{spec_id}' not found"
                 )));
             }
         }
