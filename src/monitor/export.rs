@@ -105,7 +105,7 @@ impl ReportExporter for MarkdownExporter {
 
                     // Simple ASCII chart for markdown
                     if !data.datasets.is_empty() && !data.datasets[0].data.is_empty() {
-                        let max_value = data.datasets[0].data.iter().fold(0.0, |a, &b| a.max(b));
+                        let max_value = data.datasets[0].data.iter().fold(0.0f64, |a, &b| a.max(b));
                         let scale = 20.0 / max_value;
 
                         for (i, value) in data.datasets[0].data.iter().enumerate() {
@@ -271,10 +271,10 @@ impl MultiFormatExporter {
             }
         }
 
-        Err(anyhow::anyhow!(
+        Err(crate::Error::NotFound(format!(
             "No exporter found for format: {:?}",
             format
-        ))
+        )))
     }
 
     pub async fn export_to_file(

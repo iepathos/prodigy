@@ -112,7 +112,7 @@ impl Analyzer for BottleneckAnalyzer {
 
             if !times.is_empty() {
                 let avg_time = times.iter().sum::<f64>() / times.len() as f64;
-                let max_time = times.iter().fold(0.0, |a, &b| a.max(b));
+                let max_time = times.iter().fold(0.0f64, |a, &b| a.max(b));
 
                 metrics.insert("avg_completion_hours".to_string(), avg_time);
                 metrics.insert("max_completion_hours".to_string(), max_time);
@@ -352,7 +352,7 @@ impl Analyzer for CostOptimizer {
         }
 
         if !daily_costs.is_empty() {
-            let max_daily = daily_costs.iter().fold(0.0, |a, &b| a.max(b));
+            let max_daily = daily_costs.iter().fold(0.0f64, |a, &b| a.max(b));
 
             if max_daily > daily_avg * 2.0 {
                 findings.push(Finding {

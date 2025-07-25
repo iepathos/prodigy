@@ -35,6 +35,24 @@ pub enum Error {
     #[error("Notify error: {0}")]
     Notify(#[from] notify::Error),
 
+    #[error("UUID error: {0}")]
+    Uuid(#[from] uuid::Error),
+
+    #[error("Chrono parse error: {0}")]
+    ChronoParse(#[from] chrono::ParseError),
+
+    #[error("Chrono out of range error: {0}")]
+    ChronoOutOfRange(#[from] chrono::OutOfRangeError),
+
+    #[error("HTTP status error: {0}")]
+    HttpStatus(String),
+
+    #[error("Request error: {0}")]
+    Request(#[from] reqwest::Error),
+
+    #[error("Template error: {0}")]
+    Template(#[from] tera::Error),
+
     #[error("Other error: {0}")]
     Other(String),
 
@@ -104,6 +122,12 @@ pub enum Error {
 
     #[error("IO error: {0}")]
     IO(String),
+}
+
+impl From<axum::http::StatusCode> for Error {
+    fn from(status: axum::http::StatusCode) -> Self {
+        Error::HttpStatus(format!("HTTP status: {}", status))
+    }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

@@ -204,6 +204,7 @@ pub enum TraceStatus {
 }
 
 /// Default implementation of PluginAPI
+#[derive(Clone)]
 pub struct DefaultPluginAPI {
     project_manager: std::sync::Arc<crate::project::ProjectManager>,
     state_manager: std::sync::Arc<crate::state::StateManager>,
@@ -253,7 +254,10 @@ impl PluginAPI for DefaultPluginAPI {
             scope: super::security::StateScope::Project,
         })?;
 
-        self.project_manager.get_current_project().await
+        self.project_manager
+            .current_project()
+            .cloned()
+            .ok_or_else(|| crate::Error::NotFound("No current project".to_string()))
     }
 
     async fn get_project(&self, id: &str) -> Result<Option<crate::project::Project>> {
@@ -261,7 +265,7 @@ impl PluginAPI for DefaultPluginAPI {
             scope: super::security::StateScope::Project,
         })?;
 
-        self.project_manager.get_project(id).await
+        Ok(self.project_manager.get_project(id).ok().cloned())
     }
 
     async fn get_spec(&self, name: &str) -> Result<Option<String>> {

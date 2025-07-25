@@ -43,7 +43,7 @@ impl WorkflowEngine {
     }
 
     pub async fn run_workflow(
-        &self,
+        &mut self,
         workflow_path: &str,
         spec_id: Option<&str>,
         parameters: std::collections::HashMap<String, serde_json::Value>,

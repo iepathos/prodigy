@@ -179,8 +179,8 @@ impl PluginManager {
         // Create plugin context
         let context = PluginContext {
             config: crate::config::Config::default(), // TODO: Load actual config
-            api: api.clone(),
-            event_bus: self.event_bus.read().await.clone(),
+            api: Box::new((*api).clone()) as Box<dyn PluginAPI>,
+            event_bus: crate::plugin::EventBus::new(),
             logger: tracing::info_span!("plugin", name = %name),
             data_dir: self.get_plugin_data_dir(&plugin_info.id),
             temp_dir: self.get_plugin_temp_dir(&plugin_info.id),
@@ -397,6 +397,8 @@ impl PluginManager {
             requested_permissions: self.parse_permissions(&manifest.permissions),
             capabilities: self.parse_capabilities(&manifest.capabilities),
             dependencies: manifest.dependencies.unwrap_or_default(),
+            min_mmm_version: semver::Version::parse("0.1.0").unwrap(),
+            max_mmm_version: None,
         };
 
         Ok(plugin_info)

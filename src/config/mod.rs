@@ -15,6 +15,15 @@ pub struct Config {
     pub project: Option<ProjectConfig>,
 }
 
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            global: GlobalConfig::default(),
+            project: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GlobalConfig {
     pub mmm_home: PathBuf,

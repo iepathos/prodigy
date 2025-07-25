@@ -230,6 +230,105 @@ impl StateManager {
         Ok(executions)
     }
 
+    pub async fn get_value(&self, key: &str) -> Result<Option<serde_json::Value>> {
+        let state = self.get_current_state().await?;
+        
+        // Parse the key path (e.g., "project.config.foo" -> ["project", "config", "foo"])
+        let parts: Vec<&str> = key.split('.').collect();
+        let mut current = &state.variables;
+        
+        for part in parts {
+            match current.get(part) {
+                Some(value) => current = value,
+                None => return Ok(None),
+            }
+        }
+        
+        Ok(Some(current.clone()))
+    }
+
+    pub async fn set_value(&self, key: &str, value: serde_json::Value) -> Result<()> {
+        let mut state = self.get_current_state().await?;
+        
+        // Parse the key path
+        let parts: Vec<&str> = key.split('.').collect();
+        
+        // Navigate to the parent and set the final key
+        let mut current = &mut state.variables;
+        for part in &parts[..parts.len() - 1] {
+            if !current.is_object() {
+                *current = serde_json::json!({});
+            }
+            if !current.as_object().unwrap().contains_key(*part) {
+                current.as_object_mut().unwrap().insert(part.to_string(), serde_json::json!({}));
+            }
+            current = current.get_mut(part).unwrap();
+        }
+        
+        if !current.is_object() {
+            *current = serde_json::json!({});
+        }
+        current.as_object_mut().unwrap().insert(parts[parts.len() - 1].to_string(), value);
+        
+        self.save_state(&state).await?;
+        Ok(())
+    }
+
+    pub async fn delete_value(&self, key: &str) -> Result<()> {
+        let mut state = self.get_current_state().await?;
+        
+        // Parse the key path
+        let parts: Vec<&str> = key.split('.').collect();
+        
+        if parts.is_empty() {
+            return Ok(());
+        }
+        
+        // Navigate to the parent
+        let mut current = &mut state.variables;
+        for part in &parts[..parts.len() - 1] {
+            if let Some(next) = current.get_mut(part) {
+                current = next;
+            } else {
+                return Ok(()); // Key doesn't exist, nothing to delete
+            }
+        }
+        
+        // Remove the final key
+        if let Some(obj) = current.as_object_mut() {
+            obj.remove(parts[parts.len() - 1]);
+        }
+        
+        self.save_state(&state).await?;
+        Ok(())
+    }
+
+    pub async fn list_keys(&self, prefix: &str) -> Result<Vec<String>> {
+        let state = self.get_current_state().await?;
+        let mut keys = Vec::new();
+        
+        self.collect_keys(&state.variables, prefix, "", &mut keys);
+        Ok(keys)
+    }
+
+    fn collect_keys(&self, value: &serde_json::Value, prefix: &str, current_path: &str, keys: &mut Vec<String>) {
+        if let Some(obj) = value.as_object() {
+            for (key, val) in obj {
+                let new_path = if current_path.is_empty() {
+                    key.clone()
+                } else {
+                    format!("{}.{}", current_path, key)
+                };
+                
+                if new_path.starts_with(prefix) {
+                    keys.push(new_path.clone());
+                }
+                
+                self.collect_keys(val, prefix, &new_path, keys);
+            }
+        }
+    }
+
     pub async fn list_projects(&self) -> Result<Vec<ProjectInfo>> {
         let rows = sqlx::query(
             r#"
@@ -255,12 +354,12 @@ impl StateManager {
                     path: std::path::PathBuf::from(row.get::<String, _>("path")),
                     status: "active".to_string(),
                     created_at: chrono::DateTime::parse_from_rfc3339(&created_str)
-                        .unwrap_or_else(|_| chrono::Utc::now())
-                        .with_timezone(&chrono::Utc),
+                        .map(|dt| dt.with_timezone(&chrono::Utc))
+                        .unwrap_or_else(|_| chrono::Utc::now()),
                     last_accessed: Some(
                         chrono::DateTime::parse_from_rfc3339(&updated_str)
-                            .unwrap_or_else(|_| chrono::Utc::now())
-                            .with_timezone(&chrono::Utc),
+                            .map(|dt| dt.with_timezone(&chrono::Utc))
+                            .unwrap_or_else(|_| chrono::Utc::now()),
                     ),
                 }
             })

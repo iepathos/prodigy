@@ -258,7 +258,7 @@ pub trait CommandPlugin: Plugin {
 }
 
 /// Arguments passed to command plugins
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandArgs {
     pub command: String,
     pub subcommand: Option<String>,
@@ -268,7 +268,7 @@ pub struct CommandArgs {
 }
 
 /// Result returned by command plugins
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandResult {
     pub success: bool,
     pub output: String,

@@ -143,7 +143,7 @@ pub struct ExportConfig {
     pub email: Option<EmailConfig>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum ExportFormat {
     PDF,
     HTML,

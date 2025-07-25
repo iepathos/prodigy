@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
+use sqlx::{Row, SqlitePool};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -89,7 +89,7 @@ impl PerformanceTracker {
 pub struct Trace {
     pub id: Uuid,
     pub operation: String,
-    #[serde(skip)]
+    #[serde(skip, default = "Instant::now")]
     pub start_time: Instant,
     pub start_timestamp: DateTime<Utc>,
     #[serde(skip)]
@@ -109,7 +109,7 @@ impl Trace {
 pub struct Span {
     pub id: Uuid,
     pub name: String,
-    #[serde(skip)]
+    #[serde(skip, default = "Instant::now")]
     pub start_time: Instant,
     pub start_timestamp: DateTime<Utc>,
     #[serde(skip)]
@@ -196,6 +196,7 @@ impl SpanHandle {
     }
 }
 
+#[derive(Debug, Clone)]
 struct TraceStorage {
     pool: SqlitePool,
 }

@@ -211,7 +211,7 @@ impl ClaudeManager {
         // This is a simplified method for basic prompts
         let response = self
             .client
-            .complete(prompt, &self.model_selector.default_model)
+            .complete(prompt, &self.model_selector.get_default_model()?)
             .await?;
         Ok(response.content)
     }
