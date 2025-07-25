@@ -146,6 +146,27 @@ impl TokenTracker {
         optimized
     }
 
+    /// Get current token usage
+    pub async fn get_usage(&self) -> Result<crate::claude::TokenUsage> {
+        let today = Utc::now().date_naive();
+        let today_usage = self.current_usage
+            .iter()
+            .filter(|u| u.timestamp.date_naive() == today)
+            .fold((0u64, 0u64, 0u64), |acc, u| {
+                (
+                    acc.0 + u.input_tokens as u64,
+                    acc.1 + u.output_tokens as u64,
+                    acc.2 + u.total_tokens as u64,
+                )
+            });
+
+        Ok(crate::claude::TokenUsage {
+            input_tokens: today_usage.0,
+            output_tokens: today_usage.1,
+            total_tokens: today_usage.2,
+        })
+    }
+
     /// Load usage from file
     fn load_usage(path: &PathBuf) -> Result<Vec<TokenUsage>> {
         if !path.exists() {

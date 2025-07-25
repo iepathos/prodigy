@@ -64,5 +64,9 @@ pub async fn init_database(db_path: &Path) -> Result<SqlitePool> {
         .execute(&pool)
         .await?;
 
+    sqlx::query(&migrations::MONITORING_MIGRATION)
+        .execute(&pool)
+        .await?;
+
     Ok(pool)
 }

@@ -10,6 +10,9 @@ pub mod template;
 pub use engine::SpecificationEngine;
 pub use parser::SpecParser;
 
+// Type alias for simpler usage
+pub type SpecEngine = SpecificationEngine;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Specification {
     pub id: String,

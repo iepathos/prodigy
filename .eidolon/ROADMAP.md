@@ -10,9 +10,9 @@ This roadmap tracks the implementation progress of MMM specifications.
 - [x] Claude Integration (spec 03) - COMPLETED
 - [x] Workflow Automation (spec 04) - COMPLETED
 
-## Phase 2: Automation (Current)
+## Phase 2: Automation (COMPLETED)
 - [x] Workflow Automation (spec 04) - COMPLETED
-- [ ] Monitoring and Reporting (spec 05)
+- [x] Monitoring and Reporting (spec 05) - COMPLETED
 
 ## Phase 3: Extensibility
 - [ ] Plugin System (spec 06)
@@ -79,8 +79,19 @@ This roadmap tracks the implementation progress of MMM specifications.
   - [x] Debugging and dry-run capabilities
 
 ### Spec 05: Monitoring and Reporting
-- Status: NOT STARTED
+- Status: COMPLETED
+- Started: 2025-07-25
+- Completed: 2025-07-25
 - Dependencies: Specs 01, 02
+- Components:
+  - [x] Metrics collection system with built-in collectors
+  - [x] Analytics engine with bottleneck and cost analyzers
+  - [x] Comprehensive alerting system with rules and notifiers
+  - [x] Report generation with templates and multiple export formats
+  - [x] Performance tracking and tracing capabilities
+  - [x] Web-based dashboard with API endpoints
+  - [x] CLI commands for all monitoring operations
+  - [x] Database schema for metrics, alerts, and traces
 
 ### Spec 06: Plugin System
 - Status: NOT STARTED
@@ -89,5 +100,6 @@ This roadmap tracks the implementation progress of MMM specifications.
 ## Milestones
 - [x] MVP: Basic project management with Claude integration
 - [x] v0.2: Workflow automation
-- [ ] v0.3: Plugin system  
+- [x] v0.3: Monitoring and reporting
+- [ ] v0.4: Plugin system  
 - [ ] v1.0: Full feature set with stability

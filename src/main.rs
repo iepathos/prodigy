@@ -53,6 +53,10 @@ enum Commands {
     /// Workflow automation commands
     #[command(subcommand)]
     Workflow(WorkflowCommands),
+
+    /// Monitoring and analytics commands
+    #[command(subcommand)]
+    Monitor(MonitorCommands),
 }
 
 #[derive(Subcommand)]
@@ -337,9 +341,94 @@ enum TriggerCommands {
     },
 }
 
+#[derive(Subcommand)]
+enum MonitorCommands {
+    /// Start the monitoring dashboard server
+    Dashboard {
+        /// Port to listen on
+        #[arg(short, long, default_value = "8080")]
+        port: u16,
+    },
+
+    /// Show current metrics
+    Metrics {
+        /// Metric name filter
+        #[arg(short, long)]
+        name: Option<String>,
+
+        /// Time range (e.g., "1h", "24h", "7d")
+        #[arg(short, long, default_value = "24h")]
+        range: String,
+
+        /// Output format
+        #[arg(short, long, value_enum, default_value = "table")]
+        format: OutputFormat,
+    },
+
+    /// List and manage alerts
+    Alerts {
+        /// Show only active alerts
+        #[arg(short, long)]
+        active: bool,
+
+        /// Acknowledge alert by ID
+        #[arg(short, long)]
+        acknowledge: Option<String>,
+    },
+
+    /// Generate a report
+    Report {
+        /// Report template name
+        #[arg(short, long, default_value = "weekly-progress")]
+        template: String,
+
+        /// Time range for the report
+        #[arg(short, long, default_value = "7d")]
+        range: String,
+
+        /// Export format
+        #[arg(short, long, value_enum, default_value = "html")]
+        format: ExportFormat,
+
+        /// Output file path
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+
+    /// Run analytics
+    Analytics {
+        /// Specific analyzer to run
+        #[arg(short, long)]
+        analyzer: Option<String>,
+
+        /// Time range for analysis
+        #[arg(short, long, default_value = "7d")]
+        range: String,
+    },
+
+    /// Show performance statistics
+    Performance {
+        /// Operation to analyze
+        #[arg(short, long)]
+        operation: Option<String>,
+
+        /// Time range
+        #[arg(short, long, default_value = "24h")]
+        range: String,
+    },
+}
+
 #[derive(clap::ValueEnum, Clone)]
 enum OutputFormat {
     Table,
+    Json,
+}
+
+#[derive(clap::ValueEnum, Clone)]
+enum ExportFormat {
+    Pdf,
+    Html,
+    Markdown,
     Json,
 }
 
@@ -451,6 +540,9 @@ async fn main() -> Result<()> {
         Commands::Claude(claude_cmd) => handle_claude_command(claude_cmd, &config_loader).await?,
         Commands::Workflow(workflow_cmd) => {
             handle_workflow_command(workflow_cmd, &project_manager, &config_loader).await?
+        }
+        Commands::Monitor(monitor_cmd) => {
+            handle_monitor_command(monitor_cmd, &project_manager, &config_loader).await?
         }
     }
 
@@ -1160,4 +1252,126 @@ async fn handle_workflow_command(
     }
 
     Ok(())
+}
+
+async fn handle_monitor_command(
+    cmd: MonitorCommands,
+    project_manager: &ProjectManager,
+    config_loader: &ConfigLoader,
+) -> Result<()> {
+    use mmm::monitor::*;
+    use MonitorCommands::*;
+
+    // Get current project
+    let project = project_manager
+        .current_project()
+        .ok_or_else(|| mmm::Error::Project("No project selected".to_string()))?;
+
+    config_loader.load_project(&project.path).await?;
+    let config = config_loader.get_config();
+
+    // Initialize monitoring components
+    let db_path = project.path.join(".mmm").join("state.db");
+    let state_manager = std::sync::Arc::new(StateManager::new(db_path, &project.name).await?);
+    let pool = state_manager.get_pool().clone();
+    
+    let metrics_db = std::sync::Arc::new(metrics::MetricsDatabase::new(pool.clone()));
+    metrics_db.create_tables().await?;
+
+    let alerts_db = alert::AlertsDatabase::new(pool.clone());
+    alerts_db.create_tables().await?;
+
+    let perf_storage = performance::TraceStorage::new(pool.clone());
+    perf_storage.create_tables().await?;
+
+    match cmd {
+        Dashboard { port } => {
+            println!("🚀 Starting monitoring dashboard on http://localhost:{}", port);
+            
+            // For now, just print that the dashboard would start
+            println!("Dashboard functionality not yet fully implemented.");
+            println!("You can access metrics via: mmm monitor metrics --name <metric>");
+        }
+
+        Metrics { name, range, format } => {
+            let timeframe = parse_time_range(&range)?;
+            
+            if let Some(metric_name) = name {
+                let metrics = metrics_db
+                    .query_metrics(&metric_name, timeframe.start, timeframe.end, None)
+                    .await?;
+                
+                match format {
+                    OutputFormat::Table => {
+                        println!("{:<30} {:<20} {:<15}", "TIMESTAMP", "NAME", "VALUE");
+                        println!("{}", "-".repeat(65));
+                        
+                        for metric in metrics {
+                            let value_str = match &metric.value {
+                                MetricValue::Counter(v) => format!("{}", v),
+                                MetricValue::Gauge(v) => format!("{:.2}", v),
+                                MetricValue::Histogram(v) => format!("histogram({} values)", v.len()),
+                                MetricValue::Summary { sum, count, .. } => {
+                                    format!("sum={:.2}, count={}", sum, count)
+                                }
+                            };
+                            
+                            println!(
+                                "{:<30} {:<20} {:<15}",
+                                metric.timestamp.format("%Y-%m-%d %H:%M:%S"),
+                                metric.name,
+                                value_str
+                            );
+                        }
+                    }
+                    OutputFormat::Json => {
+                        println!("{}", serde_json::to_string_pretty(&metrics)?);
+                    }
+                }
+            } else {
+                println!("Please specify a metric name with --name");
+            }
+        }
+
+        Alerts { active: _, acknowledge } => {
+            if let Some(alert_id) = acknowledge {
+                let alert_uuid = uuid::Uuid::parse_str(&alert_id)
+                    .map_err(|_| mmm::Error::Other("Invalid alert ID".to_string()))?;
+                
+                let alert_manager = alert::AlertManager::new(metrics_db.clone(), pool.clone());
+                alert_manager.acknowledge_alert(alert_uuid).await?;
+                println!("✅ Alert {} acknowledged", alert_id);
+            } else {
+                println!("Alert listing not yet implemented.");
+                println!("Use --acknowledge <id> to acknowledge an alert.");
+            }
+        }
+
+        Report { template: _, range: _, format: _, output: _ } => {
+            println!("Report generation not yet fully implemented.");
+        }
+
+        Analytics { analyzer: _, range: _ } => {
+            println!("Analytics not yet fully implemented.");
+        }
+
+        Performance { operation: _, range: _ } => {
+            println!("Performance analysis not yet fully implemented.");
+        }
+    }
+
+    Ok(())
+}
+
+fn parse_time_range(range: &str) -> Result<mmm::monitor::TimeFrame> {
+    let end = chrono::Utc::now();
+    let start = match range {
+        "1h" => end - chrono::Duration::hours(1),
+        "24h" => end - chrono::Duration::hours(24),
+        "7d" => end - chrono::Duration::days(7),
+        "30d" => end - chrono::Duration::days(30),
+        _ => return Err(mmm::Error::Other(format!("Invalid time range: {}", range))),
+    };
+    
+    Ok(mmm::monitor::TimeFrame { start, end })
 }

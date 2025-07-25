@@ -2,6 +2,7 @@ pub mod claude;
 pub mod command;
 pub mod config;
 pub mod error;
+pub mod monitor;
 pub mod project;
 pub mod spec;
 pub mod state;

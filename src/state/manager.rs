@@ -229,4 +229,50 @@ impl StateManager {
 
         Ok(executions)
     }
+
+    pub async fn list_projects(&self) -> Result<Vec<ProjectInfo>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT id, name, path, created_at, updated_at
+            FROM projects
+            ORDER BY name
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        let projects = rows
+            .into_iter()
+            .map(|row| {
+                let id_str: String = row.get::<i64, _>("id").to_string();
+                let created_str: String = row.get("created_at");
+                let updated_str: String = row.get("updated_at");
+                
+                ProjectInfo {
+                    id: uuid::Uuid::parse_str(&format!("00000000-0000-0000-0000-{:012}", id_str)).unwrap_or_else(|_| uuid::Uuid::new_v4()),
+                    name: row.get("name"),
+                    path: std::path::PathBuf::from(row.get::<String, _>("path")),
+                    status: "active".to_string(),
+                    created_at: chrono::DateTime::parse_from_rfc3339(&created_str)
+                        .unwrap_or_else(|_| chrono::Utc::now())
+                        .with_timezone(&chrono::Utc),
+                    last_accessed: Some(chrono::DateTime::parse_from_rfc3339(&updated_str)
+                        .unwrap_or_else(|_| chrono::Utc::now())
+                        .with_timezone(&chrono::Utc)),
+                }
+            })
+            .collect();
+
+        Ok(projects)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ProjectInfo {
+    pub id: uuid::Uuid,
+    pub name: String,
+    pub path: std::path::PathBuf,
+    pub status: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub last_accessed: Option<chrono::DateTime<chrono::Utc>>,
 }

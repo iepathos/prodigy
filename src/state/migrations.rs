@@ -85,3 +85,68 @@ CREATE INDEX IF NOT EXISTS idx_workflow_executions_status ON workflow_executions
 CREATE INDEX IF NOT EXISTS idx_workflow_executions_started_at ON workflow_executions(started_at);
 CREATE INDEX IF NOT EXISTS idx_workflow_checkpoints_workflow_id ON workflow_checkpoints(workflow_id);
 "#;
+
+pub const MONITORING_MIGRATION: &str = r#"
+-- Metrics table
+CREATE TABLE IF NOT EXISTS metrics (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    value_type TEXT NOT NULL,
+    value_json TEXT NOT NULL,
+    timestamp TEXT NOT NULL,
+    labels_json TEXT NOT NULL,
+    project_id TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_metrics_name ON metrics(name);
+CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON metrics(timestamp);
+CREATE INDEX IF NOT EXISTS idx_metrics_project ON metrics(project_id);
+CREATE INDEX IF NOT EXISTS idx_metrics_name_timestamp ON metrics(name, timestamp);
+
+-- Alerts table
+CREATE TABLE IF NOT EXISTS alerts (
+    id TEXT PRIMARY KEY,
+    rule_name TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    message TEXT NOT NULL,
+    timestamp TEXT NOT NULL,
+    acknowledged BOOLEAN NOT NULL DEFAULT FALSE,
+    acknowledged_at TEXT,
+    metadata_json TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_alerts_timestamp ON alerts(timestamp);
+CREATE INDEX IF NOT EXISTS idx_alerts_severity ON alerts(severity);
+CREATE INDEX IF NOT EXISTS idx_alerts_acknowledged ON alerts(acknowledged);
+
+-- Performance traces table
+CREATE TABLE IF NOT EXISTS traces (
+    id TEXT PRIMARY KEY,
+    operation TEXT NOT NULL,
+    start_timestamp TEXT NOT NULL,
+    end_timestamp TEXT,
+    duration_ms INTEGER,
+    metadata_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_traces_operation ON traces(operation);
+CREATE INDEX IF NOT EXISTS idx_traces_timestamp ON traces(start_timestamp);
+CREATE INDEX IF NOT EXISTS idx_traces_duration ON traces(duration_ms);
+
+-- Performance spans table
+CREATE TABLE IF NOT EXISTS spans (
+    id TEXT PRIMARY KEY,
+    trace_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    start_timestamp TEXT NOT NULL,
+    end_timestamp TEXT,
+    duration_ms INTEGER,
+    tags_json TEXT NOT NULL,
+    FOREIGN KEY (trace_id) REFERENCES traces(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_spans_trace ON spans(trace_id);
+CREATE INDEX IF NOT EXISTS idx_spans_name ON spans(name);
+"#;

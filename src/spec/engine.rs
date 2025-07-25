@@ -1,5 +1,6 @@
 use super::{SpecParser, SpecStatus, Specification};
 use crate::{Error, Result};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::fs;
@@ -137,5 +138,39 @@ impl SpecificationEngine {
             result = result.replace(&format!("{{{{{}}}}}", key), value);
         }
         Ok(result)
+    }
+
+    pub async fn list_specs(&self, project_path: &Path) -> Result<Vec<SpecSummary>> {
+        let specs: Vec<SpecSummary> = self.specifications
+            .values()
+            .map(|spec| SpecSummary {
+                id: spec.id.clone(),
+                name: spec.name.clone(),
+                status: spec.status.status_string(),
+                priority: spec.metadata.priority.unwrap_or(0),
+            })
+            .collect();
+        
+        Ok(specs)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpecSummary {
+    pub id: String,
+    pub name: String,
+    pub status: String,
+    pub priority: u32,
+}
+
+impl SpecStatus {
+    pub fn status_string(&self) -> String {
+        match self {
+            SpecStatus::Pending => "pending".to_string(),
+            SpecStatus::InProgress => "in_progress".to_string(),
+            SpecStatus::Completed => "completed".to_string(),
+            SpecStatus::Failed => "failed".to_string(),
+            SpecStatus::Blocked => "blocked".to_string(),
+        }
     }
 }

@@ -26,6 +26,8 @@ pub use token::TokenTracker;
 use crate::error::Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 /// Main Claude integration configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,6 +77,14 @@ pub struct ClaudeManager {
     pub commands: CommandRegistry,
     pub cache: ResponseCache,
     pub model_selector: ModelSelector,
+    metrics: Arc<Mutex<ClaudeMetrics>>,
+}
+
+#[derive(Debug, Default)]
+struct ClaudeMetrics {
+    response_times: Vec<f64>,
+    error_count: u64,
+    current_model: String,
 }
 
 impl ClaudeManager {
@@ -89,7 +99,12 @@ impl ClaudeManager {
             memory: ConversationMemory::new(),
             commands: CommandRegistry::new()?,
             cache: ResponseCache::new(config.cache_dir)?,
-            model_selector: ModelSelector::new(config.default_model),
+            model_selector: ModelSelector::new(config.default_model.clone()),
+            metrics: Arc::new(Mutex::new(ClaudeMetrics {
+                response_times: Vec::new(),
+                error_count: 0,
+                current_model: config.default_model,
+            })),
         })
     }
 
@@ -118,8 +133,33 @@ impl ClaudeManager {
         // Select appropriate model
         let model = self.model_selector.select_for_task(&cmd_config.task_type)?;
 
-        // Execute API call
-        let response = self.client.complete(&context, &model).await?;
+        // Track model selection
+        {
+            let mut metrics = self.metrics.lock().await;
+            metrics.current_model = model.clone();
+        }
+
+        // Execute API call with timing
+        let start = std::time::Instant::now();
+        let response = match self.client.complete(&context, &model).await {
+            Ok(resp) => resp,
+            Err(e) => {
+                let mut metrics = self.metrics.lock().await;
+                metrics.error_count += 1;
+                return Err(e);
+            }
+        };
+        let duration = start.elapsed();
+
+        // Record response time
+        {
+            let mut metrics = self.metrics.lock().await;
+            metrics.response_times.push(duration.as_millis() as f64);
+            // Keep only last 1000 response times
+            if metrics.response_times.len() > 1000 {
+                metrics.response_times.remove(0);
+            }
+        }
 
         // Process response
         let parsed = self.response_processor.process(&response.content)?;
@@ -142,4 +182,41 @@ impl ClaudeManager {
         // Simple estimation: ~4 characters per token
         text.len() / 4
     }
+
+    /// Get token usage information
+    pub async fn get_token_usage(&self) -> Result<TokenUsage> {
+        self.token_tracker.get_usage().await
+    }
+
+    /// Get response times
+    pub async fn get_response_times(&self) -> Result<Vec<f64>> {
+        let metrics = self.metrics.lock().await;
+        Ok(metrics.response_times.clone())
+    }
+
+    /// Get error count
+    pub async fn get_error_count(&self) -> Result<u64> {
+        let metrics = self.metrics.lock().await;
+        Ok(metrics.error_count)
+    }
+
+    /// Get current model
+    pub async fn get_current_model(&self) -> Result<String> {
+        let metrics = self.metrics.lock().await;
+        Ok(metrics.current_model.clone())
+    }
+
+    /// Generate a response (simplified interface)
+    pub async fn generate_response(&self, prompt: &str) -> Result<String> {
+        // This is a simplified method for basic prompts
+        let response = self.client.complete(prompt, &self.model_selector.default_model).await?;
+        Ok(response.content)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenUsage {
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub total_tokens: u64,
 }
