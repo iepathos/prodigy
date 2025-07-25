@@ -1723,7 +1723,7 @@ async fn handle_plugin_command(
 
         Uninstall { name, version } => {
             // Unload plugin first if it's loaded
-            if let Ok(_) = plugin_manager.load_plugin(&name).await {
+            if (plugin_manager.load_plugin(&name).await).is_ok() {
                 println!("Unloading plugin before uninstall...");
                 // Plugin would be unloaded by ID, but we need to find it first
                 // This is simplified for now

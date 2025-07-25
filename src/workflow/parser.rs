@@ -119,11 +119,16 @@ description: Test workflow
 triggers:
   - type: manual
 
+parameters: {}
+
 stages:
   - name: test-stage
     steps:
       - name: test-step
         command: echo "test"
+
+on_success: []
+on_failure: []
 "#;
 
         let mut parser = WorkflowParser::new();
@@ -141,11 +146,19 @@ stages:
 name: ""
 version: 1.0.0
 
+triggers:
+  - type: manual
+
+parameters: {}
+
 stages:
   - name: test-stage
     steps:
       - name: test-step
         command: echo "test"
+
+on_success: []
+on_failure: []
 "#;
 
         let mut parser = WorkflowParser::new();
@@ -155,6 +168,6 @@ stages:
         assert!(result
             .unwrap_err()
             .to_string()
-            .contains("name cannot be empty"));
+            .contains("Workflow name cannot be empty"));
     }
 }

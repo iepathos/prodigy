@@ -154,8 +154,10 @@ pub struct ModelSelector {
 impl ModelSelector {
     /// Create a new model selector
     pub fn new(default_model: String) -> Self {
-        let mut config = ModelSelectorConfig::default();
-        config.default = default_model;
+        let mut config = ModelSelectorConfig {
+            default: default_model,
+            ..Default::default()
+        };
 
         // Try to load custom configuration
         if let Ok(custom_config) = Self::load_config() {

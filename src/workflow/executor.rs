@@ -158,6 +158,7 @@ impl WorkflowExecutor for SequentialExecutor {
 
         let mut retry_count = 0;
         let max_retries = step.max_retries.unwrap_or(0);
+        #[allow(unused_assignments)]
         let mut last_error = None;
 
         loop {

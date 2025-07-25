@@ -14,6 +14,7 @@ pub struct CommandHistory {
 #[derive(Clone)]
 struct HistoryEntry {
     command: String,
+    #[allow(dead_code)]
     timestamp: chrono::DateTime<chrono::Utc>,
     success: Option<bool>,
 }

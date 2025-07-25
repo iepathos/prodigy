@@ -303,7 +303,7 @@ impl PluginMarketplace {
     }
 
     /// Publish a plugin to the marketplace
-    pub async fn publish(&self, plugin_path: &PathBuf, api_key: &str) -> Result<()> {
+    pub async fn publish(&self, plugin_path: &Path, api_key: &str) -> Result<()> {
         info!("Publishing plugin from: {}", plugin_path.display());
 
         // Read plugin manifest

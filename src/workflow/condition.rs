@@ -1,11 +1,14 @@
 use anyhow::{Context, Result};
 use pest_derive::Parser;
 use serde_json::Value;
+#[cfg(test)]
+use std::collections::HashMap;
 
 use super::WorkflowContext;
 
 #[derive(Parser)]
 #[grammar = "workflow/condition.pest"]
+#[allow(dead_code)]
 struct ConditionParser;
 
 pub struct ConditionEvaluator {}
@@ -59,6 +62,7 @@ impl ConditionEvaluator {
             .context("Failed to expand condition variables")
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn evaluate_expression(&self, expression: &str) -> Result<bool> {
         let parts: Vec<&str> = expression.split_whitespace().collect();
 

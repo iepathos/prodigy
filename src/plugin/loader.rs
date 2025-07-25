@@ -41,7 +41,7 @@ impl PluginLoader {
     }
 
     /// Load a plugin from a directory
-    pub async fn load_plugin(&self, plugin_dir: &PathBuf) -> Result<Box<dyn Plugin>> {
+    pub async fn load_plugin(&self, plugin_dir: &Path) -> Result<Box<dyn Plugin>> {
         info!("Loading plugin from: {}", plugin_dir.display());
 
         // Read plugin manifest

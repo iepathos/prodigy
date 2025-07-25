@@ -53,32 +53,33 @@ pub enum DashboardEvent {
     },
 }
 
+pub struct DashboardDependencies {
+    pub state_manager: Arc<StateManager>,
+    pub project_manager: Arc<ProjectManager>,
+    pub metrics_db: Arc<MetricsDatabase>,
+    pub metrics_collector: Arc<MetricsCollector>,
+    pub alert_manager: Arc<AlertManager>,
+    pub analytics_engine: Arc<AnalyticsEngine>,
+    pub report_generator: Arc<ReportGenerator>,
+}
+
 pub struct DashboardServer {
     port: u16,
     state: DashboardState,
 }
 
 impl DashboardServer {
-    pub fn new(
-        port: u16,
-        state_manager: Arc<StateManager>,
-        project_manager: Arc<ProjectManager>,
-        metrics_db: Arc<MetricsDatabase>,
-        metrics_collector: Arc<MetricsCollector>,
-        alert_manager: Arc<AlertManager>,
-        analytics_engine: Arc<AnalyticsEngine>,
-        report_generator: Arc<ReportGenerator>,
-    ) -> Self {
+    pub fn new(port: u16, deps: DashboardDependencies) -> Self {
         let (events, _) = broadcast::channel(100);
 
         let state = DashboardState {
-            state_manager,
-            project_manager,
-            metrics_db,
-            metrics_collector,
-            alert_manager,
-            analytics_engine,
-            report_generator,
+            state_manager: deps.state_manager,
+            project_manager: deps.project_manager,
+            metrics_db: deps.metrics_db,
+            metrics_collector: deps.metrics_collector,
+            alert_manager: deps.alert_manager,
+            analytics_engine: deps.analytics_engine,
+            report_generator: deps.report_generator,
             events,
         };
 

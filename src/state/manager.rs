@@ -317,6 +317,7 @@ impl StateManager {
         Ok(keys)
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn collect_keys(
         &self,
         value: &serde_json::Value,
