@@ -1,5 +1,30 @@
 # Architecture Decision Records
 
+## ADR-008: Claude Integration Architecture
+- **Date**: 2025-07-25
+- **Status**: Accepted
+- **Context**: Need sophisticated Claude integration for automated implementation
+- **Decision**: Implement comprehensive Claude module with multiple subsystems
+- **Consequences**:
+  - Advanced prompt engineering with Tera templates
+  - Efficient context management with priority queues
+  - Robust error handling with retry logic
+  - Token usage optimization and tracking
+  - Response caching reduces API costs
+  - Conversation memory improves context awareness
+  - Modular design allows easy extension
+
+## ADR-009: Tera for Prompt Templates
+- **Date**: 2025-07-25
+- **Status**: Accepted
+- **Context**: Need flexible prompt template system for Claude
+- **Decision**: Use Tera template engine for prompt generation
+- **Consequences**:
+  - Powerful template syntax with variables and logic
+  - Reusable prompt templates
+  - Easy to maintain and update prompts
+  - Additional dependency but worth the flexibility
+
 ## ADR-006: Project Health Check System
 - **Date**: 2025-07-25
 - **Status**: Accepted

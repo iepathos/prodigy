@@ -45,10 +45,25 @@ Memento Mori Manager is designed as a modular, extensible project management sys
 - Location: `src/command/`
 
 ### 6. Claude Integration
-- API client for Claude interactions
-- Context management for conversations
-- Implementation automation
+- API client with retry logic and error handling
+- Prompt engineering with Tera template system
+- Context management with priority-based optimization
+- Response processing with parsers and validators
+- Token usage tracking and optimization
+- Conversation memory with short-term and long-term storage
+- Custom command framework for common tasks
+- Response caching to reduce API calls
+- Dynamic model selection based on task type
 - Location: `src/claude/`
+  - `api.rs`: Claude API client with retry logic
+  - `prompt.rs`: Template engine for prompts
+  - `context.rs`: Context window optimization
+  - `response.rs`: Response parsing and validation
+  - `token.rs`: Token usage tracking
+  - `memory.rs`: Conversation history management
+  - `commands.rs`: Custom command registry
+  - `cache.rs`: Response caching system
+  - `models.rs`: Model selection logic
 
 ## Data Flow
 1. User creates specifications in markdown format
@@ -86,7 +101,17 @@ src/
 │   ├── dispatcher.rs # Command routing
 │   ├── registry.rs   # Plugin registry
 │   └── history.rs    # Command history
-├── claude/           # Claude integration (planned)
+├── claude/           # Claude integration
+│   ├── mod.rs        # Claude manager and types
+│   ├── api.rs        # API client
+│   ├── prompt.rs     # Prompt templates
+│   ├── context.rs    # Context management
+│   ├── response.rs   # Response processing
+│   ├── token.rs      # Token tracking
+│   ├── memory.rs     # Conversation memory
+│   ├── commands.rs   # Command registry
+│   ├── cache.rs      # Response cache
+│   └── models.rs     # Model selection
 ├── plugin/           # Plugin system (planned)
 ├── workflow/         # Workflow automation (planned)
 ├── monitor/          # Monitoring and reporting (planned)

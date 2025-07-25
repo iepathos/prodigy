@@ -31,6 +31,18 @@ pub enum Error {
 
     #[error("Other error: {0}")]
     Other(String),
+
+    #[error("External API error: {0}")]
+    External(String),
+
+    #[error("Parse error: {0}")]
+    Parse(String),
+
+    #[error("Not found: {0}")]
+    NotFound(String),
+
+    #[error("Validation error: {0}")]
+    Validation(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

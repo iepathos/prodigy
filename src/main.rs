@@ -45,6 +45,10 @@ enum Commands {
     /// Multi-project operations
     #[command(subcommand)]
     Multi(MultiCommands),
+
+    /// Claude AI integration commands
+    #[command(subcommand)]
+    Claude(ClaudeCommands),
 }
 
 #[derive(Subcommand)]
@@ -167,6 +171,39 @@ enum TemplateCommands {
     Remove {
         /// Template name
         name: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum ClaudeCommands {
+    /// Execute a Claude command (implement, review, debug, plan, explain)
+    #[command(name = "run")]
+    Run {
+        /// Command to execute
+        command: String,
+        /// Command arguments
+        args: Vec<String>,
+    },
+
+    /// List available Claude commands
+    #[command(name = "commands")]
+    Commands,
+
+    /// Show token usage statistics
+    #[command(name = "stats")]
+    Stats,
+
+    /// Clear response cache
+    #[command(name = "clear-cache")]
+    ClearCache,
+
+    /// Configure Claude integration
+    #[command(name = "config")]
+    Config {
+        /// Configuration key (e.g., api_key, default_model)
+        key: String,
+        /// Configuration value
+        value: String,
     },
 }
 
@@ -299,6 +336,7 @@ async fn main() -> Result<()> {
         }
 
         Commands::Multi(multi_cmd) => handle_multi_command(multi_cmd, &mut project_manager).await?,
+        Commands::Claude(claude_cmd) => handle_claude_command(claude_cmd, &config_loader).await?,
     }
 
     Ok(())
@@ -598,6 +636,82 @@ async fn handle_multi_command(
         Update { component } => {
             println!("Updating component '{}' across all projects...", component);
             // Implementation would update components
+        }
+    }
+
+    Ok(())
+}
+
+async fn handle_claude_command(cmd: ClaudeCommands, config_loader: &ConfigLoader) -> Result<()> {
+    use mmm::claude::{ClaudeConfig, ClaudeManager};
+    use ClaudeCommands::*;
+
+    // Load Claude configuration
+    let mut claude_config = ClaudeConfig::default();
+
+    // Get API key from environment or config
+    if let Ok(api_key) = std::env::var("CLAUDE_API_KEY") {
+        claude_config.api_key = api_key;
+    } else if let Ok(api_key) = config_loader.get_project_value("claude.api_key") {
+        claude_config.api_key = api_key;
+    } else {
+        return Err(mmm::Error::Config(
+            "Claude API key not found. Set CLAUDE_API_KEY environment variable or use 'mmm claude config api_key <key>'".to_string()
+        ));
+    }
+
+    // Initialize Claude manager
+    let mut claude_manager = ClaudeManager::new(claude_config)?;
+
+    match cmd {
+        Run { command, args } => {
+            info!(
+                "Executing Claude command: {} with args: {:?}",
+                command, args
+            );
+            let result = claude_manager.execute_command(&command, args).await?;
+            println!("{}", result);
+        }
+
+        Commands => {
+            let commands = claude_manager.commands.list_commands();
+            println!("Available Claude commands:");
+            for cmd in commands {
+                println!("  {} - {}", cmd.name, cmd.description);
+                if !cmd.aliases.is_empty() {
+                    println!("    Aliases: {}", cmd.aliases.join(", "));
+                }
+            }
+        }
+
+        Stats => {
+            let stats = claude_manager.token_tracker.get_stats();
+            println!("Token Usage Statistics:");
+            println!("  Today: {} tokens", stats.today_usage);
+            println!("  This week: {} tokens", stats.week_usage);
+            if let Some(limit) = stats.daily_limit {
+                println!("  Daily limit: {} tokens", limit);
+                let percentage = (stats.today_usage as f64 / limit as f64 * 100.0) as u32;
+                println!("  Usage: {}%", percentage);
+            }
+            if !stats.by_project.is_empty() {
+                println!("\nBy project (this week):");
+                for (project, tokens) in stats.by_project {
+                    println!("  {}: {} tokens", project, tokens);
+                }
+            }
+        }
+
+        ClearCache => {
+            claude_manager.cache.clear()?;
+            info!("Claude response cache cleared");
+        }
+
+        Config { key, value } => {
+            config_loader
+                .set_project_value(&format!("claude.{}", key), &value)
+                .await?;
+            info!("Set claude.{} = {}", key, value);
         }
     }
 
