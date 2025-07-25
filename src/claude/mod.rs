@@ -184,16 +184,25 @@ impl ClaudeManager {
     }
 
     /// Execute a Claude CLI slash command
-    async fn execute_claude_cli_command(&mut self, command: &str, args: Vec<String>) -> Result<String> {
+    async fn execute_claude_cli_command(
+        &mut self,
+        command: &str,
+        args: Vec<String>,
+    ) -> Result<String> {
         use tokio::process::Command;
 
         // Map MMM command to Claude CLI slash command
         let slash_command = match command {
             "lint" | "claude-lint" => "/lint",
-            "review" | "claude-review" => "/review", 
+            "review" | "claude-review" => "/review",
             "implement-spec" | "claude-implement-spec" => "/implement-spec",
             "add-spec" | "claude-add-spec" => "/add-spec",
-            _ => return Err(crate::error::Error::NotFound(format!("Unknown Claude CLI command: {}", command))),
+            _ => {
+                return Err(crate::error::Error::NotFound(format!(
+                    "Unknown Claude CLI command: {}",
+                    command
+                )))
+            }
         };
 
         // Build command with arguments
@@ -205,18 +214,24 @@ impl ClaudeManager {
             .args(&cmd_args)
             .output()
             .await
-            .map_err(|e| crate::error::Error::Other(format!("Failed to execute Claude CLI: {}", e)))?;
+            .map_err(|e| {
+                crate::error::Error::Other(format!("Failed to execute Claude CLI: {}", e))
+            })?;
 
         if output.status.success() {
             let result = String::from_utf8_lossy(&output.stdout).to_string();
-            
+
             // Track this as a successful Claude interaction
-            self.token_tracker.record_usage(self.estimate_tokens(&result))?;
-            
+            self.token_tracker
+                .record_usage(self.estimate_tokens(&result))?;
+
             Ok(result)
         } else {
             let error = String::from_utf8_lossy(&output.stderr);
-            Err(crate::error::Error::Other(format!("Claude CLI command failed: {}", error)))
+            Err(crate::error::Error::Other(format!(
+                "Claude CLI command failed: {}",
+                error
+            )))
         }
     }
 

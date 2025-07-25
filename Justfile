@@ -53,7 +53,7 @@ clean:
 
 # Run all tests
 test:
-    cargo build --bin gg
+    cargo build
     cargo test
 
 # Run tests with output
@@ -71,8 +71,8 @@ test-watch:
 # Run tests with coverage using cargo-tarpaulin
 coverage:
     #!/usr/bin/env bash
-    echo "Building gg binary for integration tests..."
-    cargo build --bin gg
+    echo "Building mmm binary for integration tests..."
+    cargo build --bin mmm
     echo "Generating code coverage report with cargo-tarpaulin..."
     cargo tarpaulin --skip-clean --out Html --output-dir target/coverage
     echo "Coverage report generated at target/coverage/tarpaulin-report.html"
@@ -80,8 +80,8 @@ coverage:
 # Run tests with coverage and check threshold
 coverage-check:
     #!/usr/bin/env bash
-    echo "Building gg binary for integration tests..."
-    cargo build --bin gg
+    echo "Building mmm binary for integration tests..."
+    cargo build --bin mmm
     echo "Checking code coverage threshold..."
     COVERAGE=$(cargo tarpaulin --skip-clean --out Json --output-dir target/coverage --quiet | jq -r '.files | to_entries | map(.value.coverage) | add / length')
     echo "Current coverage: ${COVERAGE}%"

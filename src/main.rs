@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use mmm::{
     config::ConfigLoader,
-    project::{health::HealthStatus, ProjectHealth, ProjectManager, TemplateManager},
+    project::{health::HealthStatus, ProjectHealth, ProjectManager},
     spec::SpecificationEngine,
     state::StateManager,
     Result,
@@ -26,23 +26,14 @@ enum Commands {
     #[command(subcommand)]
     Project(ProjectCommands),
 
-    /// Template management commands
+    /// Specification management commands
     #[command(subcommand)]
-    Template(TemplateCommands),
-
-    /// List specifications in current project
-    Specs,
+    Spec(SpecCommands),
 
     /// Run a specification
     Run {
         /// Specification ID
         spec_id: String,
-    },
-
-    /// Create a new specification from description
-    CreateSpec {
-        /// Description of the feature to implement
-        description: String,
     },
 
     /// Show project status
@@ -75,10 +66,6 @@ enum ProjectCommands {
     New {
         /// Project name
         name: String,
-
-        /// Use a template
-        #[arg(short, long)]
-        template: Option<String>,
 
         /// Project path (defaults to current directory)
         #[arg(short, long)]
@@ -158,14 +145,24 @@ enum ProjectCommands {
 }
 
 #[derive(Subcommand)]
-enum TemplateCommands {
-    /// List available templates
-    List,
+enum SpecCommands {
+    /// List specifications in current project
+    List {
+        /// Output format
+        #[arg(short, long, value_enum, default_value = "table")]
+        format: OutputFormat,
+    },
 
-    /// Show template details
-    Show {
-        /// Template name
-        name: String,
+    /// Create a new specification from description
+    Add {
+        /// Description of the feature to implement
+        description: String,
+    },
+
+    /// Show detailed information about a specification
+    Info {
+        /// Specification ID
+        spec_id: String,
     },
 }
 
@@ -630,57 +627,8 @@ async fn main() -> Result<()> {
         Commands::Project(project_cmd) => {
             handle_project_command(project_cmd, &mut project_manager, &config_loader).await?
         }
-        Commands::Template(template_cmd) => handle_template_command(template_cmd).await?,
-
-        Commands::Specs => {
-            let project = project_manager
-                .current_project()
-                .ok_or_else(|| mmm::Error::Project("No project selected".to_string()))?;
-
-            config_loader.load_project(&project.path).await?;
-            let config = config_loader.get_config();
-
-            let mut spec_engine =
-                SpecificationEngine::new(project.path.join(config.get_spec_dir()));
-            spec_engine.load_specifications().await?;
-
-            let specs = spec_engine.topological_sort()?;
-            if specs.is_empty() {
-                println!("No specifications found.");
-            } else {
-                println!("Specifications:");
-                for spec_id in specs {
-                    if let Some(spec) = spec_engine.get_specification(&spec_id) {
-                        println!("  - {} ({}): {:?}", spec.id, spec.name, spec.status);
-                    }
-                }
-            }
-        }
-
-        Commands::CreateSpec { description } => {
-            let project = project_manager
-                .current_project()
-                .ok_or_else(|| mmm::Error::Project("No project selected".to_string()))?;
-
-            config_loader.load_project(&project.path).await?;
-
-            // Initialize Claude manager
-            let mut claude_config = mmm::claude::ClaudeConfig::default();
-            if let Ok(api_key) = std::env::var("CLAUDE_API_KEY") {
-                claude_config.api_key = api_key;
-            }
-
-            if claude_config.api_key.is_empty() {
-                return Err(mmm::Error::Config(
-                    "Claude API key not configured. Set CLAUDE_API_KEY environment variable.".to_string()
-                ));
-            }
-
-            let mut claude_manager = mmm::claude::ClaudeManager::new(claude_config)?;
-
-            println!("🚀 Creating specification for: {}", description);
-            let result = claude_manager.execute_command("add-spec", vec![description]).await?;
-            println!("{}", result);
+        Commands::Spec(spec_cmd) => {
+            handle_spec_command(spec_cmd, &project_manager, &config_loader).await?
         }
 
         Commands::Run { spec_id } => {
@@ -751,11 +699,7 @@ async fn handle_project_command(
     use ProjectCommands::*;
 
     match cmd {
-        New {
-            name,
-            template: _,
-            path,
-        } => {
+        New { name, path } => {
             let project_path = path.unwrap_or_else(|| PathBuf::from(&name));
             let created = project_manager.create_project(&name, &project_path).await?;
             info!("Created project '{}' at {}", name, created.path.display());
@@ -829,9 +773,6 @@ async fn handle_project_command(
             println!("Path: {}", project.path.display());
             println!("Status: active");
             println!("Created: {}", project.created);
-            if let Some(template) = &project.template {
-                println!("Template: {template}");
-            }
             if let Some(desc) = &project.description {
                 println!("Description: {desc}");
             }
@@ -964,33 +905,142 @@ async fn handle_project_command(
     Ok(())
 }
 
-async fn handle_template_command(cmd: TemplateCommands) -> Result<()> {
-    use TemplateCommands::*;
+async fn handle_spec_command(
+    cmd: SpecCommands,
+    project_manager: &ProjectManager,
+    config_loader: &ConfigLoader,
+) -> Result<()> {
+    use SpecCommands::*;
 
-    let template_manager = TemplateManager::new().await?;
+    let project = project_manager
+        .current_project()
+        .ok_or_else(|| mmm::Error::Project("No project selected".to_string()))?;
+
+    config_loader.load_project(&project.path).await?;
+    let config = config_loader.get_config();
+
+    let mut spec_engine = SpecificationEngine::new(project.path.join(config.get_spec_dir()));
+    spec_engine.load_specifications().await?;
 
     match cmd {
-        List => {
-            let templates = template_manager.list_templates().await?;
-            println!("Available templates:");
-            for template in templates {
-                println!("  {} - {}", template.name, template.description);
+        List { format } => {
+            let specs = spec_engine.topological_sort()?;
+            if specs.is_empty() {
+                println!("No specifications found.");
+            } else {
+                match format {
+                    OutputFormat::Table => {
+                        println!(
+                            "{:<20} {:<30} {:<12} {:<10}",
+                            "ID", "NAME", "STATUS", "DEPS"
+                        );
+                        println!("{}", "-".repeat(72));
+                        for spec_id in specs {
+                            if let Some(spec) = spec_engine.get_specification(&spec_id) {
+                                println!(
+                                    "{:<20} {:<30} {:<12} {:<10}",
+                                    spec.id,
+                                    spec.name.chars().take(30).collect::<String>(),
+                                    format!("{:?}", spec.status),
+                                    spec.dependencies.len()
+                                );
+                            }
+                        }
+                    }
+                    OutputFormat::Json => {
+                        let mut specs_info = Vec::new();
+                        for spec_id in specs {
+                            if let Some(spec) = spec_engine.get_specification(&spec_id) {
+                                specs_info.push(spec);
+                            }
+                        }
+                        println!("{}", serde_json::to_string_pretty(&specs_info)?);
+                    }
+                }
             }
         }
 
-        Show { name } => {
-            let templates = template_manager.list_templates().await?;
-            if let Some(template) = templates.iter().find(|t| t.name == name) {
-                println!("Template: {name}");
-                println!("Description: {}", template.description);
-                println!("\nConfiguration:");
-                println!("{}", serde_yaml::to_string(&template.config)?);
-                println!("\nStructure:");
-                for item in &template.structure {
-                    println!("  {item:?}");
+        Add { description } => {
+            // Initialize Claude manager
+            let mut claude_config = mmm::claude::ClaudeConfig::default();
+            if let Ok(api_key) = std::env::var("CLAUDE_API_KEY") {
+                claude_config.api_key = api_key;
+            }
+
+            // Get config from project if available
+            let config = config_loader.get_config();
+            if let Some(project_config) = &config.project {
+                if let Some(api_key) = &project_config.claude_api_key {
+                    claude_config.api_key = api_key.clone();
                 }
+            }
+
+            // Check for global Claude API key if not set
+            if claude_config.api_key.is_empty() {
+                if let Some(api_key) = &config.global.claude_api_key {
+                    claude_config.api_key = api_key.clone();
+                }
+            }
+
+            if claude_config.api_key.is_empty() {
+                return Err(mmm::Error::Config(
+                    "Claude API key not configured. Set CLAUDE_API_KEY environment variable or configure in project.".to_string()
+                ));
+            }
+
+            let mut claude_manager = mmm::claude::ClaudeManager::new(claude_config)?;
+
+            println!("🚀 Creating specification for: {}", description);
+            let result = claude_manager
+                .execute_command("add-spec", vec![description])
+                .await?;
+            println!("{}", result);
+        }
+
+        Info { spec_id } => {
+            if let Some(spec) = spec_engine.get_specification(&spec_id) {
+                println!("Specification: {}", spec.name);
+                println!("ID: {}", spec.id);
+                println!("Status: {:?}", spec.status);
+                println!(
+                    "Dependencies: {}",
+                    if spec.dependencies.is_empty() {
+                        "None".to_string()
+                    } else {
+                        spec.dependencies.join(", ")
+                    }
+                );
+
+                if let Some(objective) = &spec.metadata.objective {
+                    println!("Objective: {}", objective);
+                }
+
+                if !spec.metadata.acceptance_criteria.is_empty() {
+                    println!("Acceptance Criteria:");
+                    for (i, criterion) in spec.metadata.acceptance_criteria.iter().enumerate() {
+                        println!("  {}. {}", i + 1, criterion);
+                    }
+                }
+
+                if !spec.metadata.tags.is_empty() {
+                    println!("Tags: {}", spec.metadata.tags.join(", "));
+                }
+
+                if let Some(priority) = spec.metadata.priority {
+                    println!("Priority: {}", priority);
+                }
+
+                if let Some(hours) = spec.metadata.estimated_hours {
+                    println!("Estimated Hours: {:.1}", hours);
+                }
+
+                println!("\nContent:");
+                println!("{}", spec.content);
             } else {
-                return Err(mmm::Error::Project(format!("Template '{name}' not found")));
+                return Err(mmm::Error::Spec(format!(
+                    "Specification '{}' not found",
+                    spec_id
+                )));
             }
         }
     }
