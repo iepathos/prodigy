@@ -4,12 +4,12 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 pub mod dispatcher;
-pub mod registry;
 pub mod history;
+pub mod registry;
 
 pub use dispatcher::CommandDispatcher;
-pub use registry::CommandRegistry;
 pub use history::CommandHistory;
+pub use registry::CommandRegistry;
 
 #[async_trait]
 pub trait Command: Send + Sync {
@@ -18,9 +18,9 @@ pub trait Command: Send + Sync {
     fn aliases(&self) -> Vec<&str> {
         vec![]
     }
-    
+
     async fn execute(&self, context: CommandContext) -> Result<CommandOutput>;
-    
+
     fn validate_args(&self, _args: &[String]) -> Result<()> {
         Ok(())
     }
@@ -49,7 +49,7 @@ impl CommandOutput {
             data: None,
         }
     }
-    
+
     pub fn failure(message: impl Into<String>) -> Self {
         Self {
             success: false,
@@ -57,7 +57,7 @@ impl CommandOutput {
             data: None,
         }
     }
-    
+
     pub fn with_data(mut self, data: serde_json::Value) -> Self {
         self.data = Some(data);
         self
@@ -76,7 +76,7 @@ impl BatchCommand {
             stop_on_error: true,
         }
     }
-    
+
     pub fn continue_on_error(mut self) -> Self {
         self.stop_on_error = false;
         self

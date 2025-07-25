@@ -50,15 +50,15 @@ pub async fn init_database(db_path: &Path) -> Result<SqlitePool> {
     if let Some(parent) = db_path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    
+
     let db_url = format!("sqlite:{}", db_path.display());
-    
+
     let pool = SqlitePool::connect(&db_url).await?;
-    
+
     // Run migrations manually since we can't use sqlx::migrate! at runtime
     sqlx::query(&migrations::INITIAL_MIGRATION)
         .execute(&pool)
         .await?;
-    
+
     Ok(pool)
 }

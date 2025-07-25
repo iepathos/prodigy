@@ -81,24 +81,32 @@ impl Specification {
             dependencies: Vec::new(),
         }
     }
-    
+
     pub fn is_ready(&self, completed_specs: &[String]) -> bool {
-        self.dependencies.iter().all(|dep| completed_specs.contains(dep))
+        self.dependencies
+            .iter()
+            .all(|dep| completed_specs.contains(dep))
     }
-    
+
     pub fn validate(&self) -> Result<()> {
         if self.id.is_empty() {
-            return Err(Error::Specification("Specification ID cannot be empty".to_string()));
+            return Err(Error::Specification(
+                "Specification ID cannot be empty".to_string(),
+            ));
         }
-        
+
         if self.name.is_empty() {
-            return Err(Error::Specification("Specification name cannot be empty".to_string()));
+            return Err(Error::Specification(
+                "Specification name cannot be empty".to_string(),
+            ));
         }
-        
+
         if self.content.is_empty() {
-            return Err(Error::Specification("Specification content cannot be empty".to_string()));
+            return Err(Error::Specification(
+                "Specification content cannot be empty".to_string(),
+            ));
         }
-        
+
         Ok(())
     }
 }

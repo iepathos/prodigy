@@ -13,7 +13,12 @@ Memento Mori Manager is designed as a modular, extensible project management sys
 ### 1. Project Manager
 - Handles project registration, discovery, and context switching
 - Manages project templates and scaffolding
+- Project health monitoring and validation
+- Multi-project operations and bulk actions
 - Location: `src/project/`
+  - `manager.rs`: Core project management functionality
+  - `template.rs`: Template system with built-in templates
+  - `health.rs`: Project health check system
 
 ### 2. Specification Engine
 - Parses specifications with frontmatter support
@@ -56,16 +61,34 @@ Memento Mori Manager is designed as a modular, extensible project management sys
 ## Directory Structure
 ```
 src/
-├── main.rs           # Application entry point
+├── main.rs           # Application entry point with CLI commands
 ├── lib.rs            # Library exports
 ├── project/          # Project management
+│   ├── mod.rs        # Project types and module exports
+│   ├── manager.rs    # Project lifecycle management
+│   ├── template.rs   # Template system
+│   └── health.rs     # Health check system
 ├── spec/             # Specification handling
+│   ├── mod.rs        # Spec types and exports
+│   ├── engine.rs     # Spec execution engine
+│   ├── parser.rs     # Spec parser
+│   └── template.rs   # Spec templates
 ├── state/            # State management
+│   ├── mod.rs        # State types
+│   ├── manager.rs    # State operations
+│   └── migrations.rs # Database migrations
 ├── config/           # Configuration system
+│   ├── mod.rs        # Config types
+│   ├── loader.rs     # Config loading and hot-reload
+│   └── validator.rs  # Config validation
 ├── command/          # Command processing
-├── claude/           # Claude integration
-├── plugin/           # Plugin system
-├── workflow/         # Workflow automation
-├── monitor/          # Monitoring and reporting
+│   ├── mod.rs        # Command types
+│   ├── dispatcher.rs # Command routing
+│   ├── registry.rs   # Plugin registry
+│   └── history.rs    # Command history
+├── claude/           # Claude integration (planned)
+├── plugin/           # Plugin system (planned)
+├── workflow/         # Workflow automation (planned)
+├── monitor/          # Monitoring and reporting (planned)
 └── error.rs          # Error handling
 ```

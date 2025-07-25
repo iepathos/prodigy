@@ -4,25 +4,31 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use tokio::fs;
 
+pub mod health;
 pub mod manager;
 pub mod template;
 
+pub use health::{HealthCheck, HealthStatus, ProjectHealth, Severity};
 pub use manager::ProjectManager;
+pub use template::TemplateManager;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Project {
     pub name: String,
     pub path: PathBuf,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub updated_at: chrono::DateTime<chrono::Utc>,
-    pub metadata: ProjectMetadata,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct ProjectMetadata {
-    pub description: Option<String>,
+    pub created: chrono::DateTime<chrono::Utc>,
+    pub last_accessed: chrono::DateTime<chrono::Utc>,
+    pub template: Option<String>,
     pub version: Option<String>,
+    pub archived: bool,
+    pub description: Option<String>,
     pub tags: Vec<String>,
+    pub team: Vec<String>,
+    pub repository: Option<String>,
+    pub total_specs: usize,
+    pub completed_specs: usize,
+    pub total_iterations: usize,
+    pub success_rate: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -41,50 +47,60 @@ impl Project {
         Self {
             name,
             path,
-            created_at: now,
-            updated_at: now,
-            metadata: ProjectMetadata::default(),
+            created: now,
+            last_accessed: now,
+            template: None,
+            version: Some("0.1.0".to_string()),
+            archived: false,
+            description: None,
+            tags: Vec::new(),
+            team: Vec::new(),
+            repository: None,
+            total_specs: 0,
+            completed_specs: 0,
+            total_iterations: 0,
+            success_rate: 0.0,
         }
     }
-    
+
     pub async fn init_structure(&self) -> Result<()> {
         let mmm_dir = self.path.join(".mmm");
         fs::create_dir_all(&mmm_dir).await?;
-        
+
         let specs_dir = self.path.join("specs");
         fs::create_dir_all(&specs_dir).await?;
-        
+
         let config_path = mmm_dir.join("config.toml");
         if !config_path.exists() {
             let config = ProjectConfig {
                 name: self.name.clone(),
-                description: self.metadata.description.clone(),
-                version: self.metadata.version.clone(),
+                description: self.description.clone(),
+                version: self.version.clone(),
                 claude_api_key: None,
                 max_iterations: Some(10),
                 auto_commit: Some(true),
             };
-            
-            let config_content = toml::to_string_pretty(&config)
-                .map_err(|e| Error::Config(e.to_string()))?;
+
+            let config_content =
+                toml::to_string_pretty(&config).map_err(|e| Error::Config(e.to_string()))?;
             fs::write(&config_path, config_content).await?;
         }
-        
+
         let manifest_path = self.path.join("mmm.toml");
         if !manifest_path.exists() {
             let manifest = ProjectManifest {
                 project: ManifestProject {
                     name: self.name.clone(),
-                    version: self.metadata.version.clone().unwrap_or_else(|| "0.1.0".to_string()),
-                    description: self.metadata.description.clone(),
+                    version: self.version.clone().unwrap_or_else(|| "0.1.0".to_string()),
+                    description: self.description.clone(),
                 },
             };
-            
-            let manifest_content = toml::to_string_pretty(&manifest)
-                .map_err(|e| Error::Config(e.to_string()))?;
+
+            let manifest_content =
+                toml::to_string_pretty(&manifest).map_err(|e| Error::Config(e.to_string()))?;
             fs::write(&manifest_path, manifest_content).await?;
         }
-        
+
         Ok(())
     }
 }

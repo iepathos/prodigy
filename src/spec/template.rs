@@ -51,7 +51,8 @@ As a {{user_type}}, I want to {{action}} so that {{benefit}}.
 - Consider edge cases
 - Performance implications
 - Security considerations
-"#.to_string(),
+"#
+            .to_string(),
             variables: vec![
                 TemplateVariable {
                     name: "id".to_string(),
@@ -110,12 +111,13 @@ As a {{user_type}}, I want to {{action}} so that {{benefit}}.
             ],
         }
     }
-    
+
     pub fn render(&self, values: &HashMap<String, String>) -> Result<String> {
         let mut result = self.content.clone();
-        
+
         for var in &self.variables {
-            let value = values.get(&var.name)
+            let value = values
+                .get(&var.name)
                 .or(var.default.as_ref())
                 .ok_or_else(|| {
                     crate::Error::Specification(format!(
@@ -123,10 +125,10 @@ As a {{user_type}}, I want to {{action}} so that {{benefit}}.
                         var.name
                     ))
                 })?;
-            
+
             result = result.replace(&format!("{{{{{}}}}}", var.name), value);
         }
-        
+
         Ok(result)
     }
 }

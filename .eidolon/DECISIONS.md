@@ -1,5 +1,27 @@
 # Architecture Decision Records
 
+## ADR-006: Project Health Check System
+- **Date**: 2025-07-25
+- **Status**: Accepted
+- **Context**: Need to validate project state before operations
+- **Decision**: Implement comprehensive health check system
+- **Consequences**:
+  - Early detection of configuration issues
+  - Better user experience with clear error messages
+  - Prevents operations on invalid projects
+  - Additional validation overhead
+
+## ADR-007: Built-in Project Templates
+- **Date**: 2025-07-25
+- **Status**: Accepted
+- **Context**: Users need quick start options for common project types
+- **Decision**: Include built-in templates for web-app, cli-tool, library, api-service
+- **Consequences**:
+  - Faster project initialization
+  - Consistent project structures
+  - Template maintenance required
+  - Templates stored as YAML for flexibility
+
 ## ADR-001: Use SQLite for State Management
 - **Date**: 2025-07-25
 - **Status**: Accepted
