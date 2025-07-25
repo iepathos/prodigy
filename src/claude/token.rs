@@ -149,7 +149,8 @@ impl TokenTracker {
     /// Get current token usage
     pub async fn get_usage(&self) -> Result<crate::claude::TokenUsage> {
         let today = Utc::now().date_naive();
-        let today_usage = self.current_usage
+        let today_usage = self
+            .current_usage
             .iter()
             .filter(|u| u.timestamp.date_naive() == today)
             .fold((0u64, 0u64, 0u64), |acc, u| {

@@ -141,7 +141,8 @@ impl SpecificationEngine {
     }
 
     pub async fn list_specs(&self, project_path: &Path) -> Result<Vec<SpecSummary>> {
-        let specs: Vec<SpecSummary> = self.specifications
+        let specs: Vec<SpecSummary> = self
+            .specifications
             .values()
             .map(|spec| SpecSummary {
                 id: spec.id.clone(),
@@ -150,7 +151,7 @@ impl SpecificationEngine {
                 priority: spec.metadata.priority.unwrap_or(0),
             })
             .collect();
-        
+
         Ok(specs)
     }
 }

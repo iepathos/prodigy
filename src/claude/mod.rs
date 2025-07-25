@@ -209,7 +209,10 @@ impl ClaudeManager {
     /// Generate a response (simplified interface)
     pub async fn generate_response(&self, prompt: &str) -> Result<String> {
         // This is a simplified method for basic prompts
-        let response = self.client.complete(prompt, &self.model_selector.default_model).await?;
+        let response = self
+            .client
+            .complete(prompt, &self.model_selector.default_model)
+            .await?;
         Ok(response.content)
     }
 }

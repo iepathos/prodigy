@@ -79,7 +79,9 @@ impl PerformanceTracker {
         start: DateTime<Utc>,
         end: DateTime<Utc>,
     ) -> Result<OperationStats> {
-        self.storage.get_operation_stats(operation, start, end).await
+        self.storage
+            .get_operation_stats(operation, start, end)
+            .await
     }
 }
 
@@ -336,7 +338,8 @@ impl TraceStorage {
             summaries.push(TraceSummary {
                 id: Uuid::parse_str(&id)?,
                 operation,
-                start_timestamp: DateTime::parse_from_rfc3339(&start_timestamp_str)?.with_timezone(&Utc),
+                start_timestamp: DateTime::parse_from_rfc3339(&start_timestamp_str)?
+                    .with_timezone(&Utc),
                 end_timestamp: end_timestamp_str
                     .map(|s| DateTime::parse_from_rfc3339(&s).ok())
                     .flatten()

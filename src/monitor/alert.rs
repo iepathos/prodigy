@@ -7,9 +7,9 @@ use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use crate::error::Result;
+use super::metrics::{AggregationType, MetricsDatabase};
 use super::{Alert, AlertCondition, AlertRule, AlertSeverity, Notifier, ThresholdOperator};
-use super::metrics::{MetricsDatabase, AggregationType};
+use crate::error::Result;
 
 pub struct AlertManager {
     rules: Vec<AlertRule>,
@@ -73,7 +73,11 @@ impl AlertManager {
                     // Notify
                     for notifier in &self.notifiers {
                         if let Err(e) = notifier.notify(&alert).await {
-                            log::error!("Failed to send notification via {}: {}", notifier.name(), e);
+                            log::error!(
+                                "Failed to send notification via {}: {}",
+                                notifier.name(),
+                                e
+                            );
                         }
                     }
 
@@ -84,7 +88,11 @@ impl AlertManager {
                     // Condition not met
                 }
                 Err(e) => {
-                    log::error!("Failed to evaluate alert condition for {}: {}", rule.name, e);
+                    log::error!(
+                        "Failed to evaluate alert condition for {}: {}",
+                        rule.name,
+                        e
+                    );
                 }
             }
         }
@@ -94,10 +102,20 @@ impl AlertManager {
 
     async fn evaluate_condition(&self, condition: &AlertCondition) -> Result<bool> {
         match condition {
-            AlertCondition::ThresholdExceeded { metric, threshold, operator } => {
+            AlertCondition::ThresholdExceeded {
+                metric,
+                threshold,
+                operator,
+            } => {
                 let timeframe = super::TimeFrame::last_hour();
-                let value = self.metrics_db
-                    .aggregate_metrics(metric, timeframe.start, timeframe.end, AggregationType::Average)
+                let value = self
+                    .metrics_db
+                    .aggregate_metrics(
+                        metric,
+                        timeframe.start,
+                        timeframe.end,
+                        AggregationType::Average,
+                    )
                     .await?;
 
                 Ok(match operator {
@@ -107,16 +125,22 @@ impl AlertManager {
                     ThresholdOperator::LessThanOrEqual => value <= *threshold,
                 })
             }
-            AlertCondition::RateOfChange { metric, change, window } => {
+            AlertCondition::RateOfChange {
+                metric,
+                change,
+                window,
+            } => {
                 let end = Utc::now();
                 let start = end - chrono::Duration::from_std(*window)?;
                 let mid = end - chrono::Duration::from_std(*window / 2)?;
 
-                let first_half = self.metrics_db
+                let first_half = self
+                    .metrics_db
                     .aggregate_metrics(metric, start, mid, AggregationType::Average)
                     .await?;
 
-                let second_half = self.metrics_db
+                let second_half = self
+                    .metrics_db
                     .aggregate_metrics(metric, mid, end, AggregationType::Average)
                     .await?;
 
@@ -137,10 +161,20 @@ impl AlertManager {
 
     async fn generate_alert_message(&self, rule: &AlertRule) -> Result<String> {
         match &rule.condition {
-            AlertCondition::ThresholdExceeded { metric, threshold, operator } => {
+            AlertCondition::ThresholdExceeded {
+                metric,
+                threshold,
+                operator,
+            } => {
                 let timeframe = super::TimeFrame::last_hour();
-                let current_value = self.metrics_db
-                    .aggregate_metrics(metric, timeframe.start, timeframe.end, AggregationType::Average)
+                let current_value = self
+                    .metrics_db
+                    .aggregate_metrics(
+                        metric,
+                        timeframe.start,
+                        timeframe.end,
+                        AggregationType::Average,
+                    )
                     .await?;
 
                 Ok(format!(
@@ -156,15 +190,15 @@ impl AlertManager {
                     threshold
                 ))
             }
-            AlertCondition::RateOfChange { metric, change, window } => {
-                Ok(format!(
-                    "Metric '{}' changed by more than {}% in the last {:?}",
-                    metric, change, window
-                ))
-            }
-            AlertCondition::Pattern { query } => {
-                Ok(format!("Pattern match triggered: {}", query))
-            }
+            AlertCondition::RateOfChange {
+                metric,
+                change,
+                window,
+            } => Ok(format!(
+                "Metric '{}' changed by more than {}% in the last {:?}",
+                metric, change, window
+            )),
+            AlertCondition::Pattern { query } => Ok(format!("Pattern match triggered: {}", query)),
         }
     }
 
@@ -313,7 +347,9 @@ impl Notifier for LogNotifier {
         match alert.severity {
             AlertSeverity::Info => log::info!("Alert: {} - {}", alert.rule_name, alert.message),
             AlertSeverity::Warning => log::warn!("Alert: {} - {}", alert.rule_name, alert.message),
-            AlertSeverity::Critical => log::error!("Alert: {} - {}", alert.rule_name, alert.message),
+            AlertSeverity::Critical => {
+                log::error!("Alert: {} - {}", alert.rule_name, alert.message)
+            }
         }
         Ok(())
     }
@@ -329,8 +365,8 @@ pub struct ConsoleNotifier;
 impl Notifier for ConsoleNotifier {
     async fn notify(&self, alert: &Alert) -> Result<()> {
         let severity_color = match alert.severity {
-            AlertSeverity::Info => "\x1b[34m",    // Blue
-            AlertSeverity::Warning => "\x1b[33m", // Yellow
+            AlertSeverity::Info => "\x1b[34m",     // Blue
+            AlertSeverity::Warning => "\x1b[33m",  // Yellow
             AlertSeverity::Critical => "\x1b[31m", // Red
         };
         let reset = "\x1b[0m";
@@ -414,7 +450,7 @@ pub fn default_alert_rules() -> Vec<AlertRule> {
             name: "Cost Spike".to_string(),
             condition: AlertCondition::RateOfChange {
                 metric: "claude.cost.usd".to_string(),
-                change: 50.0, // 50% change
+                change: 50.0,                      // 50% change
                 window: Duration::from_secs(3600), // 1 hour window
             },
             severity: AlertSeverity::Warning,

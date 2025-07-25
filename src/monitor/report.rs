@@ -5,11 +5,11 @@ use std::path::Path;
 use std::sync::Arc;
 use tera::{Context, Tera};
 
+use super::analytics::{Analysis, AnalyticsEngine};
+use super::metrics::MetricsDatabase;
+use super::TimeFrame;
 use crate::claude::ClaudeManager;
 use crate::error::Result;
-use super::{TimeFrame};
-use super::analytics::{AnalyticsEngine, Analysis};
-use super::metrics::MetricsDatabase;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Report {
@@ -171,7 +171,7 @@ impl ReportGenerator {
         claude_manager: Arc<ClaudeManager>,
     ) -> Result<Self> {
         let template_engine = Tera::default();
-        
+
         Ok(Self {
             metrics_db,
             analytics_engine,
@@ -190,9 +190,16 @@ impl ReportGenerator {
         for section_template in &template.sections {
             let section = match section_template {
                 ReportSectionTemplate::Summary { title, metrics } => {
-                    self.generate_summary_section(title, metrics, &timeframe).await?
+                    self.generate_summary_section(title, metrics, &timeframe)
+                        .await?
                 }
-                ReportSectionTemplate::Chart { title, chart_type, x_metric, y_metric, group_by } => {
+                ReportSectionTemplate::Chart {
+                    title,
+                    chart_type,
+                    x_metric,
+                    y_metric,
+                    group_by,
+                } => {
                     self.generate_chart_section(
                         title,
                         *chart_type,
@@ -200,20 +207,30 @@ impl ReportGenerator {
                         y_metric,
                         group_by.as_deref(),
                         &timeframe,
-                    ).await?
+                    )
+                    .await?
                 }
-                ReportSectionTemplate::Table { title, query, columns } => {
-                    self.generate_table_section(title, query, columns, &timeframe).await?
+                ReportSectionTemplate::Table {
+                    title,
+                    query,
+                    columns,
+                } => {
+                    self.generate_table_section(title, query, columns, &timeframe)
+                        .await?
                 }
                 ReportSectionTemplate::Insights { title, prompt } => {
-                    self.generate_insights_section(title, prompt, &timeframe).await?
+                    self.generate_insights_section(title, prompt, &timeframe)
+                        .await?
                 }
             };
             sections.push(section);
         }
 
         // Add analytics results
-        let analyses = self.analytics_engine.run_analysis(timeframe.clone()).await?;
+        let analyses = self
+            .analytics_engine
+            .run_analysis(timeframe.clone())
+            .await?;
         for analysis in analyses {
             sections.push(ReportSection::Analysis {
                 title: format!("Analysis: {}", analysis.name),
@@ -241,8 +258,14 @@ impl ReportGenerator {
         let mut metrics = Vec::new();
 
         for metric_name in metric_names {
-            let value = self.metrics_db
-                .aggregate_metrics(metric_name, timeframe.start, timeframe.end, super::metrics::AggregationType::Sum)
+            let value = self
+                .metrics_db
+                .aggregate_metrics(
+                    metric_name,
+                    timeframe.start,
+                    timeframe.end,
+                    super::metrics::AggregationType::Sum,
+                )
                 .await?;
 
             // Calculate change from previous period
@@ -250,9 +273,15 @@ impl ReportGenerator {
                 start: timeframe.start - (timeframe.end - timeframe.start),
                 end: timeframe.start,
             };
-            
-            let prev_value = self.metrics_db
-                .aggregate_metrics(metric_name, prev_timeframe.start, prev_timeframe.end, super::metrics::AggregationType::Sum)
+
+            let prev_value = self
+                .metrics_db
+                .aggregate_metrics(
+                    metric_name,
+                    prev_timeframe.start,
+                    prev_timeframe.end,
+                    super::metrics::AggregationType::Sum,
+                )
                 .await?;
 
             let change = if prev_value != 0.0 {
@@ -303,13 +332,19 @@ impl ReportGenerator {
         for i in 0..days {
             let day = timeframe.start + chrono::Duration::days(i);
             let next_day = day + chrono::Duration::days(1);
-            
+
             labels.push(day.format("%Y-%m-%d").to_string());
-            
-            let value = self.metrics_db
-                .aggregate_metrics(y_metric, day, next_day, super::metrics::AggregationType::Average)
+
+            let value = self
+                .metrics_db
+                .aggregate_metrics(
+                    y_metric,
+                    day,
+                    next_day,
+                    super::metrics::AggregationType::Average,
+                )
                 .await?;
-            
+
             data_points.push(value);
         }
 
@@ -353,7 +388,7 @@ impl ReportGenerator {
     ) -> Result<ReportSection> {
         // Gather relevant metrics for the timeframe
         let metrics_summary = self.generate_metrics_summary(timeframe).await?;
-        
+
         // Use Claude to generate insights
         let full_prompt = format!(
             "{}\n\nTimeframe: {} to {}\n\nMetrics Summary:\n{}",
@@ -363,9 +398,7 @@ impl ReportGenerator {
             metrics_summary
         );
 
-        let insights = self.claude_manager
-            .generate_response(&full_prompt)
-            .await?;
+        let insights = self.claude_manager.generate_response(&full_prompt).await?;
 
         Ok(ReportSection::Insights {
             title: title.to_string(),
@@ -386,8 +419,14 @@ impl ReportGenerator {
         ];
 
         for (label, metric_name) in metrics {
-            let value = self.metrics_db
-                .aggregate_metrics(metric_name, timeframe.start, timeframe.end, super::metrics::AggregationType::Sum)
+            let value = self
+                .metrics_db
+                .aggregate_metrics(
+                    metric_name,
+                    timeframe.start,
+                    timeframe.end,
+                    super::metrics::AggregationType::Sum,
+                )
                 .await
                 .unwrap_or(0.0);
 

@@ -3,8 +3,8 @@ use sqlx::SqlitePool;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-use crate::error::Result;
 use super::{Metric, MetricValue};
+use crate::error::Result;
 
 pub struct MetricsDatabase {
     pool: SqlitePool,
@@ -101,9 +101,9 @@ impl MetricsDatabase {
 
             // Filter by labels if provided
             if let Some(ref filter_labels) = labels {
-                let matches = filter_labels.iter().all(|(k, v)| {
-                    metric_labels.get(k).map(|mv| mv == v).unwrap_or(false)
-                });
+                let matches = filter_labels
+                    .iter()
+                    .all(|(k, v)| metric_labels.get(k).map(|mv| mv == v).unwrap_or(false));
                 if !matches {
                     continue;
                 }
@@ -184,7 +184,7 @@ impl MetricsDatabase {
 
     pub async fn cleanup_old_metrics(&self, retention_days: u32) -> Result<u64> {
         let cutoff = Utc::now() - chrono::Duration::days(retention_days as i64);
-        
+
         let result = sqlx::query(
             r#"
             DELETE FROM metrics

@@ -3,8 +3,8 @@ use serde_json;
 use std::path::Path;
 use tera::{Context, Tera};
 
+use super::report::{ExportFormat, Report, ReportSection};
 use crate::error::Result;
-use super::report::{Report, ReportSection, ExportFormat};
 
 #[async_trait]
 pub trait ReportExporter: Send + Sync {
@@ -19,10 +19,10 @@ pub struct HTMLExporter {
 impl HTMLExporter {
     pub fn new() -> Result<Self> {
         let mut template_engine = Tera::default();
-        
+
         // Add default report template
         template_engine.add_raw_template("report.html", DEFAULT_HTML_TEMPLATE)?;
-        
+
         Ok(Self { template_engine })
     }
 }
@@ -32,7 +32,7 @@ impl ReportExporter for HTMLExporter {
     async fn export(&self, report: &Report, _format: ExportFormat) -> Result<Vec<u8>> {
         let mut context = Context::new();
         context.insert("report", report);
-        
+
         let html = self.template_engine.render("report.html", &context)?;
         Ok(html.into_bytes())
     }
@@ -54,54 +54,66 @@ impl MarkdownExporter {
 impl ReportExporter for MarkdownExporter {
     async fn export(&self, report: &Report, _format: ExportFormat) -> Result<Vec<u8>> {
         let mut markdown = String::new();
-        
+
         // Title and metadata
         markdown.push_str(&format!("# {}\n\n", report.title));
-        markdown.push_str(&format!("**Generated:** {}\n\n", report.generated_at.format("%Y-%m-%d %H:%M:%S UTC")));
-        markdown.push_str(&format!("**Period:** {} to {}\n\n", 
+        markdown.push_str(&format!(
+            "**Generated:** {}\n\n",
+            report.generated_at.format("%Y-%m-%d %H:%M:%S UTC")
+        ));
+        markdown.push_str(&format!(
+            "**Period:** {} to {}\n\n",
             report.timeframe.start.format("%Y-%m-%d"),
             report.timeframe.end.format("%Y-%m-%d")
         ));
-        
+
         // Sections
         for section in &report.sections {
             match section {
                 ReportSection::Summary { title, metrics } => {
                     markdown.push_str(&format!("## {}\n\n", title));
-                    
+
                     for metric in metrics {
                         let value_str = if let Some(unit) = &metric.unit {
                             format!("{:.2} {}", metric.value, unit)
                         } else {
                             format!("{:.2}", metric.value)
                         };
-                        
+
                         let change_str = if let Some(change) = metric.change {
                             let arrow = if change > 0.0 { "↑" } else { "↓" };
                             format!(" ({}{:.1}%)", arrow, change.abs())
                         } else {
                             String::new()
                         };
-                        
-                        markdown.push_str(&format!("- **{}:** {}{}\n", metric.name, value_str, change_str));
+
+                        markdown.push_str(&format!(
+                            "- **{}:** {}{}\n",
+                            metric.name, value_str, change_str
+                        ));
                     }
                     markdown.push_str("\n");
                 }
-                
-                ReportSection::Chart { title, chart_type, data } => {
+
+                ReportSection::Chart {
+                    title,
+                    chart_type,
+                    data,
+                } => {
                     markdown.push_str(&format!("## {}\n\n", title));
                     markdown.push_str(&format!("*Chart: {:?}*\n\n", chart_type));
-                    
+
                     // Simple ASCII chart for markdown
                     if !data.datasets.is_empty() && !data.datasets[0].data.is_empty() {
                         let max_value = data.datasets[0].data.iter().fold(0.0, |a, &b| a.max(b));
                         let scale = 20.0 / max_value;
-                        
+
                         for (i, value) in data.datasets[0].data.iter().enumerate() {
                             if i < data.labels.len() {
                                 let bar_length = (*value * scale) as usize;
                                 let bar = "█".repeat(bar_length);
-                                markdown.push_str(&format!("{:<12} {} {:.2}\n", 
+                                markdown.push_str(&format!(
+                                    "{:<12} {} {:.2}\n",
                                     data.labels[i], bar, value
                                 ));
                             }
@@ -109,10 +121,14 @@ impl ReportExporter for MarkdownExporter {
                     }
                     markdown.push_str("\n");
                 }
-                
-                ReportSection::Table { title, columns, rows } => {
+
+                ReportSection::Table {
+                    title,
+                    columns,
+                    rows,
+                } => {
                     markdown.push_str(&format!("## {}\n\n", title));
-                    
+
                     // Table header
                     markdown.push_str("|");
                     for col in columns {
@@ -123,12 +139,13 @@ impl ReportExporter for MarkdownExporter {
                         markdown.push_str(" --- |");
                     }
                     markdown.push_str("\n");
-                    
+
                     // Table rows
                     for row in rows {
                         markdown.push_str("|");
                         for col in columns {
-                            let value = row.get(&col.field)
+                            let value = row
+                                .get(&col.field)
                                 .map(|v| v.to_string())
                                 .unwrap_or_else(|| "-".to_string());
                             markdown.push_str(&format!(" {} |", value));
@@ -137,16 +154,16 @@ impl ReportExporter for MarkdownExporter {
                     }
                     markdown.push_str("\n");
                 }
-                
+
                 ReportSection::Insights { title, content } => {
                     markdown.push_str(&format!("## {}\n\n", title));
                     markdown.push_str(content);
                     markdown.push_str("\n\n");
                 }
-                
+
                 ReportSection::Analysis { title, analysis } => {
                     markdown.push_str(&format!("## {}\n\n", title));
-                    
+
                     // Findings
                     if !analysis.findings.is_empty() {
                         markdown.push_str("### Findings\n\n");
@@ -158,12 +175,13 @@ impl ReportExporter for MarkdownExporter {
                                 super::analytics::FindingSeverity::Low => "🟢",
                                 super::analytics::FindingSeverity::Info => "ℹ️",
                             };
-                            
-                            markdown.push_str(&format!("{} **{}**\n\n", severity_icon, finding.title));
+
+                            markdown
+                                .push_str(&format!("{} **{}**\n\n", severity_icon, finding.title));
                             markdown.push_str(&format!("{}\n\n", finding.description));
                         }
                     }
-                    
+
                     // Recommendations
                     if !analysis.recommendations.is_empty() {
                         markdown.push_str("### Recommendations\n\n");
@@ -175,7 +193,7 @@ impl ReportExporter for MarkdownExporter {
                 }
             }
         }
-        
+
         Ok(markdown.into_bytes())
     }
 
@@ -219,7 +237,7 @@ impl ReportExporter for PDFExporter {
         // In a real implementation, this would generate a proper PDF
         let html_exporter = HTMLExporter::new()?;
         let html = html_exporter.export(report, ExportFormat::HTML).await?;
-        
+
         // TODO: Convert HTML to PDF using a library like printpdf or wkhtmltopdf
         // For now, just return the HTML
         Ok(html)
@@ -252,11 +270,19 @@ impl MultiFormatExporter {
                 return exporter.export(report, format).await;
             }
         }
-        
-        Err(anyhow::anyhow!("No exporter found for format: {:?}", format))
+
+        Err(anyhow::anyhow!(
+            "No exporter found for format: {:?}",
+            format
+        ))
     }
 
-    pub async fn export_to_file(&self, report: &Report, format: ExportFormat, path: &Path) -> Result<()> {
+    pub async fn export_to_file(
+        &self,
+        report: &Report,
+        format: ExportFormat,
+        path: &Path,
+    ) -> Result<()> {
         let data = self.export(report, format).await?;
         tokio::fs::write(path, data).await?;
         Ok(())

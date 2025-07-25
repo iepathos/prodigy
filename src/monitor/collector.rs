@@ -6,11 +6,11 @@ use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
+use super::{Metric, MetricValue};
 use crate::claude::ClaudeManager;
 use crate::error::Result;
 use crate::spec::SpecEngine;
 use crate::state::StateManager;
-use super::{Metric, MetricValue};
 
 #[async_trait]
 pub trait MetricCollector: Send + Sync {
@@ -43,7 +43,7 @@ impl MetricsCollector {
         for collector in &self.collectors {
             let name = collector.name();
             let interval = collector.interval();
-            
+
             // Check if enough time has passed since last collection
             let should_collect = match last_collection.get(name) {
                 Some(last) => last.elapsed() >= interval,
@@ -182,7 +182,8 @@ impl MetricCollector for SpecMetricsCollector {
                 if let Ok(specs) = self.spec_engine.list_specs(&project.path).await {
                     let total = specs.len() as u64;
                     let completed = specs.iter().filter(|s| s.status == "completed").count() as u64;
-                    let in_progress = specs.iter().filter(|s| s.status == "in_progress").count() as u64;
+                    let in_progress =
+                        specs.iter().filter(|s| s.status == "in_progress").count() as u64;
                     let pending = specs.iter().filter(|s| s.status == "pending").count() as u64;
 
                     metrics.push(Metric {
@@ -286,7 +287,8 @@ impl MetricCollector for SystemMetricsCollector {
                 project_id: None,
             });
 
-            let used_pct = ((mem_info.total - mem_info.free) as f64 / mem_info.total as f64) * 100.0;
+            let used_pct =
+                ((mem_info.total - mem_info.free) as f64 / mem_info.total as f64) * 100.0;
             metrics.push(Metric {
                 id: Uuid::new_v4(),
                 name: "system.memory.used_percentage".to_string(),
@@ -359,7 +361,7 @@ impl CostMetricsCollector {
 
         let input_cost = (input_tokens as f64 / 1000.0) * input_rate;
         let output_cost = (output_tokens as f64 / 1000.0) * output_rate;
-        
+
         input_cost + output_cost
     }
 }
@@ -372,7 +374,11 @@ impl MetricCollector for CostMetricsCollector {
 
         // Calculate costs based on token usage
         if let Ok(usage) = self.claude_manager.get_token_usage().await {
-            let model = self.claude_manager.get_current_model().await.unwrap_or_else(|_| "claude-3-sonnet-20240229".to_string());
+            let model = self
+                .claude_manager
+                .get_current_model()
+                .await
+                .unwrap_or_else(|_| "claude-3-sonnet-20240229".to_string());
             let cost = Self::calculate_cost(usage.input_tokens, usage.output_tokens, &model);
 
             metrics.push(Metric {

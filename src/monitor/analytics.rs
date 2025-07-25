@@ -4,9 +4,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::error::Result;
+use super::metrics::{AggregationType, MetricsDatabase};
 use super::{Metric, TimeFrame};
-use super::metrics::{MetricsDatabase, AggregationType};
+use crate::error::Result;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Analysis {
@@ -90,13 +90,20 @@ impl Analyzer for BottleneckAnalyzer {
         let mut metrics = HashMap::new();
 
         // Analyze spec completion times
-        let spec_metrics = self.metrics_db
-            .query_metrics("specs.completion_time_hours", timeframe.start, timeframe.end, None)
+        let spec_metrics = self
+            .metrics_db
+            .query_metrics(
+                "specs.completion_time_hours",
+                timeframe.start,
+                timeframe.end,
+                None,
+            )
             .await?;
 
         if !spec_metrics.is_empty() {
             // Calculate average completion time
-            let times: Vec<f64> = spec_metrics.iter()
+            let times: Vec<f64> = spec_metrics
+                .iter()
                 .filter_map(|m| match &m.value {
                     super::MetricValue::Gauge(v) => Some(*v),
                     _ => None,
@@ -106,16 +113,15 @@ impl Analyzer for BottleneckAnalyzer {
             if !times.is_empty() {
                 let avg_time = times.iter().sum::<f64>() / times.len() as f64;
                 let max_time = times.iter().fold(0.0, |a, &b| a.max(b));
-                
+
                 metrics.insert("avg_completion_hours".to_string(), avg_time);
                 metrics.insert("max_completion_hours".to_string(), max_time);
 
                 // Find specs taking longer than average
                 let threshold = avg_time * 1.5;
-                let slow_specs = spec_metrics.iter()
-                    .filter(|m| {
-                        matches!(&m.value, super::MetricValue::Gauge(v) if *v > threshold)
-                    })
+                let slow_specs = spec_metrics
+                    .iter()
+                    .filter(|m| matches!(&m.value, super::MetricValue::Gauge(v) if *v > threshold))
                     .count();
 
                 if slow_specs > 0 {
@@ -128,8 +134,14 @@ impl Analyzer for BottleneckAnalyzer {
                         ),
                         evidence: {
                             let mut evidence = HashMap::new();
-                            evidence.insert("slow_spec_count".to_string(), serde_json::json!(slow_specs));
-                            evidence.insert("threshold_hours".to_string(), serde_json::json!(threshold));
+                            evidence.insert(
+                                "slow_spec_count".to_string(),
+                                serde_json::json!(slow_specs),
+                            );
+                            evidence.insert(
+                                "threshold_hours".to_string(),
+                                serde_json::json!(threshold),
+                            );
                             evidence
                         },
                     });
@@ -138,8 +150,14 @@ impl Analyzer for BottleneckAnalyzer {
         }
 
         // Analyze Claude response times
-        let response_times = self.metrics_db
-            .query_metrics("claude.response_time_ms", timeframe.start, timeframe.end, None)
+        let response_times = self
+            .metrics_db
+            .query_metrics(
+                "claude.response_time_ms",
+                timeframe.start,
+                timeframe.end,
+                None,
+            )
             .await?;
 
         if !response_times.is_empty() {
@@ -153,7 +171,7 @@ impl Analyzer for BottleneckAnalyzer {
             if !all_times.is_empty() {
                 let avg_response = all_times.iter().sum::<f64>() / all_times.len() as f64;
                 let p95_response = calculate_percentile(&mut all_times, 0.95);
-                
+
                 metrics.insert("avg_response_ms".to_string(), avg_response);
                 metrics.insert("p95_response_ms".to_string(), p95_response);
 
@@ -177,12 +195,24 @@ impl Analyzer for BottleneckAnalyzer {
         }
 
         // Analyze error rates
-        let error_count = self.metrics_db
-            .aggregate_metrics("claude.errors", timeframe.start, timeframe.end, AggregationType::Sum)
+        let error_count = self
+            .metrics_db
+            .aggregate_metrics(
+                "claude.errors",
+                timeframe.start,
+                timeframe.end,
+                AggregationType::Sum,
+            )
             .await?;
 
-        let total_requests = self.metrics_db
-            .aggregate_metrics("claude.requests", timeframe.start, timeframe.end, AggregationType::Count)
+        let total_requests = self
+            .metrics_db
+            .aggregate_metrics(
+                "claude.requests",
+                timeframe.start,
+                timeframe.end,
+                AggregationType::Count,
+            )
             .await?;
 
         if total_requests > 0.0 {
@@ -200,7 +230,10 @@ impl Analyzer for BottleneckAnalyzer {
                     evidence: {
                         let mut evidence = HashMap::new();
                         evidence.insert("error_count".to_string(), serde_json::json!(error_count));
-                        evidence.insert("total_requests".to_string(), serde_json::json!(total_requests));
+                        evidence.insert(
+                            "total_requests".to_string(),
+                            serde_json::json!(total_requests),
+                        );
                         evidence
                     },
                 });
@@ -208,14 +241,26 @@ impl Analyzer for BottleneckAnalyzer {
         }
 
         let mut recommendations = Vec::new();
-        
-        if findings.iter().any(|f| matches!(f.severity, FindingSeverity::High | FindingSeverity::Critical)) {
-            recommendations.push("Consider implementing retry logic with exponential backoff".to_string());
-            recommendations.push("Review Claude API rate limits and adjust request frequency".to_string());
+
+        if findings.iter().any(|f| {
+            matches!(
+                f.severity,
+                FindingSeverity::High | FindingSeverity::Critical
+            )
+        }) {
+            recommendations
+                .push("Consider implementing retry logic with exponential backoff".to_string());
+            recommendations
+                .push("Review Claude API rate limits and adjust request frequency".to_string());
         }
 
-        if metrics.get("avg_completion_hours").map(|&v| v > 24.0).unwrap_or(false) {
-            recommendations.push("Break down large specs into smaller, more manageable tasks".to_string());
+        if metrics
+            .get("avg_completion_hours")
+            .map(|&v| v > 24.0)
+            .unwrap_or(false)
+        {
+            recommendations
+                .push("Break down large specs into smaller, more manageable tasks".to_string());
             recommendations.push("Consider parallel execution of independent specs".to_string());
         }
 
@@ -250,16 +295,34 @@ impl Analyzer for CostOptimizer {
         let mut metrics = HashMap::new();
 
         // Analyze token usage and costs
-        let total_cost = self.metrics_db
-            .aggregate_metrics("claude.cost.usd", timeframe.start, timeframe.end, AggregationType::Sum)
+        let total_cost = self
+            .metrics_db
+            .aggregate_metrics(
+                "claude.cost.usd",
+                timeframe.start,
+                timeframe.end,
+                AggregationType::Sum,
+            )
             .await?;
 
-        let input_cost = self.metrics_db
-            .aggregate_metrics("claude.cost.input_usd", timeframe.start, timeframe.end, AggregationType::Sum)
+        let input_cost = self
+            .metrics_db
+            .aggregate_metrics(
+                "claude.cost.input_usd",
+                timeframe.start,
+                timeframe.end,
+                AggregationType::Sum,
+            )
             .await?;
 
-        let output_cost = self.metrics_db
-            .aggregate_metrics("claude.cost.output_usd", timeframe.start, timeframe.end, AggregationType::Sum)
+        let output_cost = self
+            .metrics_db
+            .aggregate_metrics(
+                "claude.cost.output_usd",
+                timeframe.start,
+                timeframe.end,
+                AggregationType::Sum,
+            )
             .await?;
 
         metrics.insert("total_cost_usd".to_string(), total_cost);
@@ -268,7 +331,11 @@ impl Analyzer for CostOptimizer {
 
         // Calculate daily average
         let days = (timeframe.end - timeframe.start).num_days() as f64;
-        let daily_avg = if days > 0.0 { total_cost / days } else { total_cost };
+        let daily_avg = if days > 0.0 {
+            total_cost / days
+        } else {
+            total_cost
+        };
         metrics.insert("daily_avg_cost_usd".to_string(), daily_avg);
 
         // Check for cost spikes
@@ -276,7 +343,8 @@ impl Analyzer for CostOptimizer {
         let mut current = timeframe.start;
         while current < timeframe.end {
             let next = current + ChronoDuration::days(1);
-            let daily_cost = self.metrics_db
+            let daily_cost = self
+                .metrics_db
                 .aggregate_metrics("claude.cost.usd", current, next, AggregationType::Sum)
                 .await?;
             daily_costs.push(daily_cost);
@@ -285,7 +353,7 @@ impl Analyzer for CostOptimizer {
 
         if !daily_costs.is_empty() {
             let max_daily = daily_costs.iter().fold(0.0, |a, &b| a.max(b));
-            
+
             if max_daily > daily_avg * 2.0 {
                 findings.push(Finding {
                     severity: FindingSeverity::Medium,
@@ -305,12 +373,24 @@ impl Analyzer for CostOptimizer {
         }
 
         // Analyze token efficiency
-        let input_tokens = self.metrics_db
-            .aggregate_metrics("claude.tokens.input", timeframe.start, timeframe.end, AggregationType::Sum)
+        let input_tokens = self
+            .metrics_db
+            .aggregate_metrics(
+                "claude.tokens.input",
+                timeframe.start,
+                timeframe.end,
+                AggregationType::Sum,
+            )
             .await?;
 
-        let output_tokens = self.metrics_db
-            .aggregate_metrics("claude.tokens.output", timeframe.start, timeframe.end, AggregationType::Sum)
+        let output_tokens = self
+            .metrics_db
+            .aggregate_metrics(
+                "claude.tokens.output",
+                timeframe.start,
+                timeframe.end,
+                AggregationType::Sum,
+            )
             .await?;
 
         if input_tokens > 0.0 {
@@ -338,7 +418,8 @@ impl Analyzer for CostOptimizer {
         let mut recommendations = Vec::new();
 
         if total_cost > 100.0 {
-            recommendations.push("Implement response caching to reduce redundant API calls".to_string());
+            recommendations
+                .push("Implement response caching to reduce redundant API calls".to_string());
         }
 
         if input_cost > output_cost * 0.5 {
@@ -347,7 +428,9 @@ impl Analyzer for CostOptimizer {
         }
 
         if daily_avg > 50.0 {
-            recommendations.push("Review model selection - consider using Claude Haiku for simple tasks".to_string());
+            recommendations.push(
+                "Review model selection - consider using Claude Haiku for simple tasks".to_string(),
+            );
             recommendations.push("Implement budget alerts to prevent unexpected costs".to_string());
         }
 
@@ -382,24 +465,46 @@ impl Analyzer for VelocityTracker {
         let mut metrics = HashMap::new();
 
         // Calculate completion velocity
-        let completed_start = self.metrics_db
-            .aggregate_metrics("specs.completed", timeframe.start, timeframe.start, AggregationType::Sum)
+        let completed_start = self
+            .metrics_db
+            .aggregate_metrics(
+                "specs.completed",
+                timeframe.start,
+                timeframe.start,
+                AggregationType::Sum,
+            )
             .await?;
 
-        let completed_end = self.metrics_db
-            .aggregate_metrics("specs.completed", timeframe.end, timeframe.end, AggregationType::Sum)
+        let completed_end = self
+            .metrics_db
+            .aggregate_metrics(
+                "specs.completed",
+                timeframe.end,
+                timeframe.end,
+                AggregationType::Sum,
+            )
             .await?;
 
         let specs_completed = completed_end - completed_start;
         let days = (timeframe.end - timeframe.start).num_days() as f64;
-        let velocity = if days > 0.0 { specs_completed / days } else { 0.0 };
+        let velocity = if days > 0.0 {
+            specs_completed / days
+        } else {
+            0.0
+        };
 
         metrics.insert("specs_completed".to_string(), specs_completed);
         metrics.insert("velocity_per_day".to_string(), velocity);
 
         // Calculate remaining work
-        let total_specs = self.metrics_db
-            .aggregate_metrics("specs.total", timeframe.end, timeframe.end, AggregationType::Max)
+        let total_specs = self
+            .metrics_db
+            .aggregate_metrics(
+                "specs.total",
+                timeframe.end,
+                timeframe.end,
+                AggregationType::Max,
+            )
             .await?;
 
         let remaining = total_specs - completed_end;
@@ -409,7 +514,7 @@ impl Analyzer for VelocityTracker {
         if velocity > 0.0 && remaining > 0.0 {
             let days_to_complete = remaining / velocity;
             let estimated_completion = Utc::now() + ChronoDuration::days(days_to_complete as i64);
-            
+
             metrics.insert("days_to_complete".to_string(), days_to_complete);
 
             findings.push(Finding {
@@ -424,7 +529,10 @@ impl Analyzer for VelocityTracker {
                     let mut evidence = HashMap::new();
                     evidence.insert("velocity".to_string(), serde_json::json!(velocity));
                     evidence.insert("remaining_specs".to_string(), serde_json::json!(remaining));
-                    evidence.insert("estimated_date".to_string(), serde_json::json!(estimated_completion.to_rfc3339()));
+                    evidence.insert(
+                        "estimated_date".to_string(),
+                        serde_json::json!(estimated_completion.to_rfc3339()),
+                    );
                     evidence
                 },
             });
@@ -433,7 +541,8 @@ impl Analyzer for VelocityTracker {
         // Check for velocity trends
         let week_ago = timeframe.end - ChronoDuration::weeks(1);
         let last_week_velocity = if week_ago >= timeframe.start {
-            let completed_week_ago = self.metrics_db
+            let completed_week_ago = self
+                .metrics_db
                 .aggregate_metrics("specs.completed", week_ago, week_ago, AggregationType::Sum)
                 .await?;
             (completed_end - completed_week_ago) / 7.0
@@ -455,8 +564,12 @@ impl Analyzer for VelocityTracker {
                     ),
                     evidence: {
                         let mut evidence = HashMap::new();
-                        evidence.insert("current_velocity".to_string(), serde_json::json!(velocity));
-                        evidence.insert("last_week_velocity".to_string(), serde_json::json!(last_week_velocity));
+                        evidence
+                            .insert("current_velocity".to_string(), serde_json::json!(velocity));
+                        evidence.insert(
+                            "last_week_velocity".to_string(),
+                            serde_json::json!(last_week_velocity),
+                        );
                         evidence
                     },
                 });
@@ -466,7 +579,8 @@ impl Analyzer for VelocityTracker {
         let mut recommendations = Vec::new();
 
         if velocity < 1.0 {
-            recommendations.push("Consider breaking down complex specs into smaller tasks".to_string());
+            recommendations
+                .push("Consider breaking down complex specs into smaller tasks".to_string());
             recommendations.push("Review and remove any blockers in the workflow".to_string());
         }
 

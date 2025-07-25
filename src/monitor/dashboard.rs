@@ -14,15 +14,16 @@ use tokio::sync::broadcast;
 use tower_http::cors::CorsLayer;
 use uuid::Uuid;
 
-use crate::error::Result;
-use crate::project::ProjectManager;
-use crate::state::StateManager;
-use super::{TimeFrame};
-use super::alert::{AlertManager, Alert};
+use super::alert::AlertManager;
 use super::analytics::AnalyticsEngine;
 use super::collector::MetricsCollector;
 use super::metrics::MetricsDatabase;
-use super::report::{ReportGenerator, Report, ExportFormat};
+use super::report::{ExportFormat, Report, ReportGenerator};
+use super::Alert;
+use super::TimeFrame;
+use crate::error::Result;
+use crate::project::ProjectManager;
+use crate::state::StateManager;
 
 #[derive(Clone)]
 pub struct DashboardState {
@@ -69,7 +70,7 @@ impl DashboardServer {
         report_generator: Arc<ReportGenerator>,
     ) -> Self {
         let (events, _) = broadcast::channel(100);
-        
+
         let state = DashboardState {
             state_manager,
             project_manager,
@@ -130,24 +131,23 @@ async fn health_check() -> Json<HealthStatus> {
 async fn list_projects(
     State(state): State<DashboardState>,
 ) -> Result<Json<Vec<ProjectSummary>>, StatusCode> {
-    let projects = state.project_manager
+    let projects = state
+        .project_manager
         .list_projects()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let mut summaries = Vec::new();
     for project in projects {
-        let health = state.project_manager
-            .check_health(&project.name)
-            .await
-            .ok();
+        let health = state.project_manager.check_health(&project.name).await.ok();
 
         summaries.push(ProjectSummary {
             id: project.id,
             name: project.name,
             path: project.path.to_string_lossy().to_string(),
             status: project.status,
-            health_status: health.map(|h| if h.is_healthy { "healthy" } else { "unhealthy" }.to_string()),
+            health_status: health
+                .map(|h| if h.is_healthy { "healthy" } else { "unhealthy" }.to_string()),
             created_at: project.created_at,
             last_accessed: project.last_accessed,
         });
@@ -165,8 +165,14 @@ async fn project_status(
     let mut labels = HashMap::new();
     labels.insert("project_id".to_string(), id.to_string());
 
-    let completion = state.metrics_db
-        .query_metrics("specs.completion_percentage", timeframe.start, timeframe.end, Some(labels.clone()))
+    let completion = state
+        .metrics_db
+        .query_metrics(
+            "specs.completion_percentage",
+            timeframe.start,
+            timeframe.end,
+            Some(labels.clone()),
+        )
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .into_iter()
@@ -177,8 +183,14 @@ async fn project_status(
         })
         .unwrap_or(0.0);
 
-    let total_specs = state.metrics_db
-        .query_metrics("specs.total", timeframe.start, timeframe.end, Some(labels.clone()))
+    let total_specs = state
+        .metrics_db
+        .query_metrics(
+            "specs.total",
+            timeframe.start,
+            timeframe.end,
+            Some(labels.clone()),
+        )
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .into_iter()
@@ -189,8 +201,14 @@ async fn project_status(
         })
         .unwrap_or(0);
 
-    let completed_specs = state.metrics_db
-        .query_metrics("specs.completed", timeframe.start, timeframe.end, Some(labels))
+    let completed_specs = state
+        .metrics_db
+        .query_metrics(
+            "specs.completed",
+            timeframe.start,
+            timeframe.end,
+            Some(labels),
+        )
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .into_iter()
@@ -220,8 +238,14 @@ async fn project_metrics(
     let mut labels = HashMap::new();
     labels.insert("project_id".to_string(), id.to_string());
 
-    let metrics = state.metrics_db
-        .query_metrics(&params.metric_name, timeframe.start, timeframe.end, Some(labels))
+    let metrics = state
+        .metrics_db
+        .query_metrics(
+            &params.metric_name,
+            timeframe.start,
+            timeframe.end,
+            Some(labels),
+        )
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -233,9 +257,15 @@ async fn query_metrics(
     State(state): State<DashboardState>,
 ) -> Result<Json<MetricsResponse>, StatusCode> {
     let timeframe = params.timeframe();
-    
-    let metrics = state.metrics_db
-        .query_metrics(&params.metric_name, timeframe.start, timeframe.end, params.labels)
+
+    let metrics = state
+        .metrics_db
+        .query_metrics(
+            &params.metric_name,
+            timeframe.start,
+            timeframe.end,
+            params.labels,
+        )
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -257,7 +287,8 @@ async fn list_alerts(
     Query(params): Query<AlertsQuery>,
     State(state): State<DashboardState>,
 ) -> Result<Json<Vec<Alert>>, StatusCode> {
-    let alerts = state.alert_manager
+    let alerts = state
+        .alert_manager
         .get_alerts(params.since)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -269,7 +300,8 @@ async fn acknowledge_alert(
     Path(id): Path<Uuid>,
     State(state): State<DashboardState>,
 ) -> Result<StatusCode, StatusCode> {
-    state.alert_manager
+    state
+        .alert_manager
         .acknowledge_alert(id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -282,8 +314,9 @@ async fn run_analytics(
     State(state): State<DashboardState>,
 ) -> Result<Json<AnalyticsResponse>, StatusCode> {
     let timeframe = params.timeframe();
-    
-    let analyses = state.analytics_engine
+
+    let analyses = state
+        .analytics_engine
         .run_analysis(timeframe)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -297,11 +330,13 @@ async fn generate_report(
 ) -> Result<Json<GenerateReportResponse>, StatusCode> {
     // For now, use a default template
     let templates = super::report::default_report_templates();
-    let template = templates.iter()
+    let template = templates
+        .iter()
         .find(|t| t.name == params.template_name)
         .ok_or(StatusCode::NOT_FOUND)?;
 
-    let report = state.report_generator
+    let report = state
+        .report_generator
         .generate_from_template(template, params.timeframe())
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -376,7 +411,9 @@ struct MetricsQuery {
 impl MetricsQuery {
     fn timeframe(&self) -> TimeFrame {
         TimeFrame {
-            start: self.start.unwrap_or_else(|| Utc::now() - chrono::Duration::hours(24)),
+            start: self
+                .start
+                .unwrap_or_else(|| Utc::now() - chrono::Duration::hours(24)),
             end: self.end.unwrap_or_else(|| Utc::now()),
         }
     }
@@ -407,7 +444,9 @@ struct AnalyticsRequest {
 impl AnalyticsRequest {
     fn timeframe(&self) -> TimeFrame {
         TimeFrame {
-            start: self.start.unwrap_or_else(|| Utc::now() - chrono::Duration::days(7)),
+            start: self
+                .start
+                .unwrap_or_else(|| Utc::now() - chrono::Duration::days(7)),
             end: self.end.unwrap_or_else(|| Utc::now()),
         }
     }
@@ -428,7 +467,9 @@ struct GenerateReportRequest {
 impl GenerateReportRequest {
     fn timeframe(&self) -> TimeFrame {
         TimeFrame {
-            start: self.start.unwrap_or_else(|| Utc::now() - chrono::Duration::days(7)),
+            start: self
+                .start
+                .unwrap_or_else(|| Utc::now() - chrono::Duration::days(7)),
             end: self.end.unwrap_or_else(|| Utc::now()),
         }
     }

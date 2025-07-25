@@ -247,18 +247,21 @@ impl StateManager {
                 let id_str: String = row.get::<i64, _>("id").to_string();
                 let created_str: String = row.get("created_at");
                 let updated_str: String = row.get("updated_at");
-                
+
                 ProjectInfo {
-                    id: uuid::Uuid::parse_str(&format!("00000000-0000-0000-0000-{:012}", id_str)).unwrap_or_else(|_| uuid::Uuid::new_v4()),
+                    id: uuid::Uuid::parse_str(&format!("00000000-0000-0000-0000-{:012}", id_str))
+                        .unwrap_or_else(|_| uuid::Uuid::new_v4()),
                     name: row.get("name"),
                     path: std::path::PathBuf::from(row.get::<String, _>("path")),
                     status: "active".to_string(),
                     created_at: chrono::DateTime::parse_from_rfc3339(&created_str)
                         .unwrap_or_else(|_| chrono::Utc::now())
                         .with_timezone(&chrono::Utc),
-                    last_accessed: Some(chrono::DateTime::parse_from_rfc3339(&updated_str)
-                        .unwrap_or_else(|_| chrono::Utc::now())
-                        .with_timezone(&chrono::Utc)),
+                    last_accessed: Some(
+                        chrono::DateTime::parse_from_rfc3339(&updated_str)
+                            .unwrap_or_else(|_| chrono::Utc::now())
+                            .with_timezone(&chrono::Utc),
+                    ),
                 }
             })
             .collect();
