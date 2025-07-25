@@ -634,13 +634,12 @@ async fn main() {
 
     if let Err(e) = run(cli).await {
         error!("Fatal error: {}", e);
-        eprintln!("Error: {}", e);
+        eprintln!("Error: {e}");
         std::process::exit(1);
     }
 }
 
 async fn run(cli: Cli) -> Result<()> {
-
     let config_loader = ConfigLoader::new().await?;
     config_loader.load_global().await?;
 
@@ -1201,7 +1200,7 @@ async fn execute_claude_cli_direct(command: &str, args: Vec<String>) -> Result<S
             error!("Unknown Claude CLI command: {command}");
             return Err(mmm::Error::NotFound(format!(
                 "Unknown Claude CLI command: {command}"
-            )))
+            )));
         }
     };
 
@@ -1210,7 +1209,10 @@ async fn execute_claude_cli_direct(command: &str, args: Vec<String>) -> Result<S
     cmd_args.extend(args);
 
     debug!("Executing Claude CLI: claude {}", cmd_args.join(" "));
-    trace!("Full command details: command='claude', args={:?}", cmd_args);
+    trace!(
+        "Full command details: command='claude', args={:?}",
+        cmd_args
+    );
 
     // Execute Claude CLI
     let output = Command::new("claude")
@@ -1231,7 +1233,10 @@ async fn execute_claude_cli_direct(command: &str, args: Vec<String>) -> Result<S
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     } else {
         let error = String::from_utf8_lossy(&output.stderr);
-        error!("Claude CLI command failed with status {:?}", output.status.code());
+        error!(
+            "Claude CLI command failed with status {:?}",
+            output.status.code()
+        );
         error!("Error output: {error}");
         debug!("Failed command was: claude {}", cmd_args.join(" "));
         Err(mmm::Error::Other(format!(
@@ -1248,7 +1253,10 @@ async fn handle_claude_command(cmd: ClaudeCommands, config_loader: &ConfigLoader
         Run { command, args } => {
             // Check if this is a Claude CLI command that can run without API key
             if is_claude_cli_command(&command) {
-                info!("Executing Claude CLI command: {} with args: {:?}", command, args);
+                info!(
+                    "Executing Claude CLI command: {} with args: {:?}",
+                    command, args
+                );
                 match execute_claude_cli_direct(&command, args).await {
                     Ok(result) => {
                         println!("{result}");
