@@ -7,7 +7,7 @@ use mmm::{
     Result,
 };
 use std::{path::PathBuf, sync::Arc};
-use tracing::info;
+use tracing::{debug, error, info, trace};
 
 #[derive(Parser)]
 #[command(name = "mmm")]
@@ -16,8 +16,9 @@ struct Cli {
     #[command(subcommand)]
     command: Commands,
 
-    #[arg(short, long)]
-    verbose: bool,
+    /// Enable verbose output (-v for debug, -vv for trace, -vvv for all)
+    #[arg(short, long, action = clap::ArgAction::Count)]
+    verbose: u8,
 }
 
 #[derive(Subcommand)]
@@ -611,12 +612,34 @@ where
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() {
     let cli = Cli::parse();
 
+    let log_level = match cli.verbose {
+        0 => "info",
+        1 => "debug",
+        2 => "trace",
+        _ => "trace,hyper=debug,tower=debug", // -vvv shows everything including dependencies
+    };
+
     tracing_subscriber::fmt()
-        .with_env_filter(if cli.verbose { "debug" } else { "info" })
+        .with_env_filter(log_level)
+        .with_target(cli.verbose >= 2) // Show target module for -vv and above
+        .with_thread_ids(cli.verbose >= 3) // Show thread IDs for -vvv
+        .with_line_number(cli.verbose >= 3) // Show line numbers for -vvv
         .init();
+
+    debug!("MMM started with verbosity level: {}", cli.verbose);
+    trace!("Full CLI args: {:?}", std::env::args().collect::<Vec<_>>());
+
+    if let Err(e) = run(cli).await {
+        error!("Fatal error: {}", e);
+        eprintln!("Error: {}", e);
+        std::process::exit(1);
+    }
+}
+
+async fn run(cli: Cli) -> Result<()> {
 
     let config_loader = ConfigLoader::new().await?;
     config_loader.load_global().await?;
@@ -1175,6 +1198,7 @@ async fn execute_claude_cli_direct(command: &str, args: Vec<String>) -> Result<S
         "implement-spec" | "claude-implement-spec" => "/implement-spec",
         "add-spec" | "claude-add-spec" => "/add-spec",
         _ => {
+            error!("Unknown Claude CLI command: {command}");
             return Err(mmm::Error::NotFound(format!(
                 "Unknown Claude CLI command: {command}"
             )))
@@ -1185,17 +1209,31 @@ async fn execute_claude_cli_direct(command: &str, args: Vec<String>) -> Result<S
     let mut cmd_args = vec![slash_command.to_string()];
     cmd_args.extend(args);
 
+    debug!("Executing Claude CLI: claude {}", cmd_args.join(" "));
+    trace!("Full command details: command='claude', args={:?}", cmd_args);
+
     // Execute Claude CLI
     let output = Command::new("claude")
         .args(&cmd_args)
         .output()
         .await
-        .map_err(|e| mmm::Error::Other(format!("Failed to execute Claude CLI: {e}")))?;
+        .map_err(|e| {
+            error!("Failed to execute Claude CLI: {e}");
+            debug!("Command was: claude {}", cmd_args.join(" "));
+            mmm::Error::Other(format!("Failed to execute Claude CLI: {e}"))
+        })?;
+
+    trace!("Command exit code: {:?}", output.status.code());
+    trace!("Command stdout length: {} bytes", output.stdout.len());
+    trace!("Command stderr length: {} bytes", output.stderr.len());
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     } else {
         let error = String::from_utf8_lossy(&output.stderr);
+        error!("Claude CLI command failed with status {:?}", output.status.code());
+        error!("Error output: {error}");
+        debug!("Failed command was: claude {}", cmd_args.join(" "));
         Err(mmm::Error::Other(format!(
             "Claude CLI command failed: {error}"
         )))
@@ -1210,13 +1248,17 @@ async fn handle_claude_command(cmd: ClaudeCommands, config_loader: &ConfigLoader
         Run { command, args } => {
             // Check if this is a Claude CLI command that can run without API key
             if is_claude_cli_command(&command) {
-                info!(
-                    "Executing Claude CLI command: {} with args: {:?}",
-                    command, args
-                );
-                let result = execute_claude_cli_direct(&command, args).await?;
-                println!("{result}");
-                return Ok(());
+                info!("Executing Claude CLI command: {} with args: {:?}", command, args);
+                match execute_claude_cli_direct(&command, args).await {
+                    Ok(result) => {
+                        println!("{result}");
+                        return Ok(());
+                    }
+                    Err(e) => {
+                        error!("Execution error: {}", e);
+                        return Err(e);
+                    }
+                }
             }
 
             // For non-Claude CLI commands, we need an API key
