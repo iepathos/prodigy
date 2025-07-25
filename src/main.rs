@@ -39,6 +39,12 @@ enum Commands {
         spec_id: String,
     },
 
+    /// Create a new specification from description
+    CreateSpec {
+        /// Description of the feature to implement
+        description: String,
+    },
+
     /// Show project status
     Status,
 
@@ -649,6 +655,32 @@ async fn main() -> Result<()> {
                     }
                 }
             }
+        }
+
+        Commands::CreateSpec { description } => {
+            let project = project_manager
+                .current_project()
+                .ok_or_else(|| mmm::Error::Project("No project selected".to_string()))?;
+
+            config_loader.load_project(&project.path).await?;
+
+            // Initialize Claude manager
+            let mut claude_config = mmm::claude::ClaudeConfig::default();
+            if let Ok(api_key) = std::env::var("CLAUDE_API_KEY") {
+                claude_config.api_key = api_key;
+            }
+
+            if claude_config.api_key.is_empty() {
+                return Err(mmm::Error::Config(
+                    "Claude API key not configured. Set CLAUDE_API_KEY environment variable.".to_string()
+                ));
+            }
+
+            let mut claude_manager = mmm::claude::ClaudeManager::new(claude_config)?;
+
+            println!("🚀 Creating specification for: {}", description);
+            let result = claude_manager.execute_command("add-spec", vec![description]).await?;
+            println!("{}", result);
         }
 
         Commands::Run { spec_id } => {

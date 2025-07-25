@@ -113,6 +113,11 @@ impl ClaudeManager {
         // Get command configuration
         let cmd_config = self.commands.get_command(command)?;
 
+        // Check if this is a Claude CLI command
+        if cmd_config.task_type == "claude-cli" {
+            return self.execute_claude_cli_command(command, args).await;
+        }
+
         // Prepare prompt from template
         let prompt = self
             .prompt_engine
@@ -176,6 +181,43 @@ impl ClaudeManager {
         }
 
         Ok(parsed.content)
+    }
+
+    /// Execute a Claude CLI slash command
+    async fn execute_claude_cli_command(&mut self, command: &str, args: Vec<String>) -> Result<String> {
+        use tokio::process::Command;
+
+        // Map MMM command to Claude CLI slash command
+        let slash_command = match command {
+            "lint" | "claude-lint" => "/lint",
+            "review" | "claude-review" => "/review", 
+            "implement-spec" | "claude-implement-spec" => "/implement-spec",
+            "add-spec" | "claude-add-spec" => "/add-spec",
+            _ => return Err(crate::error::Error::NotFound(format!("Unknown Claude CLI command: {}", command))),
+        };
+
+        // Build command with arguments
+        let mut cmd_args = vec![slash_command.to_string()];
+        cmd_args.extend(args);
+
+        // Execute Claude CLI
+        let output = Command::new("claude")
+            .args(&cmd_args)
+            .output()
+            .await
+            .map_err(|e| crate::error::Error::Other(format!("Failed to execute Claude CLI: {}", e)))?;
+
+        if output.status.success() {
+            let result = String::from_utf8_lossy(&output.stdout).to_string();
+            
+            // Track this as a successful Claude interaction
+            self.token_tracker.record_usage(self.estimate_tokens(&result))?;
+            
+            Ok(result)
+        } else {
+            let error = String::from_utf8_lossy(&output.stderr);
+            Err(crate::error::Error::Other(format!("Claude CLI command failed: {}", error)))
+        }
     }
 
     fn estimate_tokens(&self, text: &str) -> usize {

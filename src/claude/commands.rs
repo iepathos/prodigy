@@ -57,7 +57,10 @@ impl CommandRegistry {
 
     /// Load built-in commands
     fn load_builtin_commands(&mut self) -> Result<()> {
-        // Implement command
+        // Load Claude CLI commands if available
+        self.load_claude_cli_commands()?;
+        
+        // Implement command (fallback if Claude CLI not available)
         self.register_command(CommandConfig {
             name: "implement".to_string(),
             aliases: vec!["impl".to_string(), "i".to_string()],
@@ -77,7 +80,7 @@ impl CommandRegistry {
             interactive: false,
         })?;
 
-        // Review command
+        // Review command (fallback if Claude CLI not available)
         self.register_command(CommandConfig {
             name: "review".to_string(),
             aliases: vec!["r".to_string()],
@@ -144,6 +147,46 @@ impl CommandRegistry {
             },
             interactive: false,
         })?;
+
+        Ok(())
+    }
+
+    /// Load Claude CLI commands from .claude/commands directory
+    fn load_claude_cli_commands(&mut self) -> Result<()> {
+        let claude_dir = PathBuf::from(".claude/commands");
+        
+        if !claude_dir.exists() {
+            return Ok(()); // No Claude CLI commands available
+        }
+
+        let commands = [
+            ("lint", "Automatically detect and fix linting issues in the codebase"),
+            ("review", "Conduct comprehensive code review with quality analysis"),
+            ("implement-spec", "Implement specifications by reading spec files and executing implementation"),
+            ("add-spec", "Generate new specification documents from feature descriptions"),
+        ];
+
+        for (cmd_name, description) in commands {
+            let cmd_file = claude_dir.join(format!("{}.md", cmd_name));
+            
+            if cmd_file.exists() {
+                self.register_command(CommandConfig {
+                    name: format!("claude-{}", cmd_name),
+                    aliases: vec![cmd_name.to_string()],
+                    description: description.to_string(),
+                    template: format!("claude-cli-{}", cmd_name),
+                    task_type: "claude-cli".to_string(),
+                    pre_processors: vec!["prepare-claude-context".to_string()],
+                    post_processors: vec!["process-claude-output".to_string()],
+                    settings: CommandSettings {
+                        temperature: Some(0.7),
+                        max_tokens: Some(8000),
+                        model_override: None,
+                    },
+                    interactive: true,
+                })?;
+            }
+        }
 
         Ok(())
     }
