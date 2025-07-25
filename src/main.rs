@@ -17,7 +17,7 @@ struct Cli {
     command: Commands,
 
     /// Enable verbose output (-v for debug, -vv for trace, -vvv for all)
-    #[arg(short, long, action = clap::ArgAction::Count)]
+    #[arg(short, long, action = clap::ArgAction::Count, global = true)]
     verbose: u8,
 }
 
