@@ -65,6 +65,22 @@ Memento Mori Manager is designed as a modular, extensible project management sys
   - `cache.rs`: Response caching system
   - `models.rs`: Model selection logic
 
+### 7. Workflow Automation
+- YAML-based workflow definitions with conditional logic
+- Parallel and sequential execution strategies
+- Human-in-the-loop checkpoint system
+- Event-driven trigger mechanism
+- Workflow state persistence and recovery
+- Location: `src/workflow/`
+  - `engine.rs`: Main workflow execution engine
+  - `parser.rs`: YAML workflow parser
+  - `executor.rs`: Step execution logic
+  - `condition.rs`: Conditional expression evaluator
+  - `state.rs`: Workflow state persistence
+  - `checkpoint.rs`: Human checkpoint management
+  - `event.rs`: Event system and triggers
+  - `template.rs`: Template inheritance resolver
+
 ## Data Flow
 1. User creates specifications in markdown format
 2. Specification Engine parses and validates specs
@@ -112,8 +128,17 @@ src/
 │   ├── commands.rs   # Command registry
 │   ├── cache.rs      # Response cache
 │   └── models.rs     # Model selection
+├── workflow/         # Workflow automation
+│   ├── mod.rs        # Workflow types and exports
+│   ├── engine.rs     # Workflow execution engine
+│   ├── parser.rs     # YAML parser
+│   ├── executor.rs   # Step executor
+│   ├── condition.rs  # Condition evaluator
+│   ├── state.rs      # State persistence
+│   ├── checkpoint.rs # Checkpoint manager
+│   ├── event.rs      # Event system
+│   └── template.rs   # Template resolver
 ├── plugin/           # Plugin system (planned)
-├── workflow/         # Workflow automation (planned)
 ├── monitor/          # Monitoring and reporting (planned)
 └── error.rs          # Error handling
 ```

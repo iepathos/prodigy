@@ -17,8 +17,14 @@ pub enum Error {
     #[error("Specification error: {0}")]
     Specification(String),
 
+    #[error("Specification error: {0}")]
+    Spec(String),
+
     #[error("Command error: {0}")]
     Command(String),
+
+    #[error("Workflow error: {0}")]
+    Workflow(String),
 
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),

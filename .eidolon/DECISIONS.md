@@ -14,6 +14,30 @@
   - Conversation memory improves context awareness
   - Modular design allows easy extension
 
+## ADR-010: Workflow Automation Architecture
+- **Date**: 2025-07-25
+- **Status**: Accepted
+- **Context**: Need powerful workflow automation for complex development processes
+- **Decision**: Implement YAML-based workflow system with conditional logic and checkpoints
+- **Consequences**:
+  - YAML provides readable, version-controlled workflow definitions
+  - Conditional execution enables intelligent workflow paths
+  - Human-in-the-loop checkpoints ensure quality control
+  - Event-driven triggers automate workflow initiation
+  - Template inheritance reduces duplication
+  - State persistence enables workflow recovery
+
+## ADR-011: Pest for Condition Parsing
+- **Date**: 2025-07-25  
+- **Status**: Accepted
+- **Context**: Need to parse conditional expressions in workflows
+- **Decision**: Use Pest parser generator for condition syntax
+- **Consequences**:
+  - Clean grammar definition for expressions
+  - Type-safe parsing with good error messages
+  - Additional dependency but worth the robustness
+  - Extensible for future expression features
+
 ## ADR-009: Tera for Prompt Templates
 - **Date**: 2025-07-25
 - **Status**: Accepted

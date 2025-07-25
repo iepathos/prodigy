@@ -123,6 +123,10 @@ impl StateManager {
         Ok(())
     }
 
+    pub fn get_pool(&self) -> &Pool<Sqlite> {
+        &self.pool
+    }
+
     pub async fn record_spec_completion(&self, spec_id: &str) -> Result<()> {
         let mut state = self.get_current_state().await?;
 

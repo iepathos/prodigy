@@ -5,5 +5,6 @@ pub mod error;
 pub mod project;
 pub mod spec;
 pub mod state;
+pub mod workflow;
 
 pub use error::{Error, Result};
