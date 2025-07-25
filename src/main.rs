@@ -961,40 +961,50 @@ async fn handle_spec_command(
         }
 
         Add { description } => {
-            // Initialize Claude manager
-            let mut claude_config = mmm::claude::ClaudeConfig::default();
-            if let Ok(api_key) = std::env::var("CLAUDE_API_KEY") {
-                claude_config.api_key = api_key;
-            }
-
-            // Get config from project if available
-            let config = config_loader.get_config();
-            if let Some(project_config) = &config.project {
-                if let Some(api_key) = &project_config.claude_api_key {
-                    claude_config.api_key = api_key.clone();
-                }
-            }
-
-            // Check for global Claude API key if not set
-            if claude_config.api_key.is_empty() {
-                if let Some(api_key) = &config.global.claude_api_key {
-                    claude_config.api_key = api_key.clone();
-                }
-            }
-
-            if claude_config.api_key.is_empty() {
-                return Err(mmm::Error::Config(
-                    "Claude API key not configured. Set CLAUDE_API_KEY environment variable or configure in project.".to_string()
-                ));
-            }
-
-            let mut claude_manager = mmm::claude::ClaudeManager::new(claude_config)?;
-
             println!("🚀 Creating specification for: {description}");
-            let result = claude_manager
-                .execute_command("add-spec", vec![description])
-                .await?;
-            println!("{result}");
+
+            // Try Claude CLI first (no API key needed)
+            let result = execute_claude_cli_direct("add-spec", vec![description.clone()]).await;
+
+            match result {
+                Ok(output) => {
+                    println!("{output}");
+                }
+                Err(_) => {
+                    // Fallback to API-based approach if Claude CLI fails
+                    let mut claude_config = mmm::claude::ClaudeConfig::default();
+                    if let Ok(api_key) = std::env::var("CLAUDE_API_KEY") {
+                        claude_config.api_key = api_key;
+                    }
+
+                    // Get config from project if available
+                    let config = config_loader.get_config();
+                    if let Some(project_config) = &config.project {
+                        if let Some(api_key) = &project_config.claude_api_key {
+                            claude_config.api_key = api_key.clone();
+                        }
+                    }
+
+                    // Check for global Claude API key if not set
+                    if claude_config.api_key.is_empty() {
+                        if let Some(api_key) = &config.global.claude_api_key {
+                            claude_config.api_key = api_key.clone();
+                        }
+                    }
+
+                    if claude_config.api_key.is_empty() {
+                        return Err(mmm::Error::Config(
+                            "Claude CLI not available and Claude API key not configured. Please install Claude CLI or set CLAUDE_API_KEY environment variable.".to_string()
+                        ));
+                    }
+
+                    let mut claude_manager = mmm::claude::ClaudeManager::new(claude_config)?;
+                    let result = claude_manager
+                        .execute_command("add-spec", vec![description])
+                        .await?;
+                    println!("{result}");
+                }
+            }
         }
 
         Info { spec_id } => {
@@ -1139,42 +1149,106 @@ async fn handle_multi_command(
     Ok(())
 }
 
+/// Check if a command should use Claude CLI directly (without API key)
+fn is_claude_cli_command(command: &str) -> bool {
+    matches!(
+        command,
+        "lint"
+            | "claude-lint"
+            | "review"
+            | "claude-review"
+            | "implement-spec"
+            | "claude-implement-spec"
+            | "add-spec"
+            | "claude-add-spec"
+    )
+}
+
+/// Execute Claude CLI command directly
+async fn execute_claude_cli_direct(command: &str, args: Vec<String>) -> Result<String> {
+    use tokio::process::Command;
+
+    // Map MMM command to Claude CLI slash command
+    let slash_command = match command {
+        "lint" | "claude-lint" => "/lint",
+        "review" | "claude-review" => "/review",
+        "implement-spec" | "claude-implement-spec" => "/implement-spec",
+        "add-spec" | "claude-add-spec" => "/add-spec",
+        _ => {
+            return Err(mmm::Error::NotFound(format!(
+                "Unknown Claude CLI command: {command}"
+            )))
+        }
+    };
+
+    // Build command with arguments
+    let mut cmd_args = vec![slash_command.to_string()];
+    cmd_args.extend(args);
+
+    // Execute Claude CLI
+    let output = Command::new("claude")
+        .args(&cmd_args)
+        .output()
+        .await
+        .map_err(|e| mmm::Error::Other(format!("Failed to execute Claude CLI: {e}")))?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        let error = String::from_utf8_lossy(&output.stderr);
+        Err(mmm::Error::Other(format!(
+            "Claude CLI command failed: {error}"
+        )))
+    }
+}
+
 async fn handle_claude_command(cmd: ClaudeCommands, config_loader: &ConfigLoader) -> Result<()> {
     use mmm::claude::{ClaudeConfig, ClaudeManager};
     use ClaudeCommands::*;
 
-    // Load Claude configuration
-    let mut claude_config = ClaudeConfig::default();
-    if let Ok(api_key) = std::env::var("CLAUDE_API_KEY") {
-        claude_config.api_key = api_key;
-    }
-
-    // Get config from project if available
-    let config = config_loader.get_config();
-    // Check for project-specific Claude API key
-    if let Some(project_config) = &config.project {
-        if let Some(api_key) = &project_config.claude_api_key {
-            claude_config.api_key = api_key.clone();
-        }
-    }
-
-    // Check for global Claude API key if not set
-    if claude_config.api_key.is_empty() {
-        if let Some(api_key) = &config.global.claude_api_key {
-            claude_config.api_key = api_key.clone();
-        }
-    }
-
-    if claude_config.api_key.is_empty() {
-        return Err(mmm::Error::Config(
-            "Claude API key not configured. Set CLAUDE_API_KEY environment variable or configure in project.".to_string()
-        ));
-    }
-
-    let mut claude_manager = ClaudeManager::new(claude_config)?;
-
     match cmd {
         Run { command, args } => {
+            // Check if this is a Claude CLI command that can run without API key
+            if is_claude_cli_command(&command) {
+                info!(
+                    "Executing Claude CLI command: {} with args: {:?}",
+                    command, args
+                );
+                let result = execute_claude_cli_direct(&command, args).await?;
+                println!("{result}");
+                return Ok(());
+            }
+
+            // For non-Claude CLI commands, we need an API key
+            let mut claude_config = ClaudeConfig::default();
+            if let Ok(api_key) = std::env::var("CLAUDE_API_KEY") {
+                claude_config.api_key = api_key;
+            }
+
+            // Get config from project if available
+            let config = config_loader.get_config();
+            // Check for project-specific Claude API key
+            if let Some(project_config) = &config.project {
+                if let Some(api_key) = &project_config.claude_api_key {
+                    claude_config.api_key = api_key.clone();
+                }
+            }
+
+            // Check for global Claude API key if not set
+            if claude_config.api_key.is_empty() {
+                if let Some(api_key) = &config.global.claude_api_key {
+                    claude_config.api_key = api_key.clone();
+                }
+            }
+
+            if claude_config.api_key.is_empty() {
+                return Err(mmm::Error::Config(
+                    "Claude API key not configured. Set CLAUDE_API_KEY environment variable or configure in project.".to_string()
+                ));
+            }
+
+            let mut claude_manager = ClaudeManager::new(claude_config)?;
+
             info!(
                 "Executing Claude command: {} with args: {:?}",
                 command, args
@@ -1184,44 +1258,121 @@ async fn handle_claude_command(cmd: ClaudeCommands, config_loader: &ConfigLoader
         }
 
         Commands => {
-            let commands = claude_manager.commands.list_commands();
+            // For listing commands, we don't need an API key - just show available commands
             println!("Available Claude commands:");
-            for cmd in commands {
-                println!("  {} - {}", cmd.name, cmd.description);
-                if !cmd.aliases.is_empty() {
-                    println!("    Aliases: {}", cmd.aliases.join(", "));
+
+            // Show Claude CLI commands (if Claude CLI is available)
+            let claude_cli_available = tokio::process::Command::new("claude")
+                .arg("--help")
+                .output()
+                .await
+                .is_ok();
+
+            if claude_cli_available {
+                println!("  Claude CLI commands (no API key required):");
+                println!("    lint - Automatically detect and fix linting issues in the codebase");
+                println!("    review - Conduct comprehensive code review with quality analysis");
+                println!("    implement-spec - Implement specifications by reading spec files and executing implementation");
+                println!(
+                    "    add-spec - Generate new specification documents from feature descriptions"
+                );
+            }
+
+            // Try to load other commands if API key is available
+            let mut claude_config = ClaudeConfig::default();
+            if let Ok(api_key) = std::env::var("CLAUDE_API_KEY") {
+                claude_config.api_key = api_key;
+            }
+
+            let config = config_loader.get_config();
+            if let Some(project_config) = &config.project {
+                if let Some(api_key) = &project_config.claude_api_key {
+                    claude_config.api_key = api_key.clone();
+                }
+            }
+
+            if claude_config.api_key.is_empty() {
+                if let Some(api_key) = &config.global.claude_api_key {
+                    claude_config.api_key = api_key.clone();
+                }
+            }
+
+            if !claude_config.api_key.is_empty() {
+                if let Ok(claude_manager) = ClaudeManager::new(claude_config) {
+                    let commands = claude_manager.commands.list_commands();
+                    println!("  API-based commands:");
+                    for cmd in commands {
+                        if !is_claude_cli_command(&cmd.name) {
+                            println!("    {} - {}", cmd.name, cmd.description);
+                            if !cmd.aliases.is_empty() {
+                                println!("      Aliases: {}", cmd.aliases.join(", "));
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        Stats => {
-            let stats = claude_manager.token_tracker.get_stats();
-            println!("Token Usage Statistics:");
-            println!("  Today: {} tokens", stats.today_usage);
-            println!("  This week: {} tokens", stats.week_usage);
-            if let Some(limit) = stats.daily_limit {
-                println!("  Daily limit: {limit} tokens");
-                let percentage = (stats.today_usage as f64 / limit as f64 * 100.0) as u32;
-                println!("  Usage: {percentage}%");
+        Stats | ClearCache | Config { .. } => {
+            // These commands require API key
+            let mut claude_config = ClaudeConfig::default();
+            if let Ok(api_key) = std::env::var("CLAUDE_API_KEY") {
+                claude_config.api_key = api_key;
             }
-            if !stats.by_project.is_empty() {
-                println!("\nBy project (this week):");
-                for (project, tokens) in stats.by_project {
-                    println!("  {project}: {tokens} tokens");
+
+            let config = config_loader.get_config();
+            if let Some(project_config) = &config.project {
+                if let Some(api_key) = &project_config.claude_api_key {
+                    claude_config.api_key = api_key.clone();
                 }
             }
-        }
 
-        ClearCache => {
-            claude_manager.cache.clear()?;
-            info!("Claude response cache cleared");
-        }
+            if claude_config.api_key.is_empty() {
+                if let Some(api_key) = &config.global.claude_api_key {
+                    claude_config.api_key = api_key.clone();
+                }
+            }
 
-        Config { key, value } => {
-            config_loader
-                .set_project_value(&format!("claude.{key}"), &value)
-                .await?;
-            info!("Set claude.{} = {}", key, value);
+            if claude_config.api_key.is_empty() {
+                return Err(mmm::Error::Config(
+                    "Claude API key not configured. Set CLAUDE_API_KEY environment variable or configure in project.".to_string()
+                ));
+            }
+
+            let claude_manager = ClaudeManager::new(claude_config)?;
+
+            match cmd {
+                Stats => {
+                    let stats = claude_manager.token_tracker.get_stats();
+                    println!("Token Usage Statistics:");
+                    println!("  Today: {} tokens", stats.today_usage);
+                    println!("  This week: {} tokens", stats.week_usage);
+                    if let Some(limit) = stats.daily_limit {
+                        println!("  Daily limit: {limit} tokens");
+                        let percentage = (stats.today_usage as f64 / limit as f64 * 100.0) as u32;
+                        println!("  Usage: {percentage}%");
+                    }
+                    if !stats.by_project.is_empty() {
+                        println!("\nBy project (this week):");
+                        for (project, tokens) in stats.by_project {
+                            println!("  {project}: {tokens} tokens");
+                        }
+                    }
+                }
+
+                ClearCache => {
+                    claude_manager.cache.clear()?;
+                    info!("Claude response cache cleared");
+                }
+
+                Config { key, value } => {
+                    config_loader
+                        .set_project_value(&format!("claude.{key}"), &value)
+                        .await?;
+                    info!("Set claude.{} = {}", key, value);
+                }
+                _ => unreachable!(), // Other cases handled above
+            }
         }
     }
 
