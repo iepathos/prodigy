@@ -81,6 +81,24 @@ Memento Mori Manager is designed as a modular, extensible project management sys
   - `event.rs`: Event system and triggers
   - `template.rs`: Template inheritance resolver
 
+### 8. Plugin System
+- Extensible plugin architecture supporting multiple formats
+- Sandboxed execution with resource monitoring and limits
+- Comprehensive API for mmm integration (project, state, Claude, workflows)
+- Permission-based security model with fine-grained access control
+- Plugin marketplace for discovery, installation, and distribution
+- Multiple plugin types: command, hook, integration, reporter, analyzer
+- Hot-reload capability for development workflows
+- Plugin development kit with templates and CLI tooling
+- Location: `src/plugin/`
+  - `manager.rs`: Plugin lifecycle and coordination
+  - `registry.rs`: Plugin discovery and dependency management
+  - `loader.rs`: Multi-format plugin loading (dynamic libs, WASM, scripts)
+  - `sandbox.rs`: Isolated execution environment with resource limits
+  - `security.rs`: Permission management and access control
+  - `api.rs`: Plugin API implementation for mmm services
+  - `marketplace.rs`: Plugin marketplace integration and package management
+
 ## Data Flow
 1. User creates specifications in markdown format
 2. Specification Engine parses and validates specs
@@ -138,7 +156,15 @@ src/
 │   ├── checkpoint.rs # Checkpoint manager
 │   ├── event.rs      # Event system
 │   └── template.rs   # Template resolver
-├── plugin/           # Plugin system (planned)
-├── monitor/          # Monitoring and reporting (planned)
+├── plugin/           # Plugin system
+│   ├── mod.rs        # Plugin types and module exports
+│   ├── manager.rs    # Plugin lifecycle management
+│   ├── registry.rs   # Plugin registry and discovery
+│   ├── loader.rs     # Plugin loading from multiple formats
+│   ├── sandbox.rs    # Sandboxed execution environment
+│   ├── security.rs   # Permission management and security
+│   ├── api.rs        # Plugin API for mmm integration
+│   └── marketplace.rs # Plugin marketplace integration
+├── monitor/          # Monitoring and reporting
 └── error.rs          # Error handling
 ```

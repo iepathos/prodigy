@@ -95,14 +95,16 @@
 
 ## ADR-003: Plugin Architecture
 - **Date**: 2025-07-25
-- **Status**: Proposed
-- **Context**: Need extensibility without modifying core
-- **Decision**: Implement plugin system using dynamic loading
+- **Status**: Accepted
+- **Context**: Need extensible architecture for third-party integrations and custom functionality
+- **Decision**: Implement comprehensive plugin system with multiple format support and sandboxed execution
 - **Consequences**:
-  - Extensible architecture
-  - Third-party plugin support
-  - Additional complexity
-  - Security considerations for plugins
+  - Extensible architecture supporting dynamic libraries, WebAssembly, and scripts
+  - Robust security model with permission-based access control
+  - Plugin marketplace for distribution and discovery
+  - Comprehensive API providing access to mmm's core functionality
+  - Additional complexity but enables unlimited extensibility
+  - Strong foundation for third-party ecosystem development
 
 ## ADR-005: Runtime SQL Queries vs Compile-time Macros
 - **Date**: 2025-07-25

@@ -3,6 +3,7 @@ pub mod command;
 pub mod config;
 pub mod error;
 pub mod monitor;
+pub mod plugin;
 pub mod project;
 pub mod spec;
 pub mod state;
