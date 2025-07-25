@@ -48,6 +48,13 @@ This directory contains detailed specifications for building out mmm as a compre
    - Sandboxed execution
    - Security model
 
+7. **[Claude CLI UX Improvements](07-claude-cli-ux.md)**
+   - Real-time output streaming
+   - Progress indicators for long-running commands
+   - Background job execution
+   - Job management and monitoring
+   - Enhanced user feedback
+
 ## Implementation Strategy
 
 ### Phase 1: Foundation (Specs 1-2)
@@ -79,6 +86,12 @@ This directory contains detailed specifications for building out mmm as a compre
 - Implement plugin loading
 - Create plugin marketplace
 - Add security sandbox
+
+### Phase 6: UX Enhancement (Spec 7)
+- Implement real-time output streaming
+- Add background job system
+- Create job management commands
+- Improve Claude CLI feedback
 
 ## Key Design Principles
 
