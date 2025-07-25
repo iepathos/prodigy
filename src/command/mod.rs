@@ -1,7 +1,6 @@
-use crate::{Error, Result};
+use crate::Result;
 use async_trait::async_trait;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 pub mod dispatcher;
 pub mod history;

@@ -1,7 +1,6 @@
 use crate::error::{Error, Result};
-use async_trait::async_trait;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
@@ -141,7 +140,7 @@ impl PluginManager {
         drop(loaded_plugins);
 
         // Check version compatibility
-        self.check_version_compatibility(&plugin_info)?;
+        self.check_version_compatibility(plugin_info)?;
 
         // Request permissions
         let mut permission_manager = self.permission_manager.write().await;
@@ -151,8 +150,7 @@ impl PluginManager {
 
         if !permissions_granted {
             return Err(Error::PermissionDenied(format!(
-                "Permissions not granted for plugin {}",
-                name
+                "Permissions not granted for plugin {name}"
             )));
         }
 
@@ -309,8 +307,7 @@ impl PluginManager {
                 .any(|cap| matches!(cap, super::Capability::Command { .. }))
             {
                 return Err(Error::InvalidOperation(format!(
-                    "Plugin {} does not support commands",
-                    plugin_id
+                    "Plugin {plugin_id} does not support commands"
                 )));
             }
 
@@ -368,7 +365,7 @@ impl PluginManager {
         ]
     }
 
-    async fn scan_plugin_directory(&self, path: &PathBuf) -> Result<PluginInfo> {
+    async fn scan_plugin_directory(&self, path: &Path) -> Result<PluginInfo> {
         let manifest_path = path.join("plugin.toml");
 
         if !manifest_path.exists() {
@@ -383,7 +380,7 @@ impl PluginManager {
             .map_err(|e| Error::IO(e.to_string()))?;
 
         let manifest: super::PluginManifest = toml::from_str(&manifest_content)
-            .map_err(|e| Error::InvalidPlugin(format!("Invalid plugin.toml: {}", e)))?;
+            .map_err(|e| Error::InvalidPlugin(format!("Invalid plugin.toml: {e}")))?;
 
         // Convert manifest to PluginInfo
         let plugin_info = PluginInfo {
@@ -392,7 +389,7 @@ impl PluginManager {
             version: manifest.plugin.version,
             author: manifest.plugin.author,
             description: manifest.plugin.description,
-            path: path.clone(),
+            path: path.to_path_buf(),
             manifest_path,
             requested_permissions: self.parse_permissions(&manifest.permissions),
             capabilities: self.parse_capabilities(&manifest.capabilities),
@@ -505,7 +502,7 @@ impl PluginManager {
 
     fn check_version_compatibility(&self, plugin_info: &PluginInfo) -> Result<()> {
         let current_version = semver::Version::parse(env!("CARGO_PKG_VERSION"))
-            .map_err(|e| Error::Internal(format!("Invalid current version: {}", e)))?;
+            .map_err(|e| Error::Internal(format!("Invalid current version: {e}")))?;
 
         // Check minimum version requirement
         if current_version < plugin_info.min_mmm_version {

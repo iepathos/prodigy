@@ -1,7 +1,5 @@
-use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
-use tokio::fs;
+use std::path::PathBuf;
 
 pub mod loader;
 pub mod validator;
@@ -9,19 +7,10 @@ pub mod validator;
 pub use loader::ConfigLoader;
 pub use validator::ConfigValidator;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     pub global: GlobalConfig,
     pub project: Option<ProjectConfig>,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            global: GlobalConfig::default(),
-            project: None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

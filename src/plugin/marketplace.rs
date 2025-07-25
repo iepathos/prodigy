@@ -2,7 +2,7 @@ use crate::error::{Error, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tokio::fs;
 use tracing::{debug, info, warn};
 
@@ -43,7 +43,7 @@ impl PluginMarketplace {
         let response = request
             .send()
             .await
-            .map_err(|e| Error::Network(format!("Failed to search marketplace: {}", e)))?;
+            .map_err(|e| Error::Network(format!("Failed to search marketplace: {e}")))?;
 
         if !response.status().is_success() {
             return Err(Error::Network(format!(
@@ -52,9 +52,10 @@ impl PluginMarketplace {
             )));
         }
 
-        let search_response: SearchResponse = response.json().await.map_err(|e| {
-            Error::Deserialization(format!("Failed to parse search response: {}", e))
-        })?;
+        let search_response: SearchResponse = response
+            .json()
+            .await
+            .map_err(|e| Error::Deserialization(format!("Failed to parse search response: {e}")))?;
 
         Ok(search_response.plugins)
     }
@@ -73,7 +74,7 @@ impl PluginMarketplace {
         let response = request
             .send()
             .await
-            .map_err(|e| Error::Network(format!("Failed to get plugin info: {}", e)))?;
+            .map_err(|e| Error::Network(format!("Failed to get plugin info: {e}")))?;
 
         if !response.status().is_success() {
             return Err(Error::Network(format!(
@@ -85,7 +86,7 @@ impl PluginMarketplace {
         let plugin: PluginListing = response
             .json()
             .await
-            .map_err(|e| Error::Deserialization(format!("Failed to parse plugin info: {}", e)))?;
+            .map_err(|e| Error::Deserialization(format!("Failed to parse plugin info: {e}")))?;
 
         Ok(plugin)
     }
@@ -105,8 +106,7 @@ impl PluginMarketplace {
             Some(v) => {
                 if !plugin_info.versions.contains_key(v) {
                     return Err(Error::InvalidVersion(format!(
-                        "Version {} not found for plugin {}",
-                        v, plugin_name
+                        "Version {v} not found for plugin {plugin_name}"
                     )));
                 }
                 v.to_string()
@@ -126,7 +126,7 @@ impl PluginMarketplace {
 
         // Download plugin
         let download_info = plugin_info.versions.get(&install_version).ok_or_else(|| {
-            Error::InvalidVersion(format!("Version {} info not found", install_version))
+            Error::InvalidVersion(format!("Version {install_version} info not found"))
         })?;
 
         let plugin_data = self.download_plugin(download_info).await?;
@@ -197,7 +197,7 @@ impl PluginMarketplace {
         // Remove plugin directory
         fs::remove_dir_all(&install_dir)
             .await
-            .map_err(|e| Error::IO(format!("Failed to remove plugin directory: {}", e)))?;
+            .map_err(|e| Error::IO(format!("Failed to remove plugin directory: {e}")))?;
 
         info!("Successfully uninstalled plugin: {}", plugin_name);
         Ok(())
@@ -310,10 +310,10 @@ impl PluginMarketplace {
         let manifest_path = plugin_path.join("plugin.toml");
         let manifest_content = fs::read_to_string(&manifest_path)
             .await
-            .map_err(|e| Error::IO(format!("Failed to read manifest: {}", e)))?;
+            .map_err(|e| Error::IO(format!("Failed to read manifest: {e}")))?;
 
         let manifest: super::PluginManifest = toml::from_str(&manifest_content)
-            .map_err(|e| Error::InvalidPlugin(format!("Invalid manifest: {}", e)))?;
+            .map_err(|e| Error::InvalidPlugin(format!("Invalid manifest: {e}")))?;
 
         // Create plugin package
         let package_path = self.create_package(plugin_path, &manifest).await?;
@@ -323,7 +323,7 @@ impl PluginMarketplace {
 
         let package_data = fs::read(&package_path)
             .await
-            .map_err(|e| Error::IO(format!("Failed to read package: {}", e)))?;
+            .map_err(|e| Error::IO(format!("Failed to read package: {e}")))?;
 
         let form = reqwest::multipart::Form::new()
             .part(
@@ -341,7 +341,7 @@ impl PluginMarketplace {
             .multipart(form)
             .send()
             .await
-            .map_err(|e| Error::Network(format!("Failed to publish plugin: {}", e)))?;
+            .map_err(|e| Error::Network(format!("Failed to publish plugin: {e}")))?;
 
         if !response.status().is_success() {
             return Err(Error::Network(format!(
@@ -368,7 +368,7 @@ impl PluginMarketplace {
         let response = request
             .send()
             .await
-            .map_err(|e| Error::Network(format!("Failed to download plugin: {}", e)))?;
+            .map_err(|e| Error::Network(format!("Failed to download plugin: {e}")))?;
 
         if !response.status().is_success() {
             return Err(Error::Network(format!(
@@ -380,12 +380,12 @@ impl PluginMarketplace {
         let bytes = response
             .bytes()
             .await
-            .map_err(|e| Error::Network(format!("Failed to read plugin data: {}", e)))?;
+            .map_err(|e| Error::Network(format!("Failed to read plugin data: {e}")))?;
 
         Ok(bytes.to_vec())
     }
 
-    fn verify_signature(&self, data: &[u8], signature: &str) -> Result<()> {
+    fn verify_signature(&self, _data: &[u8], signature: &str) -> Result<()> {
         // In a real implementation, this would verify cryptographic signature
         debug!("Verifying plugin signature: {}", signature);
 
@@ -404,21 +404,21 @@ impl PluginMarketplace {
         // Create install directory
         fs::create_dir_all(&install_dir)
             .await
-            .map_err(|e| Error::IO(format!("Failed to create install directory: {}", e)))?;
+            .map_err(|e| Error::IO(format!("Failed to create install directory: {e}")))?;
 
         // Write archive to temporary file
         let temp_path = install_dir.join("plugin.tar.gz");
         fs::write(&temp_path, data)
             .await
-            .map_err(|e| Error::IO(format!("Failed to write plugin archive: {}", e)))?;
+            .map_err(|e| Error::IO(format!("Failed to write plugin archive: {e}")))?;
 
         // Extract archive (using tar command for simplicity)
         let output = tokio::process::Command::new("tar")
-            .args(&["-xzf", "plugin.tar.gz"])
+            .args(["-xzf", "plugin.tar.gz"])
             .current_dir(&install_dir)
             .output()
             .await
-            .map_err(|e| Error::Command(format!("Failed to extract plugin: {}", e)))?;
+            .map_err(|e| Error::Command(format!("Failed to extract plugin: {e}")))?;
 
         if !output.status.success() {
             return Err(Error::Command(format!(
@@ -450,7 +450,7 @@ impl PluginMarketplace {
             .current_dir(plugin_path)
             .output()
             .await
-            .map_err(|e| Error::Command(format!("Failed to run post-install script: {}", e)))?;
+            .map_err(|e| Error::Command(format!("Failed to run post-install script: {e}")))?;
 
         if !output.status.success() {
             warn!(
@@ -479,7 +479,7 @@ impl PluginMarketplace {
             .current_dir(plugin_path)
             .output()
             .await
-            .map_err(|e| Error::Command(format!("Failed to run pre-uninstall script: {}", e)))?;
+            .map_err(|e| Error::Command(format!("Failed to run pre-uninstall script: {e}")))?;
 
         if !output.status.success() {
             warn!(
@@ -493,7 +493,7 @@ impl PluginMarketplace {
 
     async fn create_package(
         &self,
-        plugin_path: &PathBuf,
+        plugin_path: &Path,
         manifest: &super::PluginManifest,
     ) -> Result<PathBuf> {
         let package_name = format!(
@@ -506,12 +506,12 @@ impl PluginMarketplace {
         if let Some(parent) = package_path.parent() {
             fs::create_dir_all(parent)
                 .await
-                .map_err(|e| Error::IO(format!("Failed to create packages directory: {}", e)))?;
+                .map_err(|e| Error::IO(format!("Failed to create packages directory: {e}")))?;
         }
 
         // Create tar archive
         let output = tokio::process::Command::new("tar")
-            .args(&[
+            .args([
                 "-czf",
                 package_path.to_str().unwrap(),
                 "-C",
@@ -520,7 +520,7 @@ impl PluginMarketplace {
             ])
             .output()
             .await
-            .map_err(|e| Error::Command(format!("Failed to create package: {}", e)))?;
+            .map_err(|e| Error::Command(format!("Failed to create package: {e}")))?;
 
         if !output.status.success() {
             return Err(Error::Command(format!(

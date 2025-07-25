@@ -21,21 +21,11 @@ pub struct CommandConfig {
 }
 
 /// Command-specific settings
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CommandSettings {
     pub temperature: Option<f32>,
     pub max_tokens: Option<usize>,
     pub model_override: Option<String>,
-}
-
-impl Default for CommandSettings {
-    fn default() -> Self {
-        Self {
-            temperature: None,
-            max_tokens: None,
-            model_override: None,
-        }
-    }
 }
 
 /// Registry for Claude commands
@@ -171,7 +161,7 @@ impl CommandRegistry {
         // Register aliases
         for alias in &config.aliases {
             if self.aliases.contains_key(alias) {
-                return Err(Error::Config(format!("Alias '{}' already in use", alias)));
+                return Err(Error::Config(format!("Alias '{alias}' already in use")));
             }
             self.aliases.insert(alias.clone(), config.name.clone());
         }
@@ -191,7 +181,7 @@ impl CommandRegistry {
 
         self.commands
             .get(name)
-            .ok_or_else(|| Error::NotFound(format!("Command '{}' not found", name_or_alias)))
+            .ok_or_else(|| Error::NotFound(format!("Command '{name_or_alias}' not found")))
     }
 
     /// List all available commands
@@ -203,10 +193,10 @@ impl CommandRegistry {
 
     /// Load commands from a TOML file
     pub fn load_commands_from_file(&mut self, path: &PathBuf) -> Result<()> {
-        let content = fs::read_to_string(path).map_err(|e| Error::Io(e))?;
+        let content = fs::read_to_string(path).map_err(Error::Io)?;
 
         let file_config: CommandsFile = toml::from_str(&content)
-            .map_err(|e| Error::Config(format!("Invalid commands TOML: {}", e)))?;
+            .map_err(|e| Error::Config(format!("Invalid commands TOML: {e}")))?;
 
         for command in file_config.commands {
             self.register_command(command)?;

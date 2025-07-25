@@ -1,8 +1,8 @@
 use super::{SpecMetadata, Specification};
-use crate::{Error, Result};
+use crate::Result;
 use gray_matter::engine::YAML;
 use gray_matter::Matter;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::path::Path;
 use tokio::fs;
 
@@ -20,6 +20,12 @@ struct SpecFrontmatter {
 
 pub struct SpecParser {
     matter: Matter<YAML>,
+}
+
+impl Default for SpecParser {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SpecParser {
@@ -91,11 +97,11 @@ impl SpecParser {
         let mut current_content = String::new();
 
         for line in content.lines() {
-            if line.starts_with("## ") {
+            if let Some(stripped) = line.strip_prefix("## ") {
                 if !current_section.is_empty() {
                     sections.insert(current_section.clone(), current_content.trim().to_string());
                 }
-                current_section = line[3..].to_string();
+                current_section = stripped.to_string();
                 current_content = String::new();
             } else {
                 current_content.push_str(line);

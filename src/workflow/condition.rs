@@ -1,7 +1,6 @@
 use anyhow::{Context, Result};
 use pest_derive::Parser;
 use serde_json::Value;
-use std::collections::HashMap;
 
 use super::WorkflowContext;
 
@@ -10,6 +9,12 @@ use super::WorkflowContext;
 struct ConditionParser;
 
 pub struct ConditionEvaluator {}
+
+impl Default for ConditionEvaluator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl ConditionEvaluator {
     pub fn new() -> Self {

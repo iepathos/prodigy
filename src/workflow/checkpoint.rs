@@ -1,12 +1,10 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
-
-use super::WorkflowState;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PendingCheckpoint {
@@ -63,7 +61,7 @@ impl NotificationService for ConsoleNotificationService {
             }
         }
         if let Some(expires_at) = checkpoint.expires_at {
-            println!("  Expires at: {}", expires_at);
+            println!("  Expires at: {expires_at}");
         }
         println!(
             "\n  Respond with: mmm workflow checkpoint respond {} <option>\n",

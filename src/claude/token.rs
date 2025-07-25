@@ -53,8 +53,7 @@ impl TokenTracker {
             let today_usage = self.get_today_usage();
             if today_usage + estimated_tokens > limit {
                 return Err(Error::Validation(format!(
-                    "Daily token limit exceeded. Used: {}, Limit: {}, Requested: {}",
-                    today_usage, limit, estimated_tokens
+                    "Daily token limit exceeded. Used: {today_usage}, Limit: {limit}, Requested: {estimated_tokens}"
                 )));
             }
 
@@ -174,23 +173,22 @@ impl TokenTracker {
             return Ok(Vec::new());
         }
 
-        let content = fs::read_to_string(path).map_err(|e| Error::Io(e))?;
+        let content = fs::read_to_string(path).map_err(Error::Io)?;
 
-        serde_json::from_str(&content)
-            .map_err(|e| Error::Parse(format!("Invalid usage JSON: {}", e)))
+        serde_json::from_str(&content).map_err(|e| Error::Parse(format!("Invalid usage JSON: {e}")))
     }
 
     /// Save usage to file
     fn save_usage(&self) -> Result<()> {
         // Create directory if needed
         if let Some(parent) = self.usage_file.parent() {
-            fs::create_dir_all(parent).map_err(|e| Error::Io(e))?;
+            fs::create_dir_all(parent).map_err(Error::Io)?;
         }
 
         let json = serde_json::to_string_pretty(&self.current_usage)
-            .map_err(|e| Error::Parse(format!("Failed to serialize usage: {}", e)))?;
+            .map_err(|e| Error::Parse(format!("Failed to serialize usage: {e}")))?;
 
-        fs::write(&self.usage_file, json).map_err(|e| Error::Io(e))?;
+        fs::write(&self.usage_file, json).map_err(Error::Io)?;
 
         Ok(())
     }

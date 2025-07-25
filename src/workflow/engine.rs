@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
@@ -128,10 +128,10 @@ impl WorkflowEngine {
             for (j, step) in stage.steps.iter().enumerate() {
                 println!("     {}. {}", j + 1, step.name);
                 if let Some(command) = &step.command {
-                    println!("        Command: {}", command);
+                    println!("        Command: {command}");
                 }
                 if let Some(condition) = &step.condition {
-                    println!("        Condition: {}", condition);
+                    println!("        Condition: {condition}");
                 }
             }
         }

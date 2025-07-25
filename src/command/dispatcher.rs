@@ -9,6 +9,12 @@ pub struct CommandDispatcher {
     history: CommandHistory,
 }
 
+impl Default for CommandDispatcher {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CommandDispatcher {
     pub fn new() -> Self {
         Self {
@@ -27,7 +33,7 @@ impl CommandDispatcher {
         context: CommandContext,
     ) -> Result<CommandOutput> {
         let parts: Vec<String> = shell_words::split(command_line)
-            .map_err(|e| Error::Command(format!("Failed to parse command: {}", e)))?;
+            .map_err(|e| Error::Command(format!("Failed to parse command: {e}")))?;
 
         if parts.is_empty() {
             return Err(Error::Command("Empty command".to_string()));
@@ -41,7 +47,7 @@ impl CommandDispatcher {
         let command = self
             .registry
             .get_command(command_name)
-            .ok_or_else(|| Error::Command(format!("Unknown command: {}", command_name)))?;
+            .ok_or_else(|| Error::Command(format!("Unknown command: {command_name}")))?;
 
         command.validate_args(&args)?;
 
@@ -100,7 +106,7 @@ impl CommandDispatcher {
             .history
             .get_command(index)
             .await?
-            .ok_or_else(|| Error::Command(format!("No command at index {}", index)))?;
+            .ok_or_else(|| Error::Command(format!("No command at index {index}")))?;
 
         self.dispatch(&command, context).await
     }

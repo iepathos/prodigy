@@ -105,11 +105,7 @@ impl PluginSandbox {
 
         let execution_stats = ExecutionStats {
             duration: end_time - start_time,
-            memory_used_mb: if end_memory > start_memory {
-                end_memory - start_memory
-            } else {
-                0
-            },
+            memory_used_mb: end_memory.saturating_sub(start_memory),
             peak_memory_mb: end_memory,
         };
 
@@ -251,24 +247,22 @@ impl std::fmt::Display for ResourceViolation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ResourceViolation::MemoryExceeded { current, limit } => {
-                write!(f, "Memory usage exceeded: {}MB > {}MB", current, limit)
+                write!(f, "Memory usage exceeded: {current}MB > {limit}MB")
             }
             ResourceViolation::FileOpsExceeded { current, limit } => {
                 write!(
                     f,
-                    "File operations rate exceeded: {} > {} ops/sec",
-                    current, limit
+                    "File operations rate exceeded: {current} > {limit} ops/sec"
                 )
             }
             ResourceViolation::NetworkRateExceeded { current, limit } => {
                 write!(
                     f,
-                    "Network request rate exceeded: {} > {} req/min",
-                    current, limit
+                    "Network request rate exceeded: {current} > {limit} req/min"
                 )
             }
             ResourceViolation::ExecutionTimeExceeded { duration, limit } => {
-                write!(f, "Execution time exceeded: {:?} > {:?}", duration, limit)
+                write!(f, "Execution time exceeded: {duration:?} > {limit:?}")
             }
         }
     }
@@ -323,6 +317,12 @@ impl WasmModule {
 #[derive(Debug)]
 pub struct ProcessIsolation {
     // This would contain process management structures
+}
+
+impl Default for ProcessIsolation {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ProcessIsolation {

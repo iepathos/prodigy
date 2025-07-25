@@ -9,6 +9,12 @@ pub struct WorkflowParser {
     template_resolver: super::template::TemplateResolver,
 }
 
+impl Default for WorkflowParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WorkflowParser {
     pub fn new() -> Self {
         Self {

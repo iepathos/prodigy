@@ -1,7 +1,5 @@
 use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
 
 pub mod engine;
 pub mod parser;
@@ -32,19 +30,14 @@ pub struct SpecMetadata {
     pub estimated_hours: Option<f32>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub enum SpecStatus {
+    #[default]
     Pending,
     InProgress,
     Completed,
     Failed,
     Blocked,
-}
-
-impl Default for SpecStatus {
-    fn default() -> Self {
-        SpecStatus::Pending
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

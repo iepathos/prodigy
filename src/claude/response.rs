@@ -3,7 +3,6 @@
 use crate::error::{Error, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// Parsed response content
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,6 +62,12 @@ pub struct ValidationResult {
 pub struct ResponseProcessor {
     parsers: Vec<Box<dyn ResponseParser>>,
     validators: Vec<Box<dyn ResponseValidator>>,
+}
+
+impl Default for ResponseProcessor {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ResponseProcessor {

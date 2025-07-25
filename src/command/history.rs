@@ -18,6 +18,12 @@ struct HistoryEntry {
     success: Option<bool>,
 }
 
+impl Default for CommandHistory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CommandHistory {
     pub fn new() -> Self {
         Self {
@@ -51,7 +57,7 @@ impl CommandHistory {
             self.memory.pop_front();
         }
 
-        if let Some(file) = &self.history_file {
+        if let Some(_file) = &self.history_file {
             self.append_to_file(&command).await?;
         }
 
@@ -83,7 +89,7 @@ impl CommandHistory {
 
     pub async fn search(&self, pattern: &str) -> Result<Vec<String>> {
         let regex = regex::Regex::new(pattern)
-            .map_err(|e| Error::Command(format!("Invalid search pattern: {}", e)))?;
+            .map_err(|e| Error::Command(format!("Invalid search pattern: {e}")))?;
 
         let matches: Vec<String> = self
             .memory
@@ -134,7 +140,7 @@ impl CommandHistory {
                 .await?;
 
             file_handle
-                .write_all(format!("{}\n", command).as_bytes())
+                .write_all(format!("{command}\n").as_bytes())
                 .await?;
             file_handle.flush().await?;
         }

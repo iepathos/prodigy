@@ -1,10 +1,8 @@
 use anyhow::{Context as AnyhowContext, Result};
 use async_trait::async_trait;
-use futures::future::{join_all, try_join_all};
 use std::collections::HashMap;
 use std::process::Command;
 use std::time::{Duration, Instant};
-use tokio::time::timeout;
 
 use super::{
     FailureStrategy, Stage, StageResult, Step, StepResult, StepType, Workflow, WorkflowContext,
@@ -28,6 +26,12 @@ pub trait WorkflowExecutor: Send + Sync {
 
 pub struct SequentialExecutor {
     condition_evaluator: super::condition::ConditionEvaluator,
+}
+
+impl Default for SequentialExecutor {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SequentialExecutor {
@@ -275,6 +279,12 @@ impl SequentialExecutor {
 
 pub struct ParallelExecutor {
     sequential_executor: SequentialExecutor,
+}
+
+impl Default for ParallelExecutor {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ParallelExecutor {

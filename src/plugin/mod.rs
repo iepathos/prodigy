@@ -1,9 +1,9 @@
-use crate::error::{Error, Result};
+use crate::error::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::PathBuf;
-use tracing::{debug, info, warn};
+use tracing::warn;
 use uuid::Uuid;
 
 pub mod api;
@@ -205,7 +205,7 @@ impl EventBus {
     pub fn subscribe(&mut self, event_type: &str, callback: EventCallback) {
         self.subscribers
             .entry(event_type.to_string())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(callback);
     }
 

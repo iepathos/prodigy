@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -111,6 +111,12 @@ pub struct EventTrigger {
 pub struct EventBus {
     sender: broadcast::Sender<WorkflowEvent>,
     triggers: Arc<RwLock<Vec<EventTrigger>>>,
+}
+
+impl Default for EventBus {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl EventBus {

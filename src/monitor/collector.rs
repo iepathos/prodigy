@@ -24,6 +24,12 @@ pub struct MetricsCollector {
     last_collection: Arc<Mutex<HashMap<String, Instant>>>,
 }
 
+impl Default for MetricsCollector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MetricsCollector {
     pub fn new() -> Self {
         Self {
@@ -57,7 +63,7 @@ impl MetricsCollector {
                         last_collection.insert(name.to_string(), Instant::now());
                     }
                     Err(e) => {
-                        log::error!("Failed to collect metrics from {}: {}", name, e);
+                        log::error!("Failed to collect metrics from {name}: {e}");
                     }
                 }
             }
@@ -254,6 +260,12 @@ impl MetricCollector for SpecMetricsCollector {
 }
 
 pub struct SystemMetricsCollector;
+
+impl Default for SystemMetricsCollector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl SystemMetricsCollector {
     pub fn new() -> Self {

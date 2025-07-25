@@ -44,6 +44,12 @@ impl ReportExporter for HTMLExporter {
 
 pub struct MarkdownExporter;
 
+impl Default for MarkdownExporter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MarkdownExporter {
     pub fn new() -> Self {
         Self
@@ -71,7 +77,7 @@ impl ReportExporter for MarkdownExporter {
         for section in &report.sections {
             match section {
                 ReportSection::Summary { title, metrics } => {
-                    markdown.push_str(&format!("## {}\n\n", title));
+                    markdown.push_str(&format!("## {title}\n\n"));
 
                     for metric in metrics {
                         let value_str = if let Some(unit) = &metric.unit {
@@ -92,7 +98,7 @@ impl ReportExporter for MarkdownExporter {
                             metric.name, value_str, change_str
                         ));
                     }
-                    markdown.push_str("\n");
+                    markdown.push('\n');
                 }
 
                 ReportSection::Chart {
@@ -100,8 +106,8 @@ impl ReportExporter for MarkdownExporter {
                     chart_type,
                     data,
                 } => {
-                    markdown.push_str(&format!("## {}\n\n", title));
-                    markdown.push_str(&format!("*Chart: {:?}*\n\n", chart_type));
+                    markdown.push_str(&format!("## {title}\n\n"));
+                    markdown.push_str(&format!("*Chart: {chart_type:?}*\n\n"));
 
                     // Simple ASCII chart for markdown
                     if !data.datasets.is_empty() && !data.datasets[0].data.is_empty() {
@@ -119,7 +125,7 @@ impl ReportExporter for MarkdownExporter {
                             }
                         }
                     }
-                    markdown.push_str("\n");
+                    markdown.push('\n');
                 }
 
                 ReportSection::Table {
@@ -127,10 +133,10 @@ impl ReportExporter for MarkdownExporter {
                     columns,
                     rows,
                 } => {
-                    markdown.push_str(&format!("## {}\n\n", title));
+                    markdown.push_str(&format!("## {title}\n\n"));
 
                     // Table header
-                    markdown.push_str("|");
+                    markdown.push('|');
                     for col in columns {
                         markdown.push_str(&format!(" {} |", col.name));
                     }
@@ -138,31 +144,31 @@ impl ReportExporter for MarkdownExporter {
                     for _ in columns {
                         markdown.push_str(" --- |");
                     }
-                    markdown.push_str("\n");
+                    markdown.push('\n');
 
                     // Table rows
                     for row in rows {
-                        markdown.push_str("|");
+                        markdown.push('|');
                         for col in columns {
                             let value = row
                                 .get(&col.field)
                                 .map(|v| v.to_string())
                                 .unwrap_or_else(|| "-".to_string());
-                            markdown.push_str(&format!(" {} |", value));
+                            markdown.push_str(&format!(" {value} |"));
                         }
-                        markdown.push_str("\n");
+                        markdown.push('\n');
                     }
-                    markdown.push_str("\n");
+                    markdown.push('\n');
                 }
 
                 ReportSection::Insights { title, content } => {
-                    markdown.push_str(&format!("## {}\n\n", title));
+                    markdown.push_str(&format!("## {title}\n\n"));
                     markdown.push_str(content);
                     markdown.push_str("\n\n");
                 }
 
                 ReportSection::Analysis { title, analysis } => {
-                    markdown.push_str(&format!("## {}\n\n", title));
+                    markdown.push_str(&format!("## {title}\n\n"));
 
                     // Findings
                     if !analysis.findings.is_empty() {
@@ -186,9 +192,9 @@ impl ReportExporter for MarkdownExporter {
                     if !analysis.recommendations.is_empty() {
                         markdown.push_str("### Recommendations\n\n");
                         for rec in &analysis.recommendations {
-                            markdown.push_str(&format!("- {}\n", rec));
+                            markdown.push_str(&format!("- {rec}\n"));
                         }
-                        markdown.push_str("\n");
+                        markdown.push('\n');
                     }
                 }
             }
@@ -203,6 +209,12 @@ impl ReportExporter for MarkdownExporter {
 }
 
 pub struct JSONExporter;
+
+impl Default for JSONExporter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl JSONExporter {
     pub fn new() -> Self {
@@ -223,6 +235,12 @@ impl ReportExporter for JSONExporter {
 }
 
 pub struct PDFExporter;
+
+impl Default for PDFExporter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl PDFExporter {
     pub fn new() -> Self {
@@ -272,8 +290,7 @@ impl MultiFormatExporter {
         }
 
         Err(crate::Error::NotFound(format!(
-            "No exporter found for format: {:?}",
-            format
+            "No exporter found for format: {format:?}"
         )))
     }
 

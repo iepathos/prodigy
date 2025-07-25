@@ -51,7 +51,7 @@ impl ResponseCache {
     /// Create with custom configuration
     pub fn with_config(cache_dir: PathBuf, config: CacheConfig) -> Result<Self> {
         // Create cache directory if needed
-        fs::create_dir_all(&cache_dir).map_err(|e| Error::Io(e))?;
+        fs::create_dir_all(&cache_dir).map_err(Error::Io)?;
 
         Ok(Self { cache_dir, config })
     }
@@ -59,7 +59,7 @@ impl ResponseCache {
     /// Get cached response if available and fresh
     pub fn get_cached(&self, prompt: &str) -> Option<CachedResponse> {
         let hash = self.hash_prompt(prompt);
-        let cache_file = self.cache_dir.join(format!("{}.json", hash));
+        let cache_file = self.cache_dir.join(format!("{hash}.json"));
 
         if !cache_file.exists() {
             return None;
@@ -84,7 +84,7 @@ impl ResponseCache {
     /// Store a response in cache
     pub fn store(&self, prompt: &str, response: &ClaudeResponse) -> Result<()> {
         let hash = self.hash_prompt(prompt);
-        let cache_file = self.cache_dir.join(format!("{}.json", hash));
+        let cache_file = self.cache_dir.join(format!("{hash}.json"));
 
         let cached = CachedResponse {
             response: response.content.clone(),
@@ -95,9 +95,9 @@ impl ResponseCache {
         };
 
         let json = serde_json::to_string_pretty(&cached)
-            .map_err(|e| Error::Parse(format!("Failed to serialize cache: {}", e)))?;
+            .map_err(|e| Error::Parse(format!("Failed to serialize cache: {e}")))?;
 
-        fs::write(&cache_file, json).map_err(|e| Error::Io(e))?;
+        fs::write(&cache_file, json).map_err(Error::Io)?;
 
         // Check cache size and clean if needed
         self.cleanup_if_needed()?;
@@ -145,8 +145,8 @@ impl ResponseCache {
         let mut cache_files = Vec::new();
 
         // Collect all cache files with metadata
-        for entry in fs::read_dir(&self.cache_dir).map_err(|e| Error::Io(e))? {
-            let entry = entry.map_err(|e| Error::Io(e))?;
+        for entry in fs::read_dir(&self.cache_dir).map_err(Error::Io)? {
+            let entry = entry.map_err(Error::Io)?;
             let path = entry.path();
 
             if path.extension().and_then(|s| s.to_str()) == Some("json") {
@@ -168,7 +168,7 @@ impl ResponseCache {
             // Remove oldest files until under limit
             let mut removed_size = 0;
             for (path, _, size) in cache_files {
-                fs::remove_file(&path).map_err(|e| Error::Io(e))?;
+                fs::remove_file(&path).map_err(Error::Io)?;
                 removed_size += size;
 
                 if total_size - removed_size <= max_size_bytes as u64 {
@@ -182,12 +182,12 @@ impl ResponseCache {
 
     /// Clear all cache
     pub fn clear(&self) -> Result<()> {
-        for entry in fs::read_dir(&self.cache_dir).map_err(|e| Error::Io(e))? {
-            let entry = entry.map_err(|e| Error::Io(e))?;
+        for entry in fs::read_dir(&self.cache_dir).map_err(Error::Io)? {
+            let entry = entry.map_err(Error::Io)?;
             let path = entry.path();
 
             if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                fs::remove_file(&path).map_err(|e| Error::Io(e))?;
+                fs::remove_file(&path).map_err(Error::Io)?;
             }
         }
 
@@ -201,8 +201,8 @@ impl ResponseCache {
         let mut oldest = SystemTime::now();
         let mut newest = SystemTime::UNIX_EPOCH;
 
-        for entry in fs::read_dir(&self.cache_dir).map_err(|e| Error::Io(e))? {
-            let entry = entry.map_err(|e| Error::Io(e))?;
+        for entry in fs::read_dir(&self.cache_dir).map_err(Error::Io)? {
+            let entry = entry.map_err(Error::Io)?;
             let path = entry.path();
 
             if path.extension().and_then(|s| s.to_str()) == Some("json") {

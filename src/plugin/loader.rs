@@ -1,8 +1,8 @@
 use crate::error::{Error, Result};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::{debug, info, warn};
 
-use super::{Plugin, PluginId, PluginMetadata};
+use super::{Plugin, PluginMetadata};
 
 /// Plugin loader handles loading plugins from various sources
 pub struct PluginLoader {
@@ -48,10 +48,10 @@ impl PluginLoader {
         let manifest_path = plugin_dir.join("plugin.toml");
         let manifest_content = tokio::fs::read_to_string(&manifest_path)
             .await
-            .map_err(|e| Error::IO(format!("Failed to read plugin manifest: {}", e)))?;
+            .map_err(|e| Error::IO(format!("Failed to read plugin manifest: {e}")))?;
 
         let manifest: super::PluginManifest = toml::from_str(&manifest_content)
-            .map_err(|e| Error::InvalidPlugin(format!("Invalid plugin manifest: {}", e)))?;
+            .map_err(|e| Error::InvalidPlugin(format!("Invalid plugin manifest: {e}")))?;
 
         // Determine plugin format
         let format = self.detect_plugin_format(plugin_dir)?;
@@ -67,7 +67,7 @@ impl PluginLoader {
     }
 
     /// Detect plugin format from directory contents
-    fn detect_plugin_format(&self, plugin_dir: &PathBuf) -> Result<PluginFormat> {
+    fn detect_plugin_format(&self, plugin_dir: &Path) -> Result<PluginFormat> {
         // Check for dynamic library
         let lib_extensions = if cfg!(target_os = "windows") {
             vec!["dll"]
@@ -78,8 +78,8 @@ impl PluginLoader {
         };
 
         for ext in &lib_extensions {
-            if plugin_dir.join(format!("libplugin.{}", ext)).exists()
-                || plugin_dir.join(format!("plugin.{}", ext)).exists()
+            if plugin_dir.join(format!("libplugin.{ext}")).exists()
+                || plugin_dir.join(format!("plugin.{ext}")).exists()
             {
                 return Ok(PluginFormat::DynamicLibrary);
             }
@@ -112,7 +112,7 @@ impl PluginLoader {
     /// Load a dynamic library plugin
     async fn load_dynamic_library(
         &self,
-        plugin_dir: &PathBuf,
+        plugin_dir: &Path,
         manifest: &super::PluginManifest,
     ) -> Result<Box<dyn Plugin>> {
         debug!(
@@ -121,7 +121,7 @@ impl PluginLoader {
         );
 
         // Find library file
-        let lib_file = self.find_library_file(plugin_dir)?;
+        let _lib_file = self.find_library_file(plugin_dir)?;
 
         // Create a stub plugin for now (actual dynamic loading would require unsafe code)
         let plugin = StubPlugin::new(manifest.plugin.clone());
@@ -133,7 +133,7 @@ impl PluginLoader {
     /// Load a WebAssembly plugin
     async fn load_webassembly(
         &self,
-        plugin_dir: &PathBuf,
+        plugin_dir: &Path,
         manifest: &super::PluginManifest,
     ) -> Result<Box<dyn Plugin>> {
         debug!("Loading WebAssembly plugin from: {}", plugin_dir.display());
@@ -155,7 +155,7 @@ impl PluginLoader {
     /// Load a script-based plugin
     async fn load_script(
         &self,
-        plugin_dir: &PathBuf,
+        plugin_dir: &Path,
         manifest: &super::PluginManifest,
         script_type: ScriptType,
     ) -> Result<Box<dyn Plugin>> {
@@ -196,7 +196,7 @@ impl PluginLoader {
         Ok(Box::new(plugin))
     }
 
-    fn find_library_file(&self, plugin_dir: &PathBuf) -> Result<PathBuf> {
+    fn find_library_file(&self, plugin_dir: &Path) -> Result<PathBuf> {
         let lib_extensions = if cfg!(target_os = "windows") {
             vec!["dll"]
         } else if cfg!(target_os = "macos") {
@@ -206,12 +206,12 @@ impl PluginLoader {
         };
 
         for ext in &lib_extensions {
-            let lib_path = plugin_dir.join(format!("libplugin.{}", ext));
+            let lib_path = plugin_dir.join(format!("libplugin.{ext}"));
             if lib_path.exists() {
                 return Ok(lib_path);
             }
 
-            let lib_path = plugin_dir.join(format!("plugin.{}", ext));
+            let lib_path = plugin_dir.join(format!("plugin.{ext}"));
             if lib_path.exists() {
                 return Ok(lib_path);
             }
@@ -337,7 +337,7 @@ impl ScriptPlugin {
             .args(&cmd_args)
             .output()
             .await
-            .map_err(|e| Error::PluginExecution(format!("Failed to execute script: {}", e)))?;
+            .map_err(|e| Error::PluginExecution(format!("Failed to execute script: {e}")))?;
 
         if !output.status.success() {
             return Err(Error::PluginExecution(format!(
@@ -382,7 +382,7 @@ impl Plugin for ScriptPlugin {
 #[async_trait::async_trait]
 impl super::CommandPlugin for ScriptPlugin {
     async fn execute(&self, args: super::CommandArgs) -> Result<super::CommandResult> {
-        let args_json = serde_json::to_string(&args).map_err(|e| Error::Serialization(e))?;
+        let args_json = serde_json::to_string(&args).map_err(Error::Serialization)?;
 
         let output = self.execute_script("execute", &[&args_json]).await?;
 
@@ -417,7 +417,7 @@ impl super::CommandPlugin for ScriptPlugin {
 #[async_trait::async_trait]
 impl super::HookPlugin for ScriptPlugin {
     async fn on_event(&mut self, event: super::Event) -> Result<Option<super::Action>> {
-        let event_json = serde_json::to_string(&event).map_err(|e| Error::Serialization(e))?;
+        let event_json = serde_json::to_string(&event).map_err(Error::Serialization)?;
 
         let output = self.execute_script("on_event", &[&event_json]).await?;
 

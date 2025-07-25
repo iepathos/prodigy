@@ -268,7 +268,7 @@ impl PluginAPI for DefaultPluginAPI {
         Ok(self.project_manager.get_project(id).ok().cloned())
     }
 
-    async fn get_spec(&self, name: &str) -> Result<Option<String>> {
+    async fn get_spec(&self, _name: &str) -> Result<Option<String>> {
         self.check_permission(&super::security::Permission::FileSystem {
             path: std::path::PathBuf::from("specs"),
             access: super::security::FileAccess::Read,
@@ -278,7 +278,7 @@ impl PluginAPI for DefaultPluginAPI {
         todo!("Implement spec loading")
     }
 
-    async fn update_spec_status(&self, name: &str, status: String) -> Result<()> {
+    async fn update_spec_status(&self, _name: &str, _status: String) -> Result<()> {
         self.check_permission(&super::security::Permission::State {
             scope: super::security::StateScope::Project,
         })?;
@@ -293,7 +293,7 @@ impl PluginAPI for DefaultPluginAPI {
         })?;
 
         self.state_manager
-            .get_value(&format!("project.config.{}", key))
+            .get_value(&format!("project.config.{key}"))
             .await
     }
 
@@ -303,20 +303,20 @@ impl PluginAPI for DefaultPluginAPI {
         })?;
 
         self.state_manager
-            .set_value(&format!("project.config.{}", key), value)
+            .set_value(&format!("project.config.{key}"), value)
             .await
     }
 
-    async fn claude_request(&self, prompt: &str, options: ClaudeOptions) -> Result<String> {
+    async fn claude_request(&self, prompt: &str, _options: ClaudeOptions) -> Result<String> {
         self.check_permission(&super::security::Permission::Network {
             hosts: vec!["api.anthropic.com".to_string()],
         })?;
 
         // TODO: Implement Claude request
-        Ok(format!("Mock response for prompt: {}", prompt))
+        Ok(format!("Mock response for prompt: {prompt}"))
     }
 
-    async fn get_claude_history(&self, spec: &str) -> Result<Vec<Exchange>> {
+    async fn get_claude_history(&self, _spec: &str) -> Result<Vec<Exchange>> {
         self.check_permission(&super::security::Permission::State {
             scope: super::security::StateScope::Project,
         })?;
@@ -377,7 +377,7 @@ impl PluginAPI for DefaultPluginAPI {
         Ok(())
     }
 
-    async fn subscribe_to_event(&self, event_type: &str, callback: EventCallback) -> Result<()> {
+    async fn subscribe_to_event(&self, event_type: &str, _callback: EventCallback) -> Result<()> {
         // Event subscription is always allowed
         debug!(
             "Plugin {} subscribing to event: {}",
@@ -387,7 +387,7 @@ impl PluginAPI for DefaultPluginAPI {
         Ok(())
     }
 
-    async fn prompt_user(&self, message: &str, options: PromptOptions) -> Result<String> {
+    async fn prompt_user(&self, message: &str, _options: PromptOptions) -> Result<String> {
         // User prompts are always allowed
         info!("Plugin {} prompting user: {}", self.plugin_id, message);
 
@@ -486,7 +486,11 @@ impl PluginAPI for DefaultPluginAPI {
         Ok(path_buf.exists())
     }
 
-    async fn trigger_workflow(&self, name: &str, inputs: HashMap<String, Value>) -> Result<String> {
+    async fn trigger_workflow(
+        &self,
+        _name: &str,
+        _inputs: HashMap<String, Value>,
+    ) -> Result<String> {
         self.check_permission(&super::security::Permission::State {
             scope: super::security::StateScope::Project,
         })?;
@@ -495,7 +499,7 @@ impl PluginAPI for DefaultPluginAPI {
         todo!("Implement workflow triggering")
     }
 
-    async fn get_workflow_status(&self, id: &str) -> Result<WorkflowStatus> {
+    async fn get_workflow_status(&self, _id: &str) -> Result<WorkflowStatus> {
         self.check_permission(&super::security::Permission::State {
             scope: super::security::StateScope::Project,
         })?;
@@ -506,23 +510,23 @@ impl PluginAPI for DefaultPluginAPI {
 
     async fn record_metric(
         &self,
-        name: &str,
-        value: f64,
-        tags: HashMap<String, String>,
+        _name: &str,
+        _value: f64,
+        _tags: HashMap<String, String>,
     ) -> Result<()> {
         // Metrics recording is always allowed
         // TODO: Implement metrics recording
         Ok(())
     }
 
-    async fn start_trace(&self, name: &str) -> Result<TraceId> {
+    async fn start_trace(&self, _name: &str) -> Result<TraceId> {
         // Tracing is always allowed
         let trace_id = TraceId::new_v4();
         // TODO: Implement tracing
         Ok(trace_id)
     }
 
-    async fn end_trace(&self, trace_id: TraceId, status: TraceStatus) -> Result<()> {
+    async fn end_trace(&self, _trace_id: TraceId, _status: TraceStatus) -> Result<()> {
         // Tracing is always allowed
         // TODO: Implement tracing
         Ok(())

@@ -11,6 +11,12 @@ pub struct TemplateResolver {
     cache: HashMap<String, Workflow>,
 }
 
+impl Default for TemplateResolver {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TemplateResolver {
     pub fn new() -> Self {
         Self {
@@ -41,9 +47,9 @@ impl TemplateResolver {
             return Ok(cached.clone());
         }
 
-        let template_path = self.template_dir.join(format!("{}.yaml", template_name));
+        let template_path = self.template_dir.join(format!("{template_name}.yaml"));
         let content = fs::read_to_string(&template_path)
-            .with_context(|| format!("Failed to read template: {:?}", template_path))?;
+            .with_context(|| format!("Failed to read template: {template_path:?}"))?;
 
         let mut template: Workflow =
             serde_yaml::from_str(&content).context("Failed to parse template YAML")?;
@@ -185,10 +191,10 @@ impl TemplateResolver {
     }
 
     pub fn validate_template(&self, workflow: &Workflow) -> Result<()> {
-        if workflow.name == "base" || workflow.name.ends_with("-base") {
-            if workflow.stages.is_empty() {
-                anyhow::bail!("Base template must define at least one stage or common steps");
-            }
+        if (workflow.name == "base" || workflow.name.ends_with("-base"))
+            && workflow.stages.is_empty()
+        {
+            anyhow::bail!("Base template must define at least one stage or common steps");
         }
 
         Ok(())

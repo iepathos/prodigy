@@ -7,6 +7,12 @@ pub struct CommandRegistry {
     aliases: HashMap<String, String>,
 }
 
+impl Default for CommandRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CommandRegistry {
     pub fn new() -> Self {
         Self {

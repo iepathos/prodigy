@@ -3,7 +3,6 @@ use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use tokio::fs;
 use walkdir::WalkDir;
 
 pub struct SpecificationEngine {
@@ -35,7 +34,7 @@ impl SpecificationEngine {
             .filter_map(|e| e.ok())
         {
             let path = entry.path();
-            if path.is_file() && path.extension().map_or(false, |ext| ext == "md") {
+            if path.is_file() && path.extension().is_some_and(|ext| ext == "md") {
                 match self.parser.parse_file(path).await {
                     Ok(spec) => {
                         self.specifications.insert(spec.id.clone(), spec);
@@ -75,8 +74,7 @@ impl SpecificationEngine {
                 Ok(())
             }
             None => Err(Error::Specification(format!(
-                "Specification '{}' not found",
-                id
+                "Specification '{id}' not found"
             ))),
         }
     }
@@ -135,12 +133,12 @@ impl SpecificationEngine {
     ) -> Result<String> {
         let mut result = template.to_string();
         for (key, value) in variables {
-            result = result.replace(&format!("{{{{{}}}}}", key), value);
+            result = result.replace(&format!("{{{{{key}}}}}"), value);
         }
         Ok(result)
     }
 
-    pub async fn list_specs(&self, project_path: &Path) -> Result<Vec<SpecSummary>> {
+    pub async fn list_specs(&self, _project_path: &Path) -> Result<Vec<SpecSummary>> {
         let specs: Vec<SpecSummary> = self
             .specifications
             .values()

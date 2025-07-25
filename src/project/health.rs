@@ -1,5 +1,5 @@
 use super::Project;
-use crate::{Error, Result};
+use crate::Result;
 use std::path::Path;
 use tokio::fs;
 
@@ -79,7 +79,7 @@ async fn check_config_file(project_path: &Path) -> HealthCheck {
             Err(e) => HealthCheck {
                 name: "Configuration file".to_string(),
                 status: HealthStatus::Failing,
-                message: Some(format!("Invalid TOML: {}", e)),
+                message: Some(format!("Invalid TOML: {e}")),
                 severity: Severity::Critical,
             },
         },
@@ -112,14 +112,14 @@ async fn check_spec_directory(project_path: &Path) -> HealthCheck {
                     } else {
                         HealthStatus::Warning
                     },
-                    message: Some(format!("Found {} specifications", spec_count)),
+                    message: Some(format!("Found {spec_count} specifications")),
                     severity: Severity::Major,
                 }
             }
             Err(e) => HealthCheck {
                 name: "Specification directory".to_string(),
                 status: HealthStatus::Warning,
-                message: Some(format!("Cannot read directory: {}", e)),
+                message: Some(format!("Cannot read directory: {e}")),
                 severity: Severity::Major,
             },
         },
@@ -142,12 +142,12 @@ async fn check_state_database(project_path: &Path) -> HealthCheck {
             let (status, message) = if size_mb > 100.0 {
                 (
                     HealthStatus::Warning,
-                    format!("Database is large ({:.1} MB)", size_mb),
+                    format!("Database is large ({size_mb:.1} MB)"),
                 )
             } else {
                 (
                     HealthStatus::Passing,
-                    format!("Database size: {:.1} MB", size_mb),
+                    format!("Database size: {size_mb:.1} MB"),
                 )
             };
 

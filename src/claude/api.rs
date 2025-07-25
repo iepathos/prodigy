@@ -45,7 +45,7 @@ impl ClaudeClient {
         let client = Client::builder()
             .timeout(Duration::from_secs(120))
             .build()
-            .map_err(|e| Error::Config(format!("Failed to create HTTP client: {}", e)))?;
+            .map_err(|e| Error::Config(format!("Failed to create HTTP client: {e}")))?;
 
         Ok(Self {
             client,
@@ -101,14 +101,14 @@ impl ClaudeClient {
             .json(request)
             .send()
             .await
-            .map_err(|e| Error::External(format!("API request failed: {}", e)))?;
+            .map_err(|e| Error::External(format!("API request failed: {e}")))?;
 
         match response.status() {
             StatusCode::OK => {
                 let api_response: ApiResponse = response
                     .json()
                     .await
-                    .map_err(|e| Error::External(format!("Failed to parse response: {}", e)))?;
+                    .map_err(|e| Error::External(format!("Failed to parse response: {e}")))?;
 
                 Ok(ClaudeResponse {
                     content: api_response
@@ -127,10 +127,7 @@ impl ClaudeClient {
             StatusCode::UNAUTHORIZED => Err(Error::Config("Invalid API key".to_string())),
             status => {
                 let error_text = response.text().await.unwrap_or_default();
-                Err(Error::External(format!(
-                    "API error {}: {}",
-                    status, error_text
-                )))
+                Err(Error::External(format!("API error {status}: {error_text}")))
             }
         }
     }

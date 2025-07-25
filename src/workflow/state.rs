@@ -194,7 +194,7 @@ impl WorkflowStateManager {
                 spec_id: row.get("spec_id"),
                 status: row.get("status"),
                 started_at: DateTime::from_timestamp(row.get("started_at"), 0)
-                    .unwrap_or_else(|| Utc::now()),
+                    .unwrap_or_else(Utc::now),
                 completed_at: row
                     .get::<Option<i64>, _>("completed_at")
                     .and_then(|ts| DateTime::from_timestamp(ts, 0)),

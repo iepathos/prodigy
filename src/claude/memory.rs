@@ -47,6 +47,12 @@ pub struct ConversationMemory {
     memory_file: PathBuf,
 }
 
+impl Default for ConversationMemory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ConversationMemory {
     /// Create a new conversation memory
     pub fn new() -> Self {
@@ -175,7 +181,7 @@ impl ConversationMemory {
     /// Extract key concepts from text
     fn extract_concepts(&self, prompt: &str, response: &str) -> Vec<String> {
         let mut concepts = Vec::new();
-        let text = format!("{} {}", prompt, response);
+        let text = format!("{prompt} {response}");
 
         // Simple concept extraction - could be improved with NLP
         let keywords = [
@@ -288,10 +294,10 @@ impl ConversationMemory {
             return Ok((VecDeque::new(), Vec::new()));
         }
 
-        let content = fs::read_to_string(path).map_err(|e| Error::Io(e))?;
+        let content = fs::read_to_string(path).map_err(Error::Io)?;
 
         let data: MemoryData = serde_json::from_str(&content)
-            .map_err(|e| Error::Parse(format!("Invalid memory JSON: {}", e)))?;
+            .map_err(|e| Error::Parse(format!("Invalid memory JSON: {e}")))?;
 
         Ok((data.short_term.into(), data.summaries))
     }
@@ -305,13 +311,13 @@ impl ConversationMemory {
 
         // Create directory if needed
         if let Some(parent) = self.memory_file.parent() {
-            fs::create_dir_all(parent).map_err(|e| Error::Io(e))?;
+            fs::create_dir_all(parent).map_err(Error::Io)?;
         }
 
         let json = serde_json::to_string_pretty(&data)
-            .map_err(|e| Error::Parse(format!("Failed to serialize memory: {}", e)))?;
+            .map_err(|e| Error::Parse(format!("Failed to serialize memory: {e}")))?;
 
-        fs::write(&self.memory_file, json).map_err(|e| Error::Io(e))?;
+        fs::write(&self.memory_file, json).map_err(Error::Io)?;
 
         Ok(())
     }

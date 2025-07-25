@@ -108,12 +108,10 @@ impl ConfigLoader {
                             cfg.merge_env_vars();
                             tracing::info!("Reloaded global configuration");
                         }
-                    } else {
-                        if let Ok(project_config) = toml::from_str::<ProjectConfig>(&content) {
-                            let mut cfg = config.write().unwrap();
-                            cfg.project = Some(project_config);
-                            tracing::info!("Reloaded project configuration");
-                        }
+                    } else if let Ok(project_config) = toml::from_str::<ProjectConfig>(&content) {
+                        let mut cfg = config.write().unwrap();
+                        cfg.project = Some(project_config);
+                        tracing::info!("Reloaded project configuration");
                     }
                 }
             }
@@ -133,7 +131,7 @@ impl ConfigLoader {
                 if let Ok(event) = res {
                     if matches!(event.kind, EventKind::Modify(_)) {
                         for path in event.paths {
-                            if path.extension().map_or(false, |ext| ext == "toml") {
+                            if path.extension().is_some_and(|ext| ext == "toml") {
                                 let _ = tx.blocking_send(path);
                             }
                         }
@@ -180,7 +178,7 @@ impl ConfigLoader {
                             return Ok(value.to_string());
                         }
                     }
-                    Err(Error::Config(format!("Unknown configuration key: {}", key)))
+                    Err(Error::Config(format!("Unknown configuration key: {key}")))
                 }
             }
         } else {

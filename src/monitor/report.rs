@@ -1,9 +1,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::Path;
 use std::sync::Arc;
-use tera::{Context, Tera};
+use tera::Tera;
 
 use super::analytics::{Analysis, AnalyticsEngine};
 use super::metrics::MetricsDatabase;
@@ -319,9 +318,9 @@ impl ReportGenerator {
         &self,
         title: &str,
         chart_type: ChartType,
-        x_metric: &str,
+        _x_metric: &str,
         y_metric: &str,
-        group_by: Option<&str>,
+        _group_by: Option<&str>,
         timeframe: &TimeFrame,
     ) -> Result<ReportSection> {
         // For simplicity, generate daily data points
@@ -367,9 +366,9 @@ impl ReportGenerator {
     async fn generate_table_section(
         &self,
         title: &str,
-        query: &str,
+        _query: &str,
         columns: &[TableColumn],
-        timeframe: &TimeFrame,
+        _timeframe: &TimeFrame,
     ) -> Result<ReportSection> {
         // For now, return empty table
         // In a real implementation, this would execute the query
@@ -430,7 +429,7 @@ impl ReportGenerator {
                 .await
                 .unwrap_or(0.0);
 
-            summary.push_str(&format!("- {}: {:.2}\n", label, value));
+            summary.push_str(&format!("- {label}: {value:.2}\n"));
         }
 
         Ok(summary)

@@ -215,7 +215,7 @@ impl ModelSelector {
             .config
             .models
             .get(model_key)
-            .ok_or_else(|| Error::NotFound(format!("Model '{}' not found", model_key)))?;
+            .ok_or_else(|| Error::NotFound(format!("Model '{model_key}' not found")))?;
 
         let input_cost = (input_tokens as f64 / 1000.0) * model.cost_per_1k_input;
         let output_cost = (output_tokens as f64 / 1000.0) * model.cost_per_1k_output;
@@ -239,10 +239,10 @@ impl ModelSelector {
             return Err(Error::NotFound("Models config not found".to_string()));
         }
 
-        let content = fs::read_to_string(&config_path).map_err(|e| Error::Io(e))?;
+        let content = fs::read_to_string(&config_path).map_err(Error::Io)?;
 
         serde_yaml::from_str(&content)
-            .map_err(|e| Error::Config(format!("Invalid models YAML: {}", e)))
+            .map_err(|e| Error::Config(format!("Invalid models YAML: {e}")))
     }
 
     /// Save current configuration
@@ -251,13 +251,13 @@ impl ModelSelector {
 
         // Create directory if needed
         if let Some(parent) = config_path.parent() {
-            fs::create_dir_all(parent).map_err(|e| Error::Io(e))?;
+            fs::create_dir_all(parent).map_err(Error::Io)?;
         }
 
         let yaml = serde_yaml::to_string(&self.config)
-            .map_err(|e| Error::Parse(format!("Failed to serialize config: {}", e)))?;
+            .map_err(|e| Error::Parse(format!("Failed to serialize config: {e}")))?;
 
-        fs::write(&config_path, yaml).map_err(|e| Error::Io(e))?;
+        fs::write(&config_path, yaml).map_err(Error::Io)?;
 
         Ok(())
     }

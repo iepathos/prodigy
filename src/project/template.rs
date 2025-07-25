@@ -1,4 +1,4 @@
-use super::{get_global_mmm_dir, Project, ProjectManager};
+use super::{get_global_mmm_dir, ProjectManager};
 use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -102,11 +102,10 @@ impl TemplateManager {
         project_path: &Path,
         template_name: &str,
     ) -> Result<()> {
-        let template_path = self.templates_dir.join(format!("{}.yaml", template_name));
+        let template_path = self.templates_dir.join(format!("{template_name}.yaml"));
         if !template_path.exists() {
             return Err(Error::Project(format!(
-                "Template '{}' not found",
-                template_name
+                "Template '{template_name}' not found"
             )));
         }
 
@@ -178,7 +177,7 @@ impl TemplateManager {
     }
 
     pub async fn remove_template(&self, name: &str) -> Result<()> {
-        let template_path = self.templates_dir.join(format!("{}.yaml", name));
+        let template_path = self.templates_dir.join(format!("{name}.yaml"));
         if template_path.exists() {
             fs::remove_file(&template_path).await?;
         }

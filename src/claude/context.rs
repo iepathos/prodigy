@@ -105,7 +105,7 @@ impl ContextManager {
     /// Add specification content (always critical priority)
     pub fn add_specification(&mut self, spec_name: String, content: String) {
         self.add_item(
-            format!("## Specification: {}\n\n{}", spec_name, content),
+            format!("## Specification: {spec_name}\n\n{content}"),
             Priority::Critical,
             ContextSource::Specification(spec_name),
         );
@@ -114,7 +114,7 @@ impl ContextManager {
     /// Add code context
     pub fn add_code(&mut self, file: String, content: String, priority: Priority) {
         self.add_item(
-            format!("## Code from {}\n\n```\n{}\n```", file, content),
+            format!("## Code from {file}\n\n```\n{content}\n```"),
             priority,
             ContextSource::Code { file, lines: None },
         );
@@ -123,7 +123,7 @@ impl ContextManager {
     /// Add documentation context
     pub fn add_documentation(&mut self, doc_name: String, content: String) {
         self.add_item(
-            format!("## Documentation: {}\n\n{}", doc_name, content),
+            format!("## Documentation: {doc_name}\n\n{content}"),
             Priority::Medium,
             ContextSource::Documentation(doc_name),
         );
@@ -194,7 +194,7 @@ impl ContextManager {
                 .chars()
                 .take(max_chars - 20)
                 .collect::<String>();
-            format!("{}... [truncated]", truncated)
+            format!("{truncated}... [truncated]")
         } else {
             item.content.clone()
         };

@@ -107,7 +107,7 @@ impl DashboardServer {
             .with_state(self.state);
 
         let addr = SocketAddr::from(([127, 0, 0, 1], self.port));
-        log::info!("Dashboard server listening on http://{}", addr);
+        log::info!("Dashboard server listening on http://{addr}");
 
         let listener = tokio::net::TcpListener::bind(&addr).await?;
         axum::serve(listener, app).await?;
@@ -132,20 +132,18 @@ async fn health_check() -> Json<HealthStatus> {
 async fn list_projects(
     State(state): State<DashboardState>,
 ) -> std::result::Result<Json<Vec<ProjectSummary>>, StatusCode> {
-    let projects = state
-        .project_manager
-        .list_projects();
+    let projects = state.project_manager.list_projects();
 
     let mut summaries = Vec::new();
     for project in projects {
-        let health: Option<bool> = None; // TODO: Implement health checking
+        let _health: Option<bool> = None; // TODO: Implement health checking
 
         summaries.push(ProjectSummary {
             id: uuid::Uuid::new_v4(), // Generate a UUID since Project doesn't have id
             name: project.name.clone(),
             path: project.path.to_string_lossy().to_string(),
             status: "active".to_string(), // Default status since Project doesn't have status
-            health_status: None, // TODO: Implement health checking
+            health_status: None,          // TODO: Implement health checking
             created_at: project.created,
             last_accessed: Some(project.last_accessed),
         });
@@ -271,7 +269,7 @@ async fn query_metrics(
 }
 
 async fn metrics_websocket(
-    State(state): State<DashboardState>,
+    State(_state): State<DashboardState>,
 ) -> std::result::Result<Json<WebSocketInfo>, StatusCode> {
     // In a real implementation, this would upgrade to WebSocket
     // For now, return connection info
@@ -346,7 +344,7 @@ async fn generate_report(
 }
 
 async fn get_report(
-    Path(id): Path<String>,
+    Path(_id): Path<String>,
     State(_state): State<DashboardState>,
 ) -> std::result::Result<Json<Report>, StatusCode> {
     // TODO: Store and retrieve reports
@@ -354,8 +352,8 @@ async fn get_report(
 }
 
 async fn export_report(
-    Path(id): Path<String>,
-    Query(params): Query<ExportReportQuery>,
+    Path(_id): Path<String>,
+    Query(_params): Query<ExportReportQuery>,
     State(_state): State<DashboardState>,
 ) -> std::result::Result<Vec<u8>, StatusCode> {
     // TODO: Export reports
@@ -412,7 +410,7 @@ impl MetricsQuery {
             start: self
                 .start
                 .unwrap_or_else(|| Utc::now() - chrono::Duration::hours(24)),
-            end: self.end.unwrap_or_else(|| Utc::now()),
+            end: self.end.unwrap_or_else(Utc::now),
         }
     }
 }
@@ -445,7 +443,7 @@ impl AnalyticsRequest {
             start: self
                 .start
                 .unwrap_or_else(|| Utc::now() - chrono::Duration::days(7)),
-            end: self.end.unwrap_or_else(|| Utc::now()),
+            end: self.end.unwrap_or_else(Utc::now),
         }
     }
 }
@@ -468,7 +466,7 @@ impl GenerateReportRequest {
             start: self
                 .start
                 .unwrap_or_else(|| Utc::now() - chrono::Duration::days(7)),
-            end: self.end.unwrap_or_else(|| Utc::now()),
+            end: self.end.unwrap_or_else(Utc::now),
         }
     }
 }

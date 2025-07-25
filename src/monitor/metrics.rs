@@ -72,13 +72,12 @@ impl MetricsDatabase {
         end: DateTime<Utc>,
         labels: Option<HashMap<String, String>>,
     ) -> Result<Vec<Metric>> {
-        let mut query = format!(
-            r#"
+        let query = r#"
             SELECT id, name, value_type, value_json, timestamp, labels_json, project_id
             FROM metrics
             WHERE name = ? AND timestamp >= ? AND timestamp <= ?
             "#
-        );
+        .to_string();
 
         let rows = sqlx::query(&query)
             .bind(name)
@@ -115,7 +114,7 @@ impl MetricsDatabase {
                 value,
                 timestamp: DateTime::parse_from_rfc3339(&timestamp_str)?.with_timezone(&Utc),
                 labels: metric_labels,
-                project_id: project_id.map(|id| Uuid::parse_str(&id).ok()).flatten(),
+                project_id: project_id.and_then(|id| Uuid::parse_str(&id).ok()),
             });
         }
 
@@ -130,45 +129,40 @@ impl MetricsDatabase {
         aggregation: AggregationType,
     ) -> Result<f64> {
         let query = match aggregation {
-            AggregationType::Sum => format!(
-                r#"
+            AggregationType::Sum => r#"
                 SELECT SUM(CAST(json_extract(value_json, '$.Counter') AS REAL)) as result
                 FROM metrics
                 WHERE name = ? AND timestamp >= ? AND timestamp <= ?
                     AND value_type = 'Counter'
                 "#
-            ),
-            AggregationType::Average => format!(
-                r#"
+            .to_string(),
+            AggregationType::Average => r#"
                 SELECT AVG(CAST(json_extract(value_json, '$.Gauge') AS REAL)) as result
                 FROM metrics
                 WHERE name = ? AND timestamp >= ? AND timestamp <= ?
                     AND value_type = 'Gauge'
                 "#
-            ),
-            AggregationType::Max => format!(
-                r#"
+            .to_string(),
+            AggregationType::Max => r#"
                 SELECT MAX(CAST(json_extract(value_json, '$.Gauge') AS REAL)) as result
                 FROM metrics
                 WHERE name = ? AND timestamp >= ? AND timestamp <= ?
                     AND value_type = 'Gauge'
                 "#
-            ),
-            AggregationType::Min => format!(
-                r#"
+            .to_string(),
+            AggregationType::Min => r#"
                 SELECT MIN(CAST(json_extract(value_json, '$.Gauge') AS REAL)) as result
                 FROM metrics
                 WHERE name = ? AND timestamp >= ? AND timestamp <= ?
                     AND value_type = 'Gauge'
                 "#
-            ),
-            AggregationType::Count => format!(
-                r#"
+            .to_string(),
+            AggregationType::Count => r#"
                 SELECT COUNT(*) as result
                 FROM metrics
                 WHERE name = ? AND timestamp >= ? AND timestamp <= ?
                 "#
-            ),
+            .to_string(),
         };
 
         let row = sqlx::query(&query)

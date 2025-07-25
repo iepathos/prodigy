@@ -66,8 +66,8 @@ impl PromptEngine {
             return Ok(());
         }
 
-        for entry in fs::read_dir(dir).map_err(|e| Error::Io(e))? {
-            let entry = entry.map_err(|e| Error::Io(e))?;
+        for entry in fs::read_dir(dir).map_err(Error::Io)? {
+            let entry = entry.map_err(Error::Io)?;
             let path = entry.path();
 
             if path.extension().and_then(|s| s.to_str()) == Some("yaml") {
@@ -80,15 +80,15 @@ impl PromptEngine {
 
     /// Load a single template file
     fn load_template_file(&mut self, path: &PathBuf) -> Result<()> {
-        let content = fs::read_to_string(path).map_err(|e| Error::Io(e))?;
+        let content = fs::read_to_string(path).map_err(Error::Io)?;
 
         let template: PromptTemplate = serde_yaml::from_str(&content)
-            .map_err(|e| Error::Config(format!("Invalid template YAML: {}", e)))?;
+            .map_err(|e| Error::Config(format!("Invalid template YAML: {e}")))?;
 
         // Add template to Tera
         self.tera
             .add_raw_template(&template.name, &template.template)
-            .map_err(|e| Error::Config(format!("Invalid Tera template: {}", e)))?;
+            .map_err(|e| Error::Config(format!("Invalid Tera template: {e}")))?;
 
         self.templates.insert(template.name.clone(), template);
         Ok(())
@@ -99,7 +99,7 @@ impl PromptEngine {
         let template = self
             .templates
             .get(template_name)
-            .ok_or_else(|| Error::NotFound(format!("Template '{}' not found", template_name)))?;
+            .ok_or_else(|| Error::NotFound(format!("Template '{template_name}' not found")))?;
 
         // Build context from arguments
         let mut context = Context::new();
@@ -129,7 +129,7 @@ impl PromptEngine {
         // Render template
         self.tera
             .render(&template.name, &context)
-            .map_err(|e| Error::Config(format!("Template rendering failed: {}", e)))
+            .map_err(|e| Error::Config(format!("Template rendering failed: {e}")))
     }
 
     /// Process a variable value based on its type
@@ -157,12 +157,12 @@ impl PromptEngine {
             VariableType::File { path: _ } => {
                 // Read file content
                 let path = PathBuf::from(value);
-                fs::read_to_string(&path).map_err(|e| Error::Io(e))
+                fs::read_to_string(&path).map_err(Error::Io)
             }
             VariableType::Context { source } => {
                 // This would integrate with context management
                 // For now, just return as-is
-                Ok(format!("{{context:{}}}", source))
+                Ok(format!("{{context:{source}}}"))
             }
         }
     }

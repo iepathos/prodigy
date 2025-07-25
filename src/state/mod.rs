@@ -1,6 +1,6 @@
-use crate::{Error, Result};
+use crate::Result;
 use serde::{Deserialize, Serialize};
-use sqlx::{sqlite::SqlitePool, Pool, Sqlite};
+use sqlx::sqlite::SqlitePool;
 use std::path::Path;
 
 pub mod manager;
@@ -56,15 +56,15 @@ pub async fn init_database(db_path: &Path) -> Result<SqlitePool> {
     let pool = SqlitePool::connect(&db_url).await?;
 
     // Run migrations manually since we can't use sqlx::migrate! at runtime
-    sqlx::query(&migrations::INITIAL_MIGRATION)
+    sqlx::query(migrations::INITIAL_MIGRATION)
         .execute(&pool)
         .await?;
 
-    sqlx::query(&migrations::WORKFLOW_MIGRATION)
+    sqlx::query(migrations::WORKFLOW_MIGRATION)
         .execute(&pool)
         .await?;
 
-    sqlx::query(&migrations::MONITORING_MIGRATION)
+    sqlx::query(migrations::MONITORING_MIGRATION)
         .execute(&pool)
         .await?;
 

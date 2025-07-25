@@ -1,11 +1,11 @@
 use async_trait::async_trait;
-use chrono::{DateTime, Duration as ChronoDuration, Utc};
+use chrono::{Duration as ChronoDuration, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::metrics::{AggregationType, MetricsDatabase};
-use super::{Metric, TimeFrame};
+use super::TimeFrame;
 use crate::error::Result;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -129,8 +129,7 @@ impl Analyzer for BottleneckAnalyzer {
                         severity: FindingSeverity::Medium,
                         title: "Slow Spec Completion Detected".to_string(),
                         description: format!(
-                            "{} specs took more than 50% longer than average ({:.1} hours)",
-                            slow_specs, avg_time
+                            "{slow_specs} specs took more than 50% longer than average ({avg_time:.1} hours)"
                         ),
                         evidence: {
                             let mut evidence = HashMap::new();
@@ -180,8 +179,7 @@ impl Analyzer for BottleneckAnalyzer {
                         severity: FindingSeverity::High,
                         title: "High Claude Response Times".to_string(),
                         description: format!(
-                            "95th percentile response time is {:.0}ms, which may impact productivity",
-                            p95_response
+                            "95th percentile response time is {p95_response:.0}ms, which may impact productivity"
                         ),
                         evidence: {
                             let mut evidence = HashMap::new();
@@ -224,8 +222,7 @@ impl Analyzer for BottleneckAnalyzer {
                     severity: FindingSeverity::High,
                     title: "High Error Rate".to_string(),
                     description: format!(
-                        "Error rate is {:.1}%, indicating potential reliability issues",
-                        error_rate
+                        "Error rate is {error_rate:.1}%, indicating potential reliability issues"
                     ),
                     evidence: {
                         let mut evidence = HashMap::new();
@@ -359,8 +356,7 @@ impl Analyzer for CostOptimizer {
                     severity: FindingSeverity::Medium,
                     title: "Cost Spike Detected".to_string(),
                     description: format!(
-                        "Maximum daily cost (${:.2}) is more than 2x the average (${:.2})",
-                        max_daily, daily_avg
+                        "Maximum daily cost (${max_daily:.2}) is more than 2x the average (${daily_avg:.2})"
                     ),
                     evidence: {
                         let mut evidence = HashMap::new();
@@ -402,8 +398,7 @@ impl Analyzer for CostOptimizer {
                     severity: FindingSeverity::Low,
                     title: "Low Output Generation".to_string(),
                     description: format!(
-                        "Output tokens are only {:.1}x input tokens, suggesting inefficient prompts",
-                        input_output_ratio
+                        "Output tokens are only {input_output_ratio:.1}x input tokens, suggesting inefficient prompts"
                     ),
                     evidence: {
                         let mut evidence = HashMap::new();
@@ -603,7 +598,7 @@ impl Analyzer for VelocityTracker {
     }
 }
 
-fn calculate_percentile(data: &mut Vec<f64>, percentile: f64) -> f64 {
+fn calculate_percentile(data: &mut [f64], percentile: f64) -> f64 {
     data.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let index = ((percentile * (data.len() - 1) as f64) as usize).min(data.len() - 1);
     data[index]

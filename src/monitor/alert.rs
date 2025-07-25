@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -61,7 +60,7 @@ impl AlertManager {
                         id: Uuid::new_v4(),
                         rule_name: rule.name.clone(),
                         severity: rule.severity,
-                        message: self.generate_alert_message(&rule).await?,
+                        message: self.generate_alert_message(rule).await?,
                         timestamp: Utc::now(),
                         acknowledged: false,
                         metadata: HashMap::new(),
@@ -151,7 +150,7 @@ impl AlertManager {
                     Ok(rate.abs() > *change)
                 }
             }
-            AlertCondition::Pattern { query } => {
+            AlertCondition::Pattern { query: _ } => {
                 // For now, pattern matching is simplified
                 // In a real implementation, this would use a query language
                 Ok(false)
@@ -195,10 +194,9 @@ impl AlertManager {
                 change,
                 window,
             } => Ok(format!(
-                "Metric '{}' changed by more than {}% in the last {:?}",
-                metric, change, window
+                "Metric '{metric}' changed by more than {change}% in the last {window:?}"
             )),
-            AlertCondition::Pattern { query } => Ok(format!("Pattern match triggered: {}", query)),
+            AlertCondition::Pattern { query } => Ok(format!("Pattern match triggered: {query}")),
         }
     }
 

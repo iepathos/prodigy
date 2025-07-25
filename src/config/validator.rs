@@ -1,6 +1,5 @@
 use super::{Config, GlobalConfig, ProjectConfig};
 use crate::{Error, Result};
-use std::path::Path;
 
 pub struct ConfigValidator;
 
@@ -27,8 +26,7 @@ impl ConfigValidator {
             let valid_levels = ["trace", "debug", "info", "warn", "error"];
             if !valid_levels.contains(&log_level.as_str()) {
                 return Err(Error::Config(format!(
-                    "Invalid log level: {}. Must be one of: {:?}",
-                    log_level, valid_levels
+                    "Invalid log level: {log_level}. Must be one of: {valid_levels:?}"
                 )));
             }
         }

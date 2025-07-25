@@ -28,7 +28,7 @@ impl ProjectManager {
 
     pub async fn create_project(&mut self, name: &str, path: &Path) -> Result<&Project> {
         if self.projects.contains_key(name) {
-            return Err(Error::Project(format!("Project '{}' already exists", name)));
+            return Err(Error::Project(format!("Project '{name}' already exists")));
         }
 
         let project = Project::new(name.to_string(), path.to_path_buf());
@@ -81,7 +81,7 @@ impl ProjectManager {
 
     pub async fn switch_project(&mut self, name: &str) -> Result<()> {
         if !self.projects.contains_key(name) {
-            return Err(Error::Project(format!("Project '{}' not found", name)));
+            return Err(Error::Project(format!("Project '{name}' not found")));
         }
 
         // Update last accessed time
@@ -115,13 +115,13 @@ impl ProjectManager {
 
     pub async fn remove_project(&mut self, name: &str) -> Result<()> {
         if !self.projects.contains_key(name) {
-            return Err(Error::Project(format!("Project '{}' not found", name)));
+            return Err(Error::Project(format!("Project '{name}' not found")));
         }
 
         let registry_path = self
             .global_dir
             .join("projects")
-            .join(format!("{}.toml", name));
+            .join(format!("{name}.toml"));
         if registry_path.exists() {
             fs::remove_file(&registry_path).await?;
         }
@@ -137,7 +137,7 @@ impl ProjectManager {
     pub fn get_project(&self, name: &str) -> Result<&Project> {
         self.projects
             .get(name)
-            .ok_or_else(|| Error::Project(format!("Project '{}' not found", name)))
+            .ok_or_else(|| Error::Project(format!("Project '{name}' not found")))
     }
 
     pub async fn clone_project(&mut self, source: &str, destination: &str) -> Result<()> {
@@ -158,7 +158,7 @@ impl ProjectManager {
         if let Some(project) = self.projects.get_mut(name) {
             project.archived = true;
         } else {
-            return Err(Error::Project(format!("Project '{}' not found", name)));
+            return Err(Error::Project(format!("Project '{name}' not found")));
         }
 
         if let Some(project) = self.projects.get(name) {
@@ -171,7 +171,7 @@ impl ProjectManager {
         if let Some(project) = self.projects.get_mut(name) {
             project.archived = false;
         } else {
-            return Err(Error::Project(format!("Project '{}' not found", name)));
+            return Err(Error::Project(format!("Project '{name}' not found")));
         }
 
         if let Some(project) = self.projects.get(name) {

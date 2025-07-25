@@ -100,7 +100,7 @@ impl PermissionSet {
                             granted_hosts.contains(h)
                                 || granted_hosts
                                     .iter()
-                                    .any(|gh| gh == "*" || h.ends_with(&format!(".{}", gh)))
+                                    .any(|gh| gh == "*" || h.ends_with(&format!(".{gh}")))
                         }) {
                             return true;
                         }
@@ -220,7 +220,7 @@ impl PermissionManager {
             return Ok(true);
         }
 
-        println!("Plugin '{}' requests the following permissions:", plugin_id);
+        println!("Plugin '{plugin_id}' requests the following permissions:");
         for perm in &requested {
             println!("  - {}", self.format_permission(perm));
         }
@@ -306,10 +306,10 @@ impl PermissionManager {
                 format!("Environment variable access to {}", vars.join(", "))
             }
             Permission::Command { executable } => {
-                format!("Execute command: {}", executable)
+                format!("Execute command: {executable}")
             }
             Permission::State { scope } => {
-                format!("State access with {:?} scope", scope)
+                format!("State access with {scope:?} scope")
             }
         }
     }

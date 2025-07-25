@@ -342,8 +342,7 @@ impl TraceStorage {
                 start_timestamp: DateTime::parse_from_rfc3339(&start_timestamp_str)?
                     .with_timezone(&Utc),
                 end_timestamp: end_timestamp_str
-                    .map(|s| DateTime::parse_from_rfc3339(&s).ok())
-                    .flatten()
+                    .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
                     .map(|dt| dt.with_timezone(&Utc)),
                 duration_ms,
                 metadata: serde_json::from_str(&metadata_json)?,

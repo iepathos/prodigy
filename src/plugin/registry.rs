@@ -119,10 +119,7 @@ impl PluginRegistry {
     /// Check if a plugin satisfies version requirements
     pub fn check_dependency(&self, name: &str, version_req: &str) -> Result<bool> {
         let requirement = semver::VersionReq::parse(version_req).map_err(|e| {
-            Error::InvalidVersion(format!(
-                "Invalid version requirement '{}': {}",
-                version_req, e
-            ))
+            Error::InvalidVersion(format!("Invalid version requirement '{version_req}': {e}"))
         })?;
 
         if let Some(plugin) = self.find_by_name(name) {
@@ -147,8 +144,7 @@ impl PluginRegistry {
                 if let Some(dep_plugin) = self.find_by_name(dep_name) {
                     let version_req = semver::VersionReq::parse(dep_version).map_err(|e| {
                         Error::InvalidVersion(format!(
-                            "Invalid version requirement '{}': {}",
-                            dep_version, e
+                            "Invalid version requirement '{dep_version}': {e}"
                         ))
                     })?;
 
@@ -184,8 +180,7 @@ impl PluginRegistry {
             plugins: self.plugins.values().cloned().collect(),
         };
 
-        let json =
-            serde_json::to_string_pretty(&registry_data).map_err(|e| Error::Serialization(e))?;
+        let json = serde_json::to_string_pretty(&registry_data).map_err(Error::Serialization)?;
 
         tokio::fs::write(path, json)
             .await
@@ -245,7 +240,7 @@ impl DependencyGraph {
 
     pub fn add_node(&mut self, name: String, version: semver::Version) {
         self.nodes.insert(name.clone(), version);
-        self.edges.entry(name).or_insert_with(Vec::new);
+        self.edges.entry(name).or_default();
     }
 
     pub fn add_edge(&mut self, from: String, to: String) {
@@ -277,8 +272,7 @@ impl DependencyGraph {
     ) -> Result<()> {
         if temp_visited.contains(node) {
             return Err(Error::CircularDependency(format!(
-                "Circular dependency detected involving plugin: {}",
-                node
+                "Circular dependency detected involving plugin: {node}"
             )));
         }
 

@@ -53,6 +53,12 @@ pub enum Error {
     #[error("Template error: {0}")]
     Template(#[from] tera::Error),
 
+    #[error("YAML error: {0}")]
+    Yaml(#[from] serde_yaml::Error),
+
+    #[error("Anyhow error: {0}")]
+    Anyhow(#[from] anyhow::Error),
+
     #[error("Other error: {0}")]
     Other(String),
 
@@ -126,7 +132,13 @@ pub enum Error {
 
 impl From<axum::http::StatusCode> for Error {
     fn from(status: axum::http::StatusCode) -> Self {
-        Error::HttpStatus(format!("HTTP status: {}", status))
+        Error::HttpStatus(format!("HTTP status: {status}"))
+    }
+}
+
+impl From<String> for Error {
+    fn from(s: String) -> Self {
+        Error::Other(s)
     }
 }
 
