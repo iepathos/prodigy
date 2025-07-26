@@ -70,10 +70,16 @@ impl WorkflowEngine {
             project: self.load_project_config()?,
         };
 
+        let workflow_id = Uuid::new_v4();
+        self.state_manager
+            .create_workflow_state(workflow_id, spec_id.map(String::from))
+            .await?;
+
         let workflow_state = self
             .state_manager
-            .create_workflow_state(&workflow.name, spec_id)
-            .await?;
+            .get_workflow_state(&workflow_id)
+            .await?
+            .expect("Just created workflow state");
 
         let result = match self.executor.execute(&workflow, &mut context).await {
             Ok(result) => {

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::{claude::ClaudeManager, state::StateManager, workflow::WorkflowEngine, Result};
+use crate::{claude::ClaudeManager, simple_state::StateManager, workflow::WorkflowEngine, Result};
 
 use super::{
     config::LoopConfig,

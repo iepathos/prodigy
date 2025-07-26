@@ -172,9 +172,10 @@ impl StructureAnalyzer {
         Ok(dirs)
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn scan_for_directories<'a>(
         &'a self,
-        root: &'a Path,
+        _root: &'a Path,
         current: &'a Path,
         names: &'a HashSet<&str>,
         dirs: &'a mut Vec<PathBuf>,
@@ -215,7 +216,7 @@ impl StructureAnalyzer {
                     }
 
                     // Recurse
-                    self.scan_for_directories(root, &path, names, dirs, depth + 1)
+                    self.scan_for_directories(_root, &path, names, dirs, depth + 1)
                         .await?;
                 }
             }
@@ -231,9 +232,10 @@ impl StructureAnalyzer {
         Ok(config_files)
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn scan_for_config_files<'a>(
         &'a self,
-        root: &'a Path,
+        _root: &'a Path,
         current: &'a Path,
         files: &'a mut Vec<ConfigFile>,
         depth: usize,
@@ -286,7 +288,7 @@ impl StructureAnalyzer {
                         .map(|n| n != "node_modules")
                         .unwrap_or(true)
                 {
-                    self.scan_for_config_files(root, &path, files, depth + 1)
+                    self.scan_for_config_files(_root, &path, files, depth + 1)
                         .await?;
                 }
             }

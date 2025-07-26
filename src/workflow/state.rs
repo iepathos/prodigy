@@ -1,114 +1,126 @@
-use anyhow::{Context, Result};
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use sqlx::{Row, SqlitePool};
+use anyhow::Result;
 use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use super::{ExecutionEvent, WorkflowState, WorkflowStatus};
 
+#[derive(Debug, Clone)]
+pub struct WorkflowExecution {
+    pub workflow_id: String,
+    pub workflow_name: String,
+    pub status: String,
+    pub started_at: chrono::DateTime<chrono::Utc>,
+    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+/// Simple JSON-based workflow state manager
 pub struct WorkflowStateManager {
-    pool: SqlitePool,
+    states: Arc<RwLock<HashMap<Uuid, WorkflowState>>>,
+    root_path: PathBuf,
 }
 
 impl WorkflowStateManager {
-    pub fn new(pool: SqlitePool) -> Self {
-        Self { pool }
+    pub fn new(root_path: PathBuf) -> Self {
+        Self {
+            states: Arc::new(RwLock::new(HashMap::new())),
+            root_path,
+        }
     }
 
     pub async fn create_workflow_state(
         &self,
-        workflow_name: &str,
-        spec_id: Option<&str>,
-    ) -> Result<WorkflowState> {
-        let workflow_id = Uuid::new_v4();
-        let now = Utc::now();
-
+        workflow_id: Uuid,
+        spec_id: Option<String>,
+    ) -> Result<()> {
         let state = WorkflowState {
             workflow_id,
-            spec_id: spec_id.map(String::from),
+            spec_id,
             status: WorkflowStatus::Pending,
             current_stage: None,
             current_step: None,
             variables: HashMap::new(),
             outputs: HashMap::new(),
             history: vec![],
-            started_at: now,
+            started_at: chrono::Utc::now(),
             completed_at: None,
         };
 
-        let state_json = serde_json::to_string(&state)?;
+        let mut states = self.states.write().await;
+        states.insert(workflow_id, state.clone());
 
-        sqlx::query(
-            r#"
-            INSERT INTO workflow_executions (
-                workflow_id, workflow_name, spec_id, status, state_json, started_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-            "#,
-        )
-        .bind(workflow_id.to_string())
-        .bind(workflow_name)
-        .bind(spec_id)
-        .bind("pending")
-        .bind(state_json)
-        .bind(now.timestamp())
-        .execute(&self.pool)
-        .await
-        .context("Failed to create workflow state")?;
-
-        Ok(state)
+        // Save to JSON file
+        self.save_state(&state).await?;
+        Ok(())
     }
 
     pub async fn get_workflow_state(&self, workflow_id: &Uuid) -> Result<Option<WorkflowState>> {
-        let record = sqlx::query(
-            r#"
-            SELECT state_json FROM workflow_executions
-            WHERE workflow_id = ?1
-            "#,
-        )
-        .bind(workflow_id.to_string())
-        .fetch_optional(&self.pool)
-        .await
-        .context("Failed to fetch workflow state")?;
-
-        match record {
-            Some(r) => {
-                let state_json: String = r.get("state_json");
-                let state: WorkflowState = serde_json::from_str(&state_json)
-                    .context("Failed to deserialize workflow state")?;
-                Ok(Some(state))
-            }
-            None => Ok(None),
+        let states = self.states.read().await;
+        if let Some(state) = states.get(workflow_id) {
+            return Ok(Some(state.clone()));
         }
+
+        // Try to load from file
+        let file_path = self.state_file_path(workflow_id);
+        if file_path.exists() {
+            let content = tokio::fs::read_to_string(&file_path).await?;
+            let state: WorkflowState = serde_json::from_str(&content)?;
+            return Ok(Some(state));
+        }
+
+        Ok(None)
     }
 
-    pub async fn update_workflow_state(&self, state: &WorkflowState) -> Result<()> {
-        let state_json = serde_json::to_string(state)?;
-        let status_str = match state.status {
-            WorkflowStatus::Pending => "pending",
-            WorkflowStatus::Running => "running",
-            WorkflowStatus::Paused => "paused",
-            WorkflowStatus::WaitingForCheckpoint => "waiting_checkpoint",
-            WorkflowStatus::Completed => "completed",
-            WorkflowStatus::Failed => "failed",
-            WorkflowStatus::Cancelled => "cancelled",
-        };
+    pub async fn update_workflow_status(
+        &self,
+        workflow_id: &Uuid,
+        status: WorkflowStatus,
+    ) -> Result<()> {
+        let mut states = self.states.write().await;
+        if let Some(state) = states.get_mut(workflow_id) {
+            state.status = status.clone();
+            if matches!(
+                status,
+                WorkflowStatus::Completed | WorkflowStatus::Failed | WorkflowStatus::Cancelled
+            ) {
+                state.completed_at = Some(chrono::Utc::now());
+            }
+            self.save_state(state).await?;
+        }
+        Ok(())
+    }
 
-        sqlx::query(
-            r#"
-            UPDATE workflow_executions
-            SET status = ?1, state_json = ?2, completed_at = ?3
-            WHERE workflow_id = ?4
-            "#,
-        )
-        .bind(status_str)
-        .bind(state_json)
-        .bind(state.completed_at.map(|dt| dt.timestamp()))
-        .bind(state.workflow_id.to_string())
-        .execute(&self.pool)
-        .await
-        .context("Failed to update workflow state")?;
+    pub async fn update_current_stage(&self, workflow_id: &Uuid, stage_name: &str) -> Result<()> {
+        let mut states = self.states.write().await;
+        if let Some(state) = states.get_mut(workflow_id) {
+            state.current_stage = Some(stage_name.to_string());
+            self.save_state(state).await?;
+        }
+        Ok(())
+    }
 
+    pub async fn update_current_step(&self, workflow_id: &Uuid, step_name: &str) -> Result<()> {
+        let mut states = self.states.write().await;
+        if let Some(state) = states.get_mut(workflow_id) {
+            state.current_step = Some(step_name.to_string());
+            self.save_state(state).await?;
+        }
+        Ok(())
+    }
+
+    pub async fn set_variable(
+        &self,
+        workflow_id: &Uuid,
+        key: &str,
+        value: serde_json::Value,
+    ) -> Result<()> {
+        let mut states = self.states.write().await;
+        if let Some(state) = states.get_mut(workflow_id) {
+            state.variables.insert(key.to_string(), value);
+            self.save_state(state).await?;
+        }
         Ok(())
     }
 
@@ -117,149 +129,112 @@ impl WorkflowStateManager {
         workflow_id: &Uuid,
         event: ExecutionEvent,
     ) -> Result<()> {
-        if let Some(mut state) = self.get_workflow_state(workflow_id).await? {
+        let mut states = self.states.write().await;
+        if let Some(state) = states.get_mut(workflow_id) {
             state.history.push(event);
-            self.update_workflow_state(&state).await?;
+            self.save_state(state).await?;
         }
         Ok(())
     }
 
+    pub async fn update_workflow_state(&self, state: &WorkflowState) -> Result<()> {
+        let mut states = self.states.write().await;
+        states.insert(state.workflow_id, state.clone());
+        self.save_state(state).await?;
+        Ok(())
+    }
+
+    pub async fn list_workflows(&self) -> Result<Vec<WorkflowState>> {
+        let mut workflows = vec![];
+
+        // List all workflow JSON files
+        let workflow_dir = self.root_path.join("workflows");
+        if workflow_dir.exists() {
+            let mut entries = tokio::fs::read_dir(&workflow_dir).await?;
+            while let Some(entry) = entries.next_entry().await? {
+                if let Some(name) = entry.file_name().to_str() {
+                    if name.ends_with(".json") {
+                        let content = tokio::fs::read_to_string(entry.path()).await?;
+                        if let Ok(state) = serde_json::from_str::<WorkflowState>(&content) {
+                            workflows.push(state);
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(workflows)
+    }
+
     pub async fn list_workflow_executions(
         &self,
-        workflow_name: Option<&str>,
-        status: Option<&str>,
+        workflow_filter: Option<&str>,
+        status_filter: Option<&str>,
         limit: i64,
-    ) -> Result<Vec<WorkflowExecutionSummary>> {
-        let query = if let Some(name) = workflow_name {
-            if let Some(status) = status {
-                sqlx::query(
-                    r#"
-                    SELECT workflow_id, workflow_name, spec_id, status, started_at, completed_at
-                    FROM workflow_executions
-                    WHERE workflow_name = ?1 AND status = ?2
-                    ORDER BY started_at DESC
-                    LIMIT ?3
-                    "#,
-                )
-                .bind(name)
-                .bind(status)
-                .bind(limit)
-            } else {
-                sqlx::query(
-                    r#"
-                    SELECT workflow_id, workflow_name, spec_id, status, started_at, completed_at
-                    FROM workflow_executions
-                    WHERE workflow_name = ?1
-                    ORDER BY started_at DESC
-                    LIMIT ?2
-                    "#,
-                )
-                .bind(name)
-                .bind(limit)
+    ) -> Result<Vec<WorkflowExecution>> {
+        let mut executions = vec![];
+
+        // List all workflow JSON files and convert to executions
+        let workflow_dir = self.root_path.join("workflows");
+        if workflow_dir.exists() {
+            let mut entries = tokio::fs::read_dir(&workflow_dir).await?;
+            while let Some(entry) = entries.next_entry().await? {
+                if let Some(name) = entry.file_name().to_str() {
+                    if name.ends_with(".json") {
+                        let content = tokio::fs::read_to_string(entry.path()).await?;
+                        if let Ok(state) = serde_json::from_str::<WorkflowState>(&content) {
+                            // Convert WorkflowState to WorkflowExecution for display
+                            let execution = WorkflowExecution {
+                                workflow_id: state.workflow_id.to_string(),
+                                workflow_name: workflow_filter.unwrap_or("unknown").to_string(),
+                                status: format!("{:?}", state.status),
+                                started_at: state.started_at,
+                                completed_at: state.completed_at,
+                            };
+
+                            // Apply filters
+                            if let Some(name_filter) = workflow_filter {
+                                if !execution.workflow_name.contains(name_filter) {
+                                    continue;
+                                }
+                            }
+                            if let Some(status_filt) = status_filter {
+                                if !execution
+                                    .status
+                                    .to_lowercase()
+                                    .contains(&status_filt.to_lowercase())
+                                {
+                                    continue;
+                                }
+                            }
+
+                            executions.push(execution);
+                        }
+                    }
+                }
             }
-        } else if let Some(status) = status {
-            sqlx::query(
-                r#"
-                SELECT workflow_id, workflow_name, spec_id, status, started_at, completed_at
-                FROM workflow_executions
-                WHERE status = ?1
-                ORDER BY started_at DESC
-                LIMIT ?2
-                "#,
-            )
-            .bind(status)
-            .bind(limit)
-        } else {
-            sqlx::query(
-                r#"
-                SELECT workflow_id, workflow_name, spec_id, status, started_at, completed_at
-                FROM workflow_executions
-                ORDER BY started_at DESC
-                LIMIT ?1
-                "#,
-            )
-            .bind(limit)
-        };
+        }
 
-        let rows = query
-            .fetch_all(&self.pool)
-            .await
-            .context("Failed to list workflow executions")?;
+        // Sort by started_at desc and limit
+        executions.sort_by(|a, b| b.started_at.cmp(&a.started_at));
+        executions.truncate(limit as usize);
 
-        let summaries: Vec<WorkflowExecutionSummary> = rows
-            .into_iter()
-            .map(|row| WorkflowExecutionSummary {
-                workflow_id: row.get("workflow_id"),
-                workflow_name: row.get("workflow_name"),
-                spec_id: row.get("spec_id"),
-                status: row.get("status"),
-                started_at: DateTime::from_timestamp(row.get("started_at"), 0)
-                    .unwrap_or_else(Utc::now),
-                completed_at: row
-                    .get::<Option<i64>, _>("completed_at")
-                    .and_then(|ts| DateTime::from_timestamp(ts, 0)),
-            })
-            .collect();
-
-        Ok(summaries)
+        Ok(executions)
     }
 
-    pub async fn create_checkpoint(&self, workflow_id: &Uuid, description: &str) -> Result<Uuid> {
-        let checkpoint_id = Uuid::new_v4();
-        let state = self
-            .get_workflow_state(workflow_id)
-            .await?
-            .ok_or_else(|| anyhow::anyhow!("Workflow not found"))?;
-
-        let state_json = serde_json::to_string(&state)?;
-
-        sqlx::query(
-            r#"
-            INSERT INTO workflow_checkpoints (
-                checkpoint_id, workflow_id, description, state_json, created_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5)
-            "#,
-        )
-        .bind(checkpoint_id.to_string())
-        .bind(workflow_id.to_string())
-        .bind(description)
-        .bind(state_json)
-        .bind(Utc::now().timestamp())
-        .execute(&self.pool)
-        .await
-        .context("Failed to create checkpoint")?;
-
-        Ok(checkpoint_id)
+    async fn save_state(&self, state: &WorkflowState) -> Result<()> {
+        let file_path = self.state_file_path(&state.workflow_id);
+        if let Some(parent) = file_path.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+        let content = serde_json::to_string_pretty(state)?;
+        tokio::fs::write(&file_path, content).await?;
+        Ok(())
     }
 
-    pub async fn restore_checkpoint(&self, checkpoint_id: &Uuid) -> Result<WorkflowState> {
-        let record = sqlx::query(
-            r#"
-            SELECT state_json FROM workflow_checkpoints
-            WHERE checkpoint_id = ?1
-            "#,
-        )
-        .bind(checkpoint_id.to_string())
-        .fetch_one(&self.pool)
-        .await
-        .context("Failed to fetch checkpoint")?;
-
-        let state_json: String = record.get("state_json");
-        let state: WorkflowState =
-            serde_json::from_str(&state_json).context("Failed to deserialize checkpoint state")?;
-
-        self.update_workflow_state(&state).await?;
-
-        Ok(state)
+    fn state_file_path(&self, workflow_id: &Uuid) -> PathBuf {
+        self.root_path
+            .join("workflows")
+            .join(format!("{workflow_id}.json"))
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkflowExecutionSummary {
-    pub workflow_id: String,
-    pub workflow_name: String,
-    pub spec_id: Option<String>,
-    pub status: String,
-    pub started_at: DateTime<Utc>,
-    pub completed_at: Option<DateTime<Utc>>,
 }

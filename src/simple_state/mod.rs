@@ -7,17 +7,12 @@
 pub mod cache;
 pub mod learning;
 pub mod state;
-pub mod types;
-// pub mod migration; // Temporarily disabled due to SQLx compile requirements
-#[path = "migration_simple.rs"]
-pub mod migration;
-
 #[cfg(test)]
 mod tests;
+pub mod types;
 
 pub use cache::CacheManager;
 pub use learning::LearningManager;
-pub use migration::migrate_from_sqlite;
 pub use state::StateManager;
 pub use types::*;
 

@@ -369,8 +369,9 @@ impl Leaderboard {
                 ""
             };
 
+            let daily_improvement = member.daily_improvement.abs();
             let line = format!(
-                "{}. {} {}:  {:.1}/10 ({}{})",
+                "{}. {} {}:  {:.1}/10 ({}+{:.1} today)",
                 member.rank,
                 medal,
                 member.name,
@@ -380,7 +381,7 @@ impl Leaderboard {
                 } else {
                     "→"
                 },
-                format!("{:.1} today", member.daily_improvement.abs())
+                daily_improvement
             );
 
             if highlight {

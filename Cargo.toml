@@ -20,7 +20,6 @@ walkdir = "2.5"
 regex = "1.11"
 chrono = { version = "0.4", features = ["serde"] }
 toml = "0.8"
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "migrate"] }
 directories = "5.0"
 notify = "6.1"
 tempfile = "3.10"

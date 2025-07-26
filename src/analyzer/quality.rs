@@ -111,6 +111,7 @@ impl QualityAnalyzer {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn analyze_directory<'a>(
         &'a self,
         dir: &'a Path,
@@ -171,6 +172,7 @@ impl QualityAnalyzer {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn analyze_file(
         &self,
         path: &Path,
@@ -240,6 +242,7 @@ impl QualityAnalyzer {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn analyze_rust_file(
         &self,
         lines: &[&str],
@@ -292,6 +295,7 @@ impl QualityAnalyzer {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn analyze_python_file(
         &self,
         lines: &[&str],
@@ -358,6 +362,7 @@ impl QualityAnalyzer {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn analyze_javascript_file(
         &self,
         lines: &[&str],

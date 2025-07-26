@@ -58,49 +58,49 @@ impl FocusDetector {
         quality: &QualitySignals,
         language: &Language,
     ) -> FocusAreas {
-        let mut scores = Vec::new();
-
         // Score each improvement area
-        scores.push((
-            ImprovementArea::TestCoverage,
-            self.score_test_coverage(health, quality),
-        ));
-        scores.push((
-            ImprovementArea::ErrorHandling,
-            self.score_error_handling(health, quality, language),
-        ));
-        scores.push((
-            ImprovementArea::Documentation,
-            self.score_documentation(health, quality),
-        ));
-        scores.push((
-            ImprovementArea::CodeOrganization,
-            self.score_code_organization(health, quality),
-        ));
-        scores.push((
-            ImprovementArea::Dependencies,
-            self.score_dependencies(health),
-        ));
-        scores.push((
-            ImprovementArea::Configuration,
-            self.score_configuration(health),
-        ));
-        scores.push((
-            ImprovementArea::Performance,
-            self.score_performance(quality, language),
-        ));
-        scores.push((
-            ImprovementArea::TypeSafety,
-            self.score_type_safety(language, quality),
-        ));
-        scores.push((
-            ImprovementArea::Security,
-            self.score_security(health, language),
-        ));
-        scores.push((
-            ImprovementArea::Accessibility,
-            self.score_accessibility(language),
-        ));
+        let mut scores = [
+            (
+                ImprovementArea::TestCoverage,
+                self.score_test_coverage(health, quality),
+            ),
+            (
+                ImprovementArea::ErrorHandling,
+                self.score_error_handling(health, quality, language),
+            ),
+            (
+                ImprovementArea::Documentation,
+                self.score_documentation(health, quality),
+            ),
+            (
+                ImprovementArea::CodeOrganization,
+                self.score_code_organization(health, quality),
+            ),
+            (
+                ImprovementArea::Dependencies,
+                self.score_dependencies(health),
+            ),
+            (
+                ImprovementArea::Configuration,
+                self.score_configuration(health),
+            ),
+            (
+                ImprovementArea::Performance,
+                self.score_performance(quality, language),
+            ),
+            (
+                ImprovementArea::TypeSafety,
+                self.score_type_safety(language, quality),
+            ),
+            (
+                ImprovementArea::Security,
+                self.score_security(health, language),
+            ),
+            (
+                ImprovementArea::Accessibility,
+                self.score_accessibility(language),
+            ),
+        ];
 
         // Sort by score (higher score = higher priority)
         scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
