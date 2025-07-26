@@ -5,6 +5,5 @@ pub mod error;
 pub mod improve;
 pub mod project;
 pub mod simple_state;
-pub mod spec;
 
 pub use error::{Error, Result};
