@@ -20,7 +20,7 @@ Use Rust with Tokio async runtime.
 ## ADR-002: SQLite for State Persistence
 
 ### Status
-Accepted
+Superseded by ADR-013
 
 ### Context
 Need local state storage that's portable and doesn't require a server.
@@ -251,3 +251,24 @@ Implemented spec 10 for intelligent project analysis that automatically detects 
 ### Consequences
 - **Positive**: Zero-configuration analysis, accurate detection, actionable insights
 - **Negative**: Additional complexity, some heuristics may need tuning
+
+---
+
+## ADR-015: JSON-Based State Management
+
+### Status
+Accepted
+
+### Context
+Implemented spec 11 to replace complex SQLite database with simple JSON files for state management.
+
+### Decision
+- Replace SQLite with human-readable JSON files
+- Implement atomic writes with corruption recovery
+- Add TTL-based caching for temporary data
+- Create learning system for tracking improvement patterns
+- Provide migration path from SQLite to JSON
+
+### Consequences
+- **Positive**: Zero configuration, human-readable, git-friendly, easy recovery
+- **Negative**: No concurrent write protection, larger file sizes for big datasets

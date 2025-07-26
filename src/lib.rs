@@ -8,6 +8,7 @@ pub mod r#loop;
 pub mod monitor;
 pub mod plugin;
 pub mod project;
+pub mod simple_state;
 pub mod spec;
 pub mod state;
 pub mod workflow;

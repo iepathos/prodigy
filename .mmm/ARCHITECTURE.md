@@ -31,8 +31,15 @@ The mmm system follows a modular architecture with clear separation of concerns.
 - **history.rs**: Command history tracking
 
 ### 5. State Management (`src/state/`)
-- **manager.rs**: SQLite state persistence
-- **migrations.rs**: Database schema management
+- **manager.rs**: SQLite state persistence (legacy)
+- **migrations.rs**: Database schema management (legacy)
+
+### 5a. Simple State Management (`src/simple_state/`) - NEW
+- **state.rs**: JSON-based state persistence with corruption recovery
+- **cache.rs**: Temporary cache with TTL support
+- **learning.rs**: Pattern tracking and improvement suggestions
+- **types.rs**: State data structures
+- **migration.rs**: SQLite to JSON migration support
 
 ### 6. Monitoring (`src/monitor/`)
 - **collector.rs**: Metrics collection
@@ -70,6 +77,13 @@ The mmm system follows a modular architecture with clear separation of concerns.
 - **focus.rs**: Improvement area prioritization
 - **context.rs**: Analysis report generation
 
+### 11. Simple State Management (`src/simple_state/`)
+- **state.rs**: JSON-based state persistence with atomic writes
+- **cache.rs**: TTL-based caching for temporary data
+- **learning.rs**: Learning system for tracking improvement patterns
+- **types.rs**: Clean type definitions for state
+- **migration.rs**: SQLite to JSON migration support
+
 ## Data Flow
 
 ```
@@ -84,6 +98,8 @@ User Input → Command Parser → Command Dispatcher
                             Improve Engine
                                     ↓
                             State Manager
+                                    ↓
+                            Simple State (JSON)
                                     ↓
                             Monitor/Analytics
 ```

@@ -89,6 +89,7 @@ impl std::fmt::Display for Framework {
 pub struct FrameworkDetector {
     config_patterns: HashMap<&'static str, Framework>,
     dependency_patterns: HashMap<&'static str, Framework>,
+    #[allow(dead_code)]
     file_patterns: HashMap<&'static str, Framework>,
 }
 

@@ -132,7 +132,9 @@ impl LanguageDetector {
         // Find the most common extension
         let (most_common_ext, _) = extension_counts.iter().max_by_key(|(_, count)| *count)?;
 
-        self.extension_patterns.get(most_common_ext.as_str()).cloned()
+        self.extension_patterns
+            .get(most_common_ext.as_str())
+            .cloned()
     }
 
     fn count_extensions_in_dir(&self, dir: &Path, counts: &mut HashMap<String, usize>) {

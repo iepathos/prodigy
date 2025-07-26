@@ -203,7 +203,7 @@ impl FocusDetector {
     }
 
     fn score_documentation(&self, health: &HealthIndicators, quality: &QualitySignals) -> f32 {
-        let mut score: f32 = 0.0;
+        let mut score: f32;
 
         // Documentation level
         match health.documentation_level {
@@ -229,7 +229,7 @@ impl FocusDetector {
     }
 
     fn score_code_organization(&self, health: &HealthIndicators, quality: &QualitySignals) -> f32 {
-        let mut score: f32 = 0.0;
+        let mut score: f32;
 
         // Complexity
         match health.code_complexity {

@@ -2,10 +2,10 @@
 
 use anyhow::Result;
 use std::collections::HashSet;
-use std::path::{Path, PathBuf};
-use tokio::fs;
-use std::pin::Pin;
 use std::future::Future;
+use std::path::{Path, PathBuf};
+use std::pin::Pin;
+use tokio::fs;
 
 /// Types of configuration files
 #[derive(Debug, Clone, PartialEq, Eq)]
