@@ -8,6 +8,7 @@ This file tracks the key specifications that shaped the current focused architec
 - **11**: `specs/11-simple-state-management.md` - JSON-based state management  
 - **13**: `specs/13-prune-learning-feature.md` - Remove over-engineered learning system
 - **14**: `specs/14-implement-real-claude-loop.md` - Real Claude CLI integration and self-sufficient loop
+- **15**: `specs/15-remove-developer-experience-bloat.md` - Remove premature developer experience features
 
 ## Current Focus
 

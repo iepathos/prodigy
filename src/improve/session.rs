@@ -21,20 +21,14 @@ pub struct ImproveSession {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImproveOptions {
-    pub focus: Option<String>,
     pub target_score: f32,
-    pub auto_commit: bool,
-    pub dry_run: bool,
     pub verbose: bool,
 }
 
 impl Default for ImproveOptions {
     fn default() -> Self {
         Self {
-            focus: None,
             target_score: 8.0,
-            auto_commit: false,
-            dry_run: false,
             verbose: false,
         }
     }
@@ -45,27 +39,6 @@ pub struct ImproveState {
     pub last_run: DateTime<Utc>,
     pub current_score: f32,
     pub improvement_history: Vec<ImprovementRun>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ImprovementType {
-    ErrorHandling,
-    Testing,
-    Documentation,
-    Performance,
-    Security,
-    Types,
-    Style,
-    Architecture,
-}
-
-#[derive(Debug, Clone)]
-pub struct Improvement {
-    pub improvement_type: ImprovementType,
-    pub file: String,
-    pub line: usize,
-    pub old_content: String,
-    pub new_content: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -273,12 +246,8 @@ impl ImproveSession {
             .unwrap_or_else(|| "None".to_string());
 
         format!(
-            "Language: {}\nFramework: {}\nSize: {:?}\nCurrent Score: {:.1}\nFocus: {}\n",
-            self.project.language,
-            framework_str,
-            self.project.size,
-            self.state.current_score,
-            self.options.focus.as_deref().unwrap_or("general")
+            "Language: {}\nFramework: {}\nSize: {:?}\nCurrent Score: {:.1}\n",
+            self.project.language, framework_str, self.project.size, self.state.current_score
         )
     }
 
@@ -423,25 +392,17 @@ impl ImproveSession {
         let mut applied_changes = Vec::new();
 
         for change in changes {
-            if !self.options.dry_run {
-                match self.apply_single_change(change).await {
-                    Ok(()) => {
-                        applied_changes.push(change.clone());
-                        if self.options.verbose {
-                            println!("Applied: {}", change.description);
-                        }
-                    }
-                    Err(e) => {
-                        if self.options.verbose {
-                            println!("Failed to apply change {}: {}", change.description, e);
-                        }
+            match self.apply_single_change(change).await {
+                Ok(()) => {
+                    applied_changes.push(change.clone());
+                    if self.options.verbose {
+                        println!("Applied: {}", change.description);
                     }
                 }
-            } else {
-                // In dry run mode, just track what would be changed
-                applied_changes.push(change.clone());
-                if self.options.verbose {
-                    println!("Would apply: {}", change.description);
+                Err(e) => {
+                    if self.options.verbose {
+                        println!("Failed to apply change {}: {}", change.description, e);
+                    }
                 }
             }
         }

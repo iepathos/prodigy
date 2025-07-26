@@ -12,10 +12,11 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 - Direct entry point to improvement logic
 
 ### 2. Improve Command (`src/improve/`)
-- **command.rs**: CLI argument parsing and main workflow
+- **command.rs**: Simplified CLI with only target and verbose flags
 - **analyzer.rs**: Project analysis (language, framework, health)
 - **context.rs**: Smart context building for Claude
-- **session.rs**: Improvement session management
+- **session.rs**: Simplified session management with essential tracking only
+- **display.rs**: Basic console output (no fancy progress bars)
 - **state_adapter.rs**: Bridge to simple state management
 
 ### 3. Project Analysis (`src/analyzer/`)

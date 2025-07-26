@@ -185,3 +185,21 @@ Use subprocess calls to execute `claude /mmm-code-review` and `claude /mmm-imple
 - **Positive**: Real functionality, leverages existing Claude CLI commands, structured output for automation
 - **Negative**: Dependency on Claude CLI installation, subprocess complexity, JSON parsing requirements
 - **Implementation**: Added real command execution, JSON output parsing, file change application, and project re-analysis
+
+---
+
+## ADR-012: Remove Developer Experience Bloat
+
+### Status
+Accepted
+
+### Context
+Spec 15 identified extensive premature developer experience features that added complexity without providing core value before the basic improvement loop was proven to work reliably.
+
+### Decision
+Remove entire src/developer_experience/ module, simplify CLI to essential flags only, replace fancy progress displays with basic console output.
+
+### Consequences
+- **Positive**: ~1000+ lines removed, simpler codebase, faster compilation, focus on core functionality, reduced dependencies
+- **Negative**: Less polished user experience, basic progress feedback only
+- **Implementation**: Deleted developer_experience module, simplified ImproveCommand to 2 fields, replaced indicatif/colored with println!, removed unused dependencies

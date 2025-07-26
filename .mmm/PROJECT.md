@@ -9,7 +9,7 @@ Memento Mori (mmm) is a dead simple Rust CLI tool that makes your code better th
 - **Project Status**: Active Development - Core Working
 - **Core Feature**: `mmm improve` command with Claude CLI integration
 - **Latest Version**: 0.1.0
-- **Implementation Status**: Real Claude CLI integration implemented with working self-sufficient loop
+- **Implementation Status**: Real Claude CLI integration implemented with working self-sufficient loop and developer experience bloat removed
 
 ## What Exists
 

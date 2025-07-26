@@ -37,6 +37,16 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
 - Code quality demonstrably improves
 - Process is hands-off and reliable
 
+## ✅ Phase 2.5: Remove Developer Experience Bloat (COMPLETED)
+
+### Simplification Complete
+- [x] **Removed src/developer_experience/ module entirely** (~1000+ lines removed)
+- [x] **Simplified ImproveCommand to 2 fields** (target, verbose only)
+- [x] **Replaced fancy display with basic println!** (removed indicatif, colored dependencies)
+- [x] **Simplified session types** (removed ImprovementType enum, complex Improvement struct)
+- [x] **Updated lib.rs** (removed developer_experience module reference)
+- [x] **Removed UI dependencies** (indicatif, colored, ctrlc, crossterm)
+
 ## 📋 Phase 3: Robustness (NEXT)
 
 ### Core Reliability
@@ -51,7 +61,7 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
   - More accurate health scoring
 
 - [ ] **Improved UX**
-  - Real-time progress indicators
+  - Basic progress feedback
   - Better success/failure feedback
   - Clearer improvement summaries
 
