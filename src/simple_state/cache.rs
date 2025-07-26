@@ -107,10 +107,8 @@ impl CacheManager {
                         .duration_since(metadata.modified()?)
                         .unwrap_or(Duration::MAX);
 
-                    if age > self.ttl {
-                        if fs::remove_file(&path).is_ok() {
-                            removed += 1;
-                        }
+                    if age > self.ttl && fs::remove_file(&path).is_ok() {
+                        removed += 1;
                     }
                 }
             }
@@ -123,7 +121,7 @@ impl CacheManager {
     fn cache_path(&self, key: &str) -> PathBuf {
         // Sanitize key to be filesystem-safe
         let safe_key = key.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
-        self.root.join(format!("{}.json", safe_key))
+        self.root.join(format!("{safe_key}.json"))
     }
 
     /// Check if a cache entry exists and is valid

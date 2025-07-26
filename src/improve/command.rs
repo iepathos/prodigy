@@ -1,23 +1,12 @@
-use anyhow::{Context as _, Result};
-use clap::Args;
-use std::path::Path;
-use std::time::Instant;
-
 use super::{
     analyzer::ProjectAnalyzer,
     context::ContextBuilder,
     display,
-    session::{ImproveOptions, ImproveSession, ImprovementType},
+    session::{ImproveOptions, ImproveSession},
 };
-
-use crate::developer_experience::{
-    ProgressDisplay, Phase, ResultSummary, QualityScore, ImpactMetrics,
-    InterruptHandler, LivePreview, ChangeDecision,
-    ErrorHandler, RollbackManager,
-    SmartHelper, ContextualHelp,
-    Achievement, AchievementManager, Streak, SuccessMessage,
-    FastStartup, IncrementalProcessor,
-};
+use anyhow::{Context as _, Result};
+use clap::Args;
+use std::path::Path;
 
 #[derive(Debug, Args)]
 pub struct ImproveCommand {

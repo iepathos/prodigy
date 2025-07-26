@@ -72,7 +72,7 @@ impl StateManager {
 
         // Find next session number
         let session_num = self.next_session_number(&date_dir)?;
-        let filename = format!("{:03}-improve.json", session_num);
+        let filename = format!("{session_num:03}-improve.json");
 
         // Save session
         let session_file = date_dir.join(filename);
@@ -130,14 +130,14 @@ impl StateManager {
                             let backup = root
                                 .join(format!("state.json.corrupted.{}", Utc::now().timestamp()));
                             fs::rename(&state_file, &backup)?;
-                            eprintln!("⚠️  State file corrupted, backed up to {:?}", backup);
-                            eprintln!("   Error: {}", e);
+                            eprintln!("⚠️  State file corrupted, backed up to {backup:?}");
+                            eprintln!("   Error: {e}");
                             Ok(State::new(uuid::Uuid::new_v4().to_string()))
                         }
                     }
                 }
                 Err(e) => {
-                    eprintln!("⚠️  Cannot read state file: {}", e);
+                    eprintln!("⚠️  Cannot read state file: {e}");
                     Ok(State::new(uuid::Uuid::new_v4().to_string()))
                 }
             }

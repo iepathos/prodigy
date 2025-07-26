@@ -1,10 +1,10 @@
 //! Shell integration with completions and git hooks
 
+use anyhow::Result;
 use colored::*;
-use std::path::Path;
 use std::fs;
 use std::io::Write;
-use anyhow::Result;
+use std::path::Path;
 
 /// Shell integration manager
 pub struct ShellIntegration;
@@ -16,10 +16,10 @@ impl ShellIntegration {
         if !git_dir.exists() {
             anyhow::bail!("Not in a git repository");
         }
-        
+
         let hooks_dir = git_dir.join("hooks");
         fs::create_dir_all(&hooks_dir)?;
-        
+
         // Pre-commit hook
         let pre_commit_path = hooks_dir.join("pre-commit");
         let pre_commit_content = r#"#!/bin/sh
@@ -53,9 +53,9 @@ fi
 
 exit 0
 "#;
-        
+
         fs::write(&pre_commit_path, pre_commit_content)?;
-        
+
         // Make executable
         #[cfg(unix)]
         {
@@ -64,15 +64,15 @@ exit 0
             perms.set_mode(0o755);
             fs::set_permissions(&pre_commit_path, perms)?;
         }
-        
+
         println!("{} Installed git pre-commit hook", "✅".green());
         println!();
         println!("Now MMM will automatically improve code before each commit.");
         println!("Use {} to skip.", "'git commit --no-verify'".cyan());
-        
+
         Ok(())
     }
-    
+
     /// Generate shell completions
     pub fn generate_completions(shell: Shell) -> String {
         match shell {
@@ -81,7 +81,7 @@ exit 0
             Shell::Fish => Self::fish_completions(),
         }
     }
-    
+
     fn bash_completions() -> String {
         r#"# MMM bash completion
 
@@ -124,7 +124,7 @@ _mmm() {
 complete -F _mmm mmm
 "#.to_string()
     }
-    
+
     fn zsh_completions() -> String {
         r#"#compdef mmm
 
@@ -163,7 +163,7 @@ _mmm() {
 _mmm "$@"
 "#.to_string()
     }
-    
+
     fn fish_completions() -> String {
         r#"# MMM fish completion
 
@@ -198,18 +198,17 @@ pub enum Shell {
 impl Shell {
     /// Detect current shell
     pub fn detect() -> Option<Self> {
-        std::env::var("SHELL").ok()
-            .and_then(|shell| {
-                if shell.contains("bash") {
-                    Some(Shell::Bash)
-                } else if shell.contains("zsh") {
-                    Some(Shell::Zsh)
-                } else if shell.contains("fish") {
-                    Some(Shell::Fish)
-                } else {
-                    None
-                }
-            })
+        std::env::var("SHELL").ok().and_then(|shell| {
+            if shell.contains("bash") {
+                Some(Shell::Bash)
+            } else if shell.contains("zsh") {
+                Some(Shell::Zsh)
+            } else if shell.contains("fish") {
+                Some(Shell::Fish)
+            } else {
+                None
+            }
+        })
     }
 }
 
@@ -219,88 +218,90 @@ pub struct Completions;
 impl Completions {
     /// Install completions for current shell
     pub fn install() -> Result<()> {
-        let shell = Shell::detect()
-            .ok_or_else(|| anyhow::anyhow!("Could not detect shell"))?;
-        
+        let shell = Shell::detect().ok_or_else(|| anyhow::anyhow!("Could not detect shell"))?;
+
         let completions = ShellIntegration::generate_completions(shell);
-        
+
         match shell {
             Shell::Bash => Self::install_bash(completions)?,
             Shell::Zsh => Self::install_zsh(completions)?,
             Shell::Fish => Self::install_fish(completions)?,
         }
-        
-        println!("{} Installed {} completions", "✅".green(), format!("{:?}", shell).cyan());
-        println!("Restart your shell or run {} to enable completions", 
+
+        println!(
+            "{} Installed {} completions",
+            "✅".green(),
+            format!("{shell:?}").cyan()
+        );
+        println!(
+            "Restart your shell or run {} to enable completions",
             "source ~/.bashrc".cyan()
         );
-        
+
         Ok(())
     }
-    
+
     fn install_bash(completions: String) -> Result<()> {
         let completions_dir = dirs::home_dir()
             .ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?
             .join(".bash_completion.d");
-        
+
         fs::create_dir_all(&completions_dir)?;
         let completion_file = completions_dir.join("mmm");
         fs::write(&completion_file, completions)?;
-        
+
         // Try to add to .bashrc
         let bashrc = dirs::home_dir().unwrap().join(".bashrc");
         if bashrc.exists() {
             let content = fs::read_to_string(&bashrc)?;
             if !content.contains("mmm completion") {
-                let mut file = fs::OpenOptions::new()
-                    .append(true)
-                    .open(&bashrc)?;
+                let mut file = fs::OpenOptions::new().append(true).open(&bashrc)?;
                 writeln!(file, "\n# MMM completion")?;
-                writeln!(file, "[ -f {} ] && source {}", 
+                writeln!(
+                    file,
+                    "[ -f {} ] && source {}",
                     completion_file.display(),
                     completion_file.display()
                 )?;
             }
         }
-        
+
         Ok(())
     }
-    
+
     fn install_zsh(completions: String) -> Result<()> {
         let completions_dir = dirs::home_dir()
             .ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?
             .join(".zsh/completions");
-        
+
         fs::create_dir_all(&completions_dir)?;
         let completion_file = completions_dir.join("_mmm");
         fs::write(&completion_file, completions)?;
-        
+
         // Try to add to .zshrc
         let zshrc = dirs::home_dir().unwrap().join(".zshrc");
         if zshrc.exists() {
             let content = fs::read_to_string(&zshrc)?;
             if !content.contains("mmm completion") {
-                let mut file = fs::OpenOptions::new()
-                    .append(true)
-                    .open(&zshrc)?;
+                let mut file = fs::OpenOptions::new().append(true).open(&zshrc)?;
                 writeln!(file, "\n# MMM completion")?;
                 writeln!(file, "fpath=(~/.zsh/completions $fpath)")?;
                 writeln!(file, "autoload -Uz compinit && compinit")?;
             }
         }
-        
+
         Ok(())
     }
-    
+
     fn install_fish(completions: String) -> Result<()> {
         let completions_dir = dirs::home_dir()
             .ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?
             .join(".config/fish/completions");
-        
+
         fs::create_dir_all(&completions_dir)?;
         let completion_file = completions_dir.join("mmm.fish");
         fs::write(&completion_file, completions)?;
-        
+
         Ok(())
     }
 }

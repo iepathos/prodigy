@@ -17,7 +17,7 @@ impl ContextGenerator {
         writeln!(&mut output, "## Overview").unwrap();
         writeln!(&mut output, "- Language: {}", result.language).unwrap();
         if let Some(framework) = &result.framework {
-            writeln!(&mut output, "- Framework: {}", framework).unwrap();
+            writeln!(&mut output, "- Framework: {framework}").unwrap();
         }
         writeln!(
             &mut output,
@@ -65,7 +65,7 @@ impl ContextGenerator {
             if !build.scripts.is_empty() {
                 writeln!(&mut output, "- Available Scripts:").unwrap();
                 for (name, _) in build.scripts.iter().take(5) {
-                    writeln!(&mut output, "  - {}", name).unwrap();
+                    writeln!(&mut output, "  - {name}").unwrap();
                 }
             }
             writeln!(
@@ -84,7 +84,7 @@ impl ContextGenerator {
             &mut output,
             "- Test Coverage: {}",
             if let Some(coverage) = result.health.test_coverage {
-                format!("{:.1}%", coverage)
+                format!("{coverage:.1}%")
             } else if result.health.has_tests {
                 "Tests present (coverage unknown)".to_string()
             } else {
@@ -182,7 +182,7 @@ impl ContextGenerator {
             }
         )
         .unwrap();
-        if result.health.open_todos.len() > 0 {
+        if !result.health.open_todos.is_empty() {
             writeln!(
                 &mut output,
                 "- Open TODOs: {} found",
@@ -197,7 +197,7 @@ impl ContextGenerator {
         if !result.focus_areas.primary.is_empty() {
             writeln!(&mut output, "### Primary Focus Areas").unwrap();
             for area in &result.focus_areas.primary {
-                writeln!(&mut output, "1. **{}**", area).unwrap();
+                writeln!(&mut output, "1. **{area}**").unwrap();
                 writeln!(
                     &mut output,
                     "   {}",

@@ -163,21 +163,21 @@ impl ImproveSession {
     pub fn current_score(&self) -> f32 {
         self.state.current_score
     }
-    
+
     pub fn completed_count(&self) -> usize {
         self.iterations.len()
     }
-    
+
     pub fn remaining_count(&self) -> usize {
         // Estimate remaining improvements based on score gap
         let score_gap = self.options.target_score - self.state.current_score;
         ((score_gap / 0.3).ceil() as usize).min(10 - self.iterations.len())
     }
-    
+
     pub fn is_complete(&self) -> bool {
         self.is_good_enough() || self.iterations.len() >= 10
     }
-    
+
     pub fn next_improvement(&self) -> Improvement {
         // Simulated improvement for now
         Improvement {
@@ -188,12 +188,12 @@ impl ImproveSession {
             new_content: "let user = get_user()?;".to_string(),
         }
     }
-    
-    pub async fn apply_improvement(&mut self, improvement: Improvement) -> Result<()> {
+
+    pub async fn apply_improvement(&mut self, _improvement: Improvement) -> Result<()> {
         // In real implementation, this would apply the change
         Ok(())
     }
-    
+
     pub async fn run(&mut self) -> Result<SessionResult> {
         let initial_score = self.state.current_score;
         let mut total_changes = Vec::new();

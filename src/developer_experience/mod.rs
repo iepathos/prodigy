@@ -4,23 +4,23 @@
 //! smart suggestions, and celebration mechanics to make code improvement
 //! feel magical rather than mechanical.
 
-pub mod progress;
-pub mod summary;
-pub mod interactive;
-pub mod error_handling;
-pub mod suggestions;
 pub mod celebration;
-pub mod shell;
+pub mod error_handling;
+pub mod interactive;
 pub mod performance;
+pub mod progress;
+pub mod shell;
+pub mod suggestions;
+pub mod summary;
 
-pub use progress::{ProgressDisplay, Phase};
-pub use summary::{ResultSummary, QualityScore, ImpactMetrics};
-pub use interactive::{LivePreview, InterruptHandler, ChangeDecision};
-pub use error_handling::{ErrorHandler, RollbackManager};
-pub use suggestions::{SmartHelper, NextAction, ContextualHelp};
 pub use celebration::{Achievement, AchievementManager, Streak, SuccessMessage};
-pub use shell::{ShellIntegration, Completions};
+pub use error_handling::{ErrorHandler, RollbackManager};
+pub use interactive::{ChangeDecision, InterruptHandler, LivePreview};
 pub use performance::{FastStartup, IncrementalProcessor};
+pub use progress::{Phase, ProgressDisplay};
+pub use shell::{Completions, ShellIntegration};
+pub use suggestions::{ContextualHelp, NextAction, SmartHelper};
+pub use summary::{ImpactMetrics, QualityScore, ResultSummary};
 
 use std::io::{self, IsTerminal};
 
@@ -35,6 +35,6 @@ pub fn init() -> anyhow::Result<()> {
     if is_interactive() {
         colored::control::set_override(true);
     }
-    
+
     Ok(())
 }

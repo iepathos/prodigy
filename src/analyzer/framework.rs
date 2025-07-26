@@ -80,7 +80,7 @@ impl std::fmt::Display for Framework {
             Framework::Blazor => write!(f, "Blazor"),
             Framework::Rails => write!(f, "Ruby on Rails"),
             Framework::Sinatra => write!(f, "Sinatra"),
-            Framework::Other(name) => write!(f, "{}", name),
+            Framework::Other(name) => write!(f, "{name}"),
         }
     }
 }
@@ -227,7 +227,7 @@ impl FrameworkDetector {
             if config_file.path.file_name()?.to_str()? == "package.json" {
                 if let Ok(content) = std::fs::read_to_string(&config_file.path) {
                     for (dep, framework) in &self.dependency_patterns {
-                        if content.contains(&format!("\"{}\"", dep))
+                        if content.contains(&format!("\"{dep}\""))
                             && matches!(
                                 framework,
                                 Framework::React

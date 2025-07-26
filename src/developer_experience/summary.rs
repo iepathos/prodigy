@@ -15,12 +15,12 @@ impl QualityScore {
     pub fn new(before: f32, after: f32) -> Self {
         Self { before, after }
     }
-    
+
     /// Get the improvement delta
     pub fn delta(&self) -> f32 {
         self.after - self.before
     }
-    
+
     /// Get the percentage improvement
     pub fn improvement_percentage(&self) -> f32 {
         if self.before == 0.0 {
@@ -29,13 +29,14 @@ impl QualityScore {
             (self.delta() / self.before) * 100.0
         }
     }
-    
+
     /// Format as a progress bar
     pub fn progress_bar(&self, width: usize) -> String {
         let filled = ((self.after / 10.0) * width as f32) as usize;
         let empty = width.saturating_sub(filled);
-        
-        format!("{}{}",
+
+        format!(
+            "{}{}",
             "█".repeat(filled).green(),
             "░".repeat(empty).dimmed()
         )
@@ -60,13 +61,17 @@ impl ImpactMetrics {
         let delta = after - before;
         let arrow = if delta > 0.0 { "↑" } else { "↓" };
         let color = if delta > 0.0 { "green" } else { "red" };
-        
-        format!("{:.0}% → {:.0}% ({}{:.0}%{})",
-            before, after,
+
+        format!(
+            "{:.0}% → {:.0}% ({}{:.0}%{})",
+            before,
+            after,
             arrow,
             delta.abs(),
             suffix
-        ).color(color).to_string()
+        )
+        .color(color)
+        .to_string()
     }
 }
 
@@ -84,24 +89,30 @@ impl ResultSummary {
     pub fn display(&self) {
         // Header
         println!();
-        println!("{} {} Your code is now better.", 
+        println!(
+            "{} {} Your code is now better.",
             "✨".bold(),
             "Improvement complete!".green().bold()
         );
         println!();
-        
+
         // Quality score visualization
-        println!("{} {}  {:.1} → {:.1} ({}{:.1})",
+        println!(
+            "{} {}  {:.1} → {:.1} ({}{:.1})",
             "📈".bold(),
             "Quality Score:".bold(),
             self.quality_score.before,
             self.quality_score.after,
-            if self.quality_score.delta() > 0.0 { "+" } else { "" },
+            if self.quality_score.delta() > 0.0 {
+                "+"
+            } else {
+                ""
+            },
             self.quality_score.delta()
         );
         println!("                   {}", self.quality_score.progress_bar(20));
         println!();
-        
+
         // Changes made
         if !self.changes_made.is_empty() {
             println!("{} {}", "📝".bold(), "Changes Made:".bold());
@@ -110,59 +121,64 @@ impl ResultSummary {
             }
             println!();
         }
-        
+
         // Impact metrics
         self.display_impact();
-        
+
         // Summary stats
-        println!("{} Files changed: {} | Lines: {}, {}",
+        println!(
+            "{} Files changed: {} | Lines: {}, {}",
             "💾".bold(),
             self.impact.files_changed.to_string().cyan(),
             format!("+{}", self.impact.lines_added).green(),
             format!("-{}", self.impact.lines_removed).red()
         );
         println!();
-        
+
         // Next suggestion
         if let Some(suggestion) = &self.next_suggestion {
             println!("{} {}", "🎯".bold(), "Next suggested improvement:".bold());
-            println!("   {}", suggestion);
+            println!("   {suggestion}");
             println!();
         }
-        
+
         // Success message
         let improvement_pct = self.quality_score.improvement_percentage();
-        println!("{} {}",
+        println!(
+            "{} {}",
             "✨".bold(),
-            format!("Great work! Your code quality improved by {:.0}%", improvement_pct)
-                .green().bold()
+            format!("Great work! Your code quality improved by {improvement_pct:.0}%")
+                .green()
+                .bold()
         );
     }
-    
+
     /// Display impact metrics
     fn display_impact(&self) {
         println!("{} {}", "📊".bold(), "Impact:".bold());
-        
+
         // Test coverage
         if let Some((before, after)) = self.impact.tests_coverage {
             let change = ImpactMetrics::format_change(before, after, "");
-            println!("  Tests:     {}", change);
+            println!("  Tests:     {change}");
         }
-        
+
         // Errors
         if self.impact.errors_fixed > 0 {
-            println!("  Errors:    {} → 0 (-100%)", 
+            println!(
+                "  Errors:    {} → 0 (-100%)",
                 self.impact.errors_fixed.to_string().red(),
             );
         }
-        
+
         // Documentation
         if self.impact.docs_added > 0 {
-            println!("  Docs:      {} APIs documented",
+            println!(
+                "  Docs:      {} APIs documented",
                 format!("+{}", self.impact.docs_added).green()
             );
         }
-        
+
         // Build status
         println!("  Build:     {} All checks passed", "✅".green());
         println!();
@@ -184,7 +200,7 @@ impl InlineProgress {
             width: 20,
         }
     }
-    
+
     pub fn with_width(mut self, width: usize) -> Self {
         self.width = width;
         self
@@ -196,8 +212,10 @@ impl fmt::Display for InlineProgress {
         let progress = (self.current / self.target).min(1.0);
         let filled = (progress * self.width as f32) as usize;
         let empty = self.width.saturating_sub(filled);
-        
-        write!(f, "│ {}{}{}│",
+
+        write!(
+            f,
+            "│ {}{}{}│",
             "█".repeat(filled).green(),
             "█".repeat(empty).dimmed(),
             " ".repeat(empty)

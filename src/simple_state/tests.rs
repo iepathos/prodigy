@@ -206,9 +206,9 @@ mod tests {
             let mut session = SessionRecord::new(7.0 + i as f32 * 0.1);
             session.improvements.push(Improvement {
                 improvement_type: "test".to_string(),
-                file: format!("file{}.rs", i),
+                file: format!("file{i}.rs"),
                 line: Some(i),
-                description: format!("Improvement {}", i),
+                description: format!("Improvement {i}"),
                 impact: 0.1,
             });
             session.complete(7.1 + i as f32 * 0.1);

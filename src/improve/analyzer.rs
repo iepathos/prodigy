@@ -123,12 +123,12 @@ impl ProjectAnalyzer {
         let error_count = Self::estimate_error_count(path)?;
         let doc_coverage = Self::estimate_doc_coverage(path)?;
         let test_coverage = Self::estimate_test_coverage(test_files, file_count);
-        
+
         let health = ProjectHealth {
             error_handling_score: if error_count > 10 { 0.3 } else { 0.8 },
             documentation_score: doc_coverage / 100.0,
         };
-        
+
         Ok(ProjectInfo {
             language,
             framework,
@@ -464,33 +464,33 @@ impl ProjectAnalyzer {
 
         areas
     }
-    
+
     fn count_test_files(path: &Path) -> Result<usize> {
         let mut test_count = 0;
-        
+
         for entry in WalkDir::new(path)
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| e.file_type().is_file())
         {
             let file_path = entry.path();
-            let file_name = file_path.file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("");
-            
-            if file_name.contains("test") || file_name.contains("spec") ||
-               file_path.to_string_lossy().contains("/tests/") ||
-               file_path.to_string_lossy().contains("/test/") {
+            let file_name = file_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+
+            if file_name.contains("test")
+                || file_name.contains("spec")
+                || file_path.to_string_lossy().contains("/tests/")
+                || file_path.to_string_lossy().contains("/test/")
+            {
                 test_count += 1;
             }
         }
-        
+
         Ok(test_count)
     }
-    
+
     fn estimate_error_count(path: &Path) -> Result<usize> {
         let mut error_count = 0;
-        
+
         for entry in WalkDir::new(path)
             .into_iter()
             .filter_map(|e| e.ok())
@@ -503,14 +503,14 @@ impl ProjectAnalyzer {
                 error_count += content.matches("panic!(").count();
             }
         }
-        
+
         Ok(error_count)
     }
-    
+
     fn estimate_doc_coverage(path: &Path) -> Result<f32> {
         let mut total_items = 0;
         let mut documented_items = 0;
-        
+
         for entry in WalkDir::new(path)
             .into_iter()
             .filter_map(|e| e.ok())
@@ -521,19 +521,19 @@ impl ProjectAnalyzer {
                 total_items += content.matches("pub fn").count();
                 total_items += content.matches("pub struct").count();
                 total_items += content.matches("pub enum").count();
-                
+
                 documented_items += content.matches("/// ").count();
                 documented_items += content.matches("//! ").count();
             }
         }
-        
+
         if total_items == 0 {
             Ok(100.0)
         } else {
             Ok((documented_items as f32 / total_items as f32) * 100.0)
         }
     }
-    
+
     fn estimate_test_coverage(test_files: usize, total_files: usize) -> f32 {
         if total_files == 0 {
             0.0

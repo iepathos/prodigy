@@ -35,7 +35,7 @@ impl std::fmt::Display for Language {
             Language::Ruby => write!(f, "Ruby"),
             Language::Swift => write!(f, "Swift"),
             Language::Kotlin => write!(f, "Kotlin"),
-            Language::Other(name) => write!(f, "{}", name),
+            Language::Other(name) => write!(f, "{name}"),
         }
     }
 }

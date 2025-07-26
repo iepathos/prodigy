@@ -63,7 +63,7 @@ impl LearningManager {
             .patterns
             .successful_improvements
             .entry(improvement.improvement_type.clone())
-            .or_insert_with(PatternInfo::default);
+            .or_default();
 
         pattern.total_attempts += 1;
         pattern.successful += 1;
@@ -90,7 +90,7 @@ impl LearningManager {
             .patterns
             .successful_improvements
             .entry(improvement_type.to_string())
-            .or_insert_with(PatternInfo::default);
+            .or_default();
 
         pattern.total_attempts += 1;
         pattern.success_rate = pattern.successful as f32 / pattern.total_attempts as f32;
