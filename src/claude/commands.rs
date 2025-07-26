@@ -451,9 +451,8 @@ impl CommandRegistry {
         if let Some(start) = output.find("```json") {
             if let Some(end) = output[start..].find("```") {
                 let json_str = &output[start + 7..start + end];
-                return serde_json::from_str(json_str).map_err(|e| {
-                    Error::Parse(format!("Invalid JSON in structured output: {e}"))
-                });
+                return serde_json::from_str(json_str)
+                    .map_err(|e| Error::Parse(format!("Invalid JSON in structured output: {e}")));
             }
         }
 

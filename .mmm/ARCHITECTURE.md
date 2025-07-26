@@ -53,6 +53,13 @@ The mmm system follows a modular architecture with clear separation of concerns.
 - **metrics.rs**: Quality metrics and performance tracking
 - **commands.rs**: Workflow step commands for loop execution
 
+### 9. Dead Simple Improve (`src/improve/`)
+- **analyzer.rs**: Project analysis and language detection
+- **context.rs**: Smart context building for Claude
+- **session.rs**: Improvement session management
+- **display.rs**: Progress display and user feedback
+- **command.rs**: CLI command implementation
+
 ## Data Flow
 
 ```
@@ -63,6 +70,8 @@ User Input → Command Parser → Command Dispatcher
                             Workflow Engine ←→ Iteration Engine
                                     ↓              ↓
                             Claude API Client ←----┘
+                                    ↑
+                            Improve Engine
                                     ↓
                             State Manager
                                     ↓

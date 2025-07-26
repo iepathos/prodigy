@@ -208,3 +208,24 @@ Implemented spec 08 for iterative improvement loops that can automatically chain
 ### Consequences
 - **Positive**: Self-sufficient automated improvement cycles, leverages existing MMM infrastructure
 - **Negative**: Increased complexity in command orchestration, dependency on Claude CLI availability
+
+---
+
+## ADR-013: Dead Simple Improve Command
+
+### Status
+Accepted
+
+### Context
+Implemented spec 09 for zero-configuration code improvement that "just works" out of the box.
+
+### Decision
+- Create single `mmm improve` command with smart defaults
+- Auto-detect project language, framework, and characteristics
+- Build context automatically based on project analysis
+- Use simple JSON state file instead of complex database
+- Focus on immediate value with minimal setup
+
+### Consequences
+- **Positive**: Extremely user-friendly, works immediately after installation, clear progress feedback
+- **Negative**: Less configurable than full workflow system, simulated Claude integration for now

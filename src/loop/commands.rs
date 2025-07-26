@@ -311,9 +311,7 @@ impl WorkflowParameters {
             .get(key)
             .and_then(|v| v.as_u64())
             .map(|v| v as u32)
-            .ok_or_else(|| {
-                crate::Error::Config(format!("Missing or invalid u32 parameter: {key}"))
-            })
+            .ok_or_else(|| crate::Error::Config(format!("Missing or invalid u32 parameter: {key}")))
     }
 
     pub fn get_string(&self, key: &str) -> Result<String> {

@@ -17,5 +17,9 @@ This file maps specification numbers to their corresponding files for easy looku
 - **06**: `specs/06-plugin-system.md` - Plugin architecture and security sandbox
 - **07**: `specs/07-claude-cli-ux.md` - Claude CLI user experience improvements
 
+## Iterative Improvement Specifications
+- **08**: `specs/08-iterative-loop.md` - Iterative improvement loop with Claude CLI
+- **09**: `specs/09-dead-simple-improve.md` - Zero-configuration code improvement command
+
 ## Template Specifications
 - **example**: `specs/example-feature.md` - Example feature specification template

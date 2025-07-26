@@ -9,7 +9,7 @@ Memento Mori (mmm) is a Rust CLI tool for implementing self-sufficient loops wit
 - **Project Status**: Active Development
 - **Core Features**: Specification engine, workflow automation, Claude integration
 - **Latest Version**: 0.1.0
-- **Implementation Progress**: 25% (Specs 01, 08 completed)
+- **Implementation Progress**: 33% (Specs 01, 08, 09 completed)
 
 ## What Exists
 
@@ -22,6 +22,7 @@ Memento Mori (mmm) is a Rust CLI tool for implementing self-sufficient loops wit
 - **Monitoring**: Analytics, metrics, and performance tracking
 - **Plugin System**: Dynamic plugin loading with security sandbox
 - **Iterative Improvement Loop**: Automated code quality improvement cycles
+- **Dead Simple Improve**: Zero-configuration code improvement command
 
 ### Project Structure
 ```

@@ -96,7 +96,6 @@ pub struct IssueBreakdown {
     pub accessibility_issues: u32,
 }
 
-
 /// Performance-related metrics
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PerformanceMetrics {

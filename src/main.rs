@@ -63,6 +63,9 @@ enum Commands {
     /// Iterative improvement loop commands
     #[command(subcommand)]
     Loop(LoopCommands),
+
+    /// Improve code quality with zero configuration
+    Improve(mmm::improve::command::ImproveCommand),
 }
 
 #[derive(Subcommand)]
@@ -793,6 +796,7 @@ async fn run(cli: Cli) -> Result<()> {
         Commands::Loop(loop_cmd) => {
             handle_loop_command(loop_cmd, &project_manager, &config_loader).await?
         }
+        Commands::Improve(improve_cmd) => mmm::improve::run(improve_cmd).await?,
     }
 
     Ok(())
