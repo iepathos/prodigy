@@ -1,23 +1,16 @@
-use super::extractor::ExtractorEngine;
-use crate::config::workflow::{Extractor, WorkflowConfig, WorkflowStep};
+use crate::config::workflow::WorkflowConfig;
 use anyhow::{anyhow, Context as _, Result};
 use tokio::process::Command;
 
 /// Execute a configurable workflow
 pub struct WorkflowExecutor {
     config: WorkflowConfig,
-    extractor_engine: ExtractorEngine,
     verbose: bool,
 }
 
 impl WorkflowExecutor {
     pub fn new(config: WorkflowConfig, verbose: bool) -> Self {
-        let extractor_engine = ExtractorEngine::new(config.extractors.clone());
-        Self {
-            config,
-            extractor_engine,
-            verbose,
-        }
+        Self { config, verbose }
     }
 
     /// Execute a single iteration of the workflow
@@ -29,57 +22,52 @@ impl WorkflowExecutor {
             );
         }
 
-        // Extract initial values (e.g., from git)
-        self.extractor_engine.extract_all(self.verbose).await?;
-
-        let mut success = true;
         let mut any_changes = false;
 
-        let steps = self.config.steps.clone();
-        for (idx, step) in steps.iter().enumerate() {
+        for (idx, command) in self.config.commands.iter().enumerate() {
             if self.verbose {
                 println!(
                     "📋 Step {}/{}: {}",
                     idx + 1,
-                    steps.len(),
-                    step.name
+                    self.config.commands.len(),
+                    command
                 );
             }
 
-            // Check if this is the first step and we have a focus directive
+            // Check if this is the first command and we have a focus directive
             let step_focus = if idx == 0 && iteration == 1 {
                 focus
             } else {
                 None
             };
 
-            match self.execute_step(step, step_focus).await {
-                Ok(step_success) => {
-                    if step_success {
-                        any_changes = true;
-                    } else if !self.config.continue_on_error {
-                        success = false;
-                        break;
+            // Execute the command
+            let success = match command.as_str() {
+                "mmm-implement-spec" => {
+                    // Special handling for mmm-implement-spec - extract spec ID from git
+                    let spec_id = self.extract_spec_from_git().await?;
+                    if spec_id.is_empty() {
+                        if self.verbose {
+                            println!("No spec ID found - skipping implementation");
+                        }
+                        false
+                    } else {
+                        self.execute_command_with_args(command, &[spec_id]).await?
                     }
                 }
-                Err(e) => {
-                    eprintln!("❌ Step '{}' failed: {}", step.name, e);
-                    if !self.config.continue_on_error {
-                        return Err(e);
-                    }
-                    success = false;
-                }
-            }
+                _ => self.execute_command(command, step_focus).await?,
+            };
 
-            // Re-extract values after each step (in case they changed)
-            self.extractor_engine.extract_all(false).await?;
+            if success {
+                any_changes = true;
+            }
         }
 
-        Ok(success && any_changes)
+        Ok(any_changes)
     }
 
-    /// Execute a single workflow step
-    async fn execute_step(&mut self, step: &WorkflowStep, focus: Option<&str>) -> Result<bool> {
+    /// Execute a Claude command
+    async fn execute_command(&self, command: &str, focus: Option<&str>) -> Result<bool> {
         // First check if claude command exists
         let claude_check = Command::new("which")
             .arg("claude")
@@ -93,19 +81,14 @@ impl WorkflowExecutor {
             ));
         }
 
-        // Interpolate arguments with extracted values
-        let values = self.extractor_engine.get_values();
-        let interpolated_args = self.config.interpolate_args(&step.args, values);
-
         // Build command
         let mut cmd = Command::new("claude");
         cmd.arg("--dangerously-skip-permissions")
             .arg("--print")
-            .arg(format!("/{}", step.command))
-            .args(&interpolated_args)
+            .arg(format!("/{}", command))
             .env("MMM_AUTOMATION", "true");
 
-        // Add focus directive if provided (for first step of first iteration)
+        // Add focus directive if provided (for first command of first iteration)
         if let Some(focus_directive) = focus {
             cmd.env("MMM_FOCUS", focus_directive);
         }
@@ -114,61 +97,86 @@ impl WorkflowExecutor {
         let output = cmd
             .output()
             .await
-            .context(format!("Failed to execute step: {}", step.name))?;
+            .context(format!("Failed to execute command: {}", command))?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             if self.verbose {
-                eprintln!("Step stderr: {}", stderr);
+                eprintln!("Command stderr: {stderr}");
             }
             return Err(anyhow!(
-                "Step '{}' failed with exit code {}: {}",
-                step.name,
+                "Command '{}' failed with exit code {}: {}",
+                command,
                 output.status.code().unwrap_or(-1),
                 stderr
             ));
         }
 
-        // Check for output extractors
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        for (key, extractor) in &self.config.extractors {
-            if let Extractor::Output { pattern } = extractor {
-                if let Ok(value) = self.extract_from_output(&stdout, pattern) {
-                    if !value.is_empty() {
-                        self.extractor_engine.update_value(key.clone(), value);
-                    }
-                }
-            }
-        }
-
         if self.verbose {
-            println!("✅ Step '{}' completed", step.name);
+            println!("✅ Command '{}' completed", command);
         }
 
-        // Assume success if exit code is 0
         Ok(true)
     }
 
-    /// Extract value from command output using regex
-    fn extract_from_output(&self, output: &str, pattern: &str) -> Result<String> {
-        let re = regex::Regex::new(pattern).context("Invalid regex pattern")?;
+    /// Execute a Claude command with arguments
+    async fn execute_command_with_args(&self, command: &str, args: &[String]) -> Result<bool> {
+        let mut cmd = Command::new("claude");
+        cmd.arg("--dangerously-skip-permissions")
+            .arg("--print")
+            .arg(format!("/{}", command))
+            .args(args)
+            .env("MMM_AUTOMATION", "true");
 
-        if let Some(captures) = re.captures(output) {
-            if captures.len() > 1 {
-                Ok(captures
-                    .get(1)
-                    .map(|m| m.as_str())
-                    .unwrap_or("")
-                    .to_string())
+        let output = cmd
+            .output()
+            .await
+            .context(format!("Failed to execute command: {}", command))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            if self.verbose {
+                eprintln!("Command stderr: {stderr}");
+            }
+            return Err(anyhow!(
+                "Command '{}' failed with exit code {}: {}",
+                command,
+                output.status.code().unwrap_or(-1),
+                stderr
+            ));
+        }
+
+        if self.verbose {
+            println!("✅ Command '{}' completed", command);
+        }
+
+        Ok(true)
+    }
+
+    /// Extract spec ID from git log (for mmm-implement-spec)
+    async fn extract_spec_from_git(&self) -> Result<String> {
+        if self.verbose {
+            println!("Extracting spec ID from git history...");
+        }
+
+        let output = Command::new("git")
+            .args(["log", "-1", "--pretty=format:%s"])
+            .output()
+            .await
+            .context("Failed to get git log")?;
+
+        let commit_message = String::from_utf8_lossy(&output.stdout);
+
+        // Parse commit message like "review: generate improvement spec for iteration-1234567890-improvements"
+        if let Some(spec_start) = commit_message.find("iteration-") {
+            let spec_part = &commit_message[spec_start..];
+            if let Some(spec_end) = spec_part.find(' ') {
+                Ok(spec_part[..spec_end].to_string())
             } else {
-                Ok(captures
-                    .get(0)
-                    .map(|m| m.as_str())
-                    .unwrap_or("")
-                    .to_string())
+                Ok(spec_part.to_string())
             }
         } else {
-            Ok(String::new())
+            Ok(String::new()) // No spec found
         }
     }
 }

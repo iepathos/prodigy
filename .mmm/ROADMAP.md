@@ -92,9 +92,10 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
 ### Workflow Configuration Support Complete
 - [x] **Added workflow configuration** module in src/config/workflow.rs
 - [x] **Created workflow executor** in src/improve/workflow.rs
-- [x] **Implemented extractor system** for dynamic value extraction from git, files, output
-- [x] **Updated config loader** to read .mmm.toml workflow configuration
+- [x] **Simplified configuration** to just a list of Claude commands
+- [x] **Updated config loader** to read .mmm/workflow.toml configuration
 - [x] **Modified improve::run** to support both configurable and legacy workflows
+- [x] **Automatic spec ID extraction** for mmm-implement-spec command
 - [x] **Added documentation** with example workflows (security, testing, documentation)
 - [x] **Backward compatibility** maintained - no config = default workflow
 

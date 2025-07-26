@@ -155,60 +155,54 @@ None required! The tool works out of the box with smart defaults.
 
 ### Configurable Workflows (Optional)
 
-Create a `.mmm.toml` file in your project root to customize the improvement workflow:
+Create a `.mmm/workflow.toml` file to customize the improvement workflow:
 
 ```toml
-# .mmm.toml
-[workflow]
-# Default workflow if not specified
-steps = [
-    { command = "mmm-code-review", name = "Code Review" },
-    { command = "mmm-implement-spec", name = "Implementation", args = ["${SPEC_ID}"] },
-    { command = "mmm-lint", name = "Linting" }
+# .mmm/workflow.toml
+# List of Claude commands to execute in order
+commands = [
+    "mmm-code-review",
+    "mmm-implement-spec",
+    "mmm-lint"
 ]
 
 # Optional: Maximum iterations (default: 10)
 max_iterations = 10
-
-# Optional: Continue on step failure (default: false)
-continue_on_error = false
-
-# Optional: Custom extractor for dynamic values
-[workflow.extractors]
-SPEC_ID = { from = "git", pattern = "iteration-([^\\s]+)" }
 ```
+
+The default workflow runs these three commands in order:
+1. `mmm-code-review` - Analyzes code and generates improvement specs
+2. `mmm-implement-spec` - Implements the improvements (spec ID extracted automatically)
+3. `mmm-lint` - Runs formatting and linting
 
 #### Alternative Workflow Examples
 
 **Security-Focused Workflow:**
 ```toml
-[workflow]
-steps = [
-    { command = "mmm-security-scan", name = "Security Scan" },
-    { command = "mmm-fix-vulnerabilities", name = "Fix Vulnerabilities", args = ["${SCAN_RESULTS}"] },
-    { command = "mmm-lint", name = "Linting" },
-    { command = "mmm-security-verify", name = "Verify Fixes" }
+commands = [
+    "mmm-security-scan",
+    "mmm-fix-vulnerabilities",
+    "mmm-lint",
+    "mmm-security-verify"
 ]
 ```
 
 **Test-Driven Workflow:**
 ```toml
-[workflow]
-steps = [
-    { command = "mmm-coverage", name = "Coverage Report" },
-    { command = "mmm-add-tests", name = "Add Missing Tests", args = ["${COVERAGE_GAPS}"] },
-    { command = "mmm-code-review", name = "Code Review" },
-    { command = "mmm-implement-spec", name = "Implementation", args = ["${SPEC_ID}"] }
+commands = [
+    "mmm-coverage",
+    "mmm-add-tests",
+    "mmm-code-review",
+    "mmm-implement-spec"
 ]
 ```
 
 **Documentation Workflow:**
 ```toml
-[workflow]
-steps = [
-    { command = "mmm-doc-check", name = "Documentation Check" },
-    { command = "mmm-generate-docs", name = "Generate Documentation" },
-    { command = "mmm-lint", name = "Format Documentation" }
+commands = [
+    "mmm-doc-check",
+    "mmm-generate-docs",
+    "mmm-lint-docs"
 ]
 ```
 

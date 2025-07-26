@@ -287,9 +287,9 @@ Accepted
 Spec 21 identified the need for customizable improvement workflows to support different use cases like security-focused improvements, test-driven development, or documentation generation. The existing hardcoded workflow limited flexibility.
 
 ### Decision
-Implement configurable workflows via optional .mmm.toml file that allows users to define custom workflow steps, extractors for dynamic values, and workflow behavior (max iterations, error handling).
+Implement configurable workflows via optional .mmm/workflow.toml file that allows users to define a simple list of Claude commands to execute in sequence. Automatic spec ID extraction for mmm-implement-spec command.
 
 ### Consequences
-- **Positive**: Users can customize workflows for specific needs, extensible for new Claude commands, supports complex multi-step workflows, backward compatible
-- **Negative**: Additional configuration complexity, more code to maintain, potential for misconfigured workflows
-- **Implementation**: Created workflow.rs module for configuration, workflow executor for running steps, extractor engine for dynamic values, updated improve::run to support both configurable and legacy workflows
+- **Positive**: Users can customize workflows for specific needs, very simple configuration format, backward compatible, minimal complexity
+- **Negative**: Less flexibility than complex configuration, limited to sequential command execution
+- **Implementation**: Created simple workflow.rs configuration, workflow executor that runs commands in sequence, automatic spec ID extraction from git for mmm-implement-spec

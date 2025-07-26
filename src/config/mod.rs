@@ -7,7 +7,7 @@ pub mod workflow;
 
 pub use loader::ConfigLoader;
 pub use validator::ConfigValidator;
-pub use workflow::{Extractor, WorkflowConfig, WorkflowStep};
+pub use workflow::WorkflowConfig;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {

@@ -21,7 +21,7 @@ Memento Mori (mmm) is a dead simple Rust CLI tool that makes your code better th
 - **Focus-Directed Analysis**: Optional focus directive for initial review (e.g., "user experience", "performance", "security")
 - **Automated Linting**: Integrated formatting, linting, and testing with commits
 - **Minimal State**: Simple JSON files tracking essential data (score, runs, session history)
-- **Configurable Workflows**: Optional `.mmm.toml` for custom improvement workflows
+- **Configurable Workflows**: Optional `.mmm/workflow.toml` for custom improvement workflows
 
 ### Project Structure
 ```
@@ -63,10 +63,10 @@ mmm/
    - Complete git audit trail with structured commit messages
 
 5. **Configurable Workflows**
-   - Optional `.mmm.toml` configuration file
-   - Custom workflow steps and commands
-   - Dynamic value extraction from git, files, or command output
-   - Support for security, testing, documentation workflows
+   - Optional `.mmm/workflow.toml` configuration file
+   - Simple list of Claude commands to execute
+   - Automatic spec ID extraction for mmm-implement-spec
+   - Support for custom workflow sequences
 
 ## Technology Stack
 

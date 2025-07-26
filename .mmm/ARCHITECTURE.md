@@ -15,8 +15,7 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 - **mod.rs**: Single core improvement loop with Claude CLI integration
 - **command.rs**: Simplified CLI with only target and verbose flags
 - **session.rs**: Minimal session data structures
-- **workflow.rs**: Configurable workflow execution engine
-- **extractor.rs**: Dynamic value extraction from git, files, and command output
+- **workflow.rs**: Simple configurable workflow execution
 
 ### 3. Project Analysis (`src/analyzer/`)
 - **language.rs**: Programming language detection
@@ -42,10 +41,10 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 - **cache.rs**: Response caching for efficiency
 
 ### 6. Configuration Management (`src/config/`)
-- **loader.rs**: Configuration file loading (including .mmm.toml workflow config)
+- **loader.rs**: Configuration file loading (including .mmm/workflow.toml)
 - **validator.rs**: Configuration validation
 - **mod.rs**: Config structures and defaults
-- **workflow.rs**: Workflow configuration structures and defaults
+- **workflow.rs**: Simple workflow configuration structure
 
 ### 7. Error Handling (`src/error.rs`)
 - Centralized error types using thiserror
@@ -65,13 +64,11 @@ User runs `mmm improve`
         ↓
 Analyze project (language, framework, health score)
         ↓
-Load configuration (including .mmm.toml workflow)
+Load configuration (including .mmm/workflow.toml)
         ↓
-Execute workflow steps (configurable or default)
+Execute workflow commands in sequence
         ↓
-Each step: Call Claude CLI with command/args
-        ↓
-Extract dynamic values between steps
+Each command: Call Claude CLI (auto-extract spec ID for mmm-implement-spec)
         ↓
 Update state and repeat until target reached
 ```
@@ -136,8 +133,7 @@ src/
 │   ├── mod.rs           # Single consolidated improvement loop
 │   ├── command.rs       # CLI args only
 │   ├── session.rs       # Basic session data
-│   ├── workflow.rs      # Configurable workflow execution
-│   └── extractor.rs     # Dynamic value extraction
+│   └── workflow.rs      # Configurable workflow execution
 ├── analyzer/            # Analysis components
 │   ├── mod.rs
 │   ├── language.rs      # Language detection

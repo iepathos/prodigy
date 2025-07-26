@@ -1,5 +1,4 @@
 pub mod command;
-pub mod extractor;
 pub mod session;
 pub mod workflow;
 
@@ -52,7 +51,10 @@ pub async fn run(cmd: command::ImproveCommand) -> Result<()> {
     let config = config_loader.get_config();
 
     // Determine workflow configuration
-    let workflow_config = config.workflow.clone().unwrap_or_else(WorkflowConfig::default);
+    let workflow_config = config
+        .workflow
+        .clone()
+        .unwrap_or_else(WorkflowConfig::default);
     let max_iterations = workflow_config.max_iterations;
 
     // 3. State setup
