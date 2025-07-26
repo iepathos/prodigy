@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 use super::types::{SessionRecord, State};
 
-/// Manages the main state file
+/// Manages the main state file - simplified to essentials
 pub struct StateManager {
     root: PathBuf,
     state: State,
@@ -63,50 +63,30 @@ impl StateManager {
         Ok(())
     }
 
-    /// Record a completed session
+    /// Record a completed session - simplified
     pub fn record_session(&mut self, session: SessionRecord) -> Result<()> {
-        // Create date directory
-        let date_str = Utc::now().format("%Y-%m-%d").to_string();
-        let date_dir = self.root.join("history").join(&date_str);
-        fs::create_dir_all(&date_dir).context("Failed to create history directory")?;
+        // Create history directory if needed
+        let history_dir = self.root.join("history");
+        fs::create_dir_all(&history_dir).context("Failed to create history directory")?;
 
-        // Find next session number
-        let session_num = self.next_session_number(&date_dir)?;
-        let filename = format!("{session_num:03}-improve.json");
+        // Save session with timestamp in filename
+        let timestamp = session.started_at.format("%Y%m%d_%H%M%S").to_string();
+        let filename = format!("{timestamp}_{}.json", &session.session_id[..8]);
+        let session_file = history_dir.join(filename);
 
-        // Save session
-        let session_file = date_dir.join(filename);
         let json = serde_json::to_string_pretty(&session).context("Failed to serialize session")?;
         fs::write(&session_file, json).context("Failed to write session file")?;
 
-        // Update main state
-        self.state.last_run = Some(session.completed_at);
-        self.state.current_score = session.final_score;
-        self.state.sessions.last_completed = Some(session.session_id);
-        self.state.stats.total_runs += 1;
-        self.state.stats.total_improvements += session.improvements.len() as u32;
-
-        // Update average improvement
-        let total = self.state.stats.total_runs as f32;
-        let prev_avg = self.state.stats.average_improvement;
-        let improvement = session.final_score - session.initial_score;
-        self.state.stats.average_improvement = (prev_avg * (total - 1.0) + improvement) / total;
-
-        // Update favorite improvements (using file as identifier)
-        for imp in &session.improvements {
-            if !self.state.stats.favorite_improvements.contains(&imp.file) {
-                self.state
-                    .stats
-                    .favorite_improvements
-                    .push(imp.file.clone());
-            }
+        // Update main state - essentials only
+        if let Some(completed_at) = session.completed_at {
+            self.state.last_run = Some(completed_at);
         }
+        if let Some(final_score) = session.final_score {
+            self.state.current_score = final_score;
+        }
+        self.state.total_runs += 1;
 
         self.save()?;
-
-        // Also save a summary for the day
-        self.update_daily_summary(&date_dir, &date_str)?;
-
         Ok(())
     }
 
@@ -141,90 +121,22 @@ impl StateManager {
         }
     }
 
-    /// Find the next session number for today
-    fn next_session_number(&self, date_dir: &Path) -> Result<u32> {
-        let mut max_num = 0;
+    /// Get history - simplified
+    pub fn get_history(&self) -> Result<Vec<SessionRecord>> {
+        let history_dir = self.root.join("history");
+        let mut sessions: Vec<SessionRecord> = Vec::new();
 
-        if date_dir.exists() {
-            for entry in fs::read_dir(date_dir)? {
+        if history_dir.exists() {
+            for entry in fs::read_dir(&history_dir)? {
                 let entry = entry?;
                 let name = entry.file_name();
                 if let Some(name_str) = name.to_str() {
-                    if name_str.ends_with("-improve.json") {
-                        if let Ok(num) = name_str[..3].parse::<u32>() {
-                            max_num = max_num.max(num);
+                    if name_str.ends_with(".json") {
+                        if let Ok(contents) = fs::read_to_string(entry.path()) {
+                            if let Ok(session) = serde_json::from_str(&contents) {
+                                sessions.push(session);
+                            }
                         }
-                    }
-                }
-            }
-        }
-
-        Ok(max_num + 1)
-    }
-
-    /// Update daily summary
-    fn update_daily_summary(&self, date_dir: &Path, date_str: &str) -> Result<()> {
-        let summary_file = date_dir.join("summary.json");
-
-        // Count sessions and improvements for the day
-        let mut total_sessions = 0;
-        let mut total_improvements = 0;
-        let mut total_score_change = 0.0;
-
-        for entry in fs::read_dir(date_dir)? {
-            let entry = entry?;
-            let name = entry.file_name();
-            if let Some(name_str) = name.to_str() {
-                if name_str.ends_with("-improve.json") && name_str != "summary.json" {
-                    total_sessions += 1;
-
-                    // Load session to count improvements
-                    if let Ok(contents) = fs::read_to_string(entry.path()) {
-                        if let Ok(session) = serde_json::from_str::<SessionRecord>(&contents) {
-                            total_improvements += session.improvements.len();
-                            total_score_change += session.final_score - session.initial_score;
-                        }
-                    }
-                }
-            }
-        }
-
-        let summary = serde_json::json!({
-            "date": date_str,
-            "total_sessions": total_sessions,
-            "total_improvements": total_improvements,
-            "average_score_change": if total_sessions > 0 {
-                total_score_change / total_sessions as f32
-            } else {
-                0.0
-            },
-            "updated_at": Utc::now()
-        });
-
-        let json = serde_json::to_string_pretty(&summary)?;
-        fs::write(summary_file, json)?;
-
-        Ok(())
-    }
-
-    /// Get history for a specific date
-    pub fn get_history(&self, date: Option<&str>) -> Result<Vec<SessionRecord>> {
-        let history_dir = self.root.join("history");
-        let mut sessions = Vec::new();
-
-        if let Some(date_str) = date {
-            // Get specific date
-            let date_dir = history_dir.join(date_str);
-            if date_dir.exists() {
-                sessions.extend(self.load_sessions_from_dir(&date_dir)?);
-            }
-        } else {
-            // Get all history
-            if history_dir.exists() {
-                for entry in fs::read_dir(&history_dir)? {
-                    let entry = entry?;
-                    if entry.path().is_dir() {
-                        sessions.extend(self.load_sessions_from_dir(&entry.path())?);
                     }
                 }
             }
@@ -232,28 +144,6 @@ impl StateManager {
 
         // Sort by start time
         sessions.sort_by_key(|s| s.started_at);
-
-        Ok(sessions)
-    }
-
-    /// Load sessions from a directory
-    fn load_sessions_from_dir(&self, dir: &Path) -> Result<Vec<SessionRecord>> {
-        let mut sessions = Vec::new();
-
-        for entry in fs::read_dir(dir)? {
-            let entry = entry?;
-            let name = entry.file_name();
-            if let Some(name_str) = name.to_str() {
-                if name_str.ends_with("-improve.json") && name_str != "summary.json" {
-                    if let Ok(contents) = fs::read_to_string(entry.path()) {
-                        if let Ok(session) = serde_json::from_str(&contents) {
-                            sessions.push(session);
-                        }
-                    }
-                }
-            }
-        }
-
         Ok(sessions)
     }
 }

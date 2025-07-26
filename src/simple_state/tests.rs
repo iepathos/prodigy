@@ -13,7 +13,7 @@ mod tests {
 
         assert_eq!(state_mgr.state().version, "1.0");
         assert_eq!(state_mgr.state().current_score, 0.0);
-        assert_eq!(state_mgr.state().stats.total_runs, 0);
+        assert_eq!(state_mgr.state().total_runs, 0);
     }
 
     #[test]
@@ -25,7 +25,7 @@ mod tests {
         {
             let mut state_mgr = StateManager::with_root(root.clone()).unwrap();
             state_mgr.state_mut().current_score = 7.5;
-            state_mgr.state_mut().stats.total_runs = 5;
+            state_mgr.state_mut().total_runs = 5;
             state_mgr.save().unwrap();
         }
 
@@ -33,7 +33,7 @@ mod tests {
         {
             let state_mgr = StateManager::with_root(root).unwrap();
             assert_eq!(state_mgr.state().current_score, 7.5);
-            assert_eq!(state_mgr.state().stats.total_runs, 5);
+            assert_eq!(state_mgr.state().total_runs, 5);
         }
     }
 
@@ -43,18 +43,12 @@ mod tests {
         let mut state_mgr = StateManager::with_root(temp_dir.path().to_path_buf()).unwrap();
 
         let mut session = SessionRecord::new(7.0);
-        session.improvements.push(Improvement {
-            file: "src/main.rs".to_string(),
-            description: "Replaced unwrap with ?".to_string(),
-        });
-        session.complete(7.2);
+        session.complete(7.2, "Fixed error handling".to_string());
 
         state_mgr.record_session(session).unwrap();
 
         assert_eq!(state_mgr.state().current_score, 7.2);
-        assert_eq!(state_mgr.state().stats.total_runs, 1);
-        assert_eq!(state_mgr.state().stats.total_improvements, 1);
-        assert!(state_mgr.state().stats.average_improvement > 0.0);
+        assert_eq!(state_mgr.state().total_runs, 1);
     }
 
     #[test]
@@ -146,38 +140,12 @@ mod tests {
         // Record multiple sessions
         for i in 0..3 {
             let mut session = SessionRecord::new(7.0 + i as f32 * 0.1);
-            session.improvements.push(Improvement {
-                file: format!("file{i}.rs"),
-                description: format!("Improvement {i}"),
-            });
-            session.complete(7.1 + i as f32 * 0.1);
+            session.complete(7.1 + i as f32 * 0.1, format!("Improvement {i}"));
             state_mgr.record_session(session).unwrap();
         }
 
         // Get all history
-        let history = state_mgr.get_history(None).unwrap();
+        let history = state_mgr.get_history().unwrap();
         assert_eq!(history.len(), 3);
-
-        // Get today's history
-        let today = Utc::now().format("%Y-%m-%d").to_string();
-        let today_history = state_mgr.get_history(Some(&today)).unwrap();
-        assert_eq!(today_history.len(), 3);
-    }
-
-    #[test]
-    fn test_cache_stats() {
-        let temp_dir = TempDir::new().unwrap();
-        let cache_mgr = CacheManager::with_config(temp_dir.path().join("cache"), 3600).unwrap();
-
-        // Add some cache entries
-        cache_mgr.set("key1", &"value1").unwrap();
-        cache_mgr.set("key2", &"value2").unwrap();
-        cache_mgr.set("key3", &"value3").unwrap();
-
-        let stats = cache_mgr.stats().unwrap();
-        assert_eq!(stats.total_entries, 3);
-        assert_eq!(stats.valid_entries, 3);
-        assert_eq!(stats.expired_entries, 0);
-        assert!(stats.total_size_bytes > 0);
     }
 }

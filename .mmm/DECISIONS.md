@@ -203,3 +203,21 @@ Remove entire src/developer_experience/ module, simplify CLI to essential flags 
 - **Positive**: ~1000+ lines removed, simpler codebase, faster compilation, focus on core functionality, reduced dependencies
 - **Negative**: Less polished user experience, basic progress feedback only
 - **Implementation**: Deleted developer_experience module, simplified ImproveCommand to 2 fields, replaced indicatif/colored with println!, removed unused dependencies
+
+---
+
+## ADR-013: Simplify State Management to Essentials
+
+### Status
+Accepted
+
+### Context
+Spec 16 identified that the state management system was over-engineered with complex session tracking, detailed metrics, file-level change tracking, and statistics that added complexity without providing essential value for the core improvement loop.
+
+### Decision
+Simplify state management to track only essential data: current score, total runs, and basic session history with summaries.
+
+### Consequences
+- **Positive**: ~300 lines removed, smaller JSON files, faster startup, easier debugging, clearer mental model
+- **Negative**: Loss of detailed metrics and analytics capabilities
+- **Implementation**: Simplified State struct, removed SessionInfo/Statistics/SessionMetrics, simplified SessionRecord to essential fields, removed cache statistics, updated StateAdapter and tests

@@ -4,9 +4,7 @@ use anyhow::Result;
 use chrono::Utc;
 
 use crate::analyzer::AnalyzerResult;
-use crate::simple_state::{
-    CacheManager, Improvement, ProjectAnalysis, SessionRecord, StateManager,
-};
+use crate::simple_state::{CacheManager, ProjectAnalysis, SessionRecord, StateManager};
 
 use super::session::ImproveState;
 
@@ -64,40 +62,19 @@ impl StateAdapter {
 
     /// Start a new improvement session
     pub fn start_session(&mut self, initial_score: f32) -> SessionRecord {
-        let session = SessionRecord::new(initial_score);
-        self.state_mgr.state_mut().sessions.active = Some(session.session_id.clone());
-        session
+        SessionRecord::new(initial_score)
     }
 
     /// Complete an improvement session
-    pub fn complete_session(&mut self, mut session: SessionRecord, final_score: f32) -> Result<()> {
-        session.complete(final_score);
-
-        // Record session
-        self.state_mgr.record_session(session)?;
-        self.state_mgr.state_mut().sessions.active = None;
-
-        Ok(())
-    }
-
-    /// Add an improvement to the current session
-    pub fn add_improvement(
+    pub fn complete_session(
         &mut self,
-        session: &mut SessionRecord,
-        file: String,
-        description: String,
-    ) {
-        let improvement = Improvement {
-            file: file.clone(),
-            description,
-        };
-
-        session.improvements.push(improvement);
-
-        // Track changed file
-        if !session.files_changed.contains(&file) {
-            session.files_changed.push(file);
-        }
+        mut session: SessionRecord,
+        final_score: f32,
+        summary: String,
+    ) -> Result<()> {
+        session.complete(final_score, summary);
+        self.state_mgr.record_session(session)?;
+        Ok(())
     }
 
     /// Get current state for improve session
@@ -107,29 +84,18 @@ impl StateAdapter {
         ImproveState {
             last_run: state.last_run.unwrap_or_else(Utc::now),
             current_score: state.current_score,
-            improvement_history: Vec::new(), // Not directly compatible
+            improvement_history: Vec::new(), // Simplified - no detailed history
         }
     }
 
-    /// Update session metrics
-    pub fn update_metrics(
-        &mut self,
-        session: &mut SessionRecord,
-        claude_calls: u32,
-        tokens_used: u32,
-    ) {
-        session.metrics.claude_calls += claude_calls;
-        session.metrics.tokens_used += tokens_used;
-    }
-
     /// Get history of sessions
-    pub fn get_history(&self, date: Option<&str>) -> Result<Vec<SessionRecord>> {
-        self.state_mgr.get_history(date)
+    pub fn get_history(&self) -> Result<Vec<SessionRecord>> {
+        self.state_mgr.get_history()
     }
 
     /// Check if this is the first run
     pub fn is_first_run(&self) -> bool {
-        self.state_mgr.state().stats.total_runs == 0
+        self.state_mgr.state().total_runs == 0
     }
 
     /// Get current score

@@ -136,6 +136,63 @@ SCOPE: $ARGUMENTS (optional - specify scope like "src/parser", "tests", specific
    - Potential breaking changes to consider
    - Long-term architectural considerations
 
+### Phase 8: Temporary Specification Generation (Automation Mode Only)
+
+**CRITICAL FOR AUTOMATION**: When running in automation mode, generate a temporary specification file containing actionable implementation instructions for the issues found.
+
+1. **Spec File Creation**
+   - Create directory: `specs/temp/` if it doesn't exist
+   - Generate filename: `iteration-{timestamp}-improvements.md`
+   - Write comprehensive implementation spec
+
+2. **Spec Content Requirements**
+   ```markdown
+   # Iteration {N}: Code Quality Improvements
+   
+   ## Overview
+   Temporary specification for code improvements identified in automated review.
+   
+   ## Issues to Address
+   
+   ### 1. {Issue Title}
+   **Severity**: {severity}
+   **Category**: {category}
+   **File**: {file_path}
+   **Line**: {line_number}
+   
+   #### Current Code:
+   ```{language}
+   {actual_problematic_code}
+   ```
+   
+   #### Required Change:
+   ```{language}
+   {improved_code_example}
+   ```
+   
+   #### Implementation Notes:
+   - {specific_instruction_1}
+   - {specific_instruction_2}
+   
+   ## Success Criteria
+   - [ ] {specific_criterion_1}
+   - [ ] {specific_criterion_2}
+   - [ ] All files compile without warnings
+   - [ ] Tests pass
+   ```
+
+3. **Include Actual Code Examples**
+   - Read the problematic code from files
+   - Show exact current code that needs changing
+   - Provide specific improved code examples
+   - Include necessary imports/dependencies
+
+4. **Actionable Instructions**
+   - Each issue must have specific, implementable instructions
+   - Include file paths, line numbers, exact changes
+   - Provide context for why changes are needed
+   - Include validation steps
+
 ## Review Criteria
 
 ### Code Quality Standards
@@ -170,6 +227,8 @@ SCOPE: $ARGUMENTS (optional - specify scope like "src/parser", "tests", specific
     "timestamp": "{{ current_timestamp }}",
     "overall_score": {{ calculated_score }},
     "scope": "{{ analyzed_scope }}",
+    "generated_spec": "{{ spec_identifier }}",
+    "temp_spec_path": "specs/temp/{{ spec_filename }}",
     "actions": [
       {
         "id": "action_{{ sequence }}",
@@ -218,6 +277,13 @@ SCOPE: $ARGUMENTS (optional - specify scope like "src/parser", "tests", specific
 - Invoked with `--format=json` parameter
 - Environment variable `MMM_AUTOMATION=true` is set
 - Called from within an MMM workflow context
+
+**Spec Generation Rules**:
+- Only generate temporary spec if issues are found (total_issues > 0)
+- If no issues found, omit `generated_spec` and `temp_spec_path` fields from JSON
+- Include spec identifier in format: `iteration-{timestamp}-improvements`  
+- Ensure spec file is written before returning JSON response
+- Handle file writing errors gracefully
 
 ## Output Format
 

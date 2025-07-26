@@ -47,6 +47,15 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
 - [x] **Updated lib.rs** (removed developer_experience module reference)
 - [x] **Removed UI dependencies** (indicatif, colored, ctrlc, crossterm)
 
+## ✅ Phase 2.75: Simplify State Management (COMPLETED)
+
+### Simplification Complete
+- [x] **Simplified State structure** (removed SessionInfo, Statistics, complex metrics)
+- [x] **Simplified SessionRecord** (removed improvements tracking, file changes, session metrics)
+- [x] **Simplified state persistence** (basic session recording, no daily summaries)
+- [x] **Removed cache statistics** (simplified CacheManager without stats tracking)
+- [x] **Updated StateAdapter** (simplified to work with essential data only)
+
 ## 📋 Phase 3: Robustness (NEXT)
 
 ### Core Reliability

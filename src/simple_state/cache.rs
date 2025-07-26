@@ -143,50 +143,6 @@ impl CacheManager {
 
         false
     }
-
-    /// Get cache statistics
-    pub fn stats(&self) -> Result<CacheStats> {
-        let mut total_entries = 0;
-        let mut expired_entries = 0;
-        let mut total_size = 0;
-
-        for entry in fs::read_dir(&self.root)? {
-            let entry = entry?;
-            let path = entry.path();
-
-            if path.extension() == Some("json".as_ref()) {
-                total_entries += 1;
-
-                if let Ok(metadata) = fs::metadata(&path) {
-                    total_size += metadata.len();
-
-                    let age = SystemTime::now()
-                        .duration_since(metadata.modified()?)
-                        .unwrap_or(Duration::MAX);
-
-                    if age > self.ttl {
-                        expired_entries += 1;
-                    }
-                }
-            }
-        }
-
-        Ok(CacheStats {
-            total_entries,
-            expired_entries,
-            valid_entries: total_entries - expired_entries,
-            total_size_bytes: total_size,
-        })
-    }
-}
-
-/// Cache statistics
-#[derive(Debug, Clone)]
-pub struct CacheStats {
-    pub total_entries: u32,
-    pub expired_entries: u32,
-    pub valid_entries: u32,
-    pub total_size_bytes: u64,
 }
 
 impl Default for CacheManager {

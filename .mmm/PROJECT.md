@@ -9,7 +9,7 @@ Memento Mori (mmm) is a dead simple Rust CLI tool that makes your code better th
 - **Project Status**: Active Development - Core Working
 - **Core Feature**: `mmm improve` command with Claude CLI integration
 - **Latest Version**: 0.1.0
-- **Implementation Status**: Real Claude CLI integration implemented with working self-sufficient loop and developer experience bloat removed
+- **Implementation Status**: Real Claude CLI integration implemented with working self-sufficient loop, developer experience bloat removed, and state management simplified to essentials only
 
 ## What Exists
 
@@ -18,7 +18,7 @@ Memento Mori (mmm) is a dead simple Rust CLI tool that makes your code better th
 - **Claude Integration**: Real Claude CLI subprocess calls using /mmm-code-review and /mmm-implement-spec commands
 - **Project Analysis**: Automatic language and framework detection
 - **File Modification**: Real changes applied to your codebase
-- **Minimal State**: JSON files tracking essential improvement history
+- **Minimal State**: Simplified JSON files tracking only essential data (score, runs, session history)
 
 ### Project Structure
 ```
@@ -46,9 +46,9 @@ mmm/
    - Tracks changes and progress
 
 3. **Minimal State Management**
-   - JSON files for session history
-   - Project analysis caching
-   - Essential metrics only
+   - Simplified JSON files for essential data only
+   - Basic project analysis caching
+   - Current score and run count tracking
 
 4. **Working Self-Sufficient Loop**
    - Analyze → Call Claude Review → Call Claude Implement → Apply Changes → Re-analyze → Repeat

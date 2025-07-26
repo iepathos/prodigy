@@ -531,11 +531,7 @@ async fn run(cli: Cli) -> Result<()> {
             println!("Project: {}", project.name);
             println!("Path: {}", project.path.display());
             println!("Current score: {:.2}", state.current_score);
-            println!(
-                "Total sessions: {}",
-                state.sessions.active.is_some() as usize
-                    + state.sessions.last_completed.is_some() as usize
-            );
+            println!("Total runs: {}", state.total_runs);
         }
 
         Commands::Multi(multi_cmd) => handle_multi_command(multi_cmd, &mut project_manager).await?,

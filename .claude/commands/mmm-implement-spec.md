@@ -5,10 +5,12 @@ Implements a Git Good specification by reading the spec file, executing the impl
 ## Usage
 
 ```
-/mmm-implement-spec <spec-number>
+/mmm-implement-spec <spec-identifier>
 ```
 
-Example: `/mmm-implement-spec 01` to implement the project structure specification.
+Examples: 
+- `/mmm-implement-spec 01` to implement the project structure specification
+- `/mmm-implement-spec iteration-1234567890-improvements` to implement a temporary improvement spec
 
 ## What This Command Does
 
@@ -21,8 +23,9 @@ Example: `/mmm-implement-spec 01` to implement the project structure specificati
      - ROADMAP.md (progress tracking)
      - DECISIONS.md (technical decisions)
 2. **Reads the Specification**
-   - Locates the spec file based on the provided number.  Specs are located in the specs/ subdirectory with additional subdirectories organizing them.
-   - Spec documents start with the given identifier like 01-some-spec.md or 08a-some-other-spec.md.
+   - Locates the spec file based on the provided identifier
+   - **Permanent specs**: Located in specs/ subdirectory (e.g., 01-some-spec.md)
+   - **Temporary specs**: Located in specs/temp/ (e.g., iteration-1234567890-improvements.md)
    - Parses the specification content and requirements
    - Identifies implementation tasks and success criteria
 
@@ -55,7 +58,9 @@ Example: `/mmm-implement-spec 01` to implement the project structure specificati
 The command will:
 - First read all .mmm context files in order (PROJECT.md, ARCHITECTURE.md, CONVENTIONS.md, ROADMAP.md, DECISIONS.md)
 - Build comprehensive understanding of project state and conventions
-- Look up the spec number in SPEC_INDEX.md
+- Locate specification file:
+  - **Numeric IDs** (e.g., "01", "08a"): Look up in SPEC_INDEX.md and find in specs/ subdirectory
+  - **Iteration IDs** (e.g., "iteration-1234567890-improvements"): Find directly in specs/temp/
 - Read the corresponding spec file
 - Extract implementation requirements and success criteria
 
@@ -78,19 +83,27 @@ Based on the spec type:
 
 ### Step 4: Context Updates
 
-Update .mmm files:
-- **PROJECT.md**: Update "Current State" percentage and "What Exists"
-- **ARCHITECTURE.md**: Add architectural details for new components
-- **ROADMAP.md**: Mark spec as completed, update progress
-- **DECISIONS.md**: Add ADRs for significant implementation choices
-- **CONVENTIONS.md**: Document any new patterns discovered
+Update .mmm files (skip for temporary iteration specs):
+- **Permanent specs only**:
+  - **PROJECT.md**: Update "Current State" percentage and "What Exists"
+  - **ARCHITECTURE.md**: Add architectural details for new components
+  - **ROADMAP.md**: Mark spec as completed, update progress
+  - **DECISIONS.md**: Add ADRs for significant implementation choices
+  - **CONVENTIONS.md**: Document any new patterns discovered
+- **Temporary specs**: Skip context updates, focus on implementing fixes
 
 ### Step 5: Validation and Commit
 
 Final steps:
 - Run `cargo fmt` and `cargo clippy`
 - Run `cargo test` if tests exist
-- Create git commit with format: "feat: implement spec {number} - {title}"
+- **Report modified files** (for automation tracking):
+  - List all files that were created, modified, or deleted
+  - Include brief description of changes made
+  - Format: "Modified: src/main.rs", "Created: tests/new_test.rs"
+- Create git commit:
+  - **Permanent specs**: "feat: implement spec {number} - {title}"
+  - **Temporary specs**: "fix: apply automated improvements from iteration {timestamp}"
 
 ## Implementation Guidelines
 
