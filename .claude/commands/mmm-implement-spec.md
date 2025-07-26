@@ -101,9 +101,11 @@ Final steps:
   - List all files that were created, modified, or deleted
   - Include brief description of changes made
   - Format: "Modified: src/main.rs", "Created: tests/new_test.rs"
-- Create git commit:
+- **Git commit (REQUIRED for automation)**:
+  - Stage all changes: `git add .`
   - **Permanent specs**: "feat: implement spec {number} - {title}"
-  - **Temporary specs**: "fix: apply automated improvements from iteration {timestamp}"
+  - **Temporary specs**: "fix: apply improvements from spec {spec-id}"
+  - Include modified files in commit body for audit trail
 
 ## Implementation Guidelines
 
@@ -126,6 +128,33 @@ Final steps:
    - Add unit tests for new functionality
    - Create integration tests where applicable
    - Ensure existing tests still pass
+
+## Automation Mode Behavior
+
+**Automation Detection**: The command detects automation mode when:
+- Environment variable `MMM_AUTOMATION=true` is set
+- Called from within an MMM workflow context
+
+**Git-Native Automation Flow**:
+1. Read spec file and implement all required changes
+2. Stage all changes and commit with descriptive message
+3. Provide brief summary of work completed
+4. Always commit changes (no interactive confirmation)
+
+**Output Format in Automation Mode**:
+- Minimal console output focusing on key actions
+- Clear indication of files modified
+- Confirmation of git commit
+- Brief summary of implementation
+
+**Example Automation Output**:
+```
+✓ Implementing spec: iteration-1708123456-improvements
+✓ Modified: src/main.rs (fixed error handling)
+✓ Modified: src/database.rs (added unit tests)
+✓ Created: tests/integration_test.rs
+✓ Committed: fix: apply improvements from spec iteration-1708123456-improvements
+```
 
 ## Error Handling
 

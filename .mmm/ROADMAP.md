@@ -65,6 +65,18 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
 - [x] **Simplified improve/session.rs** (basic session data structures only)
 - [x] **Cleaner architecture** (3 files max in improve/ module as per spec requirements)
 
+## ✅ Phase 2.9: Git-Native Improvement Flow (COMPLETED)
+
+### Git-Native Architecture Complete
+- [x] **Updated /mmm-code-review** to commit specs instead of JSON output
+- [x] **Created /mmm-lint** command for automated formatting, linting, and testing
+- [x] **Updated /mmm-implement-spec** to commit changes with descriptive messages
+- [x] **Implemented git log parsing** in improvement loop to extract spec IDs
+- [x] **Removed JSON parsing** from improve flow - now uses git commits for communication
+- [x] **Added automation mode** support with MMM_AUTOMATION environment variable
+- [x] **Complete audit trail** through git history for all changes
+- [x] **Dynamic spec generation** with specs/temp/ directory for temporary improvement specs
+
 ## 📋 Phase 3: Robustness (NEXT)
 
 ### Core Reliability
@@ -140,7 +152,7 @@ Things we're **NOT** building:
 
 ## Release Strategy
 
-- **v0.1.0**: Current - Basic structure, no real Claude integration
-- **v0.2.0**: Working - Actually calls Claude and modifies files
+- **v0.1.0**: Basic structure and state management
+- **v0.2.0**: Git-native improvement flow with Claude CLI integration ✅ CURRENT
 - **v0.3.0**: Robust - Reliable error handling and UX
 - **v1.0.0**: Production - Polished, multi-language support

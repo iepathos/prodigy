@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::*;
-    use chrono::Utc;
+    
     use tempfile::TempDir;
 
     #[test]

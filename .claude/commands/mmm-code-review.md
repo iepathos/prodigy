@@ -136,9 +136,9 @@ SCOPE: $ARGUMENTS (optional - specify scope like "src/parser", "tests", specific
    - Potential breaking changes to consider
    - Long-term architectural considerations
 
-### Phase 8: Temporary Specification Generation (Automation Mode Only)
+### Phase 8: Temporary Specification Generation & Git Commit
 
-**CRITICAL FOR AUTOMATION**: When running in automation mode, generate a temporary specification file containing actionable implementation instructions for the issues found.
+**CRITICAL FOR AUTOMATION**: When running in automation mode, generate a temporary specification file containing actionable implementation instructions for the issues found, then commit it.
 
 1. **Spec File Creation**
    - Create directory: `specs/temp/` if it doesn't exist
@@ -193,6 +193,11 @@ SCOPE: $ARGUMENTS (optional - specify scope like "src/parser", "tests", specific
    - Provide context for why changes are needed
    - Include validation steps
 
+5. **Git Commit (Required for automation)**
+   - Stage the created spec file: `git add specs/temp/iteration-{timestamp}-improvements.md`
+   - Commit with message: `review: generate improvement spec for iteration-{timestamp}-improvements`
+   - If no issues found, do not create spec or commit
+
 ## Review Criteria
 
 ### Code Quality Standards
@@ -216,78 +221,39 @@ SCOPE: $ARGUMENTS (optional - specify scope like "src/parser", "tests", specific
 - **Interfaces**: Well-designed public APIs
 - **Patterns**: Consistent design pattern usage
 
-## Structured Output for Automation
-
-**CRITICAL**: When invoked in automation mode, always end response with this exact JSON structure:
-
-```json
-{
-  "mmm_structured_output": {
-    "review_id": "review-{{ timestamp }}-{{ uuid }}",
-    "timestamp": "{{ current_timestamp }}",
-    "overall_score": {{ calculated_score }},
-    "scope": "{{ analyzed_scope }}",
-    "generated_spec": "{{ spec_identifier }}",
-    "temp_spec_path": "specs/temp/{{ spec_filename }}",
-    "actions": [
-      {
-        "id": "action_{{ sequence }}",
-        "type": "fix_error|improve_code|improve_performance|fix_style|add_tests|refactor",
-        "severity": "critical|high|medium|low", 
-        "file": "{{ file_path }}",
-        "line": {{ line_number }},
-        "line_range": [{{ start_line }}, {{ end_line }}],
-        "title": "{{ brief_description }}",
-        "description": "{{ detailed_explanation }}",
-        "suggestion": "{{ specific_fix_recommendation }}",
-        "automated": {{ true_if_automatable }},
-        "estimated_effort": "{{ time_estimate }}",
-        "category": "{{ issue_category }}",
-        "impact": "{{ business_impact }}"
-      }
-    ],
-    "summary": {
-      "total_issues": {{ total_count }},
-      "critical": {{ critical_count }},
-      "high": {{ high_count }},
-      "medium": {{ medium_count }},
-      "low": {{ low_count }},
-      "automated_fixes": {{ automatable_count }},
-      "manual_fixes": {{ manual_count }},
-      "compilation_errors": {{ error_count }},
-      "test_failures": {{ test_failure_count }},
-      "clippy_warnings": {{ warning_count }}
-    },
-    "metrics": {
-      "code_complexity": {{ complexity_score }},
-      "test_coverage": {{ coverage_percentage }},
-      "technical_debt_ratio": {{ debt_ratio }},
-      "maintainability_index": {{ maintainability_score }}
-    },
-    "recommendations": {
-      "next_iteration_focus": "{{ focus_area }}",
-      "architecture_improvements": ["{{ suggestion_1 }}", "{{ suggestion_2 }}"],
-      "priority_actions": ["{{ action_id_1 }}", "{{ action_id_2 }}"]
-    }
-  }
-}
-```
+## Automation Mode Behavior
 
 **Automation Detection**: The command detects automation mode when:
-- Invoked with `--format=json` parameter
 - Environment variable `MMM_AUTOMATION=true` is set
 - Called from within an MMM workflow context
 
-**Spec Generation Rules**:
-- Only generate temporary spec if issues are found (total_issues > 0)
-- If no issues found, omit `generated_spec` and `temp_spec_path` fields from JSON
-- Include spec identifier in format: `iteration-{timestamp}-improvements`  
-- Ensure spec file is written before returning JSON response
-- Handle file writing errors gracefully
+**Git-Native Automation Flow**:
+1. Analyze code and identify issues
+2. If issues found: Create temporary spec file and commit it
+3. If no issues found: Report "No issues found" and exit without creating commits
+4. Always provide a brief summary of actions taken
+
+**Output Format in Automation Mode**:
+- Minimal console output focusing on key actions
+- Clear indication of whether spec was created and committed
+- Brief summary of issues found (if any)
+- No JSON output required
+
+**Example Automation Output**:
+```
+✓ Code review completed
+✓ Found 3 issues requiring attention
+✓ Generated spec: iteration-1708123456-improvements.md
+✓ Committed: review: generate improvement spec for iteration-1708123456-improvements
+```
+
+**Example No Issues Output**:
+```
+✓ Code review completed  
+✓ No issues found - code quality is good
+```
 
 ## Output Format
-
-The review provides structured, machine-parseable output for automation:
 
 1. **Executive Summary**
    - Overall code quality assessment
@@ -305,68 +271,10 @@ The review provides structured, machine-parseable output for automation:
    - Performance benchmark results
    - Lint and warning counts
 
-4. **Actionable Feedback (JSON Structure)**
-   ```json
-   {
-     "review_id": "uuid",
-     "timestamp": "2025-01-26T10:30:00Z",
-     "overall_score": 8.2,
-     "actions": [
-       {
-         "id": "action_001",
-         "type": "fix_error",
-         "severity": "critical",
-         "file": "src/parser.rs",
-         "line": 45,
-         "title": "Fix compilation error",
-         "description": "Missing semicolon causing compilation failure",
-         "suggestion": "Add semicolon at end of line 45",
-         "automated": true,
-         "estimated_effort": "1min"
-       },
-       {
-         "id": "action_002", 
-         "type": "improve_performance",
-         "severity": "medium",
-         "file": "src/query.rs",
-         "line_range": [23, 35],
-         "title": "Replace manual loop with iterator",
-         "description": "Manual loop can be replaced with more idiomatic iterator chain",
-         "suggestion": "Use .filter().map().collect() pattern",
-         "automated": true,
-         "estimated_effort": "5min"
-       },
-       {
-         "id": "action_003",
-         "type": "add_tests",
-         "severity": "high", 
-         "file": "src/database.rs",
-         "title": "Add unit tests for error handling",
-         "description": "Function lacks test coverage for error conditions",
-         "automated": false,
-         "estimated_effort": "15min"
-       }
-     ],
-     "summary": {
-       "total_issues": 15,
-       "critical": 1,
-       "high": 4,
-       "medium": 8,
-       "low": 2,
-       "automated_fixes": 12,
-       "manual_fixes": 3
-     }
-   }
-   ```
-
-5. **Integration Commands**
-   ```bash
-   # To automatically apply fixes from this review:
-   /mmm-improve --review-id uuid --severity critical,high
-   
-   # To iterate until all issues resolved:
-   /mmm-iterate --target-score 9.0 --max-iterations 3
-   ```
+4. **Integration with mmm improve**
+   - In automation mode: Creates and commits temporary spec files
+   - `mmm improve` will extract spec from git commits and apply fixes
+   - Creates a complete audit trail through git history
 
 ## Integration with Development Workflow
 

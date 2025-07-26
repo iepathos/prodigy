@@ -1,243 +1,80 @@
-# /mmm-lint
+# MMM Lint Command
 
-Automatically detect and fix linting issues in the Rust codebase using cargo clippy and rustfmt. This command ensures code quality and consistency by addressing compiler warnings, clippy lints, and formatting issues.
+You are an expert Rust developer helping with automated code formatting, linting, and testing for the mmm project as part of the git-native improvement flow.
 
-## Variables
+## Role
+Format, lint, and test Rust code to ensure quality standards, then commit any automated fixes.
 
-SCOPE: $ARGUMENTS (optional - specify scope like "src/parser", "tests", or omit for entire codebase)
+## Context Files (Read these to understand the project)
+- `.mmm/PROJECT.md` - Project overview and goals
+- `ARCHITECTURE.md` - Technical architecture
+- `Cargo.toml` - Dependencies and project config
+- `src/` - Source code structure
 
-## Execute
+## Phase 1: Assessment
+1. Check current git status to see if there are uncommitted changes
+2. Identify the project type (should be Rust based on Cargo.toml)
+3. Determine available linting/formatting tools
 
-### Phase 1: Pre-lint Analysis
+## Phase 2: Automated Formatting
+1. Run `cargo fmt` to format all Rust code
+2. Check if any files were modified by formatting
 
-1. **Current Status Check**
-   - Run `cargo check` to identify compilation errors
-   - Execute `cargo clippy --all-targets --all-features -- -D warnings` to get current lint status
-   - Run `cargo fmt --check` to see formatting issues
-   - Generate baseline report of current issues
+## Phase 3: Linting & Analysis  
+1. Run `cargo clippy -- -D warnings` to catch common issues
+2. If clippy suggests fixes, apply them with `cargo clippy --fix --allow-dirty --allow-staged`
+3. Note any remaining warnings that require manual attention
 
-2. **Categorize Issues**
-   - **Critical**: Compilation errors that prevent building
-   - **High Priority**: Clippy warnings that could cause bugs
-   - **Medium Priority**: Style and performance lints
-   - **Low Priority**: Formatting and minor style issues
+## Phase 4: Testing
+1. Run `cargo test` to ensure all tests pass
+2. If tests fail:
+   - Report which tests are failing
+   - Do NOT attempt to fix test failures (that's for implement-spec)
+   - Continue with the workflow
 
-### Phase 2: Automated Fixes
+## Phase 5: Documentation Check
+1. Run `cargo doc --no-deps` to check documentation builds
+2. Fix any documentation warnings if possible
 
-1. **Formatting Issues**
-   - Run `cargo fmt` to fix all formatting issues
-   - Verify formatting changes don't break compilation
-   - Commit formatting fixes separately if requested
+## Phase 6: Git Commit (Only if changes were made)
+1. Check `git status` to see what files were modified by the automated tools
+2. If files were modified by formatting/linting:
+   - Stage all changes: `git add .`
+   - Commit with message: `style: apply automated formatting and lint fixes`
+3. If no changes were made, do not create an empty commit
 
-2. **Auto-fixable Clippy Issues**
-   - Run `cargo clippy --fix --allow-dirty --allow-staged`
-   - Apply automatic fixes for safe suggestions
-   - Review changes to ensure they're correct
+## Phase 7: Summary Report
+Provide a brief summary:
+- What formatting/linting was applied
+- Whether tests passed
+- Whether a commit was made
+- Any manual issues that need attention
 
-3. **Compilation Errors**
-   - Address any remaining compilation errors
-   - Fix import issues and missing dependencies
-   - Resolve type errors and syntax issues
+## Automation Mode
+When `MMM_AUTOMATION=true` environment variable is set:
+- Run all phases automatically
+- Only output errors and the final summary
+- Exit with appropriate status codes
 
-### Phase 3: Manual Lint Resolution
-
-1. **Complex Clippy Warnings**
-   - Review warnings that require manual intervention
-   - Fix performance-related issues (e.g., unnecessary clones)
-   - Address logic issues flagged by clippy
-   - Improve error handling patterns
-
-2. **Code Quality Issues**
-   - Fix unused imports and variables
-   - Remove dead code flagged by compiler
-   - Address deprecated API usage
-   - Improve variable naming and documentation
-
-3. **Security and Safety Issues**
-   - Address unsafe code warnings
-   - Fix potential panic conditions
-   - Resolve security-related clippy lints
-   - Improve input validation
-
-### Phase 4: Project-Specific Fixes
-
-1. **Rust Idioms**
-   - Use `?` operator instead of manual error handling
-   - Replace manual iteration with iterator methods
-   - Use `match` instead of nested `if let` where appropriate
-   - Apply RAII patterns for resource management
-
-2. **Performance Optimizations**
-   - Fix unnecessary allocations
-   - Use string slices instead of owned strings where possible
-   - Optimize iterator chains
-   - Address clone-heavy code patterns
-
-3. **Error Handling Improvements**
-   - Replace `unwrap()` with proper error handling
-   - Add context to error messages using `anyhow`
-   - Implement proper error propagation
-   - Remove `panic` from production code paths
-
-### Phase 5: Testing and Validation
-
-1. **Compilation Check**
-   - Ensure `cargo check` passes without warnings
-   - Verify `cargo clippy` produces no warnings
-   - Confirm `cargo fmt --check` shows no formatting issues
-   - Test that `cargo build` succeeds
-
-2. **Test Suite Validation**
-   - Run `cargo test` to ensure all tests pass
-   - Execute `cargo test -- --nocapture` for detailed output
-   - Run integration tests if present
-   - Verify no regressions introduced
-
-3. **Benchmark Validation**
-   - Run benchmarks if available with `cargo bench`
-   - Ensure performance hasn't regressed
-   - Validate memory usage patterns
-   - Check for new performance improvements
-
-### Phase 6: Documentation and Reporting
-
-1. **Generate Lint Report**
-   - Summary of issues found and fixed
-   - List of manual interventions made
-   - Performance improvements achieved
-   - Remaining issues requiring attention
-
-2. **Update Documentation**
-   - Fix documentation warnings
-   - Update code examples in rustdoc
-   - Ensure public APIs are properly documented
-   - Add missing doc comments
-
-## Example Usage
-
+## Example Output (Automation Mode)
 ```
-/mmm-lint
-/mmm-lint "src/parser"
-/mmm-lint "tests"
-/mmm-lint "src/parser/inventory.rs"
+✓ Formatting: 3 files updated
+✓ Linting: 2 issues auto-fixed  
+✓ Tests: All 15 tests passed
+✓ Committed: style: apply automated formatting and lint fixes
 ```
-
-## Lint Categories Addressed
-
-### Clippy Warnings
-- **Correctness**: Logic errors and potential bugs
-- **Style**: Code style and readability improvements
-- **Complexity**: Overly complex code patterns
-- **Performance**: Inefficient code patterns
-- **Pedantic**: Extra pedantic lints for code quality
-
-### Compiler Warnings
-- Unused imports and variables
-- Dead code detection
-- Deprecated API usage
-- Type inference improvements
-- Pattern matching exhaustiveness
-
-### Formatting Issues
-- Consistent indentation and spacing
-- Line length adherence (100 characters)
-- Import organization and grouping
-- Trailing whitespace removal
-- Consistent bracket and brace style
-
-## Safety Measures
-
-1. **Backup and Recovery**
-   - Check git status before making changes
-   - Ensure working directory is clean
-   - Create stash if uncommitted changes exist
-   - Provide rollback instructions if needed
-
-2. **Incremental Changes**
-   - Apply fixes in logical groups
-   - Test after each category of fixes
-   - Commit formatting separately from logic changes
-   - Maintain bisectability of changes
-
-3. **Verification Steps**
-   - All tests must pass after fixes
-   - No new warnings introduced
-   - Compilation must succeed cleanly
-   - Performance benchmarks maintained
-
-## Integration with Development Workflow
-
-### Pre-commit Integration
-- Run lint fixes before committing changes
-- Ensure CI pipeline requirements are met
-- Maintain consistent code quality standards
-- Reduce review feedback on style issues
-
-### CI/CD Compatibility
-- Ensure fixes align with CI lint requirements
-- Address any CI-specific clippy configurations
-- Maintain compatibility with automated checks
-- Support for custom lint rules if configured
 
 ## Error Handling
+- If cargo fmt fails: Report error but continue
+- If clippy fails: Report error but continue  
+- If tests fail: Report but continue (don't exit)
+- If git operations fail: Report error and exit
 
-### Fix Failures
-- If auto-fixes break compilation: Rollback and report issues
-- If tests fail after fixes: Identify problematic changes and revert
-- If clippy fixes introduce bugs: Manual review and correction
-- If formatting breaks code: Investigate and fix manually
+## Important Notes
+- Focus ONLY on automated fixes (formatting, obvious linting)
+- Do NOT fix logic errors or failing tests
+- Do NOT modify test code unless it's formatting
+- Always check git status before and after
+- Only commit if actual changes were made by the tools
 
-### Conflict Resolution
-- Handle merge conflicts in auto-generated fixes
-- Resolve competing lint suggestions
-- Address contradictory clippy recommendations
-- Manage formatter vs. clippy conflicts
-
-## Advanced Features
-
-### Custom Lint Configuration
-- Respect project-specific clippy.toml settings
-- Handle allow/deny lint attributes in code
-- Support for custom lint rule sets
-- Integration with project coding standards
-
-### Performance Analysis
-- Identify and fix performance-related lints
-- Optimize hot code paths flagged by clippy
-- Address memory usage patterns
-- Improve algorithmic complexity where possible
-
-## Output Format
-
-The command provides:
-1. **Initial Analysis**: Current lint status and issue categorization
-2. **Fix Progress**: Real-time updates on fixes being applied
-3. **Test Results**: Compilation and test outcomes after fixes
-4. **Final Report**: Complete summary of changes made
-5. **Recommendations**: Suggestions for ongoing code quality improvements
-
-## Rust-Specific Considerations
-
-### Ownership and Borrowing
-- Fix unnecessary clones and allocations
-- Optimize lifetime annotations
-- Improve borrow checker compliance
-- Address move vs. borrow decisions
-
-### Error Handling Patterns
-- Standardize on `Result<T, E>` patterns
-- Improve error context and propagation
-- Remove unwrap/expect from production code
-- Implement proper error handling strategies
-
-### Async Code Quality
-- Fix async/await pattern issues
-- Address tokio-specific lints
-- Optimize async resource management
-- Improve concurrent code patterns
-
-### Dependencies and Features
-- Address dependency-related warnings
-- Fix feature flag compilation issues
-- Optimize conditional compilation
-- Manage crate feature interactions
+Your goal is to ensure code quality through automated tools while preserving the intent and logic of the code.

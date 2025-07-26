@@ -9,16 +9,17 @@ Memento Mori (mmm) is a dead simple Rust CLI tool that makes your code better th
 - **Project Status**: Active Development - Core Working
 - **Core Feature**: `mmm improve` command with Claude CLI integration
 - **Latest Version**: 0.1.0
-- **Implementation Status**: Real Claude CLI integration implemented with working self-sufficient loop, developer experience bloat removed, state management simplified to essentials only, and core modules consolidated for clarity
+- **Implementation Status**: Git-native improvement flow fully implemented with robust Claude CLI integration, complete audit trails, self-sufficient automated cycles, and dynamic spec generation for improvements
 
 ## What Exists
 
 ### Core Functionality
 - **Simple CLI**: `mmm improve [--target 8.0] [--verbose]`
-- **Claude Integration**: Real Claude CLI subprocess calls using /mmm-code-review and /mmm-implement-spec commands
+- **Git-Native Flow**: Each improvement step creates git commits for complete auditability
+- **Claude Integration**: Three-step Claude CLI workflow (review → implement → lint)
 - **Project Analysis**: Automatic language and framework detection
-- **File Modification**: Real changes applied to your codebase
-- **Minimal State**: Simplified JSON files tracking only essential data (score, runs, session history)
+- **Automated Linting**: Integrated formatting, linting, and testing with commits
+- **Minimal State**: Simple JSON files tracking essential data (score, runs, session history)
 
 ### Project Structure
 ```
@@ -40,20 +41,24 @@ mmm/
    - Optional target score and verbosity
    - Works out of the box
 
-2. **Real Claude Integration**
-   - Calls actual Claude CLI commands
-   - Applies suggested improvements
-   - Tracks changes and progress
+2. **Git-Native Improvement Flow**
+   - `/mmm-code-review`: Analyzes code and commits improvement specs
+   - `/mmm-implement-spec`: Applies fixes and commits changes
+   - `/mmm-lint`: Formats, lints, tests, and commits automated fixes
+   - Complete audit trail through git history
 
 3. **Minimal State Management**
-   - Simplified JSON files for essential data only
-   - Basic project analysis caching
-   - Current score and run count tracking
+   - Simple `.mmm/state.json` for essential data only
+   - Temporary specs in `specs/temp/` for each iteration
+   - Project context files for Claude understanding
+   - Git history contains complete change log
 
-4. **Working Self-Sufficient Loop**
-   - Analyze → Call Claude Review → Call Claude Implement → Apply Changes → Re-analyze → Repeat
+4. **Self-Sufficient Automated Loop**
+   - Analyze → Review (commit spec) → Extract spec ID → Implement (commit) → Lint (commit) → Re-analyze → Repeat
+   - Dynamic spec generation in `specs/temp/` directory for each iteration
    - Automatic termination when target reached or no issues found
-   - Real file modifications with backup and validation
+   - Robust error handling and graceful failure recovery
+   - Complete git audit trail with structured commit messages
 
 ## Technology Stack
 
@@ -67,10 +72,10 @@ mmm/
 ## Development Philosophy
 
 - **Dead Simple**: Single command interface, minimal options
-- **Actually Works**: Real Claude integration, real file changes
-- **Minimal State**: Track only what's needed for the loop
-- **Clear Code**: Straightforward logic, single focused module
-- **Self-Sufficient**: Genuine improvement cycles without manual intervention
+- **Git-Native**: Use git as the communication layer - simple, reliable, auditable
+- **Actually Works**: Real Claude integration, real file changes, real git commits
+- **Minimal State**: Track only what's needed, let git handle the audit trail
+- **Self-Sufficient**: Fully automated improvement cycles with complete logging
 
 ## Next Steps
 

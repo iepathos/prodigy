@@ -5,12 +5,13 @@ A dead simple CLI tool that makes your code better through Claude CLI integratio
 ## What It Does
 
 Run `mmm improve` and it automatically:
-1. Analyzes your project (language, framework, code quality)
-2. Calls Claude CLI to get improvement suggestions
-3. Applies the improvements to your code
-4. Repeats until your code reaches the target quality score
+1. **Analyzes** your project (language, framework, code quality)
+2. **Reviews** code with Claude CLI and creates improvement specs
+3. **Implements** the improvements by applying fixes to your code
+4. **Lints** and formats the code with automated tools
+5. **Repeats** until your code reaches the target quality score
 
-That's it. No configuration, no complex workflows, no learning curve.
+All changes are committed to git with clear audit trails. No configuration, no complex workflows, no learning curve.
 
 ## Installation
 
@@ -38,12 +39,16 @@ mmm improve --target 9.0
 mmm improve --verbose
 ```
 
-### What Happens
+### What Happens (Git-Native Flow)
 1. **Project Analysis**: Detects your language (Rust, Python, JS, etc.) and framework
 2. **Quality Assessment**: Gives your current code a health score (0-10)
-3. **Claude Integration**: Calls Claude CLI with smart context about your project
-4. **File Modification**: Applies Claude's suggestions directly to your files
-5. **Progress Tracking**: Repeats until target score is reached
+3. **Code Review**: Claude analyzes code and generates improvement specs
+4. **Spec Commit**: Creates `specs/temp/iteration-*-improvements.md` and commits it
+5. **Implementation**: Applies fixes from the spec and commits changes
+6. **Linting**: Runs `cargo fmt`, `clippy --fix`, and `test`, commits if changes
+7. **Progress Tracking**: Re-analyzes and repeats until target score is reached
+
+Each step creates git commits for complete auditability.
 
 ### Requirements
 - [Claude CLI](https://claude.ai/cli) installed and configured
@@ -55,60 +60,80 @@ mmm improve --verbose
 # Basic improvement run
 $ mmm improve
 🔍 Analyzing project...
-📊 Current health score: 6.2/10
-🤖 Calling Claude CLI for improvements...
-✅ Applied 3 improvements to 2 files
-📊 New health score: 7.1/10
-🤖 Calling Claude CLI for improvements...
-✅ Applied 2 improvements to 1 file
-📊 Final health score: 8.1/10 ✨
-🎉 Target reached! Your code is now better.
+Current score: 6.2/10
+🔄 Iteration 1/10...
+✅ Review completed: Found 3 issues
+✅ Generated spec: iteration-1708123456-improvements.md  
+✅ Implementation completed: 2 files modified
+✅ Linting completed: formatting applied
+Score: 6.2 → 7.1
+🔄 Iteration 2/10...
+✅ Review completed: Found 1 issue
+✅ Generated spec: iteration-1708123789-improvements.md
+✅ Implementation completed: 1 file modified  
+✅ Linting completed: no changes needed
+Score: 7.1 → 8.1
+✅ Complete! Final score: 8.1/10
+Files changed: 3
+Iterations: 2
 
-# Verbose output
+# Verbose output shows detailed git flow
 $ mmm improve --verbose
 🔍 Analyzing project...
-   Language: Rust
-   Framework: None detected
-   Files analyzed: 12
-   Issues found: 8
-📊 Current health score: 6.2/10
-   - Error handling: 5/10
-   - Documentation: 4/10
-   - Testing: 8/10
-🤖 Calling Claude CLI for improvements...
-   Command: claude improve --focus error-handling src/main.rs src/lib.rs
-   Response: 3 improvements suggested
-✅ Applied 3 improvements to 2 files:
-   - Added Result<> returns to 2 functions
-   - Replaced unwrap() with proper error handling
-📊 New health score: 7.1/10
+Current score: 6.2/10
+🔄 Iteration 1/10...
+Calling Claude CLI for code review...
+Extracting spec ID from git history...
+Calling Claude CLI to implement spec: iteration-1708123456-improvements
+Calling Claude CLI for linting...
+Score: 6.2 → 7.1
 ... (continues until target reached)
+
+# Check the git history to see what happened
+$ git log --oneline -10
+a1b2c3d style: apply automated formatting and lint fixes
+b2c3d4e fix: apply improvements from spec iteration-1708123789-improvements
+c3d4e5f review: generate improvement spec for iteration-1708123789-improvements
+d4e5f6g style: apply automated formatting and lint fixes  
+e5f6g7h fix: apply improvements from spec iteration-1708123456-improvements
+f6g7h8i review: generate improvement spec for iteration-1708123456-improvements
 ```
 
 ## How It Works
 
-### Architecture
+### Git-Native Architecture
 ```
 mmm improve
     ↓
-Analyze Project (language, framework, health)
+Analyze Project (language, framework, health score)
     ↓
-Build Context for Claude CLI
-    ↓
-Call Claude CLI with improvement request
-    ↓
-Parse response and apply changes
-    ↓
-Update state and check if target reached
-    ↓
-Repeat until done
+┌─────────────────── IMPROVEMENT LOOP ──────────────────┐
+│  Call claude /mmm-code-review                         │
+│      ↓                                                │
+│  Generate specs/temp/iteration-*-improvements.md      │
+│      ↓                                                │
+│  Commit: "review: generate improvement spec..."       │
+│      ↓                                                │
+│  Extract spec ID from git log                         │
+│      ↓                                                │
+│  Call claude /mmm-implement-spec {spec-id}            │
+│      ↓                                                │
+│  Apply fixes and commit: "fix: apply improvements..." │
+│      ↓                                                │
+│  Call claude /mmm-lint                                │
+│      ↓                                                │
+│  Format/lint and commit: "style: apply automated..."  │
+│      ↓                                                │
+│  Re-analyze → Check target → Continue or Exit         │
+└───────────────────────────────────────────────────────┘
 ```
 
 ### State Management
-- Creates `.mmm/` directory in your project
-- Tracks improvement sessions in JSON files
-- Caches project analysis for faster subsequent runs
-- All human-readable, git-friendly
+- **Git History**: Complete audit trail of all changes through commits
+- **Temporary Specs**: `specs/temp/iteration-*-improvements.md` contain exact fixes applied  
+- **Simple State**: `.mmm/state.json` tracks basic session info (current score, run count)
+- **Project Context**: `.mmm/PROJECT.md`, `ARCHITECTURE.md` provide Claude with project understanding
+- All human-readable, git-friendly, no complex databases
 
 ### Supported Languages
 - **Rust**: Full support with Cargo integration
@@ -118,10 +143,11 @@ Repeat until done
 
 ## Safety
 
-- **Backup**: Never modifies files without backup
-- **Validation**: Checks that changes compile/parse before applying
-- **Rollback**: Can undo changes if something goes wrong
+- **Git-Native**: Every change is a git commit - easy to inspect and revert
+- **Automated Testing**: Each iteration runs tests to ensure nothing breaks
 - **Incremental**: Makes small, focused improvements rather than large changes
+- **Auditable**: Complete paper trail of what was changed and why
+- **Validation**: Code is linted and formatted after each change
 
 ## Configuration
 
@@ -166,10 +192,10 @@ cargo run -- improve --verbose
 ## Philosophy
 
 1. **Dead Simple**: One command, minimal options, works immediately
-2. **Actually Functional**: Real Claude integration, real file changes
-3. **Minimal State**: Track only what's needed for the improvement loop
-4. **Clear Code**: Straightforward logic, easy to understand and modify
-5. **Self-Sufficient**: Hands-off improvement cycles without manual intervention
+2. **Actually Functional**: Real Claude integration, real file changes, real git commits
+3. **Git-Native**: Use git as the communication layer - simple, reliable, auditable
+4. **Self-Sufficient**: Fully automated improvement cycles with complete logging
+5. **Clear & Minimal**: Focus on the core loop, avoid over-engineering
 
 ## Limitations
 

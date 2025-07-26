@@ -239,3 +239,21 @@ Consolidate into 3 files maximum: mod.rs (core loop), command.rs (CLI args only)
 - **Positive**: Single clear core loop in mod.rs, easier to understand flow, significant code reduction, direct Claude CLI integration without abstractions
 - **Negative**: Less modularity, larger single file for core logic
 - **Implementation**: Deleted 5 redundant files, created consolidated mod.rs with direct Claude CLI subprocess calls, simplified command.rs and session.rs to essentials only
+
+---
+
+## ADR-015: Git-Native Dynamic Spec Generation
+
+### Status
+Accepted
+
+### Context
+Spec 18 required implementing dynamic spec generation for improvements using git commits as the communication mechanism between Claude CLI commands. The previous approach was already mostly implemented but needed the specs/temp/ directory structure.
+
+### Decision
+Complete the git-native architecture with dynamic spec generation in specs/temp/ directory, where /mmm-code-review generates temporary specs and commits them, then mmm improve extracts spec IDs from git history.
+
+### Consequences
+- **Positive**: Complete git-native workflow, robust audit trail, debuggable intermediate specs, no JSON parsing complexity
+- **Negative**: Additional directory structure, temporary files need cleanup
+- **Implementation**: Created specs/temp/ directory structure, confirmed git log parsing for spec extraction, complete three-step commit sequence (review → implement → lint)
