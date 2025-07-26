@@ -96,8 +96,8 @@ impl Project {
                 },
             };
 
-            let manifest_content =
-                toml::to_string_pretty(&manifest).context("Failed to serialize project manifest")?;
+            let manifest_content = toml::to_string_pretty(&manifest)
+                .context("Failed to serialize project manifest")?;
             fs::write(&manifest_path, manifest_content).await?;
         }
 

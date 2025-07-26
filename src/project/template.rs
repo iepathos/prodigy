@@ -70,8 +70,8 @@ impl TemplateManager {
         for template in builtin_templates {
             let template_path = self.templates_dir.join(format!("{}.yaml", template.name));
             if !template_path.exists() {
-                let yaml =
-                    serde_yaml::to_string(&template).context("Failed to serialize template to YAML")?;
+                let yaml = serde_yaml::to_string(&template)
+                    .context("Failed to serialize template to YAML")?;
                 fs::write(&template_path, yaml).await?;
             }
         }
@@ -104,9 +104,7 @@ impl TemplateManager {
     ) -> Result<()> {
         let template_path = self.templates_dir.join(format!("{template_name}.yaml"));
         if !template_path.exists() {
-            return Err(anyhow!(
-                "Template '{template_name}' not found"
-            ));
+            return Err(anyhow!("Template '{template_name}' not found"));
         }
 
         let content = fs::read_to_string(&template_path).await?;

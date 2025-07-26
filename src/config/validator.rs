@@ -33,9 +33,7 @@ impl ConfigValidator {
 
         if let Some(max_concurrent) = config.max_concurrent_specs {
             if max_concurrent == 0 {
-                return Err(anyhow!(
-                    "max_concurrent_specs must be greater than 0"
-                ));
+                return Err(anyhow!("max_concurrent_specs must be greater than 0"));
             }
         }
 
@@ -67,17 +65,13 @@ impl ConfigValidator {
 
         if let Some(max_iterations) = config.max_iterations {
             if max_iterations == 0 {
-                return Err(anyhow!(
-                    "max_iterations must be greater than 0"
-                ));
+                return Err(anyhow!("max_iterations must be greater than 0"));
             }
         }
 
         if let Some(spec_dir) = &config.spec_dir {
             if spec_dir.is_absolute() {
-                return Err(anyhow!(
-                    "spec_dir must be a relative path"
-                ));
+                return Err(anyhow!("spec_dir must be a relative path"));
             }
         }
 
@@ -90,15 +84,11 @@ impl ConfigValidator {
         }
 
         if !api_key.starts_with("sk-") {
-            return Err(anyhow!(
-                "Claude API key must start with 'sk-'"
-            ));
+            return Err(anyhow!("Claude API key must start with 'sk-'"));
         }
 
         if api_key.len() < 20 {
-            return Err(anyhow!(
-                "Claude API key appears to be too short"
-            ));
+            return Err(anyhow!("Claude API key appears to be too short"));
         }
 
         Ok(())
