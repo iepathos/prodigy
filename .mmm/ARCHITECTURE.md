@@ -15,6 +15,8 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 - **mod.rs**: Single core improvement loop with Claude CLI integration
 - **command.rs**: Simplified CLI with only target and verbose flags
 - **session.rs**: Minimal session data structures
+- **workflow.rs**: Configurable workflow execution engine
+- **extractor.rs**: Dynamic value extraction from git, files, and command output
 
 ### 3. Project Analysis (`src/analyzer/`)
 - **language.rs**: Programming language detection
@@ -40,9 +42,10 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 - **cache.rs**: Response caching for efficiency
 
 ### 6. Configuration Management (`src/config/`)
-- **loader.rs**: Configuration file loading
+- **loader.rs**: Configuration file loading (including .mmm.toml workflow config)
 - **validator.rs**: Configuration validation
 - **mod.rs**: Config structures and defaults
+- **workflow.rs**: Workflow configuration structures and defaults
 
 ### 7. Error Handling (`src/error.rs`)
 - Centralized error types using thiserror
@@ -62,11 +65,13 @@ User runs `mmm improve`
         ↓
 Analyze project (language, framework, health score)
         ↓
-Build context for Claude CLI
+Load configuration (including .mmm.toml workflow)
         ↓
-Call Claude CLI with improvement request
+Execute workflow steps (configurable or default)
         ↓
-Parse Claude response and apply changes
+Each step: Call Claude CLI with command/args
+        ↓
+Extract dynamic values between steps
         ↓
 Update state and repeat until target reached
 ```
@@ -130,7 +135,9 @@ src/
 ├── improve/             # Core improvement logic
 │   ├── mod.rs           # Single consolidated improvement loop
 │   ├── command.rs       # CLI args only
-│   └── session.rs       # Basic session data
+│   ├── session.rs       # Basic session data
+│   ├── workflow.rs      # Configurable workflow execution
+│   └── extractor.rs     # Dynamic value extraction
 ├── analyzer/            # Analysis components
 │   ├── mod.rs
 │   ├── language.rs      # Language detection
@@ -151,7 +158,8 @@ src/
 ├── config/              # Configuration management
 │   ├── mod.rs
 │   ├── loader.rs        # Config loading
-│   └── validator.rs     # Config validation
+│   ├── validator.rs     # Config validation
+│   └── workflow.rs      # Workflow config structures
 ├── project/             # Project management
 │   ├── mod.rs
 │   ├── manager.rs       # Project lifecycle

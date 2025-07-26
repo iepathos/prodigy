@@ -1,12 +1,16 @@
 pub mod command;
+pub mod extractor;
 pub mod session;
+pub mod workflow;
 
 use crate::analyzer::ProjectAnalyzer;
+use crate::config::{ConfigLoader, WorkflowConfig};
 use crate::simple_state::StateManager;
 use anyhow::{anyhow, Context as _, Result};
 use chrono::Utc;
 use std::path::Path;
 use tokio::process::Command;
+use workflow::WorkflowExecutor;
 
 /// Run the improve command to automatically enhance code quality
 ///
@@ -42,10 +46,19 @@ pub async fn run(cmd: command::ImproveCommand) -> Result<()> {
         return Ok(());
     }
 
-    // 2. State setup
+    // 2. Load configuration
+    let config_loader = ConfigLoader::new().await?;
+    config_loader.load_project(Path::new(".")).await?;
+    let config = config_loader.get_config();
+
+    // Determine workflow configuration
+    let workflow_config = config.workflow.clone().unwrap_or_else(WorkflowConfig::default);
+    let max_iterations = workflow_config.max_iterations;
+
+    // 3. State setup
     let mut state = StateManager::new()?;
 
-    // 3. Git-native improvement loop
+    // 4. Git-native improvement loop
     let mut iteration = 1;
     let mut files_changed = 0;
 
@@ -54,59 +67,96 @@ pub async fn run(cmd: command::ImproveCommand) -> Result<()> {
         println!("📋 Focus: {focus} (initial analysis)");
     }
 
-    while current_score < cmd.target && iteration <= 10 {
-        if cmd.show_progress {
-            println!("🔄 Iteration {iteration}/10...");
-        }
+    // Check if we should use configurable workflow or legacy workflow
+    if config.workflow.is_some() {
+        // Use configurable workflow
+        let mut executor = WorkflowExecutor::new(workflow_config, cmd.show_progress);
 
-        // Step 1: Generate review spec and commit
-        let focus_for_iteration = if iteration == 1 {
-            cmd.focus.as_deref()
-        } else {
-            None
-        };
-        let review_success =
-            call_claude_code_review(cmd.show_progress, focus_for_iteration).await?;
-        if !review_success {
-            if cmd.show_progress {
-                println!("Review failed - stopping iterations");
-            }
-            break;
-        }
+        while current_score < cmd.target && iteration <= max_iterations {
+            // Execute workflow iteration
+            let focus_for_iteration = if iteration == 1 {
+                cmd.focus.as_deref()
+            } else {
+                None
+            };
 
-        // Step 2: Extract spec ID from latest commit
-        let spec_id = extract_spec_from_git(cmd.show_progress).await?;
-        if spec_id.is_empty() {
-            if cmd.show_progress {
-                println!("No issues found - stopping iterations");
+            let iteration_success = executor
+                .execute_iteration(iteration, focus_for_iteration)
+                .await?;
+            if !iteration_success {
+                if cmd.show_progress {
+                    println!("Workflow iteration completed with no changes - stopping");
+                }
+                break;
             }
-            break;
-        }
 
-        // Step 3: Implement fixes and commit
-        let implement_success = call_claude_implement_spec(&spec_id, cmd.show_progress).await?;
-        if !implement_success {
-            if cmd.show_progress {
-                println!("Implementation failed for iteration {iteration}");
-            }
-        } else {
             files_changed += 1;
+
+            // Re-analyze project
+            let new_analysis = analyzer.analyze(Path::new(".")).await?;
+            current_score = new_analysis.health_score;
+            if cmd.show_progress {
+                println!("Score: {current_score:.1}/10");
+            }
+
+            iteration += 1;
         }
+    } else {
+        // Use legacy hardcoded workflow
+        while current_score < cmd.target && iteration <= 10 {
+            if cmd.show_progress {
+                println!("🔄 Iteration {iteration}/10...");
+            }
 
-        // Step 4: Run linting/formatting and commit
-        call_claude_lint(cmd.show_progress).await?;
+            // Step 1: Generate review spec and commit
+            let focus_for_iteration = if iteration == 1 {
+                cmd.focus.as_deref()
+            } else {
+                None
+            };
+            let review_success =
+                call_claude_code_review(cmd.show_progress, focus_for_iteration).await?;
+            if !review_success {
+                if cmd.show_progress {
+                    println!("Review failed - stopping iterations");
+                }
+                break;
+            }
 
-        // Step 5: Re-analyze project
-        let new_analysis = analyzer.analyze(Path::new(".")).await?;
-        current_score = new_analysis.health_score;
-        if cmd.show_progress {
-            println!("Score: {current_score:.1}/10");
+            // Step 2: Extract spec ID from latest commit
+            let spec_id = extract_spec_from_git(cmd.show_progress).await?;
+            if spec_id.is_empty() {
+                if cmd.show_progress {
+                    println!("No issues found - stopping iterations");
+                }
+                break;
+            }
+
+            // Step 3: Implement fixes and commit
+            let implement_success = call_claude_implement_spec(&spec_id, cmd.show_progress).await?;
+            if !implement_success {
+                if cmd.show_progress {
+                    println!("Implementation failed for iteration {iteration}");
+                }
+            } else {
+                files_changed += 1;
+            }
+
+            // Step 4: Run linting/formatting and commit
+            call_claude_lint(cmd.show_progress).await?;
+
+            // Step 5: Re-analyze project
+            let new_analysis = analyzer.analyze(Path::new(".")).await?;
+            current_score = new_analysis.health_score;
+            if cmd.show_progress {
+                println!("Score: {current_score:.1}/10");
+            }
+
+            iteration += 1;
         }
-
-        iteration += 1;
     }
 
-    // 4. Completion - record basic session info
+    // 5. Completion - record basic session info
     state.state_mut().current_score = current_score;
     state.state_mut().total_runs += 1;
     state.state_mut().last_run = Some(Utc::now());

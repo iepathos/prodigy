@@ -3,14 +3,17 @@ use std::path::PathBuf;
 
 pub mod loader;
 pub mod validator;
+pub mod workflow;
 
 pub use loader::ConfigLoader;
 pub use validator::ConfigValidator;
+pub use workflow::{Extractor, WorkflowConfig, WorkflowStep};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     pub global: GlobalConfig,
     pub project: Option<ProjectConfig>,
+    pub workflow: Option<WorkflowConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,6 +66,7 @@ impl Config {
         Self {
             global: GlobalConfig::default(),
             project: None,
+            workflow: None,
         }
     }
 

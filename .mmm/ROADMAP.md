@@ -87,6 +87,17 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
 - [x] **Focus directive display** in progress output for first iteration
 - [x] **Natural language interpretation** by Claude for flexible focus areas
 
+## ✅ Phase 2.11: Configurable Workflows (COMPLETED)
+
+### Workflow Configuration Support Complete
+- [x] **Added workflow configuration** module in src/config/workflow.rs
+- [x] **Created workflow executor** in src/improve/workflow.rs
+- [x] **Implemented extractor system** for dynamic value extraction from git, files, output
+- [x] **Updated config loader** to read .mmm.toml workflow configuration
+- [x] **Modified improve::run** to support both configurable and legacy workflows
+- [x] **Added documentation** with example workflows (security, testing, documentation)
+- [x] **Backward compatibility** maintained - no config = default workflow
+
 ## 📋 Phase 3: Robustness (NEXT)
 
 ### Core Reliability
@@ -163,6 +174,7 @@ Things we're **NOT** building:
 ## Release Strategy
 
 - **v0.1.0**: Basic structure and state management
-- **v0.2.0**: Git-native improvement flow with Claude CLI integration and focus directives ✅ CURRENT
-- **v0.3.0**: Robust - Reliable error handling and UX
+- **v0.2.0**: Git-native improvement flow with Claude CLI integration and focus directives
+- **v0.3.0**: Configurable workflows and extensibility ✅ CURRENT
+- **v0.4.0**: Robust - Reliable error handling and UX
 - **v1.0.0**: Production - Polished, multi-language support

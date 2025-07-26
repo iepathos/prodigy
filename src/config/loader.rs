@@ -1,4 +1,4 @@
-use super::{Config, GlobalConfig, ProjectConfig};
+use super::{Config, GlobalConfig, ProjectConfig, WorkflowConfig};
 use anyhow::{anyhow, Result};
 use notify::{Event, EventKind, RecursiveMode, Watcher};
 use std::path::{Path, PathBuf};
@@ -80,6 +80,21 @@ impl ConfigLoader {
 
                     let mut config = self.config.write().unwrap();
                     config.project = Some(project_config);
+                }
+            }
+        }
+
+        // Load workflow configuration from .mmm.toml
+        let workflow_path = project_path.join(".mmm.toml");
+        if workflow_path.exists() {
+            let content = fs::read_to_string(&workflow_path).await?;
+            if let Ok(toml_value) = toml::from_str::<toml::Table>(&content) {
+                if let Some(workflow_table) = toml_value.get("workflow") {
+                    if let Ok(workflow_config) = workflow_table.clone().try_into::<WorkflowConfig>()
+                    {
+                        let mut config = self.config.write().unwrap();
+                        config.workflow = Some(workflow_config);
+                    }
                 }
             }
         }

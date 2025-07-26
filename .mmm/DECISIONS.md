@@ -275,3 +275,21 @@ Add optional --focus flag to CLI that passes a focus directive via MMM_FOCUS env
 - **Positive**: User control over initial priorities, natural language interpretation, simple implementation, no validation needed
 - **Negative**: Only affects first iteration, relies on Claude's interpretation abilities
 - **Implementation**: Added --focus flag to CLI, passed through ImproveCommand, environment variable MMM_FOCUS set on first iteration only, /mmm-code-review already had comprehensive focus support
+
+---
+
+## ADR-017: Configurable Workflows
+
+### Status
+Accepted
+
+### Context
+Spec 21 identified the need for customizable improvement workflows to support different use cases like security-focused improvements, test-driven development, or documentation generation. The existing hardcoded workflow limited flexibility.
+
+### Decision
+Implement configurable workflows via optional .mmm.toml file that allows users to define custom workflow steps, extractors for dynamic values, and workflow behavior (max iterations, error handling).
+
+### Consequences
+- **Positive**: Users can customize workflows for specific needs, extensible for new Claude commands, supports complex multi-step workflows, backward compatible
+- **Negative**: Additional configuration complexity, more code to maintain, potential for misconfigured workflows
+- **Implementation**: Created workflow.rs module for configuration, workflow executor for running steps, extractor engine for dynamic values, updated improve::run to support both configurable and legacy workflows
