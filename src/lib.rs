@@ -1,3 +1,4 @@
+pub mod analyzer;
 pub mod claude;
 pub mod command;
 pub mod config;

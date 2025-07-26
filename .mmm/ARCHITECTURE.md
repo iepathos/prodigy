@@ -60,6 +60,16 @@ The mmm system follows a modular architecture with clear separation of concerns.
 - **display.rs**: Progress display and user feedback
 - **command.rs**: CLI command implementation
 
+### 10. Smart Project Analyzer (`src/analyzer/`)
+- **language.rs**: Programming language detection
+- **framework.rs**: Framework and library detection
+- **structure.rs**: Project structure analysis
+- **health.rs**: Project health indicators
+- **build.rs**: Build tool detection and analysis
+- **quality.rs**: Code quality metrics
+- **focus.rs**: Improvement area prioritization
+- **context.rs**: Analysis report generation
+
 ## Data Flow
 
 ```

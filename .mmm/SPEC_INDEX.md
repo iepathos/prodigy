@@ -20,6 +20,7 @@ This file maps specification numbers to their corresponding files for easy looku
 ## Iterative Improvement Specifications
 - **08**: `specs/08-iterative-loop.md` - Iterative improvement loop with Claude CLI
 - **09**: `specs/09-dead-simple-improve.md` - Zero-configuration code improvement command
+- **10**: `specs/10-smart-project-analyzer.md` - Smart project analyzer for automatic detection
 
 ## Template Specifications
 - **example**: `specs/example-feature.md` - Example feature specification template

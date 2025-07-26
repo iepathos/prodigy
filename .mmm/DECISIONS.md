@@ -229,3 +229,25 @@ Implemented spec 09 for zero-configuration code improvement that "just works" ou
 ### Consequences
 - **Positive**: Extremely user-friendly, works immediately after installation, clear progress feedback
 - **Negative**: Less configurable than full workflow system, simulated Claude integration for now
+
+---
+
+## ADR-014: Smart Project Analyzer Architecture
+
+### Status
+Accepted
+
+### Context
+Implemented spec 10 for intelligent project analysis that automatically detects language, framework, and quality indicators.
+
+### Decision
+- Create comprehensive analyzer module with specialized sub-analyzers
+- Language detection via build files, extensions, and content
+- Framework detection through dependencies and config files
+- Quality analysis using static code metrics
+- Health scoring based on multiple factors
+- Smart focus area detection for targeted improvements
+
+### Consequences
+- **Positive**: Zero-configuration analysis, accurate detection, actionable insights
+- **Negative**: Additional complexity, some heuristics may need tuning

@@ -20,6 +20,7 @@ This roadmap outlines the planned development phases for mmm, prioritizing core 
 
 ### Completed (continued)
 - [x] Dead simple improve command (Spec 09)
+- [x] Smart project analyzer (Spec 10)
 
 ### In Progress
 - [ ] Comprehensive error handling
