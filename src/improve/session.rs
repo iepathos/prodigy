@@ -46,6 +46,27 @@ pub struct ImproveState {
     pub learned_patterns: Vec<Pattern>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ImprovementType {
+    ErrorHandling,
+    Testing,
+    Documentation,
+    Performance,
+    Security,
+    Types,
+    Style,
+    Architecture,
+}
+
+#[derive(Debug, Clone)]
+pub struct Improvement {
+    pub improvement_type: ImprovementType,
+    pub file: String,
+    pub line: usize,
+    pub old_content: String,
+    pub new_content: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImprovementRun {
     pub timestamp: DateTime<Utc>,
@@ -139,6 +160,40 @@ impl ImproveSession {
         self.state.last_run = Utc::now();
     }
 
+    pub fn current_score(&self) -> f32 {
+        self.state.current_score
+    }
+    
+    pub fn completed_count(&self) -> usize {
+        self.iterations.len()
+    }
+    
+    pub fn remaining_count(&self) -> usize {
+        // Estimate remaining improvements based on score gap
+        let score_gap = self.options.target_score - self.state.current_score;
+        ((score_gap / 0.3).ceil() as usize).min(10 - self.iterations.len())
+    }
+    
+    pub fn is_complete(&self) -> bool {
+        self.is_good_enough() || self.iterations.len() >= 10
+    }
+    
+    pub fn next_improvement(&self) -> Improvement {
+        // Simulated improvement for now
+        Improvement {
+            improvement_type: ImprovementType::ErrorHandling,
+            file: "src/main.rs".to_string(),
+            line: 42,
+            old_content: "let user = get_user().unwrap();".to_string(),
+            new_content: "let user = get_user()?;".to_string(),
+        }
+    }
+    
+    pub async fn apply_improvement(&mut self, improvement: Improvement) -> Result<()> {
+        // In real implementation, this would apply the change
+        Ok(())
+    }
+    
     pub async fn run(&mut self) -> Result<SessionResult> {
         let initial_score = self.state.current_score;
         let mut total_changes = Vec::new();

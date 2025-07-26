@@ -84,6 +84,16 @@ The mmm system follows a modular architecture with clear separation of concerns.
 - **types.rs**: Clean type definitions for state
 - **migration.rs**: SQLite to JSON migration support
 
+### 12. Developer Experience (`src/developer_experience/`)
+- **progress.rs**: Real-time progress displays with beautiful animations
+- **summary.rs**: Result summaries with quality scores and impact metrics
+- **interactive.rs**: Live preview mode and graceful interruption
+- **error_handling.rs**: Smart error messages with rollback capability
+- **suggestions.rs**: Context-aware help and next action suggestions
+- **celebration.rs**: Achievements, streaks, and gamification
+- **shell.rs**: Shell completions and git hook integration
+- **performance.rs**: Fast startup and incremental processing
+
 ## Data Flow
 
 ```

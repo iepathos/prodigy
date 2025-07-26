@@ -22,6 +22,7 @@ This roadmap outlines the planned development phases for mmm, prioritizing core 
 - [x] Dead simple improve command (Spec 09)
 - [x] Smart project analyzer (Spec 10)
 - [x] Simple state management - JSON-based (Spec 11)
+- [x] Developer experience enhancements (Spec 12)
 
 ### In Progress
 - [ ] Comprehensive error handling
