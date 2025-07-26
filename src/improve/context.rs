@@ -43,7 +43,7 @@ impl Context {
 
         // Add sections
         for (name, content) in &self.sections {
-            prompt.push_str(&format!("## {}\n\n{}\n\n", name, content));
+            prompt.push_str(&format!("## {name}\n\n{content}\n\n"));
         }
 
         // Add files
@@ -145,7 +145,7 @@ Configuration files: {}"#,
             project
                 .framework
                 .as_ref()
-                .map(|f| format!("{:?}", f))
+                .map(|f| format!("{f:?}"))
                 .unwrap_or_else(|| "None".to_string()),
             project.line_count,
             project.file_count,
@@ -294,27 +294,26 @@ Configuration files: {}"#,
                     && name != "node_modules"
                     && name != "venv"
             })
+            .flatten()
         {
-            if let Ok(entry) = entry {
-                if entry.file_type().is_file() {
-                    if let Some(ext) = entry.path().extension() {
-                        let is_source = match (project.language.clone(), ext.to_str()) {
-                            (Language::Rust, Some("rs")) => true,
-                            (Language::Python, Some("py")) => true,
-                            (Language::JavaScript, Some("js"))
-                            | (Language::JavaScript, Some("jsx")) => true,
-                            (Language::TypeScript, Some("ts"))
-                            | (Language::TypeScript, Some("tsx")) => true,
-                            (Language::Go, Some("go")) => true,
-                            (Language::Java, Some("java")) => true,
-                            _ => false,
-                        };
+            if entry.file_type().is_file() {
+                if let Some(ext) = entry.path().extension() {
+                    let is_source = matches!(
+                        (project.language.clone(), ext.to_str()),
+                        (Language::Rust, Some("rs"))
+                            | (Language::Python, Some("py"))
+                            | (Language::JavaScript, Some("js"))
+                            | (Language::JavaScript, Some("jsx"))
+                            | (Language::TypeScript, Some("ts"))
+                            | (Language::TypeScript, Some("tsx"))
+                            | (Language::Go, Some("go"))
+                            | (Language::Java, Some("java"))
+                    );
 
-                        if is_source {
-                            if let Ok(metadata) = entry.metadata() {
-                                if let Ok(modified) = metadata.modified() {
-                                    recent_files.push((entry.path().to_path_buf(), modified));
-                                }
+                    if is_source {
+                        if let Ok(metadata) = entry.metadata() {
+                            if let Ok(modified) = metadata.modified() {
+                                recent_files.push((entry.path().to_path_buf(), modified));
                             }
                         }
                     }

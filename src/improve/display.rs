@@ -27,16 +27,16 @@ impl ProgressSpinner {
     }
 
     pub fn success(self, message: &str) {
-        self.bar.finish_with_message(format!("✓ {}", message));
+        self.bar.finish_with_message(format!("✓ {message}"));
     }
 
     pub fn error(self, message: &str) {
-        self.bar.finish_with_message(format!("✗ {}", message));
+        self.bar.finish_with_message(format!("✗ {message}"));
     }
 }
 
 pub fn show_progress(action: &str, details: &str) {
-    println!("  {} {}", action, details);
+    println!("  {action} {details}");
 }
 
 pub fn show_welcome() {
@@ -45,7 +45,7 @@ pub fn show_welcome() {
 
 pub fn show_analysis_results(summary: &str, focus_areas: &[String]) {
     println!("\n📊 Analyzing project...");
-    println!("  ✓ {}", summary);
+    println!("  ✓ {summary}");
     if !focus_areas.is_empty() {
         println!("  ✓ Focus areas: {}", focus_areas.join(", "));
     }
@@ -69,7 +69,7 @@ pub fn show_review_results(summary: &ReviewSummary) {
 
 pub fn show_improvement_progress(action: &str) {
     println!("\n🔧 Applying improvements...");
-    println!("  ✓ {}", action);
+    println!("  ✓ {action}");
 }
 
 pub fn show_results(result: &SessionResult) {
@@ -93,7 +93,7 @@ pub fn show_dry_run_notice() {
 }
 
 pub fn show_error(error: &str) {
-    eprintln!("\n❌ Error: {}", error);
+    eprintln!("\n❌ Error: {error}");
 }
 
 pub fn format_file_list(files: &[String], max_items: usize) -> String {
@@ -113,5 +113,5 @@ pub fn format_percentage(value: f32) -> String {
 }
 
 pub fn format_score(score: f32) -> String {
-    format!("{:.1}/10", score)
+    format!("{score:.1}/10")
 }

@@ -172,7 +172,7 @@ impl ProjectAnalyzer {
             .map(|(lang, _)| lang)
             .unwrap_or(Language::Unknown))
     }
-    
+
     fn detect_framework(path: &Path, language: &Language) -> Result<Option<Framework>> {
         match language {
             Language::JavaScript | Language::TypeScript => {
