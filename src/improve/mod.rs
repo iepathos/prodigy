@@ -361,7 +361,7 @@ async fn call_claude_implement_spec(spec_id: &str, verbose: bool) -> Result<bool
         && spec_id.ends_with("-improvements")
         && spec_id.len() > 24 // "iteration-" (10) + at least 1 digit + "-improvements" (13)
         && spec_id[10..spec_id.len()-13].chars().all(|c| c.is_ascii_digit() || c == '-');
-    
+
     if !is_valid {
         return Err(anyhow!(
             "Invalid spec ID format: {spec_id}. Expected format: iteration-XXXXXXXXXX-improvements"
@@ -514,10 +514,7 @@ mod tests {
                 && spec.ends_with("-improvements")
                 && spec.len() > 24 // "iteration-" (10) + at least 1 digit + "-improvements" (13)
                 && spec[10..spec.len()-13].chars().all(|c| c.is_ascii_digit() || c == '-');
-            assert!(
-                is_valid,
-                "Valid spec should pass validation: {spec}"
-            );
+            assert!(is_valid, "Valid spec should pass validation: {spec}");
         }
 
         for spec in invalid_specs {
@@ -525,10 +522,7 @@ mod tests {
                 && spec.ends_with("-improvements")
                 && spec.len() > 24 // "iteration-" (10) + at least 1 digit + "-improvements" (13)
                 && spec[10..spec.len()-13].chars().all(|c| c.is_ascii_digit() || c == '-');
-            assert!(
-                !is_valid,
-                "Invalid spec should fail validation: {spec}"
-            );
+            assert!(!is_valid, "Invalid spec should fail validation: {spec}");
         }
     }
 
