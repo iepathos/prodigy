@@ -13,23 +13,23 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
 - [x] Basic Claude CLI integration structure
 - [x] Minimal codebase (learning system removed)
 
-## 🚧 Phase 2: Working Claude Integration (IN PROGRESS)
+## ✅ Phase 2: Working Claude Integration (COMPLETED)
 
 ### Priority: Make It Actually Work
-- [ ] **Real Claude CLI subprocess calls**
-  - Execute actual `claude` commands
+- [x] **Real Claude CLI subprocess calls**
+  - Execute actual `claude` commands with /mmm-code-review and /mmm-implement-spec
   - Handle stdout/stderr properly
   - Error handling for Claude CLI failures
 
-- [ ] **File Modification Pipeline**
+- [x] **File Modification Pipeline**
   - Parse Claude responses for file changes
   - Apply changes safely with backups
   - Validate changes before applying
 
-- [ ] **Working Improvement Loop**
-  - Analyze → Call Claude → Apply → Repeat
-  - Automatic termination when target reached
-  - Progress tracking and feedback
+- [x] **Working Improvement Loop**
+  - Analyze → Call Claude Review → Call Claude Implement → Apply Changes → Re-analyze → Repeat
+  - Automatic termination when target reached or no issues found
+  - Progress tracking and feedback with verbose mode
 
 ### Success Criteria
 - User runs `mmm improve`

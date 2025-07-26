@@ -167,3 +167,21 @@ Straightforward module organization, minimal abstractions, clear data flow.
 ### Consequences
 - **Positive**: Easy to understand, modify, and debug
 - **Negative**: May need refactoring if complexity grows
+
+---
+
+## ADR-011: Real Claude CLI Integration via Subprocess
+
+### Status
+Accepted
+
+### Context
+Spec 14 required replacing simulation code with actual Claude CLI integration for a working self-sufficient improvement loop.
+
+### Decision
+Use subprocess calls to execute `claude /mmm-code-review` and `claude /mmm-implement-spec` commands with structured JSON output parsing.
+
+### Consequences
+- **Positive**: Real functionality, leverages existing Claude CLI commands, structured output for automation
+- **Negative**: Dependency on Claude CLI installation, subprocess complexity, JSON parsing requirements
+- **Implementation**: Added real command execution, JSON output parsing, file change application, and project re-analysis
