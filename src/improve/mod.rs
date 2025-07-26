@@ -168,6 +168,44 @@ pub async fn run(cmd: command::ImproveCommand) -> Result<()> {
     state.state_mut().last_run = Some(Utc::now());
     state.save()?;
 
+    // 6. Commit the state file
+    // Stage the state file
+    let git_add = Command::new("git")
+        .args(["add", ".mmm/state.json"])
+        .output()
+        .await
+        .context("Failed to stage state file")?;
+
+    if git_add.status.success() {
+        // Commit the state file
+        let commit_message = format!(
+            "chore: update mmm state after improvement session\n\n\
+            Final score: {:.1}/10\n\
+            Iterations: {}\n\
+            Files changed: {}",
+            current_score,
+            iteration - 1,
+            files_changed
+        );
+
+        let git_commit = Command::new("git")
+            .args(["commit", "-m", &commit_message])
+            .output()
+            .await
+            .context("Failed to commit state file")?;
+
+        if !git_commit.status.success() {
+            // Check if there were no changes to commit
+            let stderr = String::from_utf8_lossy(&git_commit.stderr);
+            if !stderr.contains("nothing to commit") && cmd.show_progress {
+                eprintln!("Warning: Failed to commit .mmm/state.json: {}", stderr);
+            }
+        }
+    } else if cmd.show_progress {
+        let stderr = String::from_utf8_lossy(&git_add.stderr);
+        eprintln!("Warning: Failed to stage .mmm/state.json: {}", stderr);
+    }
+
     println!("✅ Complete! Final score: {current_score:.1}/10");
     println!("Files changed: {files_changed}");
     println!("Iterations: {}", iteration - 1);
