@@ -7,6 +7,6 @@ pub struct ImproveCommand {
     pub target: f32,
 
     /// Show detailed progress
-    #[arg(short, long)]
-    pub verbose: bool,
+    #[arg(long)]
+    pub show_progress: bool,
 }

@@ -30,32 +30,32 @@ pub async fn run(cmd: command::ImproveCommand) -> Result<()> {
     let mut iteration = 1;
     let mut files_changed = 0;
     while current_score < cmd.target && iteration <= 10 {
-        if cmd.verbose {
+        if cmd.show_progress {
             println!("🔄 Iteration {iteration}/10...");
         }
 
         // Step 1: Generate review spec and commit
-        let review_success = call_claude_code_review(cmd.verbose).await?;
+        let review_success = call_claude_code_review(cmd.show_progress).await?;
         if !review_success {
-            if cmd.verbose {
+            if cmd.show_progress {
                 println!("Review failed - stopping iterations");
             }
             break;
         }
 
         // Step 2: Extract spec ID from latest commit
-        let spec_id = extract_spec_from_git(cmd.verbose).await?;
+        let spec_id = extract_spec_from_git(cmd.show_progress).await?;
         if spec_id.is_empty() {
-            if cmd.verbose {
+            if cmd.show_progress {
                 println!("No issues found - stopping iterations");
             }
             break;
         }
 
         // Step 3: Implement fixes and commit
-        let implement_success = call_claude_implement_spec(&spec_id, cmd.verbose).await?;
+        let implement_success = call_claude_implement_spec(&spec_id, cmd.show_progress).await?;
         if !implement_success {
-            if cmd.verbose {
+            if cmd.show_progress {
                 println!("Implementation failed for iteration {iteration}");
             }
         } else {
@@ -63,12 +63,12 @@ pub async fn run(cmd: command::ImproveCommand) -> Result<()> {
         }
 
         // Step 4: Run linting/formatting and commit
-        call_claude_lint(cmd.verbose).await?;
+        call_claude_lint(cmd.show_progress).await?;
 
         // Step 5: Re-analyze project
         let new_analysis = analyzer.analyze(Path::new(".")).await?;
         current_score = new_analysis.health_score;
-        if cmd.verbose {
+        if cmd.show_progress {
             println!("Score: {current_score:.1}/10");
         }
 
