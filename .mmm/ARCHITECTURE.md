@@ -12,12 +12,9 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 - Direct entry point to improvement logic
 
 ### 2. Improve Command (`src/improve/`)
+- **mod.rs**: Single core improvement loop with Claude CLI integration
 - **command.rs**: Simplified CLI with only target and verbose flags
-- **analyzer.rs**: Project analysis (language, framework, health)
-- **context.rs**: Smart context building for Claude
-- **session.rs**: Simplified session management with essential tracking only
-- **display.rs**: Basic console output (no fancy progress bars)
-- **state_adapter.rs**: Bridge to simple state management
+- **session.rs**: Minimal session data structures
 
 ### 3. Project Analysis (`src/analyzer/`)
 - **language.rs**: Programming language detection
@@ -103,12 +100,9 @@ src/
 ├── main.rs              # CLI entry point
 ├── lib.rs               # Library exports
 ├── improve/             # Core improvement logic
-│   ├── mod.rs
-│   ├── command.rs       # Main improve command
-│   ├── analyzer.rs      # Project analysis  
-│   ├── context.rs       # Claude context building
-│   ├── session.rs       # Session management
-│   └── state_adapter.rs # State bridge
+│   ├── mod.rs           # Single consolidated improvement loop
+│   ├── command.rs       # CLI args only
+│   └── session.rs       # Basic session data
 ├── analyzer/            # Analysis components
 │   ├── mod.rs
 │   ├── language.rs      # Language detection

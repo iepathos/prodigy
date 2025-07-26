@@ -56,6 +56,15 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
 - [x] **Removed cache statistics** (simplified CacheManager without stats tracking)
 - [x] **Updated StateAdapter** (simplified to work with essential data only)
 
+## ✅ Phase 2.8: Consolidate Core Modules (COMPLETED)
+
+### Simplification Complete
+- [x] **Consolidated improve/ module** (removed analyzer.rs, context.rs, display.rs, state_adapter.rs, command_enhanced.rs)
+- [x] **Simplified improve/mod.rs** (single core loop implementation with Claude CLI integration)
+- [x] **Minimized improve/command.rs** (CLI args only)
+- [x] **Simplified improve/session.rs** (basic session data structures only)
+- [x] **Cleaner architecture** (3 files max in improve/ module as per spec requirements)
+
 ## 📋 Phase 3: Robustness (NEXT)
 
 ### Core Reliability

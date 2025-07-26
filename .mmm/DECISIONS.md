@@ -221,3 +221,21 @@ Simplify state management to track only essential data: current score, total run
 - **Positive**: ~300 lines removed, smaller JSON files, faster startup, easier debugging, clearer mental model
 - **Negative**: Loss of detailed metrics and analytics capabilities
 - **Implementation**: Simplified State struct, removed SessionInfo/Statistics/SessionMetrics, simplified SessionRecord to essential fields, removed cache statistics, updated StateAdapter and tests
+
+---
+
+## ADR-014: Consolidate Core Modules for Clarity
+
+### Status
+Accepted
+
+### Context
+Spec 17 identified that the improve functionality was scattered across too many files (analyzer.rs, context.rs, display.rs, state_adapter.rs, command_enhanced.rs) which created confusion and made the core loop hard to follow.
+
+### Decision
+Consolidate into 3 files maximum: mod.rs (core loop), command.rs (CLI args only), session.rs (basic data structures only). Remove redundant files and integrate Claude CLI calls directly into the main loop.
+
+### Consequences
+- **Positive**: Single clear core loop in mod.rs, easier to understand flow, significant code reduction, direct Claude CLI integration without abstractions
+- **Negative**: Less modularity, larger single file for core logic
+- **Implementation**: Deleted 5 redundant files, created consolidated mod.rs with direct Claude CLI subprocess calls, simplified command.rs and session.rs to essentials only
