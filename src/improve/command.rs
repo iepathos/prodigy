@@ -1,4 +1,5 @@
 use clap::Args;
+use std::path::PathBuf;
 
 /// Command-line arguments for the improve command
 ///
@@ -21,4 +22,12 @@ pub struct ImproveCommand {
     /// prioritize issues accordingly during the first iteration.
     #[arg(long)]
     pub focus: Option<String>,
+
+    /// Path to configuration file
+    ///
+    /// Specify a custom configuration file path instead of using the default .mmm/config.toml.
+    /// Supports both TOML and YAML formats. If not specified, the system will look for
+    /// .mmm/config.toml in the project root.
+    #[arg(short = 'c', long)]
+    pub config: Option<PathBuf>,
 }

@@ -117,6 +117,23 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
   - Better success/failure feedback
   - Clearer improvement summaries
 
+### Configuration Enhancements
+- [ ] **Configurable Iteration Limit** (Spec 22)
+  - Add --max-iterations flag for custom iteration limits
+  - Default remains 10 for backward compatibility
+  
+- [x] **Command Line Config Option** (Spec 23) ✅
+  - Added --config flag to specify custom config file paths
+  - Support for both TOML and YAML configuration formats
+  - Precedence: --config flag > .mmm/config.toml > defaults
+  - Backward compatibility with deprecated .mmm/workflow.toml
+
+### Parallel Execution
+- [ ] **Git Worktree Isolation** (Spec 24)
+  - Isolate each MMM session in its own git worktree
+  - Enable parallel improvement sessions without conflicts
+  - Commands for listing and merging worktrees
+
 ### Success Criteria
 - Works reliably across different project types
 - Fails gracefully with helpful messages

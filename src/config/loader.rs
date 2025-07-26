@@ -1,5 +1,5 @@
 use super::{Config, GlobalConfig, ProjectConfig, WorkflowConfig};
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use notify::{Event, EventKind, RecursiveMode, Watcher};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
@@ -37,6 +37,90 @@ impl ConfigLoader {
 
         let mut config = self.config.write().unwrap();
         config.merge_env_vars();
+
+        Ok(())
+    }
+
+    /// Load configuration with precedence rules:
+    /// 1. If explicit_path is provided, use that file (error if not found)
+    /// 2. Otherwise, check for .mmm/config.toml in project_path
+    /// 3. Otherwise, return default configuration
+    pub async fn load_with_explicit_path(
+        &self,
+        project_path: &Path,
+        explicit_path: Option<&Path>,
+    ) -> Result<()> {
+        match explicit_path {
+            Some(path) => {
+                // Load from explicit path, error if not found
+                self.load_from_path(path).await?;
+            }
+            None => {
+                // Check for .mmm/config.toml
+                let default_path = project_path.join(".mmm").join("config.toml");
+                if default_path.exists() {
+                    self.load_from_path(&default_path).await?;
+                } else {
+                    // Check legacy workflow.toml for backward compatibility
+                    let workflow_path = project_path.join(".mmm").join("workflow.toml");
+                    if workflow_path.exists() {
+                        eprintln!("Warning: .mmm/workflow.toml is deprecated. Please rename to .mmm/config.toml");
+                        self.load_workflow_from_path(&workflow_path).await?;
+                    }
+                    // Otherwise use defaults (already set in new())
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Load configuration from a specific file path
+    async fn load_from_path(&self, path: &Path) -> Result<()> {
+        let content = fs::read_to_string(path)
+            .await
+            .with_context(|| format!("Failed to read configuration file: {}", path.display()))?;
+
+        // Determine format based on extension
+        let extension = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
+
+        match extension {
+            "toml" => {
+                let workflow_config: WorkflowConfig =
+                    toml::from_str(&content).with_context(|| {
+                        format!("Failed to parse TOML configuration: {}", path.display())
+                    })?;
+                let mut config = self.config.write().unwrap();
+                config.workflow = Some(workflow_config);
+            }
+            "yaml" | "yml" => {
+                let workflow_config: WorkflowConfig =
+                    serde_yaml::from_str(&content).with_context(|| {
+                        format!("Failed to parse YAML configuration: {}", path.display())
+                    })?;
+                let mut config = self.config.write().unwrap();
+                config.workflow = Some(workflow_config);
+            }
+            _ => {
+                return Err(anyhow!(
+                    "Unsupported configuration file format: {}. Use .toml, .yaml, or .yml",
+                    path.display()
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Load only workflow configuration from a path (for backward compatibility)
+    async fn load_workflow_from_path(&self, path: &Path) -> Result<()> {
+        let content = fs::read_to_string(path)
+            .await
+            .with_context(|| format!("Failed to read workflow file: {}", path.display()))?;
+
+        if let Ok(workflow_config) = toml::from_str::<WorkflowConfig>(&content) {
+            let mut config = self.config.write().unwrap();
+            config.workflow = Some(workflow_config);
+        }
 
         Ok(())
     }
@@ -81,16 +165,6 @@ impl ConfigLoader {
                     let mut config = self.config.write().unwrap();
                     config.project = Some(project_config);
                 }
-            }
-        }
-
-        // Load workflow configuration from .mmm/workflow.toml
-        let workflow_path = project_path.join(".mmm").join("workflow.toml");
-        if workflow_path.exists() {
-            let content = fs::read_to_string(&workflow_path).await?;
-            if let Ok(workflow_config) = toml::from_str::<WorkflowConfig>(&content) {
-                let mut config = self.config.write().unwrap();
-                config.workflow = Some(workflow_config);
             }
         }
 
@@ -141,7 +215,10 @@ impl ConfigLoader {
                 if let Ok(event) = res {
                     if matches!(event.kind, EventKind::Modify(_)) {
                         for path in event.paths {
-                            if path.extension().is_some_and(|ext| ext == "toml") {
+                            if path
+                                .extension()
+                                .is_some_and(|ext| ext == "toml" || ext == "yaml" || ext == "yml")
+                            {
                                 let _ = tx.blocking_send(path);
                             }
                         }

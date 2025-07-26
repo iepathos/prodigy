@@ -1,4 +1,5 @@
 use clap::Parser;
+use std::path::PathBuf;
 use tracing::{debug, error, trace};
 
 /// Improve code quality with zero configuration
@@ -21,6 +22,10 @@ struct Cli {
     /// Focus directive for initial analysis (e.g., "user experience", "performance")
     #[arg(long)]
     focus: Option<String>,
+
+    /// Path to configuration file
+    #[arg(short = 'c', long)]
+    config: Option<PathBuf>,
 }
 
 #[tokio::main]
@@ -49,6 +54,7 @@ async fn main() {
         target: cli.target,
         show_progress: cli.show_progress,
         focus: cli.focus,
+        config: cli.config,
     };
 
     if let Err(e) = mmm::improve::run(improve_cmd).await {

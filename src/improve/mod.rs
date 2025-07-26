@@ -75,8 +75,27 @@ async fn run_impl(cmd: command::ImproveCommand) -> Result<()> {
 
     // 2. Load configuration
     let config_loader = ConfigLoader::new().await?;
+
+    // Load with explicit config path if provided
+    config_loader
+        .load_with_explicit_path(Path::new("."), cmd.config.as_deref())
+        .await?;
+
+    // Also load project configuration
     config_loader.load_project(Path::new(".")).await?;
+
     let config = config_loader.get_config();
+
+    // Show config source in verbose mode
+    if cmd.show_progress {
+        if let Some(config_path) = &cmd.config {
+            println!("📄 Using configuration from: {}", config_path.display());
+        } else if Path::new(".mmm/config.toml").exists() {
+            println!("📄 Using configuration from: .mmm/config.toml");
+        } else {
+            println!("📄 Using default configuration");
+        }
+    }
 
     // Determine workflow configuration
     let workflow_config = config

@@ -293,3 +293,21 @@ Implement configurable workflows via optional .mmm/workflow.toml file that allow
 - **Positive**: Users can customize workflows for specific needs, very simple configuration format, backward compatible, minimal complexity
 - **Negative**: Less flexibility than complex configuration, limited to sequential command execution
 - **Implementation**: Created simple workflow.rs configuration, workflow executor that runs commands in sequence, automatic spec ID extraction from git for mmm-implement-spec
+
+---
+
+## ADR-018: Command Line Configuration Option
+
+### Status
+Accepted
+
+### Context
+Spec 23 identified the need for users to specify custom configuration file paths via command line. This supports shared configurations across projects, CI/CD environments, and testing different configurations without modifying project files.
+
+### Decision
+Add --config (-c) command-line option to specify custom configuration paths. Support both TOML and YAML formats. Follow precedence: explicit path > .mmm/config.toml > defaults. Rename workflow.toml to config.toml for consistency.
+
+### Consequences
+- **Positive**: Flexible configuration management, support for shared configs, CI/CD compatibility, both TOML and YAML formats supported, clear precedence rules
+- **Negative**: Minor breaking change (workflow.toml → config.toml), additional complexity in config loading
+- **Implementation**: Added --config flag to ImproveCommand, updated ConfigLoader with load_with_explicit_path method, support for YAML parsing, backward compatibility warnings for workflow.toml

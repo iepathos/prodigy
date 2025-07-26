@@ -95,6 +95,7 @@ mod improve_command_tests {
             target: 8.0,
             show_progress: false,
             focus: None,
+            config: None,
         };
 
         assert_eq!(cmd.target, 8.0);
@@ -108,6 +109,7 @@ mod improve_command_tests {
             target: 9.0,
             show_progress: true,
             focus: Some("performance".to_string()),
+            config: None,
         };
 
         assert_eq!(cmd.target, 9.0);

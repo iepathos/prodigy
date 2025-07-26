@@ -55,6 +55,12 @@ This directory contains detailed specifications for building out mmm as a compre
    - Job management and monitoring
    - Enhanced user feedback
 
+8. **[Configurable Iteration Limit](22-configurable-iteration-limit.md)**
+   - Command-line option for max iterations
+   - Flexible iteration control
+   - Backward compatible defaults
+   - Clear progress indication
+
 ## Implementation Strategy
 
 ### Phase 1: Foundation (Specs 1-2)
