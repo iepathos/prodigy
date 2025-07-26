@@ -144,9 +144,3 @@ impl CacheManager {
         false
     }
 }
-
-impl Default for CacheManager {
-    fn default() -> Self {
-        Self::new().expect("Failed to create cache manager")
-    }
-}

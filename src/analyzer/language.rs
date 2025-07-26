@@ -196,7 +196,9 @@ mod tests {
             ignored_patterns: vec![],
         };
 
-        let language = detector.detect(&structure).unwrap();
+        let language = detector
+            .detect(&structure)
+            .expect("Language detection should succeed for test");
         assert_eq!(language, Language::Rust);
     }
 
@@ -216,7 +218,9 @@ mod tests {
             ignored_patterns: vec![],
         };
 
-        let language = detector.detect(&structure).unwrap();
+        let language = detector
+            .detect(&structure)
+            .expect("Language detection should succeed for test");
         assert_eq!(language, Language::JavaScript);
     }
 }

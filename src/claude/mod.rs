@@ -224,8 +224,14 @@ impl ClaudeManager {
             })?;
 
         // Get the stdout and stderr streams
-        let stdout = child.stdout.take().expect("Failed to capture stdout");
-        let stderr = child.stderr.take().expect("Failed to capture stderr");
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| crate::error::Error::Other("Failed to capture stdout".to_string()))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| crate::error::Error::Other("Failed to capture stderr".to_string()))?;
 
         // Create buffered readers
         let stdout_reader = BufReader::new(stdout);

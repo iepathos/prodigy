@@ -157,7 +157,7 @@ impl BuildAnalyzer {
                     for (name, value) in deps {
                         let version = extract_version(value);
                         dependencies.push(Dependency {
-                            name: name.clone(),
+                            name: name.to_string(),
                             version,
                         });
                     }
@@ -168,7 +168,7 @@ impl BuildAnalyzer {
                     for (name, value) in deps {
                         let version = extract_version(value);
                         dev_dependencies.push(Dependency {
-                            name: name.clone(),
+                            name: name.to_string(),
                             version,
                         });
                     }
@@ -218,7 +218,7 @@ impl BuildAnalyzer {
                 if let Some(scripts_obj) = json.get("scripts").and_then(|v| v.as_object()) {
                     for (name, value) in scripts_obj {
                         if let Some(script) = value.as_str() {
-                            scripts.insert(name.clone(), script.to_string());
+                            scripts.insert(name.to_string(), script.to_string());
                         }
                     }
                 }
@@ -228,7 +228,7 @@ impl BuildAnalyzer {
                     for (name, value) in deps {
                         if let Some(version) = value.as_str() {
                             dependencies.push(Dependency {
-                                name: name.clone(),
+                                name: name.to_string(),
                                 version: version.to_string(),
                             });
                         }
@@ -240,7 +240,7 @@ impl BuildAnalyzer {
                     for (name, value) in deps {
                         if let Some(version) = value.as_str() {
                             dev_dependencies.push(Dependency {
-                                name: name.clone(),
+                                name: name.to_string(),
                                 version: version.to_string(),
                             });
                         }
@@ -287,7 +287,7 @@ impl BuildAnalyzer {
                                 if name != "python" {
                                     let version = extract_version(value);
                                     dependencies.push(Dependency {
-                                        name: name.clone(),
+                                        name: name.to_string(),
                                         version,
                                     });
                                 }

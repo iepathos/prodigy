@@ -68,48 +68,11 @@ pub enum Error {
     #[error("Validation error: {0}")]
     Validation(String),
 
-    // Plugin-related errors
-    #[error("Plugin error: {0}")]
-    Plugin(String),
-
-    #[error("Plugin not found: {0}")]
-    PluginNotFound(String),
-
-    #[error("Plugin already exists: {0}")]
-    PluginAlreadyExists(String),
-
-    #[error("Invalid plugin: {0}")]
-    InvalidPlugin(String),
-
-    #[error("Plugin execution error: {0}")]
-    PluginExecution(String),
-
-    #[error("Plugin timeout: {0}")]
-    PluginTimeout(String),
-
     #[error("Permission denied: {0}")]
     PermissionDenied(String),
 
-    #[error("Invalid version: {0}")]
-    InvalidVersion(String),
-
-    #[error("Incompatible version: {0}")]
-    IncompatibleVersion(String),
-
-    #[error("Missing dependency: {0}")]
-    MissingDependency(String),
-
-    #[error("Dependency conflict: {0}")]
-    DependencyConflict(String),
-
-    #[error("Circular dependency: {0}")]
-    CircularDependency(String),
-
     #[error("Network error: {0}")]
     Network(String),
-
-    #[error("Invalid signature: {0}")]
-    InvalidSignature(String),
 
     #[error("Deserialization error: {0}")]
     Deserialization(String),

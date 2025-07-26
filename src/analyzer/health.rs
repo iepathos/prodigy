@@ -173,8 +173,9 @@ fn detect_linting_and_formatting(
 }
 
 fn check_dependencies_updated(_build: &Option<BuildInfo>) -> bool {
-    // TODO: Implement actual dependency freshness check
-    // For now, assume dependencies are updated
+    // NOTE: Dependency freshness check not implemented
+    // This would require parsing lock files and checking against registries
+    // Returns true as a safe default for now
     true
 }
 
@@ -344,5 +345,170 @@ fn extract_todo(line: &str) -> Option<(String, TodoPriority)> {
         Some((text, TodoPriority::Medium))
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    use crate::analyzer::quality::QualitySignals;
+
+    #[test]
+    fn test_assess_code_complexity() {
+        let quality_low = QualitySignals {
+            avg_function_length: 15.0,
+            max_function_length: 50,
+            avg_file_length: 100.0,
+            max_file_length: 200,
+            duplicate_code_ratio: 0.05,
+            comment_ratio: 0.2,
+            test_ratio: 0.3,
+            error_handling_score: 0.8,
+        };
+
+        let quality_medium = QualitySignals {
+            avg_function_length: 45.0,
+            max_function_length: 120,
+            avg_file_length: 300.0,
+            max_file_length: 400,
+            duplicate_code_ratio: 0.1,
+            comment_ratio: 0.1,
+            test_ratio: 0.2,
+            error_handling_score: 0.6,
+        };
+
+        let quality_high = QualitySignals {
+            avg_function_length: 120.0,
+            max_function_length: 350,
+            avg_file_length: 600.0,
+            max_file_length: 800,
+            duplicate_code_ratio: 0.2,
+            comment_ratio: 0.05,
+            test_ratio: 0.1,
+            error_handling_score: 0.4,
+        };
+
+        assert_eq!(assess_code_complexity(&quality_low), ComplexityLevel::Simple);
+        assert_eq!(
+            assess_code_complexity(&quality_medium),
+            ComplexityLevel::Moderate
+        );
+        assert_eq!(assess_code_complexity(&quality_high), ComplexityLevel::VeryComplex);
+    }
+
+    #[test]
+    fn test_calculate_test_coverage() {
+        let quality_no_tests = QualitySignals {
+            avg_function_length: 50.0,
+            max_function_length: 100,
+            avg_file_length: 200.0,
+            max_file_length: 300,
+            duplicate_code_ratio: 0.1,
+            comment_ratio: 0.0,
+            test_ratio: 0.0,
+            error_handling_score: 0.5,
+        };
+
+        let quality_some_tests = QualitySignals {
+            avg_function_length: 50.0,
+            max_function_length: 100,
+            avg_file_length: 200.0,
+            max_file_length: 300,
+            duplicate_code_ratio: 0.1,
+            comment_ratio: 0.15,
+            test_ratio: 0.15,
+            error_handling_score: 0.5,
+        };
+
+        let quality_good_tests = QualitySignals {
+            avg_function_length: 50.0,
+            max_function_length: 100,
+            avg_file_length: 200.0,
+            max_file_length: 300,
+            duplicate_code_ratio: 0.1,
+            comment_ratio: 0.25,
+            test_ratio: 0.25,
+            error_handling_score: 0.5,
+        };
+
+        assert!(calculate_test_coverage(&quality_no_tests).is_none());
+        assert!(calculate_test_coverage(&quality_some_tests).unwrap() > 10.0);
+        assert!(calculate_test_coverage(&quality_good_tests).unwrap() > 20.0);
+    }
+
+    #[test]
+    fn test_extract_todo() {
+        assert_eq!(
+            extract_todo("// TODO: implement this feature"),
+            Some((
+                "TODO: implement this feature".to_string(),
+                TodoPriority::Low
+            ))
+        );
+
+        assert_eq!(
+            extract_todo("// TODO! urgent fix needed"),
+            Some(("TODO! urgent fix needed".to_string(), TodoPriority::High))
+        );
+
+        assert_eq!(
+            extract_todo("// FIXME: broken logic here"),
+            Some(("FIXME: broken logic here".to_string(), TodoPriority::Medium))
+        );
+
+        assert_eq!(
+            extract_todo("// TODO IMPORTANT: security issue"),
+            Some((
+                "TODO IMPORTANT: security issue".to_string(),
+                TodoPriority::High
+            ))
+        );
+
+        assert_eq!(extract_todo("// just a regular comment"), None);
+    }
+
+    #[test]
+    fn test_assess_documentation_level() {
+        let structure = ProjectStructure {
+            root: PathBuf::from("/test"),
+            src_dirs: vec![],
+            test_dirs: vec![],
+            config_files: vec![],
+            entry_points: vec![],
+            important_files: vec![PathBuf::from("/test/README.md")],
+            ignored_patterns: vec![],
+        };
+
+        let quality_low = QualitySignals {
+            avg_function_length: 50.0,
+            max_function_length: 100,
+            avg_file_length: 200.0,
+            max_file_length: 300,
+            duplicate_code_ratio: 0.1,
+            comment_ratio: 0.05,
+            test_ratio: 0.1,
+            error_handling_score: 0.5,
+        };
+
+        let quality_high = QualitySignals {
+            avg_function_length: 50.0,
+            max_function_length: 100,
+            avg_file_length: 200.0,
+            max_file_length: 300,
+            duplicate_code_ratio: 0.1,
+            comment_ratio: 0.25,
+            test_ratio: 0.2,
+            error_handling_score: 0.5,
+        };
+
+        assert_eq!(
+            assess_documentation_level(&structure, &quality_low),
+            DocLevel::Minimal
+        );
+        assert_eq!(
+            assess_documentation_level(&structure, &quality_high),
+            DocLevel::Good
+        );
     }
 }

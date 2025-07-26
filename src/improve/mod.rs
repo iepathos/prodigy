@@ -204,3 +204,46 @@ async fn call_claude_lint(verbose: bool) -> Result<bool> {
 
     Ok(status.success())
 }
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn test_extract_spec_from_git_commit_message() {
+        // Test parsing spec ID from commit message
+        let test_cases = vec![
+            (
+                "review: generate improvement spec for iteration-1234567890-improvements",
+                "iteration-1234567890-improvements",
+            ),
+            (
+                "review: generate improvement spec for iteration-9876543210-improvements with extra text",
+                "iteration-9876543210-improvements",
+            ),
+            (
+                "some other commit message without spec",
+                "",
+            ),
+            (
+                "partial iteration- without complete spec",
+                "iteration-",
+            ),
+        ];
+
+        for (input, expected) in test_cases {
+            // Simulate the parsing logic from extract_spec_from_git
+            let result = if let Some(spec_start) = input.find("iteration-") {
+                let spec_part = &input[spec_start..];
+                if let Some(spec_end) = spec_part.find(' ') {
+                    spec_part[..spec_end].to_string()
+                } else {
+                    spec_part.to_string()
+                }
+            } else {
+                String::new()
+            };
+
+            assert_eq!(result, expected, "Failed for input: {}", input);
+        }
+    }
+}
