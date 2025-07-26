@@ -1,5 +1,5 @@
 use super::{get_global_mmm_dir, ProjectManager};
-use crate::{Error, Result};
+use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use tokio::fs;
@@ -71,7 +71,7 @@ impl TemplateManager {
             let template_path = self.templates_dir.join(format!("{}.yaml", template.name));
             if !template_path.exists() {
                 let yaml =
-                    serde_yaml::to_string(&template).map_err(|e| Error::Config(e.to_string()))?;
+                    serde_yaml::to_string(&template).context("Failed to serialize template to YAML")?;
                 fs::write(&template_path, yaml).await?;
             }
         }
@@ -104,14 +104,14 @@ impl TemplateManager {
     ) -> Result<()> {
         let template_path = self.templates_dir.join(format!("{template_name}.yaml"));
         if !template_path.exists() {
-            return Err(Error::Project(format!(
+            return Err(anyhow!(
                 "Template '{template_name}' not found"
-            )));
+            ));
         }
 
         let content = fs::read_to_string(&template_path).await?;
         let template: Template =
-            serde_yaml::from_str(&content).map_err(|e| Error::Config(e.to_string()))?;
+            serde_yaml::from_str(&content).context("Failed to parse template YAML")?;
 
         // Create project structure from template
         let mut project_manager = ProjectManager::new().await?;
@@ -135,7 +135,7 @@ impl TemplateManager {
         // Update project configuration with template defaults
         let config_path = project_path.join(".mmm").join("config.toml");
         let mut config = toml::from_str::<toml::Value>(&fs::read_to_string(&config_path).await?)
-            .map_err(|e| Error::Config(e.to_string()))?;
+            .context("Failed to parse project config")?;
 
         if let toml::Value::Table(ref mut table) = config {
             table.insert(
@@ -156,7 +156,7 @@ impl TemplateManager {
         }
 
         let config_content =
-            toml::to_string_pretty(&config).map_err(|e| Error::Config(e.to_string()))?;
+            toml::to_string_pretty(&config).context("Failed to serialize config")?;
         fs::write(&config_path, config_content).await?;
 
         Ok(())

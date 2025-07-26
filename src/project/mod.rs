@@ -1,4 +1,4 @@
-use crate::{Error, Result};
+use anyhow::{anyhow, Context, Result};
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -82,7 +82,7 @@ impl Project {
             };
 
             let config_content =
-                toml::to_string_pretty(&config).map_err(|e| Error::Config(e.to_string()))?;
+                toml::to_string_pretty(&config).context("Failed to serialize project config")?;
             fs::write(&config_path, config_content).await?;
         }
 
@@ -97,7 +97,7 @@ impl Project {
             };
 
             let manifest_content =
-                toml::to_string_pretty(&manifest).map_err(|e| Error::Config(e.to_string()))?;
+                toml::to_string_pretty(&manifest).context("Failed to serialize project manifest")?;
             fs::write(&manifest_path, manifest_content).await?;
         }
 
@@ -120,5 +120,5 @@ struct ManifestProject {
 pub fn get_global_mmm_dir() -> Result<PathBuf> {
     ProjectDirs::from("com", "mmm", "mmm")
         .map(|dirs| dirs.data_dir().to_path_buf())
-        .ok_or_else(|| Error::Config("Could not determine home directory".to_string()))
+        .ok_or_else(|| anyhow!("Could not determine home directory"))
 }

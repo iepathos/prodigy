@@ -1,5 +1,5 @@
 use super::{Config, GlobalConfig, ProjectConfig};
-use crate::{Error, Result};
+use anyhow::{anyhow, Result};
 
 pub struct ConfigValidator;
 
@@ -16,35 +16,35 @@ impl ConfigValidator {
 
     pub fn validate_global(config: &GlobalConfig) -> Result<()> {
         if !config.mmm_home.exists() {
-            return Err(Error::Config(format!(
+            return Err(anyhow!(
                 "MMM home directory does not exist: {}",
                 config.mmm_home.display()
-            )));
+            ));
         }
 
         if let Some(log_level) = &config.log_level {
             let valid_levels = ["trace", "debug", "info", "warn", "error"];
             if !valid_levels.contains(&log_level.as_str()) {
-                return Err(Error::Config(format!(
+                return Err(anyhow!(
                     "Invalid log level: {log_level}. Must be one of: {valid_levels:?}"
-                )));
+                ));
             }
         }
 
         if let Some(max_concurrent) = config.max_concurrent_specs {
             if max_concurrent == 0 {
-                return Err(Error::Config(
-                    "max_concurrent_specs must be greater than 0".to_string(),
+                return Err(anyhow!(
+                    "max_concurrent_specs must be greater than 0"
                 ));
             }
         }
 
         if let Some(plugins) = &config.plugins {
             if plugins.enabled && !plugins.directory.exists() {
-                return Err(Error::Config(format!(
+                return Err(anyhow!(
                     "Plugin directory does not exist: {}",
                     plugins.directory.display()
-                )));
+                ));
             }
         }
 
@@ -53,31 +53,30 @@ impl ConfigValidator {
 
     pub fn validate_project(config: &ProjectConfig) -> Result<()> {
         if config.name.is_empty() {
-            return Err(Error::Config("Project name cannot be empty".to_string()));
+            return Err(anyhow!("Project name cannot be empty"));
         }
 
         if config
             .name
             .contains(|c: char| !c.is_alphanumeric() && c != '-' && c != '_')
         {
-            return Err(Error::Config(
+            return Err(anyhow!(
                 "Project name can only contain alphanumeric characters, hyphens, and underscores"
-                    .to_string(),
             ));
         }
 
         if let Some(max_iterations) = config.max_iterations {
             if max_iterations == 0 {
-                return Err(Error::Config(
-                    "max_iterations must be greater than 0".to_string(),
+                return Err(anyhow!(
+                    "max_iterations must be greater than 0"
                 ));
             }
         }
 
         if let Some(spec_dir) = &config.spec_dir {
             if spec_dir.is_absolute() {
-                return Err(Error::Config(
-                    "spec_dir must be a relative path".to_string(),
+                return Err(anyhow!(
+                    "spec_dir must be a relative path"
                 ));
             }
         }
@@ -87,18 +86,18 @@ impl ConfigValidator {
 
     pub fn validate_api_key(api_key: &str) -> Result<()> {
         if api_key.is_empty() {
-            return Err(Error::Config("Claude API key cannot be empty".to_string()));
+            return Err(anyhow!("Claude API key cannot be empty"));
         }
 
         if !api_key.starts_with("sk-") {
-            return Err(Error::Config(
-                "Claude API key must start with 'sk-'".to_string(),
+            return Err(anyhow!(
+                "Claude API key must start with 'sk-'"
             ));
         }
 
         if api_key.len() < 20 {
-            return Err(Error::Config(
-                "Claude API key appears to be too short".to_string(),
+            return Err(anyhow!(
+                "Claude API key appears to be too short"
             ));
         }
 

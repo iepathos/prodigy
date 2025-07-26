@@ -3,7 +3,7 @@ pub mod session;
 
 use crate::analyzer::ProjectAnalyzer;
 use crate::simple_state::StateManager;
-use anyhow::{Context as _, Result};
+use anyhow::{anyhow, Context as _, Result};
 use chrono::Utc;
 use std::path::Path;
 use tokio::process::Command;
@@ -22,6 +22,11 @@ use tokio::process::Command;
 /// - Claude CLI is not available
 /// - File operations fail
 /// - Git operations fail
+///
+/// # Thread Safety
+/// This function performs git operations sequentially and is not designed for concurrent
+/// execution. If running multiple instances, ensure they operate on different repositories
+/// to avoid git conflicts.
 pub async fn run(cmd: command::ImproveCommand) -> Result<()> {
     println!("🔍 Analyzing project...");
 
@@ -117,6 +122,19 @@ pub async fn run(cmd: command::ImproveCommand) -> Result<()> {
 async fn call_claude_code_review(verbose: bool, focus: Option<&str>) -> Result<bool> {
     println!("🤖 Running /mmm-code-review...");
 
+    // First check if claude command exists
+    let claude_check = Command::new("which")
+        .arg("claude")
+        .output()
+        .await
+        .context("Failed to check for Claude CLI")?;
+
+    if !claude_check.status.success() {
+        return Err(anyhow!(
+            "Claude CLI not found. Please install Claude CLI: https://claude.ai/cli"
+        ));
+    }
+
     let mut cmd = Command::new("claude");
     cmd.arg("--dangerously-skip-permissions") // Required for automation: bypasses interactive permission checks
         .arg("--print") // Outputs response to stdout for capture instead of interactive display
@@ -128,16 +146,28 @@ async fn call_claude_code_review(verbose: bool, focus: Option<&str>) -> Result<b
         cmd.env("MMM_FOCUS", focus_directive);
     }
 
-    let status = cmd
-        .status()
+    let output = cmd
+        .output()
         .await
         .context("Failed to execute Claude CLI for review")?;
 
-    if verbose && status.success() {
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if verbose {
+            eprintln!("Claude CLI stderr: {stderr}");
+        }
+        return Err(anyhow!(
+            "Claude CLI failed with exit code {}: {}",
+            output.status.code().unwrap_or(-1),
+            stderr
+        ));
+    }
+
+    if verbose {
         println!("✅ Code review completed");
     }
 
-    Ok(status.success())
+    Ok(true)
 }
 
 async fn extract_spec_from_git(verbose: bool) -> Result<String> {
@@ -169,40 +199,64 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
 async fn call_claude_implement_spec(spec_id: &str, verbose: bool) -> Result<bool> {
     println!("🔧 Running /mmm-implement-spec {spec_id}...");
 
-    let status = Command::new("claude")
+    let output = Command::new("claude")
         .arg("--dangerously-skip-permissions") // Required for automation: bypasses interactive permission checks
         .arg("--print") // Outputs response to stdout for capture instead of interactive display
         .arg("/mmm-implement-spec") // The custom command for spec implementation
         .arg(spec_id) // The spec ID to implement (e.g., "iteration-123-improvements")
         .env("MMM_AUTOMATION", "true") // Signals to /mmm-implement-spec to run in automated mode
-        .status()
+        .output()
         .await
         .context("Failed to execute Claude CLI for implementation")?;
 
-    if verbose && status.success() {
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if verbose {
+            eprintln!("Claude CLI stderr: {stderr}");
+        }
+        return Err(anyhow!(
+            "Claude CLI failed with exit code {}: {}",
+            output.status.code().unwrap_or(-1),
+            stderr
+        ));
+    }
+
+    if verbose {
         println!("✅ Implementation completed");
     }
 
-    Ok(status.success())
+    Ok(true)
 }
 
 async fn call_claude_lint(verbose: bool) -> Result<bool> {
     println!("🧹 Running /mmm-lint...");
 
-    let status = Command::new("claude")
+    let output = Command::new("claude")
         .arg("--dangerously-skip-permissions") // Required for automation: bypasses interactive permission checks
         .arg("--print") // Outputs response to stdout for capture instead of interactive display
         .arg("/mmm-lint") // The custom command for linting and formatting
         .env("MMM_AUTOMATION", "true") // Signals to /mmm-lint to run in automated mode
-        .status()
+        .output()
         .await
         .context("Failed to execute Claude CLI for linting")?;
 
-    if verbose && status.success() {
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if verbose {
+            eprintln!("Claude CLI stderr: {stderr}");
+        }
+        return Err(anyhow!(
+            "Claude CLI failed with exit code {}: {}",
+            output.status.code().unwrap_or(-1),
+            stderr
+        ));
+    }
+
+    if verbose {
         println!("✅ Linting completed");
     }
 
-    Ok(status.success())
+    Ok(true)
 }
 
 #[cfg(test)]

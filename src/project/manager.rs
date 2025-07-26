@@ -1,5 +1,5 @@
 use super::{get_global_mmm_dir, Project};
-use crate::{Error, Result};
+use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -28,7 +28,7 @@ impl ProjectManager {
 
     pub async fn create_project(&mut self, name: &str, path: &Path) -> Result<&Project> {
         if self.projects.contains_key(name) {
-            return Err(Error::Project(format!("Project '{name}' already exists")));
+            return Err(anyhow!("Project '{name}' already exists"));
         }
 
         let project = Project::new(name.to_string(), path.to_path_buf());
@@ -37,7 +37,7 @@ impl ProjectManager {
         self.register_project(project).await?;
         self.projects
             .get(name)
-            .ok_or_else(|| Error::Project(format!("Project '{name}' not found")))
+            .ok_or_else(|| anyhow!("Project '{name}' not found"))
     }
 
     pub async fn register_project(&mut self, project: Project) -> Result<()> {
@@ -45,7 +45,7 @@ impl ProjectManager {
         fs::create_dir_all(&registry_path).await?;
 
         let project_file = registry_path.join(format!("{}.toml", project.name));
-        let content = toml::to_string_pretty(&project).map_err(|e| Error::Config(e.to_string()))?;
+        let content = toml::to_string_pretty(&project).context("Failed to serialize project")?;
 
         fs::write(&project_file, content).await?;
         self.projects.insert(project.name.clone(), project);
@@ -83,7 +83,7 @@ impl ProjectManager {
 
     pub async fn switch_project(&mut self, name: &str) -> Result<()> {
         if !self.projects.contains_key(name) {
-            return Err(Error::Project(format!("Project '{name}' not found")));
+            return Err(anyhow!("Project '{name}' not found"));
         }
 
         // Update last accessed time
@@ -117,7 +117,7 @@ impl ProjectManager {
 
     pub async fn remove_project(&mut self, name: &str) -> Result<()> {
         if !self.projects.contains_key(name) {
-            return Err(Error::Project(format!("Project '{name}' not found")));
+            return Err(anyhow!("Project '{name}' not found"));
         }
 
         let registry_path = self
@@ -139,7 +139,7 @@ impl ProjectManager {
     pub fn get_project(&self, name: &str) -> Result<&Project> {
         self.projects
             .get(name)
-            .ok_or_else(|| Error::Project(format!("Project '{name}' not found")))
+            .ok_or_else(|| anyhow!("Project '{name}' not found"))
     }
 
     pub async fn clone_project(&mut self, source: &str, destination: &str) -> Result<()> {
@@ -160,7 +160,7 @@ impl ProjectManager {
         if let Some(project) = self.projects.get_mut(name) {
             project.archived = true;
         } else {
-            return Err(Error::Project(format!("Project '{name}' not found")));
+            return Err(anyhow!("Project '{name}' not found"));
         }
 
         if let Some(project) = self.projects.get(name) {
@@ -173,7 +173,7 @@ impl ProjectManager {
         if let Some(project) = self.projects.get_mut(name) {
             project.archived = false;
         } else {
-            return Err(Error::Project(format!("Project '{name}' not found")));
+            return Err(anyhow!("Project '{name}' not found"));
         }
 
         if let Some(project) = self.projects.get(name) {
@@ -191,7 +191,7 @@ impl ProjectManager {
         fs::create_dir_all(&registry_path).await?;
 
         let project_file = registry_path.join(format!("{}.toml", project.name));
-        let content = toml::to_string_pretty(project).map_err(|e| Error::Config(e.to_string()))?;
+        let content = toml::to_string_pretty(project).context("Failed to serialize project")?;
 
         fs::write(&project_file, content).await?;
         Ok(())

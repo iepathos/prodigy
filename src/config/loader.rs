@@ -1,5 +1,5 @@
 use super::{Config, GlobalConfig, ProjectConfig};
-use crate::{Error, Result};
+use anyhow::{anyhow, Result};
 use notify::{Event, EventKind, RecursiveMode, Watcher};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
@@ -124,7 +124,7 @@ impl ConfigLoader {
         let tx = self
             .reload_tx
             .clone()
-            .ok_or_else(|| Error::Config("Hot reload not enabled".to_string()))?;
+            .ok_or_else(|| anyhow!("Hot reload not enabled"))?;
 
         let mut watcher =
             notify::recommended_watcher(move |res: std::result::Result<Event, notify::Error>| {
@@ -178,11 +178,11 @@ impl ConfigLoader {
                             return Ok(value.to_string());
                         }
                     }
-                    Err(Error::Config(format!("Unknown configuration key: {key}")))
+                    Err(anyhow!("Unknown configuration key: {key}"))
                 }
             }
         } else {
-            Err(Error::Config("No project loaded".to_string()))
+            Err(anyhow!("No project loaded"))
         }
     }
 
@@ -218,7 +218,7 @@ impl ConfigLoader {
 
             Ok(())
         } else {
-            Err(Error::Config("No project loaded".to_string()))
+            Err(anyhow!("No project loaded"))
         }
     }
 }
