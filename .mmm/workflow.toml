@@ -3,4 +3,4 @@ commands = [
     "mmm-implement-spec",
     "mmm-lint"
 ]
-max_iterations = 10
+max_iterations = 1

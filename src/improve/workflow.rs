@@ -68,6 +68,8 @@ impl WorkflowExecutor {
 
     /// Execute a Claude command
     async fn execute_command(&self, command: &str, focus: Option<&str>) -> Result<bool> {
+        println!("🤖 Running /{}...", command);
+
         // First check if claude command exists
         let claude_check = Command::new("which")
             .arg("claude")
@@ -121,6 +123,8 @@ impl WorkflowExecutor {
 
     /// Execute a Claude command with arguments
     async fn execute_command_with_args(&self, command: &str, args: &[String]) -> Result<bool> {
+        println!("🤖 Running /{} {}...", command, args.join(" "));
+
         let mut cmd = Command::new("claude");
         cmd.arg("--dangerously-skip-permissions")
             .arg("--print")
