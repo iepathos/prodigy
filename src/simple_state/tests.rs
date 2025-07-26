@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::*;
-    
+
     use tempfile::TempDir;
 
     #[test]
