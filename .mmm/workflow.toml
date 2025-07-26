@@ -1,0 +1,6 @@
+commands = [
+    "mmm-code-review",
+    "mmm-implement-spec",
+    "mmm-lint"
+]
+max_iterations = 10
