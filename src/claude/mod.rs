@@ -13,7 +13,6 @@ pub mod prompt;
 pub mod response;
 pub mod token;
 
-
 pub use api::ClaudeClient;
 pub use cache::ResponseCache;
 pub use commands::CommandRegistry;
