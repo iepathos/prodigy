@@ -1,41 +1,35 @@
-# CONVENTIONS.md - Coding Standards
+# CONVENTIONS.md - Simple Coding Standards
 
 ## Rust Conventions
 
 ### Naming
-- **Modules**: snake_case (e.g., `spec_engine`)
-- **Types**: PascalCase (e.g., `WorkflowEngine`)
-- **Functions**: snake_case (e.g., `parse_specification`)
-- **Constants**: SCREAMING_SNAKE_CASE (e.g., `MAX_RETRIES`)
+- **Modules**: snake_case (e.g., `simple_state`)
+- **Types**: PascalCase (e.g., `ProjectAnalyzer`)
+- **Functions**: snake_case (e.g., `analyze_project`)
+- **Constants**: SCREAMING_SNAKE_CASE (e.g., `DEFAULT_TARGET`)
 
 ### Code Organization
-- One module per file
+- Keep modules small and focused
 - Public API at top of file
 - Private implementations below
-- Tests in separate `tests` module
+- Tests in separate modules
 
 ### Error Handling
-- Use custom error types
-- Implement `From` for error conversions
+- Use `anyhow::Result<T>` throughout
 - Add context with `.context()`
+- Fail fast with clear messages
 - Never use `unwrap()` in production code
-
-### Documentation
-- Document all public APIs
-- Use `///` for item docs
-- Use `//!` for module docs
-- Include examples in doc comments
 
 ## Project Structure
 
 ### Directory Layout
 ```
 src/
-├── module/
-│   ├── mod.rs      # Module declaration and exports
-│   ├── types.rs    # Type definitions
-│   ├── impl.rs     # Implementation
-│   └── tests.rs    # Unit tests
+├── main.rs              # CLI entry point
+├── lib.rs               # Library exports
+├── improve/             # Core improvement logic
+├── analyzer/            # Project analysis
+└── simple_state/        # Minimal state management
 ```
 
 ### File Naming
@@ -46,93 +40,69 @@ src/
 ## Git Conventions
 
 ### Commit Messages
-Format: `type(scope): description`
+Format: `type: description`
 
 Types:
 - `feat`: New feature
 - `fix`: Bug fix
 - `docs`: Documentation
-- `style`: Formatting
 - `refactor`: Code restructuring
 - `test`: Test additions
 - `chore`: Maintenance
 
-Example: `feat(workflow): add checkpoint recovery`
-
-### Branch Naming
-- `feature/description`
-- `fix/issue-description`
-- `refactor/what-is-changing`
-
-## Testing Conventions
-
-### Test Organization
-- Unit tests next to code
-- Integration tests in `tests/`
-- Use descriptive test names
-- Test one concept per test
-
-### Test Naming
-```rust
-#[test]
-fn test_parse_valid_specification() { }
-
-#[test]
-fn test_parse_invalid_yaml_returns_error() { }
-```
+Example: `feat: add real Claude CLI integration`
 
 ## API Design
 
 ### Public APIs
 - Minimize public surface
-- Use builder pattern for complex types
+- Use simple types over complex builders
 - Return `Result<T, Error>`
 - Take `&self` when possible
 
-### Async Conventions
-- Use `async/await` throughout
-- Name async functions clearly
-- Handle cancellation properly
-- Avoid blocking operations
-
-## Documentation Standards
-
-### Code Comments
-- Explain "why" not "what"
-- Document complex algorithms
-- Note assumptions
-- Reference specifications
-
-### API Documentation
-- Start with brief description
-- Include usage examples
-- Document error conditions
-- List panics if any
+### CLI Design
+- Single command: `mmm improve`
+- Minimal flags: `--target`, `--verbose`
+- Smart defaults
+- Clear error messages
 
 ## Performance Guidelines
 
 ### General Rules
-- Measure before optimizing
-- Prefer clarity over cleverness
+- Favor simplicity over optimization
 - Use appropriate data structures
-- Minimize allocations
+- Cache expensive operations (project analysis)
+- Minimize Claude CLI calls
 
-### Specific Practices
-- Use `&str` over `String` when possible
-- Prefer iterators over collecting
-- Use `Cow` for conditional ownership
-- Profile hot paths
+### File Operations
+- Always backup before modifying
+- Use atomic writes for state
+- Validate changes before applying
 
-## Security Practices
+## Development Practices
 
-### Input Validation
-- Validate all external input
-- Use type system for constraints
-- Sanitize file paths
-- Limit resource consumption
+### Testing
+- Unit tests for core logic
+- Integration tests for Claude CLI interaction
+- Test error conditions
+- Use realistic test data
 
-### Sensitive Data
-- Never log secrets
-- Clear sensitive data after use
-- Use secure random generation
-- Follow principle of least privilege
+### Documentation
+- Focus on "why" not "what"
+- Document public APIs
+- Include usage examples
+- Keep README up to date
+
+### Code Review
+- Prioritize working over perfect
+- Check error handling
+- Verify Claude CLI integration
+- Test on real projects
+
+## Philosophy
+
+1. **Simple > Complex**: Choose simple solutions
+2. **Working > Perfect**: Make it work first  
+3. **Clear > Clever**: Obvious code over clever tricks
+4. **Users > Features**: User value over feature count
+5. **Real > Simulated**: Actual Claude integration over mocking

@@ -2,103 +2,80 @@
 
 ## Overview
 
-Memento Mori (mmm) is a Rust CLI tool for implementing self-sufficient loops with Claude CLI, enabling automated specification processing and iterative development.
+Memento Mori (mmm) is a dead simple Rust CLI tool that makes your code better through Claude CLI integration. Just run `mmm improve` and it automatically analyzes your project, calls Claude CLI for improvements, and applies the changes.
 
 ## Current State
 
-- **Project Status**: Active Development
-- **Core Features**: Specification engine, workflow automation, Claude integration
+- **Project Status**: Active Development - Core Working
+- **Core Feature**: `mmm improve` command with Claude CLI integration
 - **Latest Version**: 0.1.0
-- **Implementation Progress**: 52% (Specs 01, 08, 09, 10, 11, 12, 13 completed)
+- **Implementation Status**: Minimal viable product focused on working functionality
 
 ## What Exists
 
-### Core Components
-- **Specification Engine**: Parse and execute development specifications
-- **Workflow Engine**: YAML-based workflow automation with conditions
-- **Claude Integration**: API client with caching and context management
-- **Command System**: Extensible command registry and dispatcher
-- **State Management**: Simple JSON-based state persistence (replaced SQLite)
-- **Monitoring**: Analytics, metrics, and performance tracking
-- **Plugin System**: Dynamic plugin loading with security sandbox
-- **Iterative Improvement Loop**: Automated code quality improvement cycles
-- **Dead Simple Improve**: Zero-configuration code improvement command
-- **Smart Project Analyzer**: Automatic language, framework, and quality detection
-- **Simple State Management**: Human-readable JSON state files with caching (simplified, learning removed)
-- **Developer Experience**: Beautiful progress displays, interactive improvements, smart suggestions
+### Core Functionality
+- **Simple CLI**: `mmm improve [--target 8.0] [--verbose]`
+- **Claude Integration**: Direct integration with Claude CLI for code improvements
+- **Project Analysis**: Automatic language and framework detection
+- **File Modification**: Real changes applied to your codebase
+- **Minimal State**: JSON files tracking essential improvement history
 
 ### Project Structure
 ```
 mmm/
-├── .claude/           # Claude CLI custom commands
-├── .mmm/              # Project context files
-│   ├── config.toml    # Project-specific configuration
-│   ├── logs/          # Execution logs directory
-│   └── *.md           # Context documentation files
-├── specs/             # Development specifications
-├── src/               # Rust source code
-├── templates/         # Workflow templates
-├── migrations/        # Database migrations
-└── ~/.mmm/            # Global configuration
-    ├── config.toml    # Global settings
-    ├── projects/      # Project registry
-    └── templates/     # Global templates
+├── src/
+│   ├── main.rs           # CLI entry point
+│   ├── improve/          # Core improve command logic
+│   ├── analyzer/         # Project analysis
+│   ├── simple_state/     # Minimal state management
+│   └── lib.rs           # Library exports
+├── .mmm/                # Project context and state
+└── README.md            # User documentation
 ```
 
 ## Key Capabilities
 
-1. **Specification Processing**
-   - Load and parse Markdown specifications
-   - Execute specs iteratively with Claude
-   - Track progress and completion state
+1. **Dead Simple Interface**
+   - Single command: `mmm improve`
+   - Optional target score and verbosity
+   - Works out of the box
 
-2. **Workflow Automation**
-   - YAML workflow definitions
-   - Conditional execution with Pest parser
-   - Checkpoint and state management
+2. **Real Claude Integration**
+   - Calls actual Claude CLI commands
+   - Applies suggested improvements
+   - Tracks changes and progress
 
-3. **Claude Integration**
-   - API client with retry logic
-   - Response caching
-   - Context window management
-   - Token usage tracking
+3. **Minimal State Management**
+   - JSON files for session history
+   - Project analysis caching
+   - Essential metrics only
 
-4. **Project Management**
-   - Health checks and validation
-   - Template-based project creation
-   - Specification lifecycle management
-
-5. **Monitoring & Analytics**
-   - Performance metrics collection
-   - Dashboard visualization
-   - Alert system for issues
-   - Export capabilities
-
-6. **Iterative Improvement Loops**
-   - Automated code quality improvement cycles
-   - Integration with Claude CLI for review and improvement
-   - Session management and progress tracking
-   - Termination condition evaluation
-   - Structured output for automation
+4. **Working Self-Sufficient Loop**
+   - Analyze → Improve → Apply → Repeat
+   - Automatic termination when target reached
+   - Real file modifications
 
 ## Technology Stack
 
 - **Language**: Rust (2021 edition)
 - **CLI Framework**: Clap v4
 - **Async Runtime**: Tokio
-- **Database**: JSON files (replaced SQLite)
-- **Serialization**: Serde (JSON, YAML, TOML)
-- **Web Framework**: Axum (for dashboard)
-- **Parsing**: Pest (for conditions)
+- **State**: JSON files
+- **Serialization**: Serde (JSON)
+- **Claude Integration**: Direct CLI subprocess calls
 
 ## Development Philosophy
 
-- **Self-Sufficient Loops**: Enable automated development cycles
-- **Specification-Driven**: Use specs as source of truth
-- **Extensible**: Plugin system for custom functionality
-- **Observable**: Comprehensive monitoring and analytics
-- **Secure**: Sandboxed plugin execution
+- **Dead Simple**: Single command interface, minimal options
+- **Actually Works**: Real Claude integration, real file changes
+- **Minimal State**: Track only what's needed for the loop
+- **Clear Code**: Straightforward logic, single focused module
+- **Self-Sufficient**: Genuine improvement cycles without manual intervention
 
 ## Next Steps
 
-See ROADMAP.md for planned features and development priorities.
+Focus on making the core `mmm improve` command robust and reliable:
+- Better error handling
+- More language support
+- Improved Claude context building
+- Enhanced progress feedback

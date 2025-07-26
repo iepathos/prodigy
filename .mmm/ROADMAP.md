@@ -1,142 +1,118 @@
-# ROADMAP.md - Development Roadmap
+# ROADMAP.md - Focused Development Plan
 
 ## Overview
 
-This roadmap outlines the planned development phases for mmm, prioritizing core functionality before advanced features.
+This roadmap focuses on making `mmm improve` a robust, reliable tool that actually works. No more scaffolding - just working functionality.
 
-## Phase 1: Core Foundation ✅
+## ✅ Phase 1: Core Foundation (COMPLETED)
 
-### Completed
-- [x] Project structure and build system (Spec 01)
-- [x] Iterative improvement loop integration (Spec 08)
-- [x] Basic CLI with Clap
-- [x] Specification parser
-- [x] Claude API integration
-- [x] Simple workflow engine
-- [x] State persistence
-- [x] Global and project configuration hierarchy
-- [x] Database schema implementation
-- [x] Project registration system
+### What Works Now
+- [x] Dead simple CLI: `mmm improve [--target 8.0] [--verbose]`
+- [x] Project analysis (language, framework, health detection)
+- [x] JSON-based state management (simple and readable)
+- [x] Basic Claude CLI integration structure
+- [x] Minimal codebase (learning system removed)
 
-### Completed (continued)
-- [x] Dead simple improve command (Spec 09)
-- [x] Smart project analyzer (Spec 10)
-- [x] Simple state management - JSON-based (Spec 11)
-- [x] Developer experience enhancements (Spec 12)
-- [x] Prune learning feature - remove over-engineered learning system (Spec 13)
+## 🚧 Phase 2: Working Claude Integration (IN PROGRESS)
 
-### In Progress
-- [ ] Comprehensive error handling
-- [ ] Basic monitoring/logging
-- [ ] Integration tests
+### Priority: Make It Actually Work
+- [ ] **Real Claude CLI subprocess calls**
+  - Execute actual `claude` commands
+  - Handle stdout/stderr properly
+  - Error handling for Claude CLI failures
 
-## Phase 2: Enhanced Workflows 🚧
+- [ ] **File Modification Pipeline**
+  - Parse Claude responses for file changes
+  - Apply changes safely with backups
+  - Validate changes before applying
 
-### Planned
-- [ ] Advanced condition syntax
-- [ ] Parallel task execution
-- [ ] Workflow templates
-- [ ] Checkpoint/recovery
-- [ ] Progress visualization
+- [ ] **Working Improvement Loop**
+  - Analyze → Call Claude → Apply → Repeat
+  - Automatic termination when target reached
+  - Progress tracking and feedback
 
-### Stretch Goals
-- [ ] Workflow debugging tools
-- [ ] Visual workflow editor
-- [ ] Performance profiling
+### Success Criteria
+- User runs `mmm improve`
+- Tool actually modifies files
+- Code quality demonstrably improves
+- Process is hands-off and reliable
 
-## Phase 3: Plugin Ecosystem 📋
+## 📋 Phase 3: Robustness (NEXT)
 
-### Core Features
-- [ ] Plugin API definition
-- [ ] Dynamic loading system
-- [ ] Security sandbox
-- [ ] Plugin marketplace
-- [ ] Documentation generator
+### Core Reliability
+- [ ] **Better Error Handling**
+  - Graceful Claude CLI failures
+  - Safe file operation rollbacks
+  - Clear error messages to user
 
-### Example Plugins
-- [ ] GitHub integration
-- [ ] Slack notifications
-- [ ] Custom validators
-- [ ] External tool bridges
+- [ ] **Enhanced Context Building**
+  - Better project analysis
+  - Smarter file selection for Claude
+  - More accurate health scoring
 
-## Phase 4: Monitoring & Analytics 📊
+- [ ] **Improved UX**
+  - Real-time progress indicators
+  - Better success/failure feedback
+  - Clearer improvement summaries
 
-### Observability
-- [ ] Metrics dashboard
-- [ ] Performance tracking
-- [ ] Resource monitoring
-- [ ] Alert system
-- [ ] Report generation
+### Success Criteria
+- Works reliably across different project types
+- Fails gracefully with helpful messages
+- Users understand what's happening
 
-### Analytics
-- [ ] Usage patterns
-- [ ] Success rates
-- [ ] Performance trends
-- [ ] Cost analysis
+## 🚀 Phase 4: Polish (FUTURE)
 
-## Phase 5: Advanced Features 🚀
+### Extended Language Support
+- [ ] Python projects
+- [ ] Go projects
+- [ ] TypeScript/JavaScript enhancements
+- [ ] Generic language fallbacks
 
-### Intelligence
-- [ ] Smart retry strategies
-- [ ] Context optimization
-- [ ] Predictive caching
-- [ ] Workflow optimization
+### Enhanced Features
+- [ ] Custom focus areas (`--focus tests`)
+- [ ] Dry run mode (`--dry-run`)
+- [ ] Better progress visualization
+- [ ] Integration with common tools
 
-### Scalability
-- [ ] Distributed execution
-- [ ] Cloud deployment
-- [ ] Multi-tenant support
-- [ ] API service mode
+## Non-Goals
 
-## Long-term Vision
-
-### Community
-- [ ] Plugin ecosystem
-- [ ] Workflow marketplace
-- [ ] Community templates
-- [ ] Best practices guide
-
-### Enterprise
-- [ ] Team collaboration
-- [ ] Access control
-- [ ] Audit logging
-- [ ] Compliance tools
+Things we're **NOT** building:
+- ❌ Complex workflow engines
+- ❌ Plugin systems
+- ❌ Monitoring dashboards
+- ❌ Multi-project management
+- ❌ Web interfaces
+- ❌ Learning/AI systems
+- ❌ Complex configuration
 
 ## Success Metrics
 
-### Phase 1
-- Reliable spec execution
-- <5% failure rate
-- <2s startup time
+### Phase 2 (Working)
+- `mmm improve` actually modifies files
+- Users see code quality improvements
+- Process completes without manual intervention
 
-### Phase 2
-- 10+ workflow templates
-- 95% checkpoint recovery
-- Parallel execution
+### Phase 3 (Robust)
+- <5% failure rate on supported projects
+- Users understand what went wrong when it fails
+- Works on projects beyond our test cases
 
-### Phase 3
-- 20+ community plugins
-- Secure sandbox
-- Plugin hot-reload
+### Phase 4 (Polished)
+- Supports 3+ programming languages well
+- Sub-10 second startup time
+- Clear, helpful progress feedback
 
-### Phase 4
-- Real-time monitoring
-- <100ms metric latency
-- Actionable alerts
+## Development Principles
 
-### Phase 5
-- 50% context reduction
-- Distributed scaling
-- Enterprise ready
+1. **Working > Perfect**: Make it work first, polish later
+2. **Simple > Complex**: Choose simple solutions over clever ones
+3. **Real > Simulated**: Actual Claude integration over mocking
+4. **Users > Features**: Focus on user value over feature count
+5. **Reliable > Fast**: Correctness over performance optimization
 
-## Release Schedule
+## Release Strategy
 
-- **v0.1.0**: Core foundation (Current)
-- **v0.2.0**: Enhanced workflows
-- **v0.3.0**: Plugin system
-- **v0.4.0**: Monitoring suite
-- **v1.0.0**: Production ready
-
-## Contributing
-
-See CONTRIBUTING.md for how to help with development.
+- **v0.1.0**: Current - Basic structure, no real Claude integration
+- **v0.2.0**: Working - Actually calls Claude and modifies files
+- **v0.3.0**: Robust - Reliable error handling and UX
+- **v1.0.0**: Production - Polished, multi-language support

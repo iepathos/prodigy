@@ -1,29 +1,34 @@
-# Specification Index
+# Development History
 
-This file maps specification numbers to their corresponding files for easy lookup.
+This file tracks the key specifications that shaped the current focused architecture.
 
-## Foundation Specifications
-- **01**: `specs/01-core-architecture.md` - Core architecture and project structure
-- **02**: `specs/02-project-management.md` - Multi-project management capabilities 
-- **03**: `specs/03-claude-integration.md` - Claude API integration and caching
-
-## Workflow Specifications  
-- **04**: `specs/04-workflow-automation.md` - YAML workflow automation engine
-
-## Monitoring Specifications
-- **05**: `specs/05-monitoring-reporting.md` - Analytics, metrics, and dashboards
-
-## Extension Specifications
-- **06**: `specs/06-plugin-system.md` - Plugin architecture and security sandbox
-- **07**: `specs/07-claude-cli-ux.md` - Claude CLI user experience improvements
-
-## Iterative Improvement Specifications
-- **08**: `specs/08-iterative-loop.md` - Iterative improvement loop with Claude CLI
-- **09**: `specs/09-dead-simple-improve.md` - Zero-configuration code improvement command
+## Implemented Core Features
+- **09**: `specs/09-dead-simple-improve.md` - Zero-configuration code improvement command (CORE)
 - **10**: `specs/10-smart-project-analyzer.md` - Smart project analyzer for automatic detection
-- **11**: `specs/11-simple-state-management.md` - JSON-based state management
-- **12**: `specs/12-developer-experience.md` - Developer experience enhancements
+- **11**: `specs/11-simple-state-management.md` - JSON-based state management  
 - **13**: `specs/13-prune-learning-feature.md` - Remove over-engineered learning system
 
-## Template Specifications
-- **example**: `specs/example-feature.md` - Example feature specification template
+## Current Focus
+
+The tool now focuses exclusively on:
+1. **Dead Simple CLI**: `mmm improve [--target 8.0] [--verbose]`
+2. **Real Functionality**: Actually calls Claude CLI and modifies files
+3. **Minimal State**: Just tracks what's needed for the loop
+4. **Clear Code**: Single module with straightforward logic
+5. **Working Loop**: Genuine self-sufficient improvement cycles
+
+## Abandoned Specifications
+
+These were removed to maintain focus on core working functionality:
+- **01-02**: Complex project management - Not needed for simple tool
+- **03**: API integration - Using direct CLI calls instead
+- **04**: Workflow automation - Over-engineered for simple use case
+- **05**: Monitoring/dashboards - Not needed for CLI tool
+- **06**: Plugin system - Adds unnecessary complexity
+- **07**: UX enhancements - Keeping it minimal
+- **08**: Complex iterative loops - Simplified to basic improve cycle
+- **12**: Complex developer experience - Basic progress feedback sufficient
+
+## Philosophy
+
+Less is more. The tool does one thing well: makes your code better through Claude CLI integration.
