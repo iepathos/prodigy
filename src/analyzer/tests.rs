@@ -1,7 +1,7 @@
 //! Unit tests for the analyzer module
 
 #[cfg(test)]
-mod tests {
+mod test {
     use super::super::*;
     use std::path::PathBuf;
     use tempfile::TempDir;

@@ -1,7 +1,7 @@
 //! Tests for simple state management
 
 #[cfg(test)]
-mod tests {
+mod test {
     use super::super::*;
 
     use tempfile::TempDir;
