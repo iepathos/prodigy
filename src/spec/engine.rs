@@ -22,7 +22,7 @@ impl SpecificationEngine {
 
     pub async fn load_specifications(&mut self) -> Result<()> {
         if !self.spec_dir.exists() {
-            return Err(Error::Specification(format!(
+            return Err(Error::Spec(format!(
                 "Specification directory not found: {}",
                 self.spec_dir.display()
             )));
@@ -73,9 +73,7 @@ impl SpecificationEngine {
                 spec.status = status;
                 Ok(())
             }
-            None => Err(Error::Specification(format!(
-                "Specification '{id}' not found"
-            ))),
+            None => Err(Error::Spec(format!("Specification '{id}' not found"))),
         }
     }
 
@@ -118,9 +116,7 @@ impl SpecificationEngine {
         }
 
         if sorted.len() != self.specifications.len() {
-            return Err(Error::Specification(
-                "Circular dependency detected".to_string(),
-            ));
+            return Err(Error::Spec("Circular dependency detected".to_string()));
         }
 
         Ok(sorted)

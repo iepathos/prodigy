@@ -89,9 +89,7 @@ pub async fn run(cmd: command::ImproveCommand) -> Result<()> {
 }
 
 async fn call_claude_code_review(verbose: bool) -> Result<bool> {
-    if verbose {
-        println!("Calling Claude CLI for code review...");
-    }
+    println!("🤖 Running /mmm-code-review...");
 
     let status = Command::new("claude")
         .arg("--dangerously-skip-permissions")
@@ -101,6 +99,10 @@ async fn call_claude_code_review(verbose: bool) -> Result<bool> {
         .status()
         .await
         .context("Failed to execute Claude CLI for review")?;
+
+    if verbose && status.success() {
+        println!("✅ Code review completed");
+    }
 
     Ok(status.success())
 }
@@ -132,9 +134,7 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
 }
 
 async fn call_claude_implement_spec(spec_id: &str, verbose: bool) -> Result<bool> {
-    if verbose {
-        println!("Calling Claude CLI to implement spec: {spec_id}");
-    }
+    println!("🔧 Running /mmm-implement-spec {spec_id}...");
 
     let status = Command::new("claude")
         .arg("--dangerously-skip-permissions")
@@ -146,13 +146,15 @@ async fn call_claude_implement_spec(spec_id: &str, verbose: bool) -> Result<bool
         .await
         .context("Failed to execute Claude CLI for implementation")?;
 
+    if verbose && status.success() {
+        println!("✅ Implementation completed");
+    }
+
     Ok(status.success())
 }
 
 async fn call_claude_lint(verbose: bool) -> Result<bool> {
-    if verbose {
-        println!("Calling Claude CLI for linting...");
-    }
+    println!("🧹 Running /mmm-lint...");
 
     let status = Command::new("claude")
         .arg("--dangerously-skip-permissions")
@@ -162,6 +164,10 @@ async fn call_claude_lint(verbose: bool) -> Result<bool> {
         .status()
         .await
         .context("Failed to execute Claude CLI for linting")?;
+
+    if verbose && status.success() {
+        println!("✅ Linting completed");
+    }
 
     Ok(status.success())
 }

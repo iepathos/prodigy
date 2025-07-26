@@ -1,12 +1,20 @@
 //! Smart project analyzer for automatic language, framework, and structure detection
 
+/// Build system analysis and detection
 pub mod build;
+/// Context generation for analysis results
 pub mod context;
+/// Focus area detection for improvements
 pub mod focus;
+/// Framework detection and identification
 pub mod framework;
+/// Project health indicators and metrics
 pub mod health;
+/// Programming language detection
 pub mod language;
+/// Code quality analysis and metrics
 pub mod quality;
+/// Project structure analysis
 pub mod structure;
 
 #[cfg(test)]
@@ -204,10 +212,62 @@ impl Default for ProjectAnalyzer {
     }
 }
 
-async fn count_files_and_lines(_path: &Path) -> Result<(usize, usize)> {
-    // TODO: Implement actual file and line counting
-    // For now, return placeholder values
-    Ok((0, 0))
+async fn count_files_and_lines(path: &Path) -> Result<(usize, usize)> {
+    let mut file_count = 0;
+    let mut line_count = 0;
+
+    let mut entries = tokio::fs::read_dir(path).await?;
+    while let Some(entry) = entries.next_entry().await? {
+        let path = entry.path();
+        if path.is_file() && is_source_file(&path) {
+            file_count += 1;
+            if let Ok(content) = tokio::fs::read_to_string(&path).await {
+                line_count += content.lines().count();
+            }
+        } else if path.is_dir() && should_analyze_dir(&path) {
+            let (sub_files, sub_lines) = Box::pin(count_files_and_lines(&path)).await?;
+            file_count += sub_files;
+            line_count += sub_lines;
+        }
+    }
+
+    Ok((file_count, line_count))
+}
+
+fn is_source_file(path: &Path) -> bool {
+    if let Some(ext) = path.extension() {
+        matches!(
+            ext.to_str().unwrap_or_default(),
+            "rs" | "py"
+                | "js"
+                | "ts"
+                | "jsx"
+                | "tsx"
+                | "go"
+                | "java"
+                | "cs"
+                | "rb"
+                | "swift"
+                | "kt"
+                | "cpp"
+                | "c"
+                | "h"
+                | "hpp"
+        )
+    } else {
+        false
+    }
+}
+
+fn should_analyze_dir(path: &Path) -> bool {
+    if let Some(name) = path.file_name() {
+        !matches!(
+            name.to_str().unwrap_or_default(),
+            "node_modules" | "target" | ".git" | "dist" | "build" | "__pycache__" | ".pytest_cache"
+        )
+    } else {
+        true
+    }
 }
 
 fn calculate_quality_score(quality: &QualitySignals) -> f32 {

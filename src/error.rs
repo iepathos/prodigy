@@ -12,9 +12,6 @@ pub enum Error {
     Project(String),
 
     #[error("Specification error: {0}")]
-    Specification(String),
-
-    #[error("Specification error: {0}")]
     Spec(String),
 
     #[error("Command error: {0}")]
@@ -122,9 +119,6 @@ pub enum Error {
 
     #[error("Internal error: {0}")]
     Internal(String),
-
-    #[error("IO error: {0}")]
-    IO(String),
 }
 
 impl From<axum::http::StatusCode> for Error {

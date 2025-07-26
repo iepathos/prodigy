@@ -21,6 +21,37 @@ pub struct QualitySignals {
     pub error_handling_score: f32,
 }
 
+/// Analysis metrics collected during quality analysis
+struct AnalysisMetrics {
+    total_lines: usize,
+    total_files: usize,
+    max_file_length: usize,
+    total_functions: usize,
+    total_function_lines: usize,
+    max_function_length: usize,
+    comment_lines: usize,
+    source_files: usize,
+    error_handling_count: usize,
+    potential_error_sites: usize,
+}
+
+impl AnalysisMetrics {
+    fn new() -> Self {
+        Self {
+            total_lines: 0,
+            total_files: 0,
+            max_file_length: 0,
+            total_functions: 0,
+            total_function_lines: 0,
+            max_function_length: 0,
+            comment_lines: 0,
+            source_files: 0,
+            error_handling_count: 0,
+            potential_error_sites: 0,
+        }
+    }
+}
+
 /// Quality analyzer
 pub struct QualityAnalyzer;
 
@@ -30,34 +61,12 @@ impl QualityAnalyzer {
     }
 
     pub async fn analyze(&self, structure: &ProjectStructure) -> Result<QualitySignals> {
-        let mut total_lines = 0;
-        let mut total_files = 0;
-        let mut max_file_length = 0;
-        let mut total_functions = 0;
-        let mut total_function_lines = 0;
-        let mut max_function_length = 0;
-        let mut comment_lines = 0;
+        let mut metrics = AnalysisMetrics::new();
         let mut test_files = 0;
-        let mut source_files = 0;
-        let mut error_handling_count = 0;
-        let mut potential_error_sites = 0;
 
         // Analyze source directories
         for src_dir in &structure.src_dirs {
-            self.analyze_directory(
-                src_dir,
-                &mut total_lines,
-                &mut total_files,
-                &mut max_file_length,
-                &mut total_functions,
-                &mut total_function_lines,
-                &mut max_function_length,
-                &mut comment_lines,
-                &mut source_files,
-                &mut error_handling_count,
-                &mut potential_error_sites,
-            )
-            .await?;
+            self.analyze_directory(src_dir, &mut metrics).await?;
         }
 
         // Count test files
@@ -66,32 +75,32 @@ impl QualityAnalyzer {
         }
 
         // Calculate metrics
-        let avg_file_length = if total_files > 0 {
-            total_lines as f32 / total_files as f32
+        let avg_file_length = if metrics.total_files > 0 {
+            metrics.total_lines as f32 / metrics.total_files as f32
         } else {
             0.0
         };
 
-        let avg_function_length = if total_functions > 0 {
-            total_function_lines as f32 / total_functions as f32
+        let avg_function_length = if metrics.total_functions > 0 {
+            metrics.total_function_lines as f32 / metrics.total_functions as f32
         } else {
             0.0
         };
 
-        let comment_ratio = if total_lines > 0 {
-            comment_lines as f32 / total_lines as f32
+        let comment_ratio = if metrics.total_lines > 0 {
+            metrics.comment_lines as f32 / metrics.total_lines as f32
         } else {
             0.0
         };
 
-        let test_ratio = if source_files > 0 {
-            test_files as f32 / source_files as f32
+        let test_ratio = if metrics.source_files > 0 {
+            test_files as f32 / metrics.source_files as f32
         } else {
             0.0
         };
 
-        let error_handling_score = if potential_error_sites > 0 {
-            error_handling_count as f32 / potential_error_sites as f32
+        let error_handling_score = if metrics.potential_error_sites > 0 {
+            metrics.error_handling_count as f32 / metrics.potential_error_sites as f32
         } else {
             1.0
         };
@@ -101,9 +110,9 @@ impl QualityAnalyzer {
 
         Ok(QualitySignals {
             avg_function_length,
-            max_function_length,
+            max_function_length: metrics.max_function_length,
             avg_file_length,
-            max_file_length,
+            max_file_length: metrics.max_file_length,
             duplicate_code_ratio,
             comment_ratio,
             test_ratio,
@@ -111,20 +120,10 @@ impl QualityAnalyzer {
         })
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn analyze_directory<'a>(
         &'a self,
         dir: &'a Path,
-        total_lines: &'a mut usize,
-        total_files: &'a mut usize,
-        max_file_length: &'a mut usize,
-        total_functions: &'a mut usize,
-        total_function_lines: &'a mut usize,
-        max_function_length: &'a mut usize,
-        comment_lines: &'a mut usize,
-        source_files: &'a mut usize,
-        error_handling_count: &'a mut usize,
-        potential_error_sites: &'a mut usize,
+        metrics: &'a mut AnalysisMetrics,
     ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
         Box::pin(async move {
             let mut entries = fs::read_dir(dir).await?;
@@ -134,37 +133,11 @@ impl QualityAnalyzer {
 
                 if path.is_file() {
                     if is_source_file(&path) {
-                        self.analyze_file(
-                            &path,
-                            total_lines,
-                            total_files,
-                            max_file_length,
-                            total_functions,
-                            total_function_lines,
-                            max_function_length,
-                            comment_lines,
-                            source_files,
-                            error_handling_count,
-                            potential_error_sites,
-                        )
-                        .await?;
+                        self.analyze_file(&path, metrics).await?;
                     }
                 } else if path.is_dir() && should_analyze_dir(&path) {
                     // Recurse into subdirectory
-                    self.analyze_directory(
-                        &path,
-                        total_lines,
-                        total_files,
-                        max_file_length,
-                        total_functions,
-                        total_function_lines,
-                        max_function_length,
-                        comment_lines,
-                        source_files,
-                        error_handling_count,
-                        potential_error_sites,
-                    )
-                    .await?;
+                    self.analyze_directory(&path, metrics).await?;
                 }
             }
 
@@ -172,87 +145,39 @@ impl QualityAnalyzer {
         })
     }
 
-    #[allow(clippy::too_many_arguments)]
-    async fn analyze_file(
-        &self,
-        path: &Path,
-        total_lines: &mut usize,
-        total_files: &mut usize,
-        max_file_length: &mut usize,
-        total_functions: &mut usize,
-        total_function_lines: &mut usize,
-        max_function_length: &mut usize,
-        comment_lines: &mut usize,
-        source_files: &mut usize,
-        error_handling_count: &mut usize,
-        potential_error_sites: &mut usize,
-    ) -> Result<()> {
+    async fn analyze_file(&self, path: &Path, metrics: &mut AnalysisMetrics) -> Result<()> {
         let content = fs::read_to_string(path).await?;
         let lines: Vec<&str> = content.lines().collect();
         let file_lines = lines.len();
 
-        *total_lines += file_lines;
-        *total_files += 1;
-        *source_files += 1;
-        *max_file_length = (*max_file_length).max(file_lines);
+        metrics.total_lines += file_lines;
+        metrics.total_files += 1;
+        metrics.source_files += 1;
+        metrics.max_file_length = metrics.max_file_length.max(file_lines);
 
         // Detect language for syntax-aware analysis
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
 
         match ext {
             "rs" => {
-                self.analyze_rust_file(
-                    &lines,
-                    total_functions,
-                    total_function_lines,
-                    max_function_length,
-                    comment_lines,
-                    error_handling_count,
-                    potential_error_sites,
-                );
+                self.analyze_rust_file(&lines, metrics);
             }
             "py" => {
-                self.analyze_python_file(
-                    &lines,
-                    total_functions,
-                    total_function_lines,
-                    max_function_length,
-                    comment_lines,
-                    error_handling_count,
-                    potential_error_sites,
-                );
+                self.analyze_python_file(&lines, metrics);
             }
             "js" | "ts" | "jsx" | "tsx" => {
-                self.analyze_javascript_file(
-                    &lines,
-                    total_functions,
-                    total_function_lines,
-                    max_function_length,
-                    comment_lines,
-                    error_handling_count,
-                    potential_error_sites,
-                );
+                self.analyze_javascript_file(&lines, metrics);
             }
             _ => {
                 // Generic analysis for other languages
-                self.analyze_generic_file(&lines, comment_lines);
+                self.analyze_generic_file(&lines, &mut metrics.comment_lines);
             }
         }
 
         Ok(())
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn analyze_rust_file(
-        &self,
-        lines: &[&str],
-        total_functions: &mut usize,
-        total_function_lines: &mut usize,
-        max_function_length: &mut usize,
-        comment_lines: &mut usize,
-        error_handling_count: &mut usize,
-        potential_error_sites: &mut usize,
-    ) {
+    fn analyze_rust_file(&self, lines: &[&str], metrics: &mut AnalysisMetrics) {
         let mut in_function = false;
         let mut function_start = 0;
         let mut brace_count = 0;
@@ -262,14 +187,14 @@ impl QualityAnalyzer {
 
             // Count comments
             if trimmed.starts_with("//") || trimmed.starts_with("/*") {
-                *comment_lines += 1;
+                metrics.comment_lines += 1;
             }
 
             // Detect function declarations
             if !in_function && (trimmed.contains("fn ") || trimmed.contains("async fn ")) {
                 in_function = true;
                 function_start = i;
-                *total_functions += 1;
+                metrics.total_functions += 1;
                 brace_count = 0;
             }
 
@@ -280,32 +205,22 @@ impl QualityAnalyzer {
 
                 if brace_count == 0 && line.contains('}') {
                     let function_length = i - function_start + 1;
-                    *total_function_lines += function_length;
-                    *max_function_length = (*max_function_length).max(function_length);
+                    metrics.total_function_lines += function_length;
+                    metrics.max_function_length = metrics.max_function_length.max(function_length);
                     in_function = false;
                 }
             }
 
             // Count error handling
             if line.contains(".unwrap()") || line.contains(".expect(") {
-                *potential_error_sites += 1;
+                metrics.potential_error_sites += 1;
             } else if line.contains("?") || line.contains("Result<") || line.contains("Option<") {
-                *error_handling_count += 1;
+                metrics.error_handling_count += 1;
             }
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn analyze_python_file(
-        &self,
-        lines: &[&str],
-        total_functions: &mut usize,
-        total_function_lines: &mut usize,
-        max_function_length: &mut usize,
-        comment_lines: &mut usize,
-        error_handling_count: &mut usize,
-        potential_error_sites: &mut usize,
-    ) {
+    fn analyze_python_file(&self, lines: &[&str], metrics: &mut AnalysisMetrics) {
         let mut in_function = false;
         let mut function_start = 0;
         let mut current_indent = 0;
@@ -315,7 +230,7 @@ impl QualityAnalyzer {
 
             // Count comments
             if trimmed.starts_with('#') {
-                *comment_lines += 1;
+                metrics.comment_lines += 1;
             }
 
             // Detect function declarations
@@ -323,56 +238,46 @@ impl QualityAnalyzer {
                 if in_function {
                     // End previous function
                     let function_length = i - function_start;
-                    *total_function_lines += function_length;
-                    *max_function_length = (*max_function_length).max(function_length);
+                    metrics.total_function_lines += function_length;
+                    metrics.max_function_length = metrics.max_function_length.max(function_length);
                 }
 
                 in_function = true;
                 function_start = i;
                 current_indent = line.len() - trimmed.len();
-                *total_functions += 1;
+                metrics.total_functions += 1;
             } else if in_function && !line.is_empty() {
                 let line_indent = line.len() - line.trim_start().len();
                 if line_indent <= current_indent {
                     // Function ended
                     let function_length = i - function_start;
-                    *total_function_lines += function_length;
-                    *max_function_length = (*max_function_length).max(function_length);
+                    metrics.total_function_lines += function_length;
+                    metrics.max_function_length = metrics.max_function_length.max(function_length);
                     in_function = false;
                 }
             }
 
             // Count error handling
             if line.contains("try:") {
-                *error_handling_count += 1;
+                metrics.error_handling_count += 1;
             }
             if line.contains("except") && !line.contains("except:") {
-                *error_handling_count += 1;
+                metrics.error_handling_count += 1;
             }
             if line.contains("raise ") {
-                *potential_error_sites += 1;
+                metrics.potential_error_sites += 1;
             }
         }
 
         // Handle last function
         if in_function {
             let function_length = lines.len() - function_start;
-            *total_function_lines += function_length;
-            *max_function_length = (*max_function_length).max(function_length);
+            metrics.total_function_lines += function_length;
+            metrics.max_function_length = metrics.max_function_length.max(function_length);
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn analyze_javascript_file(
-        &self,
-        lines: &[&str],
-        total_functions: &mut usize,
-        total_function_lines: &mut usize,
-        max_function_length: &mut usize,
-        comment_lines: &mut usize,
-        error_handling_count: &mut usize,
-        potential_error_sites: &mut usize,
-    ) {
+    fn analyze_javascript_file(&self, lines: &[&str], metrics: &mut AnalysisMetrics) {
         let mut in_function = false;
         let mut function_start = 0;
         let mut brace_count = 0;
@@ -382,7 +287,7 @@ impl QualityAnalyzer {
 
             // Count comments
             if trimmed.starts_with("//") || trimmed.starts_with("/*") {
-                *comment_lines += 1;
+                metrics.comment_lines += 1;
             }
 
             // Detect function declarations
@@ -397,7 +302,7 @@ impl QualityAnalyzer {
             {
                 in_function = true;
                 function_start = i;
-                *total_functions += 1;
+                metrics.total_functions += 1;
                 brace_count = 0;
             }
 
@@ -408,21 +313,21 @@ impl QualityAnalyzer {
 
                 if brace_count == 0 && line.contains('}') {
                     let function_length = i - function_start + 1;
-                    *total_function_lines += function_length;
-                    *max_function_length = (*max_function_length).max(function_length);
+                    metrics.total_function_lines += function_length;
+                    metrics.max_function_length = metrics.max_function_length.max(function_length);
                     in_function = false;
                 }
             }
 
             // Count error handling
             if line.contains("try {") {
-                *error_handling_count += 1;
+                metrics.error_handling_count += 1;
             }
             if line.contains("catch") {
-                *error_handling_count += 1;
+                metrics.error_handling_count += 1;
             }
             if line.contains("throw ") {
-                *potential_error_sites += 1;
+                metrics.potential_error_sites += 1;
             }
         }
     }

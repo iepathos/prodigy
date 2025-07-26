@@ -134,10 +134,10 @@ impl CacheManager {
 
         // Check if not expired
         if let Ok(metadata) = fs::metadata(&cache_file) {
-            if let Ok(age) =
-                SystemTime::now().duration_since(metadata.modified().unwrap_or(SystemTime::now()))
-            {
-                return age <= self.ttl;
+            if let Ok(modified) = metadata.modified() {
+                if let Ok(age) = SystemTime::now().duration_since(modified) {
+                    return age <= self.ttl;
+                }
             }
         }
 

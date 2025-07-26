@@ -120,10 +120,7 @@ As a {{user_type}}, I want to {{action}} so that {{benefit}}.
                 .get(&var.name)
                 .or(var.default.as_ref())
                 .ok_or_else(|| {
-                    crate::Error::Specification(format!(
-                        "Required variable '{}' not provided",
-                        var.name
-                    ))
+                    crate::Error::Spec(format!("Required variable '{}' not provided", var.name))
                 })?;
 
             result = result.replace(&format!("{{{{{}}}}}", var.name), value);

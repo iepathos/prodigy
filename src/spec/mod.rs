@@ -86,19 +86,17 @@ impl Specification {
 
     pub fn validate(&self) -> Result<()> {
         if self.id.is_empty() {
-            return Err(Error::Specification(
-                "Specification ID cannot be empty".to_string(),
-            ));
+            return Err(Error::Spec("Specification ID cannot be empty".to_string()));
         }
 
         if self.name.is_empty() {
-            return Err(Error::Specification(
+            return Err(Error::Spec(
                 "Specification name cannot be empty".to_string(),
             ));
         }
 
         if self.content.is_empty() {
-            return Err(Error::Specification(
+            return Err(Error::Spec(
                 "Specification content cannot be empty".to_string(),
             ));
         }
