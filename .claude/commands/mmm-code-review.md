@@ -161,7 +161,7 @@ SCOPE: $ARGUMENTS (optional - specify scope like "src/parser", "tests", specific
 
 ## Output Format
 
-The review provides:
+The review provides structured, machine-parseable output for automation:
 
 1. **Executive Summary**
    - Overall code quality assessment
@@ -179,11 +179,68 @@ The review provides:
    - Performance benchmark results
    - Lint and warning counts
 
-4. **Action Items**
-   - Prioritized list of improvements
-   - Estimated effort for each item
-   - Dependencies between improvements
-   - Timeline recommendations
+4. **Actionable Feedback (JSON Structure)**
+   ```json
+   {
+     "review_id": "uuid",
+     "timestamp": "2025-01-26T10:30:00Z",
+     "overall_score": 8.2,
+     "actions": [
+       {
+         "id": "action_001",
+         "type": "fix_error",
+         "severity": "critical",
+         "file": "src/parser.rs",
+         "line": 45,
+         "title": "Fix compilation error",
+         "description": "Missing semicolon causing compilation failure",
+         "suggestion": "Add semicolon at end of line 45",
+         "automated": true,
+         "estimated_effort": "1min"
+       },
+       {
+         "id": "action_002", 
+         "type": "improve_performance",
+         "severity": "medium",
+         "file": "src/query.rs",
+         "line_range": [23, 35],
+         "title": "Replace manual loop with iterator",
+         "description": "Manual loop can be replaced with more idiomatic iterator chain",
+         "suggestion": "Use .filter().map().collect() pattern",
+         "automated": true,
+         "estimated_effort": "5min"
+       },
+       {
+         "id": "action_003",
+         "type": "add_tests",
+         "severity": "high", 
+         "file": "src/database.rs",
+         "title": "Add unit tests for error handling",
+         "description": "Function lacks test coverage for error conditions",
+         "automated": false,
+         "estimated_effort": "15min"
+       }
+     ],
+     "summary": {
+       "total_issues": 15,
+       "critical": 1,
+       "high": 4,
+       "medium": 8,
+       "low": 2,
+       "automated_fixes": 12,
+       "manual_fixes": 3
+     }
+   }
+   ```
+
+5. **Integration Commands**
+   ```bash
+   # To automatically apply fixes from this review:
+   /mmm-improve --review-id uuid --severity critical,high
+   
+   # To iterate until all issues resolved:
+   /mmm-iterate --target-score 9.0 --max-iterations 3
+   ```
 
 ## Integration with Development Workflow
 
