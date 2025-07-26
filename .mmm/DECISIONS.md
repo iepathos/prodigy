@@ -167,3 +167,23 @@ TOML for config files with environment variable overrides.
 ### Consequences
 - **Positive**: Readable configs, standard format
 - **Negative**: Multiple config sources can be confusing
+
+---
+
+## ADR-011: Project Structure Implementation
+
+### Status
+Accepted
+
+### Context
+Implemented spec 01 for core architecture with global/project separation.
+
+### Decision
+- Global config in ~/.mmm/ for cross-project settings
+- Project-specific config in .mmm/ for overrides
+- SQLite database per project for state management
+- Project registry in global directory
+
+### Consequences
+- **Positive**: Clear separation of concerns, multi-project support
+- **Negative**: Additional complexity in config resolution

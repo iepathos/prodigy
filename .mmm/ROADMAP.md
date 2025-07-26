@@ -7,12 +7,15 @@ This roadmap outlines the planned development phases for mmm, prioritizing core 
 ## Phase 1: Core Foundation ✅
 
 ### Completed
-- [x] Project structure and build system
+- [x] Project structure and build system (Spec 01)
 - [x] Basic CLI with Clap
 - [x] Specification parser
 - [x] Claude API integration
 - [x] Simple workflow engine
 - [x] State persistence
+- [x] Global and project configuration hierarchy
+- [x] Database schema implementation
+- [x] Project registration system
 
 ### In Progress
 - [ ] Comprehensive error handling

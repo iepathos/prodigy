@@ -189,9 +189,9 @@ impl ClaudeManager {
         command: &str,
         args: Vec<String>,
     ) -> Result<String> {
-        use tokio::process::Command;
-        use tokio::io::{AsyncBufReadExt, BufReader};
         use std::process::Stdio;
+        use tokio::io::{AsyncBufReadExt, BufReader};
+        use tokio::process::Command;
 
         // Map MMM command to Claude CLI slash command
         let slash_command = match command {
@@ -226,28 +226,28 @@ impl ClaudeManager {
         // Get the stdout and stderr streams
         let stdout = child.stdout.take().expect("Failed to capture stdout");
         let stderr = child.stderr.take().expect("Failed to capture stderr");
-        
+
         // Create buffered readers
         let stdout_reader = BufReader::new(stdout);
         let stderr_reader = BufReader::new(stderr);
-        
+
         // Stream output in real-time
         let handle_stdout = tokio::spawn(async move {
             let mut lines = stdout_reader.lines();
             let mut output = String::new();
             while let Ok(Some(line)) = lines.next_line().await {
-                println!("{}", line);
+                println!("{line}");
                 output.push_str(&line);
                 output.push('\n');
             }
             output
         });
-        
+
         let handle_stderr = tokio::spawn(async move {
             let mut lines = stderr_reader.lines();
             let mut errors = String::new();
             while let Ok(Some(line)) = lines.next_line().await {
-                eprintln!("{}", line);
+                eprintln!("{line}");
                 errors.push_str(&line);
                 errors.push('\n');
             }
@@ -272,7 +272,11 @@ impl ClaudeManager {
         } else {
             Err(crate::error::Error::Other(format!(
                 "Claude CLI command failed: {}",
-                if full_error.is_empty() { "No error message" } else { &full_error }
+                if full_error.is_empty() {
+                    "No error message"
+                } else {
+                    &full_error
+                }
             )))
         }
     }
