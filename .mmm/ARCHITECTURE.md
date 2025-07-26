@@ -28,6 +28,33 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 - **types.rs**: Clean data structures
 - **mod.rs**: Module exports
 
+### 5. Claude Integration (`src/claude/`)
+- **api.rs**: Claude CLI subprocess execution
+- **commands.rs**: Command registry for Claude interactions
+- **context.rs**: Context management for Claude prompts
+- **memory.rs**: Conversation memory tracking
+- **models.rs**: Data models for Claude interactions
+- **prompt.rs**: Prompt engineering utilities
+- **response.rs**: Response parsing and processing
+- **token.rs**: Token counting and management
+- **cache.rs**: Response caching for efficiency
+
+### 6. Configuration Management (`src/config/`)
+- **loader.rs**: Configuration file loading
+- **validator.rs**: Configuration validation
+- **mod.rs**: Config structures and defaults
+
+### 7. Error Handling (`src/error.rs`)
+- Centralized error types using thiserror
+- Consistent error propagation throughout codebase
+- Context-aware error messages
+
+### 8. Project Management (`src/project/`)
+- **manager.rs**: Project lifecycle management
+- **health.rs**: Project health checking
+- **template.rs**: Project template utilities
+- **mod.rs**: Project data structures
+
 ## Data Flow
 
 ```
@@ -99,6 +126,7 @@ The architecture is intentionally minimal, but allows for:
 src/
 ├── main.rs              # CLI entry point
 ├── lib.rs               # Library exports
+├── error.rs             # Centralized error handling
 ├── improve/             # Core improvement logic
 │   ├── mod.rs           # Single consolidated improvement loop
 │   ├── command.rs       # CLI args only
@@ -109,6 +137,26 @@ src/
 │   ├── framework.rs     # Framework detection
 │   ├── health.rs        # Health scoring
 │   └── focus.rs         # Focus areas
+├── claude/              # Claude CLI integration
+│   ├── mod.rs
+│   ├── api.rs           # CLI subprocess execution
+│   ├── commands.rs      # Command registry
+│   ├── context.rs       # Context management
+│   ├── memory.rs        # Conversation memory
+│   ├── models.rs        # Data models
+│   ├── prompt.rs        # Prompt engineering
+│   ├── response.rs      # Response parsing
+│   ├── token.rs         # Token management
+│   └── cache.rs         # Response caching
+├── config/              # Configuration management
+│   ├── mod.rs
+│   ├── loader.rs        # Config loading
+│   └── validator.rs     # Config validation
+├── project/             # Project management
+│   ├── mod.rs
+│   ├── manager.rs       # Project lifecycle
+│   ├── health.rs        # Health checking
+│   └── template.rs      # Template utilities
 └── simple_state/        # Minimal state
     ├── mod.rs
     ├── state.rs         # JSON state management

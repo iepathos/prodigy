@@ -237,7 +237,7 @@ async fn count_files_and_lines(path: &Path) -> Result<(usize, usize)> {
 fn is_source_file(path: &Path) -> bool {
     if let Some(ext) = path.extension() {
         matches!(
-            ext.to_str().unwrap_or_default(),
+            ext.to_str().unwrap_or(""),
             "rs" | "py"
                 | "js"
                 | "ts"
@@ -262,7 +262,7 @@ fn is_source_file(path: &Path) -> bool {
 fn should_analyze_dir(path: &Path) -> bool {
     if let Some(name) = path.file_name() {
         !matches!(
-            name.to_str().unwrap_or_default(),
+            name.to_str().unwrap_or(""),
             "node_modules" | "target" | ".git" | "dist" | "build" | "__pycache__" | ".pytest_cache"
         )
     } else {

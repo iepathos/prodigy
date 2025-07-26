@@ -1,6 +1,7 @@
 //! Response processing with parsers and validators
 
 use crate::error::{Error, Result};
+use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -131,18 +132,19 @@ impl ResponseProcessor {
     }
 }
 
+// Lazy static regex compilation for better performance
+static CODE_BLOCK_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"```(\w+)?\n([\s\S]*?)```").expect("Invalid code block regex"));
+
+static FILE_PATH_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"#\s*(?:File:|file:)\s*([^\n]+)").expect("Invalid file path regex"));
+
 /// Parser for code blocks
-struct CodeBlockParser {
-    code_block_regex: Regex,
-    file_path_regex: Regex,
-}
+struct CodeBlockParser;
 
 impl CodeBlockParser {
     fn new() -> Self {
-        Self {
-            code_block_regex: Regex::new(r"```(\w+)?\n([\s\S]*?)```").unwrap(),
-            file_path_regex: Regex::new(r"#\s*(?:File:|file:)\s*([^\n]+)").unwrap(),
-        }
+        Self
     }
 }
 
@@ -156,12 +158,12 @@ impl ResponseParser for CodeBlockParser {
         let mut file_path = None;
 
         // Check for file path comment
-        if let Some(cap) = self.file_path_regex.captures(response) {
+        if let Some(cap) = FILE_PATH_REGEX.captures(response) {
             file_path = Some(cap[1].trim().to_string());
         }
 
         // Extract code blocks
-        for cap in self.code_block_regex.captures_iter(response) {
+        for cap in CODE_BLOCK_REGEX.captures_iter(response) {
             let language = cap.get(1).map(|m| m.as_str()).unwrap_or("").to_string();
             let content = cap[2].to_string();
 
@@ -188,16 +190,15 @@ impl ResponseParser for CodeBlockParser {
     }
 }
 
+static COMMAND_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"@mmm:(\w+)(?:\((.*?)\))?").expect("Invalid command regex"));
+
 /// Parser for MMM commands
-struct CommandParser {
-    command_regex: Regex,
-}
+struct CommandParser;
 
 impl CommandParser {
     fn new() -> Self {
-        Self {
-            command_regex: Regex::new(r"@mmm:(\w+)(?:\((.*?)\))?").unwrap(),
-        }
+        Self
     }
 }
 
@@ -209,7 +210,7 @@ impl ResponseParser for CommandParser {
     fn parse(&self, response: &str) -> Result<ParsedResponse> {
         let mut commands = Vec::new();
 
-        for cap in self.command_regex.captures_iter(response) {
+        for cap in COMMAND_REGEX.captures_iter(response) {
             let command = cap[1].to_string();
             let args = cap
                 .get(2)

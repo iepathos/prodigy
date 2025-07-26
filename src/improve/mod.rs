@@ -1,6 +1,7 @@
 pub mod command;
 pub mod session;
 
+
 use crate::analyzer::ProjectAnalyzer;
 use crate::simple_state::StateManager;
 use anyhow::{Context as _, Result};
@@ -8,6 +9,20 @@ use chrono::Utc;
 use std::path::Path;
 use tokio::process::Command;
 
+/// Run the improve command to automatically enhance code quality
+///
+/// # Arguments
+/// * `cmd` - The improve command with optional target score, verbosity, and focus directive
+///
+/// # Returns
+/// Result indicating success or failure of the improvement process
+///
+/// # Errors
+/// Returns an error if:
+/// - Project analysis fails
+/// - Claude CLI is not available
+/// - File operations fail
+/// - Git operations fail
 pub async fn run(cmd: command::ImproveCommand) -> Result<()> {
     println!("🔍 Analyzing project...");
 
@@ -104,10 +119,10 @@ async fn call_claude_code_review(verbose: bool, focus: Option<&str>) -> Result<b
     println!("🤖 Running /mmm-code-review...");
 
     let mut cmd = Command::new("claude");
-    cmd.arg("--dangerously-skip-permissions")
-        .arg("--print")
-        .arg("/mmm-code-review")
-        .env("MMM_AUTOMATION", "true");
+    cmd.arg("--dangerously-skip-permissions") // Required for automation: bypasses interactive permission checks
+        .arg("--print") // Outputs response to stdout for capture instead of interactive display
+        .arg("/mmm-code-review") // The custom command for code review
+        .env("MMM_AUTOMATION", "true"); // Signals to /mmm-code-review to run in automated mode
 
     // Pass focus directive via environment variable on first iteration
     if let Some(focus_directive) = focus {
@@ -156,11 +171,11 @@ async fn call_claude_implement_spec(spec_id: &str, verbose: bool) -> Result<bool
     println!("🔧 Running /mmm-implement-spec {spec_id}...");
 
     let status = Command::new("claude")
-        .arg("--dangerously-skip-permissions")
-        .arg("--print")
-        .arg("/mmm-implement-spec")
-        .arg(spec_id)
-        .env("MMM_AUTOMATION", "true")
+        .arg("--dangerously-skip-permissions") // Required for automation: bypasses interactive permission checks
+        .arg("--print") // Outputs response to stdout for capture instead of interactive display
+        .arg("/mmm-implement-spec") // The custom command for spec implementation
+        .arg(spec_id) // The spec ID to implement (e.g., "iteration-123-improvements")
+        .env("MMM_AUTOMATION", "true") // Signals to /mmm-implement-spec to run in automated mode
         .status()
         .await
         .context("Failed to execute Claude CLI for implementation")?;
@@ -176,10 +191,10 @@ async fn call_claude_lint(verbose: bool) -> Result<bool> {
     println!("🧹 Running /mmm-lint...");
 
     let status = Command::new("claude")
-        .arg("--dangerously-skip-permissions")
-        .arg("--print")
-        .arg("/mmm-lint")
-        .env("MMM_AUTOMATION", "true")
+        .arg("--dangerously-skip-permissions") // Required for automation: bypasses interactive permission checks
+        .arg("--print") // Outputs response to stdout for capture instead of interactive display
+        .arg("/mmm-lint") // The custom command for linting and formatting
+        .env("MMM_AUTOMATION", "true") // Signals to /mmm-lint to run in automated mode
         .status()
         .await
         .context("Failed to execute Claude CLI for linting")?;

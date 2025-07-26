@@ -35,7 +35,9 @@ impl ProjectManager {
         project.init_structure().await?;
 
         self.register_project(project).await?;
-        Ok(self.projects.get(name).unwrap())
+        self.projects
+            .get(name)
+            .ok_or_else(|| Error::Project(format!("Project '{name}' not found")))
     }
 
     pub async fn register_project(&mut self, project: Project) -> Result<()> {
