@@ -22,7 +22,7 @@ fn test_claude_cli_availability_check() {
         }
         Err(e) => {
             // 'which' command itself might not be available on Windows
-            println!("Could not check for claude: {}", e);
+            println!("Could not check for claude: {e}");
         }
     }
 }
@@ -58,7 +58,7 @@ fn test_command_building_pattern() {
         .env("MMM_AUTOMATION", "true");
 
     // Get the command as a string for verification
-    let cmd_str = format!("{:?}", cmd);
+    let cmd_str = format!("{cmd:?}");
     assert!(cmd_str.contains("--dangerously-skip-permissions"));
     assert!(cmd_str.contains("--print"));
     assert!(cmd_str.contains("/mmm-code-review"));
@@ -89,7 +89,7 @@ fn test_git_command_patterns() {
     if let Ok(output) = output {
         if output.status.success() {
             let commit_msg = String::from_utf8_lossy(&output.stdout);
-            println!("Latest commit: {}", commit_msg);
+            println!("Latest commit: {commit_msg}");
 
             // Test spec extraction pattern
             if commit_msg.contains("iteration-") && commit_msg.contains("-improvements") {
@@ -117,15 +117,15 @@ fn test_environment_variable_handling() {
     // Save the current value and temporarily unset it
     let original_value = std::env::var("MMM_AUTOMATION").ok();
     std::env::remove_var("MMM_AUTOMATION");
-    
+
     let automation = std::env::var("MMM_AUTOMATION").unwrap_or_default() == "true";
     assert!(!automation); // Should be false when not set
-    
+
     // Test when it's set to true
     std::env::set_var("MMM_AUTOMATION", "true");
     let automation = std::env::var("MMM_AUTOMATION").unwrap_or_default() == "true";
     assert!(automation); // Should be true when set
-    
+
     // Restore original value if it existed
     if let Some(value) = original_value {
         std::env::set_var("MMM_AUTOMATION", value);

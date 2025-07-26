@@ -248,13 +248,8 @@ async fn call_claude_implement_spec(spec_id: &str, verbose: bool) -> Result<bool
         .env("MMM_AUTOMATION", "true"); // Signals to /mmm-implement-spec to run in automated mode
 
     // Execute with retry logic for transient failures
-    let output = execute_with_retry(
-        cmd,
-        &format!("Claude implement spec {spec_id}"),
-        2,
-        verbose,
-    )
-    .await?;
+    let output =
+        execute_with_retry(cmd, &format!("Claude implement spec {spec_id}"), 2, verbose).await?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
