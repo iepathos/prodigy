@@ -296,3 +296,24 @@ Implemented spec 12 to create a delightful developer experience that makes code 
 ### Consequences
 - **Positive**: Delightful user experience, clear feedback, safe operations, high engagement
 - **Negative**: Additional complexity, more dependencies (colored, indicatif, ctrlc)
+
+---
+
+## ADR-017: Prune Learning Feature
+
+### Status
+Accepted
+
+### Context
+Implemented spec 13 to remove the over-engineered learning system that added unnecessary complexity without providing real value to the core functionality.
+
+### Decision
+- Remove LearningManager entirely from simple_state module
+- Simplify Improvement struct to only track file and description
+- Remove all learning-related types (Learning, PatternInfo, FailureInfo, Preferences)
+- Remove suggestion systems that relied on pattern analysis
+- Focus on dead simple state management with just essential tracking
+
+### Consequences
+- **Positive**: Significantly reduced codebase (~500 lines removed), simpler mental model, focus on working features, reduced maintenance burden
+- **Negative**: Loss of potential future learning capabilities, removed suggestion features that weren't widely used

@@ -5,14 +5,12 @@
 //! requires zero configuration.
 
 pub mod cache;
-pub mod learning;
 pub mod state;
 #[cfg(test)]
 mod tests;
 pub mod types;
 
 pub use cache::CacheManager;
-pub use learning::LearningManager;
 pub use state::StateManager;
 pub use types::*;
 

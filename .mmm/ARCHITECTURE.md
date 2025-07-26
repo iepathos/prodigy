@@ -80,8 +80,7 @@ The mmm system follows a modular architecture with clear separation of concerns.
 ### 11. Simple State Management (`src/simple_state/`)
 - **state.rs**: JSON-based state persistence with atomic writes
 - **cache.rs**: TTL-based caching for temporary data
-- **learning.rs**: Learning system for tracking improvement patterns
-- **types.rs**: Clean type definitions for state
+- **types.rs**: Clean type definitions for state (simplified, learning types removed)
 - **migration.rs**: SQLite to JSON migration support
 
 ### 12. Developer Experience (`src/developer_experience/`)

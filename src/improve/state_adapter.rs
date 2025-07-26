@@ -5,7 +5,7 @@ use chrono::Utc;
 
 use crate::analyzer::AnalyzerResult;
 use crate::simple_state::{
-    CacheManager, Improvement, LearningManager, ProjectAnalysis, SessionRecord, StateManager,
+    CacheManager, Improvement, ProjectAnalysis, SessionRecord, StateManager,
 };
 
 use super::session::ImproveState;
@@ -14,7 +14,6 @@ use super::session::ImproveState;
 pub struct StateAdapter {
     state_mgr: StateManager,
     cache_mgr: CacheManager,
-    learning_mgr: LearningManager,
 }
 
 impl StateAdapter {
@@ -23,14 +22,12 @@ impl StateAdapter {
         Ok(Self {
             state_mgr: StateManager::new()?,
             cache_mgr: CacheManager::new()?,
-            learning_mgr: LearningManager::load()?,
         })
     }
 
     /// Save the current state
     pub fn save(&self) -> Result<()> {
         self.state_mgr.save()?;
-        self.learning_mgr.save()?;
         Ok(())
     }
 
@@ -76,11 +73,6 @@ impl StateAdapter {
     pub fn complete_session(&mut self, mut session: SessionRecord, final_score: f32) -> Result<()> {
         session.complete(final_score);
 
-        // Update learning from improvements
-        for improvement in &session.improvements {
-            self.learning_mgr.record_improvement(improvement)?;
-        }
-
         // Record session
         self.state_mgr.record_session(session)?;
         self.state_mgr.state_mut().sessions.active = None;
@@ -92,18 +84,12 @@ impl StateAdapter {
     pub fn add_improvement(
         &mut self,
         session: &mut SessionRecord,
-        improvement_type: String,
         file: String,
-        line: Option<u32>,
         description: String,
-        impact: f32,
     ) {
         let improvement = Improvement {
-            improvement_type,
             file: file.clone(),
-            line,
             description,
-            impact,
         };
 
         session.improvements.push(improvement);
@@ -114,15 +100,6 @@ impl StateAdapter {
         }
     }
 
-    /// Get improvement suggestions based on learning
-    pub fn get_suggestions(&self, limit: usize) -> Vec<String> {
-        self.learning_mgr
-            .suggest_improvements(limit)
-            .into_iter()
-            .map(|(name, _score)| name)
-            .collect()
-    }
-
     /// Get current state for improve session
     pub fn get_improve_state(&self) -> ImproveState {
         let state = self.state_mgr.state();
@@ -131,7 +108,6 @@ impl StateAdapter {
             last_run: state.last_run.unwrap_or_else(Utc::now),
             current_score: state.current_score,
             improvement_history: Vec::new(), // Not directly compatible
-            learned_patterns: Vec::new(),    // Not directly compatible
         }
     }
 
@@ -159,10 +135,5 @@ impl StateAdapter {
     /// Get current score
     pub fn current_score(&self) -> f32 {
         self.state_mgr.state().current_score
-    }
-
-    /// Get learning summary
-    pub fn learning_summary(&self) -> crate::simple_state::learning::LearningSummary {
-        self.learning_mgr.summary()
     }
 }

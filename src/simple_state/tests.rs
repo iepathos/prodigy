@@ -44,11 +44,8 @@ mod tests {
 
         let mut session = SessionRecord::new(7.0);
         session.improvements.push(Improvement {
-            improvement_type: "error_handling".to_string(),
             file: "src/main.rs".to_string(),
-            line: Some(42),
             description: "Replaced unwrap with ?".to_string(),
-            impact: 0.2,
         });
         session.complete(7.2);
 
@@ -115,61 +112,6 @@ mod tests {
     }
 
     #[test]
-    fn test_learning_manager() {
-        let temp_dir = TempDir::new().unwrap();
-        let path = temp_dir.path().join("learning.json");
-        let mut learning_mgr = LearningManager::load_from(path).unwrap();
-
-        // Record some improvements
-        let improvement1 = Improvement {
-            improvement_type: "error_handling".to_string(),
-            file: "src/main.rs".to_string(),
-            line: Some(10),
-            description: "Added error handling".to_string(),
-            impact: 0.3,
-        };
-
-        let improvement2 = Improvement {
-            improvement_type: "error_handling".to_string(),
-            file: "src/lib.rs".to_string(),
-            line: Some(20),
-            description: "Improved error messages".to_string(),
-            impact: 0.2,
-        };
-
-        learning_mgr.record_improvement(&improvement1).unwrap();
-        learning_mgr.record_improvement(&improvement2).unwrap();
-
-        // Check pattern stats
-        let stats = learning_mgr.get_pattern_stats("error_handling").unwrap();
-        assert_eq!(stats.total_attempts, 2);
-        assert_eq!(stats.successful, 2);
-        assert_eq!(stats.success_rate, 1.0);
-        assert_eq!(stats.average_impact, 0.25);
-
-        // Test suggestions
-        let suggestions = learning_mgr.suggest_improvements(5);
-        assert!(!suggestions.is_empty());
-        assert_eq!(suggestions[0].0, "error_handling");
-    }
-
-    #[test]
-    fn test_learning_failure_tracking() {
-        let temp_dir = TempDir::new().unwrap();
-        let path = temp_dir.path().join("learning.json");
-        let mut learning_mgr = LearningManager::load_from(path).unwrap();
-
-        // Record multiple failures
-        for _ in 0..5 {
-            learning_mgr.record_failure("bad_pattern").unwrap();
-        }
-
-        // Check it's marked as failed
-        let patterns_to_avoid = learning_mgr.patterns_to_avoid();
-        assert!(patterns_to_avoid.contains(&"bad_pattern".to_string()));
-    }
-
-    #[test]
     fn test_state_corruption_recovery() {
         let temp_dir = TempDir::new().unwrap();
         let root = temp_dir.path().to_path_buf();
@@ -205,11 +147,8 @@ mod tests {
         for i in 0..3 {
             let mut session = SessionRecord::new(7.0 + i as f32 * 0.1);
             session.improvements.push(Improvement {
-                improvement_type: "test".to_string(),
                 file: format!("file{i}.rs"),
-                line: Some(i),
                 description: format!("Improvement {i}"),
-                impact: 0.1,
             });
             session.complete(7.1 + i as f32 * 0.1);
             state_mgr.record_session(session).unwrap();

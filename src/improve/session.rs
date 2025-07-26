@@ -43,7 +43,6 @@ pub struct ImproveState {
     pub last_run: DateTime<Utc>,
     pub current_score: f32,
     pub improvement_history: Vec<ImprovementRun>,
-    pub learned_patterns: Vec<Pattern>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -77,13 +76,6 @@ pub struct ImprovementRun {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Pattern {
-    pub pattern_type: String,
-    pub description: String,
-    pub occurrences: usize,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Iteration {
     pub number: usize,
     pub timestamp: DateTime<Utc>,
@@ -96,7 +88,6 @@ pub struct Iteration {
 pub struct ReviewResult {
     pub score: f32,
     pub issues: Vec<Issue>,
-    pub suggestions: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -278,10 +269,6 @@ impl ImproveSession {
         Ok(ReviewResult {
             score: self.state.current_score,
             issues,
-            suggestions: vec![
-                "Add comprehensive unit tests".to_string(),
-                "Improve error handling".to_string(),
-            ],
         })
     }
 
@@ -327,7 +314,6 @@ impl ImproveSession {
             last_run: Utc::now(),
             current_score: 6.5, // Default starting score
             improvement_history: Vec::new(),
-            learned_patterns: Vec::new(),
         }
     }
 

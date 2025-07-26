@@ -92,18 +92,13 @@ impl StateManager {
         let improvement = session.final_score - session.initial_score;
         self.state.stats.average_improvement = (prev_avg * (total - 1.0) + improvement) / total;
 
-        // Update favorite improvements
+        // Update favorite improvements (using file as identifier)
         for imp in &session.improvements {
-            if !self
-                .state
-                .stats
-                .favorite_improvements
-                .contains(&imp.improvement_type)
-            {
+            if !self.state.stats.favorite_improvements.contains(&imp.file) {
                 self.state
                     .stats
                     .favorite_improvements
-                    .push(imp.improvement_type.clone());
+                    .push(imp.file.clone());
             }
         }
 

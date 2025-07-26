@@ -2,7 +2,6 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// Main state structure
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
@@ -47,12 +46,8 @@ pub struct SessionRecord {
 /// Individual improvement made during a session
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Improvement {
-    #[serde(rename = "type")]
-    pub improvement_type: String,
     pub file: String,
-    pub line: Option<u32>,
     pub description: String,
-    pub impact: f32,
 }
 
 /// Metrics for a session
@@ -61,46 +56,6 @@ pub struct SessionMetrics {
     pub duration_seconds: u64,
     pub claude_calls: u32,
     pub tokens_used: u32,
-}
-
-/// Learning data structure
-#[derive(Serialize, Deserialize, Default, Debug, Clone)]
-pub struct Learning {
-    pub patterns: PatternStats,
-    pub preferences: Preferences,
-}
-
-/// Pattern statistics
-#[derive(Serialize, Deserialize, Default, Debug, Clone)]
-pub struct PatternStats {
-    pub successful_improvements: HashMap<String, PatternInfo>,
-    pub failed_patterns: HashMap<String, FailureInfo>,
-}
-
-/// Information about a successful pattern
-#[derive(Serialize, Deserialize, Default, Debug, Clone)]
-pub struct PatternInfo {
-    pub success_rate: f32,
-    pub average_impact: f32,
-    pub examples: Vec<String>,
-    pub total_attempts: u32,
-    pub successful: u32,
-    pub impacts: Vec<f32>,
-}
-
-/// Information about a failed pattern
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct FailureInfo {
-    pub failure_rate: f32,
-    pub avoid: bool,
-}
-
-/// User preferences
-#[derive(Serialize, Deserialize, Default, Debug, Clone)]
-pub struct Preferences {
-    pub focus_areas: Vec<String>,
-    pub skip_patterns: Vec<String>,
-    pub style_hints: HashMap<String, String>,
 }
 
 /// Project analysis cache

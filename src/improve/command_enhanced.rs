@@ -100,7 +100,7 @@ pub async fn run_enhanced(cmd: ImproveCommand) -> Result<()> {
     // Check if already good enough
     if session.is_good_enough() {
         println!("\n{} Your code already meets the target quality score!", "🎉".bold());
-        smart_helper.display_suggestions(&project.health);
+        smart_helper.display_suggestions();
         return Ok(());
     }
     
@@ -206,11 +206,8 @@ pub async fn run_enhanced(cmd: ImproveCommand) -> Result<()> {
     let success_msg = SuccessMessage::contextual("errors", quality_score.improvement_percentage());
     println!("\n{}", success_msg.green().bold());
     
-    // Record improvement for learning
-    smart_helper.record_improvement(ImprovementType::ErrorHandling);
-    
     // Show next suggestions
-    smart_helper.display_suggestions(&project.health);
+    smart_helper.display_suggestions();
     
     Ok(())
 }
