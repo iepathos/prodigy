@@ -159,6 +159,66 @@ SCOPE: $ARGUMENTS (optional - specify scope like "src/parser", "tests", specific
 - **Interfaces**: Well-designed public APIs
 - **Patterns**: Consistent design pattern usage
 
+## Structured Output for Automation
+
+**CRITICAL**: When invoked in automation mode, always end response with this exact JSON structure:
+
+```json
+{
+  "mmm_structured_output": {
+    "review_id": "review-{{ timestamp }}-{{ uuid }}",
+    "timestamp": "{{ current_timestamp }}",
+    "overall_score": {{ calculated_score }},
+    "scope": "{{ analyzed_scope }}",
+    "actions": [
+      {
+        "id": "action_{{ sequence }}",
+        "type": "fix_error|improve_code|improve_performance|fix_style|add_tests|refactor",
+        "severity": "critical|high|medium|low", 
+        "file": "{{ file_path }}",
+        "line": {{ line_number }},
+        "line_range": [{{ start_line }}, {{ end_line }}],
+        "title": "{{ brief_description }}",
+        "description": "{{ detailed_explanation }}",
+        "suggestion": "{{ specific_fix_recommendation }}",
+        "automated": {{ true_if_automatable }},
+        "estimated_effort": "{{ time_estimate }}",
+        "category": "{{ issue_category }}",
+        "impact": "{{ business_impact }}"
+      }
+    ],
+    "summary": {
+      "total_issues": {{ total_count }},
+      "critical": {{ critical_count }},
+      "high": {{ high_count }},
+      "medium": {{ medium_count }},
+      "low": {{ low_count }},
+      "automated_fixes": {{ automatable_count }},
+      "manual_fixes": {{ manual_count }},
+      "compilation_errors": {{ error_count }},
+      "test_failures": {{ test_failure_count }},
+      "clippy_warnings": {{ warning_count }}
+    },
+    "metrics": {
+      "code_complexity": {{ complexity_score }},
+      "test_coverage": {{ coverage_percentage }},
+      "technical_debt_ratio": {{ debt_ratio }},
+      "maintainability_index": {{ maintainability_score }}
+    },
+    "recommendations": {
+      "next_iteration_focus": "{{ focus_area }}",
+      "architecture_improvements": ["{{ suggestion_1 }}", "{{ suggestion_2 }}"],
+      "priority_actions": ["{{ action_id_1 }}", "{{ action_id_2 }}"]
+    }
+  }
+}
+```
+
+**Automation Detection**: The command detects automation mode when:
+- Invoked with `--format=json` parameter
+- Environment variable `MMM_AUTOMATION=true` is set
+- Called from within an MMM workflow context
+
 ## Output Format
 
 The review provides structured, machine-parseable output for automation:

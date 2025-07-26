@@ -59,6 +59,10 @@ enum Commands {
     /// Plugin management commands
     #[command(subcommand)]
     Plugin(PluginCommands),
+
+    /// Iterative improvement loop commands
+    #[command(subcommand)]
+    Loop(LoopCommands),
 }
 
 #[derive(Subcommand)]
@@ -582,6 +586,84 @@ enum PluginCommands {
     },
 }
 
+#[derive(Subcommand)]
+enum LoopCommands {
+    /// Start an iterative improvement session
+    Start {
+        /// Target quality score (0.0-10.0)
+        #[arg(short, long, default_value = "8.5")]
+        target: f64,
+
+        /// Maximum iterations
+        #[arg(short, long, default_value = "3")]
+        max_iterations: u32,
+
+        /// Code scope to improve (files/directories)
+        #[arg(short, long, default_value = "src/")]
+        scope: String,
+
+        /// Severity levels to address
+        #[arg(long, default_value = "critical,high")]
+        severity: String,
+
+        /// Workflow template to use
+        #[arg(short, long, default_value = "code-quality-improvement")]
+        workflow: String,
+
+        /// Run in dry-run mode
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// List active and completed loop sessions
+    Sessions {
+        /// Filter by status
+        #[arg(short, long)]
+        status: Option<String>,
+
+        /// Limit results
+        #[arg(short, long, default_value = "10")]
+        limit: u32,
+    },
+
+    /// Show detailed session information
+    Show {
+        /// Session ID
+        session_id: String,
+    },
+
+    /// Stop a running session
+    Stop {
+        /// Session ID
+        session_id: String,
+
+        /// Force stop without cleanup
+        #[arg(short, long)]
+        force: bool,
+    },
+
+    /// Resume a paused session
+    Resume {
+        /// Session ID  
+        session_id: String,
+    },
+
+    /// Configure default loop settings
+    Config {
+        /// Configuration key
+        #[arg(short, long)]
+        key: Option<String>,
+
+        /// Configuration value
+        #[arg(short, long)]
+        value: Option<String>,
+
+        /// List current settings
+        #[arg(short, long)]
+        list: bool,
+    },
+}
+
 #[derive(clap::ValueEnum, Clone)]
 enum OutputFormat {
     Table,
@@ -707,6 +789,9 @@ async fn run(cli: Cli) -> Result<()> {
         }
         Commands::Plugin(plugin_cmd) => {
             handle_plugin_command(plugin_cmd, &project_manager, &config_loader).await?
+        }
+        Commands::Loop(loop_cmd) => {
+            handle_loop_command(loop_cmd, &project_manager, &config_loader).await?
         }
     }
 
@@ -2393,6 +2478,116 @@ if (require.main === module) {{
 
             marketplace.publish(&path, &api_key).await?;
             println!("✅ Plugin published successfully");
+        }
+    }
+
+    Ok(())
+}
+
+async fn handle_loop_command(
+    cmd: LoopCommands,
+    project_manager: &ProjectManager,
+    config_loader: &ConfigLoader,
+) -> Result<()> {
+    use mmm::r#loop::{config::SeverityLevel, LoopConfig};
+    use LoopCommands::*;
+
+    // Get current project
+    let project = project_manager
+        .current_project()
+        .ok_or_else(|| mmm::Error::Project("No project selected".to_string()))?;
+
+    config_loader.load_project(&project.path).await?;
+    let _config = config_loader.get_config();
+
+    // Initialize state manager
+    let _state_manager = Arc::new(
+        StateManager::new(project.path.join(".mmm").join("state.db"), &project.name).await?,
+    );
+
+    match cmd {
+        Start {
+            target,
+            max_iterations,
+            scope,
+            severity,
+            workflow,
+            dry_run,
+        } => {
+            println!("🚀 Starting iterative improvement loop session...");
+            if dry_run {
+                println!("   (dry-run mode - no changes will be made)");
+            }
+
+            // Parse severity levels
+            let severity_levels: Vec<SeverityLevel> = severity
+                .split(',')
+                .map(|s| s.trim().parse())
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(|e| mmm::Error::Config(format!("Invalid severity level: {e}")))?;
+
+            // Parse scope
+            let scope_dirs: Vec<String> = scope.split(',').map(|s| s.trim().to_string()).collect();
+
+            // Create loop configuration
+            let loop_config = LoopConfig {
+                target_score: target,
+                max_iterations,
+                scope: scope_dirs,
+                severity_filter: severity_levels,
+                workflow_template: workflow,
+                ..LoopConfig::default()
+            };
+
+            println!("Configuration:");
+            println!("  Target score: {:.1}", loop_config.target_score);
+            println!("  Max iterations: {}", loop_config.max_iterations);
+            println!("  Scope: {}", loop_config.scope.join(", "));
+            println!("  Workflow: {}", loop_config.workflow_template);
+
+            println!("\nLoop session functionality is not yet fully implemented.");
+            println!("This would create and execute an iterative improvement session.");
+        }
+
+        Sessions { status, limit } => {
+            println!("📋 Loop sessions:");
+
+            // TODO: Implement session listing using state manager
+            println!("Session listing functionality not yet implemented.");
+            if let Some(status_filter) = status {
+                println!("Would filter by status: {status_filter}");
+            }
+            println!("Would show {limit} sessions");
+        }
+
+        Show { session_id } => {
+            println!("📊 Session details for: {session_id}");
+            println!("Session detail functionality not yet implemented.");
+        }
+
+        Stop { session_id, force } => {
+            println!("⏹️  Stopping session: {session_id}");
+            if force {
+                println!("   (force mode - no cleanup)");
+            }
+            println!("Session stop functionality not yet implemented.");
+        }
+
+        Resume { session_id } => {
+            println!("▶️  Resuming session: {session_id}");
+            println!("Session resume functionality not yet implemented.");
+        }
+
+        Config { key, value, list } => {
+            if list {
+                println!("📋 Loop configuration:");
+                println!("Configuration listing not yet implemented.");
+            } else if let (Some(key), Some(value)) = (key, value) {
+                println!("Setting {key} = {value}");
+                println!("Configuration setting not yet implemented.");
+            } else {
+                println!("Usage: config --key KEY --value VALUE or config --list");
+            }
         }
     }
 

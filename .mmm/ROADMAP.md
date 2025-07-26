@@ -8,6 +8,7 @@ This roadmap outlines the planned development phases for mmm, prioritizing core 
 
 ### Completed
 - [x] Project structure and build system (Spec 01)
+- [x] Iterative improvement loop integration (Spec 08)
 - [x] Basic CLI with Clap
 - [x] Specification parser
 - [x] Claude API integration

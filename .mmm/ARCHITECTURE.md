@@ -46,6 +46,13 @@ The mmm system follows a modular architecture with clear separation of concerns.
 - **registry.rs**: Plugin management
 - **api.rs**: Plugin API surface
 
+### 8. Iterative Improvement Loop (`src/loop/`)
+- **engine.rs**: Core loop orchestration and session management
+- **config.rs**: Loop configuration and termination conditions
+- **session.rs**: Session state and iteration data management
+- **metrics.rs**: Quality metrics and performance tracking
+- **commands.rs**: Workflow step commands for loop execution
+
 ## Data Flow
 
 ```
@@ -53,9 +60,9 @@ User Input → Command Parser → Command Dispatcher
                                     ↓
                             Specification Engine
                                     ↓
-                            Workflow Engine
-                                    ↓
-                            Claude API Client
+                            Workflow Engine ←→ Iteration Engine
+                                    ↓              ↓
+                            Claude API Client ←----┘
                                     ↓
                             State Manager
                                     ↓

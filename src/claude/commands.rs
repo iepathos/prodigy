@@ -26,6 +26,9 @@ pub struct CommandSettings {
     pub temperature: Option<f32>,
     pub max_tokens: Option<usize>,
     pub model_override: Option<String>,
+    pub structured_output: bool,
+    pub output_schema: Option<String>,
+    pub automation_friendly: bool,
 }
 
 /// Registry for Claude commands
@@ -76,6 +79,9 @@ impl CommandRegistry {
                 temperature: Some(0.7),
                 max_tokens: Some(4096),
                 model_override: None,
+                structured_output: false,
+                output_schema: None,
+                automation_friendly: false,
             },
             interactive: false,
         })?;
@@ -93,6 +99,9 @@ impl CommandRegistry {
                 temperature: Some(0.3),
                 max_tokens: Some(2000),
                 model_override: None,
+                structured_output: true,
+                output_schema: Some("mmm-code-review-schema".to_string()),
+                automation_friendly: true,
             },
             interactive: false,
         })?;
@@ -110,6 +119,9 @@ impl CommandRegistry {
                 temperature: Some(0.5),
                 max_tokens: Some(3000),
                 model_override: Some("claude-3-opus".to_string()),
+                structured_output: false,
+                output_schema: None,
+                automation_friendly: false,
             },
             interactive: true,
         })?;
@@ -127,6 +139,9 @@ impl CommandRegistry {
                 temperature: Some(0.8),
                 max_tokens: Some(2000),
                 model_override: Some("claude-3-opus".to_string()),
+                structured_output: false,
+                output_schema: None,
+                automation_friendly: false,
             },
             interactive: false,
         })?;
@@ -144,6 +159,9 @@ impl CommandRegistry {
                 temperature: Some(0.4),
                 max_tokens: Some(2000),
                 model_override: None,
+                structured_output: false,
+                output_schema: None,
+                automation_friendly: false,
             },
             interactive: false,
         })?;
@@ -194,6 +212,9 @@ impl CommandRegistry {
                         temperature: Some(0.7),
                         max_tokens: Some(8000),
                         model_override: None,
+                        structured_output: false,
+                        output_schema: None,
+                        automation_friendly: false,
                     },
                     interactive: true,
                 })?;
@@ -299,5 +320,191 @@ impl PostProcessor for ExtractCodeProcessor {
         // Extract code blocks from response
         // This would use the response parser
         Ok(response.to_string())
+    }
+}
+
+/// Structured output wrapper for automated processing
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StructuredCommandOutput {
+    pub command: String,
+    pub execution_id: String,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+    pub success: bool,
+    pub data: serde_json::Value,
+    pub metadata: CommandMetadata,
+}
+
+/// Command metadata for context and debugging
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandMetadata {
+    pub duration: std::time::Duration,
+    pub token_usage: Option<TokenUsage>,
+    pub model_used: String,
+    pub context_size: usize,
+}
+
+/// Token usage information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenUsage {
+    pub input_tokens: u32,
+    pub output_tokens: u32,
+    pub total_tokens: u32,
+}
+
+impl CommandRegistry {
+    /// Execute command with structured output for automation
+    pub async fn execute_structured(
+        &self,
+        command_name: &str,
+        args: Vec<String>,
+        context: &crate::workflow::WorkflowContext,
+    ) -> Result<StructuredCommandOutput> {
+        let config = self.get_command(command_name)?;
+
+        if !config.settings.automation_friendly {
+            return Err(Error::Config(format!(
+                "Command '{command_name}' is not configured for automation"
+            )));
+        }
+
+        // Execute command with enhanced context
+        let start_time = chrono::Utc::now();
+        let execution_id = uuid::Uuid::new_v4().to_string();
+
+        let result = self
+            .execute_command_internal(
+                command_name,
+                args,
+                Some(context),
+                config.settings.structured_output,
+            )
+            .await;
+
+        let duration = chrono::Utc::now().signed_duration_since(start_time);
+
+        match result {
+            Ok(output) => {
+                let data = if config.settings.structured_output {
+                    self.parse_structured_output(&output, config.settings.output_schema.as_deref())?
+                } else {
+                    serde_json::Value::String(output)
+                };
+
+                Ok(StructuredCommandOutput {
+                    command: command_name.to_string(),
+                    execution_id,
+                    timestamp: start_time,
+                    success: true,
+                    data,
+                    metadata: CommandMetadata {
+                        duration: duration.to_std().unwrap_or_default(),
+                        token_usage: None, // TODO: Extract from response
+                        model_used: config
+                            .settings
+                            .model_override
+                            .clone()
+                            .unwrap_or_else(|| "default".to_string()),
+                        context_size: 0, // TODO: Calculate
+                    },
+                })
+            }
+            Err(e) => Ok(StructuredCommandOutput {
+                command: command_name.to_string(),
+                execution_id,
+                timestamp: start_time,
+                success: false,
+                data: serde_json::json!({
+                    "error": e.to_string(),
+                    "error_type": "execution_failed"
+                }),
+                metadata: CommandMetadata {
+                    duration: duration.to_std().unwrap_or_default(),
+                    token_usage: None,
+                    model_used: "unknown".to_string(),
+                    context_size: 0,
+                },
+            }),
+        }
+    }
+
+    /// Internal command execution method (placeholder)
+    async fn execute_command_internal(
+        &self,
+        command_name: &str,
+        _args: Vec<String>,
+        _context: Option<&crate::workflow::WorkflowContext>,
+        _structured: bool,
+    ) -> Result<String> {
+        // This is a placeholder for the actual command execution
+        // In the full implementation, this would integrate with the Claude API
+        tracing::info!("Executing command: {}", command_name);
+        Ok(format!("Mock output for command: {command_name}"))
+    }
+
+    /// Parse structured output from command response
+    fn parse_structured_output(
+        &self,
+        output: &str,
+        schema: Option<&str>,
+    ) -> Result<serde_json::Value> {
+        // Look for structured output marker
+        if let Some(start) = output.find("```json") {
+            if let Some(end) = output[start..].find("```") {
+                let json_str = &output[start + 7..start + end];
+                return serde_json::from_str(json_str).map_err(|e| {
+                    Error::Parse(format!("Invalid JSON in structured output: {e}"))
+                });
+            }
+        }
+
+        // Look for mmm_structured_output marker
+        if let Some(marker_start) = output.find("\"mmm_structured_output\"") {
+            // Find the JSON object containing the marker
+            let mut brace_count = 0;
+            let mut start_pos = None;
+            let mut end_pos = None;
+
+            for (i, ch) in output[..marker_start].char_indices().rev() {
+                if ch == '}' {
+                    brace_count += 1;
+                } else if ch == '{' {
+                    brace_count -= 1;
+                    if brace_count == 0 {
+                        start_pos = Some(i);
+                        break;
+                    }
+                }
+            }
+
+            if let Some(start) = start_pos {
+                brace_count = 0;
+                for (i, ch) in output[start..].char_indices() {
+                    if ch == '{' {
+                        brace_count += 1;
+                    } else if ch == '}' {
+                        brace_count -= 1;
+                        if brace_count == 0 {
+                            end_pos = Some(start + i + 1);
+                            break;
+                        }
+                    }
+                }
+
+                if let Some(end) = end_pos {
+                    let json_str = &output[start..end];
+                    return serde_json::from_str(json_str).map_err(|e| {
+                        Error::Parse(format!("Invalid JSON in structured output: {e}"))
+                    });
+                }
+            }
+        }
+
+        // Fallback: validate against schema if provided
+        if let Some(_schema) = schema {
+            // TODO: Implement schema validation
+        }
+
+        // Default: return as string value
+        Ok(serde_json::Value::String(output.to_string()))
     }
 }

@@ -142,6 +142,39 @@ pub struct WorkflowContext {
     pub project: HashMap<String, String>,
 }
 
+impl Default for WorkflowContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl WorkflowContext {
+    pub fn new() -> Self {
+        Self {
+            workflow: Workflow {
+                name: "default".to_string(),
+                description: None,
+                version: "1.0".to_string(),
+                triggers: vec![],
+                parameters: HashMap::new(),
+                stages: vec![],
+                on_success: vec![],
+                on_failure: vec![],
+                extends: None,
+            },
+            spec_id: None,
+            parameters: HashMap::new(),
+            variables: HashMap::new(),
+            outputs: HashMap::new(),
+            project: HashMap::new(),
+        }
+    }
+
+    pub fn insert(&mut self, key: String, value: serde_json::Value) {
+        self.variables.insert(key, value);
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkflowState {
     pub workflow_id: Uuid,

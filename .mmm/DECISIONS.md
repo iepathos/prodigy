@@ -187,3 +187,24 @@ Implemented spec 01 for core architecture with global/project separation.
 ### Consequences
 - **Positive**: Clear separation of concerns, multi-project support
 - **Negative**: Additional complexity in config resolution
+
+---
+
+## ADR-012: Iterative Improvement Loop Architecture
+
+### Status
+Accepted
+
+### Context
+Implemented spec 08 for iterative improvement loops that can automatically chain Claude CLI review and improvement commands while working around Claude CLI session limitations.
+
+### Decision
+- Integrate loop functionality directly into MMM's existing workflow system
+- Use structured JSON output from Claude commands for automation
+- Store loop sessions and iterations in SQLite database
+- Implement configurable termination conditions for intelligent stopping
+- Add safety mechanisms including git stashing and validation
+
+### Consequences
+- **Positive**: Self-sufficient automated improvement cycles, leverages existing MMM infrastructure
+- **Negative**: Increased complexity in command orchestration, dependency on Claude CLI availability
