@@ -1,4 +1,4 @@
-# /cleanup-tech-debt
+# /mmm-cleanup-tech-debt
 
 Analyze the Rust codebase for technical debt and perform comprehensive cleanup including code organization improvements, dead code removal, dependency optimization, and structural refactoring. This command systematically identifies and resolves technical debt to improve maintainability, performance, and code quality in Rust projects.
 
@@ -183,11 +183,11 @@ SCOPE: $ARGUMENTS (optional - specify scope like "src/agents", "src/mcp", "tests
 ## Example Usage
 
 ```
-/cleanup-tech-debt
-/cleanup-tech-debt "src/agents"
-/cleanup-tech-debt "src/mcp"
-/cleanup-tech-debt "tests"
-/cleanup-tech-debt "all"
+/mmm-cleanup-tech-debt
+/mmm-cleanup-tech-debt "src/agents"
+/mmm-cleanup-tech-debt "src/mcp"
+/mmm-cleanup-tech-debt "tests"
+/mmm-cleanup-tech-debt "all"
 ```
 
 ## Cleanup Categories
@@ -248,9 +248,9 @@ SCOPE: $ARGUMENTS (optional - specify scope like "src/agents", "src/mcp", "tests
 
 ## Integration with Existing Commands
 
-- Use `/commit-changes` for individual cleanup commits
+- Use `/mmm-commit-changes` for individual cleanup commits
 - Create specs with `/create-spec` for major refactoring
-- Run `/debug` if issues arise during cleanup
+- Run `/mmm-debug` if issues arise during cleanup
 - Use project's Makefile or justfile for validation
 - Run `/test` to verify changes don't break functionality
 

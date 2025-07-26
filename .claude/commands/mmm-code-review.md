@@ -1,4 +1,4 @@
-# /review
+# /mmm-code-review
 
 Conduct a comprehensive code review of the current project or specified components. This command performs static analysis, identifies potential issues, ensures code quality standards are met, and provides detailed feedback on implementation patterns.
 
@@ -208,10 +208,10 @@ The review provides:
 ## Example Usage
 
 ```
-/review
-/review "src/parser"
-/review "src/parser/inventory.rs src/parser/manifest.rs"
-/review "tests"
+/mmm-code-review
+/mmm-code-review "src/parser"
+/mmm-code-review "src/parser/inventory.rs src/parser/manifest.rs"
+/mmm-code-review "tests"
 ```
 
 ## Advanced Features

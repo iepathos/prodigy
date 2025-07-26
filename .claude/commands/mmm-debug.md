@@ -160,7 +160,7 @@ just update                  # Update dependencies (careful review needed)
 All commands verified against current `justfile` structure:
 - ✅ `just build` → Debug build for development
 - ✅ `just build-release` → Optimized production build
-- ✅ `just ci` → Complete fmt/lint/test pipeline
+- ✅ `just ci` → Complete fmt/mmm-lint/test pipeline
 - ✅ `just full-check` → Comprehensive validation
 - ✅ `just run` → Launch Eidolon orchestrator
 

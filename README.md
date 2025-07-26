@@ -52,10 +52,10 @@ mmm add --name my-feature --generate
 
 The tool supports custom Claude commands for different development phases:
 
-- `/implement-spec`: Initial implementation
-- `/lint`: Code quality checks
-- `/test`: Test creation and execution
-- `/review`: Final review and approval
+- `/mmm-implement-spec`: Initial implementation
+- `/mmm-lint`: Code quality checks
+- `/mmm-test`: Test creation and execution
+- `/mmm-code-review`: Final code review and approval
 
 Configure commands in `mmm.toml`.
 
@@ -68,10 +68,10 @@ Create a `mmm.toml` file to customize behavior:
 default_args = ["--no-preamble"]
 
 [commands]
-implement = "/implement-spec"
-lint = "/lint"
-test = "/test"
-review = "/review"
+implement = "/mmm-implement-spec"
+lint = "/mmm-lint"
+test = "/mmm-test"
+code-review = "/mmm-code-review"
 ```
 
 ## Project Structure

@@ -1175,14 +1175,7 @@ async fn handle_multi_command(
 fn is_claude_cli_command(command: &str) -> bool {
     matches!(
         command,
-        "lint"
-            | "claude-lint"
-            | "review"
-            | "claude-review"
-            | "implement-spec"
-            | "claude-implement-spec"
-            | "add-spec"
-            | "claude-add-spec"
+        "mmm-lint" | "mmm-code-review" | "mmm-implement-spec" | "mmm-add-spec"
     )
 }
 
@@ -1194,10 +1187,10 @@ async fn execute_claude_cli_direct(command: &str, args: Vec<String>) -> Result<S
 
     // Map MMM command to Claude CLI slash command
     let slash_command = match command {
-        "lint" | "claude-lint" => "/lint",
-        "review" | "claude-review" => "/review",
-        "implement-spec" | "claude-implement-spec" => "/implement-spec",
-        "add-spec" | "claude-add-spec" => "/add-spec",
+        "mmm-lint" => "/mmm-lint",
+        "mmm-code-review" => "/mmm-code-review",
+        "mmm-implement-spec" => "/mmm-implement-spec",
+        "mmm-add-spec" => "/mmm-add-spec",
         _ => {
             error!("Unknown Claude CLI command: {command}");
             return Err(mmm::Error::NotFound(format!(
@@ -1370,11 +1363,15 @@ async fn handle_claude_command(cmd: ClaudeCommands, config_loader: &ConfigLoader
 
             if claude_cli_available {
                 println!("  Claude CLI commands (no API key required):");
-                println!("    lint - Automatically detect and fix linting issues in the codebase");
-                println!("    review - Conduct comprehensive code review with quality analysis");
-                println!("    implement-spec - Implement specifications by reading spec files and executing implementation");
                 println!(
-                    "    add-spec - Generate new specification documents from feature descriptions"
+                    "    mmm-lint - Automatically detect and fix linting issues in the codebase"
+                );
+                println!(
+                    "    mmm-code-review - Conduct comprehensive code review with quality analysis"
+                );
+                println!("    mmm-implement-spec - Implement specifications by reading spec files and executing implementation");
+                println!(
+                    "    mmm-add-spec - Generate new specification documents from feature descriptions"
                 );
             }
 

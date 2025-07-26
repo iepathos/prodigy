@@ -1,4 +1,4 @@
-# /commit-changes
+# /mmm-commit-changes
 
 Create a git commit for general changes, fixes, or improvements that weren't part of a specific specification. This command handles the git workflow for committing ad-hoc changes with proper commit messages and verification.
 
@@ -75,14 +75,14 @@ COMMIT_TYPE: auto-detected from message or can be specified (feat/fix/docs/style
 ## Example Usage
 
 ```
-/commit-changes "fix cursor jitter by improving smoothing algorithm"
-/commit-changes "feat: add debug logging to eye detection"
-/commit-changes "docs: update README with installation instructions"
-/commit-changes "refactor: extract common camera utilities"
-/commit-changes "test: add unit tests for pupil detection"
-/commit-changes "chore: update OpenCV dependency to latest version"
-/commit-changes --skip-ci "hotfix: emergency security patch"
-/commit-changes
+/mmm-commit-changes "fix cursor jitter by improving smoothing algorithm"
+/mmm-commit-changes "feat: add debug logging to eye detection"
+/mmm-commit-changes "docs: update README with installation instructions"
+/mmm-commit-changes "refactor: extract common camera utilities"
+/mmm-commit-changes "test: add unit tests for pupil detection"
+/mmm-commit-changes "chore: update OpenCV dependency to latest version"
+/mmm-commit-changes --skip-ci "hotfix: emergency security patch"
+/mmm-commit-changes
 ```
 
 ## Auto-detection Examples

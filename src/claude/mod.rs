@@ -195,10 +195,10 @@ impl ClaudeManager {
 
         // Map MMM command to Claude CLI slash command
         let slash_command = match command {
-            "lint" | "claude-lint" => "/lint",
-            "review" | "claude-review" => "/review",
-            "implement-spec" | "claude-implement-spec" => "/implement-spec",
-            "add-spec" | "claude-add-spec" => "/add-spec",
+            "mmm-lint" => "/mmm-lint",
+            "mmm-code-review" => "/mmm-code-review",
+            "mmm-implement-spec" => "/mmm-implement-spec",
+            "mmm-add-spec" => "/mmm-add-spec",
             _ => {
                 return Err(crate::error::Error::NotFound(format!(
                     "Unknown Claude CLI command: {command}"

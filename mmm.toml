@@ -7,13 +7,13 @@ default_args = ["--no-preamble"]
 # Custom commands for different stages
 [commands]
 # Implementation phase
-implement = "/implement-spec"
+implement = "/mmm-implement-spec"
 # Linting phase
-lint = "/lint"
+lint = "/mmm-lint"
 # Testing phase
-test = "/test"
+test = "/mmm-test"
 # Review phase
-review = "/review"
+code-review = "/mmm-code-review"
 
 # Command templates
 [templates]
@@ -58,7 +58,7 @@ Ensure:
 3. Tests are maintainable
 """
 
-review = """
+code-review = """
 Please review the implementation for:
 
 Spec: {spec_name}

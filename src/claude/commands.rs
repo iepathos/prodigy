@@ -80,10 +80,10 @@ impl CommandRegistry {
             interactive: false,
         })?;
 
-        // Review command (fallback if Claude CLI not available)
+        // Code Review command (fallback if Claude CLI not available)
         self.register_command(CommandConfig {
-            name: "review".to_string(),
-            aliases: vec!["r".to_string()],
+            name: "mmm-code-review".to_string(),
+            aliases: vec!["mmm-r".to_string()],
             description: "Review code for quality and correctness".to_string(),
             template: "code-review".to_string(),
             task_type: "review".to_string(),
@@ -161,19 +161,19 @@ impl CommandRegistry {
 
         let commands = [
             (
-                "lint",
+                "mmm-lint",
                 "Automatically detect and fix linting issues in the codebase",
             ),
             (
-                "review",
+                "mmm-code-review",
                 "Conduct comprehensive code review with quality analysis",
             ),
             (
-                "implement-spec",
+                "mmm-implement-spec",
                 "Implement specifications by reading spec files and executing implementation",
             ),
             (
-                "add-spec",
+                "mmm-add-spec",
                 "Generate new specification documents from feature descriptions",
             ),
         ];

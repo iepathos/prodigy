@@ -5,10 +5,10 @@ Implements a Git Good specification by reading the spec file, executing the impl
 ## Usage
 
 ```
-/implement-spec <spec-number>
+/mmm-implement-spec <spec-number>
 ```
 
-Example: `/implement-spec 01` to implement the project structure specification.
+Example: `/mmm-implement-spec 01` to implement the project structure specification.
 
 ## What This Command Does
 
@@ -125,7 +125,7 @@ The command will:
 ## Example Workflow
 
 ```
-/implement-spec 01
+/mmm-implement-spec 01
 ```
 
 This would:
