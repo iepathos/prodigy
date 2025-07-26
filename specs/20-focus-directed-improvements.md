@@ -1,10 +1,10 @@
-# Spec 20: Focus-Directed Improvements
+# Spec 20: Focus-Directed Initial Analysis
 
 ## Overview
-Add support for passing focus directives to the mmm improvement loop, allowing users to guide the code review and improvement process towards specific goals like "improve code coverage", "optimize performance", or "enhance security".
+Add support for passing focus directives to the initial code analysis phase of mmm, allowing users to guide what aspects of code quality get prioritized in the first improvement spec like "user experience", "performance", or "security".
 
 ## Motivation
-Currently, the mmm improvement loop runs with broad analysis and Claude prioritizes issues automatically based on severity. Users cannot direct the improvement process towards specific goals or areas of concern. This spec adds a natural language interface for providing focus directives that influence what improvements are prioritized.
+Currently, the mmm improvement loop runs with broad analysis and Claude prioritizes issues automatically based on severity. Users cannot direct the initial analysis towards specific goals or areas of concern. This spec adds a simple flag to influence what improvements are prioritized in the initial spec generation only.
 
 ## User Interface
 
@@ -13,27 +13,23 @@ Currently, the mmm improvement loop runs with broad analysis and Claude prioriti
 # Basic usage (current behavior)
 mmm
 
-# With focus directive
-mmm focus on improving code coverage
-mmm focus on optimizing performance 
-mmm focus on enhancing security
-mmm focus on reducing technical debt
-mmm focus on improving documentation
-mmm focus on better error handling
+# With focus directive (affects initial analysis only)
+mmm --focus "user experience"
+mmm --focus "performance" 
+mmm --focus "security"
+mmm --focus "code coverage"
+mmm --focus "documentation"
+mmm --focus "error handling"
 ```
 
 ### Implementation Approach
-The `focus on` prefix is optional but improves readability. The system should accept both forms:
-- `mmm focus on improving code coverage`
-- `mmm improving code coverage`
-
-All remaining arguments after `mmm` are concatenated into a focus directive string.
+The focus is passed as a simple flag that only affects the initial code review that generates the first improvement spec. Subsequent iterations run normally without the focus directive.
 
 ## Technical Design
 
 ### 1. CLI Argument Changes
 
-Update `src/main.rs` to capture all remaining arguments as the focus directive:
+Update `src/main.rs` to add a simple focus flag:
 
 ```rust
 /// Improve code quality with zero configuration
@@ -53,9 +49,9 @@ struct Cli {
     #[arg(short, long, action = clap::ArgAction::Count, global = true)]
     verbose: u8,
     
-    /// Focus directive for improvements (e.g., "focus on improving code coverage")
-    #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-    focus: Vec<String>,
+    /// Focus directive for initial analysis (e.g., "user experience", "performance")
+    #[arg(long)]
+    focus: Option<String>,
 }
 ```
 
@@ -83,17 +79,19 @@ pub struct ImproveCommand {
 
 ### 3. Session Integration
 
-Update `src/improve/session.rs` to pass focus directive to Claude commands:
+Update `src/improve/session.rs` to pass focus directive only on the first iteration:
 
 ```rust
-async fn call_claude_code_review(&self) -> Result<()> {
+async fn call_claude_code_review(&self, iteration: usize) -> Result<()> {
     let mut cmd = Command::new("claude");
     cmd.arg("--dangerously-skip-permissions")
        .arg("/mmm-code-review");
        
-    // Pass focus directive if provided
-    if let Some(focus) = &self.focus {
-        cmd.env("MMM_FOCUS", focus);
+    // Pass focus directive only on first iteration
+    if iteration == 1 {
+        if let Some(focus) = &self.focus {
+            cmd.env("MMM_FOCUS", focus);
+        }
     }
     
     cmd.status().await?;
@@ -199,20 +197,20 @@ FOCUS: $MMM_FOCUS (optional - focus directive from mmm CLI, e.g., "improving cod
 
 ## Focus Directive Examples
 
-### Code Coverage Focus
+### User Experience Focus
 ```bash
-mmm focus on improving code coverage
+mmm --focus "user experience"
 ```
 Prioritizes:
-- Missing unit tests
-- Untested code paths
-- Low coverage modules
-- Integration test gaps
-- Test quality improvements
+- API ergonomics and usability
+- Error messages and user feedback
+- Documentation clarity
+- CLI/UI responsiveness
+- Developer experience issues
 
 ### Performance Focus
 ```bash
-mmm focus on optimizing performance
+mmm --focus "performance"
 ```
 Prioritizes:
 - Algorithmic complexity issues
@@ -223,7 +221,7 @@ Prioritizes:
 
 ### Security Focus
 ```bash
-mmm focus on enhancing security
+mmm --focus "security"
 ```
 Prioritizes:
 - Input validation gaps
@@ -232,9 +230,20 @@ Prioritizes:
 - Authentication/authorization issues
 - Sensitive data handling
 
+### Code Coverage Focus
+```bash
+mmm --focus "code coverage"
+```
+Prioritizes:
+- Missing unit tests
+- Untested code paths
+- Low coverage modules
+- Integration test gaps
+- Test quality improvements
+
 ### Documentation Focus
 ```bash
-mmm focus on improving documentation
+mmm --focus "documentation"
 ```
 Prioritizes:
 - Missing API documentation
@@ -243,144 +252,104 @@ Prioritizes:
 - Missing examples
 - Poor error messages
 
-### Technical Debt Focus
-```bash
-mmm focus on reducing technical debt
-```
-Prioritizes:
-- Code duplication
-- Complex/long functions
-- Poor abstractions
-- Outdated patterns
-- Refactoring opportunities
+## Focus Interpretation
 
-## Natural Language Processing
-
-The focus directive parser should be flexible and handle variations:
-- "improve test coverage" → code coverage focus
-- "make it faster" → performance focus
-- "fix security issues" → security focus
-- "better docs" → documentation focus
-- "clean up code" → technical debt focus
-
-Multiple focus areas can be specified:
-- "improve performance and security" → dual focus
-- "better tests and documentation" → dual focus
+The focus directive is passed as-is to Claude, which interprets it naturally. Common patterns:
+- "user experience" → API design, error handling, documentation
+- "performance" → Speed, memory, efficiency
+- "security" → Safety, validation, vulnerabilities
+- "testing" or "code coverage" → Test quality and coverage
+- "maintainability" → Code organization, clarity, documentation
 
 ## Progress Tracking
 
-Update the session output to show focus directive:
+Update the session output to show focus directive on first iteration only:
 
 ```
 🎯 Starting MMM Improve (Target: 8.0)
-📋 Focus: Improving code coverage
+📋 Focus: user experience (initial analysis)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 🔄 Iteration 1/10...
    Running focused code review...
-   ✓ Found 5 code coverage issues (2 critical)
+   ✓ Found 5 UX-related issues (2 critical)
    ✓ Found 3 other issues (1 medium, 2 low)
    ✓ Generated spec: iteration-1708123456-improvements.md
+
+🔄 Iteration 2/10...
+   Running code review...
+   ✓ Found 4 issues (1 critical, 2 medium, 1 low)
+   ✓ Generated spec: iteration-1708123457-improvements.md
 ```
 
 ## Error Handling
 
-### Invalid Focus Directives
-If the focus directive cannot be parsed or understood:
-- Log a warning but continue with broad analysis
-- Include note in the review that focus was unclear
-- Suggest valid focus examples in output
-
-### Conflicting Focus Areas
-When multiple focus areas conflict (e.g., "optimize performance" vs "improve readability"):
-- Apply both filters with equal weight
-- Note the potential conflict in the spec
-- Let the reviewer make case-by-case decisions
+Focus directives are treated as natural language hints. Since they only affect the initial analysis:
+- No validation needed - Claude interprets the focus naturally
+- Unclear focus results in standard broad analysis
+- Focus is simply passed through as an environment variable
 
 ## Implementation Steps
 
-1. **Update CLI to accept focus arguments** (src/main.rs)
+1. **Update CLI to accept --focus flag** (src/main.rs)
 2. **Pass focus through ImproveCommand** (src/improve/command.rs)
 3. **Add focus to Session struct** (src/improve/session.rs)
-4. **Pass focus via environment variable** to Claude commands
-5. **Update /mmm-code-review** to parse and apply focus directives
-6. **Add focus-aware prioritization** to issue categorization
-7. **Update spec generation** to include focus context
-8. **Test with various focus directives**
+4. **Pass focus via MMM_FOCUS env var on first iteration only**
+5. **Update /mmm-code-review to check for MMM_FOCUS**
+6. **Add focus-aware prioritization when MMM_FOCUS is set**
+7. **Test with various focus directives**
 
 ## Future Enhancements
 
-### Focus Profiles
-Pre-defined focus profiles for common scenarios:
-```bash
-mmm --profile production  # Focus on performance, security, error handling
-mmm --profile testing     # Focus on code coverage, test quality
-mmm --profile refactor    # Focus on technical debt, code organization
-```
-
-### Focus Metrics
-Track improvement metrics specific to focus area:
-- Code coverage: Show coverage % before/after
-- Performance: Run benchmarks, show improvements
-- Security: Count vulnerabilities fixed
-- Documentation: Show doc coverage %
-
-### Focus Persistence
-Save focus directive in `.mmm/config.toml`:
-```toml
-[improve]
-focus = "improving code coverage"
-target = 8.0
-```
+- Multiple focus areas: `--focus "performance and security"`
+- Focus profiles: `--profile production` (combines common focuses)
+- Focus-specific metrics in the analysis output
 
 ## Success Criteria
 
-1. Users can provide natural language focus directives
-2. Code review prioritizes issues based on focus
-3. Generated specs clearly indicate focus influence
-4. Improvement loop makes measurable progress on focus area
-5. Focus directive is shown in progress output
-6. System handles unclear focus gracefully
+1. Users can provide focus via `--focus` flag
+2. Initial code review prioritizes issues based on focus
+3. First generated spec reflects the focus area
+4. Subsequent iterations proceed normally without focus
+5. Focus directive is shown in progress output for first iteration
+6. System handles any focus string gracefully
 
 ## Example Usage Flow
 
 ```bash
-$ mmm focus on improving code coverage
+$ mmm --focus "user experience"
 🎯 Starting MMM Improve (Target: 8.0)
-📋 Focus: Improving code coverage
+📋 Focus: user experience (initial analysis)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📊 Initial Analysis:
    Project Score: 6.8/10.0
-   Code Coverage: 45%
-   Focus Impact: High priority on test-related improvements
 
 🔄 Iteration 1/10...
    Running focused code review...
-   ✓ Found 8 code coverage issues:
-     - 3 critical: Core modules with 0% coverage
-     - 4 high: Important functions lacking tests
-     - 1 medium: Edge cases not tested
-   ✓ Found 5 other issues (lower priority due to focus)
+   ✓ Found 6 UX-related issues:
+     - 2 critical: Poor error messages, confusing API
+     - 3 high: Missing documentation, unclear naming
+     - 1 medium: Inconsistent behavior
+   ✓ Found 4 other issues
    ✓ Generated spec: iteration-1708123456-improvements.md
    
    Implementing improvements...
-   ✓ Added 15 unit tests
-   ✓ Created 3 integration tests
-   ✓ Fixed test infrastructure issues
+   ✓ Improved error messages with context
+   ✓ Renamed confusing functions
+   ✓ Added missing documentation
    
    Running tests and linting...
    ✓ All tests passing
-   ✓ Coverage increased to 62%
    
 📊 Progress Update:
    Project Score: 7.2/10.0 ↑
-   Code Coverage: 62% ↑ (Focus metric improving!)
    
 🔄 Iteration 2/10...
-   [continues with focus on remaining coverage gaps]
+   Running code review...
+   [continues with normal broad analysis]
 ```
 
 ## Status: PROPOSED
 
-This spec outlines a comprehensive system for adding focus directives to the mmm improvement loop, allowing users to guide the automated improvement process towards specific goals while maintaining the simplicity of the current CLI interface.
+This spec outlines a simple system for adding an optional focus directive to guide the initial code analysis phase of mmm. The focus only affects the first iteration, keeping the self-improvement loop simple while allowing users to influence what gets prioritized initially.
