@@ -1186,9 +1186,11 @@ fn is_claude_cli_command(command: &str) -> bool {
     )
 }
 
-/// Execute Claude CLI command directly
+/// Execute Claude CLI command directly with streaming output
 async fn execute_claude_cli_direct(command: &str, args: Vec<String>) -> Result<String> {
     use tokio::process::Command;
+    use tokio::io::{AsyncBufReadExt, BufReader};
+    use std::process::Stdio;
 
     // Map MMM command to Claude CLI slash command
     let slash_command = match command {
@@ -1217,33 +1219,77 @@ async fn execute_claude_cli_direct(command: &str, args: Vec<String>) -> Result<S
         cmd_args
     );
 
-    // Execute Claude CLI
-    let output = Command::new("claude")
+    // Execute Claude CLI with streaming output
+    let mut child = Command::new("claude")
         .args(&cmd_args)
-        .output()
-        .await
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
         .map_err(|e| {
             error!("Failed to execute Claude CLI: {e}");
             debug!("Command was: claude {}", cmd_args.join(" "));
             mmm::Error::Other(format!("Failed to execute Claude CLI: {e}"))
         })?;
 
-    trace!("Command exit code: {:?}", output.status.code());
-    trace!("Command stdout length: {} bytes", output.stdout.len());
-    trace!("Command stderr length: {} bytes", output.stderr.len());
+    // Get the stdout and stderr streams
+    let stdout = child.stdout.take().expect("Failed to capture stdout");
+    let stderr = child.stderr.take().expect("Failed to capture stderr");
+    
+    // Create buffered readers
+    let stdout_reader = BufReader::new(stdout);
+    let stderr_reader = BufReader::new(stderr);
+    
+    // Stream output in real-time
+    let handle_stdout = tokio::spawn(async move {
+        let mut lines = stdout_reader.lines();
+        let mut output = String::new();
+        while let Ok(Some(line)) = lines.next_line().await {
+            println!("{}", line);
+            output.push_str(&line);
+            output.push('\n');
+        }
+        output
+    });
+    
+    let handle_stderr = tokio::spawn(async move {
+        let mut lines = stderr_reader.lines();
+        let mut errors = String::new();
+        while let Ok(Some(line)) = lines.next_line().await {
+            eprintln!("{}", line);
+            errors.push_str(&line);
+            errors.push('\n');
+        }
+        errors
+    });
 
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    // Wait for the command to complete
+    let status = child.wait().await.map_err(|e| {
+        error!("Failed to wait for Claude CLI: {e}");
+        mmm::Error::Other(format!("Failed to wait for Claude CLI: {e}"))
+    })?;
+
+    // Collect the output
+    let full_output = handle_stdout.await.unwrap_or_default();
+    let full_error = handle_stderr.await.unwrap_or_default();
+
+    trace!("Command exit code: {:?}", status.code());
+    trace!("Command stdout length: {} bytes", full_output.len());
+    trace!("Command stderr length: {} bytes", full_error.len());
+
+    if status.success() {
+        Ok(full_output)
     } else {
-        let error = String::from_utf8_lossy(&output.stderr);
         error!(
             "Claude CLI command failed with status {:?}",
-            output.status.code()
+            status.code()
         );
-        error!("Error output: {error}");
+        if !full_error.is_empty() {
+            error!("Error output: {}", full_error);
+        }
         debug!("Failed command was: claude {}", cmd_args.join(" "));
         Err(mmm::Error::Other(format!(
-            "Claude CLI command failed: {error}"
+            "Claude CLI command failed: {}",
+            if full_error.is_empty() { "No error message" } else { &full_error }
         )))
     }
 }
