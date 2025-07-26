@@ -351,8 +351,8 @@ fn extract_todo(line: &str) -> Option<(String, TodoPriority)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
     use crate::analyzer::quality::QualitySignals;
+    use std::path::PathBuf;
 
     #[test]
     fn test_assess_code_complexity() {
@@ -389,12 +389,18 @@ mod tests {
             error_handling_score: 0.4,
         };
 
-        assert_eq!(assess_code_complexity(&quality_low), ComplexityLevel::Simple);
+        assert_eq!(
+            assess_code_complexity(&quality_low),
+            ComplexityLevel::Simple
+        );
         assert_eq!(
             assess_code_complexity(&quality_medium),
             ComplexityLevel::Moderate
         );
-        assert_eq!(assess_code_complexity(&quality_high), ComplexityLevel::VeryComplex);
+        assert_eq!(
+            assess_code_complexity(&quality_high),
+            ComplexityLevel::VeryComplex
+        );
     }
 
     #[test]

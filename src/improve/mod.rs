@@ -243,7 +243,7 @@ mod tests {
                 String::new()
             };
 
-            assert_eq!(result, expected, "Failed for input: {}", input);
+            assert_eq!(result, expected, "Failed for input: {input}");
         }
     }
 }
