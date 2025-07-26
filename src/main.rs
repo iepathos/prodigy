@@ -17,6 +17,10 @@ struct Cli {
     /// Enable verbose output (-v for debug, -vv for trace, -vvv for all)
     #[arg(short, long, action = clap::ArgAction::Count, global = true)]
     verbose: u8,
+
+    /// Focus directive for initial analysis (e.g., "user experience", "performance")
+    #[arg(long)]
+    focus: Option<String>,
 }
 
 #[tokio::main]
@@ -44,6 +48,7 @@ async fn main() {
     let improve_cmd = mmm::improve::command::ImproveCommand {
         target: cli.target,
         show_progress: cli.show_progress,
+        focus: cli.focus,
     };
 
     if let Err(e) = mmm::improve::run(improve_cmd).await {

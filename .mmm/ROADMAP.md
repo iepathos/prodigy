@@ -77,6 +77,16 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
 - [x] **Complete audit trail** through git history for all changes
 - [x] **Dynamic spec generation** with specs/temp/ directory for temporary improvement specs
 
+## ✅ Phase 2.10: Focus-Directed Improvements (COMPLETED)
+
+### Focus Directive Support Complete
+- [x] **Added --focus flag** to CLI for directing initial analysis
+- [x] **Updated ImproveCommand** to include optional focus field
+- [x] **Modified improvement loop** to pass focus directive on first iteration only
+- [x] **Environment variable passing** via MMM_FOCUS to /mmm-code-review
+- [x] **Focus directive display** in progress output for first iteration
+- [x] **Natural language interpretation** by Claude for flexible focus areas
+
 ## 📋 Phase 3: Robustness (NEXT)
 
 ### Core Reliability
@@ -153,6 +163,6 @@ Things we're **NOT** building:
 ## Release Strategy
 
 - **v0.1.0**: Basic structure and state management
-- **v0.2.0**: Git-native improvement flow with Claude CLI integration ✅ CURRENT
+- **v0.2.0**: Git-native improvement flow with Claude CLI integration and focus directives ✅ CURRENT
 - **v0.3.0**: Robust - Reliable error handling and UX
 - **v1.0.0**: Production - Polished, multi-language support

@@ -9,4 +9,7 @@ pub struct ImproveCommand {
     /// Show detailed progress
     #[arg(long)]
     pub show_progress: bool,
+
+    /// Focus directive for improvements
+    pub focus: Option<String>,
 }

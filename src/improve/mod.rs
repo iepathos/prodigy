@@ -29,13 +29,25 @@ pub async fn run(cmd: command::ImproveCommand) -> Result<()> {
     // 3. Git-native improvement loop
     let mut iteration = 1;
     let mut files_changed = 0;
+
+    // Display focus directive on first iteration if provided
+    if let Some(focus) = &cmd.focus {
+        println!("📋 Focus: {focus} (initial analysis)");
+    }
+
     while current_score < cmd.target && iteration <= 10 {
         if cmd.show_progress {
             println!("🔄 Iteration {iteration}/10...");
         }
 
         // Step 1: Generate review spec and commit
-        let review_success = call_claude_code_review(cmd.show_progress).await?;
+        let focus_for_iteration = if iteration == 1 {
+            cmd.focus.as_deref()
+        } else {
+            None
+        };
+        let review_success =
+            call_claude_code_review(cmd.show_progress, focus_for_iteration).await?;
         if !review_success {
             if cmd.show_progress {
                 println!("Review failed - stopping iterations");
@@ -88,14 +100,21 @@ pub async fn run(cmd: command::ImproveCommand) -> Result<()> {
     Ok(())
 }
 
-async fn call_claude_code_review(verbose: bool) -> Result<bool> {
+async fn call_claude_code_review(verbose: bool, focus: Option<&str>) -> Result<bool> {
     println!("🤖 Running /mmm-code-review...");
 
-    let status = Command::new("claude")
-        .arg("--dangerously-skip-permissions")
+    let mut cmd = Command::new("claude");
+    cmd.arg("--dangerously-skip-permissions")
         .arg("--print")
         .arg("/mmm-code-review")
-        .env("MMM_AUTOMATION", "true")
+        .env("MMM_AUTOMATION", "true");
+
+    // Pass focus directive via environment variable on first iteration
+    if let Some(focus_directive) = focus {
+        cmd.env("MMM_FOCUS", focus_directive);
+    }
+
+    let status = cmd
         .status()
         .await
         .context("Failed to execute Claude CLI for review")?;

@@ -257,3 +257,21 @@ Complete the git-native architecture with dynamic spec generation in specs/temp/
 - **Positive**: Complete git-native workflow, robust audit trail, debuggable intermediate specs, no JSON parsing complexity
 - **Negative**: Additional directory structure, temporary files need cleanup
 - **Implementation**: Created specs/temp/ directory structure, confirmed git log parsing for spec extraction, complete three-step commit sequence (review → implement → lint)
+
+---
+
+## ADR-016: Focus-Directed Initial Analysis
+
+### Status
+Accepted
+
+### Context
+Spec 20 identified the need for users to guide the initial code analysis phase towards specific areas of concern like "user experience", "performance", or "security". Without this, Claude prioritizes issues automatically based on severity alone.
+
+### Decision
+Add optional --focus flag to CLI that passes a focus directive via MMM_FOCUS environment variable to the first iteration of /mmm-code-review only. Claude naturally interprets the focus area and adjusts issue prioritization accordingly.
+
+### Consequences
+- **Positive**: User control over initial priorities, natural language interpretation, simple implementation, no validation needed
+- **Negative**: Only affects first iteration, relies on Claude's interpretation abilities
+- **Implementation**: Added --focus flag to CLI, passed through ImproveCommand, environment variable MMM_FOCUS set on first iteration only, /mmm-code-review already had comprehensive focus support

@@ -5,6 +5,7 @@ Conduct a comprehensive code review of the current project or specified componen
 ## Variables
 
 SCOPE: $ARGUMENTS (optional - specify scope like "src/parser", "tests", specific files, or omit for entire codebase)
+FOCUS: $MMM_FOCUS (optional - focus directive from mmm CLI, e.g., "user experience", "performance")
 
 ## Execute
 
@@ -15,7 +16,17 @@ SCOPE: $ARGUMENTS (optional - specify scope like "src/parser", "tests", specific
    - Understand project goals, architecture patterns, and coding standards
    - Identify recently completed specifications from ROADMAP.md
 
-2. **Determine Review Scope**
+2. **Parse Focus Directive (if provided)**
+   - If FOCUS environment variable is set, interpret the focus area
+   - Adjust review priorities based on focus:
+     - "user experience" → API design, error messages, documentation, CLI ergonomics
+     - "performance" → Algorithmic complexity, allocations, hot paths, concurrency
+     - "security" → Input validation, unsafe code, dependencies, error handling
+     - "code coverage" → Missing tests, untested paths, test quality
+     - "documentation" → API docs, examples, clarity, completeness
+   - Note: Focus affects issue prioritization, not what is reviewed
+
+3. **Determine Review Scope**
    - If SCOPE specified: Focus on specific files/directories
    - If no SCOPE: Review recent changes since last major commit
    - Prioritize areas with recent modifications or new implementations
@@ -118,10 +129,16 @@ SCOPE: $ARGUMENTS (optional - specify scope like "src/parser", "tests", specific
 ### Phase 7: Recommendations and Action Items
 
 1. **Issue Categorization**
+   Standard severity levels:
    - **Critical**: Security issues, compilation errors, broken functionality
    - **High**: Performance issues, architectural violations, missing tests
    - **Medium**: Code quality improvements, minor design issues
    - **Low**: Style improvements, documentation updates
+   
+   When FOCUS directive is provided, adjust severity for focus-related issues:
+   - Issues directly related to focus area: Increase severity by one level
+   - Example: If FOCUS="user experience", poor error messages become High instead of Medium
+   - Example: If FOCUS="performance", O(n²) algorithms become Critical instead of High
 
 2. **Improvement Suggestions**
    - Specific code refactoring recommendations
@@ -129,9 +146,15 @@ SCOPE: $ARGUMENTS (optional - specify scope like "src/parser", "tests", specific
    - Architecture improvements
    - Testing gaps and suggestions
    - Documentation improvements
+   
+   When FOCUS is set:
+   - Group focus-related improvements at the top
+   - Clearly mark which issues relate to the focus area
+   - Provide extra detail for focus-related improvements
 
 3. **Action Plan**
    - Prioritized list of issues to address
+   - When FOCUS is set: Focus-related issues first, then others by severity
    - Suggested implementation order
    - Potential breaking changes to consider
    - Long-term architectural considerations
@@ -151,8 +174,10 @@ SCOPE: $ARGUMENTS (optional - specify scope like "src/parser", "tests", specific
    
    ## Overview
    Temporary specification for code improvements identified in automated review.
+   {IF FOCUS: "Focus directive: {FOCUS}"}
    
    ## Issues to Address
+   {IF FOCUS: Prioritize issues related to focus area first}
    
    ### 1. {Issue Title}
    **Severity**: {severity}
