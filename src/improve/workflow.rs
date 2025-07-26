@@ -1,4 +1,6 @@
 use crate::config::workflow::WorkflowConfig;
+use crate::improve::git_ops::get_last_commit_message;
+use crate::improve::retry::{check_claude_cli, execute_with_retry, format_subprocess_error};
 use anyhow::{anyhow, Context as _, Result};
 use tokio::process::Command;
 
@@ -68,26 +70,16 @@ impl WorkflowExecutor {
 
     /// Execute a Claude command
     async fn execute_command(&self, command: &str, focus: Option<&str>) -> Result<bool> {
-        println!("🤖 Running /{}...", command);
+        println!("🤖 Running /{command}...");
 
-        // First check if claude command exists
-        let claude_check = Command::new("which")
-            .arg("claude")
-            .output()
-            .await
-            .context("Failed to check for Claude CLI")?;
-
-        if !claude_check.status.success() {
-            return Err(anyhow!(
-                "Claude CLI not found. Please install Claude CLI: https://claude.ai/cli"
-            ));
-        }
+        // First check if claude command exists with improved error handling
+        check_claude_cli().await?;
 
         // Build command
         let mut cmd = Command::new("claude");
         cmd.arg("--dangerously-skip-permissions")
             .arg("--print")
-            .arg(format!("/{}", command))
+            .arg(format!("/{command}"))
             .env("MMM_AUTOMATION", "true");
 
         // Add focus directive if provided (for first command of first iteration)
@@ -95,27 +87,24 @@ impl WorkflowExecutor {
             cmd.env("MMM_FOCUS", focus_directive);
         }
 
-        // Execute command
-        let output = cmd
-            .output()
-            .await
-            .context(format!("Failed to execute command: {}", command))?;
+        // Execute with retry logic for transient failures
+        let output =
+            execute_with_retry(cmd, &format!("command /{command}"), 2, self.verbose).await?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            if self.verbose {
-                eprintln!("Command stderr: {stderr}");
-            }
-            return Err(anyhow!(
-                "Command '{}' failed with exit code {}: {}",
-                command,
-                output.status.code().unwrap_or(-1),
-                stderr
-            ));
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let error_msg = format_subprocess_error(
+                &format!("claude /{command}"),
+                output.status.code(),
+                &stderr,
+                &stdout,
+            );
+            return Err(anyhow!(error_msg));
         }
 
         if self.verbose {
-            println!("✅ Command '{}' completed", command);
+            println!("✅ Command '{command}' completed");
         }
 
         Ok(true)
@@ -123,35 +112,38 @@ impl WorkflowExecutor {
 
     /// Execute a Claude command with arguments
     async fn execute_command_with_args(&self, command: &str, args: &[String]) -> Result<bool> {
-        println!("🤖 Running /{} {}...", command, args.join(" "));
+        println!("🤖 Running /{command} {}...", args.join(" "));
 
         let mut cmd = Command::new("claude");
         cmd.arg("--dangerously-skip-permissions")
             .arg("--print")
-            .arg(format!("/{}", command))
+            .arg(format!("/{command}"))
             .args(args)
             .env("MMM_AUTOMATION", "true");
 
-        let output = cmd
-            .output()
-            .await
-            .context(format!("Failed to execute command: {}", command))?;
+        // Execute with retry logic for transient failures
+        let output = execute_with_retry(
+            cmd,
+            &format!("command /{command} {}", args.join(" ")),
+            2,
+            self.verbose,
+        )
+        .await?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            if self.verbose {
-                eprintln!("Command stderr: {stderr}");
-            }
-            return Err(anyhow!(
-                "Command '{}' failed with exit code {}: {}",
-                command,
-                output.status.code().unwrap_or(-1),
-                stderr
-            ));
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let error_msg = format_subprocess_error(
+                &format!("claude /{command} {}", args.join(" ")),
+                output.status.code(),
+                &stderr,
+                &stdout,
+            );
+            return Err(anyhow!(error_msg));
         }
 
         if self.verbose {
-            println!("✅ Command '{}' completed", command);
+            println!("✅ Command '{command}' completed");
         }
 
         Ok(true)
@@ -163,13 +155,10 @@ impl WorkflowExecutor {
             println!("Extracting spec ID from git history...");
         }
 
-        let output = Command::new("git")
-            .args(["log", "-1", "--pretty=format:%s"])
-            .output()
+        // Use thread-safe git operation
+        let commit_message = get_last_commit_message()
             .await
             .context("Failed to get git log")?;
-
-        let commit_message = String::from_utf8_lossy(&output.stdout);
 
         // Parse commit message like "review: generate improvement spec for iteration-1234567890-improvements"
         if let Some(spec_start) = commit_message.find("iteration-") {

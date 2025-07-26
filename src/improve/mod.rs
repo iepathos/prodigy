@@ -1,4 +1,6 @@
 pub mod command;
+pub mod git_ops;
+pub mod retry;
 pub mod session;
 pub mod workflow;
 
@@ -7,6 +9,8 @@ use crate::config::{ConfigLoader, WorkflowConfig};
 use crate::simple_state::StateManager;
 use anyhow::{anyhow, Context as _, Result};
 use chrono::Utc;
+use git_ops::get_last_commit_message;
+use retry::{check_claude_cli, execute_with_retry, format_subprocess_error};
 use std::path::Path;
 use tokio::process::Command;
 use workflow::WorkflowExecutor;
@@ -174,18 +178,8 @@ pub async fn run(cmd: command::ImproveCommand) -> Result<()> {
 async fn call_claude_code_review(verbose: bool, focus: Option<&str>) -> Result<bool> {
     println!("🤖 Running /mmm-code-review...");
 
-    // First check if claude command exists
-    let claude_check = Command::new("which")
-        .arg("claude")
-        .output()
-        .await
-        .context("Failed to check for Claude CLI")?;
-
-    if !claude_check.status.success() {
-        return Err(anyhow!(
-            "Claude CLI not found. Please install Claude CLI: https://claude.ai/cli"
-        ));
-    }
+    // First check if claude command exists with improved error handling
+    check_claude_cli().await?;
 
     let mut cmd = Command::new("claude");
     cmd.arg("--dangerously-skip-permissions") // Required for automation: bypasses interactive permission checks
@@ -198,21 +192,19 @@ async fn call_claude_code_review(verbose: bool, focus: Option<&str>) -> Result<b
         cmd.env("MMM_FOCUS", focus_directive);
     }
 
-    let output = cmd
-        .output()
-        .await
-        .context("Failed to execute Claude CLI for review")?;
+    // Execute with retry logic for transient failures
+    let output = execute_with_retry(cmd, "Claude code review", 2, verbose).await?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        if verbose {
-            eprintln!("Claude CLI stderr: {stderr}");
-        }
-        return Err(anyhow!(
-            "Claude CLI failed with exit code {}: {}",
-            output.status.code().unwrap_or(-1),
-            stderr
-        ));
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let error_msg = format_subprocess_error(
+            "claude /mmm-code-review",
+            output.status.code(),
+            &stderr,
+            &stdout,
+        );
+        return Err(anyhow!(error_msg));
     }
 
     if verbose {
@@ -227,13 +219,10 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
         println!("Extracting spec ID from git history...");
     }
 
-    let output = Command::new("git")
-        .args(["log", "-1", "--pretty=format:%s"])
-        .output()
+    // Use thread-safe git operation
+    let commit_message = get_last_commit_message()
         .await
         .context("Failed to get git log")?;
-
-    let commit_message = String::from_utf8_lossy(&output.stdout);
 
     // Parse commit message like "review: generate improvement spec for iteration-1234567890-improvements"
     if let Some(spec_start) = commit_message.find("iteration-") {
@@ -251,26 +240,32 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
 async fn call_claude_implement_spec(spec_id: &str, verbose: bool) -> Result<bool> {
     println!("🔧 Running /mmm-implement-spec {spec_id}...");
 
-    let output = Command::new("claude")
-        .arg("--dangerously-skip-permissions") // Required for automation: bypasses interactive permission checks
+    let mut cmd = Command::new("claude");
+    cmd.arg("--dangerously-skip-permissions") // Required for automation: bypasses interactive permission checks
         .arg("--print") // Outputs response to stdout for capture instead of interactive display
         .arg("/mmm-implement-spec") // The custom command for spec implementation
         .arg(spec_id) // The spec ID to implement (e.g., "iteration-123-improvements")
-        .env("MMM_AUTOMATION", "true") // Signals to /mmm-implement-spec to run in automated mode
-        .output()
-        .await
-        .context("Failed to execute Claude CLI for implementation")?;
+        .env("MMM_AUTOMATION", "true"); // Signals to /mmm-implement-spec to run in automated mode
+
+    // Execute with retry logic for transient failures
+    let output = execute_with_retry(
+        cmd,
+        &format!("Claude implement spec {spec_id}"),
+        2,
+        verbose,
+    )
+    .await?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        if verbose {
-            eprintln!("Claude CLI stderr: {stderr}");
-        }
-        return Err(anyhow!(
-            "Claude CLI failed with exit code {}: {}",
-            output.status.code().unwrap_or(-1),
-            stderr
-        ));
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let error_msg = format_subprocess_error(
+            &format!("claude /mmm-implement-spec {spec_id}"),
+            output.status.code(),
+            &stderr,
+            &stdout,
+        );
+        return Err(anyhow!(error_msg));
     }
 
     if verbose {
@@ -283,25 +278,21 @@ async fn call_claude_implement_spec(spec_id: &str, verbose: bool) -> Result<bool
 async fn call_claude_lint(verbose: bool) -> Result<bool> {
     println!("🧹 Running /mmm-lint...");
 
-    let output = Command::new("claude")
-        .arg("--dangerously-skip-permissions") // Required for automation: bypasses interactive permission checks
+    let mut cmd = Command::new("claude");
+    cmd.arg("--dangerously-skip-permissions") // Required for automation: bypasses interactive permission checks
         .arg("--print") // Outputs response to stdout for capture instead of interactive display
         .arg("/mmm-lint") // The custom command for linting and formatting
-        .env("MMM_AUTOMATION", "true") // Signals to /mmm-lint to run in automated mode
-        .output()
-        .await
-        .context("Failed to execute Claude CLI for linting")?;
+        .env("MMM_AUTOMATION", "true"); // Signals to /mmm-lint to run in automated mode
+
+    // Execute with retry logic for transient failures
+    let output = execute_with_retry(cmd, "Claude lint", 2, verbose).await?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        if verbose {
-            eprintln!("Claude CLI stderr: {stderr}");
-        }
-        return Err(anyhow!(
-            "Claude CLI failed with exit code {}: {}",
-            output.status.code().unwrap_or(-1),
-            stderr
-        ));
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let error_msg =
+            format_subprocess_error("claude /mmm-lint", output.status.code(), &stderr, &stdout);
+        return Err(anyhow!(error_msg));
     }
 
     if verbose {
