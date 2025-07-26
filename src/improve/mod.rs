@@ -95,6 +95,7 @@ async fn call_claude_code_review(verbose: bool) -> Result<bool> {
 
     let status = Command::new("claude")
         .arg("--dangerously-skip-permissions")
+        .arg("--print")
         .arg("/mmm-code-review")
         .env("MMM_AUTOMATION", "true")
         .status()
@@ -137,6 +138,7 @@ async fn call_claude_implement_spec(spec_id: &str, verbose: bool) -> Result<bool
 
     let status = Command::new("claude")
         .arg("--dangerously-skip-permissions")
+        .arg("--print")
         .arg("/mmm-implement-spec")
         .arg(spec_id)
         .env("MMM_AUTOMATION", "true")
@@ -154,6 +156,7 @@ async fn call_claude_lint(verbose: bool) -> Result<bool> {
 
     let status = Command::new("claude")
         .arg("--dangerously-skip-permissions")
+        .arg("--print")
         .arg("/mmm-lint")
         .env("MMM_AUTOMATION", "true")
         .status()
