@@ -74,7 +74,7 @@ fn test_mmm_worktree_list_command() -> anyhow::Result<()> {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     // Should indicate no active worktrees
-    assert!(stdout.contains("No active worktrees") || stdout.trim().is_empty());
+    assert!(stdout.contains("No active MMM worktrees found") || stdout.trim().is_empty());
 
     Ok(())
 }
@@ -146,10 +146,10 @@ fn test_mmm_worktree_merge_command() -> anyhow::Result<()> {
 fn test_mmm_worktree_clean_command() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
 
-    // Run mmm worktree clean
+    // Run mmm worktree clean --all
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
         .current_dir(&temp_dir)
-        .args(["worktree", "clean"])
+        .args(["worktree", "clean", "--all"])
         .output()?;
 
     // Should succeed even with no worktrees
