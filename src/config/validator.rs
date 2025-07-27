@@ -1,14 +1,22 @@
-use super::{Config, GlobalConfig, ProjectConfig};
+use super::{Config, GlobalConfig, ProjectConfig, WorkflowConfig};
 use anyhow::{anyhow, Result};
 
 pub struct ConfigValidator;
 
 impl ConfigValidator {
+    pub fn validate(config: &Config) -> Result<()> {
+        Self::validate_config(config)
+    }
+
     pub fn validate_config(config: &Config) -> Result<()> {
         Self::validate_global(&config.global)?;
 
         if let Some(project) = &config.project {
             Self::validate_project(project)?;
+        }
+
+        if let Some(workflow) = &config.workflow {
+            Self::validate_workflow(workflow)?;
         }
 
         Ok(())
@@ -89,6 +97,23 @@ impl ConfigValidator {
 
         if api_key.len() < 20 {
             return Err(anyhow!("Claude API key appears to be too short"));
+        }
+
+        Ok(())
+    }
+
+    pub fn validate_workflow(workflow: &WorkflowConfig) -> Result<()> {
+        if workflow.commands.is_empty() {
+            return Err(anyhow!("Workflow must have at least one command"));
+        }
+
+        for command in &workflow.commands {
+            if !command.starts_with('/') {
+                return Err(anyhow!(
+                    "Workflow command '{}' must start with '/'",
+                    command
+                ));
+            }
         }
 
         Ok(())

@@ -61,7 +61,7 @@ impl WorktreeManager {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("Failed to create worktree: {}", stderr);
+            anyhow::bail!("Failed to create worktree: {stderr}");
         }
 
         Ok(WorktreeSession::new(
@@ -81,7 +81,7 @@ impl WorktreeManager {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("Failed to list worktrees: {}", stderr);
+            anyhow::bail!("Failed to list worktrees: {stderr}");
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -147,7 +147,9 @@ impl WorktreeManager {
     pub fn merge_session(&self, name: &str) -> Result<()> {
         // Get the worktree branch name to verify merge
         let sessions = self.list_sessions()?;
-        let session = sessions.iter().find(|s| s.name == name)
+        let session = sessions
+            .iter()
+            .find(|s| s.name == name)
             .ok_or_else(|| anyhow::anyhow!("Worktree '{}' not found", name))?;
         let worktree_branch = &session.branch;
 
@@ -196,7 +198,7 @@ impl WorktreeManager {
                 eprintln!("Standard output: {stdout}");
             }
 
-            anyhow::bail!("Failed to merge worktree '{}' - Claude merge failed", name);
+            anyhow::bail!("Failed to merge worktree '{name}' - Claude merge failed");
         }
 
         // Parse the output for success confirmation
@@ -224,7 +226,8 @@ impl WorktreeManager {
                     anyhow::bail!(
                         "Merge verification failed - branch '{}' is not merged into '{}'. \
                         The merge may have been aborted or failed silently.",
-                        worktree_branch, target
+                        worktree_branch,
+                        target
                     );
                 }
             }
@@ -245,7 +248,7 @@ impl WorktreeManager {
         if !prune_output.status.success() {
             let stderr = String::from_utf8_lossy(&prune_output.stderr);
             if !stderr.contains("is not a working tree") {
-                anyhow::bail!("Failed to remove worktree: {}", stderr);
+                anyhow::bail!("Failed to remove worktree: {stderr}");
             }
         }
 
@@ -275,8 +278,9 @@ impl WorktreeManager {
     pub fn cleanup_all_sessions(&self) -> Result<()> {
         let sessions = self.list_sessions()?;
         for session in sessions {
-            println!("Cleaning up worktree: {}", session.name);
-            self.cleanup_session(&session.name)?;
+            let name = &session.name;
+            println!("Cleaning up worktree: {name}");
+            self.cleanup_session(name)?;
         }
         Ok(())
     }

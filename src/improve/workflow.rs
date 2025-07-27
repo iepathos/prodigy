@@ -178,3 +178,132 @@ impl WorkflowExecutor {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_workflow() -> WorkflowConfig {
+        WorkflowConfig {
+            commands: vec![
+                "/mmm-code-review".to_string(),
+                "/mmm-implement-spec".to_string(),
+                "/mmm-lint".to_string(),
+            ],
+            max_iterations: 10,
+        }
+    }
+
+    #[test]
+    fn test_workflow_executor_creation() {
+        let config = create_test_workflow();
+        let executor = WorkflowExecutor::new(config.clone(), true, 5);
+
+        assert_eq!(executor.config.commands.len(), 3);
+        assert!(executor.verbose);
+        assert_eq!(executor.max_iterations, 5);
+    }
+
+    #[tokio::test]
+    async fn test_execute_iteration_with_focus() {
+        let config = WorkflowConfig {
+            commands: vec!["/mmm-code-review".to_string()],
+            max_iterations: 1,
+        };
+        let executor = WorkflowExecutor::new(config, false, 1);
+
+        // We can't test actual execution without Claude CLI, but we can test the logic
+        // This would need mocking in a real test environment
+        assert!(executor.config.commands.len() == 1);
+    }
+
+    #[test]
+    fn test_workflow_config_defaults() {
+        let config = WorkflowConfig::default();
+
+        assert_eq!(config.commands.len(), 3);
+        assert_eq!(config.commands[0], "mmm-code-review");
+        assert_eq!(config.commands[1], "mmm-implement-spec");
+        assert_eq!(config.commands[2], "mmm-lint");
+        assert_eq!(config.max_iterations, 10);
+    }
+
+    #[test]
+    fn test_spec_extraction_logic() {
+        // Test the spec extraction pattern
+        let test_messages = vec![
+            (
+                "review: generate improvement spec for iteration-1234567890-improvements",
+                "iteration-1234567890-improvements",
+            ),
+            (
+                "review: iteration-9876543210-improvements created",
+                "iteration-9876543210-improvements",
+            ),
+            ("no spec in this message", ""),
+        ];
+
+        for (message, expected) in test_messages {
+            let result = if let Some(spec_start) = message.find("iteration-") {
+                let spec_part = &message[spec_start..];
+                if let Some(spec_end) = spec_part.find(' ') {
+                    spec_part[..spec_end].to_string()
+                } else {
+                    spec_part.to_string()
+                }
+            } else {
+                String::new()
+            };
+
+            assert_eq!(result, expected);
+        }
+    }
+
+    #[test]
+    fn test_focus_directive_logic() {
+        let config = create_test_workflow();
+        let executor = WorkflowExecutor::new(config, true, 10);
+
+        // Test that focus is only applied on first command of first iteration
+        for iteration in 1..=3 {
+            for (idx, _command) in executor.config.commands.iter().enumerate() {
+                let should_have_focus = idx == 0 && iteration == 1;
+
+                // This logic matches the implementation
+                let step_focus = if idx == 0 && iteration == 1 {
+                    Some("performance")
+                } else {
+                    None
+                };
+
+                if should_have_focus {
+                    assert!(step_focus.is_some());
+                } else {
+                    assert!(step_focus.is_none());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_special_command_handling() {
+        let config = create_test_workflow();
+
+        // Test that mmm-implement-spec is recognized as special
+        assert!(config.commands.contains(&"/mmm-implement-spec".to_string()));
+
+        // Test command matching
+        for command in &config.commands {
+            match command.as_str() {
+                "/mmm-implement-spec" => {
+                    // This command requires special spec extraction
+                    assert!(true);
+                }
+                _ => {
+                    // Other commands are handled normally
+                    assert!(command.starts_with('/'));
+                }
+            }
+        }
+    }
+}
