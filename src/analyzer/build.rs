@@ -3,7 +3,7 @@
 use anyhow::Result;
 use std::collections::HashMap;
 
-use super::structure::{ConfigFile, ConfigFileType, ProjectStructure};
+use super::structure::ProjectStructure;
 
 /// Dependency information
 #[derive(Debug, Clone)]
@@ -347,7 +347,7 @@ impl BuildAnalyzer {
         scripts.insert("build".to_string(), "mvn compile".to_string());
         scripts.insert("test".to_string(), "mvn test".to_string());
         scripts.insert("package".to_string(), "mvn package".to_string());
-        
+
         Ok(BuildInfo {
             tool: BuildTool::Maven,
             scripts,
@@ -361,7 +361,7 @@ impl BuildAnalyzer {
         scripts.insert("build".to_string(), "gradle build".to_string());
         scripts.insert("test".to_string(), "gradle test".to_string());
         scripts.insert("run".to_string(), "gradle run".to_string());
-        
+
         Ok(BuildInfo {
             tool: BuildTool::Gradle,
             scripts,
@@ -403,7 +403,7 @@ impl BuildAnalyzer {
         let mut scripts = HashMap::new();
         scripts.insert("install".to_string(), "bundle install".to_string());
         scripts.insert("update".to_string(), "bundle update".to_string());
-        
+
         Ok(BuildInfo {
             tool: BuildTool::Bundler,
             scripts,
@@ -417,7 +417,7 @@ impl BuildAnalyzer {
         scripts.insert("build".to_string(), "swift build".to_string());
         scripts.insert("test".to_string(), "swift test".to_string());
         scripts.insert("run".to_string(), "swift run".to_string());
-        
+
         Ok(BuildInfo {
             tool: BuildTool::SwiftPM,
             scripts,
@@ -464,6 +464,7 @@ fn parse_requirement(line: &str) -> Option<(String, String)> {
 mod tests {
     use super::*;
     use tempfile::TempDir;
+    use crate::analyzer::structure::{ConfigFile, ConfigFileType};
 
     #[test]
     fn test_build_tool_display() {
@@ -489,7 +490,10 @@ mod tests {
 
         // Test table with version field
         let mut version_table = toml::map::Map::new();
-        version_table.insert("version".to_string(), toml::Value::String("2.0.0".to_string()));
+        version_table.insert(
+            "version".to_string(),
+            toml::Value::String("2.0.0".to_string()),
+        );
         let version_table_value = toml::Value::Table(version_table);
         assert_eq!(extract_version(&version_table_value), "2.0.0");
 
@@ -540,7 +544,9 @@ mod tests {
     async fn test_detect_build_tool_cargo() {
         let temp_dir = TempDir::new().unwrap();
         let cargo_path = temp_dir.path().join("Cargo.toml");
-        tokio::fs::write(&cargo_path, "[package]\nname = \"test\"").await.unwrap();
+        tokio::fs::write(&cargo_path, "[package]\nname = \"test\"")
+            .await
+            .unwrap();
 
         let structure = ProjectStructure {
             root: temp_dir.path().to_path_buf(),
@@ -614,7 +620,9 @@ mod tests {
     async fn test_detect_build_tool_poetry() {
         let temp_dir = TempDir::new().unwrap();
         let pyproject_path = temp_dir.path().join("pyproject.toml");
-        tokio::fs::write(&pyproject_path, "[tool.poetry]\nname = \"test\"").await.unwrap();
+        tokio::fs::write(&pyproject_path, "[tool.poetry]\nname = \"test\"")
+            .await
+            .unwrap();
 
         let structure = ProjectStructure {
             root: temp_dir.path().to_path_buf(),
@@ -638,7 +646,9 @@ mod tests {
     async fn test_detect_build_tool_dotnet() {
         let temp_dir = TempDir::new().unwrap();
         let csproj_path = temp_dir.path().join("test.csproj");
-        tokio::fs::write(&csproj_path, "<Project></Project>").await.unwrap();
+        tokio::fs::write(&csproj_path, "<Project></Project>")
+            .await
+            .unwrap();
 
         let structure = ProjectStructure {
             root: temp_dir.path().to_path_buf(),
@@ -690,7 +700,7 @@ mockall = "0.11"
 
         let analyzer = BuildAnalyzer::new();
         let build_info = analyzer.analyze_cargo(&structure).await.unwrap();
-        
+
         assert_eq!(build_info.tool, BuildTool::Cargo);
         assert_eq!(build_info.dependencies.len(), 2);
         assert_eq!(build_info.dev_dependencies.len(), 1);
@@ -716,7 +726,9 @@ mockall = "0.11"
     "jest": "^29.0.0"
   }
 }"#;
-        tokio::fs::write(&package_path, package_content).await.unwrap();
+        tokio::fs::write(&package_path, package_content)
+            .await
+            .unwrap();
 
         let structure = ProjectStructure {
             root: temp_dir.path().to_path_buf(),
@@ -732,11 +744,17 @@ mockall = "0.11"
         };
 
         let analyzer = BuildAnalyzer::new();
-        let build_info = analyzer.analyze_node(&structure, BuildTool::Npm).await.unwrap();
-        
+        let build_info = analyzer
+            .analyze_node(&structure, BuildTool::Npm)
+            .await
+            .unwrap();
+
         assert_eq!(build_info.tool, BuildTool::Npm);
         assert_eq!(build_info.scripts.len(), 2);
-        assert_eq!(build_info.scripts.get("build"), Some(&"webpack".to_string()));
+        assert_eq!(
+            build_info.scripts.get("build"),
+            Some(&"webpack".to_string())
+        );
         assert_eq!(build_info.dependencies.len(), 2);
         assert_eq!(build_info.dev_dependencies.len(), 1);
     }
@@ -754,7 +772,9 @@ pytest
 # Another comment
 numpy>=1.21.0
 "#;
-        tokio::fs::write(&requirements_path, requirements_content).await.unwrap();
+        tokio::fs::write(&requirements_path, requirements_content)
+            .await
+            .unwrap();
 
         let structure = ProjectStructure {
             root: temp_dir.path().to_path_buf(),
@@ -770,8 +790,11 @@ numpy>=1.21.0
         };
 
         let analyzer = BuildAnalyzer::new();
-        let build_info = analyzer.analyze_python(&structure, BuildTool::Pip).await.unwrap();
-        
+        let build_info = analyzer
+            .analyze_python(&structure, BuildTool::Pip)
+            .await
+            .unwrap();
+
         assert_eq!(build_info.tool, BuildTool::Pip);
         assert_eq!(build_info.dependencies.len(), 4);
         assert!(build_info.scripts.contains_key("install"));
@@ -782,13 +805,16 @@ numpy>=1.21.0
         let analyzer1 = BuildAnalyzer::new();
         let analyzer2 = BuildAnalyzer::default();
         // Both should create valid instances
-        assert_eq!(std::mem::size_of_val(&analyzer1), std::mem::size_of_val(&analyzer2));
+        assert_eq!(
+            std::mem::size_of_val(&analyzer1),
+            std::mem::size_of_val(&analyzer2)
+        );
     }
 
     #[tokio::test]
     async fn test_detect_no_build_tool() {
         let temp_dir = TempDir::new().unwrap();
-        
+
         let structure = ProjectStructure {
             root: temp_dir.path().to_path_buf(),
             src_dirs: vec![],

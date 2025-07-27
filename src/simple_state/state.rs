@@ -49,7 +49,10 @@ impl StateManager {
     /// Save state to disk
     pub fn save(&self) -> Result<()> {
         // Save with atomic write - use unique temp file for concurrent access
-        let temp_file = self.root.join(format!("state.json.tmp.{}", Utc::now().timestamp_nanos_opt().unwrap_or(0)));
+        let temp_file = self.root.join(format!(
+            "state.json.tmp.{}",
+            Utc::now().timestamp_nanos_opt().unwrap_or(0)
+        ));
         let final_file = self.root.join("state.json");
 
         // Write to temp file
@@ -106,8 +109,10 @@ impl StateManager {
                         Ok(state) => Ok(state),
                         Err(e) => {
                             // Backup corrupted file - handle concurrent access
-                            let backup = root
-                                .join(format!("state.json.corrupted.{}", Utc::now().timestamp_nanos_opt().unwrap_or(0)));
+                            let backup = root.join(format!(
+                                "state.json.corrupted.{}",
+                                Utc::now().timestamp_nanos_opt().unwrap_or(0)
+                            ));
                             match fs::rename(&state_file, &backup) {
                                 Ok(_) => {
                                     eprintln!("⚠️  State file corrupted, backed up to {backup:?}");
@@ -115,7 +120,9 @@ impl StateManager {
                                 }
                                 Err(rename_err) => {
                                     // File might already be renamed by another thread
-                                    eprintln!("⚠️  State file corrupted, backup failed: {rename_err}");
+                                    eprintln!(
+                                        "⚠️  State file corrupted, backup failed: {rename_err}"
+                                    );
                                     eprintln!("   Parse error: {e}");
                                 }
                             }

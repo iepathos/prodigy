@@ -532,7 +532,11 @@ mod tests {
     use std::path::PathBuf;
     use tempfile::TempDir;
 
-    fn create_test_command(worktree: bool, target: f32, max_iterations: u32) -> command::ImproveCommand {
+    fn create_test_command(
+        worktree: bool,
+        target: f32,
+        max_iterations: u32,
+    ) -> command::ImproveCommand {
         command::ImproveCommand {
             target,
             max_iterations,
@@ -635,7 +639,7 @@ mod tests {
     async fn test_run_with_worktree_flag() {
         // Test that worktree flag is properly handled
         let cmd = create_test_command(true, 8.0, 1);
-        
+
         // We can't fully test without a git repo, but we can verify the logic
         assert!(cmd.worktree);
         assert_eq!(cmd.target, 8.0);
@@ -647,7 +651,7 @@ mod tests {
         // Test deprecated MMM_USE_WORKTREE env var
         std::env::set_var("MMM_USE_WORKTREE", "true");
         let cmd = create_test_command(false, 8.0, 1);
-        
+
         // The function should detect the env var even if flag is false
         let use_worktree = if cmd.worktree {
             true
@@ -659,7 +663,7 @@ mod tests {
         } else {
             false
         };
-        
+
         assert!(use_worktree);
         std::env::remove_var("MMM_USE_WORKTREE");
     }
@@ -672,37 +676,41 @@ mod tests {
     #[tokio::test]
     async fn test_call_claude_implement_spec_validation() {
         // Test spec ID validation in call_claude_implement_spec
-        
+
         // Valid spec IDs
         let valid_specs = vec![
             "iteration-1234567890-improvements",
             "iteration-0-improvements",
             "iteration-99999999999999999999-improvements",
         ];
-        
+
         for spec_id in valid_specs {
-            let is_valid = spec_id.starts_with("iteration-") 
+            let is_valid = spec_id.starts_with("iteration-")
                 && spec_id.ends_with("-improvements")
                 && spec_id.len() >= 24
-                && spec_id[10..spec_id.len()-13].chars().all(|c| c.is_ascii_digit() || c == '-');
+                && spec_id[10..spec_id.len() - 13]
+                    .chars()
+                    .all(|c| c.is_ascii_digit() || c == '-');
             assert!(is_valid, "Should be valid: {}", spec_id);
         }
-        
+
         // Invalid spec IDs
         let invalid_specs = vec![
-            "iteration-abc-improvements",  // Non-numeric
+            "iteration-abc-improvements", // Non-numeric
             "iteration-123",              // Missing suffix
             "123-improvements",           // Missing prefix
             "iteration--improvements",    // No digits
             "iteration-123-wrong",        // Wrong suffix
-            "",                          // Empty
+            "",                           // Empty
         ];
-        
+
         for spec_id in invalid_specs {
-            let is_valid = spec_id.starts_with("iteration-") 
+            let is_valid = spec_id.starts_with("iteration-")
                 && spec_id.ends_with("-improvements")
                 && spec_id.len() >= 24
-                && spec_id[10..spec_id.len()-13].chars().all(|c| c.is_ascii_digit() || c == '-');
+                && spec_id[10..spec_id.len() - 13]
+                    .chars()
+                    .all(|c| c.is_ascii_digit() || c == '-');
             assert!(!is_valid, "Should be invalid: {}", spec_id);
         }
     }
@@ -727,7 +735,8 @@ mod tests {
             [claude]
             model = "claude-3-sonnet"
             "#,
-        ).unwrap();
+        )
+        .unwrap();
 
         // This test would need more setup to actually run the function
         // For now, we test the command structure
@@ -740,7 +749,7 @@ mod tests {
     fn test_improve_command_with_focus() {
         let mut cmd = create_test_command(false, 8.0, 5);
         cmd.focus = Some("performance".to_string());
-        
+
         assert_eq!(cmd.focus.as_deref(), Some("performance"));
         assert_eq!(cmd.max_iterations, 5);
     }
@@ -749,9 +758,11 @@ mod tests {
     fn test_improve_command_with_config_path() {
         let mut cmd = create_test_command(false, 8.0, 5);
         cmd.config = Some(PathBuf::from("/custom/config.toml"));
-        
-        assert_eq!(cmd.config.as_ref().map(|p| p.display().to_string()), 
-                   Some("/custom/config.toml".to_string()));
+
+        assert_eq!(
+            cmd.config.as_ref().map(|p| p.display().to_string()),
+            Some("/custom/config.toml".to_string())
+        );
     }
 
     #[tokio::test]
@@ -760,21 +771,24 @@ mod tests {
         let test_cases = vec![
             // Normal cases
             ("iteration-123-improvements", "iteration-123-improvements"),
-            ("prefix iteration-456-improvements suffix", "iteration-456-improvements"),
-            
+            (
+                "prefix iteration-456-improvements suffix",
+                "iteration-456-improvements",
+            ),
             // Edge cases
-            ("iteration-", "iteration-"),  // Incomplete
-            ("iteration-123", "iteration-123"),  // No -improvements
-            ("iteration-improvements", "iteration-improvements"),  // No number
-            
+            ("iteration-", "iteration-"),       // Incomplete
+            ("iteration-123", "iteration-123"), // No -improvements
+            ("iteration-improvements", "iteration-improvements"), // No number
             // Multiple occurrences (should get first)
-            ("iteration-111-improvements and iteration-222-improvements", "iteration-111-improvements"),
-            
+            (
+                "iteration-111-improvements and iteration-222-improvements",
+                "iteration-111-improvements",
+            ),
             // No match
             ("no spec here", ""),
-            ("iter-123-improvements", ""),  // Wrong prefix
+            ("iter-123-improvements", ""), // Wrong prefix
         ];
-        
+
         for (input, expected) in test_cases {
             let result = if let Some(spec_start) = input.find("iteration-") {
                 let spec_part = &input[spec_start..];
@@ -786,7 +800,7 @@ mod tests {
             } else {
                 String::new()
             };
-            
+
             assert_eq!(result, expected, "Failed for input: '{}'", input);
         }
     }
@@ -799,13 +813,13 @@ mod tests {
             ("command", Some(127), "command not found", ""),
             ("command", None, "killed by signal", "partial output"),
         ];
-        
+
         for (cmd, code, stderr, stdout) in scenarios {
             let formatted = format!(
                 "Command '{}' failed with exit code {:?}\nStderr: {}\nStdout: {}",
                 cmd, code, stderr, stdout
             );
-            
+
             assert!(formatted.contains(cmd));
             assert!(formatted.contains(&format!("{:?}", code)));
             if !stderr.is_empty() {

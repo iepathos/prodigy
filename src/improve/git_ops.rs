@@ -124,19 +124,19 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let original_dir = std::env::current_dir().unwrap();
         std::env::set_current_dir(temp_dir.path()).unwrap();
-        
+
         // Should not be a git repo initially
         assert!(!is_git_repo().await);
-        
+
         // Initialize git repo
         std::process::Command::new("git")
             .args(&["init"])
             .output()
             .unwrap();
-            
+
         // Now should be a git repo
         assert!(is_git_repo().await);
-        
+
         // Restore original directory
         std::env::set_current_dir(original_dir).unwrap();
     }

@@ -62,8 +62,7 @@ pub struct PluginConfig {
 impl Default for GlobalConfig {
     fn default() -> Self {
         Self {
-            mmm_home: get_global_mmm_dir()
-                .unwrap_or_else(|_| PathBuf::from("~/.mmm")),
+            mmm_home: get_global_mmm_dir().unwrap_or_else(|_| PathBuf::from("~/.mmm")),
             default_editor: None,
             log_level: Some("info".to_string()),
             claude_api_key: None,
@@ -487,7 +486,10 @@ commands:
 
         config.merge_env_vars();
 
-        assert_eq!(config.global.claude_api_key, Some("env-api-key".to_string()));
+        assert_eq!(
+            config.global.claude_api_key,
+            Some("env-api-key".to_string())
+        );
         assert_eq!(config.global.log_level, Some("debug".to_string()));
         assert_eq!(config.global.default_editor, Some("vim".to_string()));
         assert_eq!(config.global.auto_commit, Some(false));

@@ -172,7 +172,10 @@ mod tests {
         // Test parsing commands with options
         let cmd4 = Command::from_string("mmm-code-review --focus security");
         assert_eq!(cmd4.name, "mmm-code-review");
-        assert_eq!(cmd4.options.get("focus"), Some(&serde_json::json!("security")));
+        assert_eq!(
+            cmd4.options.get("focus"),
+            Some(&serde_json::json!("security"))
+        );
     }
 
     #[test]

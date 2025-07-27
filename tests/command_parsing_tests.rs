@@ -249,13 +249,11 @@ impl Command {
 
 fn validate_command(cmd: &Command) -> Result<(), String> {
     // Placeholder validation logic
-    let valid_commands = vec![
-        "mmm-code-review",
+    let valid_commands = ["mmm-code-review",
         "mmm-implement-spec",
         "mmm-lint",
         "mmm-test",
-        "mmm-analyze",
-    ];
+        "mmm-analyze"];
 
     if !valid_commands.contains(&cmd.name.as_str()) {
         return Err(format!("Unknown command: {}", cmd.name));
@@ -267,7 +265,7 @@ fn validate_command(cmd: &Command) -> Result<(), String> {
             // Valid args: focus, depth, verbose
             for key in cmd.args.keys() {
                 if !["focus", "depth", "verbose"].contains(&key.as_str()) {
-                    return Err(format!("Invalid argument '{}' for mmm-code-review", key));
+                    return Err(format!("Invalid argument '{key}' for mmm-code-review"));
                 }
             }
         }

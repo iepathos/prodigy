@@ -17,7 +17,6 @@ impl ConfigLoader {
         })
     }
 
-
     /// Load configuration with precedence rules:
     /// 1. If explicit_path is provided, use that file (error if not found)
     /// 2. Otherwise, check for .mmm/workflow.yml in project_path
@@ -291,7 +290,9 @@ auto_commit: false
     async fn test_load_from_path_invalid_yaml() {
         let temp_dir = TempDir::new().unwrap();
         let config_path = temp_dir.path().join("config.yml");
-        fs::write(&config_path, "invalid: yaml: content:").await.unwrap();
+        fs::write(&config_path, "invalid: yaml: content:")
+            .await
+            .unwrap();
 
         let loader = ConfigLoader::new().await.unwrap();
         let result = loader.load_from_path(&config_path).await;
