@@ -173,10 +173,6 @@ impl WorktreeManager {
         );
 
         // Execute Claude CLI command
-        // TODO: There's a known issue where /mmm-merge-worktree doesn't properly
-        // receive command-line arguments when invoked with --print mode.
-        // The command implementation needs to be fixed to properly parse $ARGUMENTS
-        // or use a different method to receive the branch name.
         let mut cmd = Command::new("claude");
         cmd.current_dir(&self.repo_path)
             .arg("--dangerously-skip-permissions") // Skip interactive permission prompts

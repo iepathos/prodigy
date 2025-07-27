@@ -6,6 +6,22 @@ Intelligently merges MMM worktree branches with automatic conflict resolution.
 
 BRANCH_NAME: $ARGUMENTS (required - the worktree branch name to merge, optionally followed by --target <target-branch>)
 
+## CRITICAL: Argument Parsing
+
+You MUST follow this algorithm to parse the branch name:
+
+1. Check if BRANCH_NAME variable has a value
+2. If BRANCH_NAME is not empty:
+   - Split BRANCH_NAME by spaces
+   - The first part is the branch name to merge
+   - If "--target" appears in the arguments, the next value is the target branch
+3. If BRANCH_NAME is empty or not set:
+   - List available worktrees and ask the user to select one
+
+Example parsing:
+- Input: "mmm-test-coverage-1753596774" → Branch: mmm-test-coverage-1753596774, Target: current branch
+- Input: "mmm-test-coverage-1753596774 --target main" → Branch: mmm-test-coverage-1753596774, Target: main
+
 ## Usage
 
 ```
@@ -17,6 +33,14 @@ Examples:
 - `/mmm-merge-worktree mmm-security-1234567891 --target main` - Merge to main branch
 
 ## What This Command Does
+
+IMPORTANT: First, check if BRANCH_NAME variable contains a value. If it does, parse it to extract:
+- The branch name (everything before "--target" if present)
+- The target branch (the value after "--target" if present)
+
+For example, if BRANCH_NAME is "mmm-test-coverage-1753596774 --target main":
+- Branch to merge: mmm-test-coverage-1753596774
+- Target branch: main
 
 0. **Parse Arguments**
    - Extract branch name from BRANCH_NAME (first argument before any --flags)
