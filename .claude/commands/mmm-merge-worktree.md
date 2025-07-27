@@ -2,6 +2,8 @@
 
 Intelligently merges MMM worktree branches with automatic conflict resolution into the repository's default branch (main or master).
 
+Arguments: $ARGUMENTS
+
 ## Usage
 
 ```
@@ -15,8 +17,8 @@ Examples:
 ## Execute
 
 1. **Get Branch Name**
-   - Extract the branch name from the command arguments
-   - If no branch name provided, fail with: "Error: Branch name is required. Usage: /mmm-merge-worktree <branch-name>"
+   - The branch name is provided as: $ARGUMENTS
+   - If no branch name provided (empty $ARGUMENTS), fail with: "Error: Branch name is required. Usage: /mmm-merge-worktree <branch-name>"
 
 2. **Determine Default Branch**
    - Check if 'main' branch exists using `git rev-parse --verify refs/heads/main`
@@ -24,7 +26,7 @@ Examples:
    - Switch to the default branch
 
 3. **Attempt Standard Merge**
-   - Execute `git merge --no-ff <branch-name>` to preserve commit history
+   - Execute `git merge --no-ff $ARGUMENTS` to preserve commit history
    - If successful, create merge commit and exit
 
 4. **Handle Merge Conflicts** (if any)
@@ -79,7 +81,7 @@ Examples:
 ## Merge Commit Format
 
 ```
-Merge worktree '<branch-name>' into main
+Merge worktree '$ARGUMENTS' into main
 
 Successfully merged with <N> conflicts resolved:
 
