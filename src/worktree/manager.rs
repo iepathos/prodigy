@@ -167,24 +167,30 @@ impl WorktreeManager {
         };
 
         // Call Claude CLI to handle the merge with automatic conflict resolution
-        let mut args = vec!["/mmm-merge-worktree", name];
-
-        // Add target branch if specified
-        if let Some(target) = target_branch {
-            args.push("--target");
-            args.push(target);
-        }
-
-        println!("🔄 Merging worktree '{name}' using Claude-assisted merge...");
+        println!(
+            "🔄 Merging worktree '{}' into '{}' using Claude-assisted merge...",
+            name, target
+        );
 
         // Execute Claude CLI command
-        let output = Command::new("claude")
-            .current_dir(&self.repo_path)
+        // TODO: There's a known issue where /mmm-merge-worktree doesn't properly
+        // receive command-line arguments when invoked with --print mode.
+        // The command implementation needs to be fixed to properly parse $ARGUMENTS
+        // or use a different method to receive the branch name.
+        let mut cmd = Command::new("claude");
+        cmd.current_dir(&self.repo_path)
             .arg("--dangerously-skip-permissions") // Skip interactive permission prompts
             .arg("--print") // Output response to stdout for capture
-            .args(&args)
-            .env("MMM_AUTOMATION", "true") // Enable automation mode
-            .output()
+            .arg("/mmm-merge-worktree") // The command
+            .arg(name) // The worktree name to merge
+            .env("MMM_AUTOMATION", "true"); // Enable automation mode
+            
+        // Add target branch if specified
+        if let Some(target) = target_branch {
+            cmd.arg("--target").arg(target);
+        }
+        
+        let output = cmd.output()
             .context("Failed to execute claude /mmm-merge-worktree")?;
 
         if !output.status.success() {

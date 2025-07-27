@@ -2,6 +2,10 @@
 
 Intelligently merges MMM worktree branches with automatic conflict resolution.
 
+## Variables
+
+BRANCH_NAME: $ARGUMENTS (required - the worktree branch name to merge, optionally followed by --target <target-branch>)
+
 ## Usage
 
 ```
@@ -13,6 +17,11 @@ Examples:
 - `/mmm-merge-worktree mmm-security-1234567891 --target main` - Merge to main branch
 
 ## What This Command Does
+
+0. **Parse Arguments**
+   - Extract branch name from BRANCH_NAME (first argument before any --flags)
+   - Extract target branch if --target flag is present
+   - If no branch name provided, list available worktrees and ask user to select
 
 1. **Attempts Standard Merge**
    - Switches to target branch (or current branch if not specified)
@@ -89,6 +98,11 @@ Original commits from worktree:
 
 ## Error Handling
 
+**If arguments are invalid**:
+1. Check if BRANCH_NAME is provided in $ARGUMENTS
+2. If missing and MMM_AUTOMATION=true, fail with: "Error: Branch name required for automated merge"
+3. If missing and interactive, list available worktrees for selection
+
 **If merge cannot be completed**:
 1. Abort the merge to maintain clean state
 2. Provide clear error message with:
@@ -136,6 +150,16 @@ Found 3 conflicts...
 <resolution details>
 ✓ Successfully merged 'mmm-security-1234567891' into master
 ```
+
+## Automation Support
+
+When `MMM_AUTOMATION=true` is set:
+- The command must parse BRANCH_NAME from $ARGUMENTS
+- No interactive prompts should be shown
+- If branch name is missing or invalid, fail with clear error message
+- Example: `$ARGUMENTS = "mmm-test-coverage-123 --target main"` should extract:
+  - Branch: mmm-test-coverage-123
+  - Target: main
 
 ## Notes
 
