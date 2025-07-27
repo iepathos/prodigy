@@ -256,11 +256,16 @@ mod tests {
     fn test_claude_merge_command_construction() {
         // Test that merge_session correctly constructs the Claude command
         let temp_dir = TempDir::new().unwrap();
+        let repo_name = temp_dir.path().file_name().unwrap().to_str().unwrap();
         let manager = WorktreeManager::new(temp_dir.path().to_path_buf()).unwrap();
 
         // We can't actually test the command execution without Claude CLI,
         // but we can verify the logic flow exists
         assert!(manager.base_dir.exists());
-        assert_eq!(manager.base_dir.file_name().unwrap(), "worktrees");
+        // The base_dir should end with the repository name now
+        assert_eq!(manager.base_dir.file_name().unwrap().to_str().unwrap(), repo_name);
+        // And it should be under ~/.mmm/worktrees/
+        let parent = manager.base_dir.parent().unwrap();
+        assert_eq!(parent.file_name().unwrap(), "worktrees");
     }
 }
