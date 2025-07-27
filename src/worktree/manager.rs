@@ -44,9 +44,9 @@ impl WorktreeManager {
         let timestamp = Utc::now().timestamp();
         let name = if let Some(focus) = focus {
             let sanitized_focus = focus.replace(" ", "-").replace("/", "-");
-            format!("mmm-{}-{}", sanitized_focus, timestamp)
+            format!("mmm-{sanitized_focus}-{timestamp}")
         } else {
-            format!("mmm-session-{}", timestamp)
+            format!("mmm-session-{timestamp}")
         };
 
         let branch = name.clone();
@@ -175,10 +175,7 @@ impl WorktreeManager {
             args.push(target);
         }
 
-        println!(
-            "🔄 Merging worktree '{}' using Claude-assisted merge...",
-            name
-        );
+        println!("🔄 Merging worktree '{name}' using Claude-assisted merge...");
 
         // Execute Claude CLI command
         let output = Command::new("claude")
@@ -195,12 +192,12 @@ impl WorktreeManager {
             let stdout = String::from_utf8_lossy(&output.stdout);
 
             // Provide detailed error information
-            eprintln!("❌ Claude merge failed for worktree '{}':", name);
+            eprintln!("❌ Claude merge failed for worktree '{name}':");
             if !stderr.is_empty() {
-                eprintln!("Error output: {}", stderr);
+                eprintln!("Error output: {stderr}");
             }
             if !stdout.is_empty() {
-                eprintln!("Standard output: {}", stdout);
+                eprintln!("Standard output: {stdout}");
             }
 
             anyhow::bail!("Failed to merge worktree '{}' - Claude merge failed", name);
@@ -208,7 +205,7 @@ impl WorktreeManager {
 
         // Parse the output for success confirmation
         let stdout = String::from_utf8_lossy(&output.stdout);
-        println!("{}", stdout);
+        println!("{stdout}");
 
         // Verify the merge actually happened by checking if the worktree branch
         // is now merged into the target branch
@@ -258,7 +255,7 @@ impl WorktreeManager {
 
         let branch_exists = Command::new("git")
             .current_dir(&self.repo_path)
-            .args(["rev-parse", "--verify", &format!("refs/heads/{}", name)])
+            .args(["rev-parse", "--verify", &format!("refs/heads/{name}")])
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false);
@@ -272,7 +269,7 @@ impl WorktreeManager {
 
             if !delete_output.status.success() {
                 let stderr = String::from_utf8_lossy(&delete_output.stderr);
-                eprintln!("Warning: Failed to delete branch {}: {}", name, stderr);
+                eprintln!("Warning: Failed to delete branch {name}: {stderr}");
             }
         }
 

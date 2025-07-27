@@ -1,0 +1,28 @@
+# Comprehensive full-stack improvement workflow
+# Combines multiple improvement strategies
+
+commands = [
+    "mmm-code-review",
+    "mmm-implement-spec",
+    "mmm-refactor modules",
+    "mmm-implement-spec",
+    "mmm-test-generate",
+    "mmm-implement-spec",
+    "mmm-performance hot-paths",
+    "mmm-implement-spec",
+    "mmm-security-audit",
+    "mmm-implement-spec",
+    "mmm-lint"
+]
+
+max_iterations = 3
+
+# This comprehensive workflow:
+# 1. General code review and fixes
+# 2. Module refactoring for better structure
+# 3. Test generation for coverage
+# 4. Performance optimization
+# 5. Security hardening
+# 6. Final quality assurance
+#
+# Lower iteration count since each iteration is thorough

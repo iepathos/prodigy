@@ -163,7 +163,7 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
                 for session in sessions {
                     let focus_str = session
                         .focus
-                        .map(|f| format!(" (focus: {})", f))
+                        .map(|f| format!(" (focus: {f})"))
                         .unwrap_or_default();
                     println!(
                         "  {} - {}{}",
@@ -211,7 +211,7 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
                     target.as_deref().unwrap_or("current branch")
                 );
                 worktree_manager.merge_session(&name, target.as_deref())?;
-                println!("✅ Successfully merged worktree '{}'", name);
+                println!("✅ Successfully merged worktree '{name}'");
 
                 // Ask if user wants to clean up the worktree
                 println!("Would you like to clean up the worktree? (y/N)");
@@ -232,9 +232,9 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
                 worktree_manager.cleanup_all_sessions()?;
                 println!("✅ All worktrees cleaned up");
             } else if let Some(name) = name {
-                println!("Cleaning up worktree '{}'...", name);
+                println!("Cleaning up worktree '{name}'...");
                 worktree_manager.cleanup_session(&name)?;
-                println!("✅ Worktree '{}' cleaned up", name);
+                println!("✅ Worktree '{name}' cleaned up");
             } else {
                 eprintln!("Error: Either --all or a worktree name must be specified");
                 std::process::exit(1);
