@@ -1,0 +1,19 @@
+# Performance optimization workflow
+# Identifies and fixes performance bottlenecks
+
+commands = [
+    "mmm-performance",
+    "mmm-implement-spec",
+    "mmm-performance --verify",
+    "mmm-lint"
+]
+
+max_iterations = 6
+
+# This workflow:
+# 1. Analyzes performance bottlenecks
+# 2. Implements optimizations
+# 3. Verifies performance improvements
+# 4. Ensures code quality
+#
+# Includes verification step to measure improvements

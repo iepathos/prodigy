@@ -1,0 +1,21 @@
+# Documentation improvement workflow
+# Generates and improves project documentation
+
+commands = [
+    "mmm-docs-generate",
+    "mmm-implement-spec",
+    "mmm-docs-generate examples",
+    "mmm-implement-spec",
+    "mmm-code-review --focus documentation",
+    "mmm-implement-spec"
+]
+
+max_iterations = 4
+
+# This workflow:
+# 1. Generates missing documentation
+# 2. Implements the documentation
+# 3. Generates code examples
+# 4. Implements the examples
+# 5. Reviews for documentation completeness
+# 6. Implements final improvements
