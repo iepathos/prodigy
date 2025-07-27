@@ -48,8 +48,8 @@ impl StateManager {
 
     /// Save state to disk
     pub fn save(&self) -> Result<()> {
-        // Save with atomic write
-        let temp_file = self.root.join("state.json.tmp");
+        // Save with atomic write - use unique temp file for concurrent access
+        let temp_file = self.root.join(format!("state.json.tmp.{}", Utc::now().timestamp_nanos_opt().unwrap_or(0)));
         let final_file = self.root.join("state.json");
 
         // Write to temp file
@@ -57,8 +57,12 @@ impl StateManager {
             serde_json::to_string_pretty(&self.state).context("Failed to serialize state")?;
         fs::write(&temp_file, json).context("Failed to write temp state file")?;
 
-        // Atomic rename
-        fs::rename(temp_file, final_file).context("Failed to rename state file")?;
+        // Atomic rename - last writer wins
+        fs::rename(&temp_file, &final_file).or_else(|e| {
+            // Clean up temp file on failure
+            let _ = fs::remove_file(&temp_file);
+            Err(anyhow::anyhow!("Failed to rename state file: {}", e))
+        })?;
 
         Ok(())
     }
@@ -101,12 +105,20 @@ impl StateManager {
                     match serde_json::from_str(&contents) {
                         Ok(state) => Ok(state),
                         Err(e) => {
-                            // Backup corrupted file
+                            // Backup corrupted file - handle concurrent access
                             let backup = root
-                                .join(format!("state.json.corrupted.{}", Utc::now().timestamp()));
-                            fs::rename(&state_file, &backup)?;
-                            eprintln!("⚠️  State file corrupted, backed up to {backup:?}");
-                            eprintln!("   Error: {e}");
+                                .join(format!("state.json.corrupted.{}", Utc::now().timestamp_nanos_opt().unwrap_or(0)));
+                            match fs::rename(&state_file, &backup) {
+                                Ok(_) => {
+                                    eprintln!("⚠️  State file corrupted, backed up to {backup:?}");
+                                    eprintln!("   Error: {e}");
+                                }
+                                Err(rename_err) => {
+                                    // File might already be renamed by another thread
+                                    eprintln!("⚠️  State file corrupted, backup failed: {rename_err}");
+                                    eprintln!("   Parse error: {e}");
+                                }
+                            }
                             Ok(State::new(uuid::Uuid::new_v4().to_string()))
                         }
                     }
