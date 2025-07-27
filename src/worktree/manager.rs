@@ -160,7 +160,7 @@ impl WorktreeManager {
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false);
-        
+
         let target = if main_exists {
             "main".to_string()
         } else {
@@ -169,8 +169,7 @@ impl WorktreeManager {
 
         // Call Claude CLI to handle the merge with automatic conflict resolution
         println!(
-            "🔄 Merging worktree '{}' into '{}' using Claude-assisted merge...",
-            name, target
+            "🔄 Merging worktree '{name}' into '{target}' using Claude-assisted merge..."
         );
 
         // Execute Claude CLI command
@@ -181,8 +180,9 @@ impl WorktreeManager {
             .arg("/mmm-merge-worktree") // The command
             .arg(name) // The worktree name to merge
             .env("MMM_AUTOMATION", "true"); // Enable automation mode
-        
-        let output = cmd.output()
+
+        let output = cmd
+            .output()
             .context("Failed to execute claude /mmm-merge-worktree")?;
 
         if !output.status.success() {

@@ -17,10 +17,7 @@ fn test_improve_with_custom_config_file() -> anyhow::Result<()> {
 
     // Create custom config file
     let custom_config = temp_dir.path().join("custom.toml");
-    fs::write(
-        &custom_config,
-        r#"commands = ["mmm-test-only"]"#,
-    )?;
+    fs::write(&custom_config, r#"commands = ["mmm-test-only"]"#)?;
 
     // Create a simple source file
     fs::write(

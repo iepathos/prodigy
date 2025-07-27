@@ -202,7 +202,7 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
                 }
             } else if let Some(name) = name {
                 // Single worktree merge
-                println!("Merging worktree '{}'...", name);
+                println!("Merging worktree '{name}'...");
                 worktree_manager.merge_session(&name)?;
                 println!("✅ Successfully merged worktree '{name}'");
 

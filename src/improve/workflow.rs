@@ -130,7 +130,10 @@ impl WorkflowExecutor {
         // Skip actual execution in test mode
         if std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true" {
             if self.verbose {
-                println!("[TEST MODE] Skipping Claude CLI execution for: {command} {}", args.join(" "));
+                println!(
+                    "[TEST MODE] Skipping Claude CLI execution for: {command} {}",
+                    args.join(" ")
+                );
             }
             return Ok(true);
         }
