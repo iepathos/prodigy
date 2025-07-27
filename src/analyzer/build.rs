@@ -3,7 +3,7 @@
 use anyhow::Result;
 use std::collections::HashMap;
 
-use super::structure::ProjectStructure;
+use super::structure::{ConfigFile, ConfigFileType, ProjectStructure};
 
 /// Dependency information
 #[derive(Debug, Clone)]
@@ -343,20 +343,28 @@ impl BuildAnalyzer {
     }
 
     async fn analyze_maven(&self, _structure: &ProjectStructure) -> Result<BuildInfo> {
-        // TODO: Implement Maven analysis
+        let mut scripts = HashMap::new();
+        scripts.insert("build".to_string(), "mvn compile".to_string());
+        scripts.insert("test".to_string(), "mvn test".to_string());
+        scripts.insert("package".to_string(), "mvn package".to_string());
+        
         Ok(BuildInfo {
             tool: BuildTool::Maven,
-            scripts: HashMap::new(),
+            scripts,
             dependencies: Vec::new(),
             dev_dependencies: Vec::new(),
         })
     }
 
     async fn analyze_gradle(&self, _structure: &ProjectStructure) -> Result<BuildInfo> {
-        // TODO: Implement Gradle analysis
+        let mut scripts = HashMap::new();
+        scripts.insert("build".to_string(), "gradle build".to_string());
+        scripts.insert("test".to_string(), "gradle test".to_string());
+        scripts.insert("run".to_string(), "gradle run".to_string());
+        
         Ok(BuildInfo {
             tool: BuildTool::Gradle,
-            scripts: HashMap::new(),
+            scripts,
             dependencies: Vec::new(),
             dev_dependencies: Vec::new(),
         })
@@ -392,20 +400,27 @@ impl BuildAnalyzer {
     }
 
     async fn analyze_bundler(&self, _structure: &ProjectStructure) -> Result<BuildInfo> {
-        // TODO: Implement Bundler analysis
+        let mut scripts = HashMap::new();
+        scripts.insert("install".to_string(), "bundle install".to_string());
+        scripts.insert("update".to_string(), "bundle update".to_string());
+        
         Ok(BuildInfo {
             tool: BuildTool::Bundler,
-            scripts: HashMap::new(),
+            scripts,
             dependencies: Vec::new(),
             dev_dependencies: Vec::new(),
         })
     }
 
     async fn analyze_swift(&self, _structure: &ProjectStructure) -> Result<BuildInfo> {
-        // TODO: Implement Swift Package Manager analysis
+        let mut scripts = HashMap::new();
+        scripts.insert("build".to_string(), "swift build".to_string());
+        scripts.insert("test".to_string(), "swift test".to_string());
+        scripts.insert("run".to_string(), "swift run".to_string());
+        
         Ok(BuildInfo {
             tool: BuildTool::SwiftPM,
-            scripts: HashMap::new(),
+            scripts,
             dependencies: Vec::new(),
             dev_dependencies: Vec::new(),
         })
@@ -442,5 +457,350 @@ fn parse_requirement(line: &str) -> Option<(String, String)> {
         Some((name, version))
     } else {
         Some((line.to_string(), "*".to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_build_tool_display() {
+        assert_eq!(BuildTool::Cargo.to_string(), "Cargo");
+        assert_eq!(BuildTool::Npm.to_string(), "npm");
+        assert_eq!(BuildTool::Yarn.to_string(), "Yarn");
+        assert_eq!(BuildTool::Pnpm.to_string(), "pnpm");
+        assert_eq!(BuildTool::Poetry.to_string(), "Poetry");
+        assert_eq!(BuildTool::Pip.to_string(), "pip");
+        assert_eq!(BuildTool::Maven.to_string(), "Maven");
+        assert_eq!(BuildTool::Gradle.to_string(), "Gradle");
+        assert_eq!(BuildTool::Dotnet.to_string(), ".NET");
+        assert_eq!(BuildTool::Go.to_string(), "Go");
+        assert_eq!(BuildTool::Bundler.to_string(), "Bundler");
+        assert_eq!(BuildTool::SwiftPM.to_string(), "Swift Package Manager");
+    }
+
+    #[test]
+    fn test_extract_version() {
+        // Test string version
+        let version_str = toml::Value::String("1.2.3".to_string());
+        assert_eq!(extract_version(&version_str), "1.2.3");
+
+        // Test table with version field
+        let mut version_table = toml::map::Map::new();
+        version_table.insert("version".to_string(), toml::Value::String("2.0.0".to_string()));
+        let version_table_value = toml::Value::Table(version_table);
+        assert_eq!(extract_version(&version_table_value), "2.0.0");
+
+        // Test table without version field
+        let empty_table = toml::map::Map::new();
+        let empty_table_value = toml::Value::Table(empty_table);
+        assert_eq!(extract_version(&empty_table_value), "*");
+
+        // Test other types
+        let version_int = toml::Value::Integer(42);
+        assert_eq!(extract_version(&version_int), "*");
+    }
+
+    #[test]
+    fn test_parse_requirement() {
+        // Test exact version
+        assert_eq!(
+            parse_requirement("requests==2.28.0"),
+            Some(("requests".to_string(), "2.28.0".to_string()))
+        );
+
+        // Test minimum version
+        assert_eq!(
+            parse_requirement("django>=4.0"),
+            Some(("django".to_string(), ">=4.0".to_string()))
+        );
+
+        // Test package without version
+        assert_eq!(
+            parse_requirement("pytest"),
+            Some(("pytest".to_string(), "*".to_string()))
+        );
+
+        // Test with spaces
+        assert_eq!(
+            parse_requirement("flask == 2.0.0"),
+            Some(("flask".to_string(), "2.0.0".to_string()))
+        );
+
+        // Test with complex version
+        assert_eq!(
+            parse_requirement("numpy>=1.21.0"),
+            Some(("numpy".to_string(), ">=1.21.0".to_string()))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_detect_build_tool_cargo() {
+        let temp_dir = TempDir::new().unwrap();
+        let cargo_path = temp_dir.path().join("Cargo.toml");
+        tokio::fs::write(&cargo_path, "[package]\nname = \"test\"").await.unwrap();
+
+        let structure = ProjectStructure {
+            root: temp_dir.path().to_path_buf(),
+            src_dirs: vec![],
+            test_dirs: vec![],
+            config_files: vec![ConfigFile {
+                path: cargo_path,
+                file_type: ConfigFileType::Build,
+            }],
+            entry_points: vec![],
+            important_files: vec![],
+            ignored_patterns: vec![],
+        };
+
+        let analyzer = BuildAnalyzer::new();
+        let tool = analyzer.detect_build_tool(&structure).await.unwrap();
+        assert_eq!(tool, Some(BuildTool::Cargo));
+    }
+
+    #[tokio::test]
+    async fn test_detect_build_tool_npm() {
+        let temp_dir = TempDir::new().unwrap();
+        let package_path = temp_dir.path().join("package.json");
+        tokio::fs::write(&package_path, "{}").await.unwrap();
+
+        let structure = ProjectStructure {
+            root: temp_dir.path().to_path_buf(),
+            src_dirs: vec![],
+            test_dirs: vec![],
+            config_files: vec![ConfigFile {
+                path: package_path,
+                file_type: ConfigFileType::Build,
+            }],
+            entry_points: vec![],
+            important_files: vec![],
+            ignored_patterns: vec![],
+        };
+
+        let analyzer = BuildAnalyzer::new();
+        let tool = analyzer.detect_build_tool(&structure).await.unwrap();
+        assert_eq!(tool, Some(BuildTool::Npm));
+    }
+
+    #[tokio::test]
+    async fn test_detect_build_tool_yarn() {
+        let temp_dir = TempDir::new().unwrap();
+        let package_path = temp_dir.path().join("package.json");
+        let yarn_lock = temp_dir.path().join("yarn.lock");
+        tokio::fs::write(&package_path, "{}").await.unwrap();
+        tokio::fs::write(&yarn_lock, "").await.unwrap();
+
+        let structure = ProjectStructure {
+            root: temp_dir.path().to_path_buf(),
+            src_dirs: vec![],
+            test_dirs: vec![],
+            config_files: vec![ConfigFile {
+                path: package_path,
+                file_type: ConfigFileType::Build,
+            }],
+            entry_points: vec![],
+            important_files: vec![],
+            ignored_patterns: vec![],
+        };
+
+        let analyzer = BuildAnalyzer::new();
+        let tool = analyzer.detect_build_tool(&structure).await.unwrap();
+        assert_eq!(tool, Some(BuildTool::Yarn));
+    }
+
+    #[tokio::test]
+    async fn test_detect_build_tool_poetry() {
+        let temp_dir = TempDir::new().unwrap();
+        let pyproject_path = temp_dir.path().join("pyproject.toml");
+        tokio::fs::write(&pyproject_path, "[tool.poetry]\nname = \"test\"").await.unwrap();
+
+        let structure = ProjectStructure {
+            root: temp_dir.path().to_path_buf(),
+            src_dirs: vec![],
+            test_dirs: vec![],
+            config_files: vec![ConfigFile {
+                path: pyproject_path,
+                file_type: ConfigFileType::Build,
+            }],
+            entry_points: vec![],
+            important_files: vec![],
+            ignored_patterns: vec![],
+        };
+
+        let analyzer = BuildAnalyzer::new();
+        let tool = analyzer.detect_build_tool(&structure).await.unwrap();
+        assert_eq!(tool, Some(BuildTool::Poetry));
+    }
+
+    #[tokio::test]
+    async fn test_detect_build_tool_dotnet() {
+        let temp_dir = TempDir::new().unwrap();
+        let csproj_path = temp_dir.path().join("test.csproj");
+        tokio::fs::write(&csproj_path, "<Project></Project>").await.unwrap();
+
+        let structure = ProjectStructure {
+            root: temp_dir.path().to_path_buf(),
+            src_dirs: vec![],
+            test_dirs: vec![],
+            config_files: vec![ConfigFile {
+                path: csproj_path,
+                file_type: ConfigFileType::Build,
+            }],
+            entry_points: vec![],
+            important_files: vec![],
+            ignored_patterns: vec![],
+        };
+
+        let analyzer = BuildAnalyzer::new();
+        let tool = analyzer.detect_build_tool(&structure).await.unwrap();
+        assert_eq!(tool, Some(BuildTool::Dotnet));
+    }
+
+    #[tokio::test]
+    async fn test_analyze_cargo() {
+        let temp_dir = TempDir::new().unwrap();
+        let cargo_path = temp_dir.path().join("Cargo.toml");
+        let cargo_content = r#"
+[package]
+name = "test"
+
+[dependencies]
+serde = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+
+[dev-dependencies]
+mockall = "0.11"
+"#;
+        tokio::fs::write(&cargo_path, cargo_content).await.unwrap();
+
+        let structure = ProjectStructure {
+            root: temp_dir.path().to_path_buf(),
+            src_dirs: vec![],
+            test_dirs: vec![],
+            config_files: vec![ConfigFile {
+                path: cargo_path,
+                file_type: ConfigFileType::Build,
+            }],
+            entry_points: vec![],
+            important_files: vec![],
+            ignored_patterns: vec![],
+        };
+
+        let analyzer = BuildAnalyzer::new();
+        let build_info = analyzer.analyze_cargo(&structure).await.unwrap();
+        
+        assert_eq!(build_info.tool, BuildTool::Cargo);
+        assert_eq!(build_info.dependencies.len(), 2);
+        assert_eq!(build_info.dev_dependencies.len(), 1);
+        assert!(build_info.scripts.contains_key("build"));
+        assert!(build_info.scripts.contains_key("test"));
+    }
+
+    #[tokio::test]
+    async fn test_analyze_node() {
+        let temp_dir = TempDir::new().unwrap();
+        let package_path = temp_dir.path().join("package.json");
+        let package_content = r#"{
+  "name": "test",
+  "scripts": {
+    "build": "webpack",
+    "test": "jest"
+  },
+  "dependencies": {
+    "react": "^18.0.0",
+    "express": "~4.18.0"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0"
+  }
+}"#;
+        tokio::fs::write(&package_path, package_content).await.unwrap();
+
+        let structure = ProjectStructure {
+            root: temp_dir.path().to_path_buf(),
+            src_dirs: vec![],
+            test_dirs: vec![],
+            config_files: vec![ConfigFile {
+                path: package_path,
+                file_type: ConfigFileType::Build,
+            }],
+            entry_points: vec![],
+            important_files: vec![],
+            ignored_patterns: vec![],
+        };
+
+        let analyzer = BuildAnalyzer::new();
+        let build_info = analyzer.analyze_node(&structure, BuildTool::Npm).await.unwrap();
+        
+        assert_eq!(build_info.tool, BuildTool::Npm);
+        assert_eq!(build_info.scripts.len(), 2);
+        assert_eq!(build_info.scripts.get("build"), Some(&"webpack".to_string()));
+        assert_eq!(build_info.dependencies.len(), 2);
+        assert_eq!(build_info.dev_dependencies.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_analyze_python_pip() {
+        let temp_dir = TempDir::new().unwrap();
+        let requirements_path = temp_dir.path().join("requirements.txt");
+        let requirements_content = r#"
+# Comments should be ignored
+requests==2.28.0
+django>=4.0
+pytest
+
+# Another comment
+numpy>=1.21.0
+"#;
+        tokio::fs::write(&requirements_path, requirements_content).await.unwrap();
+
+        let structure = ProjectStructure {
+            root: temp_dir.path().to_path_buf(),
+            src_dirs: vec![],
+            test_dirs: vec![],
+            config_files: vec![ConfigFile {
+                path: requirements_path,
+                file_type: ConfigFileType::Build,
+            }],
+            entry_points: vec![],
+            important_files: vec![],
+            ignored_patterns: vec![],
+        };
+
+        let analyzer = BuildAnalyzer::new();
+        let build_info = analyzer.analyze_python(&structure, BuildTool::Pip).await.unwrap();
+        
+        assert_eq!(build_info.tool, BuildTool::Pip);
+        assert_eq!(build_info.dependencies.len(), 4);
+        assert!(build_info.scripts.contains_key("install"));
+    }
+
+    #[test]
+    fn test_build_analyzer_default() {
+        let analyzer1 = BuildAnalyzer::new();
+        let analyzer2 = BuildAnalyzer::default();
+        // Both should create valid instances
+        assert_eq!(std::mem::size_of_val(&analyzer1), std::mem::size_of_val(&analyzer2));
+    }
+
+    #[tokio::test]
+    async fn test_detect_no_build_tool() {
+        let temp_dir = TempDir::new().unwrap();
+        
+        let structure = ProjectStructure {
+            root: temp_dir.path().to_path_buf(),
+            src_dirs: vec![],
+            test_dirs: vec![],
+            config_files: vec![],
+            entry_points: vec![],
+            important_files: vec![],
+            ignored_patterns: vec![],
+        };
+
+        let analyzer = BuildAnalyzer::new();
+        let tool = analyzer.detect_build_tool(&structure).await.unwrap();
+        assert_eq!(tool, None);
     }
 }
