@@ -17,8 +17,11 @@ fn test_improve_with_custom_config_file() -> anyhow::Result<()> {
 
     // Create custom config file
     let custom_config = temp_dir.path().join("custom.yml");
-    fs::write(&custom_config, r#"commands:
-  - mmm-test-only"#)?;
+    fs::write(
+        &custom_config,
+        r#"commands:
+  - mmm-test-only"#,
+    )?;
 
     // Create a simple source file
     fs::write(
@@ -151,7 +154,6 @@ fn test_improve_with_default_config() -> anyhow::Result<()> {
 
     Ok(())
 }
-
 
 #[test]
 fn test_improve_with_invalid_config_path() -> anyhow::Result<()> {

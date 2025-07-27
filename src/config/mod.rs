@@ -152,7 +152,7 @@ max_iterations: 5
         // Verify commands are parsed as Simple variants
         match &config.commands[0] {
             WorkflowCommand::Simple(s) => assert_eq!(s, "mmm-code-review"),
-            _ => panic!("Expected Simple command"),
+            _ => unreachable!("Expected Simple command"),
         }
     }
 
@@ -207,7 +207,7 @@ commands:
         // First command should be Simple
         assert!(matches!(&config.commands[0], WorkflowCommand::Simple(_)));
 
-        // Second command should be Structured  
+        // Second command should be Structured
         let cmd = config.commands[1].to_command();
         assert_eq!(cmd.name, "mmm-implement-spec");
         assert_eq!(cmd.args, vec!["iteration-123"]);
@@ -256,8 +256,7 @@ commands:
                 assert_eq!(
                     cmd.options.get(key),
                     Some(&expected_value),
-                    "Failed for input: {}",
-                    input
+                    "Failed for input: {input}"
                 );
             }
         }

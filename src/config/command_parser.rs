@@ -32,22 +32,25 @@ pub fn parse_command_string(s: &str) -> Result<Command> {
         if part.starts_with("--") {
             // This is an option
             let key = part.trim_start_matches("--");
-            
+
             // Check if next part exists and doesn't start with --
             if i + 1 < parts.len() && !parts[i + 1].starts_with("--") {
                 let next_part = parts[i + 1];
-                
+
                 // Heuristic: if the key suggests it's a boolean flag, treat it as one
                 // Common boolean flags that don't take values
-                let boolean_flags = ["verbose", "help", "version", "debug", "quiet", "force", "dry-run"];
-                
+                let boolean_flags = [
+                    "verbose", "help", "version", "debug", "quiet", "force", "dry-run",
+                ];
+
                 if boolean_flags.contains(&key) {
                     // Boolean flag - don't consume next part
                     cmd.options.insert(key.to_string(), serde_json::json!(true));
                     i += 1;
                 } else {
                     // Option with value
-                    cmd.options.insert(key.to_string(), serde_json::json!(next_part));
+                    cmd.options
+                        .insert(key.to_string(), serde_json::json!(next_part));
                     i += 2;
                 }
             } else {

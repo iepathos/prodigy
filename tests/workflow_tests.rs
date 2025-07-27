@@ -1,4 +1,4 @@
-use mmm::config::{workflow::WorkflowConfig, command::WorkflowCommand};
+use mmm::config::{command::WorkflowCommand, workflow::WorkflowConfig};
 
 /// Test workflow configuration loading
 #[test]
@@ -136,7 +136,10 @@ fn test_custom_workflow_configs() {
     };
 
     assert_eq!(security_workflow.commands.len(), 3);
-    assert!(security_workflow.commands[0].to_command().name.contains("security"));
+    assert!(security_workflow.commands[0]
+        .to_command()
+        .name
+        .contains("security"));
 
     // Test documentation workflow
     let docs_workflow = WorkflowConfig {
@@ -161,7 +164,10 @@ fn test_single_command_workflow() {
     };
 
     assert_eq!(minimal_workflow.commands.len(), 1);
-    assert_eq!(minimal_workflow.commands[0].to_command().name, "mmm-quick-fix");
+    assert_eq!(
+        minimal_workflow.commands[0].to_command().name,
+        "mmm-quick-fix"
+    );
 }
 
 /// Test workflow commands with arguments like --focus
@@ -182,13 +188,13 @@ max_iterations = 2
 
     let config = config.unwrap();
     assert_eq!(config.commands.len(), 4);
-    
+
     // For string commands with arguments, the full string is preserved
     match &config.commands[0] {
         WorkflowCommand::Simple(s) => assert_eq!(s, "mmm-code-review --focus architecture"),
         _ => panic!("Expected simple command"),
     }
-    
+
     match &config.commands[2] {
         WorkflowCommand::Simple(s) => assert_eq!(s, "mmm-code-review --focus error-handling"),
         _ => panic!("Expected simple command"),

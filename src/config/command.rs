@@ -60,7 +60,8 @@ impl WorkflowCommand {
             WorkflowCommand::SimpleObject(simple) => {
                 let mut cmd = Command::new(&simple.name);
                 if let Some(focus) = &simple.focus {
-                    cmd.options.insert("focus".to_string(), serde_json::json!(focus));
+                    cmd.options
+                        .insert("focus".to_string(), serde_json::json!(focus));
                 }
                 cmd
             }
@@ -172,7 +173,10 @@ mod tests {
         });
         let cmd = simple_obj.to_command();
         assert_eq!(cmd.name, "mmm-code-review");
-        assert_eq!(cmd.options.get("focus"), Some(&serde_json::json!("security")));
+        assert_eq!(
+            cmd.options.get("focus"),
+            Some(&serde_json::json!("security"))
+        );
 
         let structured = WorkflowCommand::Structured(Command::new("mmm-lint"));
         let cmd = structured.to_command();

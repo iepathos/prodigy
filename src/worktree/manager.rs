@@ -175,13 +175,10 @@ impl WorktreeManager {
         cmd.current_dir(&self.repo_path)
             .arg("--dangerously-skip-permissions") // Skip interactive permission prompts
             .arg("--print") // Output response to stdout for capture
-            .arg(format!("/mmm-merge-worktree {}", worktree_branch)) // Include branch name in the command
+            .arg(format!("/mmm-merge-worktree {worktree_branch}")) // Include branch name in the command
             .env("MMM_AUTOMATION", "true"); // Enable automation mode
                                             // Debug: Print what we're about to execute
-        eprintln!(
-            "Debug: Running claude /mmm-merge-worktree with branch: {}",
-            worktree_branch
-        );
+        eprintln!("Debug: Running claude /mmm-merge-worktree with branch: {worktree_branch}");
 
         let output = cmd
             .output()
