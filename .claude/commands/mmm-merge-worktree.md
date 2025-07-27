@@ -1,72 +1,47 @@
 # MMM Merge Worktree Command
 
-Intelligently merges MMM worktree branches with automatic conflict resolution.
-
-## Variables
-
-BRANCH_NAME: $ARGUMENTS (required - the worktree branch name to merge, optionally followed by --target <target-branch>)
-
-## CRITICAL: Argument Parsing
-
-You MUST follow this algorithm to parse the branch name:
-
-1. Check if BRANCH_NAME variable has a value
-2. If BRANCH_NAME is not empty:
-   - Split BRANCH_NAME by spaces
-   - The first part is the branch name to merge
-   - If "--target" appears in the arguments, the next value is the target branch
-3. If BRANCH_NAME is empty or not set:
-   - List available worktrees and ask the user to select one
-
-Example parsing:
-- Input: "mmm-test-coverage-1753596774" → Branch: mmm-test-coverage-1753596774, Target: current branch
-- Input: "mmm-test-coverage-1753596774 --target main" → Branch: mmm-test-coverage-1753596774, Target: main
+Intelligently merges MMM worktree branches with automatic conflict resolution into the repository's default branch (main or master).
 
 ## Usage
 
 ```
-/mmm-merge-worktree <branch-name> [--target <target-branch>]
+/mmm-merge-worktree <branch-name>
 ```
 
 Examples:
-- `/mmm-merge-worktree mmm-performance-1234567890` - Merge to current branch
-- `/mmm-merge-worktree mmm-security-1234567891 --target main` - Merge to main branch
+- `/mmm-merge-worktree mmm-performance-1234567890`
+- `/mmm-merge-worktree mmm-security-1234567891`
 
-## What This Command Does
+## Execute
 
-IMPORTANT: First, check if BRANCH_NAME variable contains a value. If it does, parse it to extract:
-- The branch name (everything before "--target" if present)
-- The target branch (the value after "--target" if present)
+1. **Get Branch Name**
+   - Extract the branch name from the command arguments
+   - If no branch name provided, fail with: "Error: Branch name is required. Usage: /mmm-merge-worktree <branch-name>"
 
-For example, if BRANCH_NAME is "mmm-test-coverage-1753596774 --target main":
-- Branch to merge: mmm-test-coverage-1753596774
-- Target branch: main
+2. **Determine Default Branch**
+   - Check if 'main' branch exists using `git rev-parse --verify refs/heads/main`
+   - If main exists, use 'main', otherwise use 'master'
+   - Switch to the default branch
 
-0. **Parse Arguments**
-   - Extract branch name from BRANCH_NAME (first argument before any --flags)
-   - Extract target branch if --target flag is present
-   - If no branch name provided, list available worktrees and ask user to select
+3. **Attempt Standard Merge**
+   - Execute `git merge --no-ff <branch-name>` to preserve commit history
+   - If successful, create merge commit and exit
 
-1. **Attempts Standard Merge**
-   - Switches to target branch (or current branch if not specified)
-   - Attempts `git merge --no-ff` to preserve commit history
-   - If successful, creates merge commit and exits
+4. **Handle Merge Conflicts** (if any)
+   - Detect and analyze all conflicted files
+   - Understand the intent of changes from both branches
+   - Resolve conflicts intelligently based on context
+   - Preserve functionality from both branches where possible
 
-2. **Handles Merge Conflicts**
-   - Detects and analyzes all conflicted files
-   - Understands the intent of changes from both branches
-   - Resolves conflicts intelligently based on context
-   - Preserves functionality from both branches where possible
+5. **Apply Resolution**
+   - Resolve conflict markers in all files
+   - Stage resolved files
+   - Create detailed merge commit explaining resolutions
 
-3. **Applies Resolution**
-   - Resolves conflict markers in all files
-   - Stages resolved files
-   - Creates detailed merge commit explaining resolutions
-
-4. **Verifies Merge**
-   - Runs basic validation (syntax checks, etc.)
-   - Ensures no conflict markers remain
-   - Commits the merge with comprehensive message
+6. **Verify Merge**
+   - Run basic validation (syntax checks, etc.)
+   - Ensure no conflict markers remain
+   - Commit the merge with comprehensive message
 
 ## Conflict Resolution Strategy
 
@@ -104,7 +79,7 @@ For example, if BRANCH_NAME is "mmm-test-coverage-1753596774 --target main":
 ## Merge Commit Format
 
 ```
-Merge worktree '<branch-name>' into <target>
+Merge worktree '<branch-name>' into main
 
 Successfully merged with <N> conflicts resolved:
 
@@ -121,11 +96,6 @@ Original commits from worktree:
 ```
 
 ## Error Handling
-
-**If arguments are invalid**:
-1. Check if BRANCH_NAME is provided in $ARGUMENTS
-2. If missing and MMM_AUTOMATION=true, fail with: "Error: Branch name required for automated merge"
-3. If missing and interactive, list available worktrees for selection
 
 **If merge cannot be completed**:
 1. Abort the merge to maintain clean state
@@ -178,12 +148,9 @@ Found 3 conflicts...
 ## Automation Support
 
 When `MMM_AUTOMATION=true` is set:
-- The command must parse BRANCH_NAME from $ARGUMENTS
 - No interactive prompts should be shown
 - If branch name is missing or invalid, fail with clear error message
-- Example: `$ARGUMENTS = "mmm-test-coverage-123 --target main"` should extract:
-  - Branch: mmm-test-coverage-123
-  - Target: main
+- Always merges to the default branch (main or master)
 
 ## Notes
 
