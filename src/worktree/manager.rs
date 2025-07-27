@@ -144,26 +144,25 @@ impl WorktreeManager {
         Ok(sessions)
     }
 
-    pub fn merge_session(&self, name: &str, target_branch: Option<&str>) -> Result<()> {
+    pub fn merge_session(&self, name: &str) -> Result<()> {
         // Get the worktree branch name to verify merge
         let sessions = self.list_sessions()?;
         let session = sessions.iter().find(|s| s.name == name)
             .ok_or_else(|| anyhow::anyhow!("Worktree '{}' not found", name))?;
         let worktree_branch = &session.branch;
 
-        // Get the current branch before merge
-        let current_branch_output = Command::new("git")
+        // Determine the default branch (main or master)
+        let main_exists = Command::new("git")
             .current_dir(&self.repo_path)
-            .args(["rev-parse", "--abbrev-ref", "HEAD"])
+            .args(["rev-parse", "--verify", "refs/heads/main"])
             .output()
-            .context("Failed to get current branch")?;
+            .map(|o| o.status.success())
+            .unwrap_or(false);
         
-        let target = if let Some(t) = target_branch {
-            t.to_string()
+        let target = if main_exists {
+            "main".to_string()
         } else {
-            String::from_utf8_lossy(&current_branch_output.stdout)
-                .trim()
-                .to_string()
+            "master".to_string()
         };
 
         // Call Claude CLI to handle the merge with automatic conflict resolution
@@ -180,11 +179,6 @@ impl WorktreeManager {
             .arg("/mmm-merge-worktree") // The command
             .arg(name) // The worktree name to merge
             .env("MMM_AUTOMATION", "true"); // Enable automation mode
-            
-        // Add target branch if specified
-        if let Some(target) = target_branch {
-            cmd.arg("--target").arg(target);
-        }
         
         let output = cmd.output()
             .context("Failed to execute claude /mmm-merge-worktree")?;

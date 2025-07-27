@@ -54,13 +54,10 @@ enum Commands {
 enum WorktreeCommands {
     /// List active MMM worktrees
     List,
-    /// Merge a worktree's changes to the current branch
+    /// Merge a worktree's changes to the default branch (main or master)
     Merge {
         /// Name of the worktree to merge
         name: Option<String>,
-        /// Target branch to merge into (default: current branch)
-        #[arg(long)]
-        target: Option<String>,
         /// Merge all MMM worktrees
         #[arg(long)]
         all: bool,
@@ -174,7 +171,7 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
                 }
             }
         }
-        WorktreeCommands::Merge { name, target, all } => {
+        WorktreeCommands::Merge { name, all } => {
             if all {
                 // Merge all worktrees
                 let sessions = worktree_manager.list_sessions()?;
@@ -184,7 +181,7 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
                     println!("Found {} worktree(s) to merge", sessions.len());
                     for session in sessions {
                         println!("\n📝 Merging worktree '{}'...", session.name);
-                        match worktree_manager.merge_session(&session.name, target.as_deref()) {
+                        match worktree_manager.merge_session(&session.name) {
                             Ok(_) => {
                                 println!("✅ Successfully merged worktree '{}'", session.name);
                                 // Automatically clean up successfully merged worktrees when using --all
@@ -205,12 +202,8 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
                 }
             } else if let Some(name) = name {
                 // Single worktree merge
-                println!(
-                    "Merging worktree '{}' into {}...",
-                    name,
-                    target.as_deref().unwrap_or("current branch")
-                );
-                worktree_manager.merge_session(&name, target.as_deref())?;
+                println!("Merging worktree '{}'...", name);
+                worktree_manager.merge_session(&name)?;
                 println!("✅ Successfully merged worktree '{name}'");
 
                 // Ask if user wants to clean up the worktree
