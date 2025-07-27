@@ -79,11 +79,13 @@ mod tests {
         let temp_dir = setup_test_repo()?;
         let manager = WorktreeManager::new(temp_dir.path().to_path_buf())?;
 
-        // Create multiple sessions
+        // Create multiple sessions with a small delay to ensure different timestamps
         let session1 = manager.create_session(None)?;
+        std::thread::sleep(std::time::Duration::from_millis(10));
         let session2 = manager.create_session(Some("security"))?;
 
         let sessions = manager.list_sessions()?;
+
         assert_eq!(sessions.len(), 2);
 
         // Verify sessions are found
@@ -137,4 +139,3 @@ mod tests {
         Ok(())
     }
 }
-

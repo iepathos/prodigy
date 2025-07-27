@@ -53,10 +53,13 @@ enum WorktreeCommands {
     /// Merge a worktree's changes to the current branch
     Merge {
         /// Name of the worktree to merge
-        name: String,
+        name: Option<String>,
         /// Target branch to merge into (default: current branch)
         #[arg(long)]
         target: Option<String>,
+        /// Merge all MMM worktrees
+        #[arg(long)]
+        all: bool,
     },
     /// Clean up completed or abandoned worktrees
     Clean {
@@ -154,22 +157,56 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
                 }
             }
         }
-        WorktreeCommands::Merge { name, target } => {
-            println!(
-                "Merging worktree '{}' into {}...",
-                name,
-                target.as_deref().unwrap_or("current branch")
-            );
-            worktree_manager.merge_session(&name, target.as_deref())?;
-            println!("✅ Successfully merged worktree '{}'", name);
+        WorktreeCommands::Merge { name, target, all } => {
+            if all {
+                // Merge all worktrees
+                let sessions = worktree_manager.list_sessions()?;
+                if sessions.is_empty() {
+                    println!("No active MMM worktrees found to merge.");
+                } else {
+                    println!("Found {} worktree(s) to merge", sessions.len());
+                    for session in sessions {
+                        println!("\n📝 Merging worktree '{}'...", session.name);
+                        match worktree_manager.merge_session(&session.name, target.as_deref()) {
+                            Ok(_) => {
+                                println!("✅ Successfully merged worktree '{}'", session.name);
+                                // Automatically clean up successfully merged worktrees when using --all
+                                if let Err(e) = worktree_manager.cleanup_session(&session.name) {
+                                    eprintln!(
+                                        "⚠️ Warning: Failed to clean up worktree '{}': {}",
+                                        session.name, e
+                                    );
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("❌ Failed to merge worktree '{}': {}", session.name, e);
+                                eprintln!("   Skipping cleanup for failed merge.");
+                            }
+                        }
+                    }
+                    println!("\n✅ Bulk merge operation completed");
+                }
+            } else if let Some(name) = name {
+                // Single worktree merge
+                println!(
+                    "Merging worktree '{}' into {}...",
+                    name,
+                    target.as_deref().unwrap_or("current branch")
+                );
+                worktree_manager.merge_session(&name, target.as_deref())?;
+                println!("✅ Successfully merged worktree '{}'", name);
 
-            // Ask if user wants to clean up the worktree
-            println!("Would you like to clean up the worktree? (y/N)");
-            let mut input = String::new();
-            std::io::stdin().read_line(&mut input)?;
-            if input.trim().to_lowercase() == "y" {
-                worktree_manager.cleanup_session(&name)?;
-                println!("✅ Worktree cleaned up");
+                // Ask if user wants to clean up the worktree
+                println!("Would you like to clean up the worktree? (y/N)");
+                let mut input = String::new();
+                std::io::stdin().read_line(&mut input)?;
+                if input.trim().to_lowercase() == "y" {
+                    worktree_manager.cleanup_session(&name)?;
+                    println!("✅ Worktree cleaned up");
+                }
+            } else {
+                eprintln!("Error: Either --all or a worktree name must be specified");
+                std::process::exit(1);
             }
         }
         WorktreeCommands::Clean { all, name } => {
@@ -190,4 +227,3 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
 
     Ok(())
 }
-

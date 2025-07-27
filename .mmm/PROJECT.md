@@ -9,7 +9,7 @@ Memento Mori (mmm) is a dead simple Rust CLI tool that makes your code better th
 - **Project Status**: Active Development - Core Working
 - **Core Feature**: `mmm improve` command with Claude CLI integration
 - **Latest Version**: 0.1.0
-- **Implementation Status**: Git-native improvement flow fully implemented with robust Claude CLI integration, complete audit trails, self-sufficient automated cycles, dynamic spec generation for improvements, focus-directed initial analysis (Spec 20), configurable workflows (Spec 21), configurable iteration limits (Spec 22), command-line config options (Spec 23), git worktree isolation for parallel sessions (Spec 24), and Spec 19 (Git-Native Improvement Flow) completed
+- **Implementation Status**: Git-native improvement flow fully implemented with robust Claude CLI integration, complete audit trails, self-sufficient automated cycles, dynamic spec generation for improvements, focus-directed initial analysis (Spec 20), configurable workflows (Spec 21), configurable iteration limits (Spec 22), command-line config options (Spec 23), git worktree isolation for parallel sessions (Spec 24), Claude-assisted worktree merging with conflict resolution (Spec 25), and Spec 19 (Git-Native Improvement Flow) completed
 
 ## What Exists
 
@@ -24,6 +24,7 @@ Memento Mori (mmm) is a dead simple Rust CLI tool that makes your code better th
 - **Configurable Workflows**: Optional `.mmm/workflow.toml` for custom improvement workflows
 - **Iteration Control**: Configurable maximum iterations with --max-iterations flag (default: 10)
 - **Parallel Sessions**: Git worktree isolation enables multiple concurrent improvement sessions
+- **Claude-Assisted Merge**: Automatic conflict resolution for worktree merges via Claude CLI
 
 ### Project Structure
 ```
@@ -77,6 +78,8 @@ mmm/
    - Each session runs in its own branch
    - Commands: `mmm worktree list/merge/clean`
    - Enable with `MMM_USE_WORKTREE=true`
+   - Claude-assisted merge with automatic conflict resolution
+   - Bulk merge support with `mmm worktree merge --all`
 
 ## Technology Stack
 

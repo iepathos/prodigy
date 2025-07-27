@@ -147,6 +147,12 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
   - Commands for listing and merging worktrees
   - MMM_USE_WORKTREE=true enables worktree mode
 
+- [x] **Claude-Assisted Worktree Merge** (Spec 25) ✅
+  - Automatic conflict resolution via Claude CLI
+  - Replaces git merge with /mmm-merge-worktree command
+  - Bulk merge support with --all flag
+  - Complete audit trail of merge decisions
+
 ### Success Criteria
 - Works reliably across different project types
 - Fails gracefully with helpful messages

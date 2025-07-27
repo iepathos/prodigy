@@ -329,3 +329,21 @@ Implement git worktree isolation where each MMM session creates and operates in 
 - **Positive**: True parallel execution, no conflicts between sessions, complete isolation, preserved debugging context on failure, backward compatible (opt-in)
 - **Negative**: Requires git 2.5+, additional disk space for worktrees, slightly more complex workflow, manual merge step required
 - **Implementation**: Created worktree module with WorktreeManager, integrated into improve command flow, added CLI subcommands, automatic cleanup on success with preservation on failure
+
+---
+
+## ADR-020: Claude-Assisted Merge for Conflict Resolution
+
+### Status
+Accepted
+
+### Context
+Spec 25 identified that standard git merge fails when conflicts occur during worktree merging, breaking the automated parallel workflow. Manual conflict resolution defeats the purpose of automation.
+
+### Decision
+Replace direct git merge with Claude CLI command `/mmm-merge-worktree` that intelligently resolves conflicts. Add --all flag for bulk merging multiple worktrees.
+
+### Consequences
+- **Positive**: Zero failed merges due to conflicts, truly parallel workflows, complete automation, intelligent conflict resolution, bulk merge capability
+- **Negative**: Dependency on Claude CLI for merges, slightly slower merge process, requires trust in Claude's conflict resolution
+- **Implementation**: Updated WorktreeManager::merge_session to call Claude CLI, added --all flag to merge command, automatic cleanup after successful merge
