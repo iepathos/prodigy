@@ -44,9 +44,9 @@ impl WorktreeManager {
         let timestamp = Utc::now().timestamp();
         let name = if let Some(focus) = focus {
             let sanitized_focus = focus.replace(" ", "-").replace("/", "-");
-            format!("mmm-{}-{}", sanitized_focus, timestamp)
+            format!("mmm-{sanitized_focus}-{timestamp}")
         } else {
-            format!("mmm-session-{}", timestamp)
+            format!("mmm-session-{timestamp}")
         };
 
         let branch = name.clone();
@@ -61,7 +61,7 @@ impl WorktreeManager {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("Failed to create worktree: {}", stderr);
+            anyhow::bail!("Failed to create worktree: {stderr}");
         }
 
         Ok(WorktreeSession::new(
@@ -81,7 +81,7 @@ impl WorktreeManager {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("Failed to list worktrees: {}", stderr);
+            anyhow::bail!("Failed to list worktrees: {stderr}");
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -147,7 +147,9 @@ impl WorktreeManager {
     pub fn merge_session(&self, name: &str, target_branch: Option<&str>) -> Result<()> {
         // Get the worktree branch name to verify merge
         let sessions = self.list_sessions()?;
-        let session = sessions.iter().find(|s| s.name == name)
+        let session = sessions
+            .iter()
+            .find(|s| s.name == name)
             .ok_or_else(|| anyhow::anyhow!("Worktree '{}' not found", name))?;
         let worktree_branch = &session.branch;
 
@@ -157,7 +159,7 @@ impl WorktreeManager {
             .args(["rev-parse", "--abbrev-ref", "HEAD"])
             .output()
             .context("Failed to get current branch")?;
-        
+
         let target = if let Some(t) = target_branch {
             t.to_string()
         } else {
@@ -175,10 +177,7 @@ impl WorktreeManager {
             args.push(target);
         }
 
-        println!(
-            "🔄 Merging worktree '{}' using Claude-assisted merge...",
-            name
-        );
+        println!("🔄 Merging worktree '{name}' using Claude-assisted merge...");
 
         // Execute Claude CLI command
         let output = Command::new("claude")
@@ -195,20 +194,20 @@ impl WorktreeManager {
             let stdout = String::from_utf8_lossy(&output.stdout);
 
             // Provide detailed error information
-            eprintln!("❌ Claude merge failed for worktree '{}':", name);
+            eprintln!("❌ Claude merge failed for worktree '{name}':");
             if !stderr.is_empty() {
-                eprintln!("Error output: {}", stderr);
+                eprintln!("Error output: {stderr}");
             }
             if !stdout.is_empty() {
-                eprintln!("Standard output: {}", stdout);
+                eprintln!("Standard output: {stdout}");
             }
 
-            anyhow::bail!("Failed to merge worktree '{}' - Claude merge failed", name);
+            anyhow::bail!("Failed to merge worktree '{name}' - Claude merge failed");
         }
 
         // Parse the output for success confirmation
         let stdout = String::from_utf8_lossy(&output.stdout);
-        println!("{}", stdout);
+        println!("{stdout}");
 
         // Verify the merge actually happened by checking if the worktree branch
         // is now merged into the target branch
@@ -231,7 +230,8 @@ impl WorktreeManager {
                     anyhow::bail!(
                         "Merge verification failed - branch '{}' is not merged into '{}'. \
                         The merge may have been aborted or failed silently.",
-                        worktree_branch, target
+                        worktree_branch,
+                        target
                     );
                 }
             }
@@ -252,13 +252,13 @@ impl WorktreeManager {
         if !prune_output.status.success() {
             let stderr = String::from_utf8_lossy(&prune_output.stderr);
             if !stderr.contains("is not a working tree") {
-                anyhow::bail!("Failed to remove worktree: {}", stderr);
+                anyhow::bail!("Failed to remove worktree: {stderr}");
             }
         }
 
         let branch_exists = Command::new("git")
             .current_dir(&self.repo_path)
-            .args(["rev-parse", "--verify", &format!("refs/heads/{}", name)])
+            .args(["rev-parse", "--verify", &format!("refs/heads/{name}")])
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false);
@@ -272,7 +272,7 @@ impl WorktreeManager {
 
             if !delete_output.status.success() {
                 let stderr = String::from_utf8_lossy(&delete_output.stderr);
-                eprintln!("Warning: Failed to delete branch {}: {}", name, stderr);
+                eprintln!("Warning: Failed to delete branch {name}: {stderr}");
             }
         }
 
@@ -282,8 +282,9 @@ impl WorktreeManager {
     pub fn cleanup_all_sessions(&self) -> Result<()> {
         let sessions = self.list_sessions()?;
         for session in sessions {
-            println!("Cleaning up worktree: {}", session.name);
-            self.cleanup_session(&session.name)?;
+            let name = &session.name;
+            println!("Cleaning up worktree: {name}");
+            self.cleanup_session(name)?;
         }
         Ok(())
     }

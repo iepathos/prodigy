@@ -148,4 +148,183 @@ mod test {
         let history = state_mgr.get_history().unwrap();
         assert_eq!(history.len(), 3);
     }
+
+    #[test]
+    fn test_concurrent_state_access() {
+        use std::sync::{Arc, Mutex};
+        use std::thread;
+
+        let temp_dir = TempDir::new().unwrap();
+        let root = Arc::new(temp_dir.path().to_path_buf());
+        let save_counter = Arc::new(Mutex::new(0));
+
+        // Spawn multiple threads that try to update state
+        let handles: Vec<_> = (0..5)
+            .map(|i| {
+                let root_clone = Arc::clone(&root);
+                let counter_clone = Arc::clone(&save_counter);
+                thread::spawn(move || {
+                    let mut state_mgr = StateManager::with_root((*root_clone).clone()).unwrap();
+                    state_mgr.state_mut().total_runs += 1;
+                    state_mgr.state_mut().current_score = i as f32;
+                    // Allow save failures due to concurrent access
+                    if state_mgr.save().is_ok() {
+                        let mut counter = counter_clone.lock().unwrap();
+                        *counter += 1;
+                    }
+                })
+            })
+            .collect();
+
+        // Wait for all threads
+        for handle in handles {
+            handle.join().unwrap();
+        }
+
+        // At least one save should have succeeded
+        let successful_saves = *save_counter.lock().unwrap();
+        assert!(successful_saves >= 1);
+
+        // Check final state exists
+        let state_mgr = StateManager::with_root((*root).clone()).unwrap();
+        // total_runs is u32, so it's always >= 0
+        assert!(state_mgr.state().total_runs <= 10); // Should be reasonable after 5 threads
+        assert!(state_mgr.state().current_score >= 0.0);
+    }
+
+    #[test]
+    fn test_session_record_edge_cases() {
+        let mut session = SessionRecord::new(5.0);
+        
+        // Test with empty summary
+        session.complete(5.5, String::new());
+        assert_eq!(session.summary, "");
+        assert!(session.completed_at.is_some());
+        
+        // Test with very long summary
+        let long_summary = "x".repeat(1000);
+        let mut session2 = SessionRecord::new(6.0);
+        session2.complete(6.5, long_summary.clone());
+        assert_eq!(session2.summary, long_summary);
+    }
+
+    #[test]
+    fn test_cache_manager_edge_cases() {
+        let temp_dir = TempDir::new().unwrap();
+        let cache_mgr = CacheManager::with_config(
+            temp_dir.path().join("cache"),
+            3600,
+        )
+        .unwrap();
+
+        // Test empty key
+        let result: Result<Option<String>, _> = cache_mgr.get("");
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+
+        // Test very large data
+        let large_data = vec![0u8; 1_000_000]; // 1MB
+        cache_mgr.set("large", &large_data).unwrap();
+        let retrieved: Vec<u8> = cache_mgr.get("large").unwrap().unwrap();
+        assert_eq!(retrieved.len(), large_data.len());
+
+        // Test special characters in key
+        let special_key = "test/key:with*special|chars";
+        cache_mgr.set(special_key, &"value").unwrap();
+        let retrieved: String = cache_mgr.get(special_key).unwrap().unwrap();
+        assert_eq!(retrieved, "value");
+    }
+
+    #[test]
+    fn test_state_file_permissions() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut state_mgr = StateManager::with_root(temp_dir.path().to_path_buf()).unwrap();
+        
+        state_mgr.state_mut().current_score = 8.0;
+        state_mgr.save().unwrap();
+        
+        // Check that state file exists and is readable
+        let state_file = temp_dir.path().join("state.json");
+        assert!(state_file.exists());
+        
+        // Verify we can read it back
+        let contents = std::fs::read_to_string(&state_file).unwrap();
+        // Check that the score was saved (might have different formatting)
+        assert!(contents.contains("current_score"));
+        assert!(contents.contains("8.0") || contents.contains("8"));
+    }
+
+    #[test]
+    fn test_invalid_root_directory() {
+        // Test with non-existent parent directory
+        let result = StateManager::with_root("/non/existent/path/mmm".into());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_history_sorting() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut state_mgr = StateManager::with_root(temp_dir.path().to_path_buf()).unwrap();
+
+        // Record sessions in reverse chronological order
+        for i in (0..3).rev() {
+            let mut session = SessionRecord::new(7.0);
+            session.started_at = chrono::Utc::now() - chrono::Duration::days(i);
+            session.complete(7.1, format!("Session {i}"));
+            state_mgr.record_session(session).unwrap();
+        }
+
+        // History should be sorted by start time
+        let history = state_mgr.get_history().unwrap();
+        assert_eq!(history.len(), 3);
+        
+        // Verify chronological order
+        for i in 0..history.len() - 1 {
+            assert!(history[i].started_at <= history[i + 1].started_at);
+        }
+    }
+
+    #[test]
+    fn test_cache_cleanup() {
+        let temp_dir = TempDir::new().unwrap();
+        let cache_path = temp_dir.path().join("cache");
+        
+        {
+            let cache_mgr = CacheManager::with_config(cache_path.clone(), 3600).unwrap();
+            
+            // Add multiple cache entries
+            for i in 0..10 {
+                cache_mgr.set(&format!("key_{i}"), &format!("value_{i}")).unwrap();
+            }
+            
+            // Verify files exist
+            let entries = std::fs::read_dir(&cache_path).unwrap().count();
+            assert_eq!(entries, 10);
+            
+            // Clear cache
+            cache_mgr.clear().unwrap();
+        }
+        
+        // Verify cache directory is empty
+        let entries = std::fs::read_dir(&cache_path).unwrap().count();
+        assert_eq!(entries, 0);
+    }
+
+    #[test]
+    fn test_corrupted_cache_entry() {
+        let temp_dir = TempDir::new().unwrap();
+        let cache_path = temp_dir.path().join("cache");
+        let cache_mgr = CacheManager::with_config(cache_path.clone(), 3600).unwrap();
+
+        // Create a corrupted cache file
+        let key = "corrupted_key";
+        let file_path = cache_path.join(format!("{key}.json"));
+        std::fs::create_dir_all(&cache_path).unwrap();
+        std::fs::write(&file_path, "{ invalid json").unwrap();
+
+        // Should handle gracefully - corrupted entries return None
+        let result: Result<Option<String>, _> = cache_mgr.get(key);
+        // Either error or None is acceptable for corrupted entries
+        assert!(result.is_err() || result.unwrap().is_none());
+    }
 }

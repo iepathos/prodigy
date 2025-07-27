@@ -121,3 +121,6 @@ impl Config {
             .unwrap_or_else(|| PathBuf::from("specs"))
     }
 }
+
+#[cfg(test)]
+mod tests;
