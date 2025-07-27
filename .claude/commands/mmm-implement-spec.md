@@ -2,6 +2,8 @@
 
 Implements a Git Good specification by reading the spec file, executing the implementation, and updating .mmm context files.  Read the files in .mmm to get general project context.
 
+Arguments: $ARGUMENTS
+
 ## Usage
 
 ```
@@ -23,7 +25,7 @@ Examples:
      - ROADMAP.md (progress tracking)
      - DECISIONS.md (technical decisions)
 2. **Reads the Specification**
-   - Locates the spec file based on the provided identifier
+   - Locates the spec file based on the provided identifier ($ARGUMENTS)
    - **Permanent specs**: Located in specs/ subdirectory (e.g., 01-some-spec.md)
    - **Temporary specs**: Located in specs/temp/ (e.g., iteration-1234567890-improvements.md)
    - Parses the specification content and requirements
@@ -56,11 +58,13 @@ Examples:
 ### Step 1: Read Context Files and Locate Specification
 
 The command will:
-- First read all .mmm context files in order (PROJECT.md, ARCHITECTURE.md, CONVENTIONS.md, ROADMAP.md, DECISIONS.md)
+- First check if a spec identifier was provided ($ARGUMENTS)
+- If no identifier provided, fail with: "Error: Spec identifier is required. Usage: /mmm-implement-spec <spec-identifier>"
+- Read all .mmm context files in order (PROJECT.md, ARCHITECTURE.md, CONVENTIONS.md, ROADMAP.md, DECISIONS.md)
 - Build comprehensive understanding of project state and conventions
-- Locate specification file:
-  - **Numeric IDs** (e.g., "01", "08a"): Look up in SPEC_INDEX.md and find in specs/ subdirectory
-  - **Iteration IDs** (e.g., "iteration-1234567890-improvements"): Find directly in specs/temp/
+- Locate specification file using $ARGUMENTS:
+  - **Numeric IDs** (e.g., "01", "08a"): Look up $ARGUMENTS in SPEC_INDEX.md and find in specs/ subdirectory
+  - **Iteration IDs** (e.g., "iteration-1234567890-improvements"): Find $ARGUMENTS.md directly in specs/temp/
 - Read the corresponding spec file
 - Extract implementation requirements and success criteria
 
