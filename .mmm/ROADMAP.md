@@ -118,7 +118,7 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
   - Clearer improvement summaries
 
 ### Configuration Enhancements
-- [ ] **Configurable Iteration Limit** (Spec 22)
+- [x] **Configurable Iteration Limit** (Spec 22) ✅
   - Add --max-iterations flag for custom iteration limits
   - Default remains 10 for backward compatibility
   

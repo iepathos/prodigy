@@ -9,12 +9,12 @@ Memento Mori (mmm) is a dead simple Rust CLI tool that makes your code better th
 - **Project Status**: Active Development - Core Working
 - **Core Feature**: `mmm improve` command with Claude CLI integration
 - **Latest Version**: 0.1.0
-- **Implementation Status**: Git-native improvement flow fully implemented with robust Claude CLI integration, complete audit trails, self-sufficient automated cycles, dynamic spec generation for improvements, focus-directed initial analysis (Spec 20), configurable workflows (Spec 21), and Spec 19 (Git-Native Improvement Flow) completed
+- **Implementation Status**: Git-native improvement flow fully implemented with robust Claude CLI integration, complete audit trails, self-sufficient automated cycles, dynamic spec generation for improvements, focus-directed initial analysis (Spec 20), configurable workflows (Spec 21), configurable iteration limits (Spec 22), command-line config options (Spec 23), and Spec 19 (Git-Native Improvement Flow) completed
 
 ## What Exists
 
 ### Core Functionality
-- **Simple CLI**: `mmm improve [--target 8.0] [--verbose] [--focus "area"]`
+- **Simple CLI**: `mmm improve [--target 8.0] [--verbose] [--focus "area"] [--max-iterations N]`
 - **Git-Native Flow**: Each improvement step creates git commits for complete auditability
 - **Claude Integration**: Three-step Claude CLI workflow (review → implement → lint)
 - **Project Analysis**: Automatic language and framework detection
@@ -22,6 +22,7 @@ Memento Mori (mmm) is a dead simple Rust CLI tool that makes your code better th
 - **Automated Linting**: Integrated formatting, linting, and testing with commits
 - **Minimal State**: Simple JSON files tracking essential data (score, runs, session history)
 - **Configurable Workflows**: Optional `.mmm/workflow.toml` for custom improvement workflows
+- **Iteration Control**: Configurable maximum iterations with --max-iterations flag (default: 10)
 
 ### Project Structure
 ```

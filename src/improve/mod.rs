@@ -102,7 +102,8 @@ async fn run_impl(cmd: command::ImproveCommand) -> Result<()> {
         .workflow
         .clone()
         .unwrap_or_else(WorkflowConfig::default);
-    let max_iterations = workflow_config.max_iterations;
+    // Command-line max_iterations takes precedence over config
+    let max_iterations = cmd.max_iterations;
 
     // 3. State setup
     let mut state = StateManager::new()?;
@@ -119,7 +120,8 @@ async fn run_impl(cmd: command::ImproveCommand) -> Result<()> {
     // Check if we should use configurable workflow or legacy workflow
     if config.workflow.is_some() {
         // Use configurable workflow
-        let mut executor = WorkflowExecutor::new(workflow_config, cmd.show_progress);
+        let mut executor =
+            WorkflowExecutor::new(workflow_config, cmd.show_progress, max_iterations);
 
         while current_score < cmd.target && iteration <= max_iterations {
             // Execute workflow iteration
@@ -152,9 +154,9 @@ async fn run_impl(cmd: command::ImproveCommand) -> Result<()> {
         }
     } else {
         // Use legacy hardcoded workflow
-        while current_score < cmd.target && iteration <= 10 {
+        while current_score < cmd.target && iteration <= cmd.max_iterations {
             if cmd.show_progress {
-                println!("🔄 Iteration {iteration}/10...");
+                println!("🔄 Iteration {iteration}/{}...", cmd.max_iterations);
             }
 
             // Step 1: Generate review spec and commit
@@ -249,9 +251,25 @@ async fn run_impl(cmd: command::ImproveCommand) -> Result<()> {
         eprintln!("Warning: Failed to stage .mmm/state.json: {stderr}");
     }
 
-    println!("✅ Complete! Final score: {current_score:.1}/10");
+    // Determine termination reason
+    let actual_iterations = iteration - 1;
+    if current_score >= cmd.target {
+        println!("✅ Complete! Target score reached: {current_score:.1}/10");
+    } else if actual_iterations >= cmd.max_iterations {
+        println!(
+            "⏱️  Complete! Max iterations reached ({}).",
+            cmd.max_iterations
+        );
+        println!(
+            "Final score: {current_score:.1}/10 (target was {})",
+            cmd.target
+        );
+    } else {
+        println!("✅ Complete! Final score: {current_score:.1}/10");
+    }
+
     println!("Files changed: {files_changed}");
-    println!("Iterations: {}", iteration - 1);
+    println!("Iterations: {actual_iterations}");
 
     Ok(())
 }

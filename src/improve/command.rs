@@ -30,4 +30,11 @@ pub struct ImproveCommand {
     /// .mmm/config.toml in the project root.
     #[arg(short = 'c', long)]
     pub config: Option<PathBuf>,
+
+    /// Maximum number of iterations to run (default: 10)
+    ///
+    /// This limits how many improvement cycles will be executed. The process will stop
+    /// when either the target score is reached or this limit is hit, whichever comes first.
+    #[arg(short = 'n', long, default_value = "10")]
+    pub max_iterations: u32,
 }

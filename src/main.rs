@@ -26,6 +26,10 @@ struct Cli {
     /// Path to configuration file
     #[arg(short = 'c', long)]
     config: Option<PathBuf>,
+
+    /// Maximum number of iterations to run (default: 10)
+    #[arg(short = 'n', long, default_value = "10")]
+    max_iterations: u32,
 }
 
 #[tokio::main]
@@ -55,6 +59,7 @@ async fn main() {
         show_progress: cli.show_progress,
         focus: cli.focus,
         config: cli.config,
+        max_iterations: cli.max_iterations,
     };
 
     if let Err(e) = mmm::improve::run(improve_cmd).await {

@@ -8,11 +8,16 @@ use tokio::process::Command;
 pub struct WorkflowExecutor {
     config: WorkflowConfig,
     verbose: bool,
+    max_iterations: u32,
 }
 
 impl WorkflowExecutor {
-    pub fn new(config: WorkflowConfig, verbose: bool) -> Self {
-        Self { config, verbose }
+    pub fn new(config: WorkflowConfig, verbose: bool, max_iterations: u32) -> Self {
+        Self {
+            config,
+            verbose,
+            max_iterations,
+        }
     }
 
     /// Execute a single iteration of the workflow
@@ -20,7 +25,7 @@ impl WorkflowExecutor {
         if self.verbose {
             println!(
                 "🔄 Workflow iteration {}/{}...",
-                iteration, self.config.max_iterations
+                iteration, self.max_iterations
             );
         }
 
