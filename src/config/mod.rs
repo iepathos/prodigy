@@ -7,14 +7,12 @@ pub mod command;
 pub mod command_parser;
 pub mod command_validator;
 pub mod loader;
-pub mod validator;
 pub mod workflow;
 
 pub use command::{Command, CommandMetadata, SimpleCommand, WorkflowCommand};
 pub use command_parser::{expand_variables, parse_command_string};
 pub use command_validator::{apply_command_defaults, validate_command, CommandRegistry};
 pub use loader::ConfigLoader;
-pub use validator::ConfigValidator;
 pub use workflow::WorkflowConfig;
 
 /// Get the global MMM directory for storing configuration and data
