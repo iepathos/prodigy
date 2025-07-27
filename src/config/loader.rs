@@ -26,7 +26,7 @@ impl ConfigLoader {
     pub async fn load_global(&self) -> Result<()> {
         let global_dir = crate::project::get_global_mmm_dir()?;
         let yaml_config_path = global_dir.join("config.yml");
-        
+
         if yaml_config_path.exists() {
             let content = fs::read_to_string(&yaml_config_path).await?;
             let global_config: GlobalConfig = serde_yaml::from_str(&content)?;
@@ -120,7 +120,6 @@ impl ConfigLoader {
         Ok(())
     }
 
-
     pub async fn load_project(&self, project_path: &Path) -> Result<()> {
         let config_path = project_path.join(".mmm").join("config.yml");
 
@@ -156,7 +155,9 @@ impl ConfigLoader {
                             cfg.merge_env_vars();
                             tracing::info!("Reloaded global configuration");
                         }
-                    } else if let Ok(project_config) = serde_yaml::from_str::<ProjectConfig>(&content) {
+                    } else if let Ok(project_config) =
+                        serde_yaml::from_str::<ProjectConfig>(&content)
+                    {
                         let mut cfg = config.write().unwrap();
                         cfg.project = Some(project_config);
                         tracing::info!("Reloaded project configuration");
@@ -256,8 +257,9 @@ impl ConfigLoader {
                 _ => {
                     // Store in variables table
                     // Variables table functionality removed for YAML-only approach
-                    return Err(anyhow!("Custom variables not supported in current YAML configuration"));
-                    
+                    return Err(anyhow!(
+                        "Custom variables not supported in current YAML configuration"
+                    ));
                 }
             }
 

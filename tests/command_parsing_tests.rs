@@ -11,14 +11,23 @@ fn test_parse_command_string() {
     // Test command with single argument
     let (cmd, args) = parse_command_string("mmm-code-review --focus architecture");
     assert_eq!(cmd, "mmm-code-review");
-    assert_eq!(args, vec!["--focus".to_string(), "architecture".to_string()]);
+    assert_eq!(
+        args,
+        vec!["--focus".to_string(), "architecture".to_string()]
+    );
 
     // Test command with multiple arguments
     let (cmd, args) = parse_command_string("mmm-analyze --verbose --depth 3 --output report.md");
     assert_eq!(cmd, "mmm-analyze");
     assert_eq!(
         args,
-        vec!["--verbose".to_string(), "--depth".to_string(), "3".to_string(), "--output".to_string(), "report.md".to_string()]
+        vec![
+            "--verbose".to_string(),
+            "--depth".to_string(),
+            "3".to_string(),
+            "--output".to_string(),
+            "report.md".to_string()
+        ]
     );
 }
 
@@ -28,17 +37,31 @@ fn test_parse_command_with_quotes() {
     // Test single quoted argument
     let (cmd, args) = parse_command_string("mmm-commit --message 'Fix bug in parser'");
     assert_eq!(cmd, "mmm-commit");
-    assert_eq!(args, vec!["--message".to_string(), "Fix bug in parser".to_string()]);
+    assert_eq!(
+        args,
+        vec!["--message".to_string(), "Fix bug in parser".to_string()]
+    );
 
     // Test double quoted argument
     let (cmd, args) = parse_command_string("mmm-review --focus \"error handling\"");
     assert_eq!(cmd, "mmm-review");
-    assert_eq!(args, vec!["--focus".to_string(), "error handling".to_string()]);
+    assert_eq!(
+        args,
+        vec!["--focus".to_string(), "error handling".to_string()]
+    );
 
     // Test mixed quotes
     let (cmd, args) = parse_command_string("mmm-test --name 'integration test' --tag \"v1.0\"");
     assert_eq!(cmd, "mmm-test");
-    assert_eq!(args, vec!["--name".to_string(), "integration test".to_string(), "--tag".to_string(), "v1.0".to_string()]);
+    assert_eq!(
+        args,
+        vec![
+            "--name".to_string(),
+            "integration test".to_string(),
+            "--tag".to_string(),
+            "v1.0".to_string()
+        ]
+    );
 }
 
 /// Test edge cases in command parsing
@@ -62,7 +85,10 @@ fn test_parse_command_edge_cases() {
     // Multiple spaces between arguments
     let (cmd, args) = parse_command_string("mmm-review    --focus    architecture");
     assert_eq!(cmd, "mmm-review");
-    assert_eq!(args, vec!["--focus".to_string(), "architecture".to_string()]);
+    assert_eq!(
+        args,
+        vec!["--focus".to_string(), "architecture".to_string()]
+    );
 }
 
 /// Test conversion from string command to structured command

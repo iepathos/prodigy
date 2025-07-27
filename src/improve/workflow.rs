@@ -131,7 +131,7 @@ impl WorkflowExecutor {
             cmd.env(key, value);
         }
 
-        // Determine retry count  
+        // Determine retry count
         let retries = command.metadata.retries.unwrap_or(2);
         // Timeout is available in metadata but not currently used by execute_with_retry
         // let _timeout = command.metadata.timeout;
