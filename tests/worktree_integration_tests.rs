@@ -121,12 +121,10 @@ fn main() {
 }
 
 #[test]
-#[ignore] // This test requires Claude CLI to be installed
 fn test_mmm_worktree_merge_command() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
 
-    // Would need to create a worktree first, then merge it
-    // This requires full Claude CLI integration
+    // Test that merge command fails gracefully when worktree doesn't exist
 
     // Run mmm worktree merge
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
