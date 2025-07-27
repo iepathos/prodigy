@@ -22,6 +22,7 @@ This file tracks the key specifications that shaped the current focused architec
 
 ## Pending Specifications
 - **22**: `specs/22-configurable-iteration-limit.md` - Add --max-iterations flag
+- **28**: `specs/28-structured-command-objects.md` - Refactor workflow commands to use structured objects
 
 ## Current Focus
 

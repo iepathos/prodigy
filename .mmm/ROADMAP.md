@@ -149,6 +149,12 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
   - Precedence: --config flag > .mmm/config.toml > defaults
   - Backward compatibility with deprecated .mmm/workflow.toml
 
+- [ ] **Structured Command Objects** (Spec 28)
+  - Refactor workflow commands from strings to structured objects
+  - Type-safe command definitions with validated parameters
+  - Support for command-specific options and metadata
+  - Maintain backward compatibility with string-based configs
+
 ### Parallel Execution
 - [x] **Git Worktree Isolation** (Spec 24) ✅
   - Isolate each MMM session in its own git worktree

@@ -184,3 +184,80 @@ max_iterations = 2
     assert_eq!(config.commands[0], "mmm-code-review --focus architecture");
     assert_eq!(config.commands[2], "mmm-code-review --focus error-handling");
 }
+
+/// Test structured command objects in workflow (future implementation)
+#[test]
+fn test_structured_command_objects() {
+    // This test documents the desired structured command format
+    let _structured_workflow_toml = r#"
+[[commands]]
+name = "mmm-code-review"
+args = { focus = "architecture" }
+
+[[commands]]
+name = "mmm-implement-spec"
+
+[[commands]]
+name = "mmm-code-review"
+args = { focus = "error-handling" }
+
+[[commands]]
+name = "mmm-implement-spec"
+
+max_iterations = 2
+"#;
+
+    // Once implemented, this should parse into structured command objects
+    // For now, we document the expected behavior
+    
+    // Expected parsed structure:
+    // commands[0]: Command { name: "mmm-code-review", args: { "focus": "architecture" } }
+    // commands[1]: Command { name: "mmm-implement-spec", args: {} }
+    // commands[2]: Command { name: "mmm-code-review", args: { "focus": "error-handling" } }
+    // commands[3]: Command { name: "mmm-implement-spec", args: {} }
+}
+
+/// Test mixed command formats (backward compatibility)
+#[test]
+fn test_mixed_command_formats() {
+    // Document that both string and structured formats should be supported
+    let _mixed_workflow_toml = r#"
+commands = [
+    "mmm-lint",  # Simple string format
+    { name = "mmm-code-review", args = { focus = "security" } },  # Structured format
+    "mmm-implement-spec"  # Back to string format
+]
+max_iterations = 1
+"#;
+
+    // Once implemented, this should support both formats seamlessly
+}
+
+/// Test command object with additional options
+#[test]
+fn test_command_object_options() {
+    // Document advanced command object features
+    let _advanced_workflow_toml = r#"
+[[commands]]
+name = "mmm-code-review"
+args = { focus = "performance", depth = 3 }
+timeout = 300
+retry_on_failure = true
+continue_on_error = false
+
+[[commands]]
+name = "mmm-test"
+env = { TEST_ENV = "staging", VERBOSE = "true" }
+working_dir = "./tests"
+
+max_iterations = 1
+"#;
+
+    // Once implemented, commands should support:
+    // - Multiple arguments
+    // - Timeout configuration
+    // - Retry logic
+    // - Error handling behavior
+    // - Environment variables
+    // - Working directory
+}
