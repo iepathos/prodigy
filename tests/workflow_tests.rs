@@ -162,3 +162,25 @@ fn test_single_command_workflow() {
     assert_eq!(minimal_workflow.commands.len(), 1);
     assert_eq!(minimal_workflow.commands[0], "/mmm-quick-fix");
 }
+
+/// Test workflow commands with arguments like --focus
+#[test]
+fn test_workflow_commands_with_arguments() {
+    let focus_workflow_toml = r#"
+commands = [
+    "mmm-code-review --focus architecture",
+    "mmm-implement-spec",
+    "mmm-code-review --focus error-handling",
+    "mmm-implement-spec"
+]
+max_iterations = 2
+"#;
+
+    let config: Result<WorkflowConfig, _> = toml::from_str(focus_workflow_toml);
+    assert!(config.is_ok());
+
+    let config = config.unwrap();
+    assert_eq!(config.commands.len(), 4);
+    assert_eq!(config.commands[0], "mmm-code-review --focus architecture");
+    assert_eq!(config.commands[2], "mmm-code-review --focus error-handling");
+}
