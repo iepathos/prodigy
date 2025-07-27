@@ -24,7 +24,7 @@ impl ConfigLoader {
     }
 
     pub async fn load_global(&self) -> Result<()> {
-        let global_dir = crate::project::get_global_mmm_dir()?;
+        let global_dir = super::get_global_mmm_dir()?;
         let yaml_config_path = global_dir.join("config.yml");
 
         if yaml_config_path.exists() {

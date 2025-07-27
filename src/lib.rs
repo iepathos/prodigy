@@ -13,13 +13,11 @@
 //! - `analyzer` - Project analysis functionality for language and framework detection
 //! - `config` - Configuration management for the tool
 //! - `improve` - Core improvement command implementation
-//! - `project` - Project management utilities
 //! - `simple_state` - Minimal state management with JSON persistence
 //! - `worktree` - Git worktree management for parallel sessions
 
 pub mod analyzer;
 pub mod config;
 pub mod improve;
-pub mod project;
 pub mod simple_state;
 pub mod worktree;

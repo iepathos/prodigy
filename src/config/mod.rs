@@ -1,3 +1,5 @@
+use anyhow::{anyhow, Result};
+use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -14,6 +16,13 @@ pub use command_validator::{apply_command_defaults, validate_command, CommandReg
 pub use loader::ConfigLoader;
 pub use validator::ConfigValidator;
 pub use workflow::WorkflowConfig;
+
+/// Get the global MMM directory for storing configuration and data
+pub fn get_global_mmm_dir() -> Result<PathBuf> {
+    ProjectDirs::from("com", "mmm", "mmm")
+        .map(|dirs| dirs.data_dir().to_path_buf())
+        .ok_or_else(|| anyhow!("Could not determine home directory"))
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
@@ -55,7 +64,7 @@ pub struct PluginConfig {
 impl Default for GlobalConfig {
     fn default() -> Self {
         Self {
-            mmm_home: crate::project::get_global_mmm_dir()
+            mmm_home: get_global_mmm_dir()
                 .unwrap_or_else(|_| PathBuf::from("~/.mmm")),
             default_editor: None,
             log_level: Some("info".to_string()),
