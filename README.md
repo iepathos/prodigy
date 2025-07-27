@@ -324,7 +324,7 @@ cargo run -- improve --verbose
 
 ## License
 
-[Add your license here]
+MIT
 
 ## Contributing
 
