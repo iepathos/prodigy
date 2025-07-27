@@ -332,7 +332,25 @@ Implement git worktree isolation where each MMM session creates and operates in 
 
 ---
 
-## ADR-020: Claude-Assisted Merge for Conflict Resolution
+## ADR-020: Worktree Location in Home Directory
+
+### Status
+Accepted
+
+### Context
+Initial implementation placed worktrees in `.mmm/worktrees/` inside the repository. However, Git has a restriction that worktrees cannot be subdirectories of the repository they belong to. This caused git worktree commands to fail with "fatal: 'path' is inside repository" errors.
+
+### Decision
+Move worktrees to `~/.mmm/worktrees/{repo-name}/` in the user's home directory. This ensures worktrees are outside any repository while maintaining organization by project name.
+
+### Consequences
+- **Positive**: Complies with git requirements, centralized worktree management, works across all repositories, organized by project name
+- **Negative**: Worktrees persist in home directory after project deletion, requires home directory access, slightly less discoverable than project-local storage
+- **Implementation**: Updated WorktreeManager to use dirs::home_dir(), added repository name extraction, updated tests to clean up home directory worktrees
+
+---
+
+## ADR-021: Claude-Assisted Merge for Conflict Resolution
 
 ### Status
 Accepted

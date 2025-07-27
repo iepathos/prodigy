@@ -48,7 +48,7 @@ Enable multiple MMM improvement sessions to run concurrently in the same reposit
 1. **Worktree Creation**
    - Before starting improvements, create a new worktree
    - Use naming pattern: `mmm-{focus}-{timestamp}` or `mmm-session-{timestamp}`
-   - Create in `.mmm/worktrees/` directory (gitignored)
+   - Create in `~/.mmm/worktrees/{repo-name}/` directory (outside repository)
    - Create a new branch from current HEAD
 
 2. **Session Execution**
@@ -148,7 +148,7 @@ impl WorktreeManager {
 
 ## Implementation Notes
 
-1. **Worktree Location**: Store in `.mmm/worktrees/` to keep them organized and hidden
+1. **Worktree Location**: Store in `~/.mmm/worktrees/{repo-name}/` to comply with git restrictions (worktrees cannot be inside the repository)
 2. **Branch Naming**: Use descriptive names that include timestamp and optional focus
 3. **Atomic Operations**: Ensure worktree creation/deletion is atomic
 4. **Git Version Check**: Detect git version and provide fallback for older versions

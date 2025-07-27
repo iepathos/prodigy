@@ -238,7 +238,7 @@ mmm worktree clean mmm-performance-1234567890
 mmm worktree clean --all
 ```
 
-Each session runs in its own git worktree with an isolated branch, allowing multiple improvement efforts to proceed without interfering with each other. Worktrees are preserved on failure for debugging and automatically suggested for cleanup on success.
+Each session runs in its own git worktree with an isolated branch, allowing multiple improvement efforts to proceed without interfering with each other. Worktrees are stored in `~/.mmm/worktrees/{project-name}/` and are preserved on failure for debugging and automatically suggested for cleanup on success.
 
 ## Project Structure
 
@@ -248,9 +248,16 @@ mmm/
 │   ├── main.rs           # CLI entry point
 │   ├── improve/          # Core improvement logic
 │   ├── analyzer/         # Project analysis
-│   └── simple_state/     # Minimal state management
+│   ├── simple_state/     # Minimal state management
+│   └── worktree/         # Git worktree management
 ├── .mmm/                 # Project context and state
 └── README.md            # This file
+
+# Worktrees are stored outside the project:
+~/.mmm/worktrees/{project-name}/
+├── mmm-session-1234567890/
+├── mmm-performance-1234567891/
+└── mmm-security-1234567892/
 ```
 
 ## Development
