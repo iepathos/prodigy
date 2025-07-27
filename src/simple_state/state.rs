@@ -58,10 +58,10 @@ impl StateManager {
         fs::write(&temp_file, json).context("Failed to write temp state file")?;
 
         // Atomic rename - last writer wins
-        fs::rename(&temp_file, &final_file).or_else(|e| {
+        fs::rename(&temp_file, &final_file).map_err(|e| {
             // Clean up temp file on failure
             let _ = fs::remove_file(&temp_file);
-            Err(anyhow::anyhow!("Failed to rename state file: {}", e))
+            anyhow::anyhow!("Failed to rename state file: {}", e)
         })?;
 
         Ok(())

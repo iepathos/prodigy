@@ -371,4 +371,164 @@ commands:
         );
         assert_eq!(deserialized.metadata.env, original.metadata.env);
     }
+
+    #[test]
+    fn test_config_new_creates_defaults() {
+        let config = Config::new();
+
+        assert!(config.project.is_none());
+        assert!(config.workflow.is_none());
+        assert_eq!(config.global.log_level, Some("info".to_string()));
+        assert_eq!(config.global.max_concurrent_specs, Some(1));
+        assert_eq!(config.global.auto_commit, Some(true));
+    }
+
+    #[test]
+    fn test_get_claude_api_key_precedence() {
+        let mut config = Config::new();
+
+        // No API key set
+        assert!(config.get_claude_api_key().is_none());
+
+        // Global API key only
+        config.global.claude_api_key = Some("global-key".to_string());
+        assert_eq!(config.get_claude_api_key(), Some("global-key"));
+
+        // Project API key takes precedence
+        config.project = Some(ProjectConfig {
+            name: "test".to_string(),
+            description: None,
+            version: None,
+            spec_dir: None,
+            claude_api_key: Some("project-key".to_string()),
+            max_iterations: None,
+            auto_commit: None,
+            variables: None,
+        });
+        assert_eq!(config.get_claude_api_key(), Some("project-key"));
+    }
+
+    #[test]
+    fn test_get_auto_commit_precedence() {
+        let mut config = Config::new();
+
+        // Default value
+        assert!(config.get_auto_commit());
+
+        // Global setting
+        config.global.auto_commit = Some(false);
+        assert!(!config.get_auto_commit());
+
+        // Project setting takes precedence
+        config.project = Some(ProjectConfig {
+            name: "test".to_string(),
+            description: None,
+            version: None,
+            spec_dir: None,
+            claude_api_key: None,
+            max_iterations: None,
+            auto_commit: Some(true),
+            variables: None,
+        });
+        assert!(config.get_auto_commit());
+    }
+
+    #[test]
+    fn test_get_max_iterations() {
+        let mut config = Config::new();
+
+        // Default value
+        assert_eq!(config.get_max_iterations(), 10);
+
+        // Project setting
+        config.project = Some(ProjectConfig {
+            name: "test".to_string(),
+            description: None,
+            version: None,
+            spec_dir: None,
+            claude_api_key: None,
+            max_iterations: Some(25),
+            auto_commit: None,
+            variables: None,
+        });
+        assert_eq!(config.get_max_iterations(), 25);
+    }
+
+    #[test]
+    fn test_get_spec_dir() {
+        let mut config = Config::new();
+
+        // Default value
+        assert_eq!(config.get_spec_dir(), PathBuf::from("specs"));
+
+        // Project setting
+        config.project = Some(ProjectConfig {
+            name: "test".to_string(),
+            description: None,
+            version: None,
+            spec_dir: Some(PathBuf::from("custom/specs")),
+            claude_api_key: None,
+            max_iterations: None,
+            auto_commit: None,
+            variables: None,
+        });
+        assert_eq!(config.get_spec_dir(), PathBuf::from("custom/specs"));
+    }
+
+    #[test]
+    fn test_merge_env_vars() {
+        let mut config = Config::new();
+
+        // Test environment variables override defaults
+        std::env::set_var("MMM_CLAUDE_API_KEY", "env-api-key");
+        std::env::set_var("MMM_LOG_LEVEL", "debug");
+        std::env::set_var("MMM_EDITOR", "vim");
+        std::env::set_var("MMM_AUTO_COMMIT", "false");
+
+        config.merge_env_vars();
+
+        assert_eq!(config.global.claude_api_key, Some("env-api-key".to_string()));
+        assert_eq!(config.global.log_level, Some("debug".to_string()));
+        assert_eq!(config.global.default_editor, Some("vim".to_string()));
+        assert_eq!(config.global.auto_commit, Some(false));
+
+        // Clean up
+        std::env::remove_var("MMM_CLAUDE_API_KEY");
+        std::env::remove_var("MMM_LOG_LEVEL");
+        std::env::remove_var("MMM_EDITOR");
+        std::env::remove_var("MMM_AUTO_COMMIT");
+    }
+
+    #[test]
+    fn test_merge_env_vars_editor_fallback() {
+        let mut config = Config::new();
+
+        // Test EDITOR fallback when MMM_EDITOR is not set
+        std::env::set_var("EDITOR", "nano");
+        config.merge_env_vars();
+        assert_eq!(config.global.default_editor, Some("nano".to_string()));
+
+        // MMM_EDITOR takes precedence
+        std::env::set_var("MMM_EDITOR", "emacs");
+        config.merge_env_vars();
+        assert_eq!(config.global.default_editor, Some("emacs".to_string()));
+
+        // Clean up
+        std::env::remove_var("EDITOR");
+        std::env::remove_var("MMM_EDITOR");
+    }
+
+    #[test]
+    fn test_global_config_default() {
+        let global = GlobalConfig::default();
+
+        // The home directory should be set to something
+        assert!(!global.mmm_home.as_os_str().is_empty());
+        assert_eq!(global.log_level, Some("info".to_string()));
+        assert_eq!(global.max_concurrent_specs, Some(1));
+        assert_eq!(global.auto_commit, Some(true));
+        assert!(global.default_editor.is_none());
+        assert!(global.claude_api_key.is_none());
+        assert!(global.plugins.is_none());
+    }
 }

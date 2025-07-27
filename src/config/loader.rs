@@ -1,15 +1,11 @@
-use super::{Config, GlobalConfig, ProjectConfig, WorkflowConfig};
+use super::{Config, ProjectConfig, WorkflowConfig};
 use anyhow::{anyhow, Context, Result};
-use notify::{Event, EventKind, RecursiveMode, Watcher};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::{Arc, RwLock};
 use tokio::fs;
-use tokio::sync::mpsc;
 
 pub struct ConfigLoader {
     config: Arc<RwLock<Config>>,
-    watcher: Option<notify::RecommendedWatcher>,
-    reload_tx: Option<mpsc::Sender<PathBuf>>,
 }
 
 impl ConfigLoader {
@@ -18,28 +14,9 @@ impl ConfigLoader {
 
         Ok(Self {
             config: Arc::new(RwLock::new(config)),
-            watcher: None,
-            reload_tx: None,
         })
     }
 
-    pub async fn load_global(&self) -> Result<()> {
-        let global_dir = super::get_global_mmm_dir()?;
-        let yaml_config_path = global_dir.join("config.yml");
-
-        if yaml_config_path.exists() {
-            let content = fs::read_to_string(&yaml_config_path).await?;
-            let global_config: GlobalConfig = serde_yaml::from_str(&content)?;
-
-            let mut config = self.config.write().unwrap();
-            config.global = global_config;
-        }
-
-        let mut config = self.config.write().unwrap();
-        config.merge_env_vars();
-
-        Ok(())
-    }
 
     /// Load configuration with precedence rules:
     /// 1. If explicit_path is provided, use that file (error if not found)
@@ -133,142 +110,229 @@ impl ConfigLoader {
 
         Ok(())
     }
-
-    pub async fn enable_hot_reload(&mut self) -> Result<()> {
-        let (tx, mut rx) = mpsc::channel(10);
-        self.reload_tx = Some(tx);
-
-        let config = self.config.clone();
-        tokio::spawn(async move {
-            while let Some(path) = rx.recv().await {
-                if let Ok(content) = fs::read_to_string(&path).await {
-                    let is_global = path
-                        .parent()
-                        .and_then(|p| p.file_name())
-                        .map(|n| n != ".mmm")
-                        .unwrap_or(false);
-
-                    if is_global {
-                        if let Ok(global_config) = serde_yaml::from_str::<GlobalConfig>(&content) {
-                            let mut cfg = config.write().unwrap();
-                            cfg.global = global_config;
-                            cfg.merge_env_vars();
-                            tracing::info!("Reloaded global configuration");
-                        }
-                    } else if let Ok(project_config) =
-                        serde_yaml::from_str::<ProjectConfig>(&content)
-                    {
-                        let mut cfg = config.write().unwrap();
-                        cfg.project = Some(project_config);
-                        tracing::info!("Reloaded project configuration");
-                    }
-                }
-            }
-        });
-
-        Ok(())
-    }
-
-    pub fn watch_config_file(&mut self, path: PathBuf) -> Result<()> {
-        let tx = self
-            .reload_tx
-            .clone()
-            .ok_or_else(|| anyhow!("Hot reload not enabled"))?;
-
-        let mut watcher =
-            notify::recommended_watcher(move |res: std::result::Result<Event, notify::Error>| {
-                if let Ok(event) = res {
-                    if matches!(event.kind, EventKind::Modify(_)) {
-                        for path in event.paths {
-                            if path
-                                .extension()
-                                .is_some_and(|ext| ext == "yaml" || ext == "yml")
-                            {
-                                let _ = tx.blocking_send(path);
-                            }
-                        }
-                    }
-                }
-            })?;
-
-        watcher.watch(&path, RecursiveMode::NonRecursive)?;
-        self.watcher = Some(watcher);
-
-        Ok(())
-    }
-
     pub fn get_config(&self) -> Config {
         self.config.read().unwrap().clone()
     }
+}
 
-    pub fn get_project_value(&self, key: &str) -> Result<String> {
-        let config = self.config.read().unwrap();
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    use tempfile::TempDir;
+    use tokio::fs;
 
-        if let Some(project) = &config.project {
-            match key {
-                "name" => Ok(project.name.clone()),
-                "description" => Ok(project.description.clone().unwrap_or_default()),
-                "version" => Ok(project.version.clone().unwrap_or_default()),
-                "spec_dir" => Ok(project
-                    .spec_dir
-                    .as_ref()
-                    .map(|p| p.display().to_string())
-                    .unwrap_or_default()),
-                "claude_api_key" => Ok(project.claude_api_key.clone().unwrap_or_default()),
-                "max_iterations" => Ok(project
-                    .max_iterations
-                    .map(|v| v.to_string())
-                    .unwrap_or_default()),
-                "auto_commit" => Ok(project
-                    .auto_commit
-                    .map(|v| v.to_string())
-                    .unwrap_or_default()),
-                _ => {
-                    // Check in variables table
-                    if let Some(variables) = &project.variables {
-                        if let Some(value) = variables.get(key) {
-                            return Ok(value.to_string());
-                        }
-                    }
-                    Err(anyhow!("Unknown configuration key: {key}"))
-                }
-            }
-        } else {
-            Err(anyhow!("No project loaded"))
-        }
+    #[tokio::test]
+    async fn test_new_creates_default_config() {
+        let loader = ConfigLoader::new().await.unwrap();
+        let config = loader.get_config();
+
+        // Check defaults
+        assert!(config.project.is_none());
+        assert!(config.workflow.is_none());
+        assert_eq!(config.global.log_level, Some("info".to_string()));
+        assert_eq!(config.global.max_concurrent_specs, Some(1));
+        assert_eq!(config.global.auto_commit, Some(true));
     }
 
-    pub async fn set_project_value(&self, key: &str, value: &str) -> Result<()> {
-        let mut config = self.config.write().unwrap();
+    #[tokio::test]
+    async fn test_load_with_explicit_path_yaml() {
+        let temp_dir = TempDir::new().unwrap();
+        let workflow_path = temp_dir.path().join("workflow.yml");
 
-        if let Some(project) = &mut config.project {
-            match key {
-                "name" => project.name = value.to_string(),
-                "description" => project.description = Some(value.to_string()),
-                "version" => project.version = Some(value.to_string()),
-                "spec_dir" => project.spec_dir = Some(PathBuf::from(value)),
-                "claude_api_key" => project.claude_api_key = Some(value.to_string()),
-                "max_iterations" => {
-                    project.max_iterations = value.parse().ok();
-                }
-                "auto_commit" => {
-                    project.auto_commit = value.parse().ok();
-                }
-                _ => {
-                    // Store in variables table
-                    // Variables table functionality removed for YAML-only approach
-                    return Err(anyhow!(
-                        "Custom variables not supported in current YAML configuration"
-                    ));
-                }
-            }
+        // Create a test workflow config
+        let workflow_content = r#"
+commands:
+  - mmm-code-review
+  - mmm-implement-spec
+  - mmm-lint
+max_iterations: 5
+"#;
+        fs::write(&workflow_path, workflow_content).await.unwrap();
 
-            // Note: Changes are only made in-memory. Saving to disk is not implemented
-            // as this appears to be unused functionality.
+        let loader = ConfigLoader::new().await.unwrap();
+        loader
+            .load_with_explicit_path(temp_dir.path(), Some(&workflow_path))
+            .await
+            .unwrap();
 
-            Ok(())
-        } else {
-            Err(anyhow!("No project loaded"))
+        let config = loader.get_config();
+        assert!(config.workflow.is_some());
+        let workflow = config.workflow.unwrap();
+        assert_eq!(workflow.commands.len(), 3);
+        assert_eq!(workflow.max_iterations, 5);
+    }
+
+    #[tokio::test]
+    async fn test_load_with_explicit_path_nested_workflow() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("config.yml");
+
+        // Create a config with nested workflow section
+        let config_content = r#"
+workflow:
+  commands:
+    - name: mmm-code-review
+      options:
+        focus: performance
+    - mmm-lint
+  max_iterations: 3
+"#;
+        fs::write(&config_path, config_content).await.unwrap();
+
+        let loader = ConfigLoader::new().await.unwrap();
+        loader
+            .load_with_explicit_path(temp_dir.path(), Some(&config_path))
+            .await
+            .unwrap();
+
+        let config = loader.get_config();
+        assert!(config.workflow.is_some());
+        let workflow = config.workflow.unwrap();
+        assert_eq!(workflow.commands.len(), 2);
+        assert_eq!(workflow.max_iterations, 3);
+    }
+
+    #[tokio::test]
+    async fn test_load_with_default_path() {
+        let temp_dir = TempDir::new().unwrap();
+        let mmm_dir = temp_dir.path().join(".mmm");
+        fs::create_dir(&mmm_dir).await.unwrap();
+        let workflow_path = mmm_dir.join("workflow.yml");
+
+        // Create default workflow config
+        let workflow_content = r#"
+commands:
+  - mmm-test
+max_iterations: 7
+"#;
+        fs::write(&workflow_path, workflow_content).await.unwrap();
+
+        let loader = ConfigLoader::new().await.unwrap();
+        // No explicit path, should find .mmm/workflow.yml
+        loader
+            .load_with_explicit_path(temp_dir.path(), None)
+            .await
+            .unwrap();
+
+        let config = loader.get_config();
+        assert!(config.workflow.is_some());
+        let workflow = config.workflow.unwrap();
+        assert_eq!(workflow.commands.len(), 1);
+        assert_eq!(workflow.max_iterations, 7);
+    }
+
+    #[tokio::test]
+    async fn test_load_with_no_config_uses_defaults() {
+        let temp_dir = TempDir::new().unwrap();
+
+        let loader = ConfigLoader::new().await.unwrap();
+        // No config files exist
+        loader
+            .load_with_explicit_path(temp_dir.path(), None)
+            .await
+            .unwrap();
+
+        let config = loader.get_config();
+        assert!(config.workflow.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_load_project_config() {
+        let temp_dir = TempDir::new().unwrap();
+        let mmm_dir = temp_dir.path().join(".mmm");
+        fs::create_dir(&mmm_dir).await.unwrap();
+        let config_path = mmm_dir.join("config.yml");
+
+        // Create project config
+        let project_content = r#"
+name: test-project
+description: A test project
+version: 1.0.0
+spec_dir: custom-specs
+claude_api_key: test-key
+max_iterations: 15
+auto_commit: false
+"#;
+        fs::write(&config_path, project_content).await.unwrap();
+
+        let loader = ConfigLoader::new().await.unwrap();
+        loader.load_project(temp_dir.path()).await.unwrap();
+
+        let config = loader.get_config();
+        assert!(config.project.is_some());
+        let project = config.project.unwrap();
+        assert_eq!(project.name, "test-project");
+        assert_eq!(project.description, Some("A test project".to_string()));
+        assert_eq!(project.version, Some("1.0.0".to_string()));
+        assert_eq!(project.spec_dir, Some(PathBuf::from("custom-specs")));
+        assert_eq!(project.claude_api_key, Some("test-key".to_string()));
+        assert_eq!(project.max_iterations, Some(15));
+        assert_eq!(project.auto_commit, Some(false));
+    }
+
+    #[tokio::test]
+    async fn test_load_from_path_unsupported_format() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("config.json");
+        fs::write(&config_path, "{}").await.unwrap();
+
+        let loader = ConfigLoader::new().await.unwrap();
+        let result = loader.load_from_path(&config_path).await;
+
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Unsupported configuration file format"));
+    }
+
+    #[tokio::test]
+    async fn test_load_from_path_invalid_yaml() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("config.yml");
+        fs::write(&config_path, "invalid: yaml: content:").await.unwrap();
+
+        let loader = ConfigLoader::new().await.unwrap();
+        let result = loader.load_from_path(&config_path).await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_load_from_path_nonexistent_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("nonexistent.yml");
+
+        let loader = ConfigLoader::new().await.unwrap();
+        let result = loader.load_from_path(&config_path).await;
+
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Failed to read configuration file"));
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_access() {
+        let loader = ConfigLoader::new().await.unwrap();
+        let loader_arc = Arc::new(loader);
+
+        // Spawn multiple tasks that read config concurrently
+        let mut handles = vec![];
+        for _ in 0..10 {
+            let loader_clone = loader_arc.clone();
+            let handle = tokio::spawn(async move {
+                let config = loader_clone.get_config();
+                assert!(config.global.auto_commit.is_some());
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all tasks
+        for handle in handles {
+            handle.await.unwrap();
         }
     }
 }
