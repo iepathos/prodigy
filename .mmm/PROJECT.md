@@ -9,7 +9,7 @@ Memento Mori (mmm) is a dead simple Rust CLI tool that makes your code better th
 - **Project Status**: Active Development - Core Working
 - **Core Feature**: `mmm improve` command with Claude CLI integration
 - **Latest Version**: 0.1.0
-- **Implementation Status**: Git-native improvement flow fully implemented with robust Claude CLI integration, complete audit trails, self-sufficient automated cycles, dynamic spec generation for improvements, focus-directed initial analysis (Spec 20), configurable workflows (Spec 21), configurable iteration limits (Spec 22), command-line config options (Spec 23), and Spec 19 (Git-Native Improvement Flow) completed
+- **Implementation Status**: Git-native improvement flow fully implemented with robust Claude CLI integration, complete audit trails, self-sufficient automated cycles, dynamic spec generation for improvements, focus-directed initial analysis (Spec 20), configurable workflows (Spec 21), configurable iteration limits (Spec 22), command-line config options (Spec 23), git worktree isolation for parallel sessions (Spec 24), and Spec 19 (Git-Native Improvement Flow) completed
 
 ## What Exists
 
@@ -23,17 +23,20 @@ Memento Mori (mmm) is a dead simple Rust CLI tool that makes your code better th
 - **Minimal State**: Simple JSON files tracking essential data (score, runs, session history)
 - **Configurable Workflows**: Optional `.mmm/workflow.toml` for custom improvement workflows
 - **Iteration Control**: Configurable maximum iterations with --max-iterations flag (default: 10)
+- **Parallel Sessions**: Git worktree isolation enables multiple concurrent improvement sessions
 
 ### Project Structure
 ```
 mmm/
 ├── src/
-│   ├── main.rs           # CLI entry point
+│   ├── main.rs           # CLI entry point with subcommands
 │   ├── improve/          # Core improve command logic
 │   ├── analyzer/         # Project analysis
 │   ├── simple_state/     # Minimal state management
+│   ├── worktree/         # Git worktree management
 │   └── lib.rs           # Library exports
 ├── .mmm/                # Project context and state
+│   └── worktrees/       # Isolated git worktrees
 └── README.md            # User documentation
 ```
 
@@ -68,6 +71,12 @@ mmm/
    - Simple list of Claude commands to execute
    - Automatic spec ID extraction for mmm-implement-spec
    - Support for custom workflow sequences
+
+6. **Parallel Execution**
+   - Git worktree isolation for concurrent sessions
+   - Each session runs in its own branch
+   - Commands: `mmm worktree list/merge/clean`
+   - Enable with `MMM_USE_WORKTREE=true`
 
 ## Technology Stack
 

@@ -57,10 +57,16 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 - **template.rs**: Project template utilities
 - **mod.rs**: Project data structures
 
+### 9. Worktree Management (`src/worktree/`)
+- **manager.rs**: Git worktree lifecycle management
+- **mod.rs**: WorktreeSession data structure and exports
+
 ## Data Flow
 
 ```
 User runs `mmm improve`
+        ↓
+[Optional] Create git worktree if MMM_USE_WORKTREE=true
         ↓
 Analyze project (language, framework, health score)
         ↓
@@ -71,6 +77,8 @@ Execute workflow commands in sequence
 Each command: Call Claude CLI (auto-extract spec ID for mmm-implement-spec)
         ↓
 Update state and repeat until target reached
+        ↓
+[Optional] Merge worktree changes back to main branch
 ```
 
 ## Key Design Principles
@@ -161,9 +169,13 @@ src/
 │   ├── manager.rs       # Project lifecycle
 │   ├── health.rs        # Health checking
 │   └── template.rs      # Template utilities
-└── simple_state/        # Minimal state
+├── simple_state/        # Minimal state
+│   ├── mod.rs
+│   ├── state.rs         # JSON state management
+│   ├── cache.rs         # Temporary caching
+│   └── types.rs         # Data structures
+└── worktree/            # Git worktree management
     ├── mod.rs
-    ├── state.rs         # JSON state management
-    ├── cache.rs         # Temporary caching
-    └── types.rs         # Data structures
+    ├── manager.rs       # Worktree lifecycle
+    └── tests.rs         # Unit tests
 ```

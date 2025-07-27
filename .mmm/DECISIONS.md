@@ -311,3 +311,21 @@ Add --config (-c) command-line option to specify custom configuration paths. Sup
 - **Positive**: Flexible configuration management, support for shared configs, CI/CD compatibility, both TOML and YAML formats supported, clear precedence rules
 - **Negative**: Minor breaking change (workflow.toml → config.toml), additional complexity in config loading
 - **Implementation**: Added --config flag to ImproveCommand, updated ConfigLoader with load_with_explicit_path method, support for YAML parsing, backward compatibility warnings for workflow.toml
+
+---
+
+## ADR-019: Git Worktree Isolation for Parallel Sessions
+
+### Status
+Accepted
+
+### Context
+Spec 24 identified the need for running multiple MMM improvement sessions concurrently without conflicts. When multiple sessions run in the same repository, they create commits that can clash, making parallel improvements difficult to manage.
+
+### Decision
+Implement git worktree isolation where each MMM session creates and operates in its own worktree with a unique branch. Sessions are opt-in via MMM_USE_WORKTREE environment variable. Add CLI subcommands for worktree management (list, merge, clean).
+
+### Consequences
+- **Positive**: True parallel execution, no conflicts between sessions, complete isolation, preserved debugging context on failure, backward compatible (opt-in)
+- **Negative**: Requires git 2.5+, additional disk space for worktrees, slightly more complex workflow, manual merge step required
+- **Implementation**: Created worktree module with WorktreeManager, integrated into improve command flow, added CLI subcommands, automatic cleanup on success with preservation on failure

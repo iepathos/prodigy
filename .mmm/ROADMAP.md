@@ -99,6 +99,18 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
 - [x] **Added documentation** with example workflows (security, testing, documentation)
 - [x] **Backward compatibility** maintained - no config = default workflow
 
+## ✅ Phase 2.12: Git Worktree Isolation (COMPLETED)
+
+### Parallel Execution Support Complete
+- [x] **Created worktree module** in src/worktree/ with manager.rs
+- [x] **Implemented WorktreeManager** with full lifecycle management
+- [x] **Added worktree subcommands** to CLI (list, merge, clean)
+- [x] **Integrated with improve command** via MMM_USE_WORKTREE environment variable
+- [x] **Automatic branch naming** with focus-based naming when applicable
+- [x] **Worktree cleanup logic** with preservation on failure for debugging
+- [x] **Unit tests** for worktree functionality
+- [x] **Updated .gitignore** to exclude .mmm/worktrees/
+
 ## 📋 Phase 3: Robustness (NEXT)
 
 ### Core Reliability
@@ -129,10 +141,11 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
   - Backward compatibility with deprecated .mmm/workflow.toml
 
 ### Parallel Execution
-- [ ] **Git Worktree Isolation** (Spec 24)
+- [x] **Git Worktree Isolation** (Spec 24) ✅
   - Isolate each MMM session in its own git worktree
   - Enable parallel improvement sessions without conflicts
   - Commands for listing and merging worktrees
+  - MMM_USE_WORKTREE=true enables worktree mode
 
 ### Success Criteria
 - Works reliably across different project types

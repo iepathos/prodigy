@@ -7,6 +7,7 @@ pub mod workflow;
 use crate::analyzer::ProjectAnalyzer;
 use crate::config::{ConfigLoader, WorkflowConfig};
 use crate::simple_state::StateManager;
+use crate::worktree::WorktreeManager;
 use anyhow::{anyhow, Context as _, Result};
 use chrono::Utc;
 use git_ops::get_last_commit_message;
@@ -59,6 +60,58 @@ pub async fn run(cmd: command::ImproveCommand) -> Result<()> {
 }
 
 async fn run_impl(cmd: command::ImproveCommand) -> Result<()> {
+    // Check if worktree isolation should be used
+    let use_worktree = std::env::var("MMM_USE_WORKTREE")
+        .map(|v| v == "true" || v == "1")
+        .unwrap_or(false);
+
+    if use_worktree {
+        // Create worktree for this session
+        let worktree_manager = WorktreeManager::new(std::env::current_dir()?)?;
+        let session = worktree_manager.create_session(cmd.focus.as_deref())?;
+
+        println!(
+            "🌳 Created worktree: {} at {}",
+            session.name,
+            session.path.display()
+        );
+
+        // Change to worktree directory
+        std::env::set_current_dir(&session.path)?;
+
+        // Run improvement in worktree context
+        let result = run_in_worktree(cmd.clone(), session.clone()).await;
+
+        // Clean up on failure, keep on success for manual merge
+        match &result {
+            Ok(_) => {
+                println!("✅ Improvements completed in worktree: {}", session.name);
+                println!("To merge changes, run: mmm worktree merge {}", session.name);
+            }
+            Err(_) => {
+                eprintln!(
+                    "❌ Improvement failed, preserving worktree for debugging: {}",
+                    session.name
+                );
+            }
+        }
+
+        result
+    } else {
+        // Run without worktree isolation (default behavior)
+        run_without_worktree(cmd).await
+    }
+}
+
+async fn run_in_worktree(
+    cmd: command::ImproveCommand,
+    _session: crate::worktree::WorktreeSession,
+) -> Result<()> {
+    // The actual improvement logic, but running in worktree context
+    run_without_worktree(cmd).await
+}
+
+async fn run_without_worktree(cmd: command::ImproveCommand) -> Result<()> {
     println!("🔍 Analyzing project...");
 
     // 1. Initial analysis

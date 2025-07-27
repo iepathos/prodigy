@@ -82,3 +82,6 @@ env/
 # Local development files
 local/
 dev/
+
+# MMM worktrees
+.mmm/worktrees/

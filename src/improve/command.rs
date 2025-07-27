@@ -5,7 +5,7 @@ use std::path::PathBuf;
 ///
 /// This struct represents the configuration options available when running
 /// `mmm improve` to automatically enhance code quality through Claude CLI integration.
-#[derive(Debug, Args)]
+#[derive(Debug, Args, Clone)]
 pub struct ImproveCommand {
     /// Target quality score (default: 8.0)
     #[arg(long, default_value = "8.0")]

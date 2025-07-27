@@ -215,6 +215,31 @@ default_target = 8.5
 claude_args = ["--no-preamble", "--format=code"]
 ```
 
+### Parallel Sessions with Git Worktrees
+
+Run multiple improvement sessions concurrently without conflicts:
+
+```bash
+# Enable worktree mode for this session
+MMM_USE_WORKTREE=true mmm improve --focus "performance"
+
+# In another terminal, run a different improvement focus
+MMM_USE_WORKTREE=true mmm improve --focus "security"
+
+# List active worktree sessions
+mmm worktree list
+
+# Merge improvements back to main branch
+mmm worktree merge mmm-performance-1234567890
+
+# Clean up completed worktrees
+mmm worktree clean mmm-performance-1234567890
+# Or clean all worktrees
+mmm worktree clean --all
+```
+
+Each session runs in its own git worktree with an isolated branch, allowing multiple improvement efforts to proceed without interfering with each other. Worktrees are preserved on failure for debugging and automatically suggested for cleanup on success.
+
 ## Project Structure
 
 ```
