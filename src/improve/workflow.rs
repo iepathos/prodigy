@@ -316,7 +316,7 @@ mod tests {
             match command.as_str() {
                 "/mmm-implement-spec" => {
                     // This command requires special spec extraction
-                    assert!(true);
+                    // No assertion needed here - the logic is handled elsewhere
                 }
                 _ => {
                     // Other commands are handled normally

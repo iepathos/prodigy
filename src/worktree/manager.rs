@@ -168,9 +168,7 @@ impl WorktreeManager {
         };
 
         // Call Claude CLI to handle the merge with automatic conflict resolution
-        println!(
-            "🔄 Merging worktree '{name}' into '{target}' using Claude-assisted merge..."
-        );
+        println!("🔄 Merging worktree '{name}' into '{target}' using Claude-assisted merge...");
 
         // Execute Claude CLI command
         let mut cmd = Command::new("claude");

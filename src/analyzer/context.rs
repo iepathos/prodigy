@@ -1,41 +1,40 @@
 //! Context file generation for Claude
 
 use super::{AnalyzerResult, ImprovementArea};
+use anyhow::Result;
 use std::fmt::Write;
 
 /// Context generator for creating analysis reports
 pub struct ContextGenerator;
 
 impl ContextGenerator {
-    pub fn generate(result: &AnalyzerResult) -> String {
+    pub fn generate(result: &AnalyzerResult) -> Result<String> {
         let mut output = String::new();
 
         // Header
-        writeln!(&mut output, "# Project Analysis\n").unwrap();
+        writeln!(&mut output, "# Project Analysis\n")?;
 
         // Overview section
-        writeln!(&mut output, "## Overview").unwrap();
-        writeln!(&mut output, "- Language: {}", result.language).unwrap();
+        writeln!(&mut output, "## Overview")?;
+        writeln!(&mut output, "- Language: {}", result.language)?;
         if let Some(framework) = &result.framework {
-            writeln!(&mut output, "- Framework: {framework}").unwrap();
+            writeln!(&mut output, "- Framework: {framework}")?;
         }
         writeln!(
             &mut output,
             "- Size: {} files, {} lines",
             result.size.files, result.size.lines
-        )
-        .unwrap();
-        writeln!(&mut output, "- Health Score: {:.1}/10", result.health_score).unwrap();
-        writeln!(&mut output).unwrap();
+        )?;
+        writeln!(&mut output, "- Health Score: {:.1}/10", result.health_score)?;
+        writeln!(&mut output)?;
 
         // Structure section
-        writeln!(&mut output, "## Structure").unwrap();
+        writeln!(&mut output, "## Structure")?;
         writeln!(
             &mut output,
             "- Source: {}",
             format_paths(&result.structure.src_dirs)
-        )
-        .unwrap();
+        )?;
         writeln!(
             &mut output,
             "- Tests: {}",
@@ -44,8 +43,7 @@ impl ContextGenerator {
             } else {
                 format_paths(&result.structure.test_dirs)
             }
-        )
-        .unwrap();
+        )?;
         writeln!(
             &mut output,
             "- Entry Points: {}",
@@ -54,18 +52,17 @@ impl ContextGenerator {
             } else {
                 format_paths(&result.structure.entry_points)
             }
-        )
-        .unwrap();
-        writeln!(&mut output).unwrap();
+        )?;
+        writeln!(&mut output)?;
 
         // Build System
         if let Some(build) = &result.build {
-            writeln!(&mut output, "## Build System").unwrap();
-            writeln!(&mut output, "- Tool: {}", build.tool).unwrap();
+            writeln!(&mut output, "## Build System")?;
+            writeln!(&mut output, "- Tool: {}", build.tool)?;
             if !build.scripts.is_empty() {
-                writeln!(&mut output, "- Available Scripts:").unwrap();
+                writeln!(&mut output, "- Available Scripts:")?;
                 for (name, _) in build.scripts.iter().take(5) {
-                    writeln!(&mut output, "  - {name}").unwrap();
+                    writeln!(&mut output, "  - {name}")?;
                 }
             }
             writeln!(
@@ -73,13 +70,12 @@ impl ContextGenerator {
                 "- Dependencies: {} production, {} development",
                 build.dependencies.len(),
                 build.dev_dependencies.len()
-            )
-            .unwrap();
-            writeln!(&mut output).unwrap();
+            )?;
+            writeln!(&mut output)?;
         }
 
         // Quality Indicators
-        writeln!(&mut output, "## Quality Indicators").unwrap();
+        writeln!(&mut output, "## Quality Indicators")?;
         writeln!(
             &mut output,
             "- Test Coverage: {}",
@@ -90,8 +86,7 @@ impl ContextGenerator {
             } else {
                 "No tests found".to_string()
             }
-        )
-        .unwrap();
+        )?;
         writeln!(
             &mut output,
             "- Documentation: {}",
@@ -101,8 +96,7 @@ impl ContextGenerator {
                 super::DocLevel::Good => "Good",
                 super::DocLevel::Comprehensive => "Comprehensive",
             }
-        )
-        .unwrap();
+        )?;
         writeln!(
             &mut output,
             "- Code Complexity: {}",
@@ -112,46 +106,40 @@ impl ContextGenerator {
                 super::ComplexityLevel::Complex => "Complex",
                 super::ComplexityLevel::VeryComplex => "Very Complex",
             }
-        )
-        .unwrap();
+        )?;
         writeln!(
             &mut output,
             "- Error Handling: {:.0}%",
             result.quality.error_handling_score * 100.0
-        )
-        .unwrap();
-        writeln!(&mut output).unwrap();
+        )?;
+        writeln!(&mut output)?;
 
         // Code Metrics
-        writeln!(&mut output, "## Code Metrics").unwrap();
+        writeln!(&mut output, "## Code Metrics")?;
         writeln!(
             &mut output,
             "- Average Function Length: {:.0} lines",
             result.quality.avg_function_length
-        )
-        .unwrap();
+        )?;
         writeln!(
             &mut output,
             "- Average File Length: {:.0} lines",
             result.quality.avg_file_length
-        )
-        .unwrap();
+        )?;
         writeln!(
             &mut output,
             "- Comment Ratio: {:.1}%",
             result.quality.comment_ratio * 100.0
-        )
-        .unwrap();
+        )?;
         writeln!(
             &mut output,
             "- Test File Ratio: {:.1}%",
             result.quality.test_ratio * 100.0
-        )
-        .unwrap();
-        writeln!(&mut output).unwrap();
+        )?;
+        writeln!(&mut output)?;
 
         // Development Practices
-        writeln!(&mut output, "## Development Practices").unwrap();
+        writeln!(&mut output, "## Development Practices")?;
         writeln!(
             &mut output,
             "- CI/CD: {}",
@@ -160,8 +148,7 @@ impl ContextGenerator {
             } else {
                 "✗ Not found"
             }
-        )
-        .unwrap();
+        )?;
         writeln!(
             &mut output,
             "- Linting: {}",
@@ -170,8 +157,7 @@ impl ContextGenerator {
             } else {
                 "✗ Not found"
             }
-        )
-        .unwrap();
+        )?;
         writeln!(
             &mut output,
             "- Code Formatting: {}",
@@ -180,82 +166,78 @@ impl ContextGenerator {
             } else {
                 "✗ Not found"
             }
-        )
-        .unwrap();
+        )?;
         if !result.health.open_todos.is_empty() {
             writeln!(
                 &mut output,
                 "- Open TODOs: {} found",
                 result.health.open_todos.len()
-            )
-            .unwrap();
+            )?;
         }
-        writeln!(&mut output).unwrap();
+        writeln!(&mut output)?;
 
         // Suggested Improvements
-        writeln!(&mut output, "## Suggested Improvements\n").unwrap();
+        writeln!(&mut output, "## Suggested Improvements\n")?;
         if !result.focus_areas.primary.is_empty() {
-            writeln!(&mut output, "### Primary Focus Areas").unwrap();
+            writeln!(&mut output, "### Primary Focus Areas")?;
             for area in &result.focus_areas.primary {
-                writeln!(&mut output, "1. **{area}**").unwrap();
+                writeln!(&mut output, "1. **{area}**")?;
                 writeln!(
                     &mut output,
                     "   {}",
                     get_improvement_description(area, result)
-                )
-                .unwrap();
+                )?;
             }
-            writeln!(&mut output).unwrap();
+            writeln!(&mut output)?;
         }
 
         if !result.focus_areas.secondary.is_empty() {
-            writeln!(&mut output, "### Secondary Focus Areas").unwrap();
+            writeln!(&mut output, "### Secondary Focus Areas")?;
             for area in &result.focus_areas.secondary {
                 writeln!(
                     &mut output,
                     "- **{}**: {}",
                     area,
                     get_brief_description(area)
-                )
-                .unwrap();
+                )?;
             }
-            writeln!(&mut output).unwrap();
+            writeln!(&mut output)?;
         }
 
         // Key Files
-        writeln!(&mut output, "## Key Files").unwrap();
+        writeln!(&mut output, "## Key Files")?;
 
         // Entry points
         if !result.structure.entry_points.is_empty() {
-            writeln!(&mut output, "### Entry Points").unwrap();
+            writeln!(&mut output, "### Entry Points")?;
             for entry in result.structure.entry_points.iter().take(5) {
                 if let Some(name) = entry.file_name() {
-                    writeln!(&mut output, "- {}", name.to_string_lossy()).unwrap();
+                    writeln!(&mut output, "- {}", name.to_string_lossy())?;
                 }
             }
-            writeln!(&mut output).unwrap();
+            writeln!(&mut output)?;
         }
 
         // Important files
         if !result.structure.important_files.is_empty() {
-            writeln!(&mut output, "### Important Files").unwrap();
+            writeln!(&mut output, "### Important Files")?;
             for file in result.structure.important_files.iter().take(5) {
                 if let Some(name) = file.file_name() {
-                    writeln!(&mut output, "- {}", name.to_string_lossy()).unwrap();
+                    writeln!(&mut output, "- {}", name.to_string_lossy())?;
                 }
             }
-            writeln!(&mut output).unwrap();
+            writeln!(&mut output)?;
         }
 
         // Config files
-        writeln!(&mut output, "### Configuration").unwrap();
+        writeln!(&mut output, "### Configuration")?;
         for config in result.structure.config_files.iter().take(5) {
             if let Some(name) = config.path.file_name() {
-                writeln!(&mut output, "- {}", name.to_string_lossy()).unwrap();
+                writeln!(&mut output, "- {}", name.to_string_lossy())?;
             }
         }
 
-        output
+        Ok(output)
     }
 }
 
