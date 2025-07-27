@@ -7,19 +7,15 @@ use std::path::PathBuf;
 /// `mmm improve` to automatically enhance code quality through Claude CLI integration.
 #[derive(Debug, Args, Clone)]
 pub struct ImproveCommand {
-    /// Target quality score (default: 8.0)
-    #[arg(long, default_value = "8.0")]
-    pub target: f32,
-
     /// Show detailed progress
     #[arg(long)]
     pub show_progress: bool,
 
     /// Focus directive for improvements (e.g., "performance", "security", "testing")
     ///
-    /// This optional parameter allows you to guide the initial code analysis towards
+    /// This optional parameter allows you to guide the code analysis towards
     /// specific areas of concern. Claude will naturally interpret the focus area and
-    /// prioritize issues accordingly during the first iteration.
+    /// prioritize issues accordingly.
     #[arg(short = 'f', long)]
     pub focus: Option<String>,
 
@@ -33,8 +29,7 @@ pub struct ImproveCommand {
 
     /// Maximum number of iterations to run (default: 10)
     ///
-    /// This limits how many improvement cycles will be executed. The process will stop
-    /// when either the target score is reached or this limit is hit, whichever comes first.
+    /// This limits how many improvement cycles will be executed.
     #[arg(short = 'n', long, default_value = "10")]
     pub max_iterations: u32,
 

@@ -92,7 +92,6 @@ mod improve_command_tests {
     #[test]
     fn test_improve_command_creation() {
         let cmd = ImproveCommand {
-            target: 8.0,
             show_progress: false,
             focus: None,
             config: None,
@@ -100,15 +99,14 @@ mod improve_command_tests {
             worktree: false,
         };
 
-        assert_eq!(cmd.target, 8.0);
         assert!(!cmd.show_progress);
         assert!(cmd.focus.is_none());
+        assert_eq!(cmd.max_iterations, 10);
     }
 
     #[test]
     fn test_improve_command_with_focus() {
         let cmd = ImproveCommand {
-            target: 9.0,
             show_progress: true,
             focus: Some("performance".to_string()),
             config: None,
@@ -116,9 +114,9 @@ mod improve_command_tests {
             worktree: false,
         };
 
-        assert_eq!(cmd.target, 9.0);
         assert!(cmd.show_progress);
         assert_eq!(cmd.focus, Some("performance".to_string()));
+        assert_eq!(cmd.max_iterations, 10);
     }
 }
 
@@ -129,14 +127,10 @@ mod session_tests {
     #[test]
     fn test_session_summary_creation() {
         let summary = SessionSummary {
-            initial_score: 6.0,
-            final_score: 8.0,
             iterations: 3,
             files_changed: 5,
         };
 
-        assert_eq!(summary.initial_score, 6.0);
-        assert_eq!(summary.final_score, 8.0);
         assert_eq!(summary.iterations, 3);
         assert_eq!(summary.files_changed, 5);
     }

@@ -4,7 +4,6 @@ pub mod retry;
 pub mod session;
 pub mod workflow;
 
-use crate::analyzer::ProjectAnalyzer;
 use crate::config::{ConfigLoader, WorkflowConfig};
 use crate::simple_state::StateManager;
 use crate::worktree::WorktreeManager;
@@ -99,19 +98,7 @@ async fn run_in_worktree(
 }
 
 async fn run_without_worktree(cmd: command::ImproveCommand) -> Result<()> {
-    println!("🔍 Analyzing project...");
-
-    // 1. Initial analysis
-    let analyzer = ProjectAnalyzer::new();
-    let analysis = analyzer.analyze(Path::new(".")).await?;
-    let mut current_score = analysis.health_score;
-
-    println!("Current score: {current_score:.1}/10");
-
-    if current_score >= cmd.target {
-        println!("✅ Target already reached!");
-        return Ok(());
-    }
+    println!("🔍 Starting improvement loop...");
 
     // 2. Load configuration
     let config_loader = ConfigLoader::new().await?;
@@ -152,9 +139,9 @@ async fn run_without_worktree(cmd: command::ImproveCommand) -> Result<()> {
     let mut iteration = 1;
     let mut files_changed = 0;
 
-    // Display focus directive on first iteration if provided
+    // Display focus directive if provided
     if let Some(focus) = &cmd.focus {
-        println!("📋 Focus: {focus} (initial analysis)");
+        println!("📋 Focus: {focus}");
     }
 
     // Check if we should use configurable workflow or legacy workflow
@@ -163,7 +150,7 @@ async fn run_without_worktree(cmd: command::ImproveCommand) -> Result<()> {
         let mut executor =
             WorkflowExecutor::new(workflow_config, cmd.show_progress, max_iterations);
 
-        while current_score < cmd.target && iteration <= max_iterations {
+        while iteration <= max_iterations {
             // Execute workflow iteration
             let focus_for_iteration = if iteration == 1 {
                 cmd.focus.as_deref()
@@ -183,18 +170,11 @@ async fn run_without_worktree(cmd: command::ImproveCommand) -> Result<()> {
 
             files_changed += 1;
 
-            // Re-analyze project
-            let new_analysis = analyzer.analyze(Path::new(".")).await?;
-            current_score = new_analysis.health_score;
-            if cmd.show_progress {
-                println!("Score: {current_score:.1}/10");
-            }
-
             iteration += 1;
         }
     } else {
         // Use legacy hardcoded workflow
-        while current_score < cmd.target && iteration <= cmd.max_iterations {
+        while iteration <= cmd.max_iterations {
             if cmd.show_progress {
                 println!("🔄 Iteration {iteration}/{}...", cmd.max_iterations);
             }
@@ -236,19 +216,11 @@ async fn run_without_worktree(cmd: command::ImproveCommand) -> Result<()> {
             // Step 4: Run linting/formatting and commit
             call_claude_lint(cmd.show_progress).await?;
 
-            // Step 5: Re-analyze project
-            let new_analysis = analyzer.analyze(Path::new(".")).await?;
-            current_score = new_analysis.health_score;
-            if cmd.show_progress {
-                println!("Score: {current_score:.1}/10");
-            }
-
             iteration += 1;
         }
     }
 
     // 5. Completion - record basic session info
-    state.state_mut().current_score = current_score;
     state.state_mut().total_runs += 1;
     state.state_mut().last_run = Some(Utc::now());
     state.save()?;
@@ -265,10 +237,8 @@ async fn run_without_worktree(cmd: command::ImproveCommand) -> Result<()> {
         // Commit the state file
         let commit_message = format!(
             "chore: update mmm state after improvement session\n\n\
-            Final score: {:.1}/10\n\
             Iterations: {}\n\
             Files changed: {}",
-            current_score,
             iteration - 1,
             files_changed
         );
@@ -291,21 +261,15 @@ async fn run_without_worktree(cmd: command::ImproveCommand) -> Result<()> {
         eprintln!("Warning: Failed to stage .mmm/state.json: {stderr}");
     }
 
-    // Determine termination reason
+    // Completion message
     let actual_iterations = iteration - 1;
-    if current_score >= cmd.target {
-        println!("✅ Complete! Target score reached: {current_score:.1}/10");
-    } else if actual_iterations >= cmd.max_iterations {
+    if actual_iterations >= cmd.max_iterations {
         println!(
             "⏱️  Complete! Max iterations reached ({}).",
             cmd.max_iterations
         );
-        println!(
-            "Final score: {current_score:.1}/10 (target was {})",
-            cmd.target
-        );
     } else {
-        println!("✅ Complete! Final score: {current_score:.1}/10");
+        println!("✅ Complete! No more improvements found.");
     }
 
     println!("Files changed: {files_changed}");
@@ -532,13 +496,8 @@ mod tests {
     use std::path::PathBuf;
     use tempfile::TempDir;
 
-    fn create_test_command(
-        worktree: bool,
-        target: f32,
-        max_iterations: u32,
-    ) -> command::ImproveCommand {
+    fn create_test_command(worktree: bool, max_iterations: u32) -> command::ImproveCommand {
         command::ImproveCommand {
-            target,
             max_iterations,
             worktree,
             show_progress: false,
@@ -638,11 +597,10 @@ mod tests {
     #[tokio::test]
     async fn test_run_with_worktree_flag() {
         // Test that worktree flag is properly handled
-        let cmd = create_test_command(true, 8.0, 1);
+        let cmd = create_test_command(true, 1);
 
         // We can't fully test without a git repo, but we can verify the logic
         assert!(cmd.worktree);
-        assert_eq!(cmd.target, 8.0);
         assert_eq!(cmd.max_iterations, 1);
     }
 
@@ -650,7 +608,7 @@ mod tests {
     async fn test_run_with_env_var_worktree() {
         // Test deprecated MMM_USE_WORKTREE env var
         std::env::set_var("MMM_USE_WORKTREE", "true");
-        let cmd = create_test_command(false, 8.0, 1);
+        let cmd = create_test_command(false, 1);
 
         // The function should detect the env var even if flag is false
         let use_worktree = if cmd.worktree {
@@ -728,7 +686,7 @@ mod tests {
             .unwrap();
 
         // Create minimal project structure
-        std::fs::create_dir(".mmm").unwrap();
+        std::fs::create_dir_all(".mmm").unwrap();
         std::fs::write(
             ".mmm/config.toml",
             r#"
@@ -740,14 +698,13 @@ mod tests {
 
         // This test would need more setup to actually run the function
         // For now, we test the command structure
-        let cmd = create_test_command(false, 5.0, 1);
-        assert_eq!(cmd.target, 5.0);
+        let cmd = create_test_command(false, 1);
         assert!(!cmd.worktree);
     }
 
     #[test]
     fn test_improve_command_with_focus() {
-        let mut cmd = create_test_command(false, 8.0, 5);
+        let mut cmd = create_test_command(false, 5);
         cmd.focus = Some("performance".to_string());
 
         assert_eq!(cmd.focus.as_deref(), Some("performance"));
@@ -756,7 +713,7 @@ mod tests {
 
     #[test]
     fn test_improve_command_with_config_path() {
-        let mut cmd = create_test_command(false, 8.0, 5);
+        let mut cmd = create_test_command(false, 5);
         cmd.config = Some(PathBuf::from("/custom/config.toml"));
 
         assert_eq!(

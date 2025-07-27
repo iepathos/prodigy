@@ -19,15 +19,11 @@ struct Cli {
 enum Commands {
     /// Improve code quality (default command)
     Improve {
-        /// Target quality score (default: 8.0)
-        #[arg(long, default_value = "8.0")]
-        target: f32,
-
         /// Show detailed progress
         #[arg(long)]
         show_progress: bool,
 
-        /// Focus directive for initial analysis (e.g., "user experience", "performance")
+        /// Focus directive for analysis (e.g., "user experience", "performance")
         #[arg(short = 'f', long)]
         focus: Option<String>,
 
@@ -95,27 +91,16 @@ async fn main() {
 
     let result = match cli.command {
         Some(Commands::Improve {
-            target,
             show_progress,
             focus,
             config,
             max_iterations,
             worktree,
-        }) => {
-            run_improve(
-                target,
-                show_progress,
-                focus,
-                config,
-                max_iterations,
-                worktree,
-            )
-            .await
-        }
+        }) => run_improve(show_progress, focus, config, max_iterations, worktree).await,
         Some(Commands::Worktree { command }) => run_worktree_command(command).await,
         None => {
             // Default to improve command with default values
-            run_improve(8.0, false, None, None, 10, false).await
+            run_improve(false, None, None, 10, false).await
         }
     };
 
@@ -127,7 +112,6 @@ async fn main() {
 }
 
 async fn run_improve(
-    target: f32,
     show_progress: bool,
     focus: Option<String>,
     config: Option<PathBuf>,
@@ -135,7 +119,6 @@ async fn run_improve(
     worktree: bool,
 ) -> anyhow::Result<()> {
     let improve_cmd = mmm::improve::command::ImproveCommand {
-        target,
         show_progress,
         focus,
         config,

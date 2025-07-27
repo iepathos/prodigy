@@ -12,7 +12,6 @@ mod test {
         let state_mgr = StateManager::with_root(temp_dir.path().to_path_buf()).unwrap();
 
         assert_eq!(state_mgr.state().version, "1.0");
-        assert_eq!(state_mgr.state().current_score, 0.0);
         assert_eq!(state_mgr.state().total_runs, 0);
     }
 
@@ -24,7 +23,6 @@ mod test {
         // Create and save state
         {
             let mut state_mgr = StateManager::with_root(root.clone()).unwrap();
-            state_mgr.state_mut().current_score = 7.5;
             state_mgr.state_mut().total_runs = 5;
             state_mgr.save().unwrap();
         }
@@ -32,7 +30,6 @@ mod test {
         // Load state
         {
             let state_mgr = StateManager::with_root(root).unwrap();
-            assert_eq!(state_mgr.state().current_score, 7.5);
             assert_eq!(state_mgr.state().total_runs, 5);
         }
     }
@@ -42,12 +39,10 @@ mod test {
         let temp_dir = TempDir::new().unwrap();
         let mut state_mgr = StateManager::with_root(temp_dir.path().to_path_buf()).unwrap();
 
-        let mut session = SessionRecord::new(7.0);
-        session.complete(7.2, "Fixed error handling".to_string());
+        let mut session = SessionRecord::new();
+        session.complete(1, 2, "Fixed error handling".to_string());
 
         state_mgr.record_session(session).unwrap();
-
-        assert_eq!(state_mgr.state().current_score, 7.2);
         assert_eq!(state_mgr.state().total_runs, 1);
     }
 
@@ -139,8 +134,8 @@ mod test {
 
         // Record multiple sessions
         for i in 0..3 {
-            let mut session = SessionRecord::new(7.0 + i as f32 * 0.1);
-            session.complete(7.1 + i as f32 * 0.1, format!("Improvement {i}"));
+            let mut session = SessionRecord::new();
+            session.complete(i + 1, i + 1, format!("Improvement {i}"));
             state_mgr.record_session(session).unwrap();
         }
 
@@ -160,13 +155,12 @@ mod test {
 
         // Spawn multiple threads that try to update state
         let handles: Vec<_> = (0..5)
-            .map(|i| {
+            .map(|_i| {
                 let root_clone = Arc::clone(&root);
                 let counter_clone = Arc::clone(&save_counter);
                 thread::spawn(move || {
                     let mut state_mgr = StateManager::with_root((*root_clone).clone()).unwrap();
                     state_mgr.state_mut().total_runs += 1;
-                    state_mgr.state_mut().current_score = i as f32;
                     // Allow save failures due to concurrent access
                     if state_mgr.save().is_ok() {
                         let mut counter = counter_clone.lock().unwrap();
@@ -189,22 +183,21 @@ mod test {
         let state_mgr = StateManager::with_root((*root).clone()).unwrap();
         // total_runs is u32, so it's always >= 0
         assert!(state_mgr.state().total_runs <= 10); // Should be reasonable after 5 threads
-        assert!(state_mgr.state().current_score >= 0.0);
     }
 
     #[test]
     fn test_session_record_edge_cases() {
-        let mut session = SessionRecord::new(5.0);
+        let mut session = SessionRecord::new();
 
         // Test with empty summary
-        session.complete(5.5, String::new());
+        session.complete(1, 0, String::new());
         assert_eq!(session.summary, "");
         assert!(session.completed_at.is_some());
 
         // Test with very long summary
         let long_summary = "x".repeat(1000);
-        let mut session2 = SessionRecord::new(6.0);
-        session2.complete(6.5, long_summary.clone());
+        let mut session2 = SessionRecord::new();
+        session2.complete(1, 1, long_summary.clone());
         assert_eq!(session2.summary, long_summary);
     }
 
@@ -236,7 +229,7 @@ mod test {
         let temp_dir = TempDir::new().unwrap();
         let mut state_mgr = StateManager::with_root(temp_dir.path().to_path_buf()).unwrap();
 
-        state_mgr.state_mut().current_score = 8.0;
+        state_mgr.state_mut().total_runs = 8;
         state_mgr.save().unwrap();
 
         // Check that state file exists and is readable
@@ -245,9 +238,9 @@ mod test {
 
         // Verify we can read it back
         let contents = std::fs::read_to_string(&state_file).unwrap();
-        // Check that the score was saved (might have different formatting)
-        assert!(contents.contains("current_score"));
-        assert!(contents.contains("8.0") || contents.contains("8"));
+        // Check that the total_runs was saved
+        assert!(contents.contains("total_runs"));
+        assert!(contents.contains("8"));
     }
 
     #[test]
@@ -264,9 +257,9 @@ mod test {
 
         // Record sessions in reverse chronological order
         for i in (0..3).rev() {
-            let mut session = SessionRecord::new(7.0);
+            let mut session = SessionRecord::new();
             session.started_at = chrono::Utc::now() - chrono::Duration::days(i);
-            session.complete(7.1, format!("Session {i}"));
+            session.complete(1, 1, format!("Session {i}"));
             state_mgr.record_session(session).unwrap();
         }
 

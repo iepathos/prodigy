@@ -249,11 +249,13 @@ impl Command {
 
 fn validate_command(cmd: &Command) -> Result<(), String> {
     // Placeholder validation logic
-    let valid_commands = ["mmm-code-review",
+    let valid_commands = [
+        "mmm-code-review",
         "mmm-implement-spec",
         "mmm-lint",
         "mmm-test",
-        "mmm-analyze"];
+        "mmm-analyze",
+    ];
 
     if !valid_commands.contains(&cmd.name.as_str()) {
         return Err(format!("Unknown command: {}", cmd.name));

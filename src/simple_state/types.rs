@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 pub struct State {
     pub version: String,
     pub project_id: String,
-    pub current_score: f32,
     pub last_run: Option<DateTime<Utc>>,
     pub total_runs: u32,
 }
@@ -19,19 +18,9 @@ pub struct SessionRecord {
     pub session_id: String,
     pub started_at: DateTime<Utc>,
     pub completed_at: Option<DateTime<Utc>>,
-    pub initial_score: f32,
-    pub final_score: Option<f32>,
+    pub iterations: u32,
+    pub files_changed: u32,
     pub summary: String, // Simple description of what was done
-}
-
-/// Project analysis cache - kept for expensive operations
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ProjectAnalysis {
-    pub language: String,
-    pub framework: Option<String>,
-    pub health_score: f32,
-    pub focus_areas: Vec<String>,
-    pub analyzed_at: DateTime<Utc>,
 }
 
 impl State {
@@ -39,7 +28,6 @@ impl State {
         Self {
             version: "1.0".to_string(),
             project_id,
-            current_score: 0.0,
             last_run: None,
             total_runs: 0,
         }
@@ -47,20 +35,27 @@ impl State {
 }
 
 impl SessionRecord {
-    pub fn new(initial_score: f32) -> Self {
+    pub fn new() -> Self {
         Self {
             session_id: uuid::Uuid::new_v4().to_string(),
             started_at: Utc::now(),
             completed_at: None,
-            initial_score,
-            final_score: None,
+            iterations: 0,
+            files_changed: 0,
             summary: String::new(),
         }
     }
 
-    pub fn complete(&mut self, final_score: f32, summary: String) {
+    pub fn complete(&mut self, iterations: u32, files_changed: u32, summary: String) {
         self.completed_at = Some(Utc::now());
-        self.final_score = Some(final_score);
+        self.iterations = iterations;
+        self.files_changed = files_changed;
         self.summary = summary;
+    }
+}
+
+impl Default for SessionRecord {
+    fn default() -> Self {
+        Self::new()
     }
 }

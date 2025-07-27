@@ -489,6 +489,21 @@ mod tests {
 
     #[tokio::test]
     async fn test_mmm_implement_spec_without_args() {
+        use tempfile::TempDir;
+
+        // Create a temporary directory and change to it
+        let temp_dir = TempDir::new().unwrap();
+
+        // Save original directory if possible, but don't fail if we can't
+        let original_dir = std::env::current_dir().ok();
+
+        // Change to temp directory
+        if std::env::set_current_dir(temp_dir.path()).is_err() {
+            // Skip test if we can't change directories
+            eprintln!("Skipping test: cannot change directory");
+            return;
+        }
+
         // Set test mode
         std::env::set_var("MMM_TEST_MODE", "true");
 
@@ -508,5 +523,10 @@ mod tests {
         assert!(result.unwrap());
 
         std::env::remove_var("MMM_TEST_MODE");
+
+        // Restore original directory if we had one
+        if let Some(dir) = original_dir {
+            let _ = std::env::set_current_dir(dir);
+        }
     }
 }

@@ -5,18 +5,15 @@
 //! ## Usage
 //!
 //! ```bash
-//! mmm improve [--target 8.0] [--verbose] [--focus "area"]
+//! mmm improve [--show-progress] [--focus "area"] [-n iterations]
 //! ```
 //!
 //! ## Modules
 //!
-//! - `analyzer` - Project analysis functionality for language and framework detection
 //! - `config` - Configuration management for the tool
 //! - `improve` - Core improvement command implementation
 //! - `simple_state` - Minimal state management with JSON persistence
 //! - `worktree` - Git worktree management for parallel sessions
-
-pub mod analyzer;
 pub mod config;
 pub mod improve;
 pub mod simple_state;

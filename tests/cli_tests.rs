@@ -8,10 +8,10 @@ fn test_cli_parsing() {
 }
 
 #[test]
-fn test_target_arg_parsing() {
-    // Test target argument parsing for improve subcommand
+fn test_max_iterations_arg_parsing() {
+    // Test max iterations argument parsing for improve subcommand
     let mut cmd = Command::cargo_bin("mmm").unwrap();
-    cmd.args(["improve", "--target", "9.0", "--help"])
+    cmd.args(["improve", "-n", "5", "--help"])
         .assert()
         .success();
 }
@@ -27,14 +27,7 @@ fn test_verbose_flags() {
 fn test_all_args_parsing() {
     // Test all arguments together (help mode to avoid hanging)
     let mut cmd = Command::cargo_bin("mmm").unwrap();
-    cmd.args([
-        "improve",
-        "--target",
-        "9.0",
-        "--show-progress",
-        "-v",
-        "--help",
-    ])
-    .assert()
-    .success();
+    cmd.args(["improve", "-n", "5", "--show-progress", "-v", "--help"])
+        .assert()
+        .success();
 }

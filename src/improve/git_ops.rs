@@ -122,7 +122,7 @@ mod tests {
     async fn test_is_git_repo() {
         // Create a temp directory with a git repo
         let temp_dir = TempDir::new().unwrap();
-        
+
         // Test non-git directory
         let output = Command::new("git")
             .args(["rev-parse", "--git-dir"])
@@ -130,7 +130,10 @@ mod tests {
             .output()
             .await
             .unwrap();
-        assert!(!output.status.success(), "Should not be a git repo initially");
+        assert!(
+            !output.status.success(),
+            "Should not be a git repo initially"
+        );
 
         // Initialize git repo
         let output = Command::new("git")
@@ -139,7 +142,7 @@ mod tests {
             .output()
             .await
             .unwrap();
-        
+
         // Ensure git init succeeded
         assert!(output.status.success(), "git init failed: {:?}", output);
 

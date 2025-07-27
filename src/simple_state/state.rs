@@ -88,9 +88,6 @@ impl StateManager {
         if let Some(completed_at) = session.completed_at {
             self.state.last_run = Some(completed_at);
         }
-        if let Some(final_score) = session.final_score {
-            self.state.current_score = final_score;
-        }
         self.state.total_runs += 1;
 
         self.save()?;
