@@ -20,7 +20,7 @@ pub struct ImproveCommand {
     /// This optional parameter allows you to guide the initial code analysis towards
     /// specific areas of concern. Claude will naturally interpret the focus area and
     /// prioritize issues accordingly during the first iteration.
-    #[arg(long)]
+    #[arg(short = 'f', long)]
     pub focus: Option<String>,
 
     /// Path to configuration file

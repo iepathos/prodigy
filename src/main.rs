@@ -28,7 +28,7 @@ enum Commands {
         show_progress: bool,
 
         /// Focus directive for initial analysis (e.g., "user experience", "performance")
-        #[arg(long)]
+        #[arg(short = 'f', long)]
         focus: Option<String>,
 
         /// Path to configuration file
