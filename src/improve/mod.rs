@@ -61,9 +61,18 @@ pub async fn run(cmd: command::ImproveCommand) -> Result<()> {
 
 async fn run_impl(cmd: command::ImproveCommand) -> Result<()> {
     // Check if worktree isolation should be used
-    let use_worktree = std::env::var("MMM_USE_WORKTREE")
+    // Check flag first, then env var with deprecation warning
+    let use_worktree = if cmd.worktree {
+        true
+    } else if std::env::var("MMM_USE_WORKTREE")
         .map(|v| v == "true" || v == "1")
-        .unwrap_or(false);
+        .unwrap_or(false)
+    {
+        eprintln!("Warning: MMM_USE_WORKTREE is deprecated. Use --worktree or -w flag instead.");
+        true
+    } else {
+        false
+    };
 
     if use_worktree {
         // Create worktree for this session

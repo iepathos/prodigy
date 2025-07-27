@@ -111,6 +111,15 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
 - [x] **Unit tests** for worktree functionality
 - [x] **Updated .gitignore** to exclude .mmm/worktrees/
 
+## ✅ Phase 2.13: Worktree CLI Flag (COMPLETED)
+
+### CLI Usability Enhancement Complete
+- [x] **Added --worktree flag** to improve command for discoverable parallel execution
+- [x] **Short form -w** supported for convenience
+- [x] **Deprecation warning** for legacy MMM_USE_WORKTREE environment variable
+- [x] **Updated all documentation** to use new flag syntax
+- [x] **Backward compatibility** maintained for smooth migration
+
 ## 📋 Phase 3: Robustness (NEXT)
 
 ### Core Reliability

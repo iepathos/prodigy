@@ -221,10 +221,10 @@ Run multiple improvement sessions concurrently without conflicts:
 
 ```bash
 # Enable worktree mode for this session
-MMM_USE_WORKTREE=true mmm improve --focus "performance"
+mmm improve --worktree --focus "performance"
 
 # In another terminal, run a different improvement focus
-MMM_USE_WORKTREE=true mmm improve --focus "security"
+mmm improve -w --focus "security"
 
 # List active worktree sessions
 mmm worktree list

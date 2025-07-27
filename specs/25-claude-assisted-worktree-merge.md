@@ -84,9 +84,9 @@ The `/mmm-merge-worktree` command should:
 
 ```bash
 # Multiple parallel sessions
-MMM_USE_WORKTREE=true mmm improve --focus "performance"
-MMM_USE_WORKTREE=true mmm improve --focus "security"
-MMM_USE_WORKTREE=true mmm improve --focus "testing"
+mmm improve --worktree --focus "performance"
+mmm improve -w --focus "security"
+mmm improve --worktree --focus "testing"
 
 # Merge all with automatic conflict resolution
 mmm worktree merge mmm-performance-1234567890

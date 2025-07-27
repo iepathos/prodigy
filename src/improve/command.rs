@@ -37,4 +37,12 @@ pub struct ImproveCommand {
     /// when either the target score is reached or this limit is hit, whichever comes first.
     #[arg(short = 'n', long, default_value = "10")]
     pub max_iterations: u32,
+
+    /// Run in an isolated git worktree for parallel execution
+    ///
+    /// Creates a separate git worktree to isolate this improvement session, allowing
+    /// multiple MMM sessions to run concurrently without conflicts. Each session will
+    /// work in its own branch and worktree, which can be merged back later.
+    #[arg(short = 'w', long)]
+    pub worktree: bool,
 }

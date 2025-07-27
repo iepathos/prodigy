@@ -365,3 +365,21 @@ Replace direct git merge with Claude CLI command `/mmm-merge-worktree` that inte
 - **Positive**: Zero failed merges due to conflicts, truly parallel workflows, complete automation, intelligent conflict resolution, bulk merge capability
 - **Negative**: Dependency on Claude CLI for merges, slightly slower merge process, requires trust in Claude's conflict resolution
 - **Implementation**: Updated WorktreeManager::merge_session to call Claude CLI, added --all flag to merge command, automatic cleanup after successful merge
+
+---
+
+## ADR-022: Worktree CLI Flag for Better UX
+
+### Status
+Accepted
+
+### Context
+Spec 26 identified that using environment variable MMM_USE_WORKTREE=true for enabling worktree mode violates CLI best practices. The flag was not discoverable through --help, required extra typing, and made command history less clear.
+
+### Decision
+Replace environment variable with --worktree (-w) CLI flag while maintaining backward compatibility with deprecation warning. This follows standard CLI conventions and improves discoverability.
+
+### Consequences
+- **Positive**: Better discoverability through help text, shorter commands, consistent with other CLI flags, cleaner command history
+- **Negative**: Minor breaking change requiring users to update scripts, additional CLI argument to maintain
+- **Implementation**: Added --worktree flag to ImproveCommand, updated logic to check flag first then env var with warning, updated all documentation

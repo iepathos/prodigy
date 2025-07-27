@@ -97,6 +97,7 @@ mod improve_command_tests {
             focus: None,
             config: None,
             max_iterations: 10,
+            worktree: false,
         };
 
         assert_eq!(cmd.target, 8.0);
@@ -112,6 +113,7 @@ mod improve_command_tests {
             focus: Some("performance".to_string()),
             config: None,
             max_iterations: 10,
+            worktree: false,
         };
 
         assert_eq!(cmd.target, 9.0);

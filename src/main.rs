@@ -38,6 +38,10 @@ enum Commands {
         /// Maximum number of iterations to run (default: 10)
         #[arg(short = 'n', long, default_value = "10")]
         max_iterations: u32,
+
+        /// Run in an isolated git worktree for parallel execution
+        #[arg(short = 'w', long)]
+        worktree: bool,
     },
     /// Manage git worktrees for parallel MMM sessions
     Worktree {
@@ -99,11 +103,22 @@ async fn main() {
             focus,
             config,
             max_iterations,
-        }) => run_improve(target, show_progress, focus, config, max_iterations).await,
+            worktree,
+        }) => {
+            run_improve(
+                target,
+                show_progress,
+                focus,
+                config,
+                max_iterations,
+                worktree,
+            )
+            .await
+        }
         Some(Commands::Worktree { command }) => run_worktree_command(command).await,
         None => {
             // Default to improve command with default values
-            run_improve(8.0, false, None, None, 10).await
+            run_improve(8.0, false, None, None, 10, false).await
         }
     };
 
@@ -120,6 +135,7 @@ async fn run_improve(
     focus: Option<String>,
     config: Option<PathBuf>,
     max_iterations: u32,
+    worktree: bool,
 ) -> anyhow::Result<()> {
     let improve_cmd = mmm::improve::command::ImproveCommand {
         target,
@@ -127,6 +143,7 @@ async fn run_improve(
         focus,
         config,
         max_iterations,
+        worktree,
     };
     mmm::improve::run(improve_cmd).await
 }
