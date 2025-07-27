@@ -1,0 +1,25 @@
+# Documentation-focused workflow
+# Improve code documentation and readability
+
+commands:
+  - name: mmm-doc-analysis
+    focus: documentation
+  - mmm-implement-spec
+  - name: mmm-code-review
+    focus: readability
+  - mmm-implement-spec
+  - name: mmm-doc-generate
+    focus: api-docs
+  - mmm-implement-spec
+  - mmm-lint
+
+max_iterations: 4
+
+# This workflow:
+# 1. Analyzes documentation gaps
+# 2. Implements documentation improvements
+# 3. Reviews code for readability
+# 4. Implements readability improvements
+# 5. Generates API documentation
+# 6. Implements the documentation
+# 7. Final formatting

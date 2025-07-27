@@ -11,14 +11,14 @@ fn test_parse_command_string() {
     // Test command with single argument
     let (cmd, args) = parse_command_string("mmm-code-review --focus architecture");
     assert_eq!(cmd, "mmm-code-review");
-    assert_eq!(args, vec!["--focus", "architecture"]);
+    assert_eq!(args, vec!["--focus".to_string(), "architecture".to_string()]);
 
     // Test command with multiple arguments
     let (cmd, args) = parse_command_string("mmm-analyze --verbose --depth 3 --output report.md");
     assert_eq!(cmd, "mmm-analyze");
     assert_eq!(
         args,
-        vec!["--verbose", "--depth", "3", "--output", "report.md"]
+        vec!["--verbose".to_string(), "--depth".to_string(), "3".to_string(), "--output".to_string(), "report.md".to_string()]
     );
 }
 
@@ -28,17 +28,17 @@ fn test_parse_command_with_quotes() {
     // Test single quoted argument
     let (cmd, args) = parse_command_string("mmm-commit --message 'Fix bug in parser'");
     assert_eq!(cmd, "mmm-commit");
-    assert_eq!(args, vec!["--message", "Fix bug in parser"]);
+    assert_eq!(args, vec!["--message".to_string(), "Fix bug in parser".to_string()]);
 
     // Test double quoted argument
     let (cmd, args) = parse_command_string("mmm-review --focus \"error handling\"");
     assert_eq!(cmd, "mmm-review");
-    assert_eq!(args, vec!["--focus", "error handling"]);
+    assert_eq!(args, vec!["--focus".to_string(), "error handling".to_string()]);
 
     // Test mixed quotes
     let (cmd, args) = parse_command_string("mmm-test --name 'integration test' --tag \"v1.0\"");
     assert_eq!(cmd, "mmm-test");
-    assert_eq!(args, vec!["--name", "integration test", "--tag", "v1.0"]);
+    assert_eq!(args, vec!["--name".to_string(), "integration test".to_string(), "--tag".to_string(), "v1.0".to_string()]);
 }
 
 /// Test edge cases in command parsing
@@ -62,7 +62,7 @@ fn test_parse_command_edge_cases() {
     // Multiple spaces between arguments
     let (cmd, args) = parse_command_string("mmm-review    --focus    architecture");
     assert_eq!(cmd, "mmm-review");
-    assert_eq!(args, vec!["--focus", "architecture"]);
+    assert_eq!(args, vec!["--focus".to_string(), "architecture".to_string()]);
 }
 
 /// Test conversion from string command to structured command
@@ -126,18 +126,55 @@ fn test_command_validation() {
 }
 
 // Helper functions that would be implemented in the actual code
-fn parse_command_string(input: &str) -> (String, Vec<&str>) {
+fn parse_command_string(input: &str) -> (String, Vec<String>) {
     let trimmed = input.trim();
     if trimmed.is_empty() {
         return (String::new(), vec![]);
     }
 
-    let parts: Vec<&str> = trimmed.split_whitespace().collect();
+    let mut parts = Vec::new();
+    let mut current = String::new();
+    let mut in_single_quote = false;
+    let mut in_double_quote = false;
+    let mut chars = trimmed.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        match ch {
+            '\'' if !in_double_quote => {
+                in_single_quote = !in_single_quote;
+            }
+            '"' if !in_single_quote => {
+                in_double_quote = !in_double_quote;
+            }
+            ' ' | '\t' if !in_single_quote && !in_double_quote => {
+                if !current.is_empty() {
+                    parts.push(current.clone());
+                    current.clear();
+                }
+                // Skip consecutive whitespace
+                while let Some(&next_ch) = chars.peek() {
+                    if next_ch == ' ' || next_ch == '\t' {
+                        chars.next();
+                    } else {
+                        break;
+                    }
+                }
+            }
+            _ => {
+                current.push(ch);
+            }
+        }
+    }
+
+    if !current.is_empty() {
+        parts.push(current);
+    }
+
     if parts.is_empty() {
         return (String::new(), vec![]);
     }
 
-    (parts[0].to_string(), parts[1..].to_vec())
+    (parts[0].clone(), parts[1..].to_vec())
 }
 
 #[derive(Debug, PartialEq)]
@@ -163,7 +200,7 @@ impl Command {
                 let key = args_vec[i].trim_start_matches("--");
                 let value = if i + 1 < args_vec.len() && !args_vec[i + 1].starts_with("--") {
                     i += 1;
-                    args_vec[i]
+                    &args_vec[i]
                 } else {
                     "true"
                 };

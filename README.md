@@ -155,19 +155,17 @@ None required! The tool works out of the box with smart defaults.
 
 ### Configurable Workflows (Optional)
 
-Create a `.mmm/workflow.toml` file to customize the improvement workflow:
+Create a `.mmm/workflow.yml` file to customize the improvement workflow:
 
-```toml
-# .mmm/workflow.toml
-# List of Claude commands to execute in order
-commands = [
-    "mmm-code-review",
-    "mmm-implement-spec",
-    "mmm-lint"
-]
+```yaml
+# .mmm/workflow.yml
+# Simple YAML format - dead simple and clean
+commands:
+  - mmm-code-review
+  - mmm-implement-spec
+  - mmm-lint
 
-# Optional: Maximum iterations (default: 10)
-max_iterations = 10
+max_iterations: 10
 ```
 
 The default workflow runs these three commands in order:
@@ -175,44 +173,77 @@ The default workflow runs these three commands in order:
 2. `mmm-implement-spec` - Implements the improvements (spec ID extracted automatically)
 3. `mmm-lint` - Runs formatting and linting
 
-#### Alternative Workflow Examples
+#### Focus Arguments
+
+You can specify focus areas for commands using clean YAML syntax:
+
+```yaml
+# Security-focused workflow with focus arguments
+commands:
+  - name: mmm-code-review
+    focus: security
+  - mmm-implement-spec
+  - name: mmm-test-generate
+    focus: security
+  - mmm-implement-spec
+  - mmm-lint
+
+max_iterations: 8
+```
+
+Alternative string format also works:
+```yaml
+commands:
+  - mmm-code-review --focus security
+  - mmm-implement-spec
+  - mmm-lint
+```
+
+#### Workflow Examples
 
 **Security-Focused Workflow:**
-```toml
-commands = [
-    "mmm-security-scan",
-    "mmm-fix-vulnerabilities",
-    "mmm-lint",
-    "mmm-security-verify"
-]
+```yaml
+commands:
+  - name: mmm-security-audit
+    focus: security
+  - mmm-implement-spec
+  - name: mmm-test-generate
+    focus: security
+  - mmm-implement-spec
+  - mmm-lint
 ```
 
-**Test-Driven Workflow:**
-```toml
-commands = [
-    "mmm-coverage",
-    "mmm-add-tests",
-    "mmm-code-review",
-    "mmm-implement-spec"
-]
+**Performance Workflow:**
+```yaml
+commands:
+  - name: mmm-code-review
+    focus: performance
+  - mmm-implement-spec
+  - name: mmm-test-generate
+    focus: performance
+  - mmm-implement-spec
+  - mmm-lint
 ```
 
-**Documentation Workflow:**
-```toml
-commands = [
-    "mmm-doc-check",
-    "mmm-generate-docs",
-    "mmm-lint-docs"
-]
+**Quick Fix Workflow:**
+```yaml
+commands:
+  - name: mmm-code-review
+    focus: critical
+  - mmm-implement-spec
+  - mmm-lint
+
+max_iterations: 3
 ```
+
 
 ### Advanced Configuration
 
-Optional `.mmm/config.toml` for advanced users:
-```toml
-[improve]
-default_target = 8.5
-claude_args = ["--no-preamble", "--format=code"]
+Optional `.mmm/config.yml` for advanced settings:
+```yaml
+improve:
+  default_target: 8.5
+  claude_args: ["--no-preamble", "--format=code"]
 ```
 
 ### Parallel Sessions with Git Worktrees

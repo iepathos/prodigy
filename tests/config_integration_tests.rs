@@ -16,8 +16,9 @@ fn test_improve_with_custom_config_file() -> anyhow::Result<()> {
     fs::create_dir_all(temp_dir.path().join(".mmm"))?;
 
     // Create custom config file
-    let custom_config = temp_dir.path().join("custom.toml");
-    fs::write(&custom_config, r#"commands = ["mmm-test-only"]"#)?;
+    let custom_config = temp_dir.path().join("custom.yml");
+    fs::write(&custom_config, r#"commands:
+  - mmm-test-only"#)?;
 
     // Create a simple source file
     fs::write(
@@ -122,8 +123,9 @@ fn test_improve_with_default_config() -> anyhow::Result<()> {
     let mmm_dir = temp_dir.path().join(".mmm");
     fs::create_dir_all(&mmm_dir)?;
     fs::write(
-        mmm_dir.join("config.toml"),
-        r#"commands = ["mmm-custom-review"]"#,
+        mmm_dir.join("workflow.yml"),
+        r#"commands:
+  - mmm-custom-review"#,
     )?;
 
     // Create a simple source file
@@ -139,7 +141,7 @@ fn test_improve_with_default_config() -> anyhow::Result<()> {
     let stderr = String::from_utf8_lossy(&output.stderr);
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // Should use default config from .mmm/config.toml
+    // Should use default config from .mmm/workflow.yml
     assert!(
         stdout.contains("mmm-custom-review")
             || stderr.contains("Claude CLI not found")
@@ -150,44 +152,6 @@ fn test_improve_with_default_config() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_improve_with_legacy_workflow_toml() -> anyhow::Result<()> {
-    let temp_dir = TempDir::new()?;
-
-    // Initialize git repo
-    Command::new("git")
-        .current_dir(&temp_dir)
-        .args(["init"])
-        .output()?;
-
-    // Create .mmm directory with legacy workflow.toml
-    let mmm_dir = temp_dir.path().join(".mmm");
-    fs::create_dir_all(&mmm_dir)?;
-    fs::write(
-        mmm_dir.join("workflow.toml"),
-        r#"commands = ["mmm-legacy-command"]"#,
-    )?;
-
-    // Create a simple source file
-    fs::write(temp_dir.path().join("main.rs"), "fn main() {}")?;
-
-    // Run mmm improve
-    let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
-        .current_dir(&temp_dir)
-        .env("MMM_TEST_MODE", "true")
-        .args(["improve", "--max-iterations", "1"])
-        .output()?;
-
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    // Should show deprecation warning
-    assert!(
-        stderr.contains("workflow.toml is deprecated"),
-        "Should warn about deprecated workflow.toml. STDERR: {stderr}"
-    );
-
-    Ok(())
-}
 
 #[test]
 fn test_improve_with_invalid_config_path() -> anyhow::Result<()> {
@@ -203,7 +167,7 @@ fn test_improve_with_invalid_config_path() -> anyhow::Result<()> {
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
         .current_dir(&temp_dir)
         .env("MMM_TEST_MODE", "true")
-        .args(["improve", "--config", "/non/existent/config.toml"])
+        .args(["improve", "--config", "/non/existent/config.yml"])
         .output()?;
 
     assert!(!output.status.success());

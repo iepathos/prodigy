@@ -1,0 +1,25 @@
+# Demo: Focus argument in YAML
+# Shows the two ways to specify focus in workflow commands
+
+commands:
+  # Method 1: YAML object syntax (Ansible-style)
+  - name: mmm-code-review
+    focus: technical debt
+    
+  - name: mmm-implement-spec
+    
+  - name: mmm-code-review
+    focus: test coverage
+  
+  # Regular command without focus
+  - name: mmm-implement-spec
+  
+  # Another focus example
+  - name: mmm-lint
+
+max_iterations: 2
+
+# Both methods work:
+# 1. YAML object with focus attribute (cleaner, Ansible-style)
+# 2. String format with --focus flag (more CLI-like)
+# Choose whichever feels more natural for your workflow!

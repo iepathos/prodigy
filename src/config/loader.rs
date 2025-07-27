@@ -25,11 +25,11 @@ impl ConfigLoader {
 
     pub async fn load_global(&self) -> Result<()> {
         let global_dir = crate::project::get_global_mmm_dir()?;
-        let config_path = global_dir.join("config.toml");
-
-        if config_path.exists() {
-            let content = fs::read_to_string(&config_path).await?;
-            let global_config: GlobalConfig = toml::from_str(&content)?;
+        let yaml_config_path = global_dir.join("config.yml");
+        
+        if yaml_config_path.exists() {
+            let content = fs::read_to_string(&yaml_config_path).await?;
+            let global_config: GlobalConfig = serde_yaml::from_str(&content)?;
 
             let mut config = self.config.write().unwrap();
             config.global = global_config;
@@ -43,7 +43,7 @@ impl ConfigLoader {
 
     /// Load configuration with precedence rules:
     /// 1. If explicit_path is provided, use that file (error if not found)
-    /// 2. Otherwise, check for .mmm/config.toml in project_path
+    /// 2. Otherwise, check for .mmm/workflow.yml in project_path
     /// 3. Otherwise, return default configuration
     pub async fn load_with_explicit_path(
         &self,
@@ -56,19 +56,12 @@ impl ConfigLoader {
                 self.load_from_path(path).await?;
             }
             None => {
-                // Check for .mmm/config.toml
-                let default_path = project_path.join(".mmm").join("config.toml");
+                // Check for .mmm/workflow.yml
+                let default_path = project_path.join(".mmm").join("workflow.yml");
                 if default_path.exists() {
                     self.load_from_path(&default_path).await?;
-                } else {
-                    // Check legacy workflow.toml for backward compatibility
-                    let workflow_path = project_path.join(".mmm").join("workflow.toml");
-                    if workflow_path.exists() {
-                        eprintln!("Warning: .mmm/workflow.toml is deprecated. Please rename to .mmm/config.toml");
-                        self.load_workflow_from_path(&workflow_path).await?;
-                    }
-                    // Otherwise use defaults (already set in new())
                 }
+                // Otherwise use defaults (already set in new())
             }
         }
         Ok(())
@@ -84,30 +77,6 @@ impl ConfigLoader {
         let extension = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
 
         match extension {
-            "toml" => {
-                // First try to parse as a full config with workflow section
-                if let Ok(full_config) = toml::from_str::<toml::Table>(&content) {
-                    if let Some(workflow_value) = full_config.get("workflow") {
-                        let workflow_config: WorkflowConfig =
-                            workflow_value.clone().try_into().with_context(|| {
-                                format!(
-                                    "Failed to parse workflow configuration from TOML: {}",
-                                    path.display()
-                                )
-                            })?;
-                        let mut config = self.config.write().unwrap();
-                        config.workflow = Some(workflow_config);
-                    }
-                } else {
-                    // Try to parse as direct WorkflowConfig for backward compatibility
-                    let workflow_config: WorkflowConfig =
-                        toml::from_str(&content).with_context(|| {
-                            format!("Failed to parse TOML configuration: {}", path.display())
-                        })?;
-                    let mut config = self.config.write().unwrap();
-                    config.workflow = Some(workflow_config);
-                }
-            }
             "yaml" | "yml" => {
                 // First try to parse as a full config with workflow section
                 if let Ok(full_config) = serde_yaml::from_str::<serde_yaml::Value>(&content) {
@@ -121,9 +90,17 @@ impl ConfigLoader {
                             })?;
                         let mut config = self.config.write().unwrap();
                         config.workflow = Some(workflow_config);
+                    } else {
+                        // Try to parse as direct WorkflowConfig
+                        let workflow_config: WorkflowConfig = serde_yaml::from_str(&content)
+                            .with_context(|| {
+                                format!("Failed to parse YAML configuration: {}", path.display())
+                            })?;
+                        let mut config = self.config.write().unwrap();
+                        config.workflow = Some(workflow_config);
                     }
                 } else {
-                    // Try to parse as direct WorkflowConfig for backward compatibility
+                    // Try to parse as direct WorkflowConfig
                     let workflow_config: WorkflowConfig = serde_yaml::from_str(&content)
                         .with_context(|| {
                             format!("Failed to parse YAML configuration: {}", path.display())
@@ -134,7 +111,7 @@ impl ConfigLoader {
             }
             _ => {
                 return Err(anyhow!(
-                    "Unsupported configuration file format: {}. Use .toml, .yaml, or .yml",
+                    "Unsupported configuration file format: {}. Use .yaml or .yml",
                     path.display()
                 ));
             }
@@ -143,61 +120,16 @@ impl ConfigLoader {
         Ok(())
     }
 
-    /// Load only workflow configuration from a path (for backward compatibility)
-    async fn load_workflow_from_path(&self, path: &Path) -> Result<()> {
-        let content = fs::read_to_string(path)
-            .await
-            .with_context(|| format!("Failed to read workflow file: {}", path.display()))?;
-
-        if let Ok(workflow_config) = toml::from_str::<WorkflowConfig>(&content) {
-            let mut config = self.config.write().unwrap();
-            config.workflow = Some(workflow_config);
-        }
-
-        Ok(())
-    }
 
     pub async fn load_project(&self, project_path: &Path) -> Result<()> {
-        let config_path = project_path.join(".mmm").join("config.toml");
+        let config_path = project_path.join(".mmm").join("config.yml");
 
         if config_path.exists() {
             let content = fs::read_to_string(&config_path).await?;
-            let project_config: ProjectConfig = toml::from_str(&content)?;
+            let project_config: ProjectConfig = serde_yaml::from_str(&content)?;
 
             let mut config = self.config.write().unwrap();
             config.project = Some(project_config);
-        }
-
-        let manifest_path = project_path.join("mmm.toml");
-        if manifest_path.exists() && !config_path.exists() {
-            let content = fs::read_to_string(&manifest_path).await?;
-            if let Ok(manifest) = toml::from_str::<toml::Table>(&content) {
-                if let Some(project) = manifest.get("project").and_then(|p| p.as_table()) {
-                    let project_config = ProjectConfig {
-                        name: project
-                            .get("name")
-                            .and_then(|n| n.as_str())
-                            .unwrap_or("unnamed")
-                            .to_string(),
-                        description: project
-                            .get("description")
-                            .and_then(|d| d.as_str())
-                            .map(|s| s.to_string()),
-                        version: project
-                            .get("version")
-                            .and_then(|v| v.as_str())
-                            .map(|s| s.to_string()),
-                        spec_dir: None,
-                        claude_api_key: None,
-                        max_iterations: None,
-                        auto_commit: None,
-                        variables: None,
-                    };
-
-                    let mut config = self.config.write().unwrap();
-                    config.project = Some(project_config);
-                }
-            }
         }
 
         Ok(())
@@ -218,13 +150,13 @@ impl ConfigLoader {
                         .unwrap_or(false);
 
                     if is_global {
-                        if let Ok(global_config) = toml::from_str::<GlobalConfig>(&content) {
+                        if let Ok(global_config) = serde_yaml::from_str::<GlobalConfig>(&content) {
                             let mut cfg = config.write().unwrap();
                             cfg.global = global_config;
                             cfg.merge_env_vars();
                             tracing::info!("Reloaded global configuration");
                         }
-                    } else if let Ok(project_config) = toml::from_str::<ProjectConfig>(&content) {
+                    } else if let Ok(project_config) = serde_yaml::from_str::<ProjectConfig>(&content) {
                         let mut cfg = config.write().unwrap();
                         cfg.project = Some(project_config);
                         tracing::info!("Reloaded project configuration");
@@ -249,7 +181,7 @@ impl ConfigLoader {
                         for path in event.paths {
                             if path
                                 .extension()
-                                .is_some_and(|ext| ext == "toml" || ext == "yaml" || ext == "yml")
+                                .is_some_and(|ext| ext == "yaml" || ext == "yml")
                             {
                                 let _ = tx.blocking_send(path);
                             }
@@ -323,12 +255,9 @@ impl ConfigLoader {
                 }
                 _ => {
                     // Store in variables table
-                    if project.variables.is_none() {
-                        project.variables = Some(toml::Table::new());
-                    }
-                    if let Some(variables) = &mut project.variables {
-                        variables.insert(key.to_string(), toml::Value::String(value.to_string()));
-                    }
+                    // Variables table functionality removed for YAML-only approach
+                    return Err(anyhow!("Custom variables not supported in current YAML configuration"));
+                    
                 }
             }
 

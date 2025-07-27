@@ -40,14 +40,30 @@ pub struct CommandMetadata {
 pub enum WorkflowCommand {
     /// Legacy string format
     Simple(String),
-    /// New structured format
+    /// Full structured format
     Structured(Command),
+    /// Simple object format with focus
+    SimpleObject(SimpleCommand),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimpleCommand {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub focus: Option<String>,
 }
 
 impl WorkflowCommand {
     pub fn to_command(&self) -> Command {
         match self {
             WorkflowCommand::Simple(s) => Command::from_string(s),
+            WorkflowCommand::SimpleObject(simple) => {
+                let mut cmd = Command::new(&simple.name);
+                if let Some(focus) = &simple.focus {
+                    cmd.options.insert("focus".to_string(), serde_json::json!(focus));
+                }
+                cmd
+            }
             WorkflowCommand::Structured(c) => c.clone(),
         }
     }
@@ -149,6 +165,14 @@ mod tests {
         let simple = WorkflowCommand::Simple("mmm-code-review".to_string());
         let cmd = simple.to_command();
         assert_eq!(cmd.name, "mmm-code-review");
+
+        let simple_obj = WorkflowCommand::SimpleObject(SimpleCommand {
+            name: "mmm-code-review".to_string(),
+            focus: Some("security".to_string()),
+        });
+        let cmd = simple_obj.to_command();
+        assert_eq!(cmd.name, "mmm-code-review");
+        assert_eq!(cmd.options.get("focus"), Some(&serde_json::json!("security")));
 
         let structured = WorkflowCommand::Structured(Command::new("mmm-lint"));
         let cmd = structured.to_command();

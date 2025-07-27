@@ -1,0 +1,20 @@
+# Security-focused workflow
+# Simple YAML format - dead simple and clean
+
+commands:
+  - name: mmm-security-audit
+    focus: security
+  - mmm-implement-spec
+  - name: mmm-test-generate
+    focus: security
+  - mmm-implement-spec
+  - mmm-lint
+
+max_iterations: 8
+
+# This workflow:
+# 1. Security audit with focus on security issues
+# 2. Implements security fixes  
+# 3. Generates security-focused tests
+# 4. Implements the security tests
+# 5. Final validation

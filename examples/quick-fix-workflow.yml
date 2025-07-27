@@ -1,0 +1,15 @@
+# Quick fix workflow
+# Minimal YAML for fast improvements
+
+commands:
+  - name: mmm-code-review
+    focus: critical
+  - mmm-implement-spec
+  - mmm-lint
+
+max_iterations: 3
+
+# Perfect for:
+# - Quick improvements
+# - CI/CD pipelines
+# - Critical issue fixes

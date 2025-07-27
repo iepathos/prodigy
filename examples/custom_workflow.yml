@@ -1,0 +1,14 @@
+# Default MMM workflow - YAML format
+# Dead simple - just works
+
+commands:
+  - mmm-code-review
+  - mmm-implement-spec
+  - mmm-lint
+
+max_iterations: 10
+
+# The classic three-step improvement cycle:
+# 1. Analyze code and generate improvement spec
+# 2. Implement the improvements
+# 3. Format, lint, and test

@@ -8,7 +8,7 @@ pub mod loader;
 pub mod validator;
 pub mod workflow;
 
-pub use command::{Command, CommandMetadata, WorkflowCommand};
+pub use command::{Command, CommandMetadata, SimpleCommand, WorkflowCommand};
 pub use command_parser::{expand_variables, parse_command_string};
 pub use command_validator::{apply_command_defaults, validate_command, CommandRegistry};
 pub use loader::ConfigLoader;
@@ -135,14 +135,17 @@ mod tests {
     use crate::config::command_parser::parse_command_string;
 
     #[test]
-    fn test_legacy_workflow_config_parsing() {
-        // Test legacy string format
-        let toml_str = r#"
-commands = ["mmm-code-review", "mmm-implement-spec", "mmm-lint"]
-max_iterations = 5
+    fn test_simple_workflow_config_parsing() {
+        // Test simple string format
+        let yaml_str = r#"
+commands:
+  - mmm-code-review
+  - mmm-implement-spec
+  - mmm-lint
+max_iterations: 5
 "#;
 
-        let config: WorkflowConfig = toml::from_str(toml_str).unwrap();
+        let config: WorkflowConfig = serde_yaml::from_str(yaml_str).unwrap();
         assert_eq!(config.commands.len(), 3);
         assert_eq!(config.max_iterations, 5);
 
@@ -155,52 +158,35 @@ max_iterations = 5
 
     #[test]
     fn test_structured_workflow_config_parsing() {
-        // Test new structured format
-        let toml_str = r#"
-max_iterations = 3
+        // Test structured format with focus
+        let yaml_str = r#"
+commands:
+  - name: mmm-code-review
+    options:
+      focus: security
+  - name: mmm-implement-spec
+    args: ["${SPEC_ID}"]
+  - mmm-lint
 
-[[commands]]
-name = "mmm-code-review"
-[commands.options]
-focus = "security"
-[commands.metadata]
-retries = 3
-
-[[commands]]
-name = "mmm-implement-spec"
-args = ["${SPEC_ID}"]
-
-[[commands]]
-name = "mmm-lint"
-[commands.metadata]
-continue_on_error = true
+max_iterations: 3
 "#;
 
-        let config: WorkflowConfig = toml::from_str(toml_str).unwrap();
+        let config: WorkflowConfig = serde_yaml::from_str(yaml_str).unwrap();
         assert_eq!(config.commands.len(), 3);
         assert_eq!(config.max_iterations, 3);
 
-        // Verify first command
-        match &config.commands[0] {
-            WorkflowCommand::Structured(cmd) => {
-                assert_eq!(cmd.name, "mmm-code-review");
-                assert_eq!(
-                    cmd.options.get("focus"),
-                    Some(&serde_json::json!("security"))
-                );
-                assert_eq!(cmd.metadata.retries, Some(3));
-            }
-            _ => panic!("Expected Structured command"),
-        }
+        // Verify first command (Structured with focus in options)
+        let cmd = config.commands[0].to_command();
+        assert_eq!(cmd.name, "mmm-code-review");
+        assert_eq!(
+            cmd.options.get("focus"),
+            Some(&serde_json::json!("security"))
+        );
 
-        // Verify second command
-        match &config.commands[1] {
-            WorkflowCommand::Structured(cmd) => {
-                assert_eq!(cmd.name, "mmm-implement-spec");
-                assert_eq!(cmd.args, vec!["${SPEC_ID}"]);
-            }
-            _ => panic!("Expected Structured command"),
-        }
+        // Verify second command (Structured with args)
+        let cmd = config.commands[1].to_command();
+        assert_eq!(cmd.name, "mmm-implement-spec");
+        assert_eq!(cmd.args, vec!["${SPEC_ID}"]);
     }
 
     #[test]
@@ -221,14 +207,10 @@ commands:
         // First command should be Simple
         assert!(matches!(&config.commands[0], WorkflowCommand::Simple(_)));
 
-        // Second command should be Structured
-        match &config.commands[1] {
-            WorkflowCommand::Structured(cmd) => {
-                assert_eq!(cmd.name, "mmm-implement-spec");
-                assert_eq!(cmd.args, vec!["iteration-123"]);
-            }
-            _ => panic!("Expected Structured command"),
-        }
+        // Second command should be Structured  
+        let cmd = config.commands[1].to_command();
+        assert_eq!(cmd.name, "mmm-implement-spec");
+        assert_eq!(cmd.args, vec!["iteration-123"]);
 
         // Third command should be Simple
         assert!(matches!(&config.commands[2], WorkflowCommand::Simple(_)));
