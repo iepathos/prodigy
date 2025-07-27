@@ -16,10 +16,11 @@ This file tracks the key specifications that shaped the current focused architec
 - **20**: `specs/20-focus-directed-improvements.md` - Focus directive for targeted analysis
 - **21**: `specs/21-configurable-workflow.md` - Configurable improvement workflows
 - **23**: `specs/23-command-line-config-option.md` - Add --config flag for custom configuration paths
+- **24**: `specs/24-git-worktree-isolation.md` - Git worktree isolation for parallel MMM sessions
 
 ## Pending Specifications
 - **22**: `specs/22-configurable-iteration-limit.md` - Add --max-iterations flag
-- **24**: `specs/24-git-worktree-isolation.md` - Git worktree isolation for parallel MMM sessions
+- **25**: `specs/25-claude-assisted-worktree-merge.md` - Claude-assisted worktree merge with conflict resolution
 
 ## Current Focus
 
