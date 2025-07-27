@@ -35,6 +35,7 @@ fn main() {
     // Run mmm improve with custom config
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
         .current_dir(&temp_dir)
+        .env("MMM_TEST_MODE", "true")
         .args([
             "improve",
             "--config",
@@ -86,6 +87,7 @@ fn test_improve_with_yaml_config() -> anyhow::Result<()> {
     // Run mmm improve with YAML config
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
         .current_dir(&temp_dir)
+        .env("MMM_TEST_MODE", "true")
         .args([
             "improve",
             "--config",
@@ -133,7 +135,8 @@ fn test_improve_with_default_config() -> anyhow::Result<()> {
     // Run mmm improve without explicit config
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
         .current_dir(&temp_dir)
-        .args(["improve", "--max-iterations", "0"])
+        .env("MMM_TEST_MODE", "true")
+        .args(["improve", "--max-iterations", "1"])
         .output()?;
 
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -174,7 +177,8 @@ fn test_improve_with_legacy_workflow_toml() -> anyhow::Result<()> {
     // Run mmm improve
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
         .current_dir(&temp_dir)
-        .args(["improve", "--max-iterations", "0"])
+        .env("MMM_TEST_MODE", "true")
+        .args(["improve", "--max-iterations", "1"])
         .output()?;
 
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -201,6 +205,7 @@ fn test_improve_with_invalid_config_path() -> anyhow::Result<()> {
     // Run mmm improve with non-existent config
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
         .current_dir(&temp_dir)
+        .env("MMM_TEST_MODE", "true")
         .args(["improve", "--config", "/non/existent/config.toml"])
         .output()?;
 
@@ -234,6 +239,7 @@ fn test_improve_with_unsupported_config_format() -> anyhow::Result<()> {
     // Run mmm improve with JSON config
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
         .current_dir(&temp_dir)
+        .env("MMM_TEST_MODE", "true")
         .args(["improve", "--config", json_config.to_str().unwrap()])
         .output()?;
 

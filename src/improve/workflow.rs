@@ -77,6 +77,14 @@ impl WorkflowExecutor {
     async fn execute_command(&self, command: &str, focus: Option<&str>) -> Result<bool> {
         println!("🤖 Running /{command}...");
 
+        // Skip actual execution in test mode
+        if std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true" {
+            if self.verbose {
+                println!("[TEST MODE] Skipping Claude CLI execution for: {command}");
+            }
+            return Ok(true);
+        }
+
         // First check if claude command exists with improved error handling
         check_claude_cli().await?;
 
@@ -118,6 +126,14 @@ impl WorkflowExecutor {
     /// Execute a Claude command with arguments
     async fn execute_command_with_args(&self, command: &str, args: &[String]) -> Result<bool> {
         println!("🤖 Running /{command} {}...", args.join(" "));
+
+        // Skip actual execution in test mode
+        if std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true" {
+            if self.verbose {
+                println!("[TEST MODE] Skipping Claude CLI execution for: {command} {}", args.join(" "));
+            }
+            return Ok(true);
+        }
 
         let mut cmd = Command::new("claude");
         cmd.arg("--dangerously-skip-permissions")
