@@ -145,6 +145,27 @@ impl WorktreeManager {
     }
 
     pub fn merge_session(&self, name: &str, target_branch: Option<&str>) -> Result<()> {
+        // Get the worktree branch name to verify merge
+        let sessions = self.list_sessions()?;
+        let session = sessions.iter().find(|s| s.name == name)
+            .ok_or_else(|| anyhow::anyhow!("Worktree '{}' not found", name))?;
+        let worktree_branch = &session.branch;
+
+        // Get the current branch before merge
+        let current_branch_output = Command::new("git")
+            .current_dir(&self.repo_path)
+            .args(["rev-parse", "--abbrev-ref", "HEAD"])
+            .output()
+            .context("Failed to get current branch")?;
+        
+        let target = if let Some(t) = target_branch {
+            t.to_string()
+        } else {
+            String::from_utf8_lossy(&current_branch_output.stdout)
+                .trim()
+                .to_string()
+        };
+
         // Call Claude CLI to handle the merge with automatic conflict resolution
         let mut args = vec!["/mmm-merge-worktree", name];
 
@@ -162,6 +183,8 @@ impl WorktreeManager {
         // Execute Claude CLI command
         let output = Command::new("claude")
             .current_dir(&self.repo_path)
+            .arg("--dangerously-skip-permissions") // Skip interactive permission prompts
+            .arg("--print") // Output response to stdout for capture
             .args(&args)
             .env("MMM_AUTOMATION", "true") // Enable automation mode
             .output()
@@ -186,6 +209,33 @@ impl WorktreeManager {
         // Parse the output for success confirmation
         let stdout = String::from_utf8_lossy(&output.stdout);
         println!("{}", stdout);
+
+        // Verify the merge actually happened by checking if the worktree branch
+        // is now merged into the target branch
+        let merge_check = Command::new("git")
+            .current_dir(&self.repo_path)
+            .args(["branch", "--merged", &target])
+            .output()
+            .context("Failed to check merged branches")?;
+
+        if merge_check.status.success() {
+            let merged_branches = String::from_utf8_lossy(&merge_check.stdout);
+            if !merged_branches.contains(worktree_branch) {
+                // Check if Claude output indicates permission was denied
+                if stdout.contains("permission") || stdout.contains("grant permission") {
+                    anyhow::bail!(
+                        "Merge was not completed - Claude requires permission to proceed. \
+                        Please run the command again and grant permission when prompted."
+                    );
+                } else {
+                    anyhow::bail!(
+                        "Merge verification failed - branch '{}' is not merged into '{}'. \
+                        The merge may have been aborted or failed silently.",
+                        worktree_branch, target
+                    );
+                }
+            }
+        }
 
         Ok(())
     }
