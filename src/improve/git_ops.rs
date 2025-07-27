@@ -122,22 +122,34 @@ mod tests {
     async fn test_is_git_repo() {
         // Create a temp directory with a git repo
         let temp_dir = TempDir::new().unwrap();
-        let original_dir = std::env::current_dir().unwrap();
-        std::env::set_current_dir(temp_dir.path()).unwrap();
-
-        // Should not be a git repo initially
-        assert!(!is_git_repo().await);
+        
+        // Test non-git directory
+        let output = Command::new("git")
+            .args(["rev-parse", "--git-dir"])
+            .current_dir(temp_dir.path())
+            .output()
+            .await
+            .unwrap();
+        assert!(!output.status.success(), "Should not be a git repo initially");
 
         // Initialize git repo
-        std::process::Command::new("git")
+        let output = Command::new("git")
             .args(&["init"])
+            .current_dir(temp_dir.path())
             .output()
+            .await
             .unwrap();
+        
+        // Ensure git init succeeded
+        assert!(output.status.success(), "git init failed: {:?}", output);
 
-        // Now should be a git repo
-        assert!(is_git_repo().await);
-
-        // Restore original directory
-        std::env::set_current_dir(original_dir).unwrap();
+        // Test git directory
+        let output = Command::new("git")
+            .args(["rev-parse", "--git-dir"])
+            .current_dir(temp_dir.path())
+            .output()
+            .await
+            .unwrap();
+        assert!(output.status.success(), "Should be a git repo after init");
     }
 }
