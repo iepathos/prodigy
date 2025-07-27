@@ -12,7 +12,6 @@ use anyhow::{anyhow, Context as _, Result};
 use chrono::Utc;
 use git_ops::get_last_commit_message;
 use retry::{check_claude_cli, execute_with_retry, format_subprocess_error};
-use std::fs::File;
 use std::path::Path;
 use tokio::process::Command;
 use workflow::WorkflowExecutor;
@@ -34,32 +33,11 @@ const DEFAULT_CLAUDE_RETRIES: u32 = 2;
 /// - Claude CLI is not available
 /// - File operations fail
 /// - Git operations fail
-/// - Lock file cannot be created or removed
 ///
-/// # Thread Safety
-/// This function uses file-based locking to prevent concurrent execution on the same repository.
-/// The lock file is created in .mmm/improve.lock and cleaned up on exit.
+/// # Parallel Execution
+/// For parallel execution, use the `--worktree` flag to run multiple sessions
+/// in isolated git worktrees without conflicts.
 pub async fn run(cmd: command::ImproveCommand) -> Result<()> {
-    // Create lock file to prevent concurrent executions
-    let lock_path = Path::new(".mmm").join("improve.lock");
-    if lock_path.exists() {
-        return Err(anyhow!("Another mmm improve process is already running in this repository. If this is incorrect, delete .mmm/improve.lock"));
-    }
-
-    let _lock_file = File::create(&lock_path).context("Failed to create lock file")?;
-
-    // Ensure lock file is cleaned up on exit
-    let result = run_impl(cmd).await;
-
-    // Clean up lock file
-    if let Err(e) = std::fs::remove_file(&lock_path) {
-        eprintln!("Warning: Failed to remove lock file: {e}");
-    }
-
-    result
-}
-
-async fn run_impl(cmd: command::ImproveCommand) -> Result<()> {
     // Check if worktree isolation should be used
     // Check flag first, then env var with deprecation warning
     let use_worktree = if cmd.worktree {
@@ -637,14 +615,5 @@ mod tests {
         // 3. Authentication failure
         // 4. Success after retry
         // 5. Failure after all retries
-    }
-
-    #[tokio::test]
-    async fn test_lock_file_prevents_concurrent_execution() {
-        // Test scenarios to cover:
-        // 1. First run creates lock file
-        // 2. Second run fails with lock error
-        // 3. Lock file cleaned up on success
-        // 4. Lock file cleaned up on error
     }
 }
