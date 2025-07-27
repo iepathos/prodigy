@@ -19,10 +19,10 @@ This file tracks the key specifications that shaped the current focused architec
 - **24**: `specs/24-git-worktree-isolation.md` - Git worktree isolation for parallel MMM sessions
 - **25**: `specs/25-claude-assisted-worktree-merge.md` - Claude-assisted worktree merge with conflict resolution
 - **26**: `specs/26-worktree-cli-flag.md` - Replace worktree environment variable with CLI flag
+- **28**: `specs/28-structured-command-objects.md` - Refactor workflow commands to use structured objects
 
 ## Pending Specifications
 - **22**: `specs/22-configurable-iteration-limit.md` - Add --max-iterations flag
-- **28**: `specs/28-structured-command-objects.md` - Refactor workflow commands to use structured objects
 
 ## Current Focus
 

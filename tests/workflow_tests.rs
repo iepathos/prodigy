@@ -1,4 +1,4 @@
-use mmm::config::workflow::WorkflowConfig;
+use mmm::config::{workflow::WorkflowConfig, command::WorkflowCommand};
 
 /// Test workflow configuration loading
 #[test]
@@ -17,9 +17,9 @@ commands = [
 
     let config = config.unwrap();
     assert_eq!(config.commands.len(), 3);
-    assert_eq!(config.commands[0], "/mmm-code-review");
-    assert_eq!(config.commands[1], "/mmm-implement-spec");
-    assert_eq!(config.commands[2], "/mmm-lint");
+    assert_eq!(config.commands[0].to_command().name, "mmm-code-review");
+    assert_eq!(config.commands[1].to_command().name, "mmm-implement-spec");
+    assert_eq!(config.commands[2].to_command().name, "mmm-lint");
 }
 
 /// Test workflow config with empty commands
@@ -96,9 +96,9 @@ fn test_implement_spec_command_parsing() {
 fn test_workflow_execution_order() {
     let workflow = WorkflowConfig {
         commands: vec![
-            "/mmm-code-review".to_string(),
-            "/mmm-implement-spec".to_string(),
-            "/mmm-lint".to_string(),
+            WorkflowCommand::Simple("mmm-code-review".to_string()),
+            WorkflowCommand::Simple("mmm-implement-spec".to_string()),
+            WorkflowCommand::Simple("mmm-lint".to_string()),
         ],
         max_iterations: 10,
     };
@@ -108,12 +108,13 @@ fn test_workflow_execution_order() {
 
     for (i, cmd) in workflow.commands.iter().enumerate() {
         executed_commands.push(cmd.clone());
+        let command = cmd.to_command();
 
         // Verify order
         match i {
-            0 => assert_eq!(cmd, "/mmm-code-review"),
-            1 => assert_eq!(cmd, "/mmm-implement-spec"),
-            2 => assert_eq!(cmd, "/mmm-lint"),
+            0 => assert_eq!(command.name, "mmm-code-review"),
+            1 => assert_eq!(command.name, "mmm-implement-spec"),
+            2 => assert_eq!(command.name, "mmm-lint"),
             _ => panic!("Unexpected command index"),
         }
     }
@@ -127,40 +128,40 @@ fn test_custom_workflow_configs() {
     // Test security-focused workflow
     let security_workflow = WorkflowConfig {
         commands: vec![
-            "/mmm-security-audit".to_string(),
-            "/mmm-implement-spec".to_string(),
-            "/mmm-security-verify".to_string(),
+            WorkflowCommand::Simple("mmm-security-audit".to_string()),
+            WorkflowCommand::Simple("mmm-implement-spec".to_string()),
+            WorkflowCommand::Simple("mmm-security-verify".to_string()),
         ],
         max_iterations: 10,
     };
 
     assert_eq!(security_workflow.commands.len(), 3);
-    assert!(security_workflow.commands[0].contains("security"));
+    assert!(security_workflow.commands[0].to_command().name.contains("security"));
 
     // Test documentation workflow
     let docs_workflow = WorkflowConfig {
         commands: vec![
-            "/mmm-docs-review".to_string(),
-            "/mmm-implement-spec".to_string(),
-            "/mmm-docs-generate".to_string(),
+            WorkflowCommand::Simple("mmm-docs-review".to_string()),
+            WorkflowCommand::Simple("mmm-implement-spec".to_string()),
+            WorkflowCommand::Simple("mmm-docs-generate".to_string()),
         ],
         max_iterations: 10,
     };
 
     assert_eq!(docs_workflow.commands.len(), 3);
-    assert!(docs_workflow.commands[0].contains("docs"));
+    assert!(docs_workflow.commands[0].to_command().name.contains("docs"));
 }
 
 /// Test workflow with single command
 #[test]
 fn test_single_command_workflow() {
     let minimal_workflow = WorkflowConfig {
-        commands: vec!["/mmm-quick-fix".to_string()],
+        commands: vec![WorkflowCommand::Simple("mmm-quick-fix".to_string())],
         max_iterations: 10,
     };
 
     assert_eq!(minimal_workflow.commands.len(), 1);
-    assert_eq!(minimal_workflow.commands[0], "/mmm-quick-fix");
+    assert_eq!(minimal_workflow.commands[0].to_command().name, "mmm-quick-fix");
 }
 
 /// Test workflow commands with arguments like --focus
@@ -181,8 +182,17 @@ max_iterations = 2
 
     let config = config.unwrap();
     assert_eq!(config.commands.len(), 4);
-    assert_eq!(config.commands[0], "mmm-code-review --focus architecture");
-    assert_eq!(config.commands[2], "mmm-code-review --focus error-handling");
+    
+    // For string commands with arguments, the full string is preserved
+    match &config.commands[0] {
+        WorkflowCommand::Simple(s) => assert_eq!(s, "mmm-code-review --focus architecture"),
+        _ => panic!("Expected simple command"),
+    }
+    
+    match &config.commands[2] {
+        WorkflowCommand::Simple(s) => assert_eq!(s, "mmm-code-review --focus error-handling"),
+        _ => panic!("Expected simple command"),
+    }
 }
 
 /// Test structured command objects in workflow (future implementation)
@@ -209,7 +219,7 @@ max_iterations = 2
 
     // Once implemented, this should parse into structured command objects
     // For now, we document the expected behavior
-    
+
     // Expected parsed structure:
     // commands[0]: Command { name: "mmm-code-review", args: { "focus": "architecture" } }
     // commands[1]: Command { name: "mmm-implement-spec", args: {} }

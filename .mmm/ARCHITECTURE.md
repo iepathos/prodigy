@@ -45,6 +45,9 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 - **validator.rs**: Configuration validation
 - **mod.rs**: Config structures and defaults
 - **workflow.rs**: Simple workflow configuration structure
+- **command.rs**: Structured command objects and WorkflowCommand enum
+- **command_parser.rs**: String-to-Command conversion utilities
+- **command_validator.rs**: Command registry and validation logic
 
 ### 7. Error Handling (`src/error.rs`)
 - Centralized error types using thiserror

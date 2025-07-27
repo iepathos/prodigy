@@ -16,7 +16,10 @@ fn test_parse_command_string() {
     // Test command with multiple arguments
     let (cmd, args) = parse_command_string("mmm-analyze --verbose --depth 3 --output report.md");
     assert_eq!(cmd, "mmm-analyze");
-    assert_eq!(args, vec!["--verbose", "--depth", "3", "--output", "report.md"]);
+    assert_eq!(
+        args,
+        vec!["--verbose", "--depth", "3", "--output", "report.md"]
+    );
 }
 
 /// Test command string parsing with quoted arguments
@@ -128,12 +131,12 @@ fn parse_command_string(input: &str) -> (String, Vec<&str>) {
     if trimmed.is_empty() {
         return (String::new(), vec![]);
     }
-    
+
     let parts: Vec<&str> = trimmed.split_whitespace().collect();
     if parts.is_empty() {
         return (String::new(), vec![]);
     }
-    
+
     (parts[0].to_string(), parts[1..].to_vec())
 }
 
@@ -152,7 +155,7 @@ impl Command {
     fn from_string(input: &str) -> Self {
         let (name, args_vec) = parse_command_string(input);
         let mut args = HashMap::new();
-        
+
         // Simple argument parsing for demonstration
         let mut i = 0;
         while i < args_vec.len() {
@@ -168,7 +171,7 @@ impl Command {
             }
             i += 1;
         }
-        
+
         Command {
             name,
             args,
@@ -190,11 +193,11 @@ fn validate_command(cmd: &Command) -> Result<(), String> {
         "mmm-test",
         "mmm-analyze",
     ];
-    
+
     if !valid_commands.contains(&cmd.name.as_str()) {
         return Err(format!("Unknown command: {}", cmd.name));
     }
-    
+
     // Validate command-specific arguments
     match cmd.name.as_str() {
         "mmm-code-review" => {
@@ -213,6 +216,6 @@ fn validate_command(cmd: &Command) -> Result<(), String> {
         }
         _ => {}
     }
-    
+
     Ok(())
 }

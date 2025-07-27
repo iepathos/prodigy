@@ -85,20 +85,52 @@ impl ConfigLoader {
 
         match extension {
             "toml" => {
-                let workflow_config: WorkflowConfig =
-                    toml::from_str(&content).with_context(|| {
-                        format!("Failed to parse TOML configuration: {}", path.display())
-                    })?;
-                let mut config = self.config.write().unwrap();
-                config.workflow = Some(workflow_config);
+                // First try to parse as a full config with workflow section
+                if let Ok(full_config) = toml::from_str::<toml::Table>(&content) {
+                    if let Some(workflow_value) = full_config.get("workflow") {
+                        let workflow_config: WorkflowConfig =
+                            workflow_value.clone().try_into().with_context(|| {
+                                format!(
+                                    "Failed to parse workflow configuration from TOML: {}",
+                                    path.display()
+                                )
+                            })?;
+                        let mut config = self.config.write().unwrap();
+                        config.workflow = Some(workflow_config);
+                    }
+                } else {
+                    // Try to parse as direct WorkflowConfig for backward compatibility
+                    let workflow_config: WorkflowConfig =
+                        toml::from_str(&content).with_context(|| {
+                            format!("Failed to parse TOML configuration: {}", path.display())
+                        })?;
+                    let mut config = self.config.write().unwrap();
+                    config.workflow = Some(workflow_config);
+                }
             }
             "yaml" | "yml" => {
-                let workflow_config: WorkflowConfig =
-                    serde_yaml::from_str(&content).with_context(|| {
-                        format!("Failed to parse YAML configuration: {}", path.display())
-                    })?;
-                let mut config = self.config.write().unwrap();
-                config.workflow = Some(workflow_config);
+                // First try to parse as a full config with workflow section
+                if let Ok(full_config) = serde_yaml::from_str::<serde_yaml::Value>(&content) {
+                    if let Some(workflow_value) = full_config.get("workflow") {
+                        let workflow_config: WorkflowConfig =
+                            serde_yaml::from_value(workflow_value.clone()).with_context(|| {
+                                format!(
+                                    "Failed to parse workflow configuration from YAML: {}",
+                                    path.display()
+                                )
+                            })?;
+                        let mut config = self.config.write().unwrap();
+                        config.workflow = Some(workflow_config);
+                    }
+                } else {
+                    // Try to parse as direct WorkflowConfig for backward compatibility
+                    let workflow_config: WorkflowConfig = serde_yaml::from_str(&content)
+                        .with_context(|| {
+                            format!("Failed to parse YAML configuration: {}", path.display())
+                        })?;
+                    let mut config = self.config.write().unwrap();
+                    config.workflow = Some(workflow_config);
+                }
             }
             _ => {
                 return Err(anyhow!(

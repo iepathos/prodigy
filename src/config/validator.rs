@@ -107,14 +107,8 @@ impl ConfigValidator {
             return Err(anyhow!("Workflow must have at least one command"));
         }
 
-        for command in &workflow.commands {
-            if !command.starts_with('/') {
-                return Err(anyhow!(
-                    "Workflow command '{}' must start with '/'",
-                    command
-                ));
-            }
-        }
+        // Commands are now WorkflowCommand enums, which are already validated
+        // during parsing and conversion to Command objects
 
         Ok(())
     }

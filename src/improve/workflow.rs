@@ -1,3 +1,4 @@
+use crate::config::command_validator::{apply_command_defaults, validate_command};
 use crate::config::workflow::WorkflowConfig;
 use crate::improve::git_ops::get_last_commit_message;
 use crate::improve::retry::{check_claude_cli, execute_with_retry, format_subprocess_error};
@@ -31,25 +32,34 @@ impl WorkflowExecutor {
 
         let mut any_changes = false;
 
-        for (idx, command) in self.config.commands.iter().enumerate() {
+        for (idx, workflow_command) in self.config.commands.iter().enumerate() {
+            // Convert to structured command
+            let mut command = workflow_command.to_command();
+
+            // Apply defaults from registry
+            apply_command_defaults(&mut command);
+
+            // Validate command
+            validate_command(&command)?;
+
             if self.verbose {
                 println!(
                     "📋 Step {}/{}: {}",
                     idx + 1,
                     self.config.commands.len(),
-                    command
+                    command.name
                 );
             }
 
             // Check if this is the first command and we have a focus directive
-            let step_focus = if idx == 0 && iteration == 1 {
-                focus
-            } else {
-                None
-            };
+            if idx == 0 && iteration == 1 && focus.is_some() {
+                command
+                    .options
+                    .insert("focus".to_string(), serde_json::json!(focus.unwrap()));
+            }
 
             // Execute the command
-            let success = match command.as_str() {
+            let success = match command.name.as_str() {
                 "mmm-implement-spec" => {
                     // Special handling for mmm-implement-spec - extract spec ID from git
                     let spec_id = self.extract_spec_from_git().await?;
@@ -59,10 +69,11 @@ impl WorkflowExecutor {
                         }
                         false
                     } else {
-                        self.execute_command_with_args(command, &[spec_id]).await?
+                        command.args = vec![spec_id];
+                        self.execute_structured_command(&command).await?
                     }
                 }
-                _ => self.execute_command(command, step_focus).await?,
+                _ => self.execute_structured_command(&command).await?,
             };
 
             if success {
@@ -73,14 +84,20 @@ impl WorkflowExecutor {
         Ok(any_changes)
     }
 
-    /// Execute a Claude command
-    async fn execute_command(&self, command: &str, focus: Option<&str>) -> Result<bool> {
-        println!("🤖 Running /{command}...");
+    /// Execute a structured command
+    async fn execute_structured_command(
+        &self,
+        command: &crate::config::command::Command,
+    ) -> Result<bool> {
+        println!("🤖 Running /{}...", command.name);
 
         // Skip actual execution in test mode
         if std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true" {
             if self.verbose {
-                println!("[TEST MODE] Skipping Claude CLI execution for: {command}");
+                println!(
+                    "[TEST MODE] Skipping Claude CLI execution for: {}",
+                    command.name
+                );
             }
             return Ok(true);
         }
@@ -88,68 +105,41 @@ impl WorkflowExecutor {
         // First check if claude command exists with improved error handling
         check_claude_cli().await?;
 
-        // Build command
+        // Build subprocess command
         let mut cmd = Command::new("claude");
         cmd.arg("--dangerously-skip-permissions")
             .arg("--print")
-            .arg(format!("/{command}"))
+            .arg(format!("/{}", command.name))
             .env("MMM_AUTOMATION", "true");
 
-        // Add focus directive if provided (for first command of first iteration)
-        if let Some(focus_directive) = focus {
-            cmd.env("MMM_FOCUS", focus_directive);
+        // Add positional arguments
+        for arg in &command.args {
+            cmd.arg(arg);
         }
 
-        // Execute with retry logic for transient failures
-        let output =
-            execute_with_retry(cmd, &format!("command /{command}"), 2, self.verbose).await?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let error_msg = format_subprocess_error(
-                &format!("claude /{command}"),
-                output.status.code(),
-                &stderr,
-                &stdout,
-            );
-            return Err(anyhow!(error_msg));
-        }
-
-        if self.verbose {
-            println!("✅ Command '{command}' completed");
-        }
-
-        Ok(true)
-    }
-
-    /// Execute a Claude command with arguments
-    async fn execute_command_with_args(&self, command: &str, args: &[String]) -> Result<bool> {
-        println!("🤖 Running /{command} {}...", args.join(" "));
-
-        // Skip actual execution in test mode
-        if std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true" {
-            if self.verbose {
-                println!(
-                    "[TEST MODE] Skipping Claude CLI execution for: {command} {}",
-                    args.join(" ")
-                );
+        // Add options as environment variables or flags based on command definition
+        // For now, we'll use environment variables for specific options
+        if let Some(focus) = command.options.get("focus") {
+            if let Some(focus_str) = focus.as_str() {
+                cmd.env("MMM_FOCUS", focus_str);
             }
-            return Ok(true);
         }
 
-        let mut cmd = Command::new("claude");
-        cmd.arg("--dangerously-skip-permissions")
-            .arg("--print")
-            .arg(format!("/{command}"))
-            .args(args)
-            .env("MMM_AUTOMATION", "true");
+        // Apply metadata environment variables
+        for (key, value) in &command.metadata.env {
+            cmd.env(key, value);
+        }
+
+        // Determine retry count  
+        let retries = command.metadata.retries.unwrap_or(2);
+        // Timeout is available in metadata but not currently used by execute_with_retry
+        // let _timeout = command.metadata.timeout;
 
         // Execute with retry logic for transient failures
         let output = execute_with_retry(
             cmd,
-            &format!("command /{command} {}", args.join(" ")),
-            2,
+            &format!("command /{}", command.name),
+            retries,
             self.verbose,
         )
         .await?;
@@ -158,16 +148,26 @@ impl WorkflowExecutor {
             let stderr = String::from_utf8_lossy(&output.stderr);
             let stdout = String::from_utf8_lossy(&output.stdout);
             let error_msg = format_subprocess_error(
-                &format!("claude /{command} {}", args.join(" ")),
+                &format!("claude /{}", command.name),
                 output.status.code(),
                 &stderr,
                 &stdout,
             );
-            return Err(anyhow!(error_msg));
+
+            // Check if we should continue on error
+            if command.metadata.continue_on_error.unwrap_or(false) {
+                eprintln!(
+                    "Warning: Command '{}' failed but continuing: {}",
+                    command.name, error_msg
+                );
+                return Ok(false);
+            } else {
+                return Err(anyhow!(error_msg));
+            }
         }
 
         if self.verbose {
-            println!("✅ Command '{command}' completed");
+            println!("✅ Command '{}' completed", command.name);
         }
 
         Ok(true)
@@ -203,11 +203,12 @@ mod tests {
     use super::*;
 
     fn create_test_workflow() -> WorkflowConfig {
+        use crate::config::command::WorkflowCommand;
         WorkflowConfig {
             commands: vec![
-                "/mmm-code-review".to_string(),
-                "/mmm-implement-spec".to_string(),
-                "/mmm-lint".to_string(),
+                WorkflowCommand::Simple("mmm-code-review".to_string()),
+                WorkflowCommand::Simple("mmm-implement-spec".to_string()),
+                WorkflowCommand::Simple("mmm-lint".to_string()),
             ],
             max_iterations: 10,
         }
@@ -225,8 +226,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_execute_iteration_with_focus() {
+        use crate::config::command::WorkflowCommand;
         let config = WorkflowConfig {
-            commands: vec!["/mmm-code-review".to_string()],
+            commands: vec![WorkflowCommand::Simple("mmm-code-review".to_string())],
             max_iterations: 1,
         };
         let executor = WorkflowExecutor::new(config, false, 1);
@@ -241,9 +243,9 @@ mod tests {
         let config = WorkflowConfig::default();
 
         assert_eq!(config.commands.len(), 3);
-        assert_eq!(config.commands[0], "mmm-code-review");
-        assert_eq!(config.commands[1], "mmm-implement-spec");
-        assert_eq!(config.commands[2], "mmm-lint");
+        assert_eq!(config.commands[0].to_command().name, "mmm-code-review");
+        assert_eq!(config.commands[1].to_command().name, "mmm-implement-spec");
+        assert_eq!(config.commands[2].to_command().name, "mmm-lint");
         assert_eq!(config.max_iterations, 10);
     }
 
@@ -309,18 +311,23 @@ mod tests {
         let config = create_test_workflow();
 
         // Test that mmm-implement-spec is recognized as special
-        assert!(config.commands.contains(&"/mmm-implement-spec".to_string()));
+        let has_implement_spec = config
+            .commands
+            .iter()
+            .any(|cmd| cmd.to_command().name == "mmm-implement-spec");
+        assert!(has_implement_spec);
 
-        // Test command matching
-        for command in &config.commands {
-            match command.as_str() {
-                "/mmm-implement-spec" => {
+        // Test command conversion
+        for workflow_cmd in &config.commands {
+            let cmd = workflow_cmd.to_command();
+            match cmd.name.as_str() {
+                "mmm-implement-spec" => {
                     // This command requires special spec extraction
                     // No assertion needed here - the logic is handled elsewhere
                 }
                 _ => {
                     // Other commands are handled normally
-                    assert!(command.starts_with('/'));
+                    assert!(!cmd.name.is_empty());
                 }
             }
         }

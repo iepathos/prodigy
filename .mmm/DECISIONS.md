@@ -383,3 +383,21 @@ Replace environment variable with --worktree (-w) CLI flag while maintaining bac
 - **Positive**: Better discoverability through help text, shorter commands, consistent with other CLI flags, cleaner command history
 - **Negative**: Minor breaking change requiring users to update scripts, additional CLI argument to maintain
 - **Implementation**: Added --worktree flag to ImproveCommand, updated logic to check flag first then env var with warning, updated all documentation
+
+---
+
+## ADR-023: Structured Command Objects for Type Safety
+
+### Status
+Accepted
+
+### Context
+Spec 28 identified that MMM's workflow system used simple string-based command representations, which limited type safety, command validation, and extensibility. String parsing for special cases made it difficult to extend with new command features without breaking existing configurations.
+
+### Decision
+Transform the workflow command system from string-based to structured command objects using a WorkflowCommand enum that supports both legacy string format and new structured Command objects. Implement command registry with validation, defaults, and type-safe parameter handling.
+
+### Consequences
+- **Positive**: Type-safe command definitions, first-class support for command arguments and options, extensible command metadata (retries, timeouts, error handling), better integration with Claude CLI interface, maintained backward compatibility
+- **Negative**: Additional complexity in configuration parsing, more code to maintain, learning curve for advanced configuration features
+- **Implementation**: Created command.rs with Command/CommandMetadata/WorkflowCommand structures, command_parser.rs for string conversion, command_validator.rs with CommandRegistry, updated workflow executor to use structured commands, maintained full backward compatibility with string-based configs
