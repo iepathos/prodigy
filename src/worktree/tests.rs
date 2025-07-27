@@ -27,13 +27,27 @@ mod tests {
         Ok(temp_dir)
     }
 
+    // Clean up worktree manager's base directory after tests
+    fn cleanup_worktree_dir(manager: &WorktreeManager) {
+        if manager.base_dir.exists() {
+            std::fs::remove_dir_all(&manager.base_dir).ok();
+        }
+    }
+
     #[test]
     fn test_worktree_manager_creation() -> anyhow::Result<()> {
         let temp_dir = setup_test_repo()?;
         let manager = WorktreeManager::new(temp_dir.path().to_path_buf())?;
 
         assert!(manager.base_dir.exists());
-        assert!(manager.base_dir.ends_with(".mmm/worktrees"));
+        // Should be in home directory now
+        let home_dir = dirs::home_dir().unwrap();
+        assert!(manager
+            .base_dir
+            .starts_with(home_dir.join(".mmm").join("worktrees")));
+
+        // Clean up
+        cleanup_worktree_dir(&manager);
 
         Ok(())
     }
@@ -52,6 +66,7 @@ mod tests {
 
         // Cleanup
         manager.cleanup_session(&session.name)?;
+        cleanup_worktree_dir(&manager);
 
         Ok(())
     }
@@ -70,6 +85,7 @@ mod tests {
 
         // Cleanup
         manager.cleanup_session(&session.name)?;
+        cleanup_worktree_dir(&manager);
 
         Ok(())
     }
@@ -95,6 +111,7 @@ mod tests {
 
         // Cleanup
         manager.cleanup_all_sessions()?;
+        cleanup_worktree_dir(&manager);
 
         Ok(())
     }
@@ -120,6 +137,9 @@ mod tests {
         let sessions = manager.list_sessions()?;
         assert!(sessions.is_empty());
 
+        // Final cleanup
+        cleanup_worktree_dir(&manager);
+
         Ok(())
     }
 
@@ -135,6 +155,7 @@ mod tests {
 
         // Cleanup
         manager.cleanup_session(&session.name)?;
+        cleanup_worktree_dir(&manager);
 
         Ok(())
     }

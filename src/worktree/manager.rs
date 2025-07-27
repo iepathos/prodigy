@@ -12,7 +12,18 @@ pub struct WorktreeManager {
 
 impl WorktreeManager {
     pub fn new(repo_path: PathBuf) -> Result<Self> {
-        let base_dir = repo_path.join(".mmm").join("worktrees");
+        // Get the repository name from the path
+        let repo_name = repo_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .ok_or_else(|| anyhow!("Could not determine repository name"))?;
+
+        // Use home directory for worktrees
+        let home_dir =
+            dirs::home_dir().ok_or_else(|| anyhow!("Could not determine home directory"))?;
+
+        let base_dir = home_dir.join(".mmm").join("worktrees").join(repo_name);
+
         std::fs::create_dir_all(&base_dir).context("Failed to create worktree base directory")?;
 
         // Canonicalize paths to handle symlinks (e.g., /private/var vs /var on macOS)

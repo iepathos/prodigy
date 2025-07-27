@@ -37,8 +37,12 @@ mmm/
 │   ├── worktree/         # Git worktree management
 │   └── lib.rs           # Library exports
 ├── .mmm/                # Project context and state
-│   └── worktrees/       # Isolated git worktrees
 └── README.md            # User documentation
+
+~/.mmm/worktrees/{repo-name}/  # Git worktrees stored in home directory
+├── mmm-session-1234567890/
+├── mmm-performance-1234567891/
+└── mmm-security-1234567892/
 ```
 
 ## Key Capabilities
