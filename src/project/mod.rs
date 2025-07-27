@@ -6,11 +6,9 @@ use tokio::fs;
 
 pub mod health;
 pub mod manager;
-pub mod template;
 
 pub use health::{HealthCheck, HealthStatus, ProjectHealth, Severity};
 pub use manager::ProjectManager;
-pub use template::TemplateManager;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Project {
