@@ -41,18 +41,16 @@ fn cleanup_mmm_worktrees() {
         if worktree_base.exists() {
             // Only clean up test-related worktrees
             if let Ok(entries) = std::fs::read_dir(&worktree_base) {
-                for entry in entries {
-                    if let Ok(entry) = entry {
-                        let path = entry.path();
-                        if path.is_dir()
-                            && path
-                                .file_name()
-                                .and_then(|n| n.to_str())
-                                .map(|n| n.starts_with("test-"))
-                                .unwrap_or(false)
-                        {
-                            std::fs::remove_dir_all(&path).ok();
-                        }
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir()
+                        && path
+                            .file_name()
+                            .and_then(|n| n.to_str())
+                            .map(|n| n.starts_with("test-"))
+                            .unwrap_or(false)
+                    {
+                        std::fs::remove_dir_all(&path).ok();
                     }
                 }
             }

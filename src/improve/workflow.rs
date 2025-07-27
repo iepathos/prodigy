@@ -130,7 +130,10 @@ impl WorkflowExecutor {
         // Skip actual execution in test mode
         if std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true" {
             if self.verbose {
-                println!("[TEST MODE] Skipping Claude CLI execution for: {command} {}", args.join(" "));
+                println!(
+                    "[TEST MODE] Skipping Claude CLI execution for: {command} {}",
+                    args.join(" ")
+                );
             }
             return Ok(true);
         }
@@ -313,7 +316,7 @@ mod tests {
             match command.as_str() {
                 "/mmm-implement-spec" => {
                     // This command requires special spec extraction
-                    assert!(true);
+                    // No assertion needed here - the logic is handled elsewhere
                 }
                 _ => {
                     // Other commands are handled normally

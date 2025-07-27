@@ -335,7 +335,7 @@ fn main() {
             health_score: 7.5,
         };
 
-        let context = ContextGenerator::generate(&result);
+        let context = ContextGenerator::generate(&result).unwrap();
 
         // Check that key sections are present
         assert!(context.contains("# Project Analysis"));

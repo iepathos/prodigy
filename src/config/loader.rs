@@ -300,8 +300,8 @@ impl ConfigLoader {
                 }
             }
 
-            // Save to disk
-            // TODO: Get project path from somewhere
+            // Note: Changes are only made in-memory. Saving to disk is not implemented
+            // as this appears to be unused functionality.
 
             Ok(())
         } else {
