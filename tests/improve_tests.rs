@@ -15,15 +15,15 @@ fn test_extract_spec_from_git() {
         .output()
         .expect("Failed to init git repo");
 
-    // Configure git user
+    // Configure git user (use --local to ensure we don't modify global config)
     Command::new("git")
-        .args(["config", "user.email", "test@example.com"])
+        .args(["config", "--local", "user.email", "test@example.com"])
         .current_dir(repo_path)
         .output()
         .expect("Failed to config email");
 
     Command::new("git")
-        .args(["config", "user.name", "Test User"])
+        .args(["config", "--local", "user.name", "Test User"])
         .current_dir(repo_path)
         .output()
         .expect("Failed to config name");

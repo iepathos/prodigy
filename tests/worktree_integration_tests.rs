@@ -10,14 +10,14 @@ fn setup_test_repo() -> anyhow::Result<TempDir> {
         .args(["init"])
         .output()?;
 
-    // Configure git user for commits
+    // Configure git user for commits (use --local to ensure we don't modify global config)
     Command::new("git")
         .current_dir(&temp_dir)
-        .args(["config", "user.email", "test@example.com"])
+        .args(["config", "--local", "user.email", "test@example.com"])
         .output()?;
     Command::new("git")
         .current_dir(&temp_dir)
-        .args(["config", "user.name", "Test User"])
+        .args(["config", "--local", "user.name", "Test User"])
         .output()?;
 
     // Create initial commit
