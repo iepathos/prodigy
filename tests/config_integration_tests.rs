@@ -19,9 +19,7 @@ fn test_improve_with_custom_config_file() -> anyhow::Result<()> {
     let custom_config = temp_dir.path().join("custom.toml");
     fs::write(
         &custom_config,
-        r#"
-commands = ["/mmm-test-only"]
-"#,
+        r#"commands = ["mmm-test-only"]"#,
     )?;
 
     // Create a simple source file
@@ -42,7 +40,7 @@ fn main() {
             "--config",
             custom_config.to_str().unwrap(),
             "--max-iterations",
-            "0",
+            "1",
         ])
         .output()?;
 
@@ -78,10 +76,8 @@ fn test_improve_with_yaml_config() -> anyhow::Result<()> {
     let yaml_config = temp_dir.path().join("config.yaml");
     fs::write(
         &yaml_config,
-        r#"
-commands:
-  - /mmm-yaml-test
-"#,
+        r#"commands:
+  - mmm-yaml-test"#,
     )?;
 
     // Create a simple source file
@@ -95,7 +91,7 @@ commands:
             "--config",
             yaml_config.to_str().unwrap(),
             "--max-iterations",
-            "0",
+            "1",
         ])
         .output()?;
 
@@ -128,9 +124,7 @@ fn test_improve_with_default_config() -> anyhow::Result<()> {
     fs::create_dir_all(&mmm_dir)?;
     fs::write(
         mmm_dir.join("config.toml"),
-        r#"
-commands = ["/mmm-custom-review"]
-"#,
+        r#"commands = ["mmm-custom-review"]"#,
     )?;
 
     // Create a simple source file
@@ -171,9 +165,7 @@ fn test_improve_with_legacy_workflow_toml() -> anyhow::Result<()> {
     fs::create_dir_all(&mmm_dir)?;
     fs::write(
         mmm_dir.join("workflow.toml"),
-        r#"
-commands = ["/mmm-legacy-command"]
-"#,
+        r#"commands = ["mmm-legacy-command"]"#,
     )?;
 
     // Create a simple source file
