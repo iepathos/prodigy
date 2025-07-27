@@ -195,12 +195,12 @@ mod test {
     #[test]
     fn test_session_record_edge_cases() {
         let mut session = SessionRecord::new(5.0);
-        
+
         // Test with empty summary
         session.complete(5.5, String::new());
         assert_eq!(session.summary, "");
         assert!(session.completed_at.is_some());
-        
+
         // Test with very long summary
         let long_summary = "x".repeat(1000);
         let mut session2 = SessionRecord::new(6.0);
@@ -211,11 +211,7 @@ mod test {
     #[test]
     fn test_cache_manager_edge_cases() {
         let temp_dir = TempDir::new().unwrap();
-        let cache_mgr = CacheManager::with_config(
-            temp_dir.path().join("cache"),
-            3600,
-        )
-        .unwrap();
+        let cache_mgr = CacheManager::with_config(temp_dir.path().join("cache"), 3600).unwrap();
 
         // Test empty key
         let result: Result<Option<String>, _> = cache_mgr.get("");
@@ -239,14 +235,14 @@ mod test {
     fn test_state_file_permissions() {
         let temp_dir = TempDir::new().unwrap();
         let mut state_mgr = StateManager::with_root(temp_dir.path().to_path_buf()).unwrap();
-        
+
         state_mgr.state_mut().current_score = 8.0;
         state_mgr.save().unwrap();
-        
+
         // Check that state file exists and is readable
         let state_file = temp_dir.path().join("state.json");
         assert!(state_file.exists());
-        
+
         // Verify we can read it back
         let contents = std::fs::read_to_string(&state_file).unwrap();
         // Check that the score was saved (might have different formatting)
@@ -277,7 +273,7 @@ mod test {
         // History should be sorted by start time
         let history = state_mgr.get_history().unwrap();
         assert_eq!(history.len(), 3);
-        
+
         // Verify chronological order
         for i in 0..history.len() - 1 {
             assert!(history[i].started_at <= history[i + 1].started_at);
@@ -288,23 +284,25 @@ mod test {
     fn test_cache_cleanup() {
         let temp_dir = TempDir::new().unwrap();
         let cache_path = temp_dir.path().join("cache");
-        
+
         {
             let cache_mgr = CacheManager::with_config(cache_path.clone(), 3600).unwrap();
-            
+
             // Add multiple cache entries
             for i in 0..10 {
-                cache_mgr.set(&format!("key_{i}"), &format!("value_{i}")).unwrap();
+                cache_mgr
+                    .set(&format!("key_{i}"), &format!("value_{i}"))
+                    .unwrap();
             }
-            
+
             // Verify files exist
             let entries = std::fs::read_dir(&cache_path).unwrap().count();
             assert_eq!(entries, 10);
-            
+
             // Clear cache
             cache_mgr.clear().unwrap();
         }
-        
+
         // Verify cache directory is empty
         let entries = std::fs::read_dir(&cache_path).unwrap().count();
         assert_eq!(entries, 0);

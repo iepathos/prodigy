@@ -219,7 +219,7 @@ async fn test_config_precedence() {
     // Project should override global
     assert_eq!(config.get_claude_api_key(), Some("project-key"));
     assert_eq!(config.get_max_iterations(), 15);
-    assert_eq!(config.get_auto_commit(), false);
+    assert!(!config.get_auto_commit());
 }
 
 #[test]
@@ -227,7 +227,7 @@ fn test_config_defaults() {
     let config = Config::new();
 
     assert_eq!(config.get_max_iterations(), 10);
-    assert_eq!(config.get_auto_commit(), true);
+    assert!(config.get_auto_commit());
     assert_eq!(config.get_spec_dir(), PathBuf::from("specs"));
 }
 
@@ -251,7 +251,7 @@ fn test_validate_empty_workflow_commands() {
     let config = Config {
         global: GlobalConfig::default(),
         project: None,
-        workflow: Some(WorkflowConfig { 
+        workflow: Some(WorkflowConfig {
             commands: vec![],
             max_iterations: 10,
         }),

@@ -200,7 +200,7 @@ mod tests {
         let executor = WorkflowExecutor::new(config.clone(), true, 5);
 
         assert_eq!(executor.config.commands.len(), 3);
-        assert_eq!(executor.verbose, true);
+        assert!(executor.verbose);
         assert_eq!(executor.max_iterations, 5);
     }
 
