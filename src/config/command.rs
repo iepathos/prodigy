@@ -82,12 +82,15 @@ impl Command {
 
     /// Parse a command from a simple string format
     pub fn from_string(s: &str) -> Self {
-        // Remove leading slash if present
-        let s = s.strip_prefix('/').unwrap_or(s);
-
-        // For now, just create a simple command with the name
-        // More sophisticated parsing can be added later
-        Self::new(s)
+        // Use the command parser for proper argument handling
+        match crate::config::command_parser::parse_command_string(s) {
+            Ok(cmd) => cmd,
+            Err(_) => {
+                // Fallback to simple name-only command for backward compatibility
+                let s = s.strip_prefix('/').unwrap_or(s);
+                Self::new(s)
+            }
+        }
     }
 
     /// Add a positional argument
@@ -158,6 +161,17 @@ mod tests {
 
         let cmd2 = Command::from_string("/mmm-lint");
         assert_eq!(cmd2.name, "mmm-lint");
+
+        // Test parsing commands with arguments
+        let cmd3 = Command::from_string("mmm-implement-spec iteration-123");
+        assert_eq!(cmd3.name, "mmm-implement-spec");
+        assert_eq!(cmd3.args.len(), 1);
+        assert_eq!(cmd3.args[0], "iteration-123");
+
+        // Test parsing commands with options
+        let cmd4 = Command::from_string("mmm-code-review --focus security");
+        assert_eq!(cmd4.name, "mmm-code-review");
+        assert_eq!(cmd4.options.get("focus"), Some(&serde_json::json!("security")));
     }
 
     #[test]

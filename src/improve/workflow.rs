@@ -36,6 +36,14 @@ impl WorkflowExecutor {
             // Convert to structured command
             let mut command = workflow_command.to_command();
 
+            // Special handling for mmm-implement-spec - extract spec ID from git if no args provided
+            if command.name == "mmm-implement-spec" && command.args.is_empty() {
+                let spec_id = self.extract_spec_from_git().await?;
+                if !spec_id.is_empty() {
+                    command.args = vec![spec_id];
+                }
+            }
+
             // Apply defaults from registry
             apply_command_defaults(&mut command);
 
@@ -59,21 +67,14 @@ impl WorkflowExecutor {
             }
 
             // Execute the command
-            let success = match command.name.as_str() {
-                "mmm-implement-spec" => {
-                    // Special handling for mmm-implement-spec - extract spec ID from git
-                    let spec_id = self.extract_spec_from_git().await?;
-                    if spec_id.is_empty() {
-                        if self.verbose {
-                            println!("No spec ID found - skipping implementation");
-                        }
-                        false
-                    } else {
-                        command.args = vec![spec_id];
-                        self.execute_structured_command(&command).await?
-                    }
+            let success = if command.name == "mmm-implement-spec" && command.args.is_empty() {
+                // No spec ID found after extraction attempt - skip implementation
+                if self.verbose {
+                    println!("No spec ID found - skipping implementation");
                 }
-                _ => self.execute_structured_command(&command).await?,
+                false
+            } else {
+                self.execute_structured_command(&command).await?
             };
 
             if success {
