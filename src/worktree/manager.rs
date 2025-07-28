@@ -103,6 +103,8 @@ impl WorktreeManager {
             merged: false,
             merged_at: None,
             error: None,
+            merge_prompt_shown: false,
+            merge_prompt_response: None,
         };
 
         let json = serde_json::to_string_pretty(&state)?;

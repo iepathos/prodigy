@@ -168,7 +168,7 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
   - Update all documentation and internal references
   - Provides more distinctive CLI experience aligned with tool personality
 
-- [ ] **Interactive Worktree Merge Prompt** (Spec 37)
+- [x] **Interactive Worktree Merge Prompt** (Spec 37) ✅
   - Prompt user to merge completed worktrees immediately
   - Execute merge automatically if user agrees
   - Detect TTY for interactive vs non-interactive environments

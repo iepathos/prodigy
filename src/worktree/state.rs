@@ -15,6 +15,8 @@ pub struct WorktreeState {
     pub merged: bool,
     pub merged_at: Option<DateTime<Utc>>,
     pub error: Option<String>,
+    pub merge_prompt_shown: bool,
+    pub merge_prompt_response: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

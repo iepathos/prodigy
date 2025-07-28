@@ -11,12 +11,50 @@ use anyhow::{anyhow, Context as _, Result};
 use chrono::Utc;
 use git_ops::get_last_commit_message;
 use retry::{check_claude_cli, execute_with_retry, format_subprocess_error};
+use std::io::{self, Write};
 use std::path::Path;
 use tokio::process::Command;
 use workflow::WorkflowExecutor;
 
 /// Default number of retry attempts for Claude CLI commands
 const DEFAULT_CLAUDE_RETRIES: u32 = 2;
+
+/// Choice made by user when prompted to merge
+enum MergeChoice {
+    Yes,
+    No,
+}
+
+/// Check if we're running in an interactive terminal
+fn is_tty() -> bool {
+    atty::is(atty::Stream::Stdin) && atty::is(atty::Stream::Stdout)
+}
+
+/// Prompt user to merge a completed worktree
+fn prompt_for_merge(worktree_name: &str) -> MergeChoice {
+    print!("\nWould you like to merge the completed worktree now? (y/N): ");
+    io::stdout().flush().unwrap_or_default();
+    
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).unwrap_or_default();
+    
+    match input.trim().to_lowercase().as_str() {
+        "y" | "yes" => MergeChoice::Yes,
+        _ => MergeChoice::No,
+    }
+}
+
+/// Execute worktree merge
+async fn merge_worktree(worktree_name: &str) -> Result<()> {
+    // Get the parent directory (repository root)
+    let repo_path = std::env::current_dir()?.parent().unwrap().to_path_buf();
+    let worktree_manager = WorktreeManager::new(repo_path)?;
+    
+    // Execute merge using existing logic
+    worktree_manager.merge_session(worktree_name)?;
+    
+    Ok(())
+}
 
 /// Run the improve command to automatically enhance code quality
 ///
@@ -84,7 +122,49 @@ async fn run_with_mapping(cmd: command::ImproveCommand) -> Result<()> {
         match &result {
             Ok(_) => {
                 println!("✅ Improvements completed in worktree: {}", session.name);
-                println!("To merge changes, run: mmm worktree merge {}", session.name);
+                
+                // Prompt for merge if in interactive terminal
+                if is_tty() {
+                    // Update state to track prompt shown
+                    let worktree_manager = WorktreeManager::new(std::env::current_dir()?.parent().unwrap().to_path_buf())?;
+                    worktree_manager.update_session_state(&session.name, |state| {
+                        state.merge_prompt_shown = true;
+                    })?;
+                    
+                    match prompt_for_merge(&session.name) {
+                        MergeChoice::Yes => {
+                            // Update state with response
+                            worktree_manager.update_session_state(&session.name, |state| {
+                                state.merge_prompt_response = Some("yes".to_string());
+                            })?;
+                            
+                            println!("Merging worktree {}...", session.name);
+                            match merge_worktree(&session.name).await {
+                                Ok(_) => {
+                                    println!("✅ Successfully merged worktree: {}", session.name);
+                                }
+                                Err(e) => {
+                                    eprintln!("❌ Failed to merge worktree: {}", e);
+                                    println!("\nTo merge changes manually, run:");
+                                    println!("  mmm worktree merge {}", session.name);
+                                }
+                            }
+                        }
+                        MergeChoice::No => {
+                            // Update state with response
+                            worktree_manager.update_session_state(&session.name, |state| {
+                                state.merge_prompt_response = Some("no".to_string());
+                            })?;
+                            
+                            println!("\nTo merge changes later, run:");
+                            println!("  mmm worktree merge {}", session.name);
+                        }
+                    }
+                } else {
+                    // Non-interactive environment
+                    println!("\nWorktree completed. To merge changes, run:");
+                    println!("  mmm worktree merge {}", session.name);
+                }
             }
             Err(_) => {
                 eprintln!(
@@ -275,7 +355,49 @@ async fn run_standard(cmd: command::ImproveCommand) -> Result<()> {
         match &result {
             Ok(_) => {
                 println!("✅ Improvements completed in worktree: {}", session.name);
-                println!("To merge changes, run: mmm worktree merge {}", session.name);
+                
+                // Prompt for merge if in interactive terminal
+                if is_tty() {
+                    // Update state to track prompt shown
+                    let worktree_manager = WorktreeManager::new(std::env::current_dir()?.parent().unwrap().to_path_buf())?;
+                    worktree_manager.update_session_state(&session.name, |state| {
+                        state.merge_prompt_shown = true;
+                    })?;
+                    
+                    match prompt_for_merge(&session.name) {
+                        MergeChoice::Yes => {
+                            // Update state with response
+                            worktree_manager.update_session_state(&session.name, |state| {
+                                state.merge_prompt_response = Some("yes".to_string());
+                            })?;
+                            
+                            println!("Merging worktree {}...", session.name);
+                            match merge_worktree(&session.name).await {
+                                Ok(_) => {
+                                    println!("✅ Successfully merged worktree: {}", session.name);
+                                }
+                                Err(e) => {
+                                    eprintln!("❌ Failed to merge worktree: {}", e);
+                                    println!("\nTo merge changes manually, run:");
+                                    println!("  mmm worktree merge {}", session.name);
+                                }
+                            }
+                        }
+                        MergeChoice::No => {
+                            // Update state with response
+                            worktree_manager.update_session_state(&session.name, |state| {
+                                state.merge_prompt_response = Some("no".to_string());
+                            })?;
+                            
+                            println!("\nTo merge changes later, run:");
+                            println!("  mmm worktree merge {}", session.name);
+                        }
+                    }
+                } else {
+                    // Non-interactive environment
+                    println!("\nWorktree completed. To merge changes, run:");
+                    println!("  mmm worktree merge {}", session.name);
+                }
             }
             Err(_) => {
                 eprintln!(
