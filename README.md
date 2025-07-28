@@ -59,34 +59,27 @@ Each step creates git commits for complete auditability.
 ```bash
 # Basic cooking run
 $ mmm cook
-🔍 Analyzing project...
-Current score: 6.2/10
 🔄 Iteration 1/10...
 ✅ Review completed: Found 3 issues
 ✅ Generated spec: iteration-1708123456-improvements.md  
 ✅ Implementation completed: 2 files modified
 ✅ Linting completed: formatting applied
-Score: 6.2 → 7.1
 🔄 Iteration 2/10...
 ✅ Review completed: Found 1 issue
 ✅ Generated spec: iteration-1708123789-improvements.md
 ✅ Implementation completed: 1 file modified  
 ✅ Linting completed: no changes needed
-Score: 7.1 → 8.1
 ✅ Complete! Final score: 8.1/10
 Files changed: 3
 Iterations: 2
 
 # Verbose output shows detailed git flow
 $ mmm cook --verbose
-🔍 Analyzing project...
-Current score: 6.2/10
 🔄 Iteration 1/10...
 Calling Claude CLI for code review...
 Extracting spec ID from git history...
 Calling Claude CLI to implement spec: iteration-1708123456-improvements
 Calling Claude CLI for linting...
-Score: 6.2 → 7.1
 ... (continues until target reached)
 
 # Check the git history to see what happened
@@ -155,10 +148,10 @@ None required! The tool works out of the box with smart defaults.
 
 ### Configurable Workflows (Optional)
 
-Create a `.mmm/workflow.yml` file to customize the improvement workflow:
+Create a `workflow.yml` file to customize the improvement workflow:
 
 ```yaml
-# .mmm/workflow.yml
+# workflow.yml
 # Simple YAML format - dead simple and clean
 commands:
   - mmm-code-review
@@ -236,16 +229,6 @@ commands:
 max_iterations: 3
 ```
 
-
-### Advanced Configuration
-
-Optional `.mmm/config.yml` for advanced settings:
-```yaml
-improve:
-  default_target: 8.5
-  claude_args: ["--no-preamble", "--format=code"]
-```
-
 ### Parallel Sessions with Git Worktrees
 
 Run multiple cooking sessions concurrently without conflicts:
@@ -295,13 +278,10 @@ mmm/
 
 ```bash
 # Run tests
-cargo test
+just test
 
-# Format code
-cargo fmt
-
-# Check for issues
-cargo clippy
+# Lint with claude
+claude /mmm-lint
 
 # Run on sample project
 cargo run -- improve --verbose
