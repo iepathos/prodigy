@@ -186,6 +186,12 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
   - User experience and value-driven enhancements
   - Integration with existing workflow system
 
+- [ ] **Batch Spec Implementation** (Spec 33)
+  - New `mmm implement` subcommand
+  - Accept multiple spec files as arguments
+  - Support glob patterns for spec selection
+  - Simplified implement-spec → lint loop
+
 ### Success Criteria
 - Works reliably across different project types
 - Fails gracefully with helpful messages
