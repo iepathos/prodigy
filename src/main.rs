@@ -239,7 +239,9 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
                             Ok(_) => {
                                 println!("✅ Successfully merged worktree '{}'", session.name);
                                 // Automatically clean up successfully merged worktrees when using --all
-                                if let Err(e) = worktree_manager.cleanup_session(&session.name, false) {
+                                if let Err(e) =
+                                    worktree_manager.cleanup_session(&session.name, false)
+                                {
                                     eprintln!(
                                         "⚠️ Warning: Failed to clean up worktree '{}': {}",
                                         session.name, e

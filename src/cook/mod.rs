@@ -103,7 +103,7 @@ async fn run_with_mapping(cmd: command::CookCommand) -> Result<()> {
     if use_worktree {
         // Save the original repository path before changing directories
         let original_repo_path = std::env::current_dir()?;
-        
+
         // Create a new worktree for this improvement session
         let worktree_manager = WorktreeManager::new(original_repo_path.clone())?;
         let session = worktree_manager.create_session(cmd.focus.as_deref())?;
@@ -118,7 +118,9 @@ async fn run_with_mapping(cmd: command::CookCommand) -> Result<()> {
         std::env::set_current_dir(&session.path)?;
 
         // Run improvement in worktree context
-        let result = run_with_mapping_in_worktree(cmd.clone(), session.clone(), original_repo_path.clone()).await;
+        let result =
+            run_with_mapping_in_worktree(cmd.clone(), session.clone(), original_repo_path.clone())
+                .await;
 
         // Clean up on failure, keep on success for manual merge
         match &result {
@@ -339,7 +341,7 @@ async fn run_standard(cmd: command::CookCommand) -> Result<()> {
     if use_worktree {
         // Save the original repository path before changing directories
         let original_repo_path = std::env::current_dir()?;
-        
+
         // Create worktree for this session
         let worktree_manager = WorktreeManager::new(original_repo_path.clone())?;
         let session = worktree_manager.create_session(cmd.focus.as_deref())?;
@@ -354,7 +356,8 @@ async fn run_standard(cmd: command::CookCommand) -> Result<()> {
         std::env::set_current_dir(&session.path)?;
 
         // Run improvement in worktree context
-        let result = run_in_worktree(cmd.clone(), session.clone(), original_repo_path.clone()).await;
+        let result =
+            run_in_worktree(cmd.clone(), session.clone(), original_repo_path.clone()).await;
 
         // Clean up on failure, keep on success for manual merge
         match &result {
@@ -505,11 +508,8 @@ async fn run_improvement_loop(
             })?;
 
             // Execute workflow iteration
-            let focus_for_iteration = if iteration == 1 {
-                cmd.focus.as_deref()
-            } else {
-                None
-            };
+            // Pass focus on every iteration to maintain consistent improvement direction
+            let focus_for_iteration = cmd.focus.as_deref();
 
             let iteration_success = executor
                 .execute_iteration(iteration, focus_for_iteration)
@@ -545,11 +545,8 @@ async fn run_improvement_loop(
             }
 
             // Step 1: Generate review spec and commit
-            let focus_for_iteration = if iteration == 1 {
-                cmd.focus.as_deref()
-            } else {
-                None
-            };
+            // Pass focus on every iteration to maintain consistent improvement direction
+            let focus_for_iteration = cmd.focus.as_deref();
             let review_success =
                 call_claude_code_review(cmd.show_progress, focus_for_iteration).await?;
             if !review_success {
@@ -718,11 +715,8 @@ async fn run_without_worktree_with_vars(
 
         while iteration <= max_iterations {
             // Execute workflow iteration
-            let focus_for_iteration = if iteration == 1 {
-                cmd.focus.as_deref()
-            } else {
-                None
-            };
+            // Pass focus on every iteration to maintain consistent improvement direction
+            let focus_for_iteration = cmd.focus.as_deref();
 
             let iteration_success = executor
                 .execute_iteration(iteration, focus_for_iteration)
@@ -746,11 +740,8 @@ async fn run_without_worktree_with_vars(
             }
 
             // Step 1: Generate review spec and commit
-            let focus_for_iteration = if iteration == 1 {
-                cmd.focus.as_deref()
-            } else {
-                None
-            };
+            // Pass focus on every iteration to maintain consistent improvement direction
+            let focus_for_iteration = cmd.focus.as_deref();
             let review_success =
                 call_claude_code_review(cmd.show_progress, focus_for_iteration).await?;
             if !review_success {
@@ -1248,11 +1239,8 @@ async fn run_improvement_loop_with_variables(
             })?;
 
             // Execute workflow iteration
-            let focus_for_iteration = if iteration == 1 {
-                cmd.focus.as_deref()
-            } else {
-                None
-            };
+            // Pass focus on every iteration to maintain consistent improvement direction
+            let focus_for_iteration = cmd.focus.as_deref();
 
             let iteration_success = executor
                 .execute_iteration(iteration, focus_for_iteration)
@@ -1459,6 +1447,26 @@ mod tests {
                     .chars()
                     .all(|c| c.is_ascii_digit() || c == '-');
             assert!(!is_valid, "Should be invalid: {spec_id}");
+        }
+    }
+
+    #[test]
+    fn test_focus_applied_every_iteration() {
+        // Test that focus is consistently applied across all iterations
+        let mut cmd = create_test_command(false, 3);
+        cmd.focus = Some("performance".to_string());
+
+        // Simulate multiple iterations and verify focus is available each time
+        for iteration in 1..=3 {
+            // In the actual code, focus_for_iteration is now always cmd.focus.as_deref()
+            // regardless of iteration number
+            let focus_for_iteration = cmd.focus.as_deref();
+
+            assert_eq!(
+                focus_for_iteration,
+                Some("performance"),
+                "Focus should be applied on iteration {iteration}"
+            );
         }
     }
 

@@ -9,7 +9,7 @@ Memento Mori (mmm) is a dead simple Rust CLI tool that makes your code better th
 - **Project Status**: Active Development - Core Working
 - **Core Feature**: `mmm cook` command with Claude CLI integration
 - **Latest Version**: 0.1.0
-- **Implementation Status**: Git-native improvement flow fully implemented with robust Claude CLI integration, complete audit trails, self-sufficient automated cycles, dynamic spec generation for improvements, focus-directed initial analysis (Spec 20), configurable workflows (Spec 21), configurable iteration limits (Spec 22), command-line config options (Spec 23), git worktree isolation for parallel sessions (Spec 24), Claude-assisted worktree merging with conflict resolution (Spec 25), worktree CLI flag (Spec 26), structured command objects (Spec 28), centralized worktree state management (Spec 29), product management command (Spec 31), batch spec implementation (Spec 33), unified cook command with mapping (Spec 35), and interactive worktree merge prompt (Spec 37)
+- **Implementation Status**: Git-native improvement flow fully implemented with robust Claude CLI integration, complete audit trails, self-sufficient automated cycles, dynamic spec generation for improvements, focus-directed initial analysis (Spec 20), configurable workflows (Spec 21), configurable iteration limits (Spec 22), command-line config options (Spec 23), git worktree isolation for parallel sessions (Spec 24), Claude-assisted worktree merging with conflict resolution (Spec 25), worktree CLI flag (Spec 26), structured command objects (Spec 28), centralized worktree state management (Spec 29), product management command (Spec 31), batch spec implementation (Spec 33), unified cook command with mapping (Spec 35), interactive worktree merge prompt (Spec 37), and consistent focus directive on all iterations (Spec 38)
 
 ## What Exists
 
@@ -74,6 +74,7 @@ mmm/
    - Automatic termination when target reached or no issues found
    - Robust error handling and graceful failure recovery
    - Complete git audit trail with structured commit messages
+   - Focus directive consistently applied across all iterations
 
 5. **Configurable Workflows**
    - Optional `.mmm/workflow.toml` configuration file
