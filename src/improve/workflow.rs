@@ -106,7 +106,8 @@ impl WorkflowExecutor {
     ) -> Result<bool> {
         // Build the full command display with args
         let args_display = if !command.args.is_empty() {
-            let resolved_args: Vec<String> = command.args
+            let resolved_args: Vec<String> = command
+                .args
                 .iter()
                 .map(|arg| self.resolve_argument(arg))
                 .collect();
@@ -114,7 +115,7 @@ impl WorkflowExecutor {
         } else {
             String::new()
         };
-        
+
         println!("🤖 Running /{}{}", command.name, args_display);
 
         // Skip actual execution in test mode
@@ -141,14 +142,15 @@ impl WorkflowExecutor {
         // Add positional arguments with variable resolution
         // Claude CLI expects arguments in the $ARGUMENTS environment variable
         if !command.args.is_empty() {
-            let resolved_args: Vec<String> = command.args
+            let resolved_args: Vec<String> = command
+                .args
                 .iter()
                 .map(|arg| self.resolve_argument(arg))
                 .collect();
-            
+
             // Set ARGUMENTS env var for Claude commands (they expect this)
             cmd.env("ARGUMENTS", resolved_args.join(" "));
-            
+
             // Also add as command-line args for compatibility
             for arg in resolved_args {
                 cmd.arg(arg);

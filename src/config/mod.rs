@@ -251,7 +251,8 @@ commands:
         for (input, expected_name, expected_args, expected_options) in test_cases {
             let cmd = parse_command_string(input).unwrap();
             assert_eq!(cmd.name, expected_name);
-            let expected_args_cmd: Vec<CommandArg> = expected_args.into_iter().map(CommandArg::parse).collect();
+            let expected_args_cmd: Vec<CommandArg> =
+                expected_args.into_iter().map(CommandArg::parse).collect();
             assert_eq!(cmd.args, expected_args_cmd);
 
             for (key, value) in expected_options {

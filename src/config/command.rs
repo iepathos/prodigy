@@ -34,7 +34,6 @@ impl<'de> Deserialize<'de> for CommandArg {
     }
 }
 
-
 impl CommandArg {
     /// Check if this is a variable reference
     pub fn is_variable(&self) -> bool {
@@ -56,7 +55,7 @@ impl CommandArg {
     pub fn parse(s: &str) -> Self {
         // Handle ${VAR} format
         if s.starts_with("${") && s.ends_with('}') {
-            CommandArg::Variable(s[2..s.len()-1].to_string())
+            CommandArg::Variable(s[2..s.len() - 1].to_string())
         } else if let Some(var) = s.strip_prefix('$') {
             // Handle $VAR format
             CommandArg::Variable(var.to_string())
@@ -233,7 +232,10 @@ mod tests {
         let cmd3 = Command::from_string("mmm-implement-spec iteration-123");
         assert_eq!(cmd3.name, "mmm-implement-spec");
         assert_eq!(cmd3.args.len(), 1);
-        assert_eq!(cmd3.args[0], CommandArg::Literal("iteration-123".to_string()));
+        assert_eq!(
+            cmd3.args[0],
+            CommandArg::Literal("iteration-123".to_string())
+        );
 
         // Test parsing commands with options
         let cmd4 = Command::from_string("mmm-code-review --focus security");
@@ -268,8 +270,8 @@ mod tests {
 
     #[test]
     fn test_command_serialization() {
-        let cmd = Command::new("mmm-code-review")
-            .with_option("focus", serde_json::json!("performance"));
+        let cmd =
+            Command::new("mmm-code-review").with_option("focus", serde_json::json!("performance"));
 
         let json = serde_json::to_string(&cmd).unwrap();
         let deserialized: Command = serde_json::from_str(&json).unwrap();

@@ -31,13 +31,13 @@ fn is_tty() -> bool {
 }
 
 /// Prompt user to merge a completed worktree
-fn prompt_for_merge(worktree_name: &str) -> MergeChoice {
+fn prompt_for_merge(_worktree_name: &str) -> MergeChoice {
     print!("\nWould you like to merge the completed worktree now? (y/N): ");
     io::stdout().flush().unwrap_or_default();
-    
+
     let mut input = String::new();
     io::stdin().read_line(&mut input).unwrap_or_default();
-    
+
     match input.trim().to_lowercase().as_str() {
         "y" | "yes" => MergeChoice::Yes,
         _ => MergeChoice::No,
@@ -49,10 +49,10 @@ async fn merge_worktree(worktree_name: &str) -> Result<()> {
     // Get the parent directory (repository root)
     let repo_path = std::env::current_dir()?.parent().unwrap().to_path_buf();
     let worktree_manager = WorktreeManager::new(repo_path)?;
-    
+
     // Execute merge using existing logic
     worktree_manager.merge_session(worktree_name)?;
-    
+
     Ok(())
 }
 
@@ -122,29 +122,31 @@ async fn run_with_mapping(cmd: command::ImproveCommand) -> Result<()> {
         match &result {
             Ok(_) => {
                 println!("✅ Improvements completed in worktree: {}", session.name);
-                
+
                 // Prompt for merge if in interactive terminal
                 if is_tty() {
                     // Update state to track prompt shown
-                    let worktree_manager = WorktreeManager::new(std::env::current_dir()?.parent().unwrap().to_path_buf())?;
+                    let worktree_manager = WorktreeManager::new(
+                        std::env::current_dir()?.parent().unwrap().to_path_buf(),
+                    )?;
                     worktree_manager.update_session_state(&session.name, |state| {
                         state.merge_prompt_shown = true;
                     })?;
-                    
+
                     match prompt_for_merge(&session.name) {
                         MergeChoice::Yes => {
                             // Update state with response
                             worktree_manager.update_session_state(&session.name, |state| {
                                 state.merge_prompt_response = Some("yes".to_string());
                             })?;
-                            
+
                             println!("Merging worktree {}...", session.name);
                             match merge_worktree(&session.name).await {
                                 Ok(_) => {
                                     println!("✅ Successfully merged worktree: {}", session.name);
                                 }
                                 Err(e) => {
-                                    eprintln!("❌ Failed to merge worktree: {}", e);
+                                    eprintln!("❌ Failed to merge worktree: {e}");
                                     println!("\nTo merge changes manually, run:");
                                     println!("  mmm worktree merge {}", session.name);
                                 }
@@ -155,7 +157,7 @@ async fn run_with_mapping(cmd: command::ImproveCommand) -> Result<()> {
                             worktree_manager.update_session_state(&session.name, |state| {
                                 state.merge_prompt_response = Some("no".to_string());
                             })?;
-                            
+
                             println!("\nTo merge changes later, run:");
                             println!("  mmm worktree merge {}", session.name);
                         }
@@ -355,29 +357,31 @@ async fn run_standard(cmd: command::ImproveCommand) -> Result<()> {
         match &result {
             Ok(_) => {
                 println!("✅ Improvements completed in worktree: {}", session.name);
-                
+
                 // Prompt for merge if in interactive terminal
                 if is_tty() {
                     // Update state to track prompt shown
-                    let worktree_manager = WorktreeManager::new(std::env::current_dir()?.parent().unwrap().to_path_buf())?;
+                    let worktree_manager = WorktreeManager::new(
+                        std::env::current_dir()?.parent().unwrap().to_path_buf(),
+                    )?;
                     worktree_manager.update_session_state(&session.name, |state| {
                         state.merge_prompt_shown = true;
                     })?;
-                    
+
                     match prompt_for_merge(&session.name) {
                         MergeChoice::Yes => {
                             // Update state with response
                             worktree_manager.update_session_state(&session.name, |state| {
                                 state.merge_prompt_response = Some("yes".to_string());
                             })?;
-                            
+
                             println!("Merging worktree {}...", session.name);
                             match merge_worktree(&session.name).await {
                                 Ok(_) => {
                                     println!("✅ Successfully merged worktree: {}", session.name);
                                 }
                                 Err(e) => {
-                                    eprintln!("❌ Failed to merge worktree: {}", e);
+                                    eprintln!("❌ Failed to merge worktree: {e}");
                                     println!("\nTo merge changes manually, run:");
                                     println!("  mmm worktree merge {}", session.name);
                                 }
@@ -388,7 +392,7 @@ async fn run_standard(cmd: command::ImproveCommand) -> Result<()> {
                             worktree_manager.update_session_state(&session.name, |state| {
                                 state.merge_prompt_response = Some("no".to_string());
                             })?;
-                            
+
                             println!("\nTo merge changes later, run:");
                             println!("  mmm worktree merge {}", session.name);
                         }
@@ -467,7 +471,7 @@ async fn run_improvement_loop(
     }
 
     // 3. Setup basic state
-    let state = StateManager::new()?;
+    let _state = StateManager::new()?;
     let _start_time = Utc::now();
 
     // 4. Main improvement loop
@@ -593,7 +597,7 @@ async fn run_improvement_loop(
 
     // 5. Completion - record basic session info
     // StateManager handles saving automatically
-    let _ = state; // Consume state to avoid unused variable warning
+    let _ = _state; // Consume state to avoid unused variable warning
 
     // 6. Commit the state file
     // Stage the state file
@@ -693,7 +697,7 @@ async fn run_without_worktree_with_vars(
     let max_iterations = cmd.max_iterations;
 
     // 3. State setup
-    let state = StateManager::new()?;
+    let _state = StateManager::new()?;
 
     // 4. Git-native improvement loop
     let mut iteration = 1;
@@ -783,7 +787,7 @@ async fn run_without_worktree_with_vars(
 
     // 5. Completion - record basic session info
     // StateManager handles saving automatically
-    let _ = state; // Consume state to avoid unused variable warning
+    let _ = _state; // Consume state to avoid unused variable warning
 
     // 6. Commit the state file
     // Stage the state file
@@ -1209,12 +1213,12 @@ async fn run_improvement_loop_with_variables(
     }
 
     // 3. Setup basic state
-    let state = StateManager::new()?;
+    let _state = StateManager::new()?;
     let _start_time = Utc::now();
 
     // 4. Main improvement loop
     let mut iteration = 1;
-    let mut files_changed = 0;
+    let files_changed = 0;
 
     // Load configuration (with workflow if present)
     let config_loader = ConfigLoader::new().await?;
@@ -1271,7 +1275,9 @@ async fn run_improvement_loop_with_variables(
         Ok(())
     } else {
         // Legacy hardcoded workflow - not recommended but kept for compatibility
-        return Err(anyhow!("No workflow configuration found. Please provide a workflow configuration file."));
+        Err(anyhow!(
+            "No workflow configuration found. Please provide a workflow configuration file."
+        ))
     }
 }
 

@@ -129,7 +129,10 @@ mod tests {
         let cmd = parse_command_string("mmm-implement-spec iteration-123").unwrap();
         assert_eq!(cmd.name, "mmm-implement-spec");
         assert_eq!(cmd.args.len(), 1);
-        assert_eq!(cmd.args[0], CommandArg::Literal("iteration-123".to_string()));
+        assert_eq!(
+            cmd.args[0],
+            CommandArg::Literal("iteration-123".to_string())
+        );
     }
 
     #[test]

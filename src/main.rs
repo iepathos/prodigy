@@ -141,7 +141,6 @@ async fn main() {
     }
 }
 
-
 async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
     use mmm::worktree::WorktreeManager;
 
