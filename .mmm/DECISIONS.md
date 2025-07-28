@@ -419,3 +419,21 @@ Implement centralized worktree state management using UUID-based naming and a `.
 - **Positive**: Clean worktree names (just `session-{uuid}`), no collisions with UUIDs, rich state tracking for better UX, state persists after worktree cleanup, no git pollution, improved list command showing status and progress
 - **Negative**: Additional disk space for metadata, more complex state management, requires migration for legacy worktrees
 - **Implementation**: Created state.rs with WorktreeState types, updated WorktreeManager to use UUIDs and save/update state, integrated state tracking into improve loop, enhanced list command to show rich state information
+
+---
+
+## ADR-025: CLI Help as Default Behavior
+
+### Status
+Accepted
+
+### Context
+Spec 32 identified that running `mmm` without arguments automatically executed the improve command, violating Unix CLI conventions where commands without arguments typically display help information. This caused confusion for new users and accidental code improvements.
+
+### Decision
+Modify the CLI to display help information when invoked without arguments, aligning with standard CLI conventions. Use clap's built-in help functionality to maintain consistency with other help outputs.
+
+### Consequences
+- **Positive**: Better new user experience, follows Unix CLI conventions, prevents accidental command execution, clear guidance on available commands, consistent with user expectations
+- **Negative**: Minor breaking change for users who relied on default improve behavior
+- **Implementation**: Modified main.rs to call print_help() when no subcommand provided, maintained all existing command functionality, no changes to subcommand behavior

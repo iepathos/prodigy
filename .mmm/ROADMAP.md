@@ -212,7 +212,7 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
 - [ ] Integration with common tools
 
 ### CLI Best Practices
-- [ ] **CLI Help as Default** (Spec 32)
+- [x] **CLI Help as Default** (Spec 32) ✅
   - Show help when running `mmm` without arguments
   - Follow Unix CLI conventions
   - Improve new user experience

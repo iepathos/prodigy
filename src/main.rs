@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 use std::path::PathBuf;
 use tracing::{debug, error, trace};
 
@@ -99,8 +99,11 @@ async fn main() {
         }) => run_improve(show_progress, focus, config, max_iterations, worktree).await,
         Some(Commands::Worktree { command }) => run_worktree_command(command).await,
         None => {
-            // Default to improve command with default values
-            run_improve(false, None, None, 10, false).await
+            // Display help when no command is provided (following CLI conventions)
+            let mut cmd = Cli::command();
+            let _ = cmd.print_help();
+            println!(); // Add blank line for better formatting
+            return;
         }
     };
 
