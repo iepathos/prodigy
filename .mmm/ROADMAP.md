@@ -162,6 +162,12 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
   - Enable batch processing with custom workflows
   - Created examples/implement.yml for migration path
 
+- [ ] **Rename Improve Subcommand to Cook** (Spec 36)
+  - Rename main command from `improve` to `cook` for better memorability
+  - Maintain `improve` as alias for backward compatibility
+  - Update all documentation and internal references
+  - Provides more distinctive CLI experience aligned with tool personality
+
 ### Parallel Execution
 - [x] **Git Worktree Isolation** (Spec 24) ✅
   - Isolate each MMM session in its own git worktree

@@ -27,6 +27,7 @@ This file tracks the key specifications that shaped the current focused architec
 ## Pending Specifications
 - **22**: `specs/22-configurable-iteration-limit.md` - Add --max-iterations flag
 - **35**: `specs/35-unified-improve-mapping.md` - Unified improve command with file mapping
+- **36**: `specs/36-rename-improve-to-cook.md` - Rename improve subcommand to cook
 
 ## Current Focus
 
