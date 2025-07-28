@@ -17,7 +17,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Improve code quality (default command)
+    /// Improve code quality
     Improve {
         /// Show detailed progress
         #[arg(long)]
