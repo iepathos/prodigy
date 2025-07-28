@@ -50,6 +50,12 @@ Shows both ways to specify focus arguments:
 - YAML object syntax vs string format
 - 2 iterations for quick demo
 
+### 10. **product-enhancement-workflow.yml** - Product Focus
+Product management perspective on improvements:
+- Product enhancement analysis → Implementation → Linting
+- Focus on user value and features over code quality
+- 10 iterations for comprehensive product improvements
+
 ## Usage
 
 ### Using a Workflow
@@ -117,6 +123,7 @@ commands:
 - `mmm-coverage-analysis` - Check test coverage
 - `mmm-doc-analysis` - Documentation review
 - `mmm-doc-generate` - Generate documentation
+- `mmm-product-enhance` - Product management perspective
 
 ## Focus Areas
 
@@ -134,6 +141,10 @@ Use focus arguments to target specific aspects:
 - `api-docs` - API documentation
 - `readability` - Code clarity and style
 - `testability` - Making code more testable
+- `onboarding` - First-run experience and getting started
+- `api` - Developer experience and API design
+- `cli-ux` - Command ergonomics and user experience
+- `features` - Missing functionality and enhancements
 
 ## Best Practices
 
@@ -154,6 +165,7 @@ Use focus arguments to target specific aspects:
 - **Legacy Code**: Use `refactoring-workflow.yml`
 - **CI/CD Pipeline**: Use `quick-fix-workflow.yml`
 - **Multiple Focus Areas**: Use `mixed-focus-workflow.yml`
+- **User Experience**: Use `product-enhancement-workflow.yml`
 
 ## Parallel Execution
 

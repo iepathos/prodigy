@@ -9,7 +9,7 @@ Memento Mori (mmm) is a dead simple Rust CLI tool that makes your code better th
 - **Project Status**: Active Development - Core Working
 - **Core Feature**: `mmm improve` command with Claude CLI integration
 - **Latest Version**: 0.1.0
-- **Implementation Status**: Git-native improvement flow fully implemented with robust Claude CLI integration, complete audit trails, self-sufficient automated cycles, dynamic spec generation for improvements, focus-directed initial analysis (Spec 20), configurable workflows (Spec 21), configurable iteration limits (Spec 22), command-line config options (Spec 23), git worktree isolation for parallel sessions (Spec 24), Claude-assisted worktree merging with conflict resolution (Spec 25), worktree CLI flag (Spec 26), structured command objects (Spec 28), centralized worktree state management (Spec 29), batch spec implementation (Spec 33), unified improve command with mapping (Spec 35), and interactive worktree merge prompt (Spec 37)
+- **Implementation Status**: Git-native improvement flow fully implemented with robust Claude CLI integration, complete audit trails, self-sufficient automated cycles, dynamic spec generation for improvements, focus-directed initial analysis (Spec 20), configurable workflows (Spec 21), configurable iteration limits (Spec 22), command-line config options (Spec 23), git worktree isolation for parallel sessions (Spec 24), Claude-assisted worktree merging with conflict resolution (Spec 25), worktree CLI flag (Spec 26), structured command objects (Spec 28), centralized worktree state management (Spec 29), product management command (Spec 31), batch spec implementation (Spec 33), unified improve command with mapping (Spec 35), and interactive worktree merge prompt (Spec 37)
 
 ## What Exists
 
@@ -59,6 +59,7 @@ mmm/
    - `/mmm-code-review`: Analyzes code and commits improvement specs
    - `/mmm-implement-spec`: Applies fixes and commits changes
    - `/mmm-lint`: Formats, lints, tests, and commits automated fixes
+   - `/mmm-product-enhance`: Analyzes from product perspective for user value
    - Complete audit trail through git history
 
 3. **Minimal State Management**

@@ -481,3 +481,21 @@ Unify functionality into a single `mmm improve` command by adding --map and --ar
 - **Positive**: Single coherent interface, reduced code duplication, more flexible batch processing, enables any workflow via configuration, consistent with Unix philosophy of composable tools
 - **Negative**: Breaking change for users of mmm implement command, requires migration to new syntax
 - **Implementation**: Added --map and --args flags to ImproveCommand, implemented CommandArg enum for variable support, updated workflow executor to resolve variables, removed implement module, created examples/implement.yml for migration
+
+---
+
+## ADR-028: Product Management Command for User-Focused Improvements
+
+### Status
+Accepted
+
+### Context
+Spec 31 identified a gap in the improvement workflow. While `/mmm-code-review` focuses on code quality and technical excellence, there was no command to analyze code from a product management perspective. Product managers prioritize user value, feature completeness, and solving real user problems over technical perfection.
+
+### Decision
+Create `/mmm-product-enhance` command that analyzes code from a product management perspective, generating improvement specs focused on user value, features, and user experience rather than code quality metrics. Register it in the command registry alongside existing commands.
+
+### Consequences
+- **Positive**: Complements code review with user-focused analysis, enables feature-driven development workflows, provides balanced perspective on improvements, supports product management workflows
+- **Negative**: Additional command to maintain, potential overlap with code review in some areas
+- **Implementation**: Created mmm-product-enhance.md command definition, added to CommandRegistry with appropriate options and defaults, created product-enhancement-workflow.yml example, updated documentation

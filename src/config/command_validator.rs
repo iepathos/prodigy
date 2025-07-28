@@ -124,6 +124,35 @@ impl CommandRegistry {
                 env: HashMap::new(),
             },
         });
+
+        // Register mmm-product-enhance
+        self.register(CommandDefinition {
+            name: "mmm-product-enhance".to_string(),
+            description: "Analyze code from product management perspective".to_string(),
+            required_args: vec![],
+            optional_args: vec![],
+            options: vec![
+                OptionDef {
+                    name: "focus".to_string(),
+                    description: "Focus area for analysis (e.g., onboarding, api, cli-ux)"
+                        .to_string(),
+                    option_type: ArgumentType::String,
+                    default: None,
+                },
+                OptionDef {
+                    name: "max-enhancements".to_string(),
+                    description: "Maximum number of enhancements to propose".to_string(),
+                    option_type: ArgumentType::Integer,
+                    default: Some(serde_json::json!(10)),
+                },
+            ],
+            defaults: CommandMetadata {
+                retries: Some(2),
+                timeout: Some(300),
+                continue_on_error: Some(false),
+                env: HashMap::new(),
+            },
+        });
     }
 
     pub fn register(&mut self, definition: CommandDefinition) {
@@ -324,6 +353,7 @@ mod tests {
         assert!(registry.get("mmm-code-review").is_some());
         assert!(registry.get("mmm-implement-spec").is_some());
         assert!(registry.get("mmm-lint").is_some());
+        assert!(registry.get("mmm-product-enhance").is_some());
         assert!(registry.get("unknown-command").is_none());
     }
 
@@ -335,7 +365,9 @@ mod tests {
         assert!(registry.validate_command(&cmd).is_ok());
 
         let mut cmd = Command::new("mmm-implement-spec");
-        cmd.args.push(crate::config::CommandArg::Literal("iteration-123".to_string()));
+        cmd.args.push(crate::config::CommandArg::Literal(
+            "iteration-123".to_string(),
+        ));
         assert!(registry.validate_command(&cmd).is_ok());
     }
 
