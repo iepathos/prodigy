@@ -5,13 +5,13 @@ use tempfile::TempDir;
 
 fn setup_test_repo() -> anyhow::Result<TempDir> {
     let temp_dir = TempDir::new()?;
-    
+
     // Initialize a git repository
     Command::new("git")
         .current_dir(&temp_dir)
         .args(["init", "--initial-branch=master"])
         .output()?;
-    
+
     // Create an initial commit
     std::fs::write(temp_dir.path().join("README.md"), "# Test Repo\n")?;
     Command::new("git")
@@ -22,7 +22,7 @@ fn setup_test_repo() -> anyhow::Result<TempDir> {
         .current_dir(&temp_dir)
         .args(["commit", "-m", "Initial commit"])
         .output()?;
-    
+
     Ok(temp_dir)
 }
 
@@ -39,20 +39,20 @@ fn test_state_file_creation() -> anyhow::Result<()> {
     let manager = WorktreeManager::new(temp_dir.path().to_path_buf())?;
 
     let session = manager.create_session(Some("test focus"))?;
-    
+
     // Check that .metadata directory was created
     let metadata_dir = manager.base_dir.join(".metadata");
     assert!(metadata_dir.exists());
     assert!(metadata_dir.is_dir());
-    
+
     // Check that state file was created
     let state_file = metadata_dir.join(format!("{}.json", session.name));
     assert!(state_file.exists());
-    
+
     // Read and verify state content
     let state_json = std::fs::read_to_string(&state_file)?;
     let state: WorktreeState = serde_json::from_str(&state_json)?;
-    
+
     assert_eq!(state.session_id, session.name);
     assert_eq!(state.worktree_name, session.name);
     assert_eq!(state.branch, session.branch);
@@ -63,7 +63,7 @@ fn test_state_file_creation() -> anyhow::Result<()> {
     assert!(!state.merged);
     assert!(state.merged_at.is_none());
     assert!(state.error.is_none());
-    
+
     // Clean up
     manager.cleanup_session(&session.name)?;
     cleanup_worktree_dir(&manager);
@@ -76,7 +76,7 @@ fn test_state_updates() -> anyhow::Result<()> {
     let manager = WorktreeManager::new(temp_dir.path().to_path_buf())?;
 
     let session = manager.create_session(None)?;
-    
+
     // Update state
     manager.update_session_state(&session.name, |state| {
         state.iterations.completed = 5;
@@ -84,17 +84,20 @@ fn test_state_updates() -> anyhow::Result<()> {
         state.stats.commits = 15;
         state.status = WorktreeStatus::Completed;
     })?;
-    
+
     // Read state file and verify updates
-    let state_file = manager.base_dir.join(".metadata").join(format!("{}.json", session.name));
+    let state_file = manager
+        .base_dir
+        .join(".metadata")
+        .join(format!("{}.json", session.name));
     let state_json = std::fs::read_to_string(&state_file)?;
     let state: WorktreeState = serde_json::from_str(&state_json)?;
-    
+
     assert_eq!(state.iterations.completed, 5);
     assert_eq!(state.stats.files_changed, 10);
     assert_eq!(state.stats.commits, 15);
     assert!(matches!(state.status, WorktreeStatus::Completed));
-    
+
     // Clean up
     manager.cleanup_session(&session.name)?;
     cleanup_worktree_dir(&manager);
@@ -105,15 +108,15 @@ fn test_state_updates() -> anyhow::Result<()> {
 fn test_gitignore_creation() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
     let manager = WorktreeManager::new(temp_dir.path().to_path_buf())?;
-    
+
     // Check that .gitignore was created
     let gitignore_path = manager.base_dir.join(".gitignore");
     assert!(gitignore_path.exists());
-    
+
     // Verify content
     let gitignore_content = std::fs::read_to_string(&gitignore_path)?;
     assert!(gitignore_content.contains(".metadata/"));
-    
+
     cleanup_worktree_dir(&manager);
     Ok(())
 }
@@ -126,25 +129,25 @@ fn test_list_sessions_with_state() -> anyhow::Result<()> {
     // Create sessions with different states
     let session1 = manager.create_session(Some("performance"))?;
     let session2 = manager.create_session(Some("security"))?;
-    
+
     // Update first session to completed
     manager.update_session_state(&session1.name, |state| {
         state.status = WorktreeStatus::Completed;
         state.iterations.completed = 3;
     })?;
-    
+
     // List sessions - the list_sessions method should load focus from state
     let sessions = manager.list_sessions()?;
     assert_eq!(sessions.len(), 2);
-    
+
     // Find sessions by name
     let s1 = sessions.iter().find(|s| s.name == session1.name).unwrap();
     let s2 = sessions.iter().find(|s| s.name == session2.name).unwrap();
-    
+
     // Verify focus was loaded from state
     assert_eq!(s1.focus, Some("performance".to_string()));
     assert_eq!(s2.focus, Some("security".to_string()));
-    
+
     // Clean up
     manager.cleanup_session(&session1.name)?;
     manager.cleanup_session(&session2.name)?;
@@ -158,7 +161,7 @@ fn test_merge_updates_state() -> anyhow::Result<()> {
     let manager = WorktreeManager::new(temp_dir.path().to_path_buf())?;
 
     let session = manager.create_session(None)?;
-    
+
     // Make a change in the worktree
     std::fs::write(session.path.join("test.txt"), "test content")?;
     Command::new("git")
@@ -169,22 +172,25 @@ fn test_merge_updates_state() -> anyhow::Result<()> {
         .current_dir(&session.path)
         .args(["commit", "-m", "test commit"])
         .output()?;
-    
+
     // Note: We can't actually test the merge without Claude CLI
     // But we can test that state update would work
     manager.update_session_state(&session.name, |state| {
         state.merged = true;
         state.merged_at = Some(chrono::Utc::now());
     })?;
-    
+
     // Verify state was updated
-    let state_file = manager.base_dir.join(".metadata").join(format!("{}.json", session.name));
+    let state_file = manager
+        .base_dir
+        .join(".metadata")
+        .join(format!("{}.json", session.name));
     let state_json = std::fs::read_to_string(&state_file)?;
     let state: WorktreeState = serde_json::from_str(&state_json)?;
-    
+
     assert!(state.merged);
     assert!(state.merged_at.is_some());
-    
+
     // Clean up
     manager.cleanup_session(&session.name)?;
     cleanup_worktree_dir(&manager);
@@ -201,7 +207,7 @@ fn test_state_error_handling() -> anyhow::Result<()> {
         state.status = WorktreeStatus::Failed;
     });
     assert!(result.is_err());
-    
+
     cleanup_worktree_dir(&manager);
     Ok(())
 }
@@ -214,26 +220,29 @@ fn test_legacy_worktree_compatibility() -> anyhow::Result<()> {
     // Simulate a legacy worktree by creating one manually
     let legacy_name = format!("mmm-performance-{}", chrono::Utc::now().timestamp());
     let legacy_path = manager.base_dir.join(&legacy_name);
-    
+
     Command::new("git")
         .current_dir(&temp_dir)
         .args(["worktree", "add", "-b", &legacy_name])
         .arg(&legacy_path)
         .output()?;
-    
+
     // List sessions should extract focus from legacy name
     let sessions = manager.list_sessions()?;
     let legacy_session = sessions.iter().find(|s| s.name == legacy_name);
-    
+
     assert!(legacy_session.is_some());
-    assert_eq!(legacy_session.unwrap().focus, Some("performance".to_string()));
-    
+    assert_eq!(
+        legacy_session.unwrap().focus,
+        Some("performance".to_string())
+    );
+
     // Clean up
     Command::new("git")
         .current_dir(&temp_dir)
         .args(["worktree", "remove", &legacy_path.to_string_lossy()])
         .output()?;
-    
+
     cleanup_worktree_dir(&manager);
     Ok(())
 }

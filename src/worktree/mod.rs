@@ -4,9 +4,9 @@ use std::path::PathBuf;
 pub mod manager;
 pub mod state;
 #[cfg(test)]
-mod tests;
-#[cfg(test)]
 mod test_state;
+#[cfg(test)]
+mod tests;
 
 pub use manager::WorktreeManager;
 pub use state::{IterationInfo, WorktreeState, WorktreeStats, WorktreeStatus};
