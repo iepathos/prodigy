@@ -17,7 +17,7 @@ All changes are committed to git with clear audit trails. No configuration, no c
 
 ```bash
 # Clone and build
-git clone <repo-url>
+git clone https://github.com/iepathos/mmm
 cd mmm
 cargo build --release
 
