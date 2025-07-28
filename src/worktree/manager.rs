@@ -114,10 +114,7 @@ impl WorktreeManager {
     where
         F: FnOnce(&mut WorktreeState),
     {
-        let state_file = self
-            .base_dir
-            .join(".metadata")
-            .join(format!("{name}.json"));
+        let state_file = self.base_dir.join(".metadata").join(format!("{name}.json"));
         let mut state: WorktreeState = serde_json::from_str(&fs::read_to_string(&state_file)?)?;
 
         updater(&mut state);
@@ -159,10 +156,8 @@ impl WorktreeManager {
                             .to_string();
 
                         // Try to load state from metadata
-                        let state_file = self
-                            .base_dir
-                            .join(".metadata")
-                            .join(format!("{name}.json"));
+                        let state_file =
+                            self.base_dir.join(".metadata").join(format!("{name}.json"));
                         let focus = if let Ok(state_json) = fs::read_to_string(&state_file) {
                             if let Ok(state) = serde_json::from_str::<WorktreeState>(&state_json) {
                                 state.focus
@@ -195,10 +190,7 @@ impl WorktreeManager {
                     .to_string();
 
                 // Try to load state from metadata
-                let state_file = self
-                    .base_dir
-                    .join(".metadata")
-                    .join(format!("{name}.json"));
+                let state_file = self.base_dir.join(".metadata").join(format!("{name}.json"));
                 let focus = if let Ok(state_json) = fs::read_to_string(&state_file) {
                     if let Ok(state) = serde_json::from_str::<WorktreeState>(&state_json) {
                         state.focus
