@@ -29,6 +29,7 @@ Data persistence, caching, and storage optimizations.
 - **Spec 11**: Simple State Management - JSON state persistence ✅
 - **Spec 16**: Simplify State Management - Streamlined state structures ✅
 - **Spec 29**: Centralized Worktree State - Worktree metadata storage ✅
+- **Spec 34**: Worktree Temp Spec Storage - Automatic cleanup for temp specs (draft)
 
 ### Compatibility Specifications
 Integration with external systems and cross-platform support.
@@ -76,11 +77,12 @@ Performance improvements and system efficiency.
 - Spec 28: Structured Command Objects
 - Spec 29: Centralized Worktree State
 
-### 📝 Draft (4 specs)
+### 📝 Draft (5 specs)
 - Spec 30: Interrupted Worktree Recovery
 - Spec 31: Product Management Command
 - Spec 32: CLI Help as Default
 - Spec 33: Batch Spec Implementation
+- Spec 34: Worktree Temp Spec Storage
 
 ### 🚧 In Progress (0 specs)
 None currently in progress.
@@ -138,13 +140,14 @@ Optimization Layer:
 ## Quick Reference
 
 ### Latest Specifications
+- Spec 34: Worktree Temp Spec Storage (draft) - Automatic cleanup for temp specs
 - Spec 33: Batch Spec Implementation (draft) - Implement multiple specs
 - Spec 32: CLI Help as Default (draft) - Unix CLI best practices
 - Spec 31: Product Management Command (draft) - Product-focused improvements
 - Spec 30: Interrupted Worktree Recovery (draft) - Recovery from interrupted sessions
-- Spec 29: Centralized Worktree State ✅ - Enhanced worktree metadata
 
 ### High Priority Specifications
+- Spec 34: Worktree Temp Spec Storage - Solves temp spec accumulation problem
 - Spec 30: Interrupted Worktree Recovery - Critical for robust parallel execution
 - (All other high priority specs are completed)
 
