@@ -517,3 +517,21 @@ Rename the `improve` subcommand to `cook` throughout the codebase while maintain
 - **Positive**: More memorable command name, shorter to type, distinctive CLI personality, metaphor aligns with tool purpose (cooking/refining code), backward compatibility maintained
 - **Negative**: Breaking change for users who don't update, requires updating all documentation and examples, potential confusion during transition period
 - **Implementation**: Renamed src/improve/ to src/cook/, updated all imports and type names (ImproveCommand → CookCommand), added alias support in CLI with deprecation notice, updated all documentation and tests
+
+---
+
+## ADR-030: Focus Directive on Every Iteration
+
+### Status
+Accepted
+
+### Context
+Spec 38 identified that the focus directive (specified via --focus flag) was only passed to /mmm-code-review on the first iteration of the improvement loop. This caused subsequent iterations to lose context of what aspect the user wanted to focus on, potentially causing the improvement process to drift away from the intended focus area after the first iteration.
+
+### Decision
+Pass the focus directive to every iteration of the improvement process, not just the first. This ensures consistent focus throughout the entire improvement session and prevents drift from the user's intended improvement goals.
+
+### Consequences
+- **Positive**: Consistent focus throughout improvement session, prevents drift from intended goals, simple implementation (remove conditional logic), maintains backward compatibility, better user experience with predictable behavior
+- **Negative**: None identified - this is a straightforward improvement to existing behavior
+- **Implementation**: Removed conditional logic checking iteration == 1 in four locations within src/cook/mod.rs, added explanatory comments, added test to verify consistent focus application
