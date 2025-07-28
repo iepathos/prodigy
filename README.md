@@ -141,9 +141,12 @@ Analyze Project (language, framework, health score)
 - All human-readable, git-friendly, no complex databases
 
 ### Supported Languages
-- **Rust**: Full support with Cargo integration
+- **Rust**: Full support. Primary focus given this tool is Rust based.
+
+Planned Support:
 - **Python**: Basic support with pip/requirements detection
 - **JavaScript/TypeScript**: Basic support with npm/package.json
+- **Go**: Basic support
 - **Others**: Generic improvements (error handling, documentation, etc.)
 
 ## Safety
@@ -329,6 +332,5 @@ Focus on making the core `mmm cook` command more robust:
 - Clearer progress feedback
 
 Keep it simple. Keep it working.
-
 
 Built with ❤️ in Rust as open source with best intentions for the world.
