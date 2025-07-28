@@ -32,9 +32,6 @@ cargo build --release
 # Cook your code to a quality score of 8.0 (default)
 mmm cook
 
-# Set a custom target score
-mmm cook --target 9.0
-
 # See detailed progress
 mmm cook --verbose
 ```
@@ -69,7 +66,6 @@ $ mmm cook
 ✅ Generated spec: iteration-1708123789-improvements.md
 ✅ Implementation completed: 1 file modified  
 ✅ Linting completed: no changes needed
-✅ Complete! Final score: 8.1/10
 Files changed: 3
 Iterations: 2
 
@@ -315,3 +311,6 @@ Focus on making the core `mmm cook` command more robust:
 - Clearer progress feedback
 
 Keep it simple. Keep it working.
+
+
+Built with ❤️ in Rust as open source with best intentions for the world.
