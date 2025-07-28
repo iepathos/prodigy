@@ -248,24 +248,31 @@ async fn run_in_worktree(
     cmd: command::ImproveCommand,
     session: crate::worktree::WorktreeSession,
 ) -> Result<()> {
-    let worktree_manager =
-        WorktreeManager::new(std::env::current_dir()?.parent().unwrap().to_path_buf())?;
+    // Check if we have args or map patterns
+    if !cmd.args.is_empty() || !cmd.map.is_empty() {
+        // Run with mapping logic in worktree context
+        run_with_mapping_in_worktree(cmd, session).await
+    } else {
+        // Run standard improvement loop
+        let worktree_manager =
+            WorktreeManager::new(std::env::current_dir()?.parent().unwrap().to_path_buf())?;
 
-    // Run improvement loop with state tracking
-    let result = run_improvement_loop(cmd.clone(), &session, &worktree_manager).await;
+        // Run improvement loop with state tracking
+        let result = run_improvement_loop(cmd.clone(), &session, &worktree_manager).await;
 
-    // Update final state
-    worktree_manager.update_session_state(&session.name, |state| match &result {
-        Ok(_) => {
-            state.status = crate::worktree::WorktreeStatus::Completed;
-        }
-        Err(e) => {
-            state.status = crate::worktree::WorktreeStatus::Failed;
-            state.error = Some(e.to_string());
-        }
-    })?;
+        // Update final state
+        worktree_manager.update_session_state(&session.name, |state| match &result {
+            Ok(_) => {
+                state.status = crate::worktree::WorktreeStatus::Completed;
+            }
+            Err(e) => {
+                state.status = crate::worktree::WorktreeStatus::Failed;
+                state.error = Some(e.to_string());
+            }
+        })?;
 
-    result
+        result
+    }
 }
 
 async fn run_improvement_loop(
@@ -871,6 +878,230 @@ async fn call_claude_lint(verbose: bool) -> Result<bool> {
     }
 
     Ok(true)
+}
+
+/// Run improvement with mapping in worktree context
+async fn run_with_mapping_in_worktree(
+    cmd: command::ImproveCommand,
+    session: crate::worktree::WorktreeSession,
+) -> Result<()> {
+    use glob::glob;
+    use std::collections::HashMap;
+
+    let mut inputs: Vec<String> = Vec::new();
+
+    // Collect inputs from --map patterns
+    for pattern in &cmd.map {
+        let entries = glob(pattern).context(format!("Invalid glob pattern: {pattern}"))?;
+
+        for entry in entries {
+            match entry {
+                Ok(path) => {
+                    inputs.push(path.to_string_lossy().into_owned());
+                }
+                Err(e) => {
+                    eprintln!("Warning: Error matching pattern: {e}");
+                }
+            }
+        }
+    }
+
+    // Add direct arguments from --args
+    inputs.extend(cmd.args.clone());
+
+    if inputs.is_empty() {
+        return Err(anyhow!("No inputs found from --map patterns or --args"));
+    }
+
+    println!("📋 Processing {} input(s)", inputs.len());
+
+    let mut success_count = 0;
+    let mut failure_count = 0;
+    let total = inputs.len();
+
+    let worktree_manager =
+        WorktreeManager::new(std::env::current_dir()?.parent().unwrap().to_path_buf())?;
+
+    for (index, input) in inputs.iter().enumerate() {
+        let item_number = index + 1;
+        println!("\n[{item_number}/{total}] Processing: {input}");
+
+        // Create a new command instance for this input
+        let input_cmd = cmd.clone();
+
+        // Create variables for this input
+        let mut variables = HashMap::new();
+
+        // Determine the ARG value based on whether this came from --map or --args
+        let arg_value = if cmd.map.iter().any(|pattern| {
+            glob(pattern)
+                .ok()
+                .and_then(|entries| {
+                    entries
+                        .filter_map(Result::ok)
+                        .find(|p| &p.to_string_lossy() == input)
+                })
+                .is_some()
+        }) {
+            // This input came from --map, so extract spec ID if it's a spec file
+            if input.ends_with(".md") && input.contains("spec") {
+                extract_spec_id_from_path(input)
+            } else {
+                input.clone()
+            }
+        } else {
+            // This input came from --args, use it directly
+            input.clone()
+        };
+
+        variables.insert("ARG".to_string(), arg_value.clone());
+        variables.insert("FILE".to_string(), input.clone());
+        variables.insert("INDEX".to_string(), item_number.to_string());
+        variables.insert("TOTAL".to_string(), total.to_string());
+
+        if let Some(file_name) = std::path::Path::new(input).file_name() {
+            variables.insert(
+                "FILE_NAME".to_string(),
+                file_name.to_string_lossy().into_owned(),
+            );
+            if let Some(stem) = std::path::Path::new(input).file_stem() {
+                variables.insert("FILE_STEM".to_string(), stem.to_string_lossy().into_owned());
+            }
+        }
+
+        // Store variables in environment for the subprocess
+        for (key, value) in &variables {
+            std::env::set_var(format!("MMM_VAR_{key}"), value);
+        }
+
+        // Run the improvement loop with variables
+        let result = run_improvement_loop_with_variables(
+            input_cmd,
+            &session,
+            &worktree_manager,
+            variables.clone(),
+        )
+        .await;
+
+        // Clean up environment variables
+        for key in ["ARG", "FILE", "INDEX", "TOTAL", "FILE_NAME", "FILE_STEM"] {
+            std::env::remove_var(format!("MMM_VAR_{key}"));
+        }
+
+        match result {
+            Ok(_) => {
+                success_count += 1;
+                println!("✅ [{item_number}/{total}] Completed: {input}");
+            }
+            Err(e) => {
+                failure_count += 1;
+                eprintln!("❌ [{item_number}/{total}] Failed: {input} - {e}");
+                if cmd.fail_fast {
+                    return Err(anyhow!("Stopping due to --fail-fast: {}", e));
+                }
+            }
+        }
+    }
+
+    println!(
+        "\n📊 Summary: {success_count} succeeded, {failure_count} failed out of {total} total"
+    );
+
+    if failure_count > 0 && !cmd.fail_fast {
+        Err(anyhow!("{} input(s) failed processing", failure_count))
+    } else {
+        Ok(())
+    }
+}
+
+/// Run improvement loop with variables in worktree context
+async fn run_improvement_loop_with_variables(
+    cmd: command::ImproveCommand,
+    session: &crate::worktree::WorktreeSession,
+    worktree_manager: &WorktreeManager,
+    variables: std::collections::HashMap<String, String>,
+) -> Result<()> {
+    // The actual improvement logic, but with state tracking
+    // This is a copy of run_without_worktree logic with state updates
+
+    // 1. Check for Claude CLI
+    check_claude_cli().await?;
+
+    // 2. Initial analysis
+    // Skip analysis for worktree tracking
+
+    if cmd.show_progress {
+        if let Some(focus) = &cmd.focus {
+            println!("📊 Focus: {focus}");
+        }
+        println!();
+    }
+
+    // 3. Setup basic state
+    let state = StateManager::new()?;
+    let _start_time = Utc::now();
+
+    // 4. Main improvement loop
+    let mut iteration = 1;
+    let mut files_changed = 0;
+
+    // Load configuration (with workflow if present)
+    let config_loader = ConfigLoader::new().await?;
+    config_loader
+        .load_with_explicit_path(Path::new("."), cmd.config.as_deref())
+        .await?;
+    let config = config_loader.get_config();
+
+    // Check if we have a workflow configuration
+    if let Some(workflow_config) = config.workflow {
+        // Use configurable workflow
+        if cmd.show_progress {
+            println!("Using custom workflow from configuration");
+        }
+
+        let max_iterations = cmd.max_iterations.min(workflow_config.max_iterations);
+        let mut executor =
+            WorkflowExecutor::new(workflow_config, cmd.show_progress, max_iterations)
+                .with_variables(variables);
+
+        while iteration <= max_iterations {
+            // Update worktree state before iteration
+            worktree_manager.update_session_state(&session.name, |state| {
+                state.iterations.completed = iteration - 1;
+                state.iterations.max = max_iterations;
+            })?;
+
+            // Execute workflow iteration
+            let focus_for_iteration = if iteration == 1 {
+                cmd.focus.as_deref()
+            } else {
+                None
+            };
+
+            let iteration_success = executor
+                .execute_iteration(iteration, focus_for_iteration)
+                .await?;
+            if !iteration_success {
+                if cmd.show_progress {
+                    println!("Workflow iteration completed with no changes - stopping");
+                }
+                break;
+            }
+
+            iteration += 1;
+        }
+
+        // Final state update
+        worktree_manager.update_session_state(&session.name, |state| {
+            state.iterations.completed = iteration - 1;
+            state.stats.files_changed = files_changed;
+        })?;
+
+        Ok(())
+    } else {
+        // Legacy hardcoded workflow - not recommended but kept for compatibility
+        return Err(anyhow!("No workflow configuration found. Please provide a workflow configuration file."));
+    }
 }
 
 #[cfg(test)]

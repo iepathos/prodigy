@@ -104,7 +104,18 @@ impl WorkflowExecutor {
         &self,
         command: &crate::config::command::Command,
     ) -> Result<bool> {
-        println!("🤖 Running /{}...", command.name);
+        // Build the full command display with args
+        let args_display = if !command.args.is_empty() {
+            let resolved_args: Vec<String> = command.args
+                .iter()
+                .map(|arg| self.resolve_argument(arg))
+                .collect();
+            format!(" {}", resolved_args.join(" "))
+        } else {
+            String::new()
+        };
+        
+        println!("🤖 Running /{}{}", command.name, args_display);
 
         // Skip actual execution in test mode
         if std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true" {
