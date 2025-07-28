@@ -50,6 +50,54 @@ async fn run_with_mapping(cmd: command::ImproveCommand) -> Result<()> {
     use glob::glob;
     use std::collections::HashMap;
 
+    // Check if worktree isolation should be used
+    let use_worktree = if cmd.worktree {
+        true
+    } else if std::env::var("MMM_USE_WORKTREE")
+        .unwrap_or_default()
+        .eq_ignore_ascii_case("true")
+    {
+        eprintln!("⚠️  Warning: MMM_USE_WORKTREE environment variable is deprecated. Use --worktree flag instead.");
+        true
+    } else {
+        false
+    };
+
+    if use_worktree {
+        // Create a new worktree for this improvement session
+        let worktree_manager = WorktreeManager::new(std::env::current_dir()?)?;
+        let session = worktree_manager.create_session(cmd.focus.as_deref())?;
+
+        println!(
+            "🌳 Created worktree: {} at {}",
+            session.name,
+            session.path.display()
+        );
+
+        // Change to worktree directory
+        std::env::set_current_dir(&session.path)?;
+
+        // Run improvement in worktree context
+        let result = run_with_mapping_in_worktree(cmd.clone(), session.clone()).await;
+
+        // Clean up on failure, keep on success for manual merge
+        match &result {
+            Ok(_) => {
+                println!("✅ Improvements completed in worktree: {}", session.name);
+                println!("To merge changes, run: mmm worktree merge {}", session.name);
+            }
+            Err(_) => {
+                eprintln!(
+                    "❌ Improvement failed, preserving worktree for debugging: {}",
+                    session.name
+                );
+            }
+        }
+
+        return result;
+    }
+
+    // Non-worktree path continues below
     let mut inputs: Vec<String> = Vec::new();
 
     // Collect inputs from --map patterns
