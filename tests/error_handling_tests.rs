@@ -97,9 +97,9 @@ fn test_concurrent_git_operations() {
     assert!(results.iter().all(|&success| success));
 }
 
-/// Test error recovery in improve loop
+/// Test error recovery in cook loop
 #[cfg(test)]
-mod improve_error_recovery {
+mod cook_error_recovery {
     use anyhow::{anyhow, Result};
 
     fn simulate_claude_cli_call(should_fail: bool) -> Result<String> {

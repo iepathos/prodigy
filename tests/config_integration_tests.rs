@@ -3,7 +3,7 @@ use std::process::Command;
 use tempfile::TempDir;
 
 #[test]
-fn test_improve_with_custom_config_file() -> anyhow::Result<()> {
+fn test_cook_with_custom_config_file() -> anyhow::Result<()> {
     let temp_dir = TempDir::new()?;
 
     // Initialize git repo
@@ -33,12 +33,12 @@ fn main() {
 "#,
     )?;
 
-    // Run mmm improve with custom config
+    // Run mmm cook with custom config
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
         .current_dir(&temp_dir)
         .env("MMM_TEST_MODE", "true")
         .args([
-            "improve",
+            "cook",
             "--config",
             custom_config.to_str().unwrap(),
             "--max-iterations",
@@ -62,7 +62,7 @@ fn main() {
 }
 
 #[test]
-fn test_improve_with_yaml_config() -> anyhow::Result<()> {
+fn test_cook_with_yaml_config() -> anyhow::Result<()> {
     let temp_dir = TempDir::new()?;
 
     // Initialize git repo
@@ -85,12 +85,12 @@ fn test_improve_with_yaml_config() -> anyhow::Result<()> {
     // Create a simple source file
     fs::write(temp_dir.path().join("main.rs"), "fn main() {}")?;
 
-    // Run mmm improve with YAML config
+    // Run mmm cook with YAML config
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
         .current_dir(&temp_dir)
         .env("MMM_TEST_MODE", "true")
         .args([
-            "improve",
+            "cook",
             "--config",
             yaml_config.to_str().unwrap(),
             "--max-iterations",
@@ -113,7 +113,7 @@ fn test_improve_with_yaml_config() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_improve_with_default_config() -> anyhow::Result<()> {
+fn test_cook_with_default_config() -> anyhow::Result<()> {
     let temp_dir = TempDir::new()?;
 
     // Initialize git repo
@@ -134,11 +134,11 @@ fn test_improve_with_default_config() -> anyhow::Result<()> {
     // Create a simple source file
     fs::write(temp_dir.path().join("main.rs"), "fn main() {}")?;
 
-    // Run mmm improve without explicit config
+    // Run mmm cook without explicit config
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
         .current_dir(&temp_dir)
         .env("MMM_TEST_MODE", "true")
-        .args(["improve", "--max-iterations", "1"])
+        .args(["cook", "--max-iterations", "1"])
         .output()?;
 
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -156,7 +156,7 @@ fn test_improve_with_default_config() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_improve_with_invalid_config_path() -> anyhow::Result<()> {
+fn test_cook_with_invalid_config_path() -> anyhow::Result<()> {
     let temp_dir = TempDir::new()?;
 
     // Initialize git repo
@@ -165,11 +165,11 @@ fn test_improve_with_invalid_config_path() -> anyhow::Result<()> {
         .args(["init"])
         .output()?;
 
-    // Run mmm improve with non-existent config
+    // Run mmm cook with non-existent config
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
         .current_dir(&temp_dir)
         .env("MMM_TEST_MODE", "true")
-        .args(["improve", "--config", "/non/existent/config.yml"])
+        .args(["cook", "--config", "/non/existent/config.yml"])
         .output()?;
 
     assert!(!output.status.success());
@@ -186,7 +186,7 @@ fn test_improve_with_invalid_config_path() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_improve_with_unsupported_config_format() -> anyhow::Result<()> {
+fn test_cook_with_unsupported_config_format() -> anyhow::Result<()> {
     let temp_dir = TempDir::new()?;
 
     // Initialize git repo
@@ -199,11 +199,11 @@ fn test_improve_with_unsupported_config_format() -> anyhow::Result<()> {
     let json_config = temp_dir.path().join("config.json");
     fs::write(&json_config, r#"{"commands": ["/mmm-test"]}"#)?;
 
-    // Run mmm improve with JSON config
+    // Run mmm cook with JSON config
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
         .current_dir(&temp_dir)
         .env("MMM_TEST_MODE", "true")
-        .args(["improve", "--config", json_config.to_str().unwrap()])
+        .args(["cook", "--config", json_config.to_str().unwrap()])
         .output()?;
 
     assert!(!output.status.success());

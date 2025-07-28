@@ -78,7 +78,7 @@ fn test_mmm_worktree_list_command() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_mmm_improve_with_worktree_flag() -> anyhow::Result<()> {
+fn test_mmm_cook_with_worktree_flag() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
 
     // Add .mmm directory for state management
@@ -94,10 +94,10 @@ fn main() {
 "#,
     )?;
 
-    // Run mmm improve with worktree flag (but with 0 iterations to avoid Claude calls)
+    // Run mmm cook with worktree flag (but with 0 iterations to avoid Claude calls)
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
         .current_dir(&temp_dir)
-        .args(["improve", "--worktree", "--max-iterations", "0"])
+        .args(["cook", "--worktree", "--max-iterations", "0"])
         .output()?;
 
     // The command might fail due to no Claude CLI, but it should at least try to create a worktree
@@ -161,11 +161,11 @@ fn test_deprecated_env_var_warning() -> anyhow::Result<()> {
     // Add .mmm directory for state management
     std::fs::create_dir_all(temp_dir.path().join(".mmm"))?;
 
-    // Run mmm improve with deprecated env var
+    // Run mmm cook with deprecated env var
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
         .current_dir(&temp_dir)
         .env("MMM_USE_WORKTREE", "true")
-        .args(["improve", "--max-iterations", "0"])
+        .args(["cook", "--max-iterations", "0"])
         .output()?;
 
     let stderr = String::from_utf8_lossy(&output.stderr);

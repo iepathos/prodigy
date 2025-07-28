@@ -87,11 +87,11 @@ fn test_git_command_exists() {
 
 #[cfg(test)]
 mod improve_command_tests {
-    use mmm::improve::command::ImproveCommand;
+    use mmm::cook::command::CookCommand;
 
     #[test]
     fn test_improve_command_creation() {
-        let cmd = ImproveCommand {
+        let cmd = CookCommand {
             show_progress: false,
             focus: None,
             config: None,
@@ -109,7 +109,7 @@ mod improve_command_tests {
 
     #[test]
     fn test_improve_command_with_focus() {
-        let cmd = ImproveCommand {
+        let cmd = CookCommand {
             show_progress: true,
             focus: Some("performance".to_string()),
             config: None,
@@ -128,7 +128,7 @@ mod improve_command_tests {
 
 #[cfg(test)]
 mod session_tests {
-    use mmm::improve::session::SessionSummary;
+    use mmm::cook::session::SessionSummary;
 
     #[test]
     fn test_session_summary_creation() {
