@@ -1,4 +1,4 @@
-# Memento Mori (mmm)
+# mmm
 
 A dead simple CLI tool that makes your code better through Claude CLI integration.
 
