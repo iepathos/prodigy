@@ -15,6 +15,7 @@ Memento Mori (mmm) is a dead simple Rust CLI tool that makes your code better th
 
 ### Core Functionality
 - **Simple CLI**: `mmm improve [--target 8.0] [--verbose] [--focus "area"] [--max-iterations N] [--worktree]`
+- **Batch Implementation**: `mmm implement <spec-files...>` - Implement multiple specifications without code review
 - **Git-Native Flow**: Each improvement step creates git commits for complete auditability
 - **Claude Integration**: Three-step Claude CLI workflow (review → implement → lint)
 - **Project Analysis**: Automatic language and framework detection
@@ -49,8 +50,8 @@ mmm/
 ## Key Capabilities
 
 1. **Dead Simple Interface**
-   - Single command: `mmm improve`
-   - Optional target score, verbosity, and focus directive
+   - Main commands: `mmm improve`, `mmm implement`, `mmm worktree`
+   - Optional flags for target score, verbosity, focus directive, and more
    - Works out of the box
 
 2. **Git-Native Improvement Flow**

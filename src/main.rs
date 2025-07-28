@@ -39,6 +39,8 @@ enum Commands {
         #[arg(short = 'w', long)]
         worktree: bool,
     },
+    /// Implement pre-written specifications
+    Implement(mmm::implement::command::ImplementCommand),
     /// Manage git worktrees for parallel MMM sessions
     Worktree {
         #[command(subcommand)]
@@ -97,6 +99,7 @@ async fn main() {
             max_iterations,
             worktree,
         }) => run_improve(show_progress, focus, config, max_iterations, worktree).await,
+        Some(Commands::Implement(cmd)) => mmm::implement::run(cmd).await,
         Some(Commands::Worktree { command }) => run_worktree_command(command).await,
         None => {
             // Display help when no command is provided (following CLI conventions)

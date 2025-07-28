@@ -271,8 +271,10 @@ mod tests {
     async fn test_execute_with_retry_success() {
         let mut cmd = Command::new("echo");
         cmd.arg("hello");
-        
-        let output = execute_with_retry(cmd, "echo test", 3, false).await.unwrap();
+
+        let output = execute_with_retry(cmd, "echo test", 3, false)
+            .await
+            .unwrap();
         assert!(output.status.success());
         assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "hello");
     }
@@ -280,7 +282,7 @@ mod tests {
     #[tokio::test]
     async fn test_execute_with_retry_command_not_found() {
         let cmd = Command::new("this-command-does-not-exist");
-        
+
         let result = execute_with_retry(cmd, "nonexistent command", 3, false).await;
         assert!(result.is_err());
         let error = result.unwrap_err().to_string();
@@ -291,8 +293,10 @@ mod tests {
     async fn test_execute_with_retry_non_transient_failure() {
         let mut cmd = Command::new("sh");
         cmd.arg("-c").arg("echo 'Fatal error' >&2; exit 1");
-        
-        let output = execute_with_retry(cmd, "failing command", 3, false).await.unwrap();
+
+        let output = execute_with_retry(cmd, "failing command", 3, false)
+            .await
+            .unwrap();
         assert!(!output.status.success());
         assert!(String::from_utf8_lossy(&output.stderr).contains("Fatal error"));
     }
@@ -302,26 +306,30 @@ mod tests {
         // Test that we get an error after exhausting all retries on transient errors
         let mut cmd = Command::new("sh");
         cmd.arg("-c").arg("echo 'connection refused' >&2; exit 1");
-        
-        let output = execute_with_retry(cmd, "transient error test", 2, true).await.unwrap();
+
+        let output = execute_with_retry(cmd, "transient error test", 2, true)
+            .await
+            .unwrap();
         // The command succeeds (returns Ok) but with non-zero exit status
         assert!(!output.status.success());
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(stderr.contains("connection refused"));
     }
-    
+
     #[tokio::test]
     async fn test_execute_with_retry_exponential_backoff() {
         use std::time::Instant;
-        
+
         // Test exponential backoff timing
         let mut cmd = Command::new("sh");
         cmd.arg("-c").arg("echo 'rate limit' >&2; exit 1");
-        
+
         let start = Instant::now();
-        let output = execute_with_retry(cmd, "backoff test", 2, false).await.unwrap();
+        let output = execute_with_retry(cmd, "backoff test", 2, false)
+            .await
+            .unwrap();
         let elapsed = start.elapsed();
-        
+
         assert!(!output.status.success());
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(stderr.contains("rate limit"));
@@ -333,11 +341,10 @@ mod tests {
     async fn test_check_claude_cli_when_missing() {
         let mut cmd = Command::new("which");
         cmd.arg("nonexistent-command-xyz");
-        
+
         let output = cmd.output().await.unwrap();
         assert!(!output.status.success());
     }
-
 
     #[test]
     fn test_format_subprocess_error_all_fields() {
@@ -347,7 +354,7 @@ mod tests {
             "Error details\nMultiline error",
             "Some stdout content",
         );
-        
+
         assert!(error.contains("'test-cmd'"));
         assert!(error.contains("exit code 42"));
         assert!(error.contains("Error details"));
@@ -357,13 +364,8 @@ mod tests {
 
     #[test]
     fn test_format_subprocess_error_unauthorized() {
-        let error = format_subprocess_error(
-            "claude",
-            Some(1),
-            "Error: unauthorized access",
-            "",
-        );
-        
+        let error = format_subprocess_error("claude", Some(1), "Error: unauthorized access", "");
+
         assert!(error.contains("Check that you have authenticated"));
     }
 
@@ -380,8 +382,10 @@ mod tests {
         // Test error message when max retries are reached
         let mut cmd = Command::new("sh");
         cmd.arg("-c").arg("echo 'temporary failure' >&2; exit 1");
-        
-        let output = execute_with_retry(cmd, "max retries test", 1, false).await.unwrap();
+
+        let output = execute_with_retry(cmd, "max retries test", 1, false)
+            .await
+            .unwrap();
         assert!(!output.status.success());
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(stderr.contains("temporary failure"));

@@ -7,9 +7,9 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 ## Core Modules
 
 ### 1. CLI Interface (`src/main.rs`)
-- Single command: `mmm improve`
-- Optional flags: `--target`, `--verbose`
-- Direct entry point to improvement logic
+- Main commands: `mmm improve`, `mmm implement`, `mmm worktree`
+- Global flags: `--verbose`
+- Direct entry point to subcommands
 
 ### 2. Improve Command (`src/improve/`)
 - **mod.rs**: Single core improvement loop with Claude CLI integration
@@ -66,6 +66,13 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 - **mod.rs**: WorktreeSession data structure and exports
 - Worktrees are stored in `~/.mmm/worktrees/{repo-name}/` to comply with git restrictions
 - State metadata stored in `~/.mmm/worktrees/{repo-name}/.metadata/` (gitignored)
+
+### 10. Implement Command (`src/implement/`)
+- **mod.rs**: Batch implementation logic for multiple specifications
+- **command.rs**: CLI arguments for the implement subcommand
+- **state.rs**: BatchImplementState for tracking progress across specs
+- Supports glob patterns for spec file selection
+- Executes implement-spec → lint cycle for each specification
 
 ## Data Flow
 
@@ -147,7 +154,12 @@ src/
 │   ├── mod.rs           # Single consolidated improvement loop
 │   ├── command.rs       # CLI args only
 │   ├── session.rs       # Basic session data
-│   └── workflow.rs      # Configurable workflow execution
+│   ├── workflow.rs      # Configurable workflow execution
+│   └── git_ops.rs       # Thread-safe git operations
+├── implement/           # Batch spec implementation
+│   ├── mod.rs           # Batch implementation logic
+│   ├── command.rs       # CLI args for implement
+│   └── state.rs         # Batch progress tracking
 ├── analyzer/            # Analysis components
 │   ├── mod.rs
 │   ├── language.rs      # Language detection

@@ -437,3 +437,29 @@ Modify the CLI to display help information when invoked without arguments, align
 - **Positive**: Better new user experience, follows Unix CLI conventions, prevents accidental command execution, clear guidance on available commands, consistent with user expectations
 - **Negative**: Minor breaking change for users who relied on default improve behavior
 - **Implementation**: Modified main.rs to call print_help() when no subcommand provided, maintained all existing command functionality, no changes to subcommand behavior
+
+---
+
+## ADR-026: Batch Specification Implementation
+
+### Status
+Accepted
+
+### Context
+Spec 33 identified the need for implementing multiple pre-written specifications without going through the code-review step. Developers who have already documented specifications in the specs/ directory need a streamlined way to implement them in batch, enabling planned features and improvements to be implemented efficiently.
+
+### Decision
+Create a new `mmm implement` subcommand that accepts specification file paths (with glob support) and implements them sequentially using the implement-spec → lint cycle. Each spec is processed independently with clear progress tracking and summary reporting.
+
+### Consequences
+- **Positive**: Efficient batch implementation of planned features, supports glob patterns for flexible spec selection, reuses existing Claude integration, maintains git audit trail, clear progress tracking, optional worktree support for parallel execution
+- **Negative**: Additional subcommand complexity, potential for longer execution times with many specs
+- **Implementation**: Created implement module with command.rs, state.rs, and mod.rs; integrated with existing git_ops and worktree managers; added progress tracking and summary reporting; supports dry-run mode for safety
+
+### Decision
+Modify the CLI to display help information when invoked without arguments, aligning with standard CLI conventions. Use clap's built-in help functionality to maintain consistency with other help outputs.
+
+### Consequences
+- **Positive**: Better new user experience, follows Unix CLI conventions, prevents accidental command execution, clear guidance on available commands, consistent with user expectations
+- **Negative**: Minor breaking change for users who relied on default improve behavior
+- **Implementation**: Modified main.rs to call print_help() when no subcommand provided, maintained all existing command functionality, no changes to subcommand behavior
