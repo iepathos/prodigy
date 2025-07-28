@@ -153,7 +153,14 @@ impl CommandRegistry {
         // Validate argument types
         for (i, arg_def) in definition.required_args.iter().enumerate() {
             if i < command.args.len() {
-                self.validate_argument_type(&command.args[i], &arg_def.arg_type)?;
+                // Skip validation for variables - they will be resolved at runtime
+                if !command.args[i].is_variable() {
+                    let arg_str = match &command.args[i] {
+                        crate::config::CommandArg::Literal(s) => s,
+                        crate::config::CommandArg::Variable(_) => continue,
+                    };
+                    self.validate_argument_type(arg_str, &arg_def.arg_type)?;
+                }
             }
         }
 
@@ -328,7 +335,7 @@ mod tests {
         assert!(registry.validate_command(&cmd).is_ok());
 
         let mut cmd = Command::new("mmm-implement-spec");
-        cmd.args.push("iteration-123".to_string());
+        cmd.args.push(crate::config::CommandArg::Literal("iteration-123".to_string()));
         assert!(registry.validate_command(&cmd).is_ok());
     }
 

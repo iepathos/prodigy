@@ -9,13 +9,13 @@ Memento Mori (mmm) is a dead simple Rust CLI tool that makes your code better th
 - **Project Status**: Active Development - Core Working
 - **Core Feature**: `mmm improve` command with Claude CLI integration
 - **Latest Version**: 0.1.0
-- **Implementation Status**: Git-native improvement flow fully implemented with robust Claude CLI integration, complete audit trails, self-sufficient automated cycles, dynamic spec generation for improvements, focus-directed initial analysis (Spec 20), configurable workflows (Spec 21), configurable iteration limits (Spec 22), command-line config options (Spec 23), git worktree isolation for parallel sessions (Spec 24), Claude-assisted worktree merging with conflict resolution (Spec 25), worktree CLI flag (Spec 26), structured command objects (Spec 28), centralized worktree state management (Spec 29), and Spec 19 (Git-Native Improvement Flow) completed
+- **Implementation Status**: Git-native improvement flow fully implemented with robust Claude CLI integration, complete audit trails, self-sufficient automated cycles, dynamic spec generation for improvements, focus-directed initial analysis (Spec 20), configurable workflows (Spec 21), configurable iteration limits (Spec 22), command-line config options (Spec 23), git worktree isolation for parallel sessions (Spec 24), Claude-assisted worktree merging with conflict resolution (Spec 25), worktree CLI flag (Spec 26), structured command objects (Spec 28), centralized worktree state management (Spec 29), batch spec implementation (Spec 33), and unified improve command with mapping (Spec 35)
 
 ## What Exists
 
 ### Core Functionality
-- **Simple CLI**: `mmm improve [--target 8.0] [--verbose] [--focus "area"] [--max-iterations N] [--worktree]`
-- **Batch Implementation**: `mmm implement <spec-files...>` - Implement multiple specifications without code review
+- **Simple CLI**: `mmm improve [--target 8.0] [--verbose] [--focus "area"] [--max-iterations N] [--worktree] [--map "pattern"] [--args "value"]`
+- **Unified Command**: Single `improve` command handles both iterative improvements and batch processing
 - **Git-Native Flow**: Each improvement step creates git commits for complete auditability
 - **Claude Integration**: Three-step Claude CLI workflow (review → implement → lint)
 - **Project Analysis**: Automatic language and framework detection

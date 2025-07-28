@@ -1,6 +1,71 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Represents a command argument that can be a literal value or a variable
+#[derive(Debug, Clone, PartialEq)]
+pub enum CommandArg {
+    /// A literal string value
+    Literal(String),
+    /// A variable reference (e.g., "$FILE", "$ARG")
+    Variable(String),
+}
+
+// Custom serialization for CommandArg
+impl Serialize for CommandArg {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            CommandArg::Literal(s) => serializer.serialize_str(s),
+            CommandArg::Variable(var) => serializer.serialize_str(&format!("${{{var}}}")),
+        }
+    }
+}
+
+// Custom deserialization for CommandArg
+impl<'de> Deserialize<'de> for CommandArg {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(CommandArg::parse(&s))
+    }
+}
+
+
+impl CommandArg {
+    /// Check if this is a variable reference
+    pub fn is_variable(&self) -> bool {
+        matches!(self, CommandArg::Variable(_))
+    }
+
+    /// Resolve the argument value given a context
+    pub fn resolve(&self, variables: &HashMap<String, String>) -> String {
+        match self {
+            CommandArg::Literal(s) => s.clone(),
+            CommandArg::Variable(var) => variables.get(var).cloned().unwrap_or_else(|| {
+                // Return the variable reference if not found
+                format!("${var}")
+            }),
+        }
+    }
+
+    /// Parse from a string, detecting variables by $ prefix
+    pub fn parse(s: &str) -> Self {
+        // Handle ${VAR} format
+        if s.starts_with("${") && s.ends_with('}') {
+            CommandArg::Variable(s[2..s.len()-1].to_string())
+        } else if let Some(var) = s.strip_prefix('$') {
+            // Handle $VAR format
+            CommandArg::Variable(var.to_string())
+        } else {
+            CommandArg::Literal(s.to_string())
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Command {
     /// The command name (e.g., "mmm-code-review")
@@ -8,7 +73,7 @@ pub struct Command {
 
     /// Positional arguments for the command
     #[serde(default)]
-    pub args: Vec<String>,
+    pub args: Vec<CommandArg>,
 
     /// Named options/flags for the command
     #[serde(default)]
@@ -96,7 +161,8 @@ impl Command {
 
     /// Add a positional argument
     pub fn with_arg(mut self, arg: impl Into<String>) -> Self {
-        self.args.push(arg.into());
+        let arg_str = arg.into();
+        self.args.push(CommandArg::parse(&arg_str));
         self
     }
 
@@ -145,7 +211,7 @@ mod tests {
 
         assert_eq!(cmd.name, "mmm-code-review");
         assert_eq!(cmd.args.len(), 1);
-        assert_eq!(cmd.args[0], "test");
+        assert_eq!(cmd.args[0], CommandArg::Literal("test".to_string()));
         assert_eq!(
             cmd.options.get("focus"),
             Some(&serde_json::json!("security"))
@@ -167,7 +233,7 @@ mod tests {
         let cmd3 = Command::from_string("mmm-implement-spec iteration-123");
         assert_eq!(cmd3.name, "mmm-implement-spec");
         assert_eq!(cmd3.args.len(), 1);
-        assert_eq!(cmd3.args[0], "iteration-123");
+        assert_eq!(cmd3.args[0], CommandArg::Literal("iteration-123".to_string()));
 
         // Test parsing commands with options
         let cmd4 = Command::from_string("mmm-code-review --focus security");
@@ -202,8 +268,8 @@ mod tests {
 
     #[test]
     fn test_command_serialization() {
-        let cmd =
-            Command::new("mmm-code-review").with_option("focus", serde_json::json!("performance"));
+        let cmd = Command::new("mmm-code-review")
+            .with_option("focus", serde_json::json!("performance"));
 
         let json = serde_json::to_string(&cmd).unwrap();
         let deserialized: Command = serde_json::from_str(&json).unwrap();

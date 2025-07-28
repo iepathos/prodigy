@@ -38,9 +38,19 @@ enum Commands {
         /// Run in an isolated git worktree for parallel execution
         #[arg(short = 'w', long)]
         worktree: bool,
+
+        /// File patterns to map over
+        #[arg(long, value_name = "PATTERN")]
+        map: Vec<String>,
+
+        /// Direct arguments to pass to commands
+        #[arg(long, value_name = "VALUE")]
+        args: Vec<String>,
+
+        /// Stop on first failure when processing multiple files
+        #[arg(long)]
+        fail_fast: bool,
     },
-    /// Implement pre-written specifications
-    Implement(mmm::implement::command::ImplementCommand),
     /// Manage git worktrees for parallel MMM sessions
     Worktree {
         #[command(subcommand)]
@@ -98,8 +108,22 @@ async fn main() {
             config,
             max_iterations,
             worktree,
-        }) => run_improve(show_progress, focus, config, max_iterations, worktree).await,
-        Some(Commands::Implement(cmd)) => mmm::implement::run(cmd).await,
+            map,
+            args,
+            fail_fast,
+        }) => {
+            let improve_cmd = mmm::improve::command::ImproveCommand {
+                show_progress,
+                focus,
+                config,
+                max_iterations,
+                worktree,
+                map,
+                args,
+                fail_fast,
+            };
+            mmm::improve::run(improve_cmd).await
+        }
         Some(Commands::Worktree { command }) => run_worktree_command(command).await,
         None => {
             // Display help when no command is provided (following CLI conventions)
@@ -117,22 +141,6 @@ async fn main() {
     }
 }
 
-async fn run_improve(
-    show_progress: bool,
-    focus: Option<String>,
-    config: Option<PathBuf>,
-    max_iterations: u32,
-    worktree: bool,
-) -> anyhow::Result<()> {
-    let improve_cmd = mmm::improve::command::ImproveCommand {
-        show_progress,
-        focus,
-        config,
-        max_iterations,
-        worktree,
-    };
-    mmm::improve::run(improve_cmd).await
-}
 
 async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
     use mmm::worktree::WorktreeManager;

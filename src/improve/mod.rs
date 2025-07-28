@@ -37,6 +37,161 @@ const DEFAULT_CLAUDE_RETRIES: u32 = 2;
 /// For parallel execution, use the `--worktree` flag to run multiple sessions
 /// in isolated git worktrees without conflicts.
 pub async fn run(cmd: command::ImproveCommand) -> Result<()> {
+    // Check if we have mapping or direct args to process
+    if !cmd.map.is_empty() || !cmd.args.is_empty() {
+        run_with_mapping(cmd).await
+    } else {
+        run_standard(cmd).await
+    }
+}
+
+/// Run improve command with file mapping or direct arguments
+async fn run_with_mapping(cmd: command::ImproveCommand) -> Result<()> {
+    use glob::glob;
+    use std::collections::HashMap;
+
+    let mut inputs: Vec<String> = Vec::new();
+
+    // Collect inputs from --map patterns
+    for pattern in &cmd.map {
+        let entries = glob(pattern).context(format!("Invalid glob pattern: {pattern}"))?;
+
+        for entry in entries {
+            match entry {
+                Ok(path) => {
+                    inputs.push(path.to_string_lossy().into_owned());
+                }
+                Err(e) => {
+                    eprintln!("Warning: Error matching pattern: {e}");
+                }
+            }
+        }
+    }
+
+    // Add direct arguments from --args
+    inputs.extend(cmd.args.clone());
+
+    if inputs.is_empty() {
+        return Err(anyhow!("No inputs found from --map patterns or --args"));
+    }
+
+    println!("📋 Processing {} input(s)", inputs.len());
+
+    let mut success_count = 0;
+    let mut failure_count = 0;
+    let total = inputs.len();
+
+    for (index, input) in inputs.iter().enumerate() {
+        let item_number = index + 1;
+        println!("\n[{item_number}/{total}] Processing: {input}");
+
+        // Create a new command instance for this input
+        let input_cmd = cmd.clone();
+
+        // Create variables for this input
+        let mut variables = HashMap::new();
+
+        // Determine the ARG value based on whether this came from --map or --args
+        let arg_value = if cmd.map.iter().any(|pattern| {
+            glob(pattern)
+                .ok()
+                .and_then(|entries| {
+                    entries
+                        .filter_map(Result::ok)
+                        .find(|p| &p.to_string_lossy() == input)
+                })
+                .is_some()
+        }) {
+            // This input came from --map, so extract spec ID if it's a spec file
+            if input.ends_with(".md") && input.contains("spec") {
+                extract_spec_id_from_path(input)
+            } else {
+                input.clone()
+            }
+        } else {
+            // This input came from --args, use it directly
+            input.clone()
+        };
+
+        variables.insert("ARG".to_string(), arg_value.clone());
+        variables.insert("FILE".to_string(), input.clone());
+        variables.insert("INDEX".to_string(), item_number.to_string());
+        variables.insert("TOTAL".to_string(), total.to_string());
+
+        if let Some(file_name) = std::path::Path::new(input).file_name() {
+            variables.insert(
+                "FILE_NAME".to_string(),
+                file_name.to_string_lossy().into_owned(),
+            );
+            if let Some(stem) = std::path::Path::new(input).file_stem() {
+                variables.insert("FILE_STEM".to_string(), stem.to_string_lossy().into_owned());
+            }
+        }
+
+        // Store variables in environment for the subprocess
+        for (key, value) in &variables {
+            std::env::set_var(format!("MMM_VAR_{key}"), value);
+        }
+
+        // Run the improvement for this input
+        let result = run_standard_with_variables(input_cmd, variables).await;
+
+        // Clean up environment variables
+        for key in ["ARG", "FILE", "INDEX", "TOTAL", "FILE_NAME", "FILE_STEM"] {
+            std::env::remove_var(format!("MMM_VAR_{key}"));
+        }
+
+        match result {
+            Ok(_) => {
+                success_count += 1;
+                println!("✅ [{item_number}/{total}] Completed: {input}");
+            }
+            Err(e) => {
+                failure_count += 1;
+                eprintln!("❌ [{item_number}/{total}] Failed: {input} - {e}");
+                if cmd.fail_fast {
+                    return Err(anyhow!("Stopping due to --fail-fast: {}", e));
+                }
+            }
+        }
+    }
+
+    println!(
+        "\n📊 Summary: {success_count} succeeded, {failure_count} failed out of {total} total"
+    );
+
+    if failure_count > 0 && !cmd.fail_fast {
+        Err(anyhow!("{} input(s) failed processing", failure_count))
+    } else {
+        Ok(())
+    }
+}
+
+/// Extract spec ID from a file path
+fn extract_spec_id_from_path(path: &str) -> String {
+    let path = std::path::Path::new(path);
+
+    // Get the file stem (filename without extension)
+    if let Some(stem) = path.file_stem() {
+        let stem_str = stem.to_string_lossy();
+
+        // Extract numeric ID from filenames like "01-feature.md" or "35-something.md"
+        if let Some(dash_pos) = stem_str.find('-') {
+            let potential_id = &stem_str[..dash_pos];
+            if potential_id.chars().all(|c| c.is_alphanumeric()) {
+                return potential_id.to_string();
+            }
+        }
+
+        // Return full stem if no pattern found (e.g., "iteration-123456-improvements")
+        stem_str.into_owned()
+    } else {
+        path.to_string_lossy().into_owned()
+    }
+}
+
+/// Run standard improve without mapping
+async fn run_standard(cmd: command::ImproveCommand) -> Result<()> {
     // Check if worktree isolation should be used
     // Check flag first, then env var with deprecation warning
     let use_worktree = if cmd.worktree {
@@ -311,7 +466,23 @@ async fn run_improvement_loop(
     Ok(())
 }
 
+/// Run standard improve with variables for mapping support
+async fn run_standard_with_variables(
+    cmd: command::ImproveCommand,
+    variables: std::collections::HashMap<String, String>,
+) -> Result<()> {
+    // Run the standard flow but with variables available for command substitution
+    run_without_worktree_with_vars(cmd, variables).await
+}
+
 async fn run_without_worktree(cmd: command::ImproveCommand) -> Result<()> {
+    run_without_worktree_with_vars(cmd, std::collections::HashMap::new()).await
+}
+
+async fn run_without_worktree_with_vars(
+    cmd: command::ImproveCommand,
+    variables: std::collections::HashMap<String, String>,
+) -> Result<()> {
     println!("🔍 Starting improvement loop...");
 
     // 2. Load configuration
@@ -360,7 +531,8 @@ async fn run_without_worktree(cmd: command::ImproveCommand) -> Result<()> {
     if config.workflow.is_some() {
         // Use configurable workflow
         let mut executor =
-            WorkflowExecutor::new(workflow_config, cmd.show_progress, max_iterations);
+            WorkflowExecutor::new(workflow_config, cmd.show_progress, max_iterations)
+                .with_variables(variables);
 
         while iteration <= max_iterations {
             // Execute workflow iteration
@@ -714,6 +886,9 @@ mod tests {
             show_progress: false,
             focus: None,
             config: None,
+            map: vec![],
+            args: vec![],
+            fail_fast: false,
         }
     }
 

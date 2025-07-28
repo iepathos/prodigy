@@ -463,3 +463,21 @@ Modify the CLI to display help information when invoked without arguments, align
 - **Positive**: Better new user experience, follows Unix CLI conventions, prevents accidental command execution, clear guidance on available commands, consistent with user expectations
 - **Negative**: Minor breaking change for users who relied on default improve behavior
 - **Implementation**: Modified main.rs to call print_help() when no subcommand provided, maintained all existing command functionality, no changes to subcommand behavior
+
+---
+
+## ADR-027: Unified Improve Command with Mapping
+
+### Status
+Accepted
+
+### Context
+Spec 35 identified that having separate `mmm improve` and `mmm implement` commands created unnecessary complexity and duplicated functionality. Both commands essentially run improvement loops with different inputs and workflows. The improve command already supported configurable workflows, making the implement command redundant.
+
+### Decision
+Unify functionality into a single `mmm improve` command by adding --map and --args flags for batch processing. Remove the implement subcommand entirely. Support variable substitution in workflow commands to enable flexible, parameterized workflows.
+
+### Consequences
+- **Positive**: Single coherent interface, reduced code duplication, more flexible batch processing, enables any workflow via configuration, consistent with Unix philosophy of composable tools
+- **Negative**: Breaking change for users of mmm implement command, requires migration to new syntax
+- **Implementation**: Added --map and --args flags to ImproveCommand, implemented CommandArg enum for variable support, updated workflow executor to resolve variables, removed implement module, created examples/implement.yml for migration

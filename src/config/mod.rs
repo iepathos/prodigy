@@ -9,7 +9,7 @@ pub mod command_validator;
 pub mod loader;
 pub mod workflow;
 
-pub use command::{Command, CommandMetadata, SimpleCommand, WorkflowCommand};
+pub use command::{Command, CommandArg, CommandMetadata, SimpleCommand, WorkflowCommand};
 pub use command_parser::{expand_variables, parse_command_string};
 pub use command_validator::{apply_command_defaults, validate_command, CommandRegistry};
 pub use loader::ConfigLoader;
@@ -192,7 +192,7 @@ max_iterations: 3
         // Verify second command (Structured with args)
         let cmd = config.commands[1].to_command();
         assert_eq!(cmd.name, "mmm-implement-spec");
-        assert_eq!(cmd.args, vec!["${SPEC_ID}"]);
+        assert_eq!(cmd.args, vec![CommandArg::parse("${SPEC_ID}")]);
     }
 
     #[test]
@@ -216,7 +216,7 @@ commands:
         // Second command should be Structured
         let cmd = config.commands[1].to_command();
         assert_eq!(cmd.name, "mmm-implement-spec");
-        assert_eq!(cmd.args, vec!["iteration-123"]);
+        assert_eq!(cmd.args, vec![CommandArg::parse("iteration-123")]);
 
         // Third command should be Simple
         assert!(matches!(&config.commands[2], WorkflowCommand::Simple(_)));
@@ -251,7 +251,8 @@ commands:
         for (input, expected_name, expected_args, expected_options) in test_cases {
             let cmd = parse_command_string(input).unwrap();
             assert_eq!(cmd.name, expected_name);
-            assert_eq!(cmd.args, expected_args);
+            let expected_args_cmd: Vec<CommandArg> = expected_args.into_iter().map(CommandArg::parse).collect();
+            assert_eq!(cmd.args, expected_args_cmd);
 
             for (key, value) in expected_options {
                 let expected_value = if value == "true" {
@@ -313,7 +314,9 @@ commands:
 
         expand_variables(&mut cmd, &vars);
 
-        assert_eq!(cmd.args[0], "iteration-123");
+        // expand_variables doesn't change CommandArg anymore, so this test doesn't apply the same way
+        // The variable would be resolved at execution time
+        assert!(matches!(&cmd.args[0], CommandArg::Variable(var) if var == "SPEC_ID"));
         assert_eq!(
             cmd.options.get("path"),
             Some(&serde_json::json!("/home/user/project/src"))

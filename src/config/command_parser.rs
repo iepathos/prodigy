@@ -1,4 +1,4 @@
-use super::command::Command;
+use super::command::{Command, CommandArg};
 use anyhow::{anyhow, Result};
 
 /// Parse a command string into a structured Command
@@ -60,7 +60,7 @@ pub fn parse_command_string(s: &str) -> Result<Command> {
             }
         } else {
             // This is a positional argument
-            cmd.args.push(part.to_string());
+            cmd.args.push(CommandArg::parse(part));
             i += 1;
         }
     }
@@ -69,12 +69,9 @@ pub fn parse_command_string(s: &str) -> Result<Command> {
 }
 
 /// Expand variables in command arguments
-/// Supports ${VAR_NAME} syntax
+/// Supports ${VAR_NAME} and $VAR syntax
 pub fn expand_variables(cmd: &mut Command, variables: &std::collections::HashMap<String, String>) {
-    // Expand in args
-    for arg in &mut cmd.args {
-        *arg = expand_string(arg, variables);
-    }
+    // Args are already CommandArg, no need to expand - they'll be resolved at execution time
 
     // Expand in string option values
     for value in cmd.options.values_mut() {
@@ -132,7 +129,7 @@ mod tests {
         let cmd = parse_command_string("mmm-implement-spec iteration-123").unwrap();
         assert_eq!(cmd.name, "mmm-implement-spec");
         assert_eq!(cmd.args.len(), 1);
-        assert_eq!(cmd.args[0], "iteration-123");
+        assert_eq!(cmd.args[0], CommandArg::Literal("iteration-123".to_string()));
     }
 
     #[test]
@@ -150,7 +147,7 @@ mod tests {
     fn test_parse_command_with_variable() {
         let cmd = parse_command_string("mmm-implement-spec ${SPEC_ID}").unwrap();
         assert_eq!(cmd.name, "mmm-implement-spec");
-        assert_eq!(cmd.args[0], "${SPEC_ID}");
+        assert_eq!(cmd.args[0], CommandArg::Variable("SPEC_ID".to_string()));
     }
 
     #[test]
@@ -165,7 +162,8 @@ mod tests {
 
         expand_variables(&mut cmd, &vars);
 
-        assert_eq!(cmd.args[0], "iteration-123");
+        // Note: expand_variables doesn't change CommandArg anymore as it's resolved at execution time
+        assert_eq!(cmd.args[0], CommandArg::Variable("SPEC_ID".to_string()));
         assert_eq!(
             cmd.options.get("focus"),
             Some(&serde_json::json!("performance"))
@@ -187,8 +185,8 @@ mod tests {
 
         assert_eq!(cmd.name, "mmm-code-review");
         assert_eq!(cmd.args.len(), 2);
-        assert_eq!(cmd.args[0], "file1.rs");
-        assert_eq!(cmd.args[1], "file2.rs");
+        assert_eq!(cmd.args[0], CommandArg::Literal("file1.rs".to_string()));
+        assert_eq!(cmd.args[1], CommandArg::Literal("file2.rs".to_string()));
         assert_eq!(
             cmd.options.get("focus"),
             Some(&serde_json::json!("security"))

@@ -7,15 +7,18 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 ## Core Modules
 
 ### 1. CLI Interface (`src/main.rs`)
-- Main commands: `mmm improve`, `mmm implement`, `mmm worktree`
+- Main commands: `mmm improve`, `mmm worktree`
 - Global flags: `--verbose`
 - Direct entry point to subcommands
 
 ### 2. Improve Command (`src/improve/`)
-- **mod.rs**: Single core improvement loop with Claude CLI integration
-- **command.rs**: Simplified CLI with only target and verbose flags
+- **mod.rs**: Core improvement loop with Claude CLI integration and mapping support
+- **command.rs**: CLI with target, verbose, focus, config, map, args, and fail-fast flags
 - **session.rs**: Minimal session data structures
-- **workflow.rs**: Simple configurable workflow execution
+- **workflow.rs**: Configurable workflow execution with variable substitution
+- **git_ops.rs**: Thread-safe git operations
+- Supports file mapping with `--map` for batch processing
+- Variable substitution in commands ($ARG, $FILE, $INDEX, etc.)
 
 ### 3. Project Analysis (`src/analyzer/`)
 - **language.rs**: Programming language detection
@@ -67,12 +70,6 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 - Worktrees are stored in `~/.mmm/worktrees/{repo-name}/` to comply with git restrictions
 - State metadata stored in `~/.mmm/worktrees/{repo-name}/.metadata/` (gitignored)
 
-### 10. Implement Command (`src/implement/`)
-- **mod.rs**: Batch implementation logic for multiple specifications
-- **command.rs**: CLI arguments for the implement subcommand
-- **state.rs**: BatchImplementState for tracking progress across specs
-- Supports glob patterns for spec file selection
-- Executes implement-spec → lint cycle for each specification
 
 ## Data Flow
 

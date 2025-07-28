@@ -39,4 +39,25 @@ pub struct ImproveCommand {
     /// work in its own branch and worktree, which can be merged back later.
     #[arg(short = 'w', long)]
     pub worktree: bool,
+
+    /// File patterns to map over
+    ///
+    /// Run a separate improvement loop for each file matching the pattern(s).
+    /// Supports glob patterns like "specs/*.md" or "src/**/*.rs".
+    #[arg(long, value_name = "PATTERN")]
+    pub map: Vec<String>,
+
+    /// Direct arguments to pass to commands
+    ///
+    /// Arguments that will be passed to workflow commands via $ARG variable.
+    /// Can be used with or without --map.
+    #[arg(long, value_name = "VALUE")]
+    pub args: Vec<String>,
+
+    /// Stop on first failure
+    ///
+    /// When processing multiple files with --map, stop immediately on first error.
+    /// By default, continues processing remaining files.
+    #[arg(long)]
+    pub fail_fast: bool,
 }

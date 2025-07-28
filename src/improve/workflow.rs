@@ -1,8 +1,9 @@
 use crate::config::command_validator::{apply_command_defaults, validate_command};
-use crate::config::workflow::WorkflowConfig;
+use crate::config::{workflow::WorkflowConfig, CommandArg};
 use crate::improve::git_ops::get_last_commit_message;
 use crate::improve::retry::{check_claude_cli, execute_with_retry, format_subprocess_error};
 use anyhow::{anyhow, Context as _, Result};
+use std::collections::HashMap;
 use tokio::process::Command;
 
 /// Execute a configurable workflow
@@ -10,6 +11,7 @@ pub struct WorkflowExecutor {
     config: WorkflowConfig,
     verbose: bool,
     max_iterations: u32,
+    variables: HashMap<String, String>,
 }
 
 impl WorkflowExecutor {
@@ -18,7 +20,19 @@ impl WorkflowExecutor {
             config,
             verbose,
             max_iterations,
+            variables: HashMap::new(),
         }
+    }
+
+    /// Create a new workflow executor with variables
+    pub fn with_variables(mut self, variables: HashMap<String, String>) -> Self {
+        self.variables = variables;
+        self
+    }
+
+    /// Resolve a command argument by substituting variables
+    fn resolve_argument(&self, arg: &CommandArg) -> String {
+        arg.resolve(&self.variables)
     }
 
     /// Execute a single iteration of the workflow
@@ -40,7 +54,7 @@ impl WorkflowExecutor {
             if command.name == "mmm-implement-spec" && command.args.is_empty() {
                 let spec_id = self.extract_spec_from_git().await?;
                 if !spec_id.is_empty() {
-                    command.args = vec![spec_id];
+                    command.args = vec![CommandArg::Literal(spec_id)];
                 }
             }
 
@@ -113,9 +127,10 @@ impl WorkflowExecutor {
             .arg(format!("/{}", command.name))
             .env("MMM_AUTOMATION", "true");
 
-        // Add positional arguments
+        // Add positional arguments with variable resolution
         for arg in &command.args {
-            cmd.arg(arg);
+            let resolved_arg = self.resolve_argument(arg);
+            cmd.arg(resolved_arg);
         }
 
         // Add options as environment variables or flags based on command definition
@@ -219,7 +234,7 @@ mod tests {
     fn create_structured_command(name: &str, args: Vec<String>) -> Command {
         Command {
             name: name.to_string(),
-            args,
+            args: args.into_iter().map(|s| CommandArg::parse(&s)).collect(),
             options: HashMap::new(),
             metadata: CommandMetadata::default(),
         }
@@ -408,7 +423,7 @@ mod tests {
         let structured = WorkflowCommand::Structured(structured_cmd.clone());
         let converted = structured.to_command();
         assert_eq!(converted.name, "structured-cmd");
-        assert_eq!(converted.args, vec!["arg1".to_string()]);
+        assert_eq!(converted.args, vec![CommandArg::parse("arg1")]);
     }
 
     #[tokio::test]

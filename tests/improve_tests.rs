@@ -97,6 +97,9 @@ mod improve_command_tests {
             config: None,
             max_iterations: 10,
             worktree: false,
+            map: vec![],
+            args: vec![],
+            fail_fast: false,
         };
 
         assert!(!cmd.show_progress);
@@ -112,6 +115,9 @@ mod improve_command_tests {
             config: None,
             max_iterations: 10,
             worktree: false,
+            map: vec![],
+            args: vec![],
+            fail_fast: false,
         };
 
         assert!(cmd.show_progress);
