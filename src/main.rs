@@ -183,6 +183,7 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
                             let status_emoji = match state.status {
                                 mmm::worktree::WorktreeStatus::InProgress => "🔄",
                                 mmm::worktree::WorktreeStatus::Completed => "✅",
+                                mmm::worktree::WorktreeStatus::Merged => "🔀",
                                 mmm::worktree::WorktreeStatus::Failed => "❌",
                                 mmm::worktree::WorktreeStatus::Abandoned => "⚠️",
                             };

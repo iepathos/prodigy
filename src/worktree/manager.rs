@@ -322,6 +322,7 @@ impl WorktreeManager {
         if let Err(e) = self.update_session_state(name, |state| {
             state.merged = true;
             state.merged_at = Some(Utc::now());
+            state.status = crate::worktree::WorktreeStatus::Merged;
         }) {
             eprintln!("Warning: Failed to update session state after merge: {e}");
         }

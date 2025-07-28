@@ -24,6 +24,7 @@ pub struct WorktreeState {
 pub enum WorktreeStatus {
     InProgress,
     Completed,
+    Merged,
     Failed,
     Abandoned,
 }

@@ -146,6 +146,39 @@ async fn run_with_mapping(cmd: command::CookCommand) -> Result<()> {
                             match merge_worktree(&session.name, &original_repo_path).await {
                                 Ok(_) => {
                                     println!("✅ Successfully merged worktree: {}", session.name);
+
+                                    // Update worktree status to merged
+                                    worktree_manager.update_session_state(
+                                        &session.name,
+                                        |state| {
+                                            state.status = crate::worktree::WorktreeStatus::Merged;
+                                        },
+                                    )?;
+
+                                    // Prompt to delete the worktree
+                                    print!("\nWould you like to delete the worktree now? (y/N): ");
+                                    io::stdout().flush().unwrap_or_default();
+
+                                    let mut input = String::new();
+                                    io::stdin().read_line(&mut input).unwrap_or_default();
+
+                                    if input.trim().to_lowercase() == "y" {
+                                        println!("Deleting worktree {}...", session.name);
+                                        match worktree_manager.cleanup_session(&session.name, false)
+                                        {
+                                            Ok(_) => {
+                                                println!("✅ Worktree deleted successfully");
+                                            }
+                                            Err(e) => {
+                                                eprintln!("❌ Failed to delete worktree: {e}");
+                                                println!("You can manually delete it with:");
+                                                println!("  mmm worktree delete {}", session.name);
+                                            }
+                                        }
+                                    } else {
+                                        println!("\nTo delete the worktree later, run:");
+                                        println!("  mmm worktree delete {}", session.name);
+                                    }
                                 }
                                 Err(e) => {
                                     eprintln!("❌ Failed to merge worktree: {e}");
@@ -383,6 +416,39 @@ async fn run_standard(cmd: command::CookCommand) -> Result<()> {
                             match merge_worktree(&session.name, &original_repo_path).await {
                                 Ok(_) => {
                                     println!("✅ Successfully merged worktree: {}", session.name);
+
+                                    // Update worktree status to merged
+                                    worktree_manager.update_session_state(
+                                        &session.name,
+                                        |state| {
+                                            state.status = crate::worktree::WorktreeStatus::Merged;
+                                        },
+                                    )?;
+
+                                    // Prompt to delete the worktree
+                                    print!("\nWould you like to delete the worktree now? (y/N): ");
+                                    io::stdout().flush().unwrap_or_default();
+
+                                    let mut input = String::new();
+                                    io::stdin().read_line(&mut input).unwrap_or_default();
+
+                                    if input.trim().to_lowercase() == "y" {
+                                        println!("Deleting worktree {}...", session.name);
+                                        match worktree_manager.cleanup_session(&session.name, false)
+                                        {
+                                            Ok(_) => {
+                                                println!("✅ Worktree deleted successfully");
+                                            }
+                                            Err(e) => {
+                                                eprintln!("❌ Failed to delete worktree: {e}");
+                                                println!("You can manually delete it with:");
+                                                println!("  mmm worktree delete {}", session.name);
+                                            }
+                                        }
+                                    } else {
+                                        println!("\nTo delete the worktree later, run:");
+                                        println!("  mmm worktree delete {}", session.name);
+                                    }
                                 }
                                 Err(e) => {
                                     eprintln!("❌ Failed to merge worktree: {e}");
