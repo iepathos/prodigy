@@ -329,12 +329,19 @@ impl WorktreeManager {
         Ok(())
     }
 
-    pub fn cleanup_session(&self, name: &str) -> Result<()> {
+    pub fn cleanup_session(&self, name: &str, force: bool) -> Result<()> {
         let worktree_path = self.base_dir.join(name);
+        let worktree_path_str = worktree_path.to_string_lossy();
+
+        let mut args = vec!["worktree", "remove"];
+        if force {
+            args.push("--force");
+        }
+        args.push(&worktree_path_str);
 
         let prune_output = Command::new("git")
             .current_dir(&self.repo_path)
-            .args(["worktree", "remove", &worktree_path.to_string_lossy()])
+            .args(&args)
             .output()
             .context("Failed to execute git worktree remove")?;
 
@@ -368,12 +375,12 @@ impl WorktreeManager {
         Ok(())
     }
 
-    pub fn cleanup_all_sessions(&self) -> Result<()> {
+    pub fn cleanup_all_sessions(&self, force: bool) -> Result<()> {
         let sessions = self.list_sessions()?;
         for session in sessions {
             let name = &session.name;
             println!("Cleaning up worktree: {name}");
-            self.cleanup_session(name)?;
+            self.cleanup_session(name, force)?;
         }
         Ok(())
     }

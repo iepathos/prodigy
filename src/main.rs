@@ -78,6 +78,9 @@ enum WorktreeCommands {
         all: bool,
         /// Name of specific worktree to clean
         name: Option<String>,
+        /// Force removal even if there are untracked or modified files
+        #[arg(long)]
+        force: bool,
     },
 }
 
@@ -236,7 +239,7 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
                             Ok(_) => {
                                 println!("✅ Successfully merged worktree '{}'", session.name);
                                 // Automatically clean up successfully merged worktrees when using --all
-                                if let Err(e) = worktree_manager.cleanup_session(&session.name) {
+                                if let Err(e) = worktree_manager.cleanup_session(&session.name, false) {
                                     eprintln!(
                                         "⚠️ Warning: Failed to clean up worktree '{}': {}",
                                         session.name, e
@@ -262,7 +265,7 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
                 let mut input = String::new();
                 std::io::stdin().read_line(&mut input)?;
                 if input.trim().to_lowercase() == "y" {
-                    worktree_manager.cleanup_session(&name)?;
+                    worktree_manager.cleanup_session(&name, false)?;
                     println!("✅ Worktree cleaned up");
                 }
             } else {
@@ -270,14 +273,14 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
                 std::process::exit(1);
             }
         }
-        WorktreeCommands::Clean { all, name } => {
+        WorktreeCommands::Clean { all, name, force } => {
             if all {
                 println!("Cleaning up all MMM worktrees...");
-                worktree_manager.cleanup_all_sessions()?;
+                worktree_manager.cleanup_all_sessions(force)?;
                 println!("✅ All worktrees cleaned up");
             } else if let Some(name) = name {
                 println!("Cleaning up worktree '{name}'...");
-                worktree_manager.cleanup_session(&name)?;
+                worktree_manager.cleanup_session(&name, force)?;
                 println!("✅ Worktree '{name}' cleaned up");
             } else {
                 eprintln!("Error: Either --all or a worktree name must be specified");
