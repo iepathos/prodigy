@@ -155,6 +155,12 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
   - Support for command-specific options and metadata
   - Maintain backward compatibility with string-based configs
 
+- [ ] **Unified Improve Command with Mapping** (Spec 35)
+  - Add --map flag to improve command for file pattern processing
+  - Remove separate implement subcommand
+  - Support variable substitution in command arguments
+  - Enable batch processing with custom workflows
+
 ### Parallel Execution
 - [x] **Git Worktree Isolation** (Spec 24) ✅
   - Isolate each MMM session in its own git worktree
