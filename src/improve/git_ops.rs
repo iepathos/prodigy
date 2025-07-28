@@ -137,14 +137,14 @@ mod tests {
 
         // Initialize git repo
         let output = Command::new("git")
-            .args(&["init"])
+            .args(["init"])
             .current_dir(temp_dir.path())
             .output()
             .await
             .unwrap();
 
         // Ensure git init succeeded
-        assert!(output.status.success(), "git init failed: {:?}", output);
+        assert!(output.status.success(), "git init failed: {output:?}");
 
         // Test git directory
         let output = Command::new("git")

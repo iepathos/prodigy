@@ -824,16 +824,10 @@ mod tests {
         let cmd = create_test_command(false, 1);
 
         // The function should detect the env var even if flag is false
-        let use_worktree = if cmd.worktree {
-            true
-        } else if std::env::var("MMM_USE_WORKTREE")
-            .map(|v| v == "true" || v == "1")
-            .unwrap_or(false)
-        {
-            true
-        } else {
-            false
-        };
+        let use_worktree = cmd.worktree
+            || std::env::var("MMM_USE_WORKTREE")
+                .map(|v| v == "true" || v == "1")
+                .unwrap_or(false);
 
         assert!(use_worktree);
         std::env::remove_var("MMM_USE_WORKTREE");
@@ -862,7 +856,7 @@ mod tests {
                 && spec_id[10..spec_id.len() - 13]
                     .chars()
                     .all(|c| c.is_ascii_digit() || c == '-');
-            assert!(is_valid, "Should be valid: {}", spec_id);
+            assert!(is_valid, "Should be valid: {spec_id}");
         }
 
         // Invalid spec IDs
@@ -882,7 +876,7 @@ mod tests {
                 && spec_id[10..spec_id.len() - 13]
                     .chars()
                     .all(|c| c.is_ascii_digit() || c == '-');
-            assert!(!is_valid, "Should be invalid: {}", spec_id);
+            assert!(!is_valid, "Should be invalid: {spec_id}");
         }
     }
 
@@ -894,7 +888,7 @@ mod tests {
 
         // Initialize git repo
         std::process::Command::new("git")
-            .args(&["init"])
+            .args(["init"])
             .output()
             .unwrap();
 
@@ -971,7 +965,7 @@ mod tests {
                 String::new()
             };
 
-            assert_eq!(result, expected, "Failed for input: '{}'", input);
+            assert_eq!(result, expected, "Failed for input: '{input}'");
         }
     }
 
@@ -986,12 +980,11 @@ mod tests {
 
         for (cmd, code, stderr, stdout) in scenarios {
             let formatted = format!(
-                "Command '{}' failed with exit code {:?}\nStderr: {}\nStdout: {}",
-                cmd, code, stderr, stdout
+                "Command '{cmd}' failed with exit code {code:?}\nStderr: {stderr}\nStdout: {stdout}"
             );
 
             assert!(formatted.contains(cmd));
-            assert!(formatted.contains(&format!("{:?}", code)));
+            assert!(formatted.contains(&format!("{code:?}")));
             if !stderr.is_empty() {
                 assert!(formatted.contains(stderr));
             }
