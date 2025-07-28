@@ -174,6 +174,12 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
   - Rich state tracking (iterations, status, stats)
   - Better UX with status display in list command
 
+- [ ] **Interrupted Worktree Recovery** (Spec 30)
+  - Detect and track interrupted Claude sessions
+  - Resume capability from last successful iteration
+  - Signal handling for graceful state updates
+  - Checkpoint mechanism for recovery
+
 ### Success Criteria
 - Works reliably across different project types
 - Fails gracefully with helpful messages
