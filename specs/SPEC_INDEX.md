@@ -50,6 +50,8 @@ Performance improvements and system efficiency.
 - **Spec 17**: Consolidate Core Modules - Module consolidation ✅
 - **Spec 22**: Configurable Iteration Limit - Performance control ✅
 - **Spec 28**: Structured Command Objects - Type-safe commands ✅
+- **Spec 31**: Product Management Command - Product-focused improvements (draft)
+- **Spec 32**: CLI Help as Default - Unix CLI best practices (draft)
 
 ## Implementation Status
 
@@ -73,8 +75,10 @@ Performance improvements and system efficiency.
 - Spec 28: Structured Command Objects
 - Spec 29: Centralized Worktree State
 
-### 📝 Draft (1 spec)
+### 📝 Draft (3 specs)
 - Spec 30: Interrupted Worktree Recovery
+- Spec 31: Product Management Command
+- Spec 32: CLI Help as Default
 
 ### 🚧 In Progress (0 specs)
 None currently in progress.
@@ -132,9 +136,10 @@ Optimization Layer:
 ## Quick Reference
 
 ### Latest Specifications
+- Spec 32: CLI Help as Default (draft) - Unix CLI best practices
+- Spec 31: Product Management Command (draft) - Product-focused improvements
 - Spec 30: Interrupted Worktree Recovery (draft) - Recovery from interrupted sessions
 - Spec 29: Centralized Worktree State ✅ - Enhanced worktree metadata
-- Spec 28: Structured Command Objects ✅ - Type-safe command system
 
 ### High Priority Specifications
 - Spec 30: Interrupted Worktree Recovery - Critical for robust parallel execution

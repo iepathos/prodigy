@@ -180,6 +180,12 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
   - Signal handling for graceful state updates
   - Checkpoint mechanism for recovery
 
+- [ ] **Product Management Command** (Spec 31)
+  - Create /mmm-product-enhance command
+  - Focus on feature improvements over code quality
+  - User experience and value-driven enhancements
+  - Integration with existing workflow system
+
 ### Success Criteria
 - Works reliably across different project types
 - Fails gracefully with helpful messages
@@ -198,6 +204,13 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
 - [ ] Dry run mode (`--dry-run`)
 - [ ] Better progress visualization
 - [ ] Integration with common tools
+
+### CLI Best Practices
+- [ ] **CLI Help as Default** (Spec 32)
+  - Show help when running `mmm` without arguments
+  - Follow Unix CLI conventions
+  - Improve new user experience
+  - Clear guidance on available commands
 
 ## Non-Goals
 
