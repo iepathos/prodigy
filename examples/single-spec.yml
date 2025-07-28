@@ -1,0 +1,11 @@
+# single-spec.yml - Simple configuration for implementing a single specification
+#
+# Usage: mmm improve --config examples/single-spec.yml --args "SPEC_ID"
+# Example: mmm improve --config examples/single-spec.yml --args "33"
+
+workflow:
+  commands:
+    - name: mmm-implement-spec
+      args: ["$ARG"]
+    - name: mmm-lint
+  max_iterations: 1

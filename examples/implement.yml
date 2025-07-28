@@ -1,0 +1,37 @@
+# implement.yml - Configuration for implementing specifications
+# 
+# This configuration replaces the `mmm implement` command functionality
+# using the unified `mmm improve` command with --map or --args flags.
+#
+# Usage examples:
+#   Single spec:     mmm improve --config examples/implement.yml --args "33"
+#   Multiple specs:  mmm improve --config examples/implement.yml --map "specs/*.md"
+#   With worktree:   mmm improve --config examples/implement.yml --map "specs/*.md" --worktree
+
+workflow:
+  # Commands to execute for each specification
+  commands:
+    # Implement the specification
+    - name: mmm-implement-spec
+      args: ["$ARG"]  # $ARG contains the spec ID (from --args or extracted from file)
+      description: "Implement specification"
+    
+    # Run linting and formatting
+    - name: mmm-lint
+      description: "Apply formatting and linting"
+  
+  # Only run once per specification (no iterative improvement)
+  max_iterations: 1
+  
+  # Continue processing other specs even if one fails
+  continue_on_error: true
+
+# Optional: Configure how spec IDs are extracted from files
+extraction:
+  # Pattern to extract spec ID from filename
+  # Default: extracts "33" from "33-feature-name.md"
+  spec_id_pattern: '^(\d+)(?:-(.+))?\.md$'
+  
+  # What to use as the spec ID
+  # Options: "number" (just the number), "full" (number-name), "stem" (filename without extension)
+  spec_id_format: "full"
