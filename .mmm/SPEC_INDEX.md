@@ -31,6 +31,7 @@ This file tracks the key specifications that shaped the current focused architec
 - **22**: `specs/22-configurable-iteration-limit.md` - Add --max-iterations flag
 - **35**: `specs/35-unified-improve-mapping.md` - Unified improve command with file mapping
 - **37**: `specs/37-worktree-merge-prompt.md` - Interactive worktree merge prompt after completion
+- **38**: `specs/38-focus-every-iteration.md` - Pass focus directive on every iteration
 
 ## Current Focus
 

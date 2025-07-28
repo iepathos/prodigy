@@ -45,10 +45,9 @@ fn prompt_for_merge(_worktree_name: &str) -> MergeChoice {
 }
 
 /// Execute worktree merge
-async fn merge_worktree(worktree_name: &str) -> Result<()> {
-    // Get the parent directory (repository root)
-    let repo_path = std::env::current_dir()?.parent().unwrap().to_path_buf();
-    let worktree_manager = WorktreeManager::new(repo_path)?;
+async fn merge_worktree(worktree_name: &str, original_repo_path: &std::path::Path) -> Result<()> {
+    // Use the original repository path, not the current directory which is inside the worktree
+    let worktree_manager = WorktreeManager::new(original_repo_path.to_path_buf())?;
 
     // Execute merge using existing logic
     worktree_manager.merge_session(worktree_name)?;
@@ -102,8 +101,11 @@ async fn run_with_mapping(cmd: command::CookCommand) -> Result<()> {
     };
 
     if use_worktree {
+        // Save the original repository path before changing directories
+        let original_repo_path = std::env::current_dir()?;
+        
         // Create a new worktree for this improvement session
-        let worktree_manager = WorktreeManager::new(std::env::current_dir()?)?;
+        let worktree_manager = WorktreeManager::new(original_repo_path.clone())?;
         let session = worktree_manager.create_session(cmd.focus.as_deref())?;
 
         println!(
@@ -116,7 +118,7 @@ async fn run_with_mapping(cmd: command::CookCommand) -> Result<()> {
         std::env::set_current_dir(&session.path)?;
 
         // Run improvement in worktree context
-        let result = run_with_mapping_in_worktree(cmd.clone(), session.clone()).await;
+        let result = run_with_mapping_in_worktree(cmd.clone(), session.clone(), original_repo_path.clone()).await;
 
         // Clean up on failure, keep on success for manual merge
         match &result {
@@ -126,9 +128,7 @@ async fn run_with_mapping(cmd: command::CookCommand) -> Result<()> {
                 // Prompt for merge if in interactive terminal
                 if is_tty() {
                     // Update state to track prompt shown
-                    let worktree_manager = WorktreeManager::new(
-                        std::env::current_dir()?.parent().unwrap().to_path_buf(),
-                    )?;
+                    let worktree_manager = WorktreeManager::new(original_repo_path.clone())?;
                     worktree_manager.update_session_state(&session.name, |state| {
                         state.merge_prompt_shown = true;
                     })?;
@@ -141,7 +141,7 @@ async fn run_with_mapping(cmd: command::CookCommand) -> Result<()> {
                             })?;
 
                             println!("Merging worktree {}...", session.name);
-                            match merge_worktree(&session.name).await {
+                            match merge_worktree(&session.name, &original_repo_path).await {
                                 Ok(_) => {
                                     println!("✅ Successfully merged worktree: {}", session.name);
                                 }
@@ -337,8 +337,11 @@ async fn run_standard(cmd: command::CookCommand) -> Result<()> {
     };
 
     if use_worktree {
+        // Save the original repository path before changing directories
+        let original_repo_path = std::env::current_dir()?;
+        
         // Create worktree for this session
-        let worktree_manager = WorktreeManager::new(std::env::current_dir()?)?;
+        let worktree_manager = WorktreeManager::new(original_repo_path.clone())?;
         let session = worktree_manager.create_session(cmd.focus.as_deref())?;
 
         println!(
@@ -351,7 +354,7 @@ async fn run_standard(cmd: command::CookCommand) -> Result<()> {
         std::env::set_current_dir(&session.path)?;
 
         // Run improvement in worktree context
-        let result = run_in_worktree(cmd.clone(), session.clone()).await;
+        let result = run_in_worktree(cmd.clone(), session.clone(), original_repo_path.clone()).await;
 
         // Clean up on failure, keep on success for manual merge
         match &result {
@@ -361,9 +364,7 @@ async fn run_standard(cmd: command::CookCommand) -> Result<()> {
                 // Prompt for merge if in interactive terminal
                 if is_tty() {
                     // Update state to track prompt shown
-                    let worktree_manager = WorktreeManager::new(
-                        std::env::current_dir()?.parent().unwrap().to_path_buf(),
-                    )?;
+                    let worktree_manager = WorktreeManager::new(original_repo_path.clone())?;
                     worktree_manager.update_session_state(&session.name, |state| {
                         state.merge_prompt_shown = true;
                     })?;
@@ -376,7 +377,7 @@ async fn run_standard(cmd: command::CookCommand) -> Result<()> {
                             })?;
 
                             println!("Merging worktree {}...", session.name);
-                            match merge_worktree(&session.name).await {
+                            match merge_worktree(&session.name, &original_repo_path).await {
                                 Ok(_) => {
                                     println!("✅ Successfully merged worktree: {}", session.name);
                                 }
@@ -421,15 +422,15 @@ async fn run_standard(cmd: command::CookCommand) -> Result<()> {
 async fn run_in_worktree(
     cmd: command::CookCommand,
     session: crate::worktree::WorktreeSession,
+    original_repo_path: std::path::PathBuf,
 ) -> Result<()> {
     // Check if we have args or map patterns
     if !cmd.args.is_empty() || !cmd.map.is_empty() {
         // Run with mapping logic in worktree context
-        run_with_mapping_in_worktree(cmd, session).await
+        run_with_mapping_in_worktree(cmd, session, original_repo_path).await
     } else {
         // Run standard improvement loop
-        let worktree_manager =
-            WorktreeManager::new(std::env::current_dir()?.parent().unwrap().to_path_buf())?;
+        let worktree_manager = WorktreeManager::new(original_repo_path.clone())?;
 
         // Run improvement loop with state tracking
         let result = run_improvement_loop(cmd.clone(), &session, &worktree_manager).await;
@@ -1059,6 +1060,7 @@ async fn call_claude_lint(verbose: bool) -> Result<bool> {
 async fn run_with_mapping_in_worktree(
     cmd: command::CookCommand,
     session: crate::worktree::WorktreeSession,
+    original_repo_path: std::path::PathBuf,
 ) -> Result<()> {
     use glob::glob;
     use std::collections::HashMap;
@@ -1094,8 +1096,7 @@ async fn run_with_mapping_in_worktree(
     let mut failure_count = 0;
     let total = inputs.len();
 
-    let worktree_manager =
-        WorktreeManager::new(std::env::current_dir()?.parent().unwrap().to_path_buf())?;
+    let worktree_manager = WorktreeManager::new(original_repo_path)?;
 
     for (index, input) in inputs.iter().enumerate() {
         let item_number = index + 1;

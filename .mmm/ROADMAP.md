@@ -174,6 +174,12 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
   - Detect TTY for interactive vs non-interactive environments
   - Track prompt interactions in worktree state
 
+- [ ] **Focus Directive on Every Iteration** (Spec 38)
+  - Pass focus directive to all iterations, not just the first
+  - Ensures consistent focus throughout improvement session
+  - Simple change to remove conditional logic
+  - Maintains backward compatibility
+
 ### Parallel Execution
 - [x] **Git Worktree Isolation** (Spec 24) ✅
   - Isolate each MMM session in its own git worktree
