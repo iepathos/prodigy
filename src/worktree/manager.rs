@@ -18,7 +18,12 @@ impl WorktreeManager {
         let repo_name = repo_path
             .file_name()
             .and_then(|n| n.to_str())
-            .ok_or_else(|| anyhow!("Could not determine repository name"))?;
+            .ok_or_else(|| {
+                anyhow!(
+                    "Could not determine repository name from path: {}",
+                    repo_path.display()
+                )
+            })?;
 
         // Use home directory for worktrees
         let home_dir =
@@ -108,7 +113,12 @@ impl WorktreeManager {
         };
 
         let json = serde_json::to_string_pretty(&state)?;
-        fs::write(state_file, json)?;
+
+        // Write to temp file first, then rename atomically
+        let temp_file = state_dir.join(format!("{}.json.tmp", session.name));
+        fs::write(&temp_file, &json)?;
+        fs::rename(&temp_file, &state_file)?;
+
         Ok(())
     }
 
@@ -123,7 +133,15 @@ impl WorktreeManager {
         state.updated_at = Utc::now();
 
         let json = serde_json::to_string_pretty(&state)?;
-        fs::write(state_file, json)?;
+
+        // Write to temp file first, then rename atomically
+        let temp_file = self
+            .base_dir
+            .join(".metadata")
+            .join(format!("{name}.json.tmp"));
+        fs::write(&temp_file, &json)?;
+        fs::rename(&temp_file, &state_file)?;
+
         Ok(())
     }
 
