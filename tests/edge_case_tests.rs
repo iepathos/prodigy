@@ -170,10 +170,7 @@ fn test_invalid_spec_file_handling() {
             "invalid-yaml.md",
             "# Test\n```yaml\ninvalid: [syntax: here\n```",
         ),
-        (
-            "binary.md",
-            "\u{FFFD}\u{FFFD}\u{0000}\u{0001}",
-        ),
+        ("binary.md", "\u{FFFD}\u{FFFD}\u{0000}\u{0001}"),
     ];
 
     for (filename, content) in invalid_specs {
