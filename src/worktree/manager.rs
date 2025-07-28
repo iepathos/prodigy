@@ -1,9 +1,11 @@
 use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
+use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
+use uuid::Uuid;
 
-use super::WorktreeSession;
+use super::{IterationInfo, WorktreeSession, WorktreeState, WorktreeStats, WorktreeStatus};
 
 pub struct WorktreeManager {
     pub base_dir: PathBuf,
@@ -26,6 +28,12 @@ impl WorktreeManager {
 
         std::fs::create_dir_all(&base_dir).context("Failed to create worktree base directory")?;
 
+        // Create .gitignore if it doesn't exist
+        let gitignore_path = base_dir.join(".gitignore");
+        if !gitignore_path.exists() {
+            fs::write(&gitignore_path, ".metadata/\n")?;
+        }
+
         // Canonicalize paths to handle symlinks (e.g., /private/var vs /var on macOS)
         let base_dir = base_dir
             .canonicalize()
@@ -41,17 +49,13 @@ impl WorktreeManager {
     }
 
     pub fn create_session(&self, focus: Option<&str>) -> Result<WorktreeSession> {
-        let timestamp = Utc::now().timestamp();
-        let name = if let Some(focus) = focus {
-            let sanitized_focus = focus.replace(" ", "-").replace("/", "-");
-            format!("mmm-{sanitized_focus}-{timestamp}")
-        } else {
-            format!("mmm-session-{timestamp}")
-        };
-
-        let branch = name.clone();
+        let session_id = Uuid::new_v4();
+        // Simple name without focus, using UUID
+        let name = format!("session-{session_id}");
+        let branch = format!("mmm-{name}");
         let worktree_path = self.base_dir.join(&name);
 
+        // Create worktree
         let output = Command::new("git")
             .current_dir(&self.repo_path)
             .args(["worktree", "add", "-b", &branch])
@@ -64,12 +68,64 @@ impl WorktreeManager {
             anyhow::bail!("Failed to create worktree: {stderr}");
         }
 
-        Ok(WorktreeSession::new(
-            name,
+        // Create session
+        let session = WorktreeSession::new(
+            name.clone(),
             branch,
             worktree_path,
             focus.map(|s| s.to_string()),
-        ))
+        );
+
+        // Save session state
+        self.save_session_state(&session)?;
+
+        Ok(session)
+    }
+
+    fn save_session_state(&self, session: &WorktreeSession) -> Result<()> {
+        let state_dir = self.base_dir.join(".metadata");
+        fs::create_dir_all(&state_dir)?;
+
+        let state_file = state_dir.join(format!("{}.json", session.name));
+        let state = WorktreeState {
+            session_id: session.name.clone(),
+            worktree_name: session.name.clone(),
+            branch: session.branch.clone(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            status: WorktreeStatus::InProgress,
+            focus: session.focus.clone(),
+            iterations: IterationInfo {
+                completed: 0,
+                max: 10,
+            },
+            stats: WorktreeStats::default(),
+            merged: false,
+            merged_at: None,
+            error: None,
+        };
+
+        let json = serde_json::to_string_pretty(&state)?;
+        fs::write(state_file, json)?;
+        Ok(())
+    }
+
+    pub fn update_session_state<F>(&self, name: &str, updater: F) -> Result<()>
+    where
+        F: FnOnce(&mut WorktreeState),
+    {
+        let state_file = self
+            .base_dir
+            .join(".metadata")
+            .join(format!("{name}.json"));
+        let mut state: WorktreeState = serde_json::from_str(&fs::read_to_string(&state_file)?)?;
+
+        updater(&mut state);
+        state.updated_at = Utc::now();
+
+        let json = serde_json::to_string_pretty(&state)?;
+        fs::write(state_file, json)?;
+        Ok(())
     }
 
     pub fn list_sessions(&self) -> Result<Vec<WorktreeSession>> {
@@ -102,12 +158,21 @@ impl WorktreeManager {
                             .unwrap_or(&branch)
                             .to_string();
 
-                        let focus = if name.starts_with("mmm-session-") {
-                            None
+                        // Try to load state from metadata
+                        let state_file = self
+                            .base_dir
+                            .join(".metadata")
+                            .join(format!("{name}.json"));
+                        let focus = if let Ok(state_json) = fs::read_to_string(&state_file) {
+                            if let Ok(state) = serde_json::from_str::<WorktreeState>(&state_json) {
+                                state.focus
+                            } else {
+                                // Fallback for legacy sessions
+                                extract_focus_from_name(&name)
+                            }
                         } else {
-                            name.strip_prefix("mmm-")
-                                .and_then(|s| s.rsplit_once('-'))
-                                .map(|(focus, _)| focus.replace("-", " "))
+                            // Fallback for legacy sessions
+                            extract_focus_from_name(&name)
                         };
 
                         sessions.push(WorktreeSession::new(name, branch, canonical_path, focus));
@@ -129,12 +194,21 @@ impl WorktreeManager {
                     .unwrap_or(&branch)
                     .to_string();
 
-                let focus = if name.starts_with("mmm-session-") {
-                    None
+                // Try to load state from metadata
+                let state_file = self
+                    .base_dir
+                    .join(".metadata")
+                    .join(format!("{name}.json"));
+                let focus = if let Ok(state_json) = fs::read_to_string(&state_file) {
+                    if let Ok(state) = serde_json::from_str::<WorktreeState>(&state_json) {
+                        state.focus
+                    } else {
+                        // Fallback for legacy sessions
+                        extract_focus_from_name(&name)
+                    }
                 } else {
-                    name.strip_prefix("mmm-")
-                        .and_then(|s| s.rsplit_once('-'))
-                        .map(|(focus, _)| focus.replace("-", " "))
+                    // Fallback for legacy sessions
+                    extract_focus_from_name(&name)
                 };
 
                 sessions.push(WorktreeSession::new(name, branch, canonical_path, focus));
@@ -232,6 +306,14 @@ impl WorktreeManager {
             }
         }
 
+        // Update session state to mark as merged
+        if let Err(e) = self.update_session_state(name, |state| {
+            state.merged = true;
+            state.merged_at = Some(Utc::now());
+        }) {
+            eprintln!("Warning: Failed to update session state after merge: {e}");
+        }
+
         Ok(())
     }
 
@@ -290,6 +372,17 @@ impl WorktreeManager {
             .into_iter()
             .find(|s| s.branch == branch)
             .map(|s| s.path))
+    }
+}
+
+/// Extract focus from legacy worktree names
+fn extract_focus_from_name(name: &str) -> Option<String> {
+    if name.starts_with("mmm-session-") || name.starts_with("session-") {
+        None
+    } else {
+        name.strip_prefix("mmm-")
+            .and_then(|s| s.rsplit_once('-'))
+            .map(|(focus, _)| focus.replace("-", " "))
     }
 }
 

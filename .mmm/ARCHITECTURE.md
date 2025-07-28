@@ -62,8 +62,10 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 
 ### 9. Worktree Management (`src/worktree/`)
 - **manager.rs**: Git worktree lifecycle management
+- **state.rs**: WorktreeState data structures and metadata persistence
 - **mod.rs**: WorktreeSession data structure and exports
 - Worktrees are stored in `~/.mmm/worktrees/{repo-name}/` to comply with git restrictions
+- State metadata stored in `~/.mmm/worktrees/{repo-name}/.metadata/` (gitignored)
 
 ## Data Flow
 
@@ -181,11 +183,15 @@ src/
 └── worktree/            # Git worktree management
     ├── mod.rs
     ├── manager.rs       # Worktree lifecycle
+    ├── state.rs         # Worktree state persistence
     └── tests.rs         # Unit tests
 
 # Worktrees stored in home directory:
 ~/.mmm/worktrees/{repo-name}/
-├── mmm-session-{timestamp}/
-├── mmm-{focus}-{timestamp}/
+├── .gitignore           # Contains ".metadata/"
+├── .metadata/           # State directory (ignored by git)
+│   ├── session-{uuid}.json
+│   └── ...
+├── session-{uuid}/      # Actual git worktree
 └── ...
 ```

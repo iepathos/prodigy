@@ -168,6 +168,12 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
   - Bulk merge support with --all flag
   - Complete audit trail of merge decisions
 
+- [x] **Centralized Worktree State Management** (Spec 29) ✅
+  - UUID-based worktree naming without embedded focus
+  - State metadata stored in ~/.mmm/worktrees/{repo}/.metadata/
+  - Rich state tracking (iterations, status, stats)
+  - Better UX with status display in list command
+
 ### Success Criteria
 - Works reliably across different project types
 - Fails gracefully with helpful messages

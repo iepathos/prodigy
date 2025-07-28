@@ -141,16 +141,63 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
             } else {
                 println!("Active MMM worktrees:");
                 for session in sessions {
-                    let focus_str = session
-                        .focus
-                        .map(|f| format!(" (focus: {f})"))
-                        .unwrap_or_default();
-                    println!(
-                        "  {} - {}{}",
-                        session.name,
-                        session.path.display(),
-                        focus_str
-                    );
+                    // Load state for each session
+                    let state_file = worktree_manager
+                        .base_dir
+                        .join(".metadata")
+                        .join(format!("{}.json", session.name));
+                    if let Ok(state_json) = std::fs::read_to_string(&state_file) {
+                        if let Ok(state) =
+                            serde_json::from_str::<mmm::worktree::WorktreeState>(&state_json)
+                        {
+                            let focus_str = state
+                                .focus
+                                .as_deref()
+                                .map(|f| format!(" - {f}"))
+                                .unwrap_or_else(|| " - no focus".to_string());
+
+                            let status_emoji = match state.status {
+                                mmm::worktree::WorktreeStatus::InProgress => "🔄",
+                                mmm::worktree::WorktreeStatus::Completed => "✅",
+                                mmm::worktree::WorktreeStatus::Failed => "❌",
+                                mmm::worktree::WorktreeStatus::Abandoned => "⚠️",
+                            };
+
+                            println!(
+                                "  {} {} - {:?}{} ({}/{})",
+                                status_emoji,
+                                session.name,
+                                state.status,
+                                focus_str,
+                                state.iterations.completed,
+                                state.iterations.max
+                            );
+                        } else {
+                            // Fallback to old display for sessions without valid state
+                            let focus_str = session
+                                .focus
+                                .map(|f| format!(" (focus: {f})"))
+                                .unwrap_or_default();
+                            println!(
+                                "  {} - {}{}",
+                                session.name,
+                                session.path.display(),
+                                focus_str
+                            );
+                        }
+                    } else {
+                        // Fallback to old display for sessions without state files
+                        let focus_str = session
+                            .focus
+                            .map(|f| format!(" (focus: {f})"))
+                            .unwrap_or_default();
+                        println!(
+                            "  {} - {}{}",
+                            session.name,
+                            session.path.display(),
+                            focus_str
+                        );
+                    }
                 }
             }
         }

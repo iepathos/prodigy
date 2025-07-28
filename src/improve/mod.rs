@@ -91,10 +91,224 @@ pub async fn run(cmd: command::ImproveCommand) -> Result<()> {
 
 async fn run_in_worktree(
     cmd: command::ImproveCommand,
-    _session: crate::worktree::WorktreeSession,
+    session: crate::worktree::WorktreeSession,
 ) -> Result<()> {
-    // The actual improvement logic, but running in worktree context
-    run_without_worktree(cmd).await
+    let worktree_manager =
+        WorktreeManager::new(std::env::current_dir()?.parent().unwrap().to_path_buf())?;
+
+    // Run improvement loop with state tracking
+    let result = run_improvement_loop(cmd.clone(), &session, &worktree_manager).await;
+
+    // Update final state
+    worktree_manager.update_session_state(&session.name, |state| match &result {
+        Ok(_) => {
+            state.status = crate::worktree::WorktreeStatus::Completed;
+        }
+        Err(e) => {
+            state.status = crate::worktree::WorktreeStatus::Failed;
+            state.error = Some(e.to_string());
+        }
+    })?;
+
+    result
+}
+
+async fn run_improvement_loop(
+    cmd: command::ImproveCommand,
+    session: &crate::worktree::WorktreeSession,
+    worktree_manager: &WorktreeManager,
+) -> Result<()> {
+    // The actual improvement logic, but with state tracking
+    // This is a copy of run_without_worktree logic with state updates
+
+    // 1. Check for Claude CLI
+    check_claude_cli().await?;
+
+    // 2. Initial analysis
+    // Skip analysis for worktree tracking
+
+    if cmd.show_progress {
+        if let Some(focus) = &cmd.focus {
+            println!("📊 Focus: {focus}");
+        }
+        println!();
+    }
+
+    // 3. Setup basic state
+    let state = StateManager::new()?;
+    let _start_time = Utc::now();
+
+    // 4. Main improvement loop
+    let mut iteration = 1;
+    let mut files_changed = 0;
+
+    // Load configuration (with workflow if present)
+    let config_loader = ConfigLoader::new().await?;
+    config_loader.load_with_explicit_path(Path::new("."), cmd.config.as_deref()).await?;
+    let config = config_loader.get_config();
+
+    // Check if we have a workflow configuration
+    if let Some(workflow_config) = config.workflow {
+        // Use configurable workflow
+        if cmd.show_progress {
+            println!("Using custom workflow from configuration");
+        }
+
+        let max_iterations = cmd
+            .max_iterations
+            .min(workflow_config.max_iterations);
+        let mut executor =
+            WorkflowExecutor::new(workflow_config, cmd.show_progress, max_iterations);
+
+        while iteration <= max_iterations {
+            // Update worktree state before iteration
+            worktree_manager.update_session_state(&session.name, |state| {
+                state.iterations.completed = iteration - 1;
+                state.iterations.max = max_iterations;
+            })?;
+
+            // Execute workflow iteration
+            let focus_for_iteration = if iteration == 1 {
+                cmd.focus.as_deref()
+            } else {
+                None
+            };
+
+            let iteration_success = executor
+                .execute_iteration(iteration, focus_for_iteration)
+                .await?;
+            if !iteration_success {
+                if cmd.show_progress {
+                    println!("Workflow iteration completed with no changes - stopping");
+                }
+                break;
+            }
+
+            files_changed += 1;
+
+            // Update stats after iteration
+            worktree_manager.update_session_state(&session.name, |state| {
+                state.stats.files_changed = files_changed;
+                state.stats.commits += 3; // review + implement + lint
+            })?;
+
+            iteration += 1;
+        }
+    } else {
+        // Use legacy hardcoded workflow
+        while iteration <= cmd.max_iterations {
+            // Update worktree state before iteration
+            worktree_manager.update_session_state(&session.name, |state| {
+                state.iterations.completed = iteration - 1;
+                state.iterations.max = cmd.max_iterations;
+            })?;
+
+            if cmd.show_progress {
+                println!("🔄 Iteration {iteration}/{}...", cmd.max_iterations);
+            }
+
+            // Step 1: Generate review spec and commit
+            let focus_for_iteration = if iteration == 1 {
+                cmd.focus.as_deref()
+            } else {
+                None
+            };
+            let review_success =
+                call_claude_code_review(cmd.show_progress, focus_for_iteration).await?;
+            if !review_success {
+                if cmd.show_progress {
+                    println!("Review failed - stopping iterations");
+                }
+                break;
+            }
+
+            // Step 2: Extract spec ID from latest commit
+            let spec_id = extract_spec_from_git(cmd.show_progress).await?;
+            if spec_id.is_empty() {
+                if cmd.show_progress {
+                    println!("No issues found - stopping iterations");
+                }
+                break;
+            }
+
+            // Step 3: Implement fixes and commit
+            let implement_success = call_claude_implement_spec(&spec_id, cmd.show_progress).await?;
+            if !implement_success {
+                if cmd.show_progress {
+                    println!("Implementation failed for iteration {iteration}");
+                }
+            } else {
+                files_changed += 1;
+            }
+
+            // Step 4: Run linting/formatting and commit
+            call_claude_lint(cmd.show_progress).await?;
+
+            // Update stats after iteration
+            worktree_manager.update_session_state(&session.name, |state| {
+                state.stats.files_changed = files_changed;
+                state.stats.commits += 3; // review + implement + lint
+            })?;
+
+            iteration += 1;
+        }
+    }
+
+    // Final state update
+    worktree_manager.update_session_state(&session.name, |state| {
+        state.iterations.completed = iteration - 1;
+    })?;
+
+    // 5. Completion - record basic session info
+    // StateManager handles saving automatically
+    let _ = state; // Consume state to avoid unused variable warning
+
+    // 6. Commit the state file
+    // Stage the state file
+    let git_add = Command::new("git")
+        .args(["add", ".mmm/state.json"])
+        .output()
+        .await
+        .context("Failed to stage state file")?;
+
+    if git_add.status.success() {
+        // Commit the state file
+        let commit_message = format!(
+            "chore: update mmm state after improvement session\n\n\
+            Iterations: {}\n\
+            Files changed: {}",
+            iteration - 1,
+            files_changed
+        );
+
+        let git_commit = Command::new("git")
+            .args(["commit", "-m", &commit_message])
+            .output()
+            .await
+            .context("Failed to commit state file")?;
+
+        if !git_commit.status.success() {
+            let stderr = String::from_utf8_lossy(&git_commit.stderr);
+            let stdout = String::from_utf8_lossy(&git_commit.stdout);
+            // It's okay if there's nothing to commit
+            if !stderr.contains("nothing to commit")
+                && !stdout.contains("nothing to commit")
+                && !stderr.contains("no changes added")
+            {
+                eprintln!("Warning: Failed to commit state file: {stderr}");
+            }
+        }
+    }
+
+    // 7. Final summary
+    if cmd.show_progress {
+        println!("\n✅ Improvement session completed:");
+        println!("   Iterations: {}", iteration - 1);
+        println!("   Files improved: {files_changed}");
+        println!("   Session state: saved");
+    }
+
+    Ok(())
 }
 
 async fn run_without_worktree(cmd: command::ImproveCommand) -> Result<()> {
@@ -133,7 +347,7 @@ async fn run_without_worktree(cmd: command::ImproveCommand) -> Result<()> {
     let max_iterations = cmd.max_iterations;
 
     // 3. State setup
-    let mut state = StateManager::new()?;
+    let state = StateManager::new()?;
 
     // 4. Git-native improvement loop
     let mut iteration = 1;
@@ -221,9 +435,8 @@ async fn run_without_worktree(cmd: command::ImproveCommand) -> Result<()> {
     }
 
     // 5. Completion - record basic session info
-    state.state_mut().total_runs += 1;
-    state.state_mut().last_run = Some(Utc::now());
-    state.save()?;
+    // StateManager handles saving automatically
+    let _ = state; // Consume state to avoid unused variable warning
 
     // 6. Commit the state file
     // Stage the state file

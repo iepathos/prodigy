@@ -401,3 +401,21 @@ Transform the workflow command system from string-based to structured command ob
 - **Positive**: Type-safe command definitions, first-class support for command arguments and options, extensible command metadata (retries, timeouts, error handling), better integration with Claude CLI interface, maintained backward compatibility
 - **Negative**: Additional complexity in configuration parsing, more code to maintain, learning curve for advanced configuration features
 - **Implementation**: Created command.rs with Command/CommandMetadata/WorkflowCommand structures, command_parser.rs for string conversion, command_validator.rs with CommandRegistry, updated workflow executor to use structured commands, maintained full backward compatibility with string-based configs
+
+---
+
+## ADR-024: Centralized Worktree State Management
+
+### Status
+Accepted
+
+### Context
+Spec 29 identified issues with the existing worktree implementation: focus directives embedded in directory names caused problems with long prompts, no tracking of worktree-specific state (iterations, status), no persistence of metadata after cleanup, and timestamp-based naming could cause collisions with parallel sessions.
+
+### Decision
+Implement centralized worktree state management using UUID-based naming and a `.metadata/` directory in `~/.mmm/worktrees/{repo}/`. Store rich session state including iterations, status, focus, and statistics. Add `.metadata/` to `.gitignore` to prevent git pollution.
+
+### Consequences
+- **Positive**: Clean worktree names (just `session-{uuid}`), no collisions with UUIDs, rich state tracking for better UX, state persists after worktree cleanup, no git pollution, improved list command showing status and progress
+- **Negative**: Additional disk space for metadata, more complex state management, requires migration for legacy worktrees
+- **Implementation**: Created state.rs with WorktreeState types, updated WorktreeManager to use UUIDs and save/update state, integrated state tracking into improve loop, enhanced list command to show rich state information

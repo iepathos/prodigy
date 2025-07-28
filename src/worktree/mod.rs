@@ -2,10 +2,12 @@ use chrono::{DateTime, Utc};
 use std::path::PathBuf;
 
 pub mod manager;
+pub mod state;
 #[cfg(test)]
 mod tests;
 
 pub use manager::WorktreeManager;
+pub use state::{IterationInfo, WorktreeState, WorktreeStats, WorktreeStatus};
 
 #[derive(Debug, Clone)]
 pub struct WorktreeSession {

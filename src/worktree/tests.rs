@@ -56,9 +56,9 @@ fn test_create_session_without_focus() -> anyhow::Result<()> {
 
     let session = manager.create_session(None)?;
 
-    assert!(session.name.starts_with("mmm-session-"));
+    assert!(session.name.starts_with("session-"));
     assert!(session.path.exists());
-    assert_eq!(session.branch, session.name);
+    assert_eq!(session.branch, format!("mmm-{}", session.name));
 
     // Verify worktree was created
     let worktrees_output = Command::new("git")
@@ -81,7 +81,8 @@ fn test_create_session_with_focus() -> anyhow::Result<()> {
 
     let session = manager.create_session(Some("performance"))?;
 
-    assert!(session.name.starts_with("mmm-performance-"));
+    assert!(session.name.starts_with("session-"));
+    assert_eq!(session.focus, Some("performance".to_string()));
     assert!(session.path.exists());
 
     // Clean up
@@ -147,7 +148,7 @@ fn test_get_worktree_for_branch() -> anyhow::Result<()> {
     let manager = WorktreeManager::new(temp_dir.path().to_path_buf())?;
 
     let session = manager.create_session(None)?;
-    let worktree_path = manager.get_worktree_for_branch(&session.name)?;
+    let worktree_path = manager.get_worktree_for_branch(&session.branch)?;
 
     assert!(worktree_path.is_some());
     assert_eq!(worktree_path.unwrap(), session.path);
@@ -171,7 +172,8 @@ fn test_focus_sanitization() -> anyhow::Result<()> {
     let session = manager.create_session(Some("user experience / testing"))?;
 
     // Should replace spaces and slashes with hyphens
-    assert!(session.name.starts_with("mmm-user-experience---testing-"));
+    assert!(session.name.starts_with("session-"));
+    assert_eq!(session.focus, Some("user experience / testing".to_string()));
 
     // Clean up
     manager.cleanup_session(&session.name)?;
