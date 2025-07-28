@@ -24,10 +24,12 @@ This file tracks the key specifications that shaped the current focused architec
 - **32**: `specs/32-cli-help-default.md` - CLI help as default behavior when no arguments provided
 - **33**: `specs/33-batch-spec-implementation.md` - Batch implementation of multiple specifications
 
+## Implemented Core Features (continued)
+- **36**: `specs/36-rename-improve-to-cook.md` - Rename improve subcommand to cook
+
 ## Pending Specifications
 - **22**: `specs/22-configurable-iteration-limit.md` - Add --max-iterations flag
 - **35**: `specs/35-unified-improve-mapping.md` - Unified improve command with file mapping
-- **36**: `specs/36-rename-improve-to-cook.md` - Rename improve subcommand to cook
 - **37**: `specs/37-worktree-merge-prompt.md` - Interactive worktree merge prompt after completion
 
 ## Current Focus

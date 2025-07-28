@@ -1,12 +1,12 @@
 use clap::Args;
 use std::path::PathBuf;
 
-/// Command-line arguments for the improve command
+/// Command-line arguments for the cook command
 ///
 /// This struct represents the configuration options available when running
-/// `mmm improve` to automatically enhance code quality through Claude CLI integration.
+/// `mmm cook` to automatically enhance code quality through Claude CLI integration.
 #[derive(Debug, Args, Clone)]
-pub struct ImproveCommand {
+pub struct CookCommand {
     /// Show detailed progress
     #[arg(long)]
     pub show_progress: bool,

@@ -11,9 +11,7 @@ fn test_cli_parsing() {
 fn test_max_iterations_arg_parsing() {
     // Test max iterations argument parsing for cook subcommand
     let mut cmd = Command::cargo_bin("mmm").unwrap();
-    cmd.args(["cook", "-n", "5", "--help"])
-        .assert()
-        .success();
+    cmd.args(["cook", "-n", "5", "--help"]).assert().success();
 }
 
 #[test]

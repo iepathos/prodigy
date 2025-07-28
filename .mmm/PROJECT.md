@@ -2,20 +2,20 @@
 
 ## Overview
 
-Memento Mori (mmm) is a dead simple Rust CLI tool that makes your code better through Claude CLI integration. Just run `mmm improve` and it automatically analyzes your project, calls Claude CLI for improvements, and applies the changes.
+Memento Mori (mmm) is a dead simple Rust CLI tool that makes your code better through Claude CLI integration. Just run `mmm cook` and it automatically analyzes your project, calls Claude CLI for improvements, and applies the changes.
 
 ## Current State
 
 - **Project Status**: Active Development - Core Working
-- **Core Feature**: `mmm improve` command with Claude CLI integration
+- **Core Feature**: `mmm cook` command with Claude CLI integration
 - **Latest Version**: 0.1.0
-- **Implementation Status**: Git-native improvement flow fully implemented with robust Claude CLI integration, complete audit trails, self-sufficient automated cycles, dynamic spec generation for improvements, focus-directed initial analysis (Spec 20), configurable workflows (Spec 21), configurable iteration limits (Spec 22), command-line config options (Spec 23), git worktree isolation for parallel sessions (Spec 24), Claude-assisted worktree merging with conflict resolution (Spec 25), worktree CLI flag (Spec 26), structured command objects (Spec 28), centralized worktree state management (Spec 29), product management command (Spec 31), batch spec implementation (Spec 33), unified improve command with mapping (Spec 35), and interactive worktree merge prompt (Spec 37)
+- **Implementation Status**: Git-native improvement flow fully implemented with robust Claude CLI integration, complete audit trails, self-sufficient automated cycles, dynamic spec generation for improvements, focus-directed initial analysis (Spec 20), configurable workflows (Spec 21), configurable iteration limits (Spec 22), command-line config options (Spec 23), git worktree isolation for parallel sessions (Spec 24), Claude-assisted worktree merging with conflict resolution (Spec 25), worktree CLI flag (Spec 26), structured command objects (Spec 28), centralized worktree state management (Spec 29), product management command (Spec 31), batch spec implementation (Spec 33), unified cook command with mapping (Spec 35), and interactive worktree merge prompt (Spec 37)
 
 ## What Exists
 
 ### Core Functionality
-- **Simple CLI**: `mmm improve [--target 8.0] [--verbose] [--focus "area"] [--max-iterations N] [--worktree] [--map "pattern"] [--args "value"]`
-- **Unified Command**: Single `improve` command handles both iterative improvements and batch processing
+- **Simple CLI**: `mmm cook [--target 8.0] [--verbose] [--focus "area"] [--max-iterations N] [--worktree] [--map "pattern"] [--args "value"]`
+- **Unified Command**: Single `cook` command handles both iterative improvements and batch processing
 - **Git-Native Flow**: Each improvement step creates git commits for complete auditability
 - **Claude Integration**: Three-step Claude CLI workflow (review → implement → lint)
 - **Project Analysis**: Automatic language and framework detection
@@ -34,7 +34,7 @@ Memento Mori (mmm) is a dead simple Rust CLI tool that makes your code better th
 mmm/
 ├── src/
 │   ├── main.rs           # CLI entry point with subcommands
-│   ├── improve/          # Core improve command logic
+│   ├── cook/             # Core cook command logic
 │   ├── analyzer/         # Project analysis
 │   ├── simple_state/     # Minimal state management
 │   ├── worktree/         # Git worktree management
@@ -51,7 +51,7 @@ mmm/
 ## Key Capabilities
 
 1. **Dead Simple Interface**
-   - Main commands: `mmm improve`, `mmm implement`, `mmm worktree`
+   - Main commands: `mmm cook`, `mmm worktree`
    - Optional flags for target score, verbosity, focus directive, and more
    - Works out of the box
 
@@ -109,7 +109,7 @@ mmm/
 
 ## Next Steps
 
-Focus on making the core `mmm improve` command robust and reliable:
+Focus on making the core `mmm cook` command robust and reliable:
 - Better error handling
 - More language support
 - Improved Claude context building

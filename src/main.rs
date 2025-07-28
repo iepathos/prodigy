@@ -2,10 +2,10 @@ use clap::{CommandFactory, Parser, Subcommand};
 use std::path::PathBuf;
 use tracing::{debug, error, trace};
 
-/// Improve code quality with zero configuration
+/// Cook your code to perfection with zero configuration
 #[derive(Parser)]
 #[command(name = "mmm")]
-#[command(about = "Memento Mori Manager - Improve code quality automatically", long_about = None)]
+#[command(about = "Memento Mori Manager - Cook your code to perfection automatically", long_about = None)]
 struct Cli {
     /// Enable verbose output (-v for debug, -vv for trace, -vvv for all)
     #[arg(short, long, action = clap::ArgAction::Count, global = true)]
@@ -17,8 +17,9 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Improve code quality
-    Improve {
+    /// Cook your code to perfection (make it better)
+    #[command(name = "cook", alias = "improve")]
+    Cook {
         /// Show detailed progress
         #[arg(long)]
         show_progress: bool,
@@ -102,7 +103,7 @@ async fn main() {
     trace!("Full CLI args: {:?}", std::env::args().collect::<Vec<_>>());
 
     let result = match cli.command {
-        Some(Commands::Improve {
+        Some(Commands::Cook {
             show_progress,
             focus,
             config,
@@ -112,7 +113,14 @@ async fn main() {
             args,
             fail_fast,
         }) => {
-            let improve_cmd = mmm::improve::command::ImproveCommand {
+            // Check if user used the deprecated 'improve' alias
+            let cli_args: Vec<String> = std::env::args().collect();
+            if cli_args.len() > 1 && cli_args[1] == "improve" {
+                eprintln!("Note: 'improve' has been renamed to 'cook'. Please use 'mmm cook' in the future.");
+                eprintln!("The 'improve' alias will be removed in a future version.\n");
+            }
+
+            let cook_cmd = mmm::cook::command::CookCommand {
                 show_progress,
                 focus,
                 config,
@@ -122,7 +130,7 @@ async fn main() {
                 args,
                 fail_fast,
             };
-            mmm::improve::run(improve_cmd).await
+            mmm::cook::run(cook_cmd).await
         }
         Some(Commands::Worktree { command }) => run_worktree_command(command).await,
         None => {

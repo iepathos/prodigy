@@ -499,3 +499,21 @@ Create `/mmm-product-enhance` command that analyzes code from a product manageme
 - **Positive**: Complements code review with user-focused analysis, enables feature-driven development workflows, provides balanced perspective on improvements, supports product management workflows
 - **Negative**: Additional command to maintain, potential overlap with code review in some areas
 - **Implementation**: Created mmm-product-enhance.md command definition, added to CommandRegistry with appropriate options and defaults, created product-enhancement-workflow.yml example, updated documentation
+
+---
+
+## ADR-029: Rename Improve to Cook for Better Memorability
+
+### Status
+Accepted
+
+### Context
+Spec 36 identified that the current main command `mmm improve` could be more evocative and memorable. For a tool named "Memento Mori" (remember death), the command name "cook" suggests transformation, refinement, and the application of heat/pressure to create something better - all metaphors that align well with what the tool does to code. Additionally, "cook" is shorter to type and creates a more distinctive command-line experience.
+
+### Decision
+Rename the `improve` subcommand to `cook` throughout the codebase while maintaining backward compatibility through command aliases. The primary command changes from `mmm improve` to `mmm cook`, with `improve` remaining as a deprecated alias that shows a helpful migration notice.
+
+### Consequences
+- **Positive**: More memorable command name, shorter to type, distinctive CLI personality, metaphor aligns with tool purpose (cooking/refining code), backward compatibility maintained
+- **Negative**: Breaking change for users who don't update, requires updating all documentation and examples, potential confusion during transition period
+- **Implementation**: Renamed src/improve/ to src/cook/, updated all imports and type names (ImproveCommand → CookCommand), added alias support in CLI with deprecation notice, updated all documentation and tests

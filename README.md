@@ -4,7 +4,7 @@ A dead simple CLI tool that makes your code better through Claude CLI integratio
 
 ## What It Does
 
-Run `mmm improve` and it automatically:
+Run `mmm cook` and it automatically:
 1. **Analyzes** your project (language, framework, code quality)
 2. **Reviews** code with Claude CLI and creates improvement specs
 3. **Implements** the improvements by applying fixes to your code
@@ -22,21 +22,21 @@ cd mmm
 cargo build --release
 
 # Add to PATH or use directly
-./target/release/mmm improve
+./target/release/mmm cook
 ```
 
 ## Usage
 
 ### Basic Usage
 ```bash
-# Improve your code to a quality score of 8.0 (default)
-mmm improve
+# Cook your code to a quality score of 8.0 (default)
+mmm cook
 
 # Set a custom target score
-mmm improve --target 9.0
+mmm cook --target 9.0
 
 # See detailed progress
-mmm improve --verbose
+mmm cook --verbose
 ```
 
 ### What Happens (Git-Native Flow)
@@ -57,8 +57,8 @@ Each step creates git commits for complete auditability.
 ## Examples
 
 ```bash
-# Basic improvement run
-$ mmm improve
+# Basic cooking run
+$ mmm cook
 🔍 Analyzing project...
 Current score: 6.2/10
 🔄 Iteration 1/10...
@@ -78,7 +78,7 @@ Files changed: 3
 Iterations: 2
 
 # Verbose output shows detailed git flow
-$ mmm improve --verbose
+$ mmm cook --verbose
 🔍 Analyzing project...
 Current score: 6.2/10
 🔄 Iteration 1/10...
@@ -103,11 +103,11 @@ f6g7h8i review: generate improvement spec for iteration-1708123456-improvements
 
 ### Git-Native Architecture
 ```
-mmm improve
+mmm cook
     ↓
 Analyze Project (language, framework, health score)
     ↓
-┌─────────────────── IMPROVEMENT LOOP ──────────────────┐
+┌─────────────────── COOKING LOOP ──────────────────┐
 │  Call claude /mmm-code-review                         │
 │      ↓                                                │
 │  Generate specs/temp/iteration-*-improvements.md      │
@@ -248,14 +248,14 @@ improve:
 
 ### Parallel Sessions with Git Worktrees
 
-Run multiple improvement sessions concurrently without conflicts:
+Run multiple cooking sessions concurrently without conflicts:
 
 ```bash
-# Enable worktree mode for this session
-mmm improve --worktree --focus "performance"
+# Enable worktree mode for this cooking session
+mmm cook --worktree --focus "performance"
 
-# In another terminal, run a different improvement focus
-mmm improve -w --focus "security"
+# In another terminal, run a different cooking focus
+mmm cook -w --focus "security"
 
 # List active worktree sessions
 mmm worktree list
@@ -269,7 +269,7 @@ mmm worktree clean mmm-performance-1234567890
 mmm worktree clean --all
 ```
 
-Each session runs in its own git worktree with an isolated branch, allowing multiple improvement efforts to proceed without interfering with each other. Worktrees are stored in `~/.mmm/worktrees/{project-name}/` and are preserved on failure for debugging and automatically suggested for cleanup on success.
+Each session runs in its own git worktree with an isolated branch, allowing multiple cooking efforts to proceed without interfering with each other. Worktrees are stored in `~/.mmm/worktrees/{project-name}/` and are preserved on failure for debugging and automatically suggested for cleanup on success.
 
 ## Project Structure
 
@@ -277,7 +277,7 @@ Each session runs in its own git worktree with an isolated branch, allowing mult
 mmm/
 ├── src/
 │   ├── main.rs           # CLI entry point
-│   ├── improve/          # Core improvement logic
+│   ├── cook/             # Core cooking logic
 │   ├── analyzer/         # Project analysis
 │   ├── simple_state/     # Minimal state management
 │   └── worktree/         # Git worktree management
@@ -312,7 +312,7 @@ cargo run -- improve --verbose
 1. **Dead Simple**: One command, minimal options, works immediately
 2. **Actually Functional**: Real Claude integration, real file changes, real git commits
 3. **Git-Native**: Use git as the communication layer - simple, reliable, auditable
-4. **Self-Sufficient**: Fully automated improvement cycles with complete logging
+4. **Self-Sufficient**: Fully automated cooking cycles with complete logging
 5. **Clear & Minimal**: Focus on the core loop, avoid over-engineering
 
 ## Limitations
@@ -328,7 +328,7 @@ MIT
 
 ## Contributing
 
-Focus on making the core `mmm improve` command more robust:
+Focus on making the core `mmm cook` command more robust:
 - Better language support
 - Improved Claude context building
 - Enhanced error handling

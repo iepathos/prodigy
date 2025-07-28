@@ -7,12 +7,12 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 ## Core Modules
 
 ### 1. CLI Interface (`src/main.rs`)
-- Main commands: `mmm improve`, `mmm worktree`
+- Main commands: `mmm cook`, `mmm worktree`
 - Global flags: `--verbose`
 - Direct entry point to subcommands
 
-### 2. Improve Command (`src/improve/`)
-- **mod.rs**: Core improvement loop with Claude CLI integration and mapping support
+### 2. Cook Command (`src/cook/`)
+- **mod.rs**: Core cooking loop with Claude CLI integration and mapping support
 - **command.rs**: CLI with target, verbose, focus, config, map, args, and fail-fast flags
 - **session.rs**: Minimal session data structures
 - **workflow.rs**: Configurable workflow execution with variable substitution
@@ -74,7 +74,7 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 ## Data Flow
 
 ```
-User runs `mmm improve`
+User runs `mmm cook`
         ↓
 [Optional] Create git worktree if MMM_USE_WORKTREE=true
         ↓
@@ -147,16 +147,12 @@ src/
 ├── main.rs              # CLI entry point
 ├── lib.rs               # Library exports
 ├── error.rs             # Centralized error handling
-├── improve/             # Core improvement logic
+├── cook/                # Core cooking logic
 │   ├── mod.rs           # Single consolidated improvement loop
 │   ├── command.rs       # CLI args only
 │   ├── session.rs       # Basic session data
 │   ├── workflow.rs      # Configurable workflow execution
 │   └── git_ops.rs       # Thread-safe git operations
-├── implement/           # Batch spec implementation
-│   ├── mod.rs           # Batch implementation logic
-│   ├── command.rs       # CLI args for implement
-│   └── state.rs         # Batch progress tracking
 ├── analyzer/            # Analysis components
 │   ├── mod.rs
 │   ├── language.rs      # Language detection

@@ -56,10 +56,10 @@ async fn merge_worktree(worktree_name: &str) -> Result<()> {
     Ok(())
 }
 
-/// Run the improve command to automatically enhance code quality
+/// Run the cook command to automatically enhance code quality
 ///
 /// # Arguments
-/// * `cmd` - The improve command with optional target score, verbosity, and focus directive
+/// * `cmd` - The cook command with optional target score, verbosity, and focus directive
 ///
 /// # Returns
 /// Result indicating success or failure of the improvement process
@@ -74,7 +74,7 @@ async fn merge_worktree(worktree_name: &str) -> Result<()> {
 /// # Parallel Execution
 /// For parallel execution, use the `--worktree` flag to run multiple sessions
 /// in isolated git worktrees without conflicts.
-pub async fn run(cmd: command::ImproveCommand) -> Result<()> {
+pub async fn run(cmd: command::CookCommand) -> Result<()> {
     // Check if we have mapping or direct args to process
     if !cmd.map.is_empty() || !cmd.args.is_empty() {
         run_with_mapping(cmd).await
@@ -83,8 +83,8 @@ pub async fn run(cmd: command::ImproveCommand) -> Result<()> {
     }
 }
 
-/// Run improve command with file mapping or direct arguments
-async fn run_with_mapping(cmd: command::ImproveCommand) -> Result<()> {
+/// Run cook command with file mapping or direct arguments
+async fn run_with_mapping(cmd: command::CookCommand) -> Result<()> {
     use glob::glob;
     use std::collections::HashMap;
 
@@ -320,8 +320,8 @@ fn extract_spec_id_from_path(path: &str) -> String {
     }
 }
 
-/// Run standard improve without mapping
-async fn run_standard(cmd: command::ImproveCommand) -> Result<()> {
+/// Run standard cook without mapping
+async fn run_standard(cmd: command::CookCommand) -> Result<()> {
     // Check if worktree isolation should be used
     // Check flag first, then env var with deprecation warning
     let use_worktree = if cmd.worktree {
@@ -419,7 +419,7 @@ async fn run_standard(cmd: command::ImproveCommand) -> Result<()> {
 }
 
 async fn run_in_worktree(
-    cmd: command::ImproveCommand,
+    cmd: command::CookCommand,
     session: crate::worktree::WorktreeSession,
 ) -> Result<()> {
     // Check if we have args or map patterns
@@ -450,7 +450,7 @@ async fn run_in_worktree(
 }
 
 async fn run_improvement_loop(
-    cmd: command::ImproveCommand,
+    cmd: command::CookCommand,
     session: &crate::worktree::WorktreeSession,
     worktree_manager: &WorktreeManager,
 ) -> Result<()> {
@@ -647,21 +647,21 @@ async fn run_improvement_loop(
     Ok(())
 }
 
-/// Run standard improve with variables for mapping support
+/// Run standard cook with variables for mapping support
 async fn run_standard_with_variables(
-    cmd: command::ImproveCommand,
+    cmd: command::CookCommand,
     variables: std::collections::HashMap<String, String>,
 ) -> Result<()> {
     // Run the standard flow but with variables available for command substitution
     run_without_worktree_with_vars(cmd, variables).await
 }
 
-async fn run_without_worktree(cmd: command::ImproveCommand) -> Result<()> {
+async fn run_without_worktree(cmd: command::CookCommand) -> Result<()> {
     run_without_worktree_with_vars(cmd, std::collections::HashMap::new()).await
 }
 
 async fn run_without_worktree_with_vars(
-    cmd: command::ImproveCommand,
+    cmd: command::CookCommand,
     variables: std::collections::HashMap<String, String>,
 ) -> Result<()> {
     println!("🔍 Starting improvement loop...");
@@ -1057,7 +1057,7 @@ async fn call_claude_lint(verbose: bool) -> Result<bool> {
 
 /// Run improvement with mapping in worktree context
 async fn run_with_mapping_in_worktree(
-    cmd: command::ImproveCommand,
+    cmd: command::CookCommand,
     session: crate::worktree::WorktreeSession,
 ) -> Result<()> {
     use glob::glob;
@@ -1191,7 +1191,7 @@ async fn run_with_mapping_in_worktree(
 
 /// Run improvement loop with variables in worktree context
 async fn run_improvement_loop_with_variables(
-    cmd: command::ImproveCommand,
+    cmd: command::CookCommand,
     session: &crate::worktree::WorktreeSession,
     worktree_manager: &WorktreeManager,
     variables: std::collections::HashMap<String, String>,
@@ -1287,8 +1287,8 @@ mod tests {
     use std::path::PathBuf;
     use tempfile::TempDir;
 
-    fn create_test_command(worktree: bool, max_iterations: u32) -> command::ImproveCommand {
-        command::ImproveCommand {
+    fn create_test_command(worktree: bool, max_iterations: u32) -> command::CookCommand {
+        command::CookCommand {
             max_iterations,
             worktree,
             show_progress: false,

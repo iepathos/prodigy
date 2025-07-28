@@ -1,7 +1,7 @@
 use crate::config::command_validator::{apply_command_defaults, validate_command};
 use crate::config::{workflow::WorkflowConfig, CommandArg};
-use crate::improve::git_ops::get_last_commit_message;
-use crate::improve::retry::{check_claude_cli, execute_with_retry, format_subprocess_error};
+use crate::cook::git_ops::get_last_commit_message;
+use crate::cook::retry::{check_claude_cli, execute_with_retry, format_subprocess_error};
 use anyhow::{anyhow, Context as _, Result};
 use std::collections::HashMap;
 use tokio::process::Command;
