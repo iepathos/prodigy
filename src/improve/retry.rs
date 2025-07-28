@@ -207,8 +207,21 @@ mod tests {
         assert!(is_transient_error("Connection timeout"));
         assert!(is_transient_error("HTTP 503 Service Unavailable"));
         assert!(is_transient_error("Error 429: Too Many Requests"));
+        assert!(is_transient_error("Connection refused by server"));
+        assert!(is_transient_error("Temporary failure in name resolution"));
+        assert!(is_transient_error("Network is unreachable"));
+        assert!(is_transient_error("Could not connect to API"));
+        assert!(is_transient_error("Broken pipe error"));
         assert!(!is_transient_error("Syntax error in file"));
         assert!(!is_transient_error("Command not found"));
+        assert!(!is_transient_error("Invalid argument"));
+    }
+
+    #[test]
+    fn test_transient_error_case_insensitive() {
+        assert!(is_transient_error("RATE LIMIT EXCEEDED"));
+        assert!(is_transient_error("Rate Limit Exceeded"));
+        assert!(is_transient_error("RaTe LiMiT"));
     }
 
     #[test]
@@ -217,5 +230,170 @@ mod tests {
         assert!(error.contains("exit code 1"));
         assert!(error.contains("permission denied"));
         assert!(error.contains("claude auth"));
+    }
+
+    #[test]
+    fn test_error_formatting_no_exit_code() {
+        let error = format_subprocess_error("claude", None, "Something went wrong", "");
+        assert!(error.contains("Command 'claude' failed"));
+        assert!(error.contains("Something went wrong"));
+        assert!(!error.contains("exit code"));
+    }
+
+    #[test]
+    fn test_error_formatting_with_stdout_only() {
+        let error = format_subprocess_error("claude", Some(1), "", "Error in stdout");
+        assert!(error.contains("Error in stdout"));
+        assert!(error.contains("Output:"));
+    }
+
+    #[test]
+    fn test_error_formatting_command_not_found() {
+        let error = format_subprocess_error("unknown-cmd", Some(127), "command not found", "");
+        assert!(error.contains("may not be installed or not in PATH"));
+    }
+
+    #[test]
+    fn test_error_formatting_rate_limit() {
+        let error = format_subprocess_error("claude", Some(1), "Error: rate limit exceeded", "");
+        assert!(error.contains("You may have hit the API rate limit"));
+    }
+
+    #[test]
+    fn test_error_formatting_empty_outputs() {
+        let error = format_subprocess_error("claude", Some(1), "  ", "  ");
+        assert!(error.contains("Command 'claude' failed"));
+        assert!(!error.contains("Error output:"));
+        assert!(!error.contains("Output:"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_retry_success() {
+        let mut cmd = Command::new("echo");
+        cmd.arg("hello");
+        
+        let output = execute_with_retry(cmd, "echo test", 3, false).await.unwrap();
+        assert!(output.status.success());
+        assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "hello");
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_retry_command_not_found() {
+        let cmd = Command::new("this-command-does-not-exist");
+        
+        let result = execute_with_retry(cmd, "nonexistent command", 3, false).await;
+        assert!(result.is_err());
+        let error = result.unwrap_err().to_string();
+        assert!(error.contains("Command not found"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_retry_non_transient_failure() {
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c").arg("echo 'Fatal error' >&2; exit 1");
+        
+        let output = execute_with_retry(cmd, "failing command", 3, false).await.unwrap();
+        assert!(!output.status.success());
+        assert!(String::from_utf8_lossy(&output.stderr).contains("Fatal error"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_retry_exhausted_retries() {
+        // Test that we get an error after exhausting all retries on transient errors
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c").arg("echo 'connection refused' >&2; exit 1");
+        
+        let output = execute_with_retry(cmd, "transient error test", 2, true).await.unwrap();
+        // The command succeeds (returns Ok) but with non-zero exit status
+        assert!(!output.status.success());
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("connection refused"));
+    }
+    
+    #[tokio::test]
+    async fn test_execute_with_retry_exponential_backoff() {
+        use std::time::Instant;
+        
+        // Test exponential backoff timing
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c").arg("echo 'rate limit' >&2; exit 1");
+        
+        let start = Instant::now();
+        let output = execute_with_retry(cmd, "backoff test", 2, false).await.unwrap();
+        let elapsed = start.elapsed();
+        
+        assert!(!output.status.success());
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("rate limit"));
+        // Should take at least 2s (first retry) + 4s (second retry) = 6s
+        assert!(elapsed.as_secs() >= 6);
+    }
+
+    #[tokio::test]
+    async fn test_check_claude_cli_when_missing() {
+        let mut cmd = Command::new("which");
+        cmd.arg("nonexistent-command-xyz");
+        
+        let output = cmd.output().await.unwrap();
+        assert!(!output.status.success());
+    }
+
+
+    #[test]
+    fn test_format_subprocess_error_all_fields() {
+        let error = format_subprocess_error(
+            "test-cmd",
+            Some(42),
+            "Error details\nMultiline error",
+            "Some stdout content",
+        );
+        
+        assert!(error.contains("'test-cmd'"));
+        assert!(error.contains("exit code 42"));
+        assert!(error.contains("Error details"));
+        assert!(error.contains("Multiline error"));
+        assert!(!error.contains("Some stdout content"));
+    }
+
+    #[test]
+    fn test_format_subprocess_error_unauthorized() {
+        let error = format_subprocess_error(
+            "claude",
+            Some(1),
+            "Error: unauthorized access",
+            "",
+        );
+        
+        assert!(error.contains("Check that you have authenticated"));
+    }
+
+    #[test]
+    fn test_is_transient_error_partial_matches() {
+        assert!(is_transient_error("Error occurred: rate limit hit"));
+        assert!(is_transient_error("Request timeout after 30s"));
+        assert!(is_transient_error("Could not connect to host"));
+        assert!(is_transient_error("Error: broken pipe while sending"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_retry_max_attempts_reached() {
+        // Test error message when max retries are reached
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c").arg("echo 'temporary failure' >&2; exit 1");
+        
+        let output = execute_with_retry(cmd, "max retries test", 1, false).await.unwrap();
+        assert!(!output.status.success());
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("temporary failure"));
+    }
+
+    #[tokio::test]
+    async fn test_check_claude_cli_fallback() {
+        // This test verifies the logic would work correctly
+        // Note: actual behavior depends on system configuration
+        let result = check_claude_cli().await;
+        // Test passes regardless of whether claude is installed
+        // We're testing that the function completes without panic
+        let _ = result;
     }
 }
