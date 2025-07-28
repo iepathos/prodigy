@@ -331,8 +331,6 @@ async fn run_without_worktree(cmd: command::ImproveCommand) -> Result<()> {
     if cmd.show_progress {
         if let Some(config_path) = &cmd.config {
             println!("📄 Using configuration from: {}", config_path.display());
-        } else if Path::new(".mmm/config.toml").exists() {
-            println!("📄 Using configuration from: .mmm/config.toml");
         } else {
             println!("📄 Using default configuration");
         }
@@ -894,14 +892,6 @@ mod tests {
 
         // Create minimal project structure
         std::fs::create_dir_all(".mmm").unwrap();
-        std::fs::write(
-            ".mmm/config.toml",
-            r#"
-            [claude]
-            model = "claude-3-sonnet"
-            "#,
-        )
-        .unwrap();
 
         // This test would need more setup to actually run the function
         // For now, we test the command structure
