@@ -116,6 +116,11 @@ impl WorkflowExecutor {
         };
         
         println!("🤖 Running /{}{}", command.name, args_display);
+        
+        // Debug: print variables
+        if self.verbose && !self.variables.is_empty() {
+            println!("   Variables: {:?}", self.variables);
+        }
 
         // Skip actual execution in test mode
         if std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true" {
