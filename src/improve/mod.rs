@@ -976,6 +976,7 @@ async fn call_claude_implement_spec(spec_id: &str, verbose: bool) -> Result<bool
         .arg("--print") // Outputs response to stdout for capture instead of interactive display
         .arg("/mmm-implement-spec") // The custom command for spec implementation
         .arg(spec_id) // The spec ID to implement (e.g., "iteration-123-improvements")
+        .env("ARGUMENTS", spec_id) // Claude CLI expects the argument in $ARGUMENTS
         .env("MMM_AUTOMATION", "true"); // Signals to /mmm-implement-spec to run in automated mode
 
     // Execute with retry logic for transient failures

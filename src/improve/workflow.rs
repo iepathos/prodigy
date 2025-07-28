@@ -116,11 +116,6 @@ impl WorkflowExecutor {
         };
         
         println!("🤖 Running /{}{}", command.name, args_display);
-        
-        // Debug: print variables
-        if self.verbose && !self.variables.is_empty() {
-            println!("   Variables: {:?}", self.variables);
-        }
 
         // Skip actual execution in test mode
         if std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true" {
@@ -144,9 +139,20 @@ impl WorkflowExecutor {
             .env("MMM_AUTOMATION", "true");
 
         // Add positional arguments with variable resolution
-        for arg in &command.args {
-            let resolved_arg = self.resolve_argument(arg);
-            cmd.arg(resolved_arg);
+        // Claude CLI expects arguments in the $ARGUMENTS environment variable
+        if !command.args.is_empty() {
+            let resolved_args: Vec<String> = command.args
+                .iter()
+                .map(|arg| self.resolve_argument(arg))
+                .collect();
+            
+            // Set ARGUMENTS env var for Claude commands (they expect this)
+            cmd.env("ARGUMENTS", resolved_args.join(" "));
+            
+            // Also add as command-line args for compatibility
+            for arg in resolved_args {
+                cmd.arg(arg);
+            }
         }
 
         // Add options as environment variables or flags based on command definition
