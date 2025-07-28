@@ -230,7 +230,7 @@ test-performance:
 
 # Full CI build pipeline (equivalent to scripts/ci-build.sh)
 ci-build:
-    @echo "Building Git Good..."
+    @echo "Building mmm..."
     @echo "Checking code formatting..."
     cargo fmt --all -- --check
     @echo "Running clippy..."
