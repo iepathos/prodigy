@@ -263,8 +263,8 @@ impl WorktreeManager {
             .arg("--print") // Output response to stdout for capture
             .arg(format!("/mmm-merge-worktree {worktree_branch}")) // Include branch name in the command
             .env("MMM_AUTOMATION", "true"); // Enable automation mode
-                                            // Debug: Print what we're about to execute
-        eprintln!("Debug: Running claude /mmm-merge-worktree with branch: {worktree_branch}");
+                                            // Print what we're about to execute
+        eprintln!("Running claude /mmm-merge-worktree with branch: {worktree_branch}");
 
         let output = cmd
             .output()
