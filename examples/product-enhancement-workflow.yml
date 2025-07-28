@@ -10,14 +10,10 @@ commands:
     options:
       focus: "cli-ux"  # Optional: focus on specific area
       max-enhancements: 8
-    metadata:
-      timeout: 300
       
   # Step 2: Implement the enhancements
   - name: mmm-implement-spec
     args: ["$SPEC_ID"]  # Auto-extracted from previous command
-    metadata:
-      timeout: 600
       
   # Step 3: Clean up and ensure quality
   - name: mmm-lint
@@ -27,7 +23,7 @@ commands:
       continue_on_error: true
 
 # Example usage:
-# mmm improve --config examples/product-enhancement-workflow.yml --target 9.0
+# mmm improve --config examples/product-enhancement-workflow.yml
 
 # Focus areas for mmm-product-enhance:
 # - "onboarding": First-run experience, tutorials
