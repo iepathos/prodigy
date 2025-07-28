@@ -1,17 +1,17 @@
 # mmm
 
-A dead simple CLI tool that makes your code better through Claude CLI integration.
+A dead simple CLI tool that enables highly configurable and easily manageable self-sufficient Claude development loops.
 
 ## What It Does
 
-Run `mmm cook` and it automatically:
-1. **Analyzes** your project (language, framework, code quality)
-2. **Reviews** code with Claude CLI and creates improvement specs
-3. **Implements** the improvements by applying fixes to your code
-4. **Lints** and formats the code with automated tools
-5. **Repeats** until your code reaches the target quality score
+`mmm` orchestrates self-sufficient Claude development loops that continuously improve your codebase. Run `mmm cook` and it automatically:
 
-All changes are committed to git with clear audit trails. No configuration, no complex workflows, no learning curve.
+1. **Reviews** code with Claude CLI and creates improvement specs
+2. **Implements** the improvements by applying fixes to your code
+3. **Lints** and formats the code with automated tools
+4. **Repeats** until your target iterations is reached
+
+Each iteration is fully autonomous - Claude handles review, implementation, and validation without manual intervention. All changes are committed to git with clear audit trails. Configure workflows to focus on security, performance, testing, or any development aspect you need.
 
 ## Installation
 
@@ -32,9 +32,25 @@ cargo build --release
 # Cook your code to a quality score of 8.0 (default)
 mmm cook
 
+# Cook with a specific focus area
+mmm cook --focus security
+
 # See detailed progress
 mmm cook --verbose
+
+# Combine focus and verbose output
+mmm cook --focus performance --verbose
 ```
+
+### Focus Areas
+
+The `--focus` flag applies to every iteration in your cooking session, ensuring consistent improvement direction:
+- **security**: Security vulnerabilities, input validation, authentication
+- **performance**: Speed optimizations, memory usage, algorithmic improvements
+- **testing**: Test coverage, test quality, edge cases
+- **architecture**: Code structure, design patterns, modularity
+- **critical**: Only critical issues and bugs
+- Custom focus areas based on your project needs
 
 ### What Happens (Git-Native Flow)
 1. **Project Analysis**: Detects your language (Rust, Python, JS, etc.) and framework
@@ -138,11 +154,11 @@ Analyze Project (language, framework, health score)
 - **Auditable**: Complete paper trail of what was changed and why
 - **Validation**: Code is linted and formatted after each change
 
-## Configuration
+## Configuration - Flexible Development Loops
 
-None required! The tool works out of the box with smart defaults.
+`mmm` works out of the box with smart defaults, but its real power comes from customizable workflows that create focused development loops.
 
-### Configurable Workflows (Optional)
+### Configurable Workflows
 
 Create a `workflow.yml` file to customize the improvement workflow:
 
@@ -161,6 +177,8 @@ The default workflow runs these three commands in order:
 1. `mmm-code-review` - Analyzes code and generates improvement specs
 2. `mmm-implement-spec` - Implements the improvements (spec ID extracted automatically)
 3. `mmm-lint` - Runs formatting and linting
+
+You can create custom development loops by combining different Claude commands and focus areas.
 
 #### Focus Arguments
 
@@ -280,16 +298,16 @@ just test
 claude /mmm-lint
 
 # Run on sample project
-cargo run -- improve --verbose
+cargo run -- cook --verbose
 ```
 
 ## Philosophy
 
-1. **Dead Simple**: One command, minimal options, works immediately
-2. **Actually Functional**: Real Claude integration, real file changes, real git commits
+1. **Self-Sufficient Development Loops**: Fully autonomous Claude-driven development cycles that run without manual intervention
+2. **Highly Configurable**: Customize workflows to create focused loops for security, performance, testing, or any development aspect
 3. **Git-Native**: Use git as the communication layer - simple, reliable, auditable
-4. **Self-Sufficient**: Fully automated cooking cycles with complete logging
-5. **Clear & Minimal**: Focus on the core loop, avoid over-engineering
+4. **Dead Simple**: One command to start, minimal options, works immediately
+5. **Clear & Minimal**: Focus on enabling powerful development loops without over-engineering
 
 ## Limitations
 
