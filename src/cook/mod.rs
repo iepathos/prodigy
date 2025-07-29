@@ -712,7 +712,17 @@ async fn run_improvement_loop(
             }
 
             // Step 4: Run linting/formatting and commit
-            call_claude_lint(cmd.show_progress).await?;
+            let lint_success = call_claude_lint(cmd.show_progress).await?;
+            
+            // Check if any command made changes in this iteration
+            let any_changes = review_success || implement_success || lint_success;
+            if !any_changes {
+                if cmd.show_progress {
+                    println!("ℹ️  Iteration {iteration} completed with no changes - stopping early");
+                    println!("   (This typically means no issues were found to fix)");
+                }
+                break;
+            }
 
             // Update stats after iteration
             worktree_manager.update_session_state(&session.name, |state| {
@@ -921,7 +931,17 @@ async fn run_without_worktree_with_vars(
             }
 
             // Step 4: Run linting/formatting and commit
-            call_claude_lint(cmd.show_progress).await?;
+            let lint_success = call_claude_lint(cmd.show_progress).await?;
+            
+            // Check if any command made changes in this iteration
+            let any_changes = review_success || implement_success || lint_success;
+            if !any_changes {
+                if cmd.show_progress {
+                    println!("ℹ️  Iteration {iteration} completed with no changes - stopping early");
+                    println!("   (This typically means no issues were found to fix)");
+                }
+                break;
+            }
 
             iteration += 1;
         }
@@ -1017,6 +1037,31 @@ async fn call_claude_code_review(verbose: bool, focus: Option<&str>) -> Result<b
         if verbose {
             println!("[TEST MODE] Skipping Claude CLI execution for: mmm-code-review");
         }
+        
+        // Check if we should simulate no changes for this command
+        if let Ok(no_changes_cmds) = std::env::var("MMM_TEST_NO_CHANGES_COMMANDS") {
+            if no_changes_cmds.split(',').any(|cmd| cmd.trim() == "mmm-code-review") {
+                if verbose {
+                    println!("[TEST MODE] Simulating no changes for: mmm-code-review");
+                }
+                return Ok(false);
+            }
+        }
+        
+        // Track focus if requested
+        if let Some(focus_directive) = focus {
+            if let Ok(track_file) = std::env::var("MMM_TRACK_FOCUS") {
+                use std::io::Write;
+                if let Ok(mut file) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&track_file)
+                {
+                    let _ = writeln!(file, "iteration: focus={}", focus_directive);
+                }
+            }
+        }
+        
         return Ok(true);
     }
 
@@ -1219,6 +1264,17 @@ async fn call_claude_implement_spec(spec_id: &str, verbose: bool) -> Result<bool
         if verbose {
             println!("[TEST MODE] Skipping Claude CLI execution for: mmm-implement-spec {spec_id}");
         }
+        
+        // Check if we should simulate no changes for this command
+        if let Ok(no_changes_cmds) = std::env::var("MMM_TEST_NO_CHANGES_COMMANDS") {
+            if no_changes_cmds.split(',').any(|cmd| cmd.trim() == "mmm-implement-spec") {
+                if verbose {
+                    println!("[TEST MODE] Simulating no changes for: mmm-implement-spec");
+                }
+                return Ok(false);
+            }
+        }
+        
         return Ok(true);
     }
 
@@ -1311,6 +1367,17 @@ async fn call_claude_lint(verbose: bool) -> Result<bool> {
         if verbose {
             println!("[TEST MODE] Skipping Claude CLI execution for: mmm-lint");
         }
+        
+        // Check if we should simulate no changes for this command
+        if let Ok(no_changes_cmds) = std::env::var("MMM_TEST_NO_CHANGES_COMMANDS") {
+            if no_changes_cmds.split(',').any(|cmd| cmd.trim() == "mmm-lint") {
+                if verbose {
+                    println!("[TEST MODE] Simulating no changes for: mmm-lint");
+                }
+                return Ok(false);
+            }
+        }
+        
         return Ok(true);
     }
 

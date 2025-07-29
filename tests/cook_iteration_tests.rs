@@ -111,7 +111,6 @@ max_iterations = 3
 
 /// Test that verifies the iteration stops early when no changes are found
 #[test]
-#[ignore = "Requires more complex mocking to simulate 'no changes found' condition"]
 fn test_cook_stops_early_when_no_changes() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let temp_path = temp_dir.path();
@@ -162,9 +161,11 @@ max_iterations = 5
         .output()?;
 
     // Run mmm cook with max 5 iterations
+    // Configure test mode to simulate no changes for all commands
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
         .current_dir(temp_path)
         .env("MMM_TEST_MODE", "true")
+        .env("MMM_TEST_NO_CHANGES_COMMANDS", "mmm-code-review,mmm-implement-spec,mmm-lint")
         .args(["cook", "-n", "5", "--show-progress"])
         .output()?;
 
@@ -172,17 +173,36 @@ max_iterations = 5
 
     assert!(output.status.success());
 
+    // Print stdout for debugging
+    println!("STDOUT:\n{stdout}");
+    
     // Should stop after 1 iteration when no changes found
-    let iteration_1_count = stdout.matches("iteration 1/5").count();
-    let iteration_2_count = stdout.matches("iteration 2/5").count();
+    // Check for various iteration message formats
+    let has_iteration_1 = stdout.contains("Iteration 1/5") 
+        || stdout.contains("iteration 1/5")
+        || stdout.contains("Workflow iteration 1/5");
+    
+    let has_iteration_2 = stdout.contains("Iteration 2/5") 
+        || stdout.contains("iteration 2/5")
+        || stdout.contains("Workflow iteration 2/5");
+    
+    // Check for the "no changes" message or review failed message
+    let has_stop_msg = stdout.contains("no changes - stopping early")
+        || stdout.contains("completed with no changes")
+        || stdout.contains("Review failed - stopping iterations")
+        || stdout.contains("No issues were found to fix");
 
     assert!(
-        iteration_1_count >= 1,
+        has_iteration_1,
         "Should have run at least iteration 1"
     );
-    assert_eq!(
-        iteration_2_count, 0,
-        "Should not run iteration 2 when no changes"
+    assert!(
+        !has_iteration_2,
+        "Should not run iteration 2 when no changes found"
+    );
+    assert!(
+        has_stop_msg,
+        "Should show message about stopping early"
     );
 
     Ok(())
@@ -190,7 +210,6 @@ max_iterations = 5
 
 /// Test to specifically catch the bug where focus was only applied on first iteration
 #[test]
-#[ignore = "Requires more complex mocking to track focus application across iterations"]
 fn test_focus_applied_every_iteration() -> Result<()> {
     // This test creates a scenario where we can track if focus is passed
     // to the code review command on each iteration
@@ -254,29 +273,41 @@ max_iterations = 3
         .args(["cook", "-n", "3", "-f", "security", "--show-progress"])
         .output()?;
 
-    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    
+    println!("STDOUT:\n{stdout}");
+    println!("STDERR:\n{stderr}");
+    
+    assert!(output.status.success(), "mmm cook failed: {stderr}");
 
     // Read the focus tracking file
-    if focus_tracker.exists() {
-        let focus_log = fs::read_to_string(&focus_tracker)?;
-        let focus_entries: Vec<&str> = focus_log.lines().collect();
+    assert!(
+        focus_tracker.exists(),
+        "Focus tracking file should exist at: {:?}",
+        focus_tracker
+    );
+    
+    let focus_log = fs::read_to_string(&focus_tracker)?;
+    println!("Focus tracking file contents:\n{focus_log}");
+    
+    let focus_entries: Vec<&str> = focus_log.lines().collect();
 
-        // With the bug, only iteration 1 would have focus
-        // With the fix, all iterations should have focus
+    // With the bug, only iteration 1 would have focus
+    // With the fix, all iterations should have focus
+    assert!(
+        focus_entries.len() >= 3,
+        "Focus should be tracked for each iteration, found: {}",
+        focus_entries.len()
+    );
+
+    for (i, entry) in focus_entries.iter().enumerate() {
         assert!(
-            focus_entries.len() >= 3,
-            "Focus should be tracked for each iteration, found: {}",
-            focus_entries.len()
+            entry.contains("security"),
+            "Iteration {} should have focus 'security', got: {}",
+            i + 1,
+            entry
         );
-
-        for (i, entry) in focus_entries.iter().enumerate() {
-            assert!(
-                entry.contains("security"),
-                "Iteration {} should have focus 'security', got: {}",
-                i + 1,
-                entry
-            );
-        }
     }
 
     Ok(())
