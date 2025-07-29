@@ -33,10 +33,12 @@ fn is_tty() -> bool {
 /// Prompt user to merge a completed worktree
 fn prompt_for_merge(_worktree_name: &str) -> MergeChoice {
     print!("\nWould you like to merge the completed worktree now? (y/N): ");
-    io::stdout().flush().unwrap_or_default();
+    let _ = io::stdout().flush();
 
     let mut input = String::new();
-    io::stdin().read_line(&mut input).unwrap_or_default();
+    if io::stdin().read_line(&mut input).is_err() {
+        return MergeChoice::No;
+    }
 
     match input.trim().to_lowercase().as_str() {
         "y" | "yes" => MergeChoice::Yes,
@@ -130,7 +132,10 @@ async fn run_with_mapping(cmd: command::CookCommand) -> Result<()> {
                 let iterations_completed = state.iterations.completed;
 
                 if iterations_completed == 0 {
-                    println!("⚠️  No improvements were made in worktree: {}", session.name);
+                    println!(
+                        "⚠️  No improvements were made in worktree: {}",
+                        session.name
+                    );
                     println!("   Reason: No issues were found to fix");
                 } else {
                     println!("✅ Improvements completed in worktree: {}", session.name);
@@ -413,7 +418,10 @@ async fn run_standard(cmd: command::CookCommand) -> Result<()> {
                 let iterations_completed = state.iterations.completed;
 
                 if iterations_completed == 0 {
-                    println!("⚠️  No improvements were made in worktree: {}", session.name);
+                    println!(
+                        "⚠️  No improvements were made in worktree: {}",
+                        session.name
+                    );
                     println!("   Reason: No issues were found to fix");
                 } else {
                     println!("✅ Improvements completed in worktree: {}", session.name);
@@ -1172,9 +1180,7 @@ async fn call_claude_implement_spec(spec_id: &str, verbose: bool) -> Result<bool
     // Skip actual execution in test mode
     if std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true" {
         if verbose {
-            println!(
-                "[TEST MODE] Skipping Claude CLI execution for: mmm-implement-spec {spec_id}"
-            );
+            println!("[TEST MODE] Skipping Claude CLI execution for: mmm-implement-spec {spec_id}");
         }
         return Ok(true);
     }

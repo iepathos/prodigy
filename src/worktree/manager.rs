@@ -13,6 +13,18 @@ pub struct WorktreeManager {
 }
 
 impl WorktreeManager {
+    /// Create a new WorktreeManager for the given repository
+    ///
+    /// # Arguments
+    /// * `repo_path` - Path to the git repository
+    ///
+    /// # Returns
+    /// * `Result<Self>` - WorktreeManager instance or error
+    ///
+    /// # Errors
+    /// Returns error if:
+    /// - Repository path is invalid
+    /// - Git repository is not found
     pub fn new(repo_path: PathBuf) -> Result<Self> {
         // Get the repository name from the path
         let repo_name = repo_path
@@ -53,6 +65,16 @@ impl WorktreeManager {
         })
     }
 
+    /// Create a new worktree session
+    ///
+    /// # Arguments
+    /// * `focus` - Optional focus area for the session (e.g., "security", "performance")
+    ///
+    /// # Returns
+    /// * `Result<WorktreeSession>` - The created worktree session
+    ///
+    /// # Errors
+    /// Returns error if worktree creation fails
     pub fn create_session(&self, focus: Option<&str>) -> Result<WorktreeSession> {
         let session_id = Uuid::new_v4();
         // Simple name without focus, using UUID
@@ -152,6 +174,13 @@ impl WorktreeManager {
         Ok(state)
     }
 
+    /// List all active worktree sessions
+    ///
+    /// # Returns
+    /// * `Result<Vec<WorktreeSession>>` - List of active sessions
+    ///
+    /// # Errors
+    /// Returns error if unable to read worktree information
     pub fn list_sessions(&self) -> Result<Vec<WorktreeSession>> {
         let output = Command::new("git")
             .current_dir(&self.repo_path)
@@ -237,6 +266,16 @@ impl WorktreeManager {
         Ok(sessions)
     }
 
+    /// Merge a worktree session back to the main branch
+    ///
+    /// # Arguments
+    /// * `name` - Name of the worktree session to merge
+    ///
+    /// # Returns
+    /// * `Result<()>` - Success or error
+    ///
+    /// # Errors
+    /// Returns error if merge fails or session not found
     pub fn merge_session(&self, name: &str) -> Result<()> {
         // Get the worktree branch name to verify merge
         let sessions = self.list_sessions()?;
@@ -337,6 +376,17 @@ impl WorktreeManager {
         Ok(())
     }
 
+    /// Clean up a worktree session
+    ///
+    /// # Arguments
+    /// * `name` - Name of the worktree session to clean up
+    /// * `force` - Force cleanup even if there are uncommitted changes
+    ///
+    /// # Returns
+    /// * `Result<()>` - Success or error
+    ///
+    /// # Errors
+    /// Returns error if cleanup fails or session not found
     pub fn cleanup_session(&self, name: &str, force: bool) -> Result<()> {
         let worktree_path = self.base_dir.join(name);
         let worktree_path_str = worktree_path.to_string_lossy();

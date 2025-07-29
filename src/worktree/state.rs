@@ -1,6 +1,9 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+/// State information for a worktree session
+///
+/// Tracks the progress and status of improvements in a git worktree
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WorktreeState {
     pub session_id: String,
@@ -19,6 +22,7 @@ pub struct WorktreeState {
     pub merge_prompt_response: Option<String>,
 }
 
+/// Status of a worktree session
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum WorktreeStatus {
@@ -29,12 +33,14 @@ pub enum WorktreeStatus {
     Abandoned,
 }
 
+/// Information about iterations completed in a worktree session
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct IterationInfo {
     pub completed: u32,
     pub max: u32,
 }
 
+/// Statistics about a worktree session
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct WorktreeStats {
     pub files_changed: u32,

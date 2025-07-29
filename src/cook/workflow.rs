@@ -735,10 +735,7 @@ mod tests {
                 .await;
 
             assert!(result.is_ok(), "Iteration {iteration} should succeed");
-            assert!(
-                result.unwrap(),
-                "Iteration {iteration} should have changes"
-            );
+            assert!(result.unwrap(), "Iteration {iteration} should have changes");
             iteration_count += 1;
         }
 
