@@ -249,6 +249,13 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
 - [ ] Better progress visualization
 - [ ] Integration with common tools
 
+### Automation Support
+- [ ] **Auto-Accept Flag** (Spec 41)
+  - Add -y/--yes flag for non-interactive operation
+  - Auto-accept worktree merge and deletion prompts
+  - Enable fully automated improvement workflows
+  - Support CI/CD and script usage
+
 ### CLI Best Practices
 - [x] **CLI Help as Default** (Spec 32) ✅
   - Show help when running `mmm` without arguments
