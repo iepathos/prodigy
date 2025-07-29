@@ -32,6 +32,7 @@ This file tracks the key specifications that shaped the current focused architec
 - **35**: `specs/35-unified-improve-mapping.md` - Unified improve command with file mapping
 - **37**: `specs/37-worktree-merge-prompt.md` - Interactive worktree merge prompt after completion
 - **38**: `specs/38-focus-every-iteration.md` - Pass focus directive on every iteration
+- **39**: `specs/39-end-to-end-workflow-testing.md` - End-to-end workflow testing with Claude CLI mocking
 
 ## Current Focus
 

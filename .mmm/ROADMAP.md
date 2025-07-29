@@ -138,6 +138,13 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
   - Better success/failure feedback
   - Clearer improvement summaries
 
+### Testing Infrastructure
+- [ ] **End-to-End Workflow Testing** (Spec 39)
+  - Mock Claude CLI responses for deterministic testing
+  - Test multiple workflows (legacy, implement, documentation, product)
+  - Verify git operations and state management
+  - Enable comprehensive CI/CD testing without external dependencies
+
 ### Configuration Enhancements
 - [x] **Configurable Iteration Limit** (Spec 22) ✅
   - Add --max-iterations flag for custom iteration limits
