@@ -979,8 +979,8 @@ async fn call_claude_code_review(verbose: bool, focus: Option<&str>) -> Result<b
 /// - Unable to read git log output
 ///
 /// # Note
-/// This function expects commit messages in the format:
-/// "review: generate improvement spec for iteration-XXXXXXXXXX-improvements"
+/// This function looks for new spec files created in specs/temp/ directory
+/// by checking the git diff of the last commit
 async fn extract_spec_from_git(verbose: bool) -> Result<String> {
     if verbose {
         println!("Extracting spec ID from git history...");
@@ -996,22 +996,79 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
         return Ok("iteration-1234567890-improvements".to_string());
     }
 
-    // Use thread-safe git operation
+    // Check the last commit for any new spec files in specs/temp/
+    let output = Command::new("git")
+        .args(["diff", "--name-only", "HEAD~1", "HEAD", "--", "specs/temp/"])
+        .output()
+        .await
+        .context("Failed to get git diff")?;
+
+    if !output.status.success() {
+        // If we can't diff (e.g., no HEAD~1), try checking what files exist
+        if let Ok(find_output) = Command::new("find")
+            .args(["specs/temp", "-name", "*.md", "-type", "f", "-mmin", "-5"])
+            .output()
+            .await
+        {
+            let files = String::from_utf8_lossy(&find_output.stdout);
+            for line in files.lines() {
+                if let Some(filename) = line.split('/').last() {
+                    if filename.ends_with(".md") {
+                        let spec_id = filename.trim_end_matches(".md");
+                        if verbose {
+                            println!("Found recent spec file: {}", spec_id);
+                        }
+                        return Ok(spec_id.to_string());
+                    }
+                }
+            }
+        }
+        return Ok(String::new());
+    }
+
+    let files = String::from_utf8_lossy(&output.stdout);
+    
+    // Look for new .md files in specs/temp/
+    for line in files.lines() {
+        if line.starts_with("specs/temp/") && line.ends_with(".md") {
+            if let Some(filename) = line.split('/').last() {
+                let spec_id = filename.trim_end_matches(".md");
+                if verbose {
+                    println!("Found new spec file in commit: {}", spec_id);
+                }
+                return Ok(spec_id.to_string());
+            }
+        }
+    }
+    
+    // If no spec file in diff, check if this is a review commit
+    // and look for recently created spec files
     let commit_message = get_last_commit_message()
         .await
         .context("Failed to get git log")?;
-
-    // Parse commit message like "review: generate improvement spec for iteration-1234567890-improvements"
-    if let Some(spec_start) = commit_message.find("iteration-") {
-        let spec_part = &commit_message[spec_start..];
-        if let Some(spec_end) = spec_part.find(' ') {
-            Ok(spec_part[..spec_end].to_string())
-        } else {
-            Ok(spec_part.to_string())
+        
+    if commit_message.starts_with("review:") {
+        if let Ok(find_output) = Command::new("find")
+            .args(["specs/temp", "-name", "*.md", "-type", "f", "-mmin", "-5"])
+            .output()
+            .await
+        {
+            let files = String::from_utf8_lossy(&find_output.stdout);
+            for line in files.lines() {
+                if let Some(filename) = line.split('/').last() {
+                    if filename.ends_with(".md") {
+                        let spec_id = filename.trim_end_matches(".md");
+                        if verbose {
+                            println!("Found recent spec file: {}", spec_id);
+                        }
+                        return Ok(spec_id.to_string());
+                    }
+                }
+            }
         }
-    } else {
-        Ok(String::new()) // No spec found
     }
+    
+    Ok(String::new()) // No spec found
 }
 
 /// Call Claude CLI to implement a specific improvement spec
@@ -1046,15 +1103,19 @@ async fn call_claude_implement_spec(spec_id: &str, verbose: bool) -> Result<bool
     }
 
     // Validate spec_id format to prevent potential command injection
-    // Must be exactly "iteration-XXXXXXXXXX-improvements" where X is a digit
-    let is_valid = spec_id.starts_with("iteration-") 
+    // Accept both "iteration-XXXXXXXXXX-improvements" and "code-review-XXXXXXXXXX" formats
+    let is_iteration_format = spec_id.starts_with("iteration-") 
         && spec_id.ends_with("-improvements")
         && spec_id.len() >= 24 // "iteration-" (10) + at least 1 digit + "-improvements" (13)
         && spec_id[10..spec_id.len()-13].chars().all(|c| c.is_ascii_digit() || c == '-');
+    
+    let is_code_review_format = spec_id.starts_with("code-review-")
+        && spec_id.len() >= 13 // "code-review-" (12) + at least 1 digit
+        && spec_id[12..].chars().all(|c| c.is_ascii_digit() || c == '-');
 
-    if !is_valid {
+    if !is_iteration_format && !is_code_review_format {
         return Err(anyhow!(
-            "Invalid spec ID format: {spec_id}. Expected format: iteration-XXXXXXXXXX-improvements"
+            "Invalid spec ID format: {spec_id}. Expected format: iteration-XXXXXXXXXX-improvements or code-review-XXXXXXXXXX"
         ));
     }
 

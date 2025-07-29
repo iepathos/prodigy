@@ -219,22 +219,79 @@ impl WorkflowExecutor {
             println!("Extracting spec ID from git history...");
         }
 
-        // Use thread-safe git operation
+        // Check the last commit for any new spec files in specs/temp/
+        let output = tokio::process::Command::new("git")
+            .args(["diff", "--name-only", "HEAD~1", "HEAD", "--", "specs/temp/"])
+            .output()
+            .await
+            .context("Failed to get git diff")?;
+
+        if !output.status.success() {
+            // If we can't diff (e.g., no HEAD~1), try checking what files exist
+            if let Ok(find_output) = tokio::process::Command::new("find")
+                .args(["specs/temp", "-name", "*.md", "-type", "f", "-mmin", "-5"])
+                .output()
+                .await
+            {
+                let files = String::from_utf8_lossy(&find_output.stdout);
+                for line in files.lines() {
+                    if let Some(filename) = line.split('/').last() {
+                        if filename.ends_with(".md") {
+                            let spec_id = filename.trim_end_matches(".md");
+                            if self.verbose {
+                                println!("Found recent spec file: {}", spec_id);
+                            }
+                            return Ok(spec_id.to_string());
+                        }
+                    }
+                }
+            }
+            return Ok(String::new());
+        }
+
+        let files = String::from_utf8_lossy(&output.stdout);
+        
+        // Look for new .md files in specs/temp/
+        for line in files.lines() {
+            if line.starts_with("specs/temp/") && line.ends_with(".md") {
+                if let Some(filename) = line.split('/').last() {
+                    let spec_id = filename.trim_end_matches(".md");
+                    if self.verbose {
+                        println!("Found new spec file in commit: {}", spec_id);
+                    }
+                    return Ok(spec_id.to_string());
+                }
+            }
+        }
+        
+        // If no spec file in diff, check if this is a review commit
+        // and look for recently created spec files
         let commit_message = get_last_commit_message()
             .await
             .context("Failed to get git log")?;
-
-        // Parse commit message like "review: generate improvement spec for iteration-1234567890-improvements"
-        if let Some(spec_start) = commit_message.find("iteration-") {
-            let spec_part = &commit_message[spec_start..];
-            if let Some(spec_end) = spec_part.find(' ') {
-                Ok(spec_part[..spec_end].to_string())
-            } else {
-                Ok(spec_part.to_string())
+            
+        if commit_message.starts_with("review:") {
+            if let Ok(find_output) = tokio::process::Command::new("find")
+                .args(["specs/temp", "-name", "*.md", "-type", "f", "-mmin", "-5"])
+                .output()
+                .await
+            {
+                let files = String::from_utf8_lossy(&find_output.stdout);
+                for line in files.lines() {
+                    if let Some(filename) = line.split('/').last() {
+                        if filename.ends_with(".md") {
+                            let spec_id = filename.trim_end_matches(".md");
+                            if self.verbose {
+                                println!("Found recent spec file: {}", spec_id);
+                            }
+                            return Ok(spec_id.to_string());
+                        }
+                    }
+                }
             }
-        } else {
-            Ok(String::new()) // No spec found
         }
+        
+        Ok(String::new()) // No spec found
     }
 }
 
