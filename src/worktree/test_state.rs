@@ -65,7 +65,7 @@ fn test_state_file_creation() -> anyhow::Result<()> {
     assert!(state.error.is_none());
 
     // Clean up
-    manager.cleanup_session(&session.name)?;
+    manager.cleanup_session(&session.name, false)?;
     cleanup_worktree_dir(&manager);
     Ok(())
 }
@@ -99,7 +99,7 @@ fn test_state_updates() -> anyhow::Result<()> {
     assert!(matches!(state.status, WorktreeStatus::Completed));
 
     // Clean up
-    manager.cleanup_session(&session.name)?;
+    manager.cleanup_session(&session.name, false)?;
     cleanup_worktree_dir(&manager);
     Ok(())
 }
@@ -149,8 +149,8 @@ fn test_list_sessions_with_state() -> anyhow::Result<()> {
     assert_eq!(s2.focus, Some("security".to_string()));
 
     // Clean up
-    manager.cleanup_session(&session1.name)?;
-    manager.cleanup_session(&session2.name)?;
+    manager.cleanup_session(&session1.name, false)?;
+    manager.cleanup_session(&session2.name, false)?;
     cleanup_worktree_dir(&manager);
     Ok(())
 }
@@ -192,7 +192,7 @@ fn test_merge_updates_state() -> anyhow::Result<()> {
     assert!(state.merged_at.is_some());
 
     // Clean up
-    manager.cleanup_session(&session.name)?;
+    manager.cleanup_session(&session.name, false)?;
     cleanup_worktree_dir(&manager);
     Ok(())
 }

@@ -131,10 +131,10 @@ fn test_concurrent_workflow_execution() {
 
             thread::spawn(move || {
                 // Each thread tries to create a file
-                let filename = format!("concurrent-{}.txt", i);
+                let filename = format!("concurrent-{i}.txt");
                 let file_path = repo_path.join(&filename);
 
-                let write_result = fs::write(&file_path, format!("Content from thread {}", i));
+                let write_result = fs::write(&file_path, format!("Content from thread {i}"));
 
                 let mut results = results.lock().unwrap();
                 results.push((i, write_result.is_ok()));
@@ -208,16 +208,14 @@ fn test_git_operation_failures() {
 
         assert!(
             !output.status.success(),
-            "Git {:?} should fail in non-git directory",
-            args
+            "Git {args:?} should fail in non-git directory"
         );
 
         // Verify we get meaningful error messages
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(
             stderr.contains("not a git repository") || stderr.contains("fatal:"),
-            "Should get clear error message for git {:?}",
-            args
+            "Should get clear error message for git {args:?}"
         );
     }
 }
@@ -239,7 +237,7 @@ fn test_file_system_edge_cases() {
     // Test deeply nested directories
     let mut nested_path = base_path.to_path_buf();
     for i in 0..50 {
-        nested_path = nested_path.join(format!("level{}", i));
+        nested_path = nested_path.join(format!("level{i}"));
     }
     assert!(
         fs::create_dir_all(&nested_path).is_ok(),
@@ -260,8 +258,7 @@ fn test_file_system_edge_cases() {
             let path = base_path.join(name);
             assert!(
                 fs::write(&path, "content").is_ok(),
-                "Should handle special filename: {}",
-                name
+                "Should handle special filename: {name}"
             );
         }
     }
@@ -285,8 +282,8 @@ fn test_atomic_file_operations() {
             let file_path = file_path.clone();
             thread::spawn(move || {
                 // Simulate atomic write with temp file
-                let temp_path = file_path.with_extension(format!("tmp{}", i));
-                let content = format!(r#"{{"value": {}}}"#, i);
+                let temp_path = file_path.with_extension(format!("tmp{i}"));
+                let content = format!(r#"{{"value": {i}}}"#);
 
                 fs::write(&temp_path, &content).unwrap();
                 thread::sleep(Duration::from_millis(10)); // Simulate some processing

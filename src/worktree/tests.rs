@@ -69,7 +69,7 @@ fn test_create_session_without_focus() -> anyhow::Result<()> {
     assert!(worktrees.contains(&session.name));
 
     // Clean up
-    manager.cleanup_session(&session.name)?;
+    manager.cleanup_session(&session.name, false)?;
     cleanup_worktree_dir(&manager);
     Ok(())
 }
@@ -86,7 +86,7 @@ fn test_create_session_with_focus() -> anyhow::Result<()> {
     assert!(session.path.exists());
 
     // Clean up
-    manager.cleanup_session(&session.name)?;
+    manager.cleanup_session(&session.name, false)?;
     cleanup_worktree_dir(&manager);
     Ok(())
 }
@@ -107,7 +107,7 @@ fn test_list_sessions() -> anyhow::Result<()> {
     assert!(sessions.iter().any(|s| s.name == session2.name));
 
     // Clean up
-    manager.cleanup_all_sessions()?;
+    manager.cleanup_all_sessions(false)?;
     cleanup_worktree_dir(&manager);
     Ok(())
 }
@@ -124,7 +124,7 @@ fn test_cleanup_session() -> anyhow::Result<()> {
     assert!(session.path.exists());
 
     // Clean up session
-    manager.cleanup_session(&session_name)?;
+    manager.cleanup_session(&session_name, false)?;
 
     // Verify worktree is removed
     assert!(!session.path.exists());
@@ -158,7 +158,7 @@ fn test_get_worktree_for_branch() -> anyhow::Result<()> {
     assert!(no_worktree.is_none());
 
     // Clean up
-    manager.cleanup_session(&session.name)?;
+    manager.cleanup_session(&session.name, false)?;
     cleanup_worktree_dir(&manager);
     Ok(())
 }
@@ -176,7 +176,7 @@ fn test_focus_sanitization() -> anyhow::Result<()> {
     assert_eq!(session.focus, Some("user experience / testing".to_string()));
 
     // Clean up
-    manager.cleanup_session(&session.name)?;
+    manager.cleanup_session(&session.name, false)?;
     cleanup_worktree_dir(&manager);
     Ok(())
 }
