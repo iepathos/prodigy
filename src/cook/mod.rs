@@ -922,6 +922,14 @@ async fn run_without_worktree_with_vars(
 async fn call_claude_code_review(verbose: bool, focus: Option<&str>) -> Result<bool> {
     println!("🤖 Running /mmm-code-review...");
 
+    // Skip actual execution in test mode
+    if std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true" {
+        if verbose {
+            println!("[TEST MODE] Skipping Claude CLI execution for: mmm-code-review");
+        }
+        return Ok(true);
+    }
+
     // First check if claude command exists with improved error handling
     check_claude_cli().await?;
 
@@ -980,6 +988,16 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
         println!("Extracting spec ID from git history...");
     }
 
+    // In test mode, return a mock spec ID
+    if std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true" {
+        // Check if there's a test spec ID override
+        if let Ok(test_spec) = std::env::var("MMM_TEST_SPEC_ID") {
+            return Ok(test_spec);
+        }
+        // Return a default test spec ID
+        return Ok("iteration-1234567890-improvements".to_string());
+    }
+
     // Use thread-safe git operation
     let commit_message = get_last_commit_message()
         .await
@@ -1018,6 +1036,17 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
 /// The function automatically retries transient failures up to DEFAULT_CLAUDE_RETRIES times.
 /// Invalid spec IDs are rejected immediately to prevent command injection.
 async fn call_claude_implement_spec(spec_id: &str, verbose: bool) -> Result<bool> {
+    // Skip actual execution in test mode
+    if std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true" {
+        if verbose {
+            println!(
+                "[TEST MODE] Skipping Claude CLI execution for: mmm-implement-spec {}",
+                spec_id
+            );
+        }
+        return Ok(true);
+    }
+
     // Validate spec_id format to prevent potential command injection
     // Must be exactly "iteration-XXXXXXXXXX-improvements" where X is a digit
     let is_valid = spec_id.starts_with("iteration-") 
@@ -1088,6 +1117,14 @@ async fn call_claude_implement_spec(spec_id: &str, verbose: bool) -> Result<bool
 /// Tool availability errors are reported clearly to help users install missing tools.
 async fn call_claude_lint(verbose: bool) -> Result<bool> {
     println!("🧹 Running /mmm-lint...");
+
+    // Skip actual execution in test mode
+    if std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true" {
+        if verbose {
+            println!("[TEST MODE] Skipping Claude CLI execution for: mmm-lint");
+        }
+        return Ok(true);
+    }
 
     let mut cmd = Command::new("claude");
     cmd.arg("--dangerously-skip-permissions") // Required for automation: bypasses interactive permission checks
