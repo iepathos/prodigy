@@ -10,11 +10,17 @@
 //!
 //! ## Modules
 //!
+//! - `abstractions` - Trait-based abstractions for external dependencies (git, Claude CLI)
 //! - `config` - Configuration management for the tool
 //! - `cook` - Core cooking command implementation with mapping support
 //! - `simple_state` - Minimal state management with JSON persistence
 //! - `worktree` - Git worktree management for parallel sessions
+//! - `testing` - Testing utilities and fixtures for comprehensive testing
+pub mod abstractions;
 pub mod config;
 pub mod cook;
 pub mod simple_state;
 pub mod worktree;
+
+#[cfg(test)]
+pub mod testing;

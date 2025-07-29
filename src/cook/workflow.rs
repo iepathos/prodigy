@@ -680,55 +680,24 @@ mod tests {
     /// Test that focus directive is passed on every iteration, not just the first
     #[tokio::test]
     async fn test_focus_passed_every_iteration() {
-        use tempfile::TempDir;
-        use tokio::process::Command as TokioCommand;
-
-        // Create a temporary directory for git operations
-        let temp_dir = TempDir::new().unwrap();
-        let temp_path = temp_dir.path();
-
-        // Initialize git repo
-        TokioCommand::new("git")
-            .current_dir(temp_path)
-            .args(["init"])
-            .output()
-            .await
-            .unwrap();
-
-        TokioCommand::new("git")
-            .current_dir(temp_path)
-            .args(["config", "user.email", "test@example.com"])
-            .output()
-            .await
-            .unwrap();
-
-        TokioCommand::new("git")
-            .current_dir(temp_path)
-            .args(["config", "user.name", "Test User"])
-            .output()
-            .await
-            .unwrap();
-
-        // Change to the temp directory
-        let original_dir = std::env::current_dir().ok();
-        std::env::set_current_dir(temp_path).unwrap();
-
-        // Set test mode
+        // Set test mode to avoid actual command execution
         std::env::set_var("MMM_TEST_MODE", "true");
 
-        // Create workflow that only runs lint (doesn't need spec extraction)
+        // Create workflow with mmm-code-review as first command (which receives focus)
         let workflow = WorkflowConfig {
-            commands: vec![WorkflowCommand::Simple("mmm-lint".to_string())],
+            commands: vec![
+                WorkflowCommand::Simple("mmm-code-review".to_string()),
+                WorkflowCommand::Simple("mmm-lint".to_string()),
+            ],
             max_iterations: 3,
         };
 
         let mut executor = WorkflowExecutor::new(workflow, true, 3);
 
-        // Track how many times commands are executed
-        let mut iteration_count = 0;
+        // Track how many times we execute iterations successfully
+        let mut successful_iterations = 0;
 
-        // Run 3 iterations with focus - but since we only have lint command,
-        // focus won't be applied (it's only for the first command when it's code review)
+        // Run 3 iterations with focus
         for iteration in 1..=3 {
             let result = executor
                 .execute_iteration(iteration, Some("security"))
@@ -736,19 +705,17 @@ mod tests {
 
             assert!(result.is_ok(), "Iteration {iteration} should succeed");
             assert!(result.unwrap(), "Iteration {iteration} should have changes");
-            iteration_count += 1;
+            successful_iterations += 1;
         }
 
-        // Verify all 3 iterations executed
-        assert_eq!(iteration_count, 3, "Should have executed 3 iterations");
+        // Verify all 3 iterations executed successfully
+        assert_eq!(
+            successful_iterations, 3,
+            "Should have executed 3 iterations"
+        );
 
         // Clean up
         std::env::remove_var("MMM_TEST_MODE");
-
-        // Restore original directory
-        if let Some(dir) = original_dir {
-            let _ = std::env::set_current_dir(dir);
-        }
     }
 
     /// Test that would have caught the original bug where focus was only applied on iteration 1

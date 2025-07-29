@@ -2,18 +2,19 @@
 //!
 //! This module provides synchronized access to git operations to prevent
 //! race conditions when multiple processes might be modifying the repository.
+//!
+//! This module now acts as a compatibility layer, delegating to the trait-based
+//! abstraction for better testability while maintaining the existing API.
 
-use anyhow::{Context, Result};
+use crate::abstractions::{GitOperations, RealGitOperations};
+use anyhow::Result;
 use once_cell::sync::Lazy;
 use std::sync::Arc;
-use tokio::process::Command;
 use tokio::sync::Mutex;
 
-/// Global mutex for git operations
-///
-/// This ensures that only one git operation runs at a time, preventing
-/// race conditions during concurrent modifications.
-static GIT_MUTEX: Lazy<Arc<Mutex<()>>> = Lazy::new(|| Arc::new(Mutex::new(())));
+/// Global singleton for git operations
+static GIT_OPS: Lazy<Arc<Mutex<RealGitOperations>>> =
+    Lazy::new(|| Arc::new(Mutex::new(RealGitOperations::new())));
 
 /// Execute a git command with exclusive access
 ///
@@ -24,48 +25,32 @@ static GIT_MUTEX: Lazy<Arc<Mutex<()>>> = Lazy::new(|| Arc::new(Mutex::new(())));
 /// # Returns
 /// The command output on success, or an error with context
 pub async fn git_command(args: &[&str], description: &str) -> Result<std::process::Output> {
-    // Acquire the mutex to ensure exclusive access
-    let _guard = GIT_MUTEX.lock().await;
-
-    let output = Command::new("git")
-        .args(args)
-        .output()
-        .await
-        .context(format!("Failed to execute git {description}"))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(anyhow::anyhow!(
-            "Git {description} failed: {}",
-            stderr.trim()
-        ));
-    }
-
-    Ok(output)
+    let ops = GIT_OPS.lock().await;
+    ops.git_command(args, description).await
 }
 
 /// Get the last commit message
 ///
 /// Thread-safe wrapper for getting the most recent commit message.
 pub async fn get_last_commit_message() -> Result<String> {
-    let output = git_command(&["log", "-1", "--pretty=format:%s"], "log").await?;
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    let ops = GIT_OPS.lock().await;
+    ops.get_last_commit_message().await
 }
 
 /// Check git status
 ///
 /// Thread-safe wrapper for checking repository status.
 pub async fn check_git_status() -> Result<String> {
-    let output = git_command(&["status", "--porcelain"], "status").await?;
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    let ops = GIT_OPS.lock().await;
+    ops.check_git_status().await
 }
 
 /// Stage all changes
 ///
 /// Thread-safe wrapper for staging all modifications.
 pub async fn stage_all_changes() -> Result<()> {
-    git_command(&["add", "."], "add").await?;
-    Ok(())
+    let ops = GIT_OPS.lock().await;
+    ops.stage_all_changes().await
 }
 
 /// Create a commit
@@ -75,8 +60,8 @@ pub async fn stage_all_changes() -> Result<()> {
 /// # Arguments
 /// * `message` - The commit message
 pub async fn create_commit(message: &str) -> Result<()> {
-    git_command(&["commit", "-m", message], "commit").await?;
-    Ok(())
+    let ops = GIT_OPS.lock().await;
+    ops.create_commit(message).await
 }
 
 /// Check if we're in a git repository
@@ -84,19 +69,15 @@ pub async fn create_commit(message: &str) -> Result<()> {
 /// # Returns
 /// true if the current directory is inside a git repository
 pub async fn is_git_repo() -> bool {
-    // Don't need mutex for read-only check
-    Command::new("git")
-        .args(["rev-parse", "--git-dir"])
-        .output()
-        .await
-        .map(|output| output.status.success())
-        .unwrap_or(false)
+    let ops = GIT_OPS.lock().await;
+    ops.is_git_repo().await
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use tempfile::TempDir;
+    use tokio::process::Command;
 
     #[tokio::test]
     async fn test_git_mutex_prevents_races() {

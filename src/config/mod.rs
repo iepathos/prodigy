@@ -507,14 +507,18 @@ commands:
 
     #[test]
     fn test_merge_env_vars_editor_fallback() {
-        let mut config = Config::new();
+        // Clean up any existing env vars first
+        std::env::remove_var("EDITOR");
+        std::env::remove_var("MMM_EDITOR");
 
         // Test EDITOR fallback when MMM_EDITOR is not set
+        let mut config = Config::new();
         std::env::set_var("EDITOR", "nano");
         config.merge_env_vars();
         assert_eq!(config.global.default_editor, Some("nano".to_string()));
 
         // MMM_EDITOR takes precedence
+        let mut config = Config::new();
         std::env::set_var("MMM_EDITOR", "emacs");
         config.merge_env_vars();
         assert_eq!(config.global.default_editor, Some("emacs".to_string()));
