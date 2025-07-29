@@ -128,6 +128,26 @@ DESCRIPTION: $ARGUMENTS (required - natural language description of the feature 
    - Validate file structure and content
    - Create any supporting documentation files
 
+### Phase 7: Commit Changes
+
+1. **Stage All Changes**
+   - Stage the new specification file
+   - Stage the updated SPEC_INDEX.md
+   - Stage the updated ROADMAP.md
+   - Stage any other modified context files
+
+2. **Create Commit**
+   - Use descriptive commit message format: "add: spec {NUMBER} - {title}"
+   - Include brief description of the specification purpose
+   - Reference the specification number in commit message
+   - Ensure all related changes are included in single commit
+
+3. **Verify Commit**
+   - Check that all modified files are included
+   - Verify commit message follows project conventions
+   - Ensure no unrelated changes are included
+   - Confirm specification is properly indexed
+
 ## Specification Template Structure
 
 ### Standard Format
