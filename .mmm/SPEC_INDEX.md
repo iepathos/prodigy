@@ -26,6 +26,7 @@ This file tracks the key specifications that shaped the current focused architec
 
 ## Implemented Core Features (continued)
 - **36**: `specs/36-rename-improve-to-cook.md` - Rename improve subcommand to cook
+- **41**: `specs/41-auto-accept-flag.md` - Auto-accept flag for non-interactive operation
 
 ## Pending Specifications
 - **22**: `specs/22-configurable-iteration-limit.md` - Add --max-iterations flag
@@ -34,12 +35,11 @@ This file tracks the key specifications that shaped the current focused architec
 - **38**: `specs/38-focus-every-iteration.md` - Pass focus directive on every iteration
 - **39**: `specs/39-end-to-end-workflow-testing.md` - End-to-end workflow testing with Claude CLI mocking
 - **40**: `specs/40-improve-test-coverage.md` - Improve test coverage with abstraction layers and comprehensive testing
-- **41**: `specs/41-auto-accept-flag.md` - Auto-accept flag for non-interactive operation
 
 ## Current Focus
 
 The tool now focuses exclusively on:
-1. **Dead Simple CLI**: `mmm improve [--target 8.0] [--verbose]`
+1. **Dead Simple CLI**: `mmm cook [--target 8.0] [--verbose] [--yes]`
 2. **Real Functionality**: Actually calls Claude CLI and modifies files
 3. **Minimal State**: Just tracks what's needed for the loop
 4. **Clear Code**: Single module with straightforward logic

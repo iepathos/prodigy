@@ -9,12 +9,12 @@ Memento Mori (mmm) is a dead simple Rust CLI tool that makes your code better th
 - **Project Status**: Active Development - Core Working
 - **Core Feature**: `mmm cook` command with Claude CLI integration
 - **Latest Version**: 0.1.0
-- **Implementation Status**: Git-native improvement flow fully implemented with robust Claude CLI integration, complete audit trails, self-sufficient automated cycles, dynamic spec generation for improvements, focus-directed initial analysis (Spec 20), configurable workflows (Spec 21), configurable iteration limits (Spec 22), command-line config options (Spec 23), git worktree isolation for parallel sessions (Spec 24), Claude-assisted worktree merging with conflict resolution (Spec 25), worktree CLI flag (Spec 26), structured command objects (Spec 28), centralized worktree state management (Spec 29), product management command (Spec 31), batch spec implementation (Spec 33), unified cook command with mapping (Spec 35), interactive worktree merge prompt (Spec 37), and consistent focus directive on all iterations (Spec 38)
+- **Implementation Status**: Git-native improvement flow fully implemented with robust Claude CLI integration, complete audit trails, self-sufficient automated cycles, dynamic spec generation for improvements, focus-directed initial analysis (Spec 20), configurable workflows (Spec 21), configurable iteration limits (Spec 22), command-line config options (Spec 23), git worktree isolation for parallel sessions (Spec 24), Claude-assisted worktree merging with conflict resolution (Spec 25), worktree CLI flag (Spec 26), structured command objects (Spec 28), centralized worktree state management (Spec 29), product management command (Spec 31), batch spec implementation (Spec 33), unified cook command with mapping (Spec 35), interactive worktree merge prompt (Spec 37), consistent focus directive on all iterations (Spec 38), and auto-accept flag for non-interactive operation (Spec 41)
 
 ## What Exists
 
 ### Core Functionality
-- **Simple CLI**: `mmm cook [--target 8.0] [--verbose] [--focus "area"] [--max-iterations N] [--worktree] [--map "pattern"] [--args "value"]`
+- **Simple CLI**: `mmm cook [--target 8.0] [--verbose] [--focus "area"] [--max-iterations N] [--worktree] [--map "pattern"] [--args "value"] [--yes]`
 - **Unified Command**: Single `cook` command handles both iterative improvements and batch processing
 - **Git-Native Flow**: Each improvement step creates git commits for complete auditability
 - **Claude Integration**: Three-step Claude CLI workflow (review → implement → lint)
@@ -28,6 +28,7 @@ Memento Mori (mmm) is a dead simple Rust CLI tool that makes your code better th
 - **Claude-Assisted Merge**: Automatic conflict resolution for worktree merges via Claude CLI
 - **Worktree State Tracking**: Centralized metadata for worktree sessions with UUID-based naming
 - **Interactive Merge Prompt**: Prompts to merge completed worktrees immediately in TTY environments
+- **Auto-Accept Mode**: `-y/--yes` flag for fully unattended operation in scripts and CI/CD
 
 ### Project Structure
 ```
@@ -53,6 +54,7 @@ mmm/
 1. **Dead Simple Interface**
    - Main commands: `mmm cook`, `mmm worktree`
    - Optional flags for target score, verbosity, focus directive, and more
+   - Auto-accept flag for non-interactive automation
    - Works out of the box
 
 2. **Git-Native Improvement Flow**

@@ -144,15 +144,22 @@ async fn run_with_mapping(cmd: command::CookCommand) -> Result<()> {
                     println!("✅ Improvements completed in worktree: {}", session.name);
                 }
 
-                // Prompt for merge if in interactive terminal and improvements were made
-                if is_tty() && iterations_completed > 0 {
+                // Prompt for merge if in interactive terminal (or auto-accept) and improvements were made
+                if (is_tty() || cmd.auto_accept) && iterations_completed > 0 {
                     // Update state to track prompt shown
                     let worktree_manager = WorktreeManager::new(original_repo_path.clone())?;
                     worktree_manager.update_session_state(&session.name, |state| {
                         state.merge_prompt_shown = true;
                     })?;
 
-                    match prompt_for_merge(&session.name) {
+                    let should_merge = if cmd.auto_accept {
+                        println!("Auto-accepting worktree merge (--yes flag set)");
+                        MergeChoice::Yes
+                    } else {
+                        prompt_for_merge(&session.name)
+                    };
+
+                    match should_merge {
                         MergeChoice::Yes => {
                             // Update state with response
                             worktree_manager.update_session_state(&session.name, |state| {
@@ -173,13 +180,23 @@ async fn run_with_mapping(cmd: command::CookCommand) -> Result<()> {
                                     )?;
 
                                     // Prompt to delete the worktree
-                                    print!("\nWould you like to delete the worktree now? (y/N): ");
-                                    io::stdout().flush().unwrap_or_default();
+                                    let should_delete = if cmd.auto_accept {
+                                        println!(
+                                            "Auto-accepting worktree deletion (--yes flag set)"
+                                        );
+                                        true
+                                    } else {
+                                        print!(
+                                            "\nWould you like to delete the worktree now? (y/N): "
+                                        );
+                                        io::stdout().flush().unwrap_or_default();
 
-                                    let mut input = String::new();
-                                    io::stdin().read_line(&mut input).unwrap_or_default();
+                                        let mut input = String::new();
+                                        io::stdin().read_line(&mut input).unwrap_or_default();
+                                        input.trim().to_lowercase() == "y"
+                                    };
 
-                                    if input.trim().to_lowercase() == "y" {
+                                    if should_delete {
                                         println!("Deleting worktree {}...", session.name);
                                         match worktree_manager.cleanup_session(&session.name, false)
                                         {
@@ -430,15 +447,22 @@ async fn run_standard(cmd: command::CookCommand) -> Result<()> {
                     println!("✅ Improvements completed in worktree: {}", session.name);
                 }
 
-                // Prompt for merge if in interactive terminal and improvements were made
-                if is_tty() && iterations_completed > 0 {
+                // Prompt for merge if in interactive terminal (or auto-accept) and improvements were made
+                if (is_tty() || cmd.auto_accept) && iterations_completed > 0 {
                     // Update state to track prompt shown
                     let worktree_manager = WorktreeManager::new(original_repo_path.clone())?;
                     worktree_manager.update_session_state(&session.name, |state| {
                         state.merge_prompt_shown = true;
                     })?;
 
-                    match prompt_for_merge(&session.name) {
+                    let should_merge = if cmd.auto_accept {
+                        println!("Auto-accepting worktree merge (--yes flag set)");
+                        MergeChoice::Yes
+                    } else {
+                        prompt_for_merge(&session.name)
+                    };
+
+                    match should_merge {
                         MergeChoice::Yes => {
                             // Update state with response
                             worktree_manager.update_session_state(&session.name, |state| {
@@ -459,13 +483,23 @@ async fn run_standard(cmd: command::CookCommand) -> Result<()> {
                                     )?;
 
                                     // Prompt to delete the worktree
-                                    print!("\nWould you like to delete the worktree now? (y/N): ");
-                                    io::stdout().flush().unwrap_or_default();
+                                    let should_delete = if cmd.auto_accept {
+                                        println!(
+                                            "Auto-accepting worktree deletion (--yes flag set)"
+                                        );
+                                        true
+                                    } else {
+                                        print!(
+                                            "\nWould you like to delete the worktree now? (y/N): "
+                                        );
+                                        io::stdout().flush().unwrap_or_default();
 
-                                    let mut input = String::new();
-                                    io::stdin().read_line(&mut input).unwrap_or_default();
+                                        let mut input = String::new();
+                                        io::stdin().read_line(&mut input).unwrap_or_default();
+                                        input.trim().to_lowercase() == "y"
+                                    };
 
-                                    if input.trim().to_lowercase() == "y" {
+                                    if should_delete {
                                         println!("Deleting worktree {}...", session.name);
                                         match worktree_manager.cleanup_session(&session.name, false)
                                         {
@@ -1551,6 +1585,7 @@ mod cook_inline_tests {
             map: vec![],
             args: vec![],
             fail_fast: false,
+            auto_accept: false,
         }
     }
 

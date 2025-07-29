@@ -60,4 +60,12 @@ pub struct CookCommand {
     /// By default, continues processing remaining files.
     #[arg(long)]
     pub fail_fast: bool,
+
+    /// Automatically answer yes to all prompts
+    ///
+    /// Enables fully unattended operation by automatically accepting all interactive
+    /// prompts, including worktree merge and deletion prompts. Useful for scripts,
+    /// CI/CD pipelines, and other automation scenarios.
+    #[arg(short = 'y', long = "yes")]
+    pub auto_accept: bool,
 }

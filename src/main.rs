@@ -132,6 +132,7 @@ async fn main() {
                 map,
                 args,
                 fail_fast,
+                auto_accept: false, // Default to false for the improve alias
             };
             mmm::cook::run(cook_cmd).await
         }

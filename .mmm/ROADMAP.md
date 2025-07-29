@@ -250,7 +250,7 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
 - [ ] Integration with common tools
 
 ### Automation Support
-- [ ] **Auto-Accept Flag** (Spec 41)
+- [x] **Auto-Accept Flag** (Spec 41) ✅
   - Add -y/--yes flag for non-interactive operation
   - Auto-accept worktree merge and deletion prompts
   - Enable fully automated improvement workflows
