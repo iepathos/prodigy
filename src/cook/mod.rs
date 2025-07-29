@@ -581,9 +581,8 @@ async fn run_improvement_loop(
                 .execute_iteration(iteration, focus_for_iteration)
                 .await?;
             if !iteration_success {
-                if cmd.show_progress {
-                    println!("Workflow iteration completed with no changes - stopping");
-                }
+                println!("ℹ️  Iteration {} completed with no changes - stopping early", iteration);
+                println!("   (This typically means no issues were found to fix)");
                 break;
             }
 
@@ -788,9 +787,8 @@ async fn run_without_worktree_with_vars(
                 .execute_iteration(iteration, focus_for_iteration)
                 .await?;
             if !iteration_success {
-                if cmd.show_progress {
-                    println!("Workflow iteration completed with no changes - stopping");
-                }
+                println!("ℹ️  Iteration {} completed with no changes - stopping early", iteration);
+                println!("   (This typically means no issues were found to fix)");
                 break;
             }
 
@@ -1349,9 +1347,8 @@ async fn run_improvement_loop_with_variables(
                 .execute_iteration(iteration, focus_for_iteration)
                 .await?;
             if !iteration_success {
-                if cmd.show_progress {
-                    println!("Workflow iteration completed with no changes - stopping");
-                }
+                println!("ℹ️  Iteration {} completed with no changes - stopping early", iteration);
+                println!("   (This typically means no issues were found to fix)");
                 break;
             }
 
