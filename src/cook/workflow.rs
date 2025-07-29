@@ -12,6 +12,7 @@ pub struct WorkflowExecutor {
     verbose: bool,
     max_iterations: u32,
     variables: HashMap<String, String>,
+    test_mode: bool,
 }
 
 impl WorkflowExecutor {
@@ -21,6 +22,18 @@ impl WorkflowExecutor {
             verbose,
             max_iterations,
             variables: HashMap::new(),
+            test_mode: false,
+        }
+    }
+
+    #[cfg(test)]
+    pub fn new_for_test(config: WorkflowConfig, verbose: bool, max_iterations: u32) -> Self {
+        Self {
+            config,
+            verbose,
+            max_iterations,
+            variables: HashMap::new(),
+            test_mode: true,
         }
     }
 
@@ -127,13 +140,11 @@ impl WorkflowExecutor {
         println!("🤖 Running /{}{args_display}", command.name);
 
         // Skip actual execution in test mode
-        if std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true" {
-            if self.verbose {
-                println!(
-                    "[TEST MODE] Skipping Claude CLI execution for: {}",
-                    command.name
-                );
-            }
+        if self.test_mode {
+            println!(
+                "[TEST MODE] Skipping Claude CLI execution for: {}",
+                command.name
+            );
             return Ok(true);
         }
 
@@ -493,9 +504,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_execute_iteration_test_mode() {
-        // Set test mode
-        std::env::set_var("MMM_TEST_MODE", "true");
-
         // Create a simple workflow with just mmm-code-review and mmm-lint
         let config = WorkflowConfig {
             commands: vec![
@@ -504,7 +512,7 @@ mod tests {
             ],
             max_iterations: 1,
         };
-        let mut executor = WorkflowExecutor::new(config, false, 1);
+        let mut executor = WorkflowExecutor::new_for_test(config, false, 1);
 
         // This should succeed without actually calling Claude
         let result = executor.execute_iteration(1, Some("test focus")).await;
@@ -512,8 +520,6 @@ mod tests {
         // In test mode, should return success
         assert!(result.is_ok());
         assert!(result.unwrap()); // Should have changes from the commands
-
-        std::env::remove_var("MMM_TEST_MODE");
     }
 
     #[test]
@@ -651,16 +657,13 @@ mod tests {
             return;
         }
 
-        // Set test mode
-        std::env::set_var("MMM_TEST_MODE", "true");
-
         // Create a test workflow with just lint command (doesn't require args)
         let config = WorkflowConfig {
             commands: vec![WorkflowCommand::Simple("mmm-lint".to_string())],
             max_iterations: 1,
         };
 
-        let mut executor = WorkflowExecutor::new(config, false, 1);
+        let mut executor = WorkflowExecutor::new_for_test(config, false, 1);
 
         // Execute iteration - should succeed
         let result = executor.execute_iteration(1, None).await;
@@ -668,8 +671,6 @@ mod tests {
         // Should succeed with changes from lint command
         assert!(result.is_ok());
         assert!(result.unwrap());
-
-        std::env::remove_var("MMM_TEST_MODE");
 
         // Restore original directory if we had one
         if let Some(dir) = original_dir {
@@ -680,9 +681,6 @@ mod tests {
     /// Test that focus directive is passed on every iteration, not just the first
     #[tokio::test]
     async fn test_focus_passed_every_iteration() {
-        // Set test mode to avoid actual command execution
-        std::env::set_var("MMM_TEST_MODE", "true");
-
         // Create workflow with mmm-code-review as first command (which receives focus)
         let workflow = WorkflowConfig {
             commands: vec![
@@ -692,7 +690,7 @@ mod tests {
             max_iterations: 3,
         };
 
-        let mut executor = WorkflowExecutor::new(workflow, true, 3);
+        let mut executor = WorkflowExecutor::new_for_test(workflow, true, 3);
 
         // Track how many times we execute iterations successfully
         let mut successful_iterations = 0;
@@ -713,9 +711,6 @@ mod tests {
             successful_iterations, 3,
             "Should have executed 3 iterations"
         );
-
-        // Clean up
-        std::env::remove_var("MMM_TEST_MODE");
     }
 
     /// Test that would have caught the original bug where focus was only applied on iteration 1
@@ -789,8 +784,6 @@ mod tests {
         let original_dir = std::env::current_dir().ok();
         std::env::set_current_dir(temp_path).unwrap();
 
-        std::env::set_var("MMM_TEST_MODE", "true");
-
         // Create a workflow with mmm-code-review as first command
         let workflow = WorkflowConfig {
             commands: vec![
@@ -805,7 +798,7 @@ mod tests {
 
         // Manually check the logic for each iteration
         for _iteration in 1..=3 {
-            let executor = WorkflowExecutor::new(workflow.clone(), true, 3);
+            let executor = WorkflowExecutor::new_for_test(workflow.clone(), true, 3);
 
             // Get the first command (mmm-code-review)
             let mut cmd = executor.config.commands[0].to_command();
@@ -827,8 +820,6 @@ mod tests {
             commands_with_focus, 3,
             "All 3 iterations should have focus applied to mmm-code-review"
         );
-
-        std::env::remove_var("MMM_TEST_MODE");
 
         if let Some(dir) = original_dir {
             let _ = std::env::set_current_dir(dir);
