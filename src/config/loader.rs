@@ -122,8 +122,8 @@ mod tests {
     use tokio::fs;
 
     #[tokio::test]
-    async fn test_new_creates_default_config() {
-        let loader = ConfigLoader::new().await.unwrap();
+    async fn test_new_creates_default_config() -> Result<()> {
+        let loader = ConfigLoader::new().await?;
         let config = loader.get_config();
 
         // Check defaults
@@ -132,11 +132,12 @@ mod tests {
         assert_eq!(config.global.log_level, Some("info".to_string()));
         assert_eq!(config.global.max_concurrent_specs, Some(1));
         assert_eq!(config.global.auto_commit, Some(true));
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_load_with_explicit_path_yaml() {
-        let temp_dir = TempDir::new().unwrap();
+    async fn test_load_with_explicit_path_yaml() -> Result<()> {
+        let temp_dir = TempDir::new()?;
         let workflow_path = temp_dir.path().join("workflow.yml");
 
         // Create a test workflow config
@@ -147,24 +148,24 @@ commands:
   - mmm-lint
 max_iterations: 5
 "#;
-        fs::write(&workflow_path, workflow_content).await.unwrap();
+        fs::write(&workflow_path, workflow_content).await?;
 
-        let loader = ConfigLoader::new().await.unwrap();
+        let loader = ConfigLoader::new().await?;
         loader
             .load_with_explicit_path(temp_dir.path(), Some(&workflow_path))
-            .await
-            .unwrap();
+            .await?;
 
         let config = loader.get_config();
         assert!(config.workflow.is_some());
         let workflow = config.workflow.unwrap();
         assert_eq!(workflow.commands.len(), 3);
         assert_eq!(workflow.max_iterations, 5);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_load_with_explicit_path_nested_workflow() {
-        let temp_dir = TempDir::new().unwrap();
+    async fn test_load_with_explicit_path_nested_workflow() -> Result<()> {
+        let temp_dir = TempDir::new()?;
         let config_path = temp_dir.path().join("config.yml");
 
         // Create a config with nested workflow section
@@ -179,24 +180,24 @@ workflow:
 "#;
         fs::write(&config_path, config_content).await.unwrap();
 
-        let loader = ConfigLoader::new().await.unwrap();
+        let loader = ConfigLoader::new().await?;
         loader
             .load_with_explicit_path(temp_dir.path(), Some(&config_path))
-            .await
-            .unwrap();
+            .await?;
 
         let config = loader.get_config();
         assert!(config.workflow.is_some());
         let workflow = config.workflow.unwrap();
         assert_eq!(workflow.commands.len(), 2);
         assert_eq!(workflow.max_iterations, 3);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_load_with_default_path() {
-        let temp_dir = TempDir::new().unwrap();
+    async fn test_load_with_default_path() -> Result<()> {
+        let temp_dir = TempDir::new()?;
         let mmm_dir = temp_dir.path().join(".mmm");
-        fs::create_dir(&mmm_dir).await.unwrap();
+        fs::create_dir(&mmm_dir).await?;
         let workflow_path = mmm_dir.join("workflow.yml");
 
         // Create default workflow config
@@ -205,42 +206,42 @@ commands:
   - mmm-test
 max_iterations: 7
 "#;
-        fs::write(&workflow_path, workflow_content).await.unwrap();
+        fs::write(&workflow_path, workflow_content).await?;
 
-        let loader = ConfigLoader::new().await.unwrap();
+        let loader = ConfigLoader::new().await?;
         // No explicit path, should find .mmm/workflow.yml
         loader
             .load_with_explicit_path(temp_dir.path(), None)
-            .await
-            .unwrap();
+            .await?;
 
         let config = loader.get_config();
         assert!(config.workflow.is_some());
         let workflow = config.workflow.unwrap();
         assert_eq!(workflow.commands.len(), 1);
         assert_eq!(workflow.max_iterations, 7);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_load_with_no_config_uses_defaults() {
-        let temp_dir = TempDir::new().unwrap();
+    async fn test_load_with_no_config_uses_defaults() -> Result<()> {
+        let temp_dir = TempDir::new()?;
 
-        let loader = ConfigLoader::new().await.unwrap();
+        let loader = ConfigLoader::new().await?;
         // No config files exist
         loader
             .load_with_explicit_path(temp_dir.path(), None)
-            .await
-            .unwrap();
+            .await?;
 
         let config = loader.get_config();
         assert!(config.workflow.is_none());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_load_project_config() {
-        let temp_dir = TempDir::new().unwrap();
+    async fn test_load_project_config() -> Result<()> {
+        let temp_dir = TempDir::new()?;
         let mmm_dir = temp_dir.path().join(".mmm");
-        fs::create_dir(&mmm_dir).await.unwrap();
+        fs::create_dir(&mmm_dir).await?;
         let config_path = mmm_dir.join("config.yml");
 
         // Create project config
@@ -253,10 +254,10 @@ claude_api_key: test-key
 max_iterations: 15
 auto_commit: false
 "#;
-        fs::write(&config_path, project_content).await.unwrap();
+        fs::write(&config_path, project_content).await?;
 
-        let loader = ConfigLoader::new().await.unwrap();
-        loader.load_project(temp_dir.path()).await.unwrap();
+        let loader = ConfigLoader::new().await?;
+        loader.load_project(temp_dir.path()).await?;
 
         let config = loader.get_config();
         assert!(config.project.is_some());
@@ -268,15 +269,16 @@ auto_commit: false
         assert_eq!(project.claude_api_key, Some("test-key".to_string()));
         assert_eq!(project.max_iterations, Some(15));
         assert_eq!(project.auto_commit, Some(false));
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_load_from_path_unsupported_format() {
-        let temp_dir = TempDir::new().unwrap();
+    async fn test_load_from_path_unsupported_format() -> Result<()> {
+        let temp_dir = TempDir::new()?;
         let config_path = temp_dir.path().join("config.json");
-        fs::write(&config_path, "{}").await.unwrap();
+        fs::write(&config_path, "{}").await?;
 
-        let loader = ConfigLoader::new().await.unwrap();
+        let loader = ConfigLoader::new().await?;
         let result = loader.load_from_path(&config_path).await;
 
         assert!(result.is_err());
@@ -284,28 +286,28 @@ auto_commit: false
             .unwrap_err()
             .to_string()
             .contains("Unsupported configuration file format"));
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_load_from_path_invalid_yaml() {
-        let temp_dir = TempDir::new().unwrap();
+    async fn test_load_from_path_invalid_yaml() -> Result<()> {
+        let temp_dir = TempDir::new()?;
         let config_path = temp_dir.path().join("config.yml");
-        fs::write(&config_path, "invalid: yaml: content:")
-            .await
-            .unwrap();
+        fs::write(&config_path, "invalid: yaml: content:").await?;
 
-        let loader = ConfigLoader::new().await.unwrap();
+        let loader = ConfigLoader::new().await?;
         let result = loader.load_from_path(&config_path).await;
 
         assert!(result.is_err());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_load_from_path_nonexistent_file() {
-        let temp_dir = TempDir::new().unwrap();
+    async fn test_load_from_path_nonexistent_file() -> Result<()> {
+        let temp_dir = TempDir::new()?;
         let config_path = temp_dir.path().join("nonexistent.yml");
 
-        let loader = ConfigLoader::new().await.unwrap();
+        let loader = ConfigLoader::new().await?;
         let result = loader.load_from_path(&config_path).await;
 
         assert!(result.is_err());
@@ -313,11 +315,12 @@ auto_commit: false
             .unwrap_err()
             .to_string()
             .contains("Failed to read configuration file"));
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_concurrent_access() {
-        let loader = ConfigLoader::new().await.unwrap();
+    async fn test_concurrent_access() -> Result<()> {
+        let loader = ConfigLoader::new().await?;
         let loader_arc = Arc::new(loader);
 
         // Spawn multiple tasks that read config concurrently
@@ -335,5 +338,6 @@ auto_commit: false
         for handle in handles {
             handle.await.unwrap();
         }
+        Ok(())
     }
 }

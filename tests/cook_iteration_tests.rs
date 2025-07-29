@@ -14,18 +14,18 @@ fn test_cook_multiple_iterations_with_focus() -> Result<()> {
 
     // Initialize a git repository
     Command::new("git")
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .args(["init"])
         .output()?;
 
     // Configure git user for commits
     Command::new("git")
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .args(["config", "user.email", "test@example.com"])
         .output()?;
 
     Command::new("git")
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .args(["config", "user.name", "Test User"])
         .output()?;
 
@@ -53,18 +53,18 @@ max_iterations = 3
 
     // Initial commit
     Command::new("git")
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .args(["add", "."])
         .output()?;
 
     Command::new("git")
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .args(["commit", "-m", "Initial commit"])
         .output()?;
 
     // Run mmm cook with 3 iterations and focus
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .env("MMM_TEST_MODE", "true")
         .env("MMM_TEST_ITERATIONS", "true") // Enable iteration tracking
         .args(["cook", "-n", "3", "-f", "documentation", "--show-progress"])
@@ -118,17 +118,17 @@ fn test_cook_stops_early_when_no_changes() -> Result<()> {
 
     // Initialize git repo
     Command::new("git")
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .args(["init"])
         .output()?;
 
     Command::new("git")
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .args(["config", "user.email", "test@example.com"])
         .output()?;
 
     Command::new("git")
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .args(["config", "user.name", "Test User"])
         .output()?;
 
@@ -152,18 +152,18 @@ max_iterations = 5
     // Initial commit
     fs::write(temp_path.join("test.rs"), "fn main() {}\n")?;
     Command::new("git")
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .args(["add", "."])
         .output()?;
 
     Command::new("git")
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .args(["commit", "-m", "Initial commit"])
         .output()?;
 
     // Run mmm cook with max 5 iterations
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .env("MMM_TEST_MODE", "true")
         .args(["cook", "-n", "5", "--show-progress"])
         .output()?;
@@ -190,11 +190,8 @@ max_iterations = 5
 
 /// Test to specifically catch the bug where focus was only applied on first iteration
 #[test]
+#[ignore = "Requires more complex mocking to track focus application across iterations"]
 fn test_focus_applied_every_iteration() -> Result<()> {
-    // Skip this test for now as it requires more complex mocking
-    // to track focus application across iterations
-    return Ok(());
-
     // This test creates a scenario where we can track if focus is passed
     // to the code review command on each iteration
 
@@ -203,17 +200,17 @@ fn test_focus_applied_every_iteration() -> Result<()> {
 
     // Initialize git
     Command::new("git")
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .args(["init"])
         .output()?;
 
     Command::new("git")
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .args(["config", "user.email", "test@example.com"])
         .output()?;
 
     Command::new("git")
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .args(["config", "user.name", "Test User"])
         .output()?;
 
@@ -240,18 +237,18 @@ max_iterations = 3
     // Initial commit
     fs::write(temp_path.join("test.rs"), "fn main() {}\n")?;
     Command::new("git")
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .args(["add", "."])
         .output()?;
 
     Command::new("git")
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .args(["commit", "-m", "Initial commit"])
         .output()?;
 
     // Run with focus directive
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .env("MMM_TEST_MODE", "true")
         .env("MMM_TRACK_FOCUS", focus_tracker.to_str().unwrap())
         .args(["cook", "-n", "3", "-f", "security", "--show-progress"])
@@ -312,23 +309,23 @@ fn test_cook_worktree_multiple_iterations() -> Result<()> {
 
     // Initialize git repository
     Command::new("git")
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .args(["init"])
         .output()?;
 
     Command::new("git")
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .args(["config", "user.email", "test@example.com"])
         .output()?;
 
     Command::new("git")
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .args(["config", "user.name", "Test User"])
         .output()?;
 
     // Set up initial branch
     Command::new("git")
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .args(["checkout", "-b", "main"])
         .output()?;
 
@@ -337,18 +334,18 @@ fn test_cook_worktree_multiple_iterations() -> Result<()> {
     fs::write(temp_path.join("test.rs"), "fn main() {}\n")?;
 
     Command::new("git")
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .args(["add", "."])
         .output()?;
 
     Command::new("git")
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .args(["commit", "-m", "Initial commit"])
         .output()?;
 
     // Run mmm cook in worktree mode with multiple iterations
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
-        .current_dir(&temp_path)
+        .current_dir(temp_path)
         .env("MMM_TEST_MODE", "true")
         .args([
             "cook",

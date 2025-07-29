@@ -45,7 +45,10 @@ impl WorkflowExecutor {
         }
 
         let mut any_changes = false;
-        println!("📝 Starting workflow with {} commands", self.config.commands.len());
+        println!(
+            "📝 Starting workflow with {} commands",
+            self.config.commands.len()
+        );
 
         for (idx, workflow_command) in self.config.commands.iter().enumerate() {
             // Convert to structured command
@@ -298,7 +301,7 @@ impl WorkflowExecutor {
         }
 
         let files = String::from_utf8_lossy(&output.stdout);
-        
+
         // Look for new .md files in specs/temp/
         for line in files.lines() {
             if line.starts_with("specs/temp/") && line.ends_with(".md") {
@@ -311,13 +314,13 @@ impl WorkflowExecutor {
                 }
             }
         }
-        
+
         // If no spec file in diff, check if this is a review commit
         // and look for recently created spec files
         let commit_message = get_last_commit_message()
             .await
             .context("Failed to get git log")?;
-            
+
         if commit_message.starts_with("review:") {
             if let Ok(find_output) = tokio::process::Command::new("find")
                 .args(["specs/temp", "-name", "*.md", "-type", "f", "-mmin", "-5"])
@@ -338,7 +341,7 @@ impl WorkflowExecutor {
                 }
             }
         }
-        
+
         Ok(String::new()) // No spec found
     }
 }
@@ -708,7 +711,7 @@ mod tests {
 
         // Change to the temp directory
         let original_dir = std::env::current_dir().ok();
-        std::env::set_current_dir(&temp_path).unwrap();
+        std::env::set_current_dir(temp_path).unwrap();
 
         // Set test mode
         std::env::set_var("MMM_TEST_MODE", "true");
@@ -821,7 +824,7 @@ mod tests {
             .unwrap();
 
         let original_dir = std::env::current_dir().ok();
-        std::env::set_current_dir(&temp_path).unwrap();
+        std::env::set_current_dir(temp_path).unwrap();
 
         std::env::set_var("MMM_TEST_MODE", "true");
 
