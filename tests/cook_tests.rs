@@ -100,6 +100,7 @@ mod improve_command_tests {
             map: vec![],
             args: vec![],
             fail_fast: false,
+            auto_accept: false,
         };
 
         assert!(!cmd.show_progress);
@@ -118,6 +119,7 @@ mod improve_command_tests {
             map: vec![],
             args: vec![],
             fail_fast: false,
+            auto_accept: false,
         };
 
         assert!(cmd.show_progress);

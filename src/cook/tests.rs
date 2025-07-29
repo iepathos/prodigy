@@ -33,6 +33,7 @@ mod cook_tests {
             map: Vec::new(),
             args: Vec::new(),
             fail_fast: false,
+            auto_accept: false,
         };
 
         // Run the command (this would require refactoring cook::run to accept injected dependencies)

@@ -535,3 +535,21 @@ Pass the focus directive to every iteration of the improvement process, not just
 - **Positive**: Consistent focus throughout improvement session, prevents drift from intended goals, simple implementation (remove conditional logic), maintains backward compatibility, better user experience with predictable behavior
 - **Negative**: None identified - this is a straightforward improvement to existing behavior
 - **Implementation**: Removed conditional logic checking iteration == 1 in four locations within src/cook/mod.rs, added explanatory comments, added test to verify consistent focus application
+
+---
+
+## ADR-031: Auto-Accept Flag for Non-Interactive Operation
+
+### Status
+Accepted
+
+### Context
+Spec 41 identified that when running `mmm cook` with the `--worktree` flag, the system prompts users interactively after completion to ask if they want to merge the worktree and then again to delete it. While this is great for interactive use, it creates friction in automated environments where users want to run the command unattended, such as in CI/CD pipelines or automated scripts.
+
+### Decision
+Add a `-y/--yes` flag to the cook command that automatically accepts all interactive prompts. When this flag is set, the system automatically answers "yes" to the worktree merge prompt and the worktree deletion prompt, enabling fully unattended operation. The flag follows standard Unix CLI conventions similar to tools like `apt-get -y`.
+
+### Consequences
+- **Positive**: Enables fully automated workflows, follows standard CLI conventions, supports CI/CD integration, maintains backward compatibility, clear logging of auto-accepted actions for audit trail, safe defaults (only auto-accepts on success)
+- **Negative**: Users must be careful when using the flag as it will automatically merge and delete worktrees without confirmation
+- **Implementation**: Added auto_accept boolean field to CookCommand, updated merge and deletion prompt logic to check flag before prompting, modified conditions to run prompts in either interactive terminal or when auto_accept is true, added clear logging when auto-accepting for transparency
