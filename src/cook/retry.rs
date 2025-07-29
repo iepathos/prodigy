@@ -2,11 +2,20 @@
 //!
 //! This module provides robust error handling and retry logic for Claude CLI
 //! subprocess calls, including transient failure detection and helpful error messages.
+//!
+//! This module now acts as a compatibility layer, delegating to the trait-based
+//! abstraction for better testability while maintaining the existing API.
 
+use crate::abstractions::{ClaudeClient, RealClaudeClient};
 use anyhow::{Context, Result};
+use once_cell::sync::Lazy;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::process::Command;
 use tokio::time::sleep;
+
+/// Global singleton for Claude client
+static CLAUDE_CLIENT: Lazy<Arc<RealClaudeClient>> = Lazy::new(|| Arc::new(RealClaudeClient::new()));
 
 /// Execute a command with retry logic for transient failures
 ///
@@ -93,7 +102,7 @@ pub async fn execute_with_retry(
 ///
 /// Detects common patterns that indicate temporary failures which
 /// can be resolved by retrying the operation.
-fn is_transient_error(stderr: &str) -> bool {
+pub fn is_transient_error(stderr: &str) -> bool {
     let transient_patterns = [
         "rate limit",
         "timeout",
@@ -120,31 +129,7 @@ fn is_transient_error(stderr: &str) -> bool {
 /// # Returns
 /// Ok(()) if Claude CLI is available, or an error with installation instructions
 pub async fn check_claude_cli() -> Result<()> {
-    let output = Command::new("which")
-        .arg("claude")
-        .output()
-        .await
-        .context("Failed to check for Claude CLI")?;
-
-    if !output.status.success() || output.stdout.is_empty() {
-        // Try 'claude --version' as a fallback (in case 'which' is not available)
-        let version_check = Command::new("claude").arg("--version").output().await;
-
-        if version_check.is_err() || !version_check.unwrap().status.success() {
-            return Err(anyhow::anyhow!(
-                "Claude CLI not found. Please install Claude CLI:\n\
-                 \n\
-                 1. Visit: https://claude.ai/download\n\
-                 2. Download and install Claude CLI for your platform\n\
-                 3. Run 'claude auth' to authenticate\n\
-                 4. Ensure 'claude' is in your PATH\n\
-                 \n\
-                 You can verify the installation by running: claude --version"
-            ));
-        }
-    }
-
-    Ok(())
+    CLAUDE_CLIENT.check_availability().await
 }
 
 /// Get better error context for subprocess failures

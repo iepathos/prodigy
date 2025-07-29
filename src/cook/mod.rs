@@ -4,6 +4,9 @@ pub mod retry;
 pub mod session;
 pub mod workflow;
 
+#[cfg(test)]
+mod tests;
+
 use crate::config::{ConfigLoader, WorkflowConfig};
 use crate::simple_state::StateManager;
 use crate::worktree::WorktreeManager;
@@ -1533,7 +1536,7 @@ async fn run_improvement_loop_with_variables(
 }
 
 #[cfg(test)]
-mod tests {
+mod cook_inline_tests {
     use super::*;
     use std::path::PathBuf;
     use tempfile::TempDir;
