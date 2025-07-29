@@ -45,6 +45,7 @@ impl WorkflowExecutor {
         }
 
         let mut any_changes = false;
+        println!("📝 Starting workflow with {} commands", self.config.commands.len());
 
         for (idx, workflow_command) in self.config.commands.iter().enumerate() {
             // Convert to structured command
@@ -93,9 +94,13 @@ impl WorkflowExecutor {
 
             if success {
                 any_changes = true;
+                println!("✓ Command {} made changes", command.name);
+            } else {
+                println!("○ Command {} made no changes", command.name);
             }
         }
 
+        println!("📊 Workflow iteration complete. Changes made: {}", any_changes);
         Ok(any_changes)
     }
 
@@ -207,7 +212,7 @@ impl WorkflowExecutor {
         }
 
         if self.verbose {
-            println!("✅ Command '{}' completed", command.name);
+            println!("✅ Command '{}' completed successfully", command.name);
         }
 
         Ok(true)
@@ -217,6 +222,28 @@ impl WorkflowExecutor {
     async fn extract_spec_from_git(&self) -> Result<String> {
         if self.verbose {
             println!("Extracting spec ID from git history...");
+        }
+
+        // First check for uncommitted spec files (the review might have created but not committed them)
+        let uncommitted_output = tokio::process::Command::new("git")
+            .args(["ls-files", "--others", "--exclude-standard", "specs/temp/"])
+            .output()
+            .await
+            .context("Failed to check uncommitted files")?;
+
+        if uncommitted_output.status.success() {
+            let files = String::from_utf8_lossy(&uncommitted_output.stdout);
+            for line in files.lines() {
+                if line.ends_with(".md") {
+                    if let Some(filename) = line.split('/').last() {
+                        let spec_id = filename.trim_end_matches(".md");
+                        if self.verbose {
+                            println!("Found uncommitted spec file: {}", spec_id);
+                        }
+                        return Ok(spec_id.to_string());
+                    }
+                }
+            }
         }
 
         // Check the last commit for any new spec files in specs/temp/

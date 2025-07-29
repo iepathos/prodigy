@@ -996,6 +996,28 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
         return Ok("iteration-1234567890-improvements".to_string());
     }
 
+    // First check for uncommitted spec files (the review might have created but not committed them)
+    let uncommitted_output = Command::new("git")
+        .args(["ls-files", "--others", "--exclude-standard", "specs/temp/"])
+        .output()
+        .await
+        .context("Failed to check uncommitted files")?;
+
+    if uncommitted_output.status.success() {
+        let files = String::from_utf8_lossy(&uncommitted_output.stdout);
+        for line in files.lines() {
+            if line.ends_with(".md") {
+                if let Some(filename) = line.split('/').last() {
+                    let spec_id = filename.trim_end_matches(".md");
+                    if verbose {
+                        println!("Found uncommitted spec file: {}", spec_id);
+                    }
+                    return Ok(spec_id.to_string());
+                }
+            }
+        }
+    }
+
     // Check the last commit for any new spec files in specs/temp/
     let output = Command::new("git")
         .args(["diff", "--name-only", "HEAD~1", "HEAD", "--", "specs/temp/"])
