@@ -49,7 +49,7 @@ max_iterations = 3
     fs::write(temp_path.join(".mmm/config.toml"), workflow_config)?;
 
     // Create mock slash commands that simulate Claude CLI behavior
-    create_mock_commands(&temp_path)?;
+    create_mock_commands(temp_path)?;
 
     // Initial commit
     Command::new("git")
@@ -74,11 +74,11 @@ max_iterations = 3
     let stderr = String::from_utf8_lossy(&output.stderr);
 
     // Debug output
-    println!("STDOUT:\n{}", stdout);
-    println!("STDERR:\n{}", stderr);
+    println!("STDOUT:\n{stdout}");
+    println!("STDERR:\n{stderr}");
 
     // Verify the command executed successfully
-    assert!(output.status.success(), "mmm cook failed: {}", stderr);
+    assert!(output.status.success(), "mmm cook failed: {stderr}");
 
     // Check that we ran iterations
     let has_iterations = stdout.contains("Workflow iteration")
@@ -147,7 +147,7 @@ max_iterations = 5
 "#;
     fs::write(temp_path.join(".mmm/config.toml"), workflow_config)?;
 
-    create_mock_commands(&temp_path)?;
+    create_mock_commands(temp_path)?;
 
     // Initial commit
     fs::write(temp_path.join("test.rs"), "fn main() {}\n")?;
@@ -232,7 +232,7 @@ max_iterations = 3
     let focus_tracker = temp_path.join("focus_track.txt");
 
     // Create mock commands that track when focus is passed
-    create_focus_tracking_commands(&temp_path, &focus_tracker)?;
+    create_focus_tracking_commands(temp_path, &focus_tracker)?;
 
     // Initial commit
     fs::write(temp_path.join("test.rs"), "fn main() {}\n")?;
@@ -361,8 +361,8 @@ fn test_cook_worktree_multiple_iterations() -> Result<()> {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
-    println!("Worktree test STDOUT:\n{}", stdout);
-    println!("Worktree test STDERR:\n{}", stderr);
+    println!("Worktree test STDOUT:\n{stdout}");
+    println!("Worktree test STDERR:\n{stderr}");
 
     // Should create a worktree
     assert!(

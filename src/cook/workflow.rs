@@ -689,21 +689,21 @@ mod tests {
 
         // Initialize git repo
         TokioCommand::new("git")
-            .current_dir(&temp_path)
+            .current_dir(temp_path)
             .args(["init"])
             .output()
             .await
             .unwrap();
 
         TokioCommand::new("git")
-            .current_dir(&temp_path)
+            .current_dir(temp_path)
             .args(["config", "user.email", "test@example.com"])
             .output()
             .await
             .unwrap();
 
         TokioCommand::new("git")
-            .current_dir(&temp_path)
+            .current_dir(temp_path)
             .args(["config", "user.name", "Test User"])
             .output()
             .await
@@ -734,11 +734,10 @@ mod tests {
                 .execute_iteration(iteration, Some("security"))
                 .await;
 
-            assert!(result.is_ok(), "Iteration {} should succeed", iteration);
+            assert!(result.is_ok(), "Iteration {iteration} should succeed");
             assert!(
                 result.unwrap(),
-                "Iteration {} should have changes",
-                iteration
+                "Iteration {iteration} should have changes"
             );
             iteration_count += 1;
         }
@@ -803,21 +802,21 @@ mod tests {
         let temp_path = temp_dir.path();
 
         TokioCommand::new("git")
-            .current_dir(&temp_path)
+            .current_dir(temp_path)
             .args(["init"])
             .output()
             .await
             .unwrap();
 
         TokioCommand::new("git")
-            .current_dir(&temp_path)
+            .current_dir(temp_path)
             .args(["config", "user.email", "test@example.com"])
             .output()
             .await
             .unwrap();
 
         TokioCommand::new("git")
-            .current_dir(&temp_path)
+            .current_dir(temp_path)
             .args(["config", "user.name", "Test User"])
             .output()
             .await

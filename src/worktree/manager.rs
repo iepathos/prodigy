@@ -145,6 +145,13 @@ impl WorktreeManager {
         Ok(())
     }
 
+    pub fn get_session_state(&self, name: &str) -> Result<WorktreeState> {
+        let state_file = self.base_dir.join(".metadata").join(format!("{name}.json"));
+        let state_json = fs::read_to_string(&state_file)?;
+        let state: WorktreeState = serde_json::from_str(&state_json)?;
+        Ok(state)
+    }
+
     pub fn list_sessions(&self) -> Result<Vec<WorktreeSession>> {
         let output = Command::new("git")
             .current_dir(&self.repo_path)
