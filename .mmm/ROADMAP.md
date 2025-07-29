@@ -151,6 +151,12 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
   - Test error scenarios and edge cases
   - Achieve at least 70% overall test coverage
 
+- [ ] **Fix Ignored Integration Tests** (Spec 42)
+  - Enable `test_cook_stops_early_when_no_changes` test
+  - Enable `test_focus_applied_every_iteration` test
+  - Implement proper test infrastructure for deterministic behavior
+  - Ensure tests run reliably in CI/CD environments
+
 ### Configuration Enhancements
 - [x] **Configurable Iteration Limit** (Spec 22) ✅
   - Add --max-iterations flag for custom iteration limits
