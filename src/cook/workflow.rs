@@ -137,6 +137,10 @@ impl WorkflowExecutor {
         // First check if claude command exists with improved error handling
         check_claude_cli().await?;
 
+        if self.verbose {
+            println!("🔧 Preparing to execute Claude CLI command...");
+        }
+
         // Build subprocess command
         let mut cmd = Command::new("claude");
         cmd.arg("--dangerously-skip-permissions")
@@ -153,6 +157,10 @@ impl WorkflowExecutor {
                 .map(|arg| self.resolve_argument(arg))
                 .collect();
 
+            if self.verbose {
+                println!("  📌 Arguments: {}", resolved_args.join(" "));
+            }
+
             // Set ARGUMENTS env var for Claude commands (they expect this)
             cmd.env("ARGUMENTS", resolved_args.join(" "));
 
@@ -167,6 +175,9 @@ impl WorkflowExecutor {
         if let Some(focus) = command.options.get("focus") {
             if let Some(focus_str) = focus.as_str() {
                 cmd.env("MMM_FOCUS", focus_str);
+                if self.verbose {
+                    println!("  🎯 Focus: {}", focus_str);
+                }
             }
         }
 
@@ -189,9 +200,10 @@ impl WorkflowExecutor {
         )
         .await?;
 
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+
         if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let stdout = String::from_utf8_lossy(&output.stdout);
             let error_msg = format_subprocess_error(
                 &format!("claude /{}", command.name),
                 output.status.code(),
@@ -213,6 +225,14 @@ impl WorkflowExecutor {
 
         if self.verbose {
             println!("✅ Command '{}' completed successfully", command.name);
+            if !stdout.is_empty() {
+                println!("📄 Command output:");
+                println!("{}", stdout);
+            }
+            if !stderr.is_empty() {
+                println!("⚠️  Command stderr:");
+                println!("{}", stderr);
+            }
         }
 
         Ok(true)

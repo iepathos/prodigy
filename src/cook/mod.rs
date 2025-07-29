@@ -946,9 +946,10 @@ async fn call_claude_code_review(verbose: bool, focus: Option<&str>) -> Result<b
     let output =
         execute_with_retry(cmd, "Claude code review", DEFAULT_CLAUDE_RETRIES, verbose).await?;
 
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let stdout = String::from_utf8_lossy(&output.stdout);
         let error_msg = format_subprocess_error(
             "claude /mmm-code-review",
             output.status.code(),
@@ -960,6 +961,14 @@ async fn call_claude_code_review(verbose: bool, focus: Option<&str>) -> Result<b
 
     if verbose {
         println!("✅ Code review completed");
+        if !stdout.is_empty() {
+            println!("📄 Claude response:");
+            println!("{}", stdout);
+        }
+        if !stderr.is_empty() {
+            println!("⚠️  Claude stderr:");
+            println!("{}", stderr);
+        }
     }
 
     Ok(true)
@@ -1160,9 +1169,10 @@ async fn call_claude_implement_spec(spec_id: &str, verbose: bool) -> Result<bool
     )
     .await?;
 
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let stdout = String::from_utf8_lossy(&output.stdout);
         let error_msg = format_subprocess_error(
             &format!("claude /mmm-implement-spec {spec_id}"),
             output.status.code(),
@@ -1174,6 +1184,14 @@ async fn call_claude_implement_spec(spec_id: &str, verbose: bool) -> Result<bool
 
     if verbose {
         println!("✅ Implementation completed");
+        if !stdout.is_empty() {
+            println!("📄 Claude response:");
+            println!("{}", stdout);
+        }
+        if !stderr.is_empty() {
+            println!("⚠️  Claude stderr:");
+            println!("{}", stderr);
+        }
     }
 
     Ok(true)
@@ -1216,9 +1234,10 @@ async fn call_claude_lint(verbose: bool) -> Result<bool> {
     // Execute with retry logic for transient failures
     let output = execute_with_retry(cmd, "Claude lint", DEFAULT_CLAUDE_RETRIES, verbose).await?;
 
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let stdout = String::from_utf8_lossy(&output.stdout);
         let error_msg =
             format_subprocess_error("claude /mmm-lint", output.status.code(), &stderr, &stdout);
         return Err(anyhow!(error_msg));
@@ -1226,6 +1245,14 @@ async fn call_claude_lint(verbose: bool) -> Result<bool> {
 
     if verbose {
         println!("✅ Linting completed");
+        if !stdout.is_empty() {
+            println!("📄 Claude response:");
+            println!("{}", stdout);
+        }
+        if !stderr.is_empty() {
+            println!("⚠️  Claude stderr:");
+            println!("{}", stderr);
+        }
     }
 
     Ok(true)
