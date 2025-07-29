@@ -145,6 +145,12 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
   - Verify git operations and state management
   - Enable comprehensive CI/CD testing without external dependencies
 
+- [ ] **Improve Test Coverage** (Spec 40)
+  - Add abstraction layers for external commands (git, Claude CLI)
+  - Create comprehensive unit tests without MMM_TEST_MODE
+  - Test error scenarios and edge cases
+  - Achieve at least 70% overall test coverage
+
 ### Configuration Enhancements
 - [x] **Configurable Iteration Limit** (Spec 22) ✅
   - Add --max-iterations flag for custom iteration limits
