@@ -100,7 +100,7 @@ impl WorkflowExecutor {
             }
         }
 
-        println!("📊 Workflow iteration complete. Changes made: {}", any_changes);
+        println!("📊 Workflow iteration complete. Changes made: {any_changes}");
         Ok(any_changes)
     }
 
@@ -121,7 +121,7 @@ impl WorkflowExecutor {
             String::new()
         };
 
-        println!("🤖 Running /{}{}", command.name, args_display);
+        println!("🤖 Running /{}{args_display}", command.name);
 
         // Skip actual execution in test mode
         if std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true" {
@@ -158,7 +158,8 @@ impl WorkflowExecutor {
                 .collect();
 
             if self.verbose {
-                println!("  📌 Arguments: {}", resolved_args.join(" "));
+                let args_str = resolved_args.join(" ");
+                println!("  📌 Arguments: {args_str}");
             }
 
             // Set ARGUMENTS env var for Claude commands (they expect this)
@@ -176,7 +177,7 @@ impl WorkflowExecutor {
             if let Some(focus_str) = focus.as_str() {
                 cmd.env("MMM_FOCUS", focus_str);
                 if self.verbose {
-                    println!("  🎯 Focus: {}", focus_str);
+                    println!("  🎯 Focus: {focus_str}");
                 }
             }
         }
@@ -227,11 +228,11 @@ impl WorkflowExecutor {
             println!("✅ Command '{}' completed successfully", command.name);
             if !stdout.is_empty() {
                 println!("📄 Command output:");
-                println!("{}", stdout);
+                println!("{stdout}");
             }
             if !stderr.is_empty() {
                 println!("⚠️  Command stderr:");
-                println!("{}", stderr);
+                println!("{stderr}");
             }
         }
 
@@ -255,10 +256,10 @@ impl WorkflowExecutor {
             let files = String::from_utf8_lossy(&uncommitted_output.stdout);
             for line in files.lines() {
                 if line.ends_with(".md") {
-                    if let Some(filename) = line.split('/').last() {
+                    if let Some(filename) = line.split('/').next_back() {
                         let spec_id = filename.trim_end_matches(".md");
                         if self.verbose {
-                            println!("Found uncommitted spec file: {}", spec_id);
+                            println!("Found uncommitted spec file: {spec_id}");
                         }
                         return Ok(spec_id.to_string());
                     }
@@ -282,11 +283,11 @@ impl WorkflowExecutor {
             {
                 let files = String::from_utf8_lossy(&find_output.stdout);
                 for line in files.lines() {
-                    if let Some(filename) = line.split('/').last() {
+                    if let Some(filename) = line.split('/').next_back() {
                         if filename.ends_with(".md") {
                             let spec_id = filename.trim_end_matches(".md");
                             if self.verbose {
-                                println!("Found recent spec file: {}", spec_id);
+                                println!("Found recent spec file: {spec_id}");
                             }
                             return Ok(spec_id.to_string());
                         }
@@ -301,10 +302,10 @@ impl WorkflowExecutor {
         // Look for new .md files in specs/temp/
         for line in files.lines() {
             if line.starts_with("specs/temp/") && line.ends_with(".md") {
-                if let Some(filename) = line.split('/').last() {
+                if let Some(filename) = line.split('/').next_back() {
                     let spec_id = filename.trim_end_matches(".md");
                     if self.verbose {
-                        println!("Found new spec file in commit: {}", spec_id);
+                        println!("Found new spec file in commit: {spec_id}");
                     }
                     return Ok(spec_id.to_string());
                 }
@@ -325,11 +326,11 @@ impl WorkflowExecutor {
             {
                 let files = String::from_utf8_lossy(&find_output.stdout);
                 for line in files.lines() {
-                    if let Some(filename) = line.split('/').last() {
+                    if let Some(filename) = line.split('/').next_back() {
                         if filename.ends_with(".md") {
                             let spec_id = filename.trim_end_matches(".md");
                             if self.verbose {
-                                println!("Found recent spec file: {}", spec_id);
+                                println!("Found recent spec file: {spec_id}");
                             }
                             return Ok(spec_id.to_string());
                         }
@@ -845,12 +846,12 @@ mod tests {
 
             // Apply the logic from execute_iteration
             let idx = 0; // First command
-            let focus = Some("documentation");
+            let focus = "documentation";
 
-            // This is the fixed logic: if idx == 0 && focus.is_some()
-            if idx == 0 && focus.is_some() {
+            // This is the fixed logic: if idx == 0
+            if idx == 0 {
                 cmd.options
-                    .insert("focus".to_string(), serde_json::json!(focus.unwrap()));
+                    .insert("focus".to_string(), serde_json::json!(focus));
                 commands_with_focus += 1;
             }
         }

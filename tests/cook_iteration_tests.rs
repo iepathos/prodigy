@@ -111,10 +111,8 @@ max_iterations = 3
 
 /// Test that verifies the iteration stops early when no changes are found
 #[test]
+#[ignore = "Requires more complex mocking to simulate 'no changes found' condition"]
 fn test_cook_stops_early_when_no_changes() -> Result<()> {
-    // Skip this test for now as it requires more complex mocking
-    // to simulate "no changes found" condition
-    return Ok(());
     let temp_dir = TempDir::new()?;
     let temp_path = temp_dir.path();
 

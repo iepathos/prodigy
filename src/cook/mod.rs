@@ -125,10 +125,19 @@ async fn run_with_mapping(cmd: command::CookCommand) -> Result<()> {
         // Clean up on failure, keep on success for manual merge
         match &result {
             Ok(_) => {
-                println!("✅ Improvements completed in worktree: {}", session.name);
+                // Check if any actual improvements were made
+                let state = worktree_manager.get_session_state(&session.name)?;
+                let iterations_completed = state.iterations.completed;
+                
+                if iterations_completed == 0 {
+                    println!("⚠️  No improvements were made in worktree: {session.name}");
+                    println!("   Reason: No issues were found to fix");
+                } else {
+                    println!("✅ Improvements completed in worktree: {session.name}");
+                }
 
-                // Prompt for merge if in interactive terminal
-                if is_tty() {
+                // Prompt for merge if in interactive terminal and improvements were made
+                if is_tty() && iterations_completed > 0 {
                     // Update state to track prompt shown
                     let worktree_manager = WorktreeManager::new(original_repo_path.clone())?;
                     worktree_manager.update_session_state(&session.name, |state| {
@@ -145,7 +154,7 @@ async fn run_with_mapping(cmd: command::CookCommand) -> Result<()> {
                             println!("Merging worktree {}...", session.name);
                             match merge_worktree(&session.name, &original_repo_path).await {
                                 Ok(_) => {
-                                    println!("✅ Successfully merged worktree: {}", session.name);
+                                    println!("✅ Successfully merged worktree: {session.name}");
 
                                     // Update worktree status to merged
                                     worktree_manager.update_session_state(
@@ -172,18 +181,18 @@ async fn run_with_mapping(cmd: command::CookCommand) -> Result<()> {
                                             Err(e) => {
                                                 eprintln!("❌ Failed to delete worktree: {e}");
                                                 println!("You can manually delete it with:");
-                                                println!("  mmm worktree delete {}", session.name);
+                                                println!("  mmm worktree delete {session.name}");
                                             }
                                         }
                                     } else {
                                         println!("\nTo delete the worktree later, run:");
-                                        println!("  mmm worktree delete {}", session.name);
+                                        println!("  mmm worktree delete {session.name}");
                                     }
                                 }
                                 Err(e) => {
                                     eprintln!("❌ Failed to merge worktree: {e}");
                                     println!("\nTo merge changes manually, run:");
-                                    println!("  mmm worktree merge {}", session.name);
+                                    println!("  mmm worktree merge {session.name}");
                                 }
                             }
                         }
@@ -194,13 +203,17 @@ async fn run_with_mapping(cmd: command::CookCommand) -> Result<()> {
                             })?;
 
                             println!("\nTo merge changes later, run:");
-                            println!("  mmm worktree merge {}", session.name);
+                            println!("  mmm worktree merge {session.name}");
                         }
                     }
-                } else {
-                    // Non-interactive environment
+                } else if iterations_completed > 0 {
+                    // Non-interactive environment but improvements were made
                     println!("\nWorktree completed. To merge changes, run:");
-                    println!("  mmm worktree merge {}", session.name);
+                    println!("  mmm worktree merge {session.name}");
+                } else {
+                    // No improvements made
+                    println!("\nNo changes to merge. You can delete the worktree with:");
+                    println!("  mmm worktree delete {session.name}");
                 }
             }
             Err(_) => {
@@ -395,10 +408,19 @@ async fn run_standard(cmd: command::CookCommand) -> Result<()> {
         // Clean up on failure, keep on success for manual merge
         match &result {
             Ok(_) => {
-                println!("✅ Improvements completed in worktree: {}", session.name);
+                // Check if any actual improvements were made
+                let state = worktree_manager.get_session_state(&session.name)?;
+                let iterations_completed = state.iterations.completed;
+                
+                if iterations_completed == 0 {
+                    println!("⚠️  No improvements were made in worktree: {session.name}");
+                    println!("   Reason: No issues were found to fix");
+                } else {
+                    println!("✅ Improvements completed in worktree: {session.name}");
+                }
 
-                // Prompt for merge if in interactive terminal
-                if is_tty() {
+                // Prompt for merge if in interactive terminal and improvements were made
+                if is_tty() && iterations_completed > 0 {
                     // Update state to track prompt shown
                     let worktree_manager = WorktreeManager::new(original_repo_path.clone())?;
                     worktree_manager.update_session_state(&session.name, |state| {
@@ -415,7 +437,7 @@ async fn run_standard(cmd: command::CookCommand) -> Result<()> {
                             println!("Merging worktree {}...", session.name);
                             match merge_worktree(&session.name, &original_repo_path).await {
                                 Ok(_) => {
-                                    println!("✅ Successfully merged worktree: {}", session.name);
+                                    println!("✅ Successfully merged worktree: {session.name}");
 
                                     // Update worktree status to merged
                                     worktree_manager.update_session_state(
@@ -442,18 +464,18 @@ async fn run_standard(cmd: command::CookCommand) -> Result<()> {
                                             Err(e) => {
                                                 eprintln!("❌ Failed to delete worktree: {e}");
                                                 println!("You can manually delete it with:");
-                                                println!("  mmm worktree delete {}", session.name);
+                                                println!("  mmm worktree delete {session.name}");
                                             }
                                         }
                                     } else {
                                         println!("\nTo delete the worktree later, run:");
-                                        println!("  mmm worktree delete {}", session.name);
+                                        println!("  mmm worktree delete {session.name}");
                                     }
                                 }
                                 Err(e) => {
                                     eprintln!("❌ Failed to merge worktree: {e}");
                                     println!("\nTo merge changes manually, run:");
-                                    println!("  mmm worktree merge {}", session.name);
+                                    println!("  mmm worktree merge {session.name}");
                                 }
                             }
                         }
@@ -464,13 +486,17 @@ async fn run_standard(cmd: command::CookCommand) -> Result<()> {
                             })?;
 
                             println!("\nTo merge changes later, run:");
-                            println!("  mmm worktree merge {}", session.name);
+                            println!("  mmm worktree merge {session.name}");
                         }
                     }
-                } else {
-                    // Non-interactive environment
+                } else if iterations_completed > 0 {
+                    // Non-interactive environment but improvements were made
                     println!("\nWorktree completed. To merge changes, run:");
-                    println!("  mmm worktree merge {}", session.name);
+                    println!("  mmm worktree merge {session.name}");
+                } else {
+                    // No improvements made
+                    println!("\nNo changes to merge. You can delete the worktree with:");
+                    println!("  mmm worktree delete {session.name}");
                 }
             }
             Err(_) => {
@@ -701,9 +727,24 @@ async fn run_improvement_loop(
 
     // 7. Final summary
     if cmd.show_progress {
-        println!("\n✅ Improvement session completed:");
-        println!("   Iterations: {}", iteration - 1);
-        println!("   Files improved: {files_changed}");
+        let iterations = iteration - 1;
+        
+        // Determine if we completed naturally or stopped early
+        let completed_all = iterations >= cmd.max_iterations;
+        
+        if iterations == 0 {
+            println!("\n⚠️  No improvements were made:");
+            println!("   No issues were found to fix");
+        } else if completed_all {
+            println!("\n✅ Improvement session completed:");
+            println!("   Iterations: {iterations} (reached maximum)");
+            println!("   Files improved: {files_changed}");
+        } else {
+            println!("\n✅ Improvement session finished early:");
+            println!("   Iterations: {iterations}/{}", cmd.max_iterations);
+            println!("   Files improved: {files_changed}");
+            println!("   Reason: No more issues found");
+        }
         println!("   Session state: saved");
     }
 
@@ -745,7 +786,8 @@ async fn run_without_worktree_with_vars(
     // Show config source in verbose mode
     if cmd.show_progress {
         if let Some(config_path) = &cmd.config {
-            println!("📄 Using configuration from: {}", config_path.display());
+            let config_display = config_path.display();
+            println!("📄 Using configuration from: {config_display}");
         } else {
             println!("📄 Using default configuration");
         }
@@ -883,17 +925,20 @@ async fn run_without_worktree_with_vars(
 
     // Completion message
     let actual_iterations = iteration - 1;
-    if actual_iterations >= cmd.max_iterations {
-        println!(
-            "⏱️  Complete! Max iterations reached ({}).",
-            cmd.max_iterations
-        );
+    
+    if actual_iterations == 0 {
+        println!("\n⚠️  No improvements were made:");
+        println!("   No issues were found to fix");
+    } else if actual_iterations >= cmd.max_iterations {
+        println!("\n✅ Improvement session completed:");
+        println!("   Iterations: {actual_iterations} (reached maximum)");
+        println!("   Files improved: {files_changed}");
     } else {
-        println!("✅ Complete! No more improvements found.");
+        println!("\n✅ Improvement session finished early:");
+        println!("   Iterations: {actual_iterations}/{}", cmd.max_iterations);
+        println!("   Files improved: {files_changed}");
+        println!("   Reason: No more issues found");
     }
-
-    println!("Files changed: {files_changed}");
-    println!("Iterations: {actual_iterations}");
 
     Ok(())
 }
@@ -963,11 +1008,11 @@ async fn call_claude_code_review(verbose: bool, focus: Option<&str>) -> Result<b
         println!("✅ Code review completed");
         if !stdout.is_empty() {
             println!("📄 Claude response:");
-            println!("{}", stdout);
+            println!("{stdout}");
         }
         if !stderr.is_empty() {
             println!("⚠️  Claude stderr:");
-            println!("{}", stderr);
+            println!("{stderr}");
         }
     }
 
@@ -1016,10 +1061,10 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
         let files = String::from_utf8_lossy(&uncommitted_output.stdout);
         for line in files.lines() {
             if line.ends_with(".md") {
-                if let Some(filename) = line.split('/').last() {
+                if let Some(filename) = line.split('/').next_back() {
                     let spec_id = filename.trim_end_matches(".md");
                     if verbose {
-                        println!("Found uncommitted spec file: {}", spec_id);
+                        println!("Found uncommitted spec file: {spec_id}");
                     }
                     return Ok(spec_id.to_string());
                 }
@@ -1043,11 +1088,11 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
         {
             let files = String::from_utf8_lossy(&find_output.stdout);
             for line in files.lines() {
-                if let Some(filename) = line.split('/').last() {
+                if let Some(filename) = line.split('/').next_back() {
                     if filename.ends_with(".md") {
                         let spec_id = filename.trim_end_matches(".md");
                         if verbose {
-                            println!("Found recent spec file: {}", spec_id);
+                            println!("Found recent spec file: {spec_id}");
                         }
                         return Ok(spec_id.to_string());
                     }
@@ -1058,14 +1103,14 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
     }
 
     let files = String::from_utf8_lossy(&output.stdout);
-    
+
     // Look for new .md files in specs/temp/
     for line in files.lines() {
         if line.starts_with("specs/temp/") && line.ends_with(".md") {
-            if let Some(filename) = line.split('/').last() {
+            if let Some(filename) = line.split('/').next_back() {
                 let spec_id = filename.trim_end_matches(".md");
                 if verbose {
-                    println!("Found new spec file in commit: {}", spec_id);
+                    println!("Found new spec file in commit: {spec_id}");
                 }
                 return Ok(spec_id.to_string());
             }
@@ -1086,11 +1131,11 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
         {
             let files = String::from_utf8_lossy(&find_output.stdout);
             for line in files.lines() {
-                if let Some(filename) = line.split('/').last() {
+                if let Some(filename) = line.split('/').next_back() {
                     if filename.ends_with(".md") {
                         let spec_id = filename.trim_end_matches(".md");
                         if verbose {
-                            println!("Found recent spec file: {}", spec_id);
+                            println!("Found recent spec file: {spec_id}");
                         }
                         return Ok(spec_id.to_string());
                     }
@@ -1186,11 +1231,11 @@ async fn call_claude_implement_spec(spec_id: &str, verbose: bool) -> Result<bool
         println!("✅ Implementation completed");
         if !stdout.is_empty() {
             println!("📄 Claude response:");
-            println!("{}", stdout);
+            println!("{stdout}");
         }
         if !stderr.is_empty() {
             println!("⚠️  Claude stderr:");
-            println!("{}", stderr);
+            println!("{stderr}");
         }
     }
 
@@ -1247,11 +1292,11 @@ async fn call_claude_lint(verbose: bool) -> Result<bool> {
         println!("✅ Linting completed");
         if !stdout.is_empty() {
             println!("📄 Claude response:");
-            println!("{}", stdout);
+            println!("{stdout}");
         }
         if !stderr.is_empty() {
             println!("⚠️  Claude stderr:");
-            println!("{}", stderr);
+            println!("{stderr}");
         }
     }
 
