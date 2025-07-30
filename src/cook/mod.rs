@@ -9,6 +9,7 @@ mod tests;
 
 use crate::config::{ConfigLoader, WorkflowConfig};
 use crate::context::{save_analysis, ContextAnalyzer, ProjectAnalyzer};
+use crate::metrics::{MetricsCollector, MetricsHistory, MetricsStorage};
 use crate::simple_state::StateManager;
 use crate::worktree::WorktreeManager;
 use anyhow::{anyhow, Context as _, Result};
@@ -237,9 +238,13 @@ async fn run_with_mapping(cmd: command::CookCommand, verbose: bool) -> Result<()
         std::env::set_current_dir(&session.path)?;
 
         // Run improvement in worktree context
-        let result =
-            run_with_mapping_in_worktree(cmd.clone(), session.clone(), original_repo_path.clone(), verbose)
-                .await;
+        let result = run_with_mapping_in_worktree(
+            cmd.clone(),
+            session.clone(),
+            original_repo_path.clone(),
+            verbose,
+        )
+        .await;
 
         // Clean up on failure, keep on success for manual merge
         match &result {
@@ -541,8 +546,13 @@ async fn run_standard(cmd: command::CookCommand, verbose: bool) -> Result<()> {
         std::env::set_current_dir(&session.path)?;
 
         // Run improvement in worktree context
-        let result =
-            run_in_worktree(cmd.clone(), session.clone(), original_repo_path.clone(), verbose).await;
+        let result = run_in_worktree(
+            cmd.clone(),
+            session.clone(),
+            original_repo_path.clone(),
+            verbose,
+        )
+        .await;
 
         // Clean up on failure, keep on success for manual merge
         match &result {
@@ -756,8 +766,7 @@ async fn run_improvement_loop(
         }
 
         let max_iterations = cmd.max_iterations;
-        let mut executor =
-            WorkflowExecutor::new(workflow_config, verbose, max_iterations);
+        let mut executor = WorkflowExecutor::new(workflow_config, verbose, max_iterations);
 
         while iteration <= max_iterations {
             // Update worktree state before iteration
@@ -805,8 +814,7 @@ async fn run_improvement_loop(
             // Step 1: Generate review spec and commit
             // Pass focus on every iteration to maintain consistent improvement direction
             let focus_for_iteration = cmd.focus.as_deref();
-            let review_success =
-                call_claude_code_review(verbose, focus_for_iteration).await?;
+            let review_success = call_claude_code_review(verbose, focus_for_iteration).await?;
             if !review_success {
                 if verbose {
                     info!("Review failed - stopping iterations");
@@ -840,9 +848,7 @@ async fn run_improvement_loop(
             let any_changes = review_success || implement_success || lint_success;
             if !any_changes {
                 if verbose {
-                    info!(
-                        "ℹ️  Iteration {iteration} completed with no changes - stopping early"
-                    );
+                    info!("ℹ️  Iteration {iteration} completed with no changes - stopping early");
                     info!("   (This typically means no issues were found to fix)");
                 }
                 break;
@@ -993,6 +999,21 @@ async fn run_without_worktree_with_vars(
     // 3. State setup
     let _state = StateManager::new()?;
 
+    // 3.5. Metrics setup (if enabled)
+    let metrics_collector = if cmd.metrics {
+        Some(MetricsCollector::new())
+    } else {
+        None
+    };
+    let mut metrics_history = if cmd.metrics {
+        let storage = MetricsStorage::new(&project_path);
+        storage
+            .load_history()
+            .unwrap_or_else(|_| MetricsHistory::new())
+    } else {
+        MetricsHistory::new()
+    };
+
     // 4. Git-native improvement loop
     let mut iteration = 1;
     let mut files_changed = 0;
@@ -1005,9 +1026,8 @@ async fn run_without_worktree_with_vars(
     // Check if we should use configurable workflow or legacy workflow
     if config.workflow.is_some() {
         // Use configurable workflow
-        let mut executor =
-            WorkflowExecutor::new(workflow_config, verbose, max_iterations)
-                .with_variables(variables);
+        let mut executor = WorkflowExecutor::new(workflow_config, verbose, max_iterations)
+            .with_variables(variables);
 
         while iteration <= max_iterations {
             // Execute workflow iteration
@@ -1025,6 +1045,44 @@ async fn run_without_worktree_with_vars(
 
             files_changed += 1;
 
+            // Collect metrics after iteration (if enabled)
+            if let Some(ref collector) = metrics_collector {
+                if cmd.metrics {
+                    match collector
+                        .collect_metrics(&project_path, format!("iteration-{}", iteration))
+                        .await
+                    {
+                        Ok(metrics) => {
+                            // Get current commit SHA for tracking
+                            let commit_sha = get_last_commit_message()
+                                .await
+                                .unwrap_or_else(|_| "unknown".to_string());
+
+                            // Add to history
+                            metrics_history.add_snapshot(metrics.clone(), commit_sha);
+
+                            // Save metrics
+                            let storage = MetricsStorage::new(&project_path);
+                            if let Err(e) = storage.save_current(&metrics) {
+                                warn!("Failed to save current metrics: {}", e);
+                            }
+                            if let Err(e) = storage.save_history(&metrics_history) {
+                                warn!("Failed to save metrics history: {}", e);
+                            }
+
+                            // Show metrics summary if verbose
+                            if verbose {
+                                let report = storage.generate_report(&metrics);
+                                println!("\n{}", report);
+                            }
+                        }
+                        Err(e) => {
+                            warn!("Failed to collect metrics: {}", e);
+                        }
+                    }
+                }
+            }
+
             iteration += 1;
         }
     } else {
@@ -1037,8 +1095,7 @@ async fn run_without_worktree_with_vars(
             // Step 1: Generate review spec and commit
             // Pass focus on every iteration to maintain consistent improvement direction
             let focus_for_iteration = cmd.focus.as_deref();
-            let review_success =
-                call_claude_code_review(verbose, focus_for_iteration).await?;
+            let review_success = call_claude_code_review(verbose, focus_for_iteration).await?;
             if !review_success {
                 if verbose {
                     info!("Review failed - stopping iterations");
@@ -1072,12 +1129,48 @@ async fn run_without_worktree_with_vars(
             let any_changes = review_success || implement_success || lint_success;
             if !any_changes {
                 if verbose {
-                    info!(
-                        "ℹ️  Iteration {iteration} completed with no changes - stopping early"
-                    );
+                    info!("ℹ️  Iteration {iteration} completed with no changes - stopping early");
                     info!("   (This typically means no issues were found to fix)");
                 }
                 break;
+            }
+
+            // Collect metrics after iteration (if enabled)
+            if let Some(ref collector) = metrics_collector {
+                if cmd.metrics {
+                    match collector
+                        .collect_metrics(&project_path, format!("iteration-{}", iteration))
+                        .await
+                    {
+                        Ok(metrics) => {
+                            // Get current commit SHA for tracking
+                            let commit_sha = get_last_commit_message()
+                                .await
+                                .unwrap_or_else(|_| "unknown".to_string());
+
+                            // Add to history
+                            metrics_history.add_snapshot(metrics.clone(), commit_sha);
+
+                            // Save metrics
+                            let storage = MetricsStorage::new(&project_path);
+                            if let Err(e) = storage.save_current(&metrics) {
+                                warn!("Failed to save current metrics: {}", e);
+                            }
+                            if let Err(e) = storage.save_history(&metrics_history) {
+                                warn!("Failed to save metrics history: {}", e);
+                            }
+
+                            // Show metrics summary if verbose
+                            if verbose {
+                                let report = storage.generate_report(&metrics);
+                                println!("\n{}", report);
+                            }
+                        }
+                        Err(e) => {
+                            warn!("Failed to collect metrics: {}", e);
+                        }
+                    }
+                }
             }
 
             iteration += 1;
@@ -1142,6 +1235,33 @@ async fn run_without_worktree_with_vars(
         );
         println!("   Files improved: {files_changed}");
         println!("   Reason: No more issues found");
+    }
+
+    // Show final metrics summary if enabled
+    if cmd.metrics && actual_iterations > 0 {
+        if let Some(latest_metrics) = metrics_history.latest() {
+            println!("\n📊 Final Metrics Summary:");
+            println!(
+                "   Overall Score: {:.1}/100",
+                latest_metrics.overall_score()
+            );
+            println!("   Test Coverage: {:.1}%", latest_metrics.test_coverage);
+            println!("   Lint Warnings: {}", latest_metrics.lint_warnings);
+            println!("   Technical Debt: {:.1}", latest_metrics.tech_debt_score);
+
+            // Show improvement velocity
+            let velocity = metrics_history.calculate_velocity(actual_iterations as usize);
+            if velocity != 0.0 {
+                println!("   Improvement Rate: {:+.1} points/iteration", velocity);
+            }
+
+            // Save final report
+            let storage = MetricsStorage::new(&project_path);
+            let report = storage.generate_report(latest_metrics);
+            if let Err(e) = storage.save_report(&report, &latest_metrics.iteration_id) {
+                warn!("Failed to save final metrics report: {}", e);
+            }
+        }
     }
 
     Ok(())
@@ -1779,9 +1899,8 @@ async fn run_improvement_loop_with_variables(
         }
 
         let max_iterations = cmd.max_iterations;
-        let mut executor =
-            WorkflowExecutor::new(workflow_config, verbose, max_iterations)
-                .with_variables(variables);
+        let mut executor = WorkflowExecutor::new(workflow_config, verbose, max_iterations)
+            .with_variables(variables);
 
         while iteration <= max_iterations {
             // Update worktree state before iteration

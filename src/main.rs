@@ -55,6 +55,9 @@ enum Commands {
         /// Automatically answer yes to all prompts
         #[arg(short = 'y', long = "yes")]
         auto_accept: bool,
+        /// Enable metrics tracking
+        #[arg(long)]
+        metrics: bool,
     },
     /// Manage git worktrees for parallel MMM sessions
     Worktree {
@@ -156,6 +159,7 @@ async fn main() {
             args,
             fail_fast,
             auto_accept,
+            metrics,
         }) => {
             // Check if user used the deprecated 'improve' alias
             let cli_args: Vec<String> = std::env::args().collect();
@@ -174,6 +178,7 @@ async fn main() {
                 args,
                 fail_fast,
                 auto_accept,
+                metrics,
             };
             mmm::cook::run_with_verbosity(cook_cmd, cli.verbose).await
         }

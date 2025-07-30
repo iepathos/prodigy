@@ -133,6 +133,18 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
 - [x] **Incremental updates** support for efficient re-analysis of changed files
 - [x] **Context persistence** in .mmm/context directory for reuse across sessions
 
+## ✅ Phase 2.15: Real Metrics Tracking (COMPLETED)
+
+### Metrics Collection Complete
+- [x] **Created metrics module** with comprehensive tracking capabilities
+- [x] **Quality metrics** including test coverage, type coverage, lint warnings, doc coverage
+- [x] **Performance metrics** tracking compile time, binary size, benchmarks
+- [x] **Complexity metrics** using syn for cyclomatic and cognitive complexity analysis
+- [x] **Historical tracking** with trend analysis and improvement velocity
+- [x] **Integration with cook command** via --metrics flag
+- [x] **Report generation** with visual summaries and persistent storage
+- [x] **Data-driven decisions** enabling informed improvement choices
+
 ## 📋 Phase 3: Robustness (NEXT)
 
 ### Core Reliability

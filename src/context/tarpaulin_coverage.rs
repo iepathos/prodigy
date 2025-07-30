@@ -63,7 +63,6 @@ impl TarpaulinCoverageAnalyzer {
         };
 
         if should_run {
-
             // Run tarpaulin
             let output = Command::new("cargo")
                 .args([
@@ -91,12 +90,10 @@ impl TarpaulinCoverageAnalyzer {
 
         match serde_json::from_str(&json_content) {
             Ok(report) => Ok(report),
-            Err(e) => {
-                Err(anyhow::anyhow!(
-                    "Failed to parse tarpaulin JSON output: {}",
-                    e
-                ))
-            }
+            Err(e) => Err(anyhow::anyhow!(
+                "Failed to parse tarpaulin JSON output: {}",
+                e
+            )),
         }
     }
 
@@ -239,7 +236,7 @@ impl TestCoverageAnalyzer for TarpaulinCoverageAnalyzer {
                 eprintln!("Warning: Unable to collect coverage data: {e}");
                 eprintln!("Please install cargo-tarpaulin to get test coverage metrics:");
                 eprintln!("  cargo install cargo-tarpaulin");
-                
+
                 // Return empty coverage map instead of inaccurate heuristic data
                 Ok(TestCoverageMap {
                     file_coverage: HashMap::new(),
