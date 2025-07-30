@@ -96,7 +96,7 @@ impl MetricsStorage {
             "📊 Metrics Report - Iteration {}\n",
             metrics.iteration_id
         ));
-        report.push_str(&format!("═══════════════════════════════════\n\n"));
+        report.push_str("═══════════════════════════════════\n\n");
 
         report.push_str("📈 Quality Metrics:\n");
         report.push_str(&format!(
@@ -113,7 +113,7 @@ impl MetricsStorage {
             "  • Code Duplication: {:.1}%\n",
             metrics.code_duplication
         ));
-        report.push_str("\n");
+        report.push('\n');
 
         report.push_str("🚀 Performance Metrics:\n");
         report.push_str(&format!(
@@ -124,7 +124,7 @@ impl MetricsStorage {
             "  • Binary Size: {:.1} MB\n",
             metrics.binary_size as f64 / 1_048_576.0
         ));
-        report.push_str("\n");
+        report.push('\n');
 
         report.push_str("🧩 Complexity Metrics:\n");
         let avg_cyclomatic = if !metrics.cyclomatic_complexity.is_empty() {
@@ -134,15 +134,14 @@ impl MetricsStorage {
             0.0
         };
         report.push_str(&format!(
-            "  • Avg Cyclomatic Complexity: {:.1}\n",
-            avg_cyclomatic
+            "  • Avg Cyclomatic Complexity: {avg_cyclomatic:.1}\n"
         ));
         report.push_str(&format!(
             "  • Max Nesting Depth: {}\n",
             metrics.max_nesting_depth
         ));
         report.push_str(&format!("  • Total Lines: {}\n", metrics.total_lines));
-        report.push_str("\n");
+        report.push('\n');
 
         report.push_str("🎯 Overall Score: ");
         let score = metrics.overall_score();
@@ -152,7 +151,7 @@ impl MetricsStorage {
             50..=69 => "🟠",
             _ => "🔴",
         };
-        report.push_str(&format!("{} {:.1}/100\n", score_emoji, score));
+        report.push_str(&format!("{score_emoji} {score:.1}/100\n"));
 
         report
     }
@@ -164,7 +163,7 @@ impl MetricsStorage {
         let reports_dir = self.base_path.join("reports");
         std::fs::create_dir_all(&reports_dir)?;
 
-        let report_path = reports_dir.join(format!("report-{}.txt", iteration_id));
+        let report_path = reports_dir.join(format!("report-{iteration_id}.txt"));
         std::fs::write(&report_path, report).context("Failed to write metrics report")?;
 
         debug!("Saved metrics report to {:?}", report_path);

@@ -66,7 +66,7 @@ impl PerformanceProfiler {
         let start = Instant::now();
 
         let output = Command::new("cargo")
-            .args(&["build", "--release"])
+            .args(["build", "--release"])
             .current_dir(project_path)
             .output()
             .context("Failed to build project")?;
@@ -150,7 +150,7 @@ impl PerformanceProfiler {
 
         // Check if we can run benchmarks quickly
         let output = Command::new("cargo")
-            .args(&["bench", "--no-run"])
+            .args(["bench", "--no-run"])
             .current_dir(project_path)
             .output();
 

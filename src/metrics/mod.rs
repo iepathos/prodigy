@@ -130,6 +130,7 @@ pub struct MetricsComparison {
 }
 
 /// Trait for metrics analysis
+#[allow(async_fn_in_trait)]
 pub trait MetricsAnalyzer {
     async fn analyze(&self, project_path: &Path) -> Result<MetricsData>;
     fn get_baseline(&self) -> Option<MetricsData>;

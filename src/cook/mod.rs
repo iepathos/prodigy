@@ -1049,7 +1049,7 @@ async fn run_without_worktree_with_vars(
             if let Some(ref collector) = metrics_collector {
                 if cmd.metrics {
                     match collector
-                        .collect_metrics(&project_path, format!("iteration-{}", iteration))
+                        .collect_metrics(&project_path, format!("iteration-{iteration}"))
                         .await
                     {
                         Ok(metrics) => {
@@ -1073,7 +1073,7 @@ async fn run_without_worktree_with_vars(
                             // Show metrics summary if verbose
                             if verbose {
                                 let report = storage.generate_report(&metrics);
-                                println!("\n{}", report);
+                                println!("\n{report}");
                             }
                         }
                         Err(e) => {
@@ -1139,7 +1139,7 @@ async fn run_without_worktree_with_vars(
             if let Some(ref collector) = metrics_collector {
                 if cmd.metrics {
                     match collector
-                        .collect_metrics(&project_path, format!("iteration-{}", iteration))
+                        .collect_metrics(&project_path, format!("iteration-{iteration}"))
                         .await
                     {
                         Ok(metrics) => {
@@ -1163,7 +1163,7 @@ async fn run_without_worktree_with_vars(
                             // Show metrics summary if verbose
                             if verbose {
                                 let report = storage.generate_report(&metrics);
-                                println!("\n{}", report);
+                                println!("\n{report}");
                             }
                         }
                         Err(e) => {
@@ -1252,7 +1252,7 @@ async fn run_without_worktree_with_vars(
             // Show improvement velocity
             let velocity = metrics_history.calculate_velocity(actual_iterations as usize);
             if velocity != 0.0 {
-                println!("   Improvement Rate: {:+.1} points/iteration", velocity);
+                println!("   Improvement Rate: {velocity:+.1} points/iteration");
             }
 
             // Save final report

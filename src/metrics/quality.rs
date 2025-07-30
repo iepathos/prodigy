@@ -26,7 +26,7 @@ impl QualityAnalyzer {
     pub fn new() -> Self {
         // Check if cargo-tarpaulin is available
         let use_tarpaulin = Command::new("cargo")
-            .args(&["tarpaulin", "--version"])
+            .args(["tarpaulin", "--version"])
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false);
@@ -79,7 +79,7 @@ impl QualityAnalyzer {
 
             // If no existing report, try to run tests quickly
             let output = Command::new("cargo")
-                .args(&["test", "--no-run"])
+                .args(["test", "--no-run"])
                 .current_dir(project_path)
                 .output()
                 .context("Failed to check test build")?;
@@ -108,7 +108,7 @@ impl QualityAnalyzer {
         for entry in walkdir::WalkDir::new(&src_dir)
             .into_iter()
             .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().map_or(false, |ext| ext == "rs"))
+            .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
         {
             let path = entry.path();
             let content = std::fs::read_to_string(path)?;
@@ -136,7 +136,7 @@ impl QualityAnalyzer {
         debug!("Running clippy to count warnings");
 
         let output = Command::new("cargo")
-            .args(&["clippy", "--", "-W", "clippy::all", "--no-deps"])
+            .args(["clippy", "--", "-W", "clippy::all", "--no-deps"])
             .current_dir(project_path)
             .output()
             .context("Failed to run clippy")?;
@@ -168,7 +168,7 @@ impl QualityAnalyzer {
         for entry in walkdir::WalkDir::new(&src_dir)
             .into_iter()
             .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().map_or(false, |ext| ext == "rs"))
+            .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
         {
             let path = entry.path();
             let content = std::fs::read_to_string(path)?;
@@ -216,7 +216,7 @@ impl QualityAnalyzer {
         for entry in walkdir::WalkDir::new(&src_dir)
             .into_iter()
             .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().map_or(false, |ext| ext == "rs"))
+            .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
         {
             let path = entry.path();
             let content = std::fs::read_to_string(path)?;
