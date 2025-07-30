@@ -5,7 +5,7 @@ use tracing::{debug, error, trace};
 /// Cook your code to perfection with zero configuration
 #[derive(Parser)]
 #[command(name = "mmm")]
-#[command(about = "Memento Mori Manager - Cook your code to perfection automatically", long_about = None)]
+#[command(about = "mmm - Cook your code to perfection automatically", long_about = None)]
 struct Cli {
     /// Enable verbose output (-v for debug, -vv for trace, -vvv for all)
     #[arg(short, long, action = clap::ArgAction::Count, global = true)]
