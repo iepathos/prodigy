@@ -6,25 +6,36 @@ Conduct a comprehensive code review of the current project or specified componen
 
 SCOPE: $ARGUMENTS (optional - specify scope like "src/parser", "tests", specific files, or omit for entire codebase)
 FOCUS: $MMM_FOCUS (optional - focus directive from mmm CLI, e.g., "user experience", "performance")
+MMM_CONTEXT_AVAILABLE: Environment variable indicating .mmm context availability
+MMM_CONTEXT_DIR: Path to .mmm/context/ directory with analysis data
 
 ## Execute
 
-### Phase 1: Project Context and Scope Analysis
+### Phase 1: Context-Driven Project Analysis
 
-1. **Read Project Context**
-   - Read .mmm context files (PROJECT.md, ARCHITECTURE.md, CONVENTIONS.md, DECISIONS.md)
+1. **Load MMM Analysis Context (Priority)**
+   - Check if `MMM_CONTEXT_AVAILABLE=true` and load context data
+   - Read `.mmm/context/technical_debt.json` for known issues and hotspots
+   - Load `.mmm/context/architecture.json` for violations and patterns
+   - Parse `.mmm/context/conventions.json` for style violations
+   - Review `.mmm/context/test_coverage.json` for coverage gaps
+   - Check `.mmm/metrics/current.json` for quality baselines
+   - Use `.mmm/context/dependency_graph.json` for coupling analysis
+
+2. **Fallback to Traditional Context**
+   - If context unavailable, read .mmm files (PROJECT.md, ARCHITECTURE.md, etc.)
    - Understand project goals, architecture patterns, and coding standards
    - Identify recently completed specifications from ROADMAP.md
 
-2. **Parse Focus Directive (if provided)**
+3. **Context-Aware Focus Directive Processing**
    - If FOCUS environment variable is set, interpret the focus area
-   - Adjust review priorities based on focus:
-     - "user experience" → API design, error messages, documentation, CLI ergonomics
-     - "performance" → Algorithmic complexity, allocations, hot paths, concurrency
-     - "security" → Input validation, unsafe code, dependencies, error handling
-     - "code coverage" → Missing tests, untested paths, test quality
-     - "documentation" → API docs, examples, clarity, completeness
-   - Note: Focus affects issue prioritization, not what is reviewed
+   - **Use context data to enhance focus**:
+     - "user experience" → Prioritize API violations from architecture.json + error handling debt
+     - "performance" → Target hotspots with high complexity_score + benchmark regressions
+     - "security" → Focus on security-tagged debt_items + unsafe code patterns
+     - "code coverage" → Address critical_gaps and untested_functions from context
+     - "documentation" → Target low doc_coverage areas from metrics
+   - **Context amplification**: Use debt_items tags to identify focus-related issues
 
 3. **Determine Review Scope**
    - If SCOPE specified: Focus on specific files/directories
@@ -32,19 +43,21 @@ FOCUS: $MMM_FOCUS (optional - focus directive from mmm CLI, e.g., "user experien
    - Prioritize areas with recent modifications or new implementations
    - Check git status for uncommitted changes
 
-### Phase 2: Static Analysis and Code Quality
+### Phase 2: Context-Enhanced Static Analysis
 
-1. **Compilation and Basic Checks**
-   - Run `cargo check` to ensure code compiles cleanly
-   - Execute `cargo clippy --all-targets --all-features` for lint analysis
-   - Check `cargo fmt --check` for formatting consistency
-   - Identify any compiler warnings or errors
+1. **Context-Guided Quality Checks**
+   - **Pre-analyze with context**: Skip areas already identified as clean in technical_debt.json
+   - **Target hotspots**: Focus clippy analysis on files with high complexity_score
+   - **Convention-driven**: Use conventions.json violations to guide formatting checks
+   - Run `cargo check` and compare warnings against known debt_items
+   - Execute `cargo clippy` with extra attention to architecture violation locations
 
-2. **Code Structure Review**
-   - Analyze module organization and dependency structure
-   - Review public API design and interface consistency
-   - Check adherence to architectural patterns from ARCHITECTURE.md
-   - Validate separation of concerns and modularity
+2. **Context-Aware Structure Review**
+   - **Dependency analysis**: Compare actual dependencies against dependency_graph.json
+   - **Coupling review**: Focus on modules with high coupling_scores
+   - **Circular dependencies**: Validate cycles identified in dependency_graph.json
+   - **Architecture compliance**: Cross-reference code against architecture.json patterns
+   - **API consistency**: Use conventions.json naming_patterns for validation
 
 3. **Security and Safety Analysis**
    - Identify unsafe code blocks and validate their necessity
@@ -96,14 +109,14 @@ FOCUS: $MMM_FOCUS (optional - focus directive from mmm CLI, e.g., "user experien
    - Analyze database/storage interaction patterns
    - Review configuration and environment handling
 
-### Phase 5: Testing and Documentation Review
+### Phase 5: Context-Driven Testing and Documentation Review
 
-1. **Test Quality Assessment**
-   - Review unit test coverage and quality
-   - Check integration test completeness
-   - Analyze test naming and organization
-   - Verify test data and mock quality
-   - Review benchmark tests if present
+1. **Context-Enhanced Test Quality Assessment**
+   - **Coverage targeting**: Focus on untested_functions from test_coverage.json
+   - **Critical gaps**: Prioritize critical_gaps with high risk assessment
+   - **Hotspot testing**: Ensure hotspots with high change_frequency have adequate tests
+   - **Metrics-driven**: Compare actual coverage against file_coverage percentages
+   - **Benchmark validation**: Cross-reference with benchmark_results from metrics
 
 2. **Documentation Review**
    - Check inline documentation (rustdoc) completeness
@@ -126,31 +139,33 @@ FOCUS: $MMM_FOCUS (optional - focus directive from mmm CLI, e.g., "user experien
    - Review naming conventions and structure
    - Validate commit message format and git practices
 
-### Phase 7: Recommendations and Action Items
+### Phase 7: Context-Driven Recommendations and Action Items
 
-1. **Issue Categorization**
-   Standard severity levels:
-   - **Critical**: Security issues, compilation errors, broken functionality
-   - **High**: Performance issues, architectural violations, missing tests
-   - **Medium**: Code quality improvements, minor design issues
-   - **Low**: Style improvements, documentation updates
+1. **Context-Enhanced Issue Categorization**
+   **Base severity from context data**:
+   - **Critical**: debt_items with impact >= 8, security-tagged items, hotspots with risk_level="High"
+   - **High**: debt_items with impact >= 6, architecture violations severity="High", critical_gaps
+   - **Medium**: debt_items with impact >= 4, convention violations, moderate complexity hotspots
+   - **Low**: debt_items with impact < 4, style issues, documentation gaps
    
-   When FOCUS directive is provided, adjust severity for focus-related issues:
-   - Issues directly related to focus area: Increase severity by one level
-   - Example: If FOCUS="user experience", poor error messages become High instead of Medium
-   - Example: If FOCUS="performance", O(n²) algorithms become Critical instead of High
+   **Focus directive amplification**:
+   - Issues matching FOCUS get priority boost using debt_items tags
+   - Context provides specific locations and impact scores for precise prioritization
+   - Example: FOCUS="performance" + hotspots with complexity_score > 15 = Critical
+   - Example: FOCUS="security" + debt_items tagged "security" = Critical
 
-2. **Improvement Suggestions**
-   - Specific code refactoring recommendations
-   - Performance optimization opportunities
-   - Architecture improvements
-   - Testing gaps and suggestions
-   - Documentation improvements
+2. **Context-Informed Improvement Suggestions**
+   - **Debt-specific**: Use exact debt_items descriptions and locations for targeted fixes
+   - **Hotspot-driven**: Target complexity hotspots with specific refactoring approaches
+   - **Duplication elimination**: Address similarity mappings from duplication_map
+   - **Convention alignment**: Fix specific violations from conventions.json
+   - **Coverage improvements**: Target untested_functions and critical_gaps precisely
+   - **Architecture compliance**: Address specific violations with suggested patterns
    
-   When FOCUS is set:
-   - Group focus-related improvements at the top
-   - Clearly mark which issues relate to the focus area
-   - Provide extra detail for focus-related improvements
+   **Context-enhanced focus handling**:
+   - Use debt_items tags to identify focus-related issues automatically
+   - Leverage metrics trends to show performance/quality impacts
+   - Provide specific file:line references from context data
 
 3. **Action Plan**
    - Prioritized list of issues to address

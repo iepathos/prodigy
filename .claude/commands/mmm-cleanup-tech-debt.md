@@ -5,10 +5,30 @@ Analyze the Rust codebase for technical debt and perform comprehensive cleanup i
 ## Variables
 
 SCOPE: $ARGUMENTS (optional - specify scope like "src/agents", "src/mcp", "tests", or "all" for entire codebase)
+MMM_CONTEXT_AVAILABLE: Environment variable indicating .mmm context availability
+MMM_CONTEXT_DIR: Path to .mmm/context/ directory with analysis data
+MMM_FOCUS: Optional focus directive to prioritize specific debt categories
 
 ## Execute
 
-### Phase 1: Technical Debt Analysis
+### Phase 1: Context-Driven Technical Debt Analysis
+
+1. **Load MMM Context Data (Priority)**
+   - Check if `MMM_CONTEXT_AVAILABLE=true` and context directory exists
+   - Read `.mmm/context/technical_debt.json` for existing debt analysis
+   - Load `.mmm/context/dependency_graph.json` for circular dependencies
+   - Parse `.mmm/context/architecture.json` for architectural violations
+   - Review `.mmm/context/conventions.json` for style inconsistencies
+   - Check `.mmm/metrics/current.json` for quality metrics
+
+2. **Prioritize Using Context Data**
+   - **High Priority**: Items from technical_debt.json with impact >= 7
+   - **Focus-Driven**: If MMM_FOCUS set, prioritize matching debt categories
+   - **Hotspots**: Use complexity_score and change_frequency from hotspots
+   - **Critical Coverage**: Address untested_functions from test_coverage.json
+   - **Security First**: Prioritize any security-related debt items
+
+### Phase 1b: Supplemental Analysis (if context unavailable)
 
 1. **Code Organization Analysis**
    - Scan for misplaced modules and inconsistent module structure
@@ -47,18 +67,22 @@ SCOPE: $ARGUMENTS (optional - specify scope like "src/agents", "src/mcp", "tests
    - Review custom error types and error conversion implementations
    - Verify proper use of `anyhow` vs custom error types
 
-### Phase 2: Cleanup Strategy Planning
+### Phase 2: Context-Aware Cleanup Strategy Planning
 
-1. **Prioritize Issues**
-   - High Impact: Security vulnerabilities, performance issues, maintainability blockers
-   - Medium Impact: Code organization, redundancy, minor architectural issues
-   - Low Impact: Style consistency, documentation gaps, minor optimizations
+1. **Context-Driven Prioritization**
+   - **Critical (from context)**: debt_items with impact >= 8 or effort <= 2
+   - **High Priority**: Hotspots with risk_level="High" from technical_debt.json
+   - **Focus Alignment**: If MMM_FOCUS set, boost priority of matching categories
+   - **Architectural**: violations with severity="High" from architecture.json
+   - **Coverage Critical**: untested functions in critical_gaps from test_coverage.json
+   - **Dependency Issues**: circular dependencies from dependency_graph.json
 
-2. **Create Cleanup Plan**
-   - Generate ordered list of cleanup tasks
-   - Group related changes for atomic commits
-   - Identify breaking changes that need careful handling
-   - Plan testing strategy for each change
+2. **Intelligent Cleanup Planning**
+   - **From Context**: Use existing debt_items for specific tasks and locations
+   - **Duplication Map**: Address items in duplication_map with similarity > 0.9
+   - **Complexity Hotspots**: Target files with complexity_score > 20
+   - **Convention Violations**: Fix naming_patterns violations from conventions.json
+   - **Metrics-Driven**: Address areas with declining trends from metrics/history.json
 
 3. **Risk Assessment**
    - Identify changes that could break existing functionality
@@ -156,7 +180,7 @@ SCOPE: $ARGUMENTS (optional - specify scope like "src/agents", "src/mcp", "tests
    - Verify no data races with concurrent tests
    - Profile memory usage with heaptrack or similar
 
-### Phase 6: Documentation and Reporting
+### Phase 6: Context-Aware Documentation and Reporting
 
 1. **Update Documentation**
    - Update module documentation for moved files
@@ -165,13 +189,14 @@ SCOPE: $ARGUMENTS (optional - specify scope like "src/agents", "src/mcp", "tests
    - Add missing /// or //! documentation comments
    - Generate docs with `cargo doc --no-deps --open`
 
-2. **Generate Cleanup Report**
-   - Summary of changes made
-   - List of removed dead code and dependencies
-   - Performance improvements (compile time & runtime)
-   - Memory usage reduction statistics
-   - Remaining technical debt items
-   - Security vulnerabilities fixed
+2. **Context-Enhanced Cleanup Report**
+   - **Metrics Comparison**: Before/after metrics using current.json baseline
+   - **Debt Reduction**: Items resolved from technical_debt.json with impact scores
+   - **Hotspot Improvements**: Changes to complexity_score and risk_level
+   - **Coverage Gains**: Improvements to untested_functions and critical_gaps
+   - **Convention Compliance**: Fixed violations from conventions.json
+   - **Architecture Health**: Resolved violations from architecture.json
+   - **Trend Analysis**: Update metrics/history.json with improvements
 
 3. **Commit Changes**
    - Create atomic commits for each cleanup category
