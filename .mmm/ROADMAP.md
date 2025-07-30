@@ -120,6 +120,19 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
 - [x] **Updated all documentation** to use new flag syntax
 - [x] **Backward compatibility** maintained for smooth migration
 
+## ✅ Phase 2.14: Context-Aware Project Understanding (COMPLETED)
+
+### Deep Project Analysis Complete
+- [x] **Created context module** with comprehensive analysis capabilities
+- [x] **Dependency graph analysis** tracks module relationships and circular dependencies
+- [x] **Architecture extraction** detects patterns and architectural violations
+- [x] **Convention detection** learns project-specific naming and code patterns
+- [x] **Technical debt mapping** with prioritized debt items and complexity hotspots
+- [x] **Test coverage analysis** identifies critical untested paths
+- [x] **Integration with cook command** provides context to Claude via environment variables
+- [x] **Incremental updates** support for efficient re-analysis of changed files
+- [x] **Context persistence** in .mmm/context directory for reuse across sessions
+
 ## 📋 Phase 3: Robustness (NEXT)
 
 ### Core Reliability

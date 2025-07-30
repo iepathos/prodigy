@@ -571,3 +571,21 @@ Implement `mmm init` subcommand that bootstraps .claude/commands in git reposito
 - **Positive**: Quick project onboarding with single command, no manual file copying required, bundled commands always match MMM version, selective installation supported, graceful conflict handling, commands are editable after installation
 - **Negative**: Increases binary size slightly with embedded command content, requires manual update of templates when commands change
 - **Implementation**: Created init module with templates.rs embedding all 5 core commands, command.rs for CLI structure, mod.rs with git validation and installation logic, added atty dependency for interactive prompts, integrated with main CLI
+
+---
+
+## ADR-033: Context-Aware Project Understanding
+
+### Status
+Accepted
+
+### Context
+Spec 44 identified that MMM operated with limited understanding of the projects it was improving. While it could detect languages and frameworks, it lacked deep understanding of codebase structure, dependencies, patterns, and technical debt. This limitation prevented truly autonomous operation over many iterations, as Claude lacked the context to make informed decisions about what to improve next.
+
+### Decision
+Implement a comprehensive context analysis system that builds and maintains deep knowledge about the codebase including dependency graphs, architecture patterns, coding conventions, technical debt mapping, and test coverage analysis. This context is provided to Claude commands via environment variables to enable more intelligent, goal-oriented improvements.
+
+### Consequences
+- **Positive**: Claude makes more informed improvement decisions, better prioritization of changes, understanding of project-specific patterns, identification of architectural violations and technical debt, autonomous operation for longer without human guidance
+- **Negative**: Additional analysis time at startup (mitigated by caching), increased complexity in the codebase, more disk space for context storage
+- **Implementation**: Created context module with five analyzers (dependencies, architecture, conventions, debt, test coverage), integrated with cook command to run analysis before improvements, context passed via MMM_CONTEXT_DIR environment variable, incremental updates for changed files, persistent storage in .mmm/context directory

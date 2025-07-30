@@ -8,6 +8,7 @@ pub mod workflow;
 mod tests;
 
 use crate::config::{ConfigLoader, WorkflowConfig};
+use crate::context::{save_analysis, ContextAnalyzer, ProjectAnalyzer};
 use crate::simple_state::StateManager;
 use crate::worktree::WorktreeManager;
 use anyhow::{anyhow, Context as _, Result};
@@ -26,6 +27,57 @@ const DEFAULT_CLAUDE_RETRIES: u32 = 2;
 enum MergeChoice {
     Yes,
     No,
+}
+
+/// Run context analysis on the project and save results
+async fn analyze_project_context(project_path: &Path, verbose: bool) -> Result<()> {
+    if verbose {
+        println!("🔍 Analyzing project context...");
+    }
+
+    // Create analyzer
+    let analyzer = ProjectAnalyzer::new();
+
+    // Run analysis
+    let analysis_result = analyzer.analyze(project_path).await?;
+
+    // Get improvement suggestions
+    let suggestions = analyzer.get_improvement_suggestions();
+
+    if verbose {
+        println!("✅ Context analysis complete");
+        println!(
+            "   - Dependencies: {} modules analyzed",
+            analysis_result.dependency_graph.nodes.len()
+        );
+        println!(
+            "   - Architecture: {} patterns detected",
+            analysis_result.architecture.patterns.len()
+        );
+        println!(
+            "   - Technical debt: {} items found",
+            analysis_result.technical_debt.debt_items.len()
+        );
+        println!(
+            "   - Test coverage: {:.1}% overall",
+            analysis_result.test_coverage.overall_coverage * 100.0
+        );
+
+        if !suggestions.is_empty() {
+            println!("\n📋 Top improvement suggestions:");
+            for (i, suggestion) in suggestions.iter().take(3).enumerate() {
+                println!("   {}. {}", i + 1, suggestion.title);
+            }
+        }
+    }
+
+    // Save analysis for Claude commands to use
+    save_analysis(project_path, &analysis_result)?;
+
+    // Set environment variable to signal context is available
+    std::env::set_var("MMM_CONTEXT_AVAILABLE", "true");
+
+    Ok(())
 }
 
 /// Check if we're running in an interactive terminal
@@ -602,7 +654,14 @@ async fn run_improvement_loop(
     check_claude_cli().await?;
 
     // 2. Initial analysis
-    // Skip analysis for worktree tracking
+    // Run context analysis to understand the project
+    let project_path = std::env::current_dir()?;
+    if let Err(e) = analyze_project_context(&project_path, cmd.show_progress).await {
+        if cmd.show_progress {
+            eprintln!("⚠️  Context analysis failed: {e}");
+            eprintln!("   Continuing without deep context understanding");
+        }
+    }
 
     if cmd.show_progress {
         if let Some(focus) = &cmd.focus {
@@ -849,6 +908,15 @@ async fn run_without_worktree_with_vars(
         }
     }
 
+    // Run context analysis to understand the project
+    let project_path = std::env::current_dir()?;
+    if let Err(e) = analyze_project_context(&project_path, cmd.show_progress).await {
+        if cmd.show_progress {
+            eprintln!("⚠️  Context analysis failed: {e}");
+            eprintln!("   Continuing without deep context understanding");
+        }
+    }
+
     // Determine workflow configuration
     let workflow_config = config
         .workflow
@@ -1086,6 +1154,16 @@ async fn call_claude_code_review(verbose: bool, focus: Option<&str>) -> Result<b
         cmd.env("MMM_FOCUS", focus_directive);
     }
 
+    // Pass context directory if available
+    let context_dir = std::env::current_dir()
+        .ok()
+        .map(|p| p.join(".mmm").join("context"));
+    if let Some(ctx_dir) = context_dir {
+        if ctx_dir.exists() {
+            cmd.env("MMM_CONTEXT_DIR", ctx_dir);
+        }
+    }
+
     // Execute with retry logic for transient failures
     let output =
         execute_with_retry(cmd, "Claude code review", DEFAULT_CLAUDE_RETRIES, verbose).await?;
@@ -1315,6 +1393,16 @@ async fn call_claude_implement_spec(spec_id: &str, verbose: bool) -> Result<bool
         .env("ARGUMENTS", spec_id) // Claude CLI expects the argument in $ARGUMENTS
         .env("MMM_AUTOMATION", "true"); // Signals to /mmm-implement-spec to run in automated mode
 
+    // Pass context directory if available
+    let context_dir = std::env::current_dir()
+        .ok()
+        .map(|p| p.join(".mmm").join("context"));
+    if let Some(ctx_dir) = context_dir {
+        if ctx_dir.exists() {
+            cmd.env("MMM_CONTEXT_DIR", ctx_dir);
+        }
+    }
+
     // Execute with retry logic for transient failures
     let output = execute_with_retry(
         cmd,
@@ -1399,6 +1487,16 @@ async fn call_claude_lint(verbose: bool) -> Result<bool> {
         .arg("--print") // Outputs response to stdout for capture instead of interactive display
         .arg("/mmm-lint") // The custom command for linting and formatting
         .env("MMM_AUTOMATION", "true"); // Signals to /mmm-lint to run in automated mode
+
+    // Pass context directory if available
+    let context_dir = std::env::current_dir()
+        .ok()
+        .map(|p| p.join(".mmm").join("context"));
+    if let Some(ctx_dir) = context_dir {
+        if ctx_dir.exists() {
+            cmd.env("MMM_CONTEXT_DIR", ctx_dir);
+        }
+    }
 
     // Execute with retry logic for transient failures
     let output = execute_with_retry(cmd, "Claude lint", DEFAULT_CLAUDE_RETRIES, verbose).await?;
@@ -1575,7 +1673,14 @@ async fn run_improvement_loop_with_variables(
     check_claude_cli().await?;
 
     // 2. Initial analysis
-    // Skip analysis for worktree tracking
+    // Run context analysis to understand the project
+    let project_path = std::env::current_dir()?;
+    if let Err(e) = analyze_project_context(&project_path, cmd.show_progress).await {
+        if cmd.show_progress {
+            eprintln!("⚠️  Context analysis failed: {e}");
+            eprintln!("   Continuing without deep context understanding");
+        }
+    }
 
     if cmd.show_progress {
         if let Some(focus) = &cmd.focus {

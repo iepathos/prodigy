@@ -27,6 +27,7 @@ This file tracks the key specifications that shaped the current focused architec
 ## Implemented Core Features (continued)
 - **36**: `specs/36-rename-improve-to-cook.md` - Rename improve subcommand to cook
 - **41**: `specs/41-auto-accept-flag.md` - Auto-accept flag for non-interactive operation
+- **44**: `specs/44-context-aware-project-understanding.md` - Context-aware project understanding
 
 ## Pending Specifications
 - **22**: `specs/22-configurable-iteration-limit.md` - Add --max-iterations flag
