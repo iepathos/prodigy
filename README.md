@@ -57,6 +57,15 @@ cargo build --release
 
 ## Usage
 
+### Getting Started
+```bash
+# First time setup - install MMM commands in your project
+mmm init
+
+# Then cook your code to improve it
+mmm cook
+```
+
 ### Basic Usage
 ```bash
 # Cook your code to a quality score of 8.0 (default)
@@ -337,6 +346,31 @@ mmm worktree clean --all
 ```
 
 Each session runs in its own git worktree with an isolated branch, allowing multiple cooking efforts to proceed without interfering with each other. Worktrees are stored in `~/.mmm/worktrees/{project-name}/` and are preserved on failure for debugging and automatically suggested for cleanup on success.
+
+### Initialize Commands
+
+MMM requires Claude commands to be installed in your project. Use `mmm init` to set them up:
+
+```bash
+# Initialize all MMM commands in current project
+mmm init
+
+# Force overwrite existing commands
+mmm init --force
+
+# Install specific commands only
+mmm init --commands mmm-code-review,mmm-lint
+
+# Initialize in a different directory
+mmm init --path /path/to/project
+```
+
+The init command will:
+- Verify the directory is a git repository
+- Create `.claude/commands/` directory structure
+- Install the core MMM commands
+- Handle existing commands gracefully (skip or overwrite with `--force`)
+- Provide clear feedback on what was installed
 
 ## Project Structure
 
