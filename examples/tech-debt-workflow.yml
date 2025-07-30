@@ -1,14 +1,14 @@
 # Technical Debt Cleanup Workflow
-# Automated debt identification, specification generation, and cleanup implementation
+# Simple automated debt cleanup cycle
 
 commands:
-  - mmm-cleanup-tech-debt
-  - mmm-implement-spec  
-  - lint
-  - test
+  - /mmm-cleanup-tech-debt
+  - /mmm-implement-spec  
+  - /lint
+  - /test
 
-# The complete tech debt cleanup cycle:
-# 1. Analyze technical debt using MMM context and generate cleanup spec
-# 2. Implement the technical debt cleanup from the generated spec
+# The tech debt cleanup cycle:
+# 1. Analyze technical debt and generate cleanup spec
+# 2. Implement the cleanup from generated spec  
 # 3. Run linting to ensure code quality
-# 4. Execute tests to verify functionality remains intact
+# 4. Execute tests to verify functionality
