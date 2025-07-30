@@ -66,7 +66,9 @@ impl TarpaulinCoverageAnalyzer {
             // Check if project has justfile with coverage command
             let justfile_path = project_path.join("justfile");
             let has_just_coverage = if justfile_path.exists() {
-                let justfile_content = tokio::fs::read_to_string(&justfile_path).await.unwrap_or_default();
+                let justfile_content = tokio::fs::read_to_string(&justfile_path)
+                    .await
+                    .unwrap_or_default();
                 justfile_content.contains("coverage:")
             } else {
                 false
@@ -97,7 +99,11 @@ impl TarpaulinCoverageAnalyzer {
 
             if !output.status.success() {
                 let stderr = String::from_utf8_lossy(&output.stderr);
-                let command_name = if has_just_coverage { "just coverage" } else { "cargo tarpaulin" };
+                let command_name = if has_just_coverage {
+                    "just coverage"
+                } else {
+                    "cargo tarpaulin"
+                };
                 anyhow::bail!("{} failed: {}", command_name, stderr);
             }
 

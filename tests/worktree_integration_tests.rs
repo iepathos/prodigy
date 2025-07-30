@@ -153,31 +153,3 @@ fn test_mmm_worktree_clean_command() -> anyhow::Result<()> {
 
     Ok(())
 }
-
-#[test]
-fn test_deprecated_env_var_warning() -> anyhow::Result<()> {
-    let temp_dir = setup_test_repo()?;
-
-    // Add .mmm directory for state management
-    std::fs::create_dir_all(temp_dir.path().join(".mmm"))?;
-
-    // Run mmm cook with deprecated env var
-    let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
-        .current_dir(&temp_dir)
-        .env("MMM_USE_WORKTREE", "true")
-        .args(["cook", "--max-iterations", "0"])
-        .output()?;
-
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    // Should show deprecation warning
-    assert!(
-        stderr.contains("MMM_USE_WORKTREE is deprecated"),
-        "Should warn about deprecated env var. STDERR: {stderr}"
-    );
-
-    // Clean up any created worktrees
-    cleanup_mmm_worktrees();
-
-    Ok(())
-}

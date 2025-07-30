@@ -33,55 +33,302 @@ enum MergeChoice {
     No,
 }
 
-/// Run context analysis on the project and save results
-async fn analyze_project_context(project_path: &Path, verbose: bool) -> Result<()> {
-    if verbose {
-        info!("🔍 Analyzing project context...");
+/// Setup metrics collection based on command settings
+fn setup_metrics(
+    cmd: &command::CookCommand,
+    project_path: &Path,
+) -> Result<(Option<MetricsCollector>, MetricsHistory)> {
+    let metrics_collector = if cmd.metrics {
+        Some(MetricsCollector::new())
+    } else {
+        None
+    };
+
+    let metrics_history = if cmd.metrics {
+        let storage = MetricsStorage::new(project_path);
+        storage
+            .load_history()
+            .unwrap_or_else(|_| MetricsHistory::new())
+    } else {
+        MetricsHistory::new()
+    };
+
+    Ok((metrics_collector, metrics_history))
+}
+
+/// Collect and save metrics after an iteration
+async fn collect_iteration_metrics(
+    metrics_collector: &MetricsCollector,
+    metrics_history: &mut MetricsHistory,
+    project_path: &Path,
+    iteration: u32,
+    verbose: bool,
+) -> Result<()> {
+    match metrics_collector
+        .collect_metrics(project_path, format!("iteration-{iteration}"))
+        .await
+    {
+        Ok(metrics) => {
+            // Get current commit SHA for tracking
+            let commit_sha = get_last_commit_message()
+                .await
+                .unwrap_or_else(|_| "unknown".to_string());
+
+            // Add to history
+            metrics_history.add_snapshot(metrics.clone(), commit_sha);
+
+            // Save metrics
+            let storage = MetricsStorage::new(project_path);
+            if let Err(e) = storage.save_current(&metrics) {
+                warn!("Failed to save current metrics: {}", e);
+            }
+            if let Err(e) = storage.save_history(metrics_history) {
+                warn!("Failed to save metrics history: {}", e);
+            }
+
+            // Show metrics summary if verbose
+            if verbose {
+                let report = storage.generate_report(&metrics);
+                println!("\n{report}");
+            }
+        }
+        Err(e) => {
+            warn!("Failed to collect metrics: {}", e);
+        }
     }
+    Ok(())
+}
 
-    // Create analyzer
-    let analyzer = ProjectAnalyzer::new();
+/// Collect inputs from mapping patterns and arguments
+fn collect_mapping_inputs(cmd: &command::CookCommand) -> Result<Vec<String>> {
+    use glob::glob;
 
-    // Run analysis
-    let analysis_result = analyzer.analyze(project_path).await?;
+    let mut inputs: Vec<String> = Vec::new();
 
-    // Get improvement suggestions
-    let suggestions = analyzer.get_improvement_suggestions();
+    // Collect inputs from --map patterns
+    for pattern in &cmd.map {
+        let entries = glob(pattern).context(format!("Invalid glob pattern: {pattern}"))?;
 
-    if verbose {
-        info!("✅ Context analysis complete");
-        info!(
-            "   - Dependencies: {} modules analyzed",
-            analysis_result.dependency_graph.nodes.len()
-        );
-        info!(
-            "   - Architecture: {} patterns detected",
-            analysis_result.architecture.patterns.len()
-        );
-        info!(
-            "   - Technical debt: {} items found",
-            analysis_result.technical_debt.debt_items.len()
-        );
-        info!(
-            "   - Test coverage: {:.1}% overall",
-            analysis_result.test_coverage.overall_coverage * 100.0
-        );
-
-        if !suggestions.is_empty() {
-            info!("\n📋 Top improvement suggestions:");
-            for (i, suggestion) in suggestions.iter().take(3).enumerate() {
-                info!("   {}. {}", i + 1, suggestion.title);
+        for entry in entries {
+            match entry {
+                Ok(path) => {
+                    inputs.push(path.to_string_lossy().into_owned());
+                }
+                Err(e) => {
+                    warn!("Warning: Error matching pattern: {e}");
+                }
             }
         }
     }
 
-    // Save analysis for Claude commands to use
-    save_analysis(project_path, &analysis_result)?;
+    // Add direct arguments from --args
+    inputs.extend(cmd.args.clone());
 
-    // Set environment variable to signal context is available
-    std::env::set_var("MMM_CONTEXT_AVAILABLE", "true");
+    if inputs.is_empty() {
+        return Err(anyhow!("No inputs found from --map patterns or --args"));
+    }
+
+    Ok(inputs)
+}
+
+/// Handle merge prompting and execution for worktree
+#[allow(dead_code)]
+async fn handle_worktree_merge(
+    cmd: &command::CookCommand,
+    session: &crate::worktree::WorktreeSession,
+    original_repo_path: &std::path::Path,
+    iterations_completed: u32,
+) -> Result<()> {
+    // Prompt for merge if in interactive terminal (or auto-accept) and improvements were made
+    if (is_tty() || cmd.auto_accept) && iterations_completed > 0 {
+        // Update state to track prompt shown
+        let worktree_manager = WorktreeManager::new(original_repo_path.to_path_buf())?;
+        worktree_manager.update_session_state(&session.name, |state| {
+            state.merge_prompt_shown = true;
+        })?;
+
+        let should_merge = if cmd.auto_accept {
+            println!("Auto-accepting worktree merge (--yes flag set)");
+            MergeChoice::Yes
+        } else {
+            prompt_for_merge(&session.name)
+        };
+
+        match should_merge {
+            MergeChoice::Yes => {
+                // Update state with response
+                worktree_manager.update_session_state(&session.name, |state| {
+                    state.merge_prompt_response = Some("yes".to_string());
+                })?;
+
+                println!("Merging worktree {}...", session.name);
+                match merge_worktree(&session.name, original_repo_path).await {
+                    Ok(_) => {
+                        println!("✅ Successfully merged worktree: {}", session.name);
+
+                        // Update worktree status to merged
+                        worktree_manager.update_session_state(&session.name, |state| {
+                            state.status = crate::worktree::WorktreeStatus::Merged;
+                        })?;
+
+                        // Prompt for deletion if in interactive terminal (or auto-accept)
+                        if is_tty() || cmd.auto_accept {
+                            let should_delete = if cmd.auto_accept {
+                                println!("Auto-accepting worktree deletion (--yes flag set)");
+                                MergeChoice::Yes
+                            } else {
+                                prompt_for_deletion(&session.name)?
+                            };
+
+                            match should_delete {
+                                MergeChoice::Yes => {
+                                    match worktree_manager.cleanup_session(&session.name, false) {
+                                        Ok(_) => {
+                                            println!("✅ Deleted worktree: {}", session.name);
+                                        }
+                                        Err(e) => {
+                                            println!("⚠️  Failed to delete worktree: {e}");
+                                        }
+                                    }
+                                }
+                                MergeChoice::No => {
+                                    println!("Worktree kept: {}", session.name);
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        println!("❌ Failed to merge worktree: {e}");
+                        return Err(e);
+                    }
+                }
+            }
+            MergeChoice::No => {
+                // Update state with response
+                worktree_manager.update_session_state(&session.name, |state| {
+                    state.merge_prompt_response = Some("no".to_string());
+                })?;
+
+                println!("Worktree kept for manual review: {}", session.name);
+                println!("To merge later, run: mmm worktree merge {}", session.name);
+            }
+        }
+    } else if iterations_completed > 0 {
+        println!("To merge the worktree, run:");
+        println!("   mmm worktree merge {}", session.name);
+    }
 
     Ok(())
+}
+
+/// Create variables for a mapping input
+fn create_mapping_variables(
+    cmd: &command::CookCommand,
+    input: &str,
+    index: usize,
+    total: usize,
+) -> std::collections::HashMap<String, String> {
+    use glob::glob;
+    use std::collections::HashMap;
+
+    let mut variables = HashMap::new();
+    let item_number = index + 1;
+
+    // Determine the ARG value based on whether this came from --map or --args
+    let arg_value = if cmd.map.iter().any(|pattern| {
+        glob(pattern)
+            .ok()
+            .and_then(|entries| {
+                entries
+                    .filter_map(Result::ok)
+                    .find(|p| p.to_string_lossy() == input)
+            })
+            .is_some()
+    }) {
+        // This input came from --map, so extract spec ID if it's a spec file
+        if input.ends_with(".md") && input.contains("spec") {
+            extract_spec_id_from_path(input)
+        } else {
+            input.to_string()
+        }
+    } else {
+        // This input came from --args, use it directly
+        input.to_string()
+    };
+
+    variables.insert("ARG".to_string(), arg_value);
+    variables.insert("FILE".to_string(), input.to_string());
+    variables.insert("INDEX".to_string(), item_number.to_string());
+    variables.insert("TOTAL".to_string(), total.to_string());
+
+    if let Some(file_name) = std::path::Path::new(input).file_name() {
+        variables.insert(
+            "FILE_NAME".to_string(),
+            file_name.to_string_lossy().into_owned(),
+        );
+        if let Some(stem) = std::path::Path::new(input).file_stem() {
+            variables.insert("FILE_STEM".to_string(), stem.to_string_lossy().into_owned());
+        }
+    }
+
+    variables
+}
+
+/// Run a single legacy workflow iteration
+async fn run_legacy_workflow_iteration(
+    cmd: &command::CookCommand,
+    iteration: u32,
+    verbose: bool,
+) -> Result<(bool, bool)> {
+    if verbose {
+        info!("🔄 Iteration {iteration}/{}...", cmd.max_iterations);
+    }
+
+    // Step 1: Generate review spec and commit
+    // Pass focus on every iteration to maintain consistent improvement direction
+    let focus_for_iteration = cmd.focus.as_deref();
+    let review_success = call_claude_code_review(verbose, focus_for_iteration).await?;
+    if !review_success {
+        if verbose {
+            info!("Review failed - stopping iterations");
+        }
+        return Ok((false, false));
+    }
+
+    // Step 2: Extract spec ID from latest commit
+    let spec_id = extract_spec_from_git(verbose).await?;
+    if spec_id.is_empty() {
+        if verbose {
+            info!("No issues found - stopping iterations");
+        }
+        return Ok((false, false));
+    }
+
+    // Step 3: Implement fixes and commit
+    let implement_success = call_claude_implement_spec(&spec_id, verbose).await?;
+    let mut files_changed = false;
+    if !implement_success {
+        if verbose {
+            info!("Implementation failed for iteration {iteration}");
+        }
+    } else {
+        files_changed = true;
+    }
+
+    // Step 4: Run linting/formatting and commit
+    let lint_success = call_claude_lint(verbose).await?;
+
+    // Check if any command made changes in this iteration
+    let any_changes = review_success || implement_success || lint_success;
+    if !any_changes {
+        if verbose {
+            info!("ℹ️  Iteration {iteration} completed with no changes - stopping early");
+            info!("   (This typically means no issues were found to fix)");
+        }
+        return Ok((false, files_changed));
+    }
+
+    Ok((true, files_changed))
 }
 
 /// Run comprehensive analysis including context and metrics for workflows
@@ -98,7 +345,7 @@ async fn analyze_project_comprehensive(project_path: &Path, verbose: bool) -> Re
     // Then run metrics collection to get accurate coverage data
     let metrics_collector = MetricsCollector::new();
     let iteration_id = format!("cook-{}", chrono::Utc::now().timestamp());
-    
+
     let metrics_result = metrics_collector
         .collect_metrics(project_path, iteration_id.clone())
         .await;
@@ -123,10 +370,7 @@ async fn analyze_project_comprehensive(project_path: &Path, verbose: bool) -> Re
                     "   - Test coverage: {:.1}% (accurate)",
                     metrics.test_coverage
                 );
-                info!(
-                    "   - Lint warnings: {}",
-                    metrics.lint_warnings
-                );
+                info!("   - Lint warnings: {}", metrics.lint_warnings);
 
                 if !suggestions.is_empty() {
                     info!("\n📋 Top improvement suggestions:");
@@ -184,6 +428,21 @@ fn prompt_for_merge(_worktree_name: &str) -> MergeChoice {
         "y" | "yes" => MergeChoice::Yes,
         _ => MergeChoice::No,
     }
+}
+
+/// Prompt user to delete a worktree
+#[allow(dead_code)]
+fn prompt_for_deletion(_worktree_name: &str) -> Result<MergeChoice> {
+    print!("\nWould you like to delete the worktree now? (y/N): ");
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+
+    Ok(match input.trim().to_lowercase().as_str() {
+        "y" | "yes" => MergeChoice::Yes,
+        _ => MergeChoice::No,
+    })
 }
 
 /// Execute worktree merge
@@ -289,28 +548,15 @@ async fn run_internal(cmd: command::CookCommand, verbose: bool) -> Result<()> {
 
 /// Run cook command with file mapping or direct arguments
 async fn run_with_mapping(cmd: command::CookCommand, verbose: bool) -> Result<()> {
-    use glob::glob;
-    use std::collections::HashMap;
-
     // Check if worktree isolation should be used
-    let use_worktree = if cmd.worktree {
-        true
-    } else if std::env::var("MMM_USE_WORKTREE")
-        .unwrap_or_default()
-        .eq_ignore_ascii_case("true")
-    {
-        warn!("⚠️  Warning: MMM_USE_WORKTREE environment variable is deprecated. Use --worktree flag instead.");
-        true
-    } else {
-        false
-    };
+    let use_worktree = cmd.worktree;
 
     if use_worktree {
         // Save the original repository path before changing directories
         let original_repo_path = std::env::current_dir()?;
 
         // Create a new worktree for this improvement session
-        let worktree_manager = WorktreeManager::new(original_repo_path.clone())?;
+        let worktree_manager = WorktreeManager::new(original_repo_path.to_path_buf())?;
         let session = worktree_manager.create_session(cmd.focus.as_deref())?;
 
         println!(
@@ -351,7 +597,7 @@ async fn run_with_mapping(cmd: command::CookCommand, verbose: bool) -> Result<()
                 // Prompt for merge if in interactive terminal (or auto-accept) and improvements were made
                 if (is_tty() || cmd.auto_accept) && iterations_completed > 0 {
                     // Update state to track prompt shown
-                    let worktree_manager = WorktreeManager::new(original_repo_path.clone())?;
+                    let worktree_manager = WorktreeManager::new(original_repo_path.to_path_buf())?;
                     worktree_manager.update_session_state(&session.name, |state| {
                         state.merge_prompt_shown = true;
                     })?;
@@ -457,30 +703,7 @@ async fn run_with_mapping(cmd: command::CookCommand, verbose: bool) -> Result<()
     }
 
     // Non-worktree path continues below
-    let mut inputs: Vec<String> = Vec::new();
-
-    // Collect inputs from --map patterns
-    for pattern in &cmd.map {
-        let entries = glob(pattern).context(format!("Invalid glob pattern: {pattern}"))?;
-
-        for entry in entries {
-            match entry {
-                Ok(path) => {
-                    inputs.push(path.to_string_lossy().into_owned());
-                }
-                Err(e) => {
-                    warn!("Warning: Error matching pattern: {e}");
-                }
-            }
-        }
-    }
-
-    // Add direct arguments from --args
-    inputs.extend(cmd.args.clone());
-
-    if inputs.is_empty() {
-        return Err(anyhow!("No inputs found from --map patterns or --args"));
-    }
+    let inputs = collect_mapping_inputs(&cmd)?;
 
     println!("📋 Processing {} input(s)", inputs.len());
 
@@ -496,44 +719,7 @@ async fn run_with_mapping(cmd: command::CookCommand, verbose: bool) -> Result<()
         let input_cmd = cmd.clone();
 
         // Create variables for this input
-        let mut variables = HashMap::new();
-
-        // Determine the ARG value based on whether this came from --map or --args
-        let arg_value = if cmd.map.iter().any(|pattern| {
-            glob(pattern)
-                .ok()
-                .and_then(|entries| {
-                    entries
-                        .filter_map(Result::ok)
-                        .find(|p| &p.to_string_lossy() == input)
-                })
-                .is_some()
-        }) {
-            // This input came from --map, so extract spec ID if it's a spec file
-            if input.ends_with(".md") && input.contains("spec") {
-                extract_spec_id_from_path(input)
-            } else {
-                input.clone()
-            }
-        } else {
-            // This input came from --args, use it directly
-            input.clone()
-        };
-
-        variables.insert("ARG".to_string(), arg_value.clone());
-        variables.insert("FILE".to_string(), input.clone());
-        variables.insert("INDEX".to_string(), item_number.to_string());
-        variables.insert("TOTAL".to_string(), total.to_string());
-
-        if let Some(file_name) = std::path::Path::new(input).file_name() {
-            variables.insert(
-                "FILE_NAME".to_string(),
-                file_name.to_string_lossy().into_owned(),
-            );
-            if let Some(stem) = std::path::Path::new(input).file_stem() {
-                variables.insert("FILE_STEM".to_string(), stem.to_string_lossy().into_owned());
-            }
-        }
+        let variables = create_mapping_variables(&cmd, input, index, total);
 
         // Store variables in environment for the subprocess
         for (key, value) in &variables {
@@ -601,24 +787,14 @@ fn extract_spec_id_from_path(path: &str) -> String {
 async fn run_standard(cmd: command::CookCommand, verbose: bool) -> Result<()> {
     // Check if worktree isolation should be used
     // Check flag first, then env var with deprecation warning
-    let use_worktree = if cmd.worktree {
-        true
-    } else if std::env::var("MMM_USE_WORKTREE")
-        .map(|v| v == "true" || v == "1")
-        .unwrap_or(false)
-    {
-        eprintln!("Warning: MMM_USE_WORKTREE is deprecated. Use --worktree or -w flag instead.");
-        true
-    } else {
-        false
-    };
+    let use_worktree = cmd.worktree;
 
     if use_worktree {
         // Save the original repository path before changing directories
         let original_repo_path = std::env::current_dir()?;
 
         // Create worktree for this session
-        let worktree_manager = WorktreeManager::new(original_repo_path.clone())?;
+        let worktree_manager = WorktreeManager::new(original_repo_path.to_path_buf())?;
         let session = worktree_manager.create_session(cmd.focus.as_deref())?;
 
         println!(
@@ -659,7 +835,7 @@ async fn run_standard(cmd: command::CookCommand, verbose: bool) -> Result<()> {
                 // Prompt for merge if in interactive terminal (or auto-accept) and improvements were made
                 if (is_tty() || cmd.auto_accept) && iterations_completed > 0 {
                     // Update state to track prompt shown
-                    let worktree_manager = WorktreeManager::new(original_repo_path.clone())?;
+                    let worktree_manager = WorktreeManager::new(original_repo_path.to_path_buf())?;
                     worktree_manager.update_session_state(&session.name, |state| {
                         state.merge_prompt_shown = true;
                     })?;
@@ -780,7 +956,7 @@ async fn run_in_worktree(
         run_with_mapping_in_worktree(cmd, session, original_repo_path, verbose).await
     } else {
         // Run standard improvement loop
-        let worktree_manager = WorktreeManager::new(original_repo_path.clone())?;
+        let worktree_manager = WorktreeManager::new(original_repo_path.to_path_buf())?;
 
         // Set up signal handlers for graceful interruption
         let worktree_manager_arc = Arc::new(worktree_manager);
@@ -1153,19 +1329,7 @@ async fn run_without_worktree_with_vars(
     let _state = StateManager::new()?;
 
     // 3.5. Metrics setup (if enabled)
-    let metrics_collector = if cmd.metrics {
-        Some(MetricsCollector::new())
-    } else {
-        None
-    };
-    let mut metrics_history = if cmd.metrics {
-        let storage = MetricsStorage::new(&project_path);
-        storage
-            .load_history()
-            .unwrap_or_else(|_| MetricsHistory::new())
-    } else {
-        MetricsHistory::new()
-    };
+    let (metrics_collector, mut metrics_history) = setup_metrics(&cmd, &project_path)?;
 
     // 4. Git-native improvement loop
     let mut iteration = 1;
@@ -1201,38 +1365,14 @@ async fn run_without_worktree_with_vars(
             // Collect metrics after iteration (if enabled)
             if let Some(ref collector) = metrics_collector {
                 if cmd.metrics {
-                    match collector
-                        .collect_metrics(&project_path, format!("iteration-{iteration}"))
-                        .await
-                    {
-                        Ok(metrics) => {
-                            // Get current commit SHA for tracking
-                            let commit_sha = get_last_commit_message()
-                                .await
-                                .unwrap_or_else(|_| "unknown".to_string());
-
-                            // Add to history
-                            metrics_history.add_snapshot(metrics.clone(), commit_sha);
-
-                            // Save metrics
-                            let storage = MetricsStorage::new(&project_path);
-                            if let Err(e) = storage.save_current(&metrics) {
-                                warn!("Failed to save current metrics: {}", e);
-                            }
-                            if let Err(e) = storage.save_history(&metrics_history) {
-                                warn!("Failed to save metrics history: {}", e);
-                            }
-
-                            // Show metrics summary if verbose
-                            if verbose {
-                                let report = storage.generate_report(&metrics);
-                                println!("\n{report}");
-                            }
-                        }
-                        Err(e) => {
-                            warn!("Failed to collect metrics: {}", e);
-                        }
-                    }
+                    collect_iteration_metrics(
+                        collector,
+                        &mut metrics_history,
+                        &project_path,
+                        iteration,
+                        verbose,
+                    )
+                    .await?;
                 }
             }
 
@@ -1241,88 +1381,28 @@ async fn run_without_worktree_with_vars(
     } else {
         // Use legacy hardcoded workflow
         while iteration <= cmd.max_iterations {
-            if verbose {
-                info!("🔄 Iteration {iteration}/{}...", cmd.max_iterations);
-            }
+            let (continue_loop, iteration_changed_files) =
+                run_legacy_workflow_iteration(&cmd, iteration, verbose).await?;
 
-            // Step 1: Generate review spec and commit
-            // Pass focus on every iteration to maintain consistent improvement direction
-            let focus_for_iteration = cmd.focus.as_deref();
-            let review_success = call_claude_code_review(verbose, focus_for_iteration).await?;
-            if !review_success {
-                if verbose {
-                    info!("Review failed - stopping iterations");
-                }
+            if !continue_loop {
                 break;
             }
 
-            // Step 2: Extract spec ID from latest commit
-            let spec_id = extract_spec_from_git(verbose).await?;
-            if spec_id.is_empty() {
-                if verbose {
-                    info!("No issues found - stopping iterations");
-                }
-                break;
-            }
-
-            // Step 3: Implement fixes and commit
-            let implement_success = call_claude_implement_spec(&spec_id, verbose).await?;
-            if !implement_success {
-                if verbose {
-                    info!("Implementation failed for iteration {iteration}");
-                }
-            } else {
+            if iteration_changed_files {
                 files_changed += 1;
-            }
-
-            // Step 4: Run linting/formatting and commit
-            let lint_success = call_claude_lint(verbose).await?;
-
-            // Check if any command made changes in this iteration
-            let any_changes = review_success || implement_success || lint_success;
-            if !any_changes {
-                if verbose {
-                    info!("ℹ️  Iteration {iteration} completed with no changes - stopping early");
-                    info!("   (This typically means no issues were found to fix)");
-                }
-                break;
             }
 
             // Collect metrics after iteration (if enabled)
             if let Some(ref collector) = metrics_collector {
                 if cmd.metrics {
-                    match collector
-                        .collect_metrics(&project_path, format!("iteration-{iteration}"))
-                        .await
-                    {
-                        Ok(metrics) => {
-                            // Get current commit SHA for tracking
-                            let commit_sha = get_last_commit_message()
-                                .await
-                                .unwrap_or_else(|_| "unknown".to_string());
-
-                            // Add to history
-                            metrics_history.add_snapshot(metrics.clone(), commit_sha);
-
-                            // Save metrics
-                            let storage = MetricsStorage::new(&project_path);
-                            if let Err(e) = storage.save_current(&metrics) {
-                                warn!("Failed to save current metrics: {}", e);
-                            }
-                            if let Err(e) = storage.save_history(&metrics_history) {
-                                warn!("Failed to save metrics history: {}", e);
-                            }
-
-                            // Show metrics summary if verbose
-                            if verbose {
-                                let report = storage.generate_report(&metrics);
-                                println!("\n{report}");
-                            }
-                        }
-                        Err(e) => {
-                            warn!("Failed to collect metrics: {}", e);
-                        }
-                    }
+                    collect_iteration_metrics(
+                        collector,
+                        &mut metrics_history,
+                        &project_path,
+                        iteration,
+                        verbose,
+                    )
+                    .await?;
                 }
             }
 
@@ -1875,33 +1955,7 @@ async fn run_with_mapping_in_worktree(
     original_repo_path: std::path::PathBuf,
     verbose: bool,
 ) -> Result<()> {
-    use glob::glob;
-    use std::collections::HashMap;
-
-    let mut inputs: Vec<String> = Vec::new();
-
-    // Collect inputs from --map patterns
-    for pattern in &cmd.map {
-        let entries = glob(pattern).context(format!("Invalid glob pattern: {pattern}"))?;
-
-        for entry in entries {
-            match entry {
-                Ok(path) => {
-                    inputs.push(path.to_string_lossy().into_owned());
-                }
-                Err(e) => {
-                    warn!("Warning: Error matching pattern: {e}");
-                }
-            }
-        }
-    }
-
-    // Add direct arguments from --args
-    inputs.extend(cmd.args.clone());
-
-    if inputs.is_empty() {
-        return Err(anyhow!("No inputs found from --map patterns or --args"));
-    }
+    let inputs = collect_mapping_inputs(&cmd)?;
 
     println!("📋 Processing {} input(s)", inputs.len());
 
@@ -1919,44 +1973,7 @@ async fn run_with_mapping_in_worktree(
         let input_cmd = cmd.clone();
 
         // Create variables for this input
-        let mut variables = HashMap::new();
-
-        // Determine the ARG value based on whether this came from --map or --args
-        let arg_value = if cmd.map.iter().any(|pattern| {
-            glob(pattern)
-                .ok()
-                .and_then(|entries| {
-                    entries
-                        .filter_map(Result::ok)
-                        .find(|p| &p.to_string_lossy() == input)
-                })
-                .is_some()
-        }) {
-            // This input came from --map, so extract spec ID if it's a spec file
-            if input.ends_with(".md") && input.contains("spec") {
-                extract_spec_id_from_path(input)
-            } else {
-                input.clone()
-            }
-        } else {
-            // This input came from --args, use it directly
-            input.clone()
-        };
-
-        variables.insert("ARG".to_string(), arg_value.clone());
-        variables.insert("FILE".to_string(), input.clone());
-        variables.insert("INDEX".to_string(), item_number.to_string());
-        variables.insert("TOTAL".to_string(), total.to_string());
-
-        if let Some(file_name) = std::path::Path::new(input).file_name() {
-            variables.insert(
-                "FILE_NAME".to_string(),
-                file_name.to_string_lossy().into_owned(),
-            );
-            if let Some(stem) = std::path::Path::new(input).file_stem() {
-                variables.insert("FILE_STEM".to_string(), stem.to_string_lossy().into_owned());
-            }
-        }
+        let variables = create_mapping_variables(&cmd, input, index, total);
 
         // Store variables in environment for the subprocess
         for (key, value) in &variables {
@@ -2241,22 +2258,6 @@ mod cook_inline_tests {
         // We can't fully test without a git repo, but we can verify the logic
         assert!(cmd.worktree);
         assert_eq!(cmd.max_iterations, 1);
-    }
-
-    #[tokio::test]
-    async fn test_run_with_env_var_worktree() {
-        // Test deprecated MMM_USE_WORKTREE env var
-        std::env::set_var("MMM_USE_WORKTREE", "true");
-        let cmd = create_test_command(false, 1);
-
-        // The function should detect the env var even if flag is false
-        let use_worktree = cmd.worktree
-            || std::env::var("MMM_USE_WORKTREE")
-                .map(|v| v == "true" || v == "1")
-                .unwrap_or(false);
-
-        assert!(use_worktree);
-        std::env::remove_var("MMM_USE_WORKTREE");
     }
 
     #[test]
