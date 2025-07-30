@@ -1,0 +1,93 @@
+name: "Technical Debt Cleanup Workflow"
+description: "Automated technical debt identification, specification generation, and cleanup implementation"
+
+steps:
+  - name: "Analyze Technical Debt"
+    command: "/mmm-cleanup-tech-debt"
+    focus: "{{ focus | default('') }}"
+    description: "Identify technical debt using MMM context analysis and generate cleanup specification"
+    automation: true
+    
+  - name: "Implement Debt Cleanup"
+    command: "/mmm-implement-spec"
+    description: "Execute the technical debt cleanup specification generated in previous step"
+    automation: true
+    depends_on: "Analyze Technical Debt"
+    
+  - name: "Validate Changes"
+    command: "/lint"
+    description: "Run linting and validation to ensure cleanup didn't introduce issues"
+    automation: true
+    depends_on: "Implement Debt Cleanup"
+    
+  - name: "Run Tests"
+    command: "/test"
+    description: "Execute test suite to verify functionality remains intact"
+    automation: true
+    depends_on: "Validate Changes"
+    
+  - name: "Performance Check"
+    command: "/benchmark"
+    description: "Run benchmarks to ensure performance improvements or no regressions"
+    automation: true
+    depends_on: "Run Tests"
+    optional: true
+
+# Workflow configuration
+max_iterations: 3
+retry_on_failure: true
+commit_between_steps: true
+
+# Focus-specific configurations
+focus_configs:
+  performance:
+    max_iterations: 5
+    steps:
+      - name: "Performance-Focused Debt Analysis"
+        command: "/mmm-cleanup-tech-debt"
+        focus: "performance"
+        description: "Target performance-related technical debt"
+        
+  security:
+    max_iterations: 2
+    steps:
+      - name: "Security-Focused Debt Analysis"
+        command: "/mmm-cleanup-tech-debt"
+        focus: "security"
+        description: "Target security-related technical debt"
+        
+  maintainability:
+    max_iterations: 4
+    steps:
+      - name: "Maintainability-Focused Debt Analysis"
+        command: "/mmm-cleanup-tech-debt"
+        focus: "maintainability"
+        description: "Target code organization and maintainability debt"
+
+# Exit conditions
+success_criteria:
+  - "All high-impact debt items (impact >= 7) addressed"
+  - "No clippy warnings remain"
+  - "Test coverage maintained or improved"
+  - "Performance benchmarks stable or improved"
+
+failure_conditions:
+  - "Tests fail after cleanup"
+  - "Build fails"
+  - "Performance regression > 10%"
+  
+# Automation behavior
+automation_mode: true
+generate_specs: true
+auto_commit: true
+spec_pattern: "iteration-*-tech-debt-cleanup.md"
+
+# Integration points
+pre_workflow:
+  - "Ensure MMM context is up to date"
+  - "Create backup branch if needed"
+  
+post_workflow:
+  - "Update metrics history"
+  - "Generate cleanup report"
+  - "Clean up temporary specs if successful"

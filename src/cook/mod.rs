@@ -1557,7 +1557,7 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
         .await
         .context("Failed to get git log")?;
 
-    if commit_message.starts_with("review:") {
+    if commit_message.starts_with("review:") || commit_message.starts_with("cleanup:") {
         if let Ok(find_output) = Command::new("find")
             .args(["specs/temp", "-name", "*.md", "-type", "f", "-mmin", "-5"])
             .output()
@@ -1624,19 +1624,24 @@ async fn call_claude_implement_spec(spec_id: &str, verbose: bool) -> Result<bool
     }
 
     // Validate spec_id format to prevent potential command injection
-    // Accept both "iteration-XXXXXXXXXX-improvements" and "code-review-XXXXXXXXXX" formats
-    let is_iteration_format = spec_id.starts_with("iteration-") 
+    // Accept "iteration-XXXXXXXXXX-improvements", "iteration-XXXXXXXXXX-tech-debt-cleanup", and "code-review-XXXXXXXXXX" formats
+    let is_iteration_improvements = spec_id.starts_with("iteration-") 
         && spec_id.ends_with("-improvements")
         && spec_id.len() >= 24 // "iteration-" (10) + at least 1 digit + "-improvements" (13)
         && spec_id[10..spec_id.len()-13].chars().all(|c| c.is_ascii_digit() || c == '-');
+
+    let is_iteration_tech_debt = spec_id.starts_with("iteration-") 
+        && spec_id.ends_with("-tech-debt-cleanup")
+        && spec_id.len() >= 29 // "iteration-" (10) + at least 1 digit + "-tech-debt-cleanup" (18)
+        && spec_id[10..spec_id.len()-18].chars().all(|c| c.is_ascii_digit() || c == '-');
 
     let is_code_review_format = spec_id.starts_with("code-review-")
         && spec_id.len() >= 13 // "code-review-" (12) + at least 1 digit
         && spec_id[12..].chars().all(|c| c.is_ascii_digit() || c == '-');
 
-    if !is_iteration_format && !is_code_review_format {
+    if !is_iteration_improvements && !is_iteration_tech_debt && !is_code_review_format {
         return Err(anyhow!(
-            "Invalid spec ID format: {spec_id}. Expected format: iteration-XXXXXXXXXX-improvements or code-review-XXXXXXXXXX"
+            "Invalid spec ID format: {spec_id}. Expected format: iteration-XXXXXXXXXX-improvements, iteration-XXXXXXXXXX-tech-debt-cleanup, or code-review-XXXXXXXXXX"
         ));
     }
 
@@ -2047,6 +2052,14 @@ mod cook_inline_tests {
                 "iteration-9876543210-improvements",
             ),
             (
+                "cleanup: generate tech debt cleanup spec for iteration-1234567890-tech-debt-cleanup",
+                "iteration-1234567890-tech-debt-cleanup",
+            ),
+            (
+                "cleanup: iteration-9876543210-tech-debt-cleanup created",
+                "iteration-9876543210-tech-debt-cleanup",
+            ),
+            (
                 "some other commit message without spec",
                 "",
             ),
@@ -2080,6 +2093,9 @@ mod cook_inline_tests {
             "iteration-1234567890-improvements",
             "iteration-0000000000-improvements",
             "iteration-9999999999-improvements",
+            "iteration-1234567890-tech-debt-cleanup",
+            "iteration-0-tech-debt-cleanup",
+            "iteration-999999999-tech-debt-cleanup",
         ];
 
         let invalid_specs = vec![
@@ -2092,18 +2108,32 @@ mod cook_inline_tests {
         ];
 
         for spec in valid_specs {
-            let is_valid = spec.starts_with("iteration-") 
+            let is_iteration_improvements = spec.starts_with("iteration-") 
                 && spec.ends_with("-improvements")
-                && spec.len() > 24 // "iteration-" (10) + at least 1 digit + "-improvements" (13)
+                && spec.len() >= 24 // "iteration-" (10) + at least 1 digit + "-improvements" (13)
                 && spec[10..spec.len()-13].chars().all(|c| c.is_ascii_digit() || c == '-');
+
+            let is_iteration_tech_debt = spec.starts_with("iteration-") 
+                && spec.ends_with("-tech-debt-cleanup")
+                && spec.len() >= 29 // "iteration-" (10) + at least 1 digit + "-tech-debt-cleanup" (18)
+                && spec[10..spec.len()-18].chars().all(|c| c.is_ascii_digit() || c == '-');
+
+            let is_valid = is_iteration_improvements || is_iteration_tech_debt;
             assert!(is_valid, "Valid spec should pass validation: {spec}");
         }
 
         for spec in invalid_specs {
-            let is_valid = spec.starts_with("iteration-") 
+            let is_iteration_improvements = spec.starts_with("iteration-") 
                 && spec.ends_with("-improvements")
-                && spec.len() > 24 // "iteration-" (10) + at least 1 digit + "-improvements" (13)
+                && spec.len() >= 24 // "iteration-" (10) + at least 1 digit + "-improvements" (13)
                 && spec[10..spec.len()-13].chars().all(|c| c.is_ascii_digit() || c == '-');
+
+            let is_iteration_tech_debt = spec.starts_with("iteration-") 
+                && spec.ends_with("-tech-debt-cleanup")
+                && spec.len() >= 29 // "iteration-" (10) + at least 1 digit + "-tech-debt-cleanup" (18)
+                && spec[10..spec.len()-18].chars().all(|c| c.is_ascii_digit() || c == '-');
+
+            let is_valid = is_iteration_improvements || is_iteration_tech_debt;
             assert!(!is_valid, "Invalid spec should fail validation: {spec}");
         }
     }

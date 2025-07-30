@@ -180,11 +180,110 @@ MMM_FOCUS: Optional focus directive to prioritize specific debt categories
    - Verify no data races with concurrent tests
    - Profile memory usage with heaptrack or similar
 
-### Phase 6: Context-Aware Documentation and Reporting
+### Phase 6: Temporary Specification Generation & Git Commit
+
+**CRITICAL FOR AUTOMATION**: When running in automation mode, generate a temporary specification file containing actionable implementation instructions for the technical debt cleanup, then commit it.
+
+1. **Spec File Creation**
+   - Create directory: `specs/temp/` if it doesn't exist
+   - Generate filename: `iteration-{timestamp}-tech-debt-cleanup.md`
+   - Write comprehensive implementation spec
+
+2. **Spec Content Requirements**
+   ```markdown
+   # Iteration {N}: Technical Debt Cleanup
+   
+   ## Overview
+   Temporary specification for technical debt cleanup identified from MMM context analysis.
+   {IF FOCUS: "Focus directive: {FOCUS}"}
+   
+   ## Debt Items to Address
+   {IF FOCUS: Prioritize debt items matching focus area first}
+   
+   ### 1. {Debt Item Title}
+   **Impact Score**: {impact}/10
+   **Effort Score**: {effort}/10
+   **Category**: {debt_type}
+   **File**: {location}
+   **Priority**: {Critical|High|Medium|Low}
+   
+   #### Current State:
+   ```{language}
+   {actual_problematic_code}
+   ```
+   
+   #### Required Changes:
+   ```{language}
+   {improved_code_example}
+   ```
+   
+   #### Implementation Steps:
+   - {specific_cleanup_instruction_1}
+   - {specific_cleanup_instruction_2}
+   - {validation_step}
+   
+   ### 2. {Hotspot Refactoring}
+   **Complexity Score**: {complexity_score}
+   **Change Frequency**: {change_frequency}
+   **Risk Level**: {risk_level}
+   **File**: {file_path}
+   
+   #### Refactoring Plan:
+   - {refactoring_approach}
+   - {function_splitting_strategy}
+   - {testing_requirements}
+   
+   ## Dependency Cleanup
+   
+   ### Unused Dependencies to Remove:
+   - {dependency_name} - {reason}
+   
+   ### Dependencies to Update:
+   - {dependency_name}: {current_version} → {target_version}
+   
+   ## Code Organization Changes
+   
+   ### Files to Move:
+   - {source_path} → {target_path} (reason: {organization_reason})
+   
+   ### Modules to Restructure:
+   - {module_changes}
+   
+   ## Success Criteria
+   - [ ] All debt items with impact >= 7 addressed
+   - [ ] Hotspots with risk_level="High" refactored
+   - [ ] Unused dependencies removed from Cargo.toml
+   - [ ] Code organization follows project conventions
+   - [ ] All files compile without warnings
+   - [ ] Tests pass with same or improved coverage
+   - [ ] Performance benchmarks maintained or improved
+   - [ ] Clippy lints resolved or explicitly allowed with justification
+   ```
+
+3. **Include Context-Driven Content**
+   - Read debt_items from technical_debt.json with actual impact/effort scores
+   - Extract hotspots from technical_debt.json with specific complexity metrics
+   - Include duplication_map items for code deduplication tasks
+   - Reference convention violations from conventions.json with specific fixes
+   - Add architecture violations from architecture.json with remediation steps
+
+4. **Actionable Implementation Instructions**
+   - Each debt item must have specific, implementable cleanup steps
+   - Include exact file paths and line numbers from context data
+   - Provide before/after code examples for clarity
+   - Include validation commands (cargo check, cargo test, cargo clippy)
+   - Reference specific refactoring patterns and techniques
+
+5. **Git Commit (Required for automation)**
+   - Stage the created spec file: `git add specs/temp/iteration-{timestamp}-tech-debt-cleanup.md`
+   - Commit with message: `cleanup: generate tech debt cleanup spec for iteration-{timestamp}`
+   - If no significant debt found, do not create spec or commit
+
+### Phase 7: Context-Aware Documentation and Reporting
 
 1. **Update Documentation**
    - Update module documentation for moved files
-   - Fix outdated rustdoc comments and examples
+   - Fix outdated rustdoc comments and examples  
    - Update README if crate structure changed
    - Add missing /// or //! documentation comments
    - Generate docs with `cargo doc --no-deps --open`
@@ -197,13 +296,6 @@ MMM_FOCUS: Optional focus directive to prioritize specific debt categories
    - **Convention Compliance**: Fixed violations from conventions.json
    - **Architecture Health**: Resolved violations from architecture.json
    - **Trend Analysis**: Update metrics/history.json with improvements
-
-3. **Commit Changes**
-   - Create atomic commits for each cleanup category
-   - Use conventional commit format (fix:, refactor:, perf:)
-   - Include benchmark results in commit messages
-   - Run `cargo fmt` before each commit
-   - Add Claude Code attribution
 
 ## Example Usage
 

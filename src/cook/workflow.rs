@@ -362,7 +362,7 @@ impl WorkflowExecutor {
             .await
             .context("Failed to get git log")?;
 
-        if commit_message.starts_with("review:") {
+        if commit_message.starts_with("review:") || commit_message.starts_with("cleanup:") {
             if let Ok(find_output) = tokio::process::Command::new("find")
                 .args(["specs/temp", "-name", "*.md", "-type", "f", "-mmin", "-5"])
                 .output()
