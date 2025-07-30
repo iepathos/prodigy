@@ -4,7 +4,7 @@
 commands:
   - mmm-cleanup-tech-debt
   - mmm-implement-spec  
-  - lint
+  - mmm-lint
 
 # The tech debt cleanup cycle:
 # 1. Analyze technical debt and generate cleanup spec
