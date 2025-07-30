@@ -45,6 +45,7 @@ semver = { version = "1.0", features = ["serde"] }
 dirs = "5.0"
 rand = "0.8"
 atty = "0.2"
+md5 = "0.7"
 
 [dev-dependencies]
 assert_cmd = "2.0"

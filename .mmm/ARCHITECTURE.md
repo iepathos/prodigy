@@ -20,11 +20,14 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 - Supports file mapping with `--map` for batch processing
 - Variable substitution in commands ($ARG, $FILE, $INDEX, etc.)
 
-### 3. Project Analysis (`src/analyzer/`)
-- **language.rs**: Programming language detection
-- **framework.rs**: Framework and library detection  
-- **health.rs**: Basic code quality metrics
-- **focus.rs**: Improvement area prioritization
+### 3. Context Analysis (`src/context/`)
+- **analyzer.rs**: Main analyzer orchestrating all components
+- **dependencies.rs**: Dependency graph and module relationships
+- **architecture.rs**: Architecture pattern detection
+- **conventions.rs**: Convention and naming style detection
+- **debt.rs**: Technical debt mapping and prioritization  
+- **test_coverage.rs**: Test coverage gap analysis
+- **mod.rs**: Module exports and data structures
 
 ### 4. State Management (`src/simple_state/`)
 - **state.rs**: JSON-based session tracking
@@ -83,15 +86,15 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 ```
 User runs `mmm cook`
         ↓
-[Optional] Create git worktree if MMM_USE_WORKTREE=true
+[Optional] Create git worktree if --worktree flag used
         ↓
-Analyze project (language, framework, health score)
+Analyze project context (dependencies, architecture, conventions, debt, coverage)
         ↓
-Load configuration (including .mmm/workflow.toml)
+Load configuration (including .mmm/config.toml)
         ↓
-Execute workflow commands in sequence
+Execute workflow commands in sequence with context
         ↓
-Each command: Call Claude CLI (auto-extract spec ID for mmm-implement-spec)
+Each command: Call Claude CLI with context via env vars
         ↓
 Update state and repeat until target reached
         ↓
@@ -160,12 +163,14 @@ src/
 │   ├── session.rs       # Basic session data
 │   ├── workflow.rs      # Configurable workflow execution
 │   └── git_ops.rs       # Thread-safe git operations
-├── analyzer/            # Analysis components
-│   ├── mod.rs
-│   ├── language.rs      # Language detection
-│   ├── framework.rs     # Framework detection
-│   ├── health.rs        # Health scoring
-│   └── focus.rs         # Focus areas
+├── context/             # Context-aware analysis
+│   ├── mod.rs           # Module exports and types
+│   ├── analyzer.rs      # Main analyzer
+│   ├── dependencies.rs  # Dependency graphs
+│   ├── architecture.rs  # Architecture detection
+│   ├── conventions.rs   # Convention learning
+│   ├── debt.rs          # Technical debt
+│   └── test_coverage.rs # Coverage analysis
 ├── claude/              # Claude CLI integration
 │   ├── mod.rs
 │   ├── api.rs           # CLI subprocess execution
