@@ -18,8 +18,6 @@ workflow:
     # Run linting and formatting after implementation
     - name: mmm-lint
   
-  # Only process each spec once (no iterative improvements)
-  max_iterations: 1
 
 # Alternative configuration with structured commands:
 # workflow:
@@ -32,4 +30,3 @@ workflow:
 #     - name: mmm-lint
 #       metadata:
 #         continue_on_error: true
-#   max_iterations: 1

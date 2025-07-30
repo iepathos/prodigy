@@ -17,7 +17,6 @@ commands:
   # Another focus example
   - name: mmm-lint
 
-max_iterations: 2
 
 # Both methods work:
 # 1. YAML object with focus attribute (cleaner, Ansible-style)

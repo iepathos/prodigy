@@ -13,7 +13,6 @@ commands:
   - mmm-implement-spec
   - mmm-lint
 
-max_iterations: 6
 
 # This workflow:
 # 1. Reviews architecture and design patterns

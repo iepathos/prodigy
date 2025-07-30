@@ -241,8 +241,6 @@ commands:
   - mmm-code-review
   - mmm-implement-spec
   - mmm-lint
-
-max_iterations: 10
 ```
 
 The default workflow runs these three commands in order:
@@ -266,8 +264,6 @@ commands:
     focus: security
   - mmm-implement-spec
   - mmm-lint
-
-max_iterations: 8
 ```
 
 Alternative string format also works:
@@ -311,8 +307,6 @@ commands:
     focus: critical
   - mmm-implement-spec
   - mmm-lint
-
-max_iterations: 3
 ```
 
 ### Parallel Sessions with Git Worktrees

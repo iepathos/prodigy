@@ -400,7 +400,6 @@ mod tests {
                 WorkflowCommand::Simple("mmm-implement-spec".to_string()),
                 WorkflowCommand::Simple("mmm-lint".to_string()),
             ],
-            max_iterations: 10,
         }
     }
 
@@ -428,7 +427,6 @@ mod tests {
         use crate::config::command::WorkflowCommand;
         let config = WorkflowConfig {
             commands: vec![WorkflowCommand::Simple("mmm-code-review".to_string())],
-            max_iterations: 1,
         };
         let executor = WorkflowExecutor::new(config, false, 1);
 
@@ -445,7 +443,6 @@ mod tests {
         assert_eq!(config.commands[0].to_command().name, "mmm-code-review");
         assert_eq!(config.commands[1].to_command().name, "mmm-implement-spec");
         assert_eq!(config.commands[2].to_command().name, "mmm-lint");
-        assert_eq!(config.max_iterations, 10);
     }
 
     #[test]
@@ -540,7 +537,6 @@ mod tests {
                 WorkflowCommand::Simple("mmm-code-review".to_string()),
                 WorkflowCommand::Simple("mmm-lint".to_string()),
             ],
-            max_iterations: 1,
         };
         let mut executor = WorkflowExecutor::new_for_test(config, false, 1);
 
@@ -690,7 +686,6 @@ mod tests {
         // Create a test workflow with just lint command (doesn't require args)
         let config = WorkflowConfig {
             commands: vec![WorkflowCommand::Simple("mmm-lint".to_string())],
-            max_iterations: 1,
         };
 
         let mut executor = WorkflowExecutor::new_for_test(config, false, 1);
@@ -717,7 +712,6 @@ mod tests {
                 WorkflowCommand::Simple("mmm-code-review".to_string()),
                 WorkflowCommand::Simple("mmm-lint".to_string()),
             ],
-            max_iterations: 3,
         };
 
         let mut executor = WorkflowExecutor::new_for_test(workflow, true, 3);
@@ -820,7 +814,6 @@ mod tests {
                 WorkflowCommand::Simple("mmm-code-review".to_string()),
                 WorkflowCommand::Simple("mmm-lint".to_string()),
             ],
-            max_iterations: 3,
         };
 
         // Track command executions and their options

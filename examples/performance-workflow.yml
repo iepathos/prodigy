@@ -6,8 +6,6 @@ commands:
   - mmm-implement-spec
   - mmm-lint
 
-max_iterations: 6
-
 # Simple and effective:
 # 1. Analyzes performance bottlenecks
 # 2. Implements optimizations

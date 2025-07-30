@@ -692,7 +692,7 @@ async fn run_improvement_loop(
             println!("Using custom workflow from configuration");
         }
 
-        let max_iterations = cmd.max_iterations.min(workflow_config.max_iterations);
+        let max_iterations = cmd.max_iterations;
         let mut executor =
             WorkflowExecutor::new(workflow_config, cmd.show_progress, max_iterations);
 
@@ -1711,7 +1711,7 @@ async fn run_improvement_loop_with_variables(
             println!("Using custom workflow from configuration");
         }
 
-        let max_iterations = cmd.max_iterations.min(workflow_config.max_iterations);
+        let max_iterations = cmd.max_iterations;
         let mut executor =
             WorkflowExecutor::new(workflow_config, cmd.show_progress, max_iterations)
                 .with_variables(variables);

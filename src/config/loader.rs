@@ -146,7 +146,6 @@ commands:
   - mmm-code-review
   - mmm-implement-spec
   - mmm-lint
-max_iterations: 5
 "#;
         fs::write(&workflow_path, workflow_content).await?;
 
@@ -159,7 +158,6 @@ max_iterations: 5
         assert!(config.workflow.is_some());
         let workflow = config.workflow.unwrap();
         assert_eq!(workflow.commands.len(), 3);
-        assert_eq!(workflow.max_iterations, 5);
         Ok(())
     }
 
@@ -176,7 +174,6 @@ workflow:
       options:
         focus: performance
     - mmm-lint
-  max_iterations: 3
 "#;
         fs::write(&config_path, config_content).await.unwrap();
 
@@ -189,7 +186,6 @@ workflow:
         assert!(config.workflow.is_some());
         let workflow = config.workflow.unwrap();
         assert_eq!(workflow.commands.len(), 2);
-        assert_eq!(workflow.max_iterations, 3);
         Ok(())
     }
 
@@ -204,7 +200,6 @@ workflow:
         let workflow_content = r#"
 commands:
   - mmm-test
-max_iterations: 7
 "#;
         fs::write(&workflow_path, workflow_content).await?;
 
@@ -218,7 +213,6 @@ max_iterations: 7
         assert!(config.workflow.is_some());
         let workflow = config.workflow.unwrap();
         assert_eq!(workflow.commands.len(), 1);
-        assert_eq!(workflow.max_iterations, 7);
         Ok(())
     }
 
@@ -251,7 +245,6 @@ description: A test project
 version: 1.0.0
 spec_dir: custom-specs
 claude_api_key: test-key
-max_iterations: 15
 auto_commit: false
 "#;
         fs::write(&config_path, project_content).await?;
@@ -267,7 +260,6 @@ auto_commit: false
         assert_eq!(project.version, Some("1.0.0".to_string()));
         assert_eq!(project.spec_dir, Some(PathBuf::from("custom-specs")));
         assert_eq!(project.claude_api_key, Some("test-key".to_string()));
-        assert_eq!(project.max_iterations, Some(15));
         assert_eq!(project.auto_commit, Some(false));
         Ok(())
     }

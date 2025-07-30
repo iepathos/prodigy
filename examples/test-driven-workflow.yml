@@ -13,7 +13,6 @@ commands:
   - mmm-implement-spec
   - mmm-lint
 
-max_iterations: 5
 
 # This workflow:
 # 1. Analyzes test coverage gaps

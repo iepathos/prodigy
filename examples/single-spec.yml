@@ -8,4 +8,3 @@ workflow:
     - name: mmm-implement-spec
       args: ["$ARG"]
     - name: mmm-lint
-  max_iterations: 1

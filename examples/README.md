@@ -8,53 +8,52 @@ This directory contains example workflow configurations for different improvemen
 The standard MMM improvement workflow:
 - Code review → Implementation → Linting
 - Balanced approach for general improvements
-- 10 iterations maximum
 
 ### 2. **security-workflow.yml** - Security Focus
 Security-focused improvements with targeted analysis:
 - Security audit with security focus → Implementation → Security test generation → Implementation → Linting
-- 8 iterations for thorough security review
+- Thorough security review
 
 ### 3. **performance-workflow.yml** - Performance Focus
 Performance optimization workflow:
 - Performance-focused code review → Implementation → Performance test generation → Implementation → Linting
-- 6 iterations for measurable improvements
+- Focused on measurable improvements
 
 ### 4. **quick-fix-workflow.yml** - Rapid Fixes
 Minimal workflow for quick improvements:
 - Critical review → Implementation → Linting  
-- 3 iterations for speed
+- Optimized for speed
 
 ### 5. **mixed-focus-workflow.yml** - Multi-Focus
 Demonstrates different focus areas in one workflow:
 - Architecture review → Implementation → Performance review → Implementation → Integration tests → Implementation → Linting
-- 3 iterations with varied focus per command
+- Varied focus per command
 
 ### 6. **test-driven-workflow.yml** - Test Coverage
 Test-first development approach:
 - Coverage analysis → Implementation → Unit test generation → Implementation → Testability review → Implementation → Linting
-- 5 iterations for comprehensive testing
+- Comprehensive testing approach
 
 ### 7. **documentation-workflow.yml** - Documentation
 Improves project documentation:
 - Documentation analysis → Implementation → Readability review → Implementation → API doc generation → Implementation → Linting
-- 4 iterations focused on docs
+- Focused on documentation quality
 
 ### 8. **refactoring-workflow.yml** - Code Quality
 Architecture and maintainability improvements:
 - Architecture review → Implementation → Complexity review → Implementation → Maintainability review → Implementation → Linting
-- 6 iterations for deep refactoring
+- Deep refactoring approach
 
 ### 9. **demo-focus.yml** - Focus Examples
 Shows both ways to specify focus arguments:
 - YAML object syntax vs string format
-- 2 iterations for quick demo
+- Quick demo format
 
 ### 10. **product-enhancement-workflow.yml** - Product Focus
 Product management perspective on improvements:
 - Product enhancement analysis → Implementation → Linting
 - Focus on user value and features over code quality
-- 10 iterations for comprehensive product improvements
+- Comprehensive product improvements
 
 ## Usage
 
@@ -79,8 +78,6 @@ commands:
   - mmm-code-review
   - mmm-implement-spec
   - mmm-lint
-
-max_iterations: 5
 ```
 
 ### Focus Arguments (Ansible-style)
@@ -150,7 +147,7 @@ Use focus arguments to target specific aspects:
 
 1. **Start Simple**: Use `quick-fix-workflow.yml` for initial testing
 2. **Focus Areas**: Use specific focus arguments for targeted improvements
-3. **Iteration Count**: Lower iterations for focused workflows, higher for comprehensive ones
+3. **Iteration Control**: Use the `--max-iterations` CLI flag to control the number of improvement cycles
 4. **Command Order**: Place analysis commands before implementation
 5. **Always Lint**: End workflows with `mmm-lint` for quality assurance
 6. **YAML Syntax**: Use YAML object format when you need focus, string format otherwise

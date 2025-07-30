@@ -44,7 +44,6 @@ commands = [
     "mmm-implement-spec",
     "mmm-lint"
 ]
-max_iterations = 3
 "#;
     fs::write(temp_path.join(".mmm/config.toml"), workflow_config)?;
 
@@ -142,7 +141,6 @@ commands = [
     "mmm-implement-spec", 
     "mmm-lint"
 ]
-max_iterations = 5
 "#;
     fs::write(temp_path.join(".mmm/config.toml"), workflow_config)?;
 
@@ -240,7 +238,6 @@ commands = [
     "mmm-implement-spec",
     "mmm-lint"
 ]
-max_iterations = 3
 "#;
     fs::write(temp_path.join(".mmm/config.toml"), workflow_config)?;
 

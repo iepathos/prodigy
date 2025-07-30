@@ -47,7 +47,6 @@ pub struct ProjectConfig {
     pub version: Option<String>,
     pub spec_dir: Option<PathBuf>,
     pub claude_api_key: Option<String>,
-    pub max_iterations: Option<u32>,
     pub auto_commit: Option<bool>,
     pub variables: Option<toml::Table>,
 }
@@ -119,12 +118,6 @@ impl Config {
             .unwrap_or(true)
     }
 
-    pub fn get_max_iterations(&self) -> u32 {
-        self.project
-            .as_ref()
-            .and_then(|p| p.max_iterations)
-            .unwrap_or(10)
-    }
 
     pub fn get_spec_dir(&self) -> PathBuf {
         self.project
@@ -148,12 +141,10 @@ commands:
   - mmm-code-review
   - mmm-implement-spec
   - mmm-lint
-max_iterations: 5
 "#;
 
         let config: WorkflowConfig = serde_yaml::from_str(yaml_str).unwrap();
         assert_eq!(config.commands.len(), 3);
-        assert_eq!(config.max_iterations, 5);
 
         // Verify commands are parsed as Simple variants
         match &config.commands[0] {
@@ -173,13 +164,10 @@ commands:
   - name: mmm-implement-spec
     args: ["${SPEC_ID}"]
   - mmm-lint
-
-max_iterations: 3
 "#;
 
         let config: WorkflowConfig = serde_yaml::from_str(yaml_str).unwrap();
         assert_eq!(config.commands.len(), 3);
-        assert_eq!(config.max_iterations, 3);
 
         // Verify first command (Structured with focus in options)
         let cmd = config.commands[0].to_command();
@@ -404,7 +392,6 @@ commands:
             version: None,
             spec_dir: None,
             claude_api_key: Some("project-key".to_string()),
-            max_iterations: None,
             auto_commit: None,
             variables: None,
         });
@@ -429,33 +416,12 @@ commands:
             version: None,
             spec_dir: None,
             claude_api_key: None,
-            max_iterations: None,
             auto_commit: Some(true),
             variables: None,
         });
         assert!(config.get_auto_commit());
     }
 
-    #[test]
-    fn test_get_max_iterations() {
-        let mut config = Config::new();
-
-        // Default value
-        assert_eq!(config.get_max_iterations(), 10);
-
-        // Project setting
-        config.project = Some(ProjectConfig {
-            name: "test".to_string(),
-            description: None,
-            version: None,
-            spec_dir: None,
-            claude_api_key: None,
-            max_iterations: Some(25),
-            auto_commit: None,
-            variables: None,
-        });
-        assert_eq!(config.get_max_iterations(), 25);
-    }
 
     #[test]
     fn test_get_spec_dir() {
@@ -471,7 +437,6 @@ commands:
             version: None,
             spec_dir: Some(PathBuf::from("custom/specs")),
             claude_api_key: None,
-            max_iterations: None,
             auto_commit: None,
             variables: None,
         });

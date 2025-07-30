@@ -100,7 +100,6 @@ fn test_workflow_execution_order() {
             WorkflowCommand::Simple("mmm-implement-spec".to_string()),
             WorkflowCommand::Simple("mmm-lint".to_string()),
         ],
-        max_iterations: 10,
     };
 
     // Simulate workflow execution tracking
@@ -132,7 +131,6 @@ fn test_custom_workflow_configs() {
             WorkflowCommand::Simple("mmm-implement-spec".to_string()),
             WorkflowCommand::Simple("mmm-security-verify".to_string()),
         ],
-        max_iterations: 10,
     };
 
     assert_eq!(security_workflow.commands.len(), 3);
@@ -148,7 +146,6 @@ fn test_custom_workflow_configs() {
             WorkflowCommand::Simple("mmm-implement-spec".to_string()),
             WorkflowCommand::Simple("mmm-docs-generate".to_string()),
         ],
-        max_iterations: 10,
     };
 
     assert_eq!(docs_workflow.commands.len(), 3);
@@ -160,7 +157,6 @@ fn test_custom_workflow_configs() {
 fn test_single_command_workflow() {
     let minimal_workflow = WorkflowConfig {
         commands: vec![WorkflowCommand::Simple("mmm-quick-fix".to_string())],
-        max_iterations: 10,
     };
 
     assert_eq!(minimal_workflow.commands.len(), 1);
@@ -180,7 +176,6 @@ commands = [
     "mmm-code-review --focus error-handling",
     "mmm-implement-spec"
 ]
-max_iterations = 2
 "#;
 
     let config: Result<WorkflowConfig, _> = toml::from_str(focus_workflow_toml);
@@ -220,7 +215,6 @@ args = { focus = "error-handling" }
 [[commands]]
 name = "mmm-implement-spec"
 
-max_iterations = 2
 "#;
 
     // Once implemented, this should parse into structured command objects
@@ -243,7 +237,6 @@ commands = [
     { name = "mmm-code-review", args = { focus = "security" } },  # Structured format
     "mmm-implement-spec"  # Back to string format
 ]
-max_iterations = 1
 "#;
 
     // Once implemented, this should support both formats seamlessly
@@ -266,7 +259,6 @@ name = "mmm-test"
 env = { TEST_ENV = "staging", VERBOSE = "true" }
 working_dir = "./tests"
 
-max_iterations = 1
 "#;
 
     // Once implemented, commands should support:

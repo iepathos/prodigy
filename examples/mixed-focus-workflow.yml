@@ -13,7 +13,6 @@ commands:
   - mmm-implement-spec
   - mmm-lint
 
-max_iterations: 3
 
 # This workflow demonstrates:
 # 1. Different focus areas in same workflow

@@ -7,7 +7,6 @@ commands:
   - mmm-implement-spec
   - mmm-lint
 
-max_iterations: 3
 
 # Perfect for:
 # - Quick improvements

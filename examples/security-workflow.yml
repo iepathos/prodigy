@@ -10,7 +10,6 @@ commands:
   - mmm-implement-spec
   - mmm-lint
 
-max_iterations: 8
 
 # This workflow:
 # 1. Security audit with focus on security issues
