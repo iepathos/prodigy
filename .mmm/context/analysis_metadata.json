@@ -1,7 +1,7 @@
 {
-  "timestamp": "2025-07-30T08:42:56.197832Z",
-  "duration_ms": 22586,
-  "files_analyzed": 88,
+  "timestamp": "2025-07-30T10:00:15.571649Z",
+  "duration_ms": 93288,
+  "files_analyzed": 90,
   "incremental": false,
   "version": "0.1.0"
 }

@@ -4,14 +4,48 @@
   ],
   "layers": [],
   "components": {
-    "abstractions": {
-      "name": "abstractions",
+    "context": {
+      "name": "context",
       "responsibility": "Module functionality",
-      "interfaces": [],
+      "interfaces": [
+        "struct AnalysisResult",
+        "struct ArchitectureInfo",
+        "struct ComponentInfo",
+        "struct ArchitectureViolation",
+        "struct AnalysisMetadata",
+        "struct FileContext",
+        "struct FileConventions",
+        "struct Suggestion",
+        "trait ContextAnalyzer:",
+        "fn load_analysis(project_path:",
+        "fn save_analysis(project_path:"
+      ],
       "dependencies": [
         "anyhow",
-        "async_trait",
-        "tokio"
+        "walkdir",
+        "serde",
+        "tempfile"
+      ]
+    },
+    "metrics": {
+      "name": "metrics",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct ImprovementMetrics",
+        "fn new(iteration_id:",
+        "fn overall_score(&self)",
+        "struct MetricsComparison",
+        "trait MetricsAnalyzer",
+        "struct MetricsData",
+        "trait MetricsReporter"
+      ],
+      "dependencies": [
+        "anyhow",
+        "tokio",
+        "tracing",
+        "serde",
+        "syn",
+        "chrono"
       ]
     },
     "analyze": {
@@ -23,6 +57,87 @@
       "dependencies": [
         "anyhow",
         "command"
+      ]
+    },
+    "simple_state": {
+      "name": "simple_state",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn init()"
+      ],
+      "dependencies": [
+        "anyhow",
+        "serde",
+        "chrono",
+        "tempfile"
+      ]
+    },
+    "cook": {
+      "name": "cook",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn",
+        "fn fn"
+      ],
+      "dependencies": [
+        "serde",
+        "clap",
+        "anyhow",
+        "once_cell",
+        "tokio",
+        "tempfile",
+        "chrono",
+        "git_ops",
+        "retry",
+        "tracing",
+        "workflow",
+        "glob",
+        "signal_hook"
+      ]
+    },
+    "init": {
+      "name": "init",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn"
+      ],
+      "dependencies": [
+        "clap",
+        "anyhow",
+        "tempfile"
+      ]
+    },
+    "testing": {
+      "name": "testing",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct TestContext",
+        "fn new()",
+        "fn with_mocks",
+        "fn temp_path(&self)",
+        "fn create_test_file(&self,",
+        "struct MockGitBuilder",
+        "fn new()",
+        "fn is_repo(mut",
+        "fn fn",
+        "fn fn",
+        "fn build(self)",
+        "struct MockClaudeBuilder",
+        "fn new()",
+        "fn is_available(mut",
+        "fn fn",
+        "fn fn",
+        "fn build(self)",
+        "struct TestFixtures",
+        "fn fn",
+        "fn fn",
+        "fn fn",
+        "fn fn",
+        "fn unavailable_claude()"
+      ],
+      "dependencies": [
+        "anyhow",
+        "tempfile"
       ]
     },
     "worktree": {
@@ -64,144 +179,29 @@
         "tempfile"
       ]
     },
-    "testing": {
-      "name": "testing",
+    "abstractions": {
+      "name": "abstractions",
       "responsibility": "Module functionality",
-      "interfaces": [
-        "struct TestContext",
-        "fn new()",
-        "fn with_mocks",
-        "fn temp_path(&self)",
-        "fn create_test_file(&self,",
-        "struct MockGitBuilder",
-        "fn new()",
-        "fn is_repo(mut",
-        "fn fn",
-        "fn fn",
-        "fn build(self)",
-        "struct MockClaudeBuilder",
-        "fn new()",
-        "fn is_available(mut",
-        "fn fn",
-        "fn fn",
-        "fn build(self)",
-        "struct TestFixtures",
-        "fn fn",
-        "fn fn",
-        "fn fn",
-        "fn fn",
-        "fn unavailable_claude()"
-      ],
+      "interfaces": [],
       "dependencies": [
         "anyhow",
-        "tempfile"
-      ]
-    },
-    "metrics": {
-      "name": "metrics",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct ImprovementMetrics",
-        "fn new(iteration_id:",
-        "fn overall_score(&self)",
-        "struct MetricsComparison",
-        "trait MetricsAnalyzer",
-        "struct MetricsData",
-        "trait MetricsReporter"
-      ],
-      "dependencies": [
-        "anyhow",
-        "tokio",
-        "tracing",
-        "serde",
-        "syn",
-        "chrono"
-      ]
-    },
-    "context": {
-      "name": "context",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct AnalysisResult",
-        "struct ArchitectureInfo",
-        "struct ComponentInfo",
-        "struct ArchitectureViolation",
-        "struct AnalysisMetadata",
-        "struct FileContext",
-        "struct FileConventions",
-        "struct Suggestion",
-        "trait ContextAnalyzer:",
-        "fn load_analysis(project_path:",
-        "fn save_analysis(project_path:"
-      ],
-      "dependencies": [
-        "anyhow",
-        "walkdir",
-        "serde",
-        "tempfile"
-      ]
-    },
-    "simple_state": {
-      "name": "simple_state",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn init()"
-      ],
-      "dependencies": [
-        "anyhow",
-        "serde",
-        "chrono",
-        "tempfile"
-      ]
-    },
-    "init": {
-      "name": "init",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn fn"
-      ],
-      "dependencies": [
-        "clap",
-        "anyhow",
-        "tempfile"
-      ]
-    },
-    "cook": {
-      "name": "cook",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn fn",
-        "fn fn"
-      ],
-      "dependencies": [
-        "serde",
-        "clap",
-        "anyhow",
-        "once_cell",
-        "tokio",
-        "tempfile",
-        "chrono",
-        "git_ops",
-        "retry",
-        "tracing",
-        "workflow",
-        "glob",
-        "signal_hook"
+        "async_trait",
+        "tokio"
       ]
     }
   },
   "violations": [
     {
-      "rule": "Components should expose interfaces",
-      "location": "abstractions",
-      "severity": "Low",
-      "description": "abstractions has no public interfaces"
-    },
-    {
       "rule": "Avoid god components",
       "location": "cook",
       "severity": "Medium",
       "description": "cook has 13 dependencies, consider splitting"
+    },
+    {
+      "rule": "Components should expose interfaces",
+      "location": "abstractions",
+      "severity": "Low",
+      "description": "abstractions has no public interfaces"
     }
   ]
 }

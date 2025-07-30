@@ -1,62 +1,58 @@
 {
   "nodes": {
-    "src/cook/retry.rs": {
-      "path": "src/cook/retry.rs",
+    "tests/workflow_tests.rs": {
+      "path": "tests/workflow_tests.rs",
       "module_type": "Library",
       "imports": [
-        "crate::abstractions::{ClaudeClient, RealClaudeClient}",
-        "anyhow::{Context, Result}",
-        "once_cell::sync::Lazy",
-        "std::sync::Arc",
-        "std::time::Duration",
-        "tokio::process::Command",
-        "tokio::time::sleep",
-        "mod::tests {",
-        "super::*",
-        "std::time::Instant"
+        "mmm::config::{command::WorkflowCommand, workflow::WorkflowConfig}"
       ],
       "exports": [],
       "external_deps": []
     },
-    "src/worktree/state.rs": {
-      "path": "src/worktree/state.rs",
+    "tests/worktree_integration_tests.rs": {
+      "path": "tests/worktree_integration_tests.rs",
       "module_type": "Library",
       "imports": [
-        "chrono::{DateTime, Utc}",
-        "serde::{Deserialize, Serialize}"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/testing/mod.rs": {
-      "path": "src/testing/mod.rs",
-      "module_type": "Library",
-      "imports": [
-        "crate::abstractions::{ClaudeClient, GitOperations, MockClaudeClient, MockGitOperations}",
-        "anyhow::Result",
-        "std::path::PathBuf",
-        "tempfile::TempDir",
-        "std::fs",
-        "mod::tests {",
-        "super::*"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/init/mod.rs": {
-      "path": "src/init/mod.rs",
-      "module_type": "Library",
-      "imports": [
-        "anyhow::{Context, Result}",
-        "std::fs",
-        "std::path::{Path, PathBuf}",
         "std::process::Command",
-        "crate::init::command::InitCommand",
-        "crate::init::templates::{get_all_templates, get_templates_by_names}",
-        "std::io::{self, Write}",
+        "tempfile::TempDir"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/config/command_parser.rs": {
+      "path": "src/config/command_parser.rs",
+      "module_type": "Library",
+      "imports": [
+        "super::command::{Command, CommandArg}",
+        "anyhow::{anyhow, Result}",
         "mod::tests {",
         "super::*",
+        "std::collections::HashMap"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "tests/config_integration_tests.rs": {
+      "path": "tests/config_integration_tests.rs",
+      "module_type": "Library",
+      "imports": [
+        "std::fs",
+        "std::process::Command",
         "tempfile::TempDir"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "tests/error_handling_tests.rs": {
+      "path": "tests/error_handling_tests.rs",
+      "module_type": "Library",
+      "imports": [
+        "std::process::Command",
+        "tempfile::TempDir",
+        "std::sync::{Arc, Mutex}",
+        "std::thread",
+        "mod::cook_error_recovery {",
+        "anyhow::{anyhow, Result}"
       ],
       "exports": [],
       "external_deps": []
@@ -76,6 +72,24 @@
       "exports": [],
       "external_deps": []
     },
+    "src/context/architecture.rs": {
+      "path": "src/context/architecture.rs",
+      "module_type": "Library",
+      "imports": [
+        "super::*",
+        "crate::context::dependencies::ArchitecturalLayer",
+        "anyhow::Result",
+        "std::collections::HashMap",
+        "std::path::{Path, PathBuf}",
+        "walkdir::WalkDir",
+        "mod::tests {",
+        "super::*",
+        "std::fs",
+        "tempfile::TempDir"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
     "src/metrics/quality.rs": {
       "path": "src/metrics/quality.rs",
       "module_type": "Library",
@@ -89,15 +103,48 @@
       "exports": [],
       "external_deps": []
     },
-    "src/metrics/storage.rs": {
-      "path": "src/metrics/storage.rs",
+    "src/simple_state/mod.rs": {
+      "path": "src/simple_state/mod.rs",
       "module_type": "Library",
       "imports": [
-        "super::{ImprovementMetrics, MetricsHistory}",
-        "anyhow::{Context, Result}",
-        "std::path::{Path, PathBuf}",
-        "tracing::debug"
+        "mod::tests",
+        "anyhow::Result",
+        "std::path::PathBuf"
       ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/simple_state/state.rs": {
+      "path": "src/simple_state/state.rs",
+      "module_type": "Library",
+      "imports": [
+        "anyhow::{Context, Result}",
+        "chrono::Utc",
+        "std::fs",
+        "std::path::{Path, PathBuf}",
+        "super::types::{SessionRecord, State}"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "tests/integration_test_cook_path.rs": {
+      "path": "tests/integration_test_cook_path.rs",
+      "module_type": "Library",
+      "imports": [
+        "assert_cmd::prelude::*",
+        "predicates::prelude::*",
+        "std::fs",
+        "std::process::Command",
+        "tempfile::TempDir",
+        "std::env"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/lib.rs": {
+      "path": "src/lib.rs",
+      "module_type": "Library",
+      "imports": [],
       "exports": [],
       "external_deps": []
     },
@@ -125,38 +172,33 @@
       "exports": [],
       "external_deps": []
     },
-    "src/main.rs": {
-      "path": "src/main.rs",
-      "module_type": "Binary",
-      "imports": [
-        "clap::{CommandFactory, Parser, Subcommand}",
-        "std::path::PathBuf",
-        "tracing::{debug, error, trace}",
-        "mmm::worktree::WorktreeManager"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/worktree/manager.rs": {
-      "path": "src/worktree/manager.rs",
+    "src/worktree/mod.rs": {
+      "path": "src/worktree/mod.rs",
       "module_type": "Library",
       "imports": [
-        "anyhow::{anyhow, Context, Result}",
-        "chrono::Utc",
-        "std::fs",
+        "chrono::{DateTime, Utc}",
         "std::path::PathBuf",
-        "std::process::Command",
-        "uuid::Uuid",
-        "super::{IterationInfo, WorktreeSession, WorktreeState, WorktreeStats, WorktreeStatus}",
-        "mod::tests {",
-        "super::*",
-        "tempfile::TempDir"
+        "mod::test_state",
+        "mod::tests"
       ],
       "exports": [],
       "external_deps": []
     },
-    "src/init/templates.rs": {
-      "path": "src/init/templates.rs",
+    "src/context/mod.rs": {
+      "path": "src/context/mod.rs",
+      "module_type": "Library",
+      "imports": [
+        "self::dependencies::ArchitecturalLayer",
+        "anyhow::Result",
+        "serde::{Deserialize, Serialize}",
+        "std::collections::HashMap",
+        "std::path::{Path, PathBuf}"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "tests/command_parsing_tests.rs": {
+      "path": "tests/command_parsing_tests.rs",
       "module_type": "Library",
       "imports": [
         "std::collections::HashMap"
@@ -164,51 +206,40 @@
       "exports": [],
       "external_deps": []
     },
-    "src/context/architecture.rs": {
-      "path": "src/context/architecture.rs",
+    "src/context/dependencies.rs": {
+      "path": "src/context/dependencies.rs",
       "module_type": "Library",
       "imports": [
-        "super::*",
-        "crate::context::dependencies::ArchitecturalLayer",
         "anyhow::Result",
-        "std::collections::HashMap",
+        "serde::{Deserialize, Serialize}",
+        "std::collections::{HashMap, HashSet}",
         "std::path::{Path, PathBuf}",
         "walkdir::WalkDir",
         "mod::tests {",
         "super::*",
-        "std::fs",
-        "tempfile::TempDir"
+        "std::path::Path",
+        "std::collections::{HashMap, HashSet}",
+        "crate::context::AnalysisResult",
+        "super::*",
+        "mod::submodule"
       ],
       "exports": [],
       "external_deps": []
     },
-    "src/cook/command.rs": {
-      "path": "src/cook/command.rs",
+    "src/context/tarpaulin_coverage.rs": {
+      "path": "src/context/tarpaulin_coverage.rs",
       "module_type": "Library",
       "imports": [
-        "clap::Args",
-        "std::path::PathBuf"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/config/mod.rs": {
-      "path": "src/config/mod.rs",
-      "module_type": "Library",
-      "imports": [
-        "anyhow::{anyhow, Result}",
-        "directories::ProjectDirs",
-        "serde::{Deserialize, Serialize}",
-        "std::path::PathBuf",
+        "anyhow::{Context, Result}",
+        "serde::Deserialize",
+        "std::collections::HashMap",
+        "std::path::{Path, PathBuf}",
+        "std::process::Command",
+        "super::test_coverage::{",
         "mod::tests {",
         "super::*",
-        "crate::config::command::{Command, WorkflowCommand}",
-        "crate::config::command_parser::parse_command_string",
-        "std::sync::Mutex",
-        "crate::config::command_validator::CommandRegistry",
-        "crate::config::command_parser::expand_variables",
-        "std::collections::HashMap",
-        "crate::config::command_validator::apply_command_defaults"
+        "std::fs",
+        "tempfile::TempDir"
       ],
       "exports": [],
       "external_deps": []
@@ -231,20 +262,35 @@
       "exports": [],
       "external_deps": []
     },
-    "tests/command_parsing_tests.rs": {
-      "path": "tests/command_parsing_tests.rs",
+    "src/simple_state/types.rs": {
+      "path": "src/simple_state/types.rs",
       "module_type": "Library",
       "imports": [
-        "std::collections::HashMap"
+        "chrono::{DateTime, Utc}",
+        "serde::{Deserialize, Serialize}"
       ],
       "exports": [],
       "external_deps": []
     },
-    "src/config/command.rs": {
-      "path": "src/config/command.rs",
+    "src/main.rs": {
+      "path": "src/main.rs",
+      "module_type": "Binary",
+      "imports": [
+        "clap::{CommandFactory, Parser, Subcommand}",
+        "std::path::PathBuf",
+        "tracing::{debug, error, trace}",
+        "mmm::worktree::WorktreeManager"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/config/command_validator.rs": {
+      "path": "src/config/command_validator.rs",
       "module_type": "Library",
       "imports": [
-        "serde::{Deserialize, Serialize}",
+        "super::command::{Command, CommandMetadata}",
+        "anyhow::{anyhow, Result}",
+        "once_cell::sync::Lazy",
         "std::collections::HashMap",
         "mod::tests {",
         "super::*"
@@ -252,40 +298,44 @@
       "exports": [],
       "external_deps": []
     },
-    "src/cook/tests.rs": {
-      "path": "src/cook/tests.rs",
+    "src/abstractions/mod.rs": {
+      "path": "src/abstractions/mod.rs",
       "module_type": "Library",
       "imports": [
-        "mod::cook_tests {",
-        "crate::abstractions::{ClaudeClient, GitOperations, MockClaudeClient, MockGitOperations}",
-        "crate::cook::command::CookCommand",
-        "crate::testing::{TestContext, TestFixtures}",
-        "mod::retry_tests {",
-        "crate::cook::retry::{format_subprocess_error, is_transient_error}",
-        "mod::git_ops_tests {",
-        "crate::abstractions::{GitOperations, MockGitOperations}"
+        "mod::exit_status"
       ],
       "exports": [],
       "external_deps": []
     },
-    "src/worktree/tests.rs": {
-      "path": "src/worktree/tests.rs",
+    "src/init/mod.rs": {
+      "path": "src/init/mod.rs",
       "module_type": "Library",
       "imports": [
-        "super::*",
+        "anyhow::{Context, Result}",
+        "std::fs",
+        "std::path::{Path, PathBuf}",
         "std::process::Command",
+        "crate::init::command::InitCommand",
+        "crate::init::templates::{get_all_templates, get_templates_by_names}",
+        "std::io::{self, Write}",
+        "mod::tests {",
+        "super::*",
         "tempfile::TempDir"
       ],
       "exports": [],
       "external_deps": []
     },
-    "src/analyze/command.rs": {
-      "path": "src/analyze/command.rs",
+    "src/testing/mod.rs": {
+      "path": "src/testing/mod.rs",
       "module_type": "Library",
       "imports": [
-        "crate::context::{save_analysis, ContextAnalyzer, ProjectAnalyzer}",
+        "crate::abstractions::{ClaudeClient, GitOperations, MockClaudeClient, MockGitOperations}",
         "anyhow::Result",
-        "std::path::PathBuf"
+        "std::path::PathBuf",
+        "tempfile::TempDir",
+        "std::fs",
+        "mod::tests {",
+        "super::*"
       ],
       "exports": [],
       "external_deps": []
@@ -323,16 +373,145 @@
       "exports": [],
       "external_deps": []
     },
-    "src/metrics/complexity.rs": {
-      "path": "src/metrics/complexity.rs",
+    "src/abstractions/exit_status.rs": {
+      "path": "src/abstractions/exit_status.rs",
+      "module_type": "Library",
+      "imports": [],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/context/test_coverage.rs": {
+      "path": "src/context/test_coverage.rs",
       "module_type": "Library",
       "imports": [
-        "anyhow::{Context, Result}",
+        "anyhow::Result",
         "serde::{Deserialize, Serialize}",
         "std::collections::HashMap",
-        "std::path::Path",
-        "syn::{visit::Visit, Block, Expr}",
+        "std::path::{Path, PathBuf}",
+        "walkdir::WalkDir",
+        "mod::tests {",
+        "super::*",
+        "std::fs",
+        "tempfile::TempDir",
+        "mod::tests {",
+        "super::*"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/config/workflow.rs": {
+      "path": "src/config/workflow.rs",
+      "module_type": "Library",
+      "imports": [
+        "super::command::WorkflowCommand",
+        "serde::{Deserialize, Serialize}"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/metrics/storage.rs": {
+      "path": "src/metrics/storage.rs",
+      "module_type": "Library",
+      "imports": [
+        "super::{ImprovementMetrics, MetricsHistory}",
+        "anyhow::{Context, Result}",
+        "std::path::{Path, PathBuf}",
         "tracing::debug"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/init/templates.rs": {
+      "path": "src/init/templates.rs",
+      "module_type": "Library",
+      "imports": [
+        "std::collections::HashMap"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/cook/tests.rs": {
+      "path": "src/cook/tests.rs",
+      "module_type": "Library",
+      "imports": [
+        "mod::cook_tests {",
+        "crate::abstractions::{ClaudeClient, GitOperations, MockClaudeClient, MockGitOperations}",
+        "crate::cook::command::CookCommand",
+        "crate::testing::{TestContext, TestFixtures}",
+        "mod::retry_tests {",
+        "crate::cook::retry::{format_subprocess_error, is_transient_error}",
+        "mod::git_ops_tests {",
+        "crate::abstractions::{GitOperations, MockGitOperations}"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/config/command.rs": {
+      "path": "src/config/command.rs",
+      "module_type": "Library",
+      "imports": [
+        "serde::{Deserialize, Serialize}",
+        "std::collections::HashMap",
+        "mod::tests {",
+        "super::*"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/worktree/tests.rs": {
+      "path": "src/worktree/tests.rs",
+      "module_type": "Library",
+      "imports": [
+        "super::*",
+        "std::process::Command",
+        "tempfile::TempDir"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/cook/command.rs": {
+      "path": "src/cook/command.rs",
+      "module_type": "Library",
+      "imports": [
+        "clap::Args",
+        "std::path::PathBuf"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "tests/subprocess_tests.rs": {
+      "path": "tests/subprocess_tests.rs",
+      "module_type": "Library",
+      "imports": [
+        "anyhow::Result",
+        "std::process::Command",
+        "tokio::time::{timeout, Duration}"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "tests/cli_tests.rs": {
+      "path": "tests/cli_tests.rs",
+      "module_type": "Library",
+      "imports": [
+        "assert_cmd::Command",
+        "predicates::prelude::*",
+        "tempfile::TempDir",
+        "mod::cook_dry_run_tests {",
+        "super::*",
+        "std::env",
+        "mod::arg_parsing_tests {",
+        "super::*"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/metrics/history.rs": {
+      "path": "src/metrics/history.rs",
+      "module_type": "Library",
+      "imports": [
+        "super::ImprovementMetrics",
+        "serde::{Deserialize, Serialize}"
       ],
       "exports": [],
       "external_deps": []
@@ -357,226 +536,45 @@
       "exports": [],
       "external_deps": []
     },
-    "tests/subprocess_tests.rs": {
-      "path": "tests/subprocess_tests.rs",
-      "module_type": "Library",
-      "imports": [
-        "anyhow::Result",
-        "std::process::Command",
-        "tokio::time::{timeout, Duration}"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/context/dependencies.rs": {
-      "path": "src/context/dependencies.rs",
-      "module_type": "Library",
-      "imports": [
-        "anyhow::Result",
-        "serde::{Deserialize, Serialize}",
-        "std::collections::{HashMap, HashSet}",
-        "std::path::{Path, PathBuf}",
-        "walkdir::WalkDir",
-        "mod::tests {",
-        "super::*",
-        "std::path::Path",
-        "std::collections::{HashMap, HashSet}",
-        "crate::context::AnalysisResult",
-        "super::*",
-        "mod::submodule"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/cook/session.rs": {
-      "path": "src/cook/session.rs",
-      "module_type": "Library",
-      "imports": [
-        "serde::{Deserialize, Serialize}"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/simple_state/mod.rs": {
-      "path": "src/simple_state/mod.rs",
-      "module_type": "Library",
-      "imports": [
-        "mod::tests",
-        "anyhow::Result",
-        "std::path::PathBuf"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/metrics/mod.rs": {
-      "path": "src/metrics/mod.rs",
-      "module_type": "Library",
-      "imports": [
-        "anyhow::Result",
-        "chrono::{DateTime, Utc}",
-        "serde::{Deserialize, Serialize}",
-        "std::collections::HashMap",
-        "std::path::Path",
-        "std::time::Duration"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/abstractions/exit_status.rs": {
-      "path": "src/abstractions/exit_status.rs",
-      "module_type": "Library",
-      "imports": [],
-      "exports": [],
-      "external_deps": []
-    },
-    "tests/integration_test_cook_path.rs": {
-      "path": "tests/integration_test_cook_path.rs",
-      "module_type": "Library",
-      "imports": [
-        "assert_cmd::prelude::*",
-        "predicates::prelude::*",
-        "std::fs",
-        "std::process::Command",
-        "tempfile::TempDir",
-        "std::env"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "tests/error_handling_tests.rs": {
-      "path": "tests/error_handling_tests.rs",
-      "module_type": "Library",
-      "imports": [
-        "std::process::Command",
-        "tempfile::TempDir",
-        "std::sync::{Arc, Mutex}",
-        "std::thread",
-        "mod::cook_error_recovery {",
-        "anyhow::{anyhow, Result}"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "tests/worktree_integration_tests.rs": {
-      "path": "tests/worktree_integration_tests.rs",
-      "module_type": "Library",
-      "imports": [
-        "std::process::Command",
-        "tempfile::TempDir"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/cook/git_ops.rs": {
-      "path": "src/cook/git_ops.rs",
-      "module_type": "Library",
-      "imports": [
-        "crate::abstractions::{GitOperations, RealGitOperations}",
-        "anyhow::Result",
-        "once_cell::sync::Lazy",
-        "std::sync::Arc",
-        "tokio::sync::Mutex",
-        "mod::tests {",
-        "super::*",
-        "tempfile::TempDir",
-        "tokio::process::Command"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/simple_state/types.rs": {
-      "path": "src/simple_state/types.rs",
-      "module_type": "Library",
-      "imports": [
-        "chrono::{DateTime, Utc}",
-        "serde::{Deserialize, Serialize}"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/config/workflow.rs": {
-      "path": "src/config/workflow.rs",
-      "module_type": "Library",
-      "imports": [
-        "super::command::WorkflowCommand",
-        "serde::{Deserialize, Serialize}"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/metrics/collector.rs": {
-      "path": "src/metrics/collector.rs",
-      "module_type": "Library",
-      "imports": [
-        "super::{ComplexityCalculator, ImprovementMetrics, PerformanceProfiler, QualityAnalyzer}",
-        "anyhow::Result",
-        "std::path::Path",
-        "tokio::task",
-        "tracing::{debug, info}"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/context/tarpaulin_coverage.rs": {
-      "path": "src/context/tarpaulin_coverage.rs",
+    "src/simple_state/cache.rs": {
+      "path": "src/simple_state/cache.rs",
       "module_type": "Library",
       "imports": [
         "anyhow::{Context, Result}",
-        "serde::Deserialize",
-        "std::collections::HashMap",
-        "std::path::{Path, PathBuf}",
-        "std::process::Command",
-        "super::test_coverage::{",
-        "mod::tests {",
-        "super::*",
+        "serde::{de::DeserializeOwned, Serialize}",
         "std::fs",
+        "std::path::PathBuf",
+        "std::time::{Duration, SystemTime}"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "tests/cook_iteration_tests.rs": {
+      "path": "tests/cook_iteration_tests.rs",
+      "module_type": "Library",
+      "imports": [
+        "anyhow::Result",
+        "std::fs",
+        "std::path::Path",
+        "std::process::Command",
         "tempfile::TempDir"
       ],
       "exports": [],
       "external_deps": []
     },
-    "src/abstractions/git.rs": {
-      "path": "src/abstractions/git.rs",
+    "src/worktree/manager.rs": {
+      "path": "src/worktree/manager.rs",
       "module_type": "Library",
       "imports": [
-        "anyhow::Result",
-        "async_trait::async_trait",
-        "std::path::Path",
-        "std::sync::Arc",
-        "tokio::sync::Mutex",
-        "crate::abstractions::exit_status::ExitStatusExt",
-        "mod::tests {",
-        "super::*"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/context/test_coverage.rs": {
-      "path": "src/context/test_coverage.rs",
-      "module_type": "Library",
-      "imports": [
-        "anyhow::Result",
-        "serde::{Deserialize, Serialize}",
-        "std::collections::HashMap",
-        "std::path::{Path, PathBuf}",
-        "walkdir::WalkDir",
-        "mod::tests {",
-        "super::*",
+        "anyhow::{anyhow, Context, Result}",
+        "chrono::Utc",
         "std::fs",
-        "tempfile::TempDir",
-        "mod::tests {",
-        "super::*"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/worktree/test_state.rs": {
-      "path": "src/worktree/test_state.rs",
-      "module_type": "Library",
-      "imports": [
-        "super::*",
-        "crate::worktree::{WorktreeState, WorktreeStatus}",
+        "std::path::PathBuf",
         "std::process::Command",
+        "uuid::Uuid",
+        "super::{IterationInfo, WorktreeSession, WorktreeState, WorktreeStats, WorktreeStatus}",
+        "mod::tests {",
+        "super::*",
         "tempfile::TempDir"
       ],
       "exports": [],
@@ -600,6 +598,134 @@
       "exports": [],
       "external_deps": []
     },
+    "src/analyze/command.rs": {
+      "path": "src/analyze/command.rs",
+      "module_type": "Library",
+      "imports": [
+        "crate::context::{save_analysis, ContextAnalyzer, ProjectAnalyzer}",
+        "anyhow::Result",
+        "std::path::PathBuf"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/simple_state/tests.rs": {
+      "path": "src/simple_state/tests.rs",
+      "module_type": "Library",
+      "imports": [
+        "mod::test {",
+        "super::super::*",
+        "tempfile::TempDir",
+        "std::sync::{Arc, Mutex}",
+        "std::thread"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/cook/session.rs": {
+      "path": "src/cook/session.rs",
+      "module_type": "Library",
+      "imports": [
+        "serde::{Deserialize, Serialize}"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/metrics/mod.rs": {
+      "path": "src/metrics/mod.rs",
+      "module_type": "Library",
+      "imports": [
+        "anyhow::Result",
+        "chrono::{DateTime, Utc}",
+        "serde::{Deserialize, Serialize}",
+        "std::collections::HashMap",
+        "std::path::Path",
+        "std::time::Duration"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/worktree/test_state.rs": {
+      "path": "src/worktree/test_state.rs",
+      "module_type": "Library",
+      "imports": [
+        "super::*",
+        "crate::worktree::{WorktreeState, WorktreeStatus}",
+        "std::process::Command",
+        "tempfile::TempDir"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/context/analyzer.rs": {
+      "path": "src/context/analyzer.rs",
+      "module_type": "Library",
+      "imports": [
+        "super::*",
+        "anyhow::Result",
+        "std::path::Path",
+        "std::time::Instant",
+        "walkdir::WalkDir"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/config/mod.rs": {
+      "path": "src/config/mod.rs",
+      "module_type": "Library",
+      "imports": [
+        "anyhow::{anyhow, Result}",
+        "directories::ProjectDirs",
+        "serde::{Deserialize, Serialize}",
+        "std::path::PathBuf",
+        "mod::tests {",
+        "super::*",
+        "crate::config::command::{Command, WorkflowCommand}",
+        "crate::config::command_parser::parse_command_string",
+        "std::sync::Mutex",
+        "crate::config::command_validator::CommandRegistry",
+        "crate::config::command_parser::expand_variables",
+        "std::collections::HashMap",
+        "crate::config::command_validator::apply_command_defaults"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/cook/retry.rs": {
+      "path": "src/cook/retry.rs",
+      "module_type": "Library",
+      "imports": [
+        "crate::abstractions::{ClaudeClient, RealClaudeClient}",
+        "anyhow::{Context, Result}",
+        "once_cell::sync::Lazy",
+        "std::sync::Arc",
+        "std::time::Duration",
+        "tokio::process::Command",
+        "tokio::time::sleep",
+        "mod::tests {",
+        "super::*",
+        "std::time::Instant"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/cook/git_ops.rs": {
+      "path": "src/cook/git_ops.rs",
+      "module_type": "Library",
+      "imports": [
+        "crate::abstractions::{GitOperations, RealGitOperations}",
+        "anyhow::Result",
+        "once_cell::sync::Lazy",
+        "std::sync::Arc",
+        "tokio::sync::Mutex",
+        "mod::tests {",
+        "super::*",
+        "tempfile::TempDir",
+        "tokio::process::Command"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
     "tests/cook_tests.rs": {
       "path": "tests/cook_tests.rs",
       "module_type": "Library",
@@ -610,6 +736,26 @@
         "mmm::cook::command::CookCommand",
         "mod::session_tests {",
         "mmm::cook::session::SessionSummary"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/init/command.rs": {
+      "path": "src/init/command.rs",
+      "module_type": "Library",
+      "imports": [
+        "clap::Parser",
+        "std::path::PathBuf"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/analyze/mod.rs": {
+      "path": "src/analyze/mod.rs",
+      "module_type": "Library",
+      "imports": [
+        "anyhow::Result",
+        "command::AnalyzeCommand"
       ],
       "exports": [],
       "external_deps": []
@@ -630,103 +776,29 @@
       "exports": [],
       "external_deps": []
     },
-    "src/analyze/mod.rs": {
-      "path": "src/analyze/mod.rs",
+    "src/metrics/collector.rs": {
+      "path": "src/metrics/collector.rs",
       "module_type": "Library",
       "imports": [
+        "super::{ComplexityCalculator, ImprovementMetrics, PerformanceProfiler, QualityAnalyzer}",
         "anyhow::Result",
-        "command::AnalyzeCommand"
+        "std::path::Path",
+        "tokio::task",
+        "tracing::{debug, info}"
       ],
       "exports": [],
       "external_deps": []
     },
-    "src/lib.rs": {
-      "path": "src/lib.rs",
-      "module_type": "Library",
-      "imports": [],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/init/command.rs": {
-      "path": "src/init/command.rs",
-      "module_type": "Library",
-      "imports": [
-        "clap::Parser",
-        "std::path::PathBuf"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/simple_state/cache.rs": {
-      "path": "src/simple_state/cache.rs",
+    "src/metrics/complexity.rs": {
+      "path": "src/metrics/complexity.rs",
       "module_type": "Library",
       "imports": [
         "anyhow::{Context, Result}",
-        "serde::{de::DeserializeOwned, Serialize}",
-        "std::fs",
-        "std::path::PathBuf",
-        "std::time::{Duration, SystemTime}"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/simple_state/state.rs": {
-      "path": "src/simple_state/state.rs",
-      "module_type": "Library",
-      "imports": [
-        "anyhow::{Context, Result}",
-        "chrono::Utc",
-        "std::fs",
-        "std::path::{Path, PathBuf}",
-        "super::types::{SessionRecord, State}"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/simple_state/tests.rs": {
-      "path": "src/simple_state/tests.rs",
-      "module_type": "Library",
-      "imports": [
-        "mod::test {",
-        "super::super::*",
-        "tempfile::TempDir",
-        "std::sync::{Arc, Mutex}",
-        "std::thread"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/context/analyzer.rs": {
-      "path": "src/context/analyzer.rs",
-      "module_type": "Library",
-      "imports": [
-        "super::*",
-        "anyhow::Result",
+        "serde::{Deserialize, Serialize}",
+        "std::collections::HashMap",
         "std::path::Path",
-        "std::time::Instant",
-        "walkdir::WalkDir"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "tests/workflow_tests.rs": {
-      "path": "tests/workflow_tests.rs",
-      "module_type": "Library",
-      "imports": [
-        "mmm::config::{command::WorkflowCommand, workflow::WorkflowConfig}"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "tests/cook_iteration_tests.rs": {
-      "path": "tests/cook_iteration_tests.rs",
-      "module_type": "Library",
-      "imports": [
-        "anyhow::Result",
-        "std::fs",
-        "std::path::Path",
-        "std::process::Command",
-        "tempfile::TempDir"
+        "syn::{visit::Visit, Block, Expr}",
+        "tracing::debug"
       ],
       "exports": [],
       "external_deps": []
@@ -748,6 +820,32 @@
       "exports": [],
       "external_deps": []
     },
+    "src/worktree/state.rs": {
+      "path": "src/worktree/state.rs",
+      "module_type": "Library",
+      "imports": [
+        "chrono::{DateTime, Utc}",
+        "serde::{Deserialize, Serialize}"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/abstractions/git.rs": {
+      "path": "src/abstractions/git.rs",
+      "module_type": "Library",
+      "imports": [
+        "anyhow::Result",
+        "async_trait::async_trait",
+        "std::path::Path",
+        "std::sync::Arc",
+        "tokio::sync::Mutex",
+        "crate::abstractions::exit_status::ExitStatusExt",
+        "mod::tests {",
+        "super::*"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
     "src/abstractions/claude.rs": {
       "path": "src/abstractions/claude.rs",
       "module_type": "Library",
@@ -762,104 +860,6 @@
         "crate::abstractions::exit_status::ExitStatusExt",
         "mod::tests {",
         "super::*"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/metrics/history.rs": {
-      "path": "src/metrics/history.rs",
-      "module_type": "Library",
-      "imports": [
-        "super::ImprovementMetrics",
-        "serde::{Deserialize, Serialize}"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/abstractions/mod.rs": {
-      "path": "src/abstractions/mod.rs",
-      "module_type": "Library",
-      "imports": [
-        "mod::exit_status"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/config/command_parser.rs": {
-      "path": "src/config/command_parser.rs",
-      "module_type": "Library",
-      "imports": [
-        "super::command::{Command, CommandArg}",
-        "anyhow::{anyhow, Result}",
-        "mod::tests {",
-        "super::*",
-        "std::collections::HashMap"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/config/command_validator.rs": {
-      "path": "src/config/command_validator.rs",
-      "module_type": "Library",
-      "imports": [
-        "super::command::{Command, CommandMetadata}",
-        "anyhow::{anyhow, Result}",
-        "once_cell::sync::Lazy",
-        "std::collections::HashMap",
-        "mod::tests {",
-        "super::*"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "tests/config_integration_tests.rs": {
-      "path": "tests/config_integration_tests.rs",
-      "module_type": "Library",
-      "imports": [
-        "std::fs",
-        "std::process::Command",
-        "tempfile::TempDir"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "tests/cli_tests.rs": {
-      "path": "tests/cli_tests.rs",
-      "module_type": "Library",
-      "imports": [
-        "assert_cmd::Command",
-        "predicates::prelude::*",
-        "tempfile::TempDir",
-        "mod::cook_dry_run_tests {",
-        "super::*",
-        "std::env",
-        "mod::arg_parsing_tests {",
-        "super::*"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/context/mod.rs": {
-      "path": "src/context/mod.rs",
-      "module_type": "Library",
-      "imports": [
-        "self::dependencies::ArchitecturalLayer",
-        "anyhow::Result",
-        "serde::{Deserialize, Serialize}",
-        "std::collections::HashMap",
-        "std::path::{Path, PathBuf}"
-      ],
-      "exports": [],
-      "external_deps": []
-    },
-    "src/worktree/mod.rs": {
-      "path": "src/worktree/mod.rs",
-      "module_type": "Library",
-      "imports": [
-        "chrono::{DateTime, Utc}",
-        "std::path::PathBuf",
-        "mod::test_state",
-        "mod::tests"
       ],
       "exports": [],
       "external_deps": []
@@ -2723,74 +2723,74 @@
       "name": "top-level",
       "level": 1,
       "modules": [
-        "src/main.rs",
-        "tests/command_parsing_tests.rs",
-        "tests/subprocess_tests.rs",
-        "tests/integration_test_cook_path.rs",
-        "tests/error_handling_tests.rs",
-        "tests/worktree_integration_tests.rs",
-        "tests/cook_tests.rs",
-        "src/lib.rs",
         "tests/workflow_tests.rs",
-        "tests/cook_iteration_tests.rs",
-        "tests/edge_case_tests.rs",
+        "tests/worktree_integration_tests.rs",
         "tests/config_integration_tests.rs",
-        "tests/cli_tests.rs"
+        "tests/error_handling_tests.rs",
+        "tests/integration_test_cook_path.rs",
+        "src/lib.rs",
+        "tests/command_parsing_tests.rs",
+        "src/main.rs",
+        "tests/subprocess_tests.rs",
+        "tests/cli_tests.rs",
+        "tests/cook_iteration_tests.rs",
+        "tests/cook_tests.rs",
+        "tests/edge_case_tests.rs"
       ]
     },
     {
       "name": "module",
       "level": 2,
       "modules": [
-        "src/cook/retry.rs",
-        "src/worktree/state.rs",
-        "src/testing/mod.rs",
-        "src/init/mod.rs",
-        "src/cook/signal_handler.rs",
-        "src/metrics/quality.rs",
-        "src/metrics/storage.rs",
-        "src/cook/workflow.rs",
-        "src/worktree/manager.rs",
-        "src/init/templates.rs",
-        "src/context/architecture.rs",
-        "src/cook/command.rs",
-        "src/config/mod.rs",
-        "src/context/debt.rs",
-        "src/config/command.rs",
-        "src/cook/tests.rs",
-        "src/worktree/tests.rs",
-        "src/analyze/command.rs",
-        "src/cook/mod.rs",
-        "src/metrics/complexity.rs",
-        "src/context/conventions.rs",
-        "src/context/dependencies.rs",
-        "src/cook/session.rs",
-        "src/simple_state/mod.rs",
-        "src/metrics/mod.rs",
-        "src/abstractions/exit_status.rs",
-        "src/cook/git_ops.rs",
-        "src/simple_state/types.rs",
-        "src/config/workflow.rs",
-        "src/metrics/collector.rs",
-        "src/context/tarpaulin_coverage.rs",
-        "src/abstractions/git.rs",
-        "src/context/test_coverage.rs",
-        "src/worktree/test_state.rs",
-        "src/config/loader.rs",
-        "src/metrics/performance.rs",
-        "src/analyze/mod.rs",
-        "src/init/command.rs",
-        "src/simple_state/cache.rs",
-        "src/simple_state/state.rs",
-        "src/simple_state/tests.rs",
-        "src/context/analyzer.rs",
-        "src/abstractions/claude.rs",
-        "src/metrics/history.rs",
-        "src/abstractions/mod.rs",
         "src/config/command_parser.rs",
-        "src/config/command_validator.rs",
+        "src/cook/signal_handler.rs",
+        "src/context/architecture.rs",
+        "src/metrics/quality.rs",
+        "src/simple_state/mod.rs",
+        "src/simple_state/state.rs",
+        "src/cook/workflow.rs",
+        "src/worktree/mod.rs",
         "src/context/mod.rs",
-        "src/worktree/mod.rs"
+        "src/context/dependencies.rs",
+        "src/context/tarpaulin_coverage.rs",
+        "src/context/debt.rs",
+        "src/simple_state/types.rs",
+        "src/config/command_validator.rs",
+        "src/abstractions/mod.rs",
+        "src/init/mod.rs",
+        "src/testing/mod.rs",
+        "src/cook/mod.rs",
+        "src/abstractions/exit_status.rs",
+        "src/context/test_coverage.rs",
+        "src/config/workflow.rs",
+        "src/metrics/storage.rs",
+        "src/init/templates.rs",
+        "src/cook/tests.rs",
+        "src/config/command.rs",
+        "src/worktree/tests.rs",
+        "src/cook/command.rs",
+        "src/metrics/history.rs",
+        "src/context/conventions.rs",
+        "src/simple_state/cache.rs",
+        "src/worktree/manager.rs",
+        "src/config/loader.rs",
+        "src/analyze/command.rs",
+        "src/simple_state/tests.rs",
+        "src/cook/session.rs",
+        "src/metrics/mod.rs",
+        "src/worktree/test_state.rs",
+        "src/context/analyzer.rs",
+        "src/config/mod.rs",
+        "src/cook/retry.rs",
+        "src/cook/git_ops.rs",
+        "src/init/command.rs",
+        "src/analyze/mod.rs",
+        "src/metrics/performance.rs",
+        "src/metrics/collector.rs",
+        "src/metrics/complexity.rs",
+        "src/worktree/state.rs",
+        "src/abstractions/git.rs",
+        "src/abstractions/claude.rs"
       ]
     }
   ]
