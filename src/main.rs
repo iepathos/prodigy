@@ -96,6 +96,10 @@ enum Commands {
         /// Path to analyze (defaults to current directory)
         #[arg(short = 'p', long)]
         path: Option<PathBuf>,
+
+        /// Run cargo-tarpaulin for accurate coverage before analysis
+        #[arg(long)]
+        run_coverage: bool,
     },
 }
 
@@ -197,6 +201,7 @@ async fn main() {
             output,
             save,
             path,
+            run_coverage,
         }) => {
             let analyze_cmd = mmm::analyze::command::AnalyzeCommand {
                 analysis_type,
@@ -204,6 +209,7 @@ async fn main() {
                 save,
                 verbose: cli.verbose > 0,
                 path,
+                run_coverage,
             };
             mmm::analyze::run(analyze_cmd).await
         }

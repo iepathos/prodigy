@@ -15,6 +15,7 @@ pub mod architecture;
 pub mod conventions;
 pub mod debt;
 pub mod dependencies;
+pub mod tarpaulin_coverage;
 pub mod test_coverage;
 
 pub use analyzer::ProjectAnalyzer;

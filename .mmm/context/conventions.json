@@ -15,14 +15,6 @@
       ],
       "frequency": 2
     },
-    "async": {
-      "name": "Async/await pattern",
-      "description": "Uses async/await for asynchronous code",
-      "examples": [
-        "async fn process()"
-      ],
-      "frequency": 34
-    },
     "builder": {
       "name": "Builder pattern",
       "description": "Uses builder pattern for object construction",
@@ -30,6 +22,23 @@
         "RequestBuilder::new()"
       ],
       "frequency": 14
+    },
+    "logging": {
+      "name": "Logging pattern",
+      "description": "Uses logging for debugging and monitoring",
+      "examples": [
+        "println!",
+        "log::info!"
+      ],
+      "frequency": 10
+    },
+    "async": {
+      "name": "Async/await pattern",
+      "description": "Uses async/await for asynchronous code",
+      "examples": [
+        "async fn process()"
+      ],
+      "frequency": 34
     }
   },
   "test_patterns": {

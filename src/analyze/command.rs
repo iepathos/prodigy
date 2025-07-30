@@ -12,6 +12,7 @@ pub struct AnalyzeCommand {
     pub save: bool,
     pub verbose: bool,
     pub path: Option<PathBuf>,
+    pub run_coverage: bool,
 }
 
 /// Execute the analyze command
@@ -206,7 +207,7 @@ fn display_pretty_analysis(
     );
     println!(
         "   Overall coverage: {:.1}%",
-        analysis.test_coverage.overall_coverage
+        analysis.test_coverage.overall_coverage * 100.0
     );
 
     // Suggestions
@@ -253,7 +254,7 @@ fn display_summary_analysis(
     );
     println!(
         "   - {:.1}% test coverage",
-        analysis.test_coverage.overall_coverage
+        analysis.test_coverage.overall_coverage * 100.0
     );
 
     if !suggestions.is_empty() {

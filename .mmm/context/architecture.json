@@ -4,6 +4,54 @@
   ],
   "layers": [],
   "components": {
+    "cook": {
+      "name": "cook",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn"
+      ],
+      "dependencies": [
+        "serde",
+        "clap",
+        "anyhow",
+        "once_cell",
+        "tokio",
+        "tempfile",
+        "chrono",
+        "git_ops",
+        "retry",
+        "workflow",
+        "glob"
+      ]
+    },
+    "simple_state": {
+      "name": "simple_state",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn init()"
+      ],
+      "dependencies": [
+        "anyhow",
+        "serde",
+        "chrono",
+        "tempfile"
+      ]
+    },
+    "worktree": {
+      "name": "worktree",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct WorktreeSession",
+        "fn new(name:"
+      ],
+      "dependencies": [
+        "tempfile",
+        "anyhow",
+        "chrono",
+        "uuid",
+        "serde"
+      ]
+    },
     "context": {
       "name": "context",
       "responsibility": "Module functionality",
@@ -23,52 +71,8 @@
       "dependencies": [
         "anyhow",
         "walkdir",
-        "serde"
-      ]
-    },
-    "worktree": {
-      "name": "worktree",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct WorktreeSession",
-        "fn new(name:"
-      ],
-      "dependencies": [
-        "tempfile",
-        "anyhow",
-        "chrono",
-        "uuid",
-        "serde"
-      ]
-    },
-    "abstractions": {
-      "name": "abstractions",
-      "responsibility": "Module functionality",
-      "interfaces": [],
-      "dependencies": [
-        "anyhow",
-        "async_trait",
-        "tokio"
-      ]
-    },
-    "cook": {
-      "name": "cook",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn fn"
-      ],
-      "dependencies": [
         "serde",
-        "clap",
-        "anyhow",
-        "once_cell",
-        "tokio",
-        "tempfile",
-        "chrono",
-        "git_ops",
-        "retry",
-        "workflow",
-        "glob"
+        "tempfile"
       ]
     },
     "testing": {
@@ -128,19 +132,6 @@
         "tempfile"
       ]
     },
-    "simple_state": {
-      "name": "simple_state",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn init()"
-      ],
-      "dependencies": [
-        "anyhow",
-        "serde",
-        "chrono",
-        "tempfile"
-      ]
-    },
     "init": {
       "name": "init",
       "responsibility": "Module functionality",
@@ -151,6 +142,16 @@
         "clap",
         "anyhow",
         "tempfile"
+      ]
+    },
+    "abstractions": {
+      "name": "abstractions",
+      "responsibility": "Module functionality",
+      "interfaces": [],
+      "dependencies": [
+        "anyhow",
+        "async_trait",
+        "tokio"
       ]
     },
     "analyze": {
