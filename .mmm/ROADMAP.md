@@ -157,6 +157,12 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
   - Implement proper test infrastructure for deterministic behavior
   - Ensure tests run reliably in CI/CD environments
 
+- [ ] **MMM Command Initialization** (Spec 43)
+  - Add `mmm init` subcommand to bootstrap .claude/commands
+  - Bundle default MMM commands within the binary
+  - Handle existing command conflicts gracefully
+  - Enable quick onboarding for new projects
+
 ### Configuration Enhancements
 - [x] **Configurable Iteration Limit** (Spec 22) ✅
   - Add --max-iterations flag for custom iteration limits
