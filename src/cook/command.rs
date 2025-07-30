@@ -83,4 +83,11 @@ pub struct CookCommand {
     /// Cannot be used with --worktree flag.
     #[arg(long, value_name = "SESSION_ID", conflicts_with = "worktree")]
     pub resume: Option<String>,
+
+    /// Skip the initial project analysis phase
+    ///
+    /// Bypasses the comprehensive project analysis that normally runs before Claude commands.
+    /// Useful when you want to run Claude commands immediately without gathering context.
+    #[arg(long)]
+    pub skip_analysis: bool,
 }

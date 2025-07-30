@@ -999,11 +999,15 @@ async fn run_improvement_loop(
     // 2. Initial analysis
     // Run comprehensive analysis to understand the project and collect accurate metrics
     let project_path = std::env::current_dir()?;
-    if let Err(e) = analyze_project_comprehensive(&project_path, verbose).await {
-        if verbose {
-            warn!("⚠️  Comprehensive analysis failed: {e}");
-            warn!("   Continuing without deep context understanding");
+    if !cmd.skip_analysis {
+        if let Err(e) = analyze_project_comprehensive(&project_path, verbose).await {
+            if verbose {
+                warn!("⚠️  Comprehensive analysis failed: {e}");
+                warn!("   Continuing without deep context understanding");
+            }
         }
+    } else if verbose {
+        info!("📋 Skipping project analysis (--skip-analysis flag)");
     }
 
     if verbose {
@@ -1310,11 +1314,15 @@ async fn run_without_worktree_with_vars(
 
     // Run comprehensive analysis to understand the project and collect accurate metrics
     let project_path = std::env::current_dir()?;
-    if let Err(e) = analyze_project_comprehensive(&project_path, verbose).await {
-        if verbose {
-            warn!("⚠️  Comprehensive analysis failed: {e}");
-            warn!("   Continuing without deep context understanding");
+    if !cmd.skip_analysis {
+        if let Err(e) = analyze_project_comprehensive(&project_path, verbose).await {
+            if verbose {
+                warn!("⚠️  Comprehensive analysis failed: {e}");
+                warn!("   Continuing without deep context understanding");
+            }
         }
+    } else if verbose {
+        info!("📋 Skipping project analysis (--skip-analysis flag)");
     }
 
     // Determine workflow configuration
@@ -2044,11 +2052,15 @@ async fn run_improvement_loop_with_variables(
     // 2. Initial analysis
     // Run comprehensive analysis to understand the project and collect accurate metrics
     let project_path = std::env::current_dir()?;
-    if let Err(e) = analyze_project_comprehensive(&project_path, verbose).await {
-        if verbose {
-            warn!("⚠️  Comprehensive analysis failed: {e}");
-            warn!("   Continuing without deep context understanding");
+    if !cmd.skip_analysis {
+        if let Err(e) = analyze_project_comprehensive(&project_path, verbose).await {
+            if verbose {
+                warn!("⚠️  Comprehensive analysis failed: {e}");
+                warn!("   Continuing without deep context understanding");
+            }
         }
+    } else if verbose {
+        info!("📋 Skipping project analysis (--skip-analysis flag)");
     }
 
     if verbose {
