@@ -62,6 +62,10 @@ enum Commands {
         /// Resume an interrupted session
         #[arg(long, value_name = "SESSION_ID", conflicts_with = "worktree")]
         resume: Option<String>,
+
+        /// Skip the initial project analysis phase
+        #[arg(long)]
+        skip_analysis: bool,
     },
     /// Manage git worktrees for parallel MMM sessions
     Worktree {
@@ -165,6 +169,7 @@ async fn main() {
             auto_accept,
             metrics,
             resume,
+            skip_analysis,
         }) => {
             // Check if user used the deprecated 'improve' alias
             let cli_args: Vec<String> = std::env::args().collect();
@@ -185,6 +190,7 @@ async fn main() {
                 auto_accept,
                 metrics,
                 resume,
+                skip_analysis,
             };
             mmm::cook::run_with_verbosity(cook_cmd, cli.verbose).await
         }
