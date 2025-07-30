@@ -37,6 +37,7 @@ This file tracks the key specifications that shaped the current focused architec
 - **39**: `specs/39-end-to-end-workflow-testing.md` - End-to-end workflow testing with Claude CLI mocking
 - **40**: `specs/40-improve-test-coverage.md` - Improve test coverage with abstraction layers and comprehensive testing
 - **43**: `specs/43-mmm-command-initialization.md` - MMM init command to install default .claude/commands
+- **47**: `specs/47-cook-path-argument.md` - Add path argument to cook command for repository directory
 
 ## Current Focus
 
