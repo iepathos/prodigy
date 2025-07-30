@@ -276,8 +276,40 @@ MMM_FOCUS: Optional focus directive to prioritize specific debt categories
 
 5. **Git Commit (Required for automation)**
    - Stage the created spec file: `git add specs/temp/iteration-{timestamp}-tech-debt-cleanup.md`
-   - Commit with message: `cleanup: generate tech debt cleanup spec for iteration-{timestamp}`
+   - Commit with message: `cleanup: generate tech debt cleanup spec for iteration-{timestamp}-tech-debt-cleanup`
    - If no significant debt found, do not create spec or commit
+
+## Automation Mode Behavior
+
+**Automation Detection**: The command detects automation mode when:
+- Environment variable `MMM_AUTOMATION=true` is set
+- Called from within an MMM workflow context
+
+**Git-Native Automation Flow**:
+1. Analyze technical debt using MMM context
+2. If significant debt found: Create temporary spec file and commit it
+3. If no significant debt found: Report "No significant debt found" and exit without creating commits
+4. Always provide a brief summary of actions taken
+
+**Output Format in Automation Mode**:
+- Minimal console output focusing on key actions
+- Clear indication of whether spec was created and committed
+- Brief summary of debt items found (if any)
+- No JSON output required
+
+**Example Automation Output**:
+```
+✓ Technical debt analysis completed
+✓ Found 15 high-impact debt items requiring attention
+✓ Generated spec: iteration-1708123456-tech-debt-cleanup.md
+✓ Committed: cleanup: generate tech debt cleanup spec for iteration-1708123456-tech-debt-cleanup
+```
+
+**Example No Significant Debt Output**:
+```
+✓ Technical debt analysis completed  
+✓ No significant debt found - codebase is in good shape
+```
 
 ### Phase 7: Context-Aware Documentation and Reporting
 
