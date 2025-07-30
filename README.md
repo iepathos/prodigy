@@ -2,6 +2,36 @@
 
 A dead simple CLI tool that enables highly configurable and easily manageable self-sufficient Claude development loops.
 
+## What Are Self-Sufficient Claude Development Loops?
+
+Self-sufficient Claude development loops are fully autonomous improvement cycles where Claude AI acts as both the reviewer and implementor of code changes. These loops run without human intervention, making decisions about what to improve, how to implement changes, and when to stop - creating a continuous improvement process that enhances code quality automatically.
+
+### Why Are They Powerful?
+
+1. **Autonomous Operation**: Once started, the loop runs completely independently, analyzing code, identifying issues, implementing fixes, and validating changes without manual oversight
+2. **Consistent Quality**: Every iteration follows the same high standards, applying best practices uniformly across your entire codebase
+3. **Parallel Execution**: Multiple loops can run simultaneously on different aspects (security, performance, testing) using git worktrees
+4. **Git-Native Workflow**: Every change is tracked through commits, providing complete auditability and easy rollback if needed
+5. **Customizable Focus**: Direct the AI's attention to specific concerns like security vulnerabilities, performance bottlenecks, or test coverage
+
+## How MMM Simplifies Running These Loops
+
+`mmm` makes self-sufficient development loops accessible with a single command:
+
+```bash
+# Start an autonomous improvement loop
+mmm cook
+```
+
+Behind this simplicity, `mmm` handles all the complexity:
+
+1. **Automated Claude CLI Integration**: Manages all interactions with Claude CLI, handling authentication, retries, and error recovery
+2. **Git Workflow Management**: Automatically creates commits for each step (review, implementation, linting) with meaningful messages
+3. **Worktree Isolation**: Optionally runs improvements in isolated git worktrees, enabling parallel improvement sessions
+4. **Configurable Workflows**: Define custom sequences of Claude commands via simple YAML files
+5. **Smart State Management**: Tracks progress, handles interruptions, and provides clear status updates
+6. **Focus Persistence**: Maintains improvement direction across all iterations when given a focus area
+
 ## What It Does
 
 `mmm` orchestrates self-sufficient Claude development loops that continuously improve your codebase. Run `mmm cook` and it automatically:
@@ -9,7 +39,7 @@ A dead simple CLI tool that enables highly configurable and easily manageable se
 1. **Reviews** code with Claude CLI and creates improvement specs
 2. **Implements** the improvements by applying fixes to your code
 3. **Lints** and formats the code with automated tools
-4. **Repeats** until your target iterations is reached
+4. **Repeats** until your target iterations is reached or no more improvements are found
 
 Each iteration is fully autonomous - Claude handles review, implementation, and validation without manual intervention. All changes are committed to git with clear audit trails. Configure workflows to focus on security, performance, testing, or any development aspect you need.
 
@@ -35,11 +65,23 @@ mmm cook
 # Cook with a specific focus area
 mmm cook --focus security
 
+# Run with more iterations
+mmm cook --max-iterations 20
+
+# Use a custom workflow configuration
+mmm cook --config examples/security-workflow.yml
+
+# Run in an isolated git worktree for parallel execution
+mmm cook --worktree --focus performance
+
+# Fully automated mode (auto-accept merge prompts)
+mmm cook --worktree --yes
+
+# Process multiple files with mapping
+mmm cook --map "specs/*.md" --config examples/implement.yml
+
 # See detailed progress
 mmm cook --verbose
-
-# Combine focus and verbose output
-mmm cook --focus performance --verbose
 ```
 
 ### Focus Areas
@@ -53,46 +95,60 @@ The `--focus` flag applies to every iteration in your cooking session, ensuring 
 - Custom focus areas based on your project needs
 
 ### What Happens (Git-Native Flow)
-1. **Project Analysis**: Detects your language (Rust, Python, JS, etc.) and framework
-2. **Quality Assessment**: Gives your current code a health score (0-10)
-3. **Code Review**: Claude analyzes code and generates improvement specs
-4. **Spec Commit**: Creates `specs/temp/iteration-*-improvements.md` and commits it
-5. **Implementation**: Applies fixes from the spec and commits changes
-6. **Linting**: Runs `cargo fmt`, `clippy --fix`, and `test`, commits if changes
-7. **Progress Tracking**: Re-analyzes and repeats until target score is reached
+1. **Code Review**: Claude analyzes code and generates improvement specs
+2. **Spec Commit**: Creates `specs/temp/iteration-*-improvements.md` and commits it
+3. **Implementation**: Applies fixes from the spec and commits changes
+4. **Linting**: Runs appropriate linting tools for your language, commits if changes
+5. **Progress Tracking**: Repeats until target iterations reached or no more improvements found
 
 Each step creates git commits for complete auditability.
 
 ### Requirements
-- [Claude CLI](https://claude.ai/cli) installed and configured
-- A project with recognizable code (Rust, Python, JavaScript, TypeScript, etc.)
+- [Claude CLI](https://claude.ai/cli) installed and configured (v0.6.0 or later)
+- Git repository (for commit tracking and worktree support)
+- A project with code files
 
 ## Examples
 
 ```bash
 # Basic cooking run
 $ mmm cook
+🔍 Starting improvement loop...
+📋 Focus: None specified (general improvements)
 🔄 Iteration 1/10...
-✅ Review completed: Found 3 issues
-✅ Generated spec: iteration-1708123456-improvements.md  
-✅ Implementation completed: 2 files modified
-✅ Linting completed: formatting applied
-🔄 Iteration 2/10...
-✅ Review completed: Found 1 issue
-✅ Generated spec: iteration-1708123789-improvements.md
-✅ Implementation completed: 1 file modified  
-✅ Linting completed: no changes needed
-Files changed: 3
-Iterations: 2
+🤖 Running /mmm-code-review...
+✅ Code review completed
+🔧 Running /mmm-implement-spec iteration-1708123456-improvements...
+✅ Implementation completed
+🧹 Running /mmm-lint...
+✅ Linting completed
 
-# Verbose output shows detailed git flow
-$ mmm cook --verbose
+✅ Improvement session finished early:
+   Iterations: 2/10
+   Files improved: 3
+   Reason: No more issues found
+
+# Focused improvement with custom workflow
+$ mmm cook --focus security --config examples/security-workflow.yml
+📝 Starting workflow with 5 commands
+📋 Focus: security
+🔄 Workflow iteration 1/8...
+📋 Step 1/5: mmm-security-audit
+📋 Step 2/5: mmm-implement-spec
+📋 Step 3/5: mmm-test-generate
+📋 Step 4/5: mmm-implement-spec
+📋 Step 5/5: mmm-lint
+✅ Improvement session completed
+
+# Parallel worktree sessions
+$ mmm cook --worktree --focus performance
+🌳 Created worktree: mmm-performance-1708123456 at ~/.mmm/worktrees/myproject/mmm-performance-1708123456
 🔄 Iteration 1/10...
-Calling Claude CLI for code review...
-Extracting spec ID from git history...
-Calling Claude CLI to implement spec: iteration-1708123456-improvements
-Calling Claude CLI for linting...
-... (continues until target reached)
+[... improvements run ...]
+✅ Improvements completed in worktree: mmm-performance-1708123456
+
+Would you like to merge the completed worktree now? (y/N): y
+✅ Successfully merged worktree: mmm-performance-1708123456
 
 # Check the git history to see what happened
 $ git log --oneline -10
@@ -110,7 +166,7 @@ f6g7h8i review: generate improvement spec for iteration-1708123456-improvements
 ```
 mmm cook
     ↓
-Analyze Project (language, framework, health score)
+Load configuration (workflow.yml or defaults)
     ↓
 ┌─────────────────── COOKING LOOP ──────────────────┐
 │  Call claude /mmm-code-review                         │
@@ -129,7 +185,7 @@ Analyze Project (language, framework, health score)
 │      ↓                                                │
 │  Format/lint and commit: "style: apply automated..."  │
 │      ↓                                                │
-│  Re-analyze → Check target → Continue or Exit         │
+│  Check iterations → Continue or Exit                  │
 └───────────────────────────────────────────────────────┘
 ```
 
@@ -141,13 +197,17 @@ Analyze Project (language, framework, health score)
 - All human-readable, git-friendly, no complex databases
 
 ### Supported Languages
-- **Rust**: Full support. Primary focus given this tool is Rust based.
+MMM works with any language that Claude CLI can understand. The tool is language-agnostic and relies on Claude's ability to:
+- Analyze code structure and patterns
+- Generate appropriate improvements
+- Run language-specific linting tools
 
-Planned Support:
-- **Python**: Basic support with pip/requirements detection
-- **JavaScript/TypeScript**: Basic support with npm/package.json
-- **Go**: Basic support
-- **Others**: Generic improvements (error handling, documentation, etc.)
+Commonly used with:
+- **Rust**: cargo fmt, clippy, cargo test
+- **Python**: black, ruff, pytest
+- **JavaScript/TypeScript**: prettier, eslint, jest
+- **Go**: go fmt, go vet, go test
+- **Others**: Any language with linting/formatting tools
 
 ## Safety
 
@@ -255,13 +315,20 @@ Run multiple cooking sessions concurrently without conflicts:
 mmm cook --worktree --focus "performance"
 
 # In another terminal, run a different cooking focus
-mmm cook -w --focus "security"
+mmm cook --worktree --focus "security"
+
+# Fully automated parallel sessions
+mmm cook --worktree --yes --focus "testing" &
+mmm cook --worktree --yes --focus "documentation" &
 
 # List active worktree sessions
 mmm worktree list
 
 # Merge improvements back to main branch
 mmm worktree merge mmm-performance-1234567890
+
+# Merge all completed worktrees
+mmm worktree merge --all
 
 # Clean up completed worktrees
 mmm worktree clean mmm-performance-1234567890
@@ -311,13 +378,15 @@ cargo run -- cook --verbose
 3. **Git-Native**: Use git as the communication layer - simple, reliable, auditable
 4. **Dead Simple**: One command to start, minimal options, works immediately
 5. **Clear & Minimal**: Focus on enabling powerful development loops without over-engineering
+6. **Language Agnostic**: Works with any programming language Claude can understand
+7. **Parallel by Design**: Built-in support for running multiple improvement loops simultaneously
 
 ## Limitations
 
 - Requires Claude CLI to be installed and configured
-- Works best with well-structured projects
-- Limited to improvements Claude CLI can suggest
-- No complex workflow or plugin system (by design)
+- Improvements are limited by Claude's capabilities and context window
+- Each iteration runs independently (no memory between sessions beyond git history)
+- Workflow configuration is intentionally simple (no complex conditionals or plugins)
 
 ## License
 
