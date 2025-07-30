@@ -448,7 +448,8 @@ impl ConventionDetector for BasicConventionDetector {
             .filter_entry(|e| {
                 let name = e.file_name().to_string_lossy();
                 // Don't filter out the root directory
-                e.depth() == 0 || (!name.starts_with('.') && name != "target" && name != "node_modules")
+                e.depth() == 0
+                    || (!name.starts_with('.') && name != "target" && name != "node_modules")
             })
             .filter_map(Result::ok)
             .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("rs"))

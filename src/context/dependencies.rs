@@ -267,7 +267,8 @@ impl DependencyAnalyzer for BasicDependencyAnalyzer {
             .filter_entry(|e| {
                 let name = e.file_name().to_string_lossy();
                 // Don't filter out the root directory
-                e.depth() == 0 || (!name.starts_with('.') && name != "target" && name != "node_modules")
+                e.depth() == 0
+                    || (!name.starts_with('.') && name != "target" && name != "node_modules")
             })
             .filter_map(Result::ok)
             .filter(|e| e.file_type().is_file())

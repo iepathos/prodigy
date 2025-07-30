@@ -20,6 +20,10 @@ enum Commands {
     /// Cook your code to perfection (make it better)
     #[command(name = "cook", alias = "improve")]
     Cook {
+        /// Repository path to run in (defaults to current directory)
+        #[arg(value_name = "PATH", help = "Repository path to run in")]
+        path: Option<PathBuf>,
+
         /// Show detailed progress
         #[arg(long)]
         show_progress: bool,
@@ -143,6 +147,7 @@ async fn main() {
 
     let result = match cli.command {
         Some(Commands::Cook {
+            path,
             show_progress,
             focus,
             config,
@@ -161,6 +166,7 @@ async fn main() {
             }
 
             let cook_cmd = mmm::cook::command::CookCommand {
+                path,
                 show_progress,
                 focus,
                 config,

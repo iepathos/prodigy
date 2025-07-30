@@ -7,6 +7,10 @@ use std::path::PathBuf;
 /// `mmm cook` to automatically enhance code quality through Claude CLI integration.
 #[derive(Debug, Args, Clone)]
 pub struct CookCommand {
+    /// Repository path to run in (defaults to current directory)
+    #[arg(value_name = "PATH", help = "Repository path to run in")]
+    pub path: Option<PathBuf>,
+
     /// Show detailed progress
     #[arg(long)]
     pub show_progress: bool,
