@@ -462,7 +462,7 @@ mod tests {
                 .edges
                 .push(crate::context::dependencies::DependencyEdge {
                     from: "god_component".to_string(),
-                    to: format!("dep_{}", i),
+                    to: format!("dep_{i}"),
                     dep_type: crate::context::dependencies::DependencyType::Import,
                 });
         }
@@ -541,7 +541,7 @@ mod tests {
                         rule: "Components should expose interfaces".to_string(),
                         location: name.clone(),
                         severity: ViolationSeverity::Medium,
-                        description: format!("{} has dependencies but no public interfaces", name),
+                        description: format!("{name} has dependencies but no public interfaces"),
                     });
                 }
             }

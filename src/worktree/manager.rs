@@ -132,6 +132,10 @@ impl WorktreeManager {
             error: None,
             merge_prompt_shown: false,
             merge_prompt_response: None,
+            interrupted_at: None,
+            interruption_type: None,
+            last_checkpoint: None,
+            resumable: false,
         };
 
         let json = serde_json::to_string_pretty(&state)?;
@@ -449,6 +453,102 @@ impl WorktreeManager {
             .into_iter()
             .find(|s| s.branch == branch)
             .map(|s| s.path))
+    }
+
+    /// Create a checkpoint for the current state
+    pub fn create_checkpoint(
+        &self,
+        session_name: &str,
+        checkpoint: super::Checkpoint,
+    ) -> Result<()> {
+        self.update_session_state(session_name, |state| {
+            state.last_checkpoint = Some(checkpoint);
+            state.resumable = true;
+        })
+    }
+
+    /// Update an existing checkpoint
+    pub fn update_checkpoint<F>(&self, session_name: &str, updater: F) -> Result<()>
+    where
+        F: FnOnce(&mut super::Checkpoint),
+    {
+        self.update_session_state(session_name, |state| {
+            if let Some(ref mut checkpoint) = state.last_checkpoint {
+                updater(checkpoint);
+            }
+        })
+    }
+
+    /// Load session state by session ID (name)
+    pub fn load_session_state(&self, session_id: &str) -> Result<WorktreeState> {
+        self.get_session_state(session_id)
+    }
+
+    /// Restore a session for resuming work
+    pub fn restore_session(&self, session_id: &str) -> Result<WorktreeSession> {
+        let state = self.load_session_state(session_id)?;
+        let worktree_path = self.base_dir.join(&state.worktree_name);
+
+        // Verify the worktree still exists
+        if !worktree_path.exists() {
+            anyhow::bail!(
+                "Worktree path no longer exists: {}",
+                worktree_path.display()
+            );
+        }
+
+        Ok(WorktreeSession::new(
+            state.worktree_name.clone(),
+            state.branch.clone(),
+            worktree_path,
+            state.focus.clone(),
+        ))
+    }
+
+    /// List all interrupted sessions
+    pub fn list_interrupted_sessions(&self) -> Result<Vec<WorktreeState>> {
+        let metadata_dir = self.base_dir.join(".metadata");
+        if !metadata_dir.exists() {
+            return Ok(Vec::new());
+        }
+
+        let mut interrupted_sessions = Vec::new();
+
+        for entry in fs::read_dir(&metadata_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+
+            if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                if let Ok(state_json) = fs::read_to_string(&path) {
+                    if let Ok(state) = serde_json::from_str::<WorktreeState>(&state_json) {
+                        if state.status == WorktreeStatus::Interrupted {
+                            interrupted_sessions.push(state);
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(interrupted_sessions)
+    }
+
+    /// Mark a session as abandoned (non-resumable)
+    pub fn mark_session_abandoned(&self, session_id: &str) -> Result<()> {
+        self.update_session_state(session_id, |state| {
+            state.status = WorktreeStatus::Abandoned;
+            state.resumable = false;
+        })
+    }
+
+    /// Get the last successful command from a session
+    pub fn get_last_successful_command(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<(String, super::CommandType)>> {
+        let state = self.load_session_state(session_id)?;
+        Ok(state
+            .last_checkpoint
+            .map(|checkpoint| (checkpoint.last_command, checkpoint.last_command_type)))
     }
 }
 

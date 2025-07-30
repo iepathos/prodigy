@@ -150,7 +150,10 @@ fn test_cook_path_with_flags() {
     ])
     .assert()
     .success()
-    .stdout(predicate::str::contains("Working in:"));
+    .stdout(
+        predicate::str::contains("Starting improvement loop")
+            .or(predicate::str::contains("Focus: security")),
+    );
 }
 
 /// Test tilde expansion in path (Unix only)

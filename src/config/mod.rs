@@ -131,6 +131,10 @@ mod tests {
     use super::*;
     use crate::config::command::{Command, WorkflowCommand};
     use crate::config::command_parser::parse_command_string;
+    use std::sync::Mutex;
+
+    // Shared mutex for environment variable tests to prevent race conditions
+    static ENV_TEST_MUTEX: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_simple_workflow_config_parsing() {
@@ -443,6 +447,15 @@ commands:
 
     #[test]
     fn test_merge_env_vars() {
+        // Use the shared mutex to ensure test isolation
+        let _guard = ENV_TEST_MUTEX.lock().unwrap();
+
+        // Save original env values
+        let original_api_key = std::env::var("MMM_CLAUDE_API_KEY").ok();
+        let original_log_level = std::env::var("MMM_LOG_LEVEL").ok();
+        let original_editor = std::env::var("MMM_EDITOR").ok();
+        let original_auto_commit = std::env::var("MMM_AUTO_COMMIT").ok();
+
         let mut config = Config::new();
 
         // Test environment variables override defaults
@@ -466,29 +479,68 @@ commands:
         std::env::remove_var("MMM_LOG_LEVEL");
         std::env::remove_var("MMM_EDITOR");
         std::env::remove_var("MMM_AUTO_COMMIT");
+
+        // Restore original values if they existed
+        if let Some(val) = original_api_key {
+            std::env::set_var("MMM_CLAUDE_API_KEY", val);
+        }
+        if let Some(val) = original_log_level {
+            std::env::set_var("MMM_LOG_LEVEL", val);
+        }
+        if let Some(val) = original_editor {
+            std::env::set_var("MMM_EDITOR", val);
+        }
+        if let Some(val) = original_auto_commit {
+            std::env::set_var("MMM_AUTO_COMMIT", val);
+        }
     }
 
     #[test]
     fn test_merge_env_vars_editor_fallback() {
-        // Clean up any existing env vars first
+        // Use the shared mutex to ensure test isolation
+        let _guard = ENV_TEST_MUTEX.lock().unwrap();
+
+        // Save original env values
+        let original_editor = std::env::var("EDITOR").ok();
+        let original_mmm_editor = std::env::var("MMM_EDITOR").ok();
+
+        // Test 1: EDITOR fallback when MMM_EDITOR is not set
         std::env::remove_var("EDITOR");
         std::env::remove_var("MMM_EDITOR");
-
-        // Test EDITOR fallback when MMM_EDITOR is not set
-        let mut config = Config::new();
         std::env::set_var("EDITOR", "nano");
-        config.merge_env_vars();
-        assert_eq!(config.global.default_editor, Some("nano".to_string()));
 
-        // MMM_EDITOR takes precedence
         let mut config = Config::new();
-        std::env::set_var("MMM_EDITOR", "emacs");
         config.merge_env_vars();
-        assert_eq!(config.global.default_editor, Some("emacs".to_string()));
+        assert_eq!(
+            config.global.default_editor,
+            Some("nano".to_string()),
+            "EDITOR fallback should work when MMM_EDITOR is not set"
+        );
 
-        // Clean up
+        // Test 2: MMM_EDITOR takes precedence over EDITOR
+        std::env::remove_var("MMM_EDITOR");
+        std::env::set_var("EDITOR", "nano");
+        std::env::set_var("MMM_EDITOR", "emacs");
+
+        let mut config2 = Config::new();
+        config2.merge_env_vars();
+        assert_eq!(
+            config2.global.default_editor,
+            Some("emacs".to_string()),
+            "MMM_EDITOR should take precedence over EDITOR"
+        );
+
+        // Clean up - remove our test env vars
         std::env::remove_var("EDITOR");
         std::env::remove_var("MMM_EDITOR");
+
+        // Restore original values if they existed
+        if let Some(val) = original_editor {
+            std::env::set_var("EDITOR", val);
+        }
+        if let Some(val) = original_mmm_editor {
+            std::env::set_var("MMM_EDITOR", val);
+        }
     }
 
     #[test]

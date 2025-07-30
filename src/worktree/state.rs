@@ -20,10 +20,14 @@ pub struct WorktreeState {
     pub error: Option<String>,
     pub merge_prompt_shown: bool,
     pub merge_prompt_response: Option<String>,
+    pub interrupted_at: Option<DateTime<Utc>>,
+    pub interruption_type: Option<InterruptionType>,
+    pub last_checkpoint: Option<Checkpoint>,
+    pub resumable: bool,
 }
 
 /// Status of a worktree session
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum WorktreeStatus {
     InProgress,
@@ -31,6 +35,7 @@ pub enum WorktreeStatus {
     Merged,
     Failed,
     Abandoned,
+    Interrupted,
 }
 
 /// Information about iterations completed in a worktree session
@@ -46,4 +51,36 @@ pub struct WorktreeStats {
     pub files_changed: u32,
     pub commits: u32,
     pub last_commit_sha: Option<String>,
+}
+
+/// Type of interruption that occurred
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum InterruptionType {
+    UserInterrupt, // SIGINT (Ctrl-C)
+    Termination,   // SIGTERM
+    ProcessKill,   // SIGKILL or unexpected exit
+    Unknown,
+}
+
+/// Checkpoint information for recovery
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Checkpoint {
+    pub iteration: u32,
+    pub timestamp: DateTime<Utc>,
+    pub last_command: String,
+    pub last_command_type: CommandType,
+    pub last_spec_id: Option<String>,
+    pub files_modified: Vec<String>,
+    pub command_output: Option<String>,
+}
+
+/// Type of command being executed
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum CommandType {
+    CodeReview,
+    ImplementSpec,
+    Lint,
+    Custom(String),
 }

@@ -21,6 +21,7 @@ This file tracks the key specifications that shaped the current focused architec
 - **26**: `specs/26-worktree-cli-flag.md` - Replace worktree environment variable with CLI flag
 - **28**: `specs/28-structured-command-objects.md` - Refactor workflow commands to use structured objects
 - **29**: `specs/29-centralized-worktree-state.md` - Centralized worktree state management with UUID naming
+- **30**: `specs/30-interrupted-worktree-recovery.md` - Interrupted worktree recovery and state tracking
 - **32**: `specs/32-cli-help-default.md` - CLI help as default behavior when no arguments provided
 - **33**: `specs/33-batch-spec-implementation.md` - Batch implementation of multiple specifications
 
