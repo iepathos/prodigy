@@ -1,0 +1,2161 @@
+{
+  "nodes": {
+    "tests/worktree_integration_tests.rs": {
+      "path": "tests/worktree_integration_tests.rs",
+      "module_type": "Library",
+      "imports": [
+        "std::process::Command",
+        "tempfile::TempDir"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/abstractions/git.rs": {
+      "path": "src/abstractions/git.rs",
+      "module_type": "Library",
+      "imports": [
+        "anyhow::Result",
+        "async_trait::async_trait",
+        "std::path::Path",
+        "std::sync::Arc",
+        "tokio::sync::Mutex",
+        "crate::abstractions::exit_status::ExitStatusExt",
+        "mod::tests {",
+        "super::*"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/simple_state/tests.rs": {
+      "path": "src/simple_state/tests.rs",
+      "module_type": "Library",
+      "imports": [
+        "mod::test {",
+        "super::super::*",
+        "tempfile::TempDir",
+        "std::sync::{Arc, Mutex}",
+        "std::thread"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/simple_state/state.rs": {
+      "path": "src/simple_state/state.rs",
+      "module_type": "Library",
+      "imports": [
+        "anyhow::{Context, Result}",
+        "chrono::Utc",
+        "std::fs",
+        "std::path::{Path, PathBuf}",
+        "super::types::{SessionRecord, State}"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/context/conventions.rs": {
+      "path": "src/context/conventions.rs",
+      "module_type": "Library",
+      "imports": [
+        "anyhow::Result",
+        "serde::{Deserialize, Serialize}",
+        "std::collections::HashMap",
+        "std::path::{Path, PathBuf}",
+        "walkdir::WalkDir"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/context/architecture.rs": {
+      "path": "src/context/architecture.rs",
+      "module_type": "Library",
+      "imports": [
+        "super::*",
+        "crate::context::dependencies::ArchitecturalLayer",
+        "anyhow::Result",
+        "std::collections::HashMap",
+        "std::path::{Path, PathBuf}",
+        "walkdir::WalkDir"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/worktree/state.rs": {
+      "path": "src/worktree/state.rs",
+      "module_type": "Library",
+      "imports": [
+        "chrono::{DateTime, Utc}",
+        "serde::{Deserialize, Serialize}"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "tests/command_parsing_tests.rs": {
+      "path": "tests/command_parsing_tests.rs",
+      "module_type": "Library",
+      "imports": [
+        "std::collections::HashMap"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/analyze/mod.rs": {
+      "path": "src/analyze/mod.rs",
+      "module_type": "Library",
+      "imports": [
+        "anyhow::Result",
+        "command::AnalyzeCommand"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/init/templates.rs": {
+      "path": "src/init/templates.rs",
+      "module_type": "Library",
+      "imports": [
+        "std::collections::HashMap"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/main.rs": {
+      "path": "src/main.rs",
+      "module_type": "Binary",
+      "imports": [
+        "clap::{CommandFactory, Parser, Subcommand}",
+        "std::path::PathBuf",
+        "tracing::{debug, error, trace}",
+        "mmm::worktree::WorktreeManager"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/init/command.rs": {
+      "path": "src/init/command.rs",
+      "module_type": "Library",
+      "imports": [
+        "clap::Parser",
+        "std::path::PathBuf"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/lib.rs": {
+      "path": "src/lib.rs",
+      "module_type": "Library",
+      "imports": [],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/cook/session.rs": {
+      "path": "src/cook/session.rs",
+      "module_type": "Library",
+      "imports": [
+        "serde::{Deserialize, Serialize}"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/simple_state/types.rs": {
+      "path": "src/simple_state/types.rs",
+      "module_type": "Library",
+      "imports": [
+        "chrono::{DateTime, Utc}",
+        "serde::{Deserialize, Serialize}"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "tests/cli_tests.rs": {
+      "path": "tests/cli_tests.rs",
+      "module_type": "Library",
+      "imports": [
+        "assert_cmd::Command",
+        "predicates::prelude::*",
+        "tempfile::TempDir",
+        "mod::cook_dry_run_tests {",
+        "super::*",
+        "std::env",
+        "mod::arg_parsing_tests {",
+        "super::*"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/config/command_validator.rs": {
+      "path": "src/config/command_validator.rs",
+      "module_type": "Library",
+      "imports": [
+        "super::command::{Command, CommandMetadata}",
+        "anyhow::{anyhow, Result}",
+        "once_cell::sync::Lazy",
+        "std::collections::HashMap",
+        "mod::tests {",
+        "super::*"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/config/mod.rs": {
+      "path": "src/config/mod.rs",
+      "module_type": "Library",
+      "imports": [
+        "anyhow::{anyhow, Result}",
+        "directories::ProjectDirs",
+        "serde::{Deserialize, Serialize}",
+        "std::path::PathBuf",
+        "mod::tests {",
+        "super::*",
+        "crate::config::command::{Command, WorkflowCommand}",
+        "crate::config::command_parser::parse_command_string",
+        "crate::config::command_validator::CommandRegistry",
+        "crate::config::command_parser::expand_variables",
+        "std::collections::HashMap",
+        "crate::config::command_validator::apply_command_defaults"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "tests/cook_tests.rs": {
+      "path": "tests/cook_tests.rs",
+      "module_type": "Library",
+      "imports": [
+        "std::process::Command",
+        "tempfile::TempDir",
+        "mod::improve_command_tests {",
+        "mmm::cook::command::CookCommand",
+        "mod::session_tests {",
+        "mmm::cook::session::SessionSummary"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/worktree/mod.rs": {
+      "path": "src/worktree/mod.rs",
+      "module_type": "Library",
+      "imports": [
+        "chrono::{DateTime, Utc}",
+        "std::path::PathBuf",
+        "mod::test_state",
+        "mod::tests"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/config/command_parser.rs": {
+      "path": "src/config/command_parser.rs",
+      "module_type": "Library",
+      "imports": [
+        "super::command::{Command, CommandArg}",
+        "anyhow::{anyhow, Result}",
+        "mod::tests {",
+        "super::*",
+        "std::collections::HashMap"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/config/loader.rs": {
+      "path": "src/config/loader.rs",
+      "module_type": "Library",
+      "imports": [
+        "super::{Config, ProjectConfig, WorkflowConfig}",
+        "anyhow::{anyhow, Context, Result}",
+        "std::path::Path",
+        "std::sync::{Arc, RwLock}",
+        "tokio::fs",
+        "mod::tests {",
+        "super::*",
+        "std::path::PathBuf",
+        "tempfile::TempDir",
+        "tokio::fs"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/simple_state/cache.rs": {
+      "path": "src/simple_state/cache.rs",
+      "module_type": "Library",
+      "imports": [
+        "anyhow::{Context, Result}",
+        "serde::{de::DeserializeOwned, Serialize}",
+        "std::fs",
+        "std::path::PathBuf",
+        "std::time::{Duration, SystemTime}"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "tests/cook_iteration_tests.rs": {
+      "path": "tests/cook_iteration_tests.rs",
+      "module_type": "Library",
+      "imports": [
+        "anyhow::Result",
+        "std::fs",
+        "std::path::Path",
+        "std::process::Command",
+        "tempfile::TempDir"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/cook/retry.rs": {
+      "path": "src/cook/retry.rs",
+      "module_type": "Library",
+      "imports": [
+        "crate::abstractions::{ClaudeClient, RealClaudeClient}",
+        "anyhow::{Context, Result}",
+        "once_cell::sync::Lazy",
+        "std::sync::Arc",
+        "std::time::Duration",
+        "tokio::process::Command",
+        "tokio::time::sleep",
+        "mod::tests {",
+        "super::*",
+        "std::time::Instant"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "tests/config_integration_tests.rs": {
+      "path": "tests/config_integration_tests.rs",
+      "module_type": "Library",
+      "imports": [
+        "std::fs",
+        "std::process::Command",
+        "tempfile::TempDir"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "tests/subprocess_tests.rs": {
+      "path": "tests/subprocess_tests.rs",
+      "module_type": "Library",
+      "imports": [
+        "anyhow::Result",
+        "std::process::Command",
+        "tokio::time::{timeout, Duration}"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/cook/mod.rs": {
+      "path": "src/cook/mod.rs",
+      "module_type": "Library",
+      "imports": [
+        "mod::tests",
+        "crate::config::{ConfigLoader, WorkflowConfig}",
+        "crate::context::{save_analysis, ContextAnalyzer, ProjectAnalyzer}",
+        "crate::simple_state::StateManager",
+        "crate::worktree::WorktreeManager",
+        "anyhow::{anyhow, Context as _, Result}",
+        "chrono::Utc",
+        "git_ops::get_last_commit_message",
+        "retry::{check_claude_cli, execute_with_retry, format_subprocess_error}",
+        "std::io::{self, Write}",
+        "std::path::Path",
+        "tokio::process::Command",
+        "workflow::WorkflowExecutor",
+        "glob::glob",
+        "std::collections::HashMap",
+        "std::io::Write",
+        "glob::glob",
+        "std::collections::HashMap",
+        "mod::cook_inline_tests {",
+        "super::*",
+        "std::path::PathBuf",
+        "tempfile::TempDir"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/worktree/manager.rs": {
+      "path": "src/worktree/manager.rs",
+      "module_type": "Library",
+      "imports": [
+        "anyhow::{anyhow, Context, Result}",
+        "chrono::Utc",
+        "std::fs",
+        "std::path::PathBuf",
+        "std::process::Command",
+        "uuid::Uuid",
+        "super::{IterationInfo, WorktreeSession, WorktreeState, WorktreeStats, WorktreeStatus}",
+        "mod::tests {",
+        "super::*",
+        "tempfile::TempDir"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "tests/error_handling_tests.rs": {
+      "path": "tests/error_handling_tests.rs",
+      "module_type": "Library",
+      "imports": [
+        "std::process::Command",
+        "tempfile::TempDir",
+        "std::sync::{Arc, Mutex}",
+        "std::thread",
+        "mod::cook_error_recovery {",
+        "anyhow::{anyhow, Result}"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/cook/git_ops.rs": {
+      "path": "src/cook/git_ops.rs",
+      "module_type": "Library",
+      "imports": [
+        "crate::abstractions::{GitOperations, RealGitOperations}",
+        "anyhow::Result",
+        "once_cell::sync::Lazy",
+        "std::sync::Arc",
+        "tokio::sync::Mutex",
+        "mod::tests {",
+        "super::*",
+        "tempfile::TempDir",
+        "tokio::process::Command"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/cook/tests.rs": {
+      "path": "src/cook/tests.rs",
+      "module_type": "Library",
+      "imports": [
+        "mod::cook_tests {",
+        "crate::abstractions::{ClaudeClient, GitOperations, MockClaudeClient, MockGitOperations}",
+        "crate::cook::command::CookCommand",
+        "crate::testing::{TestContext, TestFixtures}",
+        "mod::retry_tests {",
+        "crate::cook::retry::{format_subprocess_error, is_transient_error}",
+        "mod::git_ops_tests {",
+        "crate::abstractions::{GitOperations, MockGitOperations}"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/context/analyzer.rs": {
+      "path": "src/context/analyzer.rs",
+      "module_type": "Library",
+      "imports": [
+        "super::*",
+        "anyhow::Result",
+        "std::path::Path",
+        "std::time::Instant",
+        "walkdir::WalkDir"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/worktree/test_state.rs": {
+      "path": "src/worktree/test_state.rs",
+      "module_type": "Library",
+      "imports": [
+        "super::*",
+        "crate::worktree::{WorktreeState, WorktreeStatus}",
+        "std::process::Command",
+        "tempfile::TempDir"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/config/command.rs": {
+      "path": "src/config/command.rs",
+      "module_type": "Library",
+      "imports": [
+        "serde::{Deserialize, Serialize}",
+        "std::collections::HashMap",
+        "mod::tests {",
+        "super::*"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/simple_state/mod.rs": {
+      "path": "src/simple_state/mod.rs",
+      "module_type": "Library",
+      "imports": [
+        "mod::tests",
+        "anyhow::Result",
+        "std::path::PathBuf"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/abstractions/mod.rs": {
+      "path": "src/abstractions/mod.rs",
+      "module_type": "Library",
+      "imports": [
+        "mod::exit_status"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "tests/workflow_tests.rs": {
+      "path": "tests/workflow_tests.rs",
+      "module_type": "Library",
+      "imports": [
+        "mmm::config::{command::WorkflowCommand, workflow::WorkflowConfig}"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/init/mod.rs": {
+      "path": "src/init/mod.rs",
+      "module_type": "Library",
+      "imports": [
+        "anyhow::{Context, Result}",
+        "std::fs",
+        "std::path::{Path, PathBuf}",
+        "std::process::Command",
+        "crate::init::command::InitCommand",
+        "crate::init::templates::{get_all_templates, get_templates_by_names}",
+        "std::io::{self, Write}",
+        "mod::tests {",
+        "super::*",
+        "tempfile::TempDir"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/abstractions/exit_status.rs": {
+      "path": "src/abstractions/exit_status.rs",
+      "module_type": "Library",
+      "imports": [],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/cook/command.rs": {
+      "path": "src/cook/command.rs",
+      "module_type": "Library",
+      "imports": [
+        "clap::Args",
+        "std::path::PathBuf"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/config/workflow.rs": {
+      "path": "src/config/workflow.rs",
+      "module_type": "Library",
+      "imports": [
+        "super::command::WorkflowCommand",
+        "serde::{Deserialize, Serialize}"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/abstractions/claude.rs": {
+      "path": "src/abstractions/claude.rs",
+      "module_type": "Library",
+      "imports": [
+        "anyhow::Result",
+        "async_trait::async_trait",
+        "std::collections::HashMap",
+        "std::sync::Arc",
+        "tokio::sync::Mutex",
+        "std::time::Duration",
+        "tokio::time::sleep",
+        "crate::abstractions::exit_status::ExitStatusExt",
+        "mod::tests {",
+        "super::*"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/cook/workflow.rs": {
+      "path": "src/cook/workflow.rs",
+      "module_type": "Library",
+      "imports": [
+        "crate::config::command_validator::{apply_command_defaults, validate_command}",
+        "crate::config::{workflow::WorkflowConfig, CommandArg}",
+        "crate::cook::git_ops::get_last_commit_message",
+        "crate::cook::retry::{check_claude_cli, execute_with_retry, format_subprocess_error}",
+        "anyhow::{anyhow, Context as _, Result}",
+        "std::collections::HashMap",
+        "tokio::process::Command",
+        "std::io::Write",
+        "mod::tests {",
+        "super::*",
+        "crate::config::command::{Command, CommandMetadata, WorkflowCommand}",
+        "std::collections::HashMap",
+        "crate::config::command::WorkflowCommand",
+        "tempfile::TempDir",
+        "tempfile::TempDir",
+        "tokio::process::Command as TokioCommand"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/analyze/command.rs": {
+      "path": "src/analyze/command.rs",
+      "module_type": "Library",
+      "imports": [
+        "crate::context::{save_analysis, ContextAnalyzer, ProjectAnalyzer}",
+        "anyhow::Result",
+        "std::path::PathBuf"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/context/mod.rs": {
+      "path": "src/context/mod.rs",
+      "module_type": "Library",
+      "imports": [
+        "self::dependencies::ArchitecturalLayer",
+        "anyhow::Result",
+        "serde::{Deserialize, Serialize}",
+        "std::collections::HashMap",
+        "std::path::{Path, PathBuf}"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/context/dependencies.rs": {
+      "path": "src/context/dependencies.rs",
+      "module_type": "Library",
+      "imports": [
+        "anyhow::Result",
+        "serde::{Deserialize, Serialize}",
+        "std::collections::{HashMap, HashSet}",
+        "std::path::{Path, PathBuf}",
+        "walkdir::WalkDir"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/worktree/tests.rs": {
+      "path": "src/worktree/tests.rs",
+      "module_type": "Library",
+      "imports": [
+        "super::*",
+        "std::process::Command",
+        "tempfile::TempDir"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/context/debt.rs": {
+      "path": "src/context/debt.rs",
+      "module_type": "Library",
+      "imports": [
+        "anyhow::Result",
+        "serde::{Deserialize, Serialize}",
+        "std::cmp::Ordering",
+        "std::collections::{BinaryHeap, HashMap}",
+        "std::path::{Path, PathBuf}",
+        "walkdir::WalkDir"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/context/test_coverage.rs": {
+      "path": "src/context/test_coverage.rs",
+      "module_type": "Library",
+      "imports": [
+        "anyhow::Result",
+        "serde::{Deserialize, Serialize}",
+        "std::collections::HashMap",
+        "std::path::{Path, PathBuf}",
+        "walkdir::WalkDir"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "src/testing/mod.rs": {
+      "path": "src/testing/mod.rs",
+      "module_type": "Library",
+      "imports": [
+        "crate::abstractions::{ClaudeClient, GitOperations, MockClaudeClient, MockGitOperations}",
+        "anyhow::Result",
+        "std::path::PathBuf",
+        "tempfile::TempDir",
+        "std::fs",
+        "mod::tests {",
+        "super::*"
+      ],
+      "exports": [],
+      "external_deps": []
+    },
+    "tests/edge_case_tests.rs": {
+      "path": "tests/edge_case_tests.rs",
+      "module_type": "Library",
+      "imports": [
+        "anyhow::Result",
+        "std::fs",
+        "std::path::PathBuf",
+        "std::process::Command",
+        "tempfile::TempDir",
+        "std::sync::{Arc, Mutex}",
+        "std::thread",
+        "std::thread",
+        "std::time::Duration"
+      ],
+      "exports": [],
+      "external_deps": []
+    }
+  },
+  "edges": [
+    {
+      "from": "tests/cook_iteration_tests.rs",
+      "to": "anyhow::Result",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/cook_iteration_tests.rs",
+      "to": "std::fs",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/cook_iteration_tests.rs",
+      "to": "std::path::Path",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/cook_iteration_tests.rs",
+      "to": "std::process::Command",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/cook_iteration_tests.rs",
+      "to": "tempfile::TempDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/cli_tests.rs",
+      "to": "assert_cmd::Command",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/cli_tests.rs",
+      "to": "predicates::prelude::*",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/cli_tests.rs",
+      "to": "tempfile::TempDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/cli_tests.rs",
+      "to": "mod::cook_dry_run_tests {",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/cli_tests.rs",
+      "to": "super::*",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/cli_tests.rs",
+      "to": "std::env",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/cli_tests.rs",
+      "to": "mod::arg_parsing_tests {",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/cli_tests.rs",
+      "to": "super::*",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/config_integration_tests.rs",
+      "to": "std::fs",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/config_integration_tests.rs",
+      "to": "std::process::Command",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/config_integration_tests.rs",
+      "to": "tempfile::TempDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/cook_tests.rs",
+      "to": "std::process::Command",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/cook_tests.rs",
+      "to": "tempfile::TempDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/cook_tests.rs",
+      "to": "mod::improve_command_tests {",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/cook_tests.rs",
+      "to": "mmm::cook::command::CookCommand",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/cook_tests.rs",
+      "to": "mod::session_tests {",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/cook_tests.rs",
+      "to": "mmm::cook::session::SessionSummary",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/error_handling_tests.rs",
+      "to": "std::process::Command",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/error_handling_tests.rs",
+      "to": "tempfile::TempDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/error_handling_tests.rs",
+      "to": "std::sync::{Arc, Mutex}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/error_handling_tests.rs",
+      "to": "std::thread",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/error_handling_tests.rs",
+      "to": "mod::cook_error_recovery {",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/error_handling_tests.rs",
+      "to": "anyhow::{anyhow, Result}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/command_parsing_tests.rs",
+      "to": "std::collections::HashMap",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/worktree_integration_tests.rs",
+      "to": "std::process::Command",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/worktree_integration_tests.rs",
+      "to": "tempfile::TempDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/edge_case_tests.rs",
+      "to": "anyhow::Result",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/edge_case_tests.rs",
+      "to": "std::fs",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/edge_case_tests.rs",
+      "to": "std::path::PathBuf",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/edge_case_tests.rs",
+      "to": "std::process::Command",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/edge_case_tests.rs",
+      "to": "tempfile::TempDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/edge_case_tests.rs",
+      "to": "std::sync::{Arc, Mutex}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/edge_case_tests.rs",
+      "to": "std::thread",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/edge_case_tests.rs",
+      "to": "std::thread",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/edge_case_tests.rs",
+      "to": "std::time::Duration",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/workflow_tests.rs",
+      "to": "mmm::config::{command::WorkflowCommand, workflow::WorkflowConfig}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/subprocess_tests.rs",
+      "to": "anyhow::Result",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/subprocess_tests.rs",
+      "to": "std::process::Command",
+      "dep_type": "Import"
+    },
+    {
+      "from": "tests/subprocess_tests.rs",
+      "to": "tokio::time::{timeout, Duration}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/init/command.rs",
+      "to": "clap::Parser",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/init/command.rs",
+      "to": "std::path::PathBuf",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/init/mod.rs",
+      "to": "anyhow::{Context, Result}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/init/mod.rs",
+      "to": "std::fs",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/init/mod.rs",
+      "to": "std::path::{Path, PathBuf}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/init/mod.rs",
+      "to": "std::process::Command",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/init/mod.rs",
+      "to": "crate::init::command::InitCommand",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/init/mod.rs",
+      "to": "crate::init::templates::{get_all_templates, get_templates_by_names}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/init/mod.rs",
+      "to": "std::io::{self, Write}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/init/mod.rs",
+      "to": "mod::tests {",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/init/mod.rs",
+      "to": "super::*",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/init/mod.rs",
+      "to": "tempfile::TempDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/init/templates.rs",
+      "to": "std::collections::HashMap",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/analyzer.rs",
+      "to": "super::*",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/analyzer.rs",
+      "to": "anyhow::Result",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/analyzer.rs",
+      "to": "std::path::Path",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/analyzer.rs",
+      "to": "std::time::Instant",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/analyzer.rs",
+      "to": "walkdir::WalkDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/test_coverage.rs",
+      "to": "anyhow::Result",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/test_coverage.rs",
+      "to": "serde::{Deserialize, Serialize}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/test_coverage.rs",
+      "to": "std::collections::HashMap",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/test_coverage.rs",
+      "to": "std::path::{Path, PathBuf}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/test_coverage.rs",
+      "to": "walkdir::WalkDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/mod.rs",
+      "to": "self::dependencies::ArchitecturalLayer",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/mod.rs",
+      "to": "anyhow::Result",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/mod.rs",
+      "to": "serde::{Deserialize, Serialize}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/mod.rs",
+      "to": "std::collections::HashMap",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/mod.rs",
+      "to": "std::path::{Path, PathBuf}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/dependencies.rs",
+      "to": "anyhow::Result",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/dependencies.rs",
+      "to": "serde::{Deserialize, Serialize}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/dependencies.rs",
+      "to": "std::collections::{HashMap, HashSet}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/dependencies.rs",
+      "to": "std::path::{Path, PathBuf}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/dependencies.rs",
+      "to": "walkdir::WalkDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/debt.rs",
+      "to": "anyhow::Result",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/debt.rs",
+      "to": "serde::{Deserialize, Serialize}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/debt.rs",
+      "to": "std::cmp::Ordering",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/debt.rs",
+      "to": "std::collections::{BinaryHeap, HashMap}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/debt.rs",
+      "to": "std::path::{Path, PathBuf}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/debt.rs",
+      "to": "walkdir::WalkDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/architecture.rs",
+      "to": "super::*",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/architecture.rs",
+      "to": "crate::context::dependencies::ArchitecturalLayer",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/architecture.rs",
+      "to": "anyhow::Result",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/architecture.rs",
+      "to": "std::collections::HashMap",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/architecture.rs",
+      "to": "std::path::{Path, PathBuf}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/architecture.rs",
+      "to": "walkdir::WalkDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/conventions.rs",
+      "to": "anyhow::Result",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/conventions.rs",
+      "to": "serde::{Deserialize, Serialize}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/conventions.rs",
+      "to": "std::collections::HashMap",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/conventions.rs",
+      "to": "std::path::{Path, PathBuf}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/conventions.rs",
+      "to": "walkdir::WalkDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/command.rs",
+      "to": "serde::{Deserialize, Serialize}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/command.rs",
+      "to": "std::collections::HashMap",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/command.rs",
+      "to": "mod::tests {",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/command.rs",
+      "to": "super::*",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/mod.rs",
+      "to": "anyhow::{anyhow, Result}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/mod.rs",
+      "to": "directories::ProjectDirs",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/mod.rs",
+      "to": "serde::{Deserialize, Serialize}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/mod.rs",
+      "to": "std::path::PathBuf",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/mod.rs",
+      "to": "mod::tests {",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/mod.rs",
+      "to": "super::*",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/mod.rs",
+      "to": "crate::config::command::{Command, WorkflowCommand}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/mod.rs",
+      "to": "crate::config::command_parser::parse_command_string",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/mod.rs",
+      "to": "crate::config::command_validator::CommandRegistry",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/mod.rs",
+      "to": "crate::config::command_parser::expand_variables",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/mod.rs",
+      "to": "std::collections::HashMap",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/mod.rs",
+      "to": "crate::config::command_validator::apply_command_defaults",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/command_parser.rs",
+      "to": "super::command::{Command, CommandArg}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/command_parser.rs",
+      "to": "anyhow::{anyhow, Result}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/command_parser.rs",
+      "to": "mod::tests {",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/command_parser.rs",
+      "to": "super::*",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/command_parser.rs",
+      "to": "std::collections::HashMap",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/command_validator.rs",
+      "to": "super::command::{Command, CommandMetadata}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/command_validator.rs",
+      "to": "anyhow::{anyhow, Result}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/command_validator.rs",
+      "to": "once_cell::sync::Lazy",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/command_validator.rs",
+      "to": "std::collections::HashMap",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/command_validator.rs",
+      "to": "mod::tests {",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/command_validator.rs",
+      "to": "super::*",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/workflow.rs",
+      "to": "super::command::WorkflowCommand",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/workflow.rs",
+      "to": "serde::{Deserialize, Serialize}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/loader.rs",
+      "to": "super::{Config, ProjectConfig, WorkflowConfig}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/loader.rs",
+      "to": "anyhow::{anyhow, Context, Result}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/loader.rs",
+      "to": "std::path::Path",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/loader.rs",
+      "to": "std::sync::{Arc, RwLock}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/loader.rs",
+      "to": "tokio::fs",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/loader.rs",
+      "to": "mod::tests {",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/loader.rs",
+      "to": "super::*",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/loader.rs",
+      "to": "std::path::PathBuf",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/loader.rs",
+      "to": "tempfile::TempDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/config/loader.rs",
+      "to": "tokio::fs",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/worktree/test_state.rs",
+      "to": "super::*",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/worktree/test_state.rs",
+      "to": "crate::worktree::{WorktreeState, WorktreeStatus}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/worktree/test_state.rs",
+      "to": "std::process::Command",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/worktree/test_state.rs",
+      "to": "tempfile::TempDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/worktree/manager.rs",
+      "to": "anyhow::{anyhow, Context, Result}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/worktree/manager.rs",
+      "to": "chrono::Utc",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/worktree/manager.rs",
+      "to": "std::fs",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/worktree/manager.rs",
+      "to": "std::path::PathBuf",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/worktree/manager.rs",
+      "to": "std::process::Command",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/worktree/manager.rs",
+      "to": "uuid::Uuid",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/worktree/manager.rs",
+      "to": "super::{IterationInfo, WorktreeSession, WorktreeState, WorktreeStats, WorktreeStatus}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/worktree/manager.rs",
+      "to": "mod::tests {",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/worktree/manager.rs",
+      "to": "super::*",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/worktree/manager.rs",
+      "to": "tempfile::TempDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/worktree/mod.rs",
+      "to": "chrono::{DateTime, Utc}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/worktree/mod.rs",
+      "to": "std::path::PathBuf",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/worktree/mod.rs",
+      "to": "mod::test_state",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/worktree/mod.rs",
+      "to": "mod::tests",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/worktree/state.rs",
+      "to": "chrono::{DateTime, Utc}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/worktree/state.rs",
+      "to": "serde::{Deserialize, Serialize}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/worktree/tests.rs",
+      "to": "super::*",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/worktree/tests.rs",
+      "to": "std::process::Command",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/worktree/tests.rs",
+      "to": "tempfile::TempDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/testing/mod.rs",
+      "to": "crate::abstractions::{ClaudeClient, GitOperations, MockClaudeClient, MockGitOperations}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/testing/mod.rs",
+      "to": "anyhow::Result",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/testing/mod.rs",
+      "to": "std::path::PathBuf",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/testing/mod.rs",
+      "to": "tempfile::TempDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/testing/mod.rs",
+      "to": "std::fs",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/testing/mod.rs",
+      "to": "mod::tests {",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/testing/mod.rs",
+      "to": "super::*",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/session.rs",
+      "to": "serde::{Deserialize, Serialize}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/command.rs",
+      "to": "clap::Args",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/command.rs",
+      "to": "std::path::PathBuf",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/git_ops.rs",
+      "to": "crate::abstractions::{GitOperations, RealGitOperations}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/git_ops.rs",
+      "to": "anyhow::Result",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/git_ops.rs",
+      "to": "once_cell::sync::Lazy",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/git_ops.rs",
+      "to": "std::sync::Arc",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/git_ops.rs",
+      "to": "tokio::sync::Mutex",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/git_ops.rs",
+      "to": "mod::tests {",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/git_ops.rs",
+      "to": "super::*",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/git_ops.rs",
+      "to": "tempfile::TempDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/git_ops.rs",
+      "to": "tokio::process::Command",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/mod.rs",
+      "to": "mod::tests",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/mod.rs",
+      "to": "crate::config::{ConfigLoader, WorkflowConfig}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/mod.rs",
+      "to": "crate::context::{save_analysis, ContextAnalyzer, ProjectAnalyzer}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/mod.rs",
+      "to": "crate::simple_state::StateManager",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/mod.rs",
+      "to": "crate::worktree::WorktreeManager",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/mod.rs",
+      "to": "anyhow::{anyhow, Context as _, Result}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/mod.rs",
+      "to": "chrono::Utc",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/mod.rs",
+      "to": "git_ops::get_last_commit_message",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/mod.rs",
+      "to": "retry::{check_claude_cli, execute_with_retry, format_subprocess_error}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/mod.rs",
+      "to": "std::io::{self, Write}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/mod.rs",
+      "to": "std::path::Path",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/mod.rs",
+      "to": "tokio::process::Command",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/mod.rs",
+      "to": "workflow::WorkflowExecutor",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/mod.rs",
+      "to": "glob::glob",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/mod.rs",
+      "to": "std::collections::HashMap",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/mod.rs",
+      "to": "std::io::Write",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/mod.rs",
+      "to": "glob::glob",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/mod.rs",
+      "to": "std::collections::HashMap",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/mod.rs",
+      "to": "mod::cook_inline_tests {",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/mod.rs",
+      "to": "super::*",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/mod.rs",
+      "to": "std::path::PathBuf",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/mod.rs",
+      "to": "tempfile::TempDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/workflow.rs",
+      "to": "crate::config::command_validator::{apply_command_defaults, validate_command}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/workflow.rs",
+      "to": "crate::config::{workflow::WorkflowConfig, CommandArg}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/workflow.rs",
+      "to": "crate::cook::git_ops::get_last_commit_message",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/workflow.rs",
+      "to": "crate::cook::retry::{check_claude_cli, execute_with_retry, format_subprocess_error}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/workflow.rs",
+      "to": "anyhow::{anyhow, Context as _, Result}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/workflow.rs",
+      "to": "std::collections::HashMap",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/workflow.rs",
+      "to": "tokio::process::Command",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/workflow.rs",
+      "to": "std::io::Write",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/workflow.rs",
+      "to": "mod::tests {",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/workflow.rs",
+      "to": "super::*",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/workflow.rs",
+      "to": "crate::config::command::{Command, CommandMetadata, WorkflowCommand}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/workflow.rs",
+      "to": "std::collections::HashMap",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/workflow.rs",
+      "to": "crate::config::command::WorkflowCommand",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/workflow.rs",
+      "to": "tempfile::TempDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/workflow.rs",
+      "to": "tempfile::TempDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/workflow.rs",
+      "to": "tokio::process::Command as TokioCommand",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/tests.rs",
+      "to": "mod::cook_tests {",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/tests.rs",
+      "to": "crate::abstractions::{ClaudeClient, GitOperations, MockClaudeClient, MockGitOperations}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/tests.rs",
+      "to": "crate::cook::command::CookCommand",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/tests.rs",
+      "to": "crate::testing::{TestContext, TestFixtures}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/tests.rs",
+      "to": "mod::retry_tests {",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/tests.rs",
+      "to": "crate::cook::retry::{format_subprocess_error, is_transient_error}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/tests.rs",
+      "to": "mod::git_ops_tests {",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/tests.rs",
+      "to": "crate::abstractions::{GitOperations, MockGitOperations}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/retry.rs",
+      "to": "crate::abstractions::{ClaudeClient, RealClaudeClient}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/retry.rs",
+      "to": "anyhow::{Context, Result}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/retry.rs",
+      "to": "once_cell::sync::Lazy",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/retry.rs",
+      "to": "std::sync::Arc",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/retry.rs",
+      "to": "std::time::Duration",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/retry.rs",
+      "to": "tokio::process::Command",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/retry.rs",
+      "to": "tokio::time::sleep",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/retry.rs",
+      "to": "mod::tests {",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/retry.rs",
+      "to": "super::*",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/cook/retry.rs",
+      "to": "std::time::Instant",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/main.rs",
+      "to": "clap::{CommandFactory, Parser, Subcommand}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/main.rs",
+      "to": "std::path::PathBuf",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/main.rs",
+      "to": "tracing::{debug, error, trace}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/main.rs",
+      "to": "mmm::worktree::WorktreeManager",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/analyze/command.rs",
+      "to": "crate::context::{save_analysis, ContextAnalyzer, ProjectAnalyzer}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/analyze/command.rs",
+      "to": "anyhow::Result",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/analyze/command.rs",
+      "to": "std::path::PathBuf",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/analyze/mod.rs",
+      "to": "anyhow::Result",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/analyze/mod.rs",
+      "to": "command::AnalyzeCommand",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/abstractions/claude.rs",
+      "to": "anyhow::Result",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/abstractions/claude.rs",
+      "to": "async_trait::async_trait",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/abstractions/claude.rs",
+      "to": "std::collections::HashMap",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/abstractions/claude.rs",
+      "to": "std::sync::Arc",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/abstractions/claude.rs",
+      "to": "tokio::sync::Mutex",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/abstractions/claude.rs",
+      "to": "std::time::Duration",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/abstractions/claude.rs",
+      "to": "tokio::time::sleep",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/abstractions/claude.rs",
+      "to": "crate::abstractions::exit_status::ExitStatusExt",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/abstractions/claude.rs",
+      "to": "mod::tests {",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/abstractions/claude.rs",
+      "to": "super::*",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/abstractions/git.rs",
+      "to": "anyhow::Result",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/abstractions/git.rs",
+      "to": "async_trait::async_trait",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/abstractions/git.rs",
+      "to": "std::path::Path",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/abstractions/git.rs",
+      "to": "std::sync::Arc",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/abstractions/git.rs",
+      "to": "tokio::sync::Mutex",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/abstractions/git.rs",
+      "to": "crate::abstractions::exit_status::ExitStatusExt",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/abstractions/git.rs",
+      "to": "mod::tests {",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/abstractions/git.rs",
+      "to": "super::*",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/abstractions/mod.rs",
+      "to": "mod::exit_status",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/simple_state/cache.rs",
+      "to": "anyhow::{Context, Result}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/simple_state/cache.rs",
+      "to": "serde::{de::DeserializeOwned, Serialize}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/simple_state/cache.rs",
+      "to": "std::fs",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/simple_state/cache.rs",
+      "to": "std::path::PathBuf",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/simple_state/cache.rs",
+      "to": "std::time::{Duration, SystemTime}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/simple_state/types.rs",
+      "to": "chrono::{DateTime, Utc}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/simple_state/types.rs",
+      "to": "serde::{Deserialize, Serialize}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/simple_state/mod.rs",
+      "to": "mod::tests",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/simple_state/mod.rs",
+      "to": "anyhow::Result",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/simple_state/mod.rs",
+      "to": "std::path::PathBuf",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/simple_state/state.rs",
+      "to": "anyhow::{Context, Result}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/simple_state/state.rs",
+      "to": "chrono::Utc",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/simple_state/state.rs",
+      "to": "std::fs",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/simple_state/state.rs",
+      "to": "std::path::{Path, PathBuf}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/simple_state/state.rs",
+      "to": "super::types::{SessionRecord, State}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/simple_state/tests.rs",
+      "to": "mod::test {",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/simple_state/tests.rs",
+      "to": "super::super::*",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/simple_state/tests.rs",
+      "to": "tempfile::TempDir",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/simple_state/tests.rs",
+      "to": "std::sync::{Arc, Mutex}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/simple_state/tests.rs",
+      "to": "std::thread",
+      "dep_type": "Import"
+    }
+  ],
+  "cycles": [],
+  "layers": [
+    {
+      "name": "top-level",
+      "level": 1,
+      "modules": [
+        "tests/cook_iteration_tests.rs",
+        "tests/edge_case_tests.rs",
+        "src/main.rs",
+        "tests/error_handling_tests.rs",
+        "tests/worktree_integration_tests.rs",
+        "tests/cook_tests.rs",
+        "src/lib.rs",
+        "tests/config_integration_tests.rs",
+        "tests/command_parsing_tests.rs",
+        "tests/subprocess_tests.rs",
+        "tests/cli_tests.rs",
+        "tests/workflow_tests.rs"
+      ]
+    },
+    {
+      "name": "module",
+      "level": 2,
+      "modules": [
+        "src/context/mod.rs",
+        "src/cook/git_ops.rs",
+        "src/context/analyzer.rs",
+        "src/context/test_coverage.rs",
+        "src/testing/mod.rs",
+        "src/init/templates.rs",
+        "src/analyze/mod.rs",
+        "src/abstractions/mod.rs",
+        "src/context/architecture.rs",
+        "src/simple_state/state.rs",
+        "src/init/mod.rs",
+        "src/worktree/test_state.rs",
+        "src/simple_state/mod.rs",
+        "src/init/command.rs",
+        "src/cook/session.rs",
+        "src/abstractions/git.rs",
+        "src/config/loader.rs",
+        "src/analyze/command.rs",
+        "src/abstractions/exit_status.rs",
+        "src/cook/retry.rs",
+        "src/cook/command.rs",
+        "src/simple_state/types.rs",
+        "src/simple_state/tests.rs",
+        "src/worktree/mod.rs",
+        "src/worktree/state.rs",
+        "src/context/conventions.rs",
+        "src/simple_state/cache.rs",
+        "src/cook/workflow.rs",
+        "src/config/workflow.rs",
+        "src/cook/tests.rs",
+        "src/config/command_parser.rs",
+        "src/abstractions/claude.rs",
+        "src/config/command_validator.rs",
+        "src/cook/mod.rs",
+        "src/context/dependencies.rs",
+        "src/config/mod.rs",
+        "src/worktree/tests.rs",
+        "src/context/debt.rs",
+        "src/worktree/manager.rs",
+        "src/config/command.rs"
+      ]
+    }
+  ]
+}

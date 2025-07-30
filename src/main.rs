@@ -75,6 +75,24 @@ enum Commands {
         #[arg(short, long)]
         path: Option<PathBuf>,
     },
+    /// Analyze project structure and gather metrics
+    Analyze {
+        /// Type of analysis to run (context, metrics, all)
+        #[arg(short = 't', long, default_value = "all")]
+        analysis_type: String,
+
+        /// Output format (json, pretty, summary)
+        #[arg(short = 'o', long, default_value = "summary")]
+        output: String,
+
+        /// Save results to .mmm/context directory
+        #[arg(short = 's', long)]
+        save: bool,
+
+        /// Path to analyze (defaults to current directory)
+        #[arg(short = 'p', long)]
+        path: Option<PathBuf>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -167,6 +185,21 @@ async fn main() {
                 path,
             };
             mmm::init::run(init_cmd).await
+        }
+        Some(Commands::Analyze {
+            analysis_type,
+            output,
+            save,
+            path,
+        }) => {
+            let analyze_cmd = mmm::analyze::command::AnalyzeCommand {
+                analysis_type,
+                output,
+                save,
+                verbose: cli.verbose > 0,
+                path,
+            };
+            mmm::analyze::run(analyze_cmd).await
         }
         None => {
             // Display help when no command is provided (following CLI conventions)

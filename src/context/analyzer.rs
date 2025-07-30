@@ -256,9 +256,7 @@ fn suggest_from_dependencies(deps: &DependencyGraph) -> Vec<Suggestion> {
                 priority: SuggestionPriority::Medium,
                 category: SuggestionCategory::Dependencies,
                 title: "Reduce module coupling".to_string(),
-                description: format!(
-                    "{module} has {count} dependencies, consider refactoring"
-                ),
+                description: format!("{module} has {count} dependencies, consider refactoring"),
                 affected_files: vec![PathBuf::from(module)],
                 estimated_impact: ImpactLevel::Moderate,
             });

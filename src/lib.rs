@@ -11,6 +11,7 @@
 //! ## Modules
 //!
 //! - `abstractions` - Trait-based abstractions for external dependencies (git, Claude CLI)
+//! - `analyze` - Project analysis and metrics commands
 //! - `config` - Configuration management for the tool
 //! - `context` - Context-aware project understanding and analysis
 //! - `cook` - Core cooking command implementation with mapping support
@@ -19,6 +20,7 @@
 //! - `worktree` - Git worktree management for parallel sessions
 //! - `testing` - Testing utilities and fixtures for comprehensive testing
 pub mod abstractions;
+pub mod analyze;
 pub mod config;
 pub mod context;
 pub mod cook;

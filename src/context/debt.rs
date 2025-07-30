@@ -134,6 +134,32 @@ impl BasicTechnicalDebtMapper {
         Self
     }
 
+    /// Find debt comments in code (for tests)
+    pub fn find_debt_comments(&self, content: &str, filename: &str) -> Vec<DebtItem> {
+        let path = Path::new(filename);
+        tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(self.extract_comments(path, content))
+    }
+
+    /// Calculate complexity of code (for tests)
+    pub fn calculate_complexity(&self, content: &str) -> u32 {
+        self.calculate_cyclomatic_complexity(content)
+    }
+
+    /// Find code duplication (for tests)
+    pub fn find_duplication(
+        &self,
+        file_contents: &HashMap<String, String>,
+    ) -> HashMap<String, Vec<CodeBlock>> {
+        let files: Vec<(PathBuf, String)> = file_contents
+            .iter()
+            .map(|(path, content)| (PathBuf::from(path), content.clone()))
+            .collect();
+
+        self.detect_duplicates(&files)
+    }
+
     /// Extract TODO/FIXME/HACK comments
     async fn extract_comments(&self, file_path: &Path, content: &str) -> Vec<DebtItem> {
         let mut debt_items = Vec::new();
@@ -148,6 +174,8 @@ impl BasicTechnicalDebtMapper {
                 (DebtType::Fixme, "FIXME")
             } else if line_upper.contains("HACK") {
                 (DebtType::Hack, "HACK")
+            } else if line_upper.contains("XXX") {
+                (DebtType::Fixme, "XXX") // XXX is similar to FIXME
             } else if line_upper.contains("DEPRECATED") {
                 (DebtType::Deprecated, "DEPRECATED")
             } else {
@@ -189,7 +217,7 @@ impl BasicTechnicalDebtMapper {
     }
 
     /// Calculate cyclomatic complexity for functions
-    fn calculate_complexity(&self, function_content: &str) -> u32 {
+    fn calculate_cyclomatic_complexity(&self, function_content: &str) -> u32 {
         let mut complexity = 1; // Base complexity
 
         // Count decision points
@@ -289,7 +317,7 @@ impl BasicTechnicalDebtMapper {
     /// Simple duplicate detection using line hashes
     fn detect_duplicates(&self, files: &[(PathBuf, String)]) -> HashMap<String, Vec<CodeBlock>> {
         let mut hash_to_blocks: HashMap<String, Vec<CodeBlock>> = HashMap::new();
-        let min_duplicate_lines = 5;
+        let min_duplicate_lines = 3;
 
         for (file_path, content) in files {
             let lines: Vec<&str> = content.lines().collect();
@@ -338,16 +366,19 @@ impl TechnicalDebtMapper for BasicTechnicalDebtMapper {
         let mut all_debt_items = Vec::new();
         let mut all_hotspots = Vec::new();
         let mut files_content = Vec::new();
-
         // Walk through source files
         for entry in WalkDir::new(project_path)
             .into_iter()
             .filter_entry(|e| {
                 let name = e.file_name().to_string_lossy();
-                !name.starts_with('.') && name != "target" && name != "node_modules"
+                // Don't filter out the root directory
+                e.depth() == 0 || (!name.starts_with('.') && name != "target" && name != "node_modules")
             })
-            .filter_map(Result::ok)
-            .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("rs"))
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                e.file_type().is_file()
+                    && e.path().extension().and_then(|s| s.to_str()) == Some("rs")
+            })
         {
             let file_path = entry.path();
             if let Ok(content) = tokio::fs::read_to_string(file_path).await {
@@ -460,5 +491,254 @@ impl TechnicalDebtMapper for BasicTechnicalDebtMapper {
         }
 
         Ok(updated_map)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_debt_pattern_detection() {
+        let mapper = BasicTechnicalDebtMapper::new();
+
+        let content = r#"
+            // TODO: Refactor this function
+            fn messy_function() {
+                // FIXME: This is a hack
+                let x = 42; // HACK: Magic number
+                
+                // TODO(high): Critical security issue
+                unsafe {
+                    // XXX: This needs review
+                }
+            }
+        "#;
+
+        let debt_items = mapper.find_debt_comments(content, "test.rs");
+        assert_eq!(debt_items.len(), 5);
+
+        // Check different debt types
+        assert!(debt_items
+            .iter()
+            .any(|d| matches!(d.debt_type, DebtType::Todo)));
+        assert!(debt_items
+            .iter()
+            .any(|d| matches!(d.debt_type, DebtType::Fixme)));
+        assert!(debt_items
+            .iter()
+            .any(|d| matches!(d.debt_type, DebtType::Hack)));
+
+        // Check high priority items (high impact)
+        assert!(debt_items.iter().any(|d| d.impact >= 7));
+    }
+
+    #[test]
+    fn test_complexity_analysis() {
+        let mapper = BasicTechnicalDebtMapper::new();
+
+        // Simple function
+        let simple = r#"
+            fn add(a: i32, b: i32) -> i32 {
+                a + b
+            }
+        "#;
+        assert_eq!(mapper.calculate_complexity(simple), 1);
+
+        // Complex function with conditions
+        let complex = r#"
+            fn complex_logic(x: i32) -> i32 {
+                if x > 0 {
+                    if x > 10 {
+                        for i in 0..x {
+                            if i % 2 == 0 {
+                                continue;
+                            }
+                        }
+                    } else {
+                        while x < 10 {
+                            x += 1;
+                        }
+                    }
+                } else if x < -10 {
+                    match x {
+                        -20 => 1,
+                        -30 => 2,
+                        _ => 3,
+                    }
+                }
+                x
+            }
+        "#;
+        let complexity = mapper.calculate_complexity(complex);
+        assert!(
+            complexity > 5,
+            "Complex function should have high complexity"
+        );
+    }
+
+    #[test]
+    fn test_duplication_detection() {
+        let mapper = BasicTechnicalDebtMapper::new();
+
+        let mut file_contents = std::collections::HashMap::new();
+        file_contents.insert(
+            "file1.rs".to_string(),
+            r#"
+            fn process_data() {
+                validate();
+                save();
+                notify();
+            }
+            
+            fn other_function() {
+                do_something();
+            }
+            "#
+            .to_string(),
+        );
+        file_contents.insert(
+            "file2.rs".to_string(),
+            r#"
+            fn handle_request() {
+                validate();
+                save();
+                notify();
+            }
+            
+            fn another_function() {
+                do_something_else();
+            }
+            "#
+            .to_string(),
+        );
+
+        let duplication_map = mapper.find_duplication(&file_contents);
+
+        assert!(!duplication_map.is_empty(), "Expected to find duplicates");
+
+        // Should detect similar code blocks
+        let duplicates: Vec<_> = duplication_map.values().flatten().collect();
+        assert!(duplicates.len() >= 2);
+    }
+
+    #[test]
+    fn test_debt_priority_ordering() {
+        let high_debt = DebtItem {
+            id: "1".to_string(),
+            title: "High priority".to_string(),
+            description: "Critical issue".to_string(),
+            location: PathBuf::from("test.rs"),
+            line_number: Some(1),
+            debt_type: DebtType::Fixme,
+            impact: 10,
+            effort: 1,
+            tags: vec![],
+        };
+
+        let low_debt = DebtItem {
+            id: "2".to_string(),
+            title: "Low priority".to_string(),
+            description: "Minor issue".to_string(),
+            location: PathBuf::from("test.rs"),
+            line_number: Some(2),
+            debt_type: DebtType::Todo,
+            impact: 2,
+            effort: 5,
+            tags: vec![],
+        };
+
+        assert!(high_debt > low_debt);
+    }
+
+    #[tokio::test]
+    async fn test_full_debt_mapping() {
+        let mapper = BasicTechnicalDebtMapper::new();
+        let temp_dir = TempDir::new().unwrap();
+        let project_path = temp_dir.path();
+
+        // Create test files with various debt indicators
+        fs::create_dir_all(project_path.join("src")).unwrap();
+        fs::write(
+            project_path.join("src/main.rs"),
+            r#"
+            // TODO: Add error handling
+            fn main() {
+                let data = load_data(); // FIXME: This can panic
+                process(data);
+            }
+            
+            fn complex_function(x: i32) -> i32 {
+                let mut result = 0;
+                if x > 0 {
+                    if x > 10 {
+                        for i in 0..x {
+                            if i % 2 == 0 {
+                                continue;
+                            }
+                            if i % 3 == 0 {
+                                result += 1;
+                            }
+                        }
+                    } else {
+                        while result < 10 {
+                            result += 1;
+                            if result == 5 {
+                                break;
+                            }
+                        }
+                    }
+                } else if x < -10 {
+                    match x {
+                        -20 => return 1,
+                        -30 => return 2,
+                        -40 => return 3,
+                        -50 => return 4,
+                        _ => return 5,
+                    }
+                } else if x == 0 {
+                    return 0;
+                }
+                
+                for i in 0..5 {
+                    if i > 3 {
+                        result += 2;
+                    }
+                    if result > 100 {
+                        return result;
+                    }
+                }
+                
+                if result % 2 == 0 {
+                    result * 2
+                } else {
+                    result * 3
+                }
+            }
+            "#,
+        )
+        .unwrap();
+        
+        // Ensure the file is flushed to disk
+        fs::File::open(project_path.join("src/main.rs")).unwrap().sync_all().unwrap();
+
+        // Wait a bit to ensure file is written
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+        let debt_map = mapper.map_technical_debt(project_path).await.unwrap();
+
+        // The test should find at least the TODO and FIXME comments
+        assert!(
+            debt_map.debt_items.len() >= 2,
+            "Expected at least 2 debt items, found {}",
+            debt_map.debt_items.len()
+        );
+        assert!(
+            !debt_map.hotspots.is_empty(),
+            "Expected at least one complexity hotspot"
+        );
+        assert_eq!(debt_map.debt_items.len(), debt_map.priority_queue.len());
     }
 }

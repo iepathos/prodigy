@@ -1,0 +1,182 @@
+{
+  "patterns": [
+    "Modular"
+  ],
+  "layers": [],
+  "components": {
+    "context": {
+      "name": "context",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct AnalysisResult",
+        "struct ArchitectureInfo",
+        "struct ComponentInfo",
+        "struct ArchitectureViolation",
+        "struct AnalysisMetadata",
+        "struct FileContext",
+        "struct FileConventions",
+        "struct Suggestion",
+        "trait ContextAnalyzer:",
+        "fn load_analysis(project_path:",
+        "fn save_analysis(project_path:"
+      ],
+      "dependencies": [
+        "anyhow",
+        "walkdir",
+        "serde"
+      ]
+    },
+    "abstractions": {
+      "name": "abstractions",
+      "responsibility": "Module functionality",
+      "interfaces": [],
+      "dependencies": [
+        "anyhow",
+        "async_trait",
+        "tokio"
+      ]
+    },
+    "testing": {
+      "name": "testing",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct TestContext",
+        "fn new()",
+        "fn with_mocks",
+        "fn temp_path(&self)",
+        "fn create_test_file(&self,",
+        "struct MockGitBuilder",
+        "fn new()",
+        "fn is_repo(mut",
+        "fn fn",
+        "fn fn",
+        "fn build(self)",
+        "struct MockClaudeBuilder",
+        "fn new()",
+        "fn is_available(mut",
+        "fn fn",
+        "fn fn",
+        "fn build(self)",
+        "struct TestFixtures",
+        "fn fn",
+        "fn fn",
+        "fn fn",
+        "fn fn",
+        "fn unavailable_claude()"
+      ],
+      "dependencies": [
+        "anyhow",
+        "tempfile"
+      ]
+    },
+    "analyze": {
+      "name": "analyze",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn"
+      ],
+      "dependencies": [
+        "anyhow",
+        "command"
+      ]
+    },
+    "simple_state": {
+      "name": "simple_state",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn init()"
+      ],
+      "dependencies": [
+        "anyhow",
+        "serde",
+        "chrono",
+        "tempfile"
+      ]
+    },
+    "config": {
+      "name": "config",
+      "responsibility": "Configuration management",
+      "interfaces": [
+        "fn get_global_mmm_dir()",
+        "struct Config",
+        "struct GlobalConfig",
+        "struct ProjectConfig",
+        "struct PluginConfig",
+        "fn new()",
+        "fn merge_env_vars(&mut",
+        "fn get_claude_api_key(&self)",
+        "fn get_auto_commit(&self)",
+        "fn get_spec_dir(&self)"
+      ],
+      "dependencies": [
+        "serde",
+        "anyhow",
+        "directories",
+        "once_cell",
+        "tokio",
+        "tempfile"
+      ]
+    },
+    "worktree": {
+      "name": "worktree",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct WorktreeSession",
+        "fn new(name:"
+      ],
+      "dependencies": [
+        "tempfile",
+        "anyhow",
+        "chrono",
+        "uuid",
+        "serde"
+      ]
+    },
+    "init": {
+      "name": "init",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn"
+      ],
+      "dependencies": [
+        "clap",
+        "anyhow",
+        "tempfile"
+      ]
+    },
+    "cook": {
+      "name": "cook",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn"
+      ],
+      "dependencies": [
+        "serde",
+        "clap",
+        "anyhow",
+        "once_cell",
+        "tokio",
+        "tempfile",
+        "chrono",
+        "git_ops",
+        "retry",
+        "workflow",
+        "glob"
+      ]
+    }
+  },
+  "violations": [
+    {
+      "rule": "Avoid god components",
+      "location": "cook",
+      "severity": "Medium",
+      "description": "cook has 11 dependencies, consider splitting"
+    },
+    {
+      "rule": "Components should expose interfaces",
+      "location": "abstractions",
+      "severity": "Low",
+      "description": "abstractions has no public interfaces"
+    }
+  ]
+}

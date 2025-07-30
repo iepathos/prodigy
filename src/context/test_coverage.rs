@@ -119,6 +119,132 @@ impl BasicTestCoverageAnalyzer {
         Self
     }
 
+    /// Extract functions from code (for tests)
+    pub fn extract_functions(&self, content: &str) -> Vec<String> {
+        self.extract_functions_with_lines(content)
+            .into_iter()
+            .map(|(name, _)| name)
+            .collect()
+    }
+
+    /// Find tested functions (for tests)
+    pub fn find_tested_functions(&self, content: &str) -> Vec<String> {
+        // Extract function calls from test content
+        let mut tested = Vec::new();
+
+        // Common test assertion functions to exclude
+        let excludes = [
+            "assert",
+            "assert_eq",
+            "assert_ne",
+            "is_ok",
+            "is_err",
+            "unwrap",
+            "expect",
+            "println",
+            "eprintln",
+            "panic",
+        ];
+
+        for line in content.lines() {
+            let line = line.trim();
+            // Skip lines that are just test attributes
+            if line.starts_with("#[") {
+                continue;
+            }
+
+            // Find all function calls in the line using a simple state machine
+            let chars: Vec<char> = line.chars().collect();
+            let mut i = 0;
+            
+            while i < chars.len() {
+                // Look for function calls: identifier followed by '('
+                if i > 0 && chars[i] == '(' {
+                    // Walk back to find the function name
+                    let mut j = i - 1;
+                    
+                    // Skip whitespace
+                    while j > 0 && chars[j].is_whitespace() {
+                        j -= 1;
+                    }
+                    
+                    // Find the end of the identifier
+                    let end = j + 1;
+                    
+                    // Find the start of the identifier
+                    while j > 0 && (chars[j].is_alphanumeric() || chars[j] == '_') {
+                        j -= 1;
+                    }
+                    
+                    // If we found a valid identifier
+                    if j < end - 1 {
+                        let start = if chars[j].is_alphanumeric() || chars[j] == '_' { j } else { j + 1 };
+                        let func_name: String = chars[start..end].iter().collect();
+                        
+                        // Check if it's a valid function name
+                        if !func_name.is_empty()
+                            && func_name.chars().next().unwrap().is_alphabetic()
+                            && !excludes.contains(&func_name.as_str())
+                            && !func_name.starts_with("test_")
+                            && func_name != "fn"
+                            && func_name != "mod"
+                            && func_name != "if"
+                            && func_name != "match"
+                            && func_name != "for"
+                            && func_name != "while"
+                        {
+                            tested.push(func_name);
+                        }
+                    }
+                }
+                i += 1;
+            }
+        }
+
+        tested.sort();
+        tested.dedup();
+        tested
+    }
+
+    /// Calculate overall coverage (for tests)
+    pub fn calculate_overall_coverage(&self, file_coverage: &HashMap<String, FileCoverage>) -> f64 {
+        let (total, tested) = file_coverage.values().fold((0, 0), |(total, tested), cov| {
+            (total + cov.total_functions, tested + cov.tested_functions)
+        });
+
+        if total > 0 {
+            tested as f64 / total as f64
+        } else {
+            0.0
+        }
+    }
+
+    /// Identify critical paths (for tests)
+    pub fn identify_critical_paths(&self, untested: &[String]) -> Vec<String> {
+        untested
+            .iter()
+            .filter(|func| {
+                let func_lower = func.to_lowercase();
+                func_lower.contains("auth")
+                    || func_lower.contains("security")
+                    || func_lower.contains("payment")
+                    || func_lower.contains("validate")
+                    || func_lower.contains("encrypt")
+                    || func_lower.contains("decrypt")
+            })
+            .cloned()
+            .collect()
+    }
+
+    /// Check if a path is a test file
+    pub fn is_test_file(&self, path: &Path) -> bool {
+        let path_str = path.to_string_lossy();
+        path_str.contains("/tests/")
+            || path_str.contains("_test.rs")
+            || path_str.contains("test_")
+            || path_str.ends_with("_test.rs")
+    }
+
     /// Find test files for a given source file
     fn find_test_files(&self, source_file: &Path, project_path: &Path) -> Vec<PathBuf> {
         let mut test_files = Vec::new();
@@ -150,14 +276,15 @@ impl BasicTestCoverageAnalyzer {
         test_files
     }
 
-    /// Extract functions from Rust code
-    fn extract_functions(&self, content: &str) -> Vec<(String, u32)> {
+    /// Extract functions from Rust code with line numbers
+    fn extract_functions_with_lines(&self, content: &str) -> Vec<(String, u32)> {
         let mut functions = Vec::new();
 
         for (line_num, line) in content.lines().enumerate() {
             let line = line.trim();
             if (line.starts_with("pub fn")
-                || line.starts_with("fn")
+                || line.starts_with("pub(") && line.contains(" fn ")
+                || line.starts_with("fn ")
                 || line.starts_with("pub async fn")
                 || line.starts_with("async fn"))
                 && !line.contains("#[test]")
@@ -251,8 +378,8 @@ impl BasicTestCoverageAnalyzer {
         Criticality::Low
     }
 
-    /// Identify critical paths
-    fn identify_critical_paths(&self, project_path: &Path) -> Vec<CriticalPath> {
+    /// Identify critical paths in project
+    fn identify_critical_paths_in_project(&self, project_path: &Path) -> Vec<CriticalPath> {
         let mut paths = Vec::new();
 
         // API/HTTP handlers
@@ -305,7 +432,8 @@ impl TestCoverageAnalyzer for BasicTestCoverageAnalyzer {
             .into_iter()
             .filter_entry(|e| {
                 let name = e.file_name().to_string_lossy();
-                !name.starts_with('.') && name != "target" && name != "node_modules"
+                // Don't filter out the root directory
+                e.depth() == 0 || (!name.starts_with('.') && name != "target" && name != "node_modules")
             })
             .filter_map(Result::ok)
             .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("rs"))
@@ -322,7 +450,8 @@ impl TestCoverageAnalyzer for BasicTestCoverageAnalyzer {
             .into_iter()
             .filter_entry(|e| {
                 let name = e.file_name().to_string_lossy();
-                !name.starts_with('.') && name != "target" && name != "node_modules"
+                // Don't filter out the root directory
+                e.depth() == 0 || (!name.starts_with('.') && name != "target" && name != "node_modules")
             })
             .filter_map(Result::ok)
             .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("rs"))
@@ -337,7 +466,7 @@ impl TestCoverageAnalyzer for BasicTestCoverageAnalyzer {
             }
 
             if let Ok(content) = tokio::fs::read_to_string(path).await {
-                let functions = self.extract_functions(&content);
+                let functions = self.extract_functions_with_lines(&content);
                 let line_count = content.lines().count() as u32;
 
                 // Find tests for this file
@@ -392,7 +521,7 @@ impl TestCoverageAnalyzer for BasicTestCoverageAnalyzer {
             0.0
         };
 
-        let critical_paths = self.identify_critical_paths(project_path);
+        let critical_paths = self.identify_critical_paths_in_project(project_path);
 
         Ok(TestCoverageMap {
             file_coverage,
@@ -415,7 +544,7 @@ impl TestCoverageAnalyzer for BasicTestCoverageAnalyzer {
             if file.extension().and_then(|s| s.to_str()) == Some("rs") {
                 let full_path = project_path.join(file);
                 if let Ok(content) = tokio::fs::read_to_string(&full_path).await {
-                    let functions = self.extract_functions(&content);
+                    let functions = self.extract_functions_with_lines(&content);
                     let line_count = content.lines().count() as u32;
 
                     // Find tests
@@ -463,5 +592,207 @@ impl TestCoverageAnalyzer for BasicTestCoverageAnalyzer {
         };
 
         Ok(updated_map)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_function_extraction() {
+        let analyzer = BasicTestCoverageAnalyzer::new();
+
+        let content = r#"
+            pub fn add(a: i32, b: i32) -> i32 {
+                a + b
+            }
+            
+            fn subtract(a: i32, b: i32) -> i32 {
+                a - b
+            }
+            
+            async fn fetch_data() -> Result<String> {
+                Ok("data".to_string())
+            }
+            
+            pub(crate) fn internal_helper() {}
+        "#;
+
+        let functions = analyzer.extract_functions(content);
+        assert_eq!(functions.len(), 4);
+        assert!(functions.contains(&"add".to_string()));
+        assert!(functions.contains(&"subtract".to_string()));
+        assert!(functions.contains(&"fetch_data".to_string()));
+        assert!(functions.contains(&"internal_helper".to_string()));
+    }
+
+    #[test]
+    fn test_tested_function_detection() {
+        let analyzer = BasicTestCoverageAnalyzer::new();
+
+        let test_content = r#"
+            #[cfg(test)]
+            mod tests {
+                use super::*;
+                
+                #[test]
+                fn test_add() {
+                    assert_eq!(add(2, 2), 4);
+                }
+                
+                #[test]
+                fn test_subtract() {
+                    assert_eq!(subtract(5, 3), 2);
+                }
+                
+                #[tokio::test]
+                async fn test_fetch_data() {
+                    let result = fetch_data().await;
+                    assert!(result.is_ok());
+                }
+            }
+        "#;
+
+        let tested = analyzer.find_tested_functions(test_content);
+        assert_eq!(tested.len(), 3);
+        assert!(tested.contains(&"add".to_string()));
+        assert!(tested.contains(&"subtract".to_string()));
+        assert!(tested.contains(&"fetch_data".to_string()));
+    }
+
+    #[test]
+    fn test_coverage_calculation() {
+        let analyzer = BasicTestCoverageAnalyzer::new();
+
+        let mut file_coverage = HashMap::new();
+        file_coverage.insert(
+            "src/math.rs".to_string(),
+            FileCoverage {
+                path: PathBuf::from("src/math.rs"),
+                coverage_percentage: 70.0,
+                tested_lines: 70,
+                total_lines: 100,
+                tested_functions: 7,
+                total_functions: 10,
+                has_tests: true,
+            },
+        );
+        file_coverage.insert(
+            "src/utils.rs".to_string(),
+            FileCoverage {
+                path: PathBuf::from("src/utils.rs"),
+                coverage_percentage: 40.0,
+                tested_lines: 40,
+                total_lines: 100,
+                tested_functions: 2,
+                total_functions: 5,
+                has_tests: true,
+            },
+        );
+
+        let overall = analyzer.calculate_overall_coverage(&file_coverage);
+        // (7 + 2) / (10 + 5) = 9 / 15 = 0.6
+        assert!((overall - 0.6).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_critical_path_identification() {
+        let analyzer = BasicTestCoverageAnalyzer::new();
+
+        let untested = vec![
+            "authenticate_user".to_string(),
+            "process_payment".to_string(),
+            "validate_security_token".to_string(),
+            "format_string".to_string(),
+            "get_color".to_string(),
+        ];
+
+        let critical = analyzer.identify_critical_paths(&untested);
+
+        // Should identify security and payment functions as critical
+        assert!(critical.contains(&"authenticate_user".to_string()));
+        assert!(critical.contains(&"process_payment".to_string()));
+        assert!(critical.contains(&"validate_security_token".to_string()));
+
+        // Utility functions should not be critical
+        assert!(!critical.contains(&"format_string".to_string()));
+        assert!(!critical.contains(&"get_color".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_full_coverage_analysis() {
+        let analyzer = BasicTestCoverageAnalyzer::new();
+        let temp_dir = TempDir::new().unwrap();
+        let project_path = temp_dir.path();
+
+        // Create source files
+        fs::create_dir_all(project_path.join("src")).unwrap();
+        fs::write(
+            project_path.join("src/lib.rs"),
+            r#"
+            pub fn multiply(a: i32, b: i32) -> i32 {
+                a * b
+            }
+            
+            pub fn divide(a: i32, b: i32) -> Option<i32> {
+                if b != 0 {
+                    Some(a / b)
+                } else {
+                    None
+                }
+            }
+            "#,
+        )
+        .unwrap();
+
+        // Create test file
+        fs::create_dir_all(project_path.join("tests")).unwrap();
+        fs::write(
+            project_path.join("tests/lib_test.rs"),
+            r#"
+            #[test]
+            fn test_multiply() {
+                assert_eq!(multiply(3, 4), 12);
+            }
+            "#,
+        )
+        .unwrap();
+
+        // Wait a bit to ensure files are written
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+        let coverage = analyzer.analyze_coverage(project_path).await.unwrap();
+
+        assert!(
+            coverage
+                .file_coverage
+                .keys()
+                .any(|p| p.ends_with("src/lib.rs")),
+            "Expected to find src/lib.rs in coverage map"
+        );
+        assert!(coverage
+            .untested_functions
+            .iter()
+            .any(|f| f.name == "divide"));
+        assert!(!coverage
+            .untested_functions
+            .iter()
+            .any(|f| f.name == "multiply"));
+        assert!(coverage.overall_coverage < 1.0);
+        assert!(coverage.overall_coverage > 0.0);
+    }
+
+    #[test]
+    fn test_is_test_file() {
+        let analyzer = BasicTestCoverageAnalyzer::new();
+
+        assert!(analyzer.is_test_file(Path::new("tests/integration_test.rs")));
+        assert!(analyzer.is_test_file(Path::new("src/test_utils.rs")));
+        assert!(analyzer.is_test_file(Path::new("src/math_test.rs")));
+        assert!(!analyzer.is_test_file(Path::new("src/lib.rs")));
+        assert!(!analyzer.is_test_file(Path::new("src/main.rs")));
     }
 }

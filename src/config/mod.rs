@@ -118,7 +118,6 @@ impl Config {
             .unwrap_or(true)
     }
 
-
     pub fn get_spec_dir(&self) -> PathBuf {
         self.project
             .as_ref()
@@ -421,7 +420,6 @@ commands:
         });
         assert!(config.get_auto_commit());
     }
-
 
     #[test]
     fn test_get_spec_dir() {

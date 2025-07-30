@@ -185,6 +185,56 @@ impl BasicDependencyAnalyzer {
         imports
     }
 
+    /// Parse imports from a JavaScript/TypeScript file
+    #[allow(dead_code)]
+    fn parse_js_imports(&self, content: &str) -> Vec<String> {
+        let mut imports = Vec::new();
+
+        // ES6 imports
+        let es6_import_re = regex::Regex::new(
+            r#"import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s+from\s+)?['"]([^'"]+)['"]"#,
+        )
+        .unwrap();
+        for cap in es6_import_re.captures_iter(content) {
+            if let Some(path) = cap.get(1) {
+                imports.push(path.as_str().to_string());
+            }
+        }
+
+        // CommonJS requires
+        let require_re = regex::Regex::new(r#"require\s*\(['"]([^'"]+)['"]\)"#).unwrap();
+        for cap in require_re.captures_iter(content) {
+            if let Some(path) = cap.get(1) {
+                imports.push(path.as_str().to_string());
+            }
+        }
+
+        imports
+    }
+
+    /// Parse imports from a Python file
+    #[allow(dead_code)]
+    fn parse_python_imports(&self, content: &str) -> Vec<String> {
+        let mut imports = Vec::new();
+
+        for line in content.lines() {
+            let line = line.trim();
+            if line.starts_with("import ") {
+                if let Some(module) = line.strip_prefix("import ") {
+                    imports.push(module.split_whitespace().next().unwrap_or("").to_string());
+                }
+            } else if line.starts_with("from ") {
+                if let Some(rest) = line.strip_prefix("from ") {
+                    if let Some(module) = rest.split(" import").next() {
+                        imports.push(module.trim().to_string());
+                    }
+                }
+            }
+        }
+
+        imports
+    }
+
     /// Determine module type from path
     fn get_module_type(&self, path: &Path) -> ModuleType {
         let path_str = path.to_string_lossy();
@@ -216,7 +266,8 @@ impl DependencyAnalyzer for BasicDependencyAnalyzer {
             .into_iter()
             .filter_entry(|e| {
                 let name = e.file_name().to_string_lossy();
-                !name.starts_with('.') && name != "target" && name != "node_modules"
+                // Don't filter out the root directory
+                e.depth() == 0 || (!name.starts_with('.') && name != "target" && name != "node_modules")
             })
             .filter_map(Result::ok)
             .filter(|e| e.file_type().is_file())
@@ -355,5 +406,219 @@ impl BasicDependencyAnalyzer {
         }
 
         layers
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rust_import_parsing() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        let content = r#"
+            use std::path::Path;
+            use std::collections::{HashMap, HashSet};
+            use crate::context::AnalysisResult;
+            use super::*;
+            mod submodule;
+            pub mod public_module;
+        "#;
+
+        let imports = analyzer.parse_rust_imports(content);
+        assert_eq!(imports.len(), 5);
+        assert!(imports.contains(&"std::path::Path".to_string()));
+        assert!(imports.contains(&"std::collections::{HashMap, HashSet}".to_string()));
+        assert!(imports.contains(&"crate::context::AnalysisResult".to_string()));
+        assert!(imports.contains(&"super::*".to_string()));
+        assert!(imports.contains(&"mod::submodule".to_string()));
+    }
+
+    #[test]
+    fn test_js_import_parsing() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        let content = r#"
+            import React from 'react';
+            import { useState, useEffect } from 'react';
+            import * as utils from './utils';
+            const fs = require('fs');
+            const { readFile } = require('fs/promises');
+            import './styles.css';
+        "#;
+
+        let imports = analyzer.parse_js_imports(content);
+        assert_eq!(imports.len(), 6);
+        assert!(imports.contains(&"react".to_string()));
+        assert!(imports.contains(&"./utils".to_string()));
+        assert!(imports.contains(&"fs".to_string()));
+        assert!(imports.contains(&"fs/promises".to_string()));
+        assert!(imports.contains(&"./styles.css".to_string()));
+    }
+
+    #[test]
+    fn test_python_import_parsing() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        let content = r#"
+            import os
+            import sys
+            from pathlib import Path
+            from typing import List, Dict
+            from ..utils import helper
+            import numpy as np
+        "#;
+
+        let imports = analyzer.parse_python_imports(content);
+        assert_eq!(imports.len(), 6);
+        assert!(imports.contains(&"os".to_string()));
+        assert!(imports.contains(&"sys".to_string()));
+        assert!(imports.contains(&"pathlib".to_string()));
+        assert!(imports.contains(&"typing".to_string()));
+        assert!(imports.contains(&"..utils".to_string()));
+        assert!(imports.contains(&"numpy".to_string()));
+    }
+
+    #[test]
+    fn test_module_type_detection() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        assert!(matches!(
+            analyzer.get_module_type(Path::new("src/main.rs")),
+            ModuleType::Binary
+        ));
+        assert!(matches!(
+            analyzer.get_module_type(Path::new("tests/integration_test.rs")),
+            ModuleType::Test
+        ));
+        assert!(matches!(
+            analyzer.get_module_type(Path::new("build.rs")),
+            ModuleType::Build
+        ));
+        assert!(matches!(
+            analyzer.get_module_type(Path::new("Cargo.toml")),
+            ModuleType::Config
+        ));
+        assert!(matches!(
+            analyzer.get_module_type(Path::new("src/lib.rs")),
+            ModuleType::Library
+        ));
+    }
+
+    #[test]
+    fn test_cycle_detection() {
+        let mut graph = DependencyGraph {
+            nodes: HashMap::new(),
+            edges: vec![
+                DependencyEdge {
+                    from: "A".to_string(),
+                    to: "B".to_string(),
+                    dep_type: DependencyType::Import,
+                },
+                DependencyEdge {
+                    from: "B".to_string(),
+                    to: "C".to_string(),
+                    dep_type: DependencyType::Import,
+                },
+                DependencyEdge {
+                    from: "C".to_string(),
+                    to: "A".to_string(),
+                    dep_type: DependencyType::Import,
+                },
+            ],
+            cycles: vec![],
+            layers: vec![],
+        };
+
+        // Add nodes
+        graph.nodes.insert(
+            "A".to_string(),
+            ModuleNode {
+                path: "A".to_string(),
+                module_type: ModuleType::Library,
+                imports: vec!["B".to_string()],
+                exports: vec![],
+                external_deps: vec![],
+            },
+        );
+        graph.nodes.insert(
+            "B".to_string(),
+            ModuleNode {
+                path: "B".to_string(),
+                module_type: ModuleType::Library,
+                imports: vec!["C".to_string()],
+                exports: vec![],
+                external_deps: vec![],
+            },
+        );
+        graph.nodes.insert(
+            "C".to_string(),
+            ModuleNode {
+                path: "C".to_string(),
+                module_type: ModuleType::Library,
+                imports: vec!["A".to_string()],
+                exports: vec![],
+                external_deps: vec![],
+            },
+        );
+
+        graph.detect_cycles();
+
+        assert_eq!(graph.cycles.len(), 1);
+        assert_eq!(graph.cycles[0].len(), 3);
+        assert!(graph.cycles[0].contains(&"A".to_string()));
+        assert!(graph.cycles[0].contains(&"B".to_string()));
+        assert!(graph.cycles[0].contains(&"C".to_string()));
+    }
+
+    #[test]
+    fn test_layer_detection() {
+        let analyzer = BasicDependencyAnalyzer::new();
+        let mut graph = DependencyGraph {
+            nodes: HashMap::new(),
+            edges: vec![],
+            cycles: vec![],
+            layers: vec![],
+        };
+
+        // Add nodes at different depths
+        graph.nodes.insert(
+            "main.rs".to_string(),
+            ModuleNode {
+                path: "main.rs".to_string(),
+                module_type: ModuleType::Binary,
+                imports: vec![],
+                exports: vec![],
+                external_deps: vec![],
+            },
+        );
+        graph.nodes.insert(
+            "src/lib.rs".to_string(),
+            ModuleNode {
+                path: "src/lib.rs".to_string(),
+                module_type: ModuleType::Library,
+                imports: vec![],
+                exports: vec![],
+                external_deps: vec![],
+            },
+        );
+        graph.nodes.insert(
+            "src/context/mod.rs".to_string(),
+            ModuleNode {
+                path: "src/context/mod.rs".to_string(),
+                module_type: ModuleType::Library,
+                imports: vec![],
+                exports: vec![],
+                external_deps: vec![],
+            },
+        );
+
+        let layers = analyzer.detect_layers(&graph);
+
+        assert!(layers.len() >= 2);
+        assert_eq!(layers[0].name, "root");
+        assert_eq!(layers[0].level, 0);
+        assert!(layers[0].modules.contains(&"main.rs".to_string()));
     }
 }
