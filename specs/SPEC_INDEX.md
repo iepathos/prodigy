@@ -57,6 +57,7 @@ Performance improvements and system efficiency.
 - **Spec 33**: Batch Spec Implementation - Implement multiple specs (draft)
 - **Spec 45**: Context Window Management - Smart context selection (draft)
 - **Spec 46**: Real Metrics Tracking - Quantitative improvement measurement (draft)
+- **Spec 47**: Auto-Commit Analysis Changes - Automatic git commits for analysis updates (draft)
 
 ## Implementation Status
 
@@ -80,7 +81,7 @@ Performance improvements and system efficiency.
 - Spec 28: Structured Command Objects
 - Spec 29: Centralized Worktree State
 
-### 📝 Draft (8 specs)
+### 📝 Draft (9 specs)
 - Spec 30: Interrupted Worktree Recovery
 - Spec 31: Product Management Command
 - Spec 32: CLI Help as Default
@@ -89,6 +90,7 @@ Performance improvements and system efficiency.
 - Spec 44: Context-Aware Project Understanding
 - Spec 45: Context Window Management
 - Spec 46: Real Metrics Tracking
+- Spec 47: Auto-Commit Analysis Changes
 
 ### 🚧 In Progress (0 specs)
 None currently in progress.
@@ -149,6 +151,7 @@ Optimization Layer:
 ## Quick Reference
 
 ### Latest Specifications
+- Spec 47: Auto-Commit Analysis Changes (draft) - Automatic git commits for analysis updates
 - Spec 46: Real Metrics Tracking (draft) - Quantitative improvement measurement
 - Spec 45: Context Window Management (draft) - Smart context selection
 - Spec 44: Context-Aware Project Understanding (draft) - Deep codebase analysis
