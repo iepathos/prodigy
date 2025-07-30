@@ -11,7 +11,8 @@ pub const MMM_IMPLEMENT_SPEC: &str = include_str!("../../.claude/commands/mmm-im
 pub const MMM_LINT: &str = include_str!("../../.claude/commands/mmm-lint.md");
 pub const MMM_PRODUCT_ENHANCE: &str = include_str!("../../.claude/commands/mmm-product-enhance.md");
 pub const MMM_MERGE_WORKTREE: &str = include_str!("../../.claude/commands/mmm-merge-worktree.md");
-pub const MMM_CLEANUP_TECH_DEBT: &str = include_str!("../../.claude/commands/mmm-cleanup-tech-debt.md");
+pub const MMM_CLEANUP_TECH_DEBT: &str =
+    include_str!("../../.claude/commands/mmm-cleanup-tech-debt.md");
 
 pub fn get_all_templates() -> Vec<CommandTemplate> {
     vec![

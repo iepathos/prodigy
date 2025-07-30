@@ -15,8 +15,8 @@ fn test_cook_without_path() {
 
     // Initialize git repo
     Command::new("git")
-        .args(&["init"])
-        .current_dir(&repo_path)
+        .args(["init"])
+        .current_dir(repo_path)
         .output()
         .expect("Failed to create git repo");
 
@@ -25,8 +25,8 @@ fn test_cook_without_path() {
 
     // Change to the directory and run mmm cook
     let mut cmd = Command::cargo_bin("mmm").unwrap();
-    cmd.current_dir(&repo_path)
-        .args(&["cook", "--max-iterations", "0"])
+    cmd.current_dir(repo_path)
+        .args(["cook", "--max-iterations", "0"])
         .assert()
         .success();
 }
@@ -40,8 +40,8 @@ fn test_cook_with_absolute_path() {
 
     // Initialize git repo
     Command::new("git")
-        .args(&["init"])
-        .current_dir(&repo_path)
+        .args(["init"])
+        .current_dir(repo_path)
         .output()
         .expect("Failed to create git repo");
 
@@ -50,7 +50,7 @@ fn test_cook_with_absolute_path() {
 
     // Run mmm cook with absolute path
     let mut cmd = Command::cargo_bin("mmm").unwrap();
-    cmd.args(&["cook", repo_path.to_str().unwrap(), "--max-iterations", "0"])
+    cmd.args(["cook", repo_path.to_str().unwrap(), "--max-iterations", "0"])
         .assert()
         .success();
 }
@@ -66,7 +66,7 @@ fn test_cook_with_relative_path() {
 
     // Initialize git repo
     Command::new("git")
-        .args(&["init"])
+        .args(["init"])
         .current_dir(&repo_path)
         .output()
         .expect("Failed to create git repo");
@@ -76,8 +76,8 @@ fn test_cook_with_relative_path() {
 
     // Run mmm cook with relative path from parent directory
     let mut cmd = Command::cargo_bin("mmm").unwrap();
-    cmd.current_dir(&parent_path)
-        .args(&["cook", "./myrepo", "--max-iterations", "0"])
+    cmd.current_dir(parent_path)
+        .args(["cook", "./myrepo", "--max-iterations", "0"])
         .assert()
         .success();
 }
@@ -86,7 +86,7 @@ fn test_cook_with_relative_path() {
 #[test]
 fn test_cook_path_not_found() {
     let mut cmd = Command::cargo_bin("mmm").unwrap();
-    cmd.args(&["cook", "/path/that/does/not/exist"])
+    cmd.args(["cook", "/path/that/does/not/exist"])
         .assert()
         .failure()
         .stderr(predicate::str::contains("Directory not found"));
@@ -101,7 +101,7 @@ fn test_cook_path_not_directory() {
     fs::write(&file_path, "content").unwrap();
 
     let mut cmd = Command::cargo_bin("mmm").unwrap();
-    cmd.args(&["cook", file_path.to_str().unwrap()])
+    cmd.args(["cook", file_path.to_str().unwrap()])
         .assert()
         .failure()
         .stderr(predicate::str::contains("Path is not a directory"));
@@ -115,7 +115,7 @@ fn test_cook_path_not_git_repo() {
     let dir_path = temp_dir.path();
 
     let mut cmd = Command::cargo_bin("mmm").unwrap();
-    cmd.args(&["cook", dir_path.to_str().unwrap()])
+    cmd.args(["cook", dir_path.to_str().unwrap()])
         .assert()
         .failure()
         .stderr(predicate::str::contains("Not a git repository"));
@@ -130,8 +130,8 @@ fn test_cook_path_with_flags() {
 
     // Initialize git repo
     Command::new("git")
-        .args(&["init"])
-        .current_dir(&repo_path)
+        .args(["init"])
+        .current_dir(repo_path)
         .output()
         .expect("Failed to create git repo");
 
@@ -140,7 +140,7 @@ fn test_cook_path_with_flags() {
 
     // Run mmm cook with path and other flags
     let mut cmd = Command::cargo_bin("mmm").unwrap();
-    cmd.args(&[
+    cmd.args([
         "cook",
         repo_path.to_str().unwrap(),
         "--focus",
@@ -171,18 +171,18 @@ fn test_cook_path_tilde_expansion() {
 
     // Initialize git repo
     Command::new("git")
-        .args(&["init"])
+        .args(["init"])
         .current_dir(&test_dir)
         .output()
         .expect("Failed to create git repo");
 
     // Create a simple file
-    fs::write(format!("{}/test.rs", test_dir), "fn main() {}\n").unwrap();
+    fs::write(format!("{test_dir}/test.rs"), "fn main() {}\n").unwrap();
 
     // Run mmm cook with tilde path
     let tilde_path = format!("~/mmm_test_repo_{}", std::process::id());
     let mut cmd = Command::cargo_bin("mmm").unwrap();
-    cmd.args(&["cook", &tilde_path, "--max-iterations", "0"])
+    cmd.args(["cook", &tilde_path, "--max-iterations", "0"])
         .assert()
         .success();
 

@@ -163,8 +163,9 @@ impl CommandRegistry {
             options: vec![
                 OptionDef {
                     name: "focus".to_string(),
-                    description: "Focus area for debt cleanup (e.g., performance, security, maintainability)"
-                        .to_string(),
+                    description:
+                        "Focus area for debt cleanup (e.g., performance, security, maintainability)"
+                            .to_string(),
                     option_type: ArgumentType::String,
                     default: None,
                 },
