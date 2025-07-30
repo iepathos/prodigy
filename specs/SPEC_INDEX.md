@@ -13,6 +13,7 @@ Core architecture and essential system components that form the base of MMM.
 - **Spec 11**: Simple State Management - JSON-based state tracking
 - **Spec 14**: Implement Real Claude Loop - Working Claude CLI integration ✅
 - **Spec 19**: Git-Native Improvement Flow - Commit-based workflow ✅
+- **Spec 44**: Context-Aware Project Understanding - Deep codebase analysis (draft)
 
 ### Parallel Specifications
 Features enabling concurrent execution and parallel processing.
@@ -77,12 +78,13 @@ Performance improvements and system efficiency.
 - Spec 28: Structured Command Objects
 - Spec 29: Centralized Worktree State
 
-### 📝 Draft (5 specs)
+### 📝 Draft (6 specs)
 - Spec 30: Interrupted Worktree Recovery
 - Spec 31: Product Management Command
 - Spec 32: CLI Help as Default
 - Spec 33: Batch Spec Implementation
 - Spec 34: Worktree Temp Spec Storage
+- Spec 44: Context-Aware Project Understanding
 
 ### 🚧 In Progress (0 specs)
 None currently in progress.
@@ -117,6 +119,7 @@ Foundation Layer:
 ├── 01: Core Architecture
 ├── 09: Dead Simple Improve
 ├── 10: Smart Project Analyzer
+│   └── 44: Context-Aware Understanding
 ├── 11: Simple State Management
 └── 14: Real Claude Loop
     ├── 19: Git-Native Flow
@@ -140,13 +143,14 @@ Optimization Layer:
 ## Quick Reference
 
 ### Latest Specifications
+- Spec 44: Context-Aware Project Understanding (draft) - Deep codebase analysis
 - Spec 34: Worktree Temp Spec Storage (draft) - Automatic cleanup for temp specs
 - Spec 33: Batch Spec Implementation (draft) - Implement multiple specs
 - Spec 32: CLI Help as Default (draft) - Unix CLI best practices
 - Spec 31: Product Management Command (draft) - Product-focused improvements
-- Spec 30: Interrupted Worktree Recovery (draft) - Recovery from interrupted sessions
 
 ### High Priority Specifications
+- Spec 44: Context-Aware Project Understanding - Enables truly autonomous loops
 - Spec 34: Worktree Temp Spec Storage - Solves temp spec accumulation problem
 - Spec 30: Interrupted Worktree Recovery - Critical for robust parallel execution
 - (All other high priority specs are completed)
