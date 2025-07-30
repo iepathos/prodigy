@@ -47,6 +47,7 @@ rand = "0.8"
 atty = "0.2"
 md5 = "0.7"
 syn = { version = "2.0", features = ["full", "visit"] }
+signal-hook = "0.3"
 
 [dev-dependencies]
 assert_cmd = "2.0"

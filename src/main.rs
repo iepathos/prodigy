@@ -58,6 +58,10 @@ enum Commands {
         /// Enable metrics tracking
         #[arg(long)]
         metrics: bool,
+
+        /// Resume an interrupted session
+        #[arg(long, value_name = "SESSION_ID", conflicts_with = "worktree")]
+        resume: Option<String>,
     },
     /// Manage git worktrees for parallel MMM sessions
     Worktree {
@@ -160,6 +164,7 @@ async fn main() {
             fail_fast,
             auto_accept,
             metrics,
+            resume,
         }) => {
             // Check if user used the deprecated 'improve' alias
             let cli_args: Vec<String> = std::env::args().collect();
@@ -179,6 +184,7 @@ async fn main() {
                 fail_fast,
                 auto_accept,
                 metrics,
+                resume,
             };
             mmm::cook::run_with_verbosity(cook_cmd, cli.verbose).await
         }
@@ -262,6 +268,7 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
                                 mmm::worktree::WorktreeStatus::Merged => "🔀",
                                 mmm::worktree::WorktreeStatus::Failed => "❌",
                                 mmm::worktree::WorktreeStatus::Abandoned => "⚠️",
+                                mmm::worktree::WorktreeStatus::Interrupted => "⏸️",
                             };
 
                             println!(

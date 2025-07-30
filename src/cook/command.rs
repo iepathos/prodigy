@@ -76,4 +76,11 @@ pub struct CookCommand {
     /// historical analysis and trend tracking.
     #[arg(long)]
     pub metrics: bool,
+
+    /// Resume an interrupted session
+    ///
+    /// Provide the session ID of an interrupted worktree to resume work from the last checkpoint.
+    /// Cannot be used with --worktree flag.
+    #[arg(long, value_name = "SESSION_ID", conflicts_with = "worktree")]
+    pub resume: Option<String>,
 }

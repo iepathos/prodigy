@@ -9,7 +9,10 @@ mod test_state;
 mod tests;
 
 pub use manager::WorktreeManager;
-pub use state::{IterationInfo, WorktreeState, WorktreeStats, WorktreeStatus};
+pub use state::{
+    Checkpoint, CommandType, InterruptionType, IterationInfo, WorktreeState, WorktreeStats,
+    WorktreeStatus,
+};
 
 #[derive(Debug, Clone)]
 pub struct WorktreeSession {

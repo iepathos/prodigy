@@ -101,6 +101,7 @@ mod improve_command_tests {
             args: vec![],
             fail_fast: false,
             auto_accept: false,
+            resume: None,
         };
 
         assert!(cmd.path.is_none());
@@ -120,6 +121,7 @@ mod improve_command_tests {
             args: vec![],
             fail_fast: false,
             auto_accept: false,
+            resume: None,
         };
 
         assert!(cmd.path.is_none());
