@@ -129,7 +129,7 @@ $ mmm cook
    Reason: No more issues found
 
 # Focused improvement with custom workflow
-$ mmm cook --focus security --config examples/security-workflow.yml
+$ mmm cook --config examples/security-workflow.yml
 📝 Starting workflow with 5 commands
 📋 Focus: security
 🔄 Workflow iteration 1/8...
@@ -168,7 +168,7 @@ mmm cook
     ↓
 Load configuration (workflow.yml or defaults)
     ↓
-┌─────────────────── COOKING LOOP ──────────────────┐
+┌─────────────────── COOKING LOOP ──────────────────────┐
 │  Call claude /mmm-code-review                         │
 │      ↓                                                │
 │  Generate specs/temp/iteration-*-improvements.md      │
