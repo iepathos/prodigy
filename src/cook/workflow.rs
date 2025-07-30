@@ -168,7 +168,7 @@ impl WorkflowExecutor {
                                 .append(true)
                                 .open(&track_file)
                             {
-                                let _ = writeln!(file, "iteration: focus={}", focus_str);
+                                let _ = writeln!(file, "iteration: focus={focus_str}");
                             }
                         }
                     }

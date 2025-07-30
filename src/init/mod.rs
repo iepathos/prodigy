@@ -87,7 +87,7 @@ pub async fn run(cmd: InitCommand) -> Result<()> {
         }
         let selected = get_templates_by_names(command_names);
         if selected.is_empty() {
-            println!("❌ No matching commands found for: {:?}", command_names);
+            println!("❌ No matching commands found for: {command_names:?}");
             println!("   Available commands: mmm-code-review, mmm-implement-spec, mmm-lint, mmm-product-enhance, mmm-merge-worktree");
             return Ok(());
         }
@@ -107,7 +107,7 @@ pub async fn run(cmd: InitCommand) -> Result<()> {
         if !existing.is_empty() {
             println!("\n⚠️  The following commands already exist:");
             for name in &existing {
-                println!("   - {}", name);
+                println!("   - {name}");
             }
             println!("\nUse --force to overwrite existing commands, or --commands to select specific ones.");
             println!("Example: mmm init --commands mmm-lint,mmm-product-enhance");
@@ -148,9 +148,9 @@ pub async fn run(cmd: InitCommand) -> Result<()> {
 
     // Summary
     println!("\n✨ Installation complete!");
-    println!("   - {} command(s) installed", installed);
+    println!("   - {installed} command(s) installed");
     if skipped > 0 {
-        println!("   - {} command(s) skipped", skipped);
+        println!("   - {skipped} command(s) skipped");
     }
 
     // Show next steps

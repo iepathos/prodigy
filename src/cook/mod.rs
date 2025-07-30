@@ -1064,7 +1064,7 @@ async fn call_claude_code_review(verbose: bool, focus: Option<&str>) -> Result<b
                     .append(true)
                     .open(&track_file)
                 {
-                    let _ = writeln!(file, "iteration: focus={}", focus_directive);
+                    let _ = writeln!(file, "iteration: focus={focus_directive}");
                 }
             }
         }

@@ -281,8 +281,7 @@ max_iterations = 3
     // Read the focus tracking file
     assert!(
         focus_tracker.exists(),
-        "Focus tracking file should exist at: {:?}",
-        focus_tracker
+        "Focus tracking file should exist at: {focus_tracker:?}"
     );
 
     let focus_log = fs::read_to_string(&focus_tracker)?;
