@@ -97,16 +97,37 @@ impl WorkflowExecutor {
                     .insert("focus".to_string(), serde_json::json!(focus.unwrap()));
             }
 
-            // Execute the command
-            let success = if command.name == "mmm-implement-spec" && command.args.is_empty() {
+            // Capture git HEAD before command execution
+            let head_before = get_git_head().await.ok();
+            
+            // Execute the command and capture output
+            let (success, _output) = if command.name == "mmm-implement-spec" && command.args.is_empty() {
                 // No spec ID found after extraction attempt - skip implementation
                 if self.verbose {
                     println!("No spec ID found - skipping implementation");
                 }
-                false
+                (false, None)
             } else {
-                self.execute_structured_command(&command).await?
+                let result = self.execute_structured_command(&command).await?;
+                (result.0, result.1)
             };
+            
+            // Check if git HEAD changed and extract spec from the new commit
+            if success && (command.name == "mmm-code-review" || command.name == "mmm-cleanup-tech-debt") {
+                let head_after = get_git_head().await.ok();
+                
+                if head_before != head_after && head_after.is_some() {
+                    // Git HEAD changed, examine the commit
+                    if let Some(spec_id) = extract_spec_from_commit(&head_after.unwrap()).await? {
+                        self.variables.insert("SPEC_ID".to_string(), spec_id.clone());
+                        if self.verbose {
+                            println!("📝 Found spec in commit: {spec_id}");
+                        }
+                    }
+                } else if self.verbose {
+                    println!("No git commit detected after command");
+                }
+            }
 
             if success {
                 any_changes = true;
@@ -120,11 +141,11 @@ impl WorkflowExecutor {
         Ok(any_changes)
     }
 
-    /// Execute a structured command
+    /// Execute a structured command and return (success, output)
     async fn execute_structured_command(
         &self,
         command: &crate::config::command::Command,
-    ) -> Result<bool> {
+    ) -> Result<(bool, Option<String>)> {
         // Build the full command display with args
         let args_display = if !command.args.is_empty() {
             let resolved_args: Vec<String> = command
@@ -153,7 +174,7 @@ impl WorkflowExecutor {
                     .any(|cmd| cmd.trim() == command.name)
                 {
                     println!("[TEST MODE] Simulating no changes for: {}", command.name);
-                    return Ok(false);
+                    return Ok((false, None));
                 }
             }
 
@@ -175,7 +196,7 @@ impl WorkflowExecutor {
                 }
             }
 
-            return Ok(true);
+            return Ok((true, None));
         }
 
         // First check if claude command exists with improved error handling
@@ -262,7 +283,7 @@ impl WorkflowExecutor {
                     "Warning: Command '{}' failed but continuing: {}",
                     command.name, error_msg
                 );
-                return Ok(false);
+                return Ok((false, None));
             } else {
                 return Err(anyhow!(error_msg));
             }
@@ -280,7 +301,7 @@ impl WorkflowExecutor {
             }
         }
 
-        Ok(true)
+        Ok((true, Some(stdout.to_string())))
     }
 
     /// Extract spec ID from git log (for mmm-implement-spec)
@@ -291,7 +312,7 @@ impl WorkflowExecutor {
 
         // First check for uncommitted spec files (the review might have created but not committed them)
         let uncommitted_output = tokio::process::Command::new("git")
-            .args(["ls-files", "--others", "--exclude-standard", "specs/temp/"])
+            .args(["ls-files", "--others", "--exclude-standard", "specs/"])
             .output()
             .await
             .context("Failed to check uncommitted files")?;
@@ -300,20 +321,23 @@ impl WorkflowExecutor {
             let files = String::from_utf8_lossy(&uncommitted_output.stdout);
             for line in files.lines() {
                 if line.ends_with(".md") {
-                    if let Some(filename) = line.split('/').next_back() {
+                    if let Some(filename) = line.split('/').last() {
                         let spec_id = filename.trim_end_matches(".md");
-                        if self.verbose {
-                            println!("Found uncommitted spec file: {spec_id}");
+                        // Accept any .md file that's not a special file
+                        if !matches!(spec_id, "SPEC_INDEX" | "README" | "index") {
+                            if self.verbose {
+                                println!("Found uncommitted spec file: {spec_id}");
+                            }
+                            return Ok(spec_id.to_string());
                         }
-                        return Ok(spec_id.to_string());
                     }
                 }
             }
         }
 
-        // Check the last commit for any new spec files in specs/temp/
+        // Check the last commit for any new spec files in specs/
         let output = tokio::process::Command::new("git")
-            .args(["diff", "--name-only", "HEAD~1", "HEAD", "--", "specs/temp/"])
+            .args(["diff", "--name-only", "HEAD~1", "HEAD", "--", "specs/"])
             .output()
             .await
             .context("Failed to get git diff")?;
@@ -343,15 +367,18 @@ impl WorkflowExecutor {
 
         let files = String::from_utf8_lossy(&output.stdout);
 
-        // Look for new .md files in specs/temp/
+        // Look for new .md files anywhere in specs/ directory
         for line in files.lines() {
-            if line.starts_with("specs/temp/") && line.ends_with(".md") {
-                if let Some(filename) = line.split('/').next_back() {
+            if line.starts_with("specs/") && line.ends_with(".md") {
+                if let Some(filename) = line.split('/').last() {
                     let spec_id = filename.trim_end_matches(".md");
-                    if self.verbose {
-                        println!("Found new spec file in commit: {spec_id}");
+                    // Accept any .md file that's not a special file
+                    if !matches!(spec_id, "SPEC_INDEX" | "README" | "index") {
+                        if self.verbose {
+                            println!("Found new spec file in commit: {spec_id}");
+                        }
+                        return Ok(spec_id.to_string());
                     }
-                    return Ok(spec_id.to_string());
                 }
             }
         }
@@ -364,13 +391,13 @@ impl WorkflowExecutor {
 
         if commit_message.starts_with("review:") || commit_message.starts_with("cleanup:") {
             if let Ok(find_output) = tokio::process::Command::new("find")
-                .args(["specs/temp", "-name", "*.md", "-type", "f", "-mmin", "-5"])
+                .args(["specs", "-name", "*.md", "-type", "f", "-mmin", "-5"])
                 .output()
                 .await
             {
                 let files = String::from_utf8_lossy(&find_output.stdout);
                 for line in files.lines() {
-                    if let Some(filename) = line.split('/').next_back() {
+                    if let Some(filename) = line.split('/').last() {
                         if filename.ends_with(".md") {
                             let spec_id = filename.trim_end_matches(".md");
                             if self.verbose {
@@ -385,6 +412,50 @@ impl WorkflowExecutor {
 
         Ok(String::new()) // No spec found
     }
+}
+
+/// Get current git HEAD commit hash
+async fn get_git_head() -> Result<String> {
+    let output = tokio::process::Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .await?;
+    
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        Err(anyhow!("Failed to get git HEAD"))
+    }
+}
+
+/// Extract spec file from a specific git commit
+async fn extract_spec_from_commit(commit_hash: &str) -> Result<Option<String>> {
+    // Get list of files changed in this commit
+    let output = tokio::process::Command::new("git")
+        .args(["diff-tree", "--no-commit-id", "--name-only", "-r", commit_hash])
+        .output()
+        .await?;
+    
+    if !output.status.success() {
+        return Ok(None);
+    }
+    
+    let files = String::from_utf8_lossy(&output.stdout);
+    
+    // Look for spec files in the commit
+    for line in files.lines() {
+        if line.starts_with("specs/") && line.ends_with(".md") {
+            if let Some(filename) = line.split('/').last() {
+                let spec_id = filename.trim_end_matches(".md");
+                // Skip special files
+                if !matches!(spec_id, "SPEC_INDEX" | "README" | "index") {
+                    return Ok(Some(spec_id.to_string()));
+                }
+            }
+        }
+    }
+    
+    Ok(None)
 }
 
 #[cfg(test)]

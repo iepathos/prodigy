@@ -1628,7 +1628,7 @@ async fn call_claude_code_review(verbose: bool, focus: Option<&str>) -> Result<b
 /// - Unable to read git log output
 ///
 /// # Note
-/// This function looks for new spec files created in specs/temp/ directory
+/// This function looks for new spec files created anywhere in specs/ directory
 /// by checking the git diff of the last commit
 async fn extract_spec_from_git(verbose: bool) -> Result<String> {
     if verbose {
@@ -1647,7 +1647,7 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
 
     // First check for uncommitted spec files (the review might have created but not committed them)
     let uncommitted_output = Command::new("git")
-        .args(["ls-files", "--others", "--exclude-standard", "specs/temp/"])
+        .args(["ls-files", "--others", "--exclude-standard", "specs/"])
         .output()
         .await
         .context("Failed to check uncommitted files")?;
@@ -1656,20 +1656,23 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
         let files = String::from_utf8_lossy(&uncommitted_output.stdout);
         for line in files.lines() {
             if line.ends_with(".md") {
-                if let Some(filename) = line.split('/').next_back() {
+                if let Some(filename) = line.split('/').last() {
                     let spec_id = filename.trim_end_matches(".md");
-                    if verbose {
-                        info!("Found uncommitted spec file: {spec_id}");
+                    // Accept any .md file that's not a special file
+                    if !matches!(spec_id, "SPEC_INDEX" | "README" | "index") {
+                        if verbose {
+                            info!("Found uncommitted spec file: {spec_id}");
+                        }
+                        return Ok(spec_id.to_string());
                     }
-                    return Ok(spec_id.to_string());
                 }
             }
         }
     }
 
-    // Check the last commit for any new spec files in specs/temp/
+    // Check the last commit for any new spec files in specs/
     let output = Command::new("git")
-        .args(["diff", "--name-only", "HEAD~1", "HEAD", "--", "specs/temp/"])
+        .args(["diff", "--name-only", "HEAD~1", "HEAD", "--", "specs/"])
         .output()
         .await
         .context("Failed to get git diff")?;
@@ -1677,13 +1680,13 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
     if !output.status.success() {
         // If we can't diff (e.g., no HEAD~1), try checking what files exist
         if let Ok(find_output) = Command::new("find")
-            .args(["specs/temp", "-name", "*.md", "-type", "f", "-mmin", "-5"])
+            .args(["specs", "-name", "*.md", "-type", "f", "-mmin", "-5"])
             .output()
             .await
         {
             let files = String::from_utf8_lossy(&find_output.stdout);
             for line in files.lines() {
-                if let Some(filename) = line.split('/').next_back() {
+                if let Some(filename) = line.split('/').last() {
                     if filename.ends_with(".md") {
                         let spec_id = filename.trim_end_matches(".md");
                         if verbose {
@@ -1699,15 +1702,18 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
 
     let files = String::from_utf8_lossy(&output.stdout);
 
-    // Look for new .md files in specs/temp/
+    // Look for new .md files anywhere in specs/
     for line in files.lines() {
-        if line.starts_with("specs/temp/") && line.ends_with(".md") {
-            if let Some(filename) = line.split('/').next_back() {
+        if line.starts_with("specs/") && line.ends_with(".md") {
+            if let Some(filename) = line.split('/').last() {
                 let spec_id = filename.trim_end_matches(".md");
-                if verbose {
-                    info!("Found new spec file in commit: {spec_id}");
+                // Accept any .md file that's not a special file
+                if !matches!(spec_id, "SPEC_INDEX" | "README" | "index") {
+                    if verbose {
+                        info!("Found new spec file in commit: {spec_id}");
+                    }
+                    return Ok(spec_id.to_string());
                 }
-                return Ok(spec_id.to_string());
             }
         }
     }
@@ -1720,13 +1726,13 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
 
     if commit_message.starts_with("review:") || commit_message.starts_with("cleanup:") {
         if let Ok(find_output) = Command::new("find")
-            .args(["specs/temp", "-name", "*.md", "-type", "f", "-mmin", "-5"])
+            .args(["specs", "-name", "*.md", "-type", "f", "-mmin", "-5"])
             .output()
             .await
         {
             let files = String::from_utf8_lossy(&find_output.stdout);
             for line in files.lines() {
-                if let Some(filename) = line.split('/').next_back() {
+                if let Some(filename) = line.split('/').last() {
                     if filename.ends_with(".md") {
                         let spec_id = filename.trim_end_matches(".md");
                         if verbose {
