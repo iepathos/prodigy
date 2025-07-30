@@ -101,6 +101,7 @@ mod improve_command_tests {
             args: vec![],
             fail_fast: false,
             auto_accept: false,
+            metrics: false,
             resume: None,
         };
 
@@ -121,6 +122,7 @@ mod improve_command_tests {
             args: vec![],
             fail_fast: false,
             auto_accept: false,
+            metrics: false,
             resume: None,
         };
 

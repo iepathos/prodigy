@@ -146,15 +146,13 @@ pub struct MetricsTrends {
 }
 
 /// Trend direction and magnitude
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum Trend {
     Improving(f32), // Percentage improvement
     #[default]
     Stable,
     Degrading(f32), // Percentage degradation
 }
-
 
 /// Baseline metrics for comparison
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

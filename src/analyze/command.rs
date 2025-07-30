@@ -84,14 +84,47 @@ async fn run_context_analysis(project_path: &std::path::Path, cmd: &AnalyzeComma
     Ok(())
 }
 
-/// Run metrics analysis (placeholder for spec 46)
-async fn run_metrics_analysis(_project_path: &std::path::Path, cmd: &AnalyzeCommand) -> Result<()> {
+/// Run metrics analysis
+async fn run_metrics_analysis(project_path: &std::path::Path, cmd: &AnalyzeCommand) -> Result<()> {
     if cmd.verbose {
         println!("\n📈 Running metrics analysis...");
     }
 
-    // TODO: Implement metrics analysis as per spec 46
-    println!("⚠️  Metrics analysis not yet implemented (coming in spec 46)");
+    // Create metrics collector
+    let collector = crate::metrics::MetricsCollector::new();
+
+    // Generate iteration ID (timestamp-based for now)
+    let iteration_id = format!("manual-{}", chrono::Utc::now().timestamp());
+
+    // Collect metrics
+    let metrics = collector
+        .collect_metrics(project_path, iteration_id)
+        .await?;
+
+    // Display results based on output format
+    match cmd.output.as_str() {
+        "json" => {
+            println!("{}", serde_json::to_string_pretty(&metrics)?);
+        }
+        "pretty" => {
+            display_pretty_metrics(&metrics);
+        }
+        "summary" => {
+            display_summary_metrics(&metrics);
+        }
+        _ => {
+            display_summary_metrics(&metrics);
+        }
+    }
+
+    // Save metrics if requested
+    if cmd.save {
+        let storage = crate::metrics::MetricsStorage::new(project_path);
+        storage.save_current(&metrics)?;
+        if cmd.verbose {
+            println!("💾 Metrics saved to .mmm/metrics/");
+        }
+    }
 
     Ok(())
 }
@@ -278,4 +311,82 @@ fn display_summary_analysis(
         );
         println!("   Use --output=pretty to see details");
     }
+}
+
+/// Display metrics in pretty format
+fn display_pretty_metrics(metrics: &crate::metrics::ImprovementMetrics) {
+    println!("\n=== Metrics Analysis Results ===\n");
+
+    // Code Quality
+    println!("📊 Code Quality:");
+    println!("   Test coverage: {:.1}%", metrics.test_coverage);
+    println!("   Type coverage: {:.1}%", metrics.type_coverage);
+    println!("   Lint warnings: {}", metrics.lint_warnings);
+    println!("   Code duplication: {:.1}%", metrics.code_duplication);
+    println!("   Documentation coverage: {:.1}%", metrics.doc_coverage);
+
+    // Performance
+    println!("\n⚡ Performance:");
+    println!(
+        "   Compile time: {:.2}s",
+        metrics.compile_time.as_secs_f64()
+    );
+    println!(
+        "   Binary size: {:.2} MB",
+        metrics.binary_size as f64 / 1_048_576.0
+    );
+    if !metrics.benchmark_results.is_empty() {
+        println!("   Benchmarks:");
+        for (name, duration) in &metrics.benchmark_results {
+            println!("      - {}: {:.3}ms", name, duration.as_secs_f64() * 1000.0);
+        }
+    }
+
+    // Complexity
+    println!("\n🧩 Complexity:");
+    println!("   Total lines: {}", metrics.total_lines);
+    println!("   Max nesting depth: {}", metrics.max_nesting_depth);
+    if !metrics.cyclomatic_complexity.is_empty() {
+        let avg_cyclomatic = metrics.cyclomatic_complexity.values().sum::<u32>() as f32
+            / metrics.cyclomatic_complexity.len() as f32;
+        println!("   Average cyclomatic complexity: {avg_cyclomatic:.1}");
+    }
+
+    // Progress
+    println!("\n📈 Progress:");
+    println!("   Technical debt score: {:.1}", metrics.tech_debt_score);
+    println!(
+        "   Improvement velocity: {:.1}",
+        metrics.improvement_velocity
+    );
+    println!(
+        "   Overall quality score: {:.1}/100",
+        metrics.overall_score()
+    );
+
+    // Metadata
+    println!("\n⏱️  Metadata:");
+    println!("   Timestamp: {}", metrics.timestamp);
+    println!("   Iteration ID: {}", metrics.iteration_id);
+}
+
+/// Display metrics in summary format
+fn display_summary_metrics(metrics: &crate::metrics::ImprovementMetrics) {
+    println!("\n✅ Metrics analysis complete!");
+    println!("   - Test coverage: {:.1}%", metrics.test_coverage);
+    println!(
+        "   - Code quality score: {:.1}/100",
+        metrics.overall_score()
+    );
+    println!("   - Technical debt: {:.1}", metrics.tech_debt_score);
+    println!(
+        "   - Compile time: {:.2}s",
+        metrics.compile_time.as_secs_f64()
+    );
+
+    if metrics.lint_warnings > 0 {
+        println!("   ⚠️  {} lint warnings found", metrics.lint_warnings);
+    }
+
+    println!("\n💡 Use --output=pretty for detailed metrics");
 }

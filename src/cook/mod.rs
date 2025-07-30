@@ -2029,6 +2029,7 @@ mod cook_inline_tests {
             args: vec![],
             fail_fast: false,
             auto_accept: false,
+            metrics: false,
             resume: None,
         }
     }
