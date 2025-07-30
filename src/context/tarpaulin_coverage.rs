@@ -10,8 +10,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use super::test_coverage::{
-    CriticalPath, FileCoverage, RiskLevel,
-    TestCoverageAnalyzer, TestCoverageMap,
+    CriticalPath, FileCoverage, RiskLevel, TestCoverageAnalyzer, TestCoverageMap,
 };
 
 /// Tarpaulin JSON output structure
@@ -51,7 +50,7 @@ impl TarpaulinCoverageAnalyzer {
     /// Run cargo-tarpaulin and get coverage data
     async fn run_tarpaulin(&self, project_path: &Path) -> Result<TarpaulinReport> {
         let coverage_file = project_path.join("target/coverage/tarpaulin-report.json");
-        
+
         // Check if we need to run tarpaulin or if recent results exist
         let should_run = if coverage_file.exists() {
             // Check if coverage data is older than 5 minutes
@@ -64,15 +63,16 @@ impl TarpaulinCoverageAnalyzer {
         };
 
         if should_run {
-            eprintln!("Running cargo-tarpaulin to collect coverage data...");
-            
+
             // Run tarpaulin
             let output = Command::new("cargo")
-                .args(&[
+                .args([
                     "tarpaulin",
                     "--skip-clean",
-                    "--out", "Json",
-                    "--output-dir", "target/coverage",
+                    "--out",
+                    "Json",
+                    "--output-dir",
+                    "target/coverage",
                 ])
                 .current_dir(project_path)
                 .output()
@@ -85,16 +85,17 @@ impl TarpaulinCoverageAnalyzer {
         }
 
         // Read and parse the JSON output
-        eprintln!("Reading coverage data from: {}", coverage_file.display());
         let json_content = tokio::fs::read_to_string(&coverage_file)
             .await
             .context("Failed to read tarpaulin coverage file")?;
-        
+
         match serde_json::from_str(&json_content) {
             Ok(report) => Ok(report),
             Err(e) => {
-                eprintln!("JSON parse error: {}", e);
-                Err(anyhow::anyhow!("Failed to parse tarpaulin JSON output: {}", e))
+                Err(anyhow::anyhow!(
+                    "Failed to parse tarpaulin JSON output: {}",
+                    e
+                ))
             }
         }
     }
@@ -115,8 +116,7 @@ impl TarpaulinCoverageAnalyzer {
             for (_, file_value) in files_obj {
                 let file_data: TarpaulinFile = match serde_json::from_value(file_value.clone()) {
                     Ok(data) => data,
-                    Err(e) => {
-                        eprintln!("Failed to parse file data: {}", e);
+                    Err(_e) => {
                         continue;
                     }
                 };
@@ -164,7 +164,6 @@ impl TarpaulinCoverageAnalyzer {
 
         // Use the overall coverage from tarpaulin report
         let overall_coverage = tarpaulin_report.coverage / 100.0; // Convert from percentage
-        eprintln!("Tarpaulin overall coverage: {:.2}%", tarpaulin_report.coverage);
 
         // Identify critical paths
         let critical_paths = self.identify_critical_paths_in_project(project_path);
@@ -229,7 +228,6 @@ impl TarpaulinCoverageAnalyzer {
 #[async_trait::async_trait]
 impl TestCoverageAnalyzer for TarpaulinCoverageAnalyzer {
     async fn analyze_coverage(&self, project_path: &Path) -> Result<TestCoverageMap> {
-        eprintln!("TarpaulinCoverageAnalyzer: Starting coverage analysis");
         // Try to run tarpaulin and get actual coverage data
         match self.run_tarpaulin(project_path).await {
             Ok(tarpaulin_report) => {
@@ -237,12 +235,18 @@ impl TestCoverageAnalyzer for TarpaulinCoverageAnalyzer {
                 Ok(self.convert_tarpaulin_data(&tarpaulin_report, project_path))
             }
             Err(e) => {
-                eprintln!("Warning: Failed to get tarpaulin coverage data: {}", e);
-                eprintln!("Falling back to heuristic-based coverage analysis...");
+                // Return empty coverage data when tarpaulin is not available
+                eprintln!("Warning: Unable to collect coverage data: {e}");
+                eprintln!("Please install cargo-tarpaulin to get test coverage metrics:");
+                eprintln!("  cargo install cargo-tarpaulin");
                 
-                // Fall back to basic analyzer
-                let basic_analyzer = super::test_coverage::BasicTestCoverageAnalyzer::new();
-                basic_analyzer.analyze_coverage(project_path).await
+                // Return empty coverage map instead of inaccurate heuristic data
+                Ok(TestCoverageMap {
+                    file_coverage: HashMap::new(),
+                    untested_functions: Vec::new(),
+                    critical_paths: Vec::new(),
+                    overall_coverage: 0.0,
+                })
             }
         }
     }
@@ -270,12 +274,12 @@ impl Default for TarpaulinCoverageAnalyzer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
     use std::fs;
+    use tempfile::TempDir;
 
     #[tokio::test]
-    async fn test_tarpaulin_fallback() {
-        // This test verifies that we fall back gracefully when tarpaulin isn't available
+    async fn test_tarpaulin_unavailable() {
+        // This test verifies that we return empty coverage when tarpaulin isn't available
         let analyzer = TarpaulinCoverageAnalyzer::new();
         let temp_dir = TempDir::new().unwrap();
         let project_path = temp_dir.path();
@@ -288,9 +292,11 @@ mod tests {
         )
         .unwrap();
 
-        // This should fall back to basic analyzer since we're not in a real project
-        let result = analyzer.analyze_coverage(project_path).await;
-        assert!(result.is_ok());
+        // This should return empty coverage data when tarpaulin fails
+        let result = analyzer.analyze_coverage(project_path).await.unwrap();
+        assert_eq!(result.overall_coverage, 0.0);
+        assert!(result.file_coverage.is_empty());
+        assert!(result.untested_functions.is_empty());
+        assert!(result.critical_paths.is_empty());
     }
-
 }
