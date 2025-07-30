@@ -103,7 +103,6 @@ fn test_cook_all_flags() {
         .arg("--help")
         .assert()
         .success()
-        .stdout(predicate::str::contains("--show-progress"))
         .stdout(predicate::str::contains("--focus"))
         .stdout(predicate::str::contains("--max-iterations"))
         .stdout(predicate::str::contains("--worktree"))

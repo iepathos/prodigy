@@ -11,10 +11,6 @@ pub struct CookCommand {
     #[arg(value_name = "PATH", help = "Repository path to run in")]
     pub path: Option<PathBuf>,
 
-    /// Show detailed progress
-    #[arg(long)]
-    pub show_progress: bool,
-
     /// Focus directive for improvements (e.g., "performance", "security", "testing")
     ///
     /// This optional parameter allows you to guide the code analysis towards

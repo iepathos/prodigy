@@ -26,7 +26,6 @@ mod cook_tests {
         // Create test command
         let cmd = CookCommand {
             path: None,
-            show_progress: false,
             focus: None,
             max_iterations: 2,
             worktree: false,

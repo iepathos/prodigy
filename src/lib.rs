@@ -5,7 +5,7 @@
 //! ## Usage
 //!
 //! ```bash
-//! mmm cook [--show-progress] [--focus "area"] [-n iterations] [--map "pattern"] [--args "value"]
+//! mmm cook [--focus "area"] [-n iterations] [--map "pattern"] [--args "value"]
 //! ```
 //!
 //! ## Modules

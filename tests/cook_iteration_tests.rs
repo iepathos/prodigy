@@ -66,7 +66,7 @@ commands = [
         .current_dir(temp_path)
         .env("MMM_TEST_MODE", "true")
         .env("MMM_TEST_ITERATIONS", "true") // Enable iteration tracking
-        .args(["cook", "-n", "3", "-f", "documentation", "--show-progress"])
+        .args(["cook", "-n", "3", "-f", "documentation"])
         .output()?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -167,7 +167,7 @@ commands = [
             "MMM_TEST_NO_CHANGES_COMMANDS",
             "mmm-code-review,mmm-implement-spec,mmm-lint",
         )
-        .args(["cook", "-n", "5", "--show-progress"])
+        .args(["cook", "-n", "5"])
         .output()?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -264,7 +264,7 @@ commands = [
         .current_dir(temp_path)
         .env("MMM_TEST_MODE", "true")
         .env("MMM_TRACK_FOCUS", focus_tracker.to_str().unwrap())
-        .args(["cook", "-n", "3", "-f", "security", "--show-progress"])
+        .args(["cook", "-n", "3", "-f", "security"])
         .output()?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -378,7 +378,6 @@ fn test_cook_worktree_multiple_iterations() -> Result<()> {
             "3",
             "-f",
             "performance",
-            "--show-progress",
         ])
         .output()?;
 

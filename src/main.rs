@@ -24,10 +24,6 @@ enum Commands {
         #[arg(value_name = "PATH", help = "Repository path to run in")]
         path: Option<PathBuf>,
 
-        /// Show detailed progress
-        #[arg(long)]
-        show_progress: bool,
-
         /// Focus directive for analysis (e.g., "user experience", "performance")
         #[arg(short = 'f', long)]
         focus: Option<String>,
@@ -152,7 +148,6 @@ async fn main() {
     let result = match cli.command {
         Some(Commands::Cook {
             path,
-            show_progress,
             focus,
             config,
             max_iterations,
@@ -171,7 +166,6 @@ async fn main() {
 
             let cook_cmd = mmm::cook::command::CookCommand {
                 path,
-                show_progress,
                 focus,
                 config,
                 max_iterations,
@@ -181,7 +175,7 @@ async fn main() {
                 fail_fast,
                 auto_accept,
             };
-            mmm::cook::run(cook_cmd).await
+            mmm::cook::run_with_verbosity(cook_cmd, cli.verbose).await
         }
         Some(Commands::Worktree { command }) => run_worktree_command(command).await,
         Some(Commands::Init {

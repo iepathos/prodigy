@@ -93,7 +93,6 @@ mod improve_command_tests {
     fn test_improve_command_creation() {
         let cmd = CookCommand {
             path: None,
-            show_progress: false,
             focus: None,
             config: None,
             max_iterations: 10,
@@ -105,7 +104,6 @@ mod improve_command_tests {
         };
 
         assert!(cmd.path.is_none());
-        assert!(!cmd.show_progress);
         assert!(cmd.focus.is_none());
         assert_eq!(cmd.max_iterations, 10);
     }
@@ -114,7 +112,6 @@ mod improve_command_tests {
     fn test_improve_command_with_focus() {
         let cmd = CookCommand {
             path: None,
-            show_progress: true,
             focus: Some("performance".to_string()),
             config: None,
             max_iterations: 10,
@@ -126,7 +123,6 @@ mod improve_command_tests {
         };
 
         assert!(cmd.path.is_none());
-        assert!(cmd.show_progress);
         assert_eq!(cmd.focus, Some("performance".to_string()));
         assert_eq!(cmd.max_iterations, 10);
     }

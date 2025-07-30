@@ -18,6 +18,7 @@ use retry::{check_claude_cli, execute_with_retry, format_subprocess_error};
 use std::io::{self, Write};
 use std::path::Path;
 use tokio::process::Command;
+use tracing::{info, warn};
 use workflow::WorkflowExecutor;
 
 /// Default number of retry attempts for Claude CLI commands
@@ -32,7 +33,7 @@ enum MergeChoice {
 /// Run context analysis on the project and save results
 async fn analyze_project_context(project_path: &Path, verbose: bool) -> Result<()> {
     if verbose {
-        println!("🔍 Analyzing project context...");
+        info!("🔍 Analyzing project context...");
     }
 
     // Create analyzer
@@ -45,28 +46,28 @@ async fn analyze_project_context(project_path: &Path, verbose: bool) -> Result<(
     let suggestions = analyzer.get_improvement_suggestions();
 
     if verbose {
-        println!("✅ Context analysis complete");
-        println!(
+        info!("✅ Context analysis complete");
+        info!(
             "   - Dependencies: {} modules analyzed",
             analysis_result.dependency_graph.nodes.len()
         );
-        println!(
+        info!(
             "   - Architecture: {} patterns detected",
             analysis_result.architecture.patterns.len()
         );
-        println!(
+        info!(
             "   - Technical debt: {} items found",
             analysis_result.technical_debt.debt_items.len()
         );
-        println!(
+        info!(
             "   - Test coverage: {:.1}% overall",
             analysis_result.test_coverage.overall_coverage * 100.0
         );
 
         if !suggestions.is_empty() {
-            println!("\n📋 Top improvement suggestions:");
+            info!("\n📋 Top improvement suggestions:");
             for (i, suggestion) in suggestions.iter().take(3).enumerate() {
-                println!("   {}. {}", i + 1, suggestion.title);
+                info!("   {}. {}", i + 1, suggestion.title);
             }
         }
     }
@@ -112,6 +113,11 @@ async fn merge_worktree(worktree_name: &str, original_repo_path: &std::path::Pat
     Ok(())
 }
 
+/// Run the cook command with verbosity level
+pub async fn run_with_verbosity(cmd: command::CookCommand, verbosity: u8) -> Result<()> {
+    run_internal(cmd, verbosity > 0).await
+}
+
 /// Run the cook command to automatically enhance code quality
 ///
 /// # Arguments
@@ -131,6 +137,10 @@ async fn merge_worktree(worktree_name: &str, original_repo_path: &std::path::Pat
 /// For parallel execution, use the `--worktree` flag to run multiple sessions
 /// in isolated git worktrees without conflicts.
 pub async fn run(cmd: command::CookCommand) -> Result<()> {
+    run_internal(cmd, false).await
+}
+
+async fn run_internal(cmd: command::CookCommand, verbose: bool) -> Result<()> {
     // Save original working directory before any changes
     let original_dir = std::env::current_dir().context("Failed to get current directory")?;
 
@@ -173,16 +183,16 @@ pub async fn run(cmd: command::CookCommand) -> Result<()> {
             format!("Failed to change to directory: {}", absolute_path.display())
         })?;
 
-        if cmd.show_progress {
-            println!("📁 Working in: {}", absolute_path.display());
+        if verbose {
+            info!("📁 Working in: {}", absolute_path.display());
         }
     }
 
     // Check if we have mapping or direct args to process
     let result = if !cmd.map.is_empty() || !cmd.args.is_empty() {
-        run_with_mapping(cmd).await
+        run_with_mapping(cmd, verbose).await
     } else {
-        run_standard(cmd).await
+        run_standard(cmd, verbose).await
     };
 
     // Note: We don't restore the original directory as per spec
@@ -192,7 +202,7 @@ pub async fn run(cmd: command::CookCommand) -> Result<()> {
 }
 
 /// Run cook command with file mapping or direct arguments
-async fn run_with_mapping(cmd: command::CookCommand) -> Result<()> {
+async fn run_with_mapping(cmd: command::CookCommand, verbose: bool) -> Result<()> {
     use glob::glob;
     use std::collections::HashMap;
 
@@ -203,7 +213,7 @@ async fn run_with_mapping(cmd: command::CookCommand) -> Result<()> {
         .unwrap_or_default()
         .eq_ignore_ascii_case("true")
     {
-        eprintln!("⚠️  Warning: MMM_USE_WORKTREE environment variable is deprecated. Use --worktree flag instead.");
+        warn!("⚠️  Warning: MMM_USE_WORKTREE environment variable is deprecated. Use --worktree flag instead.");
         true
     } else {
         false
@@ -228,7 +238,7 @@ async fn run_with_mapping(cmd: command::CookCommand) -> Result<()> {
 
         // Run improvement in worktree context
         let result =
-            run_with_mapping_in_worktree(cmd.clone(), session.clone(), original_repo_path.clone())
+            run_with_mapping_in_worktree(cmd.clone(), session.clone(), original_repo_path.clone(), verbose)
                 .await;
 
         // Clean up on failure, keep on success for manual merge
@@ -308,7 +318,7 @@ async fn run_with_mapping(cmd: command::CookCommand) -> Result<()> {
                                                 println!("✅ Worktree deleted successfully");
                                             }
                                             Err(e) => {
-                                                eprintln!("❌ Failed to delete worktree: {e}");
+                                                warn!("❌ Failed to delete worktree: {e}");
                                                 println!("You can manually delete it with:");
                                                 println!("  mmm worktree delete {}", session.name);
                                             }
@@ -319,7 +329,7 @@ async fn run_with_mapping(cmd: command::CookCommand) -> Result<()> {
                                     }
                                 }
                                 Err(e) => {
-                                    eprintln!("❌ Failed to merge worktree: {e}");
+                                    warn!("❌ Failed to merge worktree: {e}");
                                     println!("\nTo merge changes manually, run:");
                                     println!("  mmm worktree merge {}", session.name);
                                 }
@@ -369,7 +379,7 @@ async fn run_with_mapping(cmd: command::CookCommand) -> Result<()> {
                     inputs.push(path.to_string_lossy().into_owned());
                 }
                 Err(e) => {
-                    eprintln!("Warning: Error matching pattern: {e}");
+                    warn!("Warning: Error matching pattern: {e}");
                 }
             }
         }
@@ -441,7 +451,7 @@ async fn run_with_mapping(cmd: command::CookCommand) -> Result<()> {
         }
 
         // Run the improvement for this input
-        let result = run_standard_with_variables(input_cmd, variables).await;
+        let result = run_standard_with_variables(input_cmd, variables, verbose).await;
 
         // Clean up environment variables
         for key in ["ARG", "FILE", "INDEX", "TOTAL", "FILE_NAME", "FILE_STEM"] {
@@ -498,7 +508,7 @@ fn extract_spec_id_from_path(path: &str) -> String {
 }
 
 /// Run standard cook without mapping
-async fn run_standard(cmd: command::CookCommand) -> Result<()> {
+async fn run_standard(cmd: command::CookCommand, verbose: bool) -> Result<()> {
     // Check if worktree isolation should be used
     // Check flag first, then env var with deprecation warning
     let use_worktree = if cmd.worktree {
@@ -532,7 +542,7 @@ async fn run_standard(cmd: command::CookCommand) -> Result<()> {
 
         // Run improvement in worktree context
         let result =
-            run_in_worktree(cmd.clone(), session.clone(), original_repo_path.clone()).await;
+            run_in_worktree(cmd.clone(), session.clone(), original_repo_path.clone(), verbose).await;
 
         // Clean up on failure, keep on success for manual merge
         match &result {
@@ -611,7 +621,7 @@ async fn run_standard(cmd: command::CookCommand) -> Result<()> {
                                                 println!("✅ Worktree deleted successfully");
                                             }
                                             Err(e) => {
-                                                eprintln!("❌ Failed to delete worktree: {e}");
+                                                warn!("❌ Failed to delete worktree: {e}");
                                                 println!("You can manually delete it with:");
                                                 println!("  mmm worktree delete {}", session.name);
                                             }
@@ -622,7 +632,7 @@ async fn run_standard(cmd: command::CookCommand) -> Result<()> {
                                     }
                                 }
                                 Err(e) => {
-                                    eprintln!("❌ Failed to merge worktree: {e}");
+                                    warn!("❌ Failed to merge worktree: {e}");
                                     println!("\nTo merge changes manually, run:");
                                     println!("  mmm worktree merge {}", session.name);
                                 }
@@ -659,7 +669,7 @@ async fn run_standard(cmd: command::CookCommand) -> Result<()> {
         result
     } else {
         // Run without worktree isolation (default behavior)
-        run_without_worktree(cmd).await
+        run_without_worktree(cmd, verbose).await
     }
 }
 
@@ -667,17 +677,18 @@ async fn run_in_worktree(
     cmd: command::CookCommand,
     session: crate::worktree::WorktreeSession,
     original_repo_path: std::path::PathBuf,
+    verbose: bool,
 ) -> Result<()> {
     // Check if we have args or map patterns
     if !cmd.args.is_empty() || !cmd.map.is_empty() {
         // Run with mapping logic in worktree context
-        run_with_mapping_in_worktree(cmd, session, original_repo_path).await
+        run_with_mapping_in_worktree(cmd, session, original_repo_path, verbose).await
     } else {
         // Run standard improvement loop
         let worktree_manager = WorktreeManager::new(original_repo_path.clone())?;
 
         // Run improvement loop with state tracking
-        let result = run_improvement_loop(cmd.clone(), &session, &worktree_manager).await;
+        let result = run_improvement_loop(cmd.clone(), &session, &worktree_manager, verbose).await;
 
         // Update final state
         worktree_manager.update_session_state(&session.name, |state| match &result {
@@ -698,6 +709,7 @@ async fn run_improvement_loop(
     cmd: command::CookCommand,
     session: &crate::worktree::WorktreeSession,
     worktree_manager: &WorktreeManager,
+    verbose: bool,
 ) -> Result<()> {
     // The actual improvement logic, but with state tracking
     // This is a copy of run_without_worktree logic with state updates
@@ -708,18 +720,17 @@ async fn run_improvement_loop(
     // 2. Initial analysis
     // Run context analysis to understand the project
     let project_path = std::env::current_dir()?;
-    if let Err(e) = analyze_project_context(&project_path, cmd.show_progress).await {
-        if cmd.show_progress {
-            eprintln!("⚠️  Context analysis failed: {e}");
-            eprintln!("   Continuing without deep context understanding");
+    if let Err(e) = analyze_project_context(&project_path, verbose).await {
+        if verbose {
+            warn!("⚠️  Context analysis failed: {e}");
+            warn!("   Continuing without deep context understanding");
         }
     }
 
-    if cmd.show_progress {
+    if verbose {
         if let Some(focus) = &cmd.focus {
-            println!("📊 Focus: {focus}");
+            info!("📊 Focus: {focus}");
         }
-        println!();
     }
 
     // 3. Setup basic state
@@ -740,13 +751,13 @@ async fn run_improvement_loop(
     // Check if we have a workflow configuration
     if let Some(workflow_config) = config.workflow {
         // Use configurable workflow
-        if cmd.show_progress {
-            println!("Using custom workflow from configuration");
+        if verbose {
+            info!("Using custom workflow from configuration");
         }
 
         let max_iterations = cmd.max_iterations;
         let mut executor =
-            WorkflowExecutor::new(workflow_config, cmd.show_progress, max_iterations);
+            WorkflowExecutor::new(workflow_config, verbose, max_iterations);
 
         while iteration <= max_iterations {
             // Update worktree state before iteration
@@ -787,52 +798,52 @@ async fn run_improvement_loop(
                 state.iterations.max = cmd.max_iterations;
             })?;
 
-            if cmd.show_progress {
-                println!("🔄 Iteration {iteration}/{}...", cmd.max_iterations);
+            if verbose {
+                info!("🔄 Iteration {iteration}/{}...", cmd.max_iterations);
             }
 
             // Step 1: Generate review spec and commit
             // Pass focus on every iteration to maintain consistent improvement direction
             let focus_for_iteration = cmd.focus.as_deref();
             let review_success =
-                call_claude_code_review(cmd.show_progress, focus_for_iteration).await?;
+                call_claude_code_review(verbose, focus_for_iteration).await?;
             if !review_success {
-                if cmd.show_progress {
-                    println!("Review failed - stopping iterations");
+                if verbose {
+                    info!("Review failed - stopping iterations");
                 }
                 break;
             }
 
             // Step 2: Extract spec ID from latest commit
-            let spec_id = extract_spec_from_git(cmd.show_progress).await?;
+            let spec_id = extract_spec_from_git(verbose).await?;
             if spec_id.is_empty() {
-                if cmd.show_progress {
-                    println!("No issues found - stopping iterations");
+                if verbose {
+                    info!("No issues found - stopping iterations");
                 }
                 break;
             }
 
             // Step 3: Implement fixes and commit
-            let implement_success = call_claude_implement_spec(&spec_id, cmd.show_progress).await?;
+            let implement_success = call_claude_implement_spec(&spec_id, verbose).await?;
             if !implement_success {
-                if cmd.show_progress {
-                    println!("Implementation failed for iteration {iteration}");
+                if verbose {
+                    info!("Implementation failed for iteration {iteration}");
                 }
             } else {
                 files_changed += 1;
             }
 
             // Step 4: Run linting/formatting and commit
-            let lint_success = call_claude_lint(cmd.show_progress).await?;
+            let lint_success = call_claude_lint(verbose).await?;
 
             // Check if any command made changes in this iteration
             let any_changes = review_success || implement_success || lint_success;
             if !any_changes {
-                if cmd.show_progress {
-                    println!(
+                if verbose {
+                    info!(
                         "ℹ️  Iteration {iteration} completed with no changes - stopping early"
                     );
-                    println!("   (This typically means no issues were found to fix)");
+                    info!("   (This typically means no issues were found to fix)");
                 }
                 break;
             }
@@ -894,7 +905,7 @@ async fn run_improvement_loop(
     }
 
     // 7. Final summary
-    if cmd.show_progress {
+    if verbose {
         let iterations = iteration - 1;
 
         // Determine if we completed naturally or stopped early
@@ -923,18 +934,20 @@ async fn run_improvement_loop(
 async fn run_standard_with_variables(
     cmd: command::CookCommand,
     variables: std::collections::HashMap<String, String>,
+    verbose: bool,
 ) -> Result<()> {
     // Run the standard flow but with variables available for command substitution
-    run_without_worktree_with_vars(cmd, variables).await
+    run_without_worktree_with_vars(cmd, variables, verbose).await
 }
 
-async fn run_without_worktree(cmd: command::CookCommand) -> Result<()> {
-    run_without_worktree_with_vars(cmd, std::collections::HashMap::new()).await
+async fn run_without_worktree(cmd: command::CookCommand, verbose: bool) -> Result<()> {
+    run_without_worktree_with_vars(cmd, std::collections::HashMap::new(), verbose).await
 }
 
 async fn run_without_worktree_with_vars(
     cmd: command::CookCommand,
     variables: std::collections::HashMap<String, String>,
+    verbose: bool,
 ) -> Result<()> {
     println!("🔍 Starting improvement loop...");
 
@@ -952,7 +965,7 @@ async fn run_without_worktree_with_vars(
     let config = config_loader.get_config();
 
     // Show config source in verbose mode
-    if cmd.show_progress {
+    if verbose {
         if let Some(config_path) = &cmd.config {
             println!("📄 Using configuration from: {}", config_path.display());
         } else {
@@ -962,10 +975,10 @@ async fn run_without_worktree_with_vars(
 
     // Run context analysis to understand the project
     let project_path = std::env::current_dir()?;
-    if let Err(e) = analyze_project_context(&project_path, cmd.show_progress).await {
-        if cmd.show_progress {
-            eprintln!("⚠️  Context analysis failed: {e}");
-            eprintln!("   Continuing without deep context understanding");
+    if let Err(e) = analyze_project_context(&project_path, verbose).await {
+        if verbose {
+            warn!("⚠️  Context analysis failed: {e}");
+            warn!("   Continuing without deep context understanding");
         }
     }
 
@@ -993,7 +1006,7 @@ async fn run_without_worktree_with_vars(
     if config.workflow.is_some() {
         // Use configurable workflow
         let mut executor =
-            WorkflowExecutor::new(workflow_config, cmd.show_progress, max_iterations)
+            WorkflowExecutor::new(workflow_config, verbose, max_iterations)
                 .with_variables(variables);
 
         while iteration <= max_iterations {
@@ -1017,52 +1030,52 @@ async fn run_without_worktree_with_vars(
     } else {
         // Use legacy hardcoded workflow
         while iteration <= cmd.max_iterations {
-            if cmd.show_progress {
-                println!("🔄 Iteration {iteration}/{}...", cmd.max_iterations);
+            if verbose {
+                info!("🔄 Iteration {iteration}/{}...", cmd.max_iterations);
             }
 
             // Step 1: Generate review spec and commit
             // Pass focus on every iteration to maintain consistent improvement direction
             let focus_for_iteration = cmd.focus.as_deref();
             let review_success =
-                call_claude_code_review(cmd.show_progress, focus_for_iteration).await?;
+                call_claude_code_review(verbose, focus_for_iteration).await?;
             if !review_success {
-                if cmd.show_progress {
-                    println!("Review failed - stopping iterations");
+                if verbose {
+                    info!("Review failed - stopping iterations");
                 }
                 break;
             }
 
             // Step 2: Extract spec ID from latest commit
-            let spec_id = extract_spec_from_git(cmd.show_progress).await?;
+            let spec_id = extract_spec_from_git(verbose).await?;
             if spec_id.is_empty() {
-                if cmd.show_progress {
-                    println!("No issues found - stopping iterations");
+                if verbose {
+                    info!("No issues found - stopping iterations");
                 }
                 break;
             }
 
             // Step 3: Implement fixes and commit
-            let implement_success = call_claude_implement_spec(&spec_id, cmd.show_progress).await?;
+            let implement_success = call_claude_implement_spec(&spec_id, verbose).await?;
             if !implement_success {
-                if cmd.show_progress {
-                    println!("Implementation failed for iteration {iteration}");
+                if verbose {
+                    info!("Implementation failed for iteration {iteration}");
                 }
             } else {
                 files_changed += 1;
             }
 
             // Step 4: Run linting/formatting and commit
-            let lint_success = call_claude_lint(cmd.show_progress).await?;
+            let lint_success = call_claude_lint(verbose).await?;
 
             // Check if any command made changes in this iteration
             let any_changes = review_success || implement_success || lint_success;
             if !any_changes {
-                if cmd.show_progress {
-                    println!(
+                if verbose {
+                    info!(
                         "ℹ️  Iteration {iteration} completed with no changes - stopping early"
                     );
-                    println!("   (This typically means no issues were found to fix)");
+                    info!("   (This typically means no issues were found to fix)");
                 }
                 break;
             }
@@ -1102,13 +1115,13 @@ async fn run_without_worktree_with_vars(
         if !git_commit.status.success() {
             // Check if there were no changes to commit
             let stderr = String::from_utf8_lossy(&git_commit.stderr);
-            if !stderr.contains("nothing to commit") && cmd.show_progress {
-                eprintln!("Warning: Failed to commit .mmm/state.json: {stderr}");
+            if !stderr.contains("nothing to commit") && verbose {
+                warn!("Warning: Failed to commit .mmm/state.json: {stderr}");
             }
         }
-    } else if cmd.show_progress {
+    } else if verbose {
         let stderr = String::from_utf8_lossy(&git_add.stderr);
-        eprintln!("Warning: Failed to stage .mmm/state.json: {stderr}");
+        warn!("Warning: Failed to stage .mmm/state.json: {stderr}");
     }
 
     // Completion message
@@ -1159,7 +1172,7 @@ async fn call_claude_code_review(verbose: bool, focus: Option<&str>) -> Result<b
     // Skip actual execution in test mode
     if std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true" {
         if verbose {
-            println!("[TEST MODE] Skipping Claude CLI execution for: mmm-code-review");
+            info!("[TEST MODE] Skipping Claude CLI execution for: mmm-code-review");
         }
 
         // Check if we should simulate no changes for this command
@@ -1169,7 +1182,7 @@ async fn call_claude_code_review(verbose: bool, focus: Option<&str>) -> Result<b
                 .any(|cmd| cmd.trim() == "mmm-code-review")
             {
                 if verbose {
-                    println!("[TEST MODE] Simulating no changes for: mmm-code-review");
+                    info!("[TEST MODE] Simulating no changes for: mmm-code-review");
                 }
                 return Ok(false);
             }
@@ -1234,14 +1247,14 @@ async fn call_claude_code_review(verbose: bool, focus: Option<&str>) -> Result<b
     }
 
     if verbose {
-        println!("✅ Code review completed");
+        info!("✅ Code review completed");
         if !stdout.is_empty() {
-            println!("📄 Claude response:");
-            println!("{stdout}");
+            info!("📄 Claude response:");
+            info!("{stdout}");
         }
         if !stderr.is_empty() {
-            println!("⚠️  Claude stderr:");
-            println!("{stderr}");
+            info!("⚠️  Claude stderr:");
+            info!("{stderr}");
         }
     }
 
@@ -1266,7 +1279,7 @@ async fn call_claude_code_review(verbose: bool, focus: Option<&str>) -> Result<b
 /// by checking the git diff of the last commit
 async fn extract_spec_from_git(verbose: bool) -> Result<String> {
     if verbose {
-        println!("Extracting spec ID from git history...");
+        info!("Extracting spec ID from git history...");
     }
 
     // In test mode, return a mock spec ID
@@ -1293,7 +1306,7 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
                 if let Some(filename) = line.split('/').next_back() {
                     let spec_id = filename.trim_end_matches(".md");
                     if verbose {
-                        println!("Found uncommitted spec file: {spec_id}");
+                        info!("Found uncommitted spec file: {spec_id}");
                     }
                     return Ok(spec_id.to_string());
                 }
@@ -1321,7 +1334,7 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
                     if filename.ends_with(".md") {
                         let spec_id = filename.trim_end_matches(".md");
                         if verbose {
-                            println!("Found recent spec file: {spec_id}");
+                            info!("Found recent spec file: {spec_id}");
                         }
                         return Ok(spec_id.to_string());
                     }
@@ -1339,7 +1352,7 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
             if let Some(filename) = line.split('/').next_back() {
                 let spec_id = filename.trim_end_matches(".md");
                 if verbose {
-                    println!("Found new spec file in commit: {spec_id}");
+                    info!("Found new spec file in commit: {spec_id}");
                 }
                 return Ok(spec_id.to_string());
             }
@@ -1364,7 +1377,7 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
                     if filename.ends_with(".md") {
                         let spec_id = filename.trim_end_matches(".md");
                         if verbose {
-                            println!("Found recent spec file: {spec_id}");
+                            info!("Found recent spec file: {spec_id}");
                         }
                         return Ok(spec_id.to_string());
                     }
@@ -1399,7 +1412,7 @@ async fn call_claude_implement_spec(spec_id: &str, verbose: bool) -> Result<bool
     // Skip actual execution in test mode
     if std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true" {
         if verbose {
-            println!("[TEST MODE] Skipping Claude CLI execution for: mmm-implement-spec {spec_id}");
+            info!("[TEST MODE] Skipping Claude CLI execution for: mmm-implement-spec {spec_id}");
         }
 
         // Check if we should simulate no changes for this command
@@ -1409,7 +1422,7 @@ async fn call_claude_implement_spec(spec_id: &str, verbose: bool) -> Result<bool
                 .any(|cmd| cmd.trim() == "mmm-implement-spec")
             {
                 if verbose {
-                    println!("[TEST MODE] Simulating no changes for: mmm-implement-spec");
+                    info!("[TEST MODE] Simulating no changes for: mmm-implement-spec");
                 }
                 return Ok(false);
             }
@@ -1478,14 +1491,14 @@ async fn call_claude_implement_spec(spec_id: &str, verbose: bool) -> Result<bool
     }
 
     if verbose {
-        println!("✅ Implementation completed");
+        info!("✅ Implementation completed");
         if !stdout.is_empty() {
-            println!("📄 Claude response:");
-            println!("{stdout}");
+            info!("📄 Claude response:");
+            info!("{stdout}");
         }
         if !stderr.is_empty() {
-            println!("⚠️  Claude stderr:");
-            println!("{stderr}");
+            info!("⚠️  Claude stderr:");
+            info!("{stderr}");
         }
     }
 
@@ -1515,7 +1528,7 @@ async fn call_claude_lint(verbose: bool) -> Result<bool> {
     // Skip actual execution in test mode
     if std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true" {
         if verbose {
-            println!("[TEST MODE] Skipping Claude CLI execution for: mmm-lint");
+            info!("[TEST MODE] Skipping Claude CLI execution for: mmm-lint");
         }
 
         // Check if we should simulate no changes for this command
@@ -1525,7 +1538,7 @@ async fn call_claude_lint(verbose: bool) -> Result<bool> {
                 .any(|cmd| cmd.trim() == "mmm-lint")
             {
                 if verbose {
-                    println!("[TEST MODE] Simulating no changes for: mmm-lint");
+                    info!("[TEST MODE] Simulating no changes for: mmm-lint");
                 }
                 return Ok(false);
             }
@@ -1563,14 +1576,14 @@ async fn call_claude_lint(verbose: bool) -> Result<bool> {
     }
 
     if verbose {
-        println!("✅ Linting completed");
+        info!("✅ Linting completed");
         if !stdout.is_empty() {
-            println!("📄 Claude response:");
-            println!("{stdout}");
+            info!("📄 Claude response:");
+            info!("{stdout}");
         }
         if !stderr.is_empty() {
-            println!("⚠️  Claude stderr:");
-            println!("{stderr}");
+            info!("⚠️  Claude stderr:");
+            info!("{stderr}");
         }
     }
 
@@ -1582,6 +1595,7 @@ async fn run_with_mapping_in_worktree(
     cmd: command::CookCommand,
     session: crate::worktree::WorktreeSession,
     original_repo_path: std::path::PathBuf,
+    verbose: bool,
 ) -> Result<()> {
     use glob::glob;
     use std::collections::HashMap;
@@ -1598,7 +1612,7 @@ async fn run_with_mapping_in_worktree(
                     inputs.push(path.to_string_lossy().into_owned());
                 }
                 Err(e) => {
-                    eprintln!("Warning: Error matching pattern: {e}");
+                    warn!("Warning: Error matching pattern: {e}");
                 }
             }
         }
@@ -1677,6 +1691,7 @@ async fn run_with_mapping_in_worktree(
             &session,
             &worktree_manager,
             variables.clone(),
+            verbose,
         )
         .await;
 
@@ -1717,6 +1732,7 @@ async fn run_improvement_loop_with_variables(
     session: &crate::worktree::WorktreeSession,
     worktree_manager: &WorktreeManager,
     variables: std::collections::HashMap<String, String>,
+    verbose: bool,
 ) -> Result<()> {
     // The actual improvement logic, but with state tracking
     // This is a copy of run_without_worktree logic with state updates
@@ -1727,18 +1743,17 @@ async fn run_improvement_loop_with_variables(
     // 2. Initial analysis
     // Run context analysis to understand the project
     let project_path = std::env::current_dir()?;
-    if let Err(e) = analyze_project_context(&project_path, cmd.show_progress).await {
-        if cmd.show_progress {
-            eprintln!("⚠️  Context analysis failed: {e}");
-            eprintln!("   Continuing without deep context understanding");
+    if let Err(e) = analyze_project_context(&project_path, verbose).await {
+        if verbose {
+            warn!("⚠️  Context analysis failed: {e}");
+            warn!("   Continuing without deep context understanding");
         }
     }
 
-    if cmd.show_progress {
+    if verbose {
         if let Some(focus) = &cmd.focus {
-            println!("📊 Focus: {focus}");
+            info!("📊 Focus: {focus}");
         }
-        println!();
     }
 
     // 3. Setup basic state
@@ -1759,13 +1774,13 @@ async fn run_improvement_loop_with_variables(
     // Check if we have a workflow configuration
     if let Some(workflow_config) = config.workflow {
         // Use configurable workflow
-        if cmd.show_progress {
-            println!("Using custom workflow from configuration");
+        if verbose {
+            info!("Using custom workflow from configuration");
         }
 
         let max_iterations = cmd.max_iterations;
         let mut executor =
-            WorkflowExecutor::new(workflow_config, cmd.show_progress, max_iterations)
+            WorkflowExecutor::new(workflow_config, verbose, max_iterations)
                 .with_variables(variables);
 
         while iteration <= max_iterations {
@@ -1817,7 +1832,6 @@ mod cook_inline_tests {
             path: None,
             max_iterations,
             worktree,
-            show_progress: false,
             focus: None,
             config: None,
             map: vec![],

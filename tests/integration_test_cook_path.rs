@@ -147,7 +147,6 @@ fn test_cook_path_with_flags() {
         "security",
         "--max-iterations",
         "0",
-        "--show-progress",
     ])
     .assert()
     .success()
