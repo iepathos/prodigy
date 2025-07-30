@@ -63,23 +63,64 @@ impl TarpaulinCoverageAnalyzer {
         };
 
         if should_run {
-            // Run tarpaulin
-            let output = Command::new("cargo")
-                .args([
-                    "tarpaulin",
-                    "--skip-clean",
-                    "--out",
-                    "Json",
-                    "--output-dir",
-                    "target/coverage",
-                ])
-                .current_dir(project_path)
-                .output()
-                .context("Failed to run cargo-tarpaulin. Is it installed?")?;
+            // Check if project has justfile with coverage command
+            let justfile_path = project_path.join("justfile");
+            let has_just_coverage = if justfile_path.exists() {
+                let justfile_content = tokio::fs::read_to_string(&justfile_path).await.unwrap_or_default();
+                justfile_content.contains("coverage:")
+            } else {
+                false
+            };
+
+            let output = if has_just_coverage {
+                // Use project's just coverage command
+                Command::new("just")
+                    .args(["coverage"])
+                    .current_dir(project_path)
+                    .output()
+                    .context("Failed to run 'just coverage'. Is just installed?")?
+            } else {
+                // Fall back to direct cargo tarpaulin with JSON output
+                Command::new("cargo")
+                    .args([
+                        "tarpaulin",
+                        "--skip-clean",
+                        "--out",
+                        "Json",
+                        "--output-dir",
+                        "target/coverage",
+                    ])
+                    .current_dir(project_path)
+                    .output()
+                    .context("Failed to run cargo-tarpaulin. Is it installed?")?
+            };
 
             if !output.status.success() {
                 let stderr = String::from_utf8_lossy(&output.stderr);
-                anyhow::bail!("cargo-tarpaulin failed: {}", stderr);
+                let command_name = if has_just_coverage { "just coverage" } else { "cargo tarpaulin" };
+                anyhow::bail!("{} failed: {}", command_name, stderr);
+            }
+
+            // If we used just coverage, we need to also generate JSON output for parsing
+            if has_just_coverage && !coverage_file.exists() {
+                // Run tarpaulin again just for JSON output
+                let json_output = Command::new("cargo")
+                    .args([
+                        "tarpaulin",
+                        "--skip-clean",
+                        "--out",
+                        "Json",
+                        "--output-dir",
+                        "target/coverage",
+                    ])
+                    .current_dir(project_path)
+                    .output()
+                    .context("Failed to generate JSON coverage report")?;
+
+                if !json_output.status.success() {
+                    let stderr = String::from_utf8_lossy(&json_output.stderr);
+                    anyhow::bail!("JSON coverage generation failed: {}", stderr);
+                }
             }
         }
 

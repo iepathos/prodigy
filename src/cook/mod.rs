@@ -84,6 +84,87 @@ async fn analyze_project_context(project_path: &Path, verbose: bool) -> Result<(
     Ok(())
 }
 
+/// Run comprehensive analysis including context and metrics for workflows
+async fn analyze_project_comprehensive(project_path: &Path, verbose: bool) -> Result<()> {
+    if verbose {
+        info!("🔍 Running comprehensive project analysis...");
+    }
+
+    // First run context analysis
+    let analyzer = ProjectAnalyzer::new();
+    let analysis_result = analyzer.analyze(project_path).await?;
+    let suggestions = analyzer.get_improvement_suggestions();
+
+    // Then run metrics collection to get accurate coverage data
+    let metrics_collector = MetricsCollector::new();
+    let iteration_id = format!("cook-{}", chrono::Utc::now().timestamp());
+    
+    let metrics_result = metrics_collector
+        .collect_metrics(project_path, iteration_id.clone())
+        .await;
+
+    match metrics_result {
+        Ok(metrics) => {
+            if verbose {
+                info!("✅ Comprehensive analysis complete");
+                info!(
+                    "   - Dependencies: {} modules analyzed",
+                    analysis_result.dependency_graph.nodes.len()
+                );
+                info!(
+                    "   - Architecture: {} patterns detected",
+                    analysis_result.architecture.patterns.len()
+                );
+                info!(
+                    "   - Technical debt: {} items found",
+                    analysis_result.technical_debt.debt_items.len()
+                );
+                info!(
+                    "   - Test coverage: {:.1}% (accurate)",
+                    metrics.test_coverage
+                );
+                info!(
+                    "   - Lint warnings: {}",
+                    metrics.lint_warnings
+                );
+
+                if !suggestions.is_empty() {
+                    info!("\n📋 Top improvement suggestions:");
+                    for (i, suggestion) in suggestions.iter().take(3).enumerate() {
+                        info!("   {}. {}", i + 1, suggestion.title);
+                    }
+                }
+            }
+
+            // Save metrics for later use
+            let metrics_storage = MetricsStorage::new(project_path);
+            if let Err(e) = metrics_storage.save_current(&metrics) {
+                if verbose {
+                    warn!("⚠️  Failed to save metrics: {}", e);
+                }
+            }
+        }
+        Err(e) => {
+            if verbose {
+                warn!("⚠️  Metrics collection failed: {}", e);
+                warn!("   Using context analysis only");
+                info!(
+                    "   - Test coverage: {:.1}% (estimated)",
+                    analysis_result.test_coverage.overall_coverage * 100.0
+                );
+            }
+        }
+    }
+
+    // Save analysis for Claude commands to use
+    save_analysis(project_path, &analysis_result)?;
+
+    // Set environment variable to signal context is available
+    std::env::set_var("MMM_CONTEXT_AVAILABLE", "true");
+
+    Ok(())
+}
+
 /// Check if we're running in an interactive terminal
 fn is_tty() -> bool {
     atty::is(atty::Stream::Stdin) && atty::is(atty::Stream::Stdout)
@@ -740,11 +821,11 @@ async fn run_improvement_loop(
     check_claude_cli().await?;
 
     // 2. Initial analysis
-    // Run context analysis to understand the project
+    // Run comprehensive analysis to understand the project and collect accurate metrics
     let project_path = std::env::current_dir()?;
-    if let Err(e) = analyze_project_context(&project_path, verbose).await {
+    if let Err(e) = analyze_project_comprehensive(&project_path, verbose).await {
         if verbose {
-            warn!("⚠️  Context analysis failed: {e}");
+            warn!("⚠️  Comprehensive analysis failed: {e}");
             warn!("   Continuing without deep context understanding");
         }
     }
@@ -1051,11 +1132,11 @@ async fn run_without_worktree_with_vars(
         }
     }
 
-    // Run context analysis to understand the project
+    // Run comprehensive analysis to understand the project and collect accurate metrics
     let project_path = std::env::current_dir()?;
-    if let Err(e) = analyze_project_context(&project_path, verbose).await {
+    if let Err(e) = analyze_project_comprehensive(&project_path, verbose).await {
         if verbose {
-            warn!("⚠️  Context analysis failed: {e}");
+            warn!("⚠️  Comprehensive analysis failed: {e}");
             warn!("   Continuing without deep context understanding");
         }
     }
@@ -1938,11 +2019,11 @@ async fn run_improvement_loop_with_variables(
     check_claude_cli().await?;
 
     // 2. Initial analysis
-    // Run context analysis to understand the project
+    // Run comprehensive analysis to understand the project and collect accurate metrics
     let project_path = std::env::current_dir()?;
-    if let Err(e) = analyze_project_context(&project_path, verbose).await {
+    if let Err(e) = analyze_project_comprehensive(&project_path, verbose).await {
         if verbose {
-            warn!("⚠️  Context analysis failed: {e}");
+            warn!("⚠️  Comprehensive analysis failed: {e}");
             warn!("   Continuing without deep context understanding");
         }
     }
