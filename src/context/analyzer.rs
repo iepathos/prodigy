@@ -15,6 +15,12 @@ pub struct ProjectAnalyzer {
     cached_result: Option<AnalysisResult>,
 }
 
+impl Default for ProjectAnalyzer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ProjectAnalyzer {
     /// Create a new project analyzer with default components
     pub fn new() -> Self {
@@ -251,8 +257,7 @@ fn suggest_from_dependencies(deps: &DependencyGraph) -> Vec<Suggestion> {
                 category: SuggestionCategory::Dependencies,
                 title: "Reduce module coupling".to_string(),
                 description: format!(
-                    "{} has {} dependencies, consider refactoring",
-                    module, count
+                    "{module} has {count} dependencies, consider refactoring"
                 ),
                 affected_files: vec![PathBuf::from(module)],
                 estimated_impact: ImpactLevel::Moderate,

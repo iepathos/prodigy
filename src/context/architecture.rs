@@ -24,6 +24,12 @@ pub trait ArchitectureExtractor: Send + Sync {
 /// Basic architecture extractor implementation
 pub struct BasicArchitectureExtractor;
 
+impl Default for BasicArchitectureExtractor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BasicArchitectureExtractor {
     pub fn new() -> Self {
         Self
@@ -69,7 +75,7 @@ impl BasicArchitectureExtractor {
         &self,
         project_path: &Path,
     ) -> Result<HashMap<String, ComponentInfo>> {
-        use walkdir::WalkDir;
+        
 
         let mut components = HashMap::new();
         let src_path = project_path.join("src");
@@ -154,7 +160,7 @@ impl BasicArchitectureExtractor {
                 if let Some(name) = line.split_whitespace().nth(2) {
                     interfaces.push(format!(
                         "struct {}",
-                        name.trim_end_matches(|c| c == '{' || c == ';')
+                        name.trim_end_matches(['{', ';'])
                     ));
                 }
             } else if line.starts_with("pub trait") {
@@ -189,11 +195,10 @@ impl BasicArchitectureExtractor {
                     if let Some(dep) = line.strip_prefix("use ").and_then(|s| s.split("::").next())
                     {
                         let dep = dep.trim();
-                        if dep != "crate" && dep != "super" && dep != "self" && dep != "std" {
-                            if seen.insert(dep.to_string()) {
+                        if dep != "crate" && dep != "super" && dep != "self" && dep != "std"
+                            && seen.insert(dep.to_string()) {
                                 dependencies.push(dep.to_string());
                             }
-                        }
                     }
                 }
             }
@@ -219,8 +224,7 @@ impl BasicArchitectureExtractor {
                             location: name.clone(),
                             severity: ViolationSeverity::High,
                             description: format!(
-                                "Circular dependency between {} and {}",
-                                name, dep
+                                "Circular dependency between {name} and {dep}"
                             ),
                         });
                     }
@@ -250,7 +254,7 @@ impl BasicArchitectureExtractor {
                     rule: "Components should expose interfaces".to_string(),
                     location: name.clone(),
                     severity: ViolationSeverity::Low,
-                    description: format!("{} has no public interfaces", name),
+                    description: format!("{name} has no public interfaces"),
                 });
             }
         }

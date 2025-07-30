@@ -123,6 +123,12 @@ impl TechnicalDebtMap {
 /// Basic technical debt mapper implementation
 pub struct BasicTechnicalDebtMapper;
 
+impl Default for BasicTechnicalDebtMapper {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BasicTechnicalDebtMapper {
     pub fn new() -> Self {
         Self
@@ -168,7 +174,7 @@ impl BasicTechnicalDebtMapper {
 
             debt_items.push(DebtItem {
                 id: format!("{:?}_{}_L{}", debt_type, file_path.display(), line_num + 1),
-                title: format!("{:?} comment", debt_type),
+                title: format!("{debt_type:?} comment"),
                 description,
                 location: file_path.to_path_buf(),
                 line_number: Some(line_num as u32 + 1),
@@ -229,7 +235,7 @@ impl BasicTechnicalDebtMapper {
                 // Extract function name
                 if let Some(name_start) = line.find("fn ") {
                     let after_fn = &line[name_start + 3..];
-                    if let Some(name) = after_fn.split(|c: char| c == '(' || c == '<').next() {
+                    if let Some(name) = after_fn.split(['(', '<']).next() {
                         let function_name = name.trim().to_string();
 
                         // Find function body
@@ -307,7 +313,7 @@ impl BasicTechnicalDebtMapper {
 
                     hash_to_blocks
                         .entry(hash.clone())
-                        .or_insert_with(Vec::new)
+                        .or_default()
                         .push(CodeBlock {
                             file: file_path.clone(),
                             start_line: i as u32 + 1,
@@ -384,7 +390,7 @@ impl TechnicalDebtMapper for BasicTechnicalDebtMapper {
             if blocks.len() > 1 {
                 let first_block = &blocks[0];
                 all_debt_items.push(DebtItem {
-                    id: format!("DUP_{}", hash),
+                    id: format!("DUP_{hash}"),
                     title: "Code duplication detected".to_string(),
                     description: format!(
                         "Found {} instances of duplicated code ({} lines)",

@@ -104,6 +104,12 @@ impl ProjectConventions {
 /// Basic convention detector implementation
 pub struct BasicConventionDetector;
 
+impl Default for BasicConventionDetector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BasicConventionDetector {
     pub fn new() -> Self {
         Self
@@ -120,13 +126,13 @@ impl BasicConventionDetector {
                 NamingStyle::ScreamingSnakeCase
             } else if name.contains('_') {
                 NamingStyle::Mixed
-            } else if name.chars().next().map_or(false, |c| c.is_uppercase()) {
+            } else if name.chars().next().is_some_and(|c| c.is_uppercase()) {
                 NamingStyle::PascalCase
             } else {
                 NamingStyle::CamelCase
             };
 
-            *style_counts.entry(format!("{:?}", style)).or_insert(0) += 1;
+            *style_counts.entry(format!("{style:?}")).or_insert(0) += 1;
         }
 
         // Return most common style
@@ -152,7 +158,7 @@ impl BasicConventionDetector {
             if line.starts_with("fn ") || line.contains(" fn ") {
                 if let Some(start) = line.find("fn ") {
                     let after_fn = &line[start + 3..];
-                    if let Some(name) = after_fn.split(|c: char| c == '(' || c == '<').next() {
+                    if let Some(name) = after_fn.split(['(', '<']).next() {
                         names.push(name.trim().to_string());
                     }
                 }
@@ -173,7 +179,7 @@ impl BasicConventionDetector {
                     let after_let = &line[start + 4..];
                     // Handle mutable variables
                     let after_let = after_let.strip_prefix("mut ").unwrap_or(after_let);
-                    if let Some(name) = after_let.split(|c: char| c == ':' || c == '=').next() {
+                    if let Some(name) = after_let.split([':', '=']).next() {
                         names.push(name.trim().to_string());
                     }
                 }
@@ -196,7 +202,7 @@ impl BasicConventionDetector {
             {
                 if let Some(name) = line.split_whitespace().nth(1) {
                     names.push(
-                        name.trim_end_matches(|c| c == '{' || c == ';' || c == '<')
+                        name.trim_end_matches(['{', ';', '<'])
                             .to_string(),
                     );
                 }

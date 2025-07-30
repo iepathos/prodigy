@@ -154,6 +154,12 @@ impl DependencyGraph {
 /// Basic dependency analyzer implementation
 pub struct BasicDependencyAnalyzer;
 
+impl Default for BasicDependencyAnalyzer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BasicDependencyAnalyzer {
     pub fn new() -> Self {
         Self
@@ -321,7 +327,7 @@ impl BasicDependencyAnalyzer {
         let mut layer_map: HashMap<String, Vec<String>> = HashMap::new();
 
         // Group modules by directory depth
-        for (path, _) in &graph.nodes {
+        for path in graph.nodes.keys() {
             let depth = path.matches('/').count();
             let layer_name = match depth {
                 0 => "root",
@@ -332,7 +338,7 @@ impl BasicDependencyAnalyzer {
 
             layer_map
                 .entry(layer_name.to_string())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(path.clone());
         }
 

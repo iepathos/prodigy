@@ -108,6 +108,12 @@ impl TestCoverageMap {
 /// Basic test coverage analyzer implementation
 pub struct BasicTestCoverageAnalyzer;
 
+impl Default for BasicTestCoverageAnalyzer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BasicTestCoverageAnalyzer {
     pub fn new() -> Self {
         Self
@@ -127,7 +133,7 @@ impl BasicTestCoverageAnalyzer {
         test_files.push(source_file.to_path_buf());
 
         // Check for test module in same directory
-        let test_mod = source_file.with_file_name(format!("{}_test.rs", file_stem));
+        let test_mod = source_file.with_file_name(format!("{file_stem}_test.rs"));
         if test_mod.exists() {
             test_files.push(test_mod);
         }
@@ -135,7 +141,7 @@ impl BasicTestCoverageAnalyzer {
         // Check for tests directory
         let tests_dir = project_path.join("tests");
         if tests_dir.exists() {
-            let test_file = tests_dir.join(format!("{}_test.rs", file_stem));
+            let test_file = tests_dir.join(format!("{file_stem}_test.rs"));
             if test_file.exists() {
                 test_files.push(test_file);
             }
@@ -158,7 +164,7 @@ impl BasicTestCoverageAnalyzer {
             {
                 if let Some(name_start) = line.find("fn ") {
                     let after_fn = &line[name_start + 3..];
-                    if let Some(name) = after_fn.split(|c: char| c == '(' || c == '<').next() {
+                    if let Some(name) = after_fn.split(['(', '<']).next() {
                         functions.push((name.trim().to_string(), line_num as u32 + 1));
                     }
                 }
@@ -180,7 +186,7 @@ impl BasicTestCoverageAnalyzer {
                     let next_line = lines[i + 1];
                     if let Some(name_start) = next_line.find("fn ") {
                         let after_fn = &next_line[name_start + 3..];
-                        if let Some(name) = after_fn.split(|c: char| c == '(' || c == '<').next() {
+                        if let Some(name) = after_fn.split(['(', '<']).next() {
                             tests.push(name.trim().to_string());
                         }
                     }
