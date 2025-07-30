@@ -51,6 +51,10 @@ enum Commands {
         /// Stop on first failure when processing multiple files
         #[arg(long)]
         fail_fast: bool,
+
+        /// Automatically answer yes to all prompts
+        #[arg(short = 'y', long = "yes")]
+        auto_accept: bool,
     },
     /// Manage git worktrees for parallel MMM sessions
     Worktree {
@@ -129,6 +133,7 @@ async fn main() {
             map,
             args,
             fail_fast,
+            auto_accept,
         }) => {
             // Check if user used the deprecated 'improve' alias
             let cli_args: Vec<String> = std::env::args().collect();
@@ -146,7 +151,7 @@ async fn main() {
                 map,
                 args,
                 fail_fast,
-                auto_accept: false, // Default to false for the improve alias
+                auto_accept,
             };
             mmm::cook::run(cook_cmd).await
         }
