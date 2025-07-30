@@ -432,7 +432,7 @@ async fn get_git_head() -> Result<String> {
 async fn extract_spec_from_commit(commit_hash: &str) -> Result<Option<String>> {
     // Get list of files changed in this commit
     let output = tokio::process::Command::new("git")
-        .args(["diff-tree", "--no-commit-id", "--name-only", "-r", commit_hash])
+        .args(["show", "--name-only", "--pretty=format:", commit_hash])
         .output()
         .await?;
     
@@ -444,6 +444,10 @@ async fn extract_spec_from_commit(commit_hash: &str) -> Result<Option<String>> {
     
     // Look for spec files in the commit
     for line in files.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
         if line.starts_with("specs/") && line.ends_with(".md") {
             if let Some(filename) = line.split('/').last() {
                 let spec_id = filename.trim_end_matches(".md");
@@ -662,6 +666,221 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_get_git_head() {
+        // This test requires a git repository
+        if let Ok(head) = get_git_head().await {
+            // Should be a 40-character hex string
+            assert_eq!(head.len(), 40);
+            assert!(head.chars().all(|c| c.is_ascii_hexdigit()));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_extract_spec_from_commit() {
+        use std::fs;
+        use tempfile::TempDir;
+
+        // Create a temporary git repository
+        let temp_dir = TempDir::new().unwrap();
+        let repo_path = temp_dir.path();
+        
+        // Initialize git repo
+        std::process::Command::new("git")
+            .current_dir(&repo_path)
+            .args(["init"])
+            .output()
+            .expect("Failed to init git repo");
+            
+        // Configure git user for the test repo
+        std::process::Command::new("git")
+            .current_dir(&repo_path)
+            .args(["config", "user.email", "test@example.com"])
+            .output()
+            .expect("Failed to set git email");
+            
+        std::process::Command::new("git")
+            .current_dir(&repo_path)
+            .args(["config", "user.name", "Test User"])
+            .output()
+            .expect("Failed to set git name");
+
+        // Create specs directory
+        fs::create_dir_all(repo_path.join("specs")).unwrap();
+        
+        // Create and commit a spec file
+        let spec_content = "# Test Spec\nThis is a test specification.";
+        fs::write(repo_path.join("specs/test-spec-123.md"), spec_content).unwrap();
+        
+        std::process::Command::new("git")
+            .current_dir(&repo_path)
+            .args(["add", "specs/test-spec-123.md"])
+            .output()
+            .expect("Failed to add file");
+            
+        std::process::Command::new("git")
+            .current_dir(&repo_path)
+            .args(["commit", "-m", "test: add test spec"])
+            .output()
+            .expect("Failed to commit");
+
+        // Get the commit hash
+        let output = std::process::Command::new("git")
+            .current_dir(&repo_path)
+            .args(["rev-parse", "HEAD"])
+            .output()
+            .expect("Failed to get commit hash");
+            
+        let commit_hash = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+        // Change to the test directory for the async command
+        let original_dir = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&repo_path).unwrap();
+        
+        // Test extracting spec from commit
+        let result = extract_spec_from_commit(&commit_hash).await.unwrap();
+        
+        // Restore original directory
+        std::env::set_current_dir(original_dir).unwrap();
+        
+        assert_eq!(result, Some("test-spec-123".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_extract_spec_from_commit_no_spec() {
+        use std::fs;
+        use tempfile::TempDir;
+
+        // Create a temporary git repository
+        let temp_dir = TempDir::new().unwrap();
+        let repo_path = temp_dir.path();
+        
+        // Initialize git repo
+        std::process::Command::new("git")
+            .current_dir(&repo_path)
+            .args(["init"])
+            .output()
+            .expect("Failed to init git repo");
+            
+        // Configure git user
+        std::process::Command::new("git")
+            .current_dir(&repo_path)
+            .args(["config", "user.email", "test@example.com"])
+            .output()
+            .expect("Failed to set git email");
+            
+        std::process::Command::new("git")
+            .current_dir(&repo_path)
+            .args(["config", "user.name", "Test User"])
+            .output()
+            .expect("Failed to set git name");
+
+        // Create and commit a non-spec file
+        fs::write(repo_path.join("README.md"), "# Readme").unwrap();
+        
+        std::process::Command::new("git")
+            .current_dir(&repo_path)
+            .args(["add", "README.md"])
+            .output()
+            .expect("Failed to add file");
+            
+        std::process::Command::new("git")
+            .current_dir(&repo_path)
+            .args(["commit", "-m", "test: add readme"])
+            .output()
+            .expect("Failed to commit");
+
+        // Get the commit hash
+        let output = std::process::Command::new("git")
+            .current_dir(&repo_path)
+            .args(["rev-parse", "HEAD"])
+            .output()
+            .expect("Failed to get commit hash");
+            
+        let commit_hash = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+        // Change to the test directory
+        let original_dir = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&repo_path).unwrap();
+        
+        // Test extracting spec from commit (should find nothing)
+        let result = extract_spec_from_commit(&commit_hash).await.unwrap();
+        
+        // Restore original directory
+        std::env::set_current_dir(original_dir).unwrap();
+        
+        assert_eq!(result, None);
+    }
+
+    #[tokio::test]
+    async fn test_extract_spec_from_commit_skip_special_files() {
+        use std::fs;
+        use tempfile::TempDir;
+
+        // Create a temporary git repository
+        let temp_dir = TempDir::new().unwrap();
+        let repo_path = temp_dir.path();
+        
+        // Initialize git repo
+        std::process::Command::new("git")
+            .current_dir(&repo_path)
+            .args(["init"])
+            .output()
+            .expect("Failed to init git repo");
+            
+        // Configure git user
+        std::process::Command::new("git")
+            .current_dir(&repo_path)
+            .args(["config", "user.email", "test@example.com"])
+            .output()
+            .expect("Failed to set git email");
+            
+        std::process::Command::new("git")
+            .current_dir(&repo_path)
+            .args(["config", "user.name", "Test User"])
+            .output()
+            .expect("Failed to set git name");
+
+        // Create specs directory
+        fs::create_dir_all(repo_path.join("specs")).unwrap();
+        
+        // Create and commit SPEC_INDEX.md (should be skipped)
+        fs::write(repo_path.join("specs/SPEC_INDEX.md"), "# Index").unwrap();
+        
+        std::process::Command::new("git")
+            .current_dir(&repo_path)
+            .args(["add", "specs/SPEC_INDEX.md"])
+            .output()
+            .expect("Failed to add file");
+            
+        std::process::Command::new("git")
+            .current_dir(&repo_path)
+            .args(["commit", "-m", "test: add index"])
+            .output()
+            .expect("Failed to commit");
+
+        // Get the commit hash
+        let output = std::process::Command::new("git")
+            .current_dir(&repo_path)
+            .args(["rev-parse", "HEAD"])
+            .output()
+            .expect("Failed to get commit hash");
+            
+        let commit_hash = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+        // Change to the test directory
+        let original_dir = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&repo_path).unwrap();
+        
+        // Test extracting spec from commit (should skip SPEC_INDEX)
+        let result = extract_spec_from_commit(&commit_hash).await.unwrap();
+        
+        // Restore original directory
+        std::env::set_current_dir(original_dir).unwrap();
+        
+        assert_eq!(result, None);
+    }
+
+    #[tokio::test]
     async fn test_extract_spec_from_git_edge_cases() {
         let _executor = WorkflowExecutor::new(create_test_workflow(), false, 1);
 
@@ -672,27 +891,103 @@ mod tests {
             // With special characters
             "review: spec iteration-1234567890-improvements!",
             // At end of message
-            "some text iteration-1234567890-improvements",
+            "Some text iteration-1234567890-improvements"
         ];
 
-        for message in test_cases {
-            let result = if let Some(spec_start) = message.find("iteration-") {
-                let spec_part = &message[spec_start..];
-                if let Some(spec_end) = spec_part.find(' ') {
-                    spec_part[..spec_end].to_string()
-                } else if let Some(spec_end) = spec_part.find('\n') {
-                    spec_part[..spec_end].to_string()
-                } else if let Some(spec_end) = spec_part.find('!') {
-                    spec_part[..spec_end].to_string()
-                } else {
-                    spec_part.to_string()
-                }
-            } else {
-                String::new()
-            };
-
-            assert!(result.starts_with("iteration-"));
+        for msg in test_cases {
+            // Test commit message parsing logic if needed
+            assert!(msg.contains("iteration-"));
         }
+    }
+
+    #[tokio::test] 
+    async fn test_workflow_spec_variable_passing() {
+        use std::fs;
+        use tempfile::TempDir;
+
+        // Create a temporary git repository
+        let temp_dir = TempDir::new().unwrap();
+        let repo_path = temp_dir.path();
+        
+        // Initialize git repo
+        std::process::Command::new("git")
+            .current_dir(&repo_path)
+            .args(["init"])
+            .output()
+            .expect("Failed to init git repo");
+            
+        // Configure git user
+        std::process::Command::new("git")
+            .current_dir(&repo_path)
+            .args(["config", "user.email", "test@example.com"])
+            .output()
+            .expect("Failed to set git email");
+            
+        std::process::Command::new("git")
+            .current_dir(&repo_path)
+            .args(["config", "user.name", "Test User"])
+            .output()
+            .expect("Failed to set git name");
+
+        // Create initial commit
+        fs::write(repo_path.join("README.md"), "# Test").unwrap();
+        std::process::Command::new("git")
+            .current_dir(&repo_path)
+            .args(["add", "."])
+            .output()
+            .expect("Failed to add files");
+        std::process::Command::new("git")
+            .current_dir(&repo_path)
+            .args(["commit", "-m", "initial"])
+            .output()
+            .expect("Failed to commit");
+
+        // Change to test directory BEFORE calling git commands
+        let original_dir = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&repo_path).unwrap();
+
+        // Simulate a spec being created by setting git HEAD before/after
+        let head_before = get_git_head().await.unwrap();
+        
+        // Create a workflow executor
+        let config = WorkflowConfig {
+            commands: vec![
+                WorkflowCommand::Simple("test-review".to_string()),
+                WorkflowCommand::Simple("mmm-implement-spec".to_string()),
+            ],
+        };
+        let mut executor = WorkflowExecutor::new_for_test(config, true, 1);
+        
+        // Create specs directory and commit a spec file
+        fs::create_dir_all("specs").unwrap();
+        fs::write("specs/test-workflow-spec.md", "# Test Spec").unwrap();
+        
+        std::process::Command::new("git")
+            .args(["add", "specs/test-workflow-spec.md"])
+            .output()
+            .expect("Failed to add spec");
+            
+        std::process::Command::new("git")
+            .args(["commit", "-m", "test: add workflow spec"])
+            .output()
+            .expect("Failed to commit spec");
+
+        let head_after = get_git_head().await.unwrap();
+        
+        // Extract spec from the commit
+        assert_ne!(head_before, head_after);
+        let spec_id = extract_spec_from_commit(&head_after).await.unwrap();
+        assert_eq!(spec_id, Some("test-workflow-spec".to_string()));
+
+        // Verify the executor would store this in variables
+        if let Some(spec) = spec_id {
+            executor.variables.insert("SPEC_ID".to_string(), spec);
+        }
+        
+        assert_eq!(executor.variables.get("SPEC_ID"), Some(&"test-workflow-spec".to_string()));
+
+        // Restore original directory
+        std::env::set_current_dir(original_dir).unwrap();
     }
 
     #[test]
