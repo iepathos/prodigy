@@ -553,3 +553,21 @@ Add a `-y/--yes` flag to the cook command that automatically accepts all interac
 - **Positive**: Enables fully automated workflows, follows standard CLI conventions, supports CI/CD integration, maintains backward compatibility, clear logging of auto-accepted actions for audit trail, safe defaults (only auto-accepts on success)
 - **Negative**: Users must be careful when using the flag as it will automatically merge and delete worktrees without confirmation
 - **Implementation**: Added auto_accept boolean field to CookCommand, updated merge and deletion prompt logic to check flag before prompting, modified conditions to run prompts in either interactive terminal or when auto_accept is true, added clear logging when auto-accepting for transparency
+
+---
+
+## ADR-032: MMM Command Initialization System
+
+### Status
+Accepted
+
+### Context
+Spec 43 identified that MMM depends on various .claude/commands being present in a project for proper functionality, but lacked a mechanism to install these base commands to new git projects. Users had to manually copy command files from existing projects or create them from scratch, creating friction in the onboarding process.
+
+### Decision
+Implement `mmm init` subcommand that bootstraps .claude/commands in git repositories by embedding the default MMM command templates directly in the binary using include_str! macro. The command detects existing commands, provides conflict resolution options, and supports selective command installation.
+
+### Consequences
+- **Positive**: Quick project onboarding with single command, no manual file copying required, bundled commands always match MMM version, selective installation supported, graceful conflict handling, commands are editable after installation
+- **Negative**: Increases binary size slightly with embedded command content, requires manual update of templates when commands change
+- **Implementation**: Created init module with templates.rs embedding all 5 core commands, command.rs for CLI structure, mod.rs with git validation and installation logic, added atty dependency for interactive prompts, integrated with main CLI

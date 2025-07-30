@@ -145,15 +145,18 @@ impl WorkflowExecutor {
                 "[TEST MODE] Skipping Claude CLI execution for: {}",
                 command.name
             );
-            
+
             // Check if we should simulate no changes for this command
             if let Ok(no_changes_cmds) = std::env::var("MMM_TEST_NO_CHANGES_COMMANDS") {
-                if no_changes_cmds.split(',').any(|cmd| cmd.trim() == command.name) {
+                if no_changes_cmds
+                    .split(',')
+                    .any(|cmd| cmd.trim() == command.name)
+                {
                     println!("[TEST MODE] Simulating no changes for: {}", command.name);
                     return Ok(false);
                 }
             }
-            
+
             // Track focus if requested and this is the first command
             if command.name == "mmm-code-review" {
                 if let Some(focus) = command.options.get("focus") {
@@ -171,7 +174,7 @@ impl WorkflowExecutor {
                     }
                 }
             }
-            
+
             return Ok(true);
         }
 

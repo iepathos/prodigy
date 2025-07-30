@@ -13,12 +13,14 @@
 //! - `abstractions` - Trait-based abstractions for external dependencies (git, Claude CLI)
 //! - `config` - Configuration management for the tool
 //! - `cook` - Core cooking command implementation with mapping support
+//! - `init` - Initialize MMM commands in projects
 //! - `simple_state` - Minimal state management with JSON persistence
 //! - `worktree` - Git worktree management for parallel sessions
 //! - `testing` - Testing utilities and fixtures for comprehensive testing
 pub mod abstractions;
 pub mod config;
 pub mod cook;
+pub mod init;
 pub mod simple_state;
 pub mod worktree;
 

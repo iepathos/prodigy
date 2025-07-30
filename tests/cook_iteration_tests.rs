@@ -165,7 +165,10 @@ max_iterations = 5
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
         .current_dir(temp_path)
         .env("MMM_TEST_MODE", "true")
-        .env("MMM_TEST_NO_CHANGES_COMMANDS", "mmm-code-review,mmm-implement-spec,mmm-lint")
+        .env(
+            "MMM_TEST_NO_CHANGES_COMMANDS",
+            "mmm-code-review,mmm-implement-spec,mmm-lint",
+        )
         .args(["cook", "-n", "5", "--show-progress"])
         .output()?;
 
@@ -175,35 +178,29 @@ max_iterations = 5
 
     // Print stdout for debugging
     println!("STDOUT:\n{stdout}");
-    
+
     // Should stop after 1 iteration when no changes found
     // Check for various iteration message formats
-    let has_iteration_1 = stdout.contains("Iteration 1/5") 
+    let has_iteration_1 = stdout.contains("Iteration 1/5")
         || stdout.contains("iteration 1/5")
         || stdout.contains("Workflow iteration 1/5");
-    
-    let has_iteration_2 = stdout.contains("Iteration 2/5") 
+
+    let has_iteration_2 = stdout.contains("Iteration 2/5")
         || stdout.contains("iteration 2/5")
         || stdout.contains("Workflow iteration 2/5");
-    
+
     // Check for the "no changes" message or review failed message
     let has_stop_msg = stdout.contains("no changes - stopping early")
         || stdout.contains("completed with no changes")
         || stdout.contains("Review failed - stopping iterations")
         || stdout.contains("No issues were found to fix");
 
-    assert!(
-        has_iteration_1,
-        "Should have run at least iteration 1"
-    );
+    assert!(has_iteration_1, "Should have run at least iteration 1");
     assert!(
         !has_iteration_2,
         "Should not run iteration 2 when no changes found"
     );
-    assert!(
-        has_stop_msg,
-        "Should show message about stopping early"
-    );
+    assert!(has_stop_msg, "Should show message about stopping early");
 
     Ok(())
 }
@@ -275,10 +272,10 @@ max_iterations = 3
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    
+
     println!("STDOUT:\n{stdout}");
     println!("STDERR:\n{stderr}");
-    
+
     assert!(output.status.success(), "mmm cook failed: {stderr}");
 
     // Read the focus tracking file
@@ -287,10 +284,10 @@ max_iterations = 3
         "Focus tracking file should exist at: {:?}",
         focus_tracker
     );
-    
+
     let focus_log = fs::read_to_string(&focus_tracker)?;
     println!("Focus tracking file contents:\n{focus_log}");
-    
+
     let focus_entries: Vec<&str> = focus_log.lines().collect();
 
     // With the bug, only iteration 1 would have focus

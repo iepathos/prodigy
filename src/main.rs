@@ -57,6 +57,20 @@ enum Commands {
         #[command(subcommand)]
         command: WorktreeCommands,
     },
+    /// Initialize MMM commands in your project
+    Init {
+        /// Force overwrite existing commands
+        #[arg(short, long)]
+        force: bool,
+
+        /// Specific commands to install (comma-separated)
+        #[arg(short, long, value_delimiter = ',')]
+        commands: Option<Vec<String>>,
+
+        /// Directory to initialize (defaults to current)
+        #[arg(short, long)]
+        path: Option<PathBuf>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -137,6 +151,18 @@ async fn main() {
             mmm::cook::run(cook_cmd).await
         }
         Some(Commands::Worktree { command }) => run_worktree_command(command).await,
+        Some(Commands::Init {
+            force,
+            commands,
+            path,
+        }) => {
+            let init_cmd = mmm::init::command::InitCommand {
+                force,
+                commands,
+                path,
+            };
+            mmm::init::run(init_cmd).await
+        }
         None => {
             // Display help when no command is provided (following CLI conventions)
             let mut cmd = Cli::command();

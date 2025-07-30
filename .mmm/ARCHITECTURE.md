@@ -7,7 +7,7 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 ## Core Modules
 
 ### 1. CLI Interface (`src/main.rs`)
-- Main commands: `mmm cook`, `mmm worktree`
+- Main commands: `mmm cook`, `mmm worktree`, `mmm init`
 - Global flags: `--verbose`
 - Direct entry point to subcommands
 
@@ -69,6 +69,13 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 - **mod.rs**: WorktreeSession data structure and exports
 - Worktrees are stored in `~/.mmm/worktrees/{repo-name}/` to comply with git restrictions
 - State metadata stored in `~/.mmm/worktrees/{repo-name}/.metadata/` (gitignored)
+
+### 10. Init Command (`src/init/`)
+- **mod.rs**: Main initialization logic and git repository validation
+- **command.rs**: CLI command structure for init subcommand
+- **templates.rs**: Embedded MMM command templates
+- Bootstraps new projects with required .claude/commands
+- Handles command conflicts and selective installation
 
 
 ## Data Flow
@@ -185,11 +192,15 @@ src/
 │   ├── state.rs         # JSON state management
 │   ├── cache.rs         # Temporary caching
 │   └── types.rs         # Data structures
-└── worktree/            # Git worktree management
-    ├── mod.rs
-    ├── manager.rs       # Worktree lifecycle
-    ├── state.rs         # Worktree state persistence
-    └── tests.rs         # Unit tests
+├── worktree/            # Git worktree management
+│   ├── mod.rs
+│   ├── manager.rs       # Worktree lifecycle
+│   ├── state.rs         # Worktree state persistence
+│   └── tests.rs         # Unit tests
+└── init/                # Command initialization
+    ├── mod.rs           # Initialization logic
+    ├── command.rs       # CLI command structure
+    └── templates.rs     # Embedded command templates
 
 # Worktrees stored in home directory:
 ~/.mmm/worktrees/{repo-name}/
