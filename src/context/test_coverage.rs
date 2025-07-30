@@ -156,31 +156,35 @@ impl BasicTestCoverageAnalyzer {
             // Find all function calls in the line using a simple state machine
             let chars: Vec<char> = line.chars().collect();
             let mut i = 0;
-            
+
             while i < chars.len() {
                 // Look for function calls: identifier followed by '('
                 if i > 0 && chars[i] == '(' {
                     // Walk back to find the function name
                     let mut j = i - 1;
-                    
+
                     // Skip whitespace
                     while j > 0 && chars[j].is_whitespace() {
                         j -= 1;
                     }
-                    
+
                     // Find the end of the identifier
                     let end = j + 1;
-                    
+
                     // Find the start of the identifier
                     while j > 0 && (chars[j].is_alphanumeric() || chars[j] == '_') {
                         j -= 1;
                     }
-                    
+
                     // If we found a valid identifier
                     if j < end - 1 {
-                        let start = if chars[j].is_alphanumeric() || chars[j] == '_' { j } else { j + 1 };
+                        let start = if chars[j].is_alphanumeric() || chars[j] == '_' {
+                            j
+                        } else {
+                            j + 1
+                        };
                         let func_name: String = chars[start..end].iter().collect();
-                        
+
                         // Check if it's a valid function name
                         if !func_name.is_empty()
                             && func_name.chars().next().unwrap().is_alphabetic()
@@ -433,7 +437,8 @@ impl TestCoverageAnalyzer for BasicTestCoverageAnalyzer {
             .filter_entry(|e| {
                 let name = e.file_name().to_string_lossy();
                 // Don't filter out the root directory
-                e.depth() == 0 || (!name.starts_with('.') && name != "target" && name != "node_modules")
+                e.depth() == 0
+                    || (!name.starts_with('.') && name != "target" && name != "node_modules")
             })
             .filter_map(Result::ok)
             .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("rs"))
@@ -451,7 +456,8 @@ impl TestCoverageAnalyzer for BasicTestCoverageAnalyzer {
             .filter_entry(|e| {
                 let name = e.file_name().to_string_lossy();
                 // Don't filter out the root directory
-                e.depth() == 0 || (!name.starts_with('.') && name != "target" && name != "node_modules")
+                e.depth() == 0
+                    || (!name.starts_with('.') && name != "target" && name != "node_modules")
             })
             .filter_map(Result::ok)
             .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("rs"))

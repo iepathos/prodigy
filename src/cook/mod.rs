@@ -131,12 +131,64 @@ async fn merge_worktree(worktree_name: &str, original_repo_path: &std::path::Pat
 /// For parallel execution, use the `--worktree` flag to run multiple sessions
 /// in isolated git worktrees without conflicts.
 pub async fn run(cmd: command::CookCommand) -> Result<()> {
+    // Save original working directory before any changes
+    let original_dir = std::env::current_dir().context("Failed to get current directory")?;
+
+    // Handle path argument if provided
+    if let Some(ref path) = cmd.path {
+        // Expand tilde notation if present
+        let expanded_path = if path.to_string_lossy().starts_with("~/") {
+            let home =
+                dirs::home_dir().ok_or_else(|| anyhow!("Could not determine home directory"))?;
+            home.join(path.strip_prefix("~/").unwrap())
+        } else {
+            path.clone()
+        };
+
+        // Resolve to absolute path
+        let absolute_path = if expanded_path.is_absolute() {
+            expanded_path
+        } else {
+            original_dir.join(&expanded_path)
+        };
+
+        // Validate path exists and is a directory
+        if !absolute_path.exists() {
+            return Err(anyhow!("Directory not found: {}", absolute_path.display()));
+        }
+        if !absolute_path.is_dir() {
+            return Err(anyhow!(
+                "Path is not a directory: {}",
+                absolute_path.display()
+            ));
+        }
+
+        // Check if it's a git repository
+        if !absolute_path.join(".git").exists() {
+            return Err(anyhow!("Not a git repository: {}", absolute_path.display()));
+        }
+
+        // Change to the specified directory
+        std::env::set_current_dir(&absolute_path).with_context(|| {
+            format!("Failed to change to directory: {}", absolute_path.display())
+        })?;
+
+        if cmd.show_progress {
+            println!("📁 Working in: {}", absolute_path.display());
+        }
+    }
+
     // Check if we have mapping or direct args to process
-    if !cmd.map.is_empty() || !cmd.args.is_empty() {
+    let result = if !cmd.map.is_empty() || !cmd.args.is_empty() {
         run_with_mapping(cmd).await
     } else {
         run_standard(cmd).await
-    }
+    };
+
+    // Note: We don't restore the original directory as per spec
+    // This allows scripts to check where MMM ended up
+
+    result
 }
 
 /// Run cook command with file mapping or direct arguments
@@ -1762,6 +1814,7 @@ mod cook_inline_tests {
 
     fn create_test_command(worktree: bool, max_iterations: u32) -> command::CookCommand {
         command::CookCommand {
+            path: None,
             max_iterations,
             worktree,
             show_progress: false,

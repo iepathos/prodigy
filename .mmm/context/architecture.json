@@ -26,6 +26,21 @@
         "serde"
       ]
     },
+    "worktree": {
+      "name": "worktree",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct WorktreeSession",
+        "fn new(name:"
+      ],
+      "dependencies": [
+        "tempfile",
+        "anyhow",
+        "chrono",
+        "uuid",
+        "serde"
+      ]
+    },
     "abstractions": {
       "name": "abstractions",
       "responsibility": "Module functionality",
@@ -34,6 +49,26 @@
         "anyhow",
         "async_trait",
         "tokio"
+      ]
+    },
+    "cook": {
+      "name": "cook",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn"
+      ],
+      "dependencies": [
+        "serde",
+        "clap",
+        "anyhow",
+        "once_cell",
+        "tokio",
+        "tempfile",
+        "chrono",
+        "git_ops",
+        "retry",
+        "workflow",
+        "glob"
       ]
     },
     "testing": {
@@ -69,30 +104,6 @@
         "tempfile"
       ]
     },
-    "analyze": {
-      "name": "analyze",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn fn"
-      ],
-      "dependencies": [
-        "anyhow",
-        "command"
-      ]
-    },
-    "simple_state": {
-      "name": "simple_state",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn init()"
-      ],
-      "dependencies": [
-        "anyhow",
-        "serde",
-        "chrono",
-        "tempfile"
-      ]
-    },
     "config": {
       "name": "config",
       "responsibility": "Configuration management",
@@ -117,19 +128,17 @@
         "tempfile"
       ]
     },
-    "worktree": {
-      "name": "worktree",
+    "simple_state": {
+      "name": "simple_state",
       "responsibility": "Module functionality",
       "interfaces": [
-        "struct WorktreeSession",
-        "fn new(name:"
+        "fn init()"
       ],
       "dependencies": [
-        "tempfile",
         "anyhow",
+        "serde",
         "chrono",
-        "uuid",
-        "serde"
+        "tempfile"
       ]
     },
     "init": {
@@ -144,24 +153,15 @@
         "tempfile"
       ]
     },
-    "cook": {
-      "name": "cook",
+    "analyze": {
+      "name": "analyze",
       "responsibility": "Module functionality",
       "interfaces": [
         "fn fn"
       ],
       "dependencies": [
-        "serde",
-        "clap",
         "anyhow",
-        "once_cell",
-        "tokio",
-        "tempfile",
-        "chrono",
-        "git_ops",
-        "retry",
-        "workflow",
-        "glob"
+        "command"
       ]
     }
   },

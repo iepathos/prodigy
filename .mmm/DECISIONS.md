@@ -589,3 +589,21 @@ Implement a comprehensive context analysis system that builds and maintains deep
 - **Positive**: Claude makes more informed improvement decisions, better prioritization of changes, understanding of project-specific patterns, identification of architectural violations and technical debt, autonomous operation for longer without human guidance
 - **Negative**: Additional analysis time at startup (mitigated by caching), increased complexity in the codebase, more disk space for context storage
 - **Implementation**: Created context module with five analyzers (dependencies, architecture, conventions, debt, test coverage), integrated with cook command to run analysis before improvements, context passed via MMM_CONTEXT_DIR environment variable, incremental updates for changed files, persistent storage in .mmm/context directory
+
+---
+
+## ADR-034: Cook Command Path Argument
+
+### Status
+Accepted
+
+### Context
+Spec 47 identified that the `mmm cook` command only operates on the current working directory, requiring users to navigate to target repositories before running the command. This creates friction when working with multiple projects or when invoking MMM from scripts or automation tools.
+
+### Decision
+Add an optional positional path argument to the cook command that allows users to specify the repository directory. When provided, the command validates the path, ensures it's a git repository, and changes to that directory before executing. Tilde notation for home directories is expanded, and both absolute and relative paths are supported.
+
+### Consequences
+- **Positive**: Improved flexibility for multi-project workflows, easier integration with scripts and automation, no need to change directories manually, maintains backward compatibility (no path = use current directory)
+- **Negative**: Slightly more complex command parsing, need to handle path validation errors
+- **Implementation**: Added path field to CookCommand as optional positional argument, implemented path validation and tilde expansion in cook::run(), added comprehensive integration tests, updated documentation to show path usage examples

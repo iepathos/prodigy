@@ -68,8 +68,13 @@ mmm cook
 
 ### Basic Usage
 ```bash
-# Cook your code to a quality score of 8.0 (default)
+# Cook your code in current directory
 mmm cook
+
+# Cook code in a specific directory
+mmm cook /path/to/repo
+mmm cook ./relative/path
+mmm cook ~/projects/myapp
 
 # Cook with a specific focus area
 mmm cook --focus security

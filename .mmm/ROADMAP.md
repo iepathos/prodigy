@@ -288,7 +288,7 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
   - Improve new user experience
   - Clear guidance on available commands
 
-- [ ] **Cook Path Argument** (Spec 47)
+- [x] **Cook Path Argument** (Spec 47) ✅
   - Add optional path argument to specify repository directory
   - Support absolute and relative paths with tilde expansion
   - Maintain backward compatibility (default to current directory)

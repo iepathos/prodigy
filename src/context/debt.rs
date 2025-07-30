@@ -372,7 +372,8 @@ impl TechnicalDebtMapper for BasicTechnicalDebtMapper {
             .filter_entry(|e| {
                 let name = e.file_name().to_string_lossy();
                 // Don't filter out the root directory
-                e.depth() == 0 || (!name.starts_with('.') && name != "target" && name != "node_modules")
+                e.depth() == 0
+                    || (!name.starts_with('.') && name != "target" && name != "node_modules")
             })
             .filter_map(|e| e.ok())
             .filter(|e| {
@@ -720,9 +721,12 @@ mod tests {
             "#,
         )
         .unwrap();
-        
+
         // Ensure the file is flushed to disk
-        fs::File::open(project_path.join("src/main.rs")).unwrap().sync_all().unwrap();
+        fs::File::open(project_path.join("src/main.rs"))
+            .unwrap()
+            .sync_all()
+            .unwrap();
 
         // Wait a bit to ensure file is written
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;

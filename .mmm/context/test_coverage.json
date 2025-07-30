@@ -1,55 +1,118 @@
 {
   "file_coverage": {
-    "src/context/test_coverage.rs": {
-      "path": "src/context/test_coverage.rs",
+    "src/context/debt.rs": {
+      "path": "src/context/debt.rs",
       "coverage_percentage": 0.0,
       "tested_lines": 0,
-      "total_lines": 467,
+      "total_lines": 464,
       "tested_functions": 0,
-      "total_functions": 14,
+      "total_functions": 15,
       "has_tests": false
     },
-    "src/init/templates.rs": {
-      "path": "src/init/templates.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 53,
-      "tested_functions": 0,
-      "total_functions": 2,
-      "has_tests": false
-    },
-    "src/worktree/manager.rs": {
-      "path": "src/worktree/manager.rs",
-      "coverage_percentage": 0.08333333333333333,
-      "tested_lines": 40,
-      "total_lines": 490,
-      "tested_functions": 1,
-      "total_functions": 12,
+    "src/cook/retry.rs": {
+      "path": "src/cook/retry.rs",
+      "coverage_percentage": 0.5652173913043478,
+      "tested_lines": 219,
+      "total_lines": 388,
+      "tested_functions": 12,
+      "total_functions": 23,
       "has_tests": true
     },
-    "src/abstractions/mod.rs": {
-      "path": "src/abstractions/mod.rs",
-      "coverage_percentage": 1.0,
-      "tested_lines": 11,
-      "total_lines": 11,
-      "tested_functions": 0,
-      "total_functions": 0,
-      "has_tests": false
-    },
-    "src/testing/mod.rs": {
-      "path": "src/testing/mod.rs",
+    "src/config/loader.rs": {
+      "path": "src/config/loader.rs",
       "coverage_percentage": 0.0,
       "tested_lines": 0,
-      "total_lines": 260,
+      "total_lines": 335,
       "tested_functions": 0,
-      "total_functions": 25,
+      "total_functions": 15,
       "has_tests": false
+    },
+    "src/abstractions/git.rs": {
+      "path": "src/abstractions/git.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 317,
+      "tested_functions": 0,
+      "total_functions": 38,
+      "has_tests": false
+    },
+    "src/abstractions/claude.rs": {
+      "path": "src/abstractions/claude.rs",
+      "coverage_percentage": 0.03571428571428571,
+      "tested_lines": 17,
+      "total_lines": 497,
+      "tested_functions": 1,
+      "total_functions": 28,
+      "has_tests": true
     },
     "src/context/analyzer.rs": {
       "path": "src/context/analyzer.rs",
       "coverage_percentage": 0.0,
       "tested_lines": 0,
       "total_lines": 362,
+      "tested_functions": 0,
+      "total_functions": 14,
+      "has_tests": false
+    },
+    "src/context/conventions.rs": {
+      "path": "src/context/conventions.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 374,
+      "tested_functions": 0,
+      "total_functions": 14,
+      "has_tests": false
+    },
+    "src/analyze/mod.rs": {
+      "path": "src/analyze/mod.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 11,
+      "tested_functions": 0,
+      "total_functions": 1,
+      "has_tests": false
+    },
+    "src/analyze/command.rs": {
+      "path": "src/analyze/command.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 189,
+      "tested_functions": 0,
+      "total_functions": 5,
+      "has_tests": false
+    },
+    "src/init/mod.rs": {
+      "path": "src/init/mod.rs",
+      "coverage_percentage": 0.6,
+      "tested_lines": 123,
+      "total_lines": 205,
+      "tested_functions": 3,
+      "total_functions": 5,
+      "has_tests": true
+    },
+    "src/config/command_validator.rs": {
+      "path": "src/config/command_validator.rs",
+      "coverage_percentage": 0.4705882352941176,
+      "tested_lines": 197,
+      "total_lines": 419,
+      "tested_functions": 8,
+      "total_functions": 17,
+      "has_tests": true
+    },
+    "src/context/mod.rs": {
+      "path": "src/context/mod.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 226,
+      "tested_functions": 0,
+      "total_functions": 6,
+      "has_tests": false
+    },
+    "src/context/test_coverage.rs": {
+      "path": "src/context/test_coverage.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 467,
       "tested_functions": 0,
       "total_functions": 14,
       "has_tests": false
@@ -63,11 +126,11 @@
       "total_functions": 4,
       "has_tests": false
     },
-    "src/cook/command.rs": {
-      "path": "src/cook/command.rs",
+    "src/cook/session.rs": {
+      "path": "src/cook/session.rs",
       "coverage_percentage": 1.0,
-      "tested_lines": 71,
-      "total_lines": 71,
+      "tested_lines": 10,
+      "total_lines": 10,
       "tested_functions": 0,
       "total_functions": 0,
       "has_tests": false
@@ -81,41 +144,32 @@
       "total_functions": 11,
       "has_tests": true
     },
-    "src/abstractions/git.rs": {
-      "path": "src/abstractions/git.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 317,
-      "tested_functions": 0,
-      "total_functions": 38,
-      "has_tests": false
-    },
-    "src/simple_state/tests.rs": {
-      "path": "src/simple_state/tests.rs",
-      "coverage_percentage": 1.0,
-      "tested_lines": 321,
-      "total_lines": 321,
-      "tested_functions": 15,
-      "total_functions": 15,
+    "src/cook/mod.rs": {
+      "path": "src/cook/mod.rs",
+      "coverage_percentage": 0.24242424242424243,
+      "tested_lines": 500,
+      "total_lines": 2063,
+      "tested_functions": 8,
+      "total_functions": 33,
       "has_tests": true
     },
-    "src/init/command.rs": {
-      "path": "src/init/command.rs",
-      "coverage_percentage": 1.0,
-      "tested_lines": 17,
-      "total_lines": 17,
-      "tested_functions": 0,
-      "total_functions": 0,
-      "has_tests": false
+    "src/config/command.rs": {
+      "path": "src/config/command.rs",
+      "coverage_percentage": 0.2777777777777778,
+      "tested_lines": 78,
+      "total_lines": 282,
+      "tested_functions": 5,
+      "total_functions": 18,
+      "has_tests": true
     },
-    "src/context/mod.rs": {
-      "path": "src/context/mod.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 226,
-      "tested_functions": 0,
-      "total_functions": 6,
-      "has_tests": false
+    "src/config/mod.rs": {
+      "path": "src/config/mod.rs",
+      "coverage_percentage": 0.9545454545454546,
+      "tested_lines": 485,
+      "total_lines": 509,
+      "tested_functions": 21,
+      "total_functions": 22,
+      "has_tests": true
     },
     "src/cook/tests.rs": {
       "path": "src/cook/tests.rs",
@@ -126,94 +180,58 @@
       "total_functions": 16,
       "has_tests": true
     },
-    "src/cook/mod.rs": {
-      "path": "src/cook/mod.rs",
-      "coverage_percentage": 0.24242424242424243,
-      "tested_lines": 500,
-      "total_lines": 2063,
-      "tested_functions": 8,
-      "total_functions": 33,
-      "has_tests": true
-    },
-    "src/config/workflow.rs": {
-      "path": "src/config/workflow.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 23,
-      "tested_functions": 0,
-      "total_functions": 1,
-      "has_tests": false
-    },
-    "src/context/debt.rs": {
-      "path": "src/context/debt.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 464,
-      "tested_functions": 0,
-      "total_functions": 15,
-      "has_tests": false
-    },
-    "src/config/loader.rs": {
-      "path": "src/config/loader.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 335,
-      "tested_functions": 0,
-      "total_functions": 15,
-      "has_tests": false
-    },
-    "src/worktree/state.rs": {
-      "path": "src/worktree/state.rs",
+    "src/abstractions/mod.rs": {
+      "path": "src/abstractions/mod.rs",
       "coverage_percentage": 1.0,
-      "tested_lines": 49,
-      "total_lines": 49,
+      "tested_lines": 11,
+      "total_lines": 11,
       "tested_functions": 0,
       "total_functions": 0,
       "has_tests": false
     },
-    "src/context/dependencies.rs": {
-      "path": "src/context/dependencies.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 359,
+    "src/cook/command.rs": {
+      "path": "src/cook/command.rs",
+      "coverage_percentage": 1.0,
+      "tested_lines": 71,
+      "total_lines": 71,
       "tested_functions": 0,
-      "total_functions": 13,
+      "total_functions": 0,
       "has_tests": false
     },
-    "src/worktree/tests.rs": {
-      "path": "src/worktree/tests.rs",
-      "coverage_percentage": 0.7777777777777778,
-      "tested_lines": 141,
-      "total_lines": 182,
-      "tested_functions": 7,
-      "total_functions": 9,
-      "has_tests": true
-    },
-    "src/simple_state/mod.rs": {
-      "path": "src/simple_state/mod.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 27,
+    "src/init/command.rs": {
+      "path": "src/init/command.rs",
+      "coverage_percentage": 1.0,
+      "tested_lines": 17,
+      "total_lines": 17,
       "tested_functions": 0,
-      "total_functions": 1,
+      "total_functions": 0,
       "has_tests": false
     },
-    "src/config/command_validator.rs": {
-      "path": "src/config/command_validator.rs",
-      "coverage_percentage": 0.4705882352941176,
-      "tested_lines": 197,
-      "total_lines": 419,
-      "tested_functions": 8,
-      "total_functions": 17,
+    "src/worktree/manager.rs": {
+      "path": "src/worktree/manager.rs",
+      "coverage_percentage": 0.08333333333333333,
+      "tested_lines": 40,
+      "total_lines": 490,
+      "tested_functions": 1,
+      "total_functions": 12,
       "has_tests": true
     },
-    "src/simple_state/state.rs": {
-      "path": "src/simple_state/state.rs",
+    "src/cook/git_ops.rs": {
+      "path": "src/cook/git_ops.rs",
       "coverage_percentage": 0.0,
       "tested_lines": 0,
-      "total_lines": 165,
+      "total_lines": 139,
       "tested_functions": 0,
       "total_functions": 8,
+      "has_tests": false
+    },
+    "src/testing/mod.rs": {
+      "path": "src/testing/mod.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 260,
+      "tested_functions": 0,
+      "total_functions": 25,
       "has_tests": false
     },
     "src/context/architecture.rs": {
@@ -225,6 +243,51 @@
       "total_functions": 11,
       "has_tests": false
     },
+    "src/config/workflow.rs": {
+      "path": "src/config/workflow.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 23,
+      "tested_functions": 0,
+      "total_functions": 1,
+      "has_tests": false
+    },
+    "src/init/templates.rs": {
+      "path": "src/init/templates.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 53,
+      "tested_functions": 0,
+      "total_functions": 2,
+      "has_tests": false
+    },
+    "src/simple_state/mod.rs": {
+      "path": "src/simple_state/mod.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 27,
+      "tested_functions": 0,
+      "total_functions": 1,
+      "has_tests": false
+    },
+    "src/worktree/tests.rs": {
+      "path": "src/worktree/tests.rs",
+      "coverage_percentage": 0.7777777777777778,
+      "tested_lines": 141,
+      "total_lines": 182,
+      "tested_functions": 7,
+      "total_functions": 9,
+      "has_tests": true
+    },
+    "src/abstractions/exit_status.rs": {
+      "path": "src/abstractions/exit_status.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 27,
+      "tested_functions": 0,
+      "total_functions": 2,
+      "has_tests": false
+    },
     "src/main.rs": {
       "path": "src/main.rs",
       "coverage_percentage": 0.0,
@@ -234,13 +297,67 @@
       "total_functions": 2,
       "has_tests": false
     },
-    "src/abstractions/exit_status.rs": {
-      "path": "src/abstractions/exit_status.rs",
+    "src/simple_state/cache.rs": {
+      "path": "src/simple_state/cache.rs",
       "coverage_percentage": 0.0,
       "tested_lines": 0,
-      "total_lines": 27,
+      "total_lines": 146,
       "tested_functions": 0,
-      "total_functions": 2,
+      "total_functions": 9,
+      "has_tests": false
+    },
+    "src/worktree/state.rs": {
+      "path": "src/worktree/state.rs",
+      "coverage_percentage": 1.0,
+      "tested_lines": 49,
+      "total_lines": 49,
+      "tested_functions": 0,
+      "total_functions": 0,
+      "has_tests": false
+    },
+    "src/simple_state/tests.rs": {
+      "path": "src/simple_state/tests.rs",
+      "coverage_percentage": 1.0,
+      "tested_lines": 321,
+      "total_lines": 321,
+      "tested_functions": 15,
+      "total_functions": 15,
+      "has_tests": true
+    },
+    "src/simple_state/state.rs": {
+      "path": "src/simple_state/state.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 165,
+      "tested_functions": 0,
+      "total_functions": 8,
+      "has_tests": false
+    },
+    "src/cook/workflow.rs": {
+      "path": "src/cook/workflow.rs",
+      "coverage_percentage": 0.36,
+      "tested_lines": 306,
+      "total_lines": 851,
+      "tested_functions": 9,
+      "total_functions": 25,
+      "has_tests": true
+    },
+    "src/lib.rs": {
+      "path": "src/lib.rs",
+      "coverage_percentage": 1.0,
+      "tested_lines": 32,
+      "total_lines": 32,
+      "tested_functions": 0,
+      "total_functions": 0,
+      "has_tests": false
+    },
+    "src/context/dependencies.rs": {
+      "path": "src/context/dependencies.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 359,
+      "tested_functions": 0,
+      "total_functions": 13,
       "has_tests": false
     },
     "src/worktree/test_state.rs": {
@@ -257,123 +374,6 @@
       "coverage_percentage": 0.0,
       "tested_lines": 0,
       "total_lines": 33,
-      "tested_functions": 0,
-      "total_functions": 1,
-      "has_tests": false
-    },
-    "src/init/mod.rs": {
-      "path": "src/init/mod.rs",
-      "coverage_percentage": 0.6,
-      "tested_lines": 123,
-      "total_lines": 205,
-      "tested_functions": 3,
-      "total_functions": 5,
-      "has_tests": true
-    },
-    "src/cook/session.rs": {
-      "path": "src/cook/session.rs",
-      "coverage_percentage": 1.0,
-      "tested_lines": 10,
-      "total_lines": 10,
-      "tested_functions": 0,
-      "total_functions": 0,
-      "has_tests": false
-    },
-    "src/config/command.rs": {
-      "path": "src/config/command.rs",
-      "coverage_percentage": 0.2777777777777778,
-      "tested_lines": 78,
-      "total_lines": 282,
-      "tested_functions": 5,
-      "total_functions": 18,
-      "has_tests": true
-    },
-    "src/cook/git_ops.rs": {
-      "path": "src/cook/git_ops.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 139,
-      "tested_functions": 0,
-      "total_functions": 8,
-      "has_tests": false
-    },
-    "src/abstractions/claude.rs": {
-      "path": "src/abstractions/claude.rs",
-      "coverage_percentage": 0.03571428571428571,
-      "tested_lines": 17,
-      "total_lines": 497,
-      "tested_functions": 1,
-      "total_functions": 28,
-      "has_tests": true
-    },
-    "src/context/conventions.rs": {
-      "path": "src/context/conventions.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 374,
-      "tested_functions": 0,
-      "total_functions": 14,
-      "has_tests": false
-    },
-    "src/analyze/command.rs": {
-      "path": "src/analyze/command.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 189,
-      "tested_functions": 0,
-      "total_functions": 5,
-      "has_tests": false
-    },
-    "src/cook/retry.rs": {
-      "path": "src/cook/retry.rs",
-      "coverage_percentage": 0.5652173913043478,
-      "tested_lines": 219,
-      "total_lines": 388,
-      "tested_functions": 12,
-      "total_functions": 23,
-      "has_tests": true
-    },
-    "src/lib.rs": {
-      "path": "src/lib.rs",
-      "coverage_percentage": 1.0,
-      "tested_lines": 32,
-      "total_lines": 32,
-      "tested_functions": 0,
-      "total_functions": 0,
-      "has_tests": false
-    },
-    "src/config/mod.rs": {
-      "path": "src/config/mod.rs",
-      "coverage_percentage": 0.9545454545454546,
-      "tested_lines": 485,
-      "total_lines": 509,
-      "tested_functions": 21,
-      "total_functions": 22,
-      "has_tests": true
-    },
-    "src/simple_state/cache.rs": {
-      "path": "src/simple_state/cache.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 146,
-      "tested_functions": 0,
-      "total_functions": 9,
-      "has_tests": false
-    },
-    "src/cook/workflow.rs": {
-      "path": "src/cook/workflow.rs",
-      "coverage_percentage": 0.36,
-      "tested_lines": 306,
-      "total_lines": 851,
-      "tested_functions": 9,
-      "total_functions": 25,
-      "has_tests": true
-    },
-    "src/analyze/mod.rs": {
-      "path": "src/analyze/mod.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 11,
       "tested_functions": 0,
       "total_functions": 1,
       "has_tests": false

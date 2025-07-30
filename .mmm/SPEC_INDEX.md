@@ -29,6 +29,9 @@ This file tracks the key specifications that shaped the current focused architec
 - **41**: `specs/41-auto-accept-flag.md` - Auto-accept flag for non-interactive operation
 - **44**: `specs/44-context-aware-project-understanding.md` - Context-aware project understanding
 
+## Implemented Core Features (continued)
+- **47**: `specs/47-cook-path-argument.md` - Add path argument to cook command for repository directory
+
 ## Pending Specifications
 - **22**: `specs/22-configurable-iteration-limit.md` - Add --max-iterations flag
 - **35**: `specs/35-unified-improve-mapping.md` - Unified improve command with file mapping
@@ -37,7 +40,6 @@ This file tracks the key specifications that shaped the current focused architec
 - **39**: `specs/39-end-to-end-workflow-testing.md` - End-to-end workflow testing with Claude CLI mocking
 - **40**: `specs/40-improve-test-coverage.md` - Improve test coverage with abstraction layers and comprehensive testing
 - **43**: `specs/43-mmm-command-initialization.md` - MMM init command to install default .claude/commands
-- **47**: `specs/47-cook-path-argument.md` - Add path argument to cook command for repository directory
 
 ## Current Focus
 
