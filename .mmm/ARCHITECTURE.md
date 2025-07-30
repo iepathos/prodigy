@@ -80,6 +80,17 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 - Bootstraps new projects with required .claude/commands
 - Handles command conflicts and selective installation
 
+### 11. Metrics (`src/metrics/`)
+- **collector.rs**: Orchestrates metrics collection across analyzers
+- **quality.rs**: Test coverage, lint warnings, documentation metrics
+- **complexity.rs**: Cyclomatic and cognitive complexity analysis using syn
+- **performance.rs**: Compile time, binary size, benchmark tracking
+- **history.rs**: Metrics history and trend analysis
+- **storage.rs**: Persistence and report generation
+- **mod.rs**: Public interfaces and data structures
+- Metrics are collected after each iteration when --metrics flag is used
+- Historical data stored in .mmm/metrics/ for trend analysis
+
 
 ## Data Flow
 

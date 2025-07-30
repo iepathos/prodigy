@@ -607,3 +607,21 @@ Add an optional positional path argument to the cook command that allows users t
 - **Positive**: Improved flexibility for multi-project workflows, easier integration with scripts and automation, no need to change directories manually, maintains backward compatibility (no path = use current directory)
 - **Negative**: Slightly more complex command parsing, need to handle path validation errors
 - **Implementation**: Added path field to CookCommand as optional positional argument, implemented path validation and tilde expansion in cook::run(), added comprehensive integration tests, updated documentation to show path usage examples
+
+---
+
+## ADR-035: Real Metrics Tracking
+
+### Status
+Accepted
+
+### Context
+Spec 46 identified that MMM operated without quantitative feedback about the improvements it makes. While it could analyze code and make changes, it lacked objective metrics to measure whether those changes actually improved code quality, performance, or maintainability. This made it impossible to determine if iterations were making meaningful progress or to set data-driven improvement goals.
+
+### Decision
+Implement a comprehensive metrics tracking system for Rust projects that measures code quality, performance, complexity, and progress throughout improvement iterations. The system is opt-in via the --metrics flag and collects metrics after each iteration, storing them for historical analysis and trend tracking.
+
+### Consequences
+- **Positive**: Data-driven improvement decisions, objective measurement of progress, historical trend analysis, validation that changes are beneficial, identification of regression, comprehensive reports for stakeholders
+- **Negative**: Additional execution time for metrics collection (mitigated by making it opt-in), increased disk usage for metrics storage, limited to Rust projects initially
+- **Implementation**: Created metrics module with collectors for quality, performance, and complexity; integrated with cook workflow to collect after each iteration; implemented historical tracking with trend analysis; added report generation and storage in .mmm/metrics/

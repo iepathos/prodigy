@@ -192,7 +192,9 @@ fn display_pretty_analysis(
 
     // Test Coverage
     println!("\n🧪 Test Coverage:");
-    if analysis.test_coverage.file_coverage.is_empty() && analysis.test_coverage.overall_coverage == 0.0 {
+    if analysis.test_coverage.file_coverage.is_empty()
+        && analysis.test_coverage.overall_coverage == 0.0
+    {
         println!("   ⚠️  No coverage data available");
         println!("   Install cargo-tarpaulin for coverage metrics:");
         println!("   cargo install cargo-tarpaulin");
@@ -258,7 +260,9 @@ fn display_summary_analysis(
         "   - {} technical debt items found",
         analysis.technical_debt.debt_items.len()
     );
-    if analysis.test_coverage.file_coverage.is_empty() && analysis.test_coverage.overall_coverage == 0.0 {
+    if analysis.test_coverage.file_coverage.is_empty()
+        && analysis.test_coverage.overall_coverage == 0.0
+    {
         println!("   - No test coverage data available");
     } else {
         println!(

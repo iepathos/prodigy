@@ -31,6 +31,7 @@ This file tracks the key specifications that shaped the current focused architec
 
 ## Implemented Core Features (continued)
 - **47**: `specs/47-cook-path-argument.md` - Add path argument to cook command for repository directory
+- **46**: `specs/46-real-metrics-tracking.md` - Real metrics tracking for code improvements
 
 ## Pending Specifications
 - **22**: `specs/22-configurable-iteration-limit.md` - Add --max-iterations flag

@@ -16,6 +16,7 @@
 //! - `context` - Context-aware project understanding and analysis
 //! - `cook` - Core cooking command implementation with mapping support
 //! - `init` - Initialize MMM commands in projects
+//! - `metrics` - Real metrics tracking for code improvements
 //! - `simple_state` - Minimal state management with JSON persistence
 //! - `worktree` - Git worktree management for parallel sessions
 //! - `testing` - Testing utilities and fixtures for comprehensive testing
@@ -25,6 +26,7 @@ pub mod config;
 pub mod context;
 pub mod cook;
 pub mod init;
+pub mod metrics;
 pub mod simple_state;
 pub mod worktree;
 
