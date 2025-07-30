@@ -5,10 +5,8 @@ commands:
   - /mmm-cleanup-tech-debt
   - /mmm-implement-spec  
   - /lint
-  - /test
 
 # The tech debt cleanup cycle:
 # 1. Analyze technical debt and generate cleanup spec
 # 2. Implement the cleanup from generated spec  
 # 3. Run linting to ensure code quality
-# 4. Execute tests to verify functionality
