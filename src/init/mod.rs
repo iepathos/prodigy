@@ -88,7 +88,7 @@ pub async fn run(cmd: InitCommand) -> Result<()> {
         let selected = get_templates_by_names(command_names);
         if selected.is_empty() {
             println!("❌ No matching commands found for: {command_names:?}");
-            println!("   Available commands: mmm-code-review, mmm-implement-spec, mmm-lint, mmm-product-enhance, mmm-merge-worktree");
+            println!("   Available commands: mmm-code-review, mmm-implement-spec, mmm-lint, mmm-product-enhance, mmm-merge-worktree, mmm-cleanup-tech-debt");
             return Ok(());
         }
         selected
@@ -195,7 +195,7 @@ mod tests {
     #[test]
     fn test_get_templates() {
         let all_templates = get_all_templates();
-        assert_eq!(all_templates.len(), 5);
+        assert_eq!(all_templates.len(), 6);
 
         // Test filtering by names
         let names = vec!["mmm-lint".to_string(), "mmm-code-review".to_string()];

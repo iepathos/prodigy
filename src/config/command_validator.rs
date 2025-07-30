@@ -153,6 +153,36 @@ impl CommandRegistry {
                 env: HashMap::new(),
             },
         });
+
+        // Register mmm-cleanup-tech-debt
+        self.register(CommandDefinition {
+            name: "mmm-cleanup-tech-debt".to_string(),
+            description: "Analyze technical debt and generate cleanup specifications".to_string(),
+            required_args: vec![],
+            optional_args: vec![],
+            options: vec![
+                OptionDef {
+                    name: "focus".to_string(),
+                    description: "Focus area for debt cleanup (e.g., performance, security, maintainability)"
+                        .to_string(),
+                    option_type: ArgumentType::String,
+                    default: None,
+                },
+                OptionDef {
+                    name: "scope".to_string(),
+                    description: "Scope for analysis (e.g., src/agents, src/mcp, tests, all)"
+                        .to_string(),
+                    option_type: ArgumentType::String,
+                    default: Some(serde_json::json!("all")),
+                },
+            ],
+            defaults: CommandMetadata {
+                retries: Some(2),
+                timeout: Some(300),
+                continue_on_error: Some(false),
+                env: HashMap::new(),
+            },
+        });
     }
 
     pub fn register(&mut self, definition: CommandDefinition) {
@@ -354,6 +384,7 @@ mod tests {
         assert!(registry.get("mmm-implement-spec").is_some());
         assert!(registry.get("mmm-lint").is_some());
         assert!(registry.get("mmm-product-enhance").is_some());
+        assert!(registry.get("mmm-cleanup-tech-debt").is_some());
         assert!(registry.get("unknown-command").is_none());
     }
 
