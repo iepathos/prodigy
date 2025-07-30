@@ -55,6 +55,7 @@ Performance improvements and system efficiency.
 - **Spec 31**: Product Management Command - Product-focused improvements (draft)
 - **Spec 32**: CLI Help as Default - Unix CLI best practices (draft)
 - **Spec 33**: Batch Spec Implementation - Implement multiple specs (draft)
+- **Spec 45**: Context Window Management - Smart context selection (draft)
 
 ## Implementation Status
 
@@ -78,13 +79,14 @@ Performance improvements and system efficiency.
 - Spec 28: Structured Command Objects
 - Spec 29: Centralized Worktree State
 
-### 📝 Draft (6 specs)
+### 📝 Draft (7 specs)
 - Spec 30: Interrupted Worktree Recovery
 - Spec 31: Product Management Command
 - Spec 32: CLI Help as Default
 - Spec 33: Batch Spec Implementation
 - Spec 34: Worktree Temp Spec Storage
 - Spec 44: Context-Aware Project Understanding
+- Spec 45: Context Window Management
 
 ### 🚧 In Progress (0 specs)
 None currently in progress.
@@ -120,6 +122,7 @@ Foundation Layer:
 ├── 09: Dead Simple Improve
 ├── 10: Smart Project Analyzer
 │   └── 44: Context-Aware Understanding
+│       └── 45: Context Window Management
 ├── 11: Simple State Management
 └── 14: Real Claude Loop
     ├── 19: Git-Native Flow
@@ -143,14 +146,15 @@ Optimization Layer:
 ## Quick Reference
 
 ### Latest Specifications
+- Spec 45: Context Window Management (draft) - Smart context selection
 - Spec 44: Context-Aware Project Understanding (draft) - Deep codebase analysis
 - Spec 34: Worktree Temp Spec Storage (draft) - Automatic cleanup for temp specs
 - Spec 33: Batch Spec Implementation (draft) - Implement multiple specs
 - Spec 32: CLI Help as Default (draft) - Unix CLI best practices
-- Spec 31: Product Management Command (draft) - Product-focused improvements
 
 ### High Priority Specifications
 - Spec 44: Context-Aware Project Understanding - Enables truly autonomous loops
+- Spec 45: Context Window Management - Maximizes Claude's effectiveness
 - Spec 34: Worktree Temp Spec Storage - Solves temp spec accumulation problem
 - Spec 30: Interrupted Worktree Recovery - Critical for robust parallel execution
 - (All other high priority specs are completed)
