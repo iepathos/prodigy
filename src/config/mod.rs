@@ -4,9 +4,12 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 pub mod command;
+pub mod command_discovery;
 pub mod command_parser;
 pub mod command_validator;
+pub mod dynamic_registry;
 pub mod loader;
+pub mod metadata_parser;
 pub mod workflow;
 
 pub use command::{
@@ -15,6 +18,7 @@ pub use command::{
 };
 pub use command_parser::{expand_variables, parse_command_string};
 pub use command_validator::{apply_command_defaults, validate_command, CommandRegistry};
+pub use dynamic_registry::DynamicCommandRegistry;
 pub use loader::ConfigLoader;
 pub use workflow::WorkflowConfig;
 

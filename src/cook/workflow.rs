@@ -1,7 +1,7 @@
-use crate::config::command_validator::{apply_command_defaults, validate_command};
 use crate::config::{
     command::{CommandArg, InputMethod, OutputDeclaration},
     workflow::WorkflowConfig,
+    DynamicCommandRegistry,
 };
 use crate::cook::git_ops::get_last_commit_message;
 use crate::cook::retry::{check_claude_cli, execute_with_retry, format_subprocess_error};
@@ -18,19 +18,23 @@ pub struct WorkflowExecutor {
     test_mode: bool,
     /// Track command outputs during execution
     command_outputs: HashMap<String, HashMap<String, String>>,
+    /// Dynamic command registry for validation and defaults
+    registry: DynamicCommandRegistry,
 }
 
 impl WorkflowExecutor {
-    pub fn new(config: WorkflowConfig, verbose: bool, max_iterations: u32) -> Self {
+    pub async fn new(config: WorkflowConfig, verbose: bool, max_iterations: u32) -> Result<Self> {
         let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
-        Self {
+        let registry = DynamicCommandRegistry::new(None).await?;
+        Ok(Self {
             config,
             verbose,
             max_iterations,
             variables: HashMap::new(),
             test_mode,
             command_outputs: HashMap::new(),
-        }
+            registry,
+        })
     }
 
     #[cfg(test)]
@@ -42,13 +46,13 @@ impl WorkflowExecutor {
             variables: HashMap::new(),
             test_mode: true,
             command_outputs: HashMap::new(),
+            registry: DynamicCommandRegistry::default(),
         }
     }
 
-    /// Create a new workflow executor with variables
-    pub fn with_variables(mut self, variables: HashMap<String, String>) -> Self {
+    /// Set variables for the workflow executor
+    pub fn set_variables(&mut self, variables: HashMap<String, String>) {
         self.variables = variables;
-        self
     }
 
     /// Resolve a command argument by substituting variables
@@ -197,10 +201,10 @@ impl WorkflowExecutor {
             }
 
             // Apply defaults from registry
-            apply_command_defaults(&mut command);
+            self.registry.apply_defaults(&mut command);
 
             // Validate command
-            validate_command(&command)?;
+            self.registry.validate_command(&command)?;
 
             if self.verbose {
                 println!(
@@ -558,7 +562,7 @@ mod tests {
     #[test]
     fn test_workflow_executor_creation() {
         let config = create_test_workflow();
-        let executor = WorkflowExecutor::new(config.clone(), true, 5);
+        let executor = WorkflowExecutor::new_for_test(config.clone(), true, 5);
 
         assert_eq!(executor.config.commands.len(), 3);
         assert!(executor.verbose);
@@ -571,7 +575,7 @@ mod tests {
         let config = WorkflowConfig {
             commands: vec![WorkflowCommand::Simple("mmm-code-review".to_string())],
         };
-        let executor = WorkflowExecutor::new(config, false, 1);
+        let executor = WorkflowExecutor::new_for_test(config, false, 1);
 
         // We can't test actual execution without Claude CLI, but we can test the logic
         // This would need mocking in a real test environment
@@ -612,7 +616,7 @@ mod tests {
     #[test]
     fn test_focus_directive_logic() {
         let config = create_test_workflow();
-        let executor = WorkflowExecutor::new(config, true, 10);
+        let executor = WorkflowExecutor::new_for_test(config, true, 10);
 
         // Test that focus is only applied on first command of first iteration
         for iteration in 1..=3 {
@@ -725,7 +729,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_extract_spec_from_git_edge_cases() {
-        let _executor = WorkflowExecutor::new(create_test_workflow(), false, 1);
+        let _executor = WorkflowExecutor::new(create_test_workflow(), false, 1)
+            .await
+            .unwrap();
 
         // Test various commit message formats
         let test_cases = vec![
@@ -877,16 +883,18 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_workflow_iteration_limits() {
+    #[tokio::test]
+    async fn test_workflow_iteration_limits() {
         let config = create_test_workflow();
-        let executor = WorkflowExecutor::new(config, true, 100);
+        let executor = WorkflowExecutor::new(config, true, 100).await.unwrap();
 
         // Test that max_iterations is properly stored
         assert_eq!(executor.max_iterations, 100);
 
         // Test with zero iterations
-        let zero_executor = WorkflowExecutor::new(create_test_workflow(), false, 0);
+        let zero_executor = WorkflowExecutor::new(create_test_workflow(), false, 0)
+            .await
+            .unwrap();
         assert_eq!(zero_executor.max_iterations, 0);
     }
 

@@ -1112,7 +1112,7 @@ async fn run_improvement_loop(
     }
 
     let max_iterations = cmd.max_iterations;
-    let mut executor = WorkflowExecutor::new(workflow_config, verbose, max_iterations);
+    let mut executor = WorkflowExecutor::new(workflow_config, verbose, max_iterations).await?;
 
     while iteration <= max_iterations {
         // Update worktree state before iteration
@@ -1232,8 +1232,8 @@ async fn run_improvement_iterations(
     }
 
     // Use configurable workflow
-    let mut executor =
-        WorkflowExecutor::new(workflow_config, verbose, max_iterations).with_variables(variables);
+    let mut executor = WorkflowExecutor::new(workflow_config, verbose, max_iterations).await?;
+    executor.set_variables(variables);
 
     while *iteration <= max_iterations {
         // Execute workflow iteration
@@ -1506,8 +1506,8 @@ async fn run_improvement_loop_with_variables(
     }
 
     let max_iterations = cmd.max_iterations;
-    let mut executor =
-        WorkflowExecutor::new(workflow_config, verbose, max_iterations).with_variables(variables);
+    let mut executor = WorkflowExecutor::new(workflow_config, verbose, max_iterations).await?;
+    executor.set_variables(variables);
 
     while iteration <= max_iterations {
         // Update worktree state before iteration
