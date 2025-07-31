@@ -170,3 +170,210 @@ impl MetricsStorage {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_metrics_storage_creation() {
+        let temp_dir = TempDir::new().unwrap();
+        let storage = MetricsStorage::new(temp_dir.path());
+
+        assert_eq!(
+            storage.base_path,
+            temp_dir.path().join(".mmm").join("metrics")
+        );
+    }
+
+    #[test]
+    fn test_ensure_directory() {
+        let temp_dir = TempDir::new().unwrap();
+        let storage = MetricsStorage::new(temp_dir.path());
+
+        assert!(storage.ensure_directory().is_ok());
+        assert!(storage.base_path.exists());
+    }
+
+    #[test]
+    fn test_save_and_load_current_metrics() {
+        let temp_dir = TempDir::new().unwrap();
+        let storage = MetricsStorage::new(temp_dir.path());
+
+        let metrics = ImprovementMetrics {
+            test_coverage: 75.5,
+            type_coverage: 85.0,
+            doc_coverage: 60.0,
+            lint_warnings: 5,
+            code_duplication: 3.2,
+            compile_time: Duration::from_secs(10),
+            binary_size: 1024 * 1024,
+            cyclomatic_complexity: std::collections::HashMap::new(),
+            cognitive_complexity: std::collections::HashMap::new(),
+            max_nesting_depth: 3,
+            total_lines: 1000,
+            timestamp: chrono::Utc::now(),
+            iteration_id: "test-iteration".to_string(),
+            benchmark_results: std::collections::HashMap::new(),
+            memory_usage: std::collections::HashMap::new(),
+            bugs_fixed: 0,
+            features_added: 0,
+            tech_debt_score: 5.0,
+            improvement_velocity: 1.2,
+        };
+
+        // Save metrics
+        assert!(storage.save_current(&metrics).is_ok());
+
+        // Load metrics
+        let loaded = storage.load_current().unwrap();
+        assert!(loaded.is_some());
+        let loaded_metrics = loaded.unwrap();
+        assert_eq!(loaded_metrics.test_coverage, 75.5);
+        assert_eq!(loaded_metrics.iteration_id, "test-iteration");
+    }
+
+    #[test]
+    fn test_load_current_when_missing() {
+        let temp_dir = TempDir::new().unwrap();
+        let storage = MetricsStorage::new(temp_dir.path());
+
+        let result = storage.load_current().unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_save_and_load_history() {
+        let temp_dir = TempDir::new().unwrap();
+        let storage = MetricsStorage::new(temp_dir.path());
+
+        let mut history = MetricsHistory::new();
+        history.add_snapshot(
+            ImprovementMetrics {
+                test_coverage: 70.0,
+                type_coverage: 80.0,
+                doc_coverage: 55.0,
+                lint_warnings: 10,
+                code_duplication: 5.0,
+                compile_time: Duration::from_secs(15),
+                binary_size: 2 * 1024 * 1024,
+                cyclomatic_complexity: std::collections::HashMap::new(),
+                cognitive_complexity: std::collections::HashMap::new(),
+                max_nesting_depth: 4,
+                total_lines: 1500,
+                timestamp: chrono::Utc::now(),
+                iteration_id: "history-test".to_string(),
+                benchmark_results: std::collections::HashMap::new(),
+                memory_usage: std::collections::HashMap::new(),
+                bugs_fixed: 0,
+                features_added: 0,
+                tech_debt_score: 6.0,
+                improvement_velocity: 1.0,
+            },
+            "test-commit-sha".to_string(),
+        );
+
+        assert!(storage.save_history(&history).is_ok());
+
+        let loaded_history = storage.load_history().unwrap();
+        assert_eq!(loaded_history.snapshots.len(), 1);
+        assert_eq!(
+            loaded_history.snapshots[0].metrics.iteration_id,
+            "history-test"
+        );
+    }
+
+    #[test]
+    fn test_generate_report() {
+        let temp_dir = TempDir::new().unwrap();
+        let storage = MetricsStorage::new(temp_dir.path());
+
+        let mut complexity = std::collections::HashMap::new();
+        complexity.insert("main".to_string(), 5);
+        complexity.insert("complex_fn".to_string(), 15);
+
+        let metrics = ImprovementMetrics {
+            test_coverage: 85.5,
+            type_coverage: 90.0,
+            doc_coverage: 70.0,
+            lint_warnings: 2,
+            code_duplication: 1.5,
+            compile_time: Duration::from_secs(8),
+            binary_size: 512 * 1024,
+            cyclomatic_complexity: complexity,
+            cognitive_complexity: std::collections::HashMap::new(),
+            max_nesting_depth: 2,
+            total_lines: 500,
+            timestamp: chrono::Utc::now(),
+            iteration_id: "report-test".to_string(),
+            benchmark_results: std::collections::HashMap::new(),
+            memory_usage: std::collections::HashMap::new(),
+            bugs_fixed: 0,
+            features_added: 0,
+            tech_debt_score: 3.0,
+            improvement_velocity: 1.5,
+        };
+
+        let report = storage.generate_report(&metrics);
+
+        assert!(report.contains("report-test"));
+        assert!(report.contains("85.5%"));
+        assert!(report.contains("Test Coverage"));
+        assert!(report.contains("Avg Cyclomatic Complexity: 10.0"));
+        assert!(report.contains("Overall Score"));
+    }
+
+    #[test]
+    fn test_save_report() {
+        let temp_dir = TempDir::new().unwrap();
+        let storage = MetricsStorage::new(temp_dir.path());
+
+        let report = "Test Report Content\nLine 2";
+        let iteration_id = "save-report-test";
+
+        assert!(storage.save_report(report, iteration_id).is_ok());
+
+        let report_path = storage
+            .base_path
+            .join("reports")
+            .join(format!("report-{iteration_id}.txt"));
+
+        assert!(report_path.exists());
+        let saved_content = std::fs::read_to_string(report_path).unwrap();
+        assert_eq!(saved_content, report);
+    }
+
+    #[test]
+    fn test_generate_report_empty_complexity() {
+        let temp_dir = TempDir::new().unwrap();
+        let storage = MetricsStorage::new(temp_dir.path());
+
+        let metrics = ImprovementMetrics {
+            test_coverage: 50.0,
+            type_coverage: 60.0,
+            doc_coverage: 40.0,
+            lint_warnings: 20,
+            code_duplication: 10.0,
+            compile_time: Duration::from_secs(20),
+            binary_size: 4 * 1024 * 1024,
+            cyclomatic_complexity: std::collections::HashMap::new(), // Empty
+            cognitive_complexity: std::collections::HashMap::new(),
+            max_nesting_depth: 5,
+            total_lines: 2000,
+            timestamp: chrono::Utc::now(),
+            iteration_id: "empty-complexity".to_string(),
+            benchmark_results: std::collections::HashMap::new(),
+            memory_usage: std::collections::HashMap::new(),
+            bugs_fixed: 0,
+            features_added: 0,
+            tech_debt_score: 8.0,
+            improvement_velocity: 0.5,
+        };
+
+        let report = storage.generate_report(&metrics);
+        assert!(report.contains("Avg Cyclomatic Complexity: 0.0"));
+        assert!(report.contains("🟠")); // Orange emoji for medium-low score (50-69)
+    }
+}

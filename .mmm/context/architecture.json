@@ -4,29 +4,27 @@
   ],
   "layers": [],
   "components": {
-    "config": {
-      "name": "config",
-      "responsibility": "Configuration management",
+    "cook": {
+      "name": "cook",
+      "responsibility": "Module functionality",
       "interfaces": [
-        "fn get_global_mmm_dir()",
-        "struct Config",
-        "struct GlobalConfig",
-        "struct ProjectConfig",
-        "struct PluginConfig",
-        "fn new()",
-        "fn merge_env_vars(&mut",
-        "fn get_claude_api_key(&self)",
-        "fn get_auto_commit(&self)",
-        "fn get_spec_dir(&self)"
+        "fn fn",
+        "fn fn"
       ],
       "dependencies": [
-        "anyhow",
-        "regex",
         "serde",
-        "directories",
+        "clap",
+        "anyhow",
         "once_cell",
         "tokio",
-        "tempfile"
+        "tempfile",
+        "chrono",
+        "git_ops",
+        "retry",
+        "tracing",
+        "workflow",
+        "glob",
+        "signal_hook"
       ]
     },
     "metrics": {
@@ -50,27 +48,29 @@
         "chrono"
       ]
     },
-    "cook": {
-      "name": "cook",
-      "responsibility": "Module functionality",
+    "config": {
+      "name": "config",
+      "responsibility": "Configuration management",
       "interfaces": [
-        "fn fn",
-        "fn fn"
+        "fn get_global_mmm_dir()",
+        "struct Config",
+        "struct GlobalConfig",
+        "struct ProjectConfig",
+        "struct PluginConfig",
+        "fn new()",
+        "fn merge_env_vars(&mut",
+        "fn get_claude_api_key(&self)",
+        "fn get_auto_commit(&self)",
+        "fn get_spec_dir(&self)"
       ],
       "dependencies": [
-        "serde",
-        "clap",
         "anyhow",
+        "regex",
+        "serde",
+        "directories",
         "once_cell",
         "tokio",
-        "tempfile",
-        "chrono",
-        "git_ops",
-        "retry",
-        "tracing",
-        "workflow",
-        "glob",
-        "signal_hook"
+        "tempfile"
       ]
     },
     "testing": {
@@ -121,29 +121,6 @@
         "tempfile"
       ]
     },
-    "context": {
-      "name": "context",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct AnalysisResult",
-        "struct ArchitectureInfo",
-        "struct ComponentInfo",
-        "struct ArchitectureViolation",
-        "struct AnalysisMetadata",
-        "struct FileContext",
-        "struct FileConventions",
-        "struct Suggestion",
-        "trait ContextAnalyzer:",
-        "fn load_analysis(project_path:",
-        "fn save_analysis(project_path:"
-      ],
-      "dependencies": [
-        "anyhow",
-        "walkdir",
-        "serde",
-        "tempfile"
-      ]
-    },
     "worktree": {
       "name": "worktree",
       "responsibility": "Module functionality",
@@ -169,17 +146,6 @@
         "tokio"
       ]
     },
-    "analyze": {
-      "name": "analyze",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn fn"
-      ],
-      "dependencies": [
-        "anyhow",
-        "command"
-      ]
-    },
     "simple_state": {
       "name": "simple_state",
       "responsibility": "Module functionality",
@@ -191,6 +157,40 @@
         "serde",
         "chrono",
         "tempfile"
+      ]
+    },
+    "context": {
+      "name": "context",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct AnalysisResult",
+        "struct ArchitectureInfo",
+        "struct ComponentInfo",
+        "struct ArchitectureViolation",
+        "struct AnalysisMetadata",
+        "struct FileContext",
+        "struct FileConventions",
+        "struct Suggestion",
+        "trait ContextAnalyzer:",
+        "fn load_analysis(project_path:",
+        "fn save_analysis(project_path:"
+      ],
+      "dependencies": [
+        "anyhow",
+        "walkdir",
+        "serde",
+        "tempfile"
+      ]
+    },
+    "analyze": {
+      "name": "analyze",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn"
+      ],
+      "dependencies": [
+        "anyhow",
+        "command"
       ]
     }
   },

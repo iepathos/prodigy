@@ -386,3 +386,80 @@ mod tests {
         let _ = result;
     }
 }
+
+#[cfg(test)]
+mod additional_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_execute_with_retry_io_error_recovery() {
+        // Simulate a command that might have IO errors
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c").arg("exit 0"); // Successful command
+
+        let output = execute_with_retry(cmd, "io test", 1, false).await.unwrap();
+        assert!(output.status.success());
+    }
+
+    #[tokio::test]
+    async fn test_format_subprocess_error_all_hints() {
+        // Test multiple error patterns
+        let patterns = vec![
+            ("permission denied in /usr/local", "claude auth"),
+            ("command not found: xyz", "may not be installed"),
+            ("rate limit exceeded for API", "hit the API rate limit"),
+        ];
+
+        for (stderr, expected_hint) in patterns {
+            let error = format_subprocess_error("test", Some(1), stderr, "");
+            assert!(
+                error.contains(expected_hint),
+                "Expected hint '{}' for error '{}'",
+                expected_hint,
+                stderr
+            );
+        }
+    }
+
+    #[test]
+    fn test_is_transient_error_edge_cases() {
+        // Test empty string
+        assert!(!is_transient_error(""));
+
+        // Test whitespace only
+        assert!(!is_transient_error("   \n   "));
+
+        // Test very long error with pattern at end
+        let long_error = format!("{}rate limit", "x".repeat(1000));
+        assert!(is_transient_error(&long_error));
+
+        // Test multiple patterns
+        assert!(is_transient_error("timeout and connection refused"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_retry_verbose_output() {
+        // Test that verbose mode doesn't break execution
+        let mut cmd = Command::new("echo");
+        cmd.arg("verbose test");
+
+        let output = execute_with_retry(cmd, "verbose test", 1, true)
+            .await
+            .unwrap();
+        assert!(output.status.success());
+    }
+
+    #[test]
+    fn test_format_subprocess_error_with_newlines() {
+        let error = format_subprocess_error(
+            "multi-line",
+            Some(2),
+            "Error:\n  Line 1\n  Line 2\n",
+            "Output:\n  Data 1\n  Data 2\n",
+        );
+
+        assert!(error.contains("Line 1"));
+        assert!(error.contains("Line 2"));
+        assert!(!error.contains("Data 1")); // stdout ignored when stderr present
+    }
+}

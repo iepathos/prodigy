@@ -219,6 +219,7 @@ pub async fn run(cmd: InitCommand) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::init::command::InitCommand;
     use tempfile::TempDir;
 
     #[test]
@@ -249,5 +250,139 @@ mod tests {
         let names = vec!["mmm-lint".to_string(), "mmm-code-review".to_string()];
         let filtered = templates::get_templates_by_names(&names);
         assert_eq!(filtered.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_run_init_not_git_repo() {
+        let temp_dir = TempDir::new().unwrap();
+        let cmd = InitCommand {
+            force: false,
+            commands: None,
+            path: Some(temp_dir.path().to_path_buf()),
+        };
+
+        let result = run(cmd).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("not a git repository"));
+    }
+
+    #[tokio::test]
+    async fn test_run_init_create_commands() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Initialize git repo
+        Command::new("git")
+            .arg("init")
+            .current_dir(temp_dir.path())
+            .output()
+            .unwrap();
+
+        let cmd = InitCommand {
+            force: false,
+            commands: None,
+            path: Some(temp_dir.path().to_path_buf()),
+        };
+
+        let result = run(cmd).await;
+        assert!(result.is_ok());
+
+        // Check commands were created
+        let commands_dir = temp_dir.path().join(".claude").join("commands");
+        assert!(commands_dir.exists());
+        assert!(commands_dir.join("mmm-code-review.md").exists());
+        assert!(commands_dir.join("mmm-lint.md").exists());
+    }
+
+    #[tokio::test]
+    async fn test_run_init_with_existing_commands() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Initialize git repo
+        Command::new("git")
+            .arg("init")
+            .current_dir(temp_dir.path())
+            .output()
+            .unwrap();
+
+        // Create existing command
+        let commands_dir = temp_dir.path().join(".claude").join("commands");
+        std::fs::create_dir_all(&commands_dir).unwrap();
+        std::fs::write(commands_dir.join("mmm-code-review.md"), "existing content").unwrap();
+
+        let cmd = InitCommand {
+            force: false,
+            commands: None,
+            path: Some(temp_dir.path().to_path_buf()),
+        };
+
+        // Should skip existing commands
+        let result = run(cmd).await;
+        assert!(result.is_ok());
+
+        // Check existing file wasn't overwritten
+        let content = std::fs::read_to_string(commands_dir.join("mmm-code-review.md")).unwrap();
+        assert_eq!(content, "existing content");
+    }
+
+    #[tokio::test]
+    async fn test_run_init_force_overwrite() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Initialize git repo
+        Command::new("git")
+            .arg("init")
+            .current_dir(temp_dir.path())
+            .output()
+            .unwrap();
+
+        // Create existing command
+        let commands_dir = temp_dir.path().join(".claude").join("commands");
+        std::fs::create_dir_all(&commands_dir).unwrap();
+        std::fs::write(commands_dir.join("mmm-code-review.md"), "old content").unwrap();
+
+        let cmd = InitCommand {
+            force: true,
+            commands: None,
+            path: Some(temp_dir.path().to_path_buf()),
+        };
+
+        let result = run(cmd).await;
+        assert!(result.is_ok());
+
+        // Check file was overwritten
+        let content = std::fs::read_to_string(commands_dir.join("mmm-code-review.md")).unwrap();
+        assert!(content.contains("Analyze code"));
+        assert!(!content.contains("old content"));
+    }
+
+    #[tokio::test]
+    async fn test_run_init_specific_commands() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Initialize git repo
+        Command::new("git")
+            .arg("init")
+            .current_dir(temp_dir.path())
+            .output()
+            .unwrap();
+
+        let cmd = InitCommand {
+            force: false,
+            commands: Some(vec!["mmm-code-review".to_string(), "mmm-lint".to_string()]),
+            path: Some(temp_dir.path().to_path_buf()),
+        };
+
+        let result = run(cmd).await;
+        assert!(result.is_ok());
+
+        let commands_dir = temp_dir.path().join(".claude").join("commands");
+
+        // Should only install specified commands
+        assert!(commands_dir.join("mmm-code-review.md").exists());
+        assert!(commands_dir.join("mmm-lint.md").exists());
+        assert!(!commands_dir.join("mmm-implement-spec.md").exists());
     }
 }
