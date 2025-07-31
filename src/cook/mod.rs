@@ -1190,6 +1190,16 @@ async fn run_improvement_loop(
             state.stats.commits += 3; // review + implement + lint
         })?;
 
+        // Run inter-iteration analysis if not skipped
+        if !cmd.skip_analysis {
+            if let Err(e) = analyze_project_comprehensive(&_project_path, verbose).await {
+                if verbose {
+                    warn!("⚠️  Inter-iteration analysis failed: {e}");
+                    warn!("   Continuing with stale context");
+                }
+            }
+        }
+
         iteration += 1;
     }
 
@@ -1308,6 +1318,16 @@ async fn run_improvement_iterations(
             verbose,
         )
         .await?;
+
+        // Run inter-iteration analysis if not skipped
+        if !cmd.skip_analysis {
+            if let Err(e) = analyze_project_comprehensive(project_path, verbose).await {
+                if verbose {
+                    warn!("⚠️  Inter-iteration analysis failed: {e}");
+                    warn!("   Continuing with stale context");
+                }
+            }
+        }
 
         *iteration += 1;
     }
@@ -1575,6 +1595,16 @@ async fn run_improvement_loop_with_variables(
             println!("ℹ️  Iteration {iteration} completed with no changes - stopping early");
             println!("   (This typically means no issues were found to fix)");
             break;
+        }
+
+        // Run inter-iteration analysis if not skipped
+        if !cmd.skip_analysis {
+            if let Err(e) = analyze_project_comprehensive(&project_path, verbose).await {
+                if verbose {
+                    warn!("⚠️  Inter-iteration analysis failed: {e}");
+                    warn!("   Continuing with stale context");
+                }
+            }
         }
 
         iteration += 1;
