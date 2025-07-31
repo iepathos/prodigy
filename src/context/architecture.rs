@@ -401,28 +401,27 @@ impl ArchitectureExtractor for BasicArchitectureExtractor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
-    use tempfile::TempDir;
+    use crate::testing::test_helpers::*;
 
     #[test]
     fn test_pattern_detection() {
         let extractor = BasicArchitectureExtractor::new();
         let temp_dir = TempDir::new().unwrap();
-        let project_path = temp_dir.path();
+        let project_path = setup_test_project(&temp_dir);
 
         // Create MVC structure
-        fs::create_dir_all(project_path.join("src/controllers")).unwrap();
-        fs::create_dir_all(project_path.join("src/views")).unwrap();
-        fs::create_dir_all(project_path.join("src/models")).unwrap();
+        std::fs::create_dir_all(project_path.join("src/controllers")).unwrap();
+        std::fs::create_dir_all(project_path.join("src/views")).unwrap();
+        std::fs::create_dir_all(project_path.join("src/models")).unwrap();
 
-        let patterns = extractor.detect_patterns(project_path);
+        let patterns = extractor.detect_patterns(&project_path);
         assert!(patterns.contains(&"MVC".to_string()));
 
         // Create REST API structure
-        fs::create_dir_all(project_path.join("src/handlers")).unwrap();
-        fs::create_dir_all(project_path.join("src/routes")).unwrap();
+        std::fs::create_dir_all(project_path.join("src/handlers")).unwrap();
+        std::fs::create_dir_all(project_path.join("src/routes")).unwrap();
 
-        let patterns = extractor.detect_patterns(project_path);
+        let patterns = extractor.detect_patterns(&project_path);
         assert!(patterns.contains(&"REST API".to_string()));
     }
 
@@ -430,14 +429,14 @@ mod tests {
     fn test_component_detection() {
         let extractor = BasicArchitectureExtractor::new();
         let temp_dir = TempDir::new().unwrap();
-        let project_path = temp_dir.path();
+        let project_path = setup_test_project(&temp_dir);
 
         // Create component structure
-        fs::create_dir_all(project_path.join("src/auth")).unwrap();
-        fs::create_dir_all(project_path.join("src/database")).unwrap();
-        fs::create_dir_all(project_path.join("src/api")).unwrap();
+        std::fs::create_dir_all(project_path.join("src/auth")).unwrap();
+        std::fs::create_dir_all(project_path.join("src/database")).unwrap();
+        std::fs::create_dir_all(project_path.join("src/api")).unwrap();
 
-        let components = extractor.detect_components(project_path);
+        let components = extractor.detect_components(&project_path);
         assert_eq!(components.len(), 3);
         assert!(components.contains_key("auth"));
         assert!(components.contains_key("database"));
@@ -506,19 +505,13 @@ mod tests {
     async fn test_extract_architecture() {
         let extractor = BasicArchitectureExtractor::new();
         let temp_dir = TempDir::new().unwrap();
-        let project_path = temp_dir.path();
+        let project_path = setup_test_project(&temp_dir);
 
         // Create a basic project structure
-        fs::create_dir_all(project_path.join("src")).unwrap();
-        fs::write(project_path.join("src/lib.rs"), "pub mod auth;").unwrap();
-        fs::create_dir_all(project_path.join("src/auth")).unwrap();
-        fs::write(
-            project_path.join("src/auth/mod.rs"),
-            "pub fn authenticate() {}",
-        )
-        .unwrap();
+        create_test_file(&project_path, "src/lib.rs", "pub mod auth;");
+        create_test_file(&project_path, "src/auth/mod.rs", "pub fn authenticate() {}");
 
-        let architecture = extractor.extract_architecture(project_path).await.unwrap();
+        let architecture = extractor.extract_architecture(&project_path).await.unwrap();
 
         assert!(!architecture.patterns.is_empty());
         assert!(architecture.patterns.contains(&"Modular".to_string()));

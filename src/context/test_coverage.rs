@@ -604,8 +604,7 @@ impl TestCoverageAnalyzer for BasicTestCoverageAnalyzer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
-    use tempfile::TempDir;
+    use crate::testing::test_helpers::*;
 
     #[test]
     fn test_function_extraction() {
@@ -732,12 +731,12 @@ mod tests {
     async fn test_full_coverage_analysis() {
         let analyzer = BasicTestCoverageAnalyzer::new();
         let temp_dir = TempDir::new().unwrap();
-        let project_path = temp_dir.path();
+        let project_path = setup_test_project(&temp_dir);
 
         // Create source files
-        fs::create_dir_all(project_path.join("src")).unwrap();
-        fs::write(
-            project_path.join("src/lib.rs"),
+        create_test_file(
+            &project_path,
+            "src/lib.rs",
             r#"
             pub fn multiply(a: i32, b: i32) -> i32 {
                 a * b
@@ -751,26 +750,24 @@ mod tests {
                 }
             }
             "#,
-        )
-        .unwrap();
+        );
 
         // Create test file
-        fs::create_dir_all(project_path.join("tests")).unwrap();
-        fs::write(
-            project_path.join("tests/lib_test.rs"),
+        create_test_file(
+            &project_path,
+            "tests/lib_test.rs",
             r#"
             #[test]
             fn test_multiply() {
                 assert_eq!(multiply(3, 4), 12);
             }
             "#,
-        )
-        .unwrap();
+        );
 
         // Wait a bit to ensure files are written
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-        let coverage = analyzer.analyze_coverage(project_path).await.unwrap();
+        let coverage = analyzer.analyze_coverage(&project_path).await.unwrap();
 
         assert!(
             coverage

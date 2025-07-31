@@ -8,7 +8,7 @@ pub mod workflow;
 #[cfg(test)]
 mod tests;
 
-use crate::config::{ConfigLoader, WorkflowConfig};
+use crate::config::{Config, ConfigLoader};
 use crate::context::{save_analysis, ContextAnalyzer, ProjectAnalyzer};
 use crate::metrics::{MetricsCollector, MetricsHistory, MetricsStorage};
 use crate::simple_state::StateManager;
@@ -18,7 +18,7 @@ use chrono::Utc;
 use git_ops::get_last_commit_message;
 use retry::{check_claude_cli, execute_with_retry, format_subprocess_error};
 use std::io::{self, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::process::Command;
 use tracing::{info, warn};
@@ -547,162 +547,99 @@ async fn run_internal(cmd: command::CookCommand, verbose: bool) -> Result<()> {
 }
 
 /// Run cook command with file mapping or direct arguments
-async fn run_with_mapping(cmd: command::CookCommand, verbose: bool) -> Result<()> {
-    // Check if worktree isolation should be used
-    let use_worktree = cmd.worktree;
+///
+/// Wrapper for running with mapping in worktree mode
+async fn run_with_mapping_in_worktree_wrapper(
+    cmd: command::CookCommand,
+    verbose: bool,
+) -> Result<()> {
+    let original_repo_path = std::env::current_dir()?;
+    let worktree_manager = WorktreeManager::new(original_repo_path.to_path_buf())?;
+    let session = worktree_manager.create_session(cmd.focus.as_deref())?;
 
-    if use_worktree {
-        // Save the original repository path before changing directories
-        let original_repo_path = std::env::current_dir()?;
+    println!(
+        "🌳 Created worktree: {} at {}",
+        session.name,
+        session.path.display()
+    );
 
-        // Create a new worktree for this improvement session
-        let worktree_manager = WorktreeManager::new(original_repo_path.to_path_buf())?;
-        let session = worktree_manager.create_session(cmd.focus.as_deref())?;
+    // Change to worktree directory
+    std::env::set_current_dir(&session.path)?;
 
-        println!(
-            "🌳 Created worktree: {} at {}",
-            session.name,
-            session.path.display()
-        );
+    // Run improvement in worktree context
+    let result = run_with_mapping_in_worktree(
+        cmd.clone(),
+        session.clone(),
+        original_repo_path.clone(),
+        verbose,
+    )
+    .await;
 
-        // Change to worktree directory
-        std::env::set_current_dir(&session.path)?;
+    // Handle post-execution
+    handle_worktree_completion(
+        &result,
+        &session,
+        &worktree_manager,
+        &original_repo_path,
+        &cmd,
+    )
+    .await?;
 
-        // Run improvement in worktree context
-        let result = run_with_mapping_in_worktree(
-            cmd.clone(),
-            session.clone(),
-            original_repo_path.clone(),
-            verbose,
-        )
-        .await;
+    result
+}
 
-        // Clean up on failure, keep on success for manual merge
-        match &result {
-            Ok(_) => {
-                // Check if any actual improvements were made
-                let state = worktree_manager.get_session_state(&session.name)?;
-                let iterations_completed = state.iterations.completed;
+/// Handles worktree completion including merge prompts
+async fn handle_worktree_completion(
+    result: &Result<()>,
+    session: &crate::worktree::WorktreeSession,
+    worktree_manager: &WorktreeManager,
+    original_repo_path: &Path,
+    cmd: &command::CookCommand,
+) -> Result<()> {
+    match result {
+        Ok(_) => {
+            let state = worktree_manager.get_session_state(&session.name)?;
+            let iterations_completed = state.iterations.completed;
 
-                if iterations_completed == 0 {
-                    println!(
-                        "⚠️  No improvements were made in worktree: {}",
-                        session.name
-                    );
-                    println!("   Reason: No issues were found to fix");
-                } else {
-                    println!("✅ Improvements completed in worktree: {}", session.name);
-                }
-
-                // Prompt for merge if in interactive terminal (or auto-accept) and improvements were made
-                if (is_tty() || cmd.auto_accept) && iterations_completed > 0 {
-                    // Update state to track prompt shown
-                    let worktree_manager = WorktreeManager::new(original_repo_path.to_path_buf())?;
-                    worktree_manager.update_session_state(&session.name, |state| {
-                        state.merge_prompt_shown = true;
-                    })?;
-
-                    let should_merge = if cmd.auto_accept {
-                        println!("Auto-accepting worktree merge (--yes flag set)");
-                        MergeChoice::Yes
-                    } else {
-                        prompt_for_merge(&session.name)
-                    };
-
-                    match should_merge {
-                        MergeChoice::Yes => {
-                            // Update state with response
-                            worktree_manager.update_session_state(&session.name, |state| {
-                                state.merge_prompt_response = Some("yes".to_string());
-                            })?;
-
-                            println!("Merging worktree {}...", session.name);
-                            match merge_worktree(&session.name, &original_repo_path).await {
-                                Ok(_) => {
-                                    println!("✅ Successfully merged worktree: {}", session.name);
-
-                                    // Update worktree status to merged
-                                    worktree_manager.update_session_state(
-                                        &session.name,
-                                        |state| {
-                                            state.status = crate::worktree::WorktreeStatus::Merged;
-                                        },
-                                    )?;
-
-                                    // Prompt to delete the worktree
-                                    let should_delete = if cmd.auto_accept {
-                                        println!(
-                                            "Auto-accepting worktree deletion (--yes flag set)"
-                                        );
-                                        true
-                                    } else {
-                                        print!(
-                                            "\nWould you like to delete the worktree now? (y/N): "
-                                        );
-                                        io::stdout().flush().unwrap_or_default();
-
-                                        let mut input = String::new();
-                                        io::stdin().read_line(&mut input).unwrap_or_default();
-                                        input.trim().to_lowercase() == "y"
-                                    };
-
-                                    if should_delete {
-                                        println!("Deleting worktree {}...", session.name);
-                                        match worktree_manager.cleanup_session(&session.name, true)
-                                        {
-                                            Ok(_) => {
-                                                println!("✅ Worktree deleted successfully");
-                                            }
-                                            Err(e) => {
-                                                warn!("❌ Failed to delete worktree: {e}");
-                                                println!("You can manually delete it with:");
-                                                println!("  mmm worktree delete {}", session.name);
-                                            }
-                                        }
-                                    } else {
-                                        println!("\nTo delete the worktree later, run:");
-                                        println!("  mmm worktree delete {}", session.name);
-                                    }
-                                }
-                                Err(e) => {
-                                    warn!("❌ Failed to merge worktree: {e}");
-                                    println!("\nTo merge changes manually, run:");
-                                    println!("  mmm worktree merge {}", session.name);
-                                }
-                            }
-                        }
-                        MergeChoice::No => {
-                            // Update state with response
-                            worktree_manager.update_session_state(&session.name, |state| {
-                                state.merge_prompt_response = Some("no".to_string());
-                            })?;
-
-                            println!("\nTo merge changes later, run:");
-                            println!("  mmm worktree merge {}", session.name);
-                        }
-                    }
-                } else if iterations_completed > 0 {
-                    // Non-interactive environment but improvements were made
-                    println!("\nWorktree completed. To merge changes, run:");
-                    println!("  mmm worktree merge {}", session.name);
-                } else {
-                    // No improvements made
-                    println!("\nNo changes to merge. You can delete the worktree with:");
-                    println!("  mmm worktree delete {}", session.name);
-                }
-            }
-            Err(_) => {
-                eprintln!(
-                    "❌ Improvement failed, preserving worktree for debugging: {}",
+            if iterations_completed == 0 {
+                println!(
+                    "⚠️  No improvements were made in worktree: {}",
                     session.name
                 );
+                println!("   Reason: No issues were found to fix");
+            } else {
+                println!("✅ Improvements completed in worktree: {}", session.name);
+            }
+
+            // Handle merge prompting
+            if (is_tty() || cmd.auto_accept) && iterations_completed > 0 {
+                worktree_manager.update_session_state(&session.name, |state| {
+                    state.merge_prompt_shown = true;
+                })?;
+
+                handle_worktree_merge(cmd, session, original_repo_path, state.iterations.completed)
+                    .await?;
+            } else if iterations_completed > 0 {
+                println!("\nWorktree completed. To merge changes, run:");
+                println!("  mmm worktree merge {}", session.name);
+            } else {
+                println!("\nNo changes to merge. You can delete the worktree with:");
+                println!("  mmm worktree delete {}", session.name);
             }
         }
-
-        return result;
+        Err(_) => {
+            eprintln!(
+                "❌ Improvement failed, preserving worktree for debugging: {}",
+                session.name
+            );
+        }
     }
 
-    // Non-worktree path continues below
+    Ok(())
+}
+
+/// Runs mapping without worktree  
+async fn run_with_mapping_standard(cmd: command::CookCommand, verbose: bool) -> Result<()> {
     let inputs = collect_mapping_inputs(&cmd)?;
 
     println!("📋 Processing {} input(s)", inputs.len());
@@ -757,6 +694,14 @@ async fn run_with_mapping(cmd: command::CookCommand, verbose: bool) -> Result<()
         Err(anyhow!("{} input(s) failed processing", failure_count))
     } else {
         Ok(())
+    }
+}
+
+async fn run_with_mapping(cmd: command::CookCommand, verbose: bool) -> Result<()> {
+    if cmd.worktree {
+        run_with_mapping_in_worktree_wrapper(cmd, verbose).await
+    } else {
+        run_with_mapping_standard(cmd, verbose).await
     }
 }
 
@@ -984,20 +929,15 @@ async fn run_in_worktree(
     }
 }
 
-async fn run_improvement_loop(
-    cmd: command::CookCommand,
-    session: &crate::worktree::WorktreeSession,
-    worktree_manager: &WorktreeManager,
+/// Sets up the improvement session by checking prerequisites and loading configuration
+async fn setup_improvement_session(
+    cmd: &command::CookCommand,
     verbose: bool,
-) -> Result<()> {
-    // The actual improvement logic, but with state tracking
-    // This is a copy of run_without_worktree logic with state updates
-
+) -> Result<(std::path::PathBuf, Config, StateManager)> {
     // 1. Check for Claude CLI
     check_claude_cli().await?;
 
     // 2. Initial analysis
-    // Run comprehensive analysis to understand the project and collect accurate metrics
     let project_path = std::env::current_dir()?;
     if !cmd.skip_analysis {
         if let Err(e) = analyze_project_comprehensive(&project_path, verbose).await {
@@ -1017,19 +957,292 @@ async fn run_improvement_loop(
     }
 
     // 3. Setup basic state
-    let _state = StateManager::new()?;
-    let _start_time = Utc::now();
+    let state = StateManager::new()?;
 
-    // 4. Main improvement loop
-    let mut iteration = 1;
-    let mut files_changed = 0;
-
-    // Load configuration (with workflow if present)
+    // 4. Load configuration
     let config_loader = ConfigLoader::new().await?;
     config_loader
         .load_with_explicit_path(Path::new("."), cmd.config.as_deref())
         .await?;
-    let config = config_loader.get_config();
+    let config = config_loader.get_config().clone();
+
+    Ok((project_path, config, state))
+}
+
+/// Executes a single iteration of the workflow
+async fn execute_workflow_iteration(
+    worktree_manager: &WorktreeManager,
+    session_name: &str,
+    cmd: &command::CookCommand,
+    iteration: u32,
+    files_changed: &mut usize,
+    verbose: bool,
+) -> Result<bool> {
+    // Update worktree state before iteration
+    worktree_manager.update_session_state(session_name, |state| {
+        state.iterations.completed = iteration - 1;
+        state.iterations.max = cmd.max_iterations;
+    })?;
+
+    if verbose {
+        info!("🔄 Iteration {iteration}/{}...", cmd.max_iterations);
+    }
+
+    // Execute the legacy workflow steps
+    let (review_success, spec_id) = execute_code_review_step(
+        worktree_manager,
+        session_name,
+        iteration,
+        cmd.focus.as_deref(),
+        verbose,
+    )
+    .await?;
+
+    if !review_success || spec_id.is_empty() {
+        if verbose {
+            info!("No issues found - stopping iterations");
+        }
+        return Ok(false);
+    }
+
+    // Execute implementation step
+    let implement_success =
+        execute_implementation_step(worktree_manager, session_name, iteration, &spec_id, verbose)
+            .await?;
+
+    if implement_success {
+        *files_changed += 1;
+    }
+
+    // Execute linting step
+    execute_linting_step(worktree_manager, session_name, iteration, &spec_id, verbose).await?;
+
+    // Check if any command made changes in this iteration
+    let any_changes = review_success || implement_success;
+    if !any_changes {
+        if verbose {
+            info!("ℹ️  Iteration {iteration} completed with no changes - stopping early");
+            info!("   (This typically means no issues were found to fix)");
+        }
+        return Ok(false);
+    }
+
+    // Update stats after iteration
+    worktree_manager.update_session_state(session_name, |state| {
+        state.stats.files_changed = *files_changed as u32;
+        state.stats.commits += 3; // review + implement + lint
+    })?;
+
+    Ok(true)
+}
+
+/// Executes the code review step of an iteration
+async fn execute_code_review_step(
+    worktree_manager: &WorktreeManager,
+    session_name: &str,
+    iteration: u32,
+    focus: Option<&str>,
+    verbose: bool,
+) -> Result<(bool, String)> {
+    // Create checkpoint before code review
+    worktree_manager.create_checkpoint(
+        session_name,
+        crate::worktree::Checkpoint {
+            iteration,
+            timestamp: Utc::now(),
+            last_command: "/mmm-code-review".to_string(),
+            last_command_type: crate::worktree::CommandType::CodeReview,
+            last_spec_id: None,
+            files_modified: vec![],
+            command_output: None,
+        },
+    )?;
+
+    let review_success = call_claude_code_review(verbose, focus).await?;
+    if !review_success {
+        return Ok((false, String::new()));
+    }
+
+    // Extract spec ID from latest commit
+    let spec_id = extract_spec_from_git(verbose).await?;
+
+    // Update checkpoint with spec ID
+    worktree_manager.update_checkpoint(session_name, |checkpoint| {
+        checkpoint.last_spec_id = Some(spec_id.clone());
+        checkpoint.command_output = Some("Review completed".to_string());
+    })?;
+
+    Ok((true, spec_id))
+}
+
+/// Executes the implementation step of an iteration
+async fn execute_implementation_step(
+    worktree_manager: &WorktreeManager,
+    session_name: &str,
+    iteration: u32,
+    spec_id: &str,
+    verbose: bool,
+) -> Result<bool> {
+    // Create checkpoint before implementation
+    worktree_manager.create_checkpoint(
+        session_name,
+        crate::worktree::Checkpoint {
+            iteration,
+            timestamp: Utc::now(),
+            last_command: format!("/mmm-implement-spec {spec_id}"),
+            last_command_type: crate::worktree::CommandType::ImplementSpec,
+            last_spec_id: Some(spec_id.to_string()),
+            files_modified: vec![],
+            command_output: None,
+        },
+    )?;
+
+    let implement_success = call_claude_implement_spec(spec_id, verbose).await?;
+
+    if implement_success {
+        // Update checkpoint after successful implementation
+        worktree_manager.update_checkpoint(session_name, |checkpoint| {
+            checkpoint.command_output = Some("Implementation completed".to_string());
+            checkpoint.files_modified = detect_modified_files();
+        })?;
+    } else if verbose {
+        info!("Implementation failed for iteration {iteration}");
+    }
+
+    Ok(implement_success)
+}
+
+/// Executes the linting step of an iteration
+async fn execute_linting_step(
+    worktree_manager: &WorktreeManager,
+    session_name: &str,
+    iteration: u32,
+    spec_id: &str,
+    verbose: bool,
+) -> Result<()> {
+    // Create checkpoint before linting
+    worktree_manager.create_checkpoint(
+        session_name,
+        crate::worktree::Checkpoint {
+            iteration,
+            timestamp: Utc::now(),
+            last_command: "/mmm-lint".to_string(),
+            last_command_type: crate::worktree::CommandType::Lint,
+            last_spec_id: Some(spec_id.to_string()),
+            files_modified: vec![],
+            command_output: None,
+        },
+    )?;
+
+    let lint_success = call_claude_lint(verbose).await?;
+
+    if lint_success {
+        // Update checkpoint after successful linting
+        worktree_manager.update_checkpoint(session_name, |checkpoint| {
+            checkpoint.command_output = Some("Linting completed".to_string());
+        })?;
+    }
+
+    Ok(())
+}
+
+/// Finalizes the improvement session by updating state and committing changes
+async fn finalize_improvement_session(
+    worktree_manager: &WorktreeManager,
+    session_name: &str,
+    completed_iterations: u32,
+    files_changed: usize,
+    max_iterations: u32,
+    verbose: bool,
+) -> Result<()> {
+    // Final state update
+    worktree_manager.update_session_state(session_name, |state| {
+        state.iterations.completed = completed_iterations;
+    })?;
+
+    // Commit the state file
+    commit_state_file(completed_iterations, files_changed as u32).await?;
+
+    // Final summary
+    if verbose {
+        print_session_summary(completed_iterations, files_changed, max_iterations);
+    }
+
+    Ok(())
+}
+
+/// Commits the state file with session information
+async fn commit_state_file(iterations: u32, files_changed: u32) -> Result<()> {
+    // Stage the state file
+    let git_add = Command::new("git")
+        .args(["add", ".mmm/state.json"])
+        .output()
+        .await
+        .context("Failed to stage state file")?;
+
+    if git_add.status.success() {
+        // Commit the state file
+        let commit_message = format!(
+            "chore: update mmm state after improvement session\n\n\
+            Iterations: {iterations}\n\
+            Files changed: {files_changed}"
+        );
+
+        let git_commit = Command::new("git")
+            .args(["commit", "-m", &commit_message])
+            .output()
+            .await
+            .context("Failed to commit state file")?;
+
+        if !git_commit.status.success() {
+            let stderr = String::from_utf8_lossy(&git_commit.stderr);
+            let stdout = String::from_utf8_lossy(&git_commit.stdout);
+            // It's okay if there's nothing to commit
+            if !stderr.contains("nothing to commit")
+                && !stdout.contains("nothing to commit")
+                && !stderr.contains("no changes added")
+            {
+                eprintln!("Warning: Failed to commit state file: {stderr}");
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Prints the final session summary
+fn print_session_summary(iterations: u32, files_changed: usize, max_iterations: u32) {
+    let completed_all = iterations >= max_iterations;
+
+    if iterations == 0 {
+        println!("\n⚠️  No improvements were made:");
+        println!("   No issues were found to fix");
+    } else if completed_all {
+        println!("\n✅ Improvement session completed:");
+        println!("   Iterations: {iterations} (reached maximum)");
+        println!("   Files improved: {files_changed}");
+    } else {
+        println!("\n✅ Improvement session finished early:");
+        println!("   Iterations: {iterations}/{max_iterations}");
+        println!("   Files improved: {files_changed}");
+        println!("   Reason: No more issues found");
+    }
+    println!("   Session state: saved");
+}
+
+async fn run_improvement_loop(
+    cmd: command::CookCommand,
+    session: &crate::worktree::WorktreeSession,
+    worktree_manager: &WorktreeManager,
+    verbose: bool,
+) -> Result<()> {
+    // Setup phase
+    let (_project_path, config, _state) = setup_improvement_session(&cmd, verbose).await?;
+    let _start_time = Utc::now();
+
+    // Main improvement loop
+    let mut iteration = 1;
+    let mut files_changed: usize = 0;
 
     // Check if we have a workflow configuration
     if let Some(workflow_config) = config.workflow {
@@ -1065,206 +1278,43 @@ async fn run_improvement_loop(
 
             // Update stats after iteration
             worktree_manager.update_session_state(&session.name, |state| {
-                state.stats.files_changed = files_changed;
+                state.stats.files_changed = files_changed as u32;
                 state.stats.commits += 3; // review + implement + lint
             })?;
 
             iteration += 1;
         }
     } else {
-        // Use legacy hardcoded workflow
+        // Use legacy hardcoded workflow with refactored helper functions
         while iteration <= cmd.max_iterations {
-            // Update worktree state before iteration
-            worktree_manager.update_session_state(&session.name, |state| {
-                state.iterations.completed = iteration - 1;
-                state.iterations.max = cmd.max_iterations;
-            })?;
-
-            if verbose {
-                info!("🔄 Iteration {iteration}/{}...", cmd.max_iterations);
-            }
-
-            // Step 1: Generate review spec and commit
-            // Create checkpoint before code review
-            worktree_manager.create_checkpoint(
+            let continue_iteration = execute_workflow_iteration(
+                worktree_manager,
                 &session.name,
-                crate::worktree::Checkpoint {
-                    iteration,
-                    timestamp: Utc::now(),
-                    last_command: "/mmm-code-review".to_string(),
-                    last_command_type: crate::worktree::CommandType::CodeReview,
-                    last_spec_id: None,
-                    files_modified: vec![],
-                    command_output: None,
-                },
-            )?;
+                &cmd,
+                iteration,
+                &mut files_changed,
+                verbose,
+            )
+            .await?;
 
-            // Pass focus on every iteration to maintain consistent improvement direction
-            let focus_for_iteration = cmd.focus.as_deref();
-            let review_success = call_claude_code_review(verbose, focus_for_iteration).await?;
-            if !review_success {
-                if verbose {
-                    info!("Review failed - stopping iterations");
-                }
+            if !continue_iteration {
                 break;
             }
-
-            // Step 2: Extract spec ID from latest commit
-            let spec_id = extract_spec_from_git(verbose).await?;
-            if spec_id.is_empty() {
-                if verbose {
-                    info!("No issues found - stopping iterations");
-                }
-                break;
-            }
-
-            // Update checkpoint with spec ID
-            worktree_manager.update_checkpoint(&session.name, |checkpoint| {
-                checkpoint.last_spec_id = Some(spec_id.clone());
-                checkpoint.command_output = Some("Review completed".to_string());
-            })?;
-
-            // Step 3: Implement fixes and commit
-            // Create checkpoint before implementation
-            worktree_manager.create_checkpoint(
-                &session.name,
-                crate::worktree::Checkpoint {
-                    iteration,
-                    timestamp: Utc::now(),
-                    last_command: format!("/mmm-implement-spec {spec_id}"),
-                    last_command_type: crate::worktree::CommandType::ImplementSpec,
-                    last_spec_id: Some(spec_id.clone()),
-                    files_modified: vec![],
-                    command_output: None,
-                },
-            )?;
-
-            let implement_success = call_claude_implement_spec(&spec_id, verbose).await?;
-            if !implement_success {
-                if verbose {
-                    info!("Implementation failed for iteration {iteration}");
-                }
-            } else {
-                files_changed += 1;
-                // Update checkpoint after successful implementation
-                worktree_manager.update_checkpoint(&session.name, |checkpoint| {
-                    checkpoint.command_output = Some("Implementation completed".to_string());
-                    checkpoint.files_modified = detect_modified_files();
-                })?;
-            }
-
-            // Step 4: Run linting/formatting and commit
-            // Create checkpoint before linting
-            worktree_manager.create_checkpoint(
-                &session.name,
-                crate::worktree::Checkpoint {
-                    iteration,
-                    timestamp: Utc::now(),
-                    last_command: "/mmm-lint".to_string(),
-                    last_command_type: crate::worktree::CommandType::Lint,
-                    last_spec_id: Some(spec_id.clone()),
-                    files_modified: vec![],
-                    command_output: None,
-                },
-            )?;
-
-            let lint_success = call_claude_lint(verbose).await?;
-
-            if lint_success {
-                // Update checkpoint after successful linting
-                worktree_manager.update_checkpoint(&session.name, |checkpoint| {
-                    checkpoint.command_output = Some("Linting completed".to_string());
-                })?;
-            }
-
-            // Check if any command made changes in this iteration
-            let any_changes = review_success || implement_success || lint_success;
-            if !any_changes {
-                if verbose {
-                    info!("ℹ️  Iteration {iteration} completed with no changes - stopping early");
-                    info!("   (This typically means no issues were found to fix)");
-                }
-                break;
-            }
-
-            // Update stats after iteration
-            worktree_manager.update_session_state(&session.name, |state| {
-                state.stats.files_changed = files_changed;
-                state.stats.commits += 3; // review + implement + lint
-            })?;
 
             iteration += 1;
         }
     }
 
     // Final state update
-    worktree_manager.update_session_state(&session.name, |state| {
-        state.iterations.completed = iteration - 1;
-    })?;
-
-    // 5. Completion - record basic session info
-    // StateManager handles saving automatically
-    let _ = _state; // Consume state to avoid unused variable warning
-
-    // 6. Commit the state file
-    // Stage the state file
-    let git_add = Command::new("git")
-        .args(["add", ".mmm/state.json"])
-        .output()
-        .await
-        .context("Failed to stage state file")?;
-
-    if git_add.status.success() {
-        // Commit the state file
-        let commit_message = format!(
-            "chore: update mmm state after improvement session\n\n\
-            Iterations: {}\n\
-            Files changed: {}",
-            iteration - 1,
-            files_changed
-        );
-
-        let git_commit = Command::new("git")
-            .args(["commit", "-m", &commit_message])
-            .output()
-            .await
-            .context("Failed to commit state file")?;
-
-        if !git_commit.status.success() {
-            let stderr = String::from_utf8_lossy(&git_commit.stderr);
-            let stdout = String::from_utf8_lossy(&git_commit.stdout);
-            // It's okay if there's nothing to commit
-            if !stderr.contains("nothing to commit")
-                && !stdout.contains("nothing to commit")
-                && !stderr.contains("no changes added")
-            {
-                eprintln!("Warning: Failed to commit state file: {stderr}");
-            }
-        }
-    }
-
-    // 7. Final summary
-    if verbose {
-        let iterations = iteration - 1;
-
-        // Determine if we completed naturally or stopped early
-        let completed_all = iterations >= cmd.max_iterations;
-
-        if iterations == 0 {
-            println!("\n⚠️  No improvements were made:");
-            println!("   No issues were found to fix");
-        } else if completed_all {
-            println!("\n✅ Improvement session completed:");
-            println!("   Iterations: {iterations} (reached maximum)");
-            println!("   Files improved: {files_changed}");
-        } else {
-            println!("\n✅ Improvement session finished early:");
-            println!("   Iterations: {}/{}", iterations, cmd.max_iterations);
-            println!("   Files improved: {files_changed}");
-            println!("   Reason: No more issues found");
-        }
-        println!("   Session state: saved");
-    }
+    finalize_improvement_session(
+        worktree_manager,
+        &session.name,
+        iteration - 1,
+        files_changed,
+        cmd.max_iterations,
+        verbose,
+    )
+    .await?;
 
     Ok(())
 }
@@ -1283,25 +1333,18 @@ async fn run_without_worktree(cmd: command::CookCommand, verbose: bool) -> Resul
     run_without_worktree_with_vars(cmd, std::collections::HashMap::new(), verbose).await
 }
 
-async fn run_without_worktree_with_vars(
-    cmd: command::CookCommand,
-    variables: std::collections::HashMap<String, String>,
+/// Sets up the improvement environment with configuration and initial analysis
+async fn setup_improvement_environment(
+    cmd: &command::CookCommand,
     verbose: bool,
-) -> Result<()> {
-    println!("🔍 Starting improvement loop...");
-
-    // 2. Load configuration
+) -> Result<(PathBuf, Config, StateManager)> {
+    // Load configuration
     let config_loader = ConfigLoader::new().await?;
-
-    // Load with explicit config path if provided
     config_loader
         .load_with_explicit_path(Path::new("."), cmd.config.as_deref())
         .await?;
-
-    // Also load project configuration
     config_loader.load_project(Path::new(".")).await?;
-
-    let config = config_loader.get_config();
+    let config = config_loader.get_config().clone();
 
     // Show config source in verbose mode
     if verbose {
@@ -1312,7 +1355,7 @@ async fn run_without_worktree_with_vars(
         }
     }
 
-    // Run comprehensive analysis to understand the project and collect accurate metrics
+    // Run comprehensive analysis
     let project_path = std::env::current_dir()?;
     if !cmd.skip_analysis {
         if let Err(e) = analyze_project_comprehensive(&project_path, verbose).await {
@@ -1325,142 +1368,111 @@ async fn run_without_worktree_with_vars(
         info!("📋 Skipping project analysis (--skip-analysis flag)");
     }
 
-    // Determine workflow configuration
-    let workflow_config = config
-        .workflow
-        .clone()
-        .unwrap_or_else(WorkflowConfig::default);
-    // Command-line max_iterations takes precedence over config
+    // Setup state
+    let state = StateManager::new()?;
+
+    Ok((project_path, config, state))
+}
+
+/// Runs improvement iterations based on workflow configuration
+#[allow(clippy::too_many_arguments)]
+async fn run_improvement_iterations(
+    cmd: &command::CookCommand,
+    config: &Config,
+    variables: std::collections::HashMap<String, String>,
+    files_changed: &mut usize,
+    iteration: &mut u32,
+    metrics_collector: &Option<MetricsCollector>,
+    metrics_history: &mut MetricsHistory,
+    project_path: &Path,
+    verbose: bool,
+) -> Result<u32> {
     let max_iterations = cmd.max_iterations;
 
-    // 3. State setup
-    let _state = StateManager::new()?;
-
-    // 3.5. Metrics setup (if enabled)
-    let (metrics_collector, mut metrics_history) = setup_metrics(&cmd, &project_path)?;
-
-    // 4. Git-native improvement loop
-    let mut iteration = 1;
-    let mut files_changed = 0;
-
-    // Display focus directive if provided
-    if let Some(focus) = &cmd.focus {
-        println!("📋 Focus: {focus}");
-    }
-
-    // Check if we should use configurable workflow or legacy workflow
     if config.workflow.is_some() {
         // Use configurable workflow
+        let workflow_config = config.workflow.clone().unwrap();
         let mut executor = WorkflowExecutor::new(workflow_config, verbose, max_iterations)
             .with_variables(variables);
 
-        while iteration <= max_iterations {
+        while *iteration <= max_iterations {
             // Execute workflow iteration
-            // Pass focus on every iteration to maintain consistent improvement direction
             let focus_for_iteration = cmd.focus.as_deref();
-
             let iteration_success = executor
-                .execute_iteration(iteration, focus_for_iteration)
+                .execute_iteration(*iteration, focus_for_iteration)
                 .await?;
+
             if !iteration_success {
                 println!("ℹ️  Iteration {iteration} completed with no changes - stopping early");
                 println!("   (This typically means no issues were found to fix)");
                 break;
             }
 
-            files_changed += 1;
+            *files_changed += 1;
 
-            // Collect metrics after iteration (if enabled)
+            // Collect metrics after iteration
             if let Some(ref collector) = metrics_collector {
                 if cmd.metrics {
                     collect_iteration_metrics(
                         collector,
-                        &mut metrics_history,
-                        &project_path,
-                        iteration,
+                        metrics_history,
+                        project_path,
+                        *iteration,
                         verbose,
                     )
                     .await?;
                 }
             }
 
-            iteration += 1;
+            *iteration += 1;
         }
     } else {
         // Use legacy hardcoded workflow
-        while iteration <= cmd.max_iterations {
+        while *iteration <= cmd.max_iterations {
             let (continue_loop, iteration_changed_files) =
-                run_legacy_workflow_iteration(&cmd, iteration, verbose).await?;
+                run_legacy_workflow_iteration(cmd, *iteration, verbose).await?;
 
             if !continue_loop {
                 break;
             }
 
             if iteration_changed_files {
-                files_changed += 1;
+                *files_changed += 1;
             }
 
-            // Collect metrics after iteration (if enabled)
+            // Collect metrics after iteration
             if let Some(ref collector) = metrics_collector {
                 if cmd.metrics {
                     collect_iteration_metrics(
                         collector,
-                        &mut metrics_history,
-                        &project_path,
-                        iteration,
+                        metrics_history,
+                        project_path,
+                        *iteration,
                         verbose,
                     )
                     .await?;
                 }
             }
 
-            iteration += 1;
+            *iteration += 1;
         }
     }
 
-    // 5. Completion - record basic session info
-    // StateManager handles saving automatically
-    let _ = _state; // Consume state to avoid unused variable warning
+    Ok(*iteration - 1)
+}
 
-    // 6. Commit the state file
-    // Stage the state file
-    let git_add = Command::new("git")
-        .args(["add", ".mmm/state.json"])
-        .output()
-        .await
-        .context("Failed to stage state file")?;
+/// Finalizes a non-worktree session by committing state and showing summary
+async fn finalize_non_worktree_session(
+    _state: &StateManager,
+    actual_iterations: u32,
+    files_changed: usize,
+    cmd: &command::CookCommand,
+    _verbose: bool,
+) -> Result<()> {
+    // Commit the state file
+    commit_state_file(actual_iterations, files_changed as u32).await?;
 
-    if git_add.status.success() {
-        // Commit the state file
-        let commit_message = format!(
-            "chore: update mmm state after improvement session\n\n\
-            Iterations: {}\n\
-            Files changed: {}",
-            iteration - 1,
-            files_changed
-        );
-
-        let git_commit = Command::new("git")
-            .args(["commit", "-m", &commit_message])
-            .output()
-            .await
-            .context("Failed to commit state file")?;
-
-        if !git_commit.status.success() {
-            // Check if there were no changes to commit
-            let stderr = String::from_utf8_lossy(&git_commit.stderr);
-            if !stderr.contains("nothing to commit") && verbose {
-                warn!("Warning: Failed to commit .mmm/state.json: {stderr}");
-            }
-        }
-    } else if verbose {
-        let stderr = String::from_utf8_lossy(&git_add.stderr);
-        warn!("Warning: Failed to stage .mmm/state.json: {stderr}");
-    }
-
-    // Completion message
-    let actual_iterations = iteration - 1;
-
+    // Show completion message
     if actual_iterations == 0 {
         println!("\n⚠️  No improvements were made:");
         println!("   No issues were found to fix");
@@ -1478,31 +1490,83 @@ async fn run_without_worktree_with_vars(
         println!("   Reason: No more issues found");
     }
 
-    // Show final metrics summary if enabled
-    if cmd.metrics && actual_iterations > 0 {
-        if let Some(latest_metrics) = metrics_history.latest() {
-            println!("\n📊 Final Metrics Summary:");
-            println!(
-                "   Overall Score: {:.1}/100",
-                latest_metrics.overall_score()
-            );
-            println!("   Test Coverage: {:.1}%", latest_metrics.test_coverage);
-            println!("   Lint Warnings: {}", latest_metrics.lint_warnings);
-            println!("   Technical Debt: {:.1}", latest_metrics.tech_debt_score);
+    Ok(())
+}
 
-            // Show improvement velocity
-            let velocity = metrics_history.calculate_velocity(actual_iterations as usize);
-            if velocity != 0.0 {
-                println!("   Improvement Rate: {velocity:+.1} points/iteration");
-            }
+/// Displays final metrics summary
+fn display_metrics_summary(
+    metrics_history: &MetricsHistory,
+    actual_iterations: u32,
+    project_path: &Path,
+) -> Result<()> {
+    if let Some(latest_metrics) = metrics_history.latest() {
+        println!("\n📊 Final Metrics Summary:");
+        println!(
+            "   Overall Score: {:.1}/100",
+            latest_metrics.overall_score()
+        );
+        println!("   Test Coverage: {:.1}%", latest_metrics.test_coverage);
+        println!("   Lint Warnings: {}", latest_metrics.lint_warnings);
+        println!("   Technical Debt: {:.1}", latest_metrics.tech_debt_score);
 
-            // Save final report
-            let storage = MetricsStorage::new(&project_path);
-            let report = storage.generate_report(latest_metrics);
-            if let Err(e) = storage.save_report(&report, &latest_metrics.iteration_id) {
-                warn!("Failed to save final metrics report: {}", e);
-            }
+        // Show improvement velocity
+        let velocity = metrics_history.calculate_velocity(actual_iterations as usize);
+        if velocity != 0.0 {
+            println!("   Improvement Rate: {velocity:+.1} points/iteration");
         }
+
+        // Save final report
+        let storage = MetricsStorage::new(project_path);
+        let report = storage.generate_report(latest_metrics);
+        if let Err(e) = storage.save_report(&report, &latest_metrics.iteration_id) {
+            warn!("Failed to save final metrics report: {}", e);
+        }
+    }
+    Ok(())
+}
+
+async fn run_without_worktree_with_vars(
+    cmd: command::CookCommand,
+    variables: std::collections::HashMap<String, String>,
+    verbose: bool,
+) -> Result<()> {
+    println!("🔍 Starting improvement loop...");
+
+    // Load configuration and setup
+    let (project_path, config, state) = setup_improvement_environment(&cmd, verbose).await?;
+
+    // Setup metrics collection
+    let (metrics_collector, mut metrics_history) = setup_metrics(&cmd, &project_path)?;
+
+    // Initialize iteration tracking
+    let mut iteration = 1;
+    let mut files_changed: usize = 0;
+
+    // Display focus directive if provided
+    if let Some(focus) = &cmd.focus {
+        println!("📋 Focus: {focus}");
+    }
+
+    // Run main improvement loop
+    let actual_iterations = run_improvement_iterations(
+        &cmd,
+        &config,
+        variables,
+        &mut files_changed,
+        &mut iteration,
+        &metrics_collector,
+        &mut metrics_history,
+        &project_path,
+        verbose,
+    )
+    .await?;
+
+    // Finalize session
+    finalize_non_worktree_session(&state, actual_iterations, files_changed, &cmd, verbose).await?;
+
+    // Show metrics summary if enabled
+    if cmd.metrics && actual_iterations > 0 {
+        display_metrics_summary(&metrics_history, actual_iterations, &project_path)?;
     }
 
     Ok(())
@@ -2121,7 +2185,7 @@ async fn run_improvement_loop_with_variables(
         // Final state update
         worktree_manager.update_session_state(&session.name, |state| {
             state.iterations.completed = iteration - 1;
-            state.stats.files_changed = files_changed;
+            state.stats.files_changed = files_changed as u32;
         })?;
 
         Ok(())
