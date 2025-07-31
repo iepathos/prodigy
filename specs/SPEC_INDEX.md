@@ -58,6 +58,7 @@ Performance improvements and system efficiency.
 - **Spec 45**: Context Window Management - Smart context selection (draft)
 - **Spec 46**: Real Metrics Tracking - Quantitative improvement measurement (draft)
 - **Spec 47**: Auto-Commit Analysis Changes - Automatic git commits for analysis updates (draft)
+- **Spec 48**: Command Chaining with Variables - Flexible data passing between commands (draft)
 
 ## Implementation Status
 
@@ -81,7 +82,7 @@ Performance improvements and system efficiency.
 - Spec 28: Structured Command Objects
 - Spec 29: Centralized Worktree State
 
-### 📝 Draft (9 specs)
+### 📝 Draft (10 specs)
 - Spec 30: Interrupted Worktree Recovery
 - Spec 31: Product Management Command
 - Spec 32: CLI Help as Default
@@ -91,6 +92,7 @@ Performance improvements and system efficiency.
 - Spec 45: Context Window Management
 - Spec 46: Real Metrics Tracking
 - Spec 47: Auto-Commit Analysis Changes
+- Spec 48: Command Chaining with Variables
 
 ### 🚧 In Progress (0 specs)
 None currently in progress.
@@ -145,12 +147,14 @@ Optimization Layer:
 ├── 46: Real Metrics Tracking
 ├── 17: Consolidate Modules
 ├── 23: Config Options
-└── 28: Structured Commands
+├── 28: Structured Commands
+    └── 48: Command Chaining Variables
 ```
 
 ## Quick Reference
 
 ### Latest Specifications
+- Spec 48: Command Chaining with Variables (draft) - Flexible data passing between commands
 - Spec 47: Auto-Commit Analysis Changes (draft) - Automatic git commits for analysis updates
 - Spec 46: Real Metrics Tracking (draft) - Quantitative improvement measurement
 - Spec 45: Context Window Management (draft) - Smart context selection
@@ -159,6 +163,7 @@ Optimization Layer:
 - Spec 33: Batch Spec Implementation (draft) - Implement multiple specs
 
 ### High Priority Specifications
+- Spec 48: Command Chaining with Variables - Enables flexible workflow configuration
 - Spec 44: Context-Aware Project Understanding - Enables truly autonomous loops
 - Spec 45: Context Window Management - Maximizes Claude's effectiveness
 - Spec 46: Real Metrics Tracking - Enables data-driven improvements
