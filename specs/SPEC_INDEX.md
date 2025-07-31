@@ -14,6 +14,7 @@ Core architecture and essential system components that form the base of MMM.
 - **Spec 14**: Implement Real Claude Loop - Working Claude CLI integration ✅
 - **Spec 19**: Git-Native Improvement Flow - Commit-based workflow ✅
 - **Spec 44**: Context-Aware Project Understanding - Deep codebase analysis (draft)
+- **Spec 51**: Validate Git Commits - Verify actual changes after commands (draft)
 
 ### Parallel Specifications
 Features enabling concurrent execution and parallel processing.
@@ -61,6 +62,7 @@ Performance improvements and system efficiency.
 - **Spec 47**: Auto-Commit Analysis Changes - Automatic git commits for analysis updates (draft)
 - **Spec 48**: Command Chaining with Variables - Flexible data passing between commands (draft)
 - **Spec 50**: Inter-Iteration Analysis Updates - Run analysis after each iteration (draft)
+- **Spec 51**: Validate Git Commits - Verify actual changes after commands (draft)
 
 ## Implementation Status
 
@@ -84,7 +86,7 @@ Performance improvements and system efficiency.
 - Spec 28: Structured Command Objects
 - Spec 29: Centralized Worktree State
 
-### 📝 Draft (12 specs)
+### 📝 Draft (13 specs)
 - Spec 30: Interrupted Worktree Recovery
 - Spec 31: Product Management Command
 - Spec 32: CLI Help as Default
@@ -97,6 +99,7 @@ Performance improvements and system efficiency.
 - Spec 48: Command Chaining with Variables
 - Spec 49: Fix Test Coverage Analysis
 - Spec 50: Inter-Iteration Analysis Updates
+- Spec 51: Validate Git Commits
 
 ### 🚧 In Progress (0 specs)
 None currently in progress.
@@ -136,6 +139,7 @@ Foundation Layer:
 ├── 11: Simple State Management
 └── 14: Real Claude Loop
     ├── 19: Git-Native Flow
+    │   ├── 51: Validate Git Commits
     │   ├── 20: Focus-Directed
     │   ├── 21: Configurable Workflow
     │   └── 24: Worktree Isolation
@@ -159,6 +163,7 @@ Optimization Layer:
 ## Quick Reference
 
 ### Latest Specifications
+- Spec 51: Validate Git Commits (draft) - Verify actual changes after commands
 - Spec 50: Inter-Iteration Analysis Updates (draft) - Run analysis after each iteration
 - Spec 49: Fix Test Coverage Analysis (draft) - Accurate coverage reporting
 - Spec 48: Command Chaining with Variables (draft) - Flexible data passing between commands
@@ -169,6 +174,7 @@ Optimization Layer:
 - Spec 34: Worktree Temp Spec Storage (draft) - Automatic cleanup for temp specs
 
 ### High Priority Specifications
+- Spec 51: Validate Git Commits - Critical for accurate change detection
 - Spec 50: Inter-Iteration Analysis Updates - Critical for accurate context between iterations
 - Spec 49: Fix Test Coverage Analysis - Critical for accurate metrics
 - Spec 48: Command Chaining with Variables - Enables flexible workflow configuration
