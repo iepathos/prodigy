@@ -26,6 +26,7 @@ Update the MMM cook workflow to run project analysis after every iteration compl
 - Preserve incremental analysis capabilities for performance
 - Ensure analysis completes before the next iteration begins
 - Handle analysis failures gracefully without breaking the workflow
+- Respect the `--skip-analysis` flag - when specified, skip both initial and inter-iteration analysis
 
 ### Non-Functional Requirements
 - Minimal performance impact (use incremental analysis where possible)
@@ -43,6 +44,7 @@ Update the MMM cook workflow to run project analysis after every iteration compl
 - [ ] Feature can be disabled via configuration flag if needed
 - [ ] Existing workflows continue to function without modification
 - [ ] Analysis status is clearly indicated in workflow output
+- [ ] When `--skip-analysis` flag is used, no analysis runs (neither initial nor inter-iteration)
 
 ## Technical Details
 
@@ -59,18 +61,23 @@ The main changes will be in the `cook.rs` module:
 - Add analysis step after `workflow.execute_once()` 
 - Ensure analysis completes before checking for more iterations
 - Update logging to show analysis progress
+- Check for `skip_analysis` flag before running inter-iteration analysis
 
 ### Data Flow
 
 ```
 Start Cook
   ↓
+--skip-analysis?
+  ↓ No
 Initial Analysis
   ↓
 ┌─→ Execute Iteration
 │     ↓
 │   Changes Made?
 │     ↓ Yes
+│   --skip-analysis?
+│     ↓ No
 │   Run Analysis ← NEW STEP
 │     ↓
 │   Update Context Files
@@ -136,6 +143,8 @@ No new APIs required. Will reuse existing:
 - May want to batch small changes before triggering analysis
 - Consider parallel analysis if it doesn't interfere with next iteration
 - Log analysis duration to help users understand performance impact
+- The `--skip-analysis` flag should be consistently respected throughout the workflow
+- When analysis is skipped, commands should still function using existing context if available
 
 ## Migration and Compatibility
 
