@@ -1377,21 +1377,23 @@ mod tests {
             name: "mmm-lint".to_string(),
             focus: None,
             commit_required: Some(false),
+            args: None,
         });
 
         let cmd = simple_cmd.to_command();
         assert_eq!(cmd.name, "mmm-lint");
-        assert_eq!(cmd.metadata.commit_required, false);
+        assert!(!cmd.metadata.commit_required);
 
         // Test SimpleCommand without commit_required (should default to true)
         let simple_cmd_default = WorkflowCommand::SimpleObject(SimpleCommand {
             name: "mmm-implement-spec".to_string(),
             focus: None,
             commit_required: None,
+            args: None,
         });
 
         let cmd_default = simple_cmd_default.to_command();
         assert_eq!(cmd_default.name, "mmm-implement-spec");
-        assert_eq!(cmd_default.metadata.commit_required, true);
+        assert!(cmd_default.metadata.commit_required);
     }
 }

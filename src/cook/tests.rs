@@ -411,6 +411,35 @@ commands:
     }
 
     #[test]
+    fn test_parse_workflow_with_commit_required() {
+        let yaml = r#"
+commands:
+  - name: mmm-implement-spec
+    args: ["$ARG"]
+  
+  - name: mmm-lint
+    commit_required: false
+"#;
+        let config: WorkflowConfig =
+            serde_yaml::from_str(yaml).expect("Failed to parse workflow with commit_required");
+        assert_eq!(config.commands.len(), 2);
+
+        // Debug: print the raw commands
+        eprintln!("Command 0: {:?}", config.commands[0]);
+        eprintln!("Command 1: {:?}", config.commands[1]);
+
+        // Check first command (should default to commit_required = true)
+        let cmd1 = config.commands[0].to_command();
+        assert_eq!(cmd1.name, "mmm-implement-spec");
+        assert!(cmd1.metadata.commit_required);
+
+        // Check second command (should have commit_required = false)
+        let cmd2 = config.commands[1].to_command();
+        assert_eq!(cmd2.name, "mmm-lint");
+        assert!(!cmd2.metadata.commit_required);
+    }
+
+    #[test]
     fn test_parse_workflow_with_environment_input() {
         let yaml = r#"
 commands:
