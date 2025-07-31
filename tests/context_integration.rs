@@ -5,10 +5,10 @@ async fn test_metrics_storage_integration() {
     use mmm::metrics::storage::MetricsStorage;
     use mmm::metrics::ImprovementMetrics;
     use std::time::Duration;
-    
+
     let temp_dir = TempDir::new().unwrap();
     let storage = MetricsStorage::new(temp_dir.path());
-    
+
     // Create test metrics
     let metrics = ImprovementMetrics {
         test_coverage: 75.0,
@@ -31,10 +31,10 @@ async fn test_metrics_storage_integration() {
         tech_debt_score: 4.5,
         improvement_velocity: 1.2,
     };
-    
+
     // Save and verify
     assert!(storage.save_current(&metrics).is_ok());
-    
+
     // Generate and save report
     let report = storage.generate_report(&metrics);
     assert!(storage.save_report(&report, &metrics.iteration_id).is_ok());
