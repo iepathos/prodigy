@@ -2152,6 +2152,7 @@ mod cook_inline_tests {
             auto_accept: false,
             metrics: false,
             resume: None,
+            skip_analysis: false,
         }
     }
 
