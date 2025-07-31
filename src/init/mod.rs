@@ -70,7 +70,12 @@ fn handle_existing_commands(
         println!("Example: mmm init --commands mmm-lint,mmm-product-enhance");
 
         // Ask for confirmation in interactive mode
-        if atty::is(atty::Stream::Stdin) {
+        // Skip interactive prompt in test environments
+        let is_test = std::env::var("CARGO_TARGET_TMPDIR").is_ok()
+            || std::env::var("RUST_TEST_THREADS").is_ok()
+            || cfg!(test);
+
+        if atty::is(atty::Stream::Stdin) && !is_test {
             print!("\nDo you want to continue and skip existing commands? (y/N): ");
             use std::io::{self, Write};
             io::stdout().flush()?;
