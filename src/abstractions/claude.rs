@@ -169,7 +169,11 @@ impl ClaudeClient for RealClaudeClient {
                 .output()
                 .await;
 
-            if version_check.is_err() || !version_check.unwrap().status.success() {
+            if !version_check
+                .as_ref()
+                .map(|o| o.status.success())
+                .unwrap_or(false)
+            {
                 return Err(anyhow::anyhow!(
                     "Claude CLI not found. Please install Claude CLI:\n\
                      \n\

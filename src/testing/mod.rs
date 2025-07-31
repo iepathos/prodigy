@@ -202,6 +202,46 @@ impl TestFixtures {
     }
 }
 
+/// Common test helpers for context modules
+#[cfg(test)]
+pub mod test_helpers {
+    use super::*;
+    use std::fs;
+    use std::path::Path;
+
+    /// Standard imports that context test modules typically need
+    pub use tempfile::TempDir;
+
+    /// Creates a test project structure with common directories
+    pub fn setup_test_project(temp_dir: &TempDir) -> PathBuf {
+        let project_path = temp_dir.path().to_path_buf();
+
+        // Create standard project structure
+        fs::create_dir_all(project_path.join("src")).expect("Failed to create src dir");
+        fs::create_dir_all(project_path.join("tests")).expect("Failed to create tests dir");
+        fs::create_dir_all(project_path.join("benches")).expect("Failed to create benches dir");
+
+        project_path
+    }
+
+    /// Creates a test file with the given content
+    pub fn create_test_file(dir: &Path, name: &str, content: &str) -> PathBuf {
+        let file_path = dir.join(name);
+        if let Some(parent) = file_path.parent() {
+            fs::create_dir_all(parent).expect("Failed to create parent directory");
+        }
+        fs::write(&file_path, content).expect("Failed to write test file");
+        file_path
+    }
+
+    /// Creates multiple test files from a list of (path, content) tuples
+    pub fn create_test_files(dir: &Path, files: &[(&str, &str)]) {
+        for (path, content) in files {
+            create_test_file(dir, path, content);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

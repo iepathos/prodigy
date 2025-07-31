@@ -1,5 +1,9 @@
 use super::command::{Command, CommandArg};
 use anyhow::{anyhow, Result};
+use once_cell::sync::Lazy;
+
+static VAR_REGEX: Lazy<regex::Regex> =
+    Lazy::new(|| regex::Regex::new(r"\$\{([^}]+)\}").expect("Invalid regex pattern"));
 
 /// Parse a command string into a structured Command
 /// Supports formats like:
@@ -92,9 +96,7 @@ fn expand_string(s: &str, variables: &std::collections::HashMap<String, String>)
     let mut result = s.to_string();
 
     // Find all ${VAR_NAME} patterns
-    let re = regex::Regex::new(r"\$\{([^}]+)\}").unwrap();
-
-    for cap in re.captures_iter(s) {
+    for cap in VAR_REGEX.captures_iter(s) {
         if let Some(var_name) = cap.get(1) {
             if let Some(value) = variables.get(var_name.as_str()) {
                 result = result.replace(&cap[0], value);

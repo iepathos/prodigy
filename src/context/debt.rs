@@ -498,8 +498,7 @@ impl TechnicalDebtMapper for BasicTechnicalDebtMapper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
-    use tempfile::TempDir;
+    use crate::testing::test_helpers::*;
 
     #[test]
     fn test_debt_pattern_detection() {
@@ -658,12 +657,12 @@ mod tests {
     async fn test_full_debt_mapping() {
         let mapper = BasicTechnicalDebtMapper::new();
         let temp_dir = TempDir::new().unwrap();
-        let project_path = temp_dir.path();
+        let project_path = setup_test_project(&temp_dir);
 
         // Create test files with various debt indicators
-        fs::create_dir_all(project_path.join("src")).unwrap();
-        fs::write(
-            project_path.join("src/main.rs"),
+        create_test_file(
+            &project_path,
+            "src/main.rs",
             r#"
             // TODO: Add error handling
             fn main() {
@@ -719,11 +718,10 @@ mod tests {
                 }
             }
             "#,
-        )
-        .unwrap();
+        );
 
         // Ensure the file is flushed to disk
-        fs::File::open(project_path.join("src/main.rs"))
+        std::fs::File::open(project_path.join("src/main.rs"))
             .unwrap()
             .sync_all()
             .unwrap();
@@ -731,7 +729,7 @@ mod tests {
         // Wait a bit to ensure file is written
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-        let debt_map = mapper.map_technical_debt(project_path).await.unwrap();
+        let debt_map = mapper.map_technical_debt(&project_path).await.unwrap();
 
         // The test should find at least the TODO and FIXME comments
         assert!(
