@@ -16,4 +16,5 @@ commands:
   
   # Run linting and formatting after implementation
   - name: mmm-lint
+    commit_required: false
   
