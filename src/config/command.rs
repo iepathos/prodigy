@@ -81,6 +81,18 @@ pub struct Command {
     /// Command-specific metadata
     #[serde(default)]
     pub metadata: CommandMetadata,
+
+    /// Unique identifier for this command in the workflow
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+
+    /// Outputs this command produces
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outputs: Option<HashMap<String, OutputDeclaration>>,
+
+    /// Inputs this command expects
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inputs: Option<HashMap<String, InputReference>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -97,6 +109,58 @@ pub struct CommandMetadata {
     /// Environment variables to set
     #[serde(default)]
     pub env: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OutputDeclaration {
+    /// Type of output extraction
+    pub extract_from: OutputSource,
+
+    /// Optional pattern for extraction
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pattern: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OutputSource {
+    /// Extract from git commit (e.g., spec files)
+    GitCommit { file_pattern: String },
+
+    /// Capture command stdout
+    Stdout,
+
+    /// Read from file path
+    File { path: String },
+
+    /// Set directly as variable
+    Variable { value: String },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InputReference {
+    /// Reference to output: "${command_id.output_name}"
+    pub from: String,
+
+    /// How to pass the input to the command
+    pub pass_as: InputMethod,
+
+    /// Fallback value if reference not found
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InputMethod {
+    /// Pass as positional argument
+    Argument { position: usize },
+
+    /// Set as environment variable
+    Environment { name: String },
+
+    /// Pass via stdin
+    Stdin,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -142,6 +206,9 @@ impl Command {
             args: Vec::new(),
             options: HashMap::new(),
             metadata: CommandMetadata::default(),
+            id: None,
+            outputs: None,
+            inputs: None,
         }
     }
 

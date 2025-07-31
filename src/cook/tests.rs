@@ -8,6 +8,7 @@ mod cook_tests {
     use crate::abstractions::{ClaudeClient, GitOperations, MockClaudeClient, MockGitOperations};
     use crate::cook::command::CookCommand;
     use crate::testing::{TestContext, TestFixtures};
+    use std::path::PathBuf;
 
     /// Test successful improvement loop
     #[tokio::test]
@@ -25,6 +26,7 @@ mod cook_tests {
 
         // Create test command
         let cmd = CookCommand {
+            playbook: PathBuf::from("examples/default.yml"),
             path: None,
             focus: None,
             max_iterations: 2,

@@ -13,12 +13,13 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 
 ### 2. Cook Command (`src/cook/`)
 - **mod.rs**: Core cooking loop with Claude CLI integration and mapping support
-- **command.rs**: CLI with target, verbose, focus, config, map, args, and fail-fast flags
+- **command.rs**: CLI with playbook positional argument, path option, focus, config, map, args, and fail-fast flags
 - **session.rs**: Minimal session data structures
-- **workflow.rs**: Configurable workflow execution with variable substitution
+- **workflow.rs**: Playbook-driven workflow execution with command chaining and variable resolution
 - **git_ops.rs**: Thread-safe git operations
 - Supports file mapping with `--map` for batch processing
-- Variable substitution in commands ($ARG, $FILE, $INDEX, etc.)
+- Command output/input chaining with variable substitution (${command_id.output_name})
+- Flexible output extraction from git commits, stdout, files, or direct values
 
 ### 3. Context Analysis (`src/context/`)
 - **analyzer.rs**: Main analyzer orchestrating all components
@@ -47,13 +48,16 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 - **cache.rs**: Response caching for efficiency
 
 ### 6. Configuration Management (`src/config/`)
-- **loader.rs**: Configuration file loading (including .mmm/workflow.toml)
+- **loader.rs**: Configuration file loading (YAML/JSON playbooks)
 - **validator.rs**: Configuration validation
 - **mod.rs**: Config structures and defaults
-- **workflow.rs**: Simple workflow configuration structure
-- **command.rs**: Structured command objects and WorkflowCommand enum
+- **workflow.rs**: Workflow configuration structure (no default)
+- **command.rs**: Structured command objects with ID, inputs, outputs
 - **command_parser.rs**: String-to-Command conversion utilities
 - **command_validator.rs**: Command registry and validation logic
+- Supports command output/input declarations
+- Variable resolution between commands
+- Multiple output extraction methods
 
 ### 7. Error Handling (`src/error.rs`)
 - Centralized error types using thiserror
@@ -95,17 +99,19 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 ## Data Flow
 
 ```
-User runs `mmm cook`
+User runs `mmm cook playbook.yml`
         ↓
 [Optional] Create git worktree if --worktree flag used
         ↓
 Analyze project context (dependencies, architecture, conventions, debt, coverage)
         ↓
-Load configuration (including .mmm/config.toml)
+Load playbook (YAML/JSON) with workflow definition
         ↓
-Execute workflow commands in sequence with context
-        ↓
-Each command: Call Claude CLI with context via env vars
+Execute workflow commands in sequence:
+  - Resolve input variables from previous command outputs
+  - Call Claude CLI with resolved arguments
+  - Extract outputs based on declarations
+  - Store outputs for next commands
         ↓
 Update state and repeat until target reached
         ↓

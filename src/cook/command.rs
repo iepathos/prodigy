@@ -7,8 +7,17 @@ use std::path::PathBuf;
 /// `mmm cook` to automatically enhance code quality through Claude CLI integration.
 #[derive(Debug, Args, Clone)]
 pub struct CookCommand {
+    /// Playbook file to execute (required)
+    #[arg(value_name = "PLAYBOOK", help = "Playbook file defining the workflow")]
+    pub playbook: PathBuf,
+
     /// Repository path to run in (defaults to current directory)
-    #[arg(value_name = "PATH", help = "Repository path to run in")]
+    #[arg(
+        short = 'p',
+        long,
+        value_name = "PATH",
+        help = "Repository path to run in"
+    )]
     pub path: Option<PathBuf>,
 
     /// Focus directive for improvements (e.g., "performance", "security", "testing")

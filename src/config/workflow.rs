@@ -10,14 +10,4 @@ pub struct WorkflowConfig {
     pub commands: Vec<WorkflowCommand>,
 }
 
-impl Default for WorkflowConfig {
-    fn default() -> Self {
-        Self {
-            commands: vec![
-                WorkflowCommand::Simple("mmm-code-review".to_string()),
-                WorkflowCommand::Simple("mmm-implement-spec".to_string()),
-                WorkflowCommand::Simple("mmm-lint".to_string()),
-            ],
-        }
-    }
-}
+// Remove default implementation - workflows must now be explicitly defined
