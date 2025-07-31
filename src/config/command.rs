@@ -36,11 +36,13 @@ impl<'de> Deserialize<'de> for CommandArg {
 
 impl CommandArg {
     /// Check if this is a variable reference
+    #[must_use]
     pub fn is_variable(&self) -> bool {
         matches!(self, CommandArg::Variable(_))
     }
 
     /// Resolve the argument value given a context
+    #[must_use]
     pub fn resolve(&self, variables: &HashMap<String, String>) -> String {
         match self {
             CommandArg::Literal(s) => s.clone(),
@@ -136,7 +138,7 @@ pub struct OutputDeclaration {
 /// to the current command (via argument, environment, or stdin).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InputReference {
-    /// Reference to output: "${command_id.output_name}"
+    /// Reference to output: `"${command_id.output_name}"`
     pub from: String,
 
     /// How to pass the input to the command

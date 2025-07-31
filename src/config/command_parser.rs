@@ -9,7 +9,7 @@ static VAR_REGEX: Lazy<regex::Regex> =
 /// Supports formats like:
 /// - "mmm-code-review"
 /// - "/mmm-code-review"
-/// - "mmm-implement-spec ${SPEC_ID}"
+/// - `"mmm-implement-spec ${SPEC_ID}"`
 /// - "mmm-code-review --focus security"
 pub fn parse_command_string(s: &str) -> Result<Command> {
     let s = s.trim();
@@ -73,7 +73,7 @@ pub fn parse_command_string(s: &str) -> Result<Command> {
 }
 
 /// Expand variables in command arguments
-/// Supports ${VAR_NAME} and $VAR syntax
+/// Supports `${VAR_NAME}` and `$VAR` syntax
 pub fn expand_variables(cmd: &mut Command, variables: &std::collections::HashMap<String, String>) {
     // Args are already CommandArg, no need to expand - they'll be resolved at execution time
 

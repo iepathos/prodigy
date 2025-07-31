@@ -40,14 +40,15 @@ pub trait GitOperations: Send + Sync {
     async fn switch_branch(&self, branch: &str) -> Result<()>;
 }
 
-/// Real implementation of GitOperations
+/// Real implementation of `GitOperations`
 pub struct RealGitOperations {
     /// Mutex for thread-safe git operations
     git_mutex: Arc<Mutex<()>>,
 }
 
 impl RealGitOperations {
-    /// Create a new RealGitOperations instance
+    /// Create a new `RealGitOperations` instance
+    #[must_use]
     pub fn new() -> Self {
         Self {
             git_mutex: Arc::new(Mutex::new(())),
@@ -141,11 +142,11 @@ impl GitOperations for RealGitOperations {
     }
 }
 
-/// Mock implementation of GitOperations for testing
+/// Mock implementation of `GitOperations` for testing
 pub struct MockGitOperations {
     /// Predefined responses for git commands
     pub command_responses: Arc<Mutex<Vec<Result<std::process::Output>>>>,
-    /// Predefined response for is_git_repo
+    /// Predefined response for `is_git_repo`
     pub is_repo: bool,
     /// Track called commands for verification
     pub called_commands: Arc<Mutex<Vec<Vec<String>>>>,
@@ -154,7 +155,8 @@ pub struct MockGitOperations {
 use crate::abstractions::exit_status::ExitStatusExt;
 
 impl MockGitOperations {
-    /// Create a new MockGitOperations instance
+    /// Create a new `MockGitOperations` instance
+    #[must_use]
     pub fn new() -> Self {
         Self {
             command_responses: Arc::new(Mutex::new(Vec::new())),
@@ -200,7 +202,7 @@ impl Default for MockGitOperations {
 impl GitOperations for MockGitOperations {
     async fn git_command(&self, args: &[&str], _description: &str) -> Result<std::process::Output> {
         // Track the called command
-        let cmd_vec: Vec<String> = args.iter().map(|s| s.to_string()).collect();
+        let cmd_vec: Vec<String> = args.iter().map(|s| (*s).to_string()).collect();
         self.called_commands.lock().await.push(cmd_vec);
 
         // Return the next predefined response
