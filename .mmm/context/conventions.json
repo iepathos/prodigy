@@ -7,14 +7,6 @@
     "constant_naming": "ScreamingSnakeCase"
   },
   "code_patterns": {
-    "builder": {
-      "name": "Builder pattern",
-      "description": "Uses builder pattern for object construction",
-      "examples": [
-        "RequestBuilder::new()"
-      ],
-      "frequency": 14
-    },
     "error_handling": {
       "name": "Result-based error handling",
       "description": "Uses Result<T, E> for error handling",
@@ -31,6 +23,14 @@
         "log::info!"
       ],
       "frequency": 10
+    },
+    "builder": {
+      "name": "Builder pattern",
+      "description": "Uses builder pattern for object construction",
+      "examples": [
+        "RequestBuilder::new()"
+      ],
+      "frequency": 14
     },
     "async": {
       "name": "Async/await pattern",
