@@ -388,9 +388,8 @@ impl WorkflowExecutor {
                     command.name, error_msg
                 );
                 return Ok((false, None));
-            } else {
-                return Err(anyhow!(error_msg));
             }
+            return Err(anyhow!(error_msg));
         }
 
         if self.verbose {

@@ -1,6 +1,6 @@
 //! Platform-specific exit status handling
 //!
-//! Provides a cross-platform way to create ExitStatus from raw values
+//! Provides a cross-platform way to create `ExitStatus` from raw values
 
 #[cfg(unix)]
 pub use std::os::unix::process::ExitStatusExt;

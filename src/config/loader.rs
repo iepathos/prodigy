@@ -129,7 +129,10 @@ impl ConfigLoader {
         Ok(())
     }
     pub fn get_config(&self) -> Config {
-        self.config.read().expect("Config RwLock poisoned").clone()
+        self.config
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
     }
 }
 

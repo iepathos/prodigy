@@ -35,11 +35,12 @@ pub trait ClaudeClient: Send + Sync {
     async fn lint(&self, verbose: bool) -> Result<bool>;
 }
 
-/// Real implementation of ClaudeClient
+/// Real implementation of `ClaudeClient`
 pub struct RealClaudeClient;
 
 impl RealClaudeClient {
-    /// Create a new RealClaudeClient instance
+    /// Create a new `RealClaudeClient` instance
+    #[must_use]
     pub fn new() -> Self {
         Self
     }
@@ -284,9 +285,9 @@ impl ClaudeClient for RealClaudeClient {
 /// Type alias for called commands tracking
 type CalledCommands = Arc<Mutex<Vec<(String, Vec<String>)>>>;
 
-/// Mock implementation of ClaudeClient for testing
+/// Mock implementation of `ClaudeClient` for testing
 pub struct MockClaudeClient {
-    /// Predefined responses for execute_command
+    /// Predefined responses for `execute_command`
     pub command_responses: Arc<Mutex<Vec<Result<std::process::Output>>>>,
     /// Whether Claude CLI is available
     pub is_available: bool,
@@ -297,7 +298,8 @@ pub struct MockClaudeClient {
 use crate::abstractions::exit_status::ExitStatusExt;
 
 impl MockClaudeClient {
-    /// Create a new MockClaudeClient instance
+    /// Create a new `MockClaudeClient` instance
+    #[must_use]
     pub fn new() -> Self {
         Self {
             command_responses: Arc::new(Mutex::new(Vec::new())),
@@ -354,7 +356,7 @@ impl ClaudeClient for MockClaudeClient {
         _verbose: bool,
     ) -> Result<std::process::Output> {
         // Track the called command
-        let args_vec: Vec<String> = args.iter().map(|s| s.to_string()).collect();
+        let args_vec: Vec<String> = args.iter().map(|&s| s.to_string()).collect();
         self.called_commands
             .lock()
             .await
