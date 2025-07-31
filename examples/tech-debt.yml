@@ -16,3 +16,4 @@ commands:
               position: 0
     
     - name: mmm-lint
+      commit_required: false
