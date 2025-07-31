@@ -24,7 +24,7 @@ impl CommandDiscovery {
         }
     }
 
-    /// Scan the commands directory for .md files and return CommandFile objects
+    /// Scan the commands directory for .md files and return `CommandFile` objects
     ///
     /// This method:
     /// - Reads all .md files from the commands directory
@@ -100,7 +100,7 @@ impl CommandDiscovery {
         self.last_scan.is_none()
     }
 
-    /// Clear the cache to force a full rescan on next scan_commands call
+    /// Clear the cache to force a full rescan on next `scan_commands` call
     pub fn clear_cache(&mut self) {
         self.cache.clear();
         self.last_scan = None;

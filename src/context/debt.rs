@@ -224,33 +224,60 @@ impl BasicTechnicalDebtMapper {
         for line in function_content.lines() {
             let line = line.trim();
 
-            // Conditionals
-            if line.starts_with("if ") || line.contains(" if ") {
-                complexity += 1;
-            }
-
-            // Loops
-            if line.starts_with("for ") || line.starts_with("while ") || line.starts_with("loop ") {
-                complexity += 1;
-            }
-
-            // Match arms
-            if line.trim_end().ends_with(" => ") || line.trim_end().ends_with(" => {") {
-                complexity += 1;
-            }
-
-            // Early returns
-            if line.starts_with("return ") && !line.contains("fn ") {
-                complexity += 1;
-            }
-
-            // Error propagation
-            if line.contains("?") && !line.contains("Option<") && !line.contains("Result<") {
-                complexity += 1;
-            }
+            complexity += self.count_conditionals(line);
+            complexity += self.count_loops(line);
+            complexity += self.count_match_arms(line);
+            complexity += self.count_early_returns(line);
+            complexity += self.count_error_propagation(line);
         }
 
         complexity
+    }
+
+    /// Count conditional statements in a line
+    fn count_conditionals(&self, line: &str) -> u32 {
+        if line.starts_with("if ") || line.contains(" if ") {
+            1
+        } else {
+            0
+        }
+    }
+
+    /// Count loop statements in a line
+    fn count_loops(&self, line: &str) -> u32 {
+        if line.starts_with("for ") || line.starts_with("while ") || line.starts_with("loop ") {
+            1
+        } else {
+            0
+        }
+    }
+
+    /// Count match arms in a line
+    fn count_match_arms(&self, line: &str) -> u32 {
+        let trimmed = line.trim_end();
+        if trimmed.ends_with(" => ") || trimmed.ends_with(" => {") {
+            1
+        } else {
+            0
+        }
+    }
+
+    /// Count early returns in a line
+    fn count_early_returns(&self, line: &str) -> u32 {
+        if line.starts_with("return ") && !line.contains("fn ") {
+            1
+        } else {
+            0
+        }
+    }
+
+    /// Count error propagation operators in a line
+    fn count_error_propagation(&self, line: &str) -> u32 {
+        if line.contains("?") && !line.contains("Option<") && !line.contains("Result<") {
+            1
+        } else {
+            0
+        }
     }
 
     /// Extract functions and calculate complexity
@@ -259,59 +286,91 @@ impl BasicTechnicalDebtMapper {
         let lines: Vec<&str> = content.lines().collect();
 
         for (i, line) in lines.iter().enumerate() {
-            if line.trim().starts_with("fn ") || line.contains(" fn ") {
-                // Extract function name
-                if let Some(name_start) = line.find("fn ") {
-                    let after_fn = &line[name_start + 3..];
-                    if let Some(name) = after_fn.split(['(', '<']).next() {
-                        let function_name = name.trim().to_string();
-
-                        // Find function body
-                        let mut depth = 0;
-                        let mut start_line = i;
-                        let mut end_line = i;
-                        let mut found_start = false;
-
-                        for (j, line) in lines[i..].iter().enumerate() {
-                            for ch in line.chars() {
-                                if ch == '{' {
-                                    if !found_start {
-                                        found_start = true;
-                                        start_line = i + j;
-                                    }
-                                    depth += 1;
-                                } else if ch == '}' {
-                                    depth -= 1;
-                                    if depth == 0 && found_start {
-                                        end_line = i + j;
-                                        break;
-                                    }
-                                }
-                            }
-                            if depth == 0 && found_start {
-                                break;
-                            }
-                        }
-
-                        if found_start && end_line > start_line {
-                            let function_content = lines[start_line..=end_line].join("\n");
-                            let complexity = self.calculate_complexity(&function_content);
-
-                            if complexity > 10 {
-                                hotspots.push(ComplexityHotspot {
-                                    file: file_path.to_path_buf(),
-                                    function: function_name,
-                                    complexity,
-                                    lines: (end_line - start_line + 1) as u32,
-                                });
-                            }
-                        }
+            if let Some(function_name) = self.extract_function_name(line) {
+                if let Some((start, end)) = self.find_function_bounds(&lines, i) {
+                    let hotspot = self.analyze_function_complexity(
+                        file_path,
+                        &lines,
+                        &function_name,
+                        start,
+                        end,
+                    );
+                    if let Some(hotspot) = hotspot {
+                        hotspots.push(hotspot);
                     }
                 }
             }
         }
 
         hotspots
+    }
+
+    /// Extract function name from a line containing "fn"
+    fn extract_function_name(&self, line: &str) -> Option<String> {
+        if !line.trim().starts_with("fn ") && !line.contains(" fn ") {
+            return None;
+        }
+
+        let name_start = line.find("fn ")?;
+        let after_fn = &line[name_start + 3..];
+        let name = after_fn.split(['(', '<']).next()?;
+        Some(name.trim().to_string())
+    }
+
+    /// Find the start and end lines of a function body
+    fn find_function_bounds(&self, lines: &[&str], start_index: usize) -> Option<(usize, usize)> {
+        let mut depth = 0;
+        let mut start_line = start_index;
+        let mut end_line = start_index;
+        let mut found_start = false;
+
+        for (j, line) in lines[start_index..].iter().enumerate() {
+            for ch in line.chars() {
+                if ch == '{' {
+                    if !found_start {
+                        found_start = true;
+                        start_line = start_index + j;
+                    }
+                    depth += 1;
+                } else if ch == '}' {
+                    depth -= 1;
+                    if depth == 0 && found_start {
+                        end_line = start_index + j;
+                        return Some((start_line, end_line));
+                    }
+                }
+            }
+        }
+
+        if found_start && end_line > start_line {
+            Some((start_line, end_line))
+        } else {
+            None
+        }
+    }
+
+    /// Analyze a single function's complexity
+    fn analyze_function_complexity(
+        &self,
+        file_path: &Path,
+        lines: &[&str],
+        function_name: &str,
+        start_line: usize,
+        end_line: usize,
+    ) -> Option<ComplexityHotspot> {
+        let function_content = lines[start_line..=end_line].join("\n");
+        let complexity = self.calculate_complexity(&function_content);
+
+        if complexity > 10 {
+            Some(ComplexityHotspot {
+                file: file_path.to_path_buf(),
+                function: function_name.to_string(),
+                complexity,
+                lines: (end_line - start_line + 1) as u32,
+            })
+        } else {
+            None
+        }
     }
 
     /// Simple duplicate detection using line hashes

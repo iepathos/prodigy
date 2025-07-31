@@ -173,86 +173,145 @@ async fn handle_worktree_merge(
     original_repo_path: &std::path::Path,
     iterations_completed: u32,
 ) -> Result<()> {
-    // Prompt for merge if in interactive terminal (or auto-accept) and improvements were made
-    if (is_tty() || cmd.auto_accept) && iterations_completed > 0 {
-        // Update state to track prompt shown
-        let worktree_manager = WorktreeManager::new(original_repo_path.to_path_buf())?;
-        worktree_manager.update_session_state(&session.name, |state| {
-            state.merge_prompt_shown = true;
-        })?;
-
-        let should_merge = if cmd.auto_accept {
-            println!("Auto-accepting worktree merge (--yes flag set)");
-            MergeChoice::Yes
-        } else {
-            prompt_for_merge(&session.name)
-        };
-
-        match should_merge {
-            MergeChoice::Yes => {
-                // Update state with response
-                worktree_manager.update_session_state(&session.name, |state| {
-                    state.merge_prompt_response = Some("yes".to_string());
-                })?;
-
-                println!("Merging worktree {}...", session.name);
-                match merge_worktree(&session.name, original_repo_path).await {
-                    Ok(_) => {
-                        println!("✅ Successfully merged worktree: {}", session.name);
-
-                        // Update worktree status to merged
-                        worktree_manager.update_session_state(&session.name, |state| {
-                            state.status = crate::worktree::WorktreeStatus::Merged;
-                        })?;
-
-                        // Prompt for deletion if in interactive terminal (or auto-accept)
-                        if is_tty() || cmd.auto_accept {
-                            let should_delete = if cmd.auto_accept {
-                                println!("Auto-accepting worktree deletion (--yes flag set)");
-                                MergeChoice::Yes
-                            } else {
-                                prompt_for_deletion(&session.name)?
-                            };
-
-                            match should_delete {
-                                MergeChoice::Yes => {
-                                    match worktree_manager.cleanup_session(&session.name, true) {
-                                        Ok(_) => {
-                                            println!("✅ Deleted worktree: {}", session.name);
-                                        }
-                                        Err(e) => {
-                                            println!("⚠️  Failed to delete worktree: {e}");
-                                        }
-                                    }
-                                }
-                                MergeChoice::No => {
-                                    println!("Worktree kept: {}", session.name);
-                                }
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        println!("❌ Failed to merge worktree: {e}");
-                        return Err(e);
-                    }
-                }
-            }
-            MergeChoice::No => {
-                // Update state with response
-                worktree_manager.update_session_state(&session.name, |state| {
-                    state.merge_prompt_response = Some("no".to_string());
-                })?;
-
-                println!("Worktree kept for manual review: {}", session.name);
-                println!("To merge later, run: mmm worktree merge {}", session.name);
-            }
-        }
-    } else if iterations_completed > 0 {
-        println!("To merge the worktree, run:");
-        println!("   mmm worktree merge {}", session.name);
+    // Skip if no improvements were made
+    if iterations_completed == 0 {
+        return Ok(());
     }
 
+    // Check if we should prompt
+    if !should_prompt_for_merge(cmd) {
+        print_manual_merge_instructions(&session.name);
+        return Ok(());
+    }
+
+    // Initialize worktree manager
+    let worktree_manager = WorktreeManager::new(original_repo_path.to_path_buf())?;
+
+    // Update state to track prompt shown
+    worktree_manager.update_session_state(&session.name, |state| {
+        state.merge_prompt_shown = true;
+    })?;
+
+    // Get merge decision
+    let should_merge = get_merge_decision(cmd, &session.name);
+
+    // Handle merge decision
+    match should_merge {
+        MergeChoice::Yes => {
+            handle_merge_accepted(cmd, session, &worktree_manager, original_repo_path).await
+        }
+        MergeChoice::No => handle_merge_declined(&worktree_manager, session),
+    }
+}
+
+/// Check if we should prompt for merge
+fn should_prompt_for_merge(cmd: &command::CookCommand) -> bool {
+    is_tty() || cmd.auto_accept
+}
+
+/// Get merge decision based on auto-accept or user prompt
+fn get_merge_decision(cmd: &command::CookCommand, session_name: &str) -> MergeChoice {
+    if cmd.auto_accept {
+        println!("Auto-accepting worktree merge (--yes flag set)");
+        MergeChoice::Yes
+    } else {
+        prompt_for_merge(session_name)
+    }
+}
+
+/// Handle accepted merge
+async fn handle_merge_accepted(
+    cmd: &command::CookCommand,
+    session: &crate::worktree::WorktreeSession,
+    worktree_manager: &WorktreeManager,
+    original_repo_path: &std::path::Path,
+) -> Result<()> {
+    // Update state with response
+    worktree_manager.update_session_state(&session.name, |state| {
+        state.merge_prompt_response = Some("yes".to_string());
+    })?;
+
+    println!("Merging worktree {}...", session.name);
+
+    // Perform merge
+    merge_worktree(&session.name, original_repo_path).await?;
+    println!("✅ Successfully merged worktree: {}", session.name);
+
+    // Update worktree status to merged
+    worktree_manager.update_session_state(&session.name, |state| {
+        state.status = crate::worktree::WorktreeStatus::Merged;
+    })?;
+
+    // Handle deletion prompt
+    handle_deletion_prompt(cmd, session, worktree_manager).await
+}
+
+/// Handle declined merge
+fn handle_merge_declined(
+    worktree_manager: &WorktreeManager,
+    session: &crate::worktree::WorktreeSession,
+) -> Result<()> {
+    // Update state with response
+    worktree_manager.update_session_state(&session.name, |state| {
+        state.merge_prompt_response = Some("no".to_string());
+    })?;
+
+    println!("Worktree kept for manual review: {}", session.name);
+    print_manual_merge_instructions(&session.name);
     Ok(())
+}
+
+/// Handle deletion prompt after successful merge
+async fn handle_deletion_prompt(
+    cmd: &command::CookCommand,
+    session: &crate::worktree::WorktreeSession,
+    worktree_manager: &WorktreeManager,
+) -> Result<()> {
+    // Check if we should prompt for deletion
+    if !should_prompt_for_merge(cmd) {
+        return Ok(());
+    }
+
+    let should_delete = get_deletion_decision(cmd, &session.name)?;
+
+    match should_delete {
+        MergeChoice::Yes => delete_worktree(worktree_manager, &session.name).await,
+        MergeChoice::No => {
+            println!("Worktree kept: {}", session.name);
+            Ok(())
+        }
+    }
+}
+
+/// Get deletion decision based on auto-accept or user prompt
+fn get_deletion_decision(cmd: &command::CookCommand, session_name: &str) -> Result<MergeChoice> {
+    if cmd.auto_accept {
+        println!("Auto-accepting worktree deletion (--yes flag set)");
+        Ok(MergeChoice::Yes)
+    } else {
+        prompt_for_deletion(session_name)
+    }
+}
+
+/// Delete worktree
+async fn delete_worktree(worktree_manager: &WorktreeManager, session_name: &str) -> Result<()> {
+    match worktree_manager.cleanup_session(session_name, true) {
+        Ok(_) => {
+            println!("✅ Deleted worktree: {session_name}");
+            Ok(())
+        }
+        Err(e) => {
+            println!("⚠️  Failed to delete worktree: {e}");
+            // Don't propagate error, just warn
+            Ok(())
+        }
+    }
+}
+
+/// Print manual merge instructions
+fn print_manual_merge_instructions(session_name: &str) {
+    println!("To merge the worktree, run:");
+    println!("   mmm worktree merge {session_name}");
 }
 
 /// Create variables for a mapping input
@@ -864,7 +923,7 @@ async fn handle_merge_yes(
             })?;
 
             // Handle deletion prompt
-            handle_deletion_prompt(session, worktree_manager, cmd).await
+            handle_deletion_prompt(cmd, session, worktree_manager).await
         }
         Err(e) => {
             warn!("❌ Failed to merge worktree: {e}");
@@ -873,43 +932,6 @@ async fn handle_merge_yes(
             Ok(())
         }
     }
-}
-
-/// Handle deletion prompt after successful merge
-async fn handle_deletion_prompt(
-    session: &crate::worktree::WorktreeSession,
-    worktree_manager: &WorktreeManager,
-    cmd: &command::CookCommand,
-) -> Result<()> {
-    let should_delete = if cmd.auto_accept {
-        println!("Auto-accepting worktree deletion (--yes flag set)");
-        true
-    } else {
-        print!("\nWould you like to delete the worktree now? (y/N): ");
-        io::stdout().flush().unwrap_or_default();
-
-        let mut input = String::new();
-        io::stdin().read_line(&mut input).unwrap_or_default();
-        input.trim().to_lowercase() == "y"
-    };
-
-    if should_delete {
-        println!("Deleting worktree {}...", session.name);
-        match worktree_manager.cleanup_session(&session.name, true) {
-            Ok(_) => {
-                println!("✅ Worktree deleted successfully");
-            }
-            Err(e) => {
-                warn!("❌ Failed to delete worktree: {e}");
-                println!("You can manually delete it with:");
-                println!("  mmm worktree delete {}", session.name);
-            }
-        }
-    } else {
-        println!("\nTo delete the worktree later, run:");
-        println!("  mmm worktree delete {}", session.name);
-    }
-    Ok(())
 }
 
 /// Handle "no" response to merge prompt
@@ -953,15 +975,7 @@ async fn run_in_worktree(
             run_improvement_loop(cmd.clone(), &session, &worktree_manager_arc, verbose).await;
 
         // Update final state
-        worktree_manager_arc.update_session_state(&session.name, |state| match &result {
-            Ok(_) => {
-                state.status = crate::worktree::WorktreeStatus::Completed;
-            }
-            Err(e) => {
-                state.status = crate::worktree::WorktreeStatus::Failed;
-                state.error = Some(e.to_string());
-            }
-        })?;
+        update_session_final_state(&worktree_manager_arc, &session.name, &result)?;
 
         result
     }
@@ -972,39 +986,73 @@ async fn setup_improvement_session(
     cmd: &command::CookCommand,
     verbose: bool,
 ) -> Result<(std::path::PathBuf, Config, StateManager)> {
-    // 1. Check for Claude CLI
+    // Check prerequisites
     check_claude_cli().await?;
 
-    // 2. Initial analysis
+    // Get project path and perform analysis
     let project_path = std::env::current_dir()?;
-    if !cmd.skip_analysis {
-        if let Err(e) = analyze_project_comprehensive(&project_path, verbose).await {
-            if verbose {
-                warn!("⚠️  Comprehensive analysis failed: {e}");
-                warn!("   Continuing without deep context understanding");
-            }
+    perform_project_analysis(cmd, &project_path, verbose).await;
+
+    // Display focus if set
+    display_focus(cmd, verbose);
+
+    // Setup state and load configuration
+    let state = StateManager::new()?;
+    let config = load_project_configuration().await?;
+
+    Ok((project_path, config, state))
+}
+
+/// Perform project analysis if not skipped
+async fn perform_project_analysis(cmd: &command::CookCommand, project_path: &Path, verbose: bool) {
+    if cmd.skip_analysis {
+        if verbose {
+            info!("📋 Skipping project analysis (--skip-analysis flag)");
         }
-    } else if verbose {
-        info!("📋 Skipping project analysis (--skip-analysis flag)");
+        return;
     }
 
+    if let Err(e) = analyze_project_comprehensive(project_path, verbose).await {
+        if verbose {
+            warn!("⚠️  Comprehensive analysis failed: {e}");
+            warn!("   Continuing without deep context understanding");
+        }
+    }
+}
+
+/// Display focus directive if set
+fn display_focus(cmd: &command::CookCommand, verbose: bool) {
     if verbose {
         if let Some(focus) = &cmd.focus {
             info!("📊 Focus: {focus}");
         }
     }
+}
 
-    // 3. Setup basic state
-    let state = StateManager::new()?;
-
-    // 4. Load configuration
+/// Load project configuration
+async fn load_project_configuration() -> Result<Config> {
     let config_loader = ConfigLoader::new().await?;
     config_loader
         .load_with_explicit_path(Path::new("."), None)
         .await?;
-    let config = config_loader.get_config().clone();
+    Ok(config_loader.get_config().clone())
+}
 
-    Ok((project_path, config, state))
+/// Update session final state based on result
+fn update_session_final_state<T>(
+    worktree_manager: &WorktreeManager,
+    session_name: &str,
+    result: &Result<T>,
+) -> Result<()> {
+    worktree_manager.update_session_state(session_name, |state| match result {
+        Ok(_) => {
+            state.status = crate::worktree::WorktreeStatus::Completed;
+        }
+        Err(e) => {
+            state.status = crate::worktree::WorktreeStatus::Failed;
+            state.error = Some(e.to_string());
+        }
+    })
 }
 
 /// Finalizes the improvement session by updating state and committing changes
@@ -1811,15 +1859,7 @@ async fn run_improvement_loop_from(
     .await;
 
     // Update final state
-    worktree_manager_arc.update_session_state(&session.name, |state| match &result {
-        Ok(_) => {
-            state.status = crate::worktree::WorktreeStatus::Completed;
-        }
-        Err(e) => {
-            state.status = crate::worktree::WorktreeStatus::Failed;
-            state.error = Some(e.to_string());
-        }
-    })?;
+    update_session_final_state(&worktree_manager_arc, &session.name, &result)?;
 
     result
 }

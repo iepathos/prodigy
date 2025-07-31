@@ -36,11 +36,13 @@ impl<'de> Deserialize<'de> for CommandArg {
 
 impl CommandArg {
     /// Check if this is a variable reference
+    #[must_use]
     pub fn is_variable(&self) -> bool {
         matches!(self, CommandArg::Variable(_))
     }
 
     /// Resolve the argument value given a context
+    #[must_use]
     pub fn resolve(&self, variables: &HashMap<String, String>) -> String {
         match self {
             CommandArg::Literal(s) => s.clone(),
@@ -52,6 +54,7 @@ impl CommandArg {
     }
 
     /// Parse from a string, detecting variables by $ prefix
+    #[must_use]
     pub fn parse(s: &str) -> Self {
         // Handle ${VAR} format
         if s.starts_with("${") && s.ends_with('}') {
@@ -136,7 +139,7 @@ pub struct OutputDeclaration {
 /// to the current command (via argument, environment, or stdin).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InputReference {
-    /// Reference to output: "${command_id.output_name}"
+    /// Reference to output: `"${command_id.output_name}"`
     pub from: String,
 
     /// How to pass the input to the command
@@ -183,6 +186,7 @@ pub struct SimpleCommand {
 }
 
 impl WorkflowCommand {
+    #[must_use]
     pub fn to_command(&self) -> Command {
         match self {
             WorkflowCommand::Simple(s) => Command::from_string(s),
@@ -214,6 +218,7 @@ impl Command {
     }
 
     /// Parse a command from a simple string format
+    #[must_use]
     pub fn from_string(s: &str) -> Self {
         // Use the command parser for proper argument handling
         match crate::config::command_parser::parse_command_string(s) {
@@ -240,18 +245,21 @@ impl Command {
     }
 
     /// Set retries
+    #[must_use]
     pub fn with_retries(mut self, retries: u32) -> Self {
         self.metadata.retries = Some(retries);
         self
     }
 
     /// Set timeout
+    #[must_use]
     pub fn with_timeout(mut self, timeout: u64) -> Self {
         self.metadata.timeout = Some(timeout);
         self
     }
 
     /// Set continue on error
+    #[must_use]
     pub fn with_continue_on_error(mut self, continue_on_error: bool) -> Self {
         self.metadata.continue_on_error = Some(continue_on_error);
         self
