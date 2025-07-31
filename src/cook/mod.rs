@@ -56,6 +56,24 @@ fn setup_metrics(
     Ok((metrics_collector, metrics_history))
 }
 
+/// Helper to conditionally collect metrics if enabled
+async fn maybe_collect_metrics(
+    cmd: &command::CookCommand,
+    metrics_collector: &Option<MetricsCollector>,
+    metrics_history: &mut MetricsHistory,
+    project_path: &Path,
+    iteration: u32,
+    verbose: bool,
+) -> Result<()> {
+    if cmd.metrics {
+        if let Some(ref collector) = metrics_collector {
+            collect_iteration_metrics(collector, metrics_history, project_path, iteration, verbose)
+                .await?;
+        }
+    }
+    Ok(())
+}
+
 /// Collect and save metrics after an iteration
 async fn collect_iteration_metrics(
     metrics_collector: &MetricsCollector,
@@ -1411,18 +1429,15 @@ async fn run_improvement_iterations(
             *files_changed += 1;
 
             // Collect metrics after iteration
-            if let Some(ref collector) = metrics_collector {
-                if cmd.metrics {
-                    collect_iteration_metrics(
-                        collector,
-                        metrics_history,
-                        project_path,
-                        *iteration,
-                        verbose,
-                    )
-                    .await?;
-                }
-            }
+            maybe_collect_metrics(
+                cmd,
+                metrics_collector,
+                metrics_history,
+                project_path,
+                *iteration,
+                verbose,
+            )
+            .await?;
 
             *iteration += 1;
         }
@@ -1441,18 +1456,15 @@ async fn run_improvement_iterations(
             }
 
             // Collect metrics after iteration
-            if let Some(ref collector) = metrics_collector {
-                if cmd.metrics {
-                    collect_iteration_metrics(
-                        collector,
-                        metrics_history,
-                        project_path,
-                        *iteration,
-                        verbose,
-                    )
-                    .await?;
-                }
-            }
+            maybe_collect_metrics(
+                cmd,
+                metrics_collector,
+                metrics_history,
+                project_path,
+                *iteration,
+                verbose,
+            )
+            .await?;
 
             *iteration += 1;
         }
