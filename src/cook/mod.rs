@@ -1664,7 +1664,7 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
         let files = String::from_utf8_lossy(&uncommitted_output.stdout);
         for line in files.lines() {
             if line.ends_with(".md") {
-                if let Some(filename) = line.split('/').last() {
+                if let Some(filename) = line.split('/').next_back() {
                     let spec_id = filename.trim_end_matches(".md");
                     // Accept any .md file that's not a special file
                     if !matches!(spec_id, "SPEC_INDEX" | "README" | "index") {
@@ -1694,7 +1694,7 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
         {
             let files = String::from_utf8_lossy(&find_output.stdout);
             for line in files.lines() {
-                if let Some(filename) = line.split('/').last() {
+                if let Some(filename) = line.split('/').next_back() {
                     if filename.ends_with(".md") {
                         let spec_id = filename.trim_end_matches(".md");
                         if verbose {
@@ -1713,7 +1713,7 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
     // Look for new .md files anywhere in specs/
     for line in files.lines() {
         if line.starts_with("specs/") && line.ends_with(".md") {
-            if let Some(filename) = line.split('/').last() {
+            if let Some(filename) = line.split('/').next_back() {
                 let spec_id = filename.trim_end_matches(".md");
                 // Accept any .md file that's not a special file
                 if !matches!(spec_id, "SPEC_INDEX" | "README" | "index") {
@@ -1740,7 +1740,7 @@ async fn extract_spec_from_git(verbose: bool) -> Result<String> {
         {
             let files = String::from_utf8_lossy(&find_output.stdout);
             for line in files.lines() {
-                if let Some(filename) = line.split('/').last() {
+                if let Some(filename) = line.split('/').next_back() {
                     if filename.ends_with(".md") {
                         let spec_id = filename.trim_end_matches(".md");
                         if verbose {
