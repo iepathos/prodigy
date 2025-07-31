@@ -212,10 +212,12 @@ impl WorkflowExecutor {
             }
 
             // Check if this is the first command and we have a focus directive
-            if idx == 0 && focus.is_some() {
-                command
-                    .options
-                    .insert("focus".to_string(), serde_json::json!(focus.unwrap()));
+            if idx == 0 {
+                if let Some(focus_value) = focus {
+                    command
+                        .options
+                        .insert("focus".to_string(), serde_json::json!(focus_value));
+                }
             }
 
             // Execute the command and capture output

@@ -194,7 +194,7 @@ impl BasicDependencyAnalyzer {
         let es6_import_re = regex::Regex::new(
             r#"import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s+from\s+)?['"]([^'"]+)['"]"#,
         )
-        .unwrap();
+        .expect("Failed to compile ES6 import regex");
         for cap in es6_import_re.captures_iter(content) {
             if let Some(path) = cap.get(1) {
                 imports.push(path.as_str().to_string());
@@ -202,7 +202,8 @@ impl BasicDependencyAnalyzer {
         }
 
         // CommonJS requires
-        let require_re = regex::Regex::new(r#"require\s*\(['"]([^'"]+)['"]\)"#).unwrap();
+        let require_re = regex::Regex::new(r#"require\s*\(['"]([^'"]+)['"]\)"#)
+            .expect("Failed to compile CommonJS require regex");
         for cap in require_re.captures_iter(content) {
             if let Some(path) = cap.get(1) {
                 imports.push(path.as_str().to_string());
@@ -287,13 +288,14 @@ impl DependencyAnalyzer for BasicDependencyAnalyzer {
                 if let Ok(content) = tokio::fs::read_to_string(path).await {
                     let imports = self.parse_rust_imports(&content);
                     let module_type = self.get_module_type(relative_path);
+                    let exports = self.parse_exports(&content, "rs");
 
                     let node = ModuleNode {
                         path: relative_path.to_string_lossy().to_string(),
                         module_type,
                         imports: imports.clone(),
-                        exports: Vec::new(),       // TODO: Parse exports
-                        external_deps: Vec::new(), // TODO: Parse Cargo.toml
+                        exports,
+                        external_deps: Vec::new(),
                     };
 
                     // Create edges for imports
@@ -304,6 +306,24 @@ impl DependencyAnalyzer for BasicDependencyAnalyzer {
                             dep_type: DependencyType::Import,
                         });
                     }
+
+                    nodes.insert(relative_path.to_string_lossy().to_string(), node);
+                }
+            }
+
+            // Process Cargo.toml to get external dependencies
+            if path.file_name().and_then(|s| s.to_str()) == Some("Cargo.toml") {
+                if let Ok(content) = tokio::fs::read_to_string(path).await {
+                    let external_deps = self.parse_cargo_dependencies(&content);
+
+                    // Store external dependencies in a special node
+                    let node = ModuleNode {
+                        path: relative_path.to_string_lossy().to_string(),
+                        module_type: ModuleType::Config,
+                        imports: Vec::new(),
+                        exports: Vec::new(),
+                        external_deps,
+                    };
 
                     nodes.insert(relative_path.to_string_lossy().to_string(), node);
                 }
@@ -413,6 +433,147 @@ impl BasicDependencyAnalyzer {
         }
 
         layers
+    }
+
+    /// Parse exports from a file based on its extension
+    fn parse_exports(&self, content: &str, ext: &str) -> Vec<String> {
+        match ext {
+            "rs" => self.parse_rust_exports(content),
+            "js" | "ts" | "jsx" | "tsx" => self.parse_js_exports(content),
+            "py" => self.parse_python_exports(content),
+            _ => Vec::new(),
+        }
+    }
+
+    /// Parse Rust exports (public items)
+    fn parse_rust_exports(&self, content: &str) -> Vec<String> {
+        let mut exports = Vec::new();
+
+        // Match public functions, structs, enums, traits, etc.
+        let pub_re = regex::Regex::new(r"pub\s+(fn|struct|enum|trait|type|const|static)\s+(\w+)")
+            .expect("Failed to compile Rust export regex");
+
+        for cap in pub_re.captures_iter(content) {
+            if let Some(name) = cap.get(2) {
+                exports.push(name.as_str().to_string());
+            }
+        }
+
+        // Match pub use statements
+        let pub_use_re = regex::Regex::new(r"pub\s+use\s+[^;]+::\{?([^;}]+)\}?")
+            .expect("Failed to compile pub use regex");
+
+        for cap in pub_use_re.captures_iter(content) {
+            if let Some(items) = cap.get(1) {
+                // Handle multiple items in curly braces
+                for item in items.as_str().split(',') {
+                    let item = item.trim();
+                    if !item.is_empty() {
+                        exports.push(item.to_string());
+                    }
+                }
+            }
+        }
+
+        exports
+    }
+
+    /// Parse JavaScript/TypeScript exports
+    fn parse_js_exports(&self, content: &str) -> Vec<String> {
+        let mut exports = Vec::new();
+
+        // Named exports
+        let named_export_re =
+            regex::Regex::new(r"export\s+(?:const|let|var|function|class)\s+(\w+)")
+                .expect("Failed to compile JS named export regex");
+
+        for cap in named_export_re.captures_iter(content) {
+            if let Some(name) = cap.get(1) {
+                exports.push(name.as_str().to_string());
+            }
+        }
+
+        // Export statements
+        let export_re =
+            regex::Regex::new(r"export\s+\{([^}]+)\}").expect("Failed to compile JS export regex");
+
+        for cap in export_re.captures_iter(content) {
+            if let Some(items) = cap.get(1) {
+                for item in items.as_str().split(',') {
+                    let item = item.trim().split(" as ").next().unwrap_or("").trim();
+                    if !item.is_empty() {
+                        exports.push(item.to_string());
+                    }
+                }
+            }
+        }
+
+        exports
+    }
+
+    /// Parse Python exports (__all__ or public names)
+    fn parse_python_exports(&self, content: &str) -> Vec<String> {
+        let mut exports = Vec::new();
+
+        // Check for __all__ definition
+        let all_re = regex::Regex::new(r"__all__\s*=\s*\[([^\]]+)\]")
+            .expect("Failed to compile Python __all__ regex");
+
+        if let Some(cap) = all_re.captures(content) {
+            if let Some(items) = cap.get(1) {
+                for item in items.as_str().split(',') {
+                    let item = item.trim().trim_matches(|c| c == '"' || c == '\'');
+                    if !item.is_empty() {
+                        exports.push(item.to_string());
+                    }
+                }
+            }
+        } else {
+            // If no __all__, consider all non-private items as exports
+            let def_re = regex::Regex::new(r"^(def|class)\s+([a-zA-Z]\w*)")
+                .expect("Failed to compile Python definition regex");
+
+            for line in content.lines() {
+                if let Some(cap) = def_re.captures(line) {
+                    if let Some(name) = cap.get(2) {
+                        let name_str = name.as_str();
+                        // Skip private names (starting with _)
+                        if !name_str.starts_with('_') {
+                            exports.push(name_str.to_string());
+                        }
+                    }
+                }
+            }
+        }
+
+        exports
+    }
+
+    /// Parse dependencies from Cargo.toml
+    fn parse_cargo_dependencies(&self, content: &str) -> Vec<String> {
+        let mut deps = Vec::new();
+
+        // Simple regex to find dependency names in [dependencies] section
+        let mut in_deps_section = false;
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+
+            if trimmed.starts_with('[') {
+                in_deps_section = trimmed == "[dependencies]"
+                    || trimmed == "[dev-dependencies]"
+                    || trimmed == "[build-dependencies]";
+            } else if in_deps_section && trimmed.contains('=') {
+                if let Some(dep_name) = trimmed.split('=').next() {
+                    let dep_name = dep_name.trim();
+                    if !dep_name.is_empty() {
+                        deps.push(dep_name.to_string());
+                    }
+                }
+            }
+        }
+
+        deps
     }
 }
 

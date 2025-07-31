@@ -138,7 +138,7 @@ impl BasicTechnicalDebtMapper {
     pub fn find_debt_comments(&self, content: &str, filename: &str) -> Vec<DebtItem> {
         let path = Path::new(filename);
         tokio::runtime::Runtime::new()
-            .unwrap()
+            .unwrap_or_else(|e| panic!("Failed to create tokio runtime: {e}"))
             .block_on(self.extract_comments(path, content))
     }
 

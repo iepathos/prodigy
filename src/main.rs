@@ -177,7 +177,7 @@ async fn main() {
             skip_analysis,
         }) => {
             // Check if user used the 'improve' alias (deprecated as of v0.3.0)
-            // TODO: Remove this deprecation warning in v1.0.0
+            // NOTE: Remove this deprecation warning in v1.0.0
             let cli_args: Vec<String> = std::env::args().collect();
             if cli_args.len() > 1 && cli_args[1] == "improve" {
                 eprintln!("Note: 'improve' has been renamed to 'cook'. Please use 'mmm cook' in the future.");
@@ -246,146 +246,168 @@ async fn main() {
     }
 }
 
+/// Display a single worktree session with its state and metadata
+fn display_worktree_session(
+    session: &mmm::worktree::WorktreeSession,
+    worktree_manager: &mmm::worktree::WorktreeManager,
+) -> anyhow::Result<()> {
+    let state_file = worktree_manager
+        .base_dir
+        .join(".metadata")
+        .join(format!("{}.json", session.name));
+
+    if let Ok(state_json) = std::fs::read_to_string(&state_file) {
+        if let Ok(state) = serde_json::from_str::<mmm::worktree::WorktreeState>(&state_json) {
+            let focus_str = state
+                .focus
+                .as_deref()
+                .map(|f| format!(" - {f}"))
+                .unwrap_or_else(|| " - no focus".to_string());
+
+            let status_emoji = match state.status {
+                mmm::worktree::WorktreeStatus::InProgress => "🔄",
+                mmm::worktree::WorktreeStatus::Completed => "✅",
+                mmm::worktree::WorktreeStatus::Merged => "🔀",
+                mmm::worktree::WorktreeStatus::Failed => "❌",
+                mmm::worktree::WorktreeStatus::Abandoned => "⚠️",
+                mmm::worktree::WorktreeStatus::Interrupted => "⏸️",
+            };
+
+            println!(
+                "  {} {} - {:?}{} ({}/{})",
+                status_emoji,
+                session.name,
+                state.status,
+                focus_str,
+                state.iterations.completed,
+                state.iterations.max
+            );
+        } else {
+            // Fallback to old display for sessions without valid state
+            display_worktree_session_legacy(session);
+        }
+    } else {
+        // Fallback to old display for sessions without state files
+        display_worktree_session_legacy(session);
+    }
+
+    Ok(())
+}
+
+/// Display a worktree session using legacy format
+fn display_worktree_session_legacy(session: &mmm::worktree::WorktreeSession) {
+    let focus_str = session
+        .focus
+        .as_ref()
+        .map(|f| format!(" (focus: {f})"))
+        .unwrap_or_default();
+    println!(
+        "  {} - {}{}",
+        session.name,
+        session.path.display(),
+        focus_str
+    );
+}
+
+/// Handle the list command for worktrees
+fn handle_list_command(worktree_manager: &mmm::worktree::WorktreeManager) -> anyhow::Result<()> {
+    let sessions = worktree_manager.list_sessions()?;
+    if sessions.is_empty() {
+        println!("No active MMM worktrees found.");
+    } else {
+        println!("Active MMM worktrees:");
+        for session in sessions {
+            display_worktree_session(&session, worktree_manager)?;
+        }
+    }
+    Ok(())
+}
+
+/// Handle the merge command for worktrees
+fn handle_merge_command(
+    worktree_manager: &mmm::worktree::WorktreeManager,
+    name: Option<String>,
+    all: bool,
+) -> anyhow::Result<()> {
+    if all {
+        // Merge all worktrees
+        let sessions = worktree_manager.list_sessions()?;
+        if sessions.is_empty() {
+            println!("No active MMM worktrees found to merge.");
+        } else {
+            println!("Found {} worktree(s) to merge", sessions.len());
+            for session in sessions {
+                println!("\n📝 Merging worktree '{}'...", session.name);
+                match worktree_manager.merge_session(&session.name) {
+                    Ok(_) => {
+                        println!("✅ Successfully merged worktree '{}'", session.name);
+                        // Automatically clean up successfully merged worktrees when using --all
+                        if let Err(e) = worktree_manager.cleanup_session(&session.name, true) {
+                            eprintln!(
+                                "⚠️ Warning: Failed to clean up worktree '{}': {}",
+                                session.name, e
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("❌ Failed to merge worktree '{}': {}", session.name, e);
+                        eprintln!("   Skipping cleanup for failed merge.");
+                    }
+                }
+            }
+            println!("\n✅ Bulk merge operation completed");
+        }
+    } else if let Some(name) = name {
+        // Single worktree merge
+        println!("Merging worktree '{name}'...");
+        worktree_manager.merge_session(&name)?;
+        println!("✅ Successfully merged worktree '{name}'");
+
+        // Ask if user wants to clean up the worktree
+        println!("Would you like to clean up the worktree? (y/N)");
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+        if input.trim().to_lowercase() == "y" {
+            worktree_manager.cleanup_session(&name, true)?;
+            println!("✅ Worktree cleaned up");
+        }
+    } else {
+        anyhow::bail!("Either --all or a worktree name must be specified");
+    }
+    Ok(())
+}
+
+/// Handle the clean command for worktrees
+fn handle_clean_command(
+    worktree_manager: &mmm::worktree::WorktreeManager,
+    name: Option<String>,
+    all: bool,
+    force: bool,
+) -> anyhow::Result<()> {
+    if all {
+        println!("Cleaning up all MMM worktrees...");
+        worktree_manager.cleanup_all_sessions(force)?;
+        println!("✅ All worktrees cleaned up");
+    } else if let Some(name) = name {
+        println!("Cleaning up worktree '{name}'...");
+        worktree_manager.cleanup_session(&name, force)?;
+        println!("✅ Worktree '{name}' cleaned up");
+    } else {
+        anyhow::bail!("Either --all or a worktree name must be specified");
+    }
+    Ok(())
+}
+
 async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
     use mmm::worktree::WorktreeManager;
 
     let worktree_manager = WorktreeManager::new(std::env::current_dir()?)?;
 
     match command {
-        WorktreeCommands::List => {
-            let sessions = worktree_manager.list_sessions()?;
-            if sessions.is_empty() {
-                println!("No active MMM worktrees found.");
-            } else {
-                println!("Active MMM worktrees:");
-                for session in sessions {
-                    // Load state for each session
-                    let state_file = worktree_manager
-                        .base_dir
-                        .join(".metadata")
-                        .join(format!("{}.json", session.name));
-                    if let Ok(state_json) = std::fs::read_to_string(&state_file) {
-                        if let Ok(state) =
-                            serde_json::from_str::<mmm::worktree::WorktreeState>(&state_json)
-                        {
-                            let focus_str = state
-                                .focus
-                                .as_deref()
-                                .map(|f| format!(" - {f}"))
-                                .unwrap_or_else(|| " - no focus".to_string());
-
-                            let status_emoji = match state.status {
-                                mmm::worktree::WorktreeStatus::InProgress => "🔄",
-                                mmm::worktree::WorktreeStatus::Completed => "✅",
-                                mmm::worktree::WorktreeStatus::Merged => "🔀",
-                                mmm::worktree::WorktreeStatus::Failed => "❌",
-                                mmm::worktree::WorktreeStatus::Abandoned => "⚠️",
-                                mmm::worktree::WorktreeStatus::Interrupted => "⏸️",
-                            };
-
-                            println!(
-                                "  {} {} - {:?}{} ({}/{})",
-                                status_emoji,
-                                session.name,
-                                state.status,
-                                focus_str,
-                                state.iterations.completed,
-                                state.iterations.max
-                            );
-                        } else {
-                            // Fallback to old display for sessions without valid state
-                            let focus_str = session
-                                .focus
-                                .map(|f| format!(" (focus: {f})"))
-                                .unwrap_or_default();
-                            println!(
-                                "  {} - {}{}",
-                                session.name,
-                                session.path.display(),
-                                focus_str
-                            );
-                        }
-                    } else {
-                        // Fallback to old display for sessions without state files
-                        let focus_str = session
-                            .focus
-                            .map(|f| format!(" (focus: {f})"))
-                            .unwrap_or_default();
-                        println!(
-                            "  {} - {}{}",
-                            session.name,
-                            session.path.display(),
-                            focus_str
-                        );
-                    }
-                }
-            }
-        }
-        WorktreeCommands::Merge { name, all } => {
-            if all {
-                // Merge all worktrees
-                let sessions = worktree_manager.list_sessions()?;
-                if sessions.is_empty() {
-                    println!("No active MMM worktrees found to merge.");
-                } else {
-                    println!("Found {} worktree(s) to merge", sessions.len());
-                    for session in sessions {
-                        println!("\n📝 Merging worktree '{}'...", session.name);
-                        match worktree_manager.merge_session(&session.name) {
-                            Ok(_) => {
-                                println!("✅ Successfully merged worktree '{}'", session.name);
-                                // Automatically clean up successfully merged worktrees when using --all
-                                if let Err(e) =
-                                    worktree_manager.cleanup_session(&session.name, true)
-                                {
-                                    eprintln!(
-                                        "⚠️ Warning: Failed to clean up worktree '{}': {}",
-                                        session.name, e
-                                    );
-                                }
-                            }
-                            Err(e) => {
-                                eprintln!("❌ Failed to merge worktree '{}': {}", session.name, e);
-                                eprintln!("   Skipping cleanup for failed merge.");
-                            }
-                        }
-                    }
-                    println!("\n✅ Bulk merge operation completed");
-                }
-            } else if let Some(name) = name {
-                // Single worktree merge
-                println!("Merging worktree '{name}'...");
-                worktree_manager.merge_session(&name)?;
-                println!("✅ Successfully merged worktree '{name}'");
-
-                // Ask if user wants to clean up the worktree
-                println!("Would you like to clean up the worktree? (y/N)");
-                let mut input = String::new();
-                std::io::stdin().read_line(&mut input)?;
-                if input.trim().to_lowercase() == "y" {
-                    worktree_manager.cleanup_session(&name, true)?;
-                    println!("✅ Worktree cleaned up");
-                }
-            } else {
-                eprintln!("Error: Either --all or a worktree name must be specified");
-                std::process::exit(1);
-            }
-        }
+        WorktreeCommands::List => handle_list_command(&worktree_manager),
+        WorktreeCommands::Merge { name, all } => handle_merge_command(&worktree_manager, name, all),
         WorktreeCommands::Clean { all, name, force } => {
-            if all {
-                println!("Cleaning up all MMM worktrees...");
-                worktree_manager.cleanup_all_sessions(force)?;
-                println!("✅ All worktrees cleaned up");
-            } else if let Some(name) = name {
-                println!("Cleaning up worktree '{name}'...");
-                worktree_manager.cleanup_session(&name, force)?;
-                println!("✅ Worktree '{name}' cleaned up");
-            } else {
-                eprintln!("Error: Either --all or a worktree name must be specified");
-                std::process::exit(1);
-            }
+            handle_clean_command(&worktree_manager, name, all, force)
         }
     }
-
-    Ok(())
 }
