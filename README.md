@@ -244,13 +244,14 @@ Create custom playbook files to define your improvement workflows:
 commands:
   - mmm-code-review
   - mmm-implement-spec
-  - mmm-lint
+  - name: mmm-lint
+    commit_required: false  # Linting may not always make changes
 ```
 
 The default workflow runs these three commands in order:
 1. `mmm-code-review` - Analyzes code and generates improvement specs
 2. `mmm-implement-spec` - Implements the improvements (spec ID extracted automatically)
-3. `mmm-lint` - Runs formatting and linting
+3. `mmm-lint` - Runs formatting and linting (won't fail if no changes needed)
 
 Run your custom playbook:
 ```bash
@@ -282,6 +283,25 @@ commands:
   - mmm-implement-spec
   - mmm-lint
 ```
+
+#### Commit Requirements
+
+By default, MMM expects every command to create git commits. However, some commands like linting may not always make changes. Use `commit_required: false` to allow these commands to succeed without creating commits:
+
+```yaml
+# Example: Linting may not always create commits
+commands:
+  - name: mmm-implement-spec
+    args: ["$ARG"]
+  
+  - name: mmm-lint
+    commit_required: false  # Allow to proceed even if no changes made
+```
+
+This is especially useful for:
+- Linting/formatting commands that may find nothing to fix
+- Validation commands that only check code without modifying it
+- Optional cleanup steps that may have already been addressed
 
 #### Workflow Examples
 
@@ -315,7 +335,20 @@ commands:
   - name: mmm-code-review
     focus: critical
   - mmm-implement-spec
-  - mmm-lint
+  - name: mmm-lint
+    commit_required: false  # Linting may not find issues after critical fixes
+```
+
+**Test Coverage Workflow:**
+```yaml
+commands:
+  - name: mmm-test-generate
+    focus: coverage
+  - mmm-implement-spec
+  - name: mmm-test-run
+    commit_required: false  # Test runs don't modify code
+  - name: mmm-lint
+    commit_required: false  # Code may already be clean
 ```
 
 ### Parallel Sessions with Git Worktrees
