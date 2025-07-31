@@ -378,6 +378,11 @@ impl CommandRegistry {
             }
         }
     }
+
+    /// List all registered command names
+    pub fn list_commands(&self) -> Vec<String> {
+        self.commands.keys().cloned().collect()
+    }
 }
 
 /// Global command registry
