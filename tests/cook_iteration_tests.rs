@@ -8,72 +8,132 @@ use tempfile::TempDir;
 /// and passes focus directive on every iteration
 #[test]
 fn test_cook_multiple_iterations_with_focus() -> Result<()> {
-    // Create a temporary directory for the test
-    let temp_dir = TempDir::new()?;
-    let temp_path = temp_dir.path();
+    // Setup test environment
+    let (temp_path, playbook_path) = setup_test_environment()?;
 
-    // Initialize a git repository
+    // Run mmm cook with 3 iterations and focus
+    let output = run_cook_command(&temp_path, &playbook_path, 3, Some("documentation"))?;
+
+    // Verify test results
+    verify_cook_output(&output, true, true, Some("documentation"))?;
+
+    Ok(())
+}
+
+/// Helper function to set up test environment
+fn setup_test_environment() -> Result<(std::path::PathBuf, std::path::PathBuf)> {
+    let temp_dir = TempDir::new()?;
+    let temp_path = temp_dir.path().to_path_buf();
+
+    // Initialize git repository with config
+    initialize_git_repo(&temp_path)?;
+
+    // Create test file and directories
+    create_test_structure(&temp_path)?;
+
+    // Create test playbook
+    let playbook_path = create_test_playbook(&temp_path)?;
+
+    // Create mock commands and initial commit
+    create_mock_commands(&temp_path)?;
+    create_initial_commit(&temp_path)?;
+
+    // Keep temp_dir alive by leaking it
+    std::mem::forget(temp_dir);
+
+    Ok((temp_path, playbook_path))
+}
+
+/// Initialize git repository with user config
+fn initialize_git_repo(path: &Path) -> Result<()> {
     Command::new("git")
-        .current_dir(temp_path)
+        .current_dir(path)
         .args(["init"])
         .output()?;
 
-    // Configure git user for commits
     Command::new("git")
-        .current_dir(temp_path)
+        .current_dir(path)
         .args(["config", "user.email", "test@example.com"])
         .output()?;
 
     Command::new("git")
-        .current_dir(temp_path)
+        .current_dir(path)
         .args(["config", "user.name", "Test User"])
         .output()?;
 
-    // Create initial file to modify
-    let test_file = temp_path.join("test.rs");
+    Ok(())
+}
+
+/// Create test file structure
+fn create_test_structure(path: &Path) -> Result<()> {
+    let test_file = path.join("test.rs");
     fs::write(&test_file, "// Initial content\nfn main() {}\n")?;
 
-    // Create necessary directories
-    fs::create_dir_all(temp_path.join(".mmm"))?;
-    fs::create_dir_all(temp_path.join("specs/temp"))?;
+    fs::create_dir_all(path.join(".mmm"))?;
+    fs::create_dir_all(path.join("specs/temp"))?;
 
-    // Create a simple test playbook
-    let playbook_path = temp_path.join("playbook.yml");
+    Ok(())
+}
+
+/// Create test playbook
+fn create_test_playbook(path: &Path) -> Result<std::path::PathBuf> {
+    let playbook_path = path.join("playbook.yml");
     let playbook_content = r#"# Simple test playbook
 commands:
   - name: mmm-code-review
   - name: mmm-lint"#;
     fs::write(&playbook_path, playbook_content)?;
 
-    // Create mock slash commands that simulate Claude CLI behavior
-    create_mock_commands(temp_path)?;
+    Ok(playbook_path)
+}
 
-    // Initial commit
+/// Create initial git commit
+fn create_initial_commit(path: &Path) -> Result<()> {
     Command::new("git")
-        .current_dir(temp_path)
+        .current_dir(path)
         .args(["add", "."])
         .output()?;
 
     Command::new("git")
-        .current_dir(temp_path)
+        .current_dir(path)
         .args(["commit", "-m", "Initial commit"])
         .output()?;
 
-    // Run mmm cook with 3 iterations and focus
-    let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
-        .current_dir(temp_path)
-        .env("MMM_TEST_MODE", "true")
-        .env("MMM_TEST_ITERATIONS", "true") // Enable iteration tracking
-        .args([
-            "cook",
-            "-n",
-            "3",
-            "-f",
-            "documentation",
-            playbook_path.to_str().unwrap(),
-        ])
-        .output()?;
+    Ok(())
+}
 
+/// Run cook command with specified parameters
+fn run_cook_command(
+    path: &Path,
+    playbook_path: &Path,
+    iterations: u32,
+    focus: Option<&str>,
+) -> Result<std::process::Output> {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_mmm"));
+    cmd.current_dir(path)
+        .env("MMM_TEST_MODE", "true")
+        .env("MMM_TEST_ITERATIONS", "true");
+
+    let iterations_str = iterations.to_string();
+    let mut args = vec!["cook", "-n", &iterations_str];
+
+    if let Some(f) = focus {
+        args.push("-f");
+        args.push(f);
+    }
+
+    args.push(playbook_path.to_str().unwrap());
+
+    Ok(cmd.args(&args).output()?)
+}
+
+/// Verify cook command output
+fn verify_cook_output(
+    output: &std::process::Output,
+    expect_iterations: bool,
+    expect_code_review: bool,
+    expect_focus: Option<&str>,
+) -> Result<()> {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
@@ -81,28 +141,34 @@ commands:
     println!("STDOUT:\n{stdout}");
     println!("STDERR:\n{stderr}");
 
-    // Verify the command executed successfully
+    // Verify success
     assert!(output.status.success(), "mmm cook failed: {stderr}");
 
-    // Check that we ran iterations - look for the actual output format
-    let has_iterations = stdout.contains("Workflow iteration")
-        || stdout.contains("Iteration")
-        || stdout.contains("Starting improvement loop");
-    assert!(has_iterations, "Should show iteration progress");
+    // Check iterations
+    if expect_iterations {
+        let has_iterations = stdout.contains("Workflow iteration")
+            || stdout.contains("Iteration")
+            || stdout.contains("Starting improvement loop");
+        assert!(has_iterations, "Should show iteration progress");
+    }
 
-    // Verify code review command was run
-    assert!(
-        stdout.contains("Running /mmm-code-review") || stdout.contains("mmm-code-review"),
-        "Should run mmm-code-review command"
-    );
+    // Check code review
+    if expect_code_review {
+        assert!(
+            stdout.contains("Running /mmm-code-review") || stdout.contains("mmm-code-review"),
+            "Should run mmm-code-review command"
+        );
+    }
 
-    // Check that we have the focus directive
-    assert!(
-        stdout.contains("documentation") || stdout.contains("Focus: documentation"),
-        "Focus directive should be mentioned"
-    );
+    // Check focus directive
+    if let Some(focus) = expect_focus {
+        assert!(
+            stdout.contains(focus) || stdout.contains(&format!("Focus: {focus}")),
+            "Focus directive should be mentioned"
+        );
+    }
 
-    // Verify completion or iterations occurred
+    // Verify completion
     assert!(
         stdout.contains("Complete")
             || stdout.contains("Iterations:")

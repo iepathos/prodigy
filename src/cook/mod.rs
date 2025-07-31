@@ -975,15 +975,7 @@ async fn run_in_worktree(
             run_improvement_loop(cmd.clone(), &session, &worktree_manager_arc, verbose).await;
 
         // Update final state
-        worktree_manager_arc.update_session_state(&session.name, |state| match &result {
-            Ok(_) => {
-                state.status = crate::worktree::WorktreeStatus::Completed;
-            }
-            Err(e) => {
-                state.status = crate::worktree::WorktreeStatus::Failed;
-                state.error = Some(e.to_string());
-            }
-        })?;
+        update_session_final_state(&worktree_manager_arc, &session.name, &result)?;
 
         result
     }
@@ -994,39 +986,73 @@ async fn setup_improvement_session(
     cmd: &command::CookCommand,
     verbose: bool,
 ) -> Result<(std::path::PathBuf, Config, StateManager)> {
-    // 1. Check for Claude CLI
+    // Check prerequisites
     check_claude_cli().await?;
 
-    // 2. Initial analysis
+    // Get project path and perform analysis
     let project_path = std::env::current_dir()?;
-    if !cmd.skip_analysis {
-        if let Err(e) = analyze_project_comprehensive(&project_path, verbose).await {
-            if verbose {
-                warn!("⚠️  Comprehensive analysis failed: {e}");
-                warn!("   Continuing without deep context understanding");
-            }
+    perform_project_analysis(cmd, &project_path, verbose).await;
+
+    // Display focus if set
+    display_focus(cmd, verbose);
+
+    // Setup state and load configuration
+    let state = StateManager::new()?;
+    let config = load_project_configuration().await?;
+
+    Ok((project_path, config, state))
+}
+
+/// Perform project analysis if not skipped
+async fn perform_project_analysis(cmd: &command::CookCommand, project_path: &Path, verbose: bool) {
+    if cmd.skip_analysis {
+        if verbose {
+            info!("📋 Skipping project analysis (--skip-analysis flag)");
         }
-    } else if verbose {
-        info!("📋 Skipping project analysis (--skip-analysis flag)");
+        return;
     }
 
+    if let Err(e) = analyze_project_comprehensive(project_path, verbose).await {
+        if verbose {
+            warn!("⚠️  Comprehensive analysis failed: {e}");
+            warn!("   Continuing without deep context understanding");
+        }
+    }
+}
+
+/// Display focus directive if set
+fn display_focus(cmd: &command::CookCommand, verbose: bool) {
     if verbose {
         if let Some(focus) = &cmd.focus {
             info!("📊 Focus: {focus}");
         }
     }
+}
 
-    // 3. Setup basic state
-    let state = StateManager::new()?;
-
-    // 4. Load configuration
+/// Load project configuration
+async fn load_project_configuration() -> Result<Config> {
     let config_loader = ConfigLoader::new().await?;
     config_loader
         .load_with_explicit_path(Path::new("."), None)
         .await?;
-    let config = config_loader.get_config().clone();
+    Ok(config_loader.get_config().clone())
+}
 
-    Ok((project_path, config, state))
+/// Update session final state based on result
+fn update_session_final_state<T>(
+    worktree_manager: &WorktreeManager,
+    session_name: &str,
+    result: &Result<T>,
+) -> Result<()> {
+    worktree_manager.update_session_state(session_name, |state| match result {
+        Ok(_) => {
+            state.status = crate::worktree::WorktreeStatus::Completed;
+        }
+        Err(e) => {
+            state.status = crate::worktree::WorktreeStatus::Failed;
+            state.error = Some(e.to_string());
+        }
+    })
 }
 
 /// Finalizes the improvement session by updating state and committing changes
@@ -1833,15 +1859,7 @@ async fn run_improvement_loop_from(
     .await;
 
     // Update final state
-    worktree_manager_arc.update_session_state(&session.name, |state| match &result {
-        Ok(_) => {
-            state.status = crate::worktree::WorktreeStatus::Completed;
-        }
-        Err(e) => {
-            state.status = crate::worktree::WorktreeStatus::Failed;
-            state.error = Some(e.to_string());
-        }
-    })?;
+    update_session_final_state(&worktree_manager_arc, &session.name, &result)?;
 
     result
 }
