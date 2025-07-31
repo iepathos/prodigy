@@ -1,186 +1,237 @@
-# Test Coverage Analysis & Improvement
+# /mmm-coverage
 
-Systematically analyze and improve test coverage in Rust projects using comprehensive tooling and best practices.
+Analyze test coverage gaps using MMM context data and generate a targeted specification for implementing comprehensive test coverage improvements.
 
-## Primary Command
+## Variables
 
-```bash
-just coverage
+SCOPE: $ARGUMENTS (optional - specify scope like "src/core", "src/context", or "all")
+MMM_CONTEXT_AVAILABLE: Environment variable indicating .mmm context availability
+MMM_CONTEXT_DIR: Path to .mmm/context/ directory with analysis data
+MMM_FOCUS: Optional focus directive (e.g., "security", "api", "core")
+
+## Execute
+
+### Phase 1: Load MMM Context Data
+
+**REQUIRED**: Check `MMM_CONTEXT_AVAILABLE=true` and load context files:
+
+1. **Primary Context Sources**
+   - `.mmm/context/test_coverage.json` → `untested_functions`, `critical_paths`, `file_coverage`
+   - `.mmm/context/technical_debt.json` → high-impact functions needing tests
+   - `.mmm/context/architecture.json` → public interfaces requiring coverage
+   - `.mmm/metrics/current.json` → current coverage percentage and targets
+
+2. **Coverage Gap Prioritization**
+   - **Critical**: `untested_functions` with `criticality: "High"` from test_coverage.json
+   - **Public APIs**: Functions in `architecture.json` components without tests
+   - **Focus Areas**: If `MMM_FOCUS` set, boost priority for matching functions
+   - **Hotspots**: Functions in `technical_debt.json` hotspots with no coverage
+
+### Phase 2: Fallback Analysis (Only if MMM context unavailable)
+
+**If `MMM_CONTEXT_AVAILABLE` ≠ true**:
+
+1. **Quick Coverage Check**
+   ```bash
+   cargo tarpaulin --skip-clean --out Json --output-dir target/coverage --timeout 120
+   ```
+
+2. **Basic Gap Identification**
+   - Files with <70% line coverage
+   - Public functions without any test coverage
+   - Error Result types without error path tests
+
+**Important**: MMM context provides much better analysis. Encourage context generation.
+
+### Phase 3: Generate Coverage Improvement Specification
+
+**CRITICAL**: Create actionable spec file for `mmm-implement-spec` to consume.
+
+1. **Spec File Location**
+   - Directory: `specs/temp/`
+   - Filename: `iteration-{unix_timestamp}-coverage-improvements.md`
+   - Must match pattern: `*-coverage-improvements.md`
+
+2. **Extract Specific Functions from Context**
+   - Parse `untested_functions` array from test_coverage.json
+   - Include exact file paths, function names, and line numbers
+   - Prioritize by criticality: High → Medium → Low
+   - Filter by MMM_FOCUS if specified
+
+### Phase 4: Spec Content Generation
+
+**Create comprehensive test implementation instructions**:
+
+1. **Function-Level Test Plans**
+   - For each `untested_function`: exact file path, function signature, test examples
+   - Include both success and error test cases
+   - Use modern Rust testing patterns: `#[tokio::test]` for async, proper assertions
+
+2. **Integration Test Requirements**
+   - Component interfaces from architecture.json that need integration tests
+   - Cross-module interactions requiring end-to-end validation
+
+3. **Test Organization**
+   - Follow project conventions: inline tests for units, `tests/` for integration
+   - Use existing test utilities and helpers
+   - Include validation commands: `cargo test`, `cargo tarpaulin`
+
+### Phase 5: Modern Rust Testing Patterns
+
+**Include these patterns in generated specs**:
+
+1. **Async Function Testing**
+   ```rust
+   #[tokio::test]
+   async fn test_async_function() {
+       let result = async_function().await;
+       assert!(result.is_ok());
+   }
+   ```
+
+2. **Error Path Testing**
+   ```rust
+   #[test]
+   fn test_function_error_cases() {
+       let result = function_with_errors(invalid_input);
+       assert!(result.is_err());
+       assert_eq!(result.unwrap_err().to_string(), "Expected error");
+   }
+   ```
+
+3. **Integration Test Structure**
+   ```rust
+   // tests/integration_test.rs
+   use mmm::*;
+   
+   #[tokio::test]
+   async fn test_component_integration() {
+       // Test component interactions
+   }
+   ```
+
+### Phase 6: Generate and Commit Specification
+
+**REQUIRED OUTPUT**: Create spec file at `specs/temp/iteration-{timestamp}-coverage-improvements.md`
+
+1. **Spec Template Structure**
+   ```markdown
+   # Coverage Improvements - Iteration {timestamp}
+   
+   ## Overview
+   Test coverage improvements based on MMM context analysis.
+   Current coverage: {overall_coverage}% → Target: {target_coverage}%
+   {If MMM_FOCUS: Focus area: {focus}}
+   
+   ## Critical Functions Needing Tests
+   
+   ### Function: `{function_name}` in {file_path}:{line_number}
+   **Criticality**: {High|Medium|Low}
+   **Current Status**: No test coverage
+   
+   #### Add these tests to {file_path}:
+   ```rust
+   #[cfg(test)] 
+   mod tests {
+       use super::*;
+       
+       #[test] // or #[tokio::test] for async
+       fn test_{function_name}_success() {
+           // Test normal operation
+           {concrete_test_example}
+       }
+       
+       #[test]
+       fn test_{function_name}_error_cases() {
+           // Test error conditions  
+           {error_test_example}
+       }
+   }
+   ```
+   
+   ## Integration Tests Needed
+   
+   ### Component: {component_name}
+   **File**: tests/{component_name}_integration.rs
+   ```rust
+   use mmm::*;
+   
+   #[tokio::test]
+   async fn test_{component_name}_integration() {
+       {integration_test_example}
+   }
+   ```
+   
+   ## Implementation Checklist
+   - [ ] Add unit tests for {count} critical functions
+   - [ ] Create {count} integration test files
+   - [ ] Verify tests pass: `cargo test`
+   - [ ] Check coverage improves: `cargo tarpaulin`
+   - [ ] Follow project conventions from .mmm/context/conventions.json
+   ```
+
+2. **Context Data Integration**
+   - Extract exact function names, file paths, line numbers from `untested_functions`
+   - Use `file_coverage` data for current coverage percentages
+   - Reference `conventions.json` for project testing patterns
+   - Include concrete test examples based on function signatures
+
+3. **Validation Requirements**
+   - Each function must have both success and error test cases
+   - Include exact commands to verify improvements
+   - Reference existing test utilities from the codebase
+
+4. **Git Commit (Automation Mode)**
+   ```bash
+   mkdir -p specs/temp
+   # Create spec file
+   git add specs/temp/iteration-{timestamp}-coverage-improvements.md
+   git commit -m "test: generate coverage improvement spec for iteration-{timestamp}"
+   ```
+   
+   **Skip commit if**: No critical coverage gaps found (overall coverage >85%)
+
+## Success Criteria & Output
+
+**Create spec only if**: Critical coverage gaps found (>5 untested critical functions OR overall coverage <75%)
+
+**Console Output**:
+```
+✓ MMM context loaded - {count} untested critical functions found
+✓ Generated spec: iteration-{timestamp}-coverage-improvements.md  
+✓ Spec committed for mmm-implement-spec processing
 ```
 
-## Workflow Steps
-
-### 1. Run Initial Coverage Analysis
-```bash
-# Generate baseline coverage report
-just coverage
-
-# Alternative: More detailed coverage with line-by-line analysis
-cargo tarpaulin --out Html --out Xml --output-dir coverage/ --timeout 300
+**Or if no gaps**:
+```
+✓ Coverage analysis complete - targets met ({coverage}%)
+✓ No critical gaps requiring immediate attention
 ```
 
-### 2. Evaluate Current Coverage
-- Open `tarpaulin-report.html` in browser to review visual coverage report
-- Identify modules/functions with low coverage (<80%)
-- Focus on critical business logic and public APIs first
-- Look for untested error paths and edge cases
+**Spec File Output**: `specs/temp/iteration-{timestamp}-coverage-improvements.md`
 
-### 3. Analyze Uncovered Code Patterns
-Use these commands to find specific uncovered areas:
+## Coverage Targets
 
-```bash
-# Find functions without tests
-rg -t rust "^pub fn|^fn" --no-heading | grep -v "#\[test\]"
+**Priority Levels**:
+- **Critical**: Functions with `criticality: "High"` in untested_functions
+- **Public APIs**: Architecture components without adequate test coverage  
+- **Focus Areas**: Functions matching MMM_FOCUS directive
+- **Error Paths**: Result-returning functions without error case tests
 
-# Identify error handling paths
-rg -t rust "Result<|Error|panic!|unwrap\(\)|expect\(" 
+**Target Thresholds**:
+- Overall project coverage: Current + 10% (minimum 75%)
+- Critical functions: 100% coverage
+- Public APIs: >90% coverage
+- New code: 100% coverage requirement
 
-# Find complex conditional logic
-rg -t rust "if.*else|match.*=>|for.*in|while"
-```
+## Command Integration
 
-### 4. Strategic Test Development
+**Workflow Chain**: `mmm-coverage` → generates spec → `mmm-implement-spec` → `mmm-lint`
 
-#### Unit Tests
-- Add `#[cfg(test)]` modules in each source file
-- Test all public functions with multiple scenarios
-- Cover error conditions and edge cases
-- Use property-based testing for complex logic
+**Context Dependencies**: 
+- Requires `.mmm/context/test_coverage.json` with `untested_functions` array
+- Uses `.mmm/context/architecture.json` for component interfaces
+- Follows patterns from `.mmm/context/conventions.json`
+- References current metrics from `.mmm/metrics/current.json`
 
-```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use proptest::prelude::*;
-
-    #[test]
-    fn test_happy_path() {
-        // Test normal operation
-    }
-
-    #[test]
-    fn test_error_conditions() {
-        // Test error scenarios
-    }
-
-    proptest! {
-        #[test]
-        fn test_properties(input in any::<String>()) {
-            // Property-based testing
-        }
-    }
-}
-```
-
-#### Integration Tests
-- Create tests in `tests/` directory for end-to-end scenarios
-- Test module interactions and public APIs
-- Cover real-world usage patterns
-
-#### Test Organization Best Practices
-- Group related tests in modules
-- Use descriptive test names that explain the scenario
-- Test one thing per test function
-- Use test fixtures and helper functions for setup
-
-### 5. Coverage Improvement Strategies
-
-#### Target High-Value Areas First
-1. **Public APIs** - All exported functions should have comprehensive tests
-2. **Error Handling** - Every `Result` return should have error case tests  
-3. **Business Logic** - Core algorithms and decision logic
-4. **Data Validation** - Input parsing and validation functions
-
-#### Common Uncovered Patterns to Address
-- Error path testing: `Err(...)` branches in `match` statements
-- Default implementations and trait methods
-- Drop implementations and cleanup code
-- Async/concurrent code paths
-- Configuration and initialization code
-
-### 6. Advanced Coverage Techniques
-
-#### Mock External Dependencies
-```rust
-#[cfg(test)]
-use mockall::predicate::*;
-
-// Mock external services for isolated testing
-```
-
-#### Test Different Configurations
-```rust
-#[test]
-#[cfg(feature = "specific-feature")]
-fn test_feature_specific_behavior() {
-    // Test feature-gated code
-}
-```
-
-#### Benchmark Critical Paths
-```rust
-#[bench]
-fn bench_critical_function(b: &mut Bencher) {
-    b.iter(|| {
-        // Benchmark performance-critical code
-    });
-}
-```
-
-### 7. Continuous Coverage Monitoring
-
-```bash
-# Set coverage thresholds in CI/CD
-cargo tarpaulin --fail-under 80
-
-# Generate coverage badges for README
-cargo tarpaulin --out Xml --output-dir coverage/
-```
-
-## Coverage Quality Metrics
-
-### Target Thresholds
-- **Overall Project**: >85% line coverage
-- **Public APIs**: >95% line coverage  
-- **Critical Business Logic**: >90% line coverage
-- **Error Handling**: >80% branch coverage
-
-### Quality Indicators
-- All public functions have at least one test
-- Error conditions are explicitly tested
-- Edge cases and boundary conditions covered
-- Integration between modules tested
-
-## Tools Integration
-
-### Required Dependencies
-Add to `Cargo.toml` for comprehensive testing:
-
-```toml
-[dev-dependencies]
-proptest = "1.0"
-mockall = "0.11"
-tempfile = "3.0"
-criterion = "0.5"
-```
-
-### IDE Integration
-- Configure rust-analyzer to show inline coverage
-- Use coverage gutters in VS Code
-- Set up automated coverage reports in CI/CD
-
-## Common Anti-Patterns to Avoid
-- Testing implementation details instead of behavior
-- Writing tests that duplicate production code logic
-- Focusing only on line coverage without testing edge cases
-- Ignoring error paths and exceptional conditions
-- Creating brittle tests that break with refactoring
-
-## Success Criteria
-✅ Coverage report shows >85% overall coverage
-✅ All public APIs have comprehensive tests  
-✅ Error conditions are explicitly tested
-✅ Integration tests cover main user workflows
-✅ Performance-critical code is benchmarked
-✅ Tests run fast (<30s for full suite)
-✅ CI/CD enforces coverage thresholds
+**Output Contract**: Spec file matching `*-coverage-improvements.md` pattern for workflow consumption

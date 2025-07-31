@@ -1,0 +1,18 @@
+# Test coverage improvement workflow
+# Identifies coverage gaps and implements comprehensive test coverage
+commands:
+    - name: mmm-coverage
+      id: coverage
+      outputs:
+        spec:
+          file_pattern: "specs/temp/*-coverage-improvements.md"
+    
+    - name: mmm-implement-spec
+      inputs:
+        spec:
+          from: "${coverage.spec}"
+          pass_as:
+            argument:
+              position: 0
+    
+    - name: mmm-lint

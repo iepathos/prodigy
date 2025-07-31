@@ -7,6 +7,22 @@
     "constant_naming": "ScreamingSnakeCase"
   },
   "code_patterns": {
+    "error_handling": {
+      "name": "Result-based error handling",
+      "description": "Uses Result<T, E> for error handling",
+      "examples": [
+        "Result<String, Error>"
+      ],
+      "frequency": 2
+    },
+    "async": {
+      "name": "Async/await pattern",
+      "description": "Uses async/await for asynchronous code",
+      "examples": [
+        "async fn process()"
+      ],
+      "frequency": 34
+    },
     "logging": {
       "name": "Logging pattern",
       "description": "Uses logging for debugging and monitoring",
@@ -23,29 +39,13 @@
         "RequestBuilder::new()"
       ],
       "frequency": 14
-    },
-    "async": {
-      "name": "Async/await pattern",
-      "description": "Uses async/await for asynchronous code",
-      "examples": [
-        "async fn process()"
-      ],
-      "frequency": 34
-    },
-    "error_handling": {
-      "name": "Result-based error handling",
-      "description": "Uses Result<T, E> for error handling",
-      "examples": [
-        "Result<String, Error>"
-      ],
-      "frequency": 2
     }
   },
   "test_patterns": {
     "test_file_pattern": "tests/",
     "test_function_prefix": "test_",
     "test_module_pattern": "#[cfg(test)]",
-    "assertion_style": "assert_eq!"
+    "assertion_style": "assert!"
   },
   "project_idioms": [
     {

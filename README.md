@@ -208,17 +208,19 @@ Load playbook configuration
 - All human-readable, git-friendly, no complex databases
 
 ### Supported Languages
-MMM works with any language that Claude CLI can understand. The tool is language-agnostic and relies on Claude's ability to:
-- Analyze code structure and patterns
-- Generate appropriate improvements
-- Run language-specific linting tools
+MMM is currently **Rust-focused** during early development as we refine the tool by using it to build itself. While the architecture is designed to be language-agnostic (our end goal), we're staying focused on Rust to ensure a solid foundation.
 
-Commonly used with:
-- **Rust**: cargo fmt, clippy, cargo test
+**Current Support:**
+- **Rust**: Full support with cargo fmt, clippy, cargo test
+
+**Planned Support:**
+We plan to expand to these languages as the tool matures:
 - **Python**: black, ruff, pytest
 - **JavaScript/TypeScript**: prettier, eslint, jest
 - **Go**: go fmt, go vet, go test
 - **Others**: Any language with linting/formatting tools
+
+The tool's core architecture is language-agnostic and relies on Claude's ability to analyze code structure, generate improvements, and run language-specific tooling.
 
 ## Safety
 

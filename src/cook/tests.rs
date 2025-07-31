@@ -506,9 +506,7 @@ commands:
         // Now test if it parses as WorkflowConfig directly
         let direct_parse: Result<WorkflowConfig, _> = serde_yaml::from_str(yaml);
         if let Err(e) = &direct_parse {
-            panic!(
-                "Failed to parse as WorkflowConfig: {e:?}\nYAML content:\n{yaml}"
-            );
+            panic!("Failed to parse as WorkflowConfig: {e:?}\nYAML content:\n{yaml}");
         }
 
         let config = direct_parse.unwrap();
