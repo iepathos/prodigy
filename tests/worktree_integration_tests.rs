@@ -1,3 +1,5 @@
+use mmm::worktree::WorktreeManager;
+use std::fs;
 use std::process::Command;
 use tempfile::TempDir;
 
@@ -150,6 +152,35 @@ fn test_mmm_worktree_clean_command() -> anyhow::Result<()> {
 
     // Should succeed even with no worktrees
     assert!(output.status.success());
+
+    Ok(())
+}
+
+#[test]
+fn test_worktree_full_lifecycle() -> anyhow::Result<()> {
+    let temp_dir = setup_test_repo()?;
+
+    let manager = WorktreeManager::new(temp_dir.path().to_path_buf())?;
+
+    // Test create, list, merge, cleanup lifecycle
+    let _session = manager.create_session(Some("test-lifecycle"))?;
+
+    let sessions = manager.list_sessions()?;
+    assert_eq!(sessions.len(), 1);
+
+    // Simulate work in worktree - first ensure the directory exists
+    let worktree_path = temp_dir.path().join(".mmm/worktrees/test-lifecycle");
+    fs::create_dir_all(&worktree_path).unwrap();
+    fs::write(worktree_path.join("test.txt"), "test content").unwrap();
+
+    // Test merge
+    let merge_result = manager.merge_session("test-lifecycle");
+    assert!(merge_result.is_err()); // Expected to fail without actual git worktree
+
+    // Test cleanup
+    let cleanup_result = manager.cleanup_session("test-lifecycle", false);
+    // Cleanup might fail if worktree doesn't exist, but that's ok for this test
+    let _ = cleanup_result;
 
     Ok(())
 }

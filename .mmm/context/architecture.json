@@ -4,73 +4,14 @@
   ],
   "layers": [],
   "components": {
-    "config": {
-      "name": "config",
-      "responsibility": "Configuration management",
-      "interfaces": [
-        "fn get_global_mmm_dir()",
-        "struct Config",
-        "struct GlobalConfig",
-        "struct ProjectConfig",
-        "struct PluginConfig",
-        "fn new()",
-        "fn merge_env_vars(&mut",
-        "fn get_claude_api_key(&self)",
-        "fn get_auto_commit(&self)",
-        "fn get_spec_dir(&self)"
-      ],
-      "dependencies": [
-        "anyhow",
-        "regex",
-        "serde",
-        "directories",
-        "once_cell",
-        "tokio",
-        "tempfile"
-      ]
-    },
-    "metrics": {
-      "name": "metrics",
+    "abstractions": {
+      "name": "abstractions",
       "responsibility": "Module functionality",
-      "interfaces": [
-        "struct ImprovementMetrics",
-        "fn new(iteration_id:",
-        "fn overall_score(&self)",
-        "struct MetricsComparison",
-        "trait MetricsAnalyzer",
-        "struct MetricsData",
-        "trait MetricsReporter"
-      ],
+      "interfaces": [],
       "dependencies": [
         "anyhow",
-        "tokio",
-        "tracing",
-        "serde",
-        "syn",
-        "chrono"
-      ]
-    },
-    "cook": {
-      "name": "cook",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn fn",
-        "fn fn"
-      ],
-      "dependencies": [
-        "serde",
-        "clap",
-        "anyhow",
-        "once_cell",
-        "tokio",
-        "tempfile",
-        "chrono",
-        "git_ops",
-        "retry",
-        "tracing",
-        "workflow",
-        "glob",
-        "signal_hook"
+        "async_trait",
+        "tokio"
       ]
     },
     "testing": {
@@ -109,16 +50,67 @@
         "tempfile"
       ]
     },
-    "init": {
-      "name": "init",
+    "worktree": {
+      "name": "worktree",
       "responsibility": "Module functionality",
       "interfaces": [
+        "struct WorktreeSession",
+        "fn new(name:"
+      ],
+      "dependencies": [
+        "tempfile",
+        "anyhow",
+        "chrono",
+        "uuid",
+        "serde"
+      ]
+    },
+    "config": {
+      "name": "config",
+      "responsibility": "Configuration management",
+      "interfaces": [
+        "fn get_global_mmm_dir()",
+        "struct Config",
+        "struct GlobalConfig",
+        "struct ProjectConfig",
+        "struct PluginConfig",
+        "fn new()",
+        "fn merge_env_vars(&mut",
+        "fn get_claude_api_key(&self)",
+        "fn get_auto_commit(&self)",
+        "fn get_spec_dir(&self)"
+      ],
+      "dependencies": [
+        "anyhow",
+        "regex",
+        "serde",
+        "directories",
+        "once_cell",
+        "tokio",
+        "tempfile"
+      ]
+    },
+    "cook": {
+      "name": "cook",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn",
         "fn fn"
       ],
       "dependencies": [
+        "serde",
         "clap",
         "anyhow",
-        "tempfile"
+        "once_cell",
+        "tokio",
+        "tempfile",
+        "chrono",
+        "git_ops",
+        "retry",
+        "tracing",
+        "workflow",
+        "glob",
+        "signal_hook"
       ]
     },
     "context": {
@@ -144,29 +136,16 @@
         "tempfile"
       ]
     },
-    "worktree": {
-      "name": "worktree",
+    "init": {
+      "name": "init",
       "responsibility": "Module functionality",
       "interfaces": [
-        "struct WorktreeSession",
-        "fn new(name:"
+        "fn fn"
       ],
       "dependencies": [
-        "tempfile",
+        "clap",
         "anyhow",
-        "chrono",
-        "uuid",
-        "serde"
-      ]
-    },
-    "abstractions": {
-      "name": "abstractions",
-      "responsibility": "Module functionality",
-      "interfaces": [],
-      "dependencies": [
-        "anyhow",
-        "async_trait",
-        "tokio"
+        "tempfile"
       ]
     },
     "analyze": {
@@ -191,6 +170,27 @@
         "serde",
         "chrono",
         "tempfile"
+      ]
+    },
+    "metrics": {
+      "name": "metrics",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct ImprovementMetrics",
+        "fn new(iteration_id:",
+        "fn overall_score(&self)",
+        "struct MetricsComparison",
+        "trait MetricsAnalyzer",
+        "struct MetricsData",
+        "trait MetricsReporter"
+      ],
+      "dependencies": [
+        "anyhow",
+        "tokio",
+        "tracing",
+        "serde",
+        "syn",
+        "chrono"
       ]
     }
   },

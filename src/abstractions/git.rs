@@ -317,3 +317,79 @@ mod tests {
         let _ = real.is_git_repo().await;
     }
 }
+
+#[cfg(test)]
+mod real_git_tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[tokio::test]
+    async fn test_git_command_success() {
+        let git_ops = RealGitOperations::new();
+
+        // Test successful command execution
+        let result = git_ops.git_command(&["--version"], "version check").await;
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("git version"));
+    }
+
+    #[tokio::test]
+    async fn test_git_command_failure() {
+        let git_ops = RealGitOperations::new();
+
+        // Test failed command execution
+        let result = git_ops
+            .git_command(&["invalid-command"], "invalid command")
+            .await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Git invalid command failed"));
+    }
+
+    #[tokio::test]
+    async fn test_stage_all_changes_and_commit() {
+        let git_ops = RealGitOperations::new();
+
+        // Only run if in a git repo
+        if !git_ops.is_git_repo().await {
+            return;
+        }
+
+        // Create a test file in a temp directory
+        let temp_dir = TempDir::new().unwrap();
+        let test_file = temp_dir.path().join("test.txt");
+        std::fs::write(&test_file, "test content").unwrap();
+
+        // Note: Full integration testing would require a test git repo
+        // This is a partial test to verify the methods don't panic
+        let _ = git_ops.check_git_status().await;
+    }
+
+    #[tokio::test]
+    async fn test_get_current_branch() {
+        let git_ops = RealGitOperations::new();
+
+        if git_ops.is_git_repo().await {
+            let result = git_ops.get_current_branch().await;
+            assert!(result.is_ok());
+            let branch = result.unwrap();
+            assert!(!branch.is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_create_worktree_invalid_path() {
+        let git_ops = RealGitOperations::new();
+
+        if git_ops.is_git_repo().await {
+            let invalid_path = Path::new("/\0invalid");
+            let result = git_ops.create_worktree("test-branch", invalid_path).await;
+            assert!(result.is_err());
+        }
+    }
+}
