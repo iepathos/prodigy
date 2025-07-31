@@ -224,33 +224,60 @@ impl BasicTechnicalDebtMapper {
         for line in function_content.lines() {
             let line = line.trim();
 
-            // Conditionals
-            if line.starts_with("if ") || line.contains(" if ") {
-                complexity += 1;
-            }
-
-            // Loops
-            if line.starts_with("for ") || line.starts_with("while ") || line.starts_with("loop ") {
-                complexity += 1;
-            }
-
-            // Match arms
-            if line.trim_end().ends_with(" => ") || line.trim_end().ends_with(" => {") {
-                complexity += 1;
-            }
-
-            // Early returns
-            if line.starts_with("return ") && !line.contains("fn ") {
-                complexity += 1;
-            }
-
-            // Error propagation
-            if line.contains("?") && !line.contains("Option<") && !line.contains("Result<") {
-                complexity += 1;
-            }
+            complexity += self.count_conditionals(line);
+            complexity += self.count_loops(line);
+            complexity += self.count_match_arms(line);
+            complexity += self.count_early_returns(line);
+            complexity += self.count_error_propagation(line);
         }
 
         complexity
+    }
+
+    /// Count conditional statements in a line
+    fn count_conditionals(&self, line: &str) -> u32 {
+        if line.starts_with("if ") || line.contains(" if ") {
+            1
+        } else {
+            0
+        }
+    }
+
+    /// Count loop statements in a line
+    fn count_loops(&self, line: &str) -> u32 {
+        if line.starts_with("for ") || line.starts_with("while ") || line.starts_with("loop ") {
+            1
+        } else {
+            0
+        }
+    }
+
+    /// Count match arms in a line
+    fn count_match_arms(&self, line: &str) -> u32 {
+        let trimmed = line.trim_end();
+        if trimmed.ends_with(" => ") || trimmed.ends_with(" => {") {
+            1
+        } else {
+            0
+        }
+    }
+
+    /// Count early returns in a line
+    fn count_early_returns(&self, line: &str) -> u32 {
+        if line.starts_with("return ") && !line.contains("fn ") {
+            1
+        } else {
+            0
+        }
+    }
+
+    /// Count error propagation operators in a line
+    fn count_error_propagation(&self, line: &str) -> u32 {
+        if line.contains("?") && !line.contains("Option<") && !line.contains("Result<") {
+            1
+        } else {
+            0
+        }
     }
 
     /// Extract functions and calculate complexity

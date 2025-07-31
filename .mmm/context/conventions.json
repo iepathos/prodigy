@@ -7,15 +7,6 @@
     "constant_naming": "ScreamingSnakeCase"
   },
   "code_patterns": {
-    "logging": {
-      "name": "Logging pattern",
-      "description": "Uses logging for debugging and monitoring",
-      "examples": [
-        "println!",
-        "log::info!"
-      ],
-      "frequency": 10
-    },
     "builder": {
       "name": "Builder pattern",
       "description": "Uses builder pattern for object construction",
@@ -31,6 +22,15 @@
         "Result<String, Error>"
       ],
       "frequency": 2
+    },
+    "logging": {
+      "name": "Logging pattern",
+      "description": "Uses logging for debugging and monitoring",
+      "examples": [
+        "println!",
+        "log::info!"
+      ],
+      "frequency": 10
     },
     "async": {
       "name": "Async/await pattern",

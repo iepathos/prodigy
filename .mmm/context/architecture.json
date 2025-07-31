@@ -27,6 +27,52 @@
         "tempfile"
       ]
     },
+    "cook": {
+      "name": "cook",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn",
+        "fn fn"
+      ],
+      "dependencies": [
+        "serde",
+        "clap",
+        "anyhow",
+        "once_cell",
+        "tokio",
+        "tempfile",
+        "chrono",
+        "git_ops",
+        "retry",
+        "tracing",
+        "workflow",
+        "glob",
+        "signal_hook"
+      ]
+    },
+    "abstractions": {
+      "name": "abstractions",
+      "responsibility": "Module functionality",
+      "interfaces": [],
+      "dependencies": [
+        "anyhow",
+        "async_trait",
+        "tokio"
+      ]
+    },
+    "simple_state": {
+      "name": "simple_state",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn init()"
+      ],
+      "dependencies": [
+        "anyhow",
+        "serde",
+        "chrono",
+        "tempfile"
+      ]
+    },
     "analyze": {
       "name": "analyze",
       "responsibility": "Module functionality",
@@ -36,6 +82,21 @@
       "dependencies": [
         "anyhow",
         "command"
+      ]
+    },
+    "worktree": {
+      "name": "worktree",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct WorktreeSession",
+        "fn new(name:"
+      ],
+      "dependencies": [
+        "tempfile",
+        "anyhow",
+        "chrono",
+        "uuid",
+        "serde"
       ]
     },
     "metrics": {
@@ -59,14 +120,41 @@
         "chrono"
       ]
     },
-    "abstractions": {
-      "name": "abstractions",
-      "responsibility": "Module functionality",
-      "interfaces": [],
+    "config": {
+      "name": "config",
+      "responsibility": "Configuration management",
+      "interfaces": [
+        "fn get_global_mmm_dir()",
+        "struct Config",
+        "struct GlobalConfig",
+        "struct ProjectConfig",
+        "struct PluginConfig",
+        "fn new()",
+        "fn merge_env_vars(&mut",
+        "fn get_claude_api_key(&self)",
+        "fn get_auto_commit(&self)",
+        "fn get_spec_dir(&self)"
+      ],
       "dependencies": [
         "anyhow",
-        "async_trait",
-        "tokio"
+        "regex",
+        "serde",
+        "directories",
+        "once_cell",
+        "tokio",
+        "tempfile"
+      ]
+    },
+    "init": {
+      "name": "init",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn"
+      ],
+      "dependencies": [
+        "clap",
+        "anyhow",
+        "tempfile"
       ]
     },
     "testing": {
@@ -102,94 +190,6 @@
       ],
       "dependencies": [
         "anyhow",
-        "tempfile"
-      ]
-    },
-    "init": {
-      "name": "init",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn fn"
-      ],
-      "dependencies": [
-        "clap",
-        "anyhow",
-        "tempfile"
-      ]
-    },
-    "worktree": {
-      "name": "worktree",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct WorktreeSession",
-        "fn new(name:"
-      ],
-      "dependencies": [
-        "tempfile",
-        "anyhow",
-        "chrono",
-        "uuid",
-        "serde"
-      ]
-    },
-    "cook": {
-      "name": "cook",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn fn",
-        "fn fn"
-      ],
-      "dependencies": [
-        "serde",
-        "clap",
-        "anyhow",
-        "once_cell",
-        "tokio",
-        "tempfile",
-        "chrono",
-        "git_ops",
-        "retry",
-        "tracing",
-        "workflow",
-        "glob",
-        "signal_hook"
-      ]
-    },
-    "simple_state": {
-      "name": "simple_state",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn init()"
-      ],
-      "dependencies": [
-        "anyhow",
-        "serde",
-        "chrono",
-        "tempfile"
-      ]
-    },
-    "config": {
-      "name": "config",
-      "responsibility": "Configuration management",
-      "interfaces": [
-        "fn get_global_mmm_dir()",
-        "struct Config",
-        "struct GlobalConfig",
-        "struct ProjectConfig",
-        "struct PluginConfig",
-        "fn new()",
-        "fn merge_env_vars(&mut",
-        "fn get_claude_api_key(&self)",
-        "fn get_auto_commit(&self)",
-        "fn get_spec_dir(&self)"
-      ],
-      "dependencies": [
-        "anyhow",
-        "regex",
-        "serde",
-        "directories",
-        "once_cell",
-        "tokio",
         "tempfile"
       ]
     }

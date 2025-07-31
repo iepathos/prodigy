@@ -254,75 +254,144 @@ impl WorkflowExecutor {
         &self,
         command: &crate::config::command::Command,
     ) -> Result<(bool, Option<String>)> {
-        // Build the full command display with args
-        let args_display = if !command.args.is_empty() {
-            let resolved_args: Vec<String> = command
-                .args
-                .iter()
-                .map(|arg| self.resolve_argument(arg))
-                .collect();
-            format!(" {}", resolved_args.join(" "))
-        } else {
-            String::new()
-        };
+        // Display command execution info
+        self.display_command_execution(command);
 
-        println!("🤖 Running /{}{args_display}", command.name);
-
-        // Skip actual execution in test mode
+        // Handle test mode execution
         if self.test_mode {
-            println!(
-                "[TEST MODE] Skipping Claude CLI execution for: {}",
-                command.name
-            );
-
-            // Check if we should simulate no changes for this command
-            if let Ok(no_changes_cmds) = std::env::var("MMM_TEST_NO_CHANGES_COMMANDS") {
-                if no_changes_cmds
-                    .split(',')
-                    .any(|cmd| cmd.trim() == command.name)
-                {
-                    println!("[TEST MODE] Simulating no changes for: {}", command.name);
-                    return Ok((false, None));
-                }
-            }
-
-            // Track focus if requested and this is the first command
-            if command.name == "mmm-code-review" {
-                if let Some(focus) = command.options.get("focus") {
-                    if let Some(focus_str) = focus.as_str() {
-                        if let Ok(track_file) = std::env::var("MMM_TRACK_FOCUS") {
-                            use std::io::Write;
-                            if let Ok(mut file) = std::fs::OpenOptions::new()
-                                .create(true)
-                                .append(true)
-                                .open(&track_file)
-                            {
-                                let _ = writeln!(file, "iteration: focus={focus_str}");
-                            }
-                        }
-                    }
-                }
-            }
-
-            return Ok((true, None));
+            return self.handle_test_mode_execution(command);
         }
 
-        // First check if claude command exists with improved error handling
+        // Execute the real command
+        self.execute_real_command(command).await
+    }
+
+    /// Display command execution information
+    fn display_command_execution(&self, command: &crate::config::command::Command) {
+        let args_display = self.format_command_args(command);
+        println!("🤖 Running /{}{args_display}", command.name);
+    }
+
+    /// Format command arguments for display
+    fn format_command_args(&self, command: &crate::config::command::Command) -> String {
+        if command.args.is_empty() {
+            return String::new();
+        }
+
+        let resolved_args: Vec<String> = command
+            .args
+            .iter()
+            .map(|arg| self.resolve_argument(arg))
+            .collect();
+        format!(" {}", resolved_args.join(" "))
+    }
+
+    /// Handle test mode execution
+    fn handle_test_mode_execution(
+        &self,
+        command: &crate::config::command::Command,
+    ) -> Result<(bool, Option<String>)> {
+        println!(
+            "[TEST MODE] Skipping Claude CLI execution for: {}",
+            command.name
+        );
+
+        // Check if we should simulate no changes
+        if self.should_simulate_no_changes(command) {
+            println!("[TEST MODE] Simulating no changes for: {}", command.name);
+            return Ok((false, None));
+        }
+
+        // Track focus for mmm-code-review if requested
+        if command.name == "mmm-code-review" {
+            self.track_focus_in_test_mode(command);
+        }
+
+        Ok((true, None))
+    }
+
+    /// Check if we should simulate no changes for a command in test mode
+    fn should_simulate_no_changes(&self, command: &crate::config::command::Command) -> bool {
+        if let Ok(no_changes_cmds) = std::env::var("MMM_TEST_NO_CHANGES_COMMANDS") {
+            return no_changes_cmds
+                .split(',')
+                .any(|cmd| cmd.trim() == command.name);
+        }
+        false
+    }
+
+    /// Track focus directive in test mode
+    fn track_focus_in_test_mode(&self, command: &crate::config::command::Command) {
+        if let Some(focus) = command.options.get("focus") {
+            if let Some(focus_str) = focus.as_str() {
+                if let Ok(track_file) = std::env::var("MMM_TRACK_FOCUS") {
+                    self.write_focus_to_file(&track_file, focus_str);
+                }
+            }
+        }
+    }
+
+    /// Write focus to tracking file
+    fn write_focus_to_file(&self, track_file: &str, focus_str: &str) {
+        use std::io::Write;
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(track_file)
+        {
+            let _ = writeln!(file, "iteration: focus={focus_str}");
+        }
+    }
+
+    /// Execute real command (not in test mode)
+    async fn execute_real_command(
+        &self,
+        command: &crate::config::command::Command,
+    ) -> Result<(bool, Option<String>)> {
+        // Check Claude CLI availability
         check_claude_cli().await?;
 
         if self.verbose {
             println!("🔧 Preparing to execute Claude CLI command...");
         }
 
-        // Build subprocess command
+        // Build and configure the command
+        let mut cmd = self.build_claude_command(command);
+
+        // Apply environment variables and options
+        self.apply_command_environment(&mut cmd, command);
+
+        // Execute with retry
+        let retries = command.metadata.retries.unwrap_or(2);
+        let output = execute_with_retry(
+            cmd,
+            &format!("command /{}", command.name),
+            retries,
+            self.verbose,
+        )
+        .await?;
+
+        // Process command output
+        self.process_command_output(command, output)
+    }
+
+    /// Build Claude subprocess command
+    fn build_claude_command(&self, command: &crate::config::command::Command) -> Command {
         let mut cmd = Command::new("claude");
         cmd.arg("--dangerously-skip-permissions")
             .arg("--print")
             .arg(format!("/{}", command.name))
             .env("MMM_AUTOMATION", "true");
+        cmd
+    }
 
-        // Add positional arguments with variable resolution
-        // Claude CLI expects arguments in the $ARGUMENTS environment variable
+    /// Apply environment variables and command options
+    fn apply_command_environment(
+        &self,
+        cmd: &mut Command,
+        command: &crate::config::command::Command,
+    ) {
+        // Add positional arguments
         if !command.args.is_empty() {
             let resolved_args: Vec<String> = command
                 .args
@@ -331,11 +400,10 @@ impl WorkflowExecutor {
                 .collect();
 
             if self.verbose {
-                let args_str = resolved_args.join(" ");
-                println!("  📌 Arguments: {args_str}");
+                println!("  📌 Arguments: {}", resolved_args.join(" "));
             }
 
-            // Set ARGUMENTS env var for Claude commands (they expect this)
+            // Set ARGUMENTS env var for Claude commands
             cmd.env("ARGUMENTS", resolved_args.join(" "));
 
             // Also add as command-line args for compatibility
@@ -344,8 +412,7 @@ impl WorkflowExecutor {
             }
         }
 
-        // Add options as environment variables or flags based on command definition
-        // For now, we'll use environment variables for specific options
+        // Add focus option if present
         if let Some(focus) = command.options.get("focus") {
             if let Some(focus_str) = focus.as_str() {
                 cmd.env("MMM_FOCUS", focus_str);
@@ -359,43 +426,59 @@ impl WorkflowExecutor {
         for (key, value) in &command.metadata.env {
             cmd.env(key, value);
         }
+    }
 
-        // Determine retry count
-        let retries = command.metadata.retries.unwrap_or(2);
-        // Timeout is available in metadata but not currently used by execute_with_retry
-        // let _timeout = command.metadata.timeout;
-
-        // Execute with retry logic for transient failures
-        let output = execute_with_retry(
-            cmd,
-            &format!("command /{}", command.name),
-            retries,
-            self.verbose,
-        )
-        .await?;
-
+    /// Process command output and handle errors
+    fn process_command_output(
+        &self,
+        command: &crate::config::command::Command,
+        output: std::process::Output,
+    ) -> Result<(bool, Option<String>)> {
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if !output.status.success() {
-            let error_msg = format_subprocess_error(
-                &format!("claude /{}", command.name),
-                output.status.code(),
-                &stderr,
-                &stdout,
-            );
-
-            // Check if we should continue on error
-            if command.metadata.continue_on_error.unwrap_or(false) {
-                eprintln!(
-                    "Warning: Command '{}' failed but continuing: {}",
-                    command.name, error_msg
-                );
-                return Ok((false, None));
-            }
-            return Err(anyhow!(error_msg));
+            return self.handle_command_failure(command, output.status.code(), &stderr, &stdout);
         }
 
+        self.handle_command_success(command, &stdout, &stderr);
+        Ok((true, Some(stdout.to_string())))
+    }
+
+    /// Handle command failure
+    fn handle_command_failure(
+        &self,
+        command: &crate::config::command::Command,
+        exit_code: Option<i32>,
+        stderr: &str,
+        stdout: &str,
+    ) -> Result<(bool, Option<String>)> {
+        let error_msg = format_subprocess_error(
+            &format!("claude /{}", command.name),
+            exit_code,
+            stderr,
+            stdout,
+        );
+
+        // Check if we should continue on error
+        if command.metadata.continue_on_error.unwrap_or(false) {
+            eprintln!(
+                "Warning: Command '{}' failed but continuing: {}",
+                command.name, error_msg
+            );
+            return Ok((false, None));
+        }
+
+        Err(anyhow!(error_msg))
+    }
+
+    /// Handle successful command execution
+    fn handle_command_success(
+        &self,
+        command: &crate::config::command::Command,
+        stdout: &str,
+        stderr: &str,
+    ) {
         if self.verbose {
             println!("✅ Command '{}' completed successfully", command.name);
             if !stdout.is_empty() {
@@ -407,8 +490,6 @@ impl WorkflowExecutor {
                 println!("{stderr}");
             }
         }
-
-        Ok((true, Some(stdout.to_string())))
     }
 
     /// Extract spec ID from git log (for mmm-implement-spec)

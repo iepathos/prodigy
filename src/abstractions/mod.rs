@@ -4,8 +4,9 @@
 //! (git, Claude CLI) to enable better testing and dependency injection.
 
 pub mod claude;
-mod exit_status;
+pub mod exit_status;
 pub mod git;
 
 pub use claude::{ClaudeClient, MockClaudeClient, RealClaudeClient};
+pub use exit_status::ExitStatusExt;
 pub use git::{GitOperations, MockGitOperations, RealGitOperations};
