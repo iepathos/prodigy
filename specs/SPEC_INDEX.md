@@ -43,6 +43,7 @@ Integration with external systems and cross-platform support.
 Test infrastructure and quality assurance.
 
 - **Spec 08**: Iterative Improvement Loop - Automated testing in loop ✅
+- **Spec 49**: Fix Test Coverage Analysis - Accurate coverage reporting (draft)
 
 ### Optimization Specifications
 Performance improvements and system efficiency.
@@ -82,7 +83,7 @@ Performance improvements and system efficiency.
 - Spec 28: Structured Command Objects
 - Spec 29: Centralized Worktree State
 
-### 📝 Draft (10 specs)
+### 📝 Draft (11 specs)
 - Spec 30: Interrupted Worktree Recovery
 - Spec 31: Product Management Command
 - Spec 32: CLI Help as Default
@@ -93,6 +94,7 @@ Performance improvements and system efficiency.
 - Spec 46: Real Metrics Tracking
 - Spec 47: Auto-Commit Analysis Changes
 - Spec 48: Command Chaining with Variables
+- Spec 49: Fix Test Coverage Analysis
 
 ### 🚧 In Progress (0 specs)
 None currently in progress.
@@ -154,15 +156,16 @@ Optimization Layer:
 ## Quick Reference
 
 ### Latest Specifications
+- Spec 49: Fix Test Coverage Analysis (draft) - Accurate coverage reporting
 - Spec 48: Command Chaining with Variables (draft) - Flexible data passing between commands
 - Spec 47: Auto-Commit Analysis Changes (draft) - Automatic git commits for analysis updates
 - Spec 46: Real Metrics Tracking (draft) - Quantitative improvement measurement
 - Spec 45: Context Window Management (draft) - Smart context selection
 - Spec 44: Context-Aware Project Understanding (draft) - Deep codebase analysis
 - Spec 34: Worktree Temp Spec Storage (draft) - Automatic cleanup for temp specs
-- Spec 33: Batch Spec Implementation (draft) - Implement multiple specs
 
 ### High Priority Specifications
+- Spec 49: Fix Test Coverage Analysis - Critical for accurate metrics
 - Spec 48: Command Chaining with Variables - Enables flexible workflow configuration
 - Spec 44: Context-Aware Project Understanding - Enables truly autonomous loops
 - Spec 45: Context Window Management - Maximizes Claude's effectiveness
