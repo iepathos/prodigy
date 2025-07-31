@@ -3,6 +3,7 @@
 commands:
     - name: mmm-coverage
       id: coverage
+      commit_required: false  # Coverage analysis doesn't create commits
       outputs:
         spec:
           file_pattern: "specs/temp/*-coverage-improvements.md"
@@ -16,3 +17,4 @@ commands:
               position: 0
     
     - name: mmm-lint
+      commit_required: false  # OK if no linting issues found

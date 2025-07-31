@@ -1,6 +1,11 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Default function for serde to return true
+fn default_true() -> bool {
+    true
+}
+
 /// Represents a command argument that can be a literal value or a variable
 #[derive(Debug, Clone, PartialEq)]
 pub enum CommandArg {
@@ -107,7 +112,7 @@ pub struct Command {
 ///
 /// Contains optional parameters that control how a command is executed,
 /// including retry behavior, timeouts, and error handling strategies.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandMetadata {
     /// Number of retry attempts (overrides global setting)
     pub retries: Option<u32>,
@@ -121,6 +126,22 @@ pub struct CommandMetadata {
     /// Environment variables to set
     #[serde(default)]
     pub env: HashMap<String, String>,
+
+    /// Whether this command is required to create commits (defaults to true)
+    #[serde(default = "default_true")]
+    pub commit_required: bool,
+}
+
+impl Default for CommandMetadata {
+    fn default() -> Self {
+        Self {
+            retries: None,
+            timeout: None,
+            continue_on_error: None,
+            env: HashMap::new(),
+            commit_required: true,
+        }
+    }
 }
 
 /// Declaration of a command output
@@ -183,6 +204,8 @@ pub struct SimpleCommand {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub focus: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commit_required: Option<bool>,
 }
 
 impl WorkflowCommand {
@@ -195,6 +218,9 @@ impl WorkflowCommand {
                 if let Some(focus) = &simple.focus {
                     cmd.options
                         .insert("focus".to_string(), serde_json::json!(focus));
+                }
+                if let Some(commit_required) = simple.commit_required {
+                    cmd.metadata.commit_required = commit_required;
                 }
                 cmd
             }
@@ -331,6 +357,7 @@ mod tests {
         let simple_obj = WorkflowCommand::SimpleObject(SimpleCommand {
             name: "mmm-code-review".to_string(),
             focus: Some("security".to_string()),
+            commit_required: None,
         });
         let cmd = simple_obj.to_command();
         assert_eq!(cmd.name, "mmm-code-review");
@@ -354,5 +381,69 @@ mod tests {
 
         assert_eq!(deserialized.name, cmd.name);
         assert_eq!(deserialized.options, cmd.options);
+    }
+
+    #[test]
+    fn test_commit_required_field() {
+        // Test default value
+        let cmd = Command::new("mmm-implement-spec");
+        assert_eq!(cmd.metadata.commit_required, true);
+
+        // Test SimpleCommand with commit_required set to false
+        let simple_obj = WorkflowCommand::SimpleObject(SimpleCommand {
+            name: "mmm-lint".to_string(),
+            focus: None,
+            commit_required: Some(false),
+        });
+        let cmd = simple_obj.to_command();
+        assert_eq!(cmd.name, "mmm-lint");
+        assert_eq!(cmd.metadata.commit_required, false);
+
+        // Test SimpleCommand with commit_required set to true
+        let simple_obj = WorkflowCommand::SimpleObject(SimpleCommand {
+            name: "mmm-fix".to_string(),
+            focus: None,
+            commit_required: Some(true),
+        });
+        let cmd = simple_obj.to_command();
+        assert_eq!(cmd.name, "mmm-fix");
+        assert_eq!(cmd.metadata.commit_required, true);
+
+        // Test SimpleCommand with commit_required not set (should default to true)
+        let simple_obj = WorkflowCommand::SimpleObject(SimpleCommand {
+            name: "mmm-refactor".to_string(),
+            focus: None,
+            commit_required: None,
+        });
+        let cmd = simple_obj.to_command();
+        assert_eq!(cmd.name, "mmm-refactor");
+        assert_eq!(cmd.metadata.commit_required, true);
+    }
+
+    #[test]
+    fn test_commit_required_serialization() {
+        // Test serialization and deserialization of SimpleCommand with commit_required
+        let simple_cmd = SimpleCommand {
+            name: "mmm-lint".to_string(),
+            focus: Some("performance".to_string()),
+            commit_required: Some(false),
+        };
+
+        let json = serde_json::to_string(&simple_cmd).unwrap();
+        assert!(json.contains("\"commit_required\":false"));
+
+        let deserialized: SimpleCommand = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.name, "mmm-lint");
+        assert_eq!(deserialized.focus, Some("performance".to_string()));
+        assert_eq!(deserialized.commit_required, Some(false));
+
+        // Test that commit_required is omitted when None
+        let simple_cmd_none = SimpleCommand {
+            name: "mmm-test".to_string(),
+            focus: None,
+            commit_required: None,
+        };
+        let json_none = serde_json::to_string(&simple_cmd_none).unwrap();
+        assert!(!json_none.contains("commit_required"));
     }
 }

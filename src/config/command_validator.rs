@@ -102,6 +102,7 @@ impl CommandRegistry {
                 timeout: Some(300),
                 continue_on_error: Some(false),
                 env: HashMap::new(),
+                commit_required: true,
             },
         });
 
@@ -121,6 +122,7 @@ impl CommandRegistry {
                 timeout: Some(600),
                 continue_on_error: Some(false),
                 env: HashMap::new(),
+                commit_required: true,
             },
         });
 
@@ -141,6 +143,7 @@ impl CommandRegistry {
                 timeout: Some(180),
                 continue_on_error: Some(true),
                 env: HashMap::new(),
+                commit_required: false,
             },
         });
 
@@ -170,6 +173,7 @@ impl CommandRegistry {
                 timeout: Some(300),
                 continue_on_error: Some(false),
                 env: HashMap::new(),
+                commit_required: true,
             },
         });
 
@@ -201,6 +205,7 @@ impl CommandRegistry {
                 timeout: Some(300),
                 continue_on_error: Some(false),
                 env: HashMap::new(),
+                commit_required: true,
             },
         });
     }

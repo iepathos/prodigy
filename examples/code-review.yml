@@ -3,6 +3,7 @@
 commands:
   - name: mmm-code-review
     id: review
+    commit_required: false  # Code review creates specs, not commits
     outputs:
       spec: 
         file_pattern: "specs/temp/*.md"
@@ -16,3 +17,4 @@ commands:
             position: 0
   
   - name: mmm-lint
+    commit_required: false  # OK if no linting issues found

@@ -110,6 +110,27 @@ commands:
   - mmm-lint --verbose  # String with flags
 ```
 
+### Commit Validation Configuration
+```yaml
+commands:
+  - name: mmm-code-review
+    commit_required: false  # Code review creates specs, not commits
+  - name: mmm-implement-spec
+    # commit_required: true is the default - implementation should create commits
+  - name: mmm-lint
+    commit_required: false  # OK if no linting issues found
+```
+
+Use `commit_required: false` for commands that may legitimately complete without creating commits:
+- Analysis commands (`mmm-code-review`, `mmm-analyze`, `mmm-coverage`)
+- Linting commands when code is already clean (`mmm-lint`)
+- Documentation generation when docs are up to date
+
+Leave as default (true) for commands that should always create changes:
+- Implementation commands (`mmm-implement-spec`, `mmm-fix`, `mmm-refactor`)
+- Feature additions (`mmm-add-feature`)
+- Bug fixes (`mmm-fix-bugs`)
+
 ## Available Claude Commands
 
 - `mmm-code-review` - General code analysis

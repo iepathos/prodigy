@@ -666,14 +666,8 @@ impl WorkflowExecutor {
 
     /// Check if a command is expected to create commits
     fn should_expect_commits(&self, command: &crate::config::command::Command) -> bool {
-        matches!(
-            command.name.as_str(),
-            "mmm-implement-spec"
-                | "mmm-cleanup-tech-debt"
-                | "mmm-lint"
-                | "mmm-fix"
-                | "mmm-refactor"
-        )
+        // Use the commit_required field from command metadata
+        command.metadata.commit_required
     }
 
     /// Handle the case where no commits were created when expected
@@ -683,15 +677,39 @@ impl WorkflowExecutor {
             command.name
         );
         eprintln!("\nThe command executed successfully but did not create any git commits.");
-        eprintln!("Possible reasons:");
-        eprintln!("- The specification may already be implemented");
-        eprintln!("- The command may have encountered an issue without reporting an error");
-        eprintln!("- No changes were needed");
-        eprintln!("\nTo investigate:");
-        eprintln!("- Check if the spec is already implemented");
-        eprintln!("- Review the command output above for any warnings");
-        eprintln!("- Run 'git status' to check for uncommitted changes");
-        eprintln!("\nTo continue anyway, run with MMM_NO_COMMIT_VALIDATION=true");
+
+        // Check if this is a command that might legitimately not create commits
+        if matches!(
+            command.name.as_str(),
+            "mmm-lint" | "mmm-code-review" | "mmm-analyze"
+        ) {
+            eprintln!(
+                "This may be expected if there were no {} to fix.",
+                if command.name == "mmm-lint" {
+                    "linting issues"
+                } else if command.name == "mmm-code-review" {
+                    "issues found"
+                } else {
+                    "changes needed"
+                }
+            );
+            eprintln!("\nTo allow this command to proceed without commits, add to your workflow:");
+            eprintln!("  - name: {}", command.name);
+            eprintln!("    commit_required: false");
+        } else {
+            eprintln!("Possible reasons:");
+            eprintln!("- The specification may already be implemented");
+            eprintln!("- The command may have encountered an issue without reporting an error");
+            eprintln!("- No changes were needed");
+            eprintln!("\nTo investigate:");
+            eprintln!("- Check if the spec is already implemented");
+            eprintln!("- Review the command output above for any warnings");
+            eprintln!("- Run 'git status' to check for uncommitted changes");
+        }
+
+        eprintln!(
+            "\nAlternatively, run with MMM_NO_COMMIT_VALIDATION=true to skip all validation."
+        );
 
         Err(anyhow!("No commits created by command /{}", command.name))
     }
@@ -1325,5 +1343,55 @@ mod tests {
         if let Some(dir) = original_dir {
             let _ = std::env::set_current_dir(dir);
         }
+    }
+
+    #[test]
+    fn test_should_expect_commits_respects_metadata() {
+        let config = create_test_workflow();
+        let executor = WorkflowExecutor::new_for_test(config, false, 1);
+
+        // Test command with commit_required = true (default)
+        let mut cmd = create_structured_command("mmm-implement-spec", vec![]);
+        assert!(executor.should_expect_commits(&cmd));
+
+        // Test command with commit_required = false
+        cmd.metadata.commit_required = false;
+        assert!(!executor.should_expect_commits(&cmd));
+
+        // Test another command with commit_required = false
+        let mut lint_cmd = create_structured_command("mmm-lint", vec![]);
+        lint_cmd.metadata.commit_required = false;
+        assert!(!executor.should_expect_commits(&lint_cmd));
+
+        // Test that default is true for any command
+        let review_cmd = create_structured_command("mmm-code-review", vec![]);
+        assert!(executor.should_expect_commits(&review_cmd));
+    }
+
+    #[test]
+    fn test_workflow_command_with_commit_required() {
+        use crate::config::command::SimpleCommand;
+
+        // Test SimpleCommand with commit_required = false
+        let simple_cmd = WorkflowCommand::SimpleObject(SimpleCommand {
+            name: "mmm-lint".to_string(),
+            focus: None,
+            commit_required: Some(false),
+        });
+
+        let cmd = simple_cmd.to_command();
+        assert_eq!(cmd.name, "mmm-lint");
+        assert_eq!(cmd.metadata.commit_required, false);
+
+        // Test SimpleCommand without commit_required (should default to true)
+        let simple_cmd_default = WorkflowCommand::SimpleObject(SimpleCommand {
+            name: "mmm-implement-spec".to_string(),
+            focus: None,
+            commit_required: None,
+        });
+
+        let cmd_default = simple_cmd_default.to_command();
+        assert_eq!(cmd_default.name, "mmm-implement-spec");
+        assert_eq!(cmd_default.metadata.commit_required, true);
     }
 }
