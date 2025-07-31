@@ -1,16 +1,11 @@
 # Custom analyzer workflow example
 # Shows how to create a workflow with custom commands
-workflow:
-  commands:
+commands:
     - name: custom-code-analyzer
       id: analyze
       outputs:
-        issues:
-          extract_from: stdout
         spec:
-          extract_from:
-            git_commit:
-              file_pattern: "analysis/*.md"
+          file_pattern: "analysis/*.md"
     
     - name: custom-fixer
       inputs:
@@ -19,15 +14,5 @@ workflow:
           pass_as:
             argument:
               position: 0
-        context:
-          from: "${analyze.issues}"
-          pass_as:
-            environment:
-              name: "ANALYSIS_CONTEXT"
               
     - name: custom-validator
-      inputs:
-        original_analysis:
-          from: "${analyze.issues}"
-          pass_as:
-            stdin

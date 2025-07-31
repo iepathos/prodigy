@@ -1,24 +1,14 @@
 # Test-driven development workflow
 # Focuses on improving test coverage and quality
-workflow:
-  commands:
+commands:
     - name: mmm-test-analysis
       id: analysis
       outputs:
-        gaps:
-          extract_from: stdout
         spec:
-          extract_from:
-            git_commit:
-              file_pattern: "specs/temp/*-test-improvements.md"
+          file_pattern: "specs/temp/*-test-improvements.md"
     
     - name: mmm-generate-tests
       inputs:
-        coverage_gaps:
-          from: "${analysis.gaps}"
-          pass_as:
-            environment:
-              name: "COVERAGE_GAPS"
         spec:
           from: "${analysis.spec}"
           pass_as:

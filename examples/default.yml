@@ -1,21 +1,18 @@
 # Default MMM playbook - the original hardcoded workflow
 # This is what was previously built into MMM
-workflow:
-  commands:
-    - name: mmm-code-review
-      id: review
-      outputs:
-        spec: 
-          extract_from: 
-            git_commit: 
-              file_pattern: "specs/temp/*.md"
-    
-    - name: mmm-implement-spec
-      inputs:
-        spec: 
-          from: "${review.spec}"
-          pass_as:
-            argument:
-              position: 0
-    
-    - name: mmm-lint
+commands:
+  - name: mmm-code-review
+    id: review
+    outputs:
+      spec: 
+        file_pattern: "specs/temp/*.md"
+  
+  - name: mmm-implement-spec
+    inputs:
+      spec: 
+        from: "${review.spec}"
+        pass_as:
+          argument:
+            position: 0
+  
+  - name: mmm-lint

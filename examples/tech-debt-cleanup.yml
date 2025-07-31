@@ -3,15 +3,12 @@
 #
 # Usage: mmm cook tech-debt-cleanup.yml --path /path/to/repo
 
-workflow:
-  commands:
+commands:
     - name: mmm-cleanup-tech-debt
       id: cleanup
       outputs:
         spec:
-          extract_from:
-            git_commit:
-              file_pattern: "specs/temp/iteration-*-tech-debt-cleanup.md"
+          file_pattern: "specs/temp/iteration-*-tech-debt-cleanup.md"
     
     - name: mmm-implement-spec
       inputs:

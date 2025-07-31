@@ -11,7 +11,7 @@ pub mod workflow;
 
 pub use command::{
     Command, CommandArg, CommandMetadata, InputMethod, InputReference, OutputDeclaration,
-    OutputSource, SimpleCommand, WorkflowCommand,
+    SimpleCommand, WorkflowCommand,
 };
 pub use command_parser::{expand_variables, parse_command_string};
 pub use command_validator::{apply_command_defaults, validate_command, CommandRegistry};

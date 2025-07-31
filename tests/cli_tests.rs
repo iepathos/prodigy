@@ -161,12 +161,22 @@ mod cook_dry_run_tests {
             .output()
             .expect("Failed to init git repo");
 
+        // Create a simple test playbook
+        std::fs::write(
+            temp_dir.path().join("test.yml"),
+            r#"commands:
+  - mmm-code-review
+  - mmm-lint"#,
+        )
+        .expect("Failed to write test playbook");
+
         // Set test mode to bypass Claude check
         env::set_var("MMM_TEST_MODE", "true");
 
         let mut cmd = Command::cargo_bin("mmm").unwrap();
         cmd.current_dir(temp_dir.path())
             .arg("cook")
+            .arg("test.yml")
             .env("MMM_TEST_MODE", "true")
             .assert()
             .success();

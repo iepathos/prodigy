@@ -113,28 +113,8 @@ pub struct CommandMetadata {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OutputDeclaration {
-    /// Type of output extraction
-    pub extract_from: OutputSource,
-
-    /// Optional pattern for extraction
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pattern: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum OutputSource {
-    /// Extract from git commit (e.g., spec files)
-    GitCommit { file_pattern: String },
-
-    /// Capture command stdout
-    Stdout,
-
-    /// Read from file path
-    File { path: String },
-
-    /// Set directly as variable
-    Variable { value: String },
+    /// File pattern for git commit extraction (since we only extract from git commits)
+    pub file_pattern: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -169,7 +149,7 @@ pub enum WorkflowCommand {
     /// Legacy string format
     Simple(String),
     /// Full structured format
-    Structured(Command),
+    Structured(Box<Command>),
     /// Simple object format with focus
     SimpleObject(SimpleCommand),
 }
@@ -193,7 +173,7 @@ impl WorkflowCommand {
                 }
                 cmd
             }
-            WorkflowCommand::Structured(c) => c.clone(),
+            WorkflowCommand::Structured(c) => *c.clone(),
         }
     }
 }
@@ -330,7 +310,7 @@ mod tests {
             Some(&serde_json::json!("security"))
         );
 
-        let structured = WorkflowCommand::Structured(Command::new("mmm-lint"));
+        let structured = WorkflowCommand::Structured(Box::new(Command::new("mmm-lint")));
         let cmd = structured.to_command();
         assert_eq!(cmd.name, "mmm-lint");
     }

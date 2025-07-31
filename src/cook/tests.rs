@@ -237,6 +237,288 @@ command = "/mmm-implement-spec"
 }
 
 #[cfg(test)]
+mod workflow_parsing_tests {
+    use crate::config::command::{InputMethod, WorkflowCommand};
+    use crate::config::workflow::WorkflowConfig;
+
+    #[test]
+    fn test_parse_simple_workflow_yaml() {
+        let yaml = r#"
+commands:
+  - mmm-code-review
+  - mmm-implement-spec
+  - mmm-lint
+"#;
+        let config: WorkflowConfig =
+            serde_yaml::from_str(yaml).expect("Failed to parse simple workflow");
+        assert_eq!(config.commands.len(), 3);
+
+        match &config.commands[0] {
+            WorkflowCommand::Simple(s) => assert_eq!(s, "mmm-code-review"),
+            _ => panic!("Expected Simple command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_structured_workflow_with_outputs() {
+        let yaml = r#"
+commands:
+  - name: mmm-code-review
+    id: review
+    outputs:
+      spec:
+        file_pattern: "specs/temp/*.md"
+"#;
+        let config: WorkflowConfig =
+            serde_yaml::from_str(yaml).expect("Failed to parse workflow with outputs");
+        assert_eq!(config.commands.len(), 1);
+
+        match &config.commands[0] {
+            WorkflowCommand::Structured(ref cmd) => {
+                assert_eq!(cmd.name, "mmm-code-review");
+                assert_eq!(cmd.id, Some("review".to_string()));
+                assert!(cmd.outputs.is_some());
+
+                let outputs = cmd.outputs.as_ref().unwrap();
+                assert!(outputs.contains_key("spec"));
+
+                let spec_output = &outputs["spec"];
+                assert_eq!(spec_output.file_pattern, "specs/temp/*.md");
+            }
+            _ => panic!("Expected Structured command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_workflow_with_inputs() {
+        let yaml = r#"
+commands:
+  - name: mmm-implement-spec
+    inputs:
+      spec:
+        from: "${review.spec}"
+        pass_as:
+          argument:
+            position: 0
+"#;
+        let config: WorkflowConfig =
+            serde_yaml::from_str(yaml).expect("Failed to parse workflow with inputs");
+        assert_eq!(config.commands.len(), 1);
+
+        match &config.commands[0] {
+            WorkflowCommand::Structured(ref cmd) => {
+                assert_eq!(cmd.name, "mmm-implement-spec");
+                assert!(cmd.inputs.is_some());
+
+                let inputs = cmd.inputs.as_ref().unwrap();
+                assert!(inputs.contains_key("spec"));
+
+                let spec_input = &inputs["spec"];
+                assert_eq!(spec_input.from, "${review.spec}");
+
+                match &spec_input.pass_as {
+                    InputMethod::Argument { position } => {
+                        assert_eq!(position, &0);
+                    }
+                    _ => panic!("Expected Argument input method"),
+                }
+            }
+            _ => panic!("Expected Structured command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_full_default_workflow() {
+        let yaml = r#"
+commands:
+  - name: mmm-code-review
+    id: review
+    outputs:
+      spec:
+        file_pattern: "specs/temp/*.md"
+  
+  - name: mmm-implement-spec
+    inputs:
+      spec:
+        from: "${review.spec}"
+        pass_as:
+          argument:
+            position: 0
+  
+  - name: mmm-lint
+"#;
+
+        let config: WorkflowConfig =
+            serde_yaml::from_str(yaml).expect("Failed to parse full workflow");
+
+        assert_eq!(config.commands.len(), 3);
+
+        // Verify first command
+        match &config.commands[0] {
+            WorkflowCommand::Structured(ref cmd) => {
+                assert_eq!(cmd.name, "mmm-code-review");
+                assert_eq!(cmd.id.as_ref().unwrap(), "review");
+                assert!(cmd.outputs.is_some());
+            }
+            _ => panic!("Expected Structured command for mmm-code-review"),
+        }
+
+        // Verify second command
+        match &config.commands[1] {
+            WorkflowCommand::Structured(ref cmd) => {
+                assert_eq!(cmd.name, "mmm-implement-spec");
+                assert!(cmd.inputs.is_some());
+            }
+            _ => panic!("Expected Structured command for mmm-implement-spec"),
+        }
+
+        // Verify third command - it's parsed as Structured because it has a "name" field
+        match &config.commands[2] {
+            WorkflowCommand::Structured(ref cmd) => {
+                assert_eq!(cmd.name, "mmm-lint");
+                assert!(cmd.id.is_none());
+                assert!(cmd.inputs.is_none());
+                assert!(cmd.outputs.is_none());
+            }
+            _ => panic!("Expected Structured command for mmm-lint"),
+        }
+    }
+
+    #[test]
+    fn test_parse_workflow_with_multiple_outputs() {
+        let yaml = r#"
+commands:
+  - name: custom-command
+    id: cmd
+    outputs:
+      spec:
+        file_pattern: "specs/*.md"
+      temp_spec:
+        file_pattern: "specs/temp/*.md"
+"#;
+        let config: WorkflowConfig =
+            serde_yaml::from_str(yaml).expect("Failed to parse workflow with multiple outputs");
+
+        match &config.commands[0] {
+            WorkflowCommand::Structured(ref cmd) => {
+                let outputs = cmd.outputs.as_ref().unwrap();
+                assert_eq!(outputs.len(), 2);
+
+                assert_eq!(outputs["spec"].file_pattern, "specs/*.md");
+                assert_eq!(outputs["temp_spec"].file_pattern, "specs/temp/*.md");
+            }
+            _ => panic!("Expected Structured command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_workflow_with_environment_input() {
+        let yaml = r#"
+commands:
+  - name: custom-command
+    inputs:
+      api_key:
+        from: "${config.api_key}"
+        pass_as:
+          environment:
+            name: "API_KEY"
+      data:
+        from: "${previous.output}"
+        pass_as: stdin
+        default: "default data"
+"#;
+        let config: WorkflowConfig =
+            serde_yaml::from_str(yaml).expect("Failed to parse workflow with env inputs");
+
+        match &config.commands[0] {
+            WorkflowCommand::Structured(ref cmd) => {
+                let inputs = cmd.inputs.as_ref().unwrap();
+
+                // Check environment input
+                let api_key = &inputs["api_key"];
+                match &api_key.pass_as {
+                    InputMethod::Environment { name } => assert_eq!(name, "API_KEY"),
+                    _ => panic!("Expected Environment input method"),
+                }
+
+                // Check stdin input with default
+                let data = &inputs["data"];
+                match &data.pass_as {
+                    InputMethod::Stdin => {}
+                    _ => panic!("Expected Stdin input method"),
+                }
+                assert_eq!(data.default.as_ref().unwrap(), "default data");
+            }
+            _ => panic!("Expected Structured command"),
+        }
+    }
+
+    #[test]
+    fn test_simplified_output_syntax() {
+        // Test that the simplified syntax with just file_pattern works
+        let yaml = r#"
+commands:
+  - name: mmm-code-review
+    id: review
+    outputs:
+      spec:
+        file_pattern: "specs/temp/*.md"
+"#;
+        let result: Result<WorkflowConfig, _> = serde_yaml::from_str(yaml);
+        assert!(result.is_ok(), "Should parse simplified syntax");
+
+        let config = result.unwrap();
+        match &config.commands[0] {
+            WorkflowCommand::Structured(ref cmd) => {
+                let outputs = cmd.outputs.as_ref().unwrap();
+                assert_eq!(outputs["spec"].file_pattern, "specs/temp/*.md");
+            }
+            _ => panic!("Expected Structured command"),
+        }
+    }
+
+    #[test]
+    fn test_load_playbook_structure() {
+        // Test the structure that would be in examples/default.yml
+        let yaml = r#"# Default MMM playbook - the original hardcoded workflow
+# This is what was previously built into MMM
+commands:
+  - name: mmm-code-review
+    id: review
+    outputs:
+      spec: 
+        file_pattern: "specs/temp/*.md"
+  
+  - name: mmm-implement-spec
+    inputs:
+      spec: 
+        from: "${review.spec}"
+        pass_as:
+          argument:
+            position: 0
+  
+  - name: mmm-lint
+"#;
+
+        // First, test if it parses as a generic YAML value
+        let value: Result<serde_yaml::Value, _> = serde_yaml::from_str(&yaml);
+        assert!(value.is_ok(), "Should parse as valid YAML");
+
+        // Now test if it parses as WorkflowConfig directly
+        let direct_parse: Result<WorkflowConfig, _> = serde_yaml::from_str(&yaml);
+        if let Err(e) = &direct_parse {
+            panic!(
+                "Failed to parse as WorkflowConfig: {:?}\nYAML content:\n{}",
+                e, yaml
+            );
+        }
+
+        let config = direct_parse.unwrap();
+        assert_eq!(config.commands.len(), 3);
+    }
+}
+
+#[cfg(test)]
 mod retry_tests {
     use crate::cook::retry::{format_subprocess_error, is_transient_error};
 

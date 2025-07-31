@@ -33,19 +33,17 @@ fn test_cook_multiple_iterations_with_focus() -> Result<()> {
     let test_file = temp_path.join("test.rs");
     fs::write(&test_file, "// Initial content\nfn main() {}\n")?;
 
-    // Create .mmm directory
+    // Create necessary directories
     fs::create_dir_all(temp_path.join(".mmm"))?;
+    fs::create_dir_all(temp_path.join("specs/temp"))?;
 
-    // Create a custom workflow configuration that uses the built-in commands
-    let workflow_config = r#"
-[workflow]
-commands = [
-    "mmm-code-review",
-    "mmm-implement-spec",
-    "mmm-lint"
-]
-"#;
-    fs::write(temp_path.join(".mmm/config.toml"), workflow_config)?;
+    // Create a simple test playbook
+    let playbook_path = temp_path.join("playbook.yml");
+    let playbook_content = r#"# Simple test playbook
+commands:
+  - name: mmm-code-review
+  - name: mmm-lint"#;
+    fs::write(&playbook_path, playbook_content)?;
 
     // Create mock slash commands that simulate Claude CLI behavior
     create_mock_commands(temp_path)?;
@@ -66,7 +64,14 @@ commands = [
         .current_dir(temp_path)
         .env("MMM_TEST_MODE", "true")
         .env("MMM_TEST_ITERATIONS", "true") // Enable iteration tracking
-        .args(["cook", "-n", "3", "-f", "documentation"])
+        .args([
+            "cook",
+            "-n",
+            "3",
+            "-f",
+            "documentation",
+            playbook_path.to_str().unwrap(),
+        ])
         .output()?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -133,16 +138,13 @@ fn test_cook_stops_early_when_no_changes() -> Result<()> {
     // Create .mmm directory and config
     fs::create_dir_all(temp_path.join(".mmm"))?;
 
-    // Create a workflow configuration (use default commands)
-    let workflow_config = r#"
-[workflow]
-commands = [
-    "mmm-code-review",
-    "mmm-implement-spec", 
-    "mmm-lint"
-]
-"#;
-    fs::write(temp_path.join(".mmm/config.toml"), workflow_config)?;
+    // Create a simple test playbook
+    let playbook_path = temp_path.join("playbook.yml");
+    let playbook_content = r#"# Simple test playbook
+commands:
+  - name: mmm-code-review
+  - name: mmm-lint"#;
+    fs::write(&playbook_path, playbook_content)?;
 
     create_mock_commands(temp_path)?;
 
@@ -167,7 +169,7 @@ commands = [
             "MMM_TEST_NO_CHANGES_COMMANDS",
             "mmm-code-review,mmm-implement-spec,mmm-lint",
         )
-        .args(["cook", "-n", "5"])
+        .args(["cook", "-n", "5", playbook_path.to_str().unwrap()])
         .output()?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -224,16 +226,13 @@ fn test_focus_applied_every_iteration() -> Result<()> {
 
     fs::create_dir_all(temp_path.join(".mmm"))?;
 
-    // Create a workflow configuration
-    let workflow_config = r#"
-[workflow]
-commands = [
-    "mmm-code-review",
-    "mmm-implement-spec",
-    "mmm-lint"
-]
-"#;
-    fs::write(temp_path.join(".mmm/config.toml"), workflow_config)?;
+    // Create a simple test playbook
+    let playbook_path = temp_path.join("playbook.yml");
+    let playbook_content = r#"# Simple test playbook
+commands:
+  - name: mmm-code-review
+  - name: mmm-lint"#;
+    fs::write(&playbook_path, playbook_content)?;
 
     // Create a tracking file for focus directive
     let focus_tracker = temp_path.join("focus_track.txt");
@@ -258,7 +257,14 @@ commands = [
         .current_dir(temp_path)
         .env("MMM_TEST_MODE", "true")
         .env("MMM_TRACK_FOCUS", focus_tracker.to_str().unwrap())
-        .args(["cook", "-n", "3", "-f", "security"])
+        .args([
+            "cook",
+            "-n",
+            "3",
+            "-f",
+            "security",
+            playbook_path.to_str().unwrap(),
+        ])
         .output()?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -351,6 +357,14 @@ fn test_cook_worktree_multiple_iterations() -> Result<()> {
     fs::create_dir_all(temp_path.join(".mmm"))?;
     fs::write(temp_path.join("test.rs"), "fn main() {}\n")?;
 
+    // Create a simple test playbook
+    let playbook_path = temp_path.join("playbook.yml");
+    let playbook_content = r#"# Simple test playbook
+commands:
+  - name: mmm-code-review
+  - name: mmm-lint"#;
+    fs::write(&playbook_path, playbook_content)?;
+
     Command::new("git")
         .current_dir(temp_path)
         .args(["add", "."])
@@ -372,6 +386,7 @@ fn test_cook_worktree_multiple_iterations() -> Result<()> {
             "3",
             "-f",
             "performance",
+            playbook_path.to_str().unwrap(),
         ])
         .output()?;
 

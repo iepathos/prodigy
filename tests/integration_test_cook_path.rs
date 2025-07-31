@@ -23,10 +23,20 @@ fn test_cook_without_path() {
     // Create a simple file
     fs::write(repo_path.join("test.rs"), "fn main() {}\n").unwrap();
 
+    // Create a test playbook
+    let playbook_path = repo_path.join("test.yml");
+    fs::write(&playbook_path, "commands:\n  - name: mmm-lint").unwrap();
+
     // Change to the directory and run mmm cook
     let mut cmd = Command::cargo_bin("mmm").unwrap();
     cmd.current_dir(repo_path)
-        .args(["cook", "--max-iterations", "0"])
+        .env("MMM_TEST_MODE", "true")
+        .args([
+            "cook",
+            "--max-iterations",
+            "0",
+            playbook_path.to_str().unwrap(),
+        ])
         .assert()
         .success();
 }
@@ -48,9 +58,21 @@ fn test_cook_with_absolute_path() {
     // Create a simple file
     fs::write(repo_path.join("test.rs"), "fn main() {}\n").unwrap();
 
+    // Create a test playbook
+    let playbook_path = repo_path.join("test.yml");
+    fs::write(&playbook_path, "commands:\n  - name: mmm-lint").unwrap();
+
     // Run mmm cook with absolute path
     let mut cmd = Command::cargo_bin("mmm").unwrap();
-    cmd.args(["cook", repo_path.to_str().unwrap(), "--max-iterations", "0"])
+    cmd.env("MMM_TEST_MODE", "true")
+        .args([
+            "cook",
+            "-p",
+            repo_path.to_str().unwrap(),
+            "--max-iterations",
+            "0",
+            playbook_path.to_str().unwrap(),
+        ])
         .assert()
         .success();
 }
@@ -74,10 +96,22 @@ fn test_cook_with_relative_path() {
     // Create a simple file
     fs::write(repo_path.join("test.rs"), "fn main() {}\n").unwrap();
 
+    // Create a test playbook
+    let playbook_path = repo_path.join("test.yml");
+    fs::write(&playbook_path, "commands:\n  - name: mmm-lint").unwrap();
+
     // Run mmm cook with relative path from parent directory
     let mut cmd = Command::cargo_bin("mmm").unwrap();
     cmd.current_dir(parent_path)
-        .args(["cook", "./myrepo", "--max-iterations", "0"])
+        .env("MMM_TEST_MODE", "true")
+        .args([
+            "cook",
+            "-p",
+            "./myrepo",
+            "--max-iterations",
+            "0",
+            "./myrepo/test.yml",
+        ])
         .assert()
         .success();
 }
@@ -85,8 +119,19 @@ fn test_cook_with_relative_path() {
 /// Test error when path does not exist
 #[test]
 fn test_cook_path_not_found() {
+    // Create a temp dir just for the playbook
+    let temp_dir = TempDir::new().unwrap();
+    let playbook_path = temp_dir.path().join("test.yml");
+    fs::write(&playbook_path, "commands:\n  - name: mmm-lint").unwrap();
+
     let mut cmd = Command::cargo_bin("mmm").unwrap();
-    cmd.args(["cook", "/path/that/does/not/exist"])
+    cmd.env("MMM_TEST_MODE", "true")
+        .args([
+            "cook",
+            "-p",
+            "/path/that/does/not/exist",
+            playbook_path.to_str().unwrap(),
+        ])
         .assert()
         .failure()
         .stderr(predicate::str::contains("Directory not found"));
@@ -100,8 +145,18 @@ fn test_cook_path_not_directory() {
     let file_path = temp_dir.path().join("file.txt");
     fs::write(&file_path, "content").unwrap();
 
+    // Create a test playbook
+    let playbook_path = temp_dir.path().join("test.yml");
+    fs::write(&playbook_path, "commands:\n  - name: mmm-lint").unwrap();
+
     let mut cmd = Command::cargo_bin("mmm").unwrap();
-    cmd.args(["cook", file_path.to_str().unwrap()])
+    cmd.env("MMM_TEST_MODE", "true")
+        .args([
+            "cook",
+            "-p",
+            file_path.to_str().unwrap(),
+            playbook_path.to_str().unwrap(),
+        ])
         .assert()
         .failure()
         .stderr(predicate::str::contains("Path is not a directory"));
@@ -114,8 +169,18 @@ fn test_cook_path_not_git_repo() {
     let temp_dir = TempDir::new().unwrap();
     let dir_path = temp_dir.path();
 
+    // Create a test playbook
+    let playbook_path = dir_path.join("test.yml");
+    fs::write(&playbook_path, "commands:\n  - name: mmm-lint").unwrap();
+
     let mut cmd = Command::cargo_bin("mmm").unwrap();
-    cmd.args(["cook", dir_path.to_str().unwrap()])
+    cmd.env("MMM_TEST_MODE", "true")
+        .args([
+            "cook",
+            "-p",
+            dir_path.to_str().unwrap(),
+            playbook_path.to_str().unwrap(),
+        ])
         .assert()
         .failure()
         .stderr(predicate::str::contains("Not a git repository"));
@@ -138,22 +203,29 @@ fn test_cook_path_with_flags() {
     // Create a simple file
     fs::write(repo_path.join("test.rs"), "fn main() {}\n").unwrap();
 
+    // Create a test playbook
+    let playbook_path = repo_path.join("test.yml");
+    fs::write(&playbook_path, "commands:\n  - name: mmm-lint").unwrap();
+
     // Run mmm cook with path and other flags
     let mut cmd = Command::cargo_bin("mmm").unwrap();
-    cmd.args([
-        "cook",
-        repo_path.to_str().unwrap(),
-        "--focus",
-        "security",
-        "--max-iterations",
-        "0",
-    ])
-    .assert()
-    .success()
-    .stdout(
-        predicate::str::contains("Starting improvement loop")
-            .or(predicate::str::contains("Focus: security")),
-    );
+    cmd.env("MMM_TEST_MODE", "true")
+        .args([
+            "cook",
+            "-p",
+            repo_path.to_str().unwrap(),
+            "--focus",
+            "security",
+            "--max-iterations",
+            "0",
+            playbook_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .stdout(
+            predicate::str::contains("Starting improvement loop")
+                .or(predicate::str::contains("Focus: security")),
+        );
 }
 
 /// Test tilde expansion in path (Unix only)
@@ -179,10 +251,26 @@ fn test_cook_path_tilde_expansion() {
     // Create a simple file
     fs::write(format!("{test_dir}/test.rs"), "fn main() {}\n").unwrap();
 
+    // Create a test playbook
+    fs::write(
+        format!("{test_dir}/test.yml"),
+        "commands:\n  - name: mmm-lint",
+    )
+    .unwrap();
+
     // Run mmm cook with tilde path
     let tilde_path = format!("~/mmm_test_repo_{}", std::process::id());
+    let playbook_path = format!("{test_dir}/test.yml");
     let mut cmd = Command::cargo_bin("mmm").unwrap();
-    cmd.args(["cook", &tilde_path, "--max-iterations", "0"])
+    cmd.env("MMM_TEST_MODE", "true")
+        .args([
+            "cook",
+            "-p",
+            &tilde_path,
+            "--max-iterations",
+            "0",
+            &playbook_path,
+        ])
         .assert()
         .success();
 

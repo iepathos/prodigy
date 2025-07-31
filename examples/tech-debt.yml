@@ -1,14 +1,11 @@
 # Tech debt cleanup workflow
 # Focuses on cleaning up technical debt in the codebase
-workflow:
-  commands:
+commands:
     - name: mmm-cleanup-tech-debt
       id: cleanup
       outputs:
         spec:
-          extract_from:
-            git_commit:
-              file_pattern: "specs/temp/*-tech-debt-cleanup.md"
+          file_pattern: "specs/temp/*-tech-debt-cleanup.md"
     
     - name: mmm-implement-spec
       inputs:

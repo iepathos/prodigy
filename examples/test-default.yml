@@ -1,0 +1,6 @@
+# Test default playbook
+workflow:
+  commands:
+    - name: mmm-code-review
+    - name: mmm-implement-spec
+    - name: mmm-lint

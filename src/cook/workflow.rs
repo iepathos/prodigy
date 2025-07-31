@@ -1,6 +1,6 @@
 use crate::config::command_validator::{apply_command_defaults, validate_command};
 use crate::config::{
-    command::{CommandArg, InputMethod, OutputDeclaration, OutputSource},
+    command::{CommandArg, InputMethod, OutputDeclaration},
     workflow::WorkflowConfig,
 };
 use crate::cook::git_ops::get_last_commit_message;
@@ -22,12 +22,13 @@ pub struct WorkflowExecutor {
 
 impl WorkflowExecutor {
     pub fn new(config: WorkflowConfig, verbose: bool, max_iterations: u32) -> Self {
+        let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
         Self {
             config,
             verbose,
             max_iterations,
             variables: HashMap::new(),
-            test_mode: false,
+            test_mode,
             command_outputs: HashMap::new(),
         }
     }
@@ -104,7 +105,8 @@ impl WorkflowExecutor {
                         input_ref
                             .default
                             .as_ref()
-                            .ok_or_else(|| anyhow!("No default value for input '{}'", input_name)).cloned()
+                            .ok_or_else(|| anyhow!("No default value for input '{}'", input_name))
+                            .cloned()
                     })
                     .context(format!("Failed to resolve input '{input_name}'"))?;
 
@@ -137,32 +139,15 @@ impl WorkflowExecutor {
         &mut self,
         command_id: &str,
         outputs: &HashMap<String, OutputDeclaration>,
-        stdout: &str,
+        _stdout: &str,
     ) -> Result<()> {
         let mut extracted = HashMap::new();
 
         for (output_name, output_decl) in outputs {
-            let value = match &output_decl.extract_from {
-                OutputSource::GitCommit { file_pattern } => {
-                    // Extract spec from git commit using the pattern
-                    self.extract_spec_from_git_pattern(file_pattern).await?
-                }
-                OutputSource::Stdout => {
-                    // Capture from command stdout
-                    stdout.to_string()
-                }
-                OutputSource::File { path } => {
-                    // Read file content
-                    tokio::fs::read_to_string(path)
-                        .await
-                        .context(format!("Failed to read file: {path}"))?
-                }
-                OutputSource::Variable { value } => {
-                    // Direct value
-                    value.clone()
-                }
-            };
-
+            // Since we only extract from git commits now, use the file_pattern directly
+            let value = self
+                .extract_spec_from_git_pattern(&output_decl.file_pattern)
+                .await?;
             extracted.insert(output_name.clone(), value);
         }
 
@@ -531,65 +516,6 @@ impl WorkflowExecutor {
     }
 }
 
-/// Get current git HEAD commit hash
-async fn get_git_head() -> Result<String> {
-    let mut cmd = tokio::process::Command::new("git");
-
-    // Try to set current dir, but if it fails, proceed without it (e.g., in tests)
-    if let Ok(dir) = std::env::current_dir() {
-        cmd.current_dir(dir);
-    }
-
-    let output = cmd.args(["rev-parse", "HEAD"]).output().await?;
-
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-    } else {
-        Err(anyhow!("Failed to get git HEAD"))
-    }
-}
-
-/// Extract spec file from a specific git commit
-async fn extract_spec_from_commit(commit_hash: &str) -> Result<Option<String>> {
-    // Get list of files changed in this commit
-    let mut cmd = tokio::process::Command::new("git");
-
-    // Try to set current dir, but if it fails, proceed without it (e.g., in tests)
-    if let Ok(dir) = std::env::current_dir() {
-        cmd.current_dir(dir);
-    }
-
-    let output = cmd
-        .args(["show", "--name-only", "--pretty=format:", commit_hash])
-        .output()
-        .await?;
-
-    if !output.status.success() {
-        return Ok(None);
-    }
-
-    let files = String::from_utf8_lossy(&output.stdout);
-
-    // Look for spec files in the commit
-    for line in files.lines() {
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-        if line.starts_with("specs/") && line.ends_with(".md") {
-            if let Some(filename) = line.split('/').next_back() {
-                let spec_id = filename.trim_end_matches(".md");
-                // Skip special files
-                if !matches!(spec_id, "SPEC_INDEX" | "README" | "index") {
-                    return Ok(Some(spec_id.to_string()));
-                }
-            }
-        }
-    }
-
-    Ok(None)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -780,243 +706,10 @@ mod tests {
 
         // Test Structured variant
         let structured_cmd = create_structured_command("structured-cmd", vec!["arg1".to_string()]);
-        let structured = WorkflowCommand::Structured(structured_cmd.clone());
+        let structured = WorkflowCommand::Structured(Box::new(structured_cmd.clone()));
         let converted = structured.to_command();
         assert_eq!(converted.name, "structured-cmd");
         assert_eq!(converted.args, vec![CommandArg::parse("arg1")]);
-    }
-
-    #[tokio::test]
-    async fn test_get_git_head() {
-        // This test requires a git repository
-        if let Ok(head) = get_git_head().await {
-            // Should be a 40-character hex string
-            assert_eq!(head.len(), 40);
-            assert!(head.chars().all(|c| c.is_ascii_hexdigit()));
-        }
-    }
-
-    #[tokio::test]
-    async fn test_extract_spec_from_commit() {
-        use std::fs;
-        use tempfile::TempDir;
-
-        // Create a temporary git repository
-        let temp_dir = TempDir::new().unwrap();
-        let repo_path = temp_dir.path();
-
-        // Initialize git repo
-        std::process::Command::new("git")
-            .current_dir(repo_path)
-            .args(["init"])
-            .output()
-            .expect("Failed to init git repo");
-
-        // Configure git user for the test repo
-        std::process::Command::new("git")
-            .current_dir(repo_path)
-            .args(["config", "user.email", "test@example.com"])
-            .output()
-            .expect("Failed to set git email");
-
-        std::process::Command::new("git")
-            .current_dir(repo_path)
-            .args(["config", "user.name", "Test User"])
-            .output()
-            .expect("Failed to set git name");
-
-        // Create specs directory
-        fs::create_dir_all(repo_path.join("specs")).unwrap();
-
-        // Create and commit a spec file
-        let spec_content = "# Test Spec\nThis is a test specification.";
-        fs::write(repo_path.join("specs/test-spec-123.md"), spec_content).unwrap();
-
-        std::process::Command::new("git")
-            .current_dir(repo_path)
-            .args(["add", "specs/test-spec-123.md"])
-            .output()
-            .expect("Failed to add file");
-
-        std::process::Command::new("git")
-            .current_dir(repo_path)
-            .args(["commit", "-m", "test: add test spec"])
-            .output()
-            .expect("Failed to commit");
-
-        // Get the commit hash
-        let output = std::process::Command::new("git")
-            .current_dir(repo_path)
-            .args(["rev-parse", "HEAD"])
-            .output()
-            .expect("Failed to get commit hash");
-
-        let commit_hash = String::from_utf8_lossy(&output.stdout).trim().to_string();
-
-        // Change to the test directory for the async command
-        let original_dir = std::env::current_dir().ok();
-        if std::env::set_current_dir(repo_path).is_err() {
-            // Skip test if we can't change directories
-            eprintln!("Skipping test: cannot change directory");
-            return;
-        }
-
-        // Test extracting spec from commit
-        let result = extract_spec_from_commit(&commit_hash).await.unwrap();
-
-        // Restore original directory if we had one
-        if let Some(dir) = original_dir {
-            let _ = std::env::set_current_dir(dir);
-        }
-
-        assert_eq!(result, Some("test-spec-123".to_string()));
-    }
-
-    #[tokio::test]
-    async fn test_extract_spec_from_commit_no_spec() {
-        use std::fs;
-        use tempfile::TempDir;
-
-        // Create a temporary git repository
-        let temp_dir = TempDir::new().unwrap();
-        let repo_path = temp_dir.path();
-
-        // Initialize git repo
-        std::process::Command::new("git")
-            .current_dir(repo_path)
-            .args(["init"])
-            .output()
-            .expect("Failed to init git repo");
-
-        // Configure git user
-        std::process::Command::new("git")
-            .current_dir(repo_path)
-            .args(["config", "user.email", "test@example.com"])
-            .output()
-            .expect("Failed to set git email");
-
-        std::process::Command::new("git")
-            .current_dir(repo_path)
-            .args(["config", "user.name", "Test User"])
-            .output()
-            .expect("Failed to set git name");
-
-        // Create and commit a non-spec file
-        fs::write(repo_path.join("README.md"), "# Readme").unwrap();
-
-        std::process::Command::new("git")
-            .current_dir(repo_path)
-            .args(["add", "README.md"])
-            .output()
-            .expect("Failed to add file");
-
-        std::process::Command::new("git")
-            .current_dir(repo_path)
-            .args(["commit", "-m", "test: add readme"])
-            .output()
-            .expect("Failed to commit");
-
-        // Get the commit hash
-        let output = std::process::Command::new("git")
-            .current_dir(repo_path)
-            .args(["rev-parse", "HEAD"])
-            .output()
-            .expect("Failed to get commit hash");
-
-        let commit_hash = String::from_utf8_lossy(&output.stdout).trim().to_string();
-
-        // Change to the test directory
-        let original_dir = std::env::current_dir().ok();
-        if std::env::set_current_dir(repo_path).is_err() {
-            // Skip test if we can't change directories
-            eprintln!("Skipping test: cannot change directory");
-            return;
-        }
-
-        // Test extracting spec from commit (should find nothing)
-        let result = extract_spec_from_commit(&commit_hash).await.unwrap();
-
-        // Restore original directory if we had one
-        if let Some(dir) = original_dir {
-            let _ = std::env::set_current_dir(dir);
-        }
-
-        assert_eq!(result, None);
-    }
-
-    #[tokio::test]
-    async fn test_extract_spec_from_commit_skip_special_files() {
-        use std::fs;
-        use tempfile::TempDir;
-
-        // Create a temporary git repository
-        let temp_dir = TempDir::new().unwrap();
-        let repo_path = temp_dir.path();
-
-        // Initialize git repo
-        std::process::Command::new("git")
-            .current_dir(repo_path)
-            .args(["init"])
-            .output()
-            .expect("Failed to init git repo");
-
-        // Configure git user
-        std::process::Command::new("git")
-            .current_dir(repo_path)
-            .args(["config", "user.email", "test@example.com"])
-            .output()
-            .expect("Failed to set git email");
-
-        std::process::Command::new("git")
-            .current_dir(repo_path)
-            .args(["config", "user.name", "Test User"])
-            .output()
-            .expect("Failed to set git name");
-
-        // Create specs directory
-        fs::create_dir_all(repo_path.join("specs")).unwrap();
-
-        // Create and commit SPEC_INDEX.md (should be skipped)
-        fs::write(repo_path.join("specs/SPEC_INDEX.md"), "# Index").unwrap();
-
-        std::process::Command::new("git")
-            .current_dir(repo_path)
-            .args(["add", "specs/SPEC_INDEX.md"])
-            .output()
-            .expect("Failed to add file");
-
-        std::process::Command::new("git")
-            .current_dir(repo_path)
-            .args(["commit", "-m", "test: add index"])
-            .output()
-            .expect("Failed to commit");
-
-        // Get the commit hash
-        let output = std::process::Command::new("git")
-            .current_dir(repo_path)
-            .args(["rev-parse", "HEAD"])
-            .output()
-            .expect("Failed to get commit hash");
-
-        let commit_hash = String::from_utf8_lossy(&output.stdout).trim().to_string();
-
-        // Change to the test directory
-        let original_dir = std::env::current_dir().ok();
-        if std::env::set_current_dir(repo_path).is_err() {
-            // Skip test if we can't change directories
-            eprintln!("Skipping test: cannot change directory");
-            return;
-        }
-
-        // Test extracting spec from commit (should skip SPEC_INDEX)
-        let result = extract_spec_from_commit(&commit_hash).await.unwrap();
-
-        // Restore original directory if we had one
-        if let Some(dir) = original_dir {
-            let _ = std::env::set_current_dir(dir);
-        }
-
-        assert_eq!(result, None);
     }
 
     #[tokio::test]
@@ -1090,7 +783,14 @@ mod tests {
         }
 
         // Simulate a spec being created by setting git HEAD before/after
-        let head_before = get_git_head().await.unwrap();
+        let head_before = std::process::Command::new("git")
+            .current_dir(repo_path)
+            .args(["rev-parse", "HEAD"])
+            .output()
+            .expect("Failed to get git HEAD");
+        let head_before = String::from_utf8_lossy(&head_before.stdout)
+            .trim()
+            .to_string();
 
         // Create a workflow executor
         let config = WorkflowConfig {
@@ -1117,11 +817,37 @@ mod tests {
             .output()
             .expect("Failed to commit spec");
 
-        let head_after = get_git_head().await.unwrap();
+        let head_after = std::process::Command::new("git")
+            .current_dir(repo_path)
+            .args(["rev-parse", "HEAD"])
+            .output()
+            .expect("Failed to get git HEAD");
+        let head_after = String::from_utf8_lossy(&head_after.stdout)
+            .trim()
+            .to_string();
 
         // Extract spec from the commit
         assert_ne!(head_before, head_after);
-        let spec_id = extract_spec_from_commit(&head_after).await.unwrap();
+
+        // Get files changed in the commit
+        let output = std::process::Command::new("git")
+            .current_dir(repo_path)
+            .args(["show", "--name-only", "--pretty=format:", &head_after])
+            .output()
+            .expect("Failed to get commit files");
+
+        let files = String::from_utf8_lossy(&output.stdout);
+        let mut spec_id = None;
+        for line in files.lines() {
+            let line = line.trim();
+            if line.starts_with("specs/") && line.ends_with(".md") {
+                if let Some(filename) = line.split('/').next_back() {
+                    spec_id = Some(filename.trim_end_matches(".md").to_string());
+                    break;
+                }
+            }
+        }
+
         assert_eq!(spec_id, Some("test-workflow-spec".to_string()));
 
         // Verify the executor would store this in variables

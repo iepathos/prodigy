@@ -1,17 +1,12 @@
 # Security-focused workflow
 # Analyzes code for security issues and applies fixes
-workflow:
-  commands:
+commands:
     - name: mmm-security-audit
       id: audit
       focus: security
       outputs:
         spec:
-          extract_from:
-            git_commit:
-              file_pattern: "specs/temp/*-security.md"
-        issues:
-          extract_from: stdout
+          file_pattern: "specs/temp/*-security.md"
     
     - name: mmm-implement-spec
       inputs:
@@ -20,16 +15,5 @@ workflow:
           pass_as:
             argument:
               position: 0
-        context:
-          from: "${audit.issues}"
-          pass_as:
-            environment:
-              name: "SECURITY_CONTEXT"
     
     - name: mmm-security-validate
-      inputs:
-        original_issues:
-          from: "${audit.issues}"
-          pass_as:
-            environment:
-              name: "ORIGINAL_ISSUES"
