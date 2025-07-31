@@ -20,7 +20,7 @@ Self-sufficient Claude development loops are fully autonomous improvement cycles
 
 ```bash
 # Start an autonomous improvement loop
-mmm cook
+mmm cook examples/default.yml
 ```
 
 Behind this simplicity, `mmm` handles all the complexity:
@@ -34,7 +34,7 @@ Behind this simplicity, `mmm` handles all the complexity:
 
 ## What It Does
 
-`mmm` orchestrates self-sufficient Claude development loops that continuously improve your codebase. Run `mmm cook` and it automatically:
+`mmm` orchestrates self-sufficient Claude development loops that continuously improve your codebase. Run `mmm cook <playbook>` and it automatically:
 
 1. **Reviews** code with Claude CLI and creates improvement specs
 2. **Implements** the improvements by applying fixes to your code
@@ -52,7 +52,7 @@ cd mmm
 cargo build --release
 
 # Add to PATH or use directly
-./target/release/mmm cook
+./target/release/mmm cook examples/default.yml
 ```
 
 ## Usage
@@ -62,40 +62,37 @@ cargo build --release
 # First time setup - install MMM commands in your project
 mmm init
 
-# Then cook your code to improve it
-mmm cook
+# Then cook your code to improve it with default workflow
+mmm cook examples/default.yml
 ```
 
 ### Basic Usage
 ```bash
-# Cook your code in current directory
-mmm cook
+# Cook your code in current directory with default workflow
+mmm cook examples/default.yml
 
 # Cook code in a specific directory
-mmm cook /path/to/repo
-mmm cook ./relative/path
-mmm cook ~/projects/myapp
+mmm cook examples/default.yml --path /path/to/repo
+mmm cook examples/default.yml --path ./relative/path
+mmm cook examples/default.yml --path ~/projects/myapp
 
 # Cook with a specific focus area
-mmm cook --focus security
+mmm cook examples/default.yml --focus security
 
 # Run with more iterations
-mmm cook --max-iterations 20
-
-# Use a custom workflow configuration
-mmm cook --config examples/security-workflow.yml
+mmm cook examples/default.yml --max-iterations 20
 
 # Run in an isolated git worktree for parallel execution
-mmm cook --worktree --focus performance
+mmm cook examples/default.yml --worktree --focus performance
 
 # Fully automated mode (auto-accept merge prompts)
-mmm cook --worktree --yes
+mmm cook examples/default.yml --worktree --yes
 
 # Process multiple files with mapping
-mmm cook --map "specs/*.md" --config examples/implement.yml
+mmm cook examples/implement.yml --map "specs/*.md"
 
 # See detailed progress
-mmm cook --verbose
+mmm cook examples/default.yml --verbose
 ```
 
 ### Focus Areas
@@ -126,7 +123,7 @@ Each step creates git commits for complete auditability.
 
 ```bash
 # Basic cooking run
-$ mmm cook
+$ mmm cook examples/default.yml
 🔍 Starting improvement loop...
 📋 Focus: None specified (general improvements)
 🔄 Iteration 1/10...
@@ -143,7 +140,7 @@ $ mmm cook
    Reason: No more issues found
 
 # Focused improvement with custom workflow
-$ mmm cook --config examples/security-workflow.yml
+$ mmm cook examples/security-workflow.yml --focus security
 📝 Starting workflow with 5 commands
 📋 Focus: security
 🔄 Workflow iteration 1/8...
@@ -155,7 +152,7 @@ $ mmm cook --config examples/security-workflow.yml
 ✅ Improvement session completed
 
 # Parallel worktree sessions
-$ mmm cook --worktree --focus performance
+$ mmm cook examples/default.yml --worktree --focus performance
 🌳 Created worktree: mmm-performance-1708123456 at ~/.mmm/worktrees/myproject/mmm-performance-1708123456
 🔄 Iteration 1/10...
 [... improvements run ...]
@@ -178,9 +175,9 @@ f6g7h8i review: generate improvement spec for iteration-1708123456-improvements
 
 ### Git-Native Architecture
 ```
-mmm cook
+mmm cook <playbook.yml>
     ↓
-Load configuration (workflow.yml or defaults)
+Load playbook configuration
     ↓
 ┌─────────────────── COOKING LOOP ──────────────────────┐
 │  Call claude /mmm-code-review                         │
@@ -237,10 +234,10 @@ Commonly used with:
 
 ### Configurable Workflows
 
-Create a `workflow.yml` file to customize the improvement workflow:
+Create custom playbook files to define your improvement workflows:
 
 ```yaml
-# workflow.yml
+# my-playbook.yml
 # Simple YAML format - dead simple and clean
 commands:
   - mmm-code-review
@@ -252,6 +249,11 @@ The default workflow runs these three commands in order:
 1. `mmm-code-review` - Analyzes code and generates improvement specs
 2. `mmm-implement-spec` - Implements the improvements (spec ID extracted automatically)
 3. `mmm-lint` - Runs formatting and linting
+
+Run your custom playbook:
+```bash
+mmm cook my-playbook.yml
+```
 
 You can create custom development loops by combining different Claude commands and focus areas.
 
@@ -320,14 +322,14 @@ Run multiple cooking sessions concurrently without conflicts:
 
 ```bash
 # Enable worktree mode for this cooking session
-mmm cook --worktree --focus "performance"
+mmm cook examples/default.yml --worktree --focus "performance"
 
 # In another terminal, run a different cooking focus
-mmm cook --worktree --focus "security"
+mmm cook examples/default.yml --worktree --focus "security"
 
 # Fully automated parallel sessions
-mmm cook --worktree --yes --focus "testing" &
-mmm cook --worktree --yes --focus "documentation" &
+mmm cook examples/default.yml --worktree --yes --focus "testing" &
+mmm cook examples/default.yml --worktree --yes --focus "documentation" &
 
 # List active worktree sessions
 mmm worktree list
