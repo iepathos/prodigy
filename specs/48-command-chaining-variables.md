@@ -9,15 +9,18 @@
 
 MMM currently has hardcoded behavior for extracting specs from git commits created by specific commands (mmm-code-review, mmm-cleanup-tech-debt) and passing them to mmm-implement-spec. This hardcoded approach limits flexibility and makes it difficult to create custom workflows with arbitrary commands that produce and consume specs or other outputs.
 
+Additionally, `mmm cook` has a default hardcoded workflow loop (code-review → implement-spec → lint) that should be replaced with an explicit workflow configuration.
+
 As the system evolves, users need the ability to:
 - Create custom Claude commands that generate specs
 - Chain commands together with data passing between them
 - Configure which commands produce specs and which consume them
 - Pass different types of outputs between commands (not just specs)
+- Always use explicit workflow configurations instead of hardcoded defaults
 
 ## Objective
 
-Implement a flexible command chaining system with variables that allows workflow configurations to define how data flows between commands, making spec generation and consumption configurable rather than hardcoded.
+Replace the hardcoded spec extraction and command execution logic with a flexible command chaining system using variables. Require explicit workflow configurations for all command execution, eliminating hardcoded defaults in `mmm cook`.
 
 ## Requirements
 
@@ -38,10 +41,11 @@ Implement a flexible command chaining system with variables that allows workflow
    - Support fallback values for missing variables
    - Validate variable references at workflow start
 
-4. **Backward Compatibility**
-   - Existing workflows without IDs/variables continue to work
-   - Default behavior for known commands (mmm-code-review → mmm-implement-spec)
-   - Gradual migration path for existing configurations
+4. **Playbook Requirement**
+   - Remove hardcoded default workflow from `mmm cook`
+   - Require playbook as positional argument for all operations
+   - Provide default playbooks in examples/
+   - Use intuitive naming: playbooks define workflows
 
 ### Non-Functional Requirements
 
@@ -49,6 +53,7 @@ Implement a flexible command chaining system with variables that allows workflow
 - Clarity: Variable syntax should be intuitive and readable
 - Flexibility: Support various data passing patterns
 - Reliability: Clear error messages for missing/invalid references
+- Explicitness: No hidden behavior - all workflows must be explicitly defined in playbooks
 
 ## Acceptance Criteria
 
@@ -59,7 +64,11 @@ Implement a flexible command chaining system with variables that allows workflow
 - [ ] Git commit spec extraction works via output declaration
 - [ ] File path outputs can be passed between commands
 - [ ] Command stdout can be captured and passed as input
-- [ ] Existing workflows continue functioning without changes
+- [ ] Hardcoded spec extraction logic removed from codebase
+- [ ] Hardcoded default workflow removed from mmm cook
+- [ ] Playbook is required positional argument for mmm cook
+- [ ] Path moved to --path/-p option
+- [ ] Default playbooks created in examples/
 - [ ] Clear error messages for unresolved variables
 - [ ] Documentation updated with examples
 
@@ -221,14 +230,36 @@ impl WorkflowExecutor {
    - Extract declared outputs
    - Store outputs for future references
 
-3. **Backward Compatibility Layer**
-   - Auto-generate IDs for commands without explicit IDs
-   - Default output extraction for known commands
-   - Implicit spec passing for mmm-implement-spec
+3. **Remove Hardcoded Logic**
+   - Delete extract_spec_from_git() function
+   - Remove special handling for mmm-code-review/mmm-cleanup-tech-debt
+   - Remove automatic spec passing to mmm-implement-spec
+   - Remove default workflow from cook command
 
-### Configuration Examples
+### Playbook Examples
 
 ```yaml
+# Default playbook (previously hardcoded) - save as examples/default.yml
+workflow:
+  commands:
+    - name: mmm-code-review
+      id: review
+      outputs:
+        spec: 
+          extract_from: 
+            git_commit: 
+              file_pattern: "specs/temp/*.md"
+    
+    - name: mmm-implement-spec
+      inputs:
+        spec: 
+          from: "${review.spec}"
+          pass_as:
+            argument:
+              position: 0
+    
+    - name: mmm-lint
+
 # Example 1: Explicit variable chaining
 workflow:
   commands:
@@ -276,12 +307,26 @@ workflow:
             environment:
               name: "ANALYSIS_CONTEXT"
 
-# Example 3: Backward compatible (works as before)
+# Example 3: Tech debt cleanup workflow
 workflow:
   commands:
-    - mmm-code-review
-    - mmm-implement-spec
-    - mmm-lint
+    - name: mmm-cleanup-tech-debt
+      id: cleanup
+      outputs:
+        spec:
+          extract_from:
+            git_commit:
+              file_pattern: "specs/temp/*-tech-debt-cleanup.md"
+    
+    - name: mmm-implement-spec
+      inputs:
+        spec:
+          from: "${cleanup.spec}"
+          pass_as:
+            argument:
+              position: 0
+    
+    - name: mmm-lint
 ```
 
 ## Dependencies
@@ -340,30 +385,42 @@ workflow:
    - Validate all variable references before execution
    - Provide helpful error messages with command context
    - Support --dry-run to validate workflows
+   - Clear error when no workflow config provided
 
 3. **Performance Considerations**
    - Cache resolved variables to avoid re-computation
    - Lazy evaluation where possible
-   - Minimal overhead for non-variable workflows
+   - No performance impact from removing hardcoded logic
 
-4. **Future Extensions**
+4. **CLI Changes**
+   - Change workflow config to positional argument: `mmm cook <playbook.yml>`
+   - Move current path argument to option: `--path` or `-p`
+   - Update CLI to error if no playbook provided
+   - Create comprehensive example playbooks
+
+5. **Future Extensions**
    - Array outputs for batch processing
    - Conditional execution based on variables
    - Variable transformations (uppercase, regex, etc.)
 
 ## Migration and Compatibility
 
-1. **Existing Workflows**
-   - Continue working without modification
-   - Implicit behavior for known command pairs
-   - Deprecation warnings for legacy patterns
+1. **Breaking Changes**
+   - `mmm cook` requires playbook as positional argument
+   - Path is now an option: `--path` or `-p`
+   - No default workflow - must specify playbook file
+   - Hardcoded spec extraction removed
+   - All spec passing must be explicit in playbook
 
 2. **Migration Path**
-   - Document how to convert implicit to explicit
-   - Provide migration tool/script if needed
-   - Phase out hardcoded behavior over time
+   - Users must create playbooks for their use cases
+   - New usage: `mmm cook default.yml --path /path/to/repo`
+   - Provide examples/default.yml for previous behavior
+   - Clear error messages guide users to provide playbook
+   - Examples demonstrate common patterns
 
-3. **Breaking Changes**
-   - None - fully backward compatible
-   - New features are opt-in via configuration
-   - Existing behavior preserved by default
+3. **Removed Code**
+   - extract_spec_from_git() and related functions
+   - Special handling in workflow.rs for specific commands
+   - Default workflow in cook command
+   - Hardcoded command relationships

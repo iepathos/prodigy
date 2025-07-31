@@ -1,12 +1,11 @@
-# Technical Debt Cleanup Workflow
-# Simple automated debt cleanup cycle
+# Technical Debt Cleanup Workflow (DEPRECATED)
+# This format is deprecated - use tech-debt-cleanup.yml instead
+# which uses the new variable chaining format
 
 commands:
   - mmm-cleanup-tech-debt
   - mmm-implement-spec  
   - mmm-lint
 
-# The tech debt cleanup cycle:
-# 1. Analyze technical debt and generate cleanup spec
-# 2. Implement the cleanup from generated spec  
-# 3. Run linting to ensure code quality
+# DEPRECATED: This workflow relies on hardcoded spec extraction
+# that will be removed. Please use tech-debt-cleanup.yml instead.
