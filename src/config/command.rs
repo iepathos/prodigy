@@ -54,6 +54,7 @@ impl CommandArg {
     }
 
     /// Parse from a string, detecting variables by $ prefix
+    #[must_use]
     pub fn parse(s: &str) -> Self {
         // Handle ${VAR} format
         if s.starts_with("${") && s.ends_with('}') {
@@ -185,6 +186,7 @@ pub struct SimpleCommand {
 }
 
 impl WorkflowCommand {
+    #[must_use]
     pub fn to_command(&self) -> Command {
         match self {
             WorkflowCommand::Simple(s) => Command::from_string(s),
@@ -216,6 +218,7 @@ impl Command {
     }
 
     /// Parse a command from a simple string format
+    #[must_use]
     pub fn from_string(s: &str) -> Self {
         // Use the command parser for proper argument handling
         match crate::config::command_parser::parse_command_string(s) {
@@ -242,18 +245,21 @@ impl Command {
     }
 
     /// Set retries
+    #[must_use]
     pub fn with_retries(mut self, retries: u32) -> Self {
         self.metadata.retries = Some(retries);
         self
     }
 
     /// Set timeout
+    #[must_use]
     pub fn with_timeout(mut self, timeout: u64) -> Self {
         self.metadata.timeout = Some(timeout);
         self
     }
 
     /// Set continue on error
+    #[must_use]
     pub fn with_continue_on_error(mut self, continue_on_error: bool) -> Self {
         self.metadata.continue_on_error = Some(continue_on_error);
         self

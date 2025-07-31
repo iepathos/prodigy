@@ -226,7 +226,7 @@ fn count_files(project_path: &Path) -> Result<usize> {
                 && name != "dist"
                 && name != "build"
         })
-        .filter_map(|e| e.ok())
+        .filter_map(std::result::Result::ok)
         .filter(|e| e.file_type().is_file())
         .count();
 

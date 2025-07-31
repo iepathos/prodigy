@@ -131,7 +131,7 @@ impl ConfigLoader {
     pub fn get_config(&self) -> Config {
         self.config
             .read()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clone()
     }
 }

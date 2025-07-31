@@ -468,7 +468,6 @@ impl WorkflowExecutor {
             );
             return Ok((false, None));
         }
-
         Err(anyhow!(error_msg))
     }
 

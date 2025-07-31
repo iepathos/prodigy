@@ -245,20 +245,20 @@ impl MetadataParser {
                 .unwrap_or_default()
                 .into_iter()
                 .filter(|arg| arg.required.unwrap_or(false))
-                .map(|arg| arg.into())
+                .map(std::convert::Into::into)
                 .collect(),
             optional_args: metadata
                 .arguments
                 .unwrap_or_default()
                 .into_iter()
                 .filter(|arg| !arg.required.unwrap_or(false))
-                .map(|arg| arg.into())
+                .map(std::convert::Into::into)
                 .collect(),
             options: metadata
                 .options
                 .unwrap_or_default()
                 .into_iter()
-                .map(|opt| opt.into())
+                .map(std::convert::Into::into)
                 .collect(),
             defaults: metadata.metadata.unwrap_or_default(),
         }
