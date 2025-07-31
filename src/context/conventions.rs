@@ -411,7 +411,6 @@ impl BasicConventionDetector {
         let mut test_file_pattern = "tests/".to_string();
         let test_function_prefix = "test_".to_string();
         let test_module_pattern = "#[cfg(test)]".to_string();
-        let assertion_style = "assert_eq!".to_string();
 
         // Check for different test configurations
         if project_path.join("tests").exists() {
@@ -420,7 +419,62 @@ impl BasicConventionDetector {
             test_file_pattern = "src/tests/".to_string();
         }
 
-        // TODO: Analyze actual test files to detect patterns
+        // Analyze actual test files to detect patterns
+        let test_dirs = vec![
+            project_path.join("tests"),
+            project_path.join("src/tests"),
+            project_path.join("src"),
+        ];
+
+        let mut test_patterns = Vec::new();
+        let mut assertion_styles = HashMap::new();
+
+        for dir in test_dirs {
+            if dir.exists() {
+                if let Ok(entries) = std::fs::read_dir(&dir) {
+                    for entry in entries.flatten() {
+                        if let Some(name) = entry.path().file_name() {
+                            let name_str = name.to_string_lossy();
+                            if name_str.ends_with(".rs")
+                                && (name_str.contains("test") || name_str.contains("spec"))
+                            {
+                                if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                                    // Detect test frameworks
+                                    if content.contains("#[test]")
+                                        || content.contains("#[cfg(test)]")
+                                    {
+                                        test_patterns.push("rust_native_tests".to_string());
+                                    }
+                                    if content.contains("proptest!") {
+                                        test_patterns.push("property_based_testing".to_string());
+                                    }
+                                    if content.contains("#[tokio::test]") {
+                                        test_patterns.push("async_testing".to_string());
+                                    }
+
+                                    // Count assertion styles
+                                    *assertion_styles.entry("assert!").or_insert(0) +=
+                                        content.matches("assert!").count();
+                                    *assertion_styles.entry("assert_eq!").or_insert(0) +=
+                                        content.matches("assert_eq!").count();
+                                    *assertion_styles.entry("assert_ne!").or_insert(0) +=
+                                        content.matches("assert_ne!").count();
+                                    *assertion_styles.entry("debug_assert!").or_insert(0) +=
+                                        content.matches("debug_assert!").count();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Determine most common assertion style
+        let assertion_style = assertion_styles
+            .into_iter()
+            .max_by_key(|(_, count)| *count)
+            .map(|(style, _)| style.to_string())
+            .unwrap_or_else(|| "assert_eq!".to_string());
 
         TestingConventions {
             test_file_pattern,

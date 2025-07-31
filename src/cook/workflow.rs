@@ -212,10 +212,12 @@ impl WorkflowExecutor {
             }
 
             // Check if this is the first command and we have a focus directive
-            if idx == 0 && focus.is_some() {
-                command
-                    .options
-                    .insert("focus".to_string(), serde_json::json!(focus.unwrap()));
+            if idx == 0 {
+                if let Some(focus_value) = focus {
+                    command
+                        .options
+                        .insert("focus".to_string(), serde_json::json!(focus_value));
+                }
             }
 
             // Execute the command and capture output
@@ -386,9 +388,8 @@ impl WorkflowExecutor {
                     command.name, error_msg
                 );
                 return Ok((false, None));
-            } else {
-                return Err(anyhow!(error_msg));
             }
+            return Err(anyhow!(error_msg));
         }
 
         if self.verbose {
@@ -412,32 +413,40 @@ impl WorkflowExecutor {
             println!("Extracting spec ID from git history...");
         }
 
-        // First check for uncommitted spec files (the review might have created but not committed them)
-        let uncommitted_output = tokio::process::Command::new("git")
+        // Try various methods to find spec files
+        if let Some(spec_id) = self.check_uncommitted_specs().await? {
+            return Ok(spec_id);
+        }
+
+        if let Some(spec_id) = self.check_committed_specs().await? {
+            return Ok(spec_id);
+        }
+
+        if let Some(spec_id) = self.check_recent_specs_after_review().await? {
+            return Ok(spec_id);
+        }
+
+        Ok(String::new()) // No spec found
+    }
+
+    /// Check for uncommitted spec files
+    async fn check_uncommitted_specs(&self) -> Result<Option<String>> {
+        let output = tokio::process::Command::new("git")
             .args(["ls-files", "--others", "--exclude-standard", "specs/"])
             .output()
             .await
             .context("Failed to check uncommitted files")?;
 
-        if uncommitted_output.status.success() {
-            let files = String::from_utf8_lossy(&uncommitted_output.stdout);
-            for line in files.lines() {
-                if line.ends_with(".md") {
-                    if let Some(filename) = line.split('/').next_back() {
-                        let spec_id = filename.trim_end_matches(".md");
-                        // Accept any .md file that's not a special file
-                        if !matches!(spec_id, "SPEC_INDEX" | "README" | "index") {
-                            if self.verbose {
-                                println!("Found uncommitted spec file: {spec_id}");
-                            }
-                            return Ok(spec_id.to_string());
-                        }
-                    }
-                }
-            }
+        if !output.status.success() {
+            return Ok(None);
         }
 
-        // Check the last commit for any new spec files in specs/
+        let files = String::from_utf8_lossy(&output.stdout);
+        self.find_spec_in_file_list(files.lines(), "uncommitted")
+    }
+
+    /// Check for spec files in the last commit
+    async fn check_committed_specs(&self) -> Result<Option<String>> {
         let output = tokio::process::Command::new("git")
             .args(["diff", "--name-only", "HEAD~1", "HEAD", "--", "specs/"])
             .output()
@@ -445,74 +454,76 @@ impl WorkflowExecutor {
             .context("Failed to get git diff")?;
 
         if !output.status.success() {
-            // If we can't diff (e.g., no HEAD~1), try checking what files exist
-            if let Ok(find_output) = tokio::process::Command::new("find")
-                .args(["specs/temp", "-name", "*.md", "-type", "f", "-mmin", "-5"])
-                .output()
-                .await
-            {
-                let files = String::from_utf8_lossy(&find_output.stdout);
-                for line in files.lines() {
-                    if let Some(filename) = line.split('/').next_back() {
-                        if filename.ends_with(".md") {
-                            let spec_id = filename.trim_end_matches(".md");
-                            if self.verbose {
-                                println!("Found recent spec file: {spec_id}");
-                            }
-                            return Ok(spec_id.to_string());
-                        }
-                    }
-                }
-            }
-            return Ok(String::new());
+            // If we can't diff (e.g., no HEAD~1), try checking recent files
+            return self.check_recent_spec_files("specs/temp").await;
         }
 
         let files = String::from_utf8_lossy(&output.stdout);
+        self.find_spec_in_file_list(
+            files.lines().filter(|line| line.starts_with("specs/")),
+            "commit",
+        )
+    }
 
-        // Look for new .md files anywhere in specs/ directory
-        for line in files.lines() {
-            if line.starts_with("specs/") && line.ends_with(".md") {
-                if let Some(filename) = line.split('/').next_back() {
-                    let spec_id = filename.trim_end_matches(".md");
-                    // Accept any .md file that's not a special file
-                    if !matches!(spec_id, "SPEC_INDEX" | "README" | "index") {
-                        if self.verbose {
-                            println!("Found new spec file in commit: {spec_id}");
-                        }
-                        return Ok(spec_id.to_string());
-                    }
-                }
-            }
-        }
-
-        // If no spec file in diff, check if this is a review commit
-        // and look for recently created spec files
+    /// Check for recently created spec files after a review commit
+    async fn check_recent_specs_after_review(&self) -> Result<Option<String>> {
         let commit_message = get_last_commit_message()
             .await
             .context("Failed to get git log")?;
 
         if commit_message.starts_with("review:") || commit_message.starts_with("cleanup:") {
-            if let Ok(find_output) = tokio::process::Command::new("find")
-                .args(["specs", "-name", "*.md", "-type", "f", "-mmin", "-5"])
-                .output()
-                .await
-            {
-                let files = String::from_utf8_lossy(&find_output.stdout);
-                for line in files.lines() {
-                    if let Some(filename) = line.split('/').next_back() {
-                        if filename.ends_with(".md") {
-                            let spec_id = filename.trim_end_matches(".md");
-                            if self.verbose {
-                                println!("Found recent spec file: {spec_id}");
-                            }
-                            return Ok(spec_id.to_string());
-                        }
-                    }
+            self.check_recent_spec_files("specs").await
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Check for recent spec files in a directory
+    async fn check_recent_spec_files(&self, directory: &str) -> Result<Option<String>> {
+        let output = match tokio::process::Command::new("find")
+            .args([directory, "-name", "*.md", "-type", "f", "-mmin", "-5"])
+            .output()
+            .await
+        {
+            Ok(output) => output,
+            Err(_) => return Ok(None), // find command not available, skip
+        };
+
+        let files = String::from_utf8_lossy(&output.stdout);
+        self.find_spec_in_file_list(files.lines(), "recent")
+    }
+
+    /// Extract spec ID from a list of file paths
+    fn find_spec_in_file_list<'a, I>(&self, files: I, context: &str) -> Result<Option<String>>
+    where
+        I: Iterator<Item = &'a str>,
+    {
+        for line in files {
+            if let Some(spec_id) = self.extract_spec_id_from_path(line) {
+                if self.verbose {
+                    println!("Found {context} spec file: {spec_id}");
                 }
+                return Ok(Some(spec_id));
             }
         }
+        Ok(None)
+    }
 
-        Ok(String::new()) // No spec found
+    /// Extract spec ID from a file path
+    fn extract_spec_id_from_path(&self, path: &str) -> Option<String> {
+        if !path.ends_with(".md") {
+            return None;
+        }
+
+        let filename = path.split('/').next_back()?;
+        let spec_id = filename.trim_end_matches(".md");
+
+        // Skip special files
+        if matches!(spec_id, "SPEC_INDEX" | "README" | "index") {
+            return None;
+        }
+
+        Some(spec_id.to_string())
     }
 }
 

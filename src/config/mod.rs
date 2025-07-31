@@ -25,6 +25,11 @@ pub fn get_global_mmm_dir() -> Result<PathBuf> {
         .ok_or_else(|| anyhow!("Could not determine home directory"))
 }
 
+/// Root configuration structure for MMM
+///
+/// Contains global settings, project-specific configuration,
+/// and workflow definitions. Supports hierarchical configuration
+/// with project settings overriding global defaults.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     pub global: GlobalConfig,
@@ -32,6 +37,11 @@ pub struct Config {
     pub workflow: Option<WorkflowConfig>,
 }
 
+/// Global configuration settings for MMM
+///
+/// These settings apply across all projects and can be overridden
+/// by project-specific configuration. Stored in the user's home
+/// directory under ~/.mmm/config.toml.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GlobalConfig {
     pub mmm_home: PathBuf,
@@ -43,6 +53,10 @@ pub struct GlobalConfig {
     pub plugins: Option<PluginConfig>,
 }
 
+/// Project-specific configuration settings
+///
+/// These settings override global configuration for a specific
+/// project. Stored in the project's .mmm/config.toml file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectConfig {
     pub name: String,
@@ -54,6 +68,11 @@ pub struct ProjectConfig {
     pub variables: Option<toml::Table>,
 }
 
+/// Plugin system configuration
+///
+/// Controls plugin discovery, loading, and execution.
+/// Plugins extend MMM's functionality with custom commands
+/// and workflows.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PluginConfig {
     pub enabled: bool,

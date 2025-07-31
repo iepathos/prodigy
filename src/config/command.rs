@@ -65,6 +65,11 @@ impl CommandArg {
     }
 }
 
+/// Structured command representation for workflow execution
+///
+/// Represents a fully-specified command with its arguments, options,
+/// inputs, outputs, and metadata. This is the primary command format
+/// for complex workflows with data flow between commands.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Command {
     /// The command name (e.g., "mmm-code-review")
@@ -95,6 +100,10 @@ pub struct Command {
     pub inputs: Option<HashMap<String, InputReference>>,
 }
 
+/// Metadata for command execution control
+///
+/// Contains optional parameters that control how a command is executed,
+/// including retry behavior, timeouts, and error handling strategies.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CommandMetadata {
     /// Number of retry attempts (overrides global setting)
@@ -111,12 +120,20 @@ pub struct CommandMetadata {
     pub env: HashMap<String, String>,
 }
 
+/// Declaration of a command output
+///
+/// Specifies how to extract and name outputs from command execution
+/// for use by subsequent commands in the workflow.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OutputDeclaration {
     /// File pattern for git commit extraction (since we only extract from git commits)
     pub file_pattern: String,
 }
 
+/// Reference to an output from a previous command
+///
+/// Specifies which command's output to use and how to pass it
+/// to the current command (via argument, environment, or stdin).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InputReference {
     /// Reference to output: "${command_id.output_name}"
@@ -154,6 +171,10 @@ pub enum WorkflowCommand {
     SimpleObject(SimpleCommand),
 }
 
+/// Simple command representation for basic workflows
+///
+/// Represents a command as a simple object with optional focus,
+/// used for backward compatibility and simple workflows.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimpleCommand {
     pub name: String,

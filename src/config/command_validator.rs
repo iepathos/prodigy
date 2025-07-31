@@ -3,6 +3,10 @@ use anyhow::{anyhow, Result};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 
+/// Definition of a command including its arguments, options, and metadata
+///
+/// This struct captures the complete specification of a command that can be
+/// executed within MMM workflows, including validation rules and defaults.
 #[derive(Debug, Clone)]
 pub struct CommandDefinition {
     pub name: String,
@@ -13,6 +17,10 @@ pub struct CommandDefinition {
     pub defaults: CommandMetadata,
 }
 
+/// Definition of a command argument
+///
+/// Represents a positional argument for a command, including its type
+/// and validation requirements.
 #[derive(Debug, Clone)]
 pub struct ArgumentDef {
     pub name: String,
@@ -20,6 +28,10 @@ pub struct ArgumentDef {
     pub arg_type: ArgumentType,
 }
 
+/// Definition of a command option (flag)
+///
+/// Represents an optional flag or parameter for a command, including
+/// its type, validation rules, and default value.
 #[derive(Debug, Clone)]
 pub struct OptionDef {
     pub name: String,
@@ -28,6 +40,9 @@ pub struct OptionDef {
     pub default: Option<serde_json::Value>,
 }
 
+/// Type specification for command arguments and options
+///
+/// Used for validation and type checking of command parameters.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ArgumentType {
     String,
@@ -37,6 +52,10 @@ pub enum ArgumentType {
     Enum(Vec<String>),
 }
 
+/// Registry of known commands and their specifications
+///
+/// Central repository for all available MMM commands, providing
+/// validation, defaults, and metadata for command execution.
 pub struct CommandRegistry {
     commands: HashMap<String, CommandDefinition>,
 }

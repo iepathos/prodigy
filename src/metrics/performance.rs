@@ -154,9 +154,14 @@ impl PerformanceProfiler {
             .current_dir(project_path)
             .output();
 
-        if output.is_err() || !output.unwrap().status.success() {
-            warn!("Benchmarks not available or failed to compile");
-            return Ok(results);
+        match output {
+            Ok(ref out) if out.status.success() => {
+                // Continue processing
+            }
+            _ => {
+                warn!("Benchmarks not available or failed to compile");
+                return Ok(results);
+            }
         }
 
         // For now, return placeholder data

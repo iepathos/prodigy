@@ -4,6 +4,13 @@ use std::path::Path;
 use std::sync::{Arc, RwLock};
 use tokio::fs;
 
+/// Configuration loader responsible for finding and loading MMM configuration files
+///
+/// This loader supports both TOML and YAML formats and implements a search hierarchy:
+/// 1. Explicit path provided by user
+/// 2. `.mmm/config.toml` in the project directory
+/// 3. Legacy `.mmm/workflow.toml` for backward compatibility
+/// 4. Default configuration when no file is found
 pub struct ConfigLoader {
     config: Arc<RwLock<Config>>,
 }
@@ -122,7 +129,10 @@ impl ConfigLoader {
         Ok(())
     }
     pub fn get_config(&self) -> Config {
-        self.config.read().expect("Config RwLock poisoned").clone()
+        self.config
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
     }
 }
 

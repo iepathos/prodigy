@@ -1,7 +1,7 @@
 //! Analyze command implementation
 
 use crate::context::{save_analysis, ContextAnalyzer, ProjectAnalyzer};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::path::PathBuf;
 
 /// Command structure for analyze subcommand
@@ -17,10 +17,10 @@ pub struct AnalyzeCommand {
 
 /// Execute the analyze command
 pub async fn execute(cmd: AnalyzeCommand) -> Result<()> {
-    let project_path = cmd
-        .path
-        .clone()
-        .unwrap_or_else(|| std::env::current_dir().unwrap());
+    let project_path = match cmd.path.clone() {
+        Some(path) => path,
+        None => std::env::current_dir().context("Failed to get current directory")?,
+    };
 
     println!("🔍 Analyzing project at: {}", project_path.display());
 

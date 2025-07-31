@@ -138,7 +138,7 @@ impl BasicTechnicalDebtMapper {
     pub fn find_debt_comments(&self, content: &str, filename: &str) -> Vec<DebtItem> {
         let path = Path::new(filename);
         tokio::runtime::Runtime::new()
-            .unwrap()
+            .unwrap_or_else(|e| panic!("Failed to create tokio runtime: {e}"))
             .block_on(self.extract_comments(path, content))
     }
 
@@ -175,8 +175,8 @@ impl BasicTechnicalDebtMapper {
             } else if line_upper.contains("HACK") {
                 (DebtType::Hack, "HACK")
             } else if line_upper.contains("XXX") {
-                (DebtType::Fixme, "XXX") // XXX is similar to FIXME
-            } else if line_upper.contains("DEPRECATED") {
+                (DebtType::Fixme, "XXX")
+            } else if line_upper.contains("DEPRECATED") || line_upper.contains("@DEPRECATED") {
                 (DebtType::Deprecated, "DEPRECATED")
             } else {
                 continue;

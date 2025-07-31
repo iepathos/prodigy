@@ -500,15 +500,14 @@ commands:
 "#;
 
         // First, test if it parses as a generic YAML value
-        let value: Result<serde_yaml::Value, _> = serde_yaml::from_str(&yaml);
+        let value: Result<serde_yaml::Value, _> = serde_yaml::from_str(yaml);
         assert!(value.is_ok(), "Should parse as valid YAML");
 
         // Now test if it parses as WorkflowConfig directly
-        let direct_parse: Result<WorkflowConfig, _> = serde_yaml::from_str(&yaml);
+        let direct_parse: Result<WorkflowConfig, _> = serde_yaml::from_str(yaml);
         if let Err(e) = &direct_parse {
             panic!(
-                "Failed to parse as WorkflowConfig: {:?}\nYAML content:\n{}",
-                e, yaml
+                "Failed to parse as WorkflowConfig: {e:?}\nYAML content:\n{yaml}"
             );
         }
 

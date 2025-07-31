@@ -357,14 +357,13 @@ impl WorktreeManager {
                         "Merge was not completed - Claude requires permission to proceed. \
                         Please run the command again and grant permission when prompted."
                     );
-                } else {
-                    anyhow::bail!(
-                        "Merge verification failed - branch '{}' is not merged into '{}'. \
-                        The merge may have been aborted or failed silently.",
-                        worktree_branch,
-                        target
-                    );
                 }
+                anyhow::bail!(
+                    "Merge verification failed - branch '{}' is not merged into '{}'. \
+                    The merge may have been aborted or failed silently.",
+                    worktree_branch,
+                    target
+                );
             }
         }
 
