@@ -88,10 +88,12 @@ fn test_git_command_exists() {
 #[cfg(test)]
 mod improve_command_tests {
     use mmm::cook::command::CookCommand;
+    use std::path::PathBuf;
 
     #[test]
     fn test_improve_command_creation() {
         let cmd = CookCommand {
+            playbook: PathBuf::from("examples/default.yml"),
             path: None,
             focus: None,
             config: None,
@@ -106,6 +108,7 @@ mod improve_command_tests {
             skip_analysis: false,
         };
 
+        assert_eq!(cmd.playbook, PathBuf::from("examples/default.yml"));
         assert!(cmd.path.is_none());
         assert!(cmd.focus.is_none());
         assert_eq!(cmd.max_iterations, 10);
@@ -114,6 +117,7 @@ mod improve_command_tests {
     #[test]
     fn test_improve_command_with_focus() {
         let cmd = CookCommand {
+            playbook: PathBuf::from("examples/default.yml"),
             path: None,
             focus: Some("performance".to_string()),
             config: None,
@@ -128,6 +132,7 @@ mod improve_command_tests {
             skip_analysis: false,
         };
 
+        assert_eq!(cmd.playbook, PathBuf::from("examples/default.yml"));
         assert!(cmd.path.is_none());
         assert_eq!(cmd.focus, Some("performance".to_string()));
         assert_eq!(cmd.max_iterations, 10);

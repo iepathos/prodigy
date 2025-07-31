@@ -9,7 +9,10 @@ pub mod command_validator;
 pub mod loader;
 pub mod workflow;
 
-pub use command::{Command, CommandArg, CommandMetadata, SimpleCommand, WorkflowCommand};
+pub use command::{
+    Command, CommandArg, CommandMetadata, InputMethod, InputReference, OutputDeclaration,
+    OutputSource, SimpleCommand, WorkflowCommand,
+};
 pub use command_parser::{expand_variables, parse_command_string};
 pub use command_validator::{apply_command_defaults, validate_command, CommandRegistry};
 pub use loader::ConfigLoader;

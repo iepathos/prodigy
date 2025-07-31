@@ -20,8 +20,17 @@ enum Commands {
     /// Cook your code to perfection (make it better)
     #[command(name = "cook", alias = "improve")]
     Cook {
+        /// Playbook file to execute (required)
+        #[arg(value_name = "PLAYBOOK", help = "Playbook file defining the workflow")]
+        playbook: PathBuf,
+
         /// Repository path to run in (defaults to current directory)
-        #[arg(value_name = "PATH", help = "Repository path to run in")]
+        #[arg(
+            short = 'p',
+            long,
+            value_name = "PATH",
+            help = "Repository path to run in"
+        )]
         path: Option<PathBuf>,
 
         /// Focus directive for analysis (e.g., "user experience", "performance")
@@ -158,6 +167,7 @@ async fn main() {
 
     let result = match cli.command {
         Some(Commands::Cook {
+            playbook,
             path,
             focus,
             config,
@@ -179,6 +189,7 @@ async fn main() {
             }
 
             let cook_cmd = mmm::cook::command::CookCommand {
+                playbook,
                 path,
                 focus,
                 config,

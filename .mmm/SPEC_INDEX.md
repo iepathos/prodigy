@@ -33,6 +33,7 @@ This file tracks the key specifications that shaped the current focused architec
 ## Implemented Core Features (continued)
 - **47**: `specs/47-cook-path-argument.md` - Add path argument to cook command for repository directory
 - **46**: `specs/46-real-metrics-tracking.md` - Real metrics tracking for code improvements
+- **48**: `specs/48-command-chaining-variables.md` - Command chaining with variables and playbook requirement
 
 ## Pending Specifications
 - **22**: `specs/22-configurable-iteration-limit.md` - Add --max-iterations flag
@@ -46,11 +47,12 @@ This file tracks the key specifications that shaped the current focused architec
 ## Current Focus
 
 The tool now focuses exclusively on:
-1. **Dead Simple CLI**: `mmm cook [--target 8.0] [--verbose] [--yes]`
+1. **Dead Simple CLI**: `mmm cook playbook.yml [-p path] [--verbose] [--yes]`
 2. **Real Functionality**: Actually calls Claude CLI and modifies files
 3. **Minimal State**: Just tracks what's needed for the loop
 4. **Clear Code**: Single module with straightforward logic
 5. **Working Loop**: Genuine self-sufficient improvement cycles
+6. **Flexible Workflows**: Playbook-driven with command chaining
 
 ## Abandoned Specifications
 

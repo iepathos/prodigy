@@ -8,7 +8,7 @@ pub mod workflow;
 #[cfg(test)]
 mod tests;
 
-use crate::config::{Config, ConfigLoader};
+use crate::config::{workflow::WorkflowConfig, Config, ConfigLoader};
 use crate::context::{save_analysis, ContextAnalyzer, ProjectAnalyzer};
 use crate::metrics::{MetricsCollector, MetricsHistory, MetricsStorage};
 use crate::simple_state::StateManager;
@@ -31,6 +31,25 @@ const DEFAULT_CLAUDE_RETRIES: u32 = 2;
 enum MergeChoice {
     Yes,
     No,
+}
+
+/// Load workflow configuration from a playbook file
+async fn load_playbook(path: &Path) -> Result<WorkflowConfig> {
+    let content = tokio::fs::read_to_string(path)
+        .await
+        .context(format!("Failed to read playbook file: {}", path.display()))?;
+
+    // Try to parse as YAML first, then fall back to JSON
+    if path.extension().and_then(|s| s.to_str()) == Some("yml")
+        || path.extension().and_then(|s| s.to_str()) == Some("yaml")
+    {
+        serde_yaml::from_str(&content)
+            .context(format!("Failed to parse YAML playbook: {}", path.display()))
+    } else {
+        // Default to JSON parsing
+        serde_json::from_str(&content)
+            .context(format!("Failed to parse JSON playbook: {}", path.display()))
+    }
 }
 
 /// Setup metrics collection based on command settings
@@ -290,63 +309,6 @@ fn create_mapping_variables(
     }
 
     variables
-}
-
-/// Run a single legacy workflow iteration
-async fn run_legacy_workflow_iteration(
-    cmd: &command::CookCommand,
-    iteration: u32,
-    verbose: bool,
-) -> Result<(bool, bool)> {
-    if verbose {
-        info!("🔄 Iteration {iteration}/{}...", cmd.max_iterations);
-    }
-
-    // Step 1: Generate review spec and commit
-    // Pass focus on every iteration to maintain consistent improvement direction
-    let focus_for_iteration = cmd.focus.as_deref();
-    let review_success = call_claude_code_review(verbose, focus_for_iteration).await?;
-    if !review_success {
-        if verbose {
-            info!("Review failed - stopping iterations");
-        }
-        return Ok((false, false));
-    }
-
-    // Step 2: Extract spec ID from latest commit
-    let spec_id = extract_spec_from_git(verbose).await?;
-    if spec_id.is_empty() {
-        if verbose {
-            info!("No issues found - stopping iterations");
-        }
-        return Ok((false, false));
-    }
-
-    // Step 3: Implement fixes and commit
-    let implement_success = call_claude_implement_spec(&spec_id, verbose).await?;
-    let mut files_changed = false;
-    if !implement_success {
-        if verbose {
-            info!("Implementation failed for iteration {iteration}");
-        }
-    } else {
-        files_changed = true;
-    }
-
-    // Step 4: Run linting/formatting and commit
-    let lint_success = call_claude_lint(verbose).await?;
-
-    // Check if any command made changes in this iteration
-    let any_changes = review_success || implement_success || lint_success;
-    if !any_changes {
-        if verbose {
-            info!("ℹ️  Iteration {iteration} completed with no changes - stopping early");
-            info!("   (This typically means no issues were found to fix)");
-        }
-        return Ok((false, files_changed));
-    }
-
-    Ok((true, files_changed))
 }
 
 /// Run comprehensive analysis including context and metrics for workflows
@@ -1258,72 +1220,51 @@ async fn run_improvement_loop(
     verbose: bool,
 ) -> Result<()> {
     // Setup phase
-    let (_project_path, config, _state) = setup_improvement_session(&cmd, verbose).await?;
+    let (_project_path, _config, _state) = setup_improvement_session(&cmd, verbose).await?;
     let _start_time = Utc::now();
 
     // Main improvement loop
     let mut iteration = 1;
     let mut files_changed: usize = 0;
 
-    // Check if we have a workflow configuration
-    if let Some(workflow_config) = config.workflow {
-        // Use configurable workflow
-        if verbose {
-            info!("Using custom workflow from configuration");
-        }
+    // Load playbook
+    let workflow_config = load_playbook(&cmd.playbook).await?;
+    if verbose {
+        info!("📖 Loaded playbook: {}", cmd.playbook.display());
+    }
 
-        let max_iterations = cmd.max_iterations;
-        let mut executor = WorkflowExecutor::new(workflow_config, verbose, max_iterations);
+    let max_iterations = cmd.max_iterations;
+    let mut executor = WorkflowExecutor::new(workflow_config, verbose, max_iterations);
 
-        while iteration <= max_iterations {
-            // Update worktree state before iteration
-            worktree_manager.update_session_state(&session.name, |state| {
-                state.iterations.completed = iteration - 1;
-                state.iterations.max = max_iterations;
-            })?;
+    while iteration <= max_iterations {
+        // Update worktree state before iteration
+        worktree_manager.update_session_state(&session.name, |state| {
+            state.iterations.completed = iteration - 1;
+            state.iterations.max = max_iterations;
+        })?;
 
-            // Execute workflow iteration
-            // Pass focus on every iteration to maintain consistent improvement direction
-            let focus_for_iteration = cmd.focus.as_deref();
+        // Execute workflow iteration
+        // Pass focus on every iteration to maintain consistent improvement direction
+        let focus_for_iteration = cmd.focus.as_deref();
 
-            let iteration_success = executor
-                .execute_iteration(iteration, focus_for_iteration)
-                .await?;
-            if !iteration_success {
-                println!("ℹ️  Iteration {iteration} completed with no changes - stopping early");
-                println!("   (This typically means no issues were found to fix)");
-                break;
-            }
-
-            files_changed += 1;
-
-            // Update stats after iteration
-            worktree_manager.update_session_state(&session.name, |state| {
-                state.stats.files_changed = files_changed as u32;
-                state.stats.commits += 3; // review + implement + lint
-            })?;
-
-            iteration += 1;
-        }
-    } else {
-        // Use legacy hardcoded workflow with refactored helper functions
-        while iteration <= cmd.max_iterations {
-            let continue_iteration = execute_workflow_iteration(
-                worktree_manager,
-                &session.name,
-                &cmd,
-                iteration,
-                &mut files_changed,
-                verbose,
-            )
+        let iteration_success = executor
+            .execute_iteration(iteration, focus_for_iteration)
             .await?;
-
-            if !continue_iteration {
-                break;
-            }
-
-            iteration += 1;
+        if !iteration_success {
+            println!("ℹ️  Iteration {iteration} completed with no changes - stopping early");
+            println!("   (This typically means no issues were found to fix)");
+            break;
         }
+
+        files_changed += 1;
+
+        // Update stats after iteration
+        worktree_manager.update_session_state(&session.name, |state| {
+            state.stats.files_changed = files_changed as u32;
+            state.stats.commits += 3; // review + implement + lint
+        })?;
+
+        iteration += 1;
     }
 
     // Final state update
@@ -1399,7 +1340,7 @@ async fn setup_improvement_environment(
 #[allow(clippy::too_many_arguments)]
 async fn run_improvement_iterations(
     cmd: &command::CookCommand,
-    config: &Config,
+    _config: &Config,
     variables: std::collections::HashMap<String, String>,
     files_changed: &mut usize,
     iteration: &mut u32,
@@ -1410,66 +1351,43 @@ async fn run_improvement_iterations(
 ) -> Result<u32> {
     let max_iterations = cmd.max_iterations;
 
-    if let Some(workflow_config) = config.workflow.clone() {
-        // Use configurable workflow
-        let mut executor = WorkflowExecutor::new(workflow_config, verbose, max_iterations)
-            .with_variables(variables);
+    // Load playbook
+    let workflow_config = load_playbook(&cmd.playbook).await?;
+    if verbose {
+        println!("📖 Loaded playbook: {}", cmd.playbook.display());
+    }
 
-        while *iteration <= max_iterations {
-            // Execute workflow iteration
-            let focus_for_iteration = cmd.focus.as_deref();
-            let iteration_success = executor
-                .execute_iteration(*iteration, focus_for_iteration)
-                .await?;
+    // Use configurable workflow
+    let mut executor =
+        WorkflowExecutor::new(workflow_config, verbose, max_iterations).with_variables(variables);
 
-            if !iteration_success {
-                println!("ℹ️  Iteration {iteration} completed with no changes - stopping early");
-                println!("   (This typically means no issues were found to fix)");
-                break;
-            }
-
-            *files_changed += 1;
-
-            // Collect metrics after iteration
-            maybe_collect_metrics(
-                cmd,
-                metrics_collector,
-                metrics_history,
-                project_path,
-                *iteration,
-                verbose,
-            )
+    while *iteration <= max_iterations {
+        // Execute workflow iteration
+        let focus_for_iteration = cmd.focus.as_deref();
+        let iteration_success = executor
+            .execute_iteration(*iteration, focus_for_iteration)
             .await?;
 
-            *iteration += 1;
+        if !iteration_success {
+            println!("ℹ️  Iteration {iteration} completed with no changes - stopping early");
+            println!("   (This typically means no issues were found to fix)");
+            break;
         }
-    } else {
-        // Use legacy hardcoded workflow
-        while *iteration <= cmd.max_iterations {
-            let (continue_loop, iteration_changed_files) =
-                run_legacy_workflow_iteration(cmd, *iteration, verbose).await?;
 
-            if !continue_loop {
-                break;
-            }
+        *files_changed += 1;
 
-            if iteration_changed_files {
-                *files_changed += 1;
-            }
+        // Collect metrics after iteration
+        maybe_collect_metrics(
+            cmd,
+            metrics_collector,
+            metrics_history,
+            project_path,
+            *iteration,
+            verbose,
+        )
+        .await?;
 
-            // Collect metrics after iteration
-            maybe_collect_metrics(
-                cmd,
-                metrics_collector,
-                metrics_history,
-                project_path,
-                *iteration,
-                verbose,
-            )
-            .await?;
-
-            *iteration += 1;
-        }
+        *iteration += 1;
     }
 
     Ok(*iteration - 1)
@@ -2155,60 +2073,46 @@ async fn run_improvement_loop_with_variables(
     let mut iteration = 1;
     let files_changed = 0;
 
-    // Load configuration (with workflow if present)
-    let config_loader = ConfigLoader::new().await?;
-    config_loader
-        .load_with_explicit_path(Path::new("."), cmd.config.as_deref())
-        .await?;
-    let config = config_loader.get_config();
+    // Load playbook
+    let workflow_config = load_playbook(&cmd.playbook).await?;
+    if verbose {
+        info!("📖 Loaded playbook: {}", cmd.playbook.display());
+    }
 
-    // Check if we have a workflow configuration
-    if let Some(workflow_config) = config.workflow {
-        // Use configurable workflow
-        if verbose {
-            info!("Using custom workflow from configuration");
-        }
+    let max_iterations = cmd.max_iterations;
+    let mut executor =
+        WorkflowExecutor::new(workflow_config, verbose, max_iterations).with_variables(variables);
 
-        let max_iterations = cmd.max_iterations;
-        let mut executor = WorkflowExecutor::new(workflow_config, verbose, max_iterations)
-            .with_variables(variables);
-
-        while iteration <= max_iterations {
-            // Update worktree state before iteration
-            worktree_manager.update_session_state(&session.name, |state| {
-                state.iterations.completed = iteration - 1;
-                state.iterations.max = max_iterations;
-            })?;
-
-            // Execute workflow iteration
-            // Pass focus on every iteration to maintain consistent improvement direction
-            let focus_for_iteration = cmd.focus.as_deref();
-
-            let iteration_success = executor
-                .execute_iteration(iteration, focus_for_iteration)
-                .await?;
-            if !iteration_success {
-                println!("ℹ️  Iteration {iteration} completed with no changes - stopping early");
-                println!("   (This typically means no issues were found to fix)");
-                break;
-            }
-
-            iteration += 1;
-        }
-
-        // Final state update
+    while iteration <= max_iterations {
+        // Update worktree state before iteration
         worktree_manager.update_session_state(&session.name, |state| {
             state.iterations.completed = iteration - 1;
-            state.stats.files_changed = files_changed as u32;
+            state.iterations.max = max_iterations;
         })?;
 
-        Ok(())
-    } else {
-        // Legacy hardcoded workflow - not recommended but kept for compatibility
-        Err(anyhow!(
-            "No workflow configuration found. Please provide a workflow configuration file."
-        ))
+        // Execute workflow iteration
+        // Pass focus on every iteration to maintain consistent improvement direction
+        let focus_for_iteration = cmd.focus.as_deref();
+
+        let iteration_success = executor
+            .execute_iteration(iteration, focus_for_iteration)
+            .await?;
+        if !iteration_success {
+            println!("ℹ️  Iteration {iteration} completed with no changes - stopping early");
+            println!("   (This typically means no issues were found to fix)");
+            break;
+        }
+
+        iteration += 1;
     }
+
+    // Final state update
+    worktree_manager.update_session_state(&session.name, |state| {
+        state.iterations.completed = iteration - 1;
+        state.stats.files_changed = files_changed as u32;
+    })?;
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -2219,6 +2123,7 @@ mod cook_inline_tests {
 
     fn create_test_command(worktree: bool, max_iterations: u32) -> command::CookCommand {
         command::CookCommand {
+            playbook: PathBuf::from("examples/default.yml"),
             path: None,
             max_iterations,
             worktree,

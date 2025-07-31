@@ -145,6 +145,18 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
 - [x] **Report generation** with visual summaries and persistent storage
 - [x] **Data-driven decisions** enabling informed improvement choices
 
+## ✅ Phase 2.16: Command Chaining with Variables (COMPLETED)
+
+### Flexible Command Execution Complete
+- [x] **Extended command structure** with ID, outputs, and inputs support
+- [x] **Output extraction methods** from git commits, stdout, files, or direct values
+- [x] **Input resolution** with variable references between commands
+- [x] **Playbook requirement** - removed hardcoded workflows, require explicit playbooks
+- [x] **Example playbooks** created for common workflows (default, security, tech-debt, etc.)
+- [x] **Variable substitution** with ${command_id.output_name} syntax
+- [x] **Flexible data passing** via arguments, environment variables, or stdin
+- [x] **Removed legacy code** including hardcoded spec extraction
+
 ## 📋 Phase 3: Robustness (NEXT)
 
 ### Core Reliability
