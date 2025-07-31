@@ -103,6 +103,7 @@ mod improve_command_tests {
             auto_accept: false,
             metrics: false,
             resume: None,
+            skip_analysis: false,
         };
 
         assert!(cmd.path.is_none());
@@ -124,6 +125,7 @@ mod improve_command_tests {
             auto_accept: false,
             metrics: false,
             resume: None,
+            skip_analysis: false,
         };
 
         assert!(cmd.path.is_none());
