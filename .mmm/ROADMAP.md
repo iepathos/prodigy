@@ -217,6 +217,13 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
   - Support for command-specific options and metadata
   - Maintain backward compatibility with string-based configs
 
+- [ ] **Dynamic Command Discovery** (Spec 49)
+  - Replace hardcoded command registry with dynamic discovery system
+  - Automatically detect and load commands from .claude/commands directory
+  - Support frontmatter metadata and section-based parsing
+  - Maintain backward compatibility with existing workflows
+  - Enable seamless addition of custom commands without code changes
+
 - [x] **Unified Improve Command with Mapping** (Spec 35) ✅
   - Added --map flag to improve command for file pattern processing
   - Removed separate implement subcommand
