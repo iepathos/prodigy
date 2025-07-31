@@ -4,16 +4,6 @@
   ],
   "layers": [],
   "components": {
-    "abstractions": {
-      "name": "abstractions",
-      "responsibility": "Module functionality",
-      "interfaces": [],
-      "dependencies": [
-        "anyhow",
-        "async_trait",
-        "tokio"
-      ]
-    },
     "context": {
       "name": "context",
       "responsibility": "Module functionality",
@@ -37,44 +27,46 @@
         "tempfile"
       ]
     },
-    "init": {
-      "name": "init",
+    "analyze": {
+      "name": "analyze",
       "responsibility": "Module functionality",
       "interfaces": [
         "fn fn"
       ],
       "dependencies": [
-        "clap",
         "anyhow",
-        "tempfile"
+        "command"
       ]
     },
-    "worktree": {
-      "name": "worktree",
+    "metrics": {
+      "name": "metrics",
       "responsibility": "Module functionality",
       "interfaces": [
-        "struct WorktreeSession",
-        "fn new(name:"
-      ],
-      "dependencies": [
-        "tempfile",
-        "anyhow",
-        "chrono",
-        "uuid",
-        "serde"
-      ]
-    },
-    "simple_state": {
-      "name": "simple_state",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn init()"
+        "struct ImprovementMetrics",
+        "fn new(iteration_id:",
+        "fn overall_score(&self)",
+        "struct MetricsComparison",
+        "trait MetricsAnalyzer",
+        "struct MetricsData",
+        "trait MetricsReporter"
       ],
       "dependencies": [
         "anyhow",
+        "tokio",
+        "tracing",
         "serde",
-        "chrono",
-        "tempfile"
+        "syn",
+        "chrono"
+      ]
+    },
+    "abstractions": {
+      "name": "abstractions",
+      "responsibility": "Module functionality",
+      "interfaces": [],
+      "dependencies": [
+        "anyhow",
+        "async_trait",
+        "tokio"
       ]
     },
     "testing": {
@@ -113,6 +105,33 @@
         "tempfile"
       ]
     },
+    "init": {
+      "name": "init",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn"
+      ],
+      "dependencies": [
+        "clap",
+        "anyhow",
+        "tempfile"
+      ]
+    },
+    "worktree": {
+      "name": "worktree",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct WorktreeSession",
+        "fn new(name:"
+      ],
+      "dependencies": [
+        "tempfile",
+        "anyhow",
+        "chrono",
+        "uuid",
+        "serde"
+      ]
+    },
     "cook": {
       "name": "cook",
       "responsibility": "Module functionality",
@@ -136,15 +155,17 @@
         "signal_hook"
       ]
     },
-    "analyze": {
-      "name": "analyze",
+    "simple_state": {
+      "name": "simple_state",
       "responsibility": "Module functionality",
       "interfaces": [
-        "fn fn"
+        "fn init()"
       ],
       "dependencies": [
         "anyhow",
-        "command"
+        "serde",
+        "chrono",
+        "tempfile"
       ]
     },
     "config": {
@@ -163,48 +184,28 @@
         "fn get_spec_dir(&self)"
       ],
       "dependencies": [
-        "serde",
         "anyhow",
+        "regex",
+        "serde",
         "directories",
         "once_cell",
         "tokio",
         "tempfile"
       ]
-    },
-    "metrics": {
-      "name": "metrics",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct ImprovementMetrics",
-        "fn new(iteration_id:",
-        "fn overall_score(&self)",
-        "struct MetricsComparison",
-        "trait MetricsAnalyzer",
-        "struct MetricsData",
-        "trait MetricsReporter"
-      ],
-      "dependencies": [
-        "anyhow",
-        "tokio",
-        "tracing",
-        "serde",
-        "syn",
-        "chrono"
-      ]
     }
   },
   "violations": [
-    {
-      "rule": "Avoid god components",
-      "location": "cook",
-      "severity": "Medium",
-      "description": "cook has 13 dependencies, consider splitting"
-    },
     {
       "rule": "Components should expose interfaces",
       "location": "abstractions",
       "severity": "Low",
       "description": "abstractions has no public interfaces"
+    },
+    {
+      "rule": "Avoid god components",
+      "location": "cook",
+      "severity": "Medium",
+      "description": "cook has 13 dependencies, consider splitting"
     }
   ]
 }
