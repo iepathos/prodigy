@@ -245,7 +245,13 @@ impl BasicDependencyAnalyzer {
             ModuleType::Binary
         } else if path_str.contains("build.rs") {
             ModuleType::Build
-        } else if path_str.ends_with(".toml") || path_str.ends_with(".yaml") {
+        } else if path
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("toml"))
+            || path
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("yaml"))
+        {
             ModuleType::Config
         } else {
             ModuleType::Library

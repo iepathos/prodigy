@@ -511,7 +511,10 @@ async fn run_internal(cmd: command::CookCommand, verbose: bool) -> Result<()> {
         let expanded_path = if path.to_string_lossy().starts_with("~/") {
             let home =
                 dirs::home_dir().ok_or_else(|| anyhow!("Could not determine home directory"))?;
-            home.join(path.strip_prefix("~/").unwrap())
+            home.join(
+                path.strip_prefix("~/")
+                    .context("Failed to strip ~/ prefix")?,
+            )
         } else {
             path.clone()
         };
@@ -1407,9 +1410,8 @@ async fn run_improvement_iterations(
 ) -> Result<u32> {
     let max_iterations = cmd.max_iterations;
 
-    if config.workflow.is_some() {
+    if let Some(workflow_config) = config.workflow.clone() {
         // Use configurable workflow
-        let workflow_config = config.workflow.clone().unwrap();
         let mut executor = WorkflowExecutor::new(workflow_config, verbose, max_iterations)
             .with_variables(variables);
 

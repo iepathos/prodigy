@@ -24,6 +24,7 @@ pub struct SessionRecord {
 }
 
 impl State {
+    #[must_use]
     pub fn new(project_id: String) -> Self {
         Self {
             version: "1.0".to_string(),
@@ -35,6 +36,7 @@ impl State {
 }
 
 impl SessionRecord {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             session_id: uuid::Uuid::new_v4().to_string(),

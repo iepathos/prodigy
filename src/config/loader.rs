@@ -64,7 +64,10 @@ impl ConfigLoader {
                                     path.display()
                                 )
                             })?;
-                        let mut config = self.config.write().unwrap();
+                        let mut config = self
+                            .config
+                            .write()
+                            .map_err(|_| anyhow!("Failed to acquire write lock for config"))?;
                         config.workflow = Some(workflow_config);
                     } else {
                         // Try to parse as direct WorkflowConfig
@@ -72,7 +75,10 @@ impl ConfigLoader {
                             .with_context(|| {
                                 format!("Failed to parse YAML configuration: {}", path.display())
                             })?;
-                        let mut config = self.config.write().unwrap();
+                        let mut config = self
+                            .config
+                            .write()
+                            .map_err(|_| anyhow!("Failed to acquire write lock for config"))?;
                         config.workflow = Some(workflow_config);
                     }
                 } else {
@@ -81,7 +87,10 @@ impl ConfigLoader {
                         .with_context(|| {
                             format!("Failed to parse YAML configuration: {}", path.display())
                         })?;
-                    let mut config = self.config.write().unwrap();
+                    let mut config = self
+                        .config
+                        .write()
+                        .map_err(|_| anyhow!("Failed to acquire write lock for config"))?;
                     config.workflow = Some(workflow_config);
                 }
             }
@@ -103,14 +112,17 @@ impl ConfigLoader {
             let content = fs::read_to_string(&config_path).await?;
             let project_config: ProjectConfig = serde_yaml::from_str(&content)?;
 
-            let mut config = self.config.write().unwrap();
+            let mut config = self
+                .config
+                .write()
+                .map_err(|_| anyhow!("Failed to acquire write lock for config"))?;
             config.project = Some(project_config);
         }
 
         Ok(())
     }
     pub fn get_config(&self) -> Config {
-        self.config.read().unwrap().clone()
+        self.config.read().expect("Config RwLock poisoned").clone()
     }
 }
 

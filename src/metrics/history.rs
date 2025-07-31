@@ -23,7 +23,9 @@ impl MetricsHistory {
 
     /// Add a new metrics snapshot
     pub fn add_snapshot(&mut self, metrics: ImprovementMetrics, commit_sha: String) {
-        let iteration = self.snapshots.len() as u32 + 1;
+        let iteration = u32::try_from(self.snapshots.len())
+            .map(|n| n + 1)
+            .unwrap_or(1);
 
         // Update baselines if this is the first snapshot
         if self.snapshots.is_empty() {
@@ -116,7 +118,7 @@ impl MetricsHistory {
 
         let start_score = self.snapshots[start_idx].metrics.overall_score();
         let end_score = self.snapshots[end_idx].metrics.overall_score();
-        let iterations_count = (end_idx - start_idx) as f32;
+        let iterations_count = (end_idx - start_idx) as f32; // Safe: indices are bounded
 
         (end_score - start_score) / iterations_count
     }
@@ -168,7 +170,7 @@ impl MetricsBaselines {
     fn from_metrics(metrics: &ImprovementMetrics) -> Self {
         let avg_complexity = if !metrics.cyclomatic_complexity.is_empty() {
             metrics.cyclomatic_complexity.values().sum::<u32>() as f32
-                / metrics.cyclomatic_complexity.len() as f32
+                / metrics.cyclomatic_complexity.len() as f32 // Safe: len > 0 checked above
         } else {
             0.0
         };

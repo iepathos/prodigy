@@ -24,6 +24,7 @@ pub struct WorktreeSession {
 }
 
 impl WorktreeSession {
+    #[must_use]
     pub fn new(name: String, branch: String, path: PathBuf, focus: Option<String>) -> Self {
         Self {
             name,

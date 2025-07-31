@@ -333,7 +333,7 @@ fn display_pretty_metrics(metrics: &crate::metrics::ImprovementMetrics) {
     );
     println!(
         "   Binary size: {:.2} MB",
-        metrics.binary_size as f64 / 1_048_576.0
+        metrics.binary_size as f64 / 1_048_576.0 // Safe: usize to f64 always fits
     );
     if !metrics.benchmark_results.is_empty() {
         println!("   Benchmarks:");

@@ -38,7 +38,7 @@ impl BasicArchitectureExtractor {
     /// Wrapper for extract_components for tests
     pub fn detect_components(&self, project_path: &Path) -> HashMap<String, ComponentInfo> {
         tokio::runtime::Runtime::new()
-            .unwrap()
+            .expect("Failed to create runtime for component detection")
             .block_on(self.extract_components(project_path))
             .unwrap_or_default()
     }
