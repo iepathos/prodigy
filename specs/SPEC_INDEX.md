@@ -60,6 +60,7 @@ Performance improvements and system efficiency.
 - **Spec 46**: Real Metrics Tracking - Quantitative improvement measurement (draft)
 - **Spec 47**: Auto-Commit Analysis Changes - Automatic git commits for analysis updates (draft)
 - **Spec 48**: Command Chaining with Variables - Flexible data passing between commands (draft)
+- **Spec 50**: Inter-Iteration Analysis Updates - Run analysis after each iteration (draft)
 
 ## Implementation Status
 
@@ -83,7 +84,7 @@ Performance improvements and system efficiency.
 - Spec 28: Structured Command Objects
 - Spec 29: Centralized Worktree State
 
-### 📝 Draft (11 specs)
+### 📝 Draft (12 specs)
 - Spec 30: Interrupted Worktree Recovery
 - Spec 31: Product Management Command
 - Spec 32: CLI Help as Default
@@ -95,6 +96,7 @@ Performance improvements and system efficiency.
 - Spec 47: Auto-Commit Analysis Changes
 - Spec 48: Command Chaining with Variables
 - Spec 49: Fix Test Coverage Analysis
+- Spec 50: Inter-Iteration Analysis Updates
 
 ### 🚧 In Progress (0 specs)
 None currently in progress.
@@ -147,6 +149,7 @@ Optimization Layer:
 ├── 15: Remove Bloat
 ├── 16: Simplify State
 ├── 46: Real Metrics Tracking
+│   └── 50: Inter-Iteration Analysis
 ├── 17: Consolidate Modules
 ├── 23: Config Options
 ├── 28: Structured Commands
@@ -156,6 +159,7 @@ Optimization Layer:
 ## Quick Reference
 
 ### Latest Specifications
+- Spec 50: Inter-Iteration Analysis Updates (draft) - Run analysis after each iteration
 - Spec 49: Fix Test Coverage Analysis (draft) - Accurate coverage reporting
 - Spec 48: Command Chaining with Variables (draft) - Flexible data passing between commands
 - Spec 47: Auto-Commit Analysis Changes (draft) - Automatic git commits for analysis updates
@@ -165,6 +169,7 @@ Optimization Layer:
 - Spec 34: Worktree Temp Spec Storage (draft) - Automatic cleanup for temp specs
 
 ### High Priority Specifications
+- Spec 50: Inter-Iteration Analysis Updates - Critical for accurate context between iterations
 - Spec 49: Fix Test Coverage Analysis - Critical for accurate metrics
 - Spec 48: Command Chaining with Variables - Enables flexible workflow configuration
 - Spec 44: Context-Aware Project Understanding - Enables truly autonomous loops
