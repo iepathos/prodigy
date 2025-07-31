@@ -715,163 +715,216 @@ fn extract_spec_id_from_path(path: &str) -> String {
 
 /// Run standard cook without mapping
 async fn run_standard(cmd: command::CookCommand, verbose: bool) -> Result<()> {
-    // Check if worktree isolation should be used
-    // Check flag first, then env var with deprecation warning
-    let use_worktree = cmd.worktree;
-
-    if use_worktree {
-        // Save the original repository path before changing directories
-        let original_repo_path = std::env::current_dir()?;
-
-        // Create worktree for this session
-        let worktree_manager = WorktreeManager::new(original_repo_path.to_path_buf())?;
-        let session = worktree_manager.create_session(cmd.focus.as_deref())?;
-
-        println!(
-            "🌳 Created worktree: {} at {}",
-            session.name,
-            session.path.display()
-        );
-
-        // Change to worktree directory
-        std::env::set_current_dir(&session.path)?;
-
-        // Run improvement in worktree context
-        let result = run_in_worktree(
-            cmd.clone(),
-            session.clone(),
-            original_repo_path.clone(),
-            verbose,
-        )
-        .await;
-
-        // Clean up on failure, keep on success for manual merge
-        match &result {
-            Ok(_) => {
-                // Check if any actual improvements were made
-                let state = worktree_manager.get_session_state(&session.name)?;
-                let iterations_completed = state.iterations.completed;
-
-                if iterations_completed == 0 {
-                    println!(
-                        "⚠️  No improvements were made in worktree: {}",
-                        session.name
-                    );
-                    println!("   Reason: No issues were found to fix");
-                } else {
-                    println!("✅ Improvements completed in worktree: {}", session.name);
-                }
-
-                // Prompt for merge if in interactive terminal (or auto-accept) and improvements were made
-                if (is_tty() || cmd.auto_accept) && iterations_completed > 0 {
-                    // Update state to track prompt shown
-                    let worktree_manager = WorktreeManager::new(original_repo_path.to_path_buf())?;
-                    worktree_manager.update_session_state(&session.name, |state| {
-                        state.merge_prompt_shown = true;
-                    })?;
-
-                    let should_merge = if cmd.auto_accept {
-                        println!("Auto-accepting worktree merge (--yes flag set)");
-                        MergeChoice::Yes
-                    } else {
-                        prompt_for_merge(&session.name)
-                    };
-
-                    match should_merge {
-                        MergeChoice::Yes => {
-                            // Update state with response
-                            worktree_manager.update_session_state(&session.name, |state| {
-                                state.merge_prompt_response = Some("yes".to_string());
-                            })?;
-
-                            println!("Merging worktree {}...", session.name);
-                            match merge_worktree(&session.name, &original_repo_path).await {
-                                Ok(_) => {
-                                    println!("✅ Successfully merged worktree: {}", session.name);
-
-                                    // Update worktree status to merged
-                                    worktree_manager.update_session_state(
-                                        &session.name,
-                                        |state| {
-                                            state.status = crate::worktree::WorktreeStatus::Merged;
-                                        },
-                                    )?;
-
-                                    // Prompt to delete the worktree
-                                    let should_delete = if cmd.auto_accept {
-                                        println!(
-                                            "Auto-accepting worktree deletion (--yes flag set)"
-                                        );
-                                        true
-                                    } else {
-                                        print!(
-                                            "\nWould you like to delete the worktree now? (y/N): "
-                                        );
-                                        io::stdout().flush().unwrap_or_default();
-
-                                        let mut input = String::new();
-                                        io::stdin().read_line(&mut input).unwrap_or_default();
-                                        input.trim().to_lowercase() == "y"
-                                    };
-
-                                    if should_delete {
-                                        println!("Deleting worktree {}...", session.name);
-                                        match worktree_manager.cleanup_session(&session.name, true)
-                                        {
-                                            Ok(_) => {
-                                                println!("✅ Worktree deleted successfully");
-                                            }
-                                            Err(e) => {
-                                                warn!("❌ Failed to delete worktree: {e}");
-                                                println!("You can manually delete it with:");
-                                                println!("  mmm worktree delete {}", session.name);
-                                            }
-                                        }
-                                    } else {
-                                        println!("\nTo delete the worktree later, run:");
-                                        println!("  mmm worktree delete {}", session.name);
-                                    }
-                                }
-                                Err(e) => {
-                                    warn!("❌ Failed to merge worktree: {e}");
-                                    println!("\nTo merge changes manually, run:");
-                                    println!("  mmm worktree merge {}", session.name);
-                                }
-                            }
-                        }
-                        MergeChoice::No => {
-                            // Update state with response
-                            worktree_manager.update_session_state(&session.name, |state| {
-                                state.merge_prompt_response = Some("no".to_string());
-                            })?;
-
-                            println!("\nTo merge changes later, run:");
-                            println!("  mmm worktree merge {}", session.name);
-                        }
-                    }
-                } else if iterations_completed > 0 {
-                    // Non-interactive environment but improvements were made
-                    println!("\nWorktree completed. To merge changes, run:");
-                    println!("  mmm worktree merge {}", session.name);
-                } else {
-                    // No improvements made
-                    println!("\nNo changes to merge. You can delete the worktree with:");
-                    println!("  mmm worktree delete {}", session.name);
-                }
-            }
-            Err(_) => {
-                eprintln!(
-                    "❌ Improvement failed, preserving worktree for debugging: {}",
-                    session.name
-                );
-            }
-        }
-
-        result
+    if cmd.worktree {
+        run_with_worktree(cmd, verbose).await
     } else {
-        // Run without worktree isolation (default behavior)
         run_without_worktree(cmd, verbose).await
     }
+}
+
+/// Run cook with worktree isolation
+async fn run_with_worktree(cmd: command::CookCommand, verbose: bool) -> Result<()> {
+    let original_repo_path = std::env::current_dir()?;
+    let worktree_manager = WorktreeManager::new(original_repo_path.to_path_buf())?;
+    let session = worktree_manager.create_session(cmd.focus.as_deref())?;
+
+    println!(
+        "🌳 Created worktree: {} at {}",
+        session.name,
+        session.path.display()
+    );
+
+    // Change to worktree directory
+    std::env::set_current_dir(&session.path)?;
+
+    // Run improvement in worktree context
+    let result = run_in_worktree(
+        cmd.clone(),
+        session.clone(),
+        original_repo_path.clone(),
+        verbose,
+    )
+    .await;
+
+    // Handle post-execution based on result
+    handle_worktree_result(
+        &result,
+        &cmd,
+        &session,
+        &worktree_manager,
+        &original_repo_path,
+    )
+    .await?;
+
+    result
+}
+
+/// Handle worktree result and prompt for merge/cleanup
+async fn handle_worktree_result(
+    result: &Result<()>,
+    cmd: &command::CookCommand,
+    session: &crate::worktree::WorktreeSession,
+    worktree_manager: &WorktreeManager,
+    original_repo_path: &Path,
+) -> Result<()> {
+    match result {
+        Ok(_) => {
+            handle_successful_worktree(cmd, session, worktree_manager, original_repo_path).await
+        }
+        Err(_) => {
+            eprintln!(
+                "❌ Improvement failed, preserving worktree for debugging: {}",
+                session.name
+            );
+            Ok(())
+        }
+    }
+}
+
+/// Handle successful worktree completion
+async fn handle_successful_worktree(
+    cmd: &command::CookCommand,
+    session: &crate::worktree::WorktreeSession,
+    worktree_manager: &WorktreeManager,
+    original_repo_path: &Path,
+) -> Result<()> {
+    let state = worktree_manager.get_session_state(&session.name)?;
+    let iterations_completed = state.iterations.completed;
+
+    if iterations_completed == 0 {
+        println!(
+            "⚠️  No improvements were made in worktree: {}",
+            session.name
+        );
+        println!("   Reason: No issues were found to fix");
+        println!("\nNo changes to merge. You can delete the worktree with:");
+        println!("  mmm worktree delete {}", session.name);
+        return Ok(());
+    }
+
+    println!("✅ Improvements completed in worktree: {}", session.name);
+
+    // Handle merge prompt for interactive terminals
+    if is_tty() || cmd.auto_accept {
+        handle_merge_prompt(cmd, session, worktree_manager, original_repo_path).await
+    } else {
+        println!("\nWorktree completed. To merge changes, run:");
+        println!("  mmm worktree merge {}", session.name);
+        Ok(())
+    }
+}
+
+/// Handle merge prompt and deletion
+async fn handle_merge_prompt(
+    cmd: &command::CookCommand,
+    session: &crate::worktree::WorktreeSession,
+    worktree_manager: &WorktreeManager,
+    original_repo_path: &Path,
+) -> Result<()> {
+    // Update state to track prompt shown
+    worktree_manager.update_session_state(&session.name, |state| {
+        state.merge_prompt_shown = true;
+    })?;
+
+    let should_merge = if cmd.auto_accept {
+        println!("Auto-accepting worktree merge (--yes flag set)");
+        MergeChoice::Yes
+    } else {
+        prompt_for_merge(&session.name)
+    };
+
+    match should_merge {
+        MergeChoice::Yes => {
+            handle_merge_yes(session, worktree_manager, original_repo_path, cmd).await
+        }
+        MergeChoice::No => handle_merge_no(session, worktree_manager),
+    }
+}
+
+/// Handle "yes" response to merge prompt
+async fn handle_merge_yes(
+    session: &crate::worktree::WorktreeSession,
+    worktree_manager: &WorktreeManager,
+    original_repo_path: &Path,
+    cmd: &command::CookCommand,
+) -> Result<()> {
+    // Update state with response
+    worktree_manager.update_session_state(&session.name, |state| {
+        state.merge_prompt_response = Some("yes".to_string());
+    })?;
+
+    println!("Merging worktree {}...", session.name);
+    match merge_worktree(&session.name, original_repo_path).await {
+        Ok(_) => {
+            println!("✅ Successfully merged worktree: {}", session.name);
+
+            // Update worktree status to merged
+            worktree_manager.update_session_state(&session.name, |state| {
+                state.status = crate::worktree::WorktreeStatus::Merged;
+            })?;
+
+            // Handle deletion prompt
+            handle_deletion_prompt(session, worktree_manager, cmd).await
+        }
+        Err(e) => {
+            warn!("❌ Failed to merge worktree: {e}");
+            println!("\nTo merge changes manually, run:");
+            println!("  mmm worktree merge {}", session.name);
+            Ok(())
+        }
+    }
+}
+
+/// Handle deletion prompt after successful merge
+async fn handle_deletion_prompt(
+    session: &crate::worktree::WorktreeSession,
+    worktree_manager: &WorktreeManager,
+    cmd: &command::CookCommand,
+) -> Result<()> {
+    let should_delete = if cmd.auto_accept {
+        println!("Auto-accepting worktree deletion (--yes flag set)");
+        true
+    } else {
+        print!("\nWould you like to delete the worktree now? (y/N): ");
+        io::stdout().flush().unwrap_or_default();
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap_or_default();
+        input.trim().to_lowercase() == "y"
+    };
+
+    if should_delete {
+        println!("Deleting worktree {}...", session.name);
+        match worktree_manager.cleanup_session(&session.name, true) {
+            Ok(_) => {
+                println!("✅ Worktree deleted successfully");
+            }
+            Err(e) => {
+                warn!("❌ Failed to delete worktree: {e}");
+                println!("You can manually delete it with:");
+                println!("  mmm worktree delete {}", session.name);
+            }
+        }
+    } else {
+        println!("\nTo delete the worktree later, run:");
+        println!("  mmm worktree delete {}", session.name);
+    }
+    Ok(())
+}
+
+/// Handle "no" response to merge prompt
+fn handle_merge_no(
+    session: &crate::worktree::WorktreeSession,
+    worktree_manager: &WorktreeManager,
+) -> Result<()> {
+    // Update state with response
+    worktree_manager.update_session_state(&session.name, |state| {
+        state.merge_prompt_response = Some("no".to_string());
+    })?;
+
+    println!("\nTo merge changes later, run:");
+    println!("  mmm worktree merge {}", session.name);
+    Ok(())
 }
 
 async fn run_in_worktree(

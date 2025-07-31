@@ -176,7 +176,8 @@ async fn main() {
             resume,
             skip_analysis,
         }) => {
-            // Check if user used the deprecated 'improve' alias
+            // Check if user used the 'improve' alias (deprecated as of v0.3.0)
+            // TODO: Remove this deprecation warning in v1.0.0
             let cli_args: Vec<String> = std::env::args().collect();
             if cli_args.len() > 1 && cli_args[1] == "improve" {
                 eprintln!("Note: 'improve' has been renamed to 'cook'. Please use 'mmm cook' in the future.");

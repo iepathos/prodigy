@@ -175,8 +175,8 @@ impl BasicTechnicalDebtMapper {
             } else if line_upper.contains("HACK") {
                 (DebtType::Hack, "HACK")
             } else if line_upper.contains("XXX") {
-                (DebtType::Fixme, "XXX") // XXX is similar to FIXME
-            } else if line_upper.contains("DEPRECATED") {
+                (DebtType::Fixme, "XXX")
+            } else if line_upper.contains("DEPRECATED") || line_upper.contains("@DEPRECATED") {
                 (DebtType::Deprecated, "DEPRECATED")
             } else {
                 continue;
