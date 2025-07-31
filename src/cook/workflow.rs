@@ -104,10 +104,9 @@ impl WorkflowExecutor {
                         input_ref
                             .default
                             .as_ref()
-                            .ok_or_else(|| anyhow!("No default value for input '{}'", input_name))
-                            .map(|s| s.clone())
+                            .ok_or_else(|| anyhow!("No default value for input '{}'", input_name)).cloned()
                     })
-                    .context(format!("Failed to resolve input '{}'", input_name))?;
+                    .context(format!("Failed to resolve input '{input_name}'"))?;
 
                 match &input_ref.pass_as {
                     InputMethod::Argument { position } => {
@@ -156,7 +155,7 @@ impl WorkflowExecutor {
                     // Read file content
                     tokio::fs::read_to_string(path)
                         .await
-                        .context(format!("Failed to read file: {}", path))?
+                        .context(format!("Failed to read file: {path}"))?
                 }
                 OutputSource::Variable { value } => {
                     // Direct value
@@ -176,7 +175,7 @@ impl WorkflowExecutor {
     async fn extract_spec_from_git_pattern(&self, pattern: &str) -> Result<String> {
         // Similar to existing extract_spec_from_git but using the pattern
         if self.verbose {
-            println!("Extracting from git with pattern: {}", pattern);
+            println!("Extracting from git with pattern: {pattern}");
         }
 
         // Use the existing extract_spec_from_git logic but with pattern matching
