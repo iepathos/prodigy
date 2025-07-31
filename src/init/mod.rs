@@ -385,4 +385,85 @@ mod tests {
         assert!(commands_dir.join("mmm-lint.md").exists());
         assert!(!commands_dir.join("mmm-implement-spec.md").exists());
     }
+
+    #[test]
+    fn test_handle_existing_commands_no_tty() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir_all(&commands_dir).unwrap();
+
+        let templates = vec![templates::CommandTemplate {
+            name: "test-command",
+            content: "#!/bin/bash\necho test",
+            description: "Test command",
+        }];
+
+        // Should return Ok(true) when no TTY is available
+        let result = handle_existing_commands(&commands_dir, &templates).unwrap();
+        assert!(result);
+    }
+
+    #[test]
+    fn test_handle_existing_commands_with_conflicts() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir_all(&commands_dir).unwrap();
+
+        // Create existing command
+        fs::write(commands_dir.join("test-command.md"), "existing content").unwrap();
+
+        let templates = vec![templates::CommandTemplate {
+            name: "test-command",
+            content: "new content",
+            description: "Test command",
+        }];
+
+        // Should handle conflicts appropriately
+        let result = handle_existing_commands(&commands_dir, &templates);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_project_structure_not_git_repo() {
+        let temp_dir = TempDir::new().unwrap();
+        let cmd = InitCommand {
+            path: Some(temp_dir.path().to_path_buf()),
+            commands: None,
+            force: false,
+        };
+
+        let result = validate_project_structure(&cmd);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("git repository"));
+    }
+
+    #[test]
+    fn test_validate_project_structure_with_symlinks() {
+        let temp_dir = TempDir::new().unwrap();
+        let real_path = temp_dir.path().join("real");
+        let symlink_path = temp_dir.path().join("symlink");
+
+        fs::create_dir_all(&real_path).unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&real_path, &symlink_path).unwrap();
+
+        // Initialize as git repo
+        Command::new("git")
+            .arg("init")
+            .current_dir(&real_path)
+            .output()
+            .unwrap();
+
+        let cmd = InitCommand {
+            path: Some(symlink_path),
+            commands: None,
+            force: false,
+        };
+
+        #[cfg(unix)]
+        {
+            let result = validate_project_structure(&cmd);
+            assert!(result.is_ok());
+        }
+    }
 }

@@ -131,3 +131,54 @@ impl Default for MetricsCollector {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    #[tokio::test]
+    async fn test_collect_metrics_success() {
+        let collector = MetricsCollector::new();
+        let temp_dir = TempDir::new().unwrap();
+
+        // Create a basic Rust project structure
+        fs::create_dir_all(temp_dir.path().join("src")).unwrap();
+        fs::write(
+            temp_dir.path().join("Cargo.toml"),
+            r#"
+[package]
+name = "test"
+version = "0.1.0"
+        "#,
+        )
+        .unwrap();
+        fs::write(temp_dir.path().join("src/main.rs"), "fn main() {}").unwrap();
+
+        let result = collector
+            .collect_metrics(temp_dir.path(), "test-iteration".to_string())
+            .await;
+        assert!(result.is_ok());
+
+        let metrics = result.unwrap();
+        assert_eq!(metrics.iteration_id, "test-iteration");
+        assert!(metrics.test_coverage >= 0.0);
+    }
+
+    #[tokio::test]
+    async fn test_collect_metrics_analyzer_failure() {
+        let collector = MetricsCollector::new();
+        let temp_dir = TempDir::new().unwrap();
+
+        // Create directory without Cargo.toml to trigger failures
+        let result = collector
+            .collect_metrics(temp_dir.path(), "test-iteration".to_string())
+            .await;
+
+        // Should still return metrics even with some analyzer failures
+        assert!(result.is_ok());
+        let metrics = result.unwrap();
+        assert_eq!(metrics.test_coverage, 0.0);
+    }
+}
