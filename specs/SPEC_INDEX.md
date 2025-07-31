@@ -39,6 +39,7 @@ Integration with external systems and cross-platform support.
 - **Spec 03**: Claude Integration - Claude CLI subprocess management ✅
 - **Spec 21**: Configurable Workflow - Custom workflow support ✅
 - **Spec 23**: Command Line Config Option - Flexible configuration ✅
+- **Spec 52**: Configurable Commit Validation - Per-command validation settings (draft)
 
 ### Testing Specifications
 Test infrastructure and quality assurance.
@@ -63,6 +64,7 @@ Performance improvements and system efficiency.
 - **Spec 48**: Command Chaining with Variables - Flexible data passing between commands (draft)
 - **Spec 50**: Inter-Iteration Analysis Updates - Run analysis after each iteration (draft)
 - **Spec 51**: Validate Git Commits - Verify actual changes after commands (draft)
+- **Spec 52**: Configurable Commit Validation - Per-command validation settings (draft)
 
 ## Implementation Status
 
@@ -86,7 +88,7 @@ Performance improvements and system efficiency.
 - Spec 28: Structured Command Objects
 - Spec 29: Centralized Worktree State
 
-### 📝 Draft (13 specs)
+### 📝 Draft (14 specs)
 - Spec 30: Interrupted Worktree Recovery
 - Spec 31: Product Management Command
 - Spec 32: CLI Help as Default
@@ -100,6 +102,7 @@ Performance improvements and system efficiency.
 - Spec 49: Fix Test Coverage Analysis
 - Spec 50: Inter-Iteration Analysis Updates
 - Spec 51: Validate Git Commits
+- Spec 52: Configurable Commit Validation
 
 ### 🚧 In Progress (0 specs)
 None currently in progress.
@@ -149,6 +152,11 @@ Foundation Layer:
     │           └── 30: Interrupted Recovery
     └── 22: Iteration Limit
 
+Compatibility Layer:
+├── 21: Configurable Workflow
+│   └── 52: Configurable Commit Validation
+└── 23: Command Line Config
+
 Optimization Layer:
 ├── 15: Remove Bloat
 ├── 16: Simplify State
@@ -163,6 +171,7 @@ Optimization Layer:
 ## Quick Reference
 
 ### Latest Specifications
+- Spec 52: Configurable Commit Validation (draft) - Per-command validation settings
 - Spec 51: Validate Git Commits (draft) - Verify actual changes after commands
 - Spec 50: Inter-Iteration Analysis Updates (draft) - Run analysis after each iteration
 - Spec 49: Fix Test Coverage Analysis (draft) - Accurate coverage reporting
@@ -174,6 +183,7 @@ Optimization Layer:
 - Spec 34: Worktree Temp Spec Storage (draft) - Automatic cleanup for temp specs
 
 ### High Priority Specifications
+- Spec 52: Configurable Commit Validation - Fixes workflow interruption issues
 - Spec 51: Validate Git Commits - Critical for accurate change detection
 - Spec 50: Inter-Iteration Analysis Updates - Critical for accurate context between iterations
 - Spec 49: Fix Test Coverage Analysis - Critical for accurate metrics
