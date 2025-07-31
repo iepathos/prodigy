@@ -31,7 +31,6 @@ mod cook_tests {
             focus: None,
             max_iterations: 2,
             worktree: false,
-            config: None,
             map: Vec::new(),
             args: Vec::new(),
             fail_fast: false,

@@ -947,7 +947,7 @@ async fn setup_improvement_session(
     // 4. Load configuration
     let config_loader = ConfigLoader::new().await?;
     config_loader
-        .load_with_explicit_path(Path::new("."), cmd.config.as_deref())
+        .load_with_explicit_path(Path::new("."), None)
         .await?;
     let config = config_loader.get_config().clone();
 
@@ -1128,18 +1128,14 @@ async fn setup_improvement_environment(
     // Load configuration
     let config_loader = ConfigLoader::new().await?;
     config_loader
-        .load_with_explicit_path(Path::new("."), cmd.config.as_deref())
+        .load_with_explicit_path(Path::new("."), None)
         .await?;
     config_loader.load_project(Path::new(".")).await?;
     let config = config_loader.get_config().clone();
 
     // Show config source in verbose mode
     if verbose {
-        if let Some(config_path) = &cmd.config {
-            println!("📄 Using configuration from: {}", config_path.display());
-        } else {
-            println!("📄 Using default configuration");
-        }
+        println!("📄 Using default configuration");
     }
 
     // Run comprehensive analysis
@@ -1505,7 +1501,6 @@ mod cook_inline_tests {
             max_iterations,
             worktree,
             focus: None,
-            config: None,
             map: vec![],
             args: vec![],
             fail_fast: false,
@@ -1574,17 +1569,6 @@ mod cook_inline_tests {
 
         assert_eq!(cmd.focus.as_deref(), Some("performance"));
         assert_eq!(cmd.max_iterations, 5);
-    }
-
-    #[test]
-    fn test_improve_command_with_config_path() {
-        let mut cmd = create_test_command(false, 5);
-        cmd.config = Some(PathBuf::from("/custom/config.toml"));
-
-        assert_eq!(
-            cmd.config.as_ref().map(|p| p.display().to_string()),
-            Some("/custom/config.toml".to_string())
-        );
     }
 
     #[tokio::test]

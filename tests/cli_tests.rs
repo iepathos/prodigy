@@ -106,7 +106,6 @@ fn test_cook_all_flags() {
         .stdout(predicate::str::contains("--focus"))
         .stdout(predicate::str::contains("--max-iterations"))
         .stdout(predicate::str::contains("--worktree"))
-        .stdout(predicate::str::contains("--config"))
         .stdout(predicate::str::contains("--map"))
         .stdout(predicate::str::contains("--args"))
         .stdout(predicate::str::contains("--fail-fast"));

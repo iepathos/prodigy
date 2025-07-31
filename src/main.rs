@@ -37,10 +37,6 @@ enum Commands {
         #[arg(short = 'f', long)]
         focus: Option<String>,
 
-        /// Path to configuration file
-        #[arg(short = 'c', long)]
-        config: Option<PathBuf>,
-
         /// Maximum number of iterations to run (default: 10)
         #[arg(short = 'n', long, default_value = "10")]
         max_iterations: u32,
@@ -170,7 +166,6 @@ async fn main() {
             playbook,
             path,
             focus,
-            config,
             max_iterations,
             worktree,
             map,
@@ -192,7 +187,6 @@ async fn main() {
                 playbook,
                 path,
                 focus,
-                config,
                 max_iterations,
                 worktree,
                 map,

@@ -28,13 +28,6 @@ pub struct CookCommand {
     #[arg(short = 'f', long)]
     pub focus: Option<String>,
 
-    /// Path to configuration file
-    ///
-    /// Specify a custom configuration file path.
-    /// Supports both TOML and YAML formats.
-    #[arg(short = 'c', long)]
-    pub config: Option<PathBuf>,
-
     /// Maximum number of iterations to run (default: 10)
     ///
     /// This limits how many improvement cycles will be executed.
