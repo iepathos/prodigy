@@ -3,7 +3,7 @@ use crate::config::{
     workflow::WorkflowConfig,
     DynamicCommandRegistry,
 };
-use crate::cook::git_ops::get_last_commit_message;
+use crate::cook::git_ops::{get_last_commit_message, git_command};
 use crate::cook::retry::{check_claude_cli, execute_with_retry, format_subprocess_error};
 use anyhow::{anyhow, Context as _, Result};
 use std::collections::HashMap;
@@ -225,7 +225,7 @@ impl WorkflowExecutor {
             }
 
             // Execute the command and capture output
-            let (success, output) = self.execute_structured_command(&command).await?;
+            let (success, changes_made, output) = self.execute_structured_command(&command).await?;
 
             // Extract outputs if this command has any and it succeeded
             if success {
@@ -237,11 +237,18 @@ impl WorkflowExecutor {
                 }
             }
 
-            if success {
+            // Check if command was expected to make changes but didn't
+            if success && !changes_made && self.should_expect_commits(&command) {
+                self.handle_no_commits_error(&command)?;
+            }
+
+            if success && changes_made {
                 any_changes = true;
                 println!("✓ Command {} made changes", command.name);
-            } else {
+            } else if success && !changes_made {
                 println!("○ Command {} made no changes", command.name);
+            } else {
+                println!("✗ Command {} failed", command.name);
             }
         }
 
@@ -249,21 +256,21 @@ impl WorkflowExecutor {
         Ok(any_changes)
     }
 
-    /// Execute a structured command and return (success, output)
+    /// Execute a structured command and return (success, changes_made, output)
     async fn execute_structured_command(
         &self,
         command: &crate::config::command::Command,
-    ) -> Result<(bool, Option<String>)> {
+    ) -> Result<(bool, bool, Option<String>)> {
         // Display command execution info
         self.display_command_execution(command);
 
         // Handle test mode execution
         if self.test_mode {
-            return self.handle_test_mode_execution(command);
+            return self.handle_test_mode_execution_with_changes(command);
         }
 
-        // Execute the real command
-        self.execute_real_command(command).await
+        // Execute the real command with git validation
+        self.execute_real_command_with_validation(command).await
     }
 
     /// Display command execution information
@@ -286,11 +293,11 @@ impl WorkflowExecutor {
         format!(" {}", resolved_args.join(" "))
     }
 
-    /// Handle test mode execution
-    fn handle_test_mode_execution(
+    /// Handle test mode execution with change detection
+    fn handle_test_mode_execution_with_changes(
         &self,
         command: &crate::config::command::Command,
-    ) -> Result<(bool, Option<String>)> {
+    ) -> Result<(bool, bool, Option<String>)> {
         println!(
             "[TEST MODE] Skipping Claude CLI execution for: {}",
             command.name
@@ -299,7 +306,7 @@ impl WorkflowExecutor {
         // Check if we should simulate no changes
         if self.should_simulate_no_changes(command) {
             println!("[TEST MODE] Simulating no changes for: {}", command.name);
-            return Ok((false, None));
+            return Ok((false, false, None));
         }
 
         // Track focus for mmm-code-review if requested
@@ -307,7 +314,8 @@ impl WorkflowExecutor {
             self.track_focus_in_test_mode(command);
         }
 
-        Ok((true, None))
+        // In test mode, assume changes were made for success
+        Ok((true, true, None))
     }
 
     /// Check if we should simulate no changes for a command in test mode
@@ -438,7 +446,9 @@ impl WorkflowExecutor {
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if !output.status.success() {
-            return self.handle_command_failure(command, output.status.code(), &stderr, &stdout);
+            let (success, _changes_made, output) =
+                self.handle_command_failure(command, output.status.code(), &stderr, &stdout)?;
+            return Ok((success, output));
         }
 
         self.handle_command_success(command, &stdout, &stderr);
@@ -452,7 +462,7 @@ impl WorkflowExecutor {
         exit_code: Option<i32>,
         stderr: &str,
         stdout: &str,
-    ) -> Result<(bool, Option<String>)> {
+    ) -> Result<(bool, bool, Option<String>)> {
         let error_msg = format_subprocess_error(
             &format!("claude /{}", command.name),
             exit_code,
@@ -466,7 +476,7 @@ impl WorkflowExecutor {
                 "Warning: Command '{}' failed but continuing: {}",
                 command.name, error_msg
             );
-            return Ok((false, None));
+            return Ok((false, false, None));
         }
         Err(anyhow!(error_msg))
     }
@@ -608,6 +618,82 @@ impl WorkflowExecutor {
         }
 
         Some(spec_id.to_string())
+    }
+
+    /// Execute real command with git validation
+    async fn execute_real_command_with_validation(
+        &self,
+        command: &crate::config::command::Command,
+    ) -> Result<(bool, bool, Option<String>)> {
+        // Skip validation for no-commit-validation flag
+        let skip_validation =
+            std::env::var("MMM_NO_COMMIT_VALIDATION").unwrap_or_default() == "true";
+
+        // Get HEAD before command execution
+        let head_before = if !skip_validation && self.should_expect_commits(command) {
+            Some(
+                git_command(&["rev-parse", "HEAD"], "get HEAD before command")
+                    .await
+                    .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
+                    .unwrap_or_default(),
+            )
+        } else {
+            None
+        };
+
+        // Execute the command
+        let (success, output) = self.execute_real_command(command).await?;
+
+        if !success {
+            return Ok((false, false, output));
+        }
+
+        // Check if commits were made
+        let changes_made = if let Some(ref before) = head_before {
+            let head_after = git_command(&["rev-parse", "HEAD"], "get HEAD after command")
+                .await
+                .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
+                .unwrap_or_default();
+
+            head_after != *before
+        } else {
+            // Assume changes were made if we're not validating
+            true
+        };
+
+        Ok((success, changes_made, output))
+    }
+
+    /// Check if a command is expected to create commits
+    fn should_expect_commits(&self, command: &crate::config::command::Command) -> bool {
+        matches!(
+            command.name.as_str(),
+            "mmm-implement-spec"
+                | "mmm-cleanup-tech-debt"
+                | "mmm-lint"
+                | "mmm-fix"
+                | "mmm-refactor"
+        )
+    }
+
+    /// Handle the case where no commits were created when expected
+    fn handle_no_commits_error(&self, command: &crate::config::command::Command) -> Result<()> {
+        eprintln!(
+            "\n❌ Workflow stopped: No changes were committed by /{}",
+            command.name
+        );
+        eprintln!("\nThe command executed successfully but did not create any git commits.");
+        eprintln!("Possible reasons:");
+        eprintln!("- The specification may already be implemented");
+        eprintln!("- The command may have encountered an issue without reporting an error");
+        eprintln!("- No changes were needed");
+        eprintln!("\nTo investigate:");
+        eprintln!("- Check if the spec is already implemented");
+        eprintln!("- Review the command output above for any warnings");
+        eprintln!("- Run 'git status' to check for uncommitted changes");
+        eprintln!("\nTo continue anyway, run with MMM_NO_COMMIT_VALIDATION=true");
+
+        Err(anyhow!("No commits created by command /{}", command.name))
     }
 }
 
