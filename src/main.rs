@@ -330,7 +330,7 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
                                 println!("✅ Successfully merged worktree '{}'", session.name);
                                 // Automatically clean up successfully merged worktrees when using --all
                                 if let Err(e) =
-                                    worktree_manager.cleanup_session(&session.name, false)
+                                    worktree_manager.cleanup_session(&session.name, true)
                                 {
                                     eprintln!(
                                         "⚠️ Warning: Failed to clean up worktree '{}': {}",
@@ -357,7 +357,7 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
                 let mut input = String::new();
                 std::io::stdin().read_line(&mut input)?;
                 if input.trim().to_lowercase() == "y" {
-                    worktree_manager.cleanup_session(&name, false)?;
+                    worktree_manager.cleanup_session(&name, true)?;
                     println!("✅ Worktree cleaned up");
                 }
             } else {

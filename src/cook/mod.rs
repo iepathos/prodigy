@@ -182,7 +182,7 @@ async fn handle_worktree_merge(
 
                             match should_delete {
                                 MergeChoice::Yes => {
-                                    match worktree_manager.cleanup_session(&session.name, false) {
+                                    match worktree_manager.cleanup_session(&session.name, true) {
                                         Ok(_) => {
                                             println!("✅ Deleted worktree: {}", session.name);
                                         }
@@ -648,7 +648,7 @@ async fn run_with_mapping(cmd: command::CookCommand, verbose: bool) -> Result<()
 
                                     if should_delete {
                                         println!("Deleting worktree {}...", session.name);
-                                        match worktree_manager.cleanup_session(&session.name, false)
+                                        match worktree_manager.cleanup_session(&session.name, true)
                                         {
                                             Ok(_) => {
                                                 println!("✅ Worktree deleted successfully");
@@ -886,7 +886,7 @@ async fn run_standard(cmd: command::CookCommand, verbose: bool) -> Result<()> {
 
                                     if should_delete {
                                         println!("Deleting worktree {}...", session.name);
-                                        match worktree_manager.cleanup_session(&session.name, false)
+                                        match worktree_manager.cleanup_session(&session.name, true)
                                         {
                                             Ok(_) => {
                                                 println!("✅ Worktree deleted successfully");
