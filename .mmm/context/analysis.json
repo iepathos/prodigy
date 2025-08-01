@@ -1,8 +1,8 @@
 {
   "metadata": {
-    "timestamp": "2025-08-01T22:40:15.733076Z",
-    "duration_ms": 66900,
-    "files_analyzed": 158,
+    "timestamp": "2025-08-01T23:11:59.354278Z",
+    "duration_ms": 134439,
+    "files_analyzed": 160,
     "incremental": false,
     "version": "0.1.0"
   },
@@ -15,15 +15,15 @@
     "hybrid_coverage": "hybrid_coverage.json"
   },
   "statistics": {
-    "total_files": 158,
-    "total_modules": 121,
-    "dependency_edges": 810,
+    "total_files": 160,
+    "total_modules": 123,
+    "dependency_edges": 816,
     "circular_dependencies": 0,
     "architectural_violations": 2,
-    "debt_items": 142,
+    "debt_items": 208,
     "high_priority_debt": 23,
-    "overall_coverage": 0.5366922234392114,
-    "untested_functions": 1248,
+    "overall_coverage": 0.5563516942827288,
+    "untested_functions": 1255,
     "critical_untested": 1,
     "hybrid_score": 0.0
   },

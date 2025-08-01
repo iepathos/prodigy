@@ -1,58 +1,58 @@
 {
   "nodes": {
-    "src/cook/session/summary.rs": {
-      "module_type": "Library",
-      "import_count": 1,
-      "export_count": 1,
-      "external_dep_count": 0,
-      "coupling_score": 1
+    "Cargo.toml": {
+      "module_type": "Config",
+      "import_count": 0,
+      "export_count": 0,
+      "external_dep_count": 43,
+      "coupling_score": 0
     },
-    "src/git/error.rs": {
+    "src/subprocess/mod.rs": {
       "module_type": "Library",
       "import_count": 2,
-      "export_count": 3,
+      "export_count": 18,
       "external_dep_count": 0,
       "coupling_score": 2
     },
-    "tests/config_integration_tests.rs": {
-      "module_type": "Library",
-      "import_count": 3,
-      "export_count": 0,
-      "external_dep_count": 0,
-      "coupling_score": 3
-    },
-    "src/context/architecture.rs": {
+    "src/context/debt.rs": {
       "module_type": "Library",
       "import_count": 9,
-      "export_count": 6,
+      "export_count": 17,
       "external_dep_count": 0,
       "coupling_score": 9
     },
-    "src/worktree/mod.rs": {
+    "src/config/dynamic_registry.rs": {
+      "module_type": "Library",
+      "import_count": 14,
+      "export_count": 5,
+      "external_dep_count": 0,
+      "coupling_score": 14
+    },
+    "src/session/mod.rs": {
       "module_type": "Library",
       "import_count": 4,
-      "export_count": 10,
+      "export_count": 24,
       "external_dep_count": 0,
       "coupling_score": 4
     },
-    "src/cook/execution/runner.rs": {
+    "src/config/workflow.rs": {
       "module_type": "Library",
-      "import_count": 6,
-      "export_count": 7,
+      "import_count": 2,
+      "export_count": 1,
       "external_dep_count": 0,
-      "coupling_score": 6
+      "coupling_score": 2
     },
-    "src/cook/git_ops.rs": {
+    "tests/edge_case_tests.rs": {
       "module_type": "Library",
       "import_count": 9,
       "export_count": 0,
       "external_dep_count": 0,
       "coupling_score": 9
     },
-    "tests/metrics_integration.rs": {
+    "src/cook/interaction/prompts.rs": {
       "module_type": "Library",
       "import_count": 5,
-      "export_count": 0,
+      "export_count": 5,
       "external_dep_count": 0,
       "coupling_score": 5
     },
@@ -63,89 +63,19 @@
       "external_dep_count": 0,
       "coupling_score": 7
     },
-    "src/config/command_validator.rs": {
-      "module_type": "Library",
-      "import_count": 6,
-      "export_count": 14,
-      "external_dep_count": 0,
-      "coupling_score": 6
-    },
-    "src/cook/session/tracker.rs": {
-      "module_type": "Library",
-      "import_count": 10,
-      "export_count": 5,
-      "external_dep_count": 0,
-      "coupling_score": 10
-    },
-    "src/config/loader.rs": {
-      "module_type": "Library",
-      "import_count": 10,
-      "export_count": 2,
-      "external_dep_count": 0,
-      "coupling_score": 10
-    },
-    "src/cook/metrics/mod.rs": {
-      "module_type": "Library",
-      "import_count": 4,
-      "export_count": 6,
-      "external_dep_count": 0,
-      "coupling_score": 4
-    },
-    "src/subprocess/tests.rs": {
-      "module_type": "Library",
-      "import_count": 3,
-      "export_count": 0,
-      "external_dep_count": 0,
-      "coupling_score": 3
-    },
-    "src/context/dependencies.rs": {
-      "module_type": "Library",
-      "import_count": 12,
-      "export_count": 12,
-      "external_dep_count": 0,
-      "coupling_score": 12
-    },
-    "src/session/storage.rs": {
-      "module_type": "Library",
-      "import_count": 8,
-      "export_count": 5,
-      "external_dep_count": 0,
-      "coupling_score": 8
-    },
-    "src/simple_state/mod.rs": {
-      "module_type": "Library",
-      "import_count": 3,
-      "export_count": 4,
-      "external_dep_count": 0,
-      "coupling_score": 3
-    },
-    "src/git/types.rs": {
-      "module_type": "Library",
-      "import_count": 1,
-      "export_count": 20,
-      "external_dep_count": 0,
-      "coupling_score": 1
-    },
-    "src/context/size_manager.rs": {
-      "module_type": "Library",
-      "import_count": 5,
-      "export_count": 13,
-      "external_dep_count": 0,
-      "coupling_score": 5
-    },
-    "tests/context_integration.rs": {
-      "module_type": "Library",
-      "import_count": 4,
-      "export_count": 0,
-      "external_dep_count": 0,
-      "coupling_score": 4
-    },
     "src/subprocess/runner.rs": {
       "module_type": "Library",
       "import_count": 9,
       "export_count": 13,
       "external_dep_count": 0,
       "coupling_score": 9
+    },
+    "src/metrics/complexity.rs": {
+      "module_type": "Library",
+      "import_count": 6,
+      "export_count": 4,
+      "external_dep_count": 0,
+      "coupling_score": 6
     },
     "src/cook/session/state.rs": {
       "module_type": "Library",
@@ -154,54 +84,68 @@
       "external_dep_count": 0,
       "coupling_score": 3
     },
-    "src/init/templates.rs": {
+    "src/testing/mod.rs": {
       "module_type": "Library",
-      "import_count": 1,
-      "export_count": 9,
+      "import_count": 10,
+      "export_count": 19,
       "external_dep_count": 0,
-      "coupling_score": 1
+      "coupling_score": 10
     },
-    "src/subprocess/mod.rs": {
+    "src/worktree/tests.rs": {
       "module_type": "Library",
-      "import_count": 2,
-      "export_count": 18,
+      "import_count": 4,
+      "export_count": 0,
       "external_dep_count": 0,
-      "coupling_score": 2
+      "coupling_score": 4
     },
-    "src/context/conventions.rs": {
+    "src/cook/analysis/cache.rs": {
       "module_type": "Library",
       "import_count": 12,
-      "export_count": 23,
+      "export_count": 3,
       "external_dep_count": 0,
       "coupling_score": 12
     },
-    "src/main.rs": {
-      "module_type": "Binary",
+    "src/abstractions/claude.rs": {
+      "module_type": "Library",
+      "import_count": 11,
+      "export_count": 6,
+      "external_dep_count": 0,
+      "coupling_score": 11
+    },
+    "src/metrics/context.rs": {
+      "module_type": "Library",
+      "import_count": 7,
+      "export_count": 10,
+      "external_dep_count": 0,
+      "coupling_score": 7
+    },
+    "src/simple_state/tests.rs": {
+      "module_type": "Library",
       "import_count": 5,
       "export_count": 0,
       "external_dep_count": 0,
       "coupling_score": 5
     },
-    "src/session/config.rs": {
+    "src/git/types.rs": {
+      "module_type": "Library",
+      "import_count": 1,
+      "export_count": 20,
+      "external_dep_count": 0,
+      "coupling_score": 1
+    },
+    "src/metrics/mod.rs": {
+      "module_type": "Library",
+      "import_count": 9,
+      "export_count": 38,
+      "external_dep_count": 0,
+      "coupling_score": 9
+    },
+    "src/context/size_manager.rs": {
       "module_type": "Library",
       "import_count": 5,
-      "export_count": 6,
+      "export_count": 13,
       "external_dep_count": 0,
       "coupling_score": 5
-    },
-    "src/cook/workflow/executor.rs": {
-      "module_type": "Library",
-      "import_count": 12,
-      "export_count": 4,
-      "external_dep_count": 0,
-      "coupling_score": 12
-    },
-    "src/config/dynamic_registry.rs": {
-      "module_type": "Library",
-      "import_count": 14,
-      "export_count": 5,
-      "external_dep_count": 0,
-      "coupling_score": 14
     },
     "src/config/mod.rs": {
       "module_type": "Library",
@@ -210,26 +154,313 @@
       "external_dep_count": 0,
       "coupling_score": 13
     },
-    "src/session/mod.rs": {
+    "src/cook/orchestrator.rs": {
+      "module_type": "Library",
+      "import_count": 27,
+      "export_count": 5,
+      "external_dep_count": 0,
+      "coupling_score": 27
+    },
+    "tests/command_parsing_tests.rs": {
+      "module_type": "Library",
+      "import_count": 1,
+      "export_count": 0,
+      "external_dep_count": 0,
+      "coupling_score": 1
+    },
+    "src/subprocess/git.rs": {
+      "module_type": "Library",
+      "import_count": 7,
+      "export_count": 4,
+      "external_dep_count": 0,
+      "coupling_score": 7
+    },
+    "src/cook/interaction/mod.rs": {
       "module_type": "Library",
       "import_count": 4,
-      "export_count": 24,
+      "export_count": 14,
       "external_dep_count": 0,
       "coupling_score": 4
     },
-    "src/metrics/collector.rs": {
+    "src/cook/workflow/executor.rs": {
+      "module_type": "Library",
+      "import_count": 12,
+      "export_count": 4,
+      "external_dep_count": 0,
+      "coupling_score": 12
+    },
+    "src/analyze/tests.rs": {
+      "module_type": "Library",
+      "import_count": 8,
+      "export_count": 0,
+      "external_dep_count": 0,
+      "coupling_score": 8
+    },
+    "src/subprocess/error.rs": {
+      "module_type": "Library",
+      "import_count": 1,
+      "export_count": 1,
+      "external_dep_count": 0,
+      "coupling_score": 1
+    },
+    "src/lib.rs": {
+      "module_type": "Library",
+      "import_count": 0,
+      "export_count": 0,
+      "external_dep_count": 0,
+      "coupling_score": 0
+    },
+    "tests/cook_iteration_tests.rs": {
+      "module_type": "Library",
+      "import_count": 5,
+      "export_count": 0,
+      "external_dep_count": 0,
+      "coupling_score": 5
+    },
+    "src/git/mod.rs": {
+      "module_type": "Library",
+      "import_count": 10,
+      "export_count": 10,
+      "external_dep_count": 0,
+      "coupling_score": 10
+    },
+    "src/metrics/history.rs": {
+      "module_type": "Library",
+      "import_count": 2,
+      "export_count": 10,
+      "external_dep_count": 0,
+      "coupling_score": 2
+    },
+    "src/cook/execution/mod.rs": {
+      "module_type": "Library",
+      "import_count": 3,
+      "export_count": 7,
+      "external_dep_count": 0,
+      "coupling_score": 3
+    },
+    "src/cook/metrics/collector.rs": {
+      "module_type": "Library",
+      "import_count": 11,
+      "export_count": 3,
+      "external_dep_count": 0,
+      "coupling_score": 11
+    },
+    "src/analyze/command.rs": {
+      "module_type": "Library",
+      "import_count": 3,
+      "export_count": 1,
+      "external_dep_count": 0,
+      "coupling_score": 3
+    },
+    "src/simple_state/types.rs": {
+      "module_type": "Library",
+      "import_count": 2,
+      "export_count": 5,
+      "external_dep_count": 0,
+      "coupling_score": 2
+    },
+    "src/config/command.rs": {
+      "module_type": "Library",
+      "import_count": 4,
+      "export_count": 20,
+      "external_dep_count": 0,
+      "coupling_score": 4
+    },
+    "src/config/command_parser.rs": {
+      "module_type": "Library",
+      "import_count": 6,
+      "export_count": 2,
+      "external_dep_count": 0,
+      "coupling_score": 6
+    },
+    "src/cook/analysis/runner.rs": {
+      "module_type": "Library",
+      "import_count": 14,
+      "export_count": 3,
+      "external_dep_count": 0,
+      "coupling_score": 14
+    },
+    "src/context/mod.rs": {
+      "module_type": "Library",
+      "import_count": 7,
+      "export_count": 28,
+      "external_dep_count": 0,
+      "coupling_score": 7
+    },
+    "src/cook/session/migration.rs": {
+      "module_type": "Library",
+      "import_count": 6,
+      "export_count": 0,
+      "external_dep_count": 0,
+      "coupling_score": 6
+    },
+    "src/config/command_validator.rs": {
+      "module_type": "Library",
+      "import_count": 6,
+      "export_count": 14,
+      "external_dep_count": 0,
+      "coupling_score": 6
+    },
+    "src/cook/session/mod.rs": {
+      "module_type": "Library",
+      "import_count": 3,
+      "export_count": 8,
+      "external_dep_count": 0,
+      "coupling_score": 3
+    },
+    "src/metrics/performance.rs": {
+      "module_type": "Library",
+      "import_count": 8,
+      "export_count": 3,
+      "external_dep_count": 0,
+      "coupling_score": 8
+    },
+    "src/context/hybrid_coverage.rs": {
       "module_type": "Library",
       "import_count": 9,
-      "export_count": 2,
+      "export_count": 13,
       "external_dep_count": 0,
       "coupling_score": 9
     },
-    "src/cook/retry.rs": {
+    "src/cook/interaction/display.rs": {
       "module_type": "Library",
-      "import_count": 12,
+      "import_count": 4,
+      "export_count": 6,
+      "external_dep_count": 0,
+      "coupling_score": 4
+    },
+    "src/config/command_discovery.rs": {
+      "module_type": "Library",
+      "import_count": 9,
+      "export_count": 5,
+      "external_dep_count": 0,
+      "coupling_score": 9
+    },
+    "src/session/tests.rs": {
+      "module_type": "Library",
+      "import_count": 5,
+      "export_count": 0,
+      "external_dep_count": 0,
+      "coupling_score": 5
+    },
+    "src/subprocess/builder.rs": {
+      "module_type": "Library",
+      "import_count": 4,
+      "export_count": 10,
+      "external_dep_count": 0,
+      "coupling_score": 4
+    },
+    "src/cook/metrics/reporter.rs": {
+      "module_type": "Library",
+      "import_count": 6,
+      "export_count": 5,
+      "external_dep_count": 0,
+      "coupling_score": 6
+    },
+    "src/simple_state/cache.rs": {
+      "module_type": "Library",
+      "import_count": 5,
+      "export_count": 9,
+      "external_dep_count": 0,
+      "coupling_score": 5
+    },
+    "src/subprocess/tests.rs": {
+      "module_type": "Library",
+      "import_count": 3,
+      "export_count": 0,
+      "external_dep_count": 0,
+      "coupling_score": 3
+    },
+    "src/main.rs": {
+      "module_type": "Binary",
+      "import_count": 5,
+      "export_count": 0,
+      "external_dep_count": 0,
+      "coupling_score": 5
+    },
+    "src/cook/session/tracker.rs": {
+      "module_type": "Library",
+      "import_count": 10,
+      "export_count": 5,
+      "external_dep_count": 0,
+      "coupling_score": 10
+    },
+    "src/abstractions/exit_status.rs": {
+      "module_type": "Library",
+      "import_count": 0,
       "export_count": 2,
       "external_dep_count": 0,
-      "coupling_score": 12
+      "coupling_score": 0
+    },
+    "tests/subprocess_tests.rs": {
+      "module_type": "Library",
+      "import_count": 3,
+      "export_count": 0,
+      "external_dep_count": 0,
+      "coupling_score": 3
+    },
+    "src/simple_state/mod.rs": {
+      "module_type": "Library",
+      "import_count": 3,
+      "export_count": 4,
+      "external_dep_count": 0,
+      "coupling_score": 3
+    },
+    "src/metrics/storage.rs": {
+      "module_type": "Library",
+      "import_count": 8,
+      "export_count": 9,
+      "external_dep_count": 0,
+      "coupling_score": 8
+    },
+    "tests/common/mod.rs": {
+      "module_type": "Library",
+      "import_count": 6,
+      "export_count": 21,
+      "external_dep_count": 0,
+      "coupling_score": 6
+    },
+    "src/cook/execution/claude.rs": {
+      "module_type": "Library",
+      "import_count": 8,
+      "export_count": 3,
+      "external_dep_count": 0,
+      "coupling_score": 8
+    },
+    "tests/context_integration.rs": {
+      "module_type": "Library",
+      "import_count": 4,
+      "export_count": 0,
+      "external_dep_count": 0,
+      "coupling_score": 4
+    },
+    "src/init/command.rs": {
+      "module_type": "Library",
+      "import_count": 2,
+      "export_count": 1,
+      "external_dep_count": 0,
+      "coupling_score": 2
+    },
+    "src/config/metadata_parser.rs": {
+      "module_type": "Library",
+      "import_count": 10,
+      "export_count": 4,
+      "external_dep_count": 0,
+      "coupling_score": 10
+    },
+    "src/cook/analysis/mod.rs": {
+      "module_type": "Library",
+      "import_count": 3,
+      "export_count": 7,
+      "external_dep_count": 0,
+      "coupling_score": 3
+    },
+    "src/metrics/quality.rs": {
+      "module_type": "Library",
+      "import_count": 5,
+      "export_count": 2,
+      "external_dep_count": 0,
+      "coupling_score": 5
     },
     "tests/workflow_commit_verification_tests.rs": {
       "module_type": "Library",
@@ -238,14 +469,105 @@
       "external_dep_count": 0,
       "coupling_score": 6
     },
-    "src/session/manager.rs": {
+    "tests/error_handling_tests.rs": {
       "module_type": "Library",
-      "import_count": 11,
+      "import_count": 6,
+      "export_count": 0,
+      "external_dep_count": 0,
+      "coupling_score": 6
+    },
+    "tests/metrics_integration.rs": {
+      "module_type": "Library",
+      "import_count": 5,
+      "export_count": 0,
+      "external_dep_count": 0,
+      "coupling_score": 5
+    },
+    "src/context/dependencies.rs": {
+      "module_type": "Library",
+      "import_count": 12,
+      "export_count": 12,
+      "external_dep_count": 0,
+      "coupling_score": 12
+    },
+    "tests/integration_test_cook_path.rs": {
+      "module_type": "Library",
+      "import_count": 6,
+      "export_count": 0,
+      "external_dep_count": 0,
+      "coupling_score": 6
+    },
+    "tests/config_integration_tests.rs": {
+      "module_type": "Library",
+      "import_count": 3,
+      "export_count": 0,
+      "external_dep_count": 0,
+      "coupling_score": 3
+    },
+    "src/git/parsers.rs": {
+      "module_type": "Library",
+      "import_count": 5,
       "export_count": 3,
       "external_dep_count": 0,
-      "coupling_score": 11
+      "coupling_score": 5
     },
-    "src/simple_state/tests.rs": {
+    "src/context/summary.rs": {
+      "module_type": "Library",
+      "import_count": 4,
+      "export_count": 19,
+      "external_dep_count": 0,
+      "coupling_score": 4
+    },
+    "src/subprocess/mock.rs": {
+      "module_type": "Library",
+      "import_count": 5,
+      "export_count": 14,
+      "external_dep_count": 0,
+      "coupling_score": 5
+    },
+    "tests/worktree_integration_tests.rs": {
+      "module_type": "Library",
+      "import_count": 5,
+      "export_count": 0,
+      "external_dep_count": 0,
+      "coupling_score": 5
+    },
+    "src/cook/execution/runner.rs": {
+      "module_type": "Library",
+      "import_count": 6,
+      "export_count": 7,
+      "external_dep_count": 0,
+      "coupling_score": 6
+    },
+    "src/metrics/testing.rs": {
+      "module_type": "Library",
+      "import_count": 9,
+      "export_count": 5,
+      "external_dep_count": 0,
+      "coupling_score": 9
+    },
+    "src/metrics/backends.rs": {
+      "module_type": "Library",
+      "import_count": 15,
+      "export_count": 9,
+      "external_dep_count": 0,
+      "coupling_score": 15
+    },
+    "tests/cli_tests.rs": {
+      "module_type": "Library",
+      "import_count": 8,
+      "export_count": 0,
+      "external_dep_count": 0,
+      "coupling_score": 8
+    },
+    "src/session/config.rs": {
+      "module_type": "Library",
+      "import_count": 5,
+      "export_count": 6,
+      "external_dep_count": 0,
+      "coupling_score": 5
+    },
+    "src/worktree/test_state.rs": {
       "module_type": "Library",
       "import_count": 5,
       "export_count": 0,
@@ -259,89 +581,110 @@
       "external_dep_count": 0,
       "coupling_score": 7
     },
-    "tests/cook_iteration_tests.rs": {
+    "tests/workflow_tests.rs": {
       "module_type": "Library",
-      "import_count": 5,
+      "import_count": 1,
       "export_count": 0,
       "external_dep_count": 0,
-      "coupling_score": 5
+      "coupling_score": 1
     },
-    "src/testing/mod.rs": {
+    "src/init/mod.rs": {
       "module_type": "Library",
-      "import_count": 10,
-      "export_count": 19,
+      "import_count": 17,
+      "export_count": 0,
       "external_dep_count": 0,
-      "coupling_score": 10
+      "coupling_score": 17
     },
-    "src/cook/session/adapter.rs": {
+    "src/cook/workflow/mod.rs": {
       "module_type": "Library",
-      "import_count": 7,
+      "import_count": 1,
       "export_count": 3,
       "external_dep_count": 0,
-      "coupling_score": 7
+      "coupling_score": 1
     },
-    "src/metrics/history.rs": {
+    "src/init/templates.rs": {
       "module_type": "Library",
-      "import_count": 2,
-      "export_count": 10,
+      "import_count": 1,
+      "export_count": 9,
       "external_dep_count": 0,
-      "coupling_score": 2
+      "coupling_score": 1
     },
-    "src/cook/metrics/reporter.rs": {
-      "module_type": "Library",
-      "import_count": 6,
-      "export_count": 5,
-      "external_dep_count": 0,
-      "coupling_score": 6
-    },
-    "src/cook/tests.rs": {
-      "module_type": "Library",
-      "import_count": 12,
-      "export_count": 0,
-      "external_dep_count": 0,
-      "coupling_score": 12
-    },
-    "src/simple_state/state.rs": {
-      "module_type": "Library",
-      "import_count": 5,
-      "export_count": 8,
-      "external_dep_count": 0,
-      "coupling_score": 5
-    },
-    "src/cook/mod_tests.rs": {
-      "module_type": "Library",
-      "import_count": 8,
-      "export_count": 0,
-      "external_dep_count": 0,
-      "coupling_score": 8
-    },
-    "tests/cook_tests.rs": {
-      "module_type": "Library",
-      "import_count": 7,
-      "export_count": 0,
-      "external_dep_count": 0,
-      "coupling_score": 7
-    },
-    "src/abstractions/claude.rs": {
-      "module_type": "Library",
-      "import_count": 11,
-      "export_count": 6,
-      "external_dep_count": 0,
-      "coupling_score": 11
-    },
-    "src/context/mod.rs": {
-      "module_type": "Library",
-      "import_count": 7,
-      "export_count": 28,
-      "external_dep_count": 0,
-      "coupling_score": 7
-    },
-    "src/cook/interaction/display.rs": {
+    "src/cook/metrics/mod.rs": {
       "module_type": "Library",
       "import_count": 4,
       "export_count": 6,
       "external_dep_count": 0,
       "coupling_score": 4
+    },
+    "src/cook/retry.rs": {
+      "module_type": "Library",
+      "import_count": 12,
+      "export_count": 2,
+      "external_dep_count": 0,
+      "coupling_score": 12
+    },
+    "src/git/scenario.rs": {
+      "module_type": "Library",
+      "import_count": 10,
+      "export_count": 5,
+      "external_dep_count": 0,
+      "coupling_score": 10
+    },
+    "src/subprocess/claude.rs": {
+      "module_type": "Library",
+      "import_count": 6,
+      "export_count": 3,
+      "external_dep_count": 0,
+      "coupling_score": 6
+    },
+    "src/context/tarpaulin_coverage.rs": {
+      "module_type": "Library",
+      "import_count": 11,
+      "export_count": 4,
+      "external_dep_count": 0,
+      "coupling_score": 11
+    },
+    "src/session/persistence.rs": {
+      "module_type": "Library",
+      "import_count": 7,
+      "export_count": 6,
+      "external_dep_count": 0,
+      "coupling_score": 7
+    },
+    "src/cook/mod.rs": {
+      "module_type": "Library",
+      "import_count": 11,
+      "export_count": 4,
+      "external_dep_count": 0,
+      "coupling_score": 11
+    },
+    "src/session/state.rs": {
+      "module_type": "Library",
+      "import_count": 7,
+      "export_count": 11,
+      "external_dep_count": 0,
+      "coupling_score": 7
+    },
+    "src/config/loader.rs": {
+      "module_type": "Library",
+      "import_count": 10,
+      "export_count": 2,
+      "external_dep_count": 0,
+      "coupling_score": 10
+    },
+    "src/metrics/collector.rs": {
+      "module_type": "Library",
+      "import_count": 9,
+      "export_count": 2,
+      "external_dep_count": 0,
+      "coupling_score": 9
+    },
+    "src/abstractions/git.rs": {
+      "module_type": "Library",
+      "import_count": 12,
+      "export_count": 6,
+      "external_dep_count": 0,
+      "coupling_score": 12
     },
     "src/metrics/registry.rs": {
       "module_type": "Library",
@@ -357,278 +700,19 @@
       "external_dep_count": 0,
       "coupling_score": 6
     },
-    "src/session/state.rs": {
-      "module_type": "Library",
-      "import_count": 7,
-      "export_count": 11,
-      "external_dep_count": 0,
-      "coupling_score": 7
-    },
-    "src/worktree/state.rs": {
-      "module_type": "Library",
-      "import_count": 2,
-      "export_count": 7,
-      "external_dep_count": 0,
-      "coupling_score": 2
-    },
-    "src/config/workflow.rs": {
-      "module_type": "Library",
-      "import_count": 2,
-      "export_count": 1,
-      "external_dep_count": 0,
-      "coupling_score": 2
-    },
-    "src/subprocess/claude.rs": {
-      "module_type": "Library",
-      "import_count": 6,
-      "export_count": 3,
-      "external_dep_count": 0,
-      "coupling_score": 6
-    },
-    "src/cook/workflow/mod.rs": {
-      "module_type": "Library",
-      "import_count": 1,
-      "export_count": 3,
-      "external_dep_count": 0,
-      "coupling_score": 1
-    },
-    "tests/context_optimization_tests.rs": {
-      "module_type": "Library",
-      "import_count": 7,
-      "export_count": 0,
-      "external_dep_count": 0,
-      "coupling_score": 7
-    },
-    "src/metrics/performance.rs": {
-      "module_type": "Library",
-      "import_count": 8,
-      "export_count": 3,
-      "external_dep_count": 0,
-      "coupling_score": 8
-    },
-    "src/cook/metrics/collector.rs": {
-      "module_type": "Library",
-      "import_count": 11,
-      "export_count": 3,
-      "external_dep_count": 0,
-      "coupling_score": 11
-    },
-    "src/cook/mod_old.rs": {
-      "module_type": "Library",
-      "import_count": 23,
-      "export_count": 0,
-      "external_dep_count": 0,
-      "coupling_score": 23
-    },
-    "src/analyze/mod.rs": {
-      "module_type": "Library",
-      "import_count": 3,
-      "export_count": 0,
-      "external_dep_count": 0,
-      "coupling_score": 3
-    },
-    "src/lib.rs": {
-      "module_type": "Library",
-      "import_count": 0,
-      "export_count": 0,
-      "external_dep_count": 0,
-      "coupling_score": 0
-    },
-    "src/cook/orchestrator.rs": {
-      "module_type": "Library",
-      "import_count": 27,
-      "export_count": 5,
-      "external_dep_count": 0,
-      "coupling_score": 27
-    },
-    "src/metrics/storage.rs": {
-      "module_type": "Library",
-      "import_count": 8,
-      "export_count": 9,
-      "external_dep_count": 0,
-      "coupling_score": 8
-    },
-    "src/session/persistence.rs": {
-      "module_type": "Library",
-      "import_count": 7,
-      "export_count": 6,
-      "external_dep_count": 0,
-      "coupling_score": 7
-    },
-    "src/init/mod.rs": {
-      "module_type": "Library",
-      "import_count": 17,
-      "export_count": 0,
-      "external_dep_count": 0,
-      "coupling_score": 17
-    },
-    "src/context/tarpaulin_coverage.rs": {
-      "module_type": "Library",
-      "import_count": 11,
-      "export_count": 4,
-      "external_dep_count": 0,
-      "coupling_score": 11
-    },
-    "src/cook/command.rs": {
-      "module_type": "Library",
-      "import_count": 2,
-      "export_count": 1,
-      "external_dep_count": 0,
-      "coupling_score": 2
-    },
-    "tests/common/mod.rs": {
-      "module_type": "Library",
-      "import_count": 6,
-      "export_count": 21,
-      "external_dep_count": 0,
-      "coupling_score": 6
-    },
-    "src/config/command_parser.rs": {
-      "module_type": "Library",
-      "import_count": 6,
-      "export_count": 2,
-      "external_dep_count": 0,
-      "coupling_score": 6
-    },
-    "src/git/mod.rs": {
-      "module_type": "Library",
-      "import_count": 10,
-      "export_count": 10,
-      "external_dep_count": 0,
-      "coupling_score": 10
-    },
-    "src/metrics/backends.rs": {
-      "module_type": "Library",
-      "import_count": 15,
-      "export_count": 9,
-      "external_dep_count": 0,
-      "coupling_score": 15
-    },
-    "src/simple_state/cache.rs": {
+    "src/simple_state/state.rs": {
       "module_type": "Library",
       "import_count": 5,
-      "export_count": 9,
-      "external_dep_count": 0,
-      "coupling_score": 5
-    },
-    "src/subprocess/error.rs": {
-      "module_type": "Library",
-      "import_count": 1,
-      "export_count": 1,
-      "external_dep_count": 0,
-      "coupling_score": 1
-    },
-    "src/cook/session/mod.rs": {
-      "module_type": "Library",
-      "import_count": 3,
       "export_count": 8,
       "external_dep_count": 0,
-      "coupling_score": 3
-    },
-    "tests/subprocess_tests.rs": {
-      "module_type": "Library",
-      "import_count": 3,
-      "export_count": 0,
-      "external_dep_count": 0,
-      "coupling_score": 3
-    },
-    "src/metrics/testing.rs": {
-      "module_type": "Library",
-      "import_count": 9,
-      "export_count": 5,
-      "external_dep_count": 0,
-      "coupling_score": 9
-    },
-    "src/subprocess/mock.rs": {
-      "module_type": "Library",
-      "import_count": 5,
-      "export_count": 14,
-      "external_dep_count": 0,
       "coupling_score": 5
     },
-    "src/git/scenario.rs": {
-      "module_type": "Library",
-      "import_count": 10,
-      "export_count": 5,
-      "external_dep_count": 0,
-      "coupling_score": 10
-    },
-    "src/config/command.rs": {
-      "module_type": "Library",
-      "import_count": 4,
-      "export_count": 20,
-      "external_dep_count": 0,
-      "coupling_score": 4
-    },
-    "src/simple_state/types.rs": {
+    "src/git/error.rs": {
       "module_type": "Library",
       "import_count": 2,
-      "export_count": 5,
+      "export_count": 3,
       "external_dep_count": 0,
       "coupling_score": 2
-    },
-    "src/analyze/tests.rs": {
-      "module_type": "Library",
-      "import_count": 8,
-      "export_count": 0,
-      "external_dep_count": 0,
-      "coupling_score": 8
-    },
-    "tests/integration_test_cook_path.rs": {
-      "module_type": "Library",
-      "import_count": 6,
-      "export_count": 0,
-      "external_dep_count": 0,
-      "coupling_score": 6
-    },
-    "src/subprocess/builder.rs": {
-      "module_type": "Library",
-      "import_count": 4,
-      "export_count": 10,
-      "external_dep_count": 0,
-      "coupling_score": 4
-    },
-    "src/git/parsers.rs": {
-      "module_type": "Library",
-      "import_count": 5,
-      "export_count": 3,
-      "external_dep_count": 0,
-      "coupling_score": 5
-    },
-    "src/metrics/context.rs": {
-      "module_type": "Library",
-      "import_count": 7,
-      "export_count": 10,
-      "external_dep_count": 0,
-      "coupling_score": 7
-    },
-    "src/metrics/mod.rs": {
-      "module_type": "Library",
-      "import_count": 9,
-      "export_count": 38,
-      "external_dep_count": 0,
-      "coupling_score": 9
-    },
-    "src/cook/analysis/runner.rs": {
-      "module_type": "Library",
-      "import_count": 14,
-      "export_count": 3,
-      "external_dep_count": 0,
-      "coupling_score": 14
-    },
-    "src/context/debt.rs": {
-      "module_type": "Library",
-      "import_count": 9,
-      "export_count": 17,
-      "external_dep_count": 0,
-      "coupling_score": 9
-    },
-    "src/metrics/quality.rs": {
-      "module_type": "Library",
-      "import_count": 5,
-      "export_count": 2,
-      "external_dep_count": 0,
-      "coupling_score": 5
     },
     "src/worktree/manager.rs": {
       "module_type": "Library",
@@ -637,117 +721,68 @@
       "external_dep_count": 0,
       "coupling_score": 10
     },
-    "tests/workflow_tests.rs": {
+    "src/analyze/mod.rs": {
       "module_type": "Library",
-      "import_count": 1,
+      "import_count": 3,
       "export_count": 0,
       "external_dep_count": 0,
-      "coupling_score": 1
+      "coupling_score": 3
     },
-    "src/worktree/test_state.rs": {
-      "module_type": "Library",
-      "import_count": 5,
-      "export_count": 0,
-      "external_dep_count": 0,
-      "coupling_score": 5
-    },
-    "src/metrics/complexity.rs": {
-      "module_type": "Library",
-      "import_count": 6,
-      "export_count": 4,
-      "external_dep_count": 0,
-      "coupling_score": 6
-    },
-    "src/worktree/tests.rs": {
+    "src/worktree/mod.rs": {
       "module_type": "Library",
       "import_count": 4,
-      "export_count": 0,
+      "export_count": 10,
       "external_dep_count": 0,
       "coupling_score": 4
     },
-    "src/abstractions/git.rs": {
-      "module_type": "Library",
-      "import_count": 12,
-      "export_count": 6,
-      "external_dep_count": 0,
-      "coupling_score": 12
-    },
-    "tests/edge_case_tests.rs": {
+    "src/cook/git_ops.rs": {
       "module_type": "Library",
       "import_count": 9,
       "export_count": 0,
       "external_dep_count": 0,
       "coupling_score": 9
     },
-    "Cargo.toml": {
-      "module_type": "Config",
-      "import_count": 0,
+    "tests/context_optimization_tests.rs": {
+      "module_type": "Library",
+      "import_count": 7,
       "export_count": 0,
-      "external_dep_count": 43,
-      "coupling_score": 0
-    },
-    "src/config/metadata_parser.rs": {
-      "module_type": "Library",
-      "import_count": 10,
-      "export_count": 4,
       "external_dep_count": 0,
-      "coupling_score": 10
+      "coupling_score": 7
     },
-    "src/cook/interaction/prompts.rs": {
+    "src/session/storage.rs": {
       "module_type": "Library",
-      "import_count": 5,
+      "import_count": 8,
       "export_count": 5,
       "external_dep_count": 0,
-      "coupling_score": 5
+      "coupling_score": 8
     },
-    "src/abstractions/exit_status.rs": {
+    "src/cook/mod_old.rs": {
       "module_type": "Library",
-      "import_count": 0,
-      "export_count": 2,
-      "external_dep_count": 0,
-      "coupling_score": 0
-    },
-    "src/context/test_coverage.rs": {
-      "module_type": "Library",
-      "import_count": 10,
-      "export_count": 19,
-      "external_dep_count": 0,
-      "coupling_score": 10
-    },
-    "tests/error_handling_tests.rs": {
-      "module_type": "Library",
-      "import_count": 6,
+      "import_count": 23,
       "export_count": 0,
       "external_dep_count": 0,
-      "coupling_score": 6
+      "coupling_score": 23
     },
-    "src/init/command.rs": {
+    "src/cook/command.rs": {
       "module_type": "Library",
       "import_count": 2,
       "export_count": 1,
       "external_dep_count": 0,
       "coupling_score": 2
     },
-    "src/subprocess/git.rs": {
+    "src/context/optimized_hybrid.rs": {
       "module_type": "Library",
-      "import_count": 7,
-      "export_count": 4,
+      "import_count": 2,
+      "export_count": 3,
       "external_dep_count": 0,
-      "coupling_score": 7
+      "coupling_score": 2
     },
-    "src/context/analyzer.rs": {
+    "src/worktree/state.rs": {
       "module_type": "Library",
-      "import_count": 6,
-      "export_count": 4,
+      "import_count": 2,
+      "export_count": 7,
       "external_dep_count": 0,
-      "coupling_score": 6
-    },
-    "tests/cli_tests.rs": {
-      "module_type": "Library",
-      "import_count": 8,
-      "export_count": 0,
-      "external_dep_count": 0,
-      "coupling_score": 8
+      "coupling_score": 2
     },
     "src/abstractions/mod.rs": {
       "module_type": "Library",
@@ -756,96 +791,75 @@
       "external_dep_count": 0,
       "coupling_score": 0
     },
-    "src/cook/analysis/mod.rs": {
-      "module_type": "Library",
-      "import_count": 3,
-      "export_count": 7,
-      "external_dep_count": 0,
-      "coupling_score": 3
-    },
-    "src/session/tests.rs": {
-      "module_type": "Library",
-      "import_count": 5,
-      "export_count": 0,
-      "external_dep_count": 0,
-      "coupling_score": 5
-    },
-    "src/cook/session/migration.rs": {
-      "module_type": "Library",
-      "import_count": 6,
-      "export_count": 0,
-      "external_dep_count": 0,
-      "coupling_score": 6
-    },
-    "src/config/command_discovery.rs": {
-      "module_type": "Library",
-      "import_count": 9,
-      "export_count": 5,
-      "external_dep_count": 0,
-      "coupling_score": 9
-    },
-    "src/cook/mod.rs": {
-      "module_type": "Library",
-      "import_count": 11,
-      "export_count": 4,
-      "external_dep_count": 0,
-      "coupling_score": 11
-    },
-    "src/cook/execution/mod.rs": {
-      "module_type": "Library",
-      "import_count": 3,
-      "export_count": 7,
-      "external_dep_count": 0,
-      "coupling_score": 3
-    },
-    "tests/worktree_integration_tests.rs": {
-      "module_type": "Library",
-      "import_count": 5,
-      "export_count": 0,
-      "external_dep_count": 0,
-      "coupling_score": 5
-    },
-    "tests/command_parsing_tests.rs": {
-      "module_type": "Library",
-      "import_count": 1,
-      "export_count": 0,
-      "external_dep_count": 0,
-      "coupling_score": 1
-    },
-    "src/cook/execution/claude.rs": {
-      "module_type": "Library",
-      "import_count": 8,
-      "export_count": 3,
-      "external_dep_count": 0,
-      "coupling_score": 8
-    },
-    "src/context/hybrid_coverage.rs": {
-      "module_type": "Library",
-      "import_count": 9,
-      "export_count": 13,
-      "external_dep_count": 0,
-      "coupling_score": 9
-    },
-    "src/cook/interaction/mod.rs": {
-      "module_type": "Library",
-      "import_count": 4,
-      "export_count": 14,
-      "external_dep_count": 0,
-      "coupling_score": 4
-    },
-    "src/cook/analysis/cache.rs": {
+    "src/cook/tests.rs": {
       "module_type": "Library",
       "import_count": 12,
-      "export_count": 3,
+      "export_count": 0,
       "external_dep_count": 0,
       "coupling_score": 12
     },
-    "src/analyze/command.rs": {
+    "src/cook/session/adapter.rs": {
       "module_type": "Library",
-      "import_count": 3,
+      "import_count": 7,
+      "export_count": 3,
+      "external_dep_count": 0,
+      "coupling_score": 7
+    },
+    "src/context/test_coverage.rs": {
+      "module_type": "Library",
+      "import_count": 10,
+      "export_count": 19,
+      "external_dep_count": 0,
+      "coupling_score": 10
+    },
+    "src/context/architecture.rs": {
+      "module_type": "Library",
+      "import_count": 9,
+      "export_count": 6,
+      "external_dep_count": 0,
+      "coupling_score": 9
+    },
+    "src/context/analyzer.rs": {
+      "module_type": "Library",
+      "import_count": 6,
+      "export_count": 4,
+      "external_dep_count": 0,
+      "coupling_score": 6
+    },
+    "src/context/conventions.rs": {
+      "module_type": "Library",
+      "import_count": 12,
+      "export_count": 23,
+      "external_dep_count": 0,
+      "coupling_score": 12
+    },
+    "tests/cook_tests.rs": {
+      "module_type": "Library",
+      "import_count": 7,
+      "export_count": 0,
+      "external_dep_count": 0,
+      "coupling_score": 7
+    },
+    "src/session/manager.rs": {
+      "module_type": "Library",
+      "import_count": 11,
+      "export_count": 3,
+      "external_dep_count": 0,
+      "coupling_score": 11
+    },
+    "src/cook/session/summary.rs": {
+      "module_type": "Library",
+      "import_count": 1,
       "export_count": 1,
       "external_dep_count": 0,
-      "coupling_score": 3
+      "coupling_score": 1
+    },
+    "src/cook/mod_tests.rs": {
+      "module_type": "Library",
+      "import_count": 8,
+      "export_count": 0,
+      "external_dep_count": 0,
+      "coupling_score": 8
     }
   },
   "edges": [
@@ -1931,12 +1945,12 @@
     },
     {
       "from": "src/context/hybrid_coverage.rs",
-      "to": "crate::metrics::MetricsSnapshot",
+      "to": "super::test_coverage::TestCoverageMap",
       "dep_type": "Import"
     },
     {
       "from": "src/context/hybrid_coverage.rs",
-      "to": "super::test_coverage::TestCoverageMap",
+      "to": "crate::metrics::MetricsSnapshot",
       "dep_type": "Import"
     },
     {
@@ -2072,6 +2086,16 @@
     {
       "from": "src/context/dependencies.rs",
       "to": "mod::submodule",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/optimized_hybrid.rs",
+      "to": "super::hybrid_coverage::{",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/optimized_hybrid.rs",
+      "to": "serde::{Deserialize, Serialize}",
       "dep_type": "Import"
     },
     {
@@ -2277,6 +2301,26 @@
     {
       "from": "src/context/conventions.rs",
       "to": "std::error::Error",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/summary.rs",
+      "to": "super::{AnalysisMetadata, AnalysisResult}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/summary.rs",
+      "to": "serde::{Deserialize, Serialize}",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/summary.rs",
+      "to": "std::collections::HashMap",
+      "dep_type": "Import"
+    },
+    {
+      "from": "src/context/summary.rs",
+      "to": "std::path::PathBuf",
       "dep_type": "Import"
     },
     {
@@ -4913,138 +4957,140 @@
       "name": "top-level",
       "level": 1,
       "modules": [
+        "tests/metrics_integration.rs",
         "src/main.rs",
-        "src/lib.rs",
         "tests/config_integration_tests.rs",
-        "tests/subprocess_tests.rs",
         "tests/edge_case_tests.rs",
+        "tests/workflow_commit_verification_tests.rs",
+        "tests/cli_tests.rs",
+        "src/lib.rs",
         "tests/integration_test_cook_path.rs",
-        "tests/context_optimization_tests.rs",
+        "tests/command_parsing_tests.rs",
+        "tests/cook_iteration_tests.rs",
+        "tests/context_integration.rs",
+        "tests/worktree_integration_tests.rs",
         "tests/error_handling_tests.rs",
         "tests/cook_tests.rs",
-        "tests/context_integration.rs",
         "tests/workflow_tests.rs",
-        "tests/cook_iteration_tests.rs",
-        "tests/command_parsing_tests.rs",
-        "tests/workflow_commit_verification_tests.rs",
-        "tests/worktree_integration_tests.rs",
-        "tests/cli_tests.rs",
-        "tests/metrics_integration.rs"
+        "tests/context_optimization_tests.rs",
+        "tests/subprocess_tests.rs"
       ]
     },
     {
       "name": "module",
       "level": 2,
       "modules": [
-        "src/metrics/registry.rs",
-        "src/session/state.rs",
-        "src/context/architecture.rs",
-        "src/config/command_validator.rs",
-        "src/worktree/mod.rs",
-        "src/init/templates.rs",
-        "src/subprocess/mock.rs",
-        "src/metrics/quality.rs",
-        "src/context/conventions.rs",
-        "src/worktree/test_state.rs",
-        "src/abstractions/claude.rs",
-        "src/config/dynamic_registry.rs",
-        "src/testing/mod.rs",
-        "src/worktree/state.rs",
-        "src/session/manager.rs",
-        "src/metrics/collector.rs",
-        "src/config/metadata_parser.rs",
-        "src/cook/tests.rs",
-        "src/metrics/performance.rs",
-        "src/abstractions/mod.rs",
-        "src/metrics/history.rs",
-        "src/context/tarpaulin_coverage.rs",
-        "src/analyze/mod.rs",
-        "src/metrics/storage.rs",
-        "src/metrics/complexity.rs",
-        "src/metrics/context.rs",
-        "src/config/workflow.rs",
-        "src/context/dependencies.rs",
-        "src/metrics/backends.rs",
-        "src/init/mod.rs",
-        "src/worktree/manager.rs",
-        "src/subprocess/runner.rs",
-        "src/abstractions/exit_status.rs",
-        "src/session/persistence.rs",
-        "src/analyze/tests.rs",
-        "src/context/mod.rs",
-        "src/metrics/testing.rs",
-        "src/config/command_discovery.rs",
-        "src/subprocess/builder.rs",
-        "src/cook/mod_old.rs",
-        "src/session/config.rs",
-        "src/session/storage.rs",
-        "src/simple_state/types.rs",
-        "src/worktree/tests.rs",
-        "src/context/size_manager.rs",
-        "src/cook/mod.rs",
-        "src/context/test_coverage.rs",
-        "src/context/hybrid_coverage.rs",
-        "src/context/debt.rs",
-        "src/cook/command.rs",
-        "src/git/parsers.rs",
-        "src/analyze/command.rs",
-        "src/git/mod.rs",
-        "src/subprocess/git.rs",
-        "src/cook/retry.rs",
-        "src/session/mod.rs",
-        "src/git/types.rs",
-        "src/cook/signal_handler.rs",
-        "src/subprocess/claude.rs",
-        "src/simple_state/state.rs",
-        "src/simple_state/mod.rs",
-        "src/init/command.rs",
-        "src/config/command.rs",
-        "src/git/scenario.rs",
-        "src/cook/orchestrator.rs",
-        "src/subprocess/mod.rs",
-        "src/config/loader.rs",
-        "src/config/command_parser.rs",
-        "src/metrics/mod.rs",
-        "src/abstractions/git.rs",
-        "src/cook/mod_tests.rs",
-        "src/session/events.rs",
         "src/context/analyzer.rs",
-        "src/session/tests.rs",
-        "src/simple_state/tests.rs",
-        "src/config/mod.rs",
-        "src/metrics/events.rs",
-        "src/subprocess/error.rs",
-        "src/subprocess/tests.rs",
-        "src/cook/git_ops.rs",
-        "src/git/error.rs",
+        "src/init/templates.rs",
+        "src/git/types.rs",
+        "src/session/storage.rs",
         "src/simple_state/cache.rs",
-        "tests/common/mod.rs"
+        "src/worktree/tests.rs",
+        "src/config/command_parser.rs",
+        "src/metrics/events.rs",
+        "src/context/architecture.rs",
+        "src/git/parsers.rs",
+        "src/subprocess/mock.rs",
+        "src/context/debt.rs",
+        "src/config/mod.rs",
+        "src/cook/orchestrator.rs",
+        "tests/common/mod.rs",
+        "src/subprocess/error.rs",
+        "src/simple_state/mod.rs",
+        "src/metrics/storage.rs",
+        "src/context/optimized_hybrid.rs",
+        "src/config/metadata_parser.rs",
+        "src/worktree/mod.rs",
+        "src/metrics/context.rs",
+        "src/context/conventions.rs",
+        "src/config/loader.rs",
+        "src/context/size_manager.rs",
+        "src/cook/retry.rs",
+        "src/cook/mod_old.rs",
+        "src/context/hybrid_coverage.rs",
+        "src/session/mod.rs",
+        "src/config/command.rs",
+        "src/context/summary.rs",
+        "src/analyze/command.rs",
+        "src/git/scenario.rs",
+        "src/session/manager.rs",
+        "src/cook/tests.rs",
+        "src/worktree/test_state.rs",
+        "src/testing/mod.rs",
+        "src/cook/signal_handler.rs",
+        "src/analyze/tests.rs",
+        "src/metrics/history.rs",
+        "src/metrics/backends.rs",
+        "src/session/events.rs",
+        "src/subprocess/builder.rs",
+        "src/simple_state/state.rs",
+        "src/abstractions/git.rs",
+        "src/abstractions/mod.rs",
+        "src/git/mod.rs",
+        "src/context/mod.rs",
+        "src/subprocess/runner.rs",
+        "src/metrics/mod.rs",
+        "src/metrics/testing.rs",
+        "src/metrics/quality.rs",
+        "src/context/dependencies.rs",
+        "src/git/error.rs",
+        "src/abstractions/claude.rs",
+        "src/subprocess/git.rs",
+        "src/cook/mod_tests.rs",
+        "src/config/workflow.rs",
+        "src/init/command.rs",
+        "src/context/tarpaulin_coverage.rs",
+        "src/config/command_discovery.rs",
+        "src/subprocess/claude.rs",
+        "src/config/dynamic_registry.rs",
+        "src/worktree/manager.rs",
+        "src/session/config.rs",
+        "src/metrics/registry.rs",
+        "src/simple_state/types.rs",
+        "src/abstractions/exit_status.rs",
+        "src/session/tests.rs",
+        "src/metrics/complexity.rs",
+        "src/session/persistence.rs",
+        "src/analyze/mod.rs",
+        "src/worktree/state.rs",
+        "src/config/command_validator.rs",
+        "src/metrics/performance.rs",
+        "src/subprocess/tests.rs",
+        "src/cook/mod.rs",
+        "src/session/state.rs",
+        "src/metrics/collector.rs",
+        "src/subprocess/mod.rs",
+        "src/init/mod.rs",
+        "src/context/test_coverage.rs",
+        "src/cook/git_ops.rs",
+        "src/simple_state/tests.rs",
+        "src/cook/command.rs"
       ]
     },
     {
       "name": "deep",
       "level": 3,
       "modules": [
-        "src/cook/metrics/mod.rs",
-        "src/cook/analysis/cache.rs",
-        "src/cook/interaction/mod.rs",
-        "src/cook/session/state.rs",
-        "src/cook/execution/claude.rs",
-        "src/cook/execution/mod.rs",
-        "src/cook/analysis/runner.rs",
         "src/cook/metrics/collector.rs",
-        "src/cook/session/adapter.rs",
-        "src/cook/metrics/reporter.rs",
-        "src/cook/interaction/prompts.rs",
-        "src/cook/session/mod.rs",
-        "src/cook/session/summary.rs",
         "src/cook/workflow/mod.rs",
-        "src/cook/workflow/executor.rs",
+        "src/cook/metrics/mod.rs",
+        "src/cook/analysis/runner.rs",
+        "src/cook/execution/mod.rs",
+        "src/cook/interaction/mod.rs",
+        "src/cook/session/summary.rs",
         "src/cook/execution/runner.rs",
-        "src/cook/session/tracker.rs",
+        "src/cook/metrics/reporter.rs",
         "src/cook/interaction/display.rs",
+        "src/cook/execution/claude.rs",
         "src/cook/session/migration.rs",
-        "src/cook/analysis/mod.rs"
+        "src/cook/session/adapter.rs",
+        "src/cook/interaction/prompts.rs",
+        "src/cook/analysis/mod.rs",
+        "src/cook/session/mod.rs",
+        "src/cook/session/tracker.rs",
+        "src/cook/workflow/executor.rs",
+        "src/cook/analysis/cache.rs",
+        "src/cook/session/state.rs"
       ]
     }
   ],
@@ -5068,18 +5114,18 @@
       ],
       [
         "std::path::PathBuf",
-        35
-      ],
-      [
-        "async_trait::async_trait",
-        29
-      ],
-      [
-        "std::collections::HashMap",
-        29
+        36
       ],
       [
         "serde::{Deserialize, Serialize}",
+        31
+      ],
+      [
+        "std::collections::HashMap",
+        30
+      ],
+      [
+        "async_trait::async_trait",
         29
       ],
       [
@@ -5091,7 +5137,7 @@
         24
       ]
     ],
-    "avg_coupling": 3.5526315789473686,
+    "avg_coupling": 3.5478260869565217,
     "max_coupling": 71
   }
 }
