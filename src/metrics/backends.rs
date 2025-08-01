@@ -2,7 +2,7 @@
 
 use super::events::{
     AggregateResult, Aggregation, MetricEvent, MetricsCollector, MetricsQuery, MetricsReader,
-    MetricsResult, Tags,
+    MetricsResult,
 };
 use anyhow::{Context, Result};
 use async_trait::async_trait;
