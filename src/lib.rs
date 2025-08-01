@@ -20,6 +20,7 @@
 //! - `simple_state` - Minimal state management with JSON persistence
 //! - `subprocess` - Unified subprocess abstraction layer for testing
 //! - `worktree` - Git worktree management for parallel sessions
+//! - `session` - Session state management with event-driven architecture
 //! - `testing` - Testing utilities and fixtures for comprehensive testing
 pub mod abstractions;
 pub mod analyze;
@@ -28,6 +29,7 @@ pub mod context;
 pub mod cook;
 pub mod init;
 pub mod metrics;
+pub mod session;
 pub mod simple_state;
 pub mod subprocess;
 pub mod worktree;

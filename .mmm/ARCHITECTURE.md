@@ -209,6 +209,14 @@ src/
 │   ├── manager.rs       # Project lifecycle
 │   ├── health.rs        # Health checking
 │   └── template.rs      # Template utilities
+├── session/             # Event-driven session management
+│   ├── mod.rs
+│   ├── state.rs         # State machine
+│   ├── events.rs        # Event system
+│   ├── manager.rs       # Session management
+│   ├── config.rs        # Configuration types
+│   ├── persistence.rs   # Persistence types
+│   └── storage.rs       # Storage backends
 ├── simple_state/        # Minimal state
 │   ├── mod.rs
 │   ├── state.rs         # JSON state management

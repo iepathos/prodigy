@@ -2,10 +2,12 @@
 //!
 //! Handles session state, tracking, and persistence.
 
+pub mod adapter;
 pub mod state;
 pub mod summary;
 pub mod tracker;
 
+pub use adapter::SessionManagerAdapter;
 pub use state::{SessionState, SessionStatus};
 pub use summary::SessionSummary;
 pub use tracker::{SessionTracker, SessionTrackerImpl};

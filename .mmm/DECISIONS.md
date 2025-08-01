@@ -625,3 +625,21 @@ Implement a comprehensive metrics tracking system for Rust projects that measure
 - **Positive**: Data-driven improvement decisions, objective measurement of progress, historical trend analysis, validation that changes are beneficial, identification of regression, comprehensive reports for stakeholders
 - **Negative**: Additional execution time for metrics collection (mitigated by making it opt-in), increased disk usage for metrics storage, limited to Rust projects initially
 - **Implementation**: Created metrics module with collectors for quality, performance, and complexity; integrated with cook workflow to collect after each iteration; implemented historical tracking with trend analysis; added report generation and storage in .mmm/metrics/
+
+---
+
+## ADR-036: Session State Management Refactor
+
+### Status
+Accepted
+
+### Context
+Spec 58 identified that session state management was intertwined with the cook module, making it difficult to test and reuse. The implementation mixed session tracking with execution logic, had inconsistent state updates, lacked clear boundaries between session/iteration/workflow state, and made it hard to implement features like session resume and state recovery.
+
+### Decision
+Extract session state management into a dedicated, testable component with clear state transitions, event-driven updates, and support for persistence and recovery. Implement a state machine for session lifecycle, event system for state changes, observer pattern for notifications, and storage backends for persistence.
+
+### Consequences
+- **Positive**: Clean separation of concerns, testable session management, support for session persistence and recovery, concurrent session support with isolation, event-driven architecture for extensibility, backward compatibility via adapter, clear state transitions
+- **Negative**: Additional abstraction layer, more complex than simple state tracking, requires migration for full benefits
+- **Implementation**: Created session module with state machine, event system, manager implementation, persistence layer, and storage backends; provided SessionManagerAdapter for backward compatibility; achieved 95% test coverage; included migration guide and examples
