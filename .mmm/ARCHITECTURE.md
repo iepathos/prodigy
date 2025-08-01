@@ -85,14 +85,20 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 - Handles command conflicts and selective installation
 
 ### 11. Metrics (`src/metrics/`)
-- **collector.rs**: Orchestrates metrics collection across analyzers
-- **quality.rs**: Test coverage, lint warnings, documentation metrics
-- **complexity.rs**: Cyclomatic and cognitive complexity analysis using syn
-- **performance.rs**: Compile time, binary size, benchmark tracking
-- **history.rs**: Metrics history and trend analysis
-- **storage.rs**: Persistence and report generation
-- **mod.rs**: Public interfaces and data structures
-- Metrics are collected after each iteration when --metrics flag is used
+- **events.rs**: Core metrics events, traits (MetricsCollector, MetricsReader), and data structures
+- **registry.rs**: MetricsRegistry for managing multiple collectors with sampling and configuration
+- **backends.rs**: File, memory, and composite collector implementations
+- **context.rs**: MetricsContext for tag-aware metrics collection throughout execution
+- **testing.rs**: MetricsAssert utilities for comprehensive metrics testing
+- **collector.rs**: Legacy orchestrator for backward compatibility
+- **quality.rs**: Test coverage, lint warnings, documentation metrics (legacy)
+- **complexity.rs**: Cyclomatic and cognitive complexity analysis using syn (legacy)
+- **performance.rs**: Compile time, binary size, benchmark tracking (legacy)
+- **history.rs**: Metrics history and trend analysis (legacy)
+- **storage.rs**: Persistence and report generation (legacy)
+- **mod.rs**: Public interfaces with both new isolated system and legacy components
+- New isolated system: Pluggable collectors, zero overhead when disabled, comprehensive testing support
+- Legacy components maintained for backward compatibility
 - Historical data stored in .mmm/metrics/ for trend analysis
 
 

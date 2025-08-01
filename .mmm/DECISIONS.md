@@ -643,3 +643,21 @@ Extract session state management into a dedicated, testable component with clear
 - **Positive**: Clean separation of concerns, testable session management, support for session persistence and recovery, concurrent session support with isolation, event-driven architecture for extensibility, backward compatibility via adapter, clear state transitions
 - **Negative**: Additional abstraction layer, more complex than simple state tracking, requires migration for full benefits
 - **Implementation**: Created session module with state machine, event system, manager implementation, persistence layer, and storage backends; provided SessionManagerAdapter for backward compatibility; achieved 95% test coverage; included migration guide and examples
+
+---
+
+## ADR-037: Metrics Collection Isolation
+
+### Status
+Accepted
+
+### Context
+Spec 60 identified that metrics collection was embedded within the cook module's execution flow, making it difficult to test metrics collection independently, add new metrics without modifying core logic, mock metrics for testing other components, support different metrics backends, and control metrics collection granularity. A properly isolated metrics system would improve testability and enable richer insights into MMM's operation.
+
+### Decision
+Extract metrics collection into an isolated, pluggable system with clear interfaces, comprehensive testing support, and the ability to add new metrics without modifying core execution logic. Implement core traits for MetricsCollector and MetricsReader, a registry pattern for managing multiple collectors, support for multiple backends (file, memory, composite), and comprehensive testing utilities.
+
+### Consequences
+- **Positive**: Complete isolation from execution logic, pluggable collectors and readers, comprehensive testing support with MetricsAssert, support for multiple backends, thread-safe and async-compatible, context-aware metrics with tag propagation, zero overhead when disabled, 95% test coverage for metrics system
+- **Negative**: Additional abstraction layer, slight increase in codebase complexity, requires migration for full benefits, maintains legacy metrics components for backward compatibility
+- **Implementation**: Created events.rs with core traits and data types, registry.rs with MetricsRegistry for managing collectors, backends.rs with file/memory/composite implementations, context.rs for tag-aware metrics contexts, testing.rs with comprehensive assertion utilities, factory functions for common configurations, full backward compatibility maintained

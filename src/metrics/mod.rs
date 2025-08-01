@@ -1,7 +1,8 @@
-//! Real metrics tracking for MMM improvements
+//! Isolated, pluggable metrics system for MMM
 //!
-//! This module provides comprehensive metrics collection and tracking for Rust projects,
-//! enabling data-driven decision making and validation of improvements.
+//! This module provides a comprehensive metrics collection system with clear interfaces,
+//! multiple backends, and comprehensive testing support. The system is designed to be
+//! isolated from execution logic and pluggable.
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};
@@ -10,6 +11,14 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::time::Duration;
 
+// Core components
+pub mod backends;
+pub mod context;
+pub mod events;
+pub mod registry;
+pub mod testing;
+
+// Legacy components (for compatibility)
 pub mod collector;
 pub mod complexity;
 pub mod history;
@@ -17,6 +26,19 @@ pub mod performance;
 pub mod quality;
 pub mod storage;
 
+// Re-exports from new isolated system
+pub use backends::{
+    CollectorConfig, CompositeMetricsCollector, FileMetricsCollector, MemoryMetricsCollector,
+};
+pub use context::{MetricsContext, MetricsContextBuilder};
+pub use events::{
+    AggregateResult, Aggregation, MetricEvent, MetricsCollector as MetricsCollectorTrait,
+    MetricsQuery, MetricsReader, MetricsResult, Tags, TimeRange,
+};
+pub use registry::{MetricsConfig, MetricsRegistry};
+pub use testing::{create_disabled_registry, create_test_registry, MetricsAssert};
+
+// Legacy re-exports (for backward compatibility)
 pub use collector::MetricsCollector;
 pub use complexity::ComplexityCalculator;
 pub use history::{MetricsHistory, MetricsSnapshot, MetricsTrends, Trend};
@@ -150,4 +172,55 @@ pub trait MetricsReporter {
     fn generate_report(&self, history: &MetricsHistory) -> String;
     fn get_summary(&self, current: &ImprovementMetrics) -> String;
     fn export_dashboard(&self, path: &Path) -> Result<()>;
+}
+
+/// Factory functions for creating common metrics configurations
+pub mod factory {
+    use super::*;
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
+    /// Create a production metrics registry with file and memory collectors
+    pub async fn create_production_registry(
+        metrics_dir: PathBuf,
+        config: Option<MetricsConfig>,
+    ) -> Result<Arc<MetricsRegistry>> {
+        let config = config.unwrap_or_default();
+        let registry = Arc::new(MetricsRegistry::new(config));
+
+        // Add file collector for persistence
+        let file_path = metrics_dir.join("metrics.jsonl");
+        let file_collector = Arc::new(FileMetricsCollector::new("file", file_path));
+        registry.register_collector(file_collector.clone()).await;
+
+        // Add memory collector for querying
+        let memory_collector = Arc::new(MemoryMetricsCollector::new("memory"));
+        registry.register_collector(memory_collector.clone()).await;
+        registry.register_reader(memory_collector).await;
+
+        Ok(registry)
+    }
+
+    /// Create a memory-only registry for testing
+    pub async fn create_test_registry() -> (Arc<MetricsRegistry>, MetricsAssert) {
+        crate::metrics::testing::create_test_registry().await
+    }
+
+    /// Create a disabled registry (no-op)
+    pub fn create_disabled_registry() -> Arc<MetricsRegistry> {
+        crate::metrics::testing::create_disabled_registry()
+    }
+
+    /// Create a metrics context with common tags
+    pub fn create_context(
+        registry: Arc<MetricsRegistry>,
+        session_id: &str,
+        component: &str,
+    ) -> MetricsContext {
+        MetricsContextBuilder::new(registry)
+            .tag("session_id", session_id)
+            .tag("component", component)
+            .tag("version", env!("CARGO_PKG_VERSION"))
+            .build()
+    }
 }

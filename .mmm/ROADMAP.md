@@ -189,6 +189,15 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
   - Clearer improvement summaries
 
 ### Testing Infrastructure
+- [x] **Metrics Collection Isolation** (Spec 60) ✅
+  - Extracted metrics collection into isolated, pluggable system
+  - Core traits for MetricsCollector and MetricsReader with clear interfaces
+  - Registry pattern for managing multiple collectors
+  - Support for file, memory, and composite backends
+  - Comprehensive testing utilities with MetricsAssert
+  - Context-aware metrics with tag propagation
+  - Zero overhead when disabled
+
 - [ ] **Subprocess Abstraction Layer** (Spec 57)
   - Create unified subprocess abstraction with mockable interfaces
   - Enable complete unit testing without external dependencies

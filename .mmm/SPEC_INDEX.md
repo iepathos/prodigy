@@ -35,6 +35,7 @@ This file tracks the key specifications that shaped the current focused architec
 - **46**: `specs/46-real-metrics-tracking.md` - Real metrics tracking for code improvements
 - **48**: `specs/48-command-chaining-variables.md` - Command chaining with variables and playbook requirement
 - **58**: `specs/58-session-state-refactor.md` - Session state management refactor with event-driven architecture
+- **60**: `specs/60-metrics-collection-isolation.md` - Isolated, pluggable metrics system with clear interfaces
 
 ## Pending Specifications
 - **22**: `specs/22-configurable-iteration-limit.md` - Add --max-iterations flag
