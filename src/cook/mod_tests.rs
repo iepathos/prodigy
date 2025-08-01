@@ -25,6 +25,7 @@ struct TestSessionState {
 #[cfg(test)]
 mod core_tests {
     use super::*;
+    use crate::worktree::WorktreeManager;
 
     // Test helper functions
     async fn run_analysis(project_path: &Path, _run_coverage: bool) -> Result<()> {
@@ -211,21 +212,6 @@ commands:
         assert!(result.unwrap_err().to_string().contains("Failed to read"));
     }
 
-    #[test]
-    fn test_merge_choice_enum() {
-        // Test the MergeChoice enum
-        let choice = MergeChoice::Yes;
-        match choice {
-            MergeChoice::Yes => assert!(true),
-            MergeChoice::No => panic!("Wrong choice"),
-        }
-
-        let choice = MergeChoice::No;
-        match choice {
-            MergeChoice::No => assert!(true),
-            MergeChoice::Yes => panic!("Wrong choice"),
-        }
-    }
 
     #[tokio::test]
     async fn test_run_analysis() {
