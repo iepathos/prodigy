@@ -52,10 +52,10 @@ Optimize the context file generation to reduce file sizes by at least 90% while 
    - File loading should be near-instantaneous (< 100ms)
    - Memory usage during analysis should remain under 100MB
 
-2. **Compatibility**
-   - Maintain backward compatibility with existing Claude commands
-   - Support incremental updates without full regeneration
-   - Work with all existing MMM workflows
+2. **Flexibility** 
+   - Break compatibility if needed for better design
+   - Prioritize clean implementation over migration support
+   - Focus on optimal solution without legacy constraints
 
 3. **Configurability**
    - Allow customization of size limits via configuration
@@ -71,7 +71,7 @@ Optimize the context file generation to reduce file sizes by at least 90% while 
 - [ ] No duplicate entries for the same code block
 - [ ] High-impact issues are preserved in the context
 - [ ] Context loading time improved by at least 80%
-- [ ] All existing Claude commands work without modification
+- [ ] Context format is optimized for Claude's consumption
 - [ ] Unit tests verify deduplication logic
 - [ ] Integration tests confirm size limits are respected
 
@@ -229,10 +229,10 @@ No external API changes. Internal changes:
    - Rabin-Karp algorithm might be suitable for finding duplicates
    - Union-Find data structure for merging overlapping blocks
 
-2. **Backwards Compatibility**:
-   - Keep original detailed data in `.mmm/cache/` if needed
-   - Support `--verbose-context` flag for detailed analysis
-   - Gracefully handle old context files
+2. **Clean Design**:
+   - Remove legacy code paths during implementation
+   - Use this opportunity to redesign context structure
+   - Don't worry about migrating old context files
 
 3. **Progressive Enhancement**:
    - Start with fixing duplication detection (biggest win)
@@ -246,17 +246,14 @@ No external API changes. Internal changes:
 
 ## Migration and Compatibility
 
-1. **Automatic Migration**:
-   - Detect old format context files and regenerate
-   - Preserve any custom metadata during migration
-   - Log migration actions for transparency
+Since we're prototyping, no migration support is needed:
 
-2. **Rollback Strategy**:
-   - Keep backup of last full context in `.mmm/backup/`
-   - Support `--full-context` flag for old behavior
-   - Document how to restore if issues arise
+1. **Clean Break**:
+   - Old context files will be regenerated automatically
+   - No migration paths or compatibility layers
+   - Focus on the optimal implementation
 
-3. **Gradual Rollout**:
-   - Test with MMM's own codebase first
-   - Enable for new projects by default
-   - Provide opt-in for existing projects
+2. **Testing Strategy**:
+   - Test directly on MMM codebase
+   - Iterate quickly based on results
+   - Refine approach based on real-world usage
