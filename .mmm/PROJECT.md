@@ -9,7 +9,7 @@ Memento Mori (mmm) is a dead simple Rust CLI tool that makes your code better th
 - **Project Status**: Active Development - Core Working
 - **Core Feature**: `mmm cook` command with Claude CLI integration
 - **Latest Version**: 0.1.0
-- **Implementation Status**: Git-native improvement flow fully implemented with robust Claude CLI integration, complete audit trails, self-sufficient automated cycles, dynamic spec generation for improvements, focus-directed initial analysis (Spec 20), configurable workflows (Spec 21), configurable iteration limits (Spec 22), command-line config options (Spec 23), git worktree isolation for parallel sessions (Spec 24), Claude-assisted worktree merging with conflict resolution (Spec 25), worktree CLI flag (Spec 26), structured command objects (Spec 28), centralized worktree state management (Spec 29), interrupted worktree recovery (Spec 30), product management command (Spec 31), batch spec implementation (Spec 33), unified cook command with mapping (Spec 35), interactive worktree merge prompt (Spec 37), consistent focus directive on all iterations (Spec 38), auto-accept flag for non-interactive operation (Spec 41), MMM command initialization system (Spec 43), context-aware project understanding (Spec 44), real metrics tracking (Spec 46), cook path argument (Spec 47), command chaining with variables (Spec 48), session state management refactor (Spec 58), and isolated metrics collection system (Spec 60)
+- **Implementation Status**: Git-native improvement flow fully implemented with robust Claude CLI integration, complete audit trails, self-sufficient automated cycles, dynamic spec generation for improvements, focus-directed initial analysis (Spec 20), configurable workflows (Spec 21), configurable iteration limits (Spec 22), command-line config options (Spec 23), git worktree isolation for parallel sessions (Spec 24), Claude-assisted worktree merging with conflict resolution (Spec 25), worktree CLI flag (Spec 26), structured command objects (Spec 28), centralized worktree state management (Spec 29), interrupted worktree recovery (Spec 30), product management command (Spec 31), batch spec implementation (Spec 33), unified cook command with mapping (Spec 35), interactive worktree merge prompt (Spec 37), consistent focus directive on all iterations (Spec 38), auto-accept flag for non-interactive operation (Spec 41), MMM command initialization system (Spec 43), context-aware project understanding (Spec 44), real metrics tracking (Spec 46), cook path argument (Spec 47), command chaining with variables (Spec 48), session state management refactor (Spec 58), isolated metrics collection system (Spec 60), and optimized context file sizes (Spec 63)
 
 ## What Exists
 
@@ -109,6 +109,9 @@ mmm/
    - Technical debt mapping with prioritization
    - Test coverage analysis with gap identification
    - Context provided to Claude commands via environment variables
+   - Hybrid coverage tracking combining test coverage with quality metrics
+   - Optimized context file generation with smart aggregation (< 1MB total)
+   - Maximal duplicate detection replacing inefficient sliding windows
 
 ## Technology Stack
 

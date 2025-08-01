@@ -15,6 +15,8 @@ pub mod architecture;
 pub mod conventions;
 pub mod debt;
 pub mod dependencies;
+pub mod hybrid_coverage;
+pub mod size_manager;
 pub mod tarpaulin_coverage;
 pub mod test_coverage;
 
@@ -23,6 +25,7 @@ pub use architecture::ArchitectureExtractor;
 pub use conventions::{ConventionDetector, ProjectConventions};
 pub use debt::{DebtItem, TechnicalDebtMap, TechnicalDebtMapper};
 pub use dependencies::{DependencyAnalyzer, DependencyGraph};
+pub use hybrid_coverage::{HybridCoverageAnalyzer, HybridCoverageReport};
 pub use test_coverage::{TestCoverageAnalyzer, TestCoverageMap};
 
 /// Results from all context analyzers
@@ -33,6 +36,7 @@ pub struct AnalysisResult {
     pub conventions: ProjectConventions,
     pub technical_debt: TechnicalDebtMap,
     pub test_coverage: Option<TestCoverageMap>,
+    pub hybrid_coverage: Option<HybridCoverageReport>,
     pub metadata: AnalysisMetadata,
 }
 
@@ -182,8 +186,23 @@ pub fn save_analysis(project_path: &Path, analysis: &AnalysisResult) -> Result<(
     let context_dir = project_path.join(".mmm").join("context");
     std::fs::create_dir_all(&context_dir)?;
 
+    // Create size manager to check and optimize files
+    let size_manager = size_manager::ContextSizeManager::new();
+    
+    // Check and optimize the complete analysis if needed
+    let optimized_analysis = match size_manager.optimize_for_size(analysis.clone(), "analysis") {
+        Ok(opt) => {
+            if opt.optimization_applied {
+                eprintln!("📦 Optimized analysis.json from {} to {} bytes", 
+                    opt.original_size, opt.optimized_size);
+            }
+            opt.value
+        },
+        Err(_) => analysis.clone(),
+    };
+
     let analysis_file = context_dir.join("analysis.json");
-    let content = serde_json::to_string_pretty(analysis)?;
+    let content = serde_json::to_string_pretty(&optimized_analysis)?;
     std::fs::write(&analysis_file, content)?;
 
     // Also save individual components for easier access
@@ -206,9 +225,20 @@ pub fn save_analysis(project_path: &Path, analysis: &AnalysisResult) -> Result<(
     )?;
 
     let debt_file = context_dir.join("technical_debt.json");
+    // Check and optimize technical debt if needed
+    let optimized_debt = match size_manager.optimize_for_size(optimized_analysis.technical_debt.clone(), "technical_debt") {
+        Ok(opt) => {
+            if opt.optimization_applied {
+                eprintln!("📦 Optimized technical_debt.json from {} to {} bytes", 
+                    opt.original_size, opt.optimized_size);
+            }
+            opt.value
+        },
+        Err(_) => optimized_analysis.technical_debt.clone(),
+    };
     std::fs::write(
         &debt_file,
-        serde_json::to_string_pretty(&analysis.technical_debt)?,
+        serde_json::to_string_pretty(&optimized_debt)?,
     )?;
 
     if let Some(ref test_coverage) = analysis.test_coverage {
@@ -216,11 +246,25 @@ pub fn save_analysis(project_path: &Path, analysis: &AnalysisResult) -> Result<(
         std::fs::write(&coverage_file, serde_json::to_string_pretty(test_coverage)?)?;
     }
 
+    if let Some(ref hybrid_coverage) = analysis.hybrid_coverage {
+        let hybrid_file = context_dir.join("hybrid_coverage.json");
+        std::fs::write(&hybrid_file, serde_json::to_string_pretty(hybrid_coverage)?)?;
+    }
+
     let metadata_file = context_dir.join("analysis_metadata.json");
     std::fs::write(
         &metadata_file,
         serde_json::to_string_pretty(&analysis.metadata)?,
     )?;
+    
+    // Analyze and report final context sizes
+    if let Ok(size_metadata) = size_manager.analyze_context_sizes(&context_dir) {
+        size_manager.print_warnings(&size_metadata);
+        
+        // Log total size
+        let total_mb = size_metadata.total_size as f64 / 1_000_000.0;
+        eprintln!("💾 Total context size: {:.2} MB", total_mb);
+    }
 
     Ok(())
 }

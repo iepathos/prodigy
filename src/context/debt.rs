@@ -46,7 +46,7 @@ pub struct DebtItem {
 }
 
 /// Type of technical debt
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
 pub enum DebtType {
     CodeSmell,
     Duplication,
@@ -120,8 +120,40 @@ impl TechnicalDebtMap {
     }
 }
 
+/// Configuration for debt aggregation
+#[derive(Debug, Clone)]
+pub struct DebtAggregationConfig {
+    pub max_items_per_category: usize,
+    pub max_total_items: usize,
+    pub max_duplication_entries: usize,
+    pub min_impact_threshold: u32,
+}
+
+impl Default for DebtAggregationConfig {
+    fn default() -> Self {
+        Self {
+            max_items_per_category: 100,
+            max_total_items: 500,
+            max_duplication_entries: 100,
+            min_impact_threshold: 3,
+        }
+    }
+}
+
+/// Aggregated debt summary
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DebtSummary {
+    pub category: DebtType,
+    pub total_count: usize,
+    pub shown_count: usize,
+    pub top_items: Vec<DebtItem>,
+    pub aggregated_impact: f32,
+}
+
 /// Basic technical debt mapper implementation
-pub struct BasicTechnicalDebtMapper;
+pub struct BasicTechnicalDebtMapper {
+    aggregation_config: DebtAggregationConfig,
+}
 
 impl Default for BasicTechnicalDebtMapper {
     fn default() -> Self {
@@ -131,7 +163,15 @@ impl Default for BasicTechnicalDebtMapper {
 
 impl BasicTechnicalDebtMapper {
     pub fn new() -> Self {
-        Self
+        Self {
+            aggregation_config: DebtAggregationConfig::default(),
+        }
+    }
+    
+    pub fn with_config(config: DebtAggregationConfig) -> Self {
+        Self {
+            aggregation_config: config,
+        }
     }
 
     /// Find debt comments in code (for tests)
@@ -373,47 +413,232 @@ impl BasicTechnicalDebtMapper {
         }
     }
 
-    /// Simple duplicate detection using line hashes
+    /// Detect maximal duplicates using efficient algorithm
     fn detect_duplicates(&self, files: &[(PathBuf, String)]) -> HashMap<String, Vec<CodeBlock>> {
         let mut hash_to_blocks: HashMap<String, Vec<CodeBlock>> = HashMap::new();
         let min_duplicate_lines = 3;
+        let max_duplicate_lines = 100;
 
+        // Build a map of line hashes to locations
+        let mut line_hash_to_locations: HashMap<String, Vec<(PathBuf, usize, String)>> = HashMap::new();
+        
+        for (file_path, content) in files {
+            for (line_idx, line) in content.lines().enumerate() {
+                let trimmed = line.trim();
+                // Skip trivial lines
+                if trimmed.is_empty() || trimmed == "{" || trimmed == "}" || trimmed.starts_with("//") {
+                    continue;
+                }
+                
+                let line_hash = format!("{:x}", md5::compute(trimmed));
+                line_hash_to_locations
+                    .entry(line_hash)
+                    .or_default()
+                    .push((file_path.clone(), line_idx, line.to_string()));
+            }
+        }
+
+        // Find maximal duplicate blocks
+        let mut processed_blocks: std::collections::HashSet<(PathBuf, usize, usize)> = std::collections::HashSet::new();
+        
         for (file_path, content) in files {
             let lines: Vec<&str> = content.lines().collect();
-
-            // Check sliding windows of lines
-            for window_size in min_duplicate_lines..20 {
-                for i in 0..lines.len().saturating_sub(window_size) {
-                    let window_content = lines[i..i + window_size].join("\n");
-
-                    // Skip trivial duplicates (empty lines, single braces)
-                    if window_content.trim().is_empty()
-                        || window_content
-                            .chars()
-                            .all(|c| c.is_whitespace() || c == '{' || c == '}')
-                    {
-                        continue;
+            
+            for start_idx in 0..lines.len() {
+                if processed_blocks.contains(&(file_path.clone(), start_idx, start_idx)) {
+                    continue;
+                }
+                
+                let trimmed_start = lines[start_idx].trim();
+                if trimmed_start.is_empty() || trimmed_start == "{" || trimmed_start == "}" {
+                    continue;
+                }
+                
+                let start_hash = format!("{:x}", md5::compute(trimmed_start));
+                
+                if let Some(locations) = line_hash_to_locations.get(&start_hash) {
+                    if locations.len() > 1 {
+                        // Found potential duplicate start, expand to find maximal block
+                        for (other_file, other_start, _) in locations {
+                            if other_file == file_path && *other_start == start_idx {
+                                continue; // Skip self
+                            }
+                            
+                            // Expand the duplicate block
+                            let max_len = self.find_max_duplicate_length(
+                                files,
+                                file_path,
+                                start_idx,
+                                other_file,
+                                *other_start,
+                                max_duplicate_lines,
+                            );
+                            
+                            if max_len >= min_duplicate_lines {
+                                // Create hash for the entire block
+                                let block_content = lines[start_idx..start_idx + max_len].join("\n");
+                                let block_hash = format!("{:x}", md5::compute(&block_content));
+                                
+                                // Add both blocks
+                                let blocks = hash_to_blocks.entry(block_hash.clone()).or_default();
+                                
+                                // Check if we already have this block (avoid duplicates)
+                                let block1 = CodeBlock {
+                                    file: file_path.clone(),
+                                    start_line: start_idx as u32 + 1,
+                                    end_line: (start_idx + max_len) as u32,
+                                    content_hash: block_hash.clone(),
+                                };
+                                
+                                let block2 = CodeBlock {
+                                    file: other_file.clone(),
+                                    start_line: *other_start as u32 + 1,
+                                    end_line: (*other_start + max_len) as u32,
+                                    content_hash: block_hash.clone(),
+                                };
+                                
+                                if !blocks.iter().any(|b| b.file == block1.file && b.start_line == block1.start_line) {
+                                    blocks.push(block1);
+                                }
+                                if !blocks.iter().any(|b| b.file == block2.file && b.start_line == block2.start_line) {
+                                    blocks.push(block2);
+                                }
+                                
+                                // Mark these ranges as processed
+                                for i in 0..max_len {
+                                    processed_blocks.insert((file_path.clone(), start_idx + i, start_idx + i));
+                                    processed_blocks.insert((other_file.clone(), *other_start + i, *other_start + i));
+                                }
+                            }
+                        }
                     }
-
-                    // Create hash of the content
-                    let hash = format!("{:x}", md5::compute(&window_content));
-
-                    hash_to_blocks
-                        .entry(hash.clone())
-                        .or_default()
-                        .push(CodeBlock {
-                            file: file_path.clone(),
-                            start_line: i as u32 + 1,
-                            end_line: (i + window_size) as u32,
-                            content_hash: hash,
-                        });
                 }
             }
         }
 
-        // Filter out non-duplicates
+        // Filter out single blocks and merge overlapping blocks
         hash_to_blocks.retain(|_, blocks| blocks.len() > 1);
+        self.merge_overlapping_blocks(&mut hash_to_blocks);
+        
+        // Apply size limits to duplication map
+        self.limit_duplication_entries(&mut hash_to_blocks);
+        
         hash_to_blocks
+    }
+    
+    /// Find maximum length of duplicate block between two positions
+    fn find_max_duplicate_length(
+        &self,
+        files: &[(PathBuf, String)],
+        file1: &PathBuf,
+        start1: usize,
+        file2: &PathBuf,
+        start2: usize,
+        max_len: usize,
+    ) -> usize {
+        let content1 = files.iter().find(|(p, _)| p == file1).map(|(_, c)| c).unwrap();
+        let content2 = files.iter().find(|(p, _)| p == file2).map(|(_, c)| c).unwrap();
+        
+        let lines1: Vec<&str> = content1.lines().collect();
+        let lines2: Vec<&str> = content2.lines().collect();
+        
+        let mut length = 0;
+        while length < max_len 
+            && start1 + length < lines1.len() 
+            && start2 + length < lines2.len() 
+            && lines1[start1 + length].trim() == lines2[start2 + length].trim() 
+        {
+            length += 1;
+        }
+        
+        length
+    }
+    
+    /// Merge overlapping duplicate blocks
+    fn merge_overlapping_blocks(&self, hash_to_blocks: &mut HashMap<String, Vec<CodeBlock>>) {
+        for blocks in hash_to_blocks.values_mut() {
+            // Sort blocks by file and start line
+            blocks.sort_by_key(|b| (b.file.clone(), b.start_line));
+            
+            // Merge overlapping blocks
+            let mut merged: Vec<CodeBlock> = Vec::new();
+            for block in blocks.drain(..) {
+                if let Some(last) = merged.last_mut() {
+                    if last.file == block.file && last.end_line >= block.start_line {
+                        // Overlapping, extend the last block
+                        last.end_line = last.end_line.max(block.end_line);
+                        continue;
+                    }
+                }
+                merged.push(block);
+            }
+            *blocks = merged;
+        }
+    }
+    
+    /// Limit the number of duplication entries to reduce file size
+    fn limit_duplication_entries(&self, hash_to_blocks: &mut HashMap<String, Vec<CodeBlock>>) {
+        if hash_to_blocks.len() <= self.aggregation_config.max_duplication_entries {
+            return;
+        }
+        
+        // Calculate impact score for each duplication group
+        let mut scored_entries: Vec<(String, Vec<CodeBlock>, f32)> = hash_to_blocks
+            .drain()
+            .map(|(hash, blocks)| {
+                let lines_duplicated = if let Some(first) = blocks.first() {
+                    first.end_line - first.start_line + 1
+                } else {
+                    0
+                };
+                let impact_score = (blocks.len() as f32) * (lines_duplicated as f32);
+                (hash, blocks, impact_score)
+            })
+            .collect();
+        
+        // Sort by impact score (descending)
+        scored_entries.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(Ordering::Equal));
+        
+        // Keep only top entries
+        hash_to_blocks.clear();
+        for (hash, blocks, _) in scored_entries.into_iter().take(self.aggregation_config.max_duplication_entries) {
+            hash_to_blocks.insert(hash, blocks);
+        }
+    }
+    
+    /// Aggregate debt items by category to reduce file size
+    fn aggregate_debt_items(&self, debt_items: Vec<DebtItem>) -> Vec<DebtItem> {
+        if debt_items.len() <= self.aggregation_config.max_total_items {
+            return debt_items;
+        }
+        
+        // Group by debt type
+        let mut items_by_type: HashMap<DebtType, Vec<DebtItem>> = HashMap::new();
+        for item in debt_items {
+            items_by_type.entry(item.debt_type.clone()).or_default().push(item);
+        }
+        
+        let mut aggregated_items = Vec::new();
+        
+        for (_debt_type, mut items) in items_by_type {
+            // Sort by priority (impact/effort)
+            items.sort_by(|a, b| b.cmp(a));
+            
+            // Keep top items per category
+            let top_items: Vec<DebtItem> = items
+                .into_iter()
+                .filter(|item| item.impact >= self.aggregation_config.min_impact_threshold)
+                .take(self.aggregation_config.max_items_per_category)
+                .collect();
+            
+            aggregated_items.extend(top_items);
+        }
+        
+        // Final limit on total items
+        aggregated_items.sort_by(|a, b| b.cmp(a));
+        aggregated_items.truncate(self.aggregation_config.max_total_items);
+        
+        aggregated_items
     }
 }
 
@@ -498,14 +723,17 @@ impl TechnicalDebtMapper for BasicTechnicalDebtMapper {
             }
         }
 
-        // Create priority queue
+        // Apply aggregation to reduce file size
+        let aggregated_debt_items = self.aggregate_debt_items(all_debt_items);
+        
+        // Create priority queue from aggregated items
         let mut priority_queue = BinaryHeap::new();
-        for item in &all_debt_items {
+        for item in &aggregated_debt_items {
             priority_queue.push(item.clone());
         }
 
         Ok(TechnicalDebtMap {
-            debt_items: all_debt_items,
+            debt_items: aggregated_debt_items,
             hotspots: all_hotspots,
             duplication_map,
             priority_queue,

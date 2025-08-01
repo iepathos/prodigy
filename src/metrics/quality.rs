@@ -14,6 +14,7 @@ pub struct QualityMetrics {
     pub lint_warnings: u32,
     pub code_duplication: f32,
     pub doc_coverage: f32,
+    pub hybrid_coverage_score: Option<f32>,
 }
 
 /// Analyzes code quality metrics
@@ -51,6 +52,7 @@ impl QualityAnalyzer {
             lint_warnings: 0,
             code_duplication: 0.0,
             doc_coverage: 0.0,
+            hybrid_coverage_score: None,
         };
 
         // Get test coverage

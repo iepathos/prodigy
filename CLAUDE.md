@@ -2,6 +2,16 @@
 
 This document explains how MMM (memento-mori-management) stores and provides context information to Claude during development iterations. Understanding this structure helps Claude locate and utilize relevant project information effectively.
 
+## Important: Context Optimization (v0.1.0+)
+
+As of version 0.1.0, MMM's context generation has been optimized to reduce file sizes by over 90%:
+- Technical debt files reduced from 8.2MB to under 500KB
+- Analysis files reduced from 8.9MB to under 500KB  
+- Total context size kept under 1MB for typical projects
+- Maximal duplicate detection replaces inefficient sliding windows
+- Smart aggregation limits items per category while preserving high-impact issues
+- Hybrid coverage tracking combines test coverage with quality metrics for better prioritization
+
 ## Overview
 
 MMM maintains rich project context in the `.mmm/` directory, providing structured data about code quality, architecture, metrics, and development history. This context is automatically made available to Claude during `mmm cook` operations.
@@ -15,8 +25,9 @@ MMM maintains rich project context in the `.mmm/` directory, providing structure
 │   ├── dependency_graph.json  # Module dependencies & cycles
 │   ├── architecture.json      # Architecture patterns & violations
 │   ├── conventions.json       # Code conventions & naming patterns
-│   ├── technical_debt.json    # Debt items & complexity hotspots
+│   ├── technical_debt.json    # Debt items & complexity hotspots (optimized)
 │   ├── test_coverage.json     # Test coverage data
+│   ├── hybrid_coverage.json   # Hybrid coverage with quality metrics
 │   └── analysis_metadata.json # Analysis timestamps & stats
 ├── metrics/                    # Performance & quality metrics
 │   ├── current.json           # Latest metrics snapshot
@@ -171,8 +182,20 @@ Technical debt analysis:
     }
   ],
   "duplication_map": {
-    "src/utils.rs:45-60": ["src/helpers.rs:23-38"],
-    "similarity": 0.95
+    "hash_1234abcd": [
+      {
+        "file": "src/utils.rs", 
+        "start_line": 45,
+        "end_line": 60,
+        "content_hash": "hash_1234abcd"
+      },
+      {
+        "file": "src/helpers.rs",
+        "start_line": 23, 
+        "end_line": 38,
+        "content_hash": "hash_1234abcd"
+      }
+    ]
   }
 }
 ```
@@ -200,6 +223,50 @@ Test coverage information:
       "risk": "High"
     }
   ]
+}
+```
+
+#### `context/hybrid_coverage.json`
+Hybrid coverage information combining test coverage with quality metrics:
+```json
+{
+  "coverage_map": { /* Standard test coverage data */ },
+  "priority_gaps": [
+    {
+      "gap": {
+        "file": "src/critical.rs",
+        "functions": ["process_payment"],
+        "coverage_percentage": 20.0,
+        "risk": "High"
+      },
+      "quality_metrics": {
+        "file": "src/critical.rs",
+        "complexity_trend": "Degrading",
+        "lint_warnings_trend": "Stable",
+        "duplication_trend": "Improving",
+        "recent_changes": 15,
+        "bug_frequency": 0.8
+      },
+      "priority_score": 25.0,
+      "priority_reason": "Low coverage with increasing complexity, frequent changes"
+    }
+  ],
+  "quality_correlation": {
+    "positive_correlations": [],
+    "negative_correlations": [],
+    "correlation_coefficient": 0.65
+  },
+  "critical_files": [
+    {
+      "file": "src/payment.rs",
+      "coverage_percentage": 15.0,
+      "complexity": 20,
+      "lint_warnings": 8,
+      "recent_bugs": 5,
+      "risk_score": 8.5
+    }
+  ],
+  "hybrid_score": 65.0
 }
 ```
 

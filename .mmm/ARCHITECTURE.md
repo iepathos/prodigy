@@ -26,8 +26,10 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 - **dependencies.rs**: Dependency graph and module relationships
 - **architecture.rs**: Architecture pattern detection
 - **conventions.rs**: Convention and naming style detection
-- **debt.rs**: Technical debt mapping and prioritization  
+- **debt.rs**: Technical debt mapping with optimized duplication detection and smart aggregation
 - **test_coverage.rs**: Test coverage gap analysis
+- **hybrid_coverage.rs**: Hybrid coverage combining test coverage with quality metrics
+- **size_manager.rs**: Context file size optimization and monitoring
 - **mod.rs**: Module exports and data structures
 
 ### 4. State Management (`src/simple_state/`)

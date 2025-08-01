@@ -5,6 +5,12 @@ use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use tracing::debug;
 
+/// Load metrics history from disk
+pub async fn load_metrics_history(project_path: &Path) -> Result<MetricsHistory> {
+    let storage = MetricsStorage::new(project_path);
+    storage.load_history()
+}
+
 /// Manages metrics storage on disk
 pub struct MetricsStorage {
     base_path: PathBuf,
