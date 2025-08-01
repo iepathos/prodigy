@@ -14,7 +14,15 @@
         "println!",
         "log::info!"
       ],
-      "frequency": 10
+      "frequency": 1
+    },
+    "error_handling": {
+      "name": "Result-based error handling",
+      "description": "Uses Result<T, E> for error handling",
+      "examples": [
+        "Result<String, Error>"
+      ],
+      "frequency": 30
     },
     "async": {
       "name": "Async/await pattern",
@@ -22,21 +30,13 @@
       "examples": [
         "async fn process()"
       ],
-      "frequency": 34
+      "frequency": 13
     },
     "builder": {
       "name": "Builder pattern",
       "description": "Uses builder pattern for object construction",
       "examples": [
         "RequestBuilder::new()"
-      ],
-      "frequency": 14
-    },
-    "error_handling": {
-      "name": "Result-based error handling",
-      "description": "Uses Result<T, E> for error handling",
-      "examples": [
-        "Result<String, Error>"
       ],
       "frequency": 2
     }
