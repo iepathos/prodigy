@@ -16,6 +16,7 @@ Core architecture and essential system components that form the base of MMM.
 - **Spec 44**: Context-Aware Project Understanding - Deep codebase analysis (draft)
 - **Spec 51**: Validate Git Commits - Verify actual changes after commands (draft)
 - **Spec 57**: Subprocess Abstraction Layer - Mockable subprocess execution (draft)
+- **Spec 57a**: Subprocess Migration - Complete migration to subprocess abstraction (draft)
 - **Spec 59**: Testable Git Operations Layer - Fine-grained git abstraction (draft)
 
 ### Parallel Specifications
@@ -96,7 +97,7 @@ Performance improvements and system efficiency.
 - Spec 29: Centralized Worktree State
 - Spec 55: Fix Test Coverage Analysis
 
-### 📝 Draft (20 specs)
+### 📝 Draft (21 specs)
 - Spec 30: Interrupted Worktree Recovery
 - Spec 31: Product Management Command
 - Spec 32: CLI Help as Default
@@ -114,6 +115,7 @@ Performance improvements and system efficiency.
 - Spec 56: Cook Orchestrator Refactor
 - Spec 56a: Fix Orchestrator Compilation Issues
 - Spec 57: Subprocess Abstraction Layer
+- Spec 57a: Subprocess Migration
 - Spec 58: Session State Management Refactor
 - Spec 59: Testable Git Operations Layer
 - Spec 60: Metrics Collection Isolation
@@ -166,6 +168,7 @@ Foundation Layer:
 │   │           └── 30: Interrupted Recovery
 │   └── 22: Iteration Limit
 ├── 57: Subprocess Abstraction
+│   ├── 57a: Subprocess Migration
 │   └── 59: Testable Git Operations
 └── 56: Cook Orchestrator Refactor
     ├── 56a: Fix Compilation Issues
@@ -194,6 +197,7 @@ Optimization Layer:
 - Spec 60: Metrics Collection Isolation (draft) - Pluggable metrics system
 - Spec 59: Testable Git Operations Layer (draft) - Fine-grained git abstraction
 - Spec 58: Session State Management Refactor (draft) - Isolated session state tracking
+- Spec 57a: Subprocess Migration (draft) - Complete migration to subprocess abstraction
 - Spec 57: Subprocess Abstraction Layer (draft) - Mockable subprocess execution
 - Spec 56: Cook Orchestrator Refactor (draft) - Break down god component for testability
 - Spec 55: Fix Test Coverage Analysis (completed) - Accurate tarpaulin integration
@@ -206,6 +210,7 @@ Optimization Layer:
 - Spec 56a: Fix Orchestrator Compilation Issues - Blocker for Spec 56 integration
 - Spec 56: Cook Orchestrator Refactor - Critical for reaching 80% test coverage
 - Spec 57: Subprocess Abstraction Layer - Enables comprehensive unit testing
+- Spec 57a: Subprocess Migration - Required to realize benefits of Spec 57
 - Spec 59: Testable Git Operations Layer - Enables testing git-dependent code
 - Spec 52: Configurable Commit Validation - Fixes workflow interruption issues
 - Spec 51: Validate Git Commits - Critical for accurate change detection

@@ -176,6 +176,18 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
   - Clearer improvement summaries
 
 ### Testing Infrastructure
+- [ ] **Subprocess Abstraction Layer** (Spec 57)
+  - Create unified subprocess abstraction with mockable interfaces
+  - Enable complete unit testing without external dependencies
+  - Support timeout, retry, and consistent error handling
+  - Provide specialized runners for Git and Claude operations
+
+- [ ] **Complete Subprocess Migration** (Spec 57a)
+  - Migrate all remaining direct Command usage to subprocess abstraction
+  - Update cook, worktree, context, metrics, and init modules
+  - Enable comprehensive unit testing for previously untestable code
+  - Maintain backward compatibility and existing behavior
+
 - [ ] **End-to-End Workflow Testing** (Spec 39)
   - Mock Claude CLI responses for deterministic testing
   - Test multiple workflows (legacy, implement, documentation, product)
