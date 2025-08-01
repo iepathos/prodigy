@@ -8,6 +8,9 @@ pub mod workflow;
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+mod mod_tests;
+
 use crate::config::{workflow::WorkflowConfig, Config, ConfigLoader};
 use crate::context::{save_analysis, ContextAnalyzer, ProjectAnalyzer};
 use crate::metrics::{MetricsCollector, MetricsHistory, MetricsStorage};

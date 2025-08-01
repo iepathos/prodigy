@@ -9,3 +9,6 @@ use command::AnalyzeCommand;
 pub async fn run(cmd: AnalyzeCommand) -> Result<()> {
     command::execute(cmd).await
 }
+
+#[cfg(test)]
+mod tests;
