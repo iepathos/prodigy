@@ -12,7 +12,7 @@ DESCRIPTION: $ARGUMENTS (required - natural language description of the feature 
 
 1. **Read Project Context**
    - Read .mmm context files to understand current project state
-   - Files read in order: PROJECT.md, ARCHITECTURE.md, CONVENTIONS.md, ROADMAP.md, DECISIONS.md
+   - Files read in order: .mmm/PROJECT.md, .mmm/ARCHITECTURE.md, .mmm/CONVENTIONS.md, .mmm/ROADMAP.md, .mmm/DECISIONS.md
    - Understand existing capabilities and architectural patterns
    - Identify current technology stack and dependencies
 
