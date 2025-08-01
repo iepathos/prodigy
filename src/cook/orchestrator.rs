@@ -17,7 +17,7 @@ use super::execution::{ClaudeExecutor, CommandExecutor};
 use super::interaction::UserInteraction;
 use super::metrics::MetricsCoordinator;
 use super::session::{SessionManager, SessionStatus, SessionUpdate};
-use super::workflow_new::{ExtendedWorkflowConfig, WorkflowExecutor, WorkflowStep};
+use super::workflow::{ExtendedWorkflowConfig, WorkflowExecutor, WorkflowStep};
 
 /// Configuration for cook orchestration
 #[derive(Debug, Clone)]
@@ -234,10 +234,12 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             .enumerate()
             .map(|(i, cmd)| {
                 use crate::config::command::WorkflowCommand;
-                let command_str = match cmd {
-                    WorkflowCommand::Simple(s) => s.clone(),
-                    WorkflowCommand::Structured(c) => c.name.clone(),
-                    WorkflowCommand::SimpleObject(simple) => simple.name.clone(),
+                let (command_str, commit_required) = match cmd {
+                    WorkflowCommand::Simple(s) => (s.clone(), true),
+                    WorkflowCommand::Structured(c) => (c.name.clone(), c.metadata.commit_required),
+                    WorkflowCommand::SimpleObject(simple) => {
+                        (simple.name.clone(), simple.commit_required.unwrap_or(true))
+                    }
                 };
                 WorkflowStep {
                     name: format!("Step {}", i + 1),
@@ -247,6 +249,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                         format!("/{command_str}")
                     },
                     env: std::collections::HashMap::new(),
+                    commit_required,
                 }
             })
             .collect();

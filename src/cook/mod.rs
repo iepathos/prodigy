@@ -14,7 +14,6 @@ pub mod retry;
 pub mod session;
 pub mod signal_handler;
 pub mod workflow;
-pub mod workflow_new;
 
 #[cfg(test)]
 mod tests;
