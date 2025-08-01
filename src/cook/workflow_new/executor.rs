@@ -111,7 +111,7 @@ impl WorkflowExecutor {
                     "Executing step {}/{}: {}",
                     step_index + 1,
                     workflow.steps.len(),
-                    step.name
+                    step.command
                 ));
 
                 self.execute_step(step, env)
@@ -227,10 +227,6 @@ impl WorkflowExecutor {
         for (key, value) in &step.env {
             env_vars.insert(key.clone(), value.clone());
         }
-
-        // Show command being executed
-        self.user_interaction
-            .display_info(&format!("Executing command: {}", step.command));
 
         // Handle focus tracking in test mode (before execution)
         if step.command == "/mmm-code-review" {

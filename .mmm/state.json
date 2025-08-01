@@ -1,0 +1,12 @@
+{
+  "session_id": "cook-1754076473",
+  "status": "Completed",
+  "started_at": "2025-08-01T19:27:52.595655Z",
+  "ended_at": null,
+  "iterations_completed": 1,
+  "files_changed": 2,
+  "errors": [],
+  "working_directory": "/Users/glen/memento-mori/mmm",
+  "worktree_name": null,
+  "focus": null
+}
