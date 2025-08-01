@@ -25,6 +25,22 @@ impl MetricsCollector {
     ) -> Result<ImprovementMetrics> {
         println!("📊 Collecting project metrics...");
 
+        // Check if we're in test mode
+        let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
+        if test_mode {
+            // Return mock metrics in test mode to avoid running actual cargo commands
+            let mut metrics = ImprovementMetrics::new(iteration_id);
+            metrics.test_coverage = 30.0;
+            metrics.type_coverage = 30.0;
+            metrics.lint_warnings = 0;
+            metrics.code_duplication = 0.0;
+            metrics.doc_coverage = 30.0;
+            metrics.tech_debt_score = 30.0;
+            metrics.improvement_velocity = 0.0;
+            println!("✅ Metrics collection complete. Overall score: 30.0");
+            return Ok(metrics);
+        }
+
         let mut metrics = ImprovementMetrics::new(iteration_id);
 
         // Run analyzers in parallel for efficiency

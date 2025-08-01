@@ -25,7 +25,7 @@ mod mod_tests;
 use crate::abstractions::git::RealGitOperations;
 use crate::config::{workflow::WorkflowConfig, ConfigLoader};
 use crate::simple_state::StateManager;
-use anyhow::{Context as _, Result};
+use anyhow::{anyhow, Context as _, Result};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -34,16 +34,68 @@ pub use command::CookCommand;
 pub use orchestrator::{CookConfig, CookOrchestrator, DefaultCookOrchestrator};
 
 /// Main entry point for cook operations
-pub async fn cook(cmd: CookCommand) -> Result<()> {
+pub async fn cook(mut cmd: CookCommand) -> Result<()> {
+    // Save the original directory before any path changes
+    let original_dir = std::env::current_dir()?;
+
+    // Determine project path
+    let project_path = if let Some(ref path) = cmd.path {
+        // Expand tilde notation if present
+        let expanded_path = if path.to_string_lossy().starts_with("~/") {
+            let home =
+                dirs::home_dir().ok_or_else(|| anyhow!("Could not determine home directory"))?;
+            home.join(
+                path.strip_prefix("~/")
+                    .context("Failed to strip ~/ prefix")?,
+            )
+        } else {
+            path.clone()
+        };
+
+        // Resolve to absolute path
+        let absolute_path = if expanded_path.is_absolute() {
+            expanded_path
+        } else {
+            original_dir.join(&expanded_path)
+        };
+
+        // Validate path exists and is a directory
+        if !absolute_path.exists() {
+            return Err(anyhow!("Directory not found: {}", absolute_path.display()));
+        }
+        if !absolute_path.is_dir() {
+            return Err(anyhow!(
+                "Path is not a directory: {}",
+                absolute_path.display()
+            ));
+        }
+
+        // Check if it's a git repository
+        if !absolute_path.join(".git").exists() {
+            return Err(anyhow!("Not a git repository: {}", absolute_path.display()));
+        }
+
+        // Change to the specified directory
+        std::env::set_current_dir(&absolute_path).with_context(|| {
+            format!("Failed to change to directory: {}", absolute_path.display())
+        })?;
+
+        absolute_path
+    } else {
+        original_dir.clone()
+    };
+
+    // Make playbook path absolute if it's relative (based on original directory)
+    if !cmd.playbook.is_absolute() {
+        cmd.playbook = original_dir.join(&cmd.playbook);
+    }
+
     // Load configuration
     let config_loader = ConfigLoader::new().await?;
     config_loader
-        .load_with_explicit_path(&std::env::current_dir()?, None)
+        .load_with_explicit_path(&project_path, None)
         .await?;
     let config = config_loader.get_config();
-
-    // Determine project path
-    let project_path = std::env::current_dir()?;
 
     // Load workflow
     let workflow = load_workflow(&cmd, &config).await?;

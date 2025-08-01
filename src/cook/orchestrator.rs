@@ -299,11 +299,17 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 
         // Clean up worktree if needed
         if let Some(ref worktree_name) = env.worktree_name {
-            // Ask user if they want to merge
-            let should_merge = self
-                .user_interaction
-                .prompt_yes_no("Would you like to merge the worktree changes?")
-                .await?;
+            // Skip user prompt in test mode
+            let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
+            let should_merge = if test_mode {
+                // Default to not merging in test mode to avoid complications
+                false
+            } else {
+                // Ask user if they want to merge
+                self.user_interaction
+                    .prompt_yes_no("Would you like to merge the worktree changes?")
+                    .await?
+            };
 
             if should_merge {
                 let worktree_manager =

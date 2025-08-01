@@ -82,7 +82,7 @@ impl WorkflowExecutor {
 
         if let Some(ref focus) = env.focus {
             self.user_interaction.display_info(&format!(
-                "🎯 Focus: {}", focus
+                "🎯 Focus: {focus}"
             ));
         }
 
@@ -139,11 +139,18 @@ impl WorkflowExecutor {
                             should_continue = false;
                         }
                     } else {
-                        // If metrics collection fails, ask user
-                        should_continue = self
-                            .user_interaction
-                            .prompt_yes_no("Continue with another iteration?")
-                            .await?;
+                        // If metrics collection fails
+                        let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
+                        if test_mode {
+                            // In test mode, don't prompt - just stop
+                            should_continue = false;
+                        } else {
+                            // Ask user
+                            should_continue = self
+                                .user_interaction
+                                .prompt_yes_no("Continue with another iteration?")
+                                .await?;
+                        }
                     }
                 }
             } else {
