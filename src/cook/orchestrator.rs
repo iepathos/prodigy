@@ -172,6 +172,12 @@ impl CookOrchestrator for DefaultCookOrchestrator {
     }
 
     async fn check_prerequisites(&self) -> Result<()> {
+        // Skip checks in test mode
+        let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
+        if test_mode {
+            return Ok(());
+        }
+
         // Check Claude CLI
         if !self.claude_executor.check_claude_cli().await? {
             anyhow::bail!("Claude CLI is not available. Please install it first.");
@@ -248,8 +254,8 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         let extended_workflow = ExtendedWorkflowConfig {
             name: "default".to_string(),
             steps,
-            max_iterations: 5, // Default value
-            iterate: false,
+            max_iterations: config.command.max_iterations,
+            iterate: config.command.max_iterations > 1,
             analyze_before: true,
             analyze_between: false,
             collect_metrics: config.command.metrics,

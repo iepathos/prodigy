@@ -44,6 +44,12 @@ impl<R: CommandRunner + 'static> ClaudeExecutor for ClaudeExecutorImpl<R> {
         project_path: &Path,
         env_vars: HashMap<String, String>,
     ) -> Result<ExecutionResult> {
+        // Handle test mode
+        let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
+        if test_mode {
+            return self.handle_test_mode_execution(command).await;
+        }
+
         let mut context = ExecutionContext::default();
         #[allow(clippy::field_reassign_with_default)]
         {
@@ -60,6 +66,12 @@ impl<R: CommandRunner + 'static> ClaudeExecutor for ClaudeExecutorImpl<R> {
     }
 
     async fn check_claude_cli(&self) -> Result<bool> {
+        // Always return true in test mode
+        let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
+        if test_mode {
+            return Ok(true);
+        }
+
         match self
             .runner
             .run_command("claude", &["--version".to_string()])
@@ -81,6 +93,34 @@ impl<R: CommandRunner + 'static> ClaudeExecutor for ClaudeExecutorImpl<R> {
         } else {
             anyhow::bail!("Failed to get Claude version")
         }
+    }
+}
+
+impl<R: CommandRunner> ClaudeExecutorImpl<R> {
+    /// Handle test mode execution
+    async fn handle_test_mode_execution(&self, command: &str) -> Result<ExecutionResult> {
+        println!("[TEST MODE] Would execute Claude command: {}", command);
+        
+        // Check if we should simulate no changes/failure
+        if let Ok(no_changes_cmds) = std::env::var("MMM_TEST_NO_CHANGES_COMMANDS") {
+            let command_name = command.trim_start_matches('/');
+            if no_changes_cmds.split(',').any(|cmd| cmd.trim() == command_name) {
+                println!("[TEST MODE] Simulating no changes for: {}", command_name);
+                return Ok(ExecutionResult {
+                    success: false,
+                    stdout: format!("Test mode - no changes for {}", command),
+                    stderr: String::new(),
+                    exit_code: Some(1),
+                });
+            }
+        }
+        
+        Ok(ExecutionResult {
+            success: true,
+            stdout: format!("Test mode execution of {}", command),
+            stderr: String::new(),
+            exit_code: Some(0),
+        })
     }
 }
 

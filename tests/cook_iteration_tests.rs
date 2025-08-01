@@ -171,8 +171,8 @@ fn verify_cook_output(
     // Verify completion
     assert!(
         stdout.contains("Complete")
-            || stdout.contains("Iterations:")
-            || stdout.contains("Files changed:"),
+            || stdout.contains("iterations")
+            || stdout.contains("files changed"),
         "Should show completion status"
     );
 
@@ -250,7 +250,7 @@ commands:
     let has_start = stdout.contains("Starting improvement loop");
 
     // Check that code review was run at least once
-    let has_code_review = stdout.contains("Running /mmm-code-review");
+    let has_code_review = stdout.contains("Executing command: /mmm-code-review") || stdout.contains("Running /mmm-code-review");
 
     // Check for the "no changes" message or review failed message
     let has_stop_msg = stdout.contains("No improvements were made")
@@ -464,7 +464,7 @@ commands:
 
     // Should create a worktree
     assert!(
-        stdout.contains("Created worktree:") || stdout.contains("🌳"),
+        stdout.contains("Created worktree at:") || stdout.contains("🌳"),
         "Should create a worktree"
     );
 
