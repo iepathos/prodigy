@@ -74,7 +74,7 @@ coverage:
     echo "Building mmm binary for integration tests..."
     cargo build --bin mmm
     echo "Generating code coverage report with cargo-tarpaulin..."
-    cargo tarpaulin --skip-clean --out Html --output-dir target/coverage
+    cargo tarpaulin --skip-clean --engine llvm --out Html --output-dir target/coverage
     echo "Coverage report generated at target/coverage/tarpaulin-report.html"
 
 # Run tests with coverage and check threshold
@@ -83,7 +83,7 @@ coverage-check:
     echo "Building mmm binary for integration tests..."
     cargo build --bin mmm
     echo "Checking code coverage threshold..."
-    COVERAGE=$(cargo tarpaulin --skip-clean --out Json --output-dir target/coverage --quiet | jq -r '.files | to_entries | map(.value.coverage) | add / length')
+    COVERAGE=$(cargo tarpaulin --skip-clean --engine llvm --out Json --output-dir target/coverage --quiet | jq -r '.files | to_entries | map(.value.coverage) | add / length')
     echo "Current coverage: ${COVERAGE}%"
     if (( $(echo "$COVERAGE < 80" | bc -l) )); then
         echo "⚠️  Coverage is below 80%: $COVERAGE%"

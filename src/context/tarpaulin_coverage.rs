@@ -88,6 +88,8 @@ impl TarpaulinCoverageAnalyzer {
                     .args([
                         "tarpaulin",
                         "--skip-clean",
+                        "--engine",
+                        "llvm",
                         "--out",
                         "Json",
                         "--output-dir",
@@ -115,6 +117,8 @@ impl TarpaulinCoverageAnalyzer {
                     .args([
                         "tarpaulin",
                         "--skip-clean",
+                        "--engine",
+                        "llvm",
                         "--out",
                         "Json",
                         "--output-dir",

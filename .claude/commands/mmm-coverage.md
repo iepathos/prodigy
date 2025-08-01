@@ -33,7 +33,7 @@ MMM_FOCUS: Optional focus directive (e.g., "security", "api", "core")
 
 1. **Quick Coverage Check**
    ```bash
-   cargo tarpaulin --skip-clean --out Json --output-dir target/coverage --timeout 120
+   cargo tarpaulin --skip-clean --engine llvm --out Json --output-dir target/coverage --timeout 120
    ```
 
 2. **Basic Gap Identification**
