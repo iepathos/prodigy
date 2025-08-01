@@ -43,11 +43,8 @@ pub trait CookOrchestrator: Send + Sync {
     async fn setup_environment(&self, config: &CookConfig) -> Result<ExecutionEnvironment>;
 
     /// Execute workflow
-    async fn execute_workflow(
-        &self,
-        env: &ExecutionEnvironment,
-        workflow: &WorkflowConfig,
-    ) -> Result<()>;
+    async fn execute_workflow(&self, env: &ExecutionEnvironment, config: &CookConfig)
+        -> Result<()>;
 
     /// Cleanup after execution
     async fn cleanup(&self, env: &ExecutionEnvironment) -> Result<()>;
@@ -137,7 +134,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         self.session_manager.start_session(&env.session_id).await?;
 
         // Execute workflow
-        let result = self.execute_workflow(&env, &config.workflow).await;
+        let result = self.execute_workflow(&env, &config).await;
 
         // Handle result
         match result {
@@ -220,11 +217,12 @@ impl CookOrchestrator for DefaultCookOrchestrator {
     async fn execute_workflow(
         &self,
         env: &ExecutionEnvironment,
-        workflow: &WorkflowConfig,
+        config: &CookConfig,
     ) -> Result<()> {
         // Convert WorkflowConfig to ExtendedWorkflowConfig
         // For now, create a simple workflow with the commands
-        let steps: Vec<WorkflowStep> = workflow
+        let steps: Vec<WorkflowStep> = config
+            .workflow
             .commands
             .iter()
             .enumerate()
@@ -254,11 +252,11 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             iterate: false,
             analyze_before: true,
             analyze_between: false,
-            collect_metrics: true,
+            collect_metrics: config.command.metrics,
         };
 
         // Run initial analysis if needed
-        if extended_workflow.analyze_before {
+        if extended_workflow.analyze_before && !config.command.skip_analysis {
             self.user_interaction
                 .display_progress("Running initial analysis...");
             let analysis = self
@@ -268,6 +266,9 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             self.analysis_coordinator
                 .save_analysis(&env.working_dir, &analysis)
                 .await?;
+        } else if config.command.skip_analysis {
+            self.user_interaction
+                .display_info("📋 Skipping project analysis (--skip-analysis flag)");
         }
 
         // Create workflow executor
@@ -314,7 +315,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     use crate::cook::analysis::runner::AnalysisRunnerImpl;
     use crate::cook::execution::claude::ClaudeExecutorImpl;
     use crate::cook::execution::runner::tests::MockCommandRunner;
@@ -395,7 +396,7 @@ mod tests {
         Arc<TestMockGitOperations>,
     ) {
         let temp_dir = TempDir::new().unwrap();
-        let mock_runner1 = MockCommandRunner::new();
+        let _mock_runner1 = MockCommandRunner::new();
         let mock_runner2 = MockCommandRunner::new();
         let mock_runner3 = MockCommandRunner::new();
         let mock_runner4 = MockCommandRunner::new();
@@ -431,7 +432,45 @@ mod tests {
 
     #[tokio::test]
     async fn test_prerequisites_check_no_git() {
-        let (orchestrator, _, mock_git) = create_test_orchestrator();
+        let temp_dir = TempDir::new().unwrap();
+        let _mock_runner1 = MockCommandRunner::new();
+        let mock_runner2 = MockCommandRunner::new();
+        let mock_runner3 = MockCommandRunner::new();
+        let mock_runner4 = MockCommandRunner::new();
+        let mock_interaction = Arc::new(MockUserInteraction::new());
+        let mock_git = Arc::new(TestMockGitOperations::new());
+
+        // Set up mock response for Claude CLI check
+        mock_runner2.add_response(crate::cook::execution::ExecutionResult {
+            success: true,
+            stdout: "claude 1.0.0".to_string(),
+            stderr: String::new(),
+            exit_code: Some(0),
+        });
+
+        let session_manager = Arc::new(SessionTrackerImpl::new(
+            "test".to_string(),
+            temp_dir.path().to_path_buf(),
+        ));
+
+        let command_executor = Arc::new(crate::cook::execution::runner::RealCommandRunner::new());
+        let claude_executor = Arc::new(ClaudeExecutorImpl::new(mock_runner2));
+        let analysis_coordinator = Arc::new(AnalysisRunnerImpl::new(mock_runner3));
+        let metrics_coordinator = Arc::new(MetricsCollectorImpl::new(mock_runner4));
+        let state_manager = StateManager::new().unwrap();
+        let subprocess = crate::subprocess::SubprocessManager::production();
+
+        let orchestrator = DefaultCookOrchestrator::new(
+            session_manager,
+            command_executor,
+            claude_executor,
+            analysis_coordinator,
+            metrics_coordinator,
+            mock_interaction.clone(),
+            mock_git.clone(),
+            state_manager,
+            subprocess,
+        );
 
         mock_git.set_is_git_repo(false);
 

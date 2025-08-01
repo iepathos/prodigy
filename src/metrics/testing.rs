@@ -223,9 +223,7 @@ impl MetricsAssert {
                     tags,
                     timestamp,
                 } => {
-                    println!(
-                        "  {i}: Counter '{name}' = {value} at {timestamp} {tags:?}"
-                    );
+                    println!("  {i}: Counter '{name}' = {value} at {timestamp} {tags:?}");
                 }
                 MetricEvent::Gauge {
                     name,
@@ -233,9 +231,7 @@ impl MetricsAssert {
                     tags,
                     timestamp,
                 } => {
-                    println!(
-                        "  {i}: Gauge '{name}' = {value} at {timestamp} {tags:?}"
-                    );
+                    println!("  {i}: Gauge '{name}' = {value} at {timestamp} {tags:?}");
                 }
                 MetricEvent::Timer {
                     name,
@@ -243,9 +239,7 @@ impl MetricsAssert {
                     tags,
                     timestamp,
                 } => {
-                    println!(
-                        "  {i}: Timer '{name}' = {duration:?} at {timestamp} {tags:?}"
-                    );
+                    println!("  {i}: Timer '{name}' = {duration:?} at {timestamp} {tags:?}");
                 }
                 MetricEvent::Custom {
                     name,
@@ -253,9 +247,7 @@ impl MetricsAssert {
                     tags,
                     timestamp,
                 } => {
-                    println!(
-                        "  {i}: Custom '{name}' = {data:?} at {timestamp} {tags:?}"
-                    );
+                    println!("  {i}: Custom '{name}' = {data:?} at {timestamp} {tags:?}");
                 }
             }
         }

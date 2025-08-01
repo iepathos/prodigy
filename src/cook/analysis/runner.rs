@@ -75,11 +75,44 @@ impl<R: CommandRunner + 'static> AnalysisRunner for AnalysisRunnerImpl<R> {
     }
 
     async fn is_supported_project(&self, path: &Path) -> Result<bool> {
-        let project_analyzer = ProjectAnalyzer::new();
-        match project_analyzer.analyze(path).await {
-            Ok(_info) => Ok(true), // Simplified since we now analyze all project types
-            Err(_) => Ok(false),
+        // Check for common project files that indicate a supported project
+        let project_files = [
+            "Cargo.toml",       // Rust
+            "package.json",     // Node.js
+            "pyproject.toml",   // Python
+            "poetry.lock",      // Python Poetry
+            "requirements.txt", // Python pip
+            "go.mod",           // Go
+            "pom.xml",          // Java Maven
+            "build.gradle",     // Java Gradle
+            "Gemfile",          // Ruby
+            "composer.json",    // PHP
+        ];
+
+        for file in &project_files {
+            if path.join(file).exists() {
+                return Ok(true);
+            }
         }
+
+        // Also check if directory has source files
+        let source_extensions = [
+            "rs", "js", "ts", "py", "go", "java", "rb", "php", "cpp", "c", "h",
+        ];
+
+        if let Ok(entries) = std::fs::read_dir(path) {
+            for entry in entries.flatten() {
+                if let Some(extension) = entry.path().extension() {
+                    if let Some(ext_str) = extension.to_str() {
+                        if source_extensions.contains(&ext_str) {
+                            return Ok(true);
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(false)
     }
 }
 

@@ -222,10 +222,7 @@ mod tests {
             };
 
             let result = command::execute(cmd).await;
-            assert!(
-                result.is_ok(),
-                "Failed with output format: {output_format}"
-            );
+            assert!(result.is_ok(), "Failed with output format: {output_format}");
         }
     }
 

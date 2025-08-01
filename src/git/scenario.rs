@@ -354,7 +354,21 @@ fn format_status_output(status: &GitStatus) -> String {
 impl GitReader for GitScenarioMock {
     async fn is_repository(&self, path: &Path) -> Result<bool> {
         let scenario = self.get_scenario(path).await;
-        Ok(scenario.is_repository)
+        if scenario.is_repository {
+            let _ = self
+                .execute_command(path, &["rev-parse", "--git-dir"])
+                .await?;
+            Ok(true)
+        } else {
+            // For non-repositories, the command should fail
+            match self
+                .execute_command(path, &["rev-parse", "--git-dir"])
+                .await
+            {
+                Ok(_) => Ok(false),  // Shouldn't happen, but return false
+                Err(_) => Ok(false), // Expected case for non-repositories
+            }
+        }
     }
 
     async fn get_status(&self, path: &Path) -> Result<GitStatus> {
@@ -614,6 +628,6 @@ mod tests {
         assert!(result.is_err());
 
         let error = result.unwrap_err();
-        assert!(error.to_string().contains("nothing to commit"));
+        assert!(error.to_string().contains("Nothing to commit"));
     }
 }

@@ -53,15 +53,13 @@ impl ExecutionMode {
 }
 
 /// Session runtime options
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SessionOptions {
     pub fail_fast: bool,
     pub auto_merge: bool,
     pub collect_metrics: bool,
     pub verbose: bool,
 }
-
 
 impl SessionOptions {
     /// Create options from command flags

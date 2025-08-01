@@ -155,7 +155,6 @@ pub async fn run_improvement_loop(
 #[cfg(test)]
 mod cook_tests {
     use super::*;
-    use std::path::PathBuf;
     use tempfile::TempDir;
 
     #[tokio::test]
@@ -169,8 +168,21 @@ mod cook_tests {
 
     #[tokio::test]
     async fn test_load_workflow_default() {
+        let temp_dir = TempDir::new().unwrap();
+        let playbook_path = temp_dir.path().join("test.yml");
+
+        // Create a simple test workflow
+        let workflow_content = r#"commands:
+  - "mmm-code-review"
+  - name: "mmm-lint"
+    focus: "performance"
+"#;
+        tokio::fs::write(&playbook_path, workflow_content)
+            .await
+            .unwrap();
+
         let cmd = CookCommand {
-            playbook: PathBuf::from("test.yml"),
+            playbook: playbook_path,
             path: None,
             focus: None,
             max_iterations: 5,
@@ -189,5 +201,6 @@ mod cook_tests {
 
         // Should load default workflow
         assert!(!workflow.commands.is_empty());
+        assert_eq!(workflow.commands.len(), 2);
     }
 }

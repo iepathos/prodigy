@@ -498,32 +498,20 @@ mod tests {
 
     #[tokio::test]
     async fn test_commit_success() {
-        let (git, mock) = create_test_runner();
+        let (git, mut mock) = create_test_runner();
         let temp_dir = TempDir::new().unwrap();
 
         // Mock commit command
-        mock.add_response(
-            "git",
-            Ok(crate::subprocess::ProcessOutput {
-                status: crate::subprocess::ExitStatusHelper::success(),
-                stdout: String::new(),
-                stderr: String::new(),
-                duration: std::time::Duration::from_millis(10),
-            }),
-        )
-        .await;
+        mock.expect_command("git")
+            .with_args(|args| args.len() >= 2 && args[0] == "commit" && args[1] == "-m")
+            .returns_stdout("")
+            .finish();
 
         // Mock rev-parse to get commit hash
-        mock.add_response(
-            "git",
-            Ok(crate::subprocess::ProcessOutput {
-                status: crate::subprocess::ExitStatusHelper::success(),
-                stdout: "abc1234567890abcdef1234567890abcdef123456\n".to_string(),
-                stderr: String::new(),
-                duration: std::time::Duration::from_millis(10),
-            }),
-        )
-        .await;
+        mock.expect_command("git")
+            .with_args(|args| args.len() == 2 && args[0] == "rev-parse" && args[1] == "HEAD")
+            .returns_stdout("abc1234567890abcdef1234567890abcdef123456\n")
+            .finish();
 
         let commit_id = git.commit(temp_dir.path(), "test commit").await.unwrap();
         assert_eq!(
@@ -559,6 +547,6 @@ mod tests {
         assert!(result.is_err());
 
         let error = result.unwrap_err();
-        assert!(error.to_string().contains("nothing to commit"));
+        assert!(error.to_string().contains("Nothing to commit"));
     }
 }

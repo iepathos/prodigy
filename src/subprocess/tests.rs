@@ -84,31 +84,19 @@ mod tests {
 
         // First call
         let result1 = mock
-            .run(
-                ProcessCommandBuilder::new("git")
-                    .args(["add", "."])
-                    .build(),
-            )
+            .run(ProcessCommandBuilder::new("git").args(["add", "."]).build())
             .await;
         assert!(result1.is_ok());
 
         // Second call
         let result2 = mock
-            .run(
-                ProcessCommandBuilder::new("git")
-                    .args(["add", "."])
-                    .build(),
-            )
+            .run(ProcessCommandBuilder::new("git").args(["add", "."]).build())
             .await;
         assert!(result2.is_ok());
 
         // Third call should fail
         let result3 = mock
-            .run(
-                ProcessCommandBuilder::new("git")
-                    .args(["add", "."])
-                    .build(),
-            )
+            .run(ProcessCommandBuilder::new("git").args(["add", "."]).build())
             .await;
         assert!(result3.is_err());
     }

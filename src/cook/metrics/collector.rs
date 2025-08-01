@@ -234,6 +234,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_lint_warnings_collection() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let cargo_toml = temp_dir.path().join("Cargo.toml");
+        tokio::fs::write(
+            &cargo_toml,
+            "[package]\nname = \"test\"\nversion = \"0.1.0\"",
+        )
+        .await
+        .unwrap();
+
         let mock_runner = MockCommandRunner::new();
         mock_runner.add_response(crate::cook::execution::ExecutionResult {
             success: true,
@@ -247,7 +258,7 @@ mod tests {
 
         let collector = MetricsCollectorImpl::new(mock_runner);
         let warnings = collector
-            .collect_lint_warnings(Path::new("/tmp"))
+            .collect_lint_warnings(temp_dir.path())
             .await
             .unwrap();
 

@@ -327,7 +327,7 @@ impl SessionManager for InMemorySessionManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     use crate::session::IterationChanges;
     use std::path::PathBuf;
 
