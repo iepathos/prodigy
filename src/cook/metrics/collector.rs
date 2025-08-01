@@ -138,19 +138,22 @@ impl<R: CommandRunner + 'static> MetricsCoordinator for MetricsCollectorImpl<R> 
     async fn collect_all(&self, project_path: &Path) -> Result<ProjectMetrics> {
         let mut metrics = ProjectMetrics::default();
 
-        // Collect test coverage
-        metrics.test_coverage = self.collect_test_coverage(project_path).await?;
+        #[allow(clippy::field_reassign_with_default)]
+        {
+            // Collect test coverage
+            metrics.test_coverage = self.collect_test_coverage(project_path).await?;
 
-        // Collect lint warnings
-        metrics.lint_warnings = self.collect_lint_warnings(project_path).await?;
+            // Collect lint warnings
+            metrics.lint_warnings = self.collect_lint_warnings(project_path).await?;
 
-        // Collect compile metrics
-        let (compile_time, binary_size) = self.collect_compile_metrics(project_path).await?;
-        metrics.compile_time = compile_time;
-        metrics.binary_size = binary_size;
+            // Collect compile metrics
+            let (compile_time, binary_size) = self.collect_compile_metrics(project_path).await?;
+            metrics.compile_time = compile_time;
+            metrics.binary_size = binary_size;
 
-        // Collect complexity
-        metrics.cyclomatic_complexity = self.collect_complexity(project_path).await?;
+            // Collect complexity
+            metrics.cyclomatic_complexity = self.collect_complexity(project_path).await?;
+        }
 
         Ok(metrics)
     }

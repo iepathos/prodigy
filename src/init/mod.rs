@@ -21,7 +21,7 @@ async fn is_git_repository(path: &Path, subprocess: &SubprocessManager) -> bool 
         .runner()
         .run(
             ProcessCommandBuilder::new("git")
-                .args(&["rev-parse", "--git-dir"])
+                .args(["rev-parse", "--git-dir"])
                 .current_dir(path)
                 .build(),
         )

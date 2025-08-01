@@ -133,7 +133,7 @@ impl GitOperations for RealGitOperations {
 
     async fn is_git_repo(&self) -> bool {
         let command = ProcessCommandBuilder::new("git")
-            .args(&["rev-parse", "--git-dir"])
+            .args(["rev-parse", "--git-dir"])
             .build();
 
         self.subprocess

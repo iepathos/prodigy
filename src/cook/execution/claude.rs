@@ -45,8 +45,11 @@ impl<R: CommandRunner + 'static> ClaudeExecutor for ClaudeExecutorImpl<R> {
         env_vars: HashMap<String, String>,
     ) -> Result<ExecutionResult> {
         let mut context = ExecutionContext::default();
-        context.working_directory = project_path.to_path_buf();
-        context.env_vars = env_vars;
+        #[allow(clippy::field_reassign_with_default)]
+        {
+            context.working_directory = project_path.to_path_buf();
+            context.env_vars = env_vars;
+        }
 
         // Set timeout for Claude commands (10 minutes by default)
         context.timeout_seconds = Some(600);

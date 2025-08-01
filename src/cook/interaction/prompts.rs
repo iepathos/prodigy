@@ -20,6 +20,12 @@ pub trait UserPrompter: Send + Sync {
 /// Real implementation of user prompter
 pub struct UserPrompterImpl;
 
+impl Default for UserPrompterImpl {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl UserPrompterImpl {
     pub fn new() -> Self {
         Self
@@ -46,9 +52,9 @@ impl UserPrompter for UserPrompterImpl {
 
     async fn prompt_text(&self, message: &str, default: Option<&str>) -> Result<String> {
         if let Some(default_value) = default {
-            print!("{} [{}]: ", message, default_value);
+            print!("{message} [{default_value}]: ");
         } else {
-            print!("{}: ", message);
+            print!("{message}: ");
         }
         io::stdout().flush()?;
 

@@ -13,6 +13,7 @@ pub struct MockProcessRunner {
 
 struct MockExpectation {
     program: String,
+    #[allow(clippy::type_complexity)]
     args_matcher: Option<Box<dyn Fn(&[String]) -> bool + Send + Sync>>,
     response: ProcessOutput,
     times_called: usize,

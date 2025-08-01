@@ -127,7 +127,7 @@ impl MetricsRegistry {
             match reader.query(query.clone()).await {
                 Ok(result) => return Ok(result),
                 Err(e) => {
-                    eprintln!("Reader query failed: {}", e);
+                    eprintln!("Reader query failed: {e}");
                     continue;
                 }
             }
@@ -153,7 +153,7 @@ impl MetricsRegistry {
             match reader.aggregate(query.clone(), aggregation.clone()).await {
                 Ok(result) => return Ok(result),
                 Err(e) => {
-                    eprintln!("Reader aggregation failed: {}", e);
+                    eprintln!("Reader aggregation failed: {e}");
                     continue;
                 }
             }
@@ -186,7 +186,7 @@ impl MetricsRegistry {
         // Record timing regardless of result
         let timing_event = MetricEvent::timer(name, duration, tags);
         if let Err(e) = self.record(timing_event).await {
-            eprintln!("Failed to record timing metric: {}", e);
+            eprintln!("Failed to record timing metric: {e}");
         }
 
         result

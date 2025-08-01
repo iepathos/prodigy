@@ -88,7 +88,7 @@ impl WorktreeManager {
         // Create worktree
         let command = ProcessCommandBuilder::new("git")
             .current_dir(&self.repo_path)
-            .args(&["worktree", "add", "-b", &branch])
+            .args(["worktree", "add", "-b", &branch])
             .arg(worktree_path.to_string_lossy().as_ref())
             .build();
 
@@ -196,7 +196,7 @@ impl WorktreeManager {
     pub async fn list_sessions(&self) -> Result<Vec<WorktreeSession>> {
         let command = ProcessCommandBuilder::new("git")
             .current_dir(&self.repo_path)
-            .args(&["worktree", "list", "--porcelain"])
+            .args(["worktree", "list", "--porcelain"])
             .build();
 
         let output = self
@@ -305,7 +305,7 @@ impl WorktreeManager {
         // Determine the default branch (main or master)
         let main_check_command = ProcessCommandBuilder::new("git")
             .current_dir(&self.repo_path)
-            .args(&["rev-parse", "--verify", "refs/heads/main"])
+            .args(["rev-parse", "--verify", "refs/heads/main"])
             .build();
 
         let main_exists = self
@@ -368,7 +368,7 @@ impl WorktreeManager {
         // is now merged into the target branch
         let merge_check_command = ProcessCommandBuilder::new("git")
             .current_dir(&self.repo_path)
-            .args(&["branch", "--merged", &target])
+            .args(["branch", "--merged", &target])
             .build();
 
         let merge_check = self
@@ -451,7 +451,7 @@ impl WorktreeManager {
 
         let branch_check_command = ProcessCommandBuilder::new("git")
             .current_dir(&self.repo_path)
-            .args(&["rev-parse", "--verify", &format!("refs/heads/{name}")])
+            .args(["rev-parse", "--verify", &format!("refs/heads/{name}")])
             .build();
 
         let branch_exists = self
@@ -465,7 +465,7 @@ impl WorktreeManager {
         if branch_exists {
             let delete_command = ProcessCommandBuilder::new("git")
                 .current_dir(&self.repo_path)
-                .args(&["branch", "-D", name])
+                .args(["branch", "-D", name])
                 .build();
 
             let delete_output = self

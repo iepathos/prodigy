@@ -43,6 +43,7 @@ pub struct FileMetricsCollector {
     name: String,
     path: PathBuf,
     buffer: Arc<Mutex<Vec<MetricEvent>>>,
+    #[allow(dead_code)]
     flush_interval: Duration,
     rotate_size: Option<u64>,
     compress: bool,
@@ -114,7 +115,7 @@ impl FileMetricsCollector {
 
         for event in events {
             let line = serde_json::to_string(event).context("Failed to serialize metric event")?;
-            file.write_all(format!("{}\n", line).as_bytes())
+            file.write_all(format!("{line}\n").as_bytes())
                 .await
                 .context("Failed to write metric event")?;
         }
@@ -128,7 +129,7 @@ impl FileMetricsCollector {
     async fn rotate_file(&self) -> Result<()> {
         let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
         let mut rotated_path = self.path.clone();
-        rotated_path.set_extension(format!("{}.log", timestamp));
+        rotated_path.set_extension(format!("{timestamp}.log"));
 
         fs::rename(&self.path, &rotated_path)
             .await

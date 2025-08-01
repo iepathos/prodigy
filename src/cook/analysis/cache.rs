@@ -43,7 +43,7 @@ impl AnalysisCacheImpl {
     fn cache_path(&self, key: &str) -> PathBuf {
         // Hash the key to avoid filesystem issues
         let hash = format!("{:x}", md5::compute(key));
-        self.cache_dir.join(format!("{}.json", hash))
+        self.cache_dir.join(format!("{hash}.json"))
     }
 
     /// Ensure cache directory exists
@@ -69,7 +69,7 @@ impl AnalysisCache for AnalysisCacheImpl {
                     Err(e) => {
                         // Invalid cache entry, remove it
                         let _ = fs::remove_file(&cache_path).await;
-                        eprintln!("Invalid cache entry {}: {}", key, e);
+                        eprintln!("Invalid cache entry {key}: {e}");
                         Ok(None)
                     }
                 }

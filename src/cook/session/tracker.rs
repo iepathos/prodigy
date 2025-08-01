@@ -112,7 +112,7 @@ impl SessionTracker for SessionTrackerImpl {
                 .lock()
                 .unwrap()
                 .errors
-                .push(format!("Command failed: {}", command));
+                .push(format!("Command failed: {command}"));
         }
         Ok(())
     }
@@ -175,7 +175,7 @@ mod tests {
         tracker.save_state(&state_path).await.unwrap();
 
         // Load into new tracker
-        let mut new_tracker = SessionTrackerImpl::new("dummy".to_string(), PathBuf::from("/tmp"));
+        let new_tracker = SessionTrackerImpl::new("dummy".to_string(), PathBuf::from("/tmp"));
         new_tracker.load_state(&state_path).await.unwrap();
 
         // Verify loaded state
@@ -189,7 +189,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_session_updates() {
-        let mut tracker = SessionTrackerImpl::new("update-test".to_string(), PathBuf::from("/tmp"));
+        let tracker = SessionTrackerImpl::new("update-test".to_string(), PathBuf::from("/tmp"));
 
         // Test various updates
         tracker

@@ -81,7 +81,7 @@ impl TarpaulinCoverageAnalyzer {
             let output = if has_just_coverage {
                 // Use project's just coverage command
                 let command = ProcessCommandBuilder::new("just")
-                    .args(&["coverage"])
+                    .args(["coverage"])
                     .current_dir(project_path)
                     .build();
 
@@ -93,7 +93,7 @@ impl TarpaulinCoverageAnalyzer {
             } else {
                 // Fall back to direct cargo tarpaulin with JSON output
                 let command = ProcessCommandBuilder::new("cargo")
-                    .args(&[
+                    .args([
                         "tarpaulin",
                         "--skip-clean",
                         "--engine",
@@ -126,7 +126,7 @@ impl TarpaulinCoverageAnalyzer {
             if has_just_coverage && !coverage_file.exists() {
                 // Run tarpaulin again just for JSON output
                 let command = ProcessCommandBuilder::new("cargo")
-                    .args(&[
+                    .args([
                         "tarpaulin",
                         "--skip-clean",
                         "--engine",

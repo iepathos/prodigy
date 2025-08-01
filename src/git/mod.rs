@@ -116,7 +116,7 @@ impl GitCommandRunner {
         self.process_runner
             .run(command)
             .await
-            .map_err(|e| GitError::CommandFailed(format!("Git command failed: {}", e)).into())
+            .map_err(|e| GitError::CommandFailed(format!("Git command failed: {e}")).into())
     }
 }
 
@@ -185,7 +185,7 @@ impl GitReader for GitCommandRunner {
     }
 
     async fn get_diff(&self, path: &Path, from: &str, to: &str) -> Result<GitDiff> {
-        let range = format!("{}..{}", from, to);
+        let range = format!("{from}..{to}");
         let output = self
             .run_git_command(path, &["diff", "--numstat", &range])
             .await?;

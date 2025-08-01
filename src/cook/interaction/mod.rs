@@ -57,6 +57,12 @@ pub struct DefaultUserInteraction {
     display: ProgressDisplayImpl,
 }
 
+impl Default for DefaultUserInteraction {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DefaultUserInteraction {
     pub fn new() -> Self {
         Self {
@@ -112,6 +118,12 @@ pub mod mocks {
         pub messages: Mutex<Vec<String>>,
     }
 
+    impl Default for MockUserInteraction {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl MockUserInteraction {
         pub fn new() -> Self {
             Self {
@@ -140,7 +152,7 @@ pub mod mocks {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("PROMPT: {}", message));
+                .push(format!("PROMPT: {message}"));
             self.yes_no_responses
                 .lock()
                 .unwrap()
@@ -152,7 +164,7 @@ pub mod mocks {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("TEXT: {}", message));
+                .push(format!("TEXT: {message}"));
             self.text_responses
                 .lock()
                 .unwrap()
@@ -164,35 +176,35 @@ pub mod mocks {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("INFO: {}", message));
+                .push(format!("INFO: {message}"));
         }
 
         fn display_warning(&self, message: &str) {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("WARN: {}", message));
+                .push(format!("WARN: {message}"));
         }
 
         fn display_error(&self, message: &str) {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("ERROR: {}", message));
+                .push(format!("ERROR: {message}"));
         }
 
         fn display_progress(&self, message: &str) {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("PROGRESS: {}", message));
+                .push(format!("PROGRESS: {message}"));
         }
 
         fn start_spinner(&self, message: &str) -> Box<dyn SpinnerHandle> {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("SPINNER: {}", message));
+                .push(format!("SPINNER: {message}"));
             Box::new(MockSpinnerHandle)
         }
 
@@ -200,7 +212,7 @@ pub mod mocks {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("SUCCESS: {}", message));
+                .push(format!("SUCCESS: {message}"));
         }
     }
 

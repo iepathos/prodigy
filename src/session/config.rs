@@ -54,6 +54,7 @@ impl ExecutionMode {
 
 /// Session runtime options
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct SessionOptions {
     pub fail_fast: bool,
     pub auto_merge: bool,
@@ -61,16 +62,6 @@ pub struct SessionOptions {
     pub verbose: bool,
 }
 
-impl Default for SessionOptions {
-    fn default() -> Self {
-        Self {
-            fail_fast: false,
-            auto_merge: false,
-            collect_metrics: false,
-            verbose: false,
-        }
-    }
-}
 
 impl SessionOptions {
     /// Create options from command flags

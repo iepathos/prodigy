@@ -297,7 +297,7 @@ fn format_status_output(status: &GitStatus) -> String {
     let mut output = String::new();
 
     if let Some(branch) = &status.branch {
-        output.push_str(&format!("# branch.head {}\n", branch));
+        output.push_str(&format!("# branch.head {branch}\n"));
     } else {
         output.push_str("# branch.head (detached)\n");
     }
@@ -392,7 +392,7 @@ impl GitReader for GitScenarioMock {
     }
 
     async fn get_diff(&self, path: &Path, from: &str, to: &str) -> Result<GitDiff> {
-        let range = format!("{}..{}", from, to);
+        let range = format!("{from}..{to}");
         let output = self
             .execute_command(path, &["diff", "--numstat", &range])
             .await?;

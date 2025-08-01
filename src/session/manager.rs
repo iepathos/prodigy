@@ -95,7 +95,7 @@ impl InMemorySessionManager {
             }
             SessionEvent::IterationStarted { number } => {
                 data.state = SessionState::Running { iteration: *number };
-                data.progress.current_phase = Some(format!("Iteration {}", number));
+                data.progress.current_phase = Some(format!("Iteration {number}"));
             }
             SessionEvent::IterationCompleted { changes } => {
                 data.progress.iterations_completed += 1;
@@ -327,7 +327,7 @@ impl SessionManager for InMemorySessionManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::workflow::WorkflowConfig;
+    
     use crate::session::IterationChanges;
     use std::path::PathBuf;
 

@@ -50,7 +50,7 @@ impl<R: CommandRunner + 'static> AnalysisRunner for AnalysisRunnerImpl<R> {
             match self.get_rust_coverage(path).await {
                 Ok(coverage) => Some(coverage),
                 Err(e) => {
-                    eprintln!("Warning: Failed to get test coverage: {}", e);
+                    eprintln!("Warning: Failed to get test coverage: {e}");
                     None
                 }
             }

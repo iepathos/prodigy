@@ -54,7 +54,7 @@ impl GitRunner for GitRunnerImpl {
             .runner
             .run(
                 ProcessCommandBuilder::new("git")
-                    .args(&["status", "--porcelain", "--branch"])
+                    .args(["status", "--porcelain", "--branch"])
                     .current_dir(path)
                     .build(),
             )
@@ -96,7 +96,7 @@ impl GitRunner for GitRunnerImpl {
             .runner
             .run(
                 ProcessCommandBuilder::new("git")
-                    .args(&["commit", "-m", message])
+                    .args(["commit", "-m", message])
                     .current_dir(path)
                     .build(),
             )
@@ -149,7 +149,7 @@ impl GitRunner for GitRunnerImpl {
             .runner
             .run(
                 ProcessCommandBuilder::new("git")
-                    .args(&["worktree", "add", "-b", branch])
+                    .args(["worktree", "add", "-b", branch])
                     .arg(worktree_path.to_string_lossy().as_ref())
                     .current_dir(path)
                     .build(),
@@ -168,7 +168,7 @@ impl GitRunner for GitRunnerImpl {
             .runner
             .run(
                 ProcessCommandBuilder::new("git")
-                    .args(&["worktree", "remove", worktree_name, "--force"])
+                    .args(["worktree", "remove", worktree_name, "--force"])
                     .current_dir(path)
                     .build(),
             )
@@ -186,7 +186,7 @@ impl GitRunner for GitRunnerImpl {
             .runner
             .run(
                 ProcessCommandBuilder::new("git")
-                    .args(&["branch", "--show-current"])
+                    .args(["branch", "--show-current"])
                     .current_dir(path)
                     .build(),
             )
@@ -209,10 +209,10 @@ impl GitRunner for GitRunnerImpl {
             .runner
             .run(
                 ProcessCommandBuilder::new("git")
-                    .args(&[
+                    .args([
                         "log",
-                        &format!("--pretty=format:{}", format),
-                        &format!("--max-count={}", max_count),
+                        &format!("--pretty=format:{format}"),
+                        &format!("--max-count={max_count}"),
                     ])
                     .current_dir(path)
                     .build(),

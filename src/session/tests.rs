@@ -61,7 +61,7 @@ async fn test_concurrent_sessions() {
         let handle = tokio::spawn(async move {
             let config = SessionConfig {
                 max_iterations: 5,
-                focus: Some(format!("test-{}", i)),
+                focus: Some(format!("test-{i}")),
                 ..Default::default()
             };
 
@@ -76,7 +76,7 @@ async fn test_concurrent_sessions() {
                     .unwrap();
 
                 let changes = IterationChanges {
-                    files_modified: vec![std::path::PathBuf::from(format!("file{}.rs", i))],
+                    files_modified: vec![std::path::PathBuf::from(format!("file{i}.rs"))],
                     ..Default::default()
                 };
 
@@ -126,7 +126,7 @@ async fn test_session_persistence_and_recovery() {
             .unwrap();
 
         let changes = IterationChanges {
-            files_modified: vec![std::path::PathBuf::from(format!("file{}.rs", i))],
+            files_modified: vec![std::path::PathBuf::from(format!("file{i}.rs"))],
             lines_added: i as usize * 10,
             lines_removed: i as usize * 5,
             ..Default::default()
@@ -235,7 +235,7 @@ async fn test_session_progress_tracking() {
                 .record_event(
                     &id,
                     SessionEvent::CommandExecuted {
-                        command: format!("cmd-{}-{}", i, j),
+                        command: format!("cmd-{i}-{j}"),
                         success: j != 2, // Middle command fails
                     },
                 )
@@ -244,13 +244,13 @@ async fn test_session_progress_tracking() {
         }
 
         let changes = IterationChanges {
-            files_modified: vec![std::path::PathBuf::from(format!("file{}.rs", i))],
+            files_modified: vec![std::path::PathBuf::from(format!("file{i}.rs"))],
             lines_added: 20,
             lines_removed: 10,
             commands_run: vec!["fmt".to_string(), "clippy".to_string()],
             git_commits: vec![CommitInfo {
-                sha: format!("abc{}", i),
-                message: format!("Fix {}", i),
+                sha: format!("abc{i}"),
+                message: format!("Fix {i}"),
                 timestamp: chrono::Utc::now(),
             }],
         };

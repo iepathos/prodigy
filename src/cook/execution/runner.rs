@@ -57,7 +57,7 @@ impl CommandRunner for RealCommandRunner {
             .runner()
             .run(command)
             .await
-            .context(format!("Failed to execute command: {}", cmd))?;
+            .context(format!("Failed to execute command: {cmd}"))?;
 
         Ok(std::process::Output {
             status: std::process::ExitStatus::from_raw(output.status.code().unwrap_or(1)),
@@ -91,7 +91,7 @@ impl CommandRunner for RealCommandRunner {
             .runner()
             .run(builder.build())
             .await
-            .context(format!("Failed to execute command: {}", cmd))?;
+            .context(format!("Failed to execute command: {cmd}"))?;
 
         Ok(ExecutionResult {
             success: output.status.success(),
@@ -156,6 +156,12 @@ pub mod tests {
     // Mock implementation for testing
     pub struct MockCommandRunner {
         responses: std::sync::Mutex<Vec<ExecutionResult>>,
+    }
+
+    impl Default for MockCommandRunner {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 
     impl MockCommandRunner {

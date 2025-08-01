@@ -73,7 +73,7 @@ impl PerformanceProfiler {
         let start = Instant::now();
 
         let build_command = ProcessCommandBuilder::new("cargo")
-            .args(&["build", "--release"])
+            .args(["build", "--release"])
             .current_dir(project_path)
             .build();
 
@@ -163,7 +163,7 @@ impl PerformanceProfiler {
 
         // Check if we can run benchmarks quickly
         let bench_command = ProcessCommandBuilder::new("cargo")
-            .args(&["bench", "--no-run"])
+            .args(["bench", "--no-run"])
             .current_dir(project_path)
             .build();
 

@@ -57,7 +57,7 @@ mod tests {
         let mut mock = MockProcessRunner::new();
 
         mock.expect_command("git")
-            .with_args(|args| args == &["status"])
+            .with_args(|args| args == ["status"])
             .returns_stdout("On branch main\n")
             .returns_success()
             .finish();
@@ -77,7 +77,7 @@ mod tests {
         let mut mock = MockProcessRunner::new();
 
         mock.expect_command("git")
-            .with_args(|args| args == &["add", "."])
+            .with_args(|args| args == ["add", "."])
             .returns_success()
             .times(2)
             .finish();
@@ -86,7 +86,7 @@ mod tests {
         let result1 = mock
             .run(
                 ProcessCommandBuilder::new("git")
-                    .args(&["add", "."])
+                    .args(["add", "."])
                     .build(),
             )
             .await;
@@ -96,7 +96,7 @@ mod tests {
         let result2 = mock
             .run(
                 ProcessCommandBuilder::new("git")
-                    .args(&["add", "."])
+                    .args(["add", "."])
                     .build(),
             )
             .await;
@@ -106,7 +106,7 @@ mod tests {
         let result3 = mock
             .run(
                 ProcessCommandBuilder::new("git")
-                    .args(&["add", "."])
+                    .args(["add", "."])
                     .build(),
             )
             .await;
@@ -137,7 +137,7 @@ mod tests {
         let (manager, mut mock) = SubprocessManager::mock();
 
         mock.expect_command("git")
-            .with_args(|args| args == &["status", "--porcelain", "--branch"])
+            .with_args(|args| args == ["status", "--porcelain", "--branch"])
             .returns_stdout("## main...origin/main\nM  file.txt\n")
             .returns_success()
             .finish();
@@ -155,7 +155,7 @@ mod tests {
         let (manager, mut mock) = SubprocessManager::mock();
 
         mock.expect_command("claude")
-            .with_args(|args| args == &["--version"])
+            .with_args(|args| args == ["--version"])
             .returns_stdout("Claude CLI version 1.0.0\n")
             .returns_success()
             .finish();
@@ -170,7 +170,7 @@ mod tests {
     async fn test_process_command_builder() {
         let command = ProcessCommandBuilder::new("test")
             .arg("arg1")
-            .args(&["arg2", "arg3"])
+            .args(["arg2", "arg3"])
             .env("KEY1", "value1")
             .envs([("KEY2", "value2"), ("KEY3", "value3")])
             .current_dir(std::path::Path::new("/tmp"))

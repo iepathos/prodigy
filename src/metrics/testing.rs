@@ -62,15 +62,13 @@ impl MetricsAssert {
 
         assert!(
             !counter_events.is_empty(),
-            "No counter events found with name '{}'",
-            name
+            "No counter events found with name '{name}'"
         );
 
         let total_value: i64 = counter_events.iter().sum();
         assert_eq!(
             total_value, expected_value,
-            "Counter '{}' expected value {}, got {}",
-            name, expected_value, total_value
+            "Counter '{name}' expected value {expected_value}, got {total_value}"
         );
     }
 
@@ -87,16 +85,14 @@ impl MetricsAssert {
 
         assert!(
             !gauge_events.is_empty(),
-            "No gauge events found with name '{}'",
-            name
+            "No gauge events found with name '{name}'"
         );
 
         // For gauges, we check the last value
         let last_value = gauge_events.last().unwrap();
         assert_eq!(
             *last_value, expected_value,
-            "Gauge '{}' expected value {}, got {}",
-            name, expected_value, last_value
+            "Gauge '{name}' expected value {expected_value}, got {last_value}"
         );
     }
 
@@ -108,7 +104,7 @@ impl MetricsAssert {
             _ => false,
         });
 
-        assert!(timer_exists, "No timer events found with name '{}'", name);
+        assert!(timer_exists, "No timer events found with name '{name}'");
     }
 
     /// Assert that a timer was recorded within a duration range
@@ -131,18 +127,13 @@ impl MetricsAssert {
 
         assert!(
             !timer_durations.is_empty(),
-            "No timer events found with name '{}'",
-            name
+            "No timer events found with name '{name}'"
         );
 
         for duration in &timer_durations {
             assert!(
                 *duration >= min_duration && *duration <= max_duration,
-                "Timer '{}' duration {:?} not within range {:?} to {:?}",
-                name,
-                duration,
-                min_duration,
-                max_duration
+                "Timer '{name}' duration {duration:?} not within range {min_duration:?} to {max_duration:?}"
             );
         }
     }
@@ -155,13 +146,13 @@ impl MetricsAssert {
             _ => false,
         });
 
-        assert!(custom_exists, "No custom events found with name '{}'", name);
+        assert!(custom_exists, "No custom events found with name '{name}'");
     }
 
     /// Assert that no metrics were recorded
     pub async fn assert_no_metrics(&self) {
         let count = self.event_count().await;
-        assert_eq!(count, 0, "Expected no metrics, but found {}", count);
+        assert_eq!(count, 0, "Expected no metrics, but found {count}");
     }
 
     /// Assert that exactly N events were recorded
@@ -169,8 +160,7 @@ impl MetricsAssert {
         let count = self.event_count().await;
         assert_eq!(
             count, expected_count,
-            "Expected {} events, but found {}",
-            expected_count, count
+            "Expected {expected_count} events, but found {count}"
         );
     }
 
@@ -191,9 +181,7 @@ impl MetricsAssert {
 
         assert!(
             !matching_events.is_empty(),
-            "No events found with name '{}' and tags {:?}",
-            name,
-            expected_tags
+            "No events found with name '{name}' and tags {expected_tags:?}"
         );
     }
 
@@ -209,9 +197,7 @@ impl MetricsAssert {
             let second_time = window[1].timestamp();
             assert!(
                 first_time <= second_time,
-                "Events not in chronological order: {:?} should be <= {:?}",
-                first_time,
-                second_time
+                "Events not in chronological order: {first_time:?} should be <= {second_time:?}"
             );
         }
     }
@@ -238,8 +224,7 @@ impl MetricsAssert {
                     timestamp,
                 } => {
                     println!(
-                        "  {}: Counter '{}' = {} at {} {:?}",
-                        i, name, value, timestamp, tags
+                        "  {i}: Counter '{name}' = {value} at {timestamp} {tags:?}"
                     );
                 }
                 MetricEvent::Gauge {
@@ -249,8 +234,7 @@ impl MetricsAssert {
                     timestamp,
                 } => {
                     println!(
-                        "  {}: Gauge '{}' = {} at {} {:?}",
-                        i, name, value, timestamp, tags
+                        "  {i}: Gauge '{name}' = {value} at {timestamp} {tags:?}"
                     );
                 }
                 MetricEvent::Timer {
@@ -260,8 +244,7 @@ impl MetricsAssert {
                     timestamp,
                 } => {
                     println!(
-                        "  {}: Timer '{}' = {:?} at {} {:?}",
-                        i, name, duration, timestamp, tags
+                        "  {i}: Timer '{name}' = {duration:?} at {timestamp} {tags:?}"
                     );
                 }
                 MetricEvent::Custom {
@@ -271,8 +254,7 @@ impl MetricsAssert {
                     timestamp,
                 } => {
                     println!(
-                        "  {}: Custom '{}' = {:?} at {} {:?}",
-                        i, name, data, timestamp, tags
+                        "  {i}: Custom '{name}' = {data:?} at {timestamp} {tags:?}"
                     );
                 }
             }

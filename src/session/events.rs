@@ -34,7 +34,7 @@ impl SessionEvent {
         match self {
             SessionEvent::Started { .. } => "Session started".to_string(),
             SessionEvent::IterationStarted { number } => {
-                format!("Iteration {} started", number)
+                format!("Iteration {number} started")
             }
             SessionEvent::IterationCompleted { changes } => {
                 format!(
@@ -50,10 +50,10 @@ impl SessionEvent {
                     if *success { "succeeded" } else { "failed" }
                 )
             }
-            SessionEvent::Paused { reason } => format!("Session paused: {}", reason),
+            SessionEvent::Paused { reason } => format!("Session paused: {reason}"),
             SessionEvent::Resumed => "Session resumed".to_string(),
             SessionEvent::Completed => "Session completed".to_string(),
-            SessionEvent::Failed { error } => format!("Session failed: {}", error),
+            SessionEvent::Failed { error } => format!("Session failed: {error}"),
         }
     }
 

@@ -34,7 +34,7 @@ impl ClaudeRunner for ClaudeRunnerImpl {
             .runner
             .run(
                 ProcessCommandBuilder::new("claude")
-                    .args(&["--version"])
+                    .args(["--version"])
                     .build(),
             )
             .await;

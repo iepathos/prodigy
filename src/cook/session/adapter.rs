@@ -115,7 +115,7 @@ impl OldSessionManager for SessionManagerAdapter {
                 // Create dummy iteration changes
                 let changes = IterationChanges {
                     files_modified: (0..count)
-                        .map(|i| std::path::PathBuf::from(format!("file{}.rs", i)))
+                        .map(|i| std::path::PathBuf::from(format!("file{i}.rs")))
                         .collect(),
                     lines_added: 0,
                     lines_removed: 0,

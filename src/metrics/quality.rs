@@ -27,7 +27,7 @@ impl QualityAnalyzer {
     pub async fn new(subprocess: SubprocessManager) -> Self {
         // Check if cargo-tarpaulin is available
         let check_command = ProcessCommandBuilder::new("cargo")
-            .args(&["tarpaulin", "--version"])
+            .args(["tarpaulin", "--version"])
             .build();
 
         let use_tarpaulin = subprocess
@@ -88,7 +88,7 @@ impl QualityAnalyzer {
 
             // If no existing report, try to run tests quickly
             let test_command = ProcessCommandBuilder::new("cargo")
-                .args(&["test", "--no-run"])
+                .args(["test", "--no-run"])
                 .current_dir(project_path)
                 .build();
 
@@ -147,7 +147,7 @@ impl QualityAnalyzer {
         debug!("Running clippy to count warnings");
 
         let clippy_command = ProcessCommandBuilder::new("cargo")
-            .args(&["clippy", "--", "-W", "clippy::all", "--no-deps"])
+            .args(["clippy", "--", "-W", "clippy::all", "--no-deps"])
             .current_dir(project_path)
             .build();
 

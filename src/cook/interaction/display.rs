@@ -27,6 +27,12 @@ pub trait ProgressDisplay: Send + Sync {
 /// Real implementation of progress display
 pub struct ProgressDisplayImpl;
 
+impl Default for ProgressDisplayImpl {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ProgressDisplayImpl {
     pub fn new() -> Self {
         Self
@@ -35,29 +41,29 @@ impl ProgressDisplayImpl {
 
 impl ProgressDisplay for ProgressDisplayImpl {
     fn info(&self, message: &str) {
-        println!("ℹ️  {}", message);
+        println!("ℹ️  {message}");
     }
 
     fn warning(&self, message: &str) {
-        eprintln!("⚠️  {}", message);
+        eprintln!("⚠️  {message}");
     }
 
     fn error(&self, message: &str) {
-        eprintln!("❌ {}", message);
+        eprintln!("❌ {message}");
     }
 
     fn progress(&self, message: &str) {
-        println!("🔄 {}", message);
+        println!("🔄 {message}");
     }
 
     fn success(&self, message: &str) {
-        println!("✅ {}", message);
+        println!("✅ {message}");
     }
 
     fn start_spinner(&self, message: &str) -> Box<dyn SpinnerHandle> {
         // For CLI, we'll just print the message
         // In a real implementation, you might use indicatif or similar
-        println!("⏳ {}", message);
+        println!("⏳ {message}");
         Box::new(SimpleSpinnerHandle::new())
     }
 }
@@ -78,18 +84,18 @@ impl SimpleSpinnerHandle {
 impl SpinnerHandle for SimpleSpinnerHandle {
     fn update_message(&mut self, message: &str) {
         if *self.active.lock().unwrap() {
-            println!("⏳ {}", message);
+            println!("⏳ {message}");
         }
     }
 
     fn success(&mut self, message: &str) {
         *self.active.lock().unwrap() = false;
-        println!("✅ {}", message);
+        println!("✅ {message}");
     }
 
     fn fail(&mut self, message: &str) {
         *self.active.lock().unwrap() = false;
-        println!("❌ {}", message);
+        println!("❌ {message}");
     }
 }
 
@@ -118,42 +124,42 @@ mod tests {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("INFO: {}", message));
+                .push(format!("INFO: {message}"));
         }
 
         fn warning(&self, message: &str) {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("WARN: {}", message));
+                .push(format!("WARN: {message}"));
         }
 
         fn error(&self, message: &str) {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("ERROR: {}", message));
+                .push(format!("ERROR: {message}"));
         }
 
         fn progress(&self, message: &str) {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("PROGRESS: {}", message));
+                .push(format!("PROGRESS: {message}"));
         }
 
         fn success(&self, message: &str) {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("SUCCESS: {}", message));
+                .push(format!("SUCCESS: {message}"));
         }
 
         fn start_spinner(&self, message: &str) -> Box<dyn SpinnerHandle> {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("SPINNER: {}", message));
+                .push(format!("SPINNER: {message}"));
             Box::new(MockSpinnerHandle::new(self.messages.clone()))
         }
     }
@@ -173,21 +179,21 @@ mod tests {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("SPINNER_UPDATE: {}", message));
+                .push(format!("SPINNER_UPDATE: {message}"));
         }
 
         fn success(&mut self, message: &str) {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("SPINNER_SUCCESS: {}", message));
+                .push(format!("SPINNER_SUCCESS: {message}"));
         }
 
         fn fail(&mut self, message: &str) {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("SPINNER_FAIL: {}", message));
+                .push(format!("SPINNER_FAIL: {message}"));
         }
     }
 

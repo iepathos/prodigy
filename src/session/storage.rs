@@ -35,7 +35,7 @@ impl FileSessionStorage {
 
     /// Get path for a session
     fn session_path(&self, id: &SessionId) -> PathBuf {
-        self.base_path.join(format!("{}.json", id))
+        self.base_path.join(format!("{id}.json"))
     }
 }
 
@@ -102,6 +102,13 @@ impl SessionStorage for FileSessionStorage {
 #[cfg(test)]
 pub struct InMemoryStorage {
     sessions: std::sync::Mutex<std::collections::HashMap<SessionId, PersistedSession>>,
+}
+
+#[cfg(test)]
+impl Default for InMemoryStorage {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]

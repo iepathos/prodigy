@@ -93,6 +93,7 @@ pub struct DefaultCookOrchestrator {
 
 impl DefaultCookOrchestrator {
     /// Create a new orchestrator with dependencies
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         session_manager: Arc<dyn SessionManager>,
         command_executor: Arc<dyn CommandExecutor>,
@@ -155,7 +156,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                     .update_session(SessionUpdate::AddError(e.to_string()))
                     .await?;
                 self.user_interaction
-                    .display_error(&format!("Cook session failed: {}", e));
+                    .display_error(&format!("Cook session failed: {e}"));
                 return Err(e);
             }
         }
@@ -239,7 +240,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                     command: if command_str.starts_with('/') {
                         command_str
                     } else {
-                        format!("/{}", command_str)
+                        format!("/{command_str}")
                     },
                     env: std::collections::HashMap::new(),
                 }
@@ -313,7 +314,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::abstractions::git::MockGitOperations;
+    
     use crate::cook::analysis::runner::AnalysisRunnerImpl;
     use crate::cook::execution::claude::ClaudeExecutorImpl;
     use crate::cook::execution::runner::tests::MockCommandRunner;

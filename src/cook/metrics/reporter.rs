@@ -45,6 +45,12 @@ pub enum TrendDirection {
 /// Implementation of metrics reporter
 pub struct MetricsReporterImpl;
 
+impl Default for MetricsReporterImpl {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MetricsReporterImpl {
     pub fn new() -> Self {
         Self
@@ -52,7 +58,7 @@ impl MetricsReporterImpl {
 
     fn format_metric(value: Option<f64>, suffix: &str) -> String {
         match value {
-            Some(v) => format!("{:.1}{}", v, suffix),
+            Some(v) => format!("{v:.1}{suffix}"),
             None => "N/A".to_string(),
         }
     }
