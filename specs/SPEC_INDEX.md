@@ -15,6 +15,8 @@ Core architecture and essential system components that form the base of MMM.
 - **Spec 19**: Git-Native Improvement Flow - Commit-based workflow ✅
 - **Spec 44**: Context-Aware Project Understanding - Deep codebase analysis (draft)
 - **Spec 51**: Validate Git Commits - Verify actual changes after commands (draft)
+- **Spec 57**: Subprocess Abstraction Layer - Mockable subprocess execution (draft)
+- **Spec 59**: Testable Git Operations Layer - Fine-grained git abstraction (draft)
 
 ### Parallel Specifications
 Features enabling concurrent execution and parallel processing.
@@ -46,6 +48,7 @@ Test infrastructure and quality assurance.
 
 - **Spec 08**: Iterative Improvement Loop - Automated testing in loop ✅
 - **Spec 49**: Fix Test Coverage Analysis - Accurate coverage reporting (draft)
+- **Spec 55**: Fix Test Coverage Analysis - Accurate tarpaulin integration ✅
 
 ### Optimization Specifications
 Performance improvements and system efficiency.
@@ -65,10 +68,13 @@ Performance improvements and system efficiency.
 - **Spec 50**: Inter-Iteration Analysis Updates - Run analysis after each iteration (draft)
 - **Spec 51**: Validate Git Commits - Verify actual changes after commands (draft)
 - **Spec 52**: Configurable Commit Validation - Per-command validation settings (draft)
+- **Spec 56**: Cook Orchestrator Refactor - Break down god component for testability (draft)
+- **Spec 58**: Session State Management Refactor - Isolated session state tracking (draft)
+- **Spec 60**: Metrics Collection Isolation - Pluggable metrics system (draft)
 
 ## Implementation Status
 
-### ✅ Completed (18 specs)
+### ✅ Completed (19 specs)
 - Spec 09: Dead Simple Improve
 - Spec 10: Smart Project Analyzer  
 - Spec 11: Simple State Management
@@ -87,8 +93,9 @@ Performance improvements and system efficiency.
 - Spec 26: Worktree CLI Flag
 - Spec 28: Structured Command Objects
 - Spec 29: Centralized Worktree State
+- Spec 55: Fix Test Coverage Analysis
 
-### 📝 Draft (14 specs)
+### 📝 Draft (19 specs)
 - Spec 30: Interrupted Worktree Recovery
 - Spec 31: Product Management Command
 - Spec 32: CLI Help as Default
@@ -103,6 +110,11 @@ Performance improvements and system efficiency.
 - Spec 50: Inter-Iteration Analysis Updates
 - Spec 51: Validate Git Commits
 - Spec 52: Configurable Commit Validation
+- Spec 56: Cook Orchestrator Refactor
+- Spec 57: Subprocess Abstraction Layer
+- Spec 58: Session State Management Refactor
+- Spec 59: Testable Git Operations Layer
+- Spec 60: Metrics Collection Isolation
 
 ### 🚧 In Progress (0 specs)
 None currently in progress.
@@ -140,17 +152,22 @@ Foundation Layer:
 │   └── 44: Context-Aware Understanding
 │       └── 45: Context Window Management
 ├── 11: Simple State Management
-└── 14: Real Claude Loop
-    ├── 19: Git-Native Flow
-    │   ├── 51: Validate Git Commits
-    │   ├── 20: Focus-Directed
-    │   ├── 21: Configurable Workflow
-    │   └── 24: Worktree Isolation
-    │       ├── 25: Claude-Assisted Merge
-    │       ├── 26: Worktree CLI Flag
-    │       └── 29: Centralized State
-    │           └── 30: Interrupted Recovery
-    └── 22: Iteration Limit
+├── 14: Real Claude Loop
+│   ├── 19: Git-Native Flow
+│   │   ├── 51: Validate Git Commits
+│   │   ├── 20: Focus-Directed
+│   │   ├── 21: Configurable Workflow
+│   │   └── 24: Worktree Isolation
+│   │       ├── 25: Claude-Assisted Merge
+│   │       ├── 26: Worktree CLI Flag
+│   │       └── 29: Centralized State
+│   │           └── 30: Interrupted Recovery
+│   └── 22: Iteration Limit
+├── 57: Subprocess Abstraction
+│   └── 59: Testable Git Operations
+└── 56: Cook Orchestrator Refactor
+    ├── 58: Session State Management
+    └── 60: Metrics Collection Isolation
 
 Compatibility Layer:
 ├── 21: Configurable Workflow
@@ -171,18 +188,21 @@ Optimization Layer:
 ## Quick Reference
 
 ### Latest Specifications
+- Spec 60: Metrics Collection Isolation (draft) - Pluggable metrics system
+- Spec 59: Testable Git Operations Layer (draft) - Fine-grained git abstraction
+- Spec 58: Session State Management Refactor (draft) - Isolated session state tracking
+- Spec 57: Subprocess Abstraction Layer (draft) - Mockable subprocess execution
+- Spec 56: Cook Orchestrator Refactor (draft) - Break down god component for testability
+- Spec 55: Fix Test Coverage Analysis (completed) - Accurate tarpaulin integration
 - Spec 52: Configurable Commit Validation (draft) - Per-command validation settings
 - Spec 51: Validate Git Commits (draft) - Verify actual changes after commands
 - Spec 50: Inter-Iteration Analysis Updates (draft) - Run analysis after each iteration
 - Spec 49: Fix Test Coverage Analysis (draft) - Accurate coverage reporting
-- Spec 48: Command Chaining with Variables (draft) - Flexible data passing between commands
-- Spec 47: Auto-Commit Analysis Changes (draft) - Automatic git commits for analysis updates
-- Spec 46: Real Metrics Tracking (draft) - Quantitative improvement measurement
-- Spec 45: Context Window Management (draft) - Smart context selection
-- Spec 44: Context-Aware Project Understanding (draft) - Deep codebase analysis
-- Spec 34: Worktree Temp Spec Storage (draft) - Automatic cleanup for temp specs
 
 ### High Priority Specifications
+- Spec 56: Cook Orchestrator Refactor - Critical for reaching 80% test coverage
+- Spec 57: Subprocess Abstraction Layer - Enables comprehensive unit testing
+- Spec 59: Testable Git Operations Layer - Enables testing git-dependent code
 - Spec 52: Configurable Commit Validation - Fixes workflow interruption issues
 - Spec 51: Validate Git Commits - Critical for accurate change detection
 - Spec 50: Inter-Iteration Analysis Updates - Critical for accurate context between iterations
@@ -191,6 +211,8 @@ Optimization Layer:
 - Spec 44: Context-Aware Project Understanding - Enables truly autonomous loops
 - Spec 45: Context Window Management - Maximizes Claude's effectiveness
 - Spec 46: Real Metrics Tracking - Enables data-driven improvements
+- Spec 58: Session State Management Refactor - Improves testability and reliability
+- Spec 60: Metrics Collection Isolation - Enables metrics testing
 - Spec 34: Worktree Temp Spec Storage - Solves temp spec accumulation problem
 - Spec 30: Interrupted Worktree Recovery - Critical for robust parallel execution
 - (All other high priority specs are completed)
