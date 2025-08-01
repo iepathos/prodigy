@@ -1,6 +1,6 @@
 //! Analysis caching implementation
 
-use super::AnalysisResult;
+use crate::context::AnalysisResult;
 use anyhow::Result;
 use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
@@ -129,15 +129,52 @@ impl AnalysisCache for AnalysisCacheImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cook::analysis::AnalysisMetadata;
+    use crate::context::AnalysisMetadata;
     use tempfile::TempDir;
 
     fn create_test_analysis() -> AnalysisResult {
+        use crate::context::{
+            conventions::{NamingRules, NamingStyle, TestingConventions},
+            ArchitectureInfo, DependencyGraph, ProjectConventions, TechnicalDebtMap,
+        };
+        use std::collections::{BinaryHeap, HashMap};
+
         AnalysisResult {
-            dependency_graph: serde_json::json!({}),
-            architecture: serde_json::json!({}),
-            conventions: serde_json::json!({}),
-            technical_debt: serde_json::json!({}),
+            dependency_graph: DependencyGraph {
+                nodes: HashMap::new(),
+                edges: vec![],
+                cycles: vec![],
+                layers: vec![],
+            },
+            architecture: ArchitectureInfo {
+                patterns: vec![],
+                layers: vec![],
+                components: HashMap::new(),
+                violations: vec![],
+            },
+            conventions: ProjectConventions {
+                naming_patterns: NamingRules {
+                    file_naming: NamingStyle::SnakeCase,
+                    function_naming: NamingStyle::SnakeCase,
+                    variable_naming: NamingStyle::SnakeCase,
+                    type_naming: NamingStyle::PascalCase,
+                    constant_naming: NamingStyle::ScreamingSnakeCase,
+                },
+                code_patterns: HashMap::new(),
+                test_patterns: TestingConventions {
+                    test_file_pattern: "*_test.rs".to_string(),
+                    test_function_prefix: "test_".to_string(),
+                    test_module_pattern: "tests".to_string(),
+                    assertion_style: "assert!".to_string(),
+                },
+                project_idioms: vec![],
+            },
+            technical_debt: TechnicalDebtMap {
+                debt_items: vec![],
+                hotspots: vec![],
+                duplication_map: HashMap::new(),
+                priority_queue: BinaryHeap::new(),
+            },
             test_coverage: None,
             metadata: AnalysisMetadata {
                 timestamp: Utc::now(),

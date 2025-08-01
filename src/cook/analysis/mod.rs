@@ -8,42 +8,12 @@ pub mod runner;
 pub use cache::{AnalysisCache, AnalysisCacheImpl};
 pub use runner::{AnalysisRunner, AnalysisRunnerImpl};
 
+// Re-export types from context module to avoid duplication
+pub use crate::context::{AnalysisMetadata, AnalysisResult};
+
 use anyhow::Result;
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 use std::path::Path;
-
-/// Result of project analysis
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AnalysisResult {
-    /// Dependency graph
-    pub dependency_graph: serde_json::Value,
-    /// Architecture analysis
-    pub architecture: serde_json::Value,
-    /// Code conventions
-    pub conventions: serde_json::Value,
-    /// Technical debt
-    pub technical_debt: serde_json::Value,
-    /// Test coverage
-    pub test_coverage: Option<serde_json::Value>,
-    /// Analysis metadata
-    pub metadata: AnalysisMetadata,
-}
-
-/// Metadata about the analysis
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AnalysisMetadata {
-    /// When analysis was performed
-    pub timestamp: chrono::DateTime<chrono::Utc>,
-    /// How long analysis took
-    pub duration_ms: u64,
-    /// Number of files analyzed
-    pub files_analyzed: usize,
-    /// Whether incremental analysis was used
-    pub incremental: bool,
-    /// Analysis version
-    pub version: String,
-}
 
 /// Trait for coordinating analysis operations
 #[async_trait]

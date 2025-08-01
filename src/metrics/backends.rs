@@ -496,7 +496,7 @@ mod tests {
             .await
             .unwrap();
         collector
-            .record(MetricEvent::gauge("test.gauge", 3.14, tags))
+            .record(MetricEvent::gauge("test.gauge", std::f64::consts::PI, tags))
             .await
             .unwrap();
 
