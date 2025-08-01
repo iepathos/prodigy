@@ -76,7 +76,7 @@ impl WorkflowExecutor {
         env: &ExecutionEnvironment,
     ) -> Result<()> {
         self.user_interaction.display_info(&format!(
-            "ℹ️  Executing workflow: {} (max {} iterations)",
+            "Executing workflow: {} (max {} iterations)",
             workflow.name, workflow.max_iterations
         ));
 
@@ -96,7 +96,7 @@ impl WorkflowExecutor {
         while should_continue && iteration < workflow.max_iterations {
             iteration += 1;
             self.user_interaction.display_progress(&format!(
-                "🔄 Starting iteration {}/{}",
+                "Starting iteration {}/{}",
                 iteration, workflow.max_iterations
             ));
 
