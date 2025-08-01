@@ -4,34 +4,6 @@
   ],
   "layers": [],
   "components": {
-    "metrics": {
-      "name": "metrics",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct ImprovementMetrics",
-        "fn new(iteration_id:",
-        "fn overall_score(&self)",
-        "struct MetricsComparison",
-        "trait MetricsAnalyzer",
-        "struct MetricsData",
-        "trait MetricsReporter",
-        "fn fn",
-        "fn fn",
-        "fn create_disabled_registry()",
-        "fn create_context"
-      ],
-      "dependencies": [
-        "anyhow",
-        "tokio",
-        "tempfile",
-        "async_trait",
-        "chrono",
-        "serde",
-        "rand",
-        "syn",
-        "tracing"
-      ]
-    },
     "testing": {
       "name": "testing",
       "responsibility": "Module functionality",
@@ -68,49 +40,26 @@
         "tempfile"
       ]
     },
-    "worktree": {
-      "name": "worktree",
+    "session": {
+      "name": "session",
       "responsibility": "Module functionality",
       "interfaces": [
-        "struct WorktreeSession",
-        "fn new(name:"
-      ],
-      "dependencies": [
-        "tempfile",
-        "anyhow",
-        "chrono",
-        "uuid",
-        "serde"
-      ]
-    },
-    "subprocess": {
-      "name": "subprocess",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct SubprocessManager",
-        "fn new(runner:",
-        "fn production()",
-        "fn mock()",
-        "fn runner(&self)",
-        "fn git(&self)",
-        "fn claude(&self)"
+        "struct SessionId(String)",
+        "fn new()",
+        "fn from_string(id:",
+        "fn as_str(&self)",
+        "struct SessionInfo",
+        "struct IterationChanges",
+        "struct CommitInfo",
+        "struct ExecutedCommand"
       ],
       "dependencies": [
         "async_trait",
-        "futures",
-        "tokio"
-      ]
-    },
-    "simple_state": {
-      "name": "simple_state",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn init()"
-      ],
-      "dependencies": [
-        "anyhow",
-        "serde",
         "chrono",
+        "serde",
+        "anyhow",
+        "tokio",
+        "uuid",
         "tempfile"
       ]
     },
@@ -131,6 +80,17 @@
         "async_trait",
         "tempfile",
         "tokio"
+      ]
+    },
+    "abstractions": {
+      "name": "abstractions",
+      "responsibility": "Module functionality",
+      "interfaces": [],
+      "dependencies": [
+        "anyhow",
+        "async_trait",
+        "tokio",
+        "tempfile"
       ]
     },
     "context": {
@@ -156,50 +116,72 @@
         "tempfile"
       ]
     },
-    "analyze": {
-      "name": "analyze",
+    "metrics": {
+      "name": "metrics",
       "responsibility": "Module functionality",
       "interfaces": [
-        "fn fn"
+        "struct ImprovementMetrics",
+        "fn new(iteration_id:",
+        "fn overall_score(&self)",
+        "struct MetricsComparison",
+        "trait MetricsAnalyzer",
+        "struct MetricsData",
+        "trait MetricsReporter",
+        "fn fn",
+        "fn fn",
+        "fn create_disabled_registry()",
+        "fn create_context"
       ],
       "dependencies": [
         "anyhow",
-        "command",
-        "tempfile"
-      ]
-    },
-    "abstractions": {
-      "name": "abstractions",
-      "responsibility": "Module functionality",
-      "interfaces": [],
-      "dependencies": [
-        "anyhow",
-        "async_trait",
         "tokio",
-        "tempfile"
-      ]
-    },
-    "session": {
-      "name": "session",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct SessionId(String)",
-        "fn new()",
-        "fn from_string(id:",
-        "fn as_str(&self)",
-        "struct SessionInfo",
-        "struct IterationChanges",
-        "struct CommitInfo",
-        "struct ExecutedCommand"
-      ],
-      "dependencies": [
+        "tempfile",
         "async_trait",
         "chrono",
         "serde",
+        "rand",
+        "syn",
+        "tracing"
+      ]
+    },
+    "config": {
+      "name": "config",
+      "responsibility": "Configuration management",
+      "interfaces": [
+        "fn get_global_mmm_dir()",
+        "struct Config",
+        "struct GlobalConfig",
+        "struct ProjectConfig",
+        "struct PluginConfig",
+        "fn new()",
+        "fn merge_env_vars(&mut",
+        "fn get_claude_api_key(&self)",
+        "fn get_auto_commit(&self)",
+        "fn get_spec_dir(&self)"
+      ],
+      "dependencies": [
         "anyhow",
+        "regex",
+        "serde",
+        "directories",
+        "once_cell",
         "tokio",
-        "uuid",
         "tempfile"
+      ]
+    },
+    "worktree": {
+      "name": "worktree",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct WorktreeSession",
+        "fn new(name:"
+      ],
+      "dependencies": [
+        "tempfile",
+        "anyhow",
+        "chrono",
+        "uuid",
+        "serde"
       ]
     },
     "cook": {
@@ -225,6 +207,49 @@
         "signal_hook"
       ]
     },
+    "analyze": {
+      "name": "analyze",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn"
+      ],
+      "dependencies": [
+        "anyhow",
+        "command",
+        "tempfile"
+      ]
+    },
+    "simple_state": {
+      "name": "simple_state",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn init()"
+      ],
+      "dependencies": [
+        "anyhow",
+        "serde",
+        "chrono",
+        "tempfile"
+      ]
+    },
+    "subprocess": {
+      "name": "subprocess",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct SubprocessManager",
+        "fn new(runner:",
+        "fn production()",
+        "fn mock()",
+        "fn runner(&self)",
+        "fn git(&self)",
+        "fn claude(&self)"
+      ],
+      "dependencies": [
+        "async_trait",
+        "futures",
+        "tokio"
+      ]
+    },
     "init": {
       "name": "init",
       "responsibility": "Module functionality",
@@ -234,31 +259,6 @@
       "dependencies": [
         "clap",
         "anyhow",
-        "tempfile"
-      ]
-    },
-    "config": {
-      "name": "config",
-      "responsibility": "Configuration management",
-      "interfaces": [
-        "fn get_global_mmm_dir()",
-        "struct Config",
-        "struct GlobalConfig",
-        "struct ProjectConfig",
-        "struct PluginConfig",
-        "fn new()",
-        "fn merge_env_vars(&mut",
-        "fn get_claude_api_key(&self)",
-        "fn get_auto_commit(&self)",
-        "fn get_spec_dir(&self)"
-      ],
-      "dependencies": [
-        "anyhow",
-        "regex",
-        "serde",
-        "directories",
-        "once_cell",
-        "tokio",
         "tempfile"
       ]
     }
