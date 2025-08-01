@@ -57,6 +57,7 @@ COMMIT_TYPE: auto-detected from message or can be specified (feat/fix/docs/style
 
 4. Create the commit:
    - Execute `git commit -m "{formatted_commit_message}"`
+   - **IMPORTANT**: Do NOT add any attribution text like "🤖 Generated with [Claude Code]" or "Co-Authored-By: Claude" to commit messages. Keep commits clean and focused on the change itself.
 
 ### Phase 3: Post-commit Verification
 

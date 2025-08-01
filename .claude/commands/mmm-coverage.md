@@ -189,6 +189,8 @@ MMM_FOCUS: Optional focus directive (e.g., "security", "api", "core")
    git commit -m "test: generate coverage improvement spec for iteration-{timestamp}"
    ```
    
+   **IMPORTANT**: Do NOT add any attribution text like "🤖 Generated with [Claude Code]" or "Co-Authored-By: Claude" to commit messages. Keep commits clean and focused on the change itself.
+   
    **Skip commit if**: No critical coverage gaps found (overall coverage >85%)
 
 ## Success Criteria & Output

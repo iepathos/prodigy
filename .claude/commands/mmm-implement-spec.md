@@ -109,6 +109,7 @@ Final steps:
   - Stage all changes: `git add .`
   - **Permanent specs**: "feat: implement spec {number} - {title}"
   - **Temporary specs**: "fix: apply improvements from spec {spec-id}"
+  - **IMPORTANT**: Do NOT add any attribution text like "🤖 Generated with [Claude Code]" or "Co-Authored-By: Claude" to commit messages. Keep commits clean and focused on the change itself.
   - Include modified files in commit body for audit trail
 
 ## Implementation Guidelines

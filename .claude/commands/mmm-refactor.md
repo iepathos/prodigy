@@ -51,6 +51,8 @@ The command generates a spec file and commits it:
 review: generate refactoring spec for {focus-area} refactor-{timestamp}
 ```
 
+**IMPORTANT**: Do NOT add any attribution text like "🤖 Generated with [Claude Code]" or "Co-Authored-By: Claude" to commit messages. Keep commits clean and focused on the change itself.
+
 ## Automation Mode
 
 When MMM_AUTOMATION=true:

@@ -236,6 +236,7 @@ MMM_CONTEXT_DIR: Path to .mmm/context/ directory with analysis data
 5. **Git Commit (Required for automation)**
    - Stage the created spec file: `git add specs/temp/iteration-{timestamp}-improvements.md`
    - Commit with message: `review: generate improvement spec for iteration-{timestamp}-improvements`
+   - **IMPORTANT**: Do NOT add any attribution text like "🤖 Generated with [Claude Code]" or "Co-Authored-By: Claude" to commit messages. Keep commits clean and focused on the change itself.
    - If no issues found, do not create spec or commit
 
 ## Review Criteria
