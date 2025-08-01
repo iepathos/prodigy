@@ -69,6 +69,7 @@ Performance improvements and system efficiency.
 - **Spec 51**: Validate Git Commits - Verify actual changes after commands (draft)
 - **Spec 52**: Configurable Commit Validation - Per-command validation settings (draft)
 - **Spec 56**: Cook Orchestrator Refactor - Break down god component for testability (draft)
+- **Spec 56a**: Fix Orchestrator Compilation Issues - Resolve compilation errors from Spec 56 (draft)
 - **Spec 58**: Session State Management Refactor - Isolated session state tracking (draft)
 - **Spec 60**: Metrics Collection Isolation - Pluggable metrics system (draft)
 
@@ -95,7 +96,7 @@ Performance improvements and system efficiency.
 - Spec 29: Centralized Worktree State
 - Spec 55: Fix Test Coverage Analysis
 
-### 📝 Draft (19 specs)
+### 📝 Draft (20 specs)
 - Spec 30: Interrupted Worktree Recovery
 - Spec 31: Product Management Command
 - Spec 32: CLI Help as Default
@@ -111,6 +112,7 @@ Performance improvements and system efficiency.
 - Spec 51: Validate Git Commits
 - Spec 52: Configurable Commit Validation
 - Spec 56: Cook Orchestrator Refactor
+- Spec 56a: Fix Orchestrator Compilation Issues
 - Spec 57: Subprocess Abstraction Layer
 - Spec 58: Session State Management Refactor
 - Spec 59: Testable Git Operations Layer
@@ -166,6 +168,7 @@ Foundation Layer:
 ├── 57: Subprocess Abstraction
 │   └── 59: Testable Git Operations
 └── 56: Cook Orchestrator Refactor
+    ├── 56a: Fix Compilation Issues
     ├── 58: Session State Management
     └── 60: Metrics Collection Isolation
 
@@ -200,6 +203,7 @@ Optimization Layer:
 - Spec 49: Fix Test Coverage Analysis (draft) - Accurate coverage reporting
 
 ### High Priority Specifications
+- Spec 56a: Fix Orchestrator Compilation Issues - Blocker for Spec 56 integration
 - Spec 56: Cook Orchestrator Refactor - Critical for reaching 80% test coverage
 - Spec 57: Subprocess Abstraction Layer - Enables comprehensive unit testing
 - Spec 59: Testable Git Operations Layer - Enables testing git-dependent code
