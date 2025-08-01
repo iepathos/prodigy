@@ -8,10 +8,18 @@ use async_trait::async_trait;
 #[async_trait]
 pub trait MetricsReporter: Send + Sync {
     /// Generate a text report
-    async fn generate_report(&self, current: &ProjectMetrics, history: &[ProjectMetrics]) -> Result<String>;
+    async fn generate_report(
+        &self,
+        current: &ProjectMetrics,
+        history: &[ProjectMetrics],
+    ) -> Result<String>;
 
     /// Generate a JSON report
-    async fn generate_json_report(&self, current: &ProjectMetrics, history: &[ProjectMetrics]) -> Result<serde_json::Value>;
+    async fn generate_json_report(
+        &self,
+        current: &ProjectMetrics,
+        history: &[ProjectMetrics],
+    ) -> Result<serde_json::Value>;
 
     /// Calculate trends
     async fn calculate_trends(&self, history: &[ProjectMetrics]) -> Result<MetricsTrends>;
@@ -68,7 +76,11 @@ impl MetricsReporterImpl {
 
 #[async_trait]
 impl MetricsReporter for MetricsReporterImpl {
-    async fn generate_report(&self, current: &ProjectMetrics, history: &[ProjectMetrics]) -> Result<String> {
+    async fn generate_report(
+        &self,
+        current: &ProjectMetrics,
+        history: &[ProjectMetrics],
+    ) -> Result<String> {
         let mut report = String::new();
 
         report.push_str("📊 Metrics Report\n");
@@ -97,9 +109,12 @@ impl MetricsReporter for MetricsReporterImpl {
             "- Compile Time: {}\n",
             Self::format_metric(current.compile_time, "s")
         ));
-        
+
         if let Some(size) = current.binary_size {
-            report.push_str(&format!("- Binary Size: {:.2} MB\n", size as f64 / 1_048_576.0));
+            report.push_str(&format!(
+                "- Binary Size: {:.2} MB\n",
+                size as f64 / 1_048_576.0
+            ));
         } else {
             report.push_str("- Binary Size: N/A\n");
         }
@@ -117,7 +132,11 @@ impl MetricsReporter for MetricsReporterImpl {
         Ok(report)
     }
 
-    async fn generate_json_report(&self, current: &ProjectMetrics, history: &[ProjectMetrics]) -> Result<serde_json::Value> {
+    async fn generate_json_report(
+        &self,
+        current: &ProjectMetrics,
+        history: &[ProjectMetrics],
+    ) -> Result<serde_json::Value> {
         let trends = if history.is_empty() {
             None
         } else {
@@ -166,11 +185,15 @@ impl MetricsReporter for MetricsReporterImpl {
         // Quality trend (fewer warnings is better)
         let quality_trend = if current.lint_warnings < previous.lint_warnings {
             TrendDirection::Improving(
-                ((previous.lint_warnings - current.lint_warnings) as f64 / previous.lint_warnings as f64) * 100.0
+                ((previous.lint_warnings - current.lint_warnings) as f64
+                    / previous.lint_warnings as f64)
+                    * 100.0,
             )
         } else if current.lint_warnings > previous.lint_warnings {
             TrendDirection::Degrading(
-                ((current.lint_warnings - previous.lint_warnings) as f64 / previous.lint_warnings as f64) * 100.0
+                ((current.lint_warnings - previous.lint_warnings) as f64
+                    / previous.lint_warnings as f64)
+                    * 100.0,
             )
         } else {
             TrendDirection::Stable
@@ -190,7 +213,11 @@ mod tests {
     use super::*;
     use chrono::Utc;
 
-    fn create_test_metrics(coverage: Option<f64>, warnings: usize, compile_time: Option<f64>) -> ProjectMetrics {
+    fn create_test_metrics(
+        coverage: Option<f64>,
+        warnings: usize,
+        compile_time: Option<f64>,
+    ) -> ProjectMetrics {
         ProjectMetrics {
             test_coverage: coverage,
             lint_warnings: warnings,
@@ -207,7 +234,7 @@ mod tests {
         let history = vec![];
 
         let report = reporter.generate_report(&current, &history).await.unwrap();
-        
+
         assert!(report.contains("Test Coverage: 75.5%"));
         assert!(report.contains("Lint Warnings: 10"));
         assert!(report.contains("Compile Time: 12.3s"));
@@ -245,8 +272,11 @@ mod tests {
         let current = create_test_metrics(Some(80.0), 5, Some(10.0));
         let history = vec![current.clone()];
 
-        let json_report = reporter.generate_json_report(&current, &history).await.unwrap();
-        
+        let json_report = reporter
+            .generate_json_report(&current, &history)
+            .await
+            .unwrap();
+
         assert_eq!(json_report["history_count"], 1);
         assert_eq!(json_report["current"]["test_coverage"], 80.0);
     }

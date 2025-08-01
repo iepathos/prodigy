@@ -108,7 +108,11 @@ impl SessionTracker for SessionTrackerImpl {
 
     async fn track_command(&mut self, command: &str, success: bool) -> Result<()> {
         if !success {
-            self.state.lock().unwrap().errors.push(format!("Command failed: {}", command));
+            self.state
+                .lock()
+                .unwrap()
+                .errors
+                .push(format!("Command failed: {}", command));
         }
         Ok(())
     }
@@ -130,7 +134,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_session_tracker_basic() {
-        let mut tracker = SessionTrackerImpl::new("test-session".to_string(), PathBuf::from("/tmp"));
+        let mut tracker =
+            SessionTrackerImpl::new("test-session".to_string(), PathBuf::from("/tmp"));
 
         // Test initial state
         let state = tracker.get_state();
@@ -158,7 +163,8 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let state_path = temp_dir.path().join("session.json");
 
-        let mut tracker = SessionTrackerImpl::new("persist-test".to_string(), PathBuf::from("/tmp"));
+        let mut tracker =
+            SessionTrackerImpl::new("persist-test".to_string(), PathBuf::from("/tmp"));
         tracker.set_worktree("test-worktree".to_string());
         tracker.set_focus("performance".to_string());
 
@@ -169,8 +175,7 @@ mod tests {
         tracker.save_state(&state_path).await.unwrap();
 
         // Load into new tracker
-        let mut new_tracker =
-            SessionTrackerImpl::new("dummy".to_string(), PathBuf::from("/tmp"));
+        let mut new_tracker = SessionTrackerImpl::new("dummy".to_string(), PathBuf::from("/tmp"));
         new_tracker.load_state(&state_path).await.unwrap();
 
         // Verify loaded state

@@ -198,7 +198,7 @@ async fn main() {
                 resume,
                 skip_analysis,
             };
-            mmm::cook::run_with_verbosity(cook_cmd, cli.verbose).await
+            mmm::cook::cook(cook_cmd).await
         }
         Some(Commands::Worktree { command }) => run_worktree_command(command).await,
         Some(Commands::Init {

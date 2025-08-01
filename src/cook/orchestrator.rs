@@ -16,8 +16,8 @@ use super::command::CookCommand;
 use super::execution::{ClaudeExecutor, CommandExecutor};
 use super::interaction::UserInteraction;
 use super::metrics::MetricsCoordinator;
-use super::session::{SessionManager, SessionUpdate, SessionStatus};
-use super::workflow_new::{WorkflowExecutor, ExtendedWorkflowConfig, WorkflowStep};
+use super::session::{SessionManager, SessionStatus, SessionUpdate};
+use super::workflow_new::{ExtendedWorkflowConfig, WorkflowExecutor, WorkflowStep};
 
 /// Configuration for cook orchestration
 #[derive(Debug, Clone)]
@@ -43,7 +43,11 @@ pub trait CookOrchestrator: Send + Sync {
     async fn setup_environment(&self, config: &CookConfig) -> Result<ExecutionEnvironment>;
 
     /// Execute workflow
-    async fn execute_workflow(&self, env: &ExecutionEnvironment, workflow: &WorkflowConfig) -> Result<()>;
+    async fn execute_workflow(
+        &self,
+        env: &ExecutionEnvironment,
+        workflow: &WorkflowConfig,
+    ) -> Result<()>;
 
     /// Cleanup after execution
     async fn cleanup(&self, env: &ExecutionEnvironment) -> Result<()>;
@@ -134,7 +138,8 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                 self.session_manager
                     .update_session(SessionUpdate::UpdateStatus(SessionStatus::Completed))
                     .await?;
-                self.user_interaction.display_success("Cook session completed successfully!");
+                self.user_interaction
+                    .display_success("Cook session completed successfully!");
             }
             Err(e) => {
                 self.session_manager
@@ -143,7 +148,8 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                 self.session_manager
                     .update_session(SessionUpdate::AddError(e.to_string()))
                     .await?;
-                self.user_interaction.display_error(&format!("Cook session failed: {}", e));
+                self.user_interaction
+                    .display_error(&format!("Cook session failed: {}", e));
                 return Err(e);
             }
         }
@@ -182,21 +188,14 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 
         // Setup worktree if requested
         if config.command.worktree {
-            let worktree_manager = WorktreeManager::new(self.git_operations.clone());
-            let name = format!("mmm-{}-{}", 
-                config.command.focus.as_deref().unwrap_or("improve"),
-                chrono::Utc::now().timestamp()
-            );
-            
-            let worktree_path = config.project_path.parent()
-                .unwrap_or(&config.project_path)
-                .join(&name);
+            let worktree_manager = WorktreeManager::new(config.project_path.clone())?;
+            let session = worktree_manager.create_session(config.command.focus.as_deref())?;
 
-            worktree_manager.create_worktree(&name, &worktree_path).await?;
-            working_dir = worktree_path;
-            worktree_name = Some(name);
+            working_dir = session.path.clone();
+            worktree_name = Some(session.name.clone());
 
-            self.user_interaction.display_info(&format!("Created worktree at: {}", working_dir.display()));
+            self.user_interaction
+                .display_info(&format!("Created worktree at: {}", working_dir.display()));
         }
 
         Ok(ExecutionEnvironment {
@@ -208,27 +207,40 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         })
     }
 
-    async fn execute_workflow(&self, env: &ExecutionEnvironment, workflow: &WorkflowConfig) -> Result<()> {
+    async fn execute_workflow(
+        &self,
+        env: &ExecutionEnvironment,
+        workflow: &WorkflowConfig,
+    ) -> Result<()> {
         // Convert WorkflowConfig to ExtendedWorkflowConfig
         // For now, create a simple workflow with the commands
-        let steps: Vec<WorkflowStep> = workflow.commands.iter().enumerate().map(|(i, cmd)| {
-            use crate::config::command::WorkflowCommand;
-            let command_str = match cmd {
-                WorkflowCommand::Simple(s) => s.clone(),
-                WorkflowCommand::Structured(c) => c.name.clone(),
-                WorkflowCommand::SimpleFocus { command, .. } => command.clone(),
-            };
-            WorkflowStep {
-                name: format!("Step {}", i + 1),
-                command: if command_str.starts_with('/') { command_str } else { format!("/{}", command_str) },
-                env: std::collections::HashMap::new(),
-            }
-        }).collect();
+        let steps: Vec<WorkflowStep> = workflow
+            .commands
+            .iter()
+            .enumerate()
+            .map(|(i, cmd)| {
+                use crate::config::command::WorkflowCommand;
+                let command_str = match cmd {
+                    WorkflowCommand::Simple(s) => s.clone(),
+                    WorkflowCommand::Structured(c) => c.name.clone(),
+                    WorkflowCommand::SimpleObject(simple) => simple.name.clone(),
+                };
+                WorkflowStep {
+                    name: format!("Step {}", i + 1),
+                    command: if command_str.starts_with('/') {
+                        command_str
+                    } else {
+                        format!("/{}", command_str)
+                    },
+                    env: std::collections::HashMap::new(),
+                }
+            })
+            .collect();
 
         let extended_workflow = ExtendedWorkflowConfig {
             name: "default".to_string(),
             steps,
-            max_iterations: 5,  // Default value
+            max_iterations: 5, // Default value
             iterate: false,
             analyze_before: true,
             analyze_between: false,
@@ -237,9 +249,15 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 
         // Run initial analysis if needed
         if extended_workflow.analyze_before {
-            self.user_interaction.display_progress("Running initial analysis...");
-            let analysis = self.analysis_coordinator.analyze_project(&env.working_dir).await?;
-            self.analysis_coordinator.save_analysis(&env.working_dir, &analysis).await?;
+            self.user_interaction
+                .display_progress("Running initial analysis...");
+            let analysis = self
+                .analysis_coordinator
+                .analyze_project(&env.working_dir)
+                .await?;
+            self.analysis_coordinator
+                .save_analysis(&env.working_dir, &analysis)
+                .await?;
         }
 
         // Create workflow executor
@@ -265,14 +283,16 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         // Clean up worktree if needed
         if let Some(ref worktree_name) = env.worktree_name {
             // Ask user if they want to merge
-            let should_merge = self.user_interaction
+            let should_merge = self
+                .user_interaction
                 .prompt_yes_no("Would you like to merge the worktree changes?")
                 .await?;
 
             if should_merge {
-                let worktree_manager = WorktreeManager::new(self.git_operations.clone());
-                worktree_manager.merge_worktree(worktree_name).await?;
-                self.user_interaction.display_success("Worktree changes merged successfully!");
+                let worktree_manager = WorktreeManager::new(env.project_dir.clone())?;
+                worktree_manager.merge_session(worktree_name)?;
+                self.user_interaction
+                    .display_success("Worktree changes merged successfully!");
             }
         }
 
@@ -283,26 +303,30 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cook::execution::runner::tests::MockCommandRunner;
-    use crate::cook::execution::claude::ClaudeExecutorImpl;
+    use crate::abstractions::git::MockGitOperations;
     use crate::cook::analysis::runner::AnalysisRunnerImpl;
+    use crate::cook::execution::claude::ClaudeExecutorImpl;
+    use crate::cook::execution::runner::tests::MockCommandRunner;
+    use crate::cook::interaction::mocks::MockUserInteraction;
     use crate::cook::metrics::collector::MetricsCollectorImpl;
     use crate::cook::session::tracker::SessionTrackerImpl;
-    use crate::cook::interaction::mocks::MockUserInteraction;
-    use crate::abstractions::git::MockGitOperations;
     use tempfile::TempDir;
 
-    fn create_test_orchestrator() -> (DefaultCookOrchestrator, Arc<MockUserInteraction>, Arc<MockGitOperations>) {
+    fn create_test_orchestrator() -> (
+        DefaultCookOrchestrator,
+        Arc<MockUserInteraction>,
+        Arc<MockGitOperations>,
+    ) {
         let temp_dir = TempDir::new().unwrap();
         let mock_runner = Arc::new(MockCommandRunner::new());
         let mock_interaction = Arc::new(MockUserInteraction::new());
         let mock_git = Arc::new(MockGitOperations::new());
-        
+
         let session_manager = Arc::new(SessionTrackerImpl::new(
             "test".to_string(),
             temp_dir.path().to_path_buf(),
         ));
-        
+
         let command_executor = mock_runner.clone();
         let claude_executor = Arc::new(ClaudeExecutorImpl::new(mock_runner.clone()));
         let analysis_coordinator = Arc::new(AnalysisRunnerImpl::new(mock_runner.clone()));
@@ -326,18 +350,21 @@ mod tests {
     #[tokio::test]
     async fn test_prerequisites_check_no_git() {
         let (orchestrator, _, mock_git) = create_test_orchestrator();
-        
+
         mock_git.set_is_git_repo(false);
-        
+
         let result = orchestrator.check_prerequisites().await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Not in a git repository"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Not in a git repository"));
     }
 
     #[tokio::test]
     async fn test_setup_environment_basic() {
         let (orchestrator, _, _) = create_test_orchestrator();
-        
+
         let config = CookConfig {
             command: CookCommand {
                 worktree: false,
@@ -351,7 +378,7 @@ mod tests {
         };
 
         let env = orchestrator.setup_environment(&config).await.unwrap();
-        
+
         assert_eq!(env.project_dir, PathBuf::from("/tmp/test"));
         assert_eq!(env.working_dir, PathBuf::from("/tmp/test"));
         assert!(env.worktree_name.is_none());

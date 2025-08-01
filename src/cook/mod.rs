@@ -37,11 +37,14 @@ pub use orchestrator::{CookConfig, CookOrchestrator, DefaultCookOrchestrator};
 pub async fn cook(cmd: CookCommand) -> Result<()> {
     // Load configuration
     let config_loader = ConfigLoader::new().await?;
-    let config = config_loader.load().await?;
+    config_loader
+        .load_with_explicit_path(&std::env::current_dir()?, None)
+        .await?;
+    let config = config_loader.get_config();
 
     // Determine project path
     let project_path = std::env::current_dir()?;
-    
+
     // Load workflow
     let workflow = load_workflow(&cmd, &config).await?;
 
@@ -63,39 +66,35 @@ pub async fn cook(cmd: CookCommand) -> Result<()> {
 async fn create_orchestrator(project_path: &Path) -> Result<Arc<dyn CookOrchestrator>> {
     // Create shared dependencies
     let git_operations = Arc::new(RealGitOperations::new());
-    
+
     // Create runners - use multiple instances since RealCommandRunner is not Clone
     let command_runner1 = execution::runner::RealCommandRunner::new();
     let command_runner2 = execution::runner::RealCommandRunner::new();
     let command_runner3 = execution::runner::RealCommandRunner::new();
     let command_runner4 = execution::runner::RealCommandRunner::new();
-    
+
     // Create session manager
     let session_manager = Arc::new(session::tracker::SessionTrackerImpl::new(
         format!("cook-{}", chrono::Utc::now().timestamp()),
         project_path.to_path_buf(),
     ));
-    
+
     // Create executors
     let command_executor = Arc::new(command_runner1);
-    let claude_executor = Arc::new(execution::claude::ClaudeExecutorImpl::new(
-        command_runner2
-    ));
-    
+    let claude_executor = Arc::new(execution::claude::ClaudeExecutorImpl::new(command_runner2));
+
     // Create coordinators
-    let analysis_coordinator = Arc::new(analysis::runner::AnalysisRunnerImpl::new(
-        command_runner3
-    ));
+    let analysis_coordinator = Arc::new(analysis::runner::AnalysisRunnerImpl::new(command_runner3));
     let metrics_coordinator = Arc::new(metrics::collector::MetricsCollectorImpl::new(
-        command_runner4
+        command_runner4,
     ));
-    
+
     // Create user interaction
     let user_interaction = Arc::new(interaction::DefaultUserInteraction::new());
-    
+
     // Create state manager
     let state_manager = StateManager::new()?;
-    
+
     // Create orchestrator
     Ok(Arc::new(DefaultCookOrchestrator::new(
         session_manager,
@@ -110,7 +109,10 @@ async fn create_orchestrator(project_path: &Path) -> Result<Arc<dyn CookOrchestr
 }
 
 /// Load workflow configuration
-async fn load_workflow(cmd: &CookCommand, _config: &crate::config::Config) -> Result<WorkflowConfig> {
+async fn load_workflow(
+    cmd: &CookCommand,
+    _config: &crate::config::Config,
+) -> Result<WorkflowConfig> {
     // Always load from playbook since it's required
     load_playbook(&cmd.playbook).await
 }
@@ -156,7 +158,7 @@ mod cook_tests {
     async fn test_create_orchestrator() {
         let temp_dir = TempDir::new().unwrap();
         let orchestrator = create_orchestrator(temp_dir.path()).await.unwrap();
-        
+
         // Should create orchestrator successfully - just check it exists by trying to drop it
         drop(orchestrator);
     }
@@ -177,10 +179,10 @@ mod cook_tests {
             resume: None,
             skip_analysis: false,
         };
-        
+
         let config = crate::config::Config::default();
         let workflow = load_workflow(&cmd, &config).await.unwrap();
-        
+
         // Should load default workflow
         assert!(!workflow.commands.is_empty());
     }

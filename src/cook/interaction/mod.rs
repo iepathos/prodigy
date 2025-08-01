@@ -137,7 +137,10 @@ pub mod mocks {
     #[async_trait]
     impl UserInteraction for MockUserInteraction {
         async fn prompt_yes_no(&self, message: &str) -> Result<bool> {
-            self.messages.lock().unwrap().push(format!("PROMPT: {}", message));
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("PROMPT: {}", message));
             self.yes_no_responses
                 .lock()
                 .unwrap()
@@ -146,7 +149,10 @@ pub mod mocks {
         }
 
         async fn prompt_text(&self, message: &str, _default: Option<&str>) -> Result<String> {
-            self.messages.lock().unwrap().push(format!("TEXT: {}", message));
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("TEXT: {}", message));
             self.text_responses
                 .lock()
                 .unwrap()
@@ -155,28 +161,46 @@ pub mod mocks {
         }
 
         fn display_info(&self, message: &str) {
-            self.messages.lock().unwrap().push(format!("INFO: {}", message));
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("INFO: {}", message));
         }
 
         fn display_warning(&self, message: &str) {
-            self.messages.lock().unwrap().push(format!("WARN: {}", message));
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("WARN: {}", message));
         }
 
         fn display_error(&self, message: &str) {
-            self.messages.lock().unwrap().push(format!("ERROR: {}", message));
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("ERROR: {}", message));
         }
 
         fn display_progress(&self, message: &str) {
-            self.messages.lock().unwrap().push(format!("PROGRESS: {}", message));
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("PROGRESS: {}", message));
         }
 
         fn start_spinner(&self, message: &str) -> Box<dyn SpinnerHandle> {
-            self.messages.lock().unwrap().push(format!("SPINNER: {}", message));
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("SPINNER: {}", message));
             Box::new(MockSpinnerHandle)
         }
 
         fn display_success(&self, message: &str) {
-            self.messages.lock().unwrap().push(format!("SUCCESS: {}", message));
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("SUCCESS: {}", message));
         }
     }
 

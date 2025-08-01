@@ -57,7 +57,7 @@ impl AnalysisCacheImpl {
 impl AnalysisCache for AnalysisCacheImpl {
     async fn get(&self, key: &str) -> Result<Option<AnalysisResult>> {
         let cache_path = self.cache_path(key);
-        
+
         if !cache_path.exists() {
             return Ok(None);
         }
@@ -80,17 +80,17 @@ impl AnalysisCache for AnalysisCacheImpl {
 
     async fn put(&self, key: &str, analysis: &AnalysisResult) -> Result<()> {
         self.ensure_cache_dir().await?;
-        
+
         let cache_path = self.cache_path(key);
         let json = serde_json::to_string_pretty(analysis)?;
         fs::write(&cache_path, json).await?;
-        
+
         Ok(())
     }
 
     async fn is_valid(&self, key: &str, max_age: Duration) -> Result<bool> {
         let cache_path = self.cache_path(key);
-        
+
         if !cache_path.exists() {
             return Ok(false);
         }
@@ -99,7 +99,8 @@ impl AnalysisCache for AnalysisCacheImpl {
         let metadata = fs::metadata(&cache_path).await?;
         if let Ok(modified) = metadata.modified() {
             if let Ok(modified_time) = modified.duration_since(std::time::UNIX_EPOCH) {
-                let modified_datetime = DateTime::<Utc>::from(std::time::UNIX_EPOCH + modified_time);
+                let modified_datetime =
+                    DateTime::<Utc>::from(std::time::UNIX_EPOCH + modified_time);
                 let age = Utc::now().signed_duration_since(modified_datetime);
                 return Ok(age < max_age);
             }

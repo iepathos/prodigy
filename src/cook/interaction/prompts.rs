@@ -76,7 +76,10 @@ impl UserPrompter for UserPrompterImpl {
                     return Ok(num - 1);
                 }
             }
-            print!("Invalid choice. Please enter a number between 1 and {}: ", choices.len());
+            print!(
+                "Invalid choice. Please enter a number between 1 and {}: ",
+                choices.len()
+            );
             io::stdout().flush()?;
         }
     }
@@ -153,11 +156,17 @@ mod tests {
         let prompter = MockPrompter::new(vec!["".to_string(), "custom".to_string()]);
 
         // First response should be "custom"
-        assert_eq!(prompter.prompt_text("Enter text", None).await.unwrap(), "custom");
+        assert_eq!(
+            prompter.prompt_text("Enter text", None).await.unwrap(),
+            "custom"
+        );
 
         // Second response should use default
         assert_eq!(
-            prompter.prompt_text("Enter text", Some("default")).await.unwrap(),
+            prompter
+                .prompt_text("Enter text", Some("default"))
+                .await
+                .unwrap(),
             "default"
         );
     }

@@ -35,22 +35,18 @@ impl<R: CommandRunner> AnalysisRunnerImpl<R> {
 impl<R: CommandRunner + 'static> AnalysisRunner for AnalysisRunnerImpl<R> {
     async fn run_analysis(&self, path: &Path, with_coverage: bool) -> Result<AnalysisResult> {
         let start = Instant::now();
-        
-        // Use existing analyzers
-        let project_analyzer = ProjectAnalyzer::new();
-        let context_analyzer = ContextAnalyzer::new();
 
-        // Detect project type
-        let project_info = project_analyzer.analyze(path)?;
-        
-        // Run context analysis
-        let analysis = context_analyzer
-            .analyze_full(path)
+        // Use existing analyzer
+        let project_analyzer = ProjectAnalyzer::new();
+
+        // Run full context analysis
+        let analysis = project_analyzer
+            .analyze(path)
             .await
             .context("Failed to analyze project context")?;
 
         // Get test coverage if requested
-        let test_coverage = if with_coverage && project_info.language == "rust" {
+        let test_coverage = if with_coverage {
             match self.get_rust_coverage(path).await {
                 Ok(coverage) => Some(coverage),
                 Err(e) => {
@@ -80,8 +76,8 @@ impl<R: CommandRunner + 'static> AnalysisRunner for AnalysisRunnerImpl<R> {
 
     async fn is_supported_project(&self, path: &Path) -> Result<bool> {
         let project_analyzer = ProjectAnalyzer::new();
-        match project_analyzer.analyze(path) {
-            Ok(info) => Ok(info.language == "rust"),
+        match project_analyzer.analyze(path).await {
+            Ok(_info) => Ok(true), // Simplified since we now analyze all project types
             Err(_) => Ok(false),
         }
     }
@@ -89,9 +85,10 @@ impl<R: CommandRunner + 'static> AnalysisRunner for AnalysisRunnerImpl<R> {
 
 impl<R: CommandRunner + 'static> AnalysisRunnerImpl<R> {
     /// Get Rust test coverage using cargo-tarpaulin
-    async fn get_rust_coverage(&self, path: &Path) -> Result<serde_json::Value> {
+    async fn get_rust_coverage(&self, _path: &Path) -> Result<serde_json::Value> {
         // Check if cargo-tarpaulin is installed
-        let check_output = self.runner
+        let check_output = self
+            .runner
             .run_command("cargo", &["tarpaulin".to_string(), "--version".to_string()])
             .await;
 
@@ -100,7 +97,8 @@ impl<R: CommandRunner + 'static> AnalysisRunnerImpl<R> {
         }
 
         // Run coverage
-        let output = self.runner
+        let output = self
+            .runner
             .run_command(
                 "cargo",
                 &[
@@ -147,7 +145,7 @@ impl<R: CommandRunner + 'static> AnalysisCoordinator for AnalysisRunnerImpl<R> {
         if let Some(parent) = analysis_path.parent() {
             tokio::fs::create_dir_all(parent).await?;
         }
-        
+
         let json = serde_json::to_string_pretty(analysis)?;
         tokio::fs::write(&analysis_path, json).await?;
         Ok(())
@@ -183,7 +181,7 @@ mod tests {
     #[tokio::test]
     async fn test_coverage_check() {
         let mock_runner = MockCommandRunner::new();
-        
+
         // Mock tarpaulin not installed
         mock_runner.add_response(ExecutionResult {
             success: false,
@@ -194,8 +192,11 @@ mod tests {
 
         let runner = AnalysisRunnerImpl::new(mock_runner);
         let result = runner.get_rust_coverage(Path::new("/tmp")).await;
-        
+
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("cargo-tarpaulin not installed"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("cargo-tarpaulin not installed"));
     }
 }

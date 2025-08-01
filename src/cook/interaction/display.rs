@@ -115,27 +115,45 @@ mod tests {
 
     impl ProgressDisplay for MockProgressDisplay {
         fn info(&self, message: &str) {
-            self.messages.lock().unwrap().push(format!("INFO: {}", message));
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("INFO: {}", message));
         }
 
         fn warning(&self, message: &str) {
-            self.messages.lock().unwrap().push(format!("WARN: {}", message));
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("WARN: {}", message));
         }
 
         fn error(&self, message: &str) {
-            self.messages.lock().unwrap().push(format!("ERROR: {}", message));
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("ERROR: {}", message));
         }
 
         fn progress(&self, message: &str) {
-            self.messages.lock().unwrap().push(format!("PROGRESS: {}", message));
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("PROGRESS: {}", message));
         }
 
         fn success(&self, message: &str) {
-            self.messages.lock().unwrap().push(format!("SUCCESS: {}", message));
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("SUCCESS: {}", message));
         }
 
         fn start_spinner(&self, message: &str) -> Box<dyn SpinnerHandle> {
-            self.messages.lock().unwrap().push(format!("SPINNER: {}", message));
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("SPINNER: {}", message));
             Box::new(MockSpinnerHandle::new(self.messages.clone()))
         }
     }
@@ -152,15 +170,24 @@ mod tests {
 
     impl SpinnerHandle for MockSpinnerHandle {
         fn update_message(&mut self, message: &str) {
-            self.messages.lock().unwrap().push(format!("SPINNER_UPDATE: {}", message));
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("SPINNER_UPDATE: {}", message));
         }
 
         fn success(&mut self, message: &str) {
-            self.messages.lock().unwrap().push(format!("SPINNER_SUCCESS: {}", message));
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("SPINNER_SUCCESS: {}", message));
         }
 
         fn fail(&mut self, message: &str) {
-            self.messages.lock().unwrap().push(format!("SPINNER_FAIL: {}", message));
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("SPINNER_FAIL: {}", message));
         }
     }
 

@@ -212,7 +212,6 @@ commands:
         assert!(result.unwrap_err().to_string().contains("Failed to read"));
     }
 
-
     #[tokio::test]
     async fn test_run_analysis() {
         let temp_dir = TempDir::new().unwrap();

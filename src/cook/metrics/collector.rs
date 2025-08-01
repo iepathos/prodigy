@@ -2,6 +2,7 @@
 
 use super::{MetricsCoordinator, ProjectMetrics};
 use crate::cook::execution::CommandRunner;
+use crate::cook::metrics::reporter::MetricsReporter;
 use crate::metrics::MetricsCollector;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -17,7 +18,10 @@ pub trait MetricsCollectorTrait: Send + Sync {
     async fn collect_lint_warnings(&self, project_path: &Path) -> Result<usize>;
 
     /// Collect compilation metrics
-    async fn collect_compile_metrics(&self, project_path: &Path) -> Result<(Option<f64>, Option<u64>)>;
+    async fn collect_compile_metrics(
+        &self,
+        project_path: &Path,
+    ) -> Result<(Option<f64>, Option<u64>)>;
 
     /// Collect code complexity
     async fn collect_complexity(&self, project_path: &Path) -> Result<Option<serde_json::Value>>;
@@ -42,9 +46,13 @@ impl<R: CommandRunner> MetricsCollectorImpl<R> {
 #[async_trait]
 impl<R: CommandRunner + 'static> MetricsCollectorTrait for MetricsCollectorImpl<R> {
     async fn collect_test_coverage(&self, project_path: &Path) -> Result<Option<f64>> {
-        // Try to use the existing MetricsCollector
-        match self.collector.collect_test_coverage(project_path).await {
-            Ok(coverage) => Ok(Some(coverage)),
+        // Try to collect metrics and extract test coverage
+        match self
+            .collector
+            .collect_metrics(project_path, "temp".to_string())
+            .await
+        {
+            Ok(metrics) => Ok(Some(metrics.test_coverage as f64)),
             Err(_) => Ok(None),
         }
     }
@@ -52,8 +60,12 @@ impl<R: CommandRunner + 'static> MetricsCollectorTrait for MetricsCollectorImpl<
     async fn collect_lint_warnings(&self, project_path: &Path) -> Result<usize> {
         // Check for Rust project
         if project_path.join("Cargo.toml").exists() {
-            let output = self.runner
-                .run_command("cargo", &["clippy".to_string(), "--message-format=json".to_string()])
+            let output = self
+                .runner
+                .run_command(
+                    "cargo",
+                    &["clippy".to_string(), "--message-format=json".to_string()],
+                )
                 .await?;
 
             if output.status.success() {
@@ -71,14 +83,18 @@ impl<R: CommandRunner + 'static> MetricsCollectorTrait for MetricsCollectorImpl<
         }
     }
 
-    async fn collect_compile_metrics(&self, project_path: &Path) -> Result<(Option<f64>, Option<u64>)> {
+    async fn collect_compile_metrics(
+        &self,
+        project_path: &Path,
+    ) -> Result<(Option<f64>, Option<u64>)> {
         if !project_path.join("Cargo.toml").exists() {
             return Ok((None, None));
         }
 
         // Measure compile time
         let start = std::time::Instant::now();
-        let output = self.runner
+        let output = self
+            .runner
             .run_command("cargo", &["build".to_string(), "--release".to_string()])
             .await?;
 
@@ -95,7 +111,8 @@ impl<R: CommandRunner + 'static> MetricsCollectorTrait for MetricsCollectorImpl<
             if let Ok(entries) = std::fs::read_dir(&target_dir) {
                 for entry in entries.flatten() {
                     if let Ok(metadata) = entry.metadata() {
-                        if metadata.is_file() && !entry.file_name().to_string_lossy().contains('.') {
+                        if metadata.is_file() && !entry.file_name().to_string_lossy().contains('.')
+                        {
                             return Ok((compile_time, Some(metadata.len())));
                         }
                     }
@@ -196,7 +213,11 @@ impl<R: CommandRunner + 'static> MetricsCoordinator for MetricsCollectorImpl<R> 
         Ok(history)
     }
 
-    async fn generate_report(&self, metrics: &ProjectMetrics, history: &[ProjectMetrics]) -> Result<String> {
+    async fn generate_report(
+        &self,
+        metrics: &ProjectMetrics,
+        history: &[ProjectMetrics],
+    ) -> Result<String> {
         // Delegate to reporter
         let reporter = super::MetricsReporterImpl::new();
         reporter.generate_report(metrics, history).await
@@ -236,7 +257,7 @@ mod tests {
         let collector = MetricsCollectorImpl::new(mock_runner);
 
         let metrics = collector.collect_all(Path::new("/tmp")).await.unwrap();
-        
+
         // Should have default values
         assert_eq!(metrics.lint_warnings, 0);
         assert!(metrics.test_coverage.is_none());

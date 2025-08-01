@@ -6,8 +6,8 @@ use crate::cook::interaction::UserInteraction;
 use crate::cook::metrics::MetricsCoordinator;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::{SessionManager, SessionUpdate};
-use serde::{Deserialize, Serialize};
 use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -104,27 +104,25 @@ impl WorkflowExecutor {
                     step.name
                 ));
 
-                self.execute_step(step, env).await
+                self.execute_step(step, env)
+                    .await
                     .context(format!("Failed to execute step: {}", step.name))?;
             }
 
             // Check if we should continue
             if workflow.iterate {
                 // In automated mode, check based on metrics or other criteria
-                if let Ok(metrics) = self.metrics_coordinator
-                    .collect_all(&env.working_dir)
-                    .await
-                {
+                if let Ok(metrics) = self.metrics_coordinator.collect_all(&env.working_dir).await {
                     // Simple heuristic: stop if no lint warnings
                     if metrics.lint_warnings == 0 {
-                        self.user_interaction.display_success(
-                            "No lint warnings remaining, stopping iterations"
-                        );
+                        self.user_interaction
+                            .display_success("No lint warnings remaining, stopping iterations");
                         should_continue = false;
                     }
                 } else {
                     // If metrics collection fails, ask user
-                    should_continue = self.user_interaction
+                    should_continue = self
+                        .user_interaction
                         .prompt_yes_no("Continue with another iteration?")
                         .await?;
                 }
@@ -135,8 +133,10 @@ impl WorkflowExecutor {
 
             // Run analysis between iterations if configured
             if should_continue && workflow.analyze_between {
-                self.user_interaction.display_progress("Running analysis between iterations...");
-                let analysis = self.analysis_coordinator
+                self.user_interaction
+                    .display_progress("Running analysis between iterations...");
+                let analysis = self
+                    .analysis_coordinator
                     .analyze_project(&env.working_dir)
                     .await?;
                 self.analysis_coordinator
@@ -147,19 +147,23 @@ impl WorkflowExecutor {
 
         // Collect final metrics if enabled
         if workflow.collect_metrics {
-            self.user_interaction.display_progress("Collecting final metrics...");
-            let metrics = self.metrics_coordinator
+            self.user_interaction
+                .display_progress("Collecting final metrics...");
+            let metrics = self
+                .metrics_coordinator
                 .collect_all(&env.working_dir)
                 .await?;
             self.metrics_coordinator
                 .store_metrics(&env.working_dir, &metrics)
                 .await?;
-            
+
             // Generate report
-            let history = self.metrics_coordinator
+            let history = self
+                .metrics_coordinator
                 .load_history(&env.working_dir)
                 .await?;
-            let report = self.metrics_coordinator
+            let report = self
+                .metrics_coordinator
                 .generate_report(&metrics, &history)
                 .await?;
             self.user_interaction.display_info(&report);
@@ -169,25 +173,24 @@ impl WorkflowExecutor {
     }
 
     /// Execute a single workflow step
-    async fn execute_step(
-        &self,
-        step: &WorkflowStep,
-        env: &ExecutionEnvironment,
-    ) -> Result<()> {
+    async fn execute_step(&self, step: &WorkflowStep, env: &ExecutionEnvironment) -> Result<()> {
         // Prepare environment variables
         let mut env_vars = HashMap::new();
-        
+
         // Add MMM context variables
         env_vars.insert("MMM_CONTEXT_AVAILABLE".to_string(), "true".to_string());
         env_vars.insert(
             "MMM_CONTEXT_DIR".to_string(),
-            env.working_dir.join(".mmm/context").to_string_lossy().to_string(),
+            env.working_dir
+                .join(".mmm/context")
+                .to_string_lossy()
+                .to_string(),
         );
-        
+
         if let Some(ref focus) = env.focus {
             env_vars.insert("MMM_FOCUS".to_string(), focus.clone());
         }
-        
+
         env_vars.insert("MMM_AUTOMATION".to_string(), "true".to_string());
 
         // Add step-specific environment variables
@@ -196,7 +199,8 @@ impl WorkflowExecutor {
         }
 
         // Execute the command
-        let result = self.claude_executor
+        let result = self
+            .claude_executor
             .execute_claude_command(&step.command, &env.working_dir, env_vars)
             .await?;
 
@@ -221,20 +225,20 @@ impl WorkflowExecutor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cook::execution::runner::tests::MockCommandRunner;
-    use crate::cook::execution::claude::ClaudeExecutorImpl;
-    use crate::cook::execution::ExecutionResult;
     use crate::cook::analysis::runner::AnalysisRunnerImpl;
+    use crate::cook::execution::claude::ClaudeExecutorImpl;
+    use crate::cook::execution::runner::tests::MockCommandRunner;
+    use crate::cook::execution::ExecutionResult;
+    use crate::cook::interaction::mocks::MockUserInteraction;
     use crate::cook::metrics::collector::MetricsCollectorImpl;
     use crate::cook::session::tracker::SessionTrackerImpl;
-    use crate::cook::interaction::mocks::MockUserInteraction;
     use tempfile::TempDir;
 
     #[tokio::test]
     async fn test_workflow_executor_single_step() {
         let temp_dir = TempDir::new().unwrap();
         let mock_runner = Arc::new(MockCommandRunner::new());
-        
+
         // Setup successful command response
         mock_runner.add_response(ExecutionResult {
             success: true,
@@ -286,9 +290,11 @@ mod tests {
 
         // Verify session was updated
         assert_eq!(session_manager.get_state().iterations_completed, 1);
-        
+
         // Verify user was informed
         let messages = user_interaction.get_messages();
-        assert!(messages.iter().any(|m| m.contains("Executing workflow: test")));
+        assert!(messages
+            .iter()
+            .any(|m| m.contains("Executing workflow: test")));
     }
 }

@@ -70,12 +70,9 @@ impl CommandRunner for RealCommandRunner {
 
         // Execute with timeout if specified
         let output = if let Some(timeout) = context.timeout_seconds {
-            tokio::time::timeout(
-                std::time::Duration::from_secs(timeout),
-                command.output(),
-            )
-            .await
-            .context("Command timed out")??
+            tokio::time::timeout(std::time::Duration::from_secs(timeout), command.output())
+                .await
+                .context("Command timed out")??
         } else {
             command.output().await?
         };
@@ -110,7 +107,10 @@ pub mod tests {
         let runner = RealCommandRunner::new();
 
         // Test simple echo command
-        let result = runner.run_command("echo", &["hello".to_string()]).await.unwrap();
+        let result = runner
+            .run_command("echo", &["hello".to_string()])
+            .await
+            .unwrap();
         assert!(result.status.success());
         assert!(String::from_utf8_lossy(&result.stdout).contains("hello"));
     }
@@ -119,11 +119,17 @@ pub mod tests {
     async fn test_command_with_context() {
         let runner = RealCommandRunner::new();
         let mut context = ExecutionContext::default();
-        context.env_vars.insert("TEST_VAR".to_string(), "test_value".to_string());
+        context
+            .env_vars
+            .insert("TEST_VAR".to_string(), "test_value".to_string());
 
         // Test with environment variable
         let result = runner
-            .run_with_context("sh", &["-c".to_string(), "echo $TEST_VAR".to_string()], &context)
+            .run_with_context(
+                "sh",
+                &["-c".to_string(), "echo $TEST_VAR".to_string()],
+                &context,
+            )
             .await
             .unwrap();
 
@@ -170,7 +176,9 @@ pub mod tests {
             _context: &ExecutionContext,
         ) -> Result<ExecutionResult> {
             let mut responses = self.responses.lock().unwrap();
-            responses.pop().ok_or_else(|| anyhow::anyhow!("No mock response configured"))
+            responses
+                .pop()
+                .ok_or_else(|| anyhow::anyhow!("No mock response configured"))
         }
     }
 

@@ -86,5 +86,9 @@ pub trait MetricsCoordinator: Send + Sync {
     async fn load_history(&self, project_path: &Path) -> Result<Vec<ProjectMetrics>>;
 
     /// Generate metrics report
-    async fn generate_report(&self, metrics: &ProjectMetrics, history: &[ProjectMetrics]) -> Result<String>;
+    async fn generate_report(
+        &self,
+        metrics: &ProjectMetrics,
+        history: &[ProjectMetrics],
+    ) -> Result<String>;
 }

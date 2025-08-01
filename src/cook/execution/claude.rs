@@ -47,7 +47,7 @@ impl<R: CommandRunner + 'static> ClaudeExecutor for ClaudeExecutorImpl<R> {
         let mut context = ExecutionContext::default();
         context.working_directory = project_path.to_path_buf();
         context.env_vars = env_vars;
-        
+
         // Set timeout for Claude commands (10 minutes by default)
         context.timeout_seconds = Some(600);
 
@@ -57,17 +57,22 @@ impl<R: CommandRunner + 'static> ClaudeExecutor for ClaudeExecutorImpl<R> {
     }
 
     async fn check_claude_cli(&self) -> Result<bool> {
-        match self.runner.run_command("claude", &["--version".to_string()]).await {
+        match self
+            .runner
+            .run_command("claude", &["--version".to_string()])
+            .await
+        {
             Ok(output) => Ok(output.status.success()),
             Err(_) => Ok(false),
         }
     }
 
     async fn get_claude_version(&self) -> Result<String> {
-        let output = self.runner
+        let output = self
+            .runner
             .run_command("claude", &["--version".to_string()])
             .await?;
-        
+
         if output.status.success() {
             Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
         } else {
@@ -86,12 +91,8 @@ impl<R: CommandRunner + 'static> CommandExecutor for ClaudeExecutorImpl<R> {
     ) -> Result<ExecutionResult> {
         // For Claude commands, use the Claude-specific method
         if command == "claude" && args.len() == 1 {
-            self.execute_claude_command(
-                &args[0],
-                &context.working_directory,
-                context.env_vars,
-            )
-            .await
+            self.execute_claude_command(&args[0], &context.working_directory, context.env_vars)
+                .await
         } else {
             // Fallback to regular command execution
             self.runner.run_with_context(command, args, &context).await
