@@ -136,16 +136,11 @@ impl TarpaulinCoverageAnalyzer {
             .await
             .context("Failed to read tarpaulin coverage file")?;
 
-
         match serde_json::from_str(&json_content) {
-            Ok(report) => {
-                Ok(report)
-            }
-            Err(e) => {
-                Err(anyhow::anyhow!(
-                    "Failed to parse tarpaulin JSON output: {e}"
-                ))
-            }
+            Ok(report) => Ok(report),
+            Err(e) => Err(anyhow::anyhow!(
+                "Failed to parse tarpaulin JSON output: {e}"
+            )),
         }
     }
 
@@ -163,7 +158,6 @@ impl TarpaulinCoverageAnalyzer {
         // Iterate through files array
 
         for file_data in &tarpaulin_report.files {
-
             // Construct file path from array of strings
             let file_path = if file_data.path.is_empty() {
                 continue;
@@ -456,7 +450,6 @@ impl TarpaulinCoverageAnalyzer {
 #[async_trait::async_trait]
 impl TestCoverageAnalyzer for TarpaulinCoverageAnalyzer {
     async fn analyze_coverage(&self, project_path: &Path) -> Result<TestCoverageMap> {
-
         // Try to run tarpaulin and get actual coverage data
         match self.run_tarpaulin(project_path).await {
             Ok(tarpaulin_report) => {
