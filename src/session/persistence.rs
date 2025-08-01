@@ -50,9 +50,7 @@ impl PersistedSession {
 
     /// Get last known iteration
     pub fn last_iteration(&self) -> u32 {
-        self.latest_checkpoint()
-            .map(|c| c.iteration)
-            .unwrap_or(0)
+        self.latest_checkpoint().map(|c| c.iteration).unwrap_or(0)
     }
 }
 
@@ -94,7 +92,11 @@ mod tests {
         assert!(session.is_resumable());
         assert_eq!(session.last_iteration(), 3);
         assert_eq!(
-            session.latest_checkpoint().unwrap().state_snapshot.current_phase,
+            session
+                .latest_checkpoint()
+                .unwrap()
+                .state_snapshot
+                .current_phase,
             Some("implementation".to_string())
         );
     }

@@ -64,6 +64,33 @@ impl MockProcessRunner {
         self.expectations.lock().unwrap().clear();
         self.call_history.lock().unwrap().clear();
     }
+
+    /// Add a response for a specific program (helper for tests)
+    pub async fn add_response(&self, program: &str, response: Result<ProcessOutput, ProcessError>) {
+        let mut expectations = self.expectations.lock().unwrap();
+        let output = match response {
+            Ok(output) => output,
+            Err(_) => ProcessOutput {
+                status: ExitStatus::Error(1),
+                stdout: String::new(),
+                stderr: "Mock error".to_string(),
+                duration: Duration::from_millis(10),
+            },
+        };
+
+        expectations.push(MockExpectation {
+            program: program.to_string(),
+            args_matcher: None,
+            response: output,
+            times_called: 0,
+            expected_times: None,
+        });
+    }
+
+    /// Get all calls made to this mock (helper for tests)
+    pub async fn get_calls(&self) -> Vec<ProcessCommand> {
+        self.get_call_history()
+    }
 }
 
 #[async_trait]

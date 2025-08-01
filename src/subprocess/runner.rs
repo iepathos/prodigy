@@ -47,6 +47,21 @@ impl ExitStatus {
     }
 }
 
+/// ExitStatusHelper for creating exit statuses
+pub struct ExitStatusHelper;
+
+impl ExitStatusHelper {
+    /// Create a success exit status
+    pub fn success() -> ExitStatus {
+        ExitStatus::Success
+    }
+
+    /// Create a failure exit status with code
+    pub fn failure(code: i32) -> ExitStatus {
+        ExitStatus::Error(code)
+    }
+}
+
 pub type ProcessStreamItem = Result<String, ProcessError>;
 pub type ProcessStreamFut = Pin<Box<dyn Stream<Item = ProcessStreamItem> + Send>>;
 

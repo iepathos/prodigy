@@ -35,7 +35,10 @@ async fn test_session_state_machine() {
     assert!(matches!(state, SessionState::Paused { .. }));
 
     // Resume session
-    manager.record_event(&id, SessionEvent::Resumed).await.unwrap();
+    manager
+        .record_event(&id, SessionEvent::Resumed)
+        .await
+        .unwrap();
     let state = manager.get_state(&id).await.unwrap();
     assert!(matches!(state, SessionState::Running { .. }));
 
@@ -163,7 +166,10 @@ async fn test_session_persistence_and_recovery() {
     assert_eq!(progress.files_changed.len(), 5);
 
     // Resume and complete
-    manager2.record_event(&id, SessionEvent::Resumed).await.unwrap();
+    manager2
+        .record_event(&id, SessionEvent::Resumed)
+        .await
+        .unwrap();
     manager2.complete_session(&id).await.unwrap();
 }
 
@@ -190,7 +196,10 @@ async fn test_event_observers() {
     manager.add_observer(observer).await;
 
     // Create and run session
-    let id = manager.create_session(SessionConfig::default()).await.unwrap();
+    let id = manager
+        .create_session(SessionConfig::default())
+        .await
+        .unwrap();
     manager.start_session(&id).await.unwrap(); // 1 event
     manager
         .record_event(&id, SessionEvent::IterationStarted { number: 1 })

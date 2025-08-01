@@ -1,8 +1,8 @@
 //! Session manager implementation
 
 use super::{
-    SessionConfig, SessionEvent, SessionId, SessionInfo, SessionObserver,
-    SessionProgress, SessionState, SessionStorage, SessionSummary, TimestampedEvent,
+    SessionConfig, SessionEvent, SessionId, SessionInfo, SessionObserver, SessionProgress,
+    SessionState, SessionStorage, SessionSummary, TimestampedEvent,
 };
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -108,12 +108,14 @@ impl InMemorySessionManager {
                 data.progress.current_phase = Some("Analysis complete".to_string());
             }
             SessionEvent::CommandExecuted { command, success } => {
-                data.progress.commands_executed.push(super::ExecutedCommand {
-                    command: command.clone(),
-                    success: *success,
-                    duration: std::time::Duration::from_secs(1), // Would be tracked properly
-                    output_size: 0,
-                });
+                data.progress
+                    .commands_executed
+                    .push(super::ExecutedCommand {
+                        command: command.clone(),
+                        success: *success,
+                        duration: std::time::Duration::from_secs(1), // Would be tracked properly
+                        output_size: 0,
+                    });
             }
             SessionEvent::Paused { reason } => {
                 data.state = SessionState::Paused {
@@ -146,7 +148,7 @@ impl InMemorySessionManager {
 
         // Record event
         data.events.push(TimestampedEvent::new(event.clone()));
-        
+
         // Update progress duration
         data.progress.duration = data.started_at.elapsed();
         data.progress.state = data.state.clone();
@@ -326,6 +328,7 @@ impl SessionManager for InMemorySessionManager {
 mod tests {
     use super::*;
     use crate::config::workflow::WorkflowConfig;
+    use crate::session::IterationChanges;
     use std::path::PathBuf;
 
     #[tokio::test]
@@ -335,9 +338,7 @@ mod tests {
         // Create session
         let config = SessionConfig {
             project_path: PathBuf::from("/test"),
-            workflow: crate::config::workflow::WorkflowConfig {
-                commands: vec![],
-            },
+            workflow: crate::config::workflow::WorkflowConfig { commands: vec![] },
             execution_mode: crate::session::ExecutionMode::Direct,
             max_iterations: 5,
             focus: None,

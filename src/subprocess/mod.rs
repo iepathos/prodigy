@@ -14,7 +14,7 @@ pub use error::ProcessError;
 pub use git::GitRunner;
 pub use mock::{MockCommandConfig, MockProcessRunner};
 pub use runner::ProcessCommand;
-pub use runner::{ProcessOutput, ProcessRunner, ProcessStream};
+pub use runner::{ExitStatusHelper, ProcessOutput, ProcessRunner, ProcessStream};
 
 use std::sync::Arc;
 

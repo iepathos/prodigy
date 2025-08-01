@@ -73,9 +73,7 @@ impl OldSessionManager for SessionManagerAdapter {
         // Create new session config
         let config = SessionConfig {
             project_path: self.working_dir.clone(),
-            workflow: crate::config::workflow::WorkflowConfig {
-                commands: vec![],
-            },
+            workflow: crate::config::workflow::WorkflowConfig { commands: vec![] },
             execution_mode: ExecutionMode::Direct,
             max_iterations: 10,
             focus: None,
@@ -85,11 +83,11 @@ impl OldSessionManager for SessionManagerAdapter {
         // Create and start session
         let id = self.new_manager.create_session(config).await?;
         *self.current_session.lock().await = Some(id.clone());
-        
+
         // Override the session ID to match old system
         // This is a bit hacky but maintains compatibility
         self.new_manager.start_session(&id).await?;
-        
+
         Ok(())
     }
 
@@ -105,9 +103,12 @@ impl OldSessionManager for SessionManagerAdapter {
             SessionUpdate::IncrementIteration => {
                 let progress = self.new_manager.get_progress(&session_id).await?;
                 let iteration = progress.iterations_completed + 1;
-                
+
                 self.new_manager
-                    .record_event(&session_id, SessionEvent::IterationStarted { number: iteration })
+                    .record_event(
+                        &session_id,
+                        SessionEvent::IterationStarted { number: iteration },
+                    )
                     .await?;
             }
             SessionUpdate::AddFilesChanged(count) => {
@@ -121,41 +122,39 @@ impl OldSessionManager for SessionManagerAdapter {
                     commands_run: vec![],
                     git_commits: vec![],
                 };
-                
+
                 self.new_manager
                     .record_event(&session_id, SessionEvent::IterationCompleted { changes })
                     .await?;
             }
-            SessionUpdate::UpdateStatus(status) => {
-                match status {
-                    SessionStatus::Completed => {
-                        self.new_manager
-                            .record_event(&session_id, SessionEvent::Completed)
-                            .await?;
-                    }
-                    SessionStatus::Failed => {
-                        self.new_manager
-                            .record_event(
-                                &session_id,
-                                SessionEvent::Failed {
-                                    error: "Session failed".to_string(),
-                                },
-                            )
-                            .await?;
-                    }
-                    SessionStatus::Interrupted => {
-                        self.new_manager
-                            .record_event(
-                                &session_id,
-                                SessionEvent::Paused {
-                                    reason: "Interrupted".to_string(),
-                                },
-                            )
-                            .await?;
-                    }
-                    _ => {}
+            SessionUpdate::UpdateStatus(status) => match status {
+                SessionStatus::Completed => {
+                    self.new_manager
+                        .record_event(&session_id, SessionEvent::Completed)
+                        .await?;
                 }
-            }
+                SessionStatus::Failed => {
+                    self.new_manager
+                        .record_event(
+                            &session_id,
+                            SessionEvent::Failed {
+                                error: "Session failed".to_string(),
+                            },
+                        )
+                        .await?;
+                }
+                SessionStatus::Interrupted => {
+                    self.new_manager
+                        .record_event(
+                            &session_id,
+                            SessionEvent::Paused {
+                                reason: "Interrupted".to_string(),
+                            },
+                        )
+                        .await?;
+                }
+                _ => {}
+            },
             SessionUpdate::AddError(error) => {
                 // Errors are tracked differently in new system
                 // This is handled when status changes to Failed
@@ -175,7 +174,7 @@ impl OldSessionManager for SessionManagerAdapter {
             .ok_or_else(|| anyhow::anyhow!("No active session"))?;
 
         let summary = self.new_manager.complete_session(&session_id).await?;
-        
+
         Ok(SessionSummary {
             iterations: summary.total_iterations as usize,
             files_changed: summary.files_changed,
@@ -185,9 +184,8 @@ impl OldSessionManager for SessionManagerAdapter {
     fn get_state(&self) -> OldSessionState {
         // This is synchronous in old API but async in new
         // We'll need to handle this carefully
-        let session_id = futures::executor::block_on(async {
-            self.current_session.lock().await.clone()
-        });
+        let session_id =
+            futures::executor::block_on(async { self.current_session.lock().await.clone() });
 
         if let Some(id) = session_id {
             if let Ok(state) = futures::executor::block_on(self.new_manager.get_state(&id)) {
@@ -200,8 +198,7 @@ impl OldSessionManager for SessionManagerAdapter {
                     crate::session::SessionState::Failed { .. } => SessionStatus::Failed,
                 };
 
-                let progress =
-                    futures::executor::block_on(self.new_manager.get_progress(&id)).ok();
+                let progress = futures::executor::block_on(self.new_manager.get_progress(&id)).ok();
 
                 return OldSessionState {
                     session_id: id.to_string(),

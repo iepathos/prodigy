@@ -24,7 +24,10 @@ pub enum SessionState {
 impl SessionState {
     /// Check if this is a terminal state
     pub fn is_terminal(&self) -> bool {
-        matches!(self, SessionState::Completed { .. } | SessionState::Failed { .. })
+        matches!(
+            self,
+            SessionState::Completed { .. } | SessionState::Failed { .. }
+        )
     }
 
     /// Check if session is active

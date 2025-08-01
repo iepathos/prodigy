@@ -15,6 +15,7 @@
 //! - `config` - Configuration management for the tool
 //! - `context` - Context-aware project understanding and analysis
 //! - `cook` - Core cooking command implementation with mapping support
+//! - `git` - Granular, testable git operations layer
 //! - `init` - Initialize MMM commands in projects
 //! - `metrics` - Real metrics tracking for code improvements
 //! - `simple_state` - Minimal state management with JSON persistence
@@ -27,6 +28,7 @@ pub mod analyze;
 pub mod config;
 pub mod context;
 pub mod cook;
+pub mod git;
 pub mod init;
 pub mod metrics;
 pub mod session;

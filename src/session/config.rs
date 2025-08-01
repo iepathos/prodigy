@@ -19,9 +19,7 @@ impl Default for SessionConfig {
     fn default() -> Self {
         Self {
             project_path: PathBuf::from("."),
-            workflow: WorkflowConfig {
-                commands: vec![],
-            },
+            workflow: WorkflowConfig { commands: vec![] },
             execution_mode: ExecutionMode::Direct,
             max_iterations: 10,
             focus: None,

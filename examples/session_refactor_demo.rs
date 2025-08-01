@@ -33,12 +33,12 @@ async fn demo_adapter_usage() -> anyhow::Result<()> {
 
     // Use it exactly like the old SessionTrackerImpl
     session_manager.start_session("demo-session").await?;
-    
+
     // Update session
     session_manager
         .update_session(mmm::cook::session::SessionUpdate::IncrementIteration)
         .await?;
-    
+
     session_manager
         .update_session(mmm::cook::session::SessionUpdate::AddFilesChanged(3))
         .await?;
@@ -49,8 +49,10 @@ async fn demo_adapter_usage() -> anyhow::Result<()> {
 
     // Complete session
     let summary = session_manager.complete_session().await?;
-    println!("Session summary: {} iterations, {} files changed\n", 
-        summary.iterations, summary.files_changed);
+    println!(
+        "Session summary: {} iterations, {} files changed\n",
+        summary.iterations, summary.files_changed
+    );
 
     Ok(())
 }

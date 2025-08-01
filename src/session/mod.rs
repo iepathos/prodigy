@@ -17,8 +17,8 @@ pub use persistence::{PersistedSession, SessionCheckpoint, StateSnapshot};
 pub use state::{SessionProgress, SessionState, SessionSummary};
 pub use storage::{FileSessionStorage, SessionStorage};
 
-use std::fmt;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use uuid::Uuid;
 
 /// Unique identifier for a session
