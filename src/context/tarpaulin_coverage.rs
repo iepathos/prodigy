@@ -10,13 +10,14 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use super::test_coverage::{
-    CriticalPath, FileCoverage, RiskLevel, TestCoverageAnalyzer, TestCoverageMap,
+    CriticalPath, Criticality, FileCoverage, RiskLevel, TestCoverageAnalyzer, TestCoverageMap,
+    UntestedFunction,
 };
 
 /// Tarpaulin JSON output structure
 #[derive(Debug, Deserialize)]
 struct TarpaulinReport {
-    files: serde_json::Value, // The keys might be numbers or strings
+    files: Vec<TarpaulinFile>, // JSON array of files
     coverage: f64,
     #[allow(dead_code)]
     covered: usize,
@@ -138,79 +139,103 @@ impl TarpaulinCoverageAnalyzer {
         match serde_json::from_str(&json_content) {
             Ok(report) => Ok(report),
             Err(e) => Err(anyhow::anyhow!(
-                "Failed to parse tarpaulin JSON output: {}",
-                e
+                "Failed to parse tarpaulin JSON output: {e}"
             )),
         }
     }
 
     /// Convert tarpaulin data to our coverage format
-    fn convert_tarpaulin_data(
+    async fn convert_tarpaulin_data(
         &self,
         tarpaulin_report: &TarpaulinReport,
         project_path: &Path,
     ) -> TestCoverageMap {
         let mut file_coverage = HashMap::new();
-        let all_untested_functions = Vec::new();
+        let mut all_untested_functions = Vec::new();
         let mut _total_covered_lines = 0;
         let mut _total_coverable_lines = 0;
 
-        // Parse files from JSON value
-        if let Some(files_obj) = tarpaulin_report.files.as_object() {
-            for (_, file_value) in files_obj {
-                let file_data: TarpaulinFile = match serde_json::from_value(file_value.clone()) {
-                    Ok(data) => data,
-                    Err(_e) => {
-                        continue;
-                    }
-                };
-                let file_path = PathBuf::from(file_data.path.join("/"));
-                let relative_path = file_path
-                    .strip_prefix(project_path)
-                    .unwrap_or(&file_path)
-                    .to_path_buf();
+        // Iterate through files array
 
-                // Skip test files in coverage calculation
-                if self.is_test_file(&relative_path) {
-                    continue;
-                }
+        for file_data in &tarpaulin_report.files {
+            // Construct file path from array of strings
+            let file_path = if file_data.path.is_empty() {
+                continue;
+            } else if file_data.path[0].is_empty() {
+                // Absolute path starting with empty string ["", "Users", "glen", ...]
+                PathBuf::from(file_data.path[1..].join("/"))
+            } else {
+                // Relative path
+                PathBuf::from(file_data.path.join("/"))
+            };
 
-                // We can't extract function-level coverage from tarpaulin traces
-                // So we'll estimate based on line coverage
-                let coverage_percentage = if file_data.coverable > 0 {
-                    file_data.covered as f64 / file_data.coverable as f64
-                } else {
-                    0.0
-                };
+            let relative_path = file_path
+                .strip_prefix(project_path)
+                .unwrap_or(&file_path)
+                .to_path_buf();
 
-                // Estimate function coverage based on line coverage
-                // This is a rough approximation
-                let estimated_functions = (file_data.coverable / 10).max(1) as u32; // Assume ~10 lines per function
-                let tested_functions = (estimated_functions as f64 * coverage_percentage) as u32;
-
-                file_coverage.insert(
-                    relative_path.clone(),
-                    FileCoverage {
-                        path: relative_path,
-                        coverage_percentage,
-                        tested_lines: file_data.covered as u32,
-                        total_lines: file_data.coverable as u32,
-                        tested_functions,
-                        total_functions: estimated_functions,
-                        has_tests: file_data.covered > 0,
-                    },
-                );
-
-                _total_covered_lines += file_data.covered;
-                _total_coverable_lines += file_data.coverable;
+            // Skip test files in coverage calculation
+            if self.is_test_file(&relative_path) {
+                continue;
             }
+
+            let coverage_percentage = if file_data.coverable > 0 {
+                file_data.covered as f64 / file_data.coverable as f64
+            } else {
+                0.0
+            };
+
+            // Extract actual functions from the file content if available
+            let (total_functions, tested_functions, untested_function_list) =
+                if let Some(content) = &file_data.content {
+                    self.analyze_file_functions(content, &relative_path, file_data)
+                        .await
+                } else if relative_path.extension().and_then(|s| s.to_str()) == Some("rs") {
+                    // Try to read the file directly if content not in tarpaulin data
+                    match tokio::fs::read_to_string(project_path.join(&relative_path)).await {
+                        Ok(content) => {
+                            self.analyze_file_functions(&content, &relative_path, file_data)
+                                .await
+                        }
+                        Err(_) => {
+                            // Fallback to estimation
+                            let estimated = (file_data.coverable / 10).max(1) as u32;
+                            let tested = (estimated as f64 * coverage_percentage) as u32;
+                            (estimated, tested, Vec::new())
+                        }
+                    }
+                } else {
+                    // Non-Rust file or unable to read
+                    let estimated = (file_data.coverable / 10).max(1) as u32;
+                    let tested = (estimated as f64 * coverage_percentage) as u32;
+                    (estimated, tested, Vec::new())
+                };
+
+            all_untested_functions.extend(untested_function_list);
+
+            file_coverage.insert(
+                relative_path.clone(),
+                FileCoverage {
+                    path: relative_path,
+                    coverage_percentage,
+                    tested_lines: file_data.covered as u32,
+                    total_lines: file_data.coverable as u32,
+                    tested_functions,
+                    total_functions,
+                    has_tests: file_data.covered > 0,
+                },
+            );
+
+            _total_covered_lines += file_data.covered;
+            _total_coverable_lines += file_data.coverable;
         }
 
         // Use the overall coverage from tarpaulin report
         let overall_coverage = tarpaulin_report.coverage / 100.0; // Convert from percentage
 
-        // Identify critical paths
-        let critical_paths = self.identify_critical_paths_in_project(project_path);
+        // Identify critical paths with coverage context
+        let critical_paths =
+            self.identify_critical_paths_with_coverage(project_path, &file_coverage);
 
         TestCoverageMap {
             file_coverage,
@@ -229,40 +254,193 @@ impl TarpaulinCoverageAnalyzer {
             || path_str.ends_with("_test.rs")
     }
 
-    // Removed determine_criticality since we can't extract function names from tarpaulin
+    /// Analyze functions in a file and determine coverage
+    async fn analyze_file_functions(
+        &self,
+        content: &str,
+        relative_path: &Path,
+        file_data: &TarpaulinFile,
+    ) -> (u32, u32, Vec<UntestedFunction>) {
+        // Extract functions with line numbers
+        let functions = self.extract_functions_with_lines(content);
+        if functions.is_empty() {
+            return (0, 0, Vec::new());
+        }
 
-    /// Identify critical paths in the project
-    fn identify_critical_paths_in_project(&self, project_path: &Path) -> Vec<CriticalPath> {
+        let total_functions = functions.len() as u32;
+        let mut tested_count = 0;
+        let mut untested_functions = Vec::new();
+
+        // For each function, check if its lines are covered
+        for (func_name, line_num) in functions {
+            // A function is considered tested if any of its lines are covered
+            // This is a simplification - ideally we'd parse the entire function body
+            let is_tested = file_data.covered > 0 && line_num <= file_data.coverable as u32;
+
+            if is_tested {
+                tested_count += 1;
+            } else {
+                untested_functions.push(UntestedFunction {
+                    file: relative_path.to_path_buf(),
+                    name: func_name.clone(),
+                    line_number: line_num,
+                    criticality: self.determine_criticality(&func_name, relative_path),
+                });
+            }
+        }
+
+        (total_functions, tested_count, untested_functions)
+    }
+
+    /// Extract functions from Rust code with line numbers
+    fn extract_functions_with_lines(&self, content: &str) -> Vec<(String, u32)> {
+        let mut functions = Vec::new();
+
+        for (line_num, line) in content.lines().enumerate() {
+            let line = line.trim();
+            if (line.starts_with("pub fn")
+                || line.starts_with("pub(") && line.contains(" fn ")
+                || line.starts_with("fn ")
+                || line.starts_with("pub async fn")
+                || line.starts_with("async fn"))
+                && !line.contains("#[test]")
+            {
+                if let Some(name_start) = line.find("fn ") {
+                    let after_fn = &line[name_start + 3..];
+                    if let Some(name) = after_fn.split(['(', '<']).next() {
+                        functions.push((name.trim().to_string(), line_num as u32 + 1));
+                    }
+                }
+            }
+        }
+
+        functions
+    }
+
+    /// Determine criticality of a function based on its name and file path
+    fn determine_criticality(&self, func_name: &str, file_path: &Path) -> Criticality {
+        let path_str = file_path.to_string_lossy();
+        let func_lower = func_name.to_lowercase();
+
+        // High criticality patterns
+        if func_lower.contains("auth")
+            || func_lower.contains("security")
+            || func_lower.contains("payment")
+            || func_lower.contains("crypto")
+            || func_lower.contains("password")
+            || func_lower.contains("token")
+            || path_str.contains("auth")
+            || path_str.contains("security")
+            || path_str.contains("payment")
+        {
+            return Criticality::High;
+        }
+
+        // Medium criticality patterns
+        if func_lower.contains("save")
+            || func_lower.contains("delete")
+            || func_lower.contains("update")
+            || func_lower.contains("process")
+            || func_lower.contains("validate")
+            || func_lower.contains("handle")
+            || path_str.contains("core")
+            || path_str.contains("api")
+            || path_str.contains("handler")
+        {
+            return Criticality::Medium;
+        }
+
+        Criticality::Low
+    }
+
+    /// Identify critical paths in the project with coverage context
+    fn identify_critical_paths_with_coverage(
+        &self,
+        project_path: &Path,
+        file_coverage: &HashMap<PathBuf, FileCoverage>,
+    ) -> Vec<CriticalPath> {
         let mut paths = Vec::new();
 
-        // API/HTTP handlers
-        let api_path = project_path.join("src/api");
-        if api_path.exists() {
-            paths.push(CriticalPath {
-                description: "API request handling".to_string(),
-                files: vec![api_path],
-                risk_level: RiskLevel::Critical,
-            });
+        // Check specific critical directories and their coverage
+        let critical_dirs = vec![
+            ("src/api", "API request handling", RiskLevel::Critical),
+            (
+                "src/auth",
+                "Authentication and authorization",
+                RiskLevel::Critical,
+            ),
+            ("src/security", "Security features", RiskLevel::Critical),
+            ("src/payment", "Payment processing", RiskLevel::Critical),
+            ("src/db", "Database operations", RiskLevel::High),
+            ("src/core", "Core business logic", RiskLevel::High),
+            ("src/handlers", "Request handlers", RiskLevel::High),
+        ];
+
+        for (dir, desc, risk) in critical_dirs {
+            let dir_path = project_path.join(dir);
+            if dir_path.exists() {
+                // Find all files in this directory with low coverage
+                let mut uncovered_files = Vec::new();
+                for (file_path, coverage) in file_coverage {
+                    if file_path.starts_with(dir.trim_start_matches("src/"))
+                        && coverage.coverage_percentage < 0.5
+                    {
+                        uncovered_files.push(file_path.clone());
+                    }
+                }
+
+                if !uncovered_files.is_empty() {
+                    paths.push(CriticalPath {
+                        description: format!(
+                            "{} ({}% files with <50% coverage)",
+                            desc,
+                            (uncovered_files.len() * 100)
+                                / file_coverage
+                                    .iter()
+                                    .filter(|(p, _)| p.starts_with(dir.trim_start_matches("src/")))
+                                    .count()
+                                    .max(1)
+                        ),
+                        files: uncovered_files,
+                        risk_level: risk,
+                    });
+                }
+            }
         }
 
-        // Authentication
-        let auth_path = project_path.join("src/auth");
-        if auth_path.exists() {
-            paths.push(CriticalPath {
-                description: "Authentication and authorization".to_string(),
-                files: vec![auth_path],
-                risk_level: RiskLevel::Critical,
-            });
-        }
+        // Also check for critical files based on naming patterns
+        let critical_patterns = vec![
+            ("auth", "Authentication-related files", RiskLevel::Critical),
+            ("security", "Security-related files", RiskLevel::Critical),
+            ("crypto", "Cryptography-related files", RiskLevel::Critical),
+            ("payment", "Payment-related files", RiskLevel::Critical),
+            ("validate", "Validation logic", RiskLevel::High),
+        ];
 
-        // Database operations
-        let db_path = project_path.join("src/db");
-        if db_path.exists() {
-            paths.push(CriticalPath {
-                description: "Database operations".to_string(),
-                files: vec![db_path],
-                risk_level: RiskLevel::High,
-            });
+        for (pattern, desc, risk) in critical_patterns {
+            let mut matching_files = Vec::new();
+            for (file_path, coverage) in file_coverage {
+                let path_str = file_path.to_string_lossy().to_lowercase();
+                if path_str.contains(pattern) && coverage.coverage_percentage < 0.5 {
+                    matching_files.push(file_path.clone());
+                }
+            }
+
+            if !matching_files.is_empty() {
+                // Don't duplicate paths already added by directory check
+                let unique_files: Vec<_> = matching_files
+                    .into_iter()
+                    .filter(|f| !paths.iter().any(|p| p.files.contains(f)))
+                    .collect();
+
+                if !unique_files.is_empty() {
+                    paths.push(CriticalPath {
+                        description: format!("{desc} with low coverage"),
+                        files: unique_files,
+                        risk_level: risk,
+                    });
+                }
+            }
         }
 
         paths
@@ -276,7 +454,9 @@ impl TestCoverageAnalyzer for TarpaulinCoverageAnalyzer {
         match self.run_tarpaulin(project_path).await {
             Ok(tarpaulin_report) => {
                 // Convert tarpaulin data to our format
-                Ok(self.convert_tarpaulin_data(&tarpaulin_report, project_path))
+                Ok(self
+                    .convert_tarpaulin_data(&tarpaulin_report, project_path)
+                    .await)
             }
             Err(e) => {
                 // Return empty coverage data when tarpaulin is not available
