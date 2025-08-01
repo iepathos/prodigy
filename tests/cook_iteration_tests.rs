@@ -250,7 +250,8 @@ commands:
     let has_start = stdout.contains("Starting improvement loop");
 
     // Check that code review was run at least once
-    let has_code_review = stdout.contains("Executing command: /mmm-code-review") || stdout.contains("Running /mmm-code-review");
+    let has_code_review = stdout.contains("Executing command: /mmm-code-review")
+        || stdout.contains("Running /mmm-code-review");
 
     // Check for the "no changes" message or review failed message
     let has_stop_msg = stdout.contains("No improvements were made")

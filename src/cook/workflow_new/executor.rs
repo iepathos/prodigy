@@ -81,13 +81,13 @@ impl WorkflowExecutor {
         ));
 
         if let Some(ref focus) = env.focus {
-            self.user_interaction.display_info(&format!(
-                "🎯 Focus: {focus}"
-            ));
+            self.user_interaction
+                .display_info(&format!("🎯 Focus: {focus}"));
         }
 
         if workflow.iterate {
-            self.user_interaction.display_progress("Starting improvement loop");
+            self.user_interaction
+                .display_progress("Starting improvement loop");
         }
 
         let mut iteration = 0;
@@ -131,7 +131,9 @@ impl WorkflowExecutor {
                     should_continue = iteration < workflow.max_iterations;
                 } else {
                     // In automated mode, check based on metrics or other criteria
-                    if let Ok(metrics) = self.metrics_coordinator.collect_all(&env.working_dir).await {
+                    if let Ok(metrics) =
+                        self.metrics_coordinator.collect_all(&env.working_dir).await
+                    {
                         // Simple heuristic: stop if no lint warnings
                         if metrics.lint_warnings == 0 {
                             self.user_interaction
@@ -140,7 +142,8 @@ impl WorkflowExecutor {
                         }
                     } else {
                         // If metrics collection fails
-                        let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
+                        let test_mode =
+                            std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
                         if test_mode {
                             // In test mode, don't prompt - just stop
                             should_continue = false;
@@ -226,10 +229,8 @@ impl WorkflowExecutor {
         }
 
         // Show command being executed
-        self.user_interaction.display_info(&format!(
-            "Executing command: {}",
-            step.command
-        ));
+        self.user_interaction
+            .display_info(&format!("Executing command: {}", step.command));
 
         // Handle focus tracking in test mode (before execution)
         if step.command == "/mmm-code-review" {
@@ -283,7 +284,9 @@ impl WorkflowExecutor {
     fn is_test_mode_no_changes_command(&self, command: &str) -> bool {
         if let Ok(no_changes_cmds) = std::env::var("MMM_TEST_NO_CHANGES_COMMANDS") {
             let command_name = command.trim_start_matches('/');
-            return no_changes_cmds.split(',').any(|cmd| cmd.trim() == command_name);
+            return no_changes_cmds
+                .split(',')
+                .any(|cmd| cmd.trim() == command_name);
         }
         false
     }

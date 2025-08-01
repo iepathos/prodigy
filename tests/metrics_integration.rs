@@ -8,7 +8,7 @@ use tempfile::TempDir;
 async fn test_metrics_collection_with_context() {
     // Set test mode to avoid running actual cargo commands
     std::env::set_var("MMM_TEST_MODE", "true");
-    
+
     let temp_dir = TempDir::new().unwrap();
 
     // Set up project structure

@@ -213,10 +213,7 @@ pub fn save_analysis(project_path: &Path, analysis: &AnalysisResult) -> Result<(
 
     if let Some(ref test_coverage) = analysis.test_coverage {
         let coverage_file = context_dir.join("test_coverage.json");
-        std::fs::write(
-            &coverage_file,
-            serde_json::to_string_pretty(test_coverage)?,
-        )?;
+        std::fs::write(&coverage_file, serde_json::to_string_pretty(test_coverage)?)?;
     }
 
     let metadata_file = context_dir.join("analysis_metadata.json");
@@ -235,17 +232,17 @@ mod tests {
     #[test]
     fn test_optional_test_coverage_field() {
         // Test that test_coverage field is correctly handled as Option<TestCoverageMap>
-        
+
         // JSON with null test_coverage should deserialize
         let json_with_null = r#"{"test_coverage": null}"#;
         let value: serde_json::Value = serde_json::from_str(json_with_null).unwrap();
         assert!(value["test_coverage"].is_null());
-        
+
         // JSON without test_coverage field should fail (field is required but can be null)
         let json_without_field = r#"{}"#;
         let result: Result<serde_json::Value, _> = serde_json::from_str(json_without_field);
         assert!(result.is_ok()); // Valid JSON
-        
+
         // Test that Option<TestCoverageMap> serializes to null when None
         let coverage: Option<TestCoverageMap> = None;
         let serialized = serde_json::to_string(&coverage).unwrap();
