@@ -72,7 +72,7 @@ impl ContextAnalyzer for ProjectAnalyzer {
             }
         }
 
-        println!("Analyzing project structure...");
+        println!("🔍 Analyzing project structure...");
 
         // Run all analyzers in parallel
         let (deps, arch, conv, debt, coverage) = tokio::try_join!(
@@ -107,7 +107,7 @@ impl ContextAnalyzer for ProjectAnalyzer {
         // Save analysis results
         save_analysis(project_path, &result)?;
 
-        println!("Analysis complete in {}ms", duration_ms);
+        println!("✅ Analysis complete in {}ms", duration_ms);
         Ok(result)
     }
 
@@ -127,7 +127,7 @@ impl ContextAnalyzer for ProjectAnalyzer {
         };
 
         println!(
-            "Updating analysis for {} changed files...",
+            "🔄 Updating analysis for {} changed files...",
             changed_files.len()
         );
 
@@ -165,7 +165,7 @@ impl ContextAnalyzer for ProjectAnalyzer {
         // Save updated analysis
         save_analysis(project_path, &result)?;
 
-        println!("Analysis updated in {}ms", result.metadata.duration_ms);
+        println!("✅ Analysis updated in {}ms", result.metadata.duration_ms);
         Ok(result)
     }
 

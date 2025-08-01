@@ -21,7 +21,6 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::process::Command;
-use tracing::{info, warn};
 use workflow::WorkflowExecutor;
 
 /// Choice made by user when prompted to merge
@@ -114,10 +113,10 @@ async fn collect_iteration_metrics(
             // Save metrics
             let storage = MetricsStorage::new(project_path);
             if let Err(e) = storage.save_current(&metrics) {
-                warn!("Failed to save current metrics: {}", e);
+                eprintln!("⚠️  Failed to save current metrics: {}", e);
             }
             if let Err(e) = storage.save_history(metrics_history) {
-                warn!("Failed to save metrics history: {}", e);
+                eprintln!("⚠️  Failed to save metrics history: {}", e);
             }
 
             // Show metrics summary if verbose
@@ -127,7 +126,7 @@ async fn collect_iteration_metrics(
             }
         }
         Err(e) => {
-            warn!("Failed to collect metrics: {}", e);
+            eprintln!("⚠️  Failed to collect metrics: {}", e);
         }
     }
     Ok(())
@@ -149,7 +148,7 @@ fn collect_mapping_inputs(cmd: &command::CookCommand) -> Result<Vec<String>> {
                     inputs.push(path.to_string_lossy().into_owned());
                 }
                 Err(e) => {
-                    warn!("Warning: Error matching pattern: {e}");
+                    eprintln!("⚠️  Error matching pattern: {e}");
                 }
             }
         }
@@ -370,7 +369,7 @@ fn create_mapping_variables(
 /// Run comprehensive analysis including context and metrics for workflows
 async fn analyze_project_comprehensive(project_path: &Path, verbose: bool) -> Result<()> {
     if verbose {
-        info!("🔍 Running comprehensive project analysis...");
+        println!("🔍 Running comprehensive project analysis...");
     }
 
     // First run context analysis
@@ -389,29 +388,29 @@ async fn analyze_project_comprehensive(project_path: &Path, verbose: bool) -> Re
     match metrics_result {
         Ok(metrics) => {
             if verbose {
-                info!("✅ Comprehensive analysis complete");
-                info!(
+                println!("✅ Comprehensive analysis complete");
+                println!(
                     "   - Dependencies: {} modules analyzed",
                     analysis_result.dependency_graph.nodes.len()
                 );
-                info!(
+                println!(
                     "   - Architecture: {} patterns detected",
                     analysis_result.architecture.patterns.len()
                 );
-                info!(
+                println!(
                     "   - Technical debt: {} items found",
                     analysis_result.technical_debt.debt_items.len()
                 );
-                info!(
+                println!(
                     "   - Test coverage: {:.1}% (accurate)",
                     metrics.test_coverage
                 );
-                info!("   - Lint warnings: {}", metrics.lint_warnings);
+                println!("   - Lint warnings: {}", metrics.lint_warnings);
 
                 if !suggestions.is_empty() {
-                    info!("\n📋 Top improvement suggestions:");
+                    println!("\n📋 Top improvement suggestions:");
                     for (i, suggestion) in suggestions.iter().take(3).enumerate() {
-                        info!("   {}. {}", i + 1, suggestion.title);
+                        println!("   {}. {}", i + 1, suggestion.title);
                     }
                 }
             }
@@ -420,15 +419,15 @@ async fn analyze_project_comprehensive(project_path: &Path, verbose: bool) -> Re
             let metrics_storage = MetricsStorage::new(project_path);
             if let Err(e) = metrics_storage.save_current(&metrics) {
                 if verbose {
-                    warn!("⚠️  Failed to save metrics: {}", e);
+                    eprintln!("⚠️  Failed to save metrics: {}", e);
                 }
             }
         }
         Err(e) => {
             if verbose {
-                warn!("⚠️  Metrics collection failed: {}", e);
-                warn!("   Using context analysis only");
-                info!(
+                eprintln!("⚠️  Metrics collection failed: {}", e);
+                eprintln!("   Using context analysis only");
+                println!(
                     "   - Test coverage: {:.1}% (estimated)",
                     analysis_result.test_coverage.overall_coverage * 100.0
                 );
@@ -571,7 +570,7 @@ async fn run_internal(mut cmd: command::CookCommand, verbose: bool) -> Result<()
         })?;
 
         if verbose {
-            info!("📁 Working in: {}", absolute_path.display());
+            println!("📁 Working in: {}", absolute_path.display());
         }
     }
 
@@ -926,7 +925,7 @@ async fn handle_merge_yes(
             handle_deletion_prompt(cmd, session, worktree_manager).await
         }
         Err(e) => {
-            warn!("❌ Failed to merge worktree: {e}");
+            eprintln!("❌ Failed to merge worktree: {e}");
             println!("\nTo merge changes manually, run:");
             println!("  mmm worktree merge {}", session.name);
             Ok(())
@@ -1007,15 +1006,15 @@ async fn setup_improvement_session(
 async fn perform_project_analysis(cmd: &command::CookCommand, project_path: &Path, verbose: bool) {
     if cmd.skip_analysis {
         if verbose {
-            info!("📋 Skipping project analysis (--skip-analysis flag)");
+            println!("📋 Skipping project analysis (--skip-analysis flag)");
         }
         return;
     }
 
     if let Err(e) = analyze_project_comprehensive(project_path, verbose).await {
         if verbose {
-            warn!("⚠️  Comprehensive analysis failed: {e}");
-            warn!("   Continuing without deep context understanding");
+            eprintln!("⚠️  Comprehensive analysis failed: {e}");
+            eprintln!("   Continuing without deep context understanding");
         }
     }
 }
@@ -1024,7 +1023,7 @@ async fn perform_project_analysis(cmd: &command::CookCommand, project_path: &Pat
 fn display_focus(cmd: &command::CookCommand, verbose: bool) {
     if verbose {
         if let Some(focus) = &cmd.focus {
-            info!("📊 Focus: {focus}");
+            println!("📊 Focus: {focus}");
         }
     }
 }
@@ -1156,7 +1155,7 @@ async fn run_improvement_loop(
     // Load playbook
     let workflow_config = load_playbook(&cmd.playbook).await?;
     if verbose {
-        info!("📖 Loaded playbook: {}", cmd.playbook.display());
+        println!("📖 Loaded playbook: {}", cmd.playbook.display());
     }
 
     let max_iterations = cmd.max_iterations;
@@ -1194,8 +1193,8 @@ async fn run_improvement_loop(
         if !cmd.skip_analysis {
             if let Err(e) = analyze_project_comprehensive(&_project_path, verbose).await {
                 if verbose {
-                    warn!("⚠️  Inter-iteration analysis failed: {e}");
-                    warn!("   Continuing with stale context");
+                    eprintln!("⚠️  Inter-iteration analysis failed: {e}");
+                    eprintln!("   Continuing with stale context");
                 }
             }
         }
@@ -1254,12 +1253,12 @@ async fn setup_improvement_environment(
     if !cmd.skip_analysis {
         if let Err(e) = analyze_project_comprehensive(&project_path, verbose).await {
             if verbose {
-                warn!("⚠️  Comprehensive analysis failed: {e}");
-                warn!("   Continuing without deep context understanding");
+                eprintln!("⚠️  Comprehensive analysis failed: {e}");
+                eprintln!("   Continuing without deep context understanding");
             }
         }
     } else if verbose {
-        info!("📋 Skipping project analysis (--skip-analysis flag)");
+        println!("📋 Skipping project analysis (--skip-analysis flag)");
     }
 
     // Setup state
@@ -1323,8 +1322,8 @@ async fn run_improvement_iterations(
         if !cmd.skip_analysis {
             if let Err(e) = analyze_project_comprehensive(project_path, verbose).await {
                 if verbose {
-                    warn!("⚠️  Inter-iteration analysis failed: {e}");
-                    warn!("   Continuing with stale context");
+                    eprintln!("⚠️  Inter-iteration analysis failed: {e}");
+                    eprintln!("   Continuing with stale context");
                 }
             }
         }
@@ -1393,7 +1392,7 @@ fn display_metrics_summary(
         let storage = MetricsStorage::new(project_path);
         let report = storage.generate_report(latest_metrics);
         if let Err(e) = storage.save_report(&report, &latest_metrics.iteration_id) {
-            warn!("Failed to save final metrics report: {}", e);
+            eprintln!("⚠️  Failed to save final metrics report: {}", e);
         }
     }
     Ok(())
@@ -1545,17 +1544,17 @@ async fn run_improvement_loop_with_variables(
     if !cmd.skip_analysis {
         if let Err(e) = analyze_project_comprehensive(&project_path, verbose).await {
             if verbose {
-                warn!("⚠️  Comprehensive analysis failed: {e}");
-                warn!("   Continuing without deep context understanding");
+                eprintln!("⚠️  Comprehensive analysis failed: {e}");
+                eprintln!("   Continuing without deep context understanding");
             }
         }
     } else if verbose {
-        info!("📋 Skipping project analysis (--skip-analysis flag)");
+        println!("📋 Skipping project analysis (--skip-analysis flag)");
     }
 
     if verbose {
         if let Some(focus) = &cmd.focus {
-            info!("📊 Focus: {focus}");
+            println!("📊 Focus: {focus}");
         }
     }
 
@@ -1570,7 +1569,7 @@ async fn run_improvement_loop_with_variables(
     // Load playbook
     let workflow_config = load_playbook(&cmd.playbook).await?;
     if verbose {
-        info!("📖 Loaded playbook: {}", cmd.playbook.display());
+        println!("📖 Loaded playbook: {}", cmd.playbook.display());
     }
 
     let max_iterations = cmd.max_iterations;
@@ -1601,8 +1600,8 @@ async fn run_improvement_loop_with_variables(
         if !cmd.skip_analysis {
             if let Err(e) = analyze_project_comprehensive(&project_path, verbose).await {
                 if verbose {
-                    warn!("⚠️  Inter-iteration analysis failed: {e}");
-                    warn!("   Continuing with stale context");
+                    eprintln!("⚠️  Inter-iteration analysis failed: {e}");
+                    eprintln!("   Continuing with stale context");
                 }
             }
         }

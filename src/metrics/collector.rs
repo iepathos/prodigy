@@ -4,7 +4,6 @@ use super::{ComplexityCalculator, ImprovementMetrics, PerformanceProfiler, Quali
 use anyhow::Result;
 use std::path::Path;
 use tokio::task;
-use tracing::{debug, info};
 
 /// Orchestrates metrics collection across all analyzers
 pub struct MetricsCollector {
@@ -29,7 +28,7 @@ impl MetricsCollector {
         project_path: &Path,
         iteration_id: String,
     ) -> Result<ImprovementMetrics> {
-        info!("📊 Collecting project metrics...");
+        println!("📊 Collecting project metrics...");
 
         let mut metrics = ImprovementMetrics::new(iteration_id);
 
@@ -55,7 +54,7 @@ impl MetricsCollector {
 
         // Process quality metrics
         if let Ok(Ok(quality)) = quality_result {
-            debug!("Quality metrics collected");
+            // Quality metrics collected
             metrics.test_coverage = quality.test_coverage;
             metrics.type_coverage = quality.type_coverage;
             metrics.lint_warnings = quality.lint_warnings;
@@ -65,7 +64,7 @@ impl MetricsCollector {
 
         // Process performance metrics
         if let Ok(Ok(performance)) = perf_result {
-            debug!("Performance metrics collected");
+            // Performance metrics collected
             metrics.compile_time = performance.compile_time;
             metrics.binary_size = performance.binary_size;
             metrics.benchmark_results = performance.benchmark_results;
@@ -74,7 +73,7 @@ impl MetricsCollector {
 
         // Process complexity metrics
         if let Ok(Ok(complexity)) = complex_result {
-            debug!("Complexity metrics collected");
+            // Complexity metrics collected
             metrics.cyclomatic_complexity = complexity.cyclomatic_complexity;
             metrics.cognitive_complexity = complexity.cognitive_complexity;
             metrics.max_nesting_depth = complexity.max_nesting_depth;
@@ -85,7 +84,7 @@ impl MetricsCollector {
         metrics.tech_debt_score = self.calculate_tech_debt_score(&metrics);
         metrics.improvement_velocity = self.calculate_velocity(&metrics);
 
-        info!(
+        println!(
             "✅ Metrics collection complete. Overall score: {:.1}",
             metrics.overall_score()
         );

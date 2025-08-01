@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::process::Command;
 use std::time::{Duration, Instant};
-use tracing::{debug, warn};
+use tracing::debug;
 
 /// Performance metrics data
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,7 +74,7 @@ impl PerformanceProfiler {
         let duration = start.elapsed();
 
         if !output.status.success() {
-            warn!("Build failed, using cached time if available");
+            eprintln!("⚠️  Build failed, using cached time if available");
             // Return a default duration if build fails
             return Ok(Duration::from_secs(60));
         }
@@ -159,7 +159,7 @@ impl PerformanceProfiler {
                 // Continue processing
             }
             _ => {
-                warn!("Benchmarks not available or failed to compile");
+                eprintln!("⚠️  Benchmarks not available or failed to compile");
                 return Ok(results);
             }
         }
