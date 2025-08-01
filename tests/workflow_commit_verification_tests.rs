@@ -69,7 +69,10 @@ commands:
 
     // Add some test files
     fs::write(temp_dir.join("src/main.rs"), "fn main() {}")?;
-    fs::write(temp_dir.join("Cargo.toml"), "[package]\nname = \"test\"\nversion = \"0.1.0\"")?;
+    fs::write(
+        temp_dir.join("Cargo.toml"),
+        "[package]\nname = \"test\"\nversion = \"0.1.0\"",
+    )?;
 
     // Initial commit
     Command::new("git")
@@ -128,8 +131,13 @@ fn test_workflow_succeeds_with_commit_required_false() -> Result<()> {
     // Should succeed even without commits
     cmd.assert()
         .success()
-        .stdout(predicate::str::contains("made no changes").or(predicate::str::contains("0 files changed")))
-        .stdout(predicate::str::contains("Cook session completed successfully"));
+        .stdout(
+            predicate::str::contains("made no changes")
+                .or(predicate::str::contains("0 files changed")),
+        )
+        .stdout(predicate::str::contains(
+            "Cook session completed successfully",
+        ));
 
     // No cleanup needed - env vars were only set on subprocess
 
@@ -157,7 +165,6 @@ commands:
         "# mmm-lint\nLinting command",
     )?;
 
-
     // Run workflow
     let mut cmd = Command::cargo_bin("mmm")?;
     cmd.current_dir(temp_dir.path())
@@ -166,9 +173,9 @@ commands:
         .env("MMM_TEST_NO_CHANGES_COMMANDS", "mmm-lint");
 
     // Should succeed without commits because commit_required=false
-    cmd.assert()
-        .success()
-        .stdout(predicate::str::contains("made no changes").or(predicate::str::contains("0 files changed")));
+    cmd.assert().success().stdout(
+        predicate::str::contains("made no changes").or(predicate::str::contains("0 files changed")),
+    );
 
     // No cleanup needed - env vars were only set on subprocess
 
@@ -195,7 +202,9 @@ commands:
 
     // Create mock commands
     fs::write(
-        temp_dir.path().join(".claude/commands/mmm-implement-spec.md"),
+        temp_dir
+            .path()
+            .join(".claude/commands/mmm-implement-spec.md"),
         "# mmm-implement-spec\nImplement specification command",
     )?;
     fs::write(
@@ -209,18 +218,20 @@ commands:
         "# Spec 63: Test Specification\nThis is a test spec.",
     )?;
 
-
     // Run workflow with spec that won't create commits
     let mut cmd = Command::cargo_bin("mmm")?;
     cmd.current_dir(temp_dir.path())
         .args(["cook", "implement.yml", "-n", "1", "--args", "63"])
         .env("MMM_TEST_MODE", "true")
-        .env("MMM_TEST_NO_CHANGES_COMMANDS", "mmm-implement-spec,mmm-lint");
+        .env(
+            "MMM_TEST_NO_CHANGES_COMMANDS",
+            "mmm-implement-spec,mmm-lint",
+        );
 
     // Should fail because mmm-implement-spec requires commits but won't create any
-    cmd.assert()
-        .failure()
-        .stderr(predicate::str::contains("No changes were committed by /mmm-implement-spec"));
+    cmd.assert().failure().stderr(predicate::str::contains(
+        "No changes were committed by /mmm-implement-spec",
+    ));
 
     // No cleanup needed - env vars were only set on subprocess
 
@@ -240,7 +251,6 @@ fn test_skip_commit_validation_flag() -> Result<()> {
 "#,
     )?;
 
-
     // Run workflow with validation disabled
     let mut cmd = Command::cargo_bin("mmm")?;
     cmd.current_dir(temp_dir.path())
@@ -250,9 +260,9 @@ fn test_skip_commit_validation_flag() -> Result<()> {
         .env("MMM_NO_COMMIT_VALIDATION", "true");
 
     // Should succeed even without commits because validation is disabled
-    cmd.assert()
-        .success()
-        .stdout(predicate::str::contains("Cook session completed successfully"));
+    cmd.assert().success().stdout(predicate::str::contains(
+        "Cook session completed successfully",
+    ));
 
     // No cleanup needed - env vars were only set on subprocess
 

@@ -242,7 +242,10 @@ commands:
     let stderr = String::from_utf8_lossy(&output.stderr);
 
     // With commit verification, the command should fail when no commits are created
-    assert!(!output.status.success(), "Command should fail when no commits are created");
+    assert!(
+        !output.status.success(),
+        "Command should fail when no commits are created"
+    );
 
     // Print stdout and stderr for debugging
     println!("STDOUT:\n{stdout}");
@@ -350,25 +353,25 @@ commands:
     // In the current implementation, focus is only set as an env var for the
     // first step of the first iteration. The tracking file may not be created
     // if the test mode doesn't write it.
-    
+
     // Check if focus was displayed in the output
     assert!(
         stdout.contains("Focus: security"),
         "Focus should be displayed in output"
     );
-    
+
     // If the tracking file exists, verify its contents
     if focus_tracker.exists() {
         let focus_log = fs::read_to_string(&focus_tracker)?;
         println!("Focus tracking file contents:\n{focus_log}");
-        
+
         let focus_entries: Vec<&str> = focus_log.lines().collect();
         assert!(
             focus_entries.len() >= 1,
             "Focus should be tracked at least once, found: {}",
             focus_entries.len()
         );
-        
+
         assert!(
             focus_entries[0].contains("security"),
             "First execution should have focus 'security', got: {}",

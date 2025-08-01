@@ -97,7 +97,7 @@ impl WorkflowExecutor {
         }
 
         let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
-        let skip_validation = 
+        let skip_validation =
             std::env::var("MMM_NO_COMMIT_VALIDATION").unwrap_or_default() == "true";
 
         if workflow.iterate {
@@ -138,7 +138,8 @@ impl WorkflowExecutor {
                 };
 
                 // Execute the step
-                let step_result = self.execute_step(step, env, iteration == 1 && step_index == 0, &env.focus)
+                let step_result = self
+                    .execute_step(step, env, iteration == 1 && step_index == 0, &env.focus)
                     .await
                     .context(format!("Failed to execute step: {}", step.name))?;
 
@@ -274,7 +275,7 @@ impl WorkflowExecutor {
     /// Handle test mode execution
     fn handle_test_mode_execution(&self, step: &WorkflowStep) -> Result<bool> {
         println!("[TEST MODE] Would execute Claude command: {}", step.command);
-        
+
         // Check if we should simulate no changes
         if self.is_test_mode_no_changes_command(&step.command) {
             println!("[TEST MODE] Simulating no changes for: {}", step.command);
@@ -304,7 +305,7 @@ impl WorkflowExecutor {
     /// Handle the case where no commits were created when expected
     fn handle_no_commits_error(&self, step: &WorkflowStep) -> Result<()> {
         let command_name = step.command.trim_start_matches('/');
-        
+
         eprintln!(
             "\n❌ Workflow stopped: No changes were committed by {}",
             step.command
@@ -312,10 +313,7 @@ impl WorkflowExecutor {
         eprintln!("\nThe command executed successfully but did not create any git commits.");
 
         // Check if this is a command that might legitimately not create commits
-        if matches!(
-            command_name,
-            "mmm-lint" | "mmm-code-review" | "mmm-analyze"
-        ) {
+        if matches!(command_name, "mmm-lint" | "mmm-code-review" | "mmm-analyze") {
             eprintln!(
                 "This may be expected if there were no {} to fix.",
                 if command_name == "mmm-lint" {

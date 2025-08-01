@@ -4,4 +4,4 @@
 
 mod executor;
 
-pub use executor::{WorkflowExecutor, WorkflowStep, ExtendedWorkflowConfig};
+pub use executor::{ExtendedWorkflowConfig, WorkflowExecutor, WorkflowStep};
