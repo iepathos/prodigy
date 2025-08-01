@@ -75,6 +75,7 @@ Performance improvements and system efficiency.
 - **Spec 58**: Session State Management Refactor - Isolated session state tracking (draft)
 - **Spec 60**: Metrics Collection Isolation - Pluggable metrics system (draft)
 - **Spec 62**: Remove Duplicate AnalysisResult - Eliminate duplicate struct definition (draft)
+- **Spec 63**: Optimize Context File Sizes - Reduce context from 17MB to under 1MB (draft)
 
 ## Implementation Status
 
@@ -99,7 +100,7 @@ Performance improvements and system efficiency.
 - Spec 29: Centralized Worktree State
 - Spec 55: Fix Test Coverage Analysis
 
-### 📝 Draft (23 specs)
+### 📝 Draft (24 specs)
 - Spec 30: Interrupted Worktree Recovery
 - Spec 31: Product Management Command
 - Spec 32: CLI Help as Default
@@ -123,6 +124,7 @@ Performance improvements and system efficiency.
 - Spec 60: Metrics Collection Isolation
 - Spec 61: Fix Ignored Tests with Proper Mocking
 - Spec 62: Remove Duplicate AnalysisResult
+- Spec 63: Optimize Context File Sizes
 
 ### 🚧 In Progress (0 specs)
 None currently in progress.
@@ -198,6 +200,7 @@ Optimization Layer:
 ## Quick Reference
 
 ### Latest Specifications
+- Spec 63: Optimize Context File Sizes (draft) - Reduce context from 17MB to under 1MB
 - Spec 62: Remove Duplicate AnalysisResult (draft) - Eliminate duplicate struct definition
 - Spec 61: Fix Ignored Tests with Proper Mocking (draft) - Enable hanging tests with subprocess mocking
 - Spec 60: Metrics Collection Isolation (draft) - Pluggable metrics system
@@ -213,6 +216,7 @@ Optimization Layer:
 - Spec 49: Fix Test Coverage Analysis (draft) - Accurate coverage reporting
 
 ### High Priority Specifications
+- Spec 63: Optimize Context File Sizes - Critical for Claude context efficiency
 - Spec 62: Remove Duplicate AnalysisResult - Fixes architectural issue and prevents bugs
 - Spec 61: Fix Ignored Tests with Proper Mocking - Critical for CI/CD reliability and test coverage
 - Spec 56a: Fix Orchestrator Compilation Issues - Blocker for Spec 56 integration
