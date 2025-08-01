@@ -1,10 +1,10 @@
 //! Command runner implementation
 
 use super::{CommandExecutor, ExecutionContext, ExecutionResult};
+use crate::abstractions::exit_status::ExitStatusExt;
+use crate::subprocess::{ProcessCommandBuilder, SubprocessManager};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use std::process::Stdio;
-use tokio::process::Command;
 
 /// Trait for running system commands
 #[async_trait]
@@ -22,12 +22,22 @@ pub trait CommandRunner: Send + Sync {
 }
 
 /// Real implementation of command runner
-pub struct RealCommandRunner;
+pub struct RealCommandRunner {
+    subprocess: SubprocessManager,
+}
 
 impl RealCommandRunner {
     /// Create a new command runner
     pub fn new() -> Self {
-        Self
+        Self {
+            subprocess: SubprocessManager::production(),
+        }
+    }
+
+    /// Create a new instance with custom subprocess manager (for testing)
+    #[cfg(test)]
+    pub fn with_subprocess(subprocess: SubprocessManager) -> Self {
+        Self { subprocess }
     }
 }
 
@@ -40,11 +50,20 @@ impl Default for RealCommandRunner {
 #[async_trait]
 impl CommandRunner for RealCommandRunner {
     async fn run_command(&self, cmd: &str, args: &[String]) -> Result<std::process::Output> {
-        Command::new(cmd)
-            .args(args)
-            .output()
+        let command = ProcessCommandBuilder::new(cmd).args(args).build();
+
+        let output = self
+            .subprocess
+            .runner()
+            .run(command)
             .await
-            .context(format!("Failed to execute command: {}", cmd))
+            .context(format!("Failed to execute command: {}", cmd))?;
+
+        Ok(std::process::Output {
+            status: std::process::ExitStatus::from_raw(output.status.code().unwrap_or(1)),
+            stdout: output.stdout.into_bytes(),
+            stderr: output.stderr.into_bytes(),
+        })
     }
 
     async fn run_with_context(
@@ -53,34 +72,31 @@ impl CommandRunner for RealCommandRunner {
         args: &[String],
         context: &ExecutionContext,
     ) -> Result<ExecutionResult> {
-        let mut command = Command::new(cmd);
-        command.args(args);
-        command.current_dir(&context.working_directory);
+        let mut builder = ProcessCommandBuilder::new(cmd)
+            .args(args)
+            .current_dir(&context.working_directory);
 
         // Set environment variables
         for (key, value) in &context.env_vars {
-            command.env(key, value);
+            builder = builder.env(key, value);
         }
 
-        // Configure output capture
-        if context.capture_output {
-            command.stdout(Stdio::piped());
-            command.stderr(Stdio::piped());
+        // Set timeout if specified
+        if let Some(timeout) = context.timeout_seconds {
+            builder = builder.timeout(std::time::Duration::from_secs(timeout));
         }
 
-        // Execute with timeout if specified
-        let output = if let Some(timeout) = context.timeout_seconds {
-            tokio::time::timeout(std::time::Duration::from_secs(timeout), command.output())
-                .await
-                .context("Command timed out")??
-        } else {
-            command.output().await?
-        };
+        let output = self
+            .subprocess
+            .runner()
+            .run(builder.build())
+            .await
+            .context(format!("Failed to execute command: {}", cmd))?;
 
         Ok(ExecutionResult {
             success: output.status.success(),
-            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+            stdout: output.stdout,
+            stderr: output.stderr,
             exit_code: output.status.code(),
         })
     }

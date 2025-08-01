@@ -3,6 +3,7 @@
 //! Provides trait-based abstraction for git commands to enable
 //! testing without actual git repository access.
 
+use crate::subprocess::{ProcessCommandBuilder, SubprocessManager};
 use anyhow::Result;
 use async_trait::async_trait;
 use std::path::Path;
@@ -44,6 +45,8 @@ pub trait GitOperations: Send + Sync {
 pub struct RealGitOperations {
     /// Mutex for thread-safe git operations
     git_mutex: Arc<Mutex<()>>,
+    /// Subprocess manager for executing git commands
+    subprocess: SubprocessManager,
 }
 
 impl RealGitOperations {
@@ -52,6 +55,16 @@ impl RealGitOperations {
     pub fn new() -> Self {
         Self {
             git_mutex: Arc::new(Mutex::new(())),
+            subprocess: SubprocessManager::production(),
+        }
+    }
+
+    /// Create a new instance with custom subprocess manager (for testing)
+    #[cfg(test)]
+    pub fn with_subprocess(subprocess: SubprocessManager) -> Self {
+        Self {
+            git_mutex: Arc::new(Mutex::new(())),
+            subprocess,
         }
     }
 }
@@ -68,14 +81,17 @@ impl GitOperations for RealGitOperations {
         // Acquire the mutex to ensure exclusive access
         let _guard = self.git_mutex.lock().await;
 
-        let output = tokio::process::Command::new("git")
-            .args(args)
-            .output()
+        let command = ProcessCommandBuilder::new("git").args(args).build();
+
+        let output = self
+            .subprocess
+            .runner()
+            .run(command)
             .await
             .map_err(|e| anyhow::anyhow!("Failed to execute git {}: {}", description, e))?;
 
         if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
+            let stderr = &output.stderr;
             return Err(anyhow::anyhow!(
                 "Git {} failed: {}",
                 description,
@@ -83,7 +99,11 @@ impl GitOperations for RealGitOperations {
             ));
         }
 
-        Ok(output)
+        Ok(std::process::Output {
+            status: std::process::ExitStatus::from_raw(output.status.code().unwrap_or(0)),
+            stdout: output.stdout.into_bytes(),
+            stderr: output.stderr.into_bytes(),
+        })
     }
 
     async fn get_last_commit_message(&self) -> Result<String> {
@@ -112,9 +132,13 @@ impl GitOperations for RealGitOperations {
     }
 
     async fn is_git_repo(&self) -> bool {
-        tokio::process::Command::new("git")
-            .args(["rev-parse", "--git-dir"])
-            .output()
+        let command = ProcessCommandBuilder::new("git")
+            .args(&["rev-parse", "--git-dir"])
+            .build();
+
+        self.subprocess
+            .runner()
+            .run(command)
             .await
             .map(|output| output.status.success())
             .unwrap_or(false)

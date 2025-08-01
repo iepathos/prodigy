@@ -18,6 +18,7 @@
 //! - `init` - Initialize MMM commands in projects
 //! - `metrics` - Real metrics tracking for code improvements
 //! - `simple_state` - Minimal state management with JSON persistence
+//! - `subprocess` - Unified subprocess abstraction layer for testing
 //! - `worktree` - Git worktree management for parallel sessions
 //! - `testing` - Testing utilities and fixtures for comprehensive testing
 pub mod abstractions;
@@ -28,6 +29,7 @@ pub mod cook;
 pub mod init;
 pub mod metrics;
 pub mod simple_state;
+pub mod subprocess;
 pub mod worktree;
 
 #[cfg(test)]

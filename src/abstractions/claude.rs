@@ -3,6 +3,8 @@
 //! Provides trait-based abstraction for Claude CLI commands to enable
 //! testing without actual Claude CLI installation.
 
+use crate::abstractions::exit_status::ExitStatusExt;
+use crate::subprocess::{ProcessCommandBuilder, SubprocessManager, ClaudeRunner as SubprocessClaudeRunner};
 use anyhow::Result;
 use async_trait::async_trait;
 use std::collections::HashMap;
@@ -36,13 +38,23 @@ pub trait ClaudeClient: Send + Sync {
 }
 
 /// Real implementation of `ClaudeClient`
-pub struct RealClaudeClient;
+pub struct RealClaudeClient {
+    subprocess: SubprocessManager,
+}
 
 impl RealClaudeClient {
     /// Create a new `RealClaudeClient` instance
     #[must_use]
     pub fn new() -> Self {
-        Self
+        Self {
+            subprocess: SubprocessManager::production(),
+        }
+    }
+
+    /// Create a new instance with custom subprocess manager (for testing)
+    #[cfg(test)]
+    pub fn with_subprocess(subprocess: SubprocessManager) -> Self {
+        Self { subprocess }
     }
 
     /// Check if an error message indicates a transient failure
@@ -99,23 +111,25 @@ impl ClaudeClient for RealClaudeClient {
                 sleep(delay).await;
             }
 
-            let mut cmd = tokio::process::Command::new("claude");
-            cmd.args(args);
+            let mut builder = ProcessCommandBuilder::new("claude");
+            for arg in args {
+                builder = builder.arg(arg);
+            }
 
             // Set environment variables if provided
             if let Some(ref vars) = env_vars {
                 for (key, value) in vars {
-                    cmd.env(key, value);
+                    builder = builder.env(key, value);
                 }
             }
 
-            match cmd.output().await {
+            match self.subprocess.runner().run(builder.build()).await {
                 Ok(output) => {
                     if !output.status.success() {
-                        let stderr = String::from_utf8_lossy(&output.stderr);
+                        let stderr = &output.stderr;
 
                         // Retry on transient errors
-                        if Self::is_transient_error(&stderr) && attempt < max_retries {
+                        if Self::is_transient_error(stderr) && attempt < max_retries {
                             if verbose {
                                 eprintln!(
                                     "⚠️  Transient error detected: {}",
@@ -128,10 +142,17 @@ impl ClaudeClient for RealClaudeClient {
                         }
                     }
 
-                    return Ok(output);
+                    // Convert to std::process::Output
+                    return Ok(std::process::Output {
+                        status: std::process::ExitStatus::from_raw(
+                            output.status.code().unwrap_or(1),
+                        ),
+                        stdout: output.stdout.into_bytes(),
+                        stderr: output.stderr.into_bytes(),
+                    });
                 }
                 Err(e) => {
-                    if e.kind() == std::io::ErrorKind::NotFound {
+                    if matches!(&e, crate::subprocess::ProcessError::CommandNotFound(_)) {
                         return Err(anyhow::anyhow!("Claude CLI not found: {}", e));
                     }
 
@@ -158,23 +179,17 @@ impl ClaudeClient for RealClaudeClient {
     }
 
     async fn check_availability(&self) -> Result<()> {
-        let output = tokio::process::Command::new("which")
-            .arg("claude")
-            .output()
+        let output = self
+            .subprocess
+            .runner()
+            .run(ProcessCommandBuilder::new("which").arg("claude").build())
             .await?;
 
         if !output.status.success() || output.stdout.is_empty() {
             // Try 'claude --version' as a fallback
-            let version_check = tokio::process::Command::new("claude")
-                .arg("--version")
-                .output()
-                .await;
+            let version_check = self.subprocess.claude().check_availability().await?;
 
-            if !version_check
-                .as_ref()
-                .map(|o| o.status.success())
-                .unwrap_or(false)
-            {
+            if !version_check {
                 return Err(anyhow::anyhow!(
                     "Claude CLI not found. Please install Claude CLI:\n\
                      \n\
@@ -295,7 +310,6 @@ pub struct MockClaudeClient {
     pub called_commands: CalledCommands,
 }
 
-use crate::abstractions::exit_status::ExitStatusExt;
 
 impl MockClaudeClient {
     /// Create a new `MockClaudeClient` instance
