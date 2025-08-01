@@ -408,6 +408,7 @@ impl MetricsCollector for CompositeMetricsCollector {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::metrics::Tags;
     use tempfile::TempDir;
 
     #[tokio::test]
