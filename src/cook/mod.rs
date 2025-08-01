@@ -113,10 +113,10 @@ async fn collect_iteration_metrics(
             // Save metrics
             let storage = MetricsStorage::new(project_path);
             if let Err(e) = storage.save_current(&metrics) {
-                eprintln!("⚠️  Failed to save current metrics: {}", e);
+                eprintln!("⚠️  Failed to save current metrics: {e}");
             }
             if let Err(e) = storage.save_history(metrics_history) {
-                eprintln!("⚠️  Failed to save metrics history: {}", e);
+                eprintln!("⚠️  Failed to save metrics history: {e}");
             }
 
             // Show metrics summary if verbose
@@ -126,7 +126,7 @@ async fn collect_iteration_metrics(
             }
         }
         Err(e) => {
-            eprintln!("⚠️  Failed to collect metrics: {}", e);
+            eprintln!("⚠️  Failed to collect metrics: {e}");
         }
     }
     Ok(())
@@ -419,13 +419,13 @@ async fn analyze_project_comprehensive(project_path: &Path, verbose: bool) -> Re
             let metrics_storage = MetricsStorage::new(project_path);
             if let Err(e) = metrics_storage.save_current(&metrics) {
                 if verbose {
-                    eprintln!("⚠️  Failed to save metrics: {}", e);
+                    eprintln!("⚠️  Failed to save metrics: {e}");
                 }
             }
         }
         Err(e) => {
             if verbose {
-                eprintln!("⚠️  Metrics collection failed: {}", e);
+                eprintln!("⚠️  Metrics collection failed: {e}");
                 eprintln!("   Using context analysis only");
                 println!(
                     "   - Test coverage: {:.1}% (estimated)",
@@ -1392,7 +1392,7 @@ fn display_metrics_summary(
         let storage = MetricsStorage::new(project_path);
         let report = storage.generate_report(latest_metrics);
         if let Err(e) = storage.save_report(&report, &latest_metrics.iteration_id) {
-            eprintln!("⚠️  Failed to save final metrics report: {}", e);
+            eprintln!("⚠️  Failed to save final metrics report: {e}");
         }
     }
     Ok(())
