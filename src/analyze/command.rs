@@ -226,30 +226,33 @@ fn display_pretty_analysis(
 
     // Test Coverage
     println!("\n🧪 Test Coverage:");
-    if analysis.test_coverage.file_coverage.is_empty()
-        && analysis.test_coverage.overall_coverage == 0.0
-    {
+    if let Some(ref test_coverage) = analysis.test_coverage {
+        if test_coverage.file_coverage.is_empty() && test_coverage.overall_coverage == 0.0 {
+            println!("   ⚠️  No coverage data available");
+            println!("   Install cargo-tarpaulin for coverage metrics:");
+            println!("   cargo install cargo-tarpaulin");
+        } else {
+            let tested_files = test_coverage
+                .file_coverage
+                .iter()
+                .filter(|(_, cov)| cov.coverage_percentage > 0.0)
+                .count();
+            let untested_files = test_coverage.file_coverage.len() - tested_files;
+            println!("   Files with tests: {tested_files}");
+            println!("   Files without tests: {untested_files}");
+            println!(
+                "   Untested functions: {}",
+                test_coverage.untested_functions.len()
+            );
+            println!(
+                "   Overall coverage: {:.1}%",
+                test_coverage.overall_coverage * 100.0
+            );
+        }
+    } else {
         println!("   ⚠️  No coverage data available");
         println!("   Install cargo-tarpaulin for coverage metrics:");
         println!("   cargo install cargo-tarpaulin");
-    } else {
-        let tested_files = analysis
-            .test_coverage
-            .file_coverage
-            .iter()
-            .filter(|(_, cov)| cov.coverage_percentage > 0.0)
-            .count();
-        let untested_files = analysis.test_coverage.file_coverage.len() - tested_files;
-        println!("   Files with tests: {tested_files}");
-        println!("   Files without tests: {untested_files}");
-        println!(
-            "   Untested functions: {}",
-            analysis.test_coverage.untested_functions.len()
-        );
-        println!(
-            "   Overall coverage: {:.1}%",
-            analysis.test_coverage.overall_coverage * 100.0
-        );
     }
 
     // Suggestions
@@ -294,15 +297,17 @@ fn display_summary_analysis(
         "   - {} technical debt items found",
         analysis.technical_debt.debt_items.len()
     );
-    if analysis.test_coverage.file_coverage.is_empty()
-        && analysis.test_coverage.overall_coverage == 0.0
-    {
-        println!("   - No test coverage data available");
+    if let Some(ref test_coverage) = analysis.test_coverage {
+        if test_coverage.file_coverage.is_empty() && test_coverage.overall_coverage == 0.0 {
+            println!("   - No test coverage data available");
+        } else {
+            println!(
+                "   - {:.1}% test coverage",
+                test_coverage.overall_coverage * 100.0
+            );
+        }
     } else {
-        println!(
-            "   - {:.1}% test coverage",
-            analysis.test_coverage.overall_coverage * 100.0
-        );
+        println!("   - No test coverage data available");
     }
 
     if !suggestions.is_empty() {

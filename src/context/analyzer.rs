@@ -102,7 +102,7 @@ impl ContextAnalyzer for ProjectAnalyzer {
             architecture: arch,
             conventions: conv,
             technical_debt: debt,
-            test_coverage: coverage,
+            test_coverage: Some(coverage),
             metadata: AnalysisMetadata {
                 timestamp: chrono::Utc::now(),
                 duration_ms,
@@ -160,10 +160,13 @@ impl ContextAnalyzer for ProjectAnalyzer {
             .update_debt_map(project_path, &result.technical_debt, changed_files)
             .await?;
 
-        result.test_coverage = self
-            .coverage_analyzer
-            .update_coverage(project_path, &result.test_coverage, changed_files)
-            .await?;
+        if let Some(ref test_coverage) = result.test_coverage {
+            result.test_coverage = Some(
+                self.coverage_analyzer
+                    .update_coverage(project_path, test_coverage, changed_files)
+                    .await?,
+            );
+        }
 
         // Update metadata
         result.metadata.timestamp = chrono::Utc::now();
@@ -184,7 +187,11 @@ impl ContextAnalyzer for ProjectAnalyzer {
         let module_deps = result.dependency_graph.get_file_dependencies(file);
         let conventions = result.conventions.get_file_conventions(file);
         let debt_items = result.technical_debt.get_file_debt(file);
-        let coverage = result.test_coverage.get_file_coverage(file);
+        let coverage = result
+            .test_coverage
+            .as_ref()
+            .map(|tc| tc.get_file_coverage(file))
+            .unwrap_or(0.0);
         let complexity = result.technical_debt.get_file_complexity(file);
 
         Some(FileContext {
@@ -210,7 +217,9 @@ impl ContextAnalyzer for ProjectAnalyzer {
             suggestions.extend(suggest_from_architecture(&result.architecture));
             suggestions.extend(suggest_from_conventions(&result.conventions));
             suggestions.extend(suggest_from_debt(&result.technical_debt));
-            suggestions.extend(suggest_from_coverage(&result.test_coverage));
+            if let Some(ref test_coverage) = result.test_coverage {
+                suggestions.extend(suggest_from_coverage(test_coverage));
+            }
 
             // Sort by priority
             suggestions.sort_by(|a, b| b.priority.cmp(&a.priority));
