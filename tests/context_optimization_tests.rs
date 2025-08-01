@@ -3,9 +3,9 @@
 use anyhow::Result;
 use mmm::context::{
     debt::{DebtItem, DebtType},
+    hybrid_coverage::{BasicHybridCoverageAnalyzer, CoverageGap, HybridCoverageAnalyzer},
     size_manager::ContextSizeManager,
-    hybrid_coverage::{BasicHybridCoverageAnalyzer, HybridCoverageAnalyzer, CoverageGap},
-    test_coverage::{TestCoverageMap, FileCoverage},
+    test_coverage::{FileCoverage, TestCoverageMap},
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -22,45 +22,45 @@ async fn test_context_size_manager() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let context_dir = temp_dir.path().join(".mmm").join("context");
     std::fs::create_dir_all(&context_dir)?;
-    
+
     // Create test files with different sizes
-    std::fs::write(
-        context_dir.join("small.json"),
-        r#"{"data": "small"}"#,
-    )?;
-    
+    std::fs::write(context_dir.join("small.json"), r#"{"data": "small"}"#)?;
+
     let large_content = format!(r#"{{"data": "{}"}}"#, "x".repeat(400_000));
-    std::fs::write(
-        context_dir.join("large.json"),
-        &large_content,
-    )?;
-    
+    std::fs::write(context_dir.join("large.json"), &large_content)?;
+
     let huge_content = format!(r#"{{"data": "{}"}}"#, "x".repeat(600_000));
-    std::fs::write(
-        context_dir.join("huge.json"),
-        &huge_content,
-    )?;
-    
+    std::fs::write(context_dir.join("huge.json"), &huge_content)?;
+
     // Analyze sizes
     let manager = ContextSizeManager::new();
     let metadata = manager.analyze_context_sizes(&context_dir)?;
-    
+
     // Should detect warnings
-    assert!(!metadata.warnings.is_empty(), "Should generate size warnings");
-    assert!(metadata.warnings.iter().any(|w| w.contains("exceeds maximum size")));
-    assert!(metadata.warnings.iter().any(|w| w.contains("Total context size exceeds target")));
-    
+    assert!(
+        !metadata.warnings.is_empty(),
+        "Should generate size warnings"
+    );
+    assert!(metadata
+        .warnings
+        .iter()
+        .any(|w| w.contains("exceeds maximum size")));
+    assert!(metadata
+        .warnings
+        .iter()
+        .any(|w| w.contains("Total context size exceeds target")));
+
     // Should identify largest file
     assert!(metadata.largest_file.is_some());
     assert_eq!(metadata.largest_file.unwrap().filename, "huge.json");
-    
+
     Ok(())
 }
 
 #[tokio::test]
 async fn test_hybrid_coverage_prioritization() -> Result<()> {
     let analyzer = BasicHybridCoverageAnalyzer::new();
-    
+
     // Create test coverage map with gaps
     let mut file_coverage = HashMap::new();
     file_coverage.insert(
@@ -87,40 +87,40 @@ async fn test_hybrid_coverage_prioritization() -> Result<()> {
             has_tests: true,
         },
     );
-    
+
     let coverage_map = TestCoverageMap {
         overall_coverage: 0.5,
         file_coverage,
         untested_functions: vec![],
         critical_paths: vec![],
     };
-    
+
     // Create gaps separately for the test
     let _critical_gaps = vec![
-            CoverageGap {
-                file: PathBuf::from("src/critical.rs"),
-                functions: vec!["process_payment".to_string()],
-                coverage_percentage: 20.0,
-                risk: "High".to_string(),
-            },
-            CoverageGap {
-                file: PathBuf::from("src/stable.rs"),
-                functions: vec!["format_output".to_string()],
-                coverage_percentage: 80.0,
-                risk: "Low".to_string(),
-            },
-        ];
-    
+        CoverageGap {
+            file: PathBuf::from("src/critical.rs"),
+            functions: vec!["process_payment".to_string()],
+            coverage_percentage: 20.0,
+            risk: "High".to_string(),
+        },
+        CoverageGap {
+            file: PathBuf::from("src/stable.rs"),
+            functions: vec!["format_output".to_string()],
+            coverage_percentage: 80.0,
+            risk: "Low".to_string(),
+        },
+    ];
+
     // Empty metrics for simplicity
     let metrics_history = vec![];
-    
+
     // We need to create a modified coverage map with the gaps
     // Since the analyzer extracts gaps from coverage map internally
     // We'll adjust our test to work with that
     let report = analyzer
         .analyze_hybrid_coverage(&PathBuf::from("."), &coverage_map, &metrics_history)
         .await?;
-    
+
     // Should prioritize critical.rs
     assert!(!report.priority_gaps.is_empty());
     assert_eq!(
@@ -128,22 +128,22 @@ async fn test_hybrid_coverage_prioritization() -> Result<()> {
         PathBuf::from("src/critical.rs"),
         "Should prioritize low coverage file"
     );
-    
+
     // Should have recommendations
     let recommendations = report.get_recommendations();
     assert!(!recommendations.is_empty());
     assert!(recommendations[0].contains("critical.rs"));
-    
+
     Ok(())
 }
 
 #[test]
 fn test_size_optimization_for_analysis_result() {
     use mmm::context::size_manager::OptimizableForSize;
-    
+
     // Create a large analysis result
     let mut analysis = create_test_analysis_result();
-    
+
     // Add many debt items
     for i in 0..1000 {
         analysis.technical_debt.debt_items.push(DebtItem {
@@ -158,12 +158,12 @@ fn test_size_optimization_for_analysis_result() {
             tags: vec![],
         });
     }
-    
+
     let original_count = analysis.technical_debt.debt_items.len();
-    
+
     // Optimize with 50% reduction
     let optimized = analysis.optimize_for_size(0.5).unwrap();
-    
+
     // Should have reduced items
     assert!(
         optimized.technical_debt.debt_items.len() < original_count,
@@ -178,12 +178,12 @@ fn test_size_optimization_for_analysis_result() {
 /// Helper to create a test AnalysisResult
 fn create_test_analysis_result() -> mmm::context::AnalysisResult {
     use mmm::context::{
-        AnalysisResult, AnalysisMetadata, ArchitectureInfo,
-        dependencies::DependencyGraph,
-        conventions::{ProjectConventions, NamingRules, NamingStyle, TestingConventions},
+        conventions::{NamingRules, NamingStyle, ProjectConventions, TestingConventions},
         debt::TechnicalDebtMap,
+        dependencies::DependencyGraph,
+        AnalysisMetadata, AnalysisResult, ArchitectureInfo,
     };
-    
+
     AnalysisResult {
         dependency_graph: DependencyGraph {
             nodes: HashMap::new(),

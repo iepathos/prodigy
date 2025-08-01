@@ -16,7 +16,9 @@ pub mod conventions;
 pub mod debt;
 pub mod dependencies;
 pub mod hybrid_coverage;
+pub mod optimized_hybrid;
 pub mod size_manager;
+pub mod summary;
 pub mod tarpaulin_coverage;
 pub mod test_coverage;
 
@@ -176,9 +178,9 @@ pub fn load_analysis(project_path: &Path) -> Result<Option<AnalysisResult>> {
         return Ok(None);
     }
 
-    let content = std::fs::read_to_string(&analysis_file)?;
-    let analysis: AnalysisResult = serde_json::from_str(&content)?;
-    Ok(Some(analysis))
+    // The analysis file contains a summary, not the full result
+    // Return None to force re-analysis for now
+    Ok(None)
 }
 
 /// Save analysis results to disk
@@ -188,29 +190,26 @@ pub fn save_analysis(project_path: &Path, analysis: &AnalysisResult) -> Result<(
 
     // Create size manager to check and optimize files
     let size_manager = size_manager::ContextSizeManager::new();
-    
-    // Check and optimize the complete analysis if needed
-    let optimized_analysis = match size_manager.optimize_for_size(analysis.clone(), "analysis") {
-        Ok(opt) => {
-            if opt.optimization_applied {
-                eprintln!("📦 Optimized analysis.json from {} to {} bytes", 
-                    opt.original_size, opt.optimized_size);
-            }
-            opt.value
-        },
-        Err(_) => analysis.clone(),
-    };
+
+    // Create a lightweight summary instead of full analysis
+    let analysis_summary = summary::AnalysisSummary::from_analysis(analysis);
 
     let analysis_file = context_dir.join("analysis.json");
-    let content = serde_json::to_string_pretty(&optimized_analysis)?;
-    std::fs::write(&analysis_file, content)?;
+    let content = serde_json::to_string_pretty(&analysis_summary)?;
+    std::fs::write(&analysis_file, &content)?;
 
-    // Also save individual components for easier access
+    eprintln!("📄 Created analysis summary ({} bytes)", content.len());
+
+    // Save optimized dependency graph
     let deps_file = context_dir.join("dependency_graph.json");
-    std::fs::write(
-        &deps_file,
-        serde_json::to_string_pretty(&analysis.dependency_graph)?,
-    )?;
+    let deps_summary = summary::DependencyGraphSummary::from_graph(&analysis.dependency_graph);
+    let content = serde_json::to_string_pretty(&deps_summary)?;
+    std::fs::write(&deps_file, &content)?;
+    eprintln!(
+        "🔗 Optimized dependency graph ({} nodes -> {} bytes)",
+        analysis.dependency_graph.nodes.len(),
+        content.len()
+    );
 
     let arch_file = context_dir.join("architecture.json");
     std::fs::write(
@@ -225,30 +224,39 @@ pub fn save_analysis(project_path: &Path, analysis: &AnalysisResult) -> Result<(
     )?;
 
     let debt_file = context_dir.join("technical_debt.json");
-    // Check and optimize technical debt if needed
-    let optimized_debt = match size_manager.optimize_for_size(optimized_analysis.technical_debt.clone(), "technical_debt") {
-        Ok(opt) => {
-            if opt.optimization_applied {
-                eprintln!("📦 Optimized technical_debt.json from {} to {} bytes", 
-                    opt.original_size, opt.optimized_size);
-            }
-            opt.value
-        },
-        Err(_) => optimized_analysis.technical_debt.clone(),
-    };
-    std::fs::write(
-        &debt_file,
-        serde_json::to_string_pretty(&optimized_debt)?,
-    )?;
+    // Create optimized debt summary
+    let debt_summary = summary::TechnicalDebtSummary::from_debt_map(&analysis.technical_debt);
+    let content = serde_json::to_string_pretty(&debt_summary)?;
+    std::fs::write(&debt_file, &content)?;
+    eprintln!(
+        "🛠️  Optimized technical debt ({} items -> {} bytes)",
+        analysis.technical_debt.debt_items.len(),
+        content.len()
+    );
 
     if let Some(ref test_coverage) = analysis.test_coverage {
         let coverage_file = context_dir.join("test_coverage.json");
-        std::fs::write(&coverage_file, serde_json::to_string_pretty(test_coverage)?)?;
+        // Create optimized summary
+        let coverage_summary = summary::TestCoverageSummary::from_coverage(test_coverage);
+        let content = serde_json::to_string_pretty(&coverage_summary)?;
+        std::fs::write(&coverage_file, &content)?;
+        eprintln!(
+            "📊 Optimized test coverage ({} untested functions -> {} bytes)",
+            test_coverage.untested_functions.len(),
+            content.len()
+        );
     }
 
     if let Some(ref hybrid_coverage) = analysis.hybrid_coverage {
         let hybrid_file = context_dir.join("hybrid_coverage.json");
-        std::fs::write(&hybrid_file, serde_json::to_string_pretty(hybrid_coverage)?)?;
+        // Create optimized version without duplication
+        let optimized = optimized_hybrid::OptimizedHybridCoverage::from_report(hybrid_coverage);
+        let content = serde_json::to_string_pretty(&optimized)?;
+        std::fs::write(&hybrid_file, &content)?;
+        eprintln!(
+            "🔍 Optimized hybrid coverage (removed duplication -> {} bytes)",
+            content.len()
+        );
     }
 
     let metadata_file = context_dir.join("analysis_metadata.json");
@@ -256,14 +264,14 @@ pub fn save_analysis(project_path: &Path, analysis: &AnalysisResult) -> Result<(
         &metadata_file,
         serde_json::to_string_pretty(&analysis.metadata)?,
     )?;
-    
+
     // Analyze and report final context sizes
     if let Ok(size_metadata) = size_manager.analyze_context_sizes(&context_dir) {
         size_manager.print_warnings(&size_metadata);
-        
+
         // Log total size
         let total_mb = size_metadata.total_size as f64 / 1_000_000.0;
-        eprintln!("💾 Total context size: {:.2} MB", total_mb);
+        eprintln!("💾 Total context size: {total_mb:.2} MB");
     }
 
     Ok(())

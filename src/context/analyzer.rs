@@ -101,21 +101,20 @@ impl ContextAnalyzer for ProjectAnalyzer {
         let files_analyzed = count_files(project_path)?;
 
         // Load metrics history if available
-        let metrics_history = if let Ok(metrics) = crate::metrics::storage::load_metrics_history(project_path).await {
+        let metrics_history = if let Ok(metrics) =
+            crate::metrics::storage::load_metrics_history(project_path).await
+        {
             metrics.snapshots
         } else {
             vec![]
         };
 
         // Run hybrid coverage analysis if we have test coverage
-        let hybrid_coverage = if let Ok(hybrid_report) = self.hybrid_coverage_analyzer
+        let hybrid_coverage = self
+            .hybrid_coverage_analyzer
             .analyze_hybrid_coverage(project_path, &coverage, &metrics_history)
-            .await 
-        {
-            Some(hybrid_report)
-        } else {
-            None
-        };
+            .await
+            .ok();
 
         let result = AnalysisResult {
             dependency_graph: deps,
@@ -191,20 +190,19 @@ impl ContextAnalyzer for ProjectAnalyzer {
 
         // Update hybrid coverage if test coverage exists
         if let Some(ref test_coverage) = result.test_coverage {
-            let metrics_history = if let Ok(metrics) = crate::metrics::storage::load_metrics_history(project_path).await {
+            let metrics_history = if let Ok(metrics) =
+                crate::metrics::storage::load_metrics_history(project_path).await
+            {
                 metrics.snapshots
             } else {
                 vec![]
             };
-            
-            result.hybrid_coverage = if let Ok(hybrid_report) = self.hybrid_coverage_analyzer
+
+            result.hybrid_coverage = self
+                .hybrid_coverage_analyzer
                 .analyze_hybrid_coverage(project_path, test_coverage, &metrics_history)
                 .await
-            {
-                Some(hybrid_report)
-            } else {
-                None
-            };
+                .ok();
         }
 
         // Update metadata
