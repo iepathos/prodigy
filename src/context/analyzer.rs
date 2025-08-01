@@ -14,6 +14,7 @@ pub struct ProjectAnalyzer {
     debt_mapper: Box<dyn TechnicalDebtMapper>,
     coverage_analyzer: Box<dyn TestCoverageAnalyzer>,
     cached_result: Option<AnalysisResult>,
+    #[allow(dead_code)]
     subprocess: SubprocessManager,
 }
 

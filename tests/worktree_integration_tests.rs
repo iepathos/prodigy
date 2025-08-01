@@ -1,3 +1,4 @@
+use mmm::subprocess::SubprocessManager;
 use mmm::worktree::WorktreeManager;
 use std::fs;
 use std::process::Command;
@@ -156,16 +157,17 @@ fn test_mmm_worktree_clean_command() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_worktree_full_lifecycle() -> anyhow::Result<()> {
+#[tokio::test]
+async fn test_worktree_full_lifecycle() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
+    let subprocess = SubprocessManager::production();
 
-    let manager = WorktreeManager::new(temp_dir.path().to_path_buf())?;
+    let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
     // Test create, list, merge, cleanup lifecycle
-    let _session = manager.create_session(Some("test-lifecycle"))?;
+    let _session = manager.create_session(Some("test-lifecycle")).await?;
 
-    let sessions = manager.list_sessions()?;
+    let sessions = manager.list_sessions().await?;
     assert_eq!(sessions.len(), 1);
 
     // Simulate work in worktree - first ensure the directory exists
@@ -174,11 +176,11 @@ fn test_worktree_full_lifecycle() -> anyhow::Result<()> {
     fs::write(worktree_path.join("test.txt"), "test content").unwrap();
 
     // Test merge
-    let merge_result = manager.merge_session("test-lifecycle");
+    let merge_result = manager.merge_session("test-lifecycle").await;
     assert!(merge_result.is_err()); // Expected to fail without actual git worktree
 
     // Test cleanup
-    let cleanup_result = manager.cleanup_session("test-lifecycle", false);
+    let cleanup_result = manager.cleanup_session("test-lifecycle", false).await;
     // Cleanup might fail if worktree doesn't exist, but that's ok for this test
     let _ = cleanup_result;
 

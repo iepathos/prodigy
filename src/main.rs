@@ -310,8 +310,10 @@ fn display_worktree_session_legacy(session: &mmm::worktree::WorktreeSession) {
 }
 
 /// Handle the list command for worktrees
-fn handle_list_command(worktree_manager: &mmm::worktree::WorktreeManager) -> anyhow::Result<()> {
-    let sessions = worktree_manager.list_sessions()?;
+async fn handle_list_command(
+    worktree_manager: &mmm::worktree::WorktreeManager,
+) -> anyhow::Result<()> {
+    let sessions = worktree_manager.list_sessions().await?;
     if sessions.is_empty() {
         println!("No active MMM worktrees found.");
     } else {
@@ -324,25 +326,26 @@ fn handle_list_command(worktree_manager: &mmm::worktree::WorktreeManager) -> any
 }
 
 /// Handle the merge command for worktrees
-fn handle_merge_command(
+async fn handle_merge_command(
     worktree_manager: &mmm::worktree::WorktreeManager,
     name: Option<String>,
     all: bool,
 ) -> anyhow::Result<()> {
     if all {
         // Merge all worktrees
-        let sessions = worktree_manager.list_sessions()?;
+        let sessions = worktree_manager.list_sessions().await?;
         if sessions.is_empty() {
             println!("No active MMM worktrees found to merge.");
         } else {
             println!("Found {} worktree(s) to merge", sessions.len());
             for session in sessions {
                 println!("\n📝 Merging worktree '{}'...", session.name);
-                match worktree_manager.merge_session(&session.name) {
+                match worktree_manager.merge_session(&session.name).await {
                     Ok(_) => {
                         println!("✅ Successfully merged worktree '{}'", session.name);
                         // Automatically clean up successfully merged worktrees when using --all
-                        if let Err(e) = worktree_manager.cleanup_session(&session.name, true) {
+                        if let Err(e) = worktree_manager.cleanup_session(&session.name, true).await
+                        {
                             eprintln!(
                                 "⚠️ Warning: Failed to clean up worktree '{}': {}",
                                 session.name, e
@@ -360,7 +363,7 @@ fn handle_merge_command(
     } else if let Some(name) = name {
         // Single worktree merge
         println!("Merging worktree '{name}'...");
-        worktree_manager.merge_session(&name)?;
+        worktree_manager.merge_session(&name).await?;
         println!("✅ Successfully merged worktree '{name}'");
 
         // Ask if user wants to clean up the worktree
@@ -368,7 +371,7 @@ fn handle_merge_command(
         let mut input = String::new();
         std::io::stdin().read_line(&mut input)?;
         if input.trim().to_lowercase() == "y" {
-            worktree_manager.cleanup_session(&name, true)?;
+            worktree_manager.cleanup_session(&name, true).await?;
             println!("✅ Worktree cleaned up");
         }
     } else {
@@ -378,7 +381,7 @@ fn handle_merge_command(
 }
 
 /// Handle the clean command for worktrees
-fn handle_clean_command(
+async fn handle_clean_command(
     worktree_manager: &mmm::worktree::WorktreeManager,
     name: Option<String>,
     all: bool,
@@ -386,11 +389,11 @@ fn handle_clean_command(
 ) -> anyhow::Result<()> {
     if all {
         println!("Cleaning up all MMM worktrees...");
-        worktree_manager.cleanup_all_sessions(force)?;
+        worktree_manager.cleanup_all_sessions(force).await?;
         println!("✅ All worktrees cleaned up");
     } else if let Some(name) = name {
         println!("Cleaning up worktree '{name}'...");
-        worktree_manager.cleanup_session(&name, force)?;
+        worktree_manager.cleanup_session(&name, force).await?;
         println!("✅ Worktree '{name}' cleaned up");
     } else {
         anyhow::bail!("Either --all or a worktree name must be specified");
@@ -399,15 +402,19 @@ fn handle_clean_command(
 }
 
 async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
+    use mmm::subprocess::SubprocessManager;
     use mmm::worktree::WorktreeManager;
 
-    let worktree_manager = WorktreeManager::new(std::env::current_dir()?)?;
+    let subprocess = SubprocessManager::production();
+    let worktree_manager = WorktreeManager::new(std::env::current_dir()?, subprocess)?;
 
     match command {
-        WorktreeCommands::List => handle_list_command(&worktree_manager),
-        WorktreeCommands::Merge { name, all } => handle_merge_command(&worktree_manager, name, all),
+        WorktreeCommands::List => handle_list_command(&worktree_manager).await,
+        WorktreeCommands::Merge { name, all } => {
+            handle_merge_command(&worktree_manager, name, all).await
+        }
         WorktreeCommands::Clean { all, name, force } => {
-            handle_clean_command(&worktree_manager, name, all, force)
+            handle_clean_command(&worktree_manager, name, all, force).await
         }
     }
 }

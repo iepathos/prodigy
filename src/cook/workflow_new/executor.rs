@@ -237,23 +237,25 @@ mod tests {
     #[tokio::test]
     async fn test_workflow_executor_single_step() {
         let temp_dir = TempDir::new().unwrap();
-        let mock_runner = Arc::new(MockCommandRunner::new());
+        let mock_runner1 = MockCommandRunner::new();
+        let mock_runner2 = MockCommandRunner::new();
+        let mock_runner3 = MockCommandRunner::new();
 
         // Setup successful command response
-        mock_runner.add_response(ExecutionResult {
+        mock_runner1.add_response(ExecutionResult {
             success: true,
             stdout: "Command executed".to_string(),
             stderr: String::new(),
             exit_code: Some(0),
         });
 
-        let claude_executor = Arc::new(ClaudeExecutorImpl::new(mock_runner.clone()));
+        let claude_executor = Arc::new(ClaudeExecutorImpl::new(mock_runner1));
         let session_manager = Arc::new(SessionTrackerImpl::new(
             "test".to_string(),
             temp_dir.path().to_path_buf(),
         ));
-        let analysis_coordinator = Arc::new(AnalysisRunnerImpl::new(mock_runner.clone()));
-        let metrics_coordinator = Arc::new(MetricsCollectorImpl::new(mock_runner));
+        let analysis_coordinator = Arc::new(AnalysisRunnerImpl::new(mock_runner2));
+        let metrics_coordinator = Arc::new(MetricsCollectorImpl::new(mock_runner3));
         let user_interaction = Arc::new(MockUserInteraction::new());
 
         let executor = WorkflowExecutor::new(

@@ -1,4 +1,5 @@
 use super::*;
+use crate::subprocess::SubprocessManager;
 use std::process::Command;
 use tempfile::TempDir;
 
@@ -35,7 +36,8 @@ fn cleanup_worktree_dir(manager: &WorktreeManager) {
 #[test]
 fn test_worktree_manager_creation() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
-    let manager = WorktreeManager::new(temp_dir.path().to_path_buf())?;
+    let subprocess = SubprocessManager::production();
+    let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
     assert!(manager.base_dir.exists());
     // Should be in home directory now
@@ -49,12 +51,13 @@ fn test_worktree_manager_creation() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_create_session_without_focus() -> anyhow::Result<()> {
+#[tokio::test]
+async fn test_create_session_without_focus() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
-    let manager = WorktreeManager::new(temp_dir.path().to_path_buf())?;
+    let subprocess = SubprocessManager::production();
+    let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
-    let session = manager.create_session(None)?;
+    let session = manager.create_session(None).await?;
 
     assert!(session.name.starts_with("session-"));
     assert!(session.path.exists());
@@ -69,62 +72,65 @@ fn test_create_session_without_focus() -> anyhow::Result<()> {
     assert!(worktrees.contains(&session.name));
 
     // Clean up
-    manager.cleanup_session(&session.name, false)?;
+    manager.cleanup_session(&session.name, false).await?;
     cleanup_worktree_dir(&manager);
     Ok(())
 }
 
-#[test]
-fn test_create_session_with_focus() -> anyhow::Result<()> {
+#[tokio::test]
+async fn test_create_session_with_focus() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
-    let manager = WorktreeManager::new(temp_dir.path().to_path_buf())?;
+    let subprocess = SubprocessManager::production();
+    let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
-    let session = manager.create_session(Some("performance"))?;
+    let session = manager.create_session(Some("performance")).await?;
 
     assert!(session.name.starts_with("session-"));
     assert_eq!(session.focus, Some("performance".to_string()));
     assert!(session.path.exists());
 
     // Clean up
-    manager.cleanup_session(&session.name, false)?;
+    manager.cleanup_session(&session.name, false).await?;
     cleanup_worktree_dir(&manager);
     Ok(())
 }
 
-#[test]
-fn test_list_sessions() -> anyhow::Result<()> {
+#[tokio::test]
+async fn test_list_sessions() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
-    let manager = WorktreeManager::new(temp_dir.path().to_path_buf())?;
+    let subprocess = SubprocessManager::production();
+    let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
     // Create multiple sessions
-    let session1 = manager.create_session(None)?;
-    let session2 = manager.create_session(Some("security"))?;
+    let session1 = manager.create_session(None).await?;
+    let session2 = manager.create_session(Some("security")).await?;
 
-    let sessions = manager.list_sessions()?;
+    let sessions = manager.list_sessions().await?;
 
     assert_eq!(sessions.len(), 2);
     assert!(sessions.iter().any(|s| s.name == session1.name));
     assert!(sessions.iter().any(|s| s.name == session2.name));
 
     // Clean up
-    manager.cleanup_all_sessions(false)?;
+    manager.cleanup_all_sessions(false).await?;
     cleanup_worktree_dir(&manager);
     Ok(())
 }
 
-#[test]
-fn test_cleanup_session() -> anyhow::Result<()> {
+#[tokio::test]
+async fn test_cleanup_session() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
-    let manager = WorktreeManager::new(temp_dir.path().to_path_buf())?;
+    let subprocess = SubprocessManager::production();
+    let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
-    let session = manager.create_session(None)?;
+    let session = manager.create_session(None).await?;
     let session_name = session.name.clone();
 
     // Verify worktree exists
     assert!(session.path.exists());
 
     // Clean up session
-    manager.cleanup_session(&session_name, false)?;
+    manager.cleanup_session(&session_name, false).await?;
 
     // Verify worktree is removed
     assert!(!session.path.exists());
@@ -142,41 +148,47 @@ fn test_cleanup_session() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_get_worktree_for_branch() -> anyhow::Result<()> {
+#[tokio::test]
+async fn test_get_worktree_for_branch() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
-    let manager = WorktreeManager::new(temp_dir.path().to_path_buf())?;
+    let subprocess = SubprocessManager::production();
+    let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
-    let session = manager.create_session(None)?;
-    let worktree_path = manager.get_worktree_for_branch(&session.branch)?;
+    let session = manager.create_session(None).await?;
+    let worktree_path = manager.get_worktree_for_branch(&session.branch).await?;
 
     assert!(worktree_path.is_some());
     assert_eq!(worktree_path.unwrap(), session.path);
 
     // Test non-existent branch
-    let no_worktree = manager.get_worktree_for_branch("non-existent-branch")?;
+    let no_worktree = manager
+        .get_worktree_for_branch("non-existent-branch")
+        .await?;
     assert!(no_worktree.is_none());
 
     // Clean up
-    manager.cleanup_session(&session.name, false)?;
+    manager.cleanup_session(&session.name, false).await?;
     cleanup_worktree_dir(&manager);
     Ok(())
 }
 
-#[test]
-fn test_focus_sanitization() -> anyhow::Result<()> {
+#[tokio::test]
+async fn test_focus_sanitization() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
-    let manager = WorktreeManager::new(temp_dir.path().to_path_buf())?;
+    let subprocess = SubprocessManager::production();
+    let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
     // Test with spaces and slashes
-    let session = manager.create_session(Some("user experience / testing"))?;
+    let session = manager
+        .create_session(Some("user experience / testing"))
+        .await?;
 
     // Should replace spaces and slashes with hyphens
     assert!(session.name.starts_with("session-"));
     assert_eq!(session.focus, Some("user experience / testing".to_string()));
 
     // Clean up
-    manager.cleanup_session(&session.name, false)?;
+    manager.cleanup_session(&session.name, false).await?;
     cleanup_worktree_dir(&manager);
     Ok(())
 }

@@ -1,8 +1,8 @@
+use crate::subprocess::{ProcessCommandBuilder, SubprocessManager};
 use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 use std::fs;
 use std::path::PathBuf;
-use std::process::Command;
 use uuid::Uuid;
 
 use super::{IterationInfo, WorktreeSession, WorktreeState, WorktreeStats, WorktreeStatus};
@@ -10,6 +10,7 @@ use super::{IterationInfo, WorktreeSession, WorktreeState, WorktreeStats, Worktr
 pub struct WorktreeManager {
     pub base_dir: PathBuf,
     pub repo_path: PathBuf,
+    subprocess: SubprocessManager,
 }
 
 impl WorktreeManager {
@@ -17,6 +18,7 @@ impl WorktreeManager {
     ///
     /// # Arguments
     /// * `repo_path` - Path to the git repository
+    /// * `subprocess` - Subprocess manager for git operations
     ///
     /// # Returns
     /// * `Result<Self>` - WorktreeManager instance or error
@@ -25,7 +27,7 @@ impl WorktreeManager {
     /// Returns error if:
     /// - Repository path is invalid
     /// - Git repository is not found
-    pub fn new(repo_path: PathBuf) -> Result<Self> {
+    pub fn new(repo_path: PathBuf, subprocess: SubprocessManager) -> Result<Self> {
         // Get the repository name from the path
         let repo_name = repo_path
             .file_name()
@@ -62,6 +64,7 @@ impl WorktreeManager {
         Ok(Self {
             base_dir,
             repo_path,
+            subprocess,
         })
     }
 
@@ -75,7 +78,7 @@ impl WorktreeManager {
     ///
     /// # Errors
     /// Returns error if worktree creation fails
-    pub fn create_session(&self, focus: Option<&str>) -> Result<WorktreeSession> {
+    pub async fn create_session(&self, focus: Option<&str>) -> Result<WorktreeSession> {
         let session_id = Uuid::new_v4();
         // Simple name without focus, using UUID
         let name = format!("session-{session_id}");
@@ -83,16 +86,21 @@ impl WorktreeManager {
         let worktree_path = self.base_dir.join(&name);
 
         // Create worktree
-        let output = Command::new("git")
+        let command = ProcessCommandBuilder::new("git")
             .current_dir(&self.repo_path)
-            .args(["worktree", "add", "-b", &branch])
-            .arg(&worktree_path)
-            .output()
+            .args(&["worktree", "add", "-b", &branch])
+            .arg(worktree_path.to_string_lossy().as_ref())
+            .build();
+
+        let output = self
+            .subprocess
+            .runner()
+            .run(command)
+            .await
             .context("Failed to execute git worktree add")?;
 
         if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("Failed to create worktree: {stderr}");
+            anyhow::bail!("Failed to create worktree: {}", output.stderr);
         }
 
         // Create session
@@ -185,19 +193,24 @@ impl WorktreeManager {
     ///
     /// # Errors
     /// Returns error if unable to read worktree information
-    pub fn list_sessions(&self) -> Result<Vec<WorktreeSession>> {
-        let output = Command::new("git")
+    pub async fn list_sessions(&self) -> Result<Vec<WorktreeSession>> {
+        let command = ProcessCommandBuilder::new("git")
             .current_dir(&self.repo_path)
-            .args(["worktree", "list", "--porcelain"])
-            .output()
+            .args(&["worktree", "list", "--porcelain"])
+            .build();
+
+        let output = self
+            .subprocess
+            .runner()
+            .run(command)
+            .await
             .context("Failed to execute git worktree list")?;
 
         if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("Failed to list worktrees: {stderr}");
+            anyhow::bail!("Failed to list worktrees: {}", output.stderr);
         }
 
-        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stdout = &output.stdout;
         let mut sessions = Vec::new();
         let mut current_path: Option<PathBuf> = None;
         let mut current_branch: Option<String> = None;
@@ -280,9 +293,9 @@ impl WorktreeManager {
     ///
     /// # Errors
     /// Returns error if merge fails or session not found
-    pub fn merge_session(&self, name: &str) -> Result<()> {
+    pub async fn merge_session(&self, name: &str) -> Result<()> {
         // Get the worktree branch name to verify merge
-        let sessions = self.list_sessions()?;
+        let sessions = self.list_sessions().await?;
         let session = sessions
             .iter()
             .find(|s| s.name == name)
@@ -290,10 +303,16 @@ impl WorktreeManager {
         let worktree_branch = &session.branch;
 
         // Determine the default branch (main or master)
-        let main_exists = Command::new("git")
+        let main_check_command = ProcessCommandBuilder::new("git")
             .current_dir(&self.repo_path)
-            .args(["rev-parse", "--verify", "refs/heads/main"])
-            .output()
+            .args(&["rev-parse", "--verify", "refs/heads/main"])
+            .build();
+
+        let main_exists = self
+            .subprocess
+            .runner()
+            .run(main_check_command)
+            .await
             .map(|o| o.status.success())
             .unwrap_or(false);
 
@@ -307,22 +326,27 @@ impl WorktreeManager {
         println!("🔄 Merging worktree '{name}' into '{target}' using Claude-assisted merge...");
 
         // Execute Claude CLI command
-        let mut cmd = Command::new("claude");
-        cmd.current_dir(&self.repo_path)
+        let claude_command = ProcessCommandBuilder::new("claude")
+            .current_dir(&self.repo_path)
             .arg("--dangerously-skip-permissions") // Skip interactive permission prompts
             .arg("--print") // Output response to stdout for capture
-            .arg(format!("/mmm-merge-worktree {worktree_branch}")) // Include branch name in the command
-            .env("MMM_AUTOMATION", "true"); // Enable automation mode
-                                            // Print what we're about to execute
+            .arg(&format!("/mmm-merge-worktree {worktree_branch}")) // Include branch name in the command
+            .env("MMM_AUTOMATION", "true") // Enable automation mode
+            .build();
+
+        // Print what we're about to execute
         eprintln!("Running claude /mmm-merge-worktree with branch: {worktree_branch}");
 
-        let output = cmd
-            .output()
+        let output = self
+            .subprocess
+            .runner()
+            .run(claude_command)
+            .await
             .context("Failed to execute claude /mmm-merge-worktree")?;
 
         if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let stdout = String::from_utf8_lossy(&output.stdout);
+            let stderr = &output.stderr;
+            let stdout = &output.stdout;
 
             // Provide detailed error information
             eprintln!("❌ Claude merge failed for worktree '{name}':");
@@ -337,19 +361,25 @@ impl WorktreeManager {
         }
 
         // Parse the output for success confirmation
-        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stdout = &output.stdout;
         println!("{stdout}");
 
         // Verify the merge actually happened by checking if the worktree branch
         // is now merged into the target branch
-        let merge_check = Command::new("git")
+        let merge_check_command = ProcessCommandBuilder::new("git")
             .current_dir(&self.repo_path)
-            .args(["branch", "--merged", &target])
-            .output()
+            .args(&["branch", "--merged", &target])
+            .build();
+
+        let merge_check = self
+            .subprocess
+            .runner()
+            .run(merge_check_command)
+            .await
             .context("Failed to check merged branches")?;
 
         if merge_check.status.success() {
-            let merged_branches = String::from_utf8_lossy(&merge_check.stdout);
+            let merged_branches = &merge_check.stdout;
             if !merged_branches.contains(worktree_branch) {
                 // Check if Claude output indicates permission was denied
                 if stdout.contains("permission") || stdout.contains("grant permission") {
@@ -390,7 +420,7 @@ impl WorktreeManager {
     ///
     /// # Errors
     /// Returns error if cleanup fails or session not found
-    pub fn cleanup_session(&self, name: &str, force: bool) -> Result<()> {
+    pub async fn cleanup_session(&self, name: &str, force: bool) -> Result<()> {
         let worktree_path = self.base_dir.join(name);
         let worktree_path_str = worktree_path.to_string_lossy();
 
@@ -400,35 +430,53 @@ impl WorktreeManager {
         }
         args.push(&worktree_path_str);
 
-        let prune_output = Command::new("git")
+        let remove_command = ProcessCommandBuilder::new("git")
             .current_dir(&self.repo_path)
             .args(&args)
-            .output()
+            .build();
+
+        let prune_output = self
+            .subprocess
+            .runner()
+            .run(remove_command)
+            .await
             .context("Failed to execute git worktree remove")?;
 
         if !prune_output.status.success() {
-            let stderr = String::from_utf8_lossy(&prune_output.stderr);
+            let stderr = &prune_output.stderr;
             if !stderr.contains("is not a working tree") {
                 anyhow::bail!("Failed to remove worktree: {stderr}");
             }
         }
 
-        let branch_exists = Command::new("git")
+        let branch_check_command = ProcessCommandBuilder::new("git")
             .current_dir(&self.repo_path)
-            .args(["rev-parse", "--verify", &format!("refs/heads/{name}")])
-            .output()
+            .args(&["rev-parse", "--verify", &format!("refs/heads/{name}")])
+            .build();
+
+        let branch_exists = self
+            .subprocess
+            .runner()
+            .run(branch_check_command)
+            .await
             .map(|o| o.status.success())
             .unwrap_or(false);
 
         if branch_exists {
-            let delete_output = Command::new("git")
+            let delete_command = ProcessCommandBuilder::new("git")
                 .current_dir(&self.repo_path)
-                .args(["branch", "-D", name])
-                .output()
+                .args(&["branch", "-D", name])
+                .build();
+
+            let delete_output = self
+                .subprocess
+                .runner()
+                .run(delete_command)
+                .await
                 .context("Failed to delete branch")?;
 
             if !delete_output.status.success() {
-                let stderr = String::from_utf8_lossy(&delete_output.stderr);
+                let stderr = &delete_output.stderr;
                 eprintln!("Warning: Failed to delete branch {name}: {stderr}");
             }
         }
@@ -436,18 +484,18 @@ impl WorktreeManager {
         Ok(())
     }
 
-    pub fn cleanup_all_sessions(&self, force: bool) -> Result<()> {
-        let sessions = self.list_sessions()?;
+    pub async fn cleanup_all_sessions(&self, force: bool) -> Result<()> {
+        let sessions = self.list_sessions().await?;
         for session in sessions {
             let name = &session.name;
             println!("Cleaning up worktree: {name}");
-            self.cleanup_session(name, force)?;
+            self.cleanup_session(name, force).await?;
         }
         Ok(())
     }
 
-    pub fn get_worktree_for_branch(&self, branch: &str) -> Result<Option<PathBuf>> {
-        let sessions = self.list_sessions()?;
+    pub async fn get_worktree_for_branch(&self, branch: &str) -> Result<Option<PathBuf>> {
+        let sessions = self.list_sessions().await?;
         Ok(sessions
             .into_iter()
             .find(|s| s.branch == branch)
@@ -572,7 +620,8 @@ mod tests {
         // Test that merge_session correctly constructs the Claude command
         let temp_dir = TempDir::new().unwrap();
         let repo_name = temp_dir.path().file_name().unwrap().to_str().unwrap();
-        let manager = WorktreeManager::new(temp_dir.path().to_path_buf()).unwrap();
+        let subprocess = SubprocessManager::production();
+        let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess).unwrap();
 
         // We can't actually test the command execution without Claude CLI,
         // but we can verify the logic flow exists
@@ -587,28 +636,30 @@ mod tests {
         assert_eq!(parent.file_name().unwrap(), "worktrees");
     }
 
-    #[test]
-    fn test_merge_session_success() {
+    #[tokio::test]
+    async fn test_merge_session_success() {
         // Note: This test is limited because we can't mock the external Claude CLI
         // In a real test environment, we would use dependency injection for the command execution
         let temp_dir = TempDir::new().unwrap();
-        let manager = WorktreeManager::new(temp_dir.path().to_path_buf()).unwrap();
+        let subprocess = SubprocessManager::production();
+        let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess).unwrap();
 
         // Create a mock session - though we can't actually merge without Claude CLI
         let session_name = "test-session";
 
         // Test will fail because session doesn't exist, which is expected
-        let result = manager.merge_session(session_name);
+        let result = manager.merge_session(session_name).await;
         assert!(result.is_err());
         // Just check that it returns an error, the specific message may vary
         // depending on the environment
     }
 
-    #[test]
-    fn test_merge_session_claude_cli_failure() {
+    #[tokio::test]
+    async fn test_merge_session_claude_cli_failure() {
         // This test verifies error handling when Claude CLI is not available
         let temp_dir = TempDir::new().unwrap();
-        let manager = WorktreeManager::new(temp_dir.path().to_path_buf()).unwrap();
+        let subprocess = SubprocessManager::production();
+        let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess).unwrap();
 
         // Create a mock session by manipulating internal state
         let metadata_dir = manager.base_dir.join(".metadata");
@@ -649,7 +700,7 @@ mod tests {
         // Note: In reality, we'd need actual git worktrees, but for this test
         // we're focusing on the Claude CLI failure path
 
-        let result = manager.merge_session("test-session");
+        let result = manager.merge_session("test-session").await;
         // Should fail because worktree doesn't actually exist in git
         assert!(result.is_err());
     }

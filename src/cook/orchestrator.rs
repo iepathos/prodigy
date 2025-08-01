@@ -72,6 +72,7 @@ pub struct DefaultCookOrchestrator {
     /// Session manager
     session_manager: Arc<dyn SessionManager>,
     /// Command executor
+    #[allow(dead_code)]
     command_executor: Arc<dyn CommandExecutor>,
     /// Claude executor
     claude_executor: Arc<dyn ClaudeExecutor>,
@@ -84,7 +85,10 @@ pub struct DefaultCookOrchestrator {
     /// Git operations
     git_operations: Arc<dyn GitOperations>,
     /// State manager
+    #[allow(dead_code)]
     state_manager: StateManager,
+    /// Subprocess manager
+    subprocess: crate::subprocess::SubprocessManager,
 }
 
 impl DefaultCookOrchestrator {
@@ -98,6 +102,7 @@ impl DefaultCookOrchestrator {
         user_interaction: Arc<dyn UserInteraction>,
         git_operations: Arc<dyn GitOperations>,
         state_manager: StateManager,
+        subprocess: crate::subprocess::SubprocessManager,
     ) -> Self {
         Self {
             session_manager,
@@ -108,6 +113,7 @@ impl DefaultCookOrchestrator {
             user_interaction,
             git_operations,
             state_manager,
+            subprocess,
         }
     }
 
@@ -188,8 +194,11 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 
         // Setup worktree if requested
         if config.command.worktree {
-            let worktree_manager = WorktreeManager::new(config.project_path.clone())?;
-            let session = worktree_manager.create_session(config.command.focus.as_deref())?;
+            let worktree_manager =
+                WorktreeManager::new(config.project_path.clone(), self.subprocess.clone())?;
+            let session = worktree_manager
+                .create_session(config.command.focus.as_deref())
+                .await?;
 
             working_dir = session.path.clone();
             worktree_name = Some(session.name.clone());
@@ -289,8 +298,9 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                 .await?;
 
             if should_merge {
-                let worktree_manager = WorktreeManager::new(env.project_dir.clone())?;
-                worktree_manager.merge_session(worktree_name)?;
+                let worktree_manager =
+                    WorktreeManager::new(env.project_dir.clone(), self.subprocess.clone())?;
+                worktree_manager.merge_session(worktree_name).await?;
                 self.user_interaction
                     .display_success("Worktree changes merged successfully!");
             }
@@ -310,28 +320,98 @@ mod tests {
     use crate::cook::interaction::mocks::MockUserInteraction;
     use crate::cook::metrics::collector::MetricsCollectorImpl;
     use crate::cook::session::tracker::SessionTrackerImpl;
+    use std::os::unix::process::ExitStatusExt;
+    use std::path::Path;
     use tempfile::TempDir;
+
+    // Custom mock git operations for testing
+    struct TestMockGitOperations {
+        is_repo: std::sync::Mutex<bool>,
+    }
+
+    impl TestMockGitOperations {
+        fn new() -> Self {
+            Self {
+                is_repo: std::sync::Mutex::new(true),
+            }
+        }
+
+        fn set_is_git_repo(&self, value: bool) {
+            *self.is_repo.lock().unwrap() = value;
+        }
+    }
+
+    #[async_trait]
+    impl GitOperations for TestMockGitOperations {
+        async fn git_command(
+            &self,
+            _args: &[&str],
+            _description: &str,
+        ) -> Result<std::process::Output> {
+            Ok(std::process::Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: vec![],
+                stderr: vec![],
+            })
+        }
+
+        async fn is_git_repo(&self) -> bool {
+            *self.is_repo.lock().unwrap()
+        }
+
+        async fn get_last_commit_message(&self) -> Result<String> {
+            Ok("test commit".to_string())
+        }
+
+        async fn check_git_status(&self) -> Result<String> {
+            Ok("nothing to commit".to_string())
+        }
+
+        async fn stage_all_changes(&self) -> Result<()> {
+            Ok(())
+        }
+
+        async fn create_commit(&self, _message: &str) -> Result<()> {
+            Ok(())
+        }
+
+        async fn create_worktree(&self, _name: &str, _path: &Path) -> Result<()> {
+            Ok(())
+        }
+
+        async fn get_current_branch(&self) -> Result<String> {
+            Ok("main".to_string())
+        }
+
+        async fn switch_branch(&self, _branch: &str) -> Result<()> {
+            Ok(())
+        }
+    }
 
     fn create_test_orchestrator() -> (
         DefaultCookOrchestrator,
         Arc<MockUserInteraction>,
-        Arc<MockGitOperations>,
+        Arc<TestMockGitOperations>,
     ) {
         let temp_dir = TempDir::new().unwrap();
-        let mock_runner = Arc::new(MockCommandRunner::new());
+        let mock_runner1 = MockCommandRunner::new();
+        let mock_runner2 = MockCommandRunner::new();
+        let mock_runner3 = MockCommandRunner::new();
+        let mock_runner4 = MockCommandRunner::new();
         let mock_interaction = Arc::new(MockUserInteraction::new());
-        let mock_git = Arc::new(MockGitOperations::new());
+        let mock_git = Arc::new(TestMockGitOperations::new());
 
         let session_manager = Arc::new(SessionTrackerImpl::new(
             "test".to_string(),
             temp_dir.path().to_path_buf(),
         ));
 
-        let command_executor = mock_runner.clone();
-        let claude_executor = Arc::new(ClaudeExecutorImpl::new(mock_runner.clone()));
-        let analysis_coordinator = Arc::new(AnalysisRunnerImpl::new(mock_runner.clone()));
-        let metrics_coordinator = Arc::new(MetricsCollectorImpl::new(mock_runner));
-        let state_manager = StateManager::new(temp_dir.path()).unwrap();
+        let command_executor = Arc::new(crate::cook::execution::runner::RealCommandRunner::new());
+        let claude_executor = Arc::new(ClaudeExecutorImpl::new(mock_runner2));
+        let analysis_coordinator = Arc::new(AnalysisRunnerImpl::new(mock_runner3));
+        let metrics_coordinator = Arc::new(MetricsCollectorImpl::new(mock_runner4));
+        let state_manager = StateManager::new().unwrap();
+        let subprocess = crate::subprocess::SubprocessManager::production();
 
         let orchestrator = DefaultCookOrchestrator::new(
             session_manager,
@@ -342,6 +422,7 @@ mod tests {
             mock_interaction.clone(),
             mock_git.clone(),
             state_manager,
+            subprocess,
         );
 
         (orchestrator, mock_interaction, mock_git)
@@ -367,14 +448,21 @@ mod tests {
 
         let config = CookConfig {
             command: CookCommand {
-                worktree: false,
+                playbook: PathBuf::from("test.yml"),
+                path: None,
                 focus: None,
-                metrics: false,
                 max_iterations: 5,
-                workflow: None,
+                worktree: false,
+                map: vec![],
+                args: vec![],
+                fail_fast: false,
+                metrics: false,
+                auto_accept: false,
+                resume: None,
+                skip_analysis: false,
             },
             project_path: PathBuf::from("/tmp/test"),
-            workflow: WorkflowConfig::default(),
+            workflow: WorkflowConfig { commands: vec![] },
         };
 
         let env = orchestrator.setup_environment(&config).await.unwrap();

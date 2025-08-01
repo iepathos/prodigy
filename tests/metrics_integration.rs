@@ -1,5 +1,6 @@
 use mmm::context::{ContextAnalyzer, ProjectAnalyzer};
 use mmm::metrics::{MetricsCollector, MetricsHistory};
+use mmm::subprocess::SubprocessManager;
 use std::fs;
 use tempfile::TempDir;
 
@@ -24,7 +25,8 @@ version = "0.1.0"
     analyzer.analyze(temp_dir.path()).await.unwrap();
 
     // Collect metrics
-    let collector = MetricsCollector::new();
+    let subprocess = SubprocessManager::production();
+    let collector = MetricsCollector::new(subprocess);
     let metrics = collector
         .collect_metrics(temp_dir.path(), "test-1".to_string())
         .await

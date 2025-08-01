@@ -427,7 +427,8 @@ version = "0.1.0"
         let project_path = temp_dir.path();
 
         // Create worktree manager
-        match WorktreeManager::new(project_path.to_path_buf()) {
+        let subprocess = crate::subprocess::SubprocessManager::production();
+        match WorktreeManager::new(project_path.to_path_buf(), subprocess) {
             Ok(worktree_mgr) => {
                 let result = handle_worktree_merge(&worktree_mgr, "test-worktree", false).await;
                 // Should handle missing worktree gracefully

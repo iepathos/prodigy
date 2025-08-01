@@ -1,4 +1,5 @@
 use super::*;
+use crate::subprocess::SubprocessManager;
 use crate::worktree::{WorktreeState, WorktreeStatus};
 use std::process::Command;
 use tempfile::TempDir;
@@ -33,12 +34,13 @@ fn cleanup_worktree_dir(manager: &WorktreeManager) {
     }
 }
 
-#[test]
-fn test_state_file_creation() -> anyhow::Result<()> {
+#[tokio::test]
+async fn test_state_file_creation() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
-    let manager = WorktreeManager::new(temp_dir.path().to_path_buf())?;
+    let subprocess = SubprocessManager::production();
+    let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
-    let session = manager.create_session(Some("test focus"))?;
+    let session = manager.create_session(Some("test focus")).await?;
 
     // Check that .metadata directory was created
     let metadata_dir = manager.base_dir.join(".metadata");
@@ -65,17 +67,18 @@ fn test_state_file_creation() -> anyhow::Result<()> {
     assert!(state.error.is_none());
 
     // Clean up
-    manager.cleanup_session(&session.name, false)?;
+    manager.cleanup_session(&session.name, false).await?;
     cleanup_worktree_dir(&manager);
     Ok(())
 }
 
-#[test]
-fn test_state_updates() -> anyhow::Result<()> {
+#[tokio::test]
+async fn test_state_updates() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
-    let manager = WorktreeManager::new(temp_dir.path().to_path_buf())?;
+    let subprocess = SubprocessManager::production();
+    let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
-    let session = manager.create_session(None)?;
+    let session = manager.create_session(None).await?;
 
     // Update state
     manager.update_session_state(&session.name, |state| {
@@ -99,7 +102,7 @@ fn test_state_updates() -> anyhow::Result<()> {
     assert!(matches!(state.status, WorktreeStatus::Completed));
 
     // Clean up
-    manager.cleanup_session(&session.name, false)?;
+    manager.cleanup_session(&session.name, false).await?;
     cleanup_worktree_dir(&manager);
     Ok(())
 }
@@ -107,7 +110,8 @@ fn test_state_updates() -> anyhow::Result<()> {
 #[test]
 fn test_gitignore_creation() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
-    let manager = WorktreeManager::new(temp_dir.path().to_path_buf())?;
+    let subprocess = SubprocessManager::production();
+    let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
     // Check that .gitignore was created
     let gitignore_path = manager.base_dir.join(".gitignore");
@@ -121,14 +125,15 @@ fn test_gitignore_creation() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_list_sessions_with_state() -> anyhow::Result<()> {
+#[tokio::test]
+async fn test_list_sessions_with_state() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
-    let manager = WorktreeManager::new(temp_dir.path().to_path_buf())?;
+    let subprocess = SubprocessManager::production();
+    let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
     // Create sessions with different states
-    let session1 = manager.create_session(Some("performance"))?;
-    let session2 = manager.create_session(Some("security"))?;
+    let session1 = manager.create_session(Some("performance")).await?;
+    let session2 = manager.create_session(Some("security")).await?;
 
     // Update first session to completed
     manager.update_session_state(&session1.name, |state| {
@@ -137,7 +142,7 @@ fn test_list_sessions_with_state() -> anyhow::Result<()> {
     })?;
 
     // List sessions - the list_sessions method should load focus from state
-    let sessions = manager.list_sessions()?;
+    let sessions = manager.list_sessions().await?;
     assert_eq!(sessions.len(), 2);
 
     // Find sessions by name
@@ -149,18 +154,19 @@ fn test_list_sessions_with_state() -> anyhow::Result<()> {
     assert_eq!(s2.focus, Some("security".to_string()));
 
     // Clean up
-    manager.cleanup_session(&session1.name, false)?;
-    manager.cleanup_session(&session2.name, false)?;
+    manager.cleanup_session(&session1.name, false).await?;
+    manager.cleanup_session(&session2.name, false).await?;
     cleanup_worktree_dir(&manager);
     Ok(())
 }
 
-#[test]
-fn test_merge_updates_state() -> anyhow::Result<()> {
+#[tokio::test]
+async fn test_merge_updates_state() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
-    let manager = WorktreeManager::new(temp_dir.path().to_path_buf())?;
+    let subprocess = SubprocessManager::production();
+    let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
-    let session = manager.create_session(None)?;
+    let session = manager.create_session(None).await?;
 
     // Make a change in the worktree
     std::fs::write(session.path.join("test.txt"), "test content")?;
@@ -192,7 +198,7 @@ fn test_merge_updates_state() -> anyhow::Result<()> {
     assert!(state.merged_at.is_some());
 
     // Clean up
-    manager.cleanup_session(&session.name, false)?;
+    manager.cleanup_session(&session.name, false).await?;
     cleanup_worktree_dir(&manager);
     Ok(())
 }
@@ -200,7 +206,8 @@ fn test_merge_updates_state() -> anyhow::Result<()> {
 #[test]
 fn test_state_error_handling() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
-    let manager = WorktreeManager::new(temp_dir.path().to_path_buf())?;
+    let subprocess = SubprocessManager::production();
+    let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
     // Test updating non-existent session
     let result = manager.update_session_state("non-existent", |state| {
@@ -212,10 +219,11 @@ fn test_state_error_handling() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_legacy_worktree_compatibility() -> anyhow::Result<()> {
+#[tokio::test]
+async fn test_legacy_worktree_compatibility() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
-    let manager = WorktreeManager::new(temp_dir.path().to_path_buf())?;
+    let subprocess = SubprocessManager::production();
+    let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
     // Simulate a legacy worktree by creating one manually
     let legacy_name = format!("mmm-performance-{}", chrono::Utc::now().timestamp());
@@ -228,7 +236,7 @@ fn test_legacy_worktree_compatibility() -> anyhow::Result<()> {
         .output()?;
 
     // List sessions should extract focus from legacy name
-    let sessions = manager.list_sessions()?;
+    let sessions = manager.list_sessions().await?;
     let legacy_session = sessions.iter().find(|s| s.name == legacy_name);
 
     assert!(legacy_session.is_some());

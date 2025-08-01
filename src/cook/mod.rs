@@ -95,6 +95,9 @@ async fn create_orchestrator(project_path: &Path) -> Result<Arc<dyn CookOrchestr
     // Create state manager
     let state_manager = StateManager::new()?;
 
+    // Create subprocess manager
+    let subprocess = crate::subprocess::SubprocessManager::production();
+
     // Create orchestrator
     Ok(Arc::new(DefaultCookOrchestrator::new(
         session_manager,
@@ -105,6 +108,7 @@ async fn create_orchestrator(project_path: &Path) -> Result<Arc<dyn CookOrchestr
         user_interaction,
         git_operations,
         state_manager,
+        subprocess,
     )))
 }
 
