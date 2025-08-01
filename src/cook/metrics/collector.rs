@@ -38,7 +38,7 @@ impl<R: CommandRunner> MetricsCollectorImpl<R> {
     pub fn new(runner: R) -> Self {
         Self {
             runner,
-            collector: MetricsCollector::new(),
+            collector: MetricsCollector::new(crate::subprocess::SubprocessManager::production()),
         }
     }
 }

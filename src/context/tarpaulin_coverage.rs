@@ -7,7 +7,6 @@ use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use super::test_coverage::{
     CriticalPath, Criticality, FileCoverage, RiskLevel, TestCoverageAnalyzer, TestCoverageMap,
@@ -38,14 +37,16 @@ struct TarpaulinFile {
 
 // We don't need to parse traces since we're not using them
 
+use crate::subprocess::SubprocessManager;
+
 /// Test coverage analyzer that uses cargo-tarpaulin
 pub struct TarpaulinCoverageAnalyzer {
-    // We'll reimplement the needed methods directly
+    subprocess: SubprocessManager,
 }
 
 impl TarpaulinCoverageAnalyzer {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(subprocess: SubprocessManager) -> Self {
+        Self { subprocess }
     }
 
     /// Run cargo-tarpaulin and get coverage data
@@ -75,17 +76,24 @@ impl TarpaulinCoverageAnalyzer {
                 false
             };
 
+            use crate::subprocess::ProcessCommandBuilder;
+
             let output = if has_just_coverage {
                 // Use project's just coverage command
-                Command::new("just")
-                    .args(["coverage"])
+                let command = ProcessCommandBuilder::new("just")
+                    .args(&["coverage"])
                     .current_dir(project_path)
-                    .output()
+                    .build();
+
+                self.subprocess
+                    .runner()
+                    .run(command)
+                    .await
                     .context("Failed to run 'just coverage'. Is just installed?")?
             } else {
                 // Fall back to direct cargo tarpaulin with JSON output
-                Command::new("cargo")
-                    .args([
+                let command = ProcessCommandBuilder::new("cargo")
+                    .args(&[
                         "tarpaulin",
                         "--skip-clean",
                         "--engine",
@@ -96,25 +104,29 @@ impl TarpaulinCoverageAnalyzer {
                         "target/coverage",
                     ])
                     .current_dir(project_path)
-                    .output()
+                    .build();
+
+                self.subprocess
+                    .runner()
+                    .run(command)
+                    .await
                     .context("Failed to run cargo-tarpaulin. Is it installed?")?
             };
 
             if !output.status.success() {
-                let stderr = String::from_utf8_lossy(&output.stderr);
                 let command_name = if has_just_coverage {
                     "just coverage"
                 } else {
                     "cargo tarpaulin"
                 };
-                anyhow::bail!("{} failed: {}", command_name, stderr);
+                anyhow::bail!("{} failed: {}", command_name, output.stderr);
             }
 
             // If we used just coverage, we need to also generate JSON output for parsing
             if has_just_coverage && !coverage_file.exists() {
                 // Run tarpaulin again just for JSON output
-                let json_output = Command::new("cargo")
-                    .args([
+                let command = ProcessCommandBuilder::new("cargo")
+                    .args(&[
                         "tarpaulin",
                         "--skip-clean",
                         "--engine",
@@ -125,12 +137,17 @@ impl TarpaulinCoverageAnalyzer {
                         "target/coverage",
                     ])
                     .current_dir(project_path)
-                    .output()
+                    .build();
+
+                let json_output = self
+                    .subprocess
+                    .runner()
+                    .run(command)
+                    .await
                     .context("Failed to generate JSON coverage report")?;
 
                 if !json_output.status.success() {
-                    let stderr = String::from_utf8_lossy(&json_output.stderr);
-                    anyhow::bail!("JSON coverage generation failed: {}", stderr);
+                    anyhow::bail!("JSON coverage generation failed: {}", json_output.stderr);
                 }
             }
         }
@@ -493,7 +510,7 @@ impl TestCoverageAnalyzer for TarpaulinCoverageAnalyzer {
 
 impl Default for TarpaulinCoverageAnalyzer {
     fn default() -> Self {
-        Self::new()
+        Self::new(SubprocessManager::production())
     }
 }
 
@@ -508,7 +525,7 @@ mod tests {
     #[tokio::test]
     async fn test_tarpaulin_unavailable() {
         // This test verifies that we return empty coverage when tarpaulin isn't available
-        let analyzer = TarpaulinCoverageAnalyzer::new();
+        let analyzer = TarpaulinCoverageAnalyzer::new(SubprocessManager::production());
         let temp_dir = TempDir::new().unwrap();
         let project_path = temp_dir.path();
 
@@ -530,7 +547,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_run_tarpaulin_success() {
-        let analyzer = TarpaulinCoverageAnalyzer::new();
+        let analyzer = TarpaulinCoverageAnalyzer::new(SubprocessManager::production());
         let temp_dir = TempDir::new().unwrap();
 
         // Create mock project
@@ -568,7 +585,7 @@ version = "0.1.0"
 
     #[tokio::test]
     async fn test_run_tarpaulin_with_justfile() {
-        let analyzer = TarpaulinCoverageAnalyzer::new();
+        let analyzer = TarpaulinCoverageAnalyzer::new(SubprocessManager::production());
         let temp_dir = TempDir::new().unwrap();
 
         // Create justfile with test command

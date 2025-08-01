@@ -1,25 +1,20 @@
 //! Main metrics collection orchestrator
 
 use super::{ComplexityCalculator, ImprovementMetrics, PerformanceProfiler, QualityAnalyzer};
+use crate::subprocess::SubprocessManager;
 use anyhow::Result;
 use std::path::Path;
 use tokio::task;
 
 /// Orchestrates metrics collection across all analyzers
 pub struct MetricsCollector {
-    _quality_analyzer: QualityAnalyzer,
-    _performance_profiler: PerformanceProfiler,
-    _complexity_calculator: ComplexityCalculator,
+    subprocess: SubprocessManager,
 }
 
 impl MetricsCollector {
     /// Create a new metrics collector
-    pub fn new() -> Self {
-        Self {
-            _quality_analyzer: QualityAnalyzer::new(),
-            _performance_profiler: PerformanceProfiler::new(),
-            _complexity_calculator: ComplexityCalculator::new(),
-        }
+    pub fn new(subprocess: SubprocessManager) -> Self {
+        Self { subprocess }
     }
 
     /// Collect all metrics for the project
@@ -37,15 +32,18 @@ impl MetricsCollector {
         let perf_path = project_path.to_path_buf();
         let complex_path = project_path.to_path_buf();
 
+        let subprocess_quality = self.subprocess.clone();
+        let subprocess_perf = self.subprocess.clone();
+
         let (quality_result, perf_result, complex_result) = tokio::join!(
-            task::spawn_blocking(move || {
-                let analyzer = QualityAnalyzer::new();
-                analyzer.analyze(&quality_path)
-            }),
-            task::spawn_blocking(move || {
-                let profiler = PerformanceProfiler::new();
-                profiler.profile(&perf_path)
-            }),
+            async {
+                let analyzer = QualityAnalyzer::new(subprocess_quality).await;
+                analyzer.analyze(&quality_path).await
+            },
+            async {
+                let profiler = PerformanceProfiler::new(subprocess_perf);
+                profiler.profile(&perf_path).await
+            },
             task::spawn_blocking(move || {
                 let calculator = ComplexityCalculator::new();
                 calculator.calculate(&complex_path)
@@ -53,7 +51,7 @@ impl MetricsCollector {
         );
 
         // Process quality metrics
-        if let Ok(Ok(quality)) = quality_result {
+        if let Ok(quality) = quality_result {
             // Quality metrics collected
             metrics.test_coverage = quality.test_coverage;
             metrics.type_coverage = quality.type_coverage;
@@ -63,7 +61,7 @@ impl MetricsCollector {
         }
 
         // Process performance metrics
-        if let Ok(Ok(performance)) = perf_result {
+        if let Ok(performance) = perf_result {
             // Performance metrics collected
             metrics.compile_time = performance.compile_time;
             metrics.binary_size = performance.binary_size;
@@ -127,7 +125,7 @@ impl MetricsCollector {
 
 impl Default for MetricsCollector {
     fn default() -> Self {
-        Self::new()
+        Self::new(SubprocessManager::production())
     }
 }
 
@@ -139,7 +137,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_collect_metrics_success() {
-        let collector = MetricsCollector::new();
+        let collector = MetricsCollector::new(SubprocessManager::production());
         let temp_dir = TempDir::new().unwrap();
 
         // Create a basic Rust project structure
@@ -167,7 +165,7 @@ version = "0.1.0"
 
     #[tokio::test]
     async fn test_collect_metrics_analyzer_failure() {
-        let collector = MetricsCollector::new();
+        let collector = MetricsCollector::new(SubprocessManager::production());
         let temp_dir = TempDir::new().unwrap();
 
         // Create directory without Cargo.toml to trigger failures

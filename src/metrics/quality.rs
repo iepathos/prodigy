@@ -1,9 +1,9 @@
 //! Code quality metrics collection
 
+use crate::subprocess::{ProcessCommandBuilder, SubprocessManager};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use std::process::Command;
 use tracing::debug;
 
 /// Quality metrics data
@@ -19,23 +19,32 @@ pub struct QualityMetrics {
 /// Analyzes code quality metrics
 pub struct QualityAnalyzer {
     use_tarpaulin: bool,
+    subprocess: SubprocessManager,
 }
 
 impl QualityAnalyzer {
     /// Create a new quality analyzer
-    pub fn new() -> Self {
+    pub async fn new(subprocess: SubprocessManager) -> Self {
         // Check if cargo-tarpaulin is available
-        let use_tarpaulin = Command::new("cargo")
-            .args(["tarpaulin", "--version"])
-            .output()
+        let check_command = ProcessCommandBuilder::new("cargo")
+            .args(&["tarpaulin", "--version"])
+            .build();
+
+        let use_tarpaulin = subprocess
+            .runner()
+            .run(check_command)
+            .await
             .map(|o| o.status.success())
             .unwrap_or(false);
 
-        Self { use_tarpaulin }
+        Self {
+            use_tarpaulin,
+            subprocess,
+        }
     }
 
     /// Analyze code quality metrics
-    pub fn analyze(&self, project_path: &Path) -> Result<QualityMetrics> {
+    pub async fn analyze(&self, project_path: &Path) -> Result<QualityMetrics> {
         let mut metrics = QualityMetrics {
             test_coverage: 0.0,
             type_coverage: 0.0,
@@ -48,10 +57,10 @@ impl QualityAnalyzer {
         metrics.test_coverage = self.get_test_coverage(project_path)?;
 
         // Get lint warnings count
-        metrics.lint_warnings = self.get_lint_warnings(project_path)?;
+        metrics.lint_warnings = self.get_lint_warnings(project_path).await?;
 
         // Get documentation coverage
-        metrics.doc_coverage = self.get_doc_coverage(project_path)?;
+        metrics.doc_coverage = self.get_doc_coverage(project_path).await?;
 
         // Get type coverage (simplified for now)
         metrics.type_coverage = self.estimate_type_coverage(project_path)?;
@@ -78,10 +87,12 @@ impl QualityAnalyzer {
             }
 
             // If no existing report, try to run tests quickly
-            let output = Command::new("cargo")
-                .args(["test", "--no-run"])
+            let test_command = ProcessCommandBuilder::new("cargo")
+                .args(&["test", "--no-run"])
                 .current_dir(project_path)
-                .output()
+                .build();
+
+            let output = futures::executor::block_on(self.subprocess.runner().run(test_command))
                 .context("Failed to check test build")?;
 
             if output.status.success() {
@@ -132,16 +143,22 @@ impl QualityAnalyzer {
     }
 
     /// Get clippy warning count
-    fn get_lint_warnings(&self, project_path: &Path) -> Result<u32> {
+    async fn get_lint_warnings(&self, project_path: &Path) -> Result<u32> {
         debug!("Running clippy to count warnings");
 
-        let output = Command::new("cargo")
-            .args(["clippy", "--", "-W", "clippy::all", "--no-deps"])
+        let clippy_command = ProcessCommandBuilder::new("cargo")
+            .args(&["clippy", "--", "-W", "clippy::all", "--no-deps"])
             .current_dir(project_path)
-            .output()
+            .build();
+
+        let output = self
+            .subprocess
+            .runner()
+            .run(clippy_command)
+            .await
             .context("Failed to run clippy")?;
 
-        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stderr = &output.stderr;
 
         // Count warning lines
         let warning_count = stderr
@@ -153,7 +170,7 @@ impl QualityAnalyzer {
     }
 
     /// Get documentation coverage
-    fn get_doc_coverage(&self, project_path: &Path) -> Result<f32> {
+    async fn get_doc_coverage(&self, project_path: &Path) -> Result<f32> {
         debug!("Analyzing documentation coverage");
 
         let src_dir = project_path.join("src");
@@ -248,6 +265,11 @@ impl QualityAnalyzer {
 
 impl Default for QualityAnalyzer {
     fn default() -> Self {
-        Self::new()
+        // Since new() is async, we can't use it in a sync default() method.
+        // For simplicity, we'll use a production subprocess manager and assume tarpaulin is not available.
+        Self {
+            use_tarpaulin: false,
+            subprocess: SubprocessManager::production(),
+        }
     }
 }

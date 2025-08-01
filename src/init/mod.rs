@@ -4,23 +4,28 @@ pub mod templates;
 use anyhow::{Context, Result};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use crate::init::command::InitCommand;
+use crate::subprocess::SubprocessManager;
 
 /// Check if the current directory is a git repository
-fn is_git_repository(path: &Path) -> bool {
+async fn is_git_repository(path: &Path, subprocess: &SubprocessManager) -> bool {
     // Check for .git directory or file (in case of git worktree)
     if path.join(".git").exists() {
         return true;
     }
 
     // Also check using git command to handle edge cases
-    Command::new("git")
-        .arg("rev-parse")
-        .arg("--git-dir")
-        .current_dir(path)
-        .output()
+    use crate::subprocess::ProcessCommandBuilder;
+    subprocess
+        .runner()
+        .run(
+            ProcessCommandBuilder::new("git")
+                .args(&["rev-parse", "--git-dir"])
+                .current_dir(path)
+                .build(),
+        )
+        .await
         .map(|output| output.status.success())
         .unwrap_or(false)
 }
@@ -163,7 +168,10 @@ fn install_command(
 }
 
 /// Validate project structure and prepare target directory
-fn validate_project_structure(cmd: &InitCommand) -> Result<(PathBuf, PathBuf)> {
+async fn validate_project_structure(
+    cmd: &InitCommand,
+    subprocess: &SubprocessManager,
+) -> Result<(PathBuf, PathBuf)> {
     // Determine the target directory
     let target_dir = cmd.path.clone().unwrap_or_else(|| PathBuf::from("."));
     let target_dir = target_dir
@@ -173,7 +181,7 @@ fn validate_project_structure(cmd: &InitCommand) -> Result<(PathBuf, PathBuf)> {
     println!("🚀 Initializing MMM commands in: {}", target_dir.display());
 
     // Check if it's a git repository
-    if !is_git_repository(&target_dir) {
+    if !is_git_repository(&target_dir, subprocess).await {
         anyhow::bail!(
             "Error: {} is not a git repository.\n\
              MMM commands must be installed in a git repository.\n\
@@ -202,7 +210,8 @@ fn initialize_directories(target_dir: &Path) -> Result<PathBuf> {
 
 /// Run the init command
 pub async fn run(cmd: InitCommand) -> Result<()> {
-    let (_target_dir, commands_dir) = validate_project_structure(&cmd)?;
+    let subprocess = SubprocessManager::production();
+    let (_target_dir, commands_dir) = validate_project_structure(&cmd, &subprocess).await?;
 
     // Get the templates to install
     let templates = select_templates(&cmd)?;
@@ -227,23 +236,30 @@ mod tests {
     use crate::init::command::InitCommand;
     use tempfile::TempDir;
 
-    #[test]
-    fn test_is_git_repository() {
+    #[tokio::test]
+    async fn test_is_git_repository() {
         let temp_dir = TempDir::new().unwrap();
         let path = temp_dir.path();
+        let subprocess = SubprocessManager::production();
 
         // Should not be a git repo initially
-        assert!(!is_git_repository(path));
+        assert!(!is_git_repository(path, &subprocess).await);
 
         // Initialize git repo
-        Command::new("git")
-            .arg("init")
-            .current_dir(path)
-            .output()
+        use crate::subprocess::ProcessCommandBuilder;
+        subprocess
+            .runner()
+            .run(
+                ProcessCommandBuilder::new("git")
+                    .arg("init")
+                    .current_dir(path)
+                    .build(),
+            )
+            .await
             .unwrap();
 
         // Should now be a git repo
-        assert!(is_git_repository(path));
+        assert!(is_git_repository(path, &subprocess).await);
     }
 
     #[test]
@@ -279,10 +295,17 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
 
         // Initialize git repo
-        Command::new("git")
-            .arg("init")
-            .current_dir(temp_dir.path())
-            .output()
+        use crate::subprocess::ProcessCommandBuilder;
+        let subprocess = SubprocessManager::production();
+        subprocess
+            .runner()
+            .run(
+                ProcessCommandBuilder::new("git")
+                    .arg("init")
+                    .current_dir(temp_dir.path())
+                    .build(),
+            )
+            .await
             .unwrap();
 
         let cmd = InitCommand {
@@ -306,10 +329,17 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
 
         // Initialize git repo
-        Command::new("git")
-            .arg("init")
-            .current_dir(temp_dir.path())
-            .output()
+        use crate::subprocess::ProcessCommandBuilder;
+        let subprocess = SubprocessManager::production();
+        subprocess
+            .runner()
+            .run(
+                ProcessCommandBuilder::new("git")
+                    .arg("init")
+                    .current_dir(temp_dir.path())
+                    .build(),
+            )
+            .await
             .unwrap();
 
         // Create existing command
@@ -337,10 +367,17 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
 
         // Initialize git repo
-        Command::new("git")
-            .arg("init")
-            .current_dir(temp_dir.path())
-            .output()
+        use crate::subprocess::ProcessCommandBuilder;
+        let subprocess = SubprocessManager::production();
+        subprocess
+            .runner()
+            .run(
+                ProcessCommandBuilder::new("git")
+                    .arg("init")
+                    .current_dir(temp_dir.path())
+                    .build(),
+            )
+            .await
             .unwrap();
 
         // Create existing command
@@ -368,10 +405,17 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
 
         // Initialize git repo
-        Command::new("git")
-            .arg("init")
-            .current_dir(temp_dir.path())
-            .output()
+        use crate::subprocess::ProcessCommandBuilder;
+        let subprocess = SubprocessManager::production();
+        subprocess
+            .runner()
+            .run(
+                ProcessCommandBuilder::new("git")
+                    .arg("init")
+                    .current_dir(temp_dir.path())
+                    .build(),
+            )
+            .await
             .unwrap();
 
         let cmd = InitCommand {
@@ -428,22 +472,23 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    #[test]
-    fn test_validate_project_structure_not_git_repo() {
+    #[tokio::test]
+    async fn test_validate_project_structure_not_git_repo() {
         let temp_dir = TempDir::new().unwrap();
         let cmd = InitCommand {
             path: Some(temp_dir.path().to_path_buf()),
             commands: None,
             force: false,
         };
+        let subprocess = SubprocessManager::production();
 
-        let result = validate_project_structure(&cmd);
+        let result = validate_project_structure(&cmd, &subprocess).await;
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("git repository"));
     }
 
-    #[test]
-    fn test_validate_project_structure_with_symlinks() {
+    #[tokio::test]
+    async fn test_validate_project_structure_with_symlinks() {
         let temp_dir = TempDir::new().unwrap();
         let real_path = temp_dir.path().join("real");
         let symlink_path = temp_dir.path().join("symlink");
@@ -453,10 +498,17 @@ mod tests {
         std::os::unix::fs::symlink(&real_path, &symlink_path).unwrap();
 
         // Initialize as git repo
-        Command::new("git")
-            .arg("init")
-            .current_dir(&real_path)
-            .output()
+        use crate::subprocess::ProcessCommandBuilder;
+        let subprocess = SubprocessManager::production();
+        subprocess
+            .runner()
+            .run(
+                ProcessCommandBuilder::new("git")
+                    .arg("init")
+                    .current_dir(&real_path)
+                    .build(),
+            )
+            .await
             .unwrap();
 
         let cmd = InitCommand {
@@ -467,7 +519,7 @@ mod tests {
 
         #[cfg(unix)]
         {
-            let result = validate_project_structure(&cmd);
+            let result = validate_project_structure(&cmd, &subprocess).await;
             assert!(result.is_ok());
         }
     }

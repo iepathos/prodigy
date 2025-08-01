@@ -91,7 +91,7 @@ async fn run_metrics_analysis(project_path: &std::path::Path, cmd: &AnalyzeComma
     }
 
     // Create metrics collector
-    let collector = crate::metrics::MetricsCollector::new();
+    let collector = crate::metrics::MetricsCollector::new(crate::subprocess::SubprocessManager::production());
 
     // Generate iteration ID (timestamp-based for now)
     let iteration_id = format!("manual-{}", chrono::Utc::now().timestamp());

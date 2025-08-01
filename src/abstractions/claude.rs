@@ -4,7 +4,9 @@
 //! testing without actual Claude CLI installation.
 
 use crate::abstractions::exit_status::ExitStatusExt;
-use crate::subprocess::{ProcessCommandBuilder, SubprocessManager, ClaudeRunner as SubprocessClaudeRunner};
+use crate::subprocess::{
+    ClaudeRunner as SubprocessClaudeRunner, ProcessCommandBuilder, SubprocessManager,
+};
 use anyhow::Result;
 use async_trait::async_trait;
 use std::collections::HashMap;
@@ -309,7 +311,6 @@ pub struct MockClaudeClient {
     /// Track called commands for verification
     pub called_commands: CalledCommands,
 }
-
 
 impl MockClaudeClient {
     /// Create a new `MockClaudeClient` instance

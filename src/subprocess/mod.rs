@@ -9,11 +9,11 @@ pub mod runner;
 mod tests;
 
 pub use builder::ProcessCommandBuilder;
-pub use runner::ProcessCommand;
 pub use claude::ClaudeRunner;
 pub use error::ProcessError;
 pub use git::GitRunner;
 pub use mock::{MockCommandConfig, MockProcessRunner};
+pub use runner::ProcessCommand;
 pub use runner::{ProcessOutput, ProcessRunner, ProcessStream};
 
 use std::sync::Arc;

@@ -1,10 +1,10 @@
 //! Performance metrics profiling
 
+use crate::subprocess::{ProcessCommandBuilder, SubprocessManager};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
-use std::process::Command;
 use std::time::{Duration, Instant};
 use tracing::debug;
 
@@ -18,16 +18,18 @@ pub struct PerformanceMetrics {
 }
 
 /// Profiles performance metrics
-pub struct PerformanceProfiler;
+pub struct PerformanceProfiler {
+    subprocess: SubprocessManager,
+}
 
 impl PerformanceProfiler {
     /// Create a new performance profiler
-    pub fn new() -> Self {
-        Self
+    pub fn new(subprocess: SubprocessManager) -> Self {
+        Self { subprocess }
     }
 
     /// Profile performance metrics for the project
-    pub fn profile(&self, project_path: &Path) -> Result<PerformanceMetrics> {
+    pub async fn profile(&self, project_path: &Path) -> Result<PerformanceMetrics> {
         let mut metrics = PerformanceMetrics {
             compile_time: Duration::default(),
             binary_size: 0,
@@ -36,14 +38,14 @@ impl PerformanceProfiler {
         };
 
         // Measure compile time
-        metrics.compile_time = self.measure_compile_time(project_path)?;
+        metrics.compile_time = self.measure_compile_time(project_path).await?;
 
         // Measure binary size
         metrics.binary_size = self.measure_binary_size(project_path)?;
 
         // Run benchmarks if available
         if self.has_benchmarks(project_path) {
-            metrics.benchmark_results = self.run_benchmarks(project_path)?;
+            metrics.benchmark_results = self.run_benchmarks(project_path).await?;
         }
 
         // Estimate memory usage
@@ -53,22 +55,33 @@ impl PerformanceProfiler {
     }
 
     /// Measure compilation time
-    fn measure_compile_time(&self, project_path: &Path) -> Result<Duration> {
+    async fn measure_compile_time(&self, project_path: &Path) -> Result<Duration> {
         debug!("Measuring compile time");
 
         // Clean build to get accurate timing
-        Command::new("cargo")
+        let clean_command = ProcessCommandBuilder::new("cargo")
             .arg("clean")
             .current_dir(project_path)
-            .output()
+            .build();
+
+        self.subprocess
+            .runner()
+            .run(clean_command)
+            .await
             .context("Failed to clean project")?;
 
         let start = Instant::now();
 
-        let output = Command::new("cargo")
-            .args(["build", "--release"])
+        let build_command = ProcessCommandBuilder::new("cargo")
+            .args(&["build", "--release"])
             .current_dir(project_path)
-            .output()
+            .build();
+
+        let output = self
+            .subprocess
+            .runner()
+            .run(build_command)
+            .await
             .context("Failed to build project")?;
 
         let duration = start.elapsed();
@@ -143,16 +156,18 @@ impl PerformanceProfiler {
     }
 
     /// Run benchmarks and collect results
-    fn run_benchmarks(&self, project_path: &Path) -> Result<HashMap<String, Duration>> {
+    async fn run_benchmarks(&self, project_path: &Path) -> Result<HashMap<String, Duration>> {
         debug!("Running benchmarks");
 
         let mut results = HashMap::new();
 
         // Check if we can run benchmarks quickly
-        let output = Command::new("cargo")
-            .args(["bench", "--no-run"])
+        let bench_command = ProcessCommandBuilder::new("cargo")
+            .args(&["bench", "--no-run"])
             .current_dir(project_path)
-            .output();
+            .build();
+
+        let output = self.subprocess.runner().run(bench_command).await;
 
         match output {
             Ok(ref out) if out.status.success() => {
@@ -209,6 +224,6 @@ impl PerformanceProfiler {
 
 impl Default for PerformanceProfiler {
     fn default() -> Self {
-        Self::new()
+        Self::new(SubprocessManager::production())
     }
 }

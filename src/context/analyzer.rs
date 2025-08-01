@@ -1,6 +1,7 @@
 //! Main project analyzer that orchestrates all context analysis components
 
 use super::*;
+use crate::subprocess::SubprocessManager;
 use anyhow::Result;
 use std::path::Path;
 use std::time::Instant;
@@ -13,6 +14,7 @@ pub struct ProjectAnalyzer {
     debt_mapper: Box<dyn TechnicalDebtMapper>,
     coverage_analyzer: Box<dyn TestCoverageAnalyzer>,
     cached_result: Option<AnalysisResult>,
+    subprocess: SubprocessManager,
 }
 
 impl Default for ProjectAnalyzer {
@@ -24,13 +26,17 @@ impl Default for ProjectAnalyzer {
 impl ProjectAnalyzer {
     /// Create a new project analyzer with default components
     pub fn new() -> Self {
+        let subprocess = SubprocessManager::production();
         Self {
             dependency_analyzer: Box::new(dependencies::BasicDependencyAnalyzer::new()),
             architecture_extractor: Box::new(architecture::BasicArchitectureExtractor::new()),
             convention_detector: Box::new(conventions::BasicConventionDetector::new()),
             debt_mapper: Box::new(debt::BasicTechnicalDebtMapper::new()),
-            coverage_analyzer: Box::new(super::tarpaulin_coverage::TarpaulinCoverageAnalyzer::new()),
+            coverage_analyzer: Box::new(super::tarpaulin_coverage::TarpaulinCoverageAnalyzer::new(
+                subprocess.clone(),
+            )),
             cached_result: None,
+            subprocess,
         }
     }
 
@@ -48,6 +54,7 @@ impl ProjectAnalyzer {
             convention_detector,
             debt_mapper,
             coverage_analyzer,
+            subprocess: SubprocessManager::production(),
             cached_result: None,
         }
     }
