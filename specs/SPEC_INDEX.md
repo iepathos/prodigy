@@ -50,6 +50,7 @@ Test infrastructure and quality assurance.
 - **Spec 08**: Iterative Improvement Loop - Automated testing in loop ✅
 - **Spec 49**: Fix Test Coverage Analysis - Accurate coverage reporting (draft)
 - **Spec 55**: Fix Test Coverage Analysis - Accurate tarpaulin integration ✅
+- **Spec 61**: Fix Ignored Tests with Proper Mocking - Enable hanging tests with subprocess mocking (draft)
 
 ### Optimization Specifications
 Performance improvements and system efficiency.
@@ -97,7 +98,7 @@ Performance improvements and system efficiency.
 - Spec 29: Centralized Worktree State
 - Spec 55: Fix Test Coverage Analysis
 
-### 📝 Draft (21 specs)
+### 📝 Draft (22 specs)
 - Spec 30: Interrupted Worktree Recovery
 - Spec 31: Product Management Command
 - Spec 32: CLI Help as Default
@@ -119,6 +120,7 @@ Performance improvements and system efficiency.
 - Spec 58: Session State Management Refactor
 - Spec 59: Testable Git Operations Layer
 - Spec 60: Metrics Collection Isolation
+- Spec 61: Fix Ignored Tests with Proper Mocking
 
 ### 🚧 In Progress (0 specs)
 None currently in progress.
@@ -194,6 +196,7 @@ Optimization Layer:
 ## Quick Reference
 
 ### Latest Specifications
+- Spec 61: Fix Ignored Tests with Proper Mocking (draft) - Enable hanging tests with subprocess mocking
 - Spec 60: Metrics Collection Isolation (draft) - Pluggable metrics system
 - Spec 59: Testable Git Operations Layer (draft) - Fine-grained git abstraction
 - Spec 58: Session State Management Refactor (draft) - Isolated session state tracking
@@ -207,6 +210,7 @@ Optimization Layer:
 - Spec 49: Fix Test Coverage Analysis (draft) - Accurate coverage reporting
 
 ### High Priority Specifications
+- Spec 61: Fix Ignored Tests with Proper Mocking - Critical for CI/CD reliability and test coverage
 - Spec 56a: Fix Orchestrator Compilation Issues - Blocker for Spec 56 integration
 - Spec 56: Cook Orchestrator Refactor - Critical for reaching 80% test coverage
 - Spec 57: Subprocess Abstraction Layer - Enables comprehensive unit testing

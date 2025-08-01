@@ -222,6 +222,13 @@ This roadmap focuses on making `mmm improve` a robust, reliable tool that actual
   - Test error scenarios and edge cases
   - Achieve at least 70% overall test coverage
 
+- [ ] **Fix Ignored Tests with Proper Mocking** (Spec 61)
+  - Un-ignore 7 hanging tests that wait for external tools
+  - Implement comprehensive subprocess mocking infrastructure
+  - Enable reliable test execution in CI/CD without external dependencies
+  - Maintain test validity while eliminating hanging behavior
+  - Achieve <30 second total test suite execution time
+
 - [ ] **Fix Ignored Integration Tests** (Spec 42)
   - Enable `test_cook_stops_early_when_no_changes` test
   - Enable `test_focus_applied_every_iteration` test
