@@ -4,6 +4,29 @@
   ],
   "layers": [],
   "components": {
+    "analyze": {
+      "name": "analyze",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn"
+      ],
+      "dependencies": [
+        "anyhow",
+        "command",
+        "tempfile"
+      ]
+    },
+    "abstractions": {
+      "name": "abstractions",
+      "responsibility": "Module functionality",
+      "interfaces": [],
+      "dependencies": [
+        "anyhow",
+        "async_trait",
+        "tokio",
+        "tempfile"
+      ]
+    },
     "testing": {
       "name": "testing",
       "responsibility": "Module functionality",
@@ -40,59 +63,16 @@
         "tempfile"
       ]
     },
-    "cook": {
-      "name": "cook",
+    "simple_state": {
+      "name": "simple_state",
       "responsibility": "Module functionality",
       "interfaces": [
-        "fn fn",
-        "fn fn"
+        "fn init()"
       ],
       "dependencies": [
         "anyhow",
-        "async_trait",
-        "tempfile",
+        "serde",
         "chrono",
-        "serde",
-        "tokio",
-        "clap",
-        "once_cell",
-        "glob",
-        "signal_hook"
-      ]
-    },
-    "context": {
-      "name": "context",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct AnalysisResult",
-        "struct ArchitectureInfo",
-        "struct ComponentInfo",
-        "struct ArchitectureViolation",
-        "struct AnalysisMetadata",
-        "struct FileContext",
-        "struct FileConventions",
-        "struct Suggestion",
-        "trait ContextAnalyzer:",
-        "fn load_analysis(project_path:",
-        "fn save_analysis(project_path:",
-        "fn save_analysis_with_commit"
-      ],
-      "dependencies": [
-        "anyhow",
-        "walkdir",
-        "serde",
-        "tempfile"
-      ]
-    },
-    "analyze": {
-      "name": "analyze",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn fn"
-      ],
-      "dependencies": [
-        "anyhow",
-        "command",
         "tempfile"
       ]
     },
@@ -113,22 +93,6 @@
         "async_trait",
         "tempfile",
         "tokio"
-      ]
-    },
-    "scoring": {
-      "name": "scoring",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct ProjectHealthScore",
-        "struct ScoreComponents",
-        "fn from_metrics(metrics:",
-        "fn from_context(analysis:",
-        "fn get_improvement_suggestions(&self)",
-        "fn format_component(name:"
-      ],
-      "dependencies": [
-        "chrono",
-        "serde"
       ]
     },
     "metrics": {
@@ -160,59 +124,6 @@
         "tracing"
       ]
     },
-    "config": {
-      "name": "config",
-      "responsibility": "Configuration management",
-      "interfaces": [
-        "fn get_global_mmm_dir()",
-        "struct Config",
-        "struct GlobalConfig",
-        "struct ProjectConfig",
-        "struct PluginConfig",
-        "fn new()",
-        "fn merge_env_vars(&mut",
-        "fn get_claude_api_key(&self)",
-        "fn get_auto_commit(&self)",
-        "fn get_spec_dir(&self)"
-      ],
-      "dependencies": [
-        "anyhow",
-        "regex",
-        "serde",
-        "directories",
-        "once_cell",
-        "tokio",
-        "tempfile"
-      ]
-    },
-    "worktree": {
-      "name": "worktree",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct WorktreeSession",
-        "fn new(name:"
-      ],
-      "dependencies": [
-        "tempfile",
-        "anyhow",
-        "chrono",
-        "uuid",
-        "serde"
-      ]
-    },
-    "simple_state": {
-      "name": "simple_state",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn init()"
-      ],
-      "dependencies": [
-        "anyhow",
-        "serde",
-        "chrono",
-        "tempfile"
-      ]
-    },
     "init": {
       "name": "init",
       "responsibility": "Module functionality",
@@ -222,17 +133,6 @@
       "dependencies": [
         "clap",
         "anyhow",
-        "tempfile"
-      ]
-    },
-    "abstractions": {
-      "name": "abstractions",
-      "responsibility": "Module functionality",
-      "interfaces": [],
-      "dependencies": [
-        "anyhow",
-        "async_trait",
-        "tokio",
         "tempfile"
       ]
     },
@@ -259,6 +159,106 @@
         "tempfile"
       ]
     },
+    "worktree": {
+      "name": "worktree",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct WorktreeSession",
+        "fn new(name:"
+      ],
+      "dependencies": [
+        "tempfile",
+        "anyhow",
+        "chrono",
+        "uuid",
+        "serde"
+      ]
+    },
+    "cook": {
+      "name": "cook",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn",
+        "fn fn"
+      ],
+      "dependencies": [
+        "anyhow",
+        "async_trait",
+        "tempfile",
+        "chrono",
+        "serde",
+        "tokio",
+        "clap",
+        "once_cell",
+        "signal_hook"
+      ]
+    },
+    "scoring": {
+      "name": "scoring",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct ProjectHealthScore",
+        "struct ScoreComponents",
+        "fn from_metrics(metrics:",
+        "fn from_context(analysis:",
+        "fn get_improvement_suggestions(&self)",
+        "fn calculate_technical_debt_score(debt_items:",
+        "fn format_component(name:"
+      ],
+      "dependencies": [
+        "chrono",
+        "serde"
+      ]
+    },
+    "context": {
+      "name": "context",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct AnalysisResult",
+        "struct ArchitectureInfo",
+        "struct ComponentInfo",
+        "struct ArchitectureViolation",
+        "struct AnalysisMetadata",
+        "struct FileContext",
+        "struct FileConventions",
+        "struct Suggestion",
+        "trait ContextAnalyzer:",
+        "fn load_analysis(project_path:",
+        "fn save_analysis(project_path:",
+        "fn save_analysis_with_commit"
+      ],
+      "dependencies": [
+        "anyhow",
+        "walkdir",
+        "serde",
+        "tempfile"
+      ]
+    },
+    "config": {
+      "name": "config",
+      "responsibility": "Configuration management",
+      "interfaces": [
+        "fn get_global_mmm_dir()",
+        "struct Config",
+        "struct GlobalConfig",
+        "struct ProjectConfig",
+        "struct PluginConfig",
+        "fn new()",
+        "fn merge_env_vars(&mut",
+        "fn get_claude_api_key(&self)",
+        "fn get_auto_commit(&self)",
+        "fn get_spec_dir(&self)"
+      ],
+      "dependencies": [
+        "anyhow",
+        "regex",
+        "serde",
+        "directories",
+        "once_cell",
+        "tokio",
+        "tempfile"
+      ]
+    },
     "subprocess": {
       "name": "subprocess",
       "responsibility": "Module functionality",
@@ -273,6 +273,7 @@
       ],
       "dependencies": [
         "async_trait",
+        "tempfile",
         "futures",
         "tokio"
       ]
