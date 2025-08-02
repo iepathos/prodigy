@@ -198,8 +198,50 @@ impl Default for ComplexityCalculator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
     use tempfile::TempDir;
+    use std::fs;
+    
+    #[test]
+    fn test_calculate_empty_project() {
+        let temp_dir = TempDir::new().unwrap();
+        let calculator = ComplexityCalculator::new();
+        
+        let metrics = calculator.calculate(temp_dir.path()).unwrap();
+        assert_eq!(metrics.total_lines, 0);
+        assert!(metrics.cyclomatic_complexity.is_empty());
+    }
+    
+    #[test]
+    fn test_calculate_with_source_files() {
+        let temp_dir = TempDir::new().unwrap();
+        let src_dir = temp_dir.path().join("src");
+        std::fs::create_dir(&src_dir).unwrap();
+        
+        // Create test file with known complexity
+        let test_code = r#"
+fn simple_function() {
+    println!("Hello");
+}
+
+fn complex_function(x: i32) {
+    if x > 0 {
+        println!("Positive");
+    } else if x < 0 {
+        println!("Negative");
+    } else {
+        println!("Zero");
+    }
+}
+"#;
+        std::fs::write(src_dir.join("test.rs"), test_code).unwrap();
+        
+        let calculator = ComplexityCalculator::new();
+        let metrics = calculator.calculate(temp_dir.path()).unwrap();
+        
+        assert!(metrics.total_lines > 0);
+        assert!(!metrics.cyclomatic_complexity.is_empty());
+        assert!(metrics.cyclomatic_complexity.values().any(|&v| v > 1));
+    }
 
     #[test]
     fn test_complexity_calculator_new() {
@@ -209,7 +251,7 @@ mod tests {
     }
 
     #[test]
-    fn test_calculate_empty_project() {
+    fn test_calculate_empty_project_original() {
         let temp_dir = TempDir::new().unwrap();
         let calc = ComplexityCalculator::new();
 

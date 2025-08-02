@@ -61,13 +61,12 @@ fn update_interrupted_state(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::subprocess::{MockProcessRunner, SubprocessManager};
+    use crate::subprocess::SubprocessManager;
     use crate::worktree::WorktreeState;
     use std::fs;
-    use std::sync::Arc;
     use tempfile::TempDir;
 
-    fn create_test_worktree_manager() -> (TempDir, WorktreeManager) {
+    pub(super) fn create_test_worktree_manager() -> (TempDir, WorktreeManager) {
         let temp_dir = TempDir::new().unwrap();
         let repo_dir = temp_dir.path().join("test-repo");
         fs::create_dir_all(&repo_dir).unwrap();
@@ -79,8 +78,7 @@ mod tests {
             .output()
             .unwrap();
 
-        let process_runner = Arc::new(MockProcessRunner::new());
-        let subprocess = SubprocessManager::new(process_runner);
+        let (subprocess, _mock) = SubprocessManager::mock();
         let manager = WorktreeManager::new(repo_dir, subprocess).unwrap();
 
         (temp_dir, manager)
@@ -175,5 +173,38 @@ mod tests {
         let state: WorktreeState = serde_json::from_str(&state_json).unwrap();
 
         assert_eq!(state.interruption_type, Some(InterruptionType::Termination));
+    }
+}
+
+#[cfg(test)]
+mod signal_tests {
+    use super::*;
+    use super::tests::create_test_worktree_manager;
+    
+    #[test]
+    fn test_setup_interrupt_handlers() {
+        let (_temp_dir, worktree_manager) = create_test_worktree_manager();
+        let arc_manager: std::sync::Arc<WorktreeManager> = std::sync::Arc::new(worktree_manager);
+        let session_name = "test-signal-session".to_string();
+        
+        // Test that setup doesn't panic
+        let result = setup_interrupt_handlers(arc_manager.clone(), session_name.clone());
+        assert!(result.is_ok());
+        
+        // Allow time for thread to spawn
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    
+    #[test]
+    fn test_update_interrupted_state_error_handling() {
+        let (_temp_dir, worktree_manager) = create_test_worktree_manager();
+        let nonexistent_session = "nonexistent-session";
+        
+        // Should not panic even if session doesn't exist
+        update_interrupted_state(
+            &worktree_manager,
+            nonexistent_session,
+            InterruptionType::UserInterrupt,
+        );
     }
 }

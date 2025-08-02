@@ -238,3 +238,47 @@ impl GitRunner for GitRunnerImpl {
         })
     }
 }
+
+#[cfg(test)]
+mod git_error_tests {
+    use super::*;
+    use crate::subprocess::mock::MockProcessRunner;
+    use tempfile::TempDir;
+    
+    #[tokio::test]
+    async fn test_git_command_failure() {
+        let mut mock_runner = MockProcessRunner::new();
+        mock_runner.expect_command("git")
+            .with_args(|args| args == ["status", "--porcelain", "--branch"])
+            .returns_stderr("fatal: not a git repository")
+            .returns_exit_code(128)
+            .finish();
+        
+        let git = GitRunnerImpl::new(Arc::new(mock_runner));
+        let temp_dir = TempDir::new().unwrap();
+        let result = git.status(temp_dir.path()).await;
+        
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ProcessError::ExitCode(_) => (),
+            _ => panic!("Expected ExitCode error"),
+        }
+    }
+    
+    #[tokio::test]
+    async fn test_git_parse_errors() {
+        let mut mock_runner = MockProcessRunner::new();
+        mock_runner.expect_command("git")
+            .with_args(|args| args.len() >= 2 && args[0] == "log")
+            .returns_stdout("invalid log format")
+            .returns_success()
+            .finish();
+        
+        let git = GitRunnerImpl::new(Arc::new(mock_runner));
+        let temp_dir = TempDir::new().unwrap();
+        let result = git.log(temp_dir.path(), "%H", 10).await;
+        
+        assert!(result.is_ok()); // Log returns Ok with the output
+        assert_eq!(result.unwrap(), "invalid log format");
+    }
+}

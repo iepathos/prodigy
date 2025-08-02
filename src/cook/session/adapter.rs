@@ -343,3 +343,50 @@ mod tests {
             .unwrap();
     }
 }
+
+#[cfg(test)]
+mod adapter_tests {
+    use super::*;
+    use tempfile::TempDir;
+    
+    #[tokio::test]
+    async fn test_complete_session_lifecycle() {
+        let temp_dir = TempDir::new().unwrap();
+        let adapter = SessionManagerAdapter::new(temp_dir.path().to_path_buf());
+        
+        // Start session
+        adapter.start_session("lifecycle-test").await.unwrap();
+        
+        // Perform multiple operations
+        for i in 0..3 {
+            adapter.update_session(SessionUpdate::IncrementIteration).await.unwrap();
+            adapter.update_session(SessionUpdate::AddFilesChanged(i + 1)).await.unwrap();
+        }
+        
+        // Update status to completed
+        adapter.update_session(SessionUpdate::UpdateStatus(SessionStatus::Completed))
+            .await.unwrap();
+        
+        // Complete and verify
+        let summary = adapter.complete_session().await.unwrap();
+        assert!(summary.iterations > 0);
+        assert_eq!(summary.files_changed, 6); // 1 + 2 + 3
+    }
+    
+    #[tokio::test]
+    async fn test_save_and_load_state() {
+        let temp_dir = TempDir::new().unwrap();
+        let adapter = SessionManagerAdapter::new(temp_dir.path().to_path_buf());
+        let state_path = temp_dir.path().join("state.json");
+        
+        // Start session and save state
+        adapter.start_session("save-test").await.unwrap();
+        adapter.save_state(&state_path).await.unwrap();
+        
+        // Verify file exists
+        assert!(state_path.exists());
+        
+        // Load state (currently no-op but should not error)
+        adapter.load_state(&state_path).await.unwrap();
+    }
+}
