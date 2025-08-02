@@ -2,17 +2,17 @@
   "statistics": {
     "total_items": 240,
     "by_type": {
-      "Todo": 52,
-      "Deprecated": 6,
-      "Duplication": 100,
       "Fixme": 12,
+      "Todo": 52,
+      "Hack": 7,
+      "Deprecated": 6,
       "Complexity": 63,
-      "Hack": 7
+      "Duplication": 100
     },
     "by_impact": {
-      "High": 16,
       "Low": 52,
-      "Medium": 172
+      "Medium": 172,
+      "High": 16
     },
     "avg_impact": 5.333333333333333,
     "avg_effort": 3.941666666666667
@@ -311,15 +311,15 @@
       "primary_issue_type": "Duplication"
     },
     {
-      "file": "/Users/glen/memento-mori/mmm/src/worktree/test_state.rs",
-      "total_issues": 8,
-      "max_complexity": 11,
-      "primary_issue_type": "Duplication"
-    },
-    {
       "file": "/Users/glen/memento-mori/mmm/src/abstractions/git.rs",
       "total_issues": 8,
       "max_complexity": 0,
+      "primary_issue_type": "Duplication"
+    },
+    {
+      "file": "/Users/glen/memento-mori/mmm/src/worktree/test_state.rs",
+      "total_issues": 8,
+      "max_complexity": 11,
       "primary_issue_type": "Duplication"
     },
     {
@@ -329,16 +329,16 @@
       "primary_issue_type": "Duplication"
     },
     {
+      "file": "/Users/glen/memento-mori/mmm/tests/subprocess_tests.rs",
+      "total_issues": 6,
+      "max_complexity": 0,
+      "primary_issue_type": "Todo"
+    },
+    {
       "file": "/Users/glen/memento-mori/mmm/tests/cook_iteration_tests.rs",
       "total_issues": 6,
       "max_complexity": 13,
-      "primary_issue_type": "Duplication"
-    },
-    {
-      "file": "/Users/glen/memento-mori/mmm/src/git/mod.rs",
-      "total_issues": 6,
-      "max_complexity": 0,
-      "primary_issue_type": "Duplication"
+      "primary_issue_type": "Complexity"
     }
   ],
   "duplication_summary": {
