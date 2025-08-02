@@ -1,8 +1,8 @@
 {
   "metadata": {
-    "timestamp": "2025-08-02T10:55:36.679477Z",
-    "duration_ms": 7225,
-    "files_analyzed": 154,
+    "timestamp": "2025-08-02T19:56:48.519802Z",
+    "duration_ms": 105933,
+    "files_analyzed": 152,
     "incremental": false,
     "version": "0.1.0"
   },
@@ -15,30 +15,29 @@
     "hybrid_coverage": "hybrid_coverage.json"
   },
   "statistics": {
-    "total_files": 154,
+    "total_files": 152,
     "total_modules": 128,
     "dependency_edges": 846,
     "circular_dependencies": 0,
     "architectural_violations": 1,
-    "debt_items": 240,
+    "debt_items": 241,
     "high_priority_debt": 28,
-    "overall_coverage": 0.0,
-    "untested_functions": 0,
-    "critical_untested": 0
+    "overall_coverage": 0.5490657439446367,
+    "untested_functions": 1278,
+    "critical_untested": 1
   },
   "health_score": {
-    "overall": 31.578947368421055,
+    "overall": 51.80768530322346,
     "components": {
-      "test_coverage": 0.0,
+      "test_coverage": 54.90657439446367,
       "code_quality": 78.0,
       "documentation": 80.0,
       "maintainability": 10.0,
       "type_safety": null
     },
-    "timestamp": "2025-08-02T10:55:36.679500Z"
+    "timestamp": "2025-08-02T19:56:48.519843Z"
   },
   "insights": [
-    "Low test coverage (0.0%) with 0 untested functions",
     "28 high-priority technical debt items require attention"
   ]
 }
