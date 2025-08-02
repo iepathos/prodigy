@@ -86,6 +86,11 @@ impl CommandRunner for RealCommandRunner {
             builder = builder.timeout(std::time::Duration::from_secs(timeout));
         }
 
+        // Set stdin if specified
+        if let Some(stdin) = &context.stdin {
+            builder = builder.stdin(stdin.clone());
+        }
+
         let output = self
             .subprocess
             .runner()

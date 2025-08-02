@@ -23,6 +23,8 @@ pub struct ExecutionContext {
     pub capture_output: bool,
     /// Timeout in seconds
     pub timeout_seconds: Option<u64>,
+    /// Optional stdin input
+    pub stdin: Option<String>,
 }
 
 impl Default for ExecutionContext {
@@ -32,6 +34,7 @@ impl Default for ExecutionContext {
             working_directory: std::env::current_dir().unwrap_or_default(),
             capture_output: true,
             timeout_seconds: None,
+            stdin: None,
         }
     }
 }
