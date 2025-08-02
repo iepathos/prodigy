@@ -235,7 +235,7 @@ impl OldSessionManager for SessionManagerAdapter {
         // Save checkpoint in new system
         if let Some(id) = self.current_session.lock().await.as_ref() {
             self.new_manager.save_checkpoint(id).await?;
-            
+
             // For compatibility, also create a file at the specified path
             // This ensures tests that check for file existence pass
             if let Some(parent) = path.parent() {

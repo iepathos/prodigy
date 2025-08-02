@@ -12,7 +12,7 @@ static INIT: Once = Once::new();
 
 /// Initialize test environment globally
 /// This is called automatically by TestContextBuilder, but can also be called manually
-/// 
+///
 /// Note: This sets MMM_TEST_MODE=true globally for all tests. If a test needs to
 /// explicitly test behavior without MMM_TEST_MODE, it should remove the variable
 /// after calling init_test_env() and restore it when done.
@@ -38,7 +38,7 @@ impl TestContextBuilder {
     pub fn new() -> Result<Self> {
         // Initialize test environment
         init_test_env();
-        
+
         Ok(Self {
             temp_dir: TempDir::new()?,
             with_git: false,

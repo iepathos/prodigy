@@ -47,7 +47,7 @@ impl mmm::cook::execution::CommandRunner for MockCommandRunner {
 async fn test_metrics_collection_lifecycle() {
     // Initialize test environment (sets MMM_TEST_MODE=true)
     common::init_test_env();
-    
+
     let temp_dir = TempDir::new().unwrap();
     let config = MetricsConfig::default();
     let _registry = MetricsRegistry::new(config);

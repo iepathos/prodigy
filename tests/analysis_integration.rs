@@ -28,7 +28,7 @@ impl CommandRunner for MockCommandRunner {
             stderr: vec![],
         })
     }
-    
+
     async fn run_with_context(
         &self,
         _command: &str,
