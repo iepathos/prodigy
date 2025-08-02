@@ -63,7 +63,7 @@ The command will:
 - Read all .mmm context files in order (PROJECT.md, ARCHITECTURE.md, CONVENTIONS.md, ROADMAP.md, DECISIONS.md)
 - Build comprehensive understanding of project state and conventions
 - Locate specification file using $ARGUMENTS:
-  - **Numeric IDs** (e.g., "01", "08a"): Look up $ARGUMENTS in SPEC_INDEX.md and find in specs/ subdirectory
+  - **Numeric IDs** (e.g., "01", "08a", "67"): Find spec file matching pattern `specs/{number}-*.md`
   - **Iteration IDs** (e.g., "iteration-1234567890-improvements"): Find $ARGUMENTS.md directly in specs/temp/
 - Read the corresponding spec file
 - Extract implementation requirements and success criteria
@@ -91,9 +91,9 @@ Update .mmm files (skip for temporary iteration specs):
 - **Permanent specs only**:
   - **PROJECT.md**: Update "Current State" percentage and "What Exists"
   - **ARCHITECTURE.md**: Add architectural details for new components
-  - **ROADMAP.md**: Mark spec as completed, update progress
   - **DECISIONS.md**: Add ADRs for significant implementation choices
   - **CONVENTIONS.md**: Document any new patterns discovered
+  - **Delete spec file**: Remove the implemented spec file after successful implementation
 - **Temporary specs**: Skip context updates, focus on implementing fixes
 
 ### Step 5: Validation and Commit
@@ -172,15 +172,14 @@ The command will:
 ## Example Workflow
 
 ```
-/mmm-implement-spec 01
+/mmm-implement-spec 67
 ```
 
 This would:
-1. Read `specs/foundation/01-project-structure.md`
-2. Create the Rust workspace structure
-3. Set up Cargo.toml files
-4. Create directory layout
-5. Update PROJECT.md to show project structure is complete
-6. Update ROADMAP.md to mark spec 01 as done
-7. Run cargo fmt and clippy
-8. Commit: "feat: implement spec 01 - project structure and build system"
+1. Find and read `specs/67-worktree-cleanup-after-merge.md`
+2. Implement the worktree cleanup functionality
+3. Update orchestrator cleanup method
+4. Update PROJECT.md to show new capability
+5. Delete the spec file `specs/67-worktree-cleanup-after-merge.md`
+6. Run cargo fmt and clippy
+7. Commit: "feat: implement spec 67 - worktree cleanup after merge"

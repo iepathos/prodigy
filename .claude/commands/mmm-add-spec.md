@@ -17,7 +17,8 @@ DESCRIPTION: $ARGUMENTS (required - natural language description of the feature 
    - Identify current technology stack and dependencies
 
 2. **Analyze Existing Specifications**
-   - Read SPEC_INDEX.md to understand specification numbering system
+   - Scan specs/ directory to find existing specification files
+   - Determine next specification number by finding highest existing number
    - Review existing specifications to understand format and depth
    - Identify related specifications and potential dependencies
    - Determine appropriate specification category (foundation, parallel, storage, etc.)
@@ -31,10 +32,10 @@ DESCRIPTION: $ARGUMENTS (required - natural language description of the feature 
 ### Phase 2: Specification Structure Planning
 
 1. **Determine Specification Details**
-   - Generate appropriate specification number based on existing specs
-   - Choose descriptive filename following project conventions
-   - Identify specification category and subdirectory placement
-   - Determine priority level and implementation phase
+   - Generate next specification number (highest existing + 1)
+   - Choose descriptive filename: `{number}-{kebab-case-title}.md`
+   - Place all specs directly in specs/ directory
+   - Determine priority level and category
 
 2. **Requirements Analysis**
    - Break down feature description into specific requirements
@@ -95,45 +96,25 @@ DESCRIPTION: $ARGUMENTS (required - natural language description of the feature 
 
 ### Phase 5: Context Updates
 
-1. **Update SPEC_INDEX.md**
-   - Add new specification to index with proper categorization
-   - Update numbering sequence and category organization
-   - Include brief description and priority level
-   - Add dependency relationships
-
-2. **Update ROADMAP.md**
-   - Add specification to appropriate implementation phase
-   - Update overall project timeline if needed
-   - Adjust priority and dependency information
-   - Update progress percentages
-
-3. **Update PROJECT.md (if needed)**
-   - Add new planned capability to "What Will Exist" section
-   - Update feature list with new specification
+1. **Update PROJECT.md (if needed)**
+   - Add new planned capability to "What Will Exist" section if major feature
+   - Update feature list with new specification if significant
    - Adjust project scope if significantly changed
    - Update complexity assessment if needed
 
 ### Phase 6: File Organization
 
-1. **Determine File Location**
-   - Choose appropriate subdirectory based on specification type
-   - Follow existing naming conventions
-   - Ensure logical organization with related specs
-   - Create subdirectories if needed for new categories
-
-2. **Create Specification File**
-   - Write specification to appropriate location
+1. **Create Specification File**
+   - Write specification to specs/{number}-{kebab-case-title}.md
    - Ensure proper file permissions and formatting
    - Validate file structure and content
-   - Create any supporting documentation files
+   - Include YAML frontmatter with metadata
 
 ### Phase 7: Commit Changes
 
 1. **Stage All Changes**
    - Stage the new specification file
-   - Stage the updated SPEC_INDEX.md
-   - Stage the updated ROADMAP.md
-   - Stage any other modified context files
+   - Stage any updated context files (PROJECT.md if modified)
 
 2. **Create Commit**
    - Use descriptive commit message format: "add: spec {NUMBER} - {title}"
@@ -151,6 +132,16 @@ DESCRIPTION: $ARGUMENTS (required - natural language description of the feature 
 
 ### Standard Format
 ```markdown
+---
+number: {NUMBER}
+title: {TITLE}
+category: {foundation|parallel|storage|compatibility|testing|optimization}
+priority: {critical|high|medium|low}
+status: draft
+dependencies: [{list of prerequisite spec numbers}]
+created: {YYYY-MM-DD}
+---
+
 # Specification {NUMBER}: {TITLE}
 
 **Category**: {foundation|parallel|storage|compatibility|testing|optimization}
@@ -297,7 +288,7 @@ DESCRIPTION: $ARGUMENTS (required - natural language description of the feature 
 3. **Approval**: Stakeholder approval and finalization
 4. **Implementation**: Actual feature development
 5. **Validation**: Testing and acceptance verification
-6. **Completion**: Mark as completed in ROADMAP.md
+6. **Completion**: Delete spec file and commit with implementation
 
 ### Traceability
 - Link specifications to implementation commits
