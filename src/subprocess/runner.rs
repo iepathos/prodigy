@@ -84,6 +84,25 @@ impl ProcessRunner for TokioProcessRunner {
     async fn run(&self, command: ProcessCommand) -> Result<ProcessOutput, ProcessError> {
         let start = std::time::Instant::now();
 
+        // Log the command being executed
+        tracing::debug!(
+            "Executing subprocess: {} {}",
+            command.program,
+            command.args.join(" ")
+        );
+        
+        if !command.env.is_empty() {
+            tracing::trace!("Environment variables: {:?}", command.env);
+        }
+        
+        if let Some(ref dir) = command.working_dir {
+            tracing::trace!("Working directory: {:?}", dir);
+        }
+        
+        if command.stdin.is_some() {
+            tracing::trace!("Stdin provided: {} bytes", command.stdin.as_ref().unwrap().len());
+        }
+
         let mut cmd = tokio::process::Command::new(&command.program);
 
         cmd.args(&command.args);
@@ -155,12 +174,57 @@ impl ProcessRunner for TokioProcessRunner {
             }
         };
 
-        Ok(ProcessOutput {
-            status,
+        let result = ProcessOutput {
+            status: status.clone(),
             stdout: String::from_utf8_lossy(&output.stdout).to_string(),
             stderr: String::from_utf8_lossy(&output.stderr).to_string(),
             duration,
-        })
+        };
+        
+        // Log the result
+        match &status {
+            ExitStatus::Success => {
+                tracing::debug!(
+                    "Subprocess completed successfully in {:?}: {} {}",
+                    duration,
+                    command.program,
+                    command.args.join(" ")
+                );
+                tracing::trace!("Stdout length: {} bytes", result.stdout.len());
+                tracing::trace!("Stderr length: {} bytes", result.stderr.len());
+            }
+            ExitStatus::Error(code) => {
+                tracing::warn!(
+                    "Subprocess failed with exit code {} in {:?}: {} {}",
+                    code,
+                    duration,
+                    command.program,
+                    command.args.join(" ")
+                );
+                if !result.stderr.is_empty() {
+                    tracing::debug!("Stderr: {}", result.stderr);
+                }
+            }
+            ExitStatus::Signal(signal) => {
+                tracing::warn!(
+                    "Subprocess terminated by signal {} in {:?}: {} {}",
+                    signal,
+                    duration,
+                    command.program,
+                    command.args.join(" ")
+                );
+            }
+            ExitStatus::Timeout => {
+                tracing::warn!(
+                    "Subprocess timed out after {:?}: {} {}",
+                    duration,
+                    command.program,
+                    command.args.join(" ")
+                );
+            }
+        }
+
+        Ok(result)
     }
 
     async fn run_streaming(&self, _command: ProcessCommand) -> Result<ProcessStream, ProcessError> {
