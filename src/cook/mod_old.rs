@@ -1378,13 +1378,31 @@ fn display_metrics_summary(
 ) -> Result<()> {
     if let Some(latest_metrics) = metrics_history.latest() {
         println!("\n📊 Final Metrics Summary:");
-        println!(
-            "   Overall Score: {:.1}/100",
-            latest_metrics.overall_score()
-        );
-        println!("   Test Coverage: {:.1}%", latest_metrics.test_coverage);
-        println!("   Lint Warnings: {}", latest_metrics.lint_warnings);
-        println!("   Technical Debt: {:.1}", latest_metrics.tech_debt_score);
+        
+        // Display unified health score if available
+        if let Some(ref health_score) = latest_metrics.health_score {
+            println!("   Project Health Score: {:.1}/100", health_score.overall);
+            
+            // Show key components
+            if let Some(coverage) = health_score.components.test_coverage {
+                println!("   Test Coverage: {:.1}%", coverage);
+            }
+            if let Some(quality) = health_score.components.code_quality {
+                println!("   Code Quality: {:.1}% ({} warnings)", quality, latest_metrics.lint_warnings);
+            }
+            if let Some(maint) = health_score.components.maintainability {
+                println!("   Maintainability: {:.1}%", maint);
+            }
+        } else {
+            // Fallback to old display
+            println!(
+                "   Overall Score: {:.1}/100",
+                latest_metrics.overall_score()
+            );
+            println!("   Test Coverage: {:.1}%", latest_metrics.test_coverage);
+            println!("   Lint Warnings: {}", latest_metrics.lint_warnings);
+            println!("   Technical Debt: {:.1}", latest_metrics.tech_debt_score);
+        }
 
         // Show improvement velocity
         let velocity = metrics_history.calculate_velocity(actual_iterations as usize);

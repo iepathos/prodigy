@@ -1,6 +1,7 @@
 //! Context summary structures for reduced file sizes
 
 use super::{AnalysisMetadata, AnalysisResult};
+use crate::scoring::ProjectHealthScore;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -11,6 +12,7 @@ pub struct AnalysisSummary {
     pub metadata: AnalysisMetadata,
     pub component_files: ComponentReferences,
     pub statistics: AnalysisStatistics,
+    pub health_score: Option<ProjectHealthScore>,
     pub insights: Vec<String>,
 }
 
@@ -38,7 +40,6 @@ pub struct AnalysisStatistics {
     pub overall_coverage: f64,
     pub untested_functions: usize,
     pub critical_untested: usize,
-    pub hybrid_score: Option<f64>,
 }
 
 /// Summary of test coverage without listing all functions
@@ -183,10 +184,15 @@ impl AnalysisSummary {
                         .count()
                 })
                 .unwrap_or(0),
-            hybrid_score: analysis.hybrid_coverage.as_ref().map(|hc| hc.hybrid_score),
         };
 
         let insights = Self::generate_insights(&statistics, analysis);
+
+        // Calculate unified health score
+        let health_score = analysis
+            .health_score
+            .clone()
+            .or_else(|| Some(ProjectHealthScore::from_context(analysis)));
 
         AnalysisSummary {
             metadata: analysis.metadata.clone(),
@@ -205,6 +211,7 @@ impl AnalysisSummary {
                     .map(|_| "hybrid_coverage.json".to_string()),
             },
             statistics,
+            health_score,
             insights,
         }
     }

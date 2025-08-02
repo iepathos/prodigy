@@ -11,6 +11,8 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::time::Duration;
 
+use crate::scoring::ProjectHealthScore;
+
 // Core components
 pub mod backends;
 pub mod context;
@@ -74,6 +76,9 @@ pub struct ImprovementMetrics {
     pub tech_debt_score: f32,
     pub improvement_velocity: f32,
 
+    // Unified health score
+    pub health_score: Option<ProjectHealthScore>,
+
     // Metadata
     pub timestamp: DateTime<Utc>,
     pub iteration_id: String,
@@ -100,44 +105,33 @@ impl ImprovementMetrics {
             features_added: 0,
             tech_debt_score: 0.0,
             improvement_velocity: 0.0,
+            health_score: None,
             timestamp: Utc::now(),
             iteration_id,
         }
     }
 
-    /// Calculate an overall quality score (0-100)
+    /// Calculate overall quality score using unified scoring system
     pub fn overall_score(&self) -> f32 {
-        // Weighted average of different metrics
-        let mut score = 0.0;
-        let mut weight = 0.0;
-
-        // Test coverage (weight: 30%)
-        score += self.test_coverage * 0.3;
-        weight += 0.3;
-
-        // Code quality (weight: 20%)
-        let quality_score = 100.0 - (self.lint_warnings as f32 * 2.0).min(100.0);
-        score += quality_score * 0.2;
-        weight += 0.2;
-
-        // Documentation (weight: 15%)
-        score += self.doc_coverage * 0.15;
-        weight += 0.15;
-
-        // Technical debt (weight: 20%)
-        let debt_score = (100.0 - self.tech_debt_score).max(0.0);
-        score += debt_score * 0.2;
-        weight += 0.2;
-
-        // Type coverage (weight: 15%)
-        score += self.type_coverage * 0.15;
-        weight += 0.15;
-
-        if weight > 0.0 {
-            score / weight
-        } else {
-            0.0
+        // Use cached health score if available
+        if let Some(ref health_score) = self.health_score {
+            return health_score.overall as f32;
         }
+
+        // Otherwise calculate from current metrics
+        let health_score = ProjectHealthScore::from_metrics(self);
+        health_score.overall as f32
+    }
+
+    /// Update the unified health score
+    pub fn update_health_score(&mut self) {
+        self.health_score = Some(ProjectHealthScore::from_metrics(self));
+    }
+}
+
+impl Default for ImprovementMetrics {
+    fn default() -> Self {
+        Self::new("default".to_string())
     }
 }
 

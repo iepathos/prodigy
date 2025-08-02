@@ -98,8 +98,11 @@ impl MetricsCollector {
         metrics.tech_debt_score = self.calculate_tech_debt_score(&metrics);
         metrics.improvement_velocity = self.calculate_velocity(&metrics);
 
+        // Update unified health score
+        metrics.update_health_score();
+
         println!(
-            "✅ Metrics collection complete. Overall score: {:.1}",
+            "✅ Metrics collection complete. Overall health score: {:.1}",
             metrics.overall_score()
         );
 
@@ -107,6 +110,8 @@ impl MetricsCollector {
     }
 
     /// Calculate technical debt score based on various metrics
+    /// NOTE: This is kept for backward compatibility but the unified scoring
+    /// system should be used instead (see ProjectHealthScore)
     fn calculate_tech_debt_score(&self, metrics: &ImprovementMetrics) -> f32 {
         let mut score = 0.0;
 

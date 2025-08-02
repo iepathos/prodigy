@@ -1,5 +1,9 @@
 //! Hybrid test coverage tracking that combines test coverage data with metric trends.
 //!
+//! **DEPRECATED**: This module has been replaced by the unified scoring system in `src/scoring/mod.rs`.
+//! The unified system provides a single, consistent health score that includes coverage as a component.
+//! This module is kept for backward compatibility but will be removed in a future version.
+//!
 //! This module provides a smarter approach to tracking test coverage by:
 //! - Combining coverage data with metrics trends
 //! - Prioritizing gaps in files with degrading quality metrics
@@ -256,7 +260,7 @@ impl BasicHybridCoverageAnalyzer {
             // No coverage data available - return 50.0 as a neutral score
             return 50.0;
         }
-        
+
         let base_coverage = coverage_map.overall_coverage * 100.0;
 
         // Penalty for priority gaps
