@@ -61,7 +61,7 @@ impl<R: CommandRunner + 'static> ClaudeExecutor for ClaudeExecutorImpl<R> {
         context.timeout_seconds = Some(600);
 
         self.runner
-            .run_with_context("claude", &[command.to_string()], &context)
+            .run_with_context("claude", &["--print".to_string(), "--dangerously-skip-permissions".to_string(), command.to_string()], &context)
             .await
     }
 
