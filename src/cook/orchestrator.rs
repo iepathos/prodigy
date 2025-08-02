@@ -6,7 +6,7 @@ use crate::abstractions::git::GitOperations;
 use crate::config::workflow::WorkflowConfig;
 use crate::simple_state::StateManager;
 use crate::worktree::WorktreeManager;
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -745,6 +745,19 @@ impl DefaultCookOrchestrator {
                     env_vars.insert(format!("MMM_VAR_{key}"), value.clone());
                 }
 
+                // Handle test mode
+                let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
+                let skip_validation =
+                    std::env::var("MMM_NO_COMMIT_VALIDATION").unwrap_or_default() == "true";
+
+                // Get HEAD before command execution if we need to verify commits
+                let head_before =
+                    if !skip_validation && command.metadata.commit_required && !test_mode {
+                        Some(self.get_current_head(&env.working_dir).await?)
+                    } else {
+                        None
+                    };
+
                 // Execute the command
                 let result = self
                     .claude_executor
@@ -767,6 +780,30 @@ impl DefaultCookOrchestrator {
                         ));
                     }
                 } else {
+                    // In test mode, check if this command requires commits and would have made no changes
+                    if test_mode && command.metadata.commit_required && !skip_validation {
+                        if let Ok(no_changes_cmds) = std::env::var("MMM_TEST_NO_CHANGES_COMMANDS") {
+                            if no_changes_cmds
+                                .split(',')
+                                .any(|cmd| cmd.trim() == command.name.trim_start_matches('/'))
+                            {
+                                // This command would not have made changes in real execution
+                                return Err(anyhow!(
+                                    "No changes were committed by {}",
+                                    final_command
+                                ));
+                            }
+                        }
+                    }
+                    // Check for commits if required
+                    if let Some(before) = head_before {
+                        let head_after = self.get_current_head(&env.working_dir).await?;
+                        if head_after == before {
+                            // No commits were created
+                            return Err(anyhow!("No changes were committed by {}", final_command));
+                        }
+                    }
+
                     self.user_interaction.display_success(&format!(
                         "✓ Command '{}' succeeded for input '{}'",
                         command.name, input
@@ -781,6 +818,16 @@ impl DefaultCookOrchestrator {
         ));
 
         Ok(())
+    }
+
+    /// Get current git HEAD
+    async fn get_current_head(&self, _working_dir: &std::path::Path) -> Result<String> {
+        let output = self
+            .git_operations
+            .git_command(&["rev-parse", "HEAD"], "get current HEAD")
+            .await
+            .context("Failed to get git HEAD")?;
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 }
 
@@ -1258,7 +1305,7 @@ mod tests {
                     crate::config::command::SimpleCommand {
                         name: "mmm-implement-spec".to_string(),
                         focus: None,
-                        commit_required: Some(true),
+                        commit_required: Some(false),
                         args: Some(vec!["$ARG".to_string()]),
                     },
                 ),
@@ -1316,7 +1363,7 @@ mod tests {
 
         // Check the interactions - should have different messages for commands with/without ARG
         let messages = mock_interaction.get_messages();
-        
+
         // Find the command execution messages
         let command_messages: Vec<String> = messages
             .iter()
@@ -1330,22 +1377,26 @@ mod tests {
             })
             .collect();
 
-        assert_eq!(command_messages.len(), 3, "Should have 3 command execution messages");
-        
+        assert_eq!(
+            command_messages.len(),
+            3,
+            "Should have 3 command execution messages"
+        );
+
         // First command should show ARG
         assert!(
             command_messages[0].contains("(ARG=test-value)"),
             "First command should show ARG: {}",
             command_messages[0]
         );
-        
+
         // Second command should NOT show ARG
         assert!(
             !command_messages[1].contains("(ARG="),
             "Second command should NOT show ARG: {}",
             command_messages[1]
         );
-        
+
         // Third command should NOT show ARG (has literal args, not $ARG)
         assert!(
             !command_messages[2].contains("(ARG="),

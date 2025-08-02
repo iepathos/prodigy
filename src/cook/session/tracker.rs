@@ -76,7 +76,7 @@ impl SessionManager for SessionTrackerImpl {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).await?;
         }
-        
+
         // Use atomic write to prevent corruption
         let temp_path = path.with_extension(format!(
             "tmp.{}",
@@ -85,19 +85,18 @@ impl SessionManager for SessionTrackerImpl {
                 .unwrap_or_default()
                 .as_nanos()
         ));
-        
+
         let json = serde_json::to_string_pretty(&*self.state.lock().unwrap())?;
-        
+
         // Write to temp file first
         fs::write(&temp_path, json).await?;
-        
+
         // Atomic rename
-        fs::rename(&temp_path, path).await.map_err(|e| {
+        fs::rename(&temp_path, path).await.inspect_err(|_| {
             // Clean up temp file on failure
             let _ = std::fs::remove_file(&temp_path);
-            e
         })?;
-        
+
         Ok(())
     }
 
@@ -247,18 +246,16 @@ mod tests {
     async fn test_atomic_save_prevents_corruption() {
         let temp_dir = TempDir::new().unwrap();
         let state_path = temp_dir.path().join("state.json");
-        
+
         // Create multiple trackers that will write concurrently
         let mut handles = vec![];
-        
+
         for i in 0..10 {
             let path = state_path.clone();
             let handle = tokio::spawn(async move {
-                let tracker = SessionTrackerImpl::new(
-                    format!("concurrent-{}", i),
-                    PathBuf::from("/tmp")
-                );
-                
+                let tracker =
+                    SessionTrackerImpl::new(format!("concurrent-{i}"), PathBuf::from("/tmp"));
+
                 // Update and save state multiple times
                 for j in 0..5 {
                     tracker
@@ -269,27 +266,30 @@ mod tests {
                         .update_session(SessionUpdate::AddFilesChanged(j))
                         .await
                         .unwrap();
-                    
+
                     // Save state - should use atomic write
                     tracker.save_state(&path).await.unwrap();
-                    
+
                     // Small delay to increase chance of concurrent writes
                     tokio::time::sleep(tokio::time::Duration::from_millis(1)).await;
                 }
             });
             handles.push(handle);
         }
-        
+
         // Wait for all concurrent saves to complete
         for handle in handles {
             handle.await.unwrap();
         }
-        
+
         // Verify the final state file is valid JSON
         let final_content = tokio::fs::read_to_string(&state_path).await.unwrap();
         let parsed: Result<SessionState, _> = serde_json::from_str(&final_content);
-        assert!(parsed.is_ok(), "State file should contain valid JSON after concurrent writes");
-        
+        assert!(
+            parsed.is_ok(),
+            "State file should contain valid JSON after concurrent writes"
+        );
+
         // Check no temp files are left behind
         let mut entries = tokio::fs::read_dir(temp_dir.path()).await.unwrap();
         let mut file_count = 0;
@@ -298,6 +298,9 @@ mod tests {
                 file_count += 1;
             }
         }
-        assert_eq!(file_count, 1, "Only one state.json file should exist, no temp files");
+        assert_eq!(
+            file_count, 1,
+            "Only one state.json file should exist, no temp files"
+        );
     }
 }

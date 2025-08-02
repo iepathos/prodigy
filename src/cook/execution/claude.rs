@@ -101,7 +101,7 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
     async fn handle_test_mode_execution(&self, command: &str) -> Result<ExecutionResult> {
         println!("[TEST MODE] Would execute Claude command: {command}");
 
-        // Check if we should simulate no changes/failure
+        // Check if we should simulate no changes
         if let Ok(no_changes_cmds) = std::env::var("MMM_TEST_NO_CHANGES_COMMANDS") {
             let command_name = command.trim_start_matches('/');
             if no_changes_cmds
@@ -109,11 +109,12 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
                 .any(|cmd| cmd.trim() == command_name)
             {
                 println!("[TEST MODE] Simulating no changes for: {command_name}");
+                // Return success but the orchestrator will detect no commits were made
                 return Ok(ExecutionResult {
-                    success: false,
+                    success: true,
                     stdout: format!("Test mode - no changes for {command}"),
                     stderr: String::new(),
-                    exit_code: Some(1),
+                    exit_code: Some(0),
                 });
             }
         }
