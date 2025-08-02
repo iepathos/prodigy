@@ -10,6 +10,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use crate::scoring::ProjectHealthScore;
+
 pub mod analyzer;
 pub mod architecture;
 pub mod conventions;
@@ -39,6 +41,7 @@ pub struct AnalysisResult {
     pub technical_debt: TechnicalDebtMap,
     pub test_coverage: Option<TestCoverageMap>,
     pub hybrid_coverage: Option<HybridCoverageReport>,
+    pub health_score: Option<ProjectHealthScore>,
     pub metadata: AnalysisMetadata,
 }
 
@@ -278,38 +281,52 @@ pub fn save_analysis_with_commit(
         serde_json::to_string_pretty(&analysis.metadata)?,
     )?;
 
-    // Calculate and display key scores
-    let mut overall_score = 0.0;
+    // Calculate unified health score
+    let health_score = ProjectHealthScore::from_context(analysis);
+    let overall_score = health_score.overall;
 
-    if let Some(ref test_coverage) = analysis.test_coverage {
-        let coverage_pct = (test_coverage.overall_coverage * 100.0) as f32;
-        eprintln!("📊 Test coverage: {coverage_pct:.1}%");
-        overall_score += coverage_pct as f64 * 0.3; // 30% weight
+    // Display score breakdown
+    eprintln!("📊 Project Health Score: {overall_score:.1}/100");
+    eprintln!("\nComponents:");
+
+    use crate::scoring::format_component;
+
+    eprintln!(
+        "{}",
+        format_component("Test Coverage", health_score.components.test_coverage, None)
+    );
+    eprintln!(
+        "{}",
+        format_component("Code Quality", health_score.components.code_quality, None)
+    );
+    eprintln!(
+        "{}",
+        format_component(
+            "Maintainability",
+            health_score.components.maintainability,
+            Some(&format!(
+                "({} debt items)",
+                analysis.technical_debt.debt_items.len()
+            ))
+        )
+    );
+    eprintln!(
+        "{}",
+        format_component("Documentation", health_score.components.documentation, None)
+    );
+    eprintln!(
+        "{}",
+        format_component("Type Safety", health_score.components.type_safety, None)
+    );
+
+    // Show improvement suggestions
+    let suggestions = health_score.get_improvement_suggestions();
+    if !suggestions.is_empty() {
+        eprintln!("\n💡 Top improvements:");
+        for (i, suggestion) in suggestions.iter().enumerate() {
+            eprintln!("  {}. {}", i + 1, suggestion);
+        }
     }
-
-    if let Some(ref hybrid_coverage) = analysis.hybrid_coverage {
-        eprintln!(
-            "🔍 Hybrid coverage score: {:.1}",
-            hybrid_coverage.hybrid_score
-        );
-        overall_score += hybrid_coverage.hybrid_score * 0.3; // 30% weight
-    }
-
-    // Calculate debt score using logarithmic scaling for better handling of high debt counts
-    let debt_score = if analysis.technical_debt.debt_items.is_empty() {
-        100.0
-    } else {
-        // Use logarithmic scaling: score = 100 * (1 - log(debt_count + 1) / log(max_expected_debt))
-        // This gives a more reasonable score distribution
-        let debt_count = analysis.technical_debt.debt_items.len() as f64;
-        let max_expected_debt: f64 = 1000.0; // Adjust based on typical project sizes
-        let score = 100.0 * (1.0 - (debt_count + 1.0).ln() / max_expected_debt.ln());
-        score.max(0.0).min(100.0)
-    };
-    eprintln!("🛠️  Technical debt score: {debt_score:.1}");
-    overall_score += debt_score * 0.4; // 40% weight
-
-    eprintln!("🎯 Overall quality score: {overall_score:.1}/100");
 
     // Analyze and report final context sizes
     if let Ok(size_metadata) = size_manager.analyze_context_sizes(&context_dir) {

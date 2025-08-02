@@ -365,10 +365,57 @@ fn display_pretty_metrics(metrics: &crate::metrics::ImprovementMetrics) {
         "   Improvement velocity: {:.1}",
         metrics.improvement_velocity
     );
-    println!(
-        "   Overall quality score: {:.1}/100",
-        metrics.overall_score()
-    );
+
+    // Display unified health score
+    if let Some(ref health_score) = metrics.health_score {
+        println!("\n📊 Project Health Score: {:.1}/100", health_score.overall);
+        println!("\nComponents:");
+
+        use crate::scoring::format_component;
+
+        println!(
+            "{}",
+            format_component("Test Coverage", health_score.components.test_coverage, None)
+        );
+        println!(
+            "{}",
+            format_component(
+                "Code Quality",
+                health_score.components.code_quality,
+                Some(&format!("({} warnings)", metrics.lint_warnings))
+            )
+        );
+        println!(
+            "{}",
+            format_component(
+                "Maintainability",
+                health_score.components.maintainability,
+                None
+            )
+        );
+        println!(
+            "{}",
+            format_component("Documentation", health_score.components.documentation, None)
+        );
+        println!(
+            "{}",
+            format_component("Type Safety", health_score.components.type_safety, None)
+        );
+
+        let suggestions = health_score.get_improvement_suggestions();
+        if !suggestions.is_empty() {
+            println!("\n💡 Top improvements:");
+            for (i, suggestion) in suggestions.iter().enumerate() {
+                println!("  {}. {}", i + 1, suggestion);
+            }
+        }
+    } else {
+        // Fallback to old display
+        println!(
+            "   Overall quality score: {:.1}/100",
+            metrics.overall_score()
+        );
+    }
 
     // Metadata
     println!("\n⏱️  Metadata:");
@@ -379,16 +426,29 @@ fn display_pretty_metrics(metrics: &crate::metrics::ImprovementMetrics) {
 /// Display metrics in summary format
 fn display_summary_metrics(metrics: &crate::metrics::ImprovementMetrics) {
     println!("\n✅ Metrics analysis complete!");
-    println!("📊 Test coverage: {:.1}%", metrics.test_coverage);
-    println!("🛠️  Technical debt score: {:.1}", metrics.tech_debt_score);
-    println!(
-        "🚀 Improvement velocity: {:.1}",
-        metrics.improvement_velocity
-    );
-    println!(
-        "🎯 Overall quality score: {:.1}/100",
-        metrics.overall_score()
-    );
+
+    // Display unified health score
+    if let Some(ref health_score) = metrics.health_score {
+        println!("📊 Project Health Score: {:.1}/100", health_score.overall);
+        println!("📊 Test coverage: {:.1}%", metrics.test_coverage);
+        println!("🛠️  Technical debt score: {:.1}", metrics.tech_debt_score);
+        println!(
+            "🚀 Improvement velocity: {:.1}",
+            metrics.improvement_velocity
+        );
+    } else {
+        // Fallback display
+        println!("📊 Test coverage: {:.1}%", metrics.test_coverage);
+        println!("🛠️  Technical debt score: {:.1}", metrics.tech_debt_score);
+        println!(
+            "🚀 Improvement velocity: {:.1}",
+            metrics.improvement_velocity
+        );
+        println!(
+            "🎯 Overall quality score: {:.1}/100",
+            metrics.overall_score()
+        );
+    }
     println!(
         "⏱️  Compile time: {:.2}s",
         metrics.compile_time.as_secs_f64()

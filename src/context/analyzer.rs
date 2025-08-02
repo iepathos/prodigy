@@ -116,13 +116,14 @@ impl ContextAnalyzer for ProjectAnalyzer {
             .await
             .ok();
 
-        let result = AnalysisResult {
+        let mut result = AnalysisResult {
             dependency_graph: deps,
             architecture: arch,
             conventions: conv,
             technical_debt: debt,
             test_coverage: Some(coverage),
             hybrid_coverage,
+            health_score: None, // Will be calculated next
             metadata: AnalysisMetadata {
                 timestamp: chrono::Utc::now(),
                 duration_ms,
@@ -131,6 +132,9 @@ impl ContextAnalyzer for ProjectAnalyzer {
                 version: env!("CARGO_PKG_VERSION").to_string(),
             },
         };
+
+        // Calculate unified health score
+        result.health_score = Some(crate::scoring::ProjectHealthScore::from_context(&result));
 
         // Save analysis results
         save_analysis(project_path, &result)?;

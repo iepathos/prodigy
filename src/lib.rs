@@ -18,6 +18,7 @@
 //! - `git` - Granular, testable git operations layer
 //! - `init` - Initialize MMM commands in projects
 //! - `metrics` - Real metrics tracking for code improvements
+//! - `scoring` - Unified project health scoring system
 //! - `simple_state` - Minimal state management with JSON persistence
 //! - `subprocess` - Unified subprocess abstraction layer for testing
 //! - `worktree` - Git worktree management for parallel sessions
@@ -31,6 +32,7 @@ pub mod cook;
 pub mod git;
 pub mod init;
 pub mod metrics;
+pub mod scoring;
 pub mod session;
 pub mod simple_state;
 pub mod subprocess;

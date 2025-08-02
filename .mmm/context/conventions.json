@@ -15,14 +15,6 @@
       ],
       "frequency": 13
     },
-    "logging": {
-      "name": "Logging pattern",
-      "description": "Uses logging for debugging and monitoring",
-      "examples": [
-        "Result<String, Error>"
-      ],
-      "frequency": 30
-    },
     "error_handling": {
       "name": "Result-based error handling",
       "description": "Uses Result<T, E> for error handling",
@@ -30,14 +22,6 @@
         "Result<String, Error>"
       ],
       "frequency": 30
-    },
-    "builder": {
-      "name": "Builder pattern",
-      "description": "Uses builder pattern for object construction",
-      "examples": [
-        "RequestBuilder::new()"
-      ],
-      "frequency": 2
     },
     "logging": {
       "name": "Logging pattern",
@@ -47,6 +31,14 @@
         "log::info!"
       ],
       "frequency": 1
+    },
+    "builder": {
+      "name": "Builder pattern",
+      "description": "Uses builder pattern for object construction",
+      "examples": [
+        "RequestBuilder::new()"
+      ],
+      "frequency": 2
     }
   },
   "test_patterns": {
