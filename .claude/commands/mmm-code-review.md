@@ -177,7 +177,7 @@ MMM_CONTEXT_DIR: Path to .mmm/context/ directory with analysis data
 **CRITICAL FOR AUTOMATION**: When running in automation mode, generate a temporary specification file containing actionable implementation instructions for the issues found, then commit it.
 
 1. **Spec File Creation**
-   - Create directory: `specs/temp/` if it doesn't exist
+   - Create directory: `specs/` if it doesn't exist
    - Generate filename: `iteration-{timestamp}-improvements.md`
    - Write comprehensive implementation spec
 
