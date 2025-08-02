@@ -403,9 +403,8 @@ impl DefaultCookOrchestrator {
         let max_iterations = config.command.max_iterations;
         for iteration in 1..=max_iterations {
             if iteration > 1 {
-                self.user_interaction.display_progress(&format!(
-                    "Starting iteration {iteration}/{max_iterations}"
-                ));
+                self.user_interaction
+                    .display_progress(&format!("Starting iteration {iteration}/{max_iterations}"));
             }
 
             // Increment iteration counter once per iteration, not per command
@@ -644,7 +643,10 @@ impl DefaultCookOrchestrator {
                 self.matches_glob_pattern(file, pattern)
             } else {
                 // Simple substring match - just check if filename contains pattern
-                file.split('/').next_back().unwrap_or(file).contains(pattern)
+                file.split('/')
+                    .next_back()
+                    .unwrap_or(file)
+                    .contains(pattern)
             };
 
             if matches {

@@ -310,6 +310,58 @@ fn calculate_maintainability_score(debt_items: &[TechnicalDebtItem]) -> f64 {
     score.max(0.0)
 }
 
+/// Calculate technical debt score from debt items (0-100, higher is better)
+pub fn calculate_technical_debt_score(debt_items: &[TechnicalDebtItem]) -> f64 {
+    // Count items by severity
+    let critical_count = debt_items.iter().filter(|item| item.impact >= 9).count();
+    let high_count = debt_items
+        .iter()
+        .filter(|item| item.impact >= 7 && item.impact < 9)
+        .count();
+    let medium_count = debt_items
+        .iter()
+        .filter(|item| item.impact >= 4 && item.impact < 7)
+        .count();
+    let low_count = debt_items.iter().filter(|item| item.impact < 4).count();
+
+    // Start with perfect score
+    let mut score = 100.0;
+
+    // Apply penalties based on severity and count
+    score -= (critical_count as f64 * 10.0).min(40.0); // Critical items have heavy impact
+    score -= (high_count as f64 * 5.0).min(30.0); // High impact items
+    score -= (medium_count as f64 * 2.0).min(20.0); // Medium impact items
+    score -= (low_count as f64 * 0.5).min(10.0); // Low impact items have minimal effect
+
+    // Additional penalty for overall debt volume (logarithmic)
+    let total_debt = debt_items.len() as f64;
+    if total_debt > 10.0 {
+        let volume_penalty = ((total_debt - 10.0).ln() * 3.0).min(10.0);
+        score -= volume_penalty;
+    }
+
+    // Consider debt type distribution
+    let mut type_counts = std::collections::HashMap::new();
+    for item in debt_items {
+        *type_counts.entry(&item.debt_type).or_insert(0) += 1;
+    }
+
+    // Penalty for concentration of specific debt types
+    for (debt_type, count) in type_counts {
+        use crate::context::debt::DebtType;
+        let type_penalty = match debt_type {
+            DebtType::Security => (count as f64 * 3.0).min(15.0), // Security issues are critical
+            DebtType::Performance => (count as f64 * 2.0).min(10.0),
+            DebtType::Complexity => (count as f64 * 1.5).min(10.0),
+            DebtType::Duplication => (count as f64 * 1.0).min(8.0),
+            _ => (count as f64 * 0.5).min(5.0),
+        };
+        score -= type_penalty * 0.2; // Apply 20% of type penalty
+    }
+
+    score.max(0.0)
+}
+
 /// Format score component for display
 pub fn format_component(name: &str, value: Option<f64>, details: Option<&str>) -> String {
     match value {

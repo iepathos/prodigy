@@ -111,7 +111,6 @@ mod tests {
                 priority_queue: std::collections::BinaryHeap::new(),
             },
             test_coverage: None,
-            hybrid_coverage: None,
             metadata: crate::context::AnalysisMetadata {
                 timestamp: chrono::Utc::now(),
                 duration_ms: 0,

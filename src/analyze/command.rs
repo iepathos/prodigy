@@ -224,6 +224,11 @@ fn display_pretty_analysis(
         }
     }
 
+    // Calculate and display technical debt score
+    let debt_score =
+        crate::scoring::calculate_technical_debt_score(&analysis.technical_debt.debt_items);
+    println!("\n   📊 Technical Debt Score: {debt_score:.1}/100");
+
     // Test Coverage
     println!("\n🧪 Test Coverage:");
     if let Some(ref test_coverage) = analysis.test_coverage {
@@ -272,6 +277,34 @@ fn display_pretty_analysis(
         }
     }
 
+    // Calculate and display unified health score
+    let health_score = crate::scoring::ProjectHealthScore::from_context(analysis);
+    println!("\n📊 Project Health Score: {:.1}/100", health_score.overall);
+
+    println!("\nScore Components:");
+    use crate::scoring::format_component;
+
+    println!(
+        "{}",
+        format_component("Test Coverage", health_score.components.test_coverage, None)
+    );
+    println!(
+        "{}",
+        format_component("Code Quality", health_score.components.code_quality, None)
+    );
+    println!(
+        "{}",
+        format_component(
+            "Maintainability",
+            health_score.components.maintainability,
+            None
+        )
+    );
+    println!(
+        "{}",
+        format_component("Documentation", health_score.components.documentation, None)
+    );
+
     // Metadata
     println!("\n⏱️  Analysis Metadata:");
     println!("   Duration: {}ms", analysis.metadata.duration_ms);
@@ -297,6 +330,15 @@ fn display_summary_analysis(
         "   - {} technical debt items found",
         analysis.technical_debt.debt_items.len()
     );
+
+    // Display both scores in summary
+    let health_score = crate::scoring::ProjectHealthScore::from_context(analysis);
+    let debt_score =
+        crate::scoring::calculate_technical_debt_score(&analysis.technical_debt.debt_items);
+    println!("\n📊 Scores:");
+    println!("   - Project Health: {:.1}/100", health_score.overall);
+    println!("   - Technical Debt: {debt_score:.1}/100");
+
     if let Some(ref test_coverage) = analysis.test_coverage {
         if test_coverage.file_coverage.is_empty() && test_coverage.overall_coverage == 0.0 {
             println!("   - No test coverage data available");
