@@ -57,8 +57,7 @@ impl<R: CommandRunner + 'static> ClaudeExecutor for ClaudeExecutorImpl<R> {
             context.env_vars = env_vars;
         }
 
-        // Set timeout for Claude commands (10 minutes by default)
-        context.timeout_seconds = Some(600);
+        // No timeout for Claude commands - let them run as long as needed for automated workflows
         
         // Claude requires some input on stdin to work properly
         context.stdin = Some("".to_string());
