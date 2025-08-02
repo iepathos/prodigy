@@ -1,4 +1,61 @@
 //! Session state machine implementation
+//!
+//! This module defines the core state machine for MMM sessions, providing
+//! structured state transitions, progress tracking, and comprehensive session
+//! metadata management.
+//!
+//! # State Machine
+//!
+//! Sessions progress through the following states:
+//! - `Created` → Initial state after session creation
+//! - `Running` → Active execution with iteration tracking  
+//! - `Paused` → Temporary suspension with reason
+//! - `Completed` → Successful completion with summary
+//! - `Failed` → Terminal failure state with error details
+//!
+//! # Key Types
+//!
+//! - [`SessionState`] - Core state enumeration
+//! - [`SessionSummary`] - Completion summary with metrics
+//! - [`SessionProgress`] - Real-time progress tracking
+//! - [`IterationTiming`] - Performance timing for iterations
+//! - [`WorkflowTiming`] - Command-level timing breakdown
+//!
+//! # Examples
+//!
+//! ## State Transitions
+//!
+//! ```rust
+//! use mmm::session::SessionState;
+//!
+//! let mut state = SessionState::Created;
+//! 
+//! // Start session
+//! state = SessionState::Running { iteration: 1 };
+//! assert!(state.is_active());
+//! assert_eq!(state.current_iteration(), Some(1));
+//!
+//! // Complete session
+//! state = SessionState::Completed { 
+//!     summary: mmm::session::SessionSummary::default() 
+//! };
+//! assert!(state.is_terminal());
+//! ```
+//!
+//! ## Progress Tracking
+//!
+//! ```rust
+//! use mmm::session::SessionProgress;
+//! use std::time::Duration;
+//!
+//! let mut progress = SessionProgress::new(5); // 5 max iterations
+//! 
+//! progress.start_iteration(1);
+//! progress.complete_iteration(Duration::from_secs(30));
+//! 
+//! assert_eq!(progress.iterations_completed, 1);
+//! assert_eq!(progress.completion_percentage(), 20.0);
+//! ```
 
 use super::{CommitInfo, ExecutedCommand, IterationChanges};
 use serde::{Deserialize, Serialize};
@@ -6,7 +63,28 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-/// Core session states
+/// Core session states representing the lifecycle of an MMM improvement session
+///
+/// Sessions follow a strict state machine with the following transitions:
+/// - `Created` → `Running` (start session)
+/// - `Running` → `Paused` (temporary pause)
+/// - `Running` → `Completed` (successful completion)
+/// - `Running` → `Failed` (error occurred)
+/// - `Paused` → `Running` (resume session)
+/// - `Paused` → `Failed` (abandon session)
+///
+/// Terminal states (`Completed`, `Failed`) cannot transition to other states.
+///
+/// # Examples
+///
+/// ```rust
+/// use mmm::session::{SessionState, SessionSummary};
+/// 
+/// let state = SessionState::Running { iteration: 3 };
+/// assert!(state.is_active());
+/// assert!(!state.is_terminal());
+/// assert_eq!(state.current_iteration(), Some(3));
+/// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SessionState {
     /// Session has been created but not started
@@ -44,7 +122,40 @@ impl SessionState {
     }
 }
 
-/// Summary of a completed session
+/// Comprehensive summary of a completed MMM session
+///
+/// Contains detailed metrics, timing information, and results from
+/// a completed improvement session. This data is used for performance
+/// analysis, progress tracking, and historical comparison.
+///
+/// # Fields
+///
+/// - `total_iterations`: Number of improvement iterations executed
+/// - `files_changed`: Total files modified during the session
+/// - `total_commits`: Number of git commits created
+/// - `duration`: Total wall-clock time for the session
+/// - `success_rate`: Percentage of successful command executions (0.0-1.0)
+/// - `iteration_timings`: Detailed timing for each iteration
+/// - `workflow_timing`: Aggregate timing statistics by command type
+///
+/// # Examples
+///
+/// ```rust
+/// use mmm::session::SessionSummary;
+/// use std::time::Duration;
+///
+/// let summary = SessionSummary {
+///     total_iterations: 5,
+///     files_changed: 12,
+///     total_commits: 3,
+///     duration: Duration::from_secs(300),
+///     success_rate: 0.95,
+///     iteration_timings: vec![],
+///     workflow_timing: mmm::session::WorkflowTiming::default(),
+/// };
+///
+/// assert_eq!(summary.success_rate * 100.0, 95.0);
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SessionSummary {
     pub total_iterations: u32,
@@ -56,7 +167,34 @@ pub struct SessionSummary {
     pub workflow_timing: WorkflowTiming,
 }
 
-/// Timing information for a single iteration
+/// Detailed timing information for a single improvement iteration
+///
+/// Tracks the performance characteristics of each iteration including
+/// start/end times, individual command durations, and total execution time.
+/// This data helps identify performance bottlenecks and optimize workflows.
+///
+/// # Fields
+///
+/// - `iteration_number`: Sequential iteration number (1-based)
+/// - `start_time`: UTC timestamp when iteration began
+/// - `end_time`: UTC timestamp when iteration completed (None if running)
+/// - `command_timings`: Duration for each command executed in this iteration
+/// - `total_duration`: Total wall-clock time for the complete iteration
+///
+/// # Examples
+///
+/// ```rust
+/// use mmm::session::IterationTiming;
+/// use std::time::Duration;
+///
+/// let mut timing = IterationTiming::new(1);
+/// timing.add_command_timing("mmm-code-review".to_string(), Duration::from_secs(30));
+/// timing.add_command_timing("mmm-lint".to_string(), Duration::from_secs(10));
+/// timing.complete();
+///
+/// assert!(timing.total_duration.is_some());
+/// assert!(timing.end_time.is_some());
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct IterationTiming {
     pub iteration_number: u32,

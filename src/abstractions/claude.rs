@@ -13,10 +13,110 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-/// Trait for Claude CLI operations
+/// Trait for Claude CLI operations providing testable abstraction
+///
+/// This trait abstracts all interactions with the Claude CLI, enabling
+/// comprehensive testing without requiring an actual Claude CLI installation.
+/// It provides both low-level command execution and high-level workflow operations.
+///
+/// # Design Goals
+///
+/// - **Testability**: Enable mocking for comprehensive test coverage
+/// - **Retry Logic**: Built-in retry mechanism for transient failures
+/// - **Environment Control**: Flexible environment variable handling
+/// - **Command Abstraction**: High-level methods for common MMM workflows
+///
+/// # Examples
+///
+/// ## Basic Command Execution
+///
+/// ```rust
+/// use mmm::abstractions::ClaudeClient;
+/// use std::collections::HashMap;
+///
+/// # async fn example(client: &dyn ClaudeClient) -> anyhow::Result<()> {
+/// let mut env_vars = HashMap::new();
+/// env_vars.insert("MMM_CONTEXT_AVAILABLE".to_string(), "true".to_string());
+///
+/// let output = client.execute_command(
+///     "claude",
+///     &["code", "--command", "/mmm-code-review"],
+///     Some(env_vars),
+///     3, // max retries
+///     true // verbose
+/// ).await?;
+///
+/// println!("Exit status: {}", output.status.success());
+/// # Ok(())
+/// # }
+/// ```
+///
+/// ## High-Level Workflow Operations
+///
+/// ```rust
+/// # use mmm::abstractions::ClaudeClient;
+/// # async fn example(client: &dyn ClaudeClient) -> anyhow::Result<()> {
+/// // Check if Claude CLI is available
+/// client.check_availability().await?;
+///
+/// // Execute code review workflow
+/// let success = client.code_review(true).await?;
+/// if success {
+///     // Implement improvements based on review
+///     client.implement_spec("iteration-123", false).await?;
+///     
+///     // Run final linting
+///     client.lint(false).await?;
+/// }
+/// # Ok(())
+/// # }
+/// ```
 #[async_trait]
 pub trait ClaudeClient: Send + Sync {
-    /// Execute a Claude command with retry logic
+    /// Execute a Claude command with automatic retry logic
+    ///
+    /// Executes a Claude CLI command with the specified arguments and environment
+    /// variables. Automatically retries on transient failures (network issues,
+    /// rate limits, timeouts) up to the specified maximum retry count.
+    ///
+    /// # Arguments
+    ///
+    /// * `command` - The base command to execute (usually "claude")
+    /// * `args` - Command-line arguments to pass
+    /// * `env_vars` - Optional environment variables to set
+    /// * `max_retries` - Maximum number of retry attempts for transient failures
+    /// * `verbose` - Whether to enable verbose output logging
+    ///
+    /// # Returns
+    ///
+    /// Returns the process output including stdout, stderr, and exit status.
+    /// On success, the exit status will be 0. On failure, returns an error
+    /// describing the issue.
+    ///
+    /// # Errors
+    ///
+    /// - Command not found (Claude CLI not installed)
+    /// - Non-transient command failures (syntax errors, etc.)
+    /// - Transient failures that exceed the retry limit
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use mmm::abstractions::ClaudeClient;
+    /// # use std::collections::HashMap;
+    /// # async fn example(client: &dyn ClaudeClient) -> anyhow::Result<()> {
+    /// let output = client.execute_command(
+    ///     "claude",
+    ///     &["code", "--help"],
+    ///     None,
+    ///     3,
+    ///     false
+    /// ).await?;
+    ///
+    /// println!("Output: {}", String::from_utf8_lossy(&output.stdout));
+    /// # Ok(())
+    /// # }
+    /// ```
     async fn execute_command(
         &self,
         command: &str,
@@ -26,26 +126,179 @@ pub trait ClaudeClient: Send + Sync {
         verbose: bool,
     ) -> Result<std::process::Output>;
 
-    /// Check if Claude CLI is available
+    /// Check if Claude CLI is available and properly configured
+    ///
+    /// Verifies that the Claude CLI is installed, accessible, and ready to use.
+    /// This should be called before attempting any other operations to ensure
+    /// the environment is properly set up.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if Claude CLI is available and working, or an error
+    /// describing the availability issue.
+    ///
+    /// # Errors
+    ///
+    /// - Claude CLI not found in PATH
+    /// - Claude CLI not properly authenticated
+    /// - Network connectivity issues
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use mmm::abstractions::ClaudeClient;
+    /// # async fn example(client: &dyn ClaudeClient) -> anyhow::Result<()> {
+    /// match client.check_availability().await {
+    ///     Ok(()) => println!("Claude CLI is ready!"),
+    ///     Err(e) => eprintln!("Claude CLI unavailable: {}", e),
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
     async fn check_availability(&self) -> Result<()>;
 
-    /// Execute /mmm-code-review command
+    /// Execute the /mmm-code-review command for automated code analysis
+    ///
+    /// Runs the MMM code review workflow which analyzes code quality,
+    /// identifies issues, and suggests improvements. This is typically
+    /// the first step in an improvement iteration.
+    ///
+    /// # Arguments
+    ///
+    /// * `verbose` - Enable detailed logging and output
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` if the code review completed successfully and found
+    /// actionable improvements, `false` if no improvements were identified.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use mmm::abstractions::ClaudeClient;
+    /// # async fn example(client: &dyn ClaudeClient) -> anyhow::Result<()> {
+    /// let has_improvements = client.code_review(true).await?;
+    /// if has_improvements {
+    ///     println!("Code review found improvements to implement");
+    /// } else {
+    ///     println!("Code is in good shape, no issues found");
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
     async fn code_review(&self, verbose: bool) -> Result<bool>;
 
-    /// Execute /mmm-implement-spec command
+    /// Execute the /mmm-implement-spec command to implement improvements
+    ///
+    /// Runs the MMM implementation workflow which takes a specification ID
+    /// (typically generated by code review) and implements the suggested
+    /// improvements automatically.
+    ///
+    /// # Arguments
+    ///
+    /// * `spec_id` - Unique identifier for the improvement specification
+    /// * `verbose` - Enable detailed logging and output
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` if the implementation was successful, `false` if
+    /// implementation failed or was not possible.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use mmm::abstractions::ClaudeClient;
+    /// # async fn example(client: &dyn ClaudeClient) -> anyhow::Result<()> {
+    /// let spec_id = "iteration-1234-performance";
+    /// let success = client.implement_spec(spec_id, false).await?;
+    /// if success {
+    ///     println!("Successfully implemented improvements from {}", spec_id);
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
     async fn implement_spec(&self, spec_id: &str, verbose: bool) -> Result<bool>;
 
-    /// Execute /mmm-lint command
+    /// Execute the /mmm-lint command for code style and quality checks
+    ///
+    /// Runs automated linting and code formatting to ensure code quality
+    /// and consistency. This is typically used as a final cleanup step
+    /// after implementing improvements.
+    ///
+    /// # Arguments
+    ///
+    /// * `verbose` - Enable detailed logging and output
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` if linting completed successfully and any issues
+    /// were fixed, `false` if linting failed or found unfixable issues.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use mmm::abstractions::ClaudeClient;
+    /// # async fn example(client: &dyn ClaudeClient) -> anyhow::Result<()> {
+    /// let clean = client.lint(true).await?;
+    /// if clean {
+    ///     println!("Code passes all linting checks");
+    /// } else {
+    ///     println!("Linting found issues that need manual attention");
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
     async fn lint(&self, verbose: bool) -> Result<bool>;
 }
 
-/// Real implementation of `ClaudeClient`
+/// Production implementation of `ClaudeClient` using actual Claude CLI
+///
+/// This implementation executes real Claude CLI commands through the subprocess
+/// system. It provides automatic retry logic for transient failures and
+/// comprehensive error handling for robust operation in production environments.
+///
+/// # Features
+///
+/// - **Automatic Retries**: Detects and retries transient failures
+/// - **Environment Isolation**: Properly manages environment variables
+/// - **Error Classification**: Distinguishes between transient and permanent failures
+/// - **Subprocess Management**: Uses the shared subprocess abstraction layer
+///
+/// # Examples
+///
+/// ```rust
+/// use mmm::abstractions::{ClaudeClient, RealClaudeClient};
+///
+/// # async fn example() -> anyhow::Result<()> {
+/// let client = RealClaudeClient::new();
+/// 
+/// // Check availability before use
+/// client.check_availability().await?;
+///
+/// // Execute code review
+/// let success = client.code_review(false).await?;
+/// # Ok(())
+/// # }
+/// ```
 pub struct RealClaudeClient {
     subprocess: SubprocessManager,
 }
 
 impl RealClaudeClient {
-    /// Create a new `RealClaudeClient` instance
+    /// Create a new `RealClaudeClient` instance with production subprocess manager
+    ///
+    /// Creates a new client configured for production use with the default
+    /// subprocess manager. This is the standard way to create a client for
+    /// actual Claude CLI operations.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use mmm::abstractions::RealClaudeClient;
+    ///
+    /// let client = RealClaudeClient::new();
+    /// // Ready to use for Claude CLI operations
+    /// ```
     #[must_use]
     pub fn new() -> Self {
         Self {
