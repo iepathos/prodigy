@@ -1,3 +1,67 @@
+//! MMM project initialization for Claude Code integration
+//!
+//! This module provides functionality to initialize MMM commands in a project,
+//! setting up the necessary directory structure and Claude Code command files
+//! that enable automated code improvement workflows.
+//!
+//! # Key Features
+//!
+//! - **Git Repository Validation**: Ensures MMM is only installed in git repositories
+//! - **Template Management**: Provides pre-built command templates for common workflows
+//! - **Smart Installation**: Handles existing commands and provides options for selective installation
+//! - **Interactive Mode**: Prompts user for confirmation when conflicts exist
+//! - **Force Mode**: Allows overwriting existing commands when needed
+//!
+//! # Command Templates
+//!
+//! The init system provides several built-in command templates:
+//! - `mmm-code-review` - Automated code quality analysis and review
+//! - `mmm-implement-spec` - Implementation of specifications and features
+//! - `mmm-lint` - Code linting and style enforcement
+//! - `mmm-product-enhance` - Product-focused enhancements
+//! - `mmm-merge-worktree` - Git worktree management
+//! - `mmm-cleanup-tech-debt` - Technical debt reduction
+//!
+//! # Examples
+//!
+//! ## Initialize All Commands
+//!
+//! ```rust
+//! use mmm::init::{run, command::InitCommand};
+//! use std::path::PathBuf;
+//!
+//! # async fn example() -> anyhow::Result<()> {
+//! let cmd = InitCommand {
+//!     force: false,
+//!     commands: None, // Install all commands
+//!     path: Some(PathBuf::from("/path/to/project")),
+//! };
+//!
+//! run(cmd).await?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Install Specific Commands
+//!
+//! ```rust
+//! # use mmm::init::{run, command::InitCommand};
+//! # use std::path::PathBuf;
+//! # async fn example() -> anyhow::Result<()> {
+//! let cmd = InitCommand {
+//!     force: false,
+//!     commands: Some(vec![
+//!         "mmm-code-review".to_string(),
+//!         "mmm-lint".to_string()
+//!     ]),
+//!     path: None, // Use current directory
+//! };
+//!
+//! run(cmd).await?;
+//! # Ok(())
+//! # }
+//! ```
+
 pub mod command;
 pub mod templates;
 
