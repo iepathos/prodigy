@@ -77,7 +77,7 @@ impl WorktreeManager {
     /// Returns error if worktree creation fails
     pub async fn create_session(&self) -> Result<WorktreeSession> {
         let session_id = Uuid::new_v4();
-        // Simple name without focus, using UUID
+        // Simple name using UUID
         let name = format!("session-{session_id}");
         let branch = format!("mmm-{name}");
         let worktree_path = self.base_dir.join(&name);
@@ -647,7 +647,7 @@ mod tests {
 
         // Create a mock worktree list that includes our session
         // Note: In reality, we'd need actual git worktrees, but for this test
-        // we're focusing on the Claude CLI failure path
+        // we're testing the Claude CLI failure path
 
         let result = manager.merge_session("test-session").await;
         // Should fail because worktree doesn't actually exist in git

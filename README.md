@@ -12,7 +12,7 @@ Self-sufficient Claude development loops are fully autonomous improvement cycles
 2. **Consistent Quality**: Every iteration follows the same high standards, applying best practices uniformly across your entire codebase
 3. **Parallel Execution**: Multiple loops can run simultaneously on different aspects (security, performance, testing) using git worktrees
 4. **Git-Native Workflow**: Every change is tracked through commits, providing complete auditability and easy rollback if needed
-5. **Customizable Focus**: Direct the AI's attention to specific concerns like security vulnerabilities, performance bottlenecks, or test coverage
+5. **Customizable Workflows**: Create targeted improvement loops for security, performance, testing, or any development aspect
 
 ## How MMM Simplifies Running These Loops
 
@@ -30,7 +30,7 @@ Behind this simplicity, `mmm` handles all the complexity:
 3. **Worktree Isolation**: Optionally runs improvements in isolated git worktrees, enabling parallel improvement sessions
 4. **Configurable Workflows**: Define custom sequences of Claude commands via simple YAML files
 5. **Smart State Management**: Tracks progress, handles interruptions, and provides clear status updates
-6. **Focus Persistence**: Maintains improvement direction across all iterations when given a focus area
+6. **Workflow Persistence**: Maintains improvement strategy across all iterations in a session
 
 ## What It Does
 
@@ -41,7 +41,7 @@ Behind this simplicity, `mmm` handles all the complexity:
 3. **Lints** and formats the code with automated tools
 4. **Repeats** until your target iterations is reached or no more improvements are found
 
-Each iteration is fully autonomous - Claude handles review, implementation, and validation without manual intervention. All changes are committed to git with clear audit trails. Configure workflows to focus on security, performance, testing, or any development aspect you need.
+Each iteration is fully autonomous - Claude handles review, implementation, and validation without manual intervention. All changes are committed to git with clear audit trails. Configure workflows to target security, performance, testing, or any development aspect you need.
 
 ## Installation
 
@@ -76,14 +76,14 @@ mmm cook examples/default.yml --path /path/to/repo
 mmm cook examples/default.yml --path ./relative/path
 mmm cook examples/default.yml --path ~/projects/myapp
 
-# Cook with a specific focus area
-mmm cook examples/default.yml --focus security
+# Cook with a security-focused workflow
+mmm cook examples/security.yml
 
 # Run with more iterations
 mmm cook examples/default.yml --max-iterations 20
 
 # Run in an isolated git worktree for parallel execution
-mmm cook examples/default.yml --worktree --focus performance
+mmm cook examples/performance.yml --worktree
 
 # Fully automated mode (auto-accept merge prompts)
 mmm cook examples/default.yml --worktree --yes
@@ -95,15 +95,15 @@ mmm cook examples/implement.yml --map "specs/*.md"
 mmm cook examples/default.yml --verbose
 ```
 
-### Focus Areas
+### Workflow Types
 
-The `--focus` flag applies to every iteration in your cooking session, ensuring consistent improvement direction:
+Configure workflows for different improvement goals:
 - **security**: Security vulnerabilities, input validation, authentication
 - **performance**: Speed optimizations, memory usage, algorithmic improvements
 - **testing**: Test coverage, test quality, edge cases
 - **architecture**: Code structure, design patterns, modularity
 - **critical**: Only critical issues and bugs
-- Custom focus areas based on your project needs
+- Create custom workflows for your project needs
 
 ### What Happens (Git-Native Flow)
 1. **Code Review**: Claude analyzes code and generates improvement specs
@@ -125,7 +125,7 @@ Each step creates git commits for complete auditability.
 # Basic cooking run
 $ mmm cook examples/default.yml
 🔍 Starting improvement loop...
-📋 Focus: None specified (general improvements)
+📋 Workflow: General improvements
 🔄 Iteration 1/10...
 🤖 Running /mmm-code-review...
 ✅ Code review completed
@@ -139,10 +139,10 @@ $ mmm cook examples/default.yml
    Files improved: 3
    Reason: No more issues found
 
-# Focused improvement with custom workflow
-$ mmm cook examples/security-workflow.yml --focus security
+# Security-focused improvement workflow
+$ mmm cook examples/security.yml
 📝 Starting workflow with 5 commands
-📋 Focus: security
+📋 Workflow: Security improvements
 🔄 Workflow iteration 1/8...
 📋 Step 1/5: mmm-security-audit
 📋 Step 2/5: mmm-implement-spec
@@ -152,7 +152,7 @@ $ mmm cook examples/security-workflow.yml --focus security
 ✅ Improvement session completed
 
 # Parallel worktree sessions
-$ mmm cook examples/default.yml --worktree --focus performance
+$ mmm cook examples/performance.yml --worktree
 🌳 Created worktree: mmm-performance-1708123456 at ~/.mmm/worktrees/myproject/mmm-performance-1708123456
 🔄 Iteration 1/10...
 [... improvements run ...]
@@ -208,7 +208,7 @@ Load playbook configuration
 - All human-readable, git-friendly, no complex databases
 
 ### Supported Languages
-MMM is currently **Rust-focused** during early development as we refine the tool by using it to build itself. While the architecture is designed to be language-agnostic (our end goal), we're staying focused on Rust to ensure a solid foundation.
+MMM is currently **Rust-first** during early development as we refine the tool by using it to build itself. While the architecture is designed to be language-agnostic (our end goal), we're prioritizing Rust to ensure a solid foundation.
 
 **Current Support:**
 - **Rust**: Full support with cargo fmt, clippy, cargo test
@@ -226,13 +226,13 @@ The tool's core architecture is language-agnostic and relies on Claude's ability
 
 - **Git-Native**: Every change is a git commit - easy to inspect and revert
 - **Automated Testing**: Each iteration runs tests to ensure nothing breaks
-- **Incremental**: Makes small, focused improvements rather than large changes
+- **Incremental**: Makes small, targeted improvements rather than large changes
 - **Auditable**: Complete paper trail of what was changed and why
 - **Validation**: Code is linted and formatted after each change
 
 ## Configuration - Flexible Development Loops
 
-`mmm` works out of the box with smart defaults, but its real power comes from customizable workflows that create focused development loops.
+`mmm` works out of the box with smart defaults, but its real power comes from customizable workflows that create targeted development loops.
 
 ### Configurable Workflows
 
@@ -258,20 +258,19 @@ Run your custom playbook:
 mmm cook my-playbook.yml
 ```
 
-You can create custom development loops by combining different Claude commands and focus areas.
+You can create custom development loops by combining different Claude commands.
 
-#### Focus Arguments
+#### Command Arguments
 
-You can specify focus areas for commands using clean YAML syntax:
+You can specify arguments for commands using clean YAML syntax:
 
 ```yaml
-# Security-focused workflow with focus arguments
+# Security workflow with targeted commands
 commands:
-  - name: mmm-code-review
-    focus: security
+  - name: mmm-security-audit
   - mmm-implement-spec
   - name: mmm-test-generate
-    focus: security
+    args: ["--security"]
   - mmm-implement-spec
   - mmm-lint
 ```
@@ -279,7 +278,7 @@ commands:
 Alternative string format also works:
 ```yaml
 commands:
-  - mmm-code-review --focus security
+  - mmm-security-audit
   - mmm-implement-spec
   - mmm-lint
 ```
@@ -305,14 +304,13 @@ This is especially useful for:
 
 #### Workflow Examples
 
-**Security-Focused Workflow:**
+**Security Workflow:**
 ```yaml
 commands:
-  - name: mmm-security-audit
-    focus: security
+  - mmm-security-audit
   - mmm-implement-spec
   - name: mmm-test-generate
-    focus: security
+    args: ["--security"]
   - mmm-implement-spec
   - mmm-lint
 ```
@@ -320,11 +318,10 @@ commands:
 **Performance Workflow:**
 ```yaml
 commands:
-  - name: mmm-code-review
-    focus: performance
+  - mmm-performance
   - mmm-implement-spec
   - name: mmm-test-generate
-    focus: performance
+    args: ["--performance"]
   - mmm-implement-spec
   - mmm-lint
 ```
@@ -333,7 +330,7 @@ commands:
 ```yaml
 commands:
   - name: mmm-code-review
-    focus: critical
+    args: ["--critical"]
   - mmm-implement-spec
   - name: mmm-lint
     commit_required: false  # Linting may not find issues after critical fixes
@@ -342,8 +339,7 @@ commands:
 **Test Coverage Workflow:**
 ```yaml
 commands:
-  - name: mmm-test-generate
-    focus: coverage
+  - mmm-coverage
   - mmm-implement-spec
   - name: mmm-test-run
     commit_required: false  # Test runs don't modify code
@@ -357,14 +353,14 @@ Run multiple cooking sessions concurrently without conflicts:
 
 ```bash
 # Enable worktree mode for this cooking session
-mmm cook examples/default.yml --worktree --focus "performance"
+mmm cook examples/performance.yml --worktree
 
-# In another terminal, run a different cooking focus
-mmm cook examples/default.yml --worktree --focus "security"
+# In another terminal, run a different workflow
+mmm cook examples/security.yml --worktree
 
 # Fully automated parallel sessions
-mmm cook examples/default.yml --worktree --yes --focus "testing" &
-mmm cook examples/default.yml --worktree --yes --focus "documentation" &
+mmm cook examples/test-driven.yml --worktree --yes &
+mmm cook examples/documentation.yml --worktree --yes &
 
 # List active worktree sessions
 mmm worktree list
@@ -444,10 +440,10 @@ cargo run -- cook --verbose
 ## Philosophy
 
 1. **Self-Sufficient Development Loops**: Fully autonomous Claude-driven development cycles that run without manual intervention
-2. **Highly Configurable**: Customize workflows to create focused loops for security, performance, testing, or any development aspect
+2. **Highly Configurable**: Customize workflows to create targeted loops for security, performance, testing, or any development aspect
 3. **Git-Native**: Use git as the communication layer - simple, reliable, auditable
 4. **Dead Simple**: One command to start, minimal options, works immediately
-5. **Clear & Minimal**: Focus on enabling powerful development loops without over-engineering
+5. **Clear & Minimal**: Enable powerful development loops without over-engineering
 6. **Language Agnostic**: Works with any programming language Claude can understand
 7. **Parallel by Design**: Built-in support for running multiple improvement loops simultaneously
 
@@ -464,7 +460,7 @@ MIT
 
 ## Contributing
 
-Focus on making the core `mmm cook` command more robust:
+Help make the core `mmm cook` command more robust:
 - Better language support
 - Improved Claude context building
 - Enhanced error handling

@@ -2,14 +2,11 @@
 # Improve code documentation and readability
 
 commands:
-  - name: mmm-doc-analysis
-    focus: documentation
+  - mmm-docs-generate
   - mmm-implement-spec
-  - name: mmm-code-review
-    focus: readability
+  - mmm-code-review
   - mmm-implement-spec
-  - name: mmm-doc-generate
-    focus: api-docs
+  - mmm-docs-generate
   - mmm-implement-spec
   - mmm-lint
 

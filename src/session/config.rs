@@ -11,7 +11,6 @@ pub struct SessionConfig {
     pub workflow: WorkflowConfig,
     pub execution_mode: ExecutionMode,
     pub max_iterations: u32,
-    pub focus: Option<String>,
     pub options: SessionOptions,
 }
 
@@ -22,7 +21,6 @@ impl Default for SessionConfig {
             workflow: WorkflowConfig { commands: vec![] },
             execution_mode: ExecutionMode::Direct,
             max_iterations: 10,
-            focus: None,
             options: SessionOptions::default(),
         }
     }

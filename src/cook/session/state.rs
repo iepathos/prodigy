@@ -38,8 +38,6 @@ pub struct SessionState {
     pub working_directory: PathBuf,
     /// Worktree name if using worktree
     pub worktree_name: Option<String>,
-    /// Focus area if specified
-    pub focus: Option<String>,
 }
 
 impl SessionState {
@@ -55,7 +53,6 @@ impl SessionState {
             errors: Vec::new(),
             working_directory,
             worktree_name: None,
-            focus: None,
         }
     }
 

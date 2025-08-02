@@ -42,7 +42,6 @@ pub async fn example_migration() -> anyhow::Result<()> {
         workflow: Default::default(),
         execution_mode: ExecutionMode::Direct,
         max_iterations: 10,
-        focus: Some("performance".to_string()),
         options: SessionOptions::from_flags(
             false, // fail_fast
             false, // auto_accept

@@ -61,7 +61,6 @@ async fn test_concurrent_sessions() {
         let handle = tokio::spawn(async move {
             let config = SessionConfig {
                 max_iterations: 5,
-                focus: Some(format!("test-{i}")),
                 ..Default::default()
             };
 

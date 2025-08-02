@@ -25,10 +25,6 @@ impl SessionTrackerImpl {
         self.state.lock().unwrap().worktree_name = Some(name);
     }
 
-    /// Set focus area
-    pub fn set_focus(&self, focus: String) {
-        self.state.lock().unwrap().focus = Some(focus);
-    }
 }
 
 #[async_trait]
@@ -189,7 +185,6 @@ mod tests {
         let mut tracker =
             SessionTrackerImpl::new("persist-test".to_string(), PathBuf::from("/tmp"));
         tracker.set_worktree("test-worktree".to_string());
-        tracker.set_focus("performance".to_string());
 
         // Update state
         tracker.track_iteration(1, 3).await.unwrap();
@@ -207,7 +202,6 @@ mod tests {
         assert_eq!(state.iterations_completed, 1);
         assert_eq!(state.files_changed, 3);
         assert_eq!(state.worktree_name, Some("test-worktree".to_string()));
-        assert_eq!(state.focus, Some("performance".to_string()));
     }
 
     #[tokio::test]

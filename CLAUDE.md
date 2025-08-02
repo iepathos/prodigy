@@ -49,7 +49,6 @@ When Claude commands are executed, MMM sets these environment variables:
 
 - `MMM_CONTEXT_AVAILABLE="true"` - Indicates context data is ready
 - `MMM_CONTEXT_DIR="/path/to/.mmm/context"` - Path to analysis data
-- `MMM_FOCUS="performance"` - Current improvement focus (if set)
 - `MMM_AUTOMATION="true"` - Signals automated execution mode
 
 ### Command Integration Points
@@ -358,7 +357,6 @@ Worktree sessions maintain additional state for isolation:
   "branch": "mmm/performance-improvements",
   "created_at": "2024-01-01T12:00:00Z",
   "status": "in_progress",
-  "focus": "performance",
   "iterations": {"completed": 2, "max": 5},
   "stats": {"files_changed": 4, "commits": 6},
   "last_checkpoint": {
@@ -390,18 +388,15 @@ if [ "$MMM_CONTEXT_AVAILABLE" = "true" ]; then
 fi
 ```
 
-### 2. Focus-Driven Analysis
+### 2. Context-Driven Analysis
 
-Use the `MMM_FOCUS` environment variable to tailor analysis:
+Use the context data to prioritize analysis:
 
 ```python
-focus = os.environ.get('MMM_FOCUS')
-if focus == 'performance':
-    # Prioritize performance-related debt items
-    # Focus on benchmark results and compilation metrics
-elif focus == 'security':
-    # Look for security-related violations
-    # Examine authentication and validation patterns
+# Prioritize based on impact scores and risk levels
+# Use debt_items tags for categorization
+# Target hotspots with high complexity scores
+# Address critical gaps in test coverage
 ```
 
 ### 3. Incremental Context Understanding
@@ -417,7 +412,7 @@ Context files are updated after each analysis, so Claude can:
 
 Use context to make informed decisions:
 
-- **High-Impact Issues**: Focus on debt items with high impact scores
+- **High-Impact Issues**: Target debt items with high impact scores
 - **Coverage Gaps**: Prioritize untested critical functions
 - **Architecture Violations**: Address high-severity architectural issues
 - **Performance Regressions**: Track metrics trends to identify degradation
@@ -440,11 +435,9 @@ Place workflow configuration in `.mmm/workflow.yml`:
 name: "Custom Analysis Workflow"
 steps:
   - name: "Security Review"
-    command: "/security-analysis"
-    focus: "security"
+    command: "/mmm-security-audit"
   - name: "Performance Check" 
-    command: "/perf-analysis"
-    focus: "performance"
+    command: "/mmm-performance"
 ```
 
 ### Cache Management
@@ -460,7 +453,7 @@ Cache is invalidated when source files change.
 
 1. **Always Check Context**: Verify `MMM_CONTEXT_AVAILABLE` before assuming context exists
 2. **Use Specific Files**: Read targeted context files rather than the complete analysis
-3. **Respect Focus**: Honor the `MMM_FOCUS` environment variable when prioritizing issues
+3. **Use Context**: Leverage the context data when prioritizing issues
 4. **Track Progress**: Use metrics history to validate improvements
 5. **Handle Missing Data**: Gracefully handle missing or incomplete context files
 

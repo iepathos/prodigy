@@ -5,7 +5,6 @@ Conduct a comprehensive code review of the current project or specified componen
 ## Variables
 
 SCOPE: $ARGUMENTS (optional - specify scope like "src/parser", "tests", specific files, or omit for entire codebase)
-FOCUS: $MMM_FOCUS (optional - focus directive from mmm CLI, e.g., "user experience", "performance")
 MMM_CONTEXT_AVAILABLE: Environment variable indicating .mmm context availability
 MMM_CONTEXT_DIR: Path to .mmm/context/ directory with analysis data
 
@@ -27,15 +26,14 @@ MMM_CONTEXT_DIR: Path to .mmm/context/ directory with analysis data
    - Understand project goals, architecture patterns, and coding standards
    - Identify recently completed specifications from ROADMAP.md
 
-3. **Context-Aware Focus Directive Processing**
-   - If FOCUS environment variable is set, interpret the focus area
-   - **Use context data to enhance focus**:
-     - "user experience" → Prioritize API violations from architecture.json + error handling debt
-     - "performance" → Target hotspots with high complexity_score + benchmark regressions
-     - "security" → Focus on security-tagged debt_items + unsafe code patterns
-     - "code coverage" → Address critical_gaps and untested_functions from context
-     - "documentation" → Target low doc_coverage areas from metrics
-   - **Context amplification**: Use debt_items tags to identify focus-related issues
+3. **Context-Aware Priority Processing**
+   - **Use context data to prioritize review areas**:
+     - API violations from architecture.json + error handling debt
+     - Hotspots with high complexity_score + benchmark regressions
+     - Security-tagged debt_items + unsafe code patterns
+     - Critical_gaps and untested_functions from context
+     - Low doc_coverage areas from metrics
+   - **Context amplification**: Use debt_items tags to identify critical issues
 
 3. **Determine Review Scope**
    - If SCOPE specified: Focus on specific files/directories
@@ -148,11 +146,11 @@ MMM_CONTEXT_DIR: Path to .mmm/context/ directory with analysis data
    - **Medium**: debt_items with impact >= 4, convention violations, moderate complexity hotspots
    - **Low**: debt_items with impact < 4, style issues, documentation gaps
    
-   **Focus directive amplification**:
-   - Issues matching FOCUS get priority boost using debt_items tags
+   **Priority amplification**:
+   - Issues with matching debt_items tags get priority boost
    - Context provides specific locations and impact scores for precise prioritization
-   - Example: FOCUS="performance" + hotspots with complexity_score > 15 = Critical
-   - Example: FOCUS="security" + debt_items tagged "security" = Critical
+   - Example: Hotspots with complexity_score > 15 = Critical
+   - Example: Debt_items tagged "security" = Critical
 
 2. **Context-Informed Improvement Suggestions**
    - **Debt-specific**: Use exact debt_items descriptions and locations for targeted fixes
@@ -162,14 +160,14 @@ MMM_CONTEXT_DIR: Path to .mmm/context/ directory with analysis data
    - **Coverage improvements**: Target untested_functions and critical_gaps precisely
    - **Architecture compliance**: Address specific violations with suggested patterns
    
-   **Context-enhanced focus handling**:
-   - Use debt_items tags to identify focus-related issues automatically
+   **Context-enhanced handling**:
+   - Use debt_items tags to identify critical issues automatically
    - Leverage metrics trends to show performance/quality impacts
    - Provide specific file:line references from context data
 
 3. **Action Plan**
    - Prioritized list of issues to address
-   - When FOCUS is set: Focus-related issues first, then others by severity
+   - Issues ordered by severity and impact
    - Suggested implementation order
    - Potential breaking changes to consider
    - Long-term architectural considerations
@@ -189,10 +187,8 @@ MMM_CONTEXT_DIR: Path to .mmm/context/ directory with analysis data
    
    ## Overview
    Temporary specification for code improvements identified in automated review.
-   {IF FOCUS: "Focus directive: {FOCUS}"}
    
    ## Issues to Address
-   {IF FOCUS: Prioritize issues related to focus area first}
    
    ### 1. {Issue Title}
    **Severity**: {severity}

@@ -140,7 +140,7 @@ async fn test_list_sessions_with_state() -> anyhow::Result<()> {
         state.iterations.completed = 3;
     })?;
 
-    // List sessions - the list_sessions method should load focus from state
+    // List sessions - the list_sessions method should load from state
     let sessions = manager.list_sessions().await?;
     assert_eq!(sessions.len(), 2);
 

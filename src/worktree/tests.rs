@@ -52,7 +52,7 @@ fn test_worktree_manager_creation() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_create_session_without_focus() -> anyhow::Result<()> {
+async fn test_create_session_with_generated_name() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
     let subprocess = SubprocessManager::production();
     let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
@@ -78,7 +78,7 @@ async fn test_create_session_without_focus() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_create_session_with_focus() -> anyhow::Result<()> {
+async fn test_create_session_with_uuid_name() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
     let subprocess = SubprocessManager::production();
     let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
@@ -172,7 +172,7 @@ async fn test_get_worktree_for_branch() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_focus_sanitization() -> anyhow::Result<()> {
+async fn test_session_name_generation() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
     let subprocess = SubprocessManager::production();
     let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;

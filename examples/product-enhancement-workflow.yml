@@ -1,5 +1,5 @@
 # Product Enhancement Workflow
-# Focus on user value and feature improvements rather than code quality
+# Target user value and feature improvements rather than code quality
 
 # This workflow uses the new mmm-product-enhance command
 # to identify and implement product improvements
@@ -8,7 +8,7 @@ commands:
   # Step 1: Analyze from product management perspective
   - name: mmm-product-enhance
     options:
-      focus: "cli-ux"  # Optional: focus on specific area
+      area: "cli-ux"  # Optional: target specific area
       max-enhancements: 8
       
   # Step 2: Implement the enhancements
@@ -25,7 +25,7 @@ commands:
 # Example usage:
 # mmm improve --config examples/product-enhancement-workflow.yml
 
-# Focus areas for mmm-product-enhance:
+# Target areas for mmm-product-enhance:
 # - "onboarding": First-run experience, tutorials
 # - "api": Developer experience, API design
 # - "cli-ux": Command ergonomics, help text

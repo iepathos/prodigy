@@ -3,7 +3,6 @@
 commands:
     - name: mmm-security-audit
       id: audit
-      focus: security
       outputs:
         spec:
           file_pattern: "specs/temp/*-security.md"

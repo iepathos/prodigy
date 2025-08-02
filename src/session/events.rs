@@ -130,7 +130,6 @@ mod tests {
                 workflow: crate::config::workflow::WorkflowConfig { commands: vec![] },
                 execution_mode: crate::session::ExecutionMode::Direct,
                 max_iterations: 10,
-                focus: None,
                 options: Default::default(),
             },
         };

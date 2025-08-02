@@ -76,7 +76,6 @@ impl OldSessionManager for SessionManagerAdapter {
             workflow: crate::config::workflow::WorkflowConfig { commands: vec![] },
             execution_mode: ExecutionMode::Direct,
             max_iterations: 10,
-            focus: None,
             options: SessionOptions::default(),
         };
 
@@ -224,8 +223,7 @@ impl OldSessionManager for SessionManagerAdapter {
                     },
                     working_directory: self.working_dir.clone(),
                     worktree_name: None,
-                    focus: None,
-                };
+                        };
             }
         }
 
