@@ -284,6 +284,30 @@ impl WorktreeManager {
             "master".to_string()
         };
 
+        // Check if there are any new commits in the worktree branch
+        let diff_check_command = ProcessCommandBuilder::new("git")
+            .current_dir(&self.repo_path)
+            .args(["rev-list", "--count", &format!("{target}..{worktree_branch}")])
+            .build();
+
+        let diff_output = self
+            .subprocess
+            .runner()
+            .run(diff_check_command)
+            .await
+            .context("Failed to check for new commits")?;
+
+        if diff_output.status.success() {
+            let commit_count = diff_output.stdout.trim();
+            if commit_count == "0" {
+                anyhow::bail!(
+                    "No new commits in worktree '{}' to merge into '{}'. The branches are already in sync.",
+                    name,
+                    target
+                );
+            }
+        }
+
         // Call Claude CLI to handle the merge with automatic conflict resolution
         println!("🔄 Merging worktree '{name}' into '{target}' using Claude-assisted merge...");
 

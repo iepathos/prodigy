@@ -228,7 +228,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 
         if has_structured_commands {
             self.user_interaction
-                .display_info("🔄 Executing structured workflow with inputs/outputs");
+                .display_info("Executing structured workflow with inputs/outputs");
             return self.execute_structured_workflow(env, config).await;
         }
 
@@ -236,7 +236,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         let has_args_or_map = !config.command.args.is_empty() || !config.command.map.is_empty();
         if has_args_or_map {
             self.user_interaction
-                .display_info("🔄 Processing workflow with arguments or file patterns");
+                .display_info("Processing workflow with arguments or file patterns");
             return self.execute_workflow_with_args(env, config).await;
         }
 
@@ -292,7 +292,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                 .await?;
         } else if config.command.skip_analysis {
             self.user_interaction
-                .display_info("📋 Skipping project analysis (--skip-analysis flag)");
+                .display_info("Skipping project analysis (--skip-analysis flag)");
         }
 
         // Create workflow executor
