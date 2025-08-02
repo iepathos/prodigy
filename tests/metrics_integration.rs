@@ -89,7 +89,7 @@ version = "0.1.0"
 
     // Load metrics
     let loaded_content = fs::read_to_string(&current_file).unwrap();
-    let loaded_metrics: mmm::metrics::Metrics = serde_json::from_str(&loaded_content).unwrap();
+    let loaded_metrics: mmm::metrics::ImprovementMetrics = serde_json::from_str(&loaded_content).unwrap();
 
     // Verify loaded metrics match original
     assert_eq!(loaded_metrics.iteration_id, metrics.iteration_id);
@@ -105,12 +105,12 @@ async fn test_metrics_trend_analysis() {
 
     // Add multiple snapshots with improving metrics
     for i in 1..=5 {
-        let mut metrics = mmm::metrics::Metrics {
-            test_coverage: 50.0 + (i as f64 * 5.0),
-            type_coverage: 60.0 + (i as f64 * 3.0),
+        let mut metrics = mmm::metrics::ImprovementMetrics {
+            test_coverage: 50.0 + (i as f32 * 5.0),
+            type_coverage: 60.0 + (i as f32 * 3.0),
             lint_warnings: 20 - (i * 2),
-            code_duplication: 10.0 - (i as f64),
-            doc_coverage: 30.0 + (i as f64 * 10.0),
+            code_duplication: 10.0 - (i as f32),
+            doc_coverage: 30.0 + (i as f32 * 10.0),
             ..Default::default()
         };
         metrics.iteration_id = format!("iteration-{}", i);
@@ -237,7 +237,7 @@ async fn test_metrics_report_generation() {
     fs::create_dir_all(&reports_dir).unwrap();
 
     // Create metrics
-    let metrics = mmm::metrics::Metrics {
+    let metrics = mmm::metrics::ImprovementMetrics {
         test_coverage: 75.5,
         type_coverage: 82.3,
         lint_warnings: 5,
