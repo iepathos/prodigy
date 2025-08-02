@@ -2,6 +2,8 @@
 //!
 //! Tests the main entry point and command parsing logic
 
+mod common;
+
 use assert_cmd::Command;
 use predicates::prelude::*;
 use tempfile::TempDir;
@@ -170,9 +172,8 @@ mod cook_dry_run_tests {
         )
         .expect("Failed to write test playbook");
 
-        // Set test mode to bypass Claude check
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { env::set_var("MMM_TEST_MODE", "true") };
+        // Initialize test environment (sets MMM_TEST_MODE=true)
+        common::init_test_env();
 
         let mut cmd = Command::cargo_bin("mmm").unwrap();
         cmd.current_dir(temp_dir.path())

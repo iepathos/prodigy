@@ -1,3 +1,5 @@
+mod common;
+
 use mmm::cook::metrics::collector::MetricsCollectorImpl;
 use mmm::cook::metrics::MetricsCoordinator;
 use mmm::metrics::registry::{MetricsConfig, MetricsRegistry};
@@ -43,8 +45,8 @@ impl mmm::cook::execution::CommandRunner for MockCommandRunner {
 
 #[tokio::test]
 async fn test_metrics_collection_lifecycle() {
-    // Set test mode to avoid running actual commands
-    std::env::set_var("MMM_TEST_MODE", "true");
+    // Initialize test environment (sets MMM_TEST_MODE=true)
+    common::init_test_env();
     
     let temp_dir = TempDir::new().unwrap();
     let config = MetricsConfig::default();
@@ -60,7 +62,4 @@ async fn test_metrics_collection_lifecycle() {
     // In test mode, should have mock values
     assert_eq!(metrics.lint_warnings, 0);
     assert_eq!(metrics.test_coverage, Some(30.0)); // Mock value from MetricsCollector
-    
-    // Clean up
-    std::env::remove_var("MMM_TEST_MODE");
 }

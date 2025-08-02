@@ -4,7 +4,24 @@ use anyhow::Result;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Once;
 use tempfile::TempDir;
+
+// Global test initialization
+static INIT: Once = Once::new();
+
+/// Initialize test environment globally
+/// This is called automatically by TestContextBuilder, but can also be called manually
+/// 
+/// Note: This sets MMM_TEST_MODE=true globally for all tests. If a test needs to
+/// explicitly test behavior without MMM_TEST_MODE, it should remove the variable
+/// after calling init_test_env() and restore it when done.
+pub fn init_test_env() {
+    INIT.call_once(|| {
+        // Set test mode environment variable for all tests
+        std::env::set_var("MMM_TEST_MODE", "true");
+    });
+}
 
 /// Test context builder for setting up test environments
 pub struct TestContextBuilder {
@@ -19,6 +36,9 @@ pub struct TestContextBuilder {
 impl TestContextBuilder {
     /// Create a new test context builder
     pub fn new() -> Result<Self> {
+        // Initialize test environment
+        init_test_env();
+        
         Ok(Self {
             temp_dir: TempDir::new()?,
             with_git: false,

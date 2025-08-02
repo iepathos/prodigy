@@ -1,3 +1,5 @@
+mod common;
+
 use mmm::context::{ContextAnalyzer, ProjectAnalyzer};
 use mmm::metrics::{MetricsCollector, MetricsHistory};
 use mmm::subprocess::SubprocessManager;
@@ -6,9 +8,8 @@ use tempfile::TempDir;
 
 #[tokio::test]
 async fn test_metrics_collection_with_context() {
-    // Set test mode to avoid running actual cargo commands
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::set_var("MMM_TEST_MODE", "true") };
+    // Initialize test environment (sets MMM_TEST_MODE=true)
+    common::init_test_env();
 
     let temp_dir = TempDir::new().unwrap();
 

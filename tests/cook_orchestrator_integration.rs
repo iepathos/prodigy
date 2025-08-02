@@ -1,3 +1,5 @@
+mod common;
+
 use mmm::cook::analysis::runner::AnalysisRunnerImpl;
 use mmm::cook::execution::claude::ClaudeExecutorImpl;
 use mmm::cook::execution::runner::RealCommandRunner;
@@ -199,7 +201,7 @@ async fn test_orchestrator_error_handling() {
     // Note: Since MockCommandRunner always returns success, we can't properly test
     // Claude CLI failure without a more sophisticated mock. For now, we'll just
     // ensure the method runs without error in test mode.
-    std::env::set_var("MMM_TEST_MODE", "true");
+    common::init_test_env(); // This sets MMM_TEST_MODE=true
     let result = orchestrator.check_prerequisites().await;
     assert!(result.is_ok());
 }
