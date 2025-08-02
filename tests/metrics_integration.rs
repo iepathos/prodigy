@@ -89,7 +89,8 @@ version = "0.1.0"
 
     // Load metrics
     let loaded_content = fs::read_to_string(&current_file).unwrap();
-    let loaded_metrics: mmm::metrics::ImprovementMetrics = serde_json::from_str(&loaded_content).unwrap();
+    let loaded_metrics: mmm::metrics::ImprovementMetrics =
+        serde_json::from_str(&loaded_content).unwrap();
 
     // Verify loaded metrics match original
     assert_eq!(loaded_metrics.iteration_id, metrics.iteration_id);
@@ -113,9 +114,9 @@ async fn test_metrics_trend_analysis() {
             doc_coverage: 30.0 + (i as f32 * 10.0),
             ..Default::default()
         };
-        metrics.iteration_id = format!("iteration-{}", i);
+        metrics.iteration_id = format!("iteration-{i}");
 
-        history.add_snapshot(metrics, format!("commit-{}", i));
+        history.add_snapshot(metrics, format!("commit-{i}"));
     }
 
     // Verify trends

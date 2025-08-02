@@ -42,15 +42,15 @@ pub trait AnalysisCoordinator: Send + Sync {
 mod tests {
     use super::*;
     use tempfile::TempDir;
-    
+
     struct MockAnalysisCoordinator;
-    
+
     #[async_trait]
     impl AnalysisCoordinator for MockAnalysisCoordinator {
         async fn analyze_project(&self, _project_path: &Path) -> Result<AnalysisResult> {
             Ok(create_test_analysis_result())
         }
-        
+
         async fn analyze_incremental(
             &self,
             _project_path: &Path,
@@ -58,20 +58,27 @@ mod tests {
         ) -> Result<AnalysisResult> {
             Ok(create_test_analysis_result())
         }
-        
-        async fn get_cached_analysis(&self, _project_path: &Path) -> Result<Option<AnalysisResult>> {
+
+        async fn get_cached_analysis(
+            &self,
+            _project_path: &Path,
+        ) -> Result<Option<AnalysisResult>> {
             Ok(None)
         }
-        
-        async fn save_analysis(&self, _project_path: &Path, _analysis: &AnalysisResult) -> Result<()> {
+
+        async fn save_analysis(
+            &self,
+            _project_path: &Path,
+            _analysis: &AnalysisResult,
+        ) -> Result<()> {
             Ok(())
         }
-        
+
         async fn clear_cache(&self, _project_path: &Path) -> Result<()> {
             Ok(())
         }
     }
-    
+
     fn create_test_analysis_result() -> AnalysisResult {
         AnalysisResult {
             dependency_graph: crate::context::DependencyGraph {
@@ -114,27 +121,31 @@ mod tests {
             },
         }
     }
-    
+
     #[tokio::test]
     async fn test_analysis_coordinator_trait() {
         let coordinator = MockAnalysisCoordinator;
         let temp_dir = TempDir::new().unwrap();
         let path = temp_dir.path();
-        
+
         // Test all trait methods
         let result = coordinator.analyze_project(path).await;
         assert!(result.is_ok());
-        
-        let incremental = coordinator.analyze_incremental(path, &["file.rs".to_string()]).await;
+
+        let incremental = coordinator
+            .analyze_incremental(path, &["file.rs".to_string()])
+            .await;
         assert!(incremental.is_ok());
-        
+
         let cached = coordinator.get_cached_analysis(path).await;
         assert!(cached.is_ok());
         assert!(cached.unwrap().is_none());
-        
-        let save_result = coordinator.save_analysis(path, &create_test_analysis_result()).await;
+
+        let save_result = coordinator
+            .save_analysis(path, &create_test_analysis_result())
+            .await;
         assert!(save_result.is_ok());
-        
+
         let clear_result = coordinator.clear_cache(path).await;
         assert!(clear_result.is_ok());
     }

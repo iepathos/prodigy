@@ -250,79 +250,96 @@ impl OldSessionManager for SessionManagerAdapter {
 mod tests {
     use super::*;
     use tempfile::TempDir;
-    
+
     #[tokio::test]
     async fn test_adapter_creation() {
         let temp_dir = TempDir::new().unwrap();
         let adapter = SessionManagerAdapter::new(temp_dir.path().to_path_buf());
-        
+
         // Test we can get the inner manager
         let inner = adapter.inner();
         assert!(Arc::strong_count(&inner) > 1);
     }
-    
+
     #[tokio::test]
     async fn test_start_session() {
         let temp_dir = TempDir::new().unwrap();
         let adapter = SessionManagerAdapter::new(temp_dir.path().to_path_buf());
-        
+
         let result = adapter.start_session("test-session").await;
         assert!(result.is_ok());
-        
+
         // Verify session was created
         let current = adapter.current_session.lock().await;
         assert!(current.is_some());
     }
-    
+
     #[tokio::test]
     async fn test_session_lifecycle() {
         let temp_dir = TempDir::new().unwrap();
         let adapter = SessionManagerAdapter::new(temp_dir.path().to_path_buf());
-        
+
         // Start session
         adapter.start_session("test-lifecycle").await.unwrap();
-        
+
         // Update iteration
-        adapter.update_session(SessionUpdate::IncrementIteration).await.unwrap();
-        
+        adapter
+            .update_session(SessionUpdate::IncrementIteration)
+            .await
+            .unwrap();
+
         // Add files changed
-        adapter.update_session(SessionUpdate::AddFilesChanged(3)).await.unwrap();
-        
+        adapter
+            .update_session(SessionUpdate::AddFilesChanged(3))
+            .await
+            .unwrap();
+
         // Complete session
         let summary = adapter.complete_session().await.unwrap();
         assert_eq!(summary.files_changed, 3);
     }
-    
+
     #[tokio::test]
     async fn test_error_handling() {
         let temp_dir = TempDir::new().unwrap();
         let adapter = SessionManagerAdapter::new(temp_dir.path().to_path_buf());
-        
+
         // Try to update without starting session
-        let result = adapter.update_session(SessionUpdate::IncrementIteration).await;
+        let result = adapter
+            .update_session(SessionUpdate::IncrementIteration)
+            .await;
         assert!(result.is_err());
-        
+
         // Try to complete without starting
         let result = adapter.complete_session().await;
         assert!(result.is_err());
     }
-    
+
     #[tokio::test]
     async fn test_state_conversion() {
         let temp_dir = TempDir::new().unwrap();
         let adapter = SessionManagerAdapter::new(temp_dir.path().to_path_buf());
-        
+
         adapter.start_session("test-state").await.unwrap();
-        
+
         // Test in progress state
         let state = adapter.get_state();
         assert_eq!(state.status, SessionStatus::InProgress);
-        
+
         // Test failed state
-        adapter.update_session(SessionUpdate::UpdateStatus(SessionStatus::Failed)).await.unwrap();
-        adapter.update_session(SessionUpdate::AddError("Test error".to_string())).await.unwrap();
-        
+        adapter
+            .update_session(SessionUpdate::UpdateStatus(SessionStatus::Failed))
+            .await
+            .unwrap();
+        adapter
+            .update_session(SessionUpdate::AddError("Test error".to_string()))
+            .await
+            .unwrap();
+
         // Test interrupted state
-        adapter.update_session(SessionUpdate::UpdateStatus(SessionStatus::Interrupted)).await.unwrap();
+        adapter
+            .update_session(SessionUpdate::UpdateStatus(SessionStatus::Interrupted))
+            .await
+            .unwrap();
     }
 }

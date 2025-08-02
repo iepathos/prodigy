@@ -198,35 +198,35 @@ impl Default for ComplexityCalculator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
     use std::fs;
-    
+    use tempfile::TempDir;
+
     #[test]
     fn test_complexity_calculator_new() {
         let calc = ComplexityCalculator::new();
         // Just ensure we can create an instance
         let _ = calc;
     }
-    
+
     #[test]
     fn test_calculate_empty_project() {
         let temp_dir = TempDir::new().unwrap();
         let calc = ComplexityCalculator::new();
-        
+
         let metrics = calc.calculate(temp_dir.path()).unwrap();
-        
+
         assert_eq!(metrics.total_lines, 0);
         assert!(metrics.cyclomatic_complexity.is_empty());
         assert!(metrics.cognitive_complexity.is_empty());
         assert_eq!(metrics.max_nesting_depth, 0);
     }
-    
+
     #[test]
     fn test_calculate_simple_function() {
         let temp_dir = TempDir::new().unwrap();
         let src_dir = temp_dir.path().join("src");
         fs::create_dir(&src_dir).unwrap();
-        
+
         let test_code = r#"
 fn simple_function(x: i32) -> i32 {
     x + 1
@@ -244,34 +244,38 @@ fn complex_function(x: i32) -> i32 {
     }
 }
 "#;
-        
+
         fs::write(src_dir.join("test.rs"), test_code).unwrap();
-        
+
         let calc = ComplexityCalculator::new();
         let metrics = calc.calculate(temp_dir.path()).unwrap();
-        
+
         assert!(metrics.total_lines > 0);
         assert!(!metrics.cyclomatic_complexity.is_empty());
-        
+
         // Check that complex_function has higher complexity than simple_function
-        let simple_key = metrics.cyclomatic_complexity.keys()
+        let simple_key = metrics
+            .cyclomatic_complexity
+            .keys()
             .find(|k| k.contains("simple_function"));
-        let complex_key = metrics.cyclomatic_complexity.keys()
+        let complex_key = metrics
+            .cyclomatic_complexity
+            .keys()
             .find(|k| k.contains("complex_function"));
-        
+
         if let (Some(simple), Some(complex)) = (simple_key, complex_key) {
             let simple_complexity = metrics.cyclomatic_complexity[simple];
             let complex_complexity = metrics.cyclomatic_complexity[complex];
             assert!(complex_complexity > simple_complexity);
         }
     }
-    
+
     #[test]
     fn test_nesting_depth() {
         let temp_dir = TempDir::new().unwrap();
         let src_dir = temp_dir.path().join("src");
         fs::create_dir(&src_dir).unwrap();
-        
+
         let nested_code = r#"
 fn deeply_nested() {
     if true {
@@ -290,12 +294,12 @@ fn deeply_nested() {
     }
 }
 "#;
-        
+
         fs::write(src_dir.join("nested.rs"), nested_code).unwrap();
-        
+
         let calc = ComplexityCalculator::new();
         let metrics = calc.calculate(temp_dir.path()).unwrap();
-        
+
         assert!(metrics.max_nesting_depth >= 4);
     }
 }

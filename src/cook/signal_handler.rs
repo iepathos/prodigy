@@ -61,39 +61,39 @@ fn update_interrupted_state(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::subprocess::{SubprocessManager, MockProcessRunner};
+    use crate::subprocess::{MockProcessRunner, SubprocessManager};
     use crate::worktree::WorktreeState;
-    use tempfile::TempDir;
     use std::fs;
     use std::sync::Arc;
-    
+    use tempfile::TempDir;
+
     fn create_test_worktree_manager() -> (TempDir, WorktreeManager) {
         let temp_dir = TempDir::new().unwrap();
         let repo_dir = temp_dir.path().join("test-repo");
         fs::create_dir_all(&repo_dir).unwrap();
-        
+
         // Initialize a git repo
         std::process::Command::new("git")
             .arg("init")
             .current_dir(&repo_dir)
             .output()
             .unwrap();
-        
+
         let process_runner = Arc::new(MockProcessRunner::new());
         let subprocess = SubprocessManager::new(process_runner);
         let manager = WorktreeManager::new(repo_dir, subprocess).unwrap();
-        
+
         (temp_dir, manager)
     }
-    
+
     fn create_test_session_state(manager: &WorktreeManager, session_name: &str) -> Result<()> {
         let metadata_dir = manager.base_dir.join(".metadata");
         fs::create_dir_all(&metadata_dir)?;
-        
+
         let state = WorktreeState {
             session_id: session_name.to_string(),
             worktree_name: session_name.to_string(),
-            branch: format!("mmm-{}", session_name),
+            branch: format!("mmm-{session_name}"),
             created_at: Utc::now(),
             updated_at: Utc::now(),
             status: crate::worktree::WorktreeStatus::InProgress,
@@ -112,59 +112,68 @@ mod tests {
             last_checkpoint: None,
             resumable: false,
         };
-        
-        let state_file = metadata_dir.join(format!("{}.json", session_name));
+
+        let state_file = metadata_dir.join(format!("{session_name}.json"));
         let json = serde_json::to_string_pretty(&state)?;
         fs::write(state_file, json)?;
-        
+
         Ok(())
     }
-    
+
     #[test]
     fn test_update_interrupted_state() {
         let (_temp_dir, worktree_manager) = create_test_worktree_manager();
         let session_name = "test-session";
-        
+
         // Create initial state
         create_test_session_state(&worktree_manager, session_name).unwrap();
-        
+
         // Test interruption state update
         update_interrupted_state(
             &worktree_manager,
             session_name,
             InterruptionType::UserInterrupt,
         );
-        
+
         // Read back the state to verify
-        let state_file = worktree_manager.base_dir.join(".metadata").join(format!("{}.json", session_name));
+        let state_file = worktree_manager
+            .base_dir
+            .join(".metadata")
+            .join(format!("{session_name}.json"));
         let state_json = fs::read_to_string(&state_file).unwrap();
         let state: WorktreeState = serde_json::from_str(&state_json).unwrap();
-        
+
         assert_eq!(state.status, crate::worktree::WorktreeStatus::Interrupted);
         assert!(state.resumable);
         assert!(state.interrupted_at.is_some());
-        assert_eq!(state.interruption_type, Some(InterruptionType::UserInterrupt));
+        assert_eq!(
+            state.interruption_type,
+            Some(InterruptionType::UserInterrupt)
+        );
     }
-    
+
     #[test]
     fn test_termination_interrupt() {
         let (_temp_dir, worktree_manager) = create_test_worktree_manager();
         let session_name = "test-session-term";
-        
+
         // Create initial state
         create_test_session_state(&worktree_manager, session_name).unwrap();
-        
+
         update_interrupted_state(
             &worktree_manager,
             session_name,
             InterruptionType::Termination,
         );
-        
+
         // Read back the state to verify
-        let state_file = worktree_manager.base_dir.join(".metadata").join(format!("{}.json", session_name));
+        let state_file = worktree_manager
+            .base_dir
+            .join(".metadata")
+            .join(format!("{session_name}.json"));
         let state_json = fs::read_to_string(&state_file).unwrap();
         let state: WorktreeState = serde_json::from_str(&state_json).unwrap();
-        
+
         assert_eq!(state.interruption_type, Some(InterruptionType::Termination));
     }
 }

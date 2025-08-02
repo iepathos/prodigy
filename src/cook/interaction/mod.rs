@@ -147,7 +147,7 @@ mod tests {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("Prompt: {}", message));
+                .push(format!("Prompt: {message}"));
             self.yes_no_responses
                 .lock()
                 .unwrap()
@@ -159,7 +159,7 @@ mod tests {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("Text prompt: {} (default: {:?})", message, default));
+                .push(format!("Text prompt: {message} (default: {default:?})"));
             self.text_responses
                 .lock()
                 .unwrap()
@@ -171,35 +171,35 @@ mod tests {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("Info: {}", message));
+                .push(format!("Info: {message}"));
         }
 
         fn display_warning(&self, message: &str) {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("Warning: {}", message));
+                .push(format!("Warning: {message}"));
         }
 
         fn display_error(&self, message: &str) {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("Error: {}", message));
+                .push(format!("Error: {message}"));
         }
 
         fn display_progress(&self, message: &str) {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("Progress: {}", message));
+                .push(format!("Progress: {message}"));
         }
 
         fn start_spinner(&self, message: &str) -> Box<dyn SpinnerHandle> {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("Spinner started: {}", message));
+                .push(format!("Spinner started: {message}"));
             Box::new(MockSpinnerHandle {
                 messages: self.messages.clone(),
             })
@@ -209,7 +209,7 @@ mod tests {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("Success: {}", message));
+                .push(format!("Success: {message}"));
         }
     }
 
@@ -222,21 +222,21 @@ mod tests {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("Spinner update: {}", message));
+                .push(format!("Spinner update: {message}"));
         }
 
         fn success(&mut self, message: &str) {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("Spinner success: {}", message));
+                .push(format!("Spinner success: {message}"));
         }
 
         fn fail(&mut self, message: &str) {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("Spinner fail: {}", message));
+                .push(format!("Spinner fail: {message}"));
         }
     }
 
