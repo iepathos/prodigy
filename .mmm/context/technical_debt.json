@@ -4,10 +4,10 @@
     "by_type": {
       "Fixme": 11,
       "Hack": 7,
-      "Deprecated": 5,
       "Todo": 50,
-      "Duplication": 100,
-      "Complexity": 70
+      "Deprecated": 5,
+      "Complexity": 70,
+      "Duplication": 100
     },
     "by_impact": {
       "High": 17,
@@ -305,16 +305,16 @@
       "primary_issue_type": "Duplication"
     },
     {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-4315e545-1dc6-4dd9-ae1c-7a987ac5a4c8/src/cook/orchestrator.rs",
-      "total_issues": 10,
-      "max_complexity": 33,
-      "primary_issue_type": "Complexity"
-    },
-    {
       "file": "/Users/glen/.mmm/worktrees/mmm/session-4315e545-1dc6-4dd9-ae1c-7a987ac5a4c8/src/abstractions/claude.rs",
       "total_issues": 10,
       "max_complexity": 20,
       "primary_issue_type": "Duplication"
+    },
+    {
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-4315e545-1dc6-4dd9-ae1c-7a987ac5a4c8/src/cook/orchestrator.rs",
+      "total_issues": 10,
+      "max_complexity": 33,
+      "primary_issue_type": "Complexity"
     },
     {
       "file": "/Users/glen/.mmm/worktrees/mmm/session-4315e545-1dc6-4dd9-ae1c-7a987ac5a4c8/src/abstractions/git.rs",
