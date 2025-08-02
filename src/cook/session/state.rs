@@ -3,6 +3,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::time::Duration;
 
 /// Status of a cooking session
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -38,6 +39,16 @@ pub struct SessionState {
     pub working_directory: PathBuf,
     /// Worktree name if using worktree
     pub worktree_name: Option<String>,
+    /// When workflow started
+    pub workflow_started_at: Option<DateTime<Utc>>,
+    /// Current iteration start time
+    pub current_iteration_started_at: Option<DateTime<Utc>>,
+    /// Current iteration number
+    pub current_iteration_number: Option<u32>,
+    /// Iteration timings (iteration number, duration)
+    pub iteration_timings: Vec<(u32, Duration)>,
+    /// Command timings (command name, duration)
+    pub command_timings: Vec<(String, Duration)>,
 }
 
 impl SessionState {
@@ -53,6 +64,11 @@ impl SessionState {
             errors: Vec::new(),
             working_directory,
             worktree_name: None,
+            workflow_started_at: None,
+            current_iteration_started_at: None,
+            current_iteration_number: None,
+            iteration_timings: Vec::new(),
+            command_timings: Vec::new(),
         }
     }
 
