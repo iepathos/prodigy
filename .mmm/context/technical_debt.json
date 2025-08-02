@@ -2,17 +2,17 @@
   "statistics": {
     "total_items": 238,
     "by_type": {
-      "Hack": 7,
-      "Deprecated": 6,
       "Todo": 50,
-      "Fixme": 12,
       "Complexity": 63,
+      "Fixme": 12,
+      "Deprecated": 6,
+      "Hack": 7,
       "Duplication": 100
     },
     "by_impact": {
-      "Low": 50,
+      "High": 16,
       "Medium": 172,
-      "High": 16
+      "Low": 50
     },
     "avg_impact": 5.34453781512605,
     "avg_effort": 3.9495798319327733
@@ -284,7 +284,7 @@
       "file": "/Users/glen/.mmm/worktrees/mmm/session-46eea23a-7918-428c-aec0-38f8b31a4185/src/context/debt.rs",
       "total_issues": 38,
       "max_complexity": 49,
-      "primary_issue_type": "Fixme"
+      "primary_issue_type": "Todo"
     },
     {
       "file": "/Users/glen/.mmm/worktrees/mmm/session-46eea23a-7918-428c-aec0-38f8b31a4185/src/config/mod.rs",
@@ -323,22 +323,22 @@
       "primary_issue_type": "Complexity"
     },
     {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-46eea23a-7918-428c-aec0-38f8b31a4185/tests/subprocess_tests.rs",
-      "total_issues": 6,
-      "max_complexity": 0,
-      "primary_issue_type": "Todo"
-    },
-    {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-46eea23a-7918-428c-aec0-38f8b31a4185/tests/cook_iteration_tests.rs",
-      "total_issues": 6,
-      "max_complexity": 13,
-      "primary_issue_type": "Complexity"
-    },
-    {
       "file": "/Users/glen/.mmm/worktrees/mmm/session-46eea23a-7918-428c-aec0-38f8b31a4185/src/worktree/test_state.rs",
       "total_issues": 6,
       "max_complexity": 11,
       "primary_issue_type": "Duplication"
+    },
+    {
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-46eea23a-7918-428c-aec0-38f8b31a4185/src/context/tarpaulin_coverage.rs",
+      "total_issues": 6,
+      "max_complexity": 19,
+      "primary_issue_type": "Duplication"
+    },
+    {
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-46eea23a-7918-428c-aec0-38f8b31a4185/tests/subprocess_tests.rs",
+      "total_issues": 6,
+      "max_complexity": 0,
+      "primary_issue_type": "Todo"
     }
   ],
   "duplication_summary": {
