@@ -2,17 +2,17 @@
   "statistics": {
     "total_items": 248,
     "by_type": {
+      "Deprecated": 6,
+      "Todo": 52,
       "Complexity": 71,
       "Duplication": 100,
-      "Todo": 52,
-      "Hack": 7,
-      "Deprecated": 6,
-      "Fixme": 12
+      "Fixme": 12,
+      "Hack": 7
     },
     "by_impact": {
+      "Low": 52,
       "Medium": 178,
-      "High": 18,
-      "Low": 52
+      "High": 18
     },
     "avg_impact": 5.370967741935484,
     "avg_effort": 3.975806451612903
@@ -284,7 +284,7 @@
       "file": "/Users/glen/.mmm/worktrees/mmm/session-2e07d52b-6f12-4d2f-a84a-d7ec218d39d9/src/context/debt.rs",
       "total_issues": 38,
       "max_complexity": 49,
-      "primary_issue_type": "Todo"
+      "primary_issue_type": "Fixme"
     },
     {
       "file": "/Users/glen/.mmm/worktrees/mmm/session-2e07d52b-6f12-4d2f-a84a-d7ec218d39d9/src/config/mod.rs",
@@ -302,7 +302,7 @@
       "file": "/Users/glen/.mmm/worktrees/mmm/session-2e07d52b-6f12-4d2f-a84a-d7ec218d39d9/src/cook/orchestrator.rs",
       "total_issues": 11,
       "max_complexity": 33,
-      "primary_issue_type": "Duplication"
+      "primary_issue_type": "Complexity"
     },
     {
       "file": "/Users/glen/.mmm/worktrees/mmm/session-2e07d52b-6f12-4d2f-a84a-d7ec218d39d9/src/config/command_validator.rs",
