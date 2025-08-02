@@ -344,9 +344,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                 if config.command.auto_accept {
                     // Auto cleanup when -y flag is provided
                     if let Err(e) = worktree_manager.cleanup_session(worktree_name, true).await {
-                        eprintln!(
-                            "⚠️ Warning: Failed to clean up worktree '{worktree_name}': {e}"
-                        );
+                        eprintln!("⚠️ Warning: Failed to clean up worktree '{worktree_name}': {e}");
                     } else {
                         self.user_interaction.display_success("Worktree cleaned up");
                     }
