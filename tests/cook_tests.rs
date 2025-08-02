@@ -95,7 +95,6 @@ mod improve_command_tests {
         let cmd = CookCommand {
             playbook: PathBuf::from("examples/default.yml"),
             path: None,
-            focus: None,
             max_iterations: 10,
             worktree: false,
             map: vec![],
@@ -109,32 +108,9 @@ mod improve_command_tests {
 
         assert_eq!(cmd.playbook, PathBuf::from("examples/default.yml"));
         assert!(cmd.path.is_none());
-        assert!(cmd.focus.is_none());
         assert_eq!(cmd.max_iterations, 10);
     }
 
-    #[test]
-    fn test_improve_command_with_focus() {
-        let cmd = CookCommand {
-            playbook: PathBuf::from("examples/default.yml"),
-            path: None,
-            focus: Some("performance".to_string()),
-            max_iterations: 10,
-            worktree: false,
-            map: vec![],
-            args: vec![],
-            fail_fast: false,
-            auto_accept: false,
-            metrics: false,
-            resume: None,
-            skip_analysis: false,
-        };
-
-        assert_eq!(cmd.playbook, PathBuf::from("examples/default.yml"));
-        assert!(cmd.path.is_none());
-        assert_eq!(cmd.focus, Some("performance".to_string()));
-        assert_eq!(cmd.max_iterations, 10);
-    }
 }
 
 #[cfg(test)]

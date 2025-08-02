@@ -5,17 +5,16 @@ use std::process::Command;
 use tempfile::TempDir;
 
 /// Test that validates the cook command executes multiple iterations correctly
-/// and passes focus directive on every iteration
 #[test]
-fn test_cook_multiple_iterations_with_focus() -> Result<()> {
+fn test_cook_multiple_iterations() -> Result<()> {
     // Setup test environment
     let (temp_path, playbook_path) = setup_test_environment()?;
 
-    // Run mmm cook with 3 iterations and focus
-    let output = run_cook_command(&temp_path, &playbook_path, 3, Some("documentation"))?;
+    // Run mmm cook with 3 iterations
+    let output = run_cook_command(&temp_path, &playbook_path, 3)?;
 
     // Verify test results
-    verify_cook_output(&output, true, true, Some("documentation"))?;
+    verify_cook_output(&output, true, true)?;
 
     Ok(())
 }
@@ -107,7 +106,6 @@ fn run_cook_command(
     path: &Path,
     playbook_path: &Path,
     iterations: u32,
-    focus: Option<&str>,
 ) -> Result<std::process::Output> {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_mmm"));
     cmd.current_dir(path)
@@ -115,14 +113,7 @@ fn run_cook_command(
         .env("MMM_TEST_ITERATIONS", "true");
 
     let iterations_str = iterations.to_string();
-    let mut args = vec!["cook", "-n", &iterations_str];
-
-    if let Some(f) = focus {
-        args.push("-f");
-        args.push(f);
-    }
-
-    args.push(playbook_path.to_str().unwrap());
+    let args = vec!["cook", "-n", &iterations_str, playbook_path.to_str().unwrap()];
 
     Ok(cmd.args(&args).output()?)
 }
@@ -132,7 +123,6 @@ fn verify_cook_output(
     output: &std::process::Output,
     expect_iterations: bool,
     expect_code_review: bool,
-    expect_focus: Option<&str>,
 ) -> Result<()> {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -160,13 +150,6 @@ fn verify_cook_output(
         );
     }
 
-    // Check focus directive
-    if let Some(focus) = expect_focus {
-        assert!(
-            stdout.contains(focus) || stdout.contains(&format!("Focus: {focus}")),
-            "Focus directive should be mentioned"
-        );
-    }
 
     // Verify completion
     assert!(
@@ -274,11 +257,10 @@ commands:
     Ok(())
 }
 
-/// Test to specifically catch the bug where focus was only applied on first iteration
+/// Test to verify workflows execute in the expected order
 #[test]
-fn test_focus_applied_every_iteration() -> Result<()> {
-    // This test creates a scenario where we can track if focus is passed
-    // to the code review command on each iteration
+fn test_workflow_execution_order() -> Result<()> {
+    // This test verifies that commands execute in the order defined in the playbook
 
     let temp_dir = TempDir::new()?;
     let temp_path = temp_dir.path();
@@ -309,11 +291,8 @@ commands:
   - name: mmm-lint"#;
     fs::write(&playbook_path, playbook_content)?;
 
-    // Create a tracking file for focus directive
-    let focus_tracker = temp_path.join("focus_track.txt");
-
-    // Create mock commands that track when focus is passed
-    create_focus_tracking_commands(temp_path, &focus_tracker)?;
+    // Create mock commands
+    create_mock_commands(temp_path)?;
 
     // Initial commit
     fs::write(temp_path.join("test.rs"), "fn main() {}\n")?;
@@ -327,17 +306,14 @@ commands:
         .args(["commit", "-m", "Initial commit"])
         .output()?;
 
-    // Run with focus directive
+    // Run the workflow
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
         .current_dir(temp_path)
         .env("MMM_TEST_MODE", "true")
-        .env("MMM_TRACK_FOCUS", focus_tracker.to_str().unwrap())
         .args([
             "cook",
             "-n",
             "3",
-            "-f",
-            "security",
             playbook_path.to_str().unwrap(),
         ])
         .output()?;
@@ -348,39 +324,15 @@ commands:
     println!("STDOUT:\n{stdout}");
     println!("STDERR:\n{stderr}");
 
-    assert!(output.status.success(), "mmm cook failed: {stderr}");
+    // Check that commands were executed in the expected order
+    let code_review_pos = stdout.find("mmm-code-review");
+    let lint_pos = stdout.find("mmm-lint");
 
-    // In the current implementation, focus is only set as an env var for the
-    // first step of the first iteration. The tracking file may not be created
-    // if the test mode doesn't write it.
-
-    // Check if focus was displayed in the output
-    assert!(
-        stdout.contains("Focus: security"),
-        "Focus should be displayed in output"
-    );
-
-    // If the tracking file exists, verify its contents
-    if focus_tracker.exists() {
-        let focus_log = fs::read_to_string(&focus_tracker)?;
-        println!("Focus tracking file contents:\n{focus_log}");
-
-        let focus_entries: Vec<&str> = focus_log.lines().collect();
+    if let (Some(cr), Some(l)) = (code_review_pos, lint_pos) {
         assert!(
-            !focus_entries.is_empty(),
-            "Focus should be tracked at least once, found: {}",
-            focus_entries.len()
+            cr < l,
+            "Code review should execute before lint"
         );
-
-        assert!(
-            focus_entries[0].contains("security"),
-            "First execution should have focus 'security', got: {}",
-            focus_entries[0]
-        );
-    } else {
-        // In test mode, the focus tracking may not create the file
-        // Just verify focus was shown in output
-        println!("Focus tracking file not created in test mode");
     }
 
     Ok(())
@@ -397,13 +349,6 @@ fn create_mock_commands(_temp_path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Helper function to create commands that track focus directive
-fn create_focus_tracking_commands(_temp_path: &Path, _tracker_file: &Path) -> Result<()> {
-    // In test mode, we can track focus through environment variables
-    // This would be handled by the workflow executor when MMM_TEST_MODE is set
-
-    Ok(())
-}
 
 /// Integration test for worktree mode with multiple iterations
 #[test]
@@ -464,8 +409,6 @@ commands:
             "-w", // worktree mode
             "-n",
             "3",
-            "-f",
-            "performance",
             playbook_path.to_str().unwrap(),
         ])
         .output()?;

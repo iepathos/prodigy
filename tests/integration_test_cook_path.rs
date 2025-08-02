@@ -214,18 +214,13 @@ fn test_cook_path_with_flags() {
             "cook",
             "-p",
             repo_path.to_str().unwrap(),
-            "--focus",
-            "security",
             "--max-iterations",
             "0",
             playbook_path.to_str().unwrap(),
         ])
         .assert()
         .success()
-        .stdout(
-            predicate::str::contains("Starting improvement loop")
-                .or(predicate::str::contains("Focus: security")),
-        );
+        .stdout(predicate::str::contains("Cook session completed successfully"));
 }
 
 /// Test tilde expansion in path (Unix only)

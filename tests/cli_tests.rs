@@ -61,14 +61,15 @@ fn test_invalid_command() {
 
 #[test]
 fn test_cook_with_invalid_focus() {
-    // Test cook with invalid focus (this should actually succeed since focus is just a string)
+    // Test that focus flag no longer exists
     let mut cmd = Command::cargo_bin("mmm").unwrap();
     cmd.arg("cook")
         .arg("--focus")
         .arg("invalid")
         .arg("--help")
         .assert()
-        .success();
+        .failure()
+        .stderr(predicate::str::contains("unexpected argument"));
 }
 
 #[test]
@@ -103,7 +104,6 @@ fn test_cook_all_flags() {
         .arg("--help")
         .assert()
         .success()
-        .stdout(predicate::str::contains("--focus"))
         .stdout(predicate::str::contains("--max-iterations"))
         .stdout(predicate::str::contains("--worktree"))
         .stdout(predicate::str::contains("--map"))
