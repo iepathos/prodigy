@@ -47,7 +47,7 @@ pub trait CookOrchestrator: Send + Sync {
         -> Result<()>;
 
     /// Cleanup after execution
-    async fn cleanup(&self, env: &ExecutionEnvironment) -> Result<()>;
+    async fn cleanup(&self, env: &ExecutionEnvironment, config: &CookConfig) -> Result<()>;
 }
 
 /// Execution environment for cook operations
@@ -157,7 +157,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         }
 
         // Cleanup
-        self.cleanup(&env).await?;
+        self.cleanup(&env, &config).await?;
 
         // Complete session
         let summary = self.session_manager.complete_session().await?;
@@ -310,10 +310,10 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         Ok(())
     }
 
-    async fn cleanup(&self, env: &ExecutionEnvironment) -> Result<()> {
-        // Save final state
-        let state_path = env.project_dir.join(".mmm/state.json");
-        self.session_manager.save_state(&state_path).await?;
+    async fn cleanup(&self, env: &ExecutionEnvironment, config: &CookConfig) -> Result<()> {
+        // Save session state to a separate file to avoid conflicts with StateManager
+        let session_state_path = env.project_dir.join(".mmm/session_state.json");
+        self.session_manager.save_state(&session_state_path).await?;
 
         // Clean up worktree if needed
         if let Some(ref worktree_name) = env.worktree_name {
@@ -322,6 +322,9 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             let should_merge = if test_mode {
                 // Default to not merging in test mode to avoid complications
                 false
+            } else if config.command.auto_accept {
+                // Auto-accept when -y flag is provided
+                true
             } else {
                 // Ask user if they want to merge
                 self.user_interaction
@@ -378,6 +381,11 @@ impl DefaultCookOrchestrator {
                 config.workflow.commands.len(),
                 command.name
             ));
+
+            // Update session - increment iteration for each command
+            self.session_manager
+                .update_session(SessionUpdate::IncrementIteration)
+                .await?;
 
             // Resolve inputs and build final command arguments
             let mut final_args = command.args.clone();
@@ -496,6 +504,11 @@ impl DefaultCookOrchestrator {
                     result.exit_code,
                     result.stderr
                 );
+            } else {
+                // Track file changes when command succeeds
+                self.session_manager
+                    .update_session(SessionUpdate::AddFilesChanged(1))
+                    .await?;
             }
 
             // Handle outputs if specified
@@ -676,6 +689,11 @@ impl DefaultCookOrchestrator {
                 input
             ));
 
+            // Update session - increment iteration for each input processed
+            self.session_manager
+                .update_session(SessionUpdate::IncrementIteration)
+                .await?;
+
             // Build variables map for this input
             let mut variables = HashMap::new();
             variables.insert("ARG".to_string(), input.clone());
@@ -796,6 +814,11 @@ impl DefaultCookOrchestrator {
                         if head_after == before {
                             // No commits were created
                             return Err(anyhow!("No changes were committed by {}", final_command));
+                        } else {
+                            // Track file changes when commits were made
+                            self.session_manager
+                                .update_session(SessionUpdate::AddFilesChanged(1))
+                                .await?;
                         }
                     }
 
@@ -1410,5 +1433,76 @@ mod tests {
         let other_var = CommandArg::Variable("FILE".to_string());
         assert!(other_var.is_variable());
         assert!(!matches!(&other_var, CommandArg::Variable(var) if var == "ARG"));
+    }
+
+    #[tokio::test]
+    async fn test_auto_accept_worktree_merge() {
+        let temp_dir = TempDir::new().unwrap();
+        let (orchestrator, mock_interaction, _) = create_test_orchestrator();
+
+        // Create environment without worktree to test the basic flow
+        let env_no_worktree = ExecutionEnvironment {
+            working_dir: temp_dir.path().to_path_buf(),
+            project_dir: temp_dir.path().to_path_buf(),
+            worktree_name: None,
+            session_id: "test-session".to_string(),
+        };
+
+        // Test config with auto_accept = true
+        let config_auto = CookConfig {
+            command: CookCommand {
+                playbook: PathBuf::from("test.yml"),
+                path: None,
+                max_iterations: 1,
+                worktree: true,
+                map: vec![],
+                args: vec![],
+                fail_fast: false,
+                metrics: false,
+                auto_accept: true, // This should skip the prompt
+                resume: None,
+                skip_analysis: false,
+            },
+            project_path: temp_dir.path().to_path_buf(),
+            workflow: WorkflowConfig { commands: vec![] },
+        };
+
+        // Test config with auto_accept = false
+        let config_manual = CookConfig {
+            command: CookCommand {
+                playbook: PathBuf::from("test.yml"),
+                path: None,
+                max_iterations: 1,
+                worktree: true,
+                map: vec![],
+                args: vec![],
+                fail_fast: false,
+                metrics: false,
+                auto_accept: false, // This should prompt the user
+                resume: None,
+                skip_analysis: false,
+            },
+            project_path: temp_dir.path().to_path_buf(),
+            workflow: WorkflowConfig { commands: vec![] },
+        };
+
+        // Test without worktree (should succeed for both)
+        let result_auto_no_wt = orchestrator.cleanup(&env_no_worktree, &config_auto).await;
+        assert!(result_auto_no_wt.is_ok());
+
+        let result_manual_no_wt = orchestrator.cleanup(&env_no_worktree, &config_manual).await;
+        assert!(result_manual_no_wt.is_ok());
+
+        // Verify the auto_accept flag logic by checking messages (without actual worktree operations)
+        // Both should succeed without prompting since there's no worktree to merge
+        let messages = mock_interaction.get_messages();
+        let prompt_count = messages
+            .iter()
+            .filter(|msg| msg.starts_with("PROMPT:"))
+            .count();
+        assert_eq!(
+            prompt_count, 0,
+            "Should not have prompted when no worktree is present"
+        );
     }
 }

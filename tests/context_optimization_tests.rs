@@ -96,7 +96,8 @@ async fn test_hybrid_coverage_prioritization() -> Result<()> {
     };
 
     // Create gaps separately for the test
-    let _critical_gaps = [CoverageGap {
+    let _critical_gaps = [
+        CoverageGap {
             file: PathBuf::from("src/critical.rs"),
             functions: vec!["process_payment".to_string()],
             coverage_percentage: 20.0,
@@ -107,7 +108,8 @@ async fn test_hybrid_coverage_prioritization() -> Result<()> {
             functions: vec!["format_output".to_string()],
             coverage_percentage: 80.0,
             risk: "Low".to_string(),
-        }];
+        },
+    ];
 
     // Empty metrics for simplicity
     let metrics_history = vec![];

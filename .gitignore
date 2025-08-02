@@ -84,3 +84,7 @@ env/
 # Local development files
 local/
 dev/
+
+# MMM session state files
+.mmm/session_state.json
+.mmm/state.json.corrupted.*
