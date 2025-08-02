@@ -2,17 +2,17 @@
   "statistics": {
     "total_items": 211,
     "by_type": {
+      "Complexity": 70,
+      "Deprecated": 5,
       "Fixme": 11,
       "Hack": 7,
       "Duplication": 100,
-      "Todo": 18,
-      "Complexity": 70,
-      "Deprecated": 5
+      "Todo": 18
     },
     "by_impact": {
-      "Medium": 176,
       "High": 17,
-      "Low": 18
+      "Low": 18,
+      "Medium": 176
     },
     "avg_impact": 5.568720379146919,
     "avg_effort": 4.137440758293839
@@ -284,7 +284,7 @@
       "file": "/Users/glen/.mmm/worktrees/mmm/session-572d311f-4a76-4d35-b4df-abb20c854459/src/context/debt.rs",
       "total_issues": 38,
       "max_complexity": 49,
-      "primary_issue_type": "Todo"
+      "primary_issue_type": "Fixme"
     },
     {
       "file": "/Users/glen/.mmm/worktrees/mmm/session-572d311f-4a76-4d35-b4df-abb20c854459/src/cook/mod_old.rs",
@@ -299,15 +299,15 @@
       "primary_issue_type": "Duplication"
     },
     {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-572d311f-4a76-4d35-b4df-abb20c854459/src/cook/orchestrator.rs",
-      "total_issues": 11,
-      "max_complexity": 46,
-      "primary_issue_type": "Duplication"
-    },
-    {
       "file": "/Users/glen/.mmm/worktrees/mmm/session-572d311f-4a76-4d35-b4df-abb20c854459/src/abstractions/claude.rs",
       "total_issues": 11,
       "max_complexity": 20,
+      "primary_issue_type": "Duplication"
+    },
+    {
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-572d311f-4a76-4d35-b4df-abb20c854459/src/cook/orchestrator.rs",
+      "total_issues": 11,
+      "max_complexity": 46,
       "primary_issue_type": "Duplication"
     },
     {
@@ -335,10 +335,10 @@
       "primary_issue_type": "Duplication"
     },
     {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-572d311f-4a76-4d35-b4df-abb20c854459/src/git/mod.rs",
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-572d311f-4a76-4d35-b4df-abb20c854459/src/config/dynamic_registry.rs",
       "total_issues": 5,
-      "max_complexity": 0,
-      "primary_issue_type": "Duplication"
+      "max_complexity": 17,
+      "primary_issue_type": "Complexity"
     }
   ],
   "duplication_summary": {
