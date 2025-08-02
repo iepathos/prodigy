@@ -2,17 +2,17 @@
   "statistics": {
     "total_items": 212,
     "by_type": {
+      "Hack": 7,
       "Deprecated": 5,
       "Duplication": 100,
-      "Todo": 18,
-      "Hack": 7,
+      "Fixme": 11,
       "Complexity": 71,
-      "Fixme": 11
+      "Todo": 18
     },
     "by_impact": {
+      "Low": 18,
       "High": 17,
-      "Medium": 177,
-      "Low": 18
+      "Medium": 177
     },
     "avg_impact": 5.570754716981132,
     "avg_effort": 4.1415094339622645
@@ -284,7 +284,7 @@
       "file": "/Users/glen/memento-mori/mmm/src/context/debt.rs",
       "total_issues": 38,
       "max_complexity": 49,
-      "primary_issue_type": "Fixme"
+      "primary_issue_type": "Todo"
     },
     {
       "file": "/Users/glen/memento-mori/mmm/src/cook/mod_old.rs",
@@ -302,7 +302,7 @@
       "file": "/Users/glen/memento-mori/mmm/src/cook/orchestrator.rs",
       "total_issues": 10,
       "max_complexity": 44,
-      "primary_issue_type": "Duplication"
+      "primary_issue_type": "Complexity"
     },
     {
       "file": "/Users/glen/memento-mori/mmm/src/abstractions/git.rs",
@@ -317,18 +317,6 @@
       "primary_issue_type": "Duplication"
     },
     {
-      "file": "/Users/glen/memento-mori/mmm/tests/cook_iteration_tests.rs",
-      "total_issues": 5,
-      "max_complexity": 17,
-      "primary_issue_type": "Complexity"
-    },
-    {
-      "file": "/Users/glen/memento-mori/mmm/src/git/mod.rs",
-      "total_issues": 5,
-      "max_complexity": 0,
-      "primary_issue_type": "Duplication"
-    },
-    {
       "file": "/Users/glen/memento-mori/mmm/src/context/tarpaulin_coverage.rs",
       "total_issues": 5,
       "max_complexity": 19,
@@ -339,6 +327,18 @@
       "total_issues": 5,
       "max_complexity": 17,
       "primary_issue_type": "Complexity"
+    },
+    {
+      "file": "/Users/glen/memento-mori/mmm/tests/cook_iteration_tests.rs",
+      "total_issues": 5,
+      "max_complexity": 17,
+      "primary_issue_type": "Complexity"
+    },
+    {
+      "file": "/Users/glen/memento-mori/mmm/src/git/scenario.rs",
+      "total_issues": 5,
+      "max_complexity": 11,
+      "primary_issue_type": "Duplication"
     }
   ],
   "duplication_summary": {
