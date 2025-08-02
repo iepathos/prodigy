@@ -7,14 +7,6 @@
     "constant_naming": "ScreamingSnakeCase"
   },
   "code_patterns": {
-    "error_handling": {
-      "name": "Result-based error handling",
-      "description": "Uses Result<T, E> for error handling",
-      "examples": [
-        "Result<String, Error>"
-      ],
-      "frequency": 30
-    },
     "logging": {
       "name": "Logging pattern",
       "description": "Uses logging for debugging and monitoring",
@@ -24,14 +16,6 @@
       ],
       "frequency": 1
     },
-    "builder": {
-      "name": "Builder pattern",
-      "description": "Uses builder pattern for object construction",
-      "examples": [
-        "RequestBuilder::new()"
-      ],
-      "frequency": 2
-    },
     "async": {
       "name": "Async/await pattern",
       "description": "Uses async/await for asynchronous code",
@@ -39,6 +23,22 @@
         "async fn process()"
       ],
       "frequency": 13
+    },
+    "error_handling": {
+      "name": "Result-based error handling",
+      "description": "Uses Result<T, E> for error handling",
+      "examples": [
+        "Result<String, Error>"
+      ],
+      "frequency": 30
+    },
+    "builder": {
+      "name": "Builder pattern",
+      "description": "Uses builder pattern for object construction",
+      "examples": [
+        "RequestBuilder::new()"
+      ],
+      "frequency": 2
     }
   },
   "test_patterns": {
