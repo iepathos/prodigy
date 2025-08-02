@@ -262,11 +262,11 @@ fn calculate_quality_from_patterns(pattern_count: usize, idiom_count: usize) -> 
 /// Calculate maintainability from metrics
 fn calculate_maintainability_from_metrics(metrics: &ImprovementMetrics) -> f64 {
     let mut score = 100.0;
-    
+
     // Deduct for lint warnings (max 30 point deduction)
     let warning_penalty = (metrics.lint_warnings as f64 * 2.0).min(30.0);
     score -= warning_penalty;
-    
+
     // Deduct for high complexity
     if !metrics.cyclomatic_complexity.is_empty() {
         let avg_complexity = metrics.cyclomatic_complexity.values().sum::<u32>() as f64
@@ -274,11 +274,11 @@ fn calculate_maintainability_from_metrics(metrics: &ImprovementMetrics) -> f64 {
         let complexity_penalty = (avg_complexity * 2.0).min(30.0);
         score -= complexity_penalty;
     }
-    
+
     // Deduct for low test coverage
     let coverage_penalty = ((100.0 - metrics.test_coverage as f64) * 0.2).min(20.0);
     score -= coverage_penalty;
-    
+
     score.max(0.0)
 }
 

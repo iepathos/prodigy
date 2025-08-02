@@ -114,9 +114,9 @@ async fn test_metrics_trend_analysis() {
             doc_coverage: 30.0 + (i as f32 * 10.0),
             ..Default::default()
         };
-        metrics.iteration_id = format!("iteration-{}", i);
+        metrics.iteration_id = format!("iteration-{i}");
 
-        history.add_snapshot(metrics, format!("commit-{}", i));
+        history.add_snapshot(metrics, format!("commit-{i}"));
     }
 
     // Verify trends

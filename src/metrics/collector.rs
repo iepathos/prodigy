@@ -109,7 +109,6 @@ impl MetricsCollector {
         Ok(metrics)
     }
 
-
     /// Calculate improvement velocity (rate of positive change)
     fn calculate_velocity(&self, _metrics: &ImprovementMetrics) -> f32 {
         // This would compare with previous metrics to calculate rate of change
