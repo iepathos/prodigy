@@ -6,7 +6,7 @@ commands:
       commit_required: false  # Coverage analysis doesn't create commits
       outputs:
         spec:
-          file_pattern: "specs/temp/*-coverage-improvements.md"
+          file_pattern: "specs/*-coverage-improvements.md"
     
     - name: mmm-implement-spec
       inputs:
