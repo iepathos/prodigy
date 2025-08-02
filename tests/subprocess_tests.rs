@@ -106,31 +106,37 @@ fn test_git_command_patterns() {
 #[test]
 fn test_environment_variable_handling() {
     // Test setting and reading environment variables
-    std::env::set_var("MMM_TEST_VAR", "test_value");
+    // TODO: Audit that the environment access only happens in single-threaded code.
+    unsafe { std::env::set_var("MMM_TEST_VAR", "test_value") };
     assert_eq!(std::env::var("MMM_TEST_VAR").unwrap(), "test_value");
 
     // Test handling missing environment variables
-    std::env::remove_var("MMM_TEST_VAR");
+    // TODO: Audit that the environment access only happens in single-threaded code.
+    unsafe { std::env::remove_var("MMM_TEST_VAR") };
     assert!(std::env::var("MMM_TEST_VAR").is_err());
 
     // Test the pattern used in the code
     // Save the current value and temporarily unset it
     let original_value = std::env::var("MMM_AUTOMATION").ok();
-    std::env::remove_var("MMM_AUTOMATION");
+    // TODO: Audit that the environment access only happens in single-threaded code.
+    unsafe { std::env::remove_var("MMM_AUTOMATION") };
 
     let automation = std::env::var("MMM_AUTOMATION").unwrap_or_default() == "true";
     assert!(!automation); // Should be false when not set
 
     // Test when it's set to true
-    std::env::set_var("MMM_AUTOMATION", "true");
+    // TODO: Audit that the environment access only happens in single-threaded code.
+    unsafe { std::env::set_var("MMM_AUTOMATION", "true") };
     let automation = std::env::var("MMM_AUTOMATION").unwrap_or_default() == "true";
     assert!(automation); // Should be true when set
 
     // Restore original value if it existed
     if let Some(value) = original_value {
-        std::env::set_var("MMM_AUTOMATION", value);
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("MMM_AUTOMATION", value) };
     } else {
-        std::env::remove_var("MMM_AUTOMATION");
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("MMM_AUTOMATION") };
     }
 }
 

@@ -272,7 +272,7 @@ commands:
         assert_eq!(config.commands.len(), 1);
 
         match &config.commands[0] {
-            WorkflowCommand::Structured(ref cmd) => {
+            WorkflowCommand::Structured(cmd) => {
                 assert_eq!(cmd.name, "mmm-code-review");
                 assert_eq!(cmd.id, Some("review".to_string()));
                 assert!(cmd.outputs.is_some());
@@ -304,7 +304,7 @@ commands:
         assert_eq!(config.commands.len(), 1);
 
         match &config.commands[0] {
-            WorkflowCommand::Structured(ref cmd) => {
+            WorkflowCommand::Structured(cmd) => {
                 assert_eq!(cmd.name, "mmm-implement-spec");
                 assert!(cmd.inputs.is_some());
 
@@ -353,7 +353,7 @@ commands:
 
         // Verify first command
         match &config.commands[0] {
-            WorkflowCommand::Structured(ref cmd) => {
+            WorkflowCommand::Structured(cmd) => {
                 assert_eq!(cmd.name, "mmm-code-review");
                 assert_eq!(cmd.id.as_ref().unwrap(), "review");
                 assert!(cmd.outputs.is_some());
@@ -363,7 +363,7 @@ commands:
 
         // Verify second command
         match &config.commands[1] {
-            WorkflowCommand::Structured(ref cmd) => {
+            WorkflowCommand::Structured(cmd) => {
                 assert_eq!(cmd.name, "mmm-implement-spec");
                 assert!(cmd.inputs.is_some());
             }
@@ -372,7 +372,7 @@ commands:
 
         // Verify third command - it's parsed as Structured because it has a "name" field
         match &config.commands[2] {
-            WorkflowCommand::Structured(ref cmd) => {
+            WorkflowCommand::Structured(cmd) => {
                 assert_eq!(cmd.name, "mmm-lint");
                 assert!(cmd.id.is_none());
                 assert!(cmd.inputs.is_none());
@@ -398,7 +398,7 @@ commands:
             serde_yaml::from_str(yaml).expect("Failed to parse workflow with multiple outputs");
 
         match &config.commands[0] {
-            WorkflowCommand::Structured(ref cmd) => {
+            WorkflowCommand::Structured(cmd) => {
                 let outputs = cmd.outputs.as_ref().unwrap();
                 assert_eq!(outputs.len(), 2);
 
@@ -458,7 +458,7 @@ commands:
             serde_yaml::from_str(yaml).expect("Failed to parse workflow with env inputs");
 
         match &config.commands[0] {
-            WorkflowCommand::Structured(ref cmd) => {
+            WorkflowCommand::Structured(cmd) => {
                 let inputs = cmd.inputs.as_ref().unwrap();
 
                 // Check environment input
@@ -496,7 +496,7 @@ commands:
 
         let config = result.unwrap();
         match &config.commands[0] {
-            WorkflowCommand::Structured(ref cmd) => {
+            WorkflowCommand::Structured(cmd) => {
                 let outputs = cmd.outputs.as_ref().unwrap();
                 assert_eq!(outputs["spec"].file_pattern, "specs/temp/*.md");
             }

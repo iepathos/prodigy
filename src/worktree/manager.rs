@@ -287,7 +287,11 @@ impl WorktreeManager {
         // Check if there are any new commits in the worktree branch
         let diff_check_command = ProcessCommandBuilder::new("git")
             .current_dir(&self.repo_path)
-            .args(["rev-list", "--count", &format!("{target}..{worktree_branch}")])
+            .args([
+                "rev-list",
+                "--count",
+                &format!("{target}..{worktree_branch}"),
+            ])
             .build();
 
         let diff_output = self

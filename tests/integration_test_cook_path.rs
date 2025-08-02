@@ -220,7 +220,9 @@ fn test_cook_path_with_flags() {
         ])
         .assert()
         .success()
-        .stdout(predicate::str::contains("Cook session completed successfully"));
+        .stdout(predicate::str::contains(
+            "Cook session completed successfully",
+        ));
 }
 
 /// Test tilde expansion in path (Unix only)

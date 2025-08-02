@@ -113,7 +113,12 @@ fn run_cook_command(
         .env("MMM_TEST_ITERATIONS", "true");
 
     let iterations_str = iterations.to_string();
-    let args = vec!["cook", "-n", &iterations_str, playbook_path.to_str().unwrap()];
+    let args = vec![
+        "cook",
+        "-n",
+        &iterations_str,
+        playbook_path.to_str().unwrap(),
+    ];
 
     Ok(cmd.args(&args).output()?)
 }
@@ -149,7 +154,6 @@ fn verify_cook_output(
             "Should run mmm-code-review command"
         );
     }
-
 
     // Verify completion
     assert!(
@@ -310,12 +314,7 @@ commands:
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
         .current_dir(temp_path)
         .env("MMM_TEST_MODE", "true")
-        .args([
-            "cook",
-            "-n",
-            "3",
-            playbook_path.to_str().unwrap(),
-        ])
+        .args(["cook", "-n", "3", playbook_path.to_str().unwrap()])
         .output()?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -329,10 +328,7 @@ commands:
     let lint_pos = stdout.find("mmm-lint");
 
     if let (Some(cr), Some(l)) = (code_review_pos, lint_pos) {
-        assert!(
-            cr < l,
-            "Code review should execute before lint"
-        );
+        assert!(cr < l, "Code review should execute before lint");
     }
 
     Ok(())
@@ -348,7 +344,6 @@ fn create_mock_commands(_temp_path: &Path) -> Result<()> {
 
     Ok(())
 }
-
 
 /// Integration test for worktree mode with multiple iterations
 #[test]

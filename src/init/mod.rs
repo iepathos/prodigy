@@ -80,7 +80,8 @@ fn handle_existing_commands(
             || std::env::var("RUST_TEST_THREADS").is_ok()
             || cfg!(test);
 
-        if atty::is(atty::Stream::Stdin) && !is_test {
+        use std::io::IsTerminal;
+        if std::io::stdin().is_terminal() && !is_test {
             print!("\nDo you want to continue and skip existing commands? (y/N): ");
             use std::io::{self, Write};
             io::stdout().flush()?;

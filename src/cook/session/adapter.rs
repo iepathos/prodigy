@@ -223,7 +223,7 @@ impl OldSessionManager for SessionManagerAdapter {
                     },
                     working_directory: self.working_dir.clone(),
                     worktree_name: None,
-                        };
+                };
             }
         }
 
