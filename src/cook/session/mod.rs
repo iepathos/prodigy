@@ -49,4 +49,12 @@ pub enum SessionUpdate {
     UpdateStatus(SessionStatus),
     /// Add error
     AddError(String),
+    /// Start workflow timing
+    StartWorkflow,
+    /// Start iteration timing
+    StartIteration(u32),
+    /// Complete iteration timing
+    CompleteIteration,
+    /// Record command timing
+    RecordCommandTiming(String, std::time::Duration),
 }

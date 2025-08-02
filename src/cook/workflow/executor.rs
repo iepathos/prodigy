@@ -10,10 +10,12 @@ use crate::cook::interaction::UserInteraction;
 use crate::cook::metrics::MetricsCoordinator;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::{SessionManager, SessionUpdate};
+use crate::session::{format_duration, TimingTracker};
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Instant;
 
 /// A simple workflow step
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,6 +62,7 @@ pub struct WorkflowExecutor {
     analysis_coordinator: Arc<dyn AnalysisCoordinator>,
     metrics_coordinator: Arc<dyn MetricsCoordinator>,
     user_interaction: Arc<dyn UserInteraction>,
+    timing_tracker: TimingTracker,
 }
 
 impl WorkflowExecutor {
@@ -77,15 +80,18 @@ impl WorkflowExecutor {
             analysis_coordinator,
             metrics_coordinator,
             user_interaction,
+            timing_tracker: TimingTracker::new(),
         }
     }
 
     /// Execute a workflow
     pub async fn execute(
-        &self,
+        &mut self,
         workflow: &ExtendedWorkflowConfig,
         env: &ExecutionEnvironment,
     ) -> Result<()> {
+        let workflow_start = Instant::now();
+
         self.user_interaction.display_info(&format!(
             "Executing workflow: {} (max {} iterations)",
             workflow.name, workflow.max_iterations
@@ -103,6 +109,11 @@ impl WorkflowExecutor {
         let mut iteration = 0;
         let mut should_continue = true;
 
+        // Start workflow timing in session
+        self.session_manager
+            .update_session(SessionUpdate::StartWorkflow)
+            .await?;
+
         while should_continue && iteration < workflow.max_iterations {
             iteration += 1;
             self.user_interaction.display_progress(&format!(
@@ -110,9 +121,15 @@ impl WorkflowExecutor {
                 iteration, workflow.max_iterations
             ));
 
+            // Start iteration timing
+            self.timing_tracker.start_iteration();
+
             // Update session
             self.session_manager
                 .update_session(SessionUpdate::IncrementIteration)
+                .await?;
+            self.session_manager
+                .update_session(SessionUpdate::StartIteration(iteration))
                 .await?;
 
             // Execute workflow steps
@@ -132,11 +149,26 @@ impl WorkflowExecutor {
                     None
                 };
 
+                // Start command timing
+                self.timing_tracker.start_command(step.command.clone());
+                let command_start = Instant::now();
+
                 // Execute the step
                 let step_result = self
                     .execute_step(step, env)
                     .await
                     .context(format!("Failed to execute step: {}", step.name))?;
+
+                // Complete command timing
+                let command_duration = command_start.elapsed();
+                if let Some((cmd_name, _)) = self.timing_tracker.complete_command() {
+                    self.session_manager
+                        .update_session(SessionUpdate::RecordCommandTiming(
+                            cmd_name,
+                            command_duration,
+                        ))
+                        .await?;
+                }
 
                 // Check for commits if required
                 if let Some(before) = head_before {
@@ -181,6 +213,20 @@ impl WorkflowExecutor {
                 should_continue = false;
             }
 
+            // Complete iteration timing
+            if let Some(iteration_duration) = self.timing_tracker.complete_iteration() {
+                self.session_manager
+                    .update_session(SessionUpdate::CompleteIteration)
+                    .await?;
+
+                // Display iteration timing
+                self.user_interaction.display_info(&format!(
+                    "✓ Iteration {} completed in {}",
+                    iteration,
+                    format_duration(iteration_duration)
+                ));
+            }
+
             // Run analysis between iterations if configured
             if should_continue && workflow.analyze_between {
                 self.user_interaction
@@ -200,11 +246,24 @@ impl WorkflowExecutor {
             self.collect_and_report_metrics(env).await?;
         }
 
+        // Display total workflow timing
+        let total_duration = workflow_start.elapsed();
+        self.user_interaction.display_info(&format!(
+            "\n📊 Total workflow time: {} across {} iteration{}",
+            format_duration(total_duration),
+            iteration,
+            if iteration == 1 { "" } else { "s" }
+        ));
+
         Ok(())
     }
 
     /// Execute a single workflow step
-    async fn execute_step(&self, step: &WorkflowStep, env: &ExecutionEnvironment) -> Result<bool> {
+    async fn execute_step(
+        &mut self,
+        step: &WorkflowStep,
+        env: &ExecutionEnvironment,
+    ) -> Result<bool> {
         // Prepare environment variables
         let mut env_vars = HashMap::new();
 

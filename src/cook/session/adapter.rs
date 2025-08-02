@@ -55,6 +55,17 @@ impl SessionManagerAdapter {
                         .map(|d| d.to_std().unwrap_or_default())
                         .unwrap_or_default(),
                     success_rate: 1.0, // Not tracked in old system
+                    iteration_timings: vec![],
+                    workflow_timing: crate::session::WorkflowTiming {
+                        total_duration: old_state
+                            .duration()
+                            .map(|d| d.to_std().unwrap_or_default())
+                            .unwrap_or_default(),
+                        iteration_count: old_state.iterations_completed,
+                        average_iteration_time: std::time::Duration::ZERO,
+                        slowest_iteration: None,
+                        fastest_iteration: None,
+                    },
                 },
             },
             SessionStatus::Failed => crate::session::SessionState::Failed {
@@ -159,6 +170,46 @@ impl OldSessionManager for SessionManagerAdapter {
                 // This is handled when status changes to Failed
                 let _ = error;
             }
+            SessionUpdate::StartWorkflow => {
+                // Workflow start is tracked through session start
+                // No additional action needed
+            }
+            SessionUpdate::StartIteration(iteration_number) => {
+                self.new_manager
+                    .record_event(
+                        &session_id,
+                        crate::session::SessionEvent::IterationStarted {
+                            number: iteration_number,
+                        },
+                    )
+                    .await?;
+            }
+            SessionUpdate::CompleteIteration => {
+                // Iteration completion is tracked through IterationCompleted event
+                // which requires changes data - using empty changes for timing
+                self.new_manager
+                    .record_event(
+                        &session_id,
+                        crate::session::SessionEvent::IterationCompleted {
+                            changes: crate::session::IterationChanges::default(),
+                        },
+                    )
+                    .await?;
+            }
+            SessionUpdate::RecordCommandTiming(command, duration) => {
+                // Command timing is tracked through CommandExecuted event
+                self.new_manager
+                    .record_event(
+                        &session_id,
+                        crate::session::SessionEvent::CommandExecuted {
+                            command,
+                            success: true, // Assume success for timing tracking
+                        },
+                    )
+                    .await?;
+                // Store duration separately if needed
+                let _ = duration;
+            }
         }
 
         Ok(())
@@ -223,6 +274,11 @@ impl OldSessionManager for SessionManagerAdapter {
                     },
                     working_directory: self.working_dir.clone(),
                     worktree_name: None,
+                    workflow_started_at: None,
+                    current_iteration_started_at: None,
+                    current_iteration_number: None,
+                    iteration_timings: vec![],
+                    command_timings: vec![],
                 };
             }
         }

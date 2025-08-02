@@ -92,10 +92,12 @@ impl InMemorySessionManager {
         match event {
             SessionEvent::Started { .. } => {
                 data.state = SessionState::Running { iteration: 0 };
+                data.progress.start_workflow();
             }
             SessionEvent::IterationStarted { number } => {
                 data.state = SessionState::Running { iteration: *number };
                 data.progress.current_phase = Some(format!("Iteration {number}"));
+                data.progress.start_iteration(*number);
             }
             SessionEvent::IterationCompleted { changes } => {
                 data.progress.iterations_completed += 1;
@@ -103,6 +105,7 @@ impl InMemorySessionManager {
                 for file in &changes.files_modified {
                     data.progress.files_changed.insert(file.clone());
                 }
+                data.progress.complete_iteration();
             }
             SessionEvent::AnalysisCompleted { results: _ } => {
                 data.progress.current_phase = Some("Analysis complete".to_string());
@@ -130,12 +133,18 @@ impl InMemorySessionManager {
                 }
             }
             SessionEvent::Completed => {
+                // Complete current iteration if in progress
+                data.progress.complete_iteration();
+
+                let workflow_timing = data.progress.get_workflow_timing();
                 let summary = SessionSummary {
                     total_iterations: data.progress.iterations_completed,
                     files_changed: data.progress.files_changed.len(),
                     total_commits: data.progress.all_commits().len(),
                     duration: data.started_at.elapsed(),
                     success_rate: data.progress.success_rate(),
+                    iteration_timings: data.progress.iteration_timings.clone(),
+                    workflow_timing,
                 };
                 data.state = SessionState::Completed { summary };
             }

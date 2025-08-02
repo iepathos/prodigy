@@ -125,6 +125,27 @@ impl MetricsReporter for MetricsReporterImpl {
             report.push_str("- Binary Size: N/A\n");
         }
 
+        // Timing information
+        if current.iteration_duration.is_some() || current.command_timings.is_some() {
+            report.push_str("\nTiming Information:\n");
+            if let Some(duration) = current.iteration_duration {
+                report.push_str(&format!(
+                    "- Iteration Duration: {}\n",
+                    crate::session::format_duration(duration)
+                ));
+            }
+            if let Some(ref command_timings) = current.command_timings {
+                report.push_str("- Command Breakdown:\n");
+                for (cmd, duration) in command_timings {
+                    report.push_str(&format!(
+                        "  - {}: {}\n",
+                        cmd,
+                        crate::session::format_duration(*duration)
+                    ));
+                }
+            }
+        }
+
         // Trends
         if !history.is_empty() {
             let trends = self.calculate_trends(history).await?;

@@ -49,6 +49,40 @@ impl SessionManager for SessionTrackerImpl {
             SessionUpdate::AddError(error) => {
                 self.state.lock().unwrap().errors.push(error);
             }
+            SessionUpdate::StartWorkflow => {
+                // Start workflow timing
+                if let Ok(mut state) = self.state.lock() {
+                    state.workflow_started_at = Some(chrono::Utc::now());
+                }
+            }
+            SessionUpdate::StartIteration(iteration_number) => {
+                // Start iteration timing
+                if let Ok(mut state) = self.state.lock() {
+                    state.current_iteration_started_at = Some(chrono::Utc::now());
+                    state.current_iteration_number = Some(iteration_number);
+                }
+            }
+            SessionUpdate::CompleteIteration => {
+                // Complete iteration timing
+                if let Ok(mut state) = self.state.lock() {
+                    if let Some(start_time) = state.current_iteration_started_at.take() {
+                        if let Some(iteration_number) = state.current_iteration_number.take() {
+                            let end_time = chrono::Utc::now();
+                            let duration = end_time
+                                .signed_duration_since(start_time)
+                                .to_std()
+                                .unwrap_or_default();
+                            state.iteration_timings.push((iteration_number, duration));
+                        }
+                    }
+                }
+            }
+            SessionUpdate::RecordCommandTiming(command, duration) => {
+                // Record command timing
+                if let Ok(mut state) = self.state.lock() {
+                    state.command_timings.push((command, duration));
+                }
+            }
         }
         Ok(())
     }

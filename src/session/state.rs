@@ -2,9 +2,9 @@
 
 use super::{CommitInfo, ExecutedCommand, IterationChanges};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// Core session states
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -52,6 +52,115 @@ pub struct SessionSummary {
     pub total_commits: usize,
     pub duration: Duration,
     pub success_rate: f64,
+    pub iteration_timings: Vec<IterationTiming>,
+    pub workflow_timing: WorkflowTiming,
+}
+
+/// Timing information for a single iteration
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct IterationTiming {
+    pub iteration_number: u32,
+    pub start_time: chrono::DateTime<chrono::Utc>,
+    pub end_time: Option<chrono::DateTime<chrono::Utc>>,
+    pub command_timings: HashMap<String, Duration>,
+    pub total_duration: Option<Duration>,
+}
+
+impl IterationTiming {
+    /// Create a new iteration timing
+    pub fn new(iteration_number: u32) -> Self {
+        Self {
+            iteration_number,
+            start_time: chrono::Utc::now(),
+            end_time: None,
+            command_timings: HashMap::new(),
+            total_duration: None,
+        }
+    }
+
+    /// Complete the iteration timing
+    pub fn complete(&mut self) {
+        let end_time = chrono::Utc::now();
+        self.total_duration = Some(
+            end_time
+                .signed_duration_since(self.start_time)
+                .to_std()
+                .unwrap_or_default(),
+        );
+        self.end_time = Some(end_time);
+    }
+
+    /// Add command timing
+    pub fn add_command_timing(&mut self, command: String, duration: Duration) {
+        self.command_timings.insert(command, duration);
+    }
+}
+
+/// Workflow timing statistics
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct WorkflowTiming {
+    pub total_duration: Duration,
+    pub iteration_count: usize,
+    pub average_iteration_time: Duration,
+    pub slowest_iteration: Option<(u32, Duration)>,
+    pub fastest_iteration: Option<(u32, Duration)>,
+}
+
+impl WorkflowTiming {
+    /// Calculate workflow timing from iteration timings
+    pub fn from_iterations(iterations: &[IterationTiming], total_duration: Duration) -> Self {
+        let iteration_count = iterations.len();
+
+        if iteration_count == 0 {
+            return Self {
+                total_duration,
+                iteration_count: 0,
+                average_iteration_time: Duration::ZERO,
+                slowest_iteration: None,
+                fastest_iteration: None,
+            };
+        }
+
+        let mut slowest: Option<(u32, Duration)> = None;
+        let mut fastest: Option<(u32, Duration)> = None;
+        let mut total_iteration_time = Duration::ZERO;
+
+        for iter in iterations {
+            if let Some(duration) = iter.total_duration {
+                total_iteration_time += duration;
+
+                match &mut slowest {
+                    None => slowest = Some((iter.iteration_number, duration)),
+                    Some((_, d)) if duration > *d => {
+                        slowest = Some((iter.iteration_number, duration))
+                    }
+                    _ => {}
+                }
+
+                match &mut fastest {
+                    None => fastest = Some((iter.iteration_number, duration)),
+                    Some((_, d)) if duration < *d => {
+                        fastest = Some((iter.iteration_number, duration))
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        let average_iteration_time = if iteration_count > 0 {
+            Duration::from_secs(total_iteration_time.as_secs() / iteration_count as u64)
+        } else {
+            Duration::ZERO
+        };
+
+        Self {
+            total_duration,
+            iteration_count,
+            average_iteration_time,
+            slowest_iteration: slowest,
+            fastest_iteration: fastest,
+        }
+    }
 }
 
 /// Progress tracking for a session
@@ -65,6 +174,9 @@ pub struct SessionProgress {
     pub duration: Duration,
     pub current_phase: Option<String>,
     pub iteration_changes: Vec<IterationChanges>,
+    pub iteration_timings: Vec<IterationTiming>,
+    pub current_iteration_timing: Option<IterationTiming>,
+    pub workflow_start_time: Option<Instant>,
 }
 
 impl SessionProgress {
@@ -79,6 +191,9 @@ impl SessionProgress {
             duration: Duration::default(),
             current_phase: None,
             iteration_changes: Vec::new(),
+            iteration_timings: Vec::new(),
+            current_iteration_timing: None,
+            workflow_start_time: None,
         }
     }
 
@@ -114,6 +229,41 @@ impl SessionProgress {
             .flat_map(|c| &c.git_commits)
             .collect()
     }
+
+    /// Start workflow timing
+    pub fn start_workflow(&mut self) {
+        self.workflow_start_time = Some(Instant::now());
+    }
+
+    /// Start a new iteration
+    pub fn start_iteration(&mut self, iteration_number: u32) {
+        let timing = IterationTiming::new(iteration_number);
+        self.current_iteration_timing = Some(timing);
+    }
+
+    /// Complete current iteration
+    pub fn complete_iteration(&mut self) {
+        if let Some(mut timing) = self.current_iteration_timing.take() {
+            timing.complete();
+            self.iteration_timings.push(timing);
+        }
+    }
+
+    /// Record command timing
+    pub fn record_command_timing(&mut self, command: String, duration: Duration) {
+        if let Some(ref mut timing) = self.current_iteration_timing {
+            timing.add_command_timing(command, duration);
+        }
+    }
+
+    /// Get workflow timing summary
+    pub fn get_workflow_timing(&self) -> WorkflowTiming {
+        let total_duration = self
+            .workflow_start_time
+            .map(|start| start.elapsed())
+            .unwrap_or_default();
+        WorkflowTiming::from_iterations(&self.iteration_timings, total_duration)
+    }
 }
 
 #[cfg(test)]
@@ -139,6 +289,14 @@ mod tests {
                 total_commits: 3,
                 duration: Duration::from_secs(300),
                 success_rate: 0.95,
+                iteration_timings: vec![],
+                workflow_timing: WorkflowTiming {
+                    total_duration: Duration::from_secs(300),
+                    iteration_count: 10,
+                    average_iteration_time: Duration::from_secs(30),
+                    slowest_iteration: None,
+                    fastest_iteration: None,
+                },
             },
         };
         assert!(state.is_terminal());

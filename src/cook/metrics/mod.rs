@@ -46,6 +46,12 @@ pub struct ProjectMetrics {
     pub timestamp: chrono::DateTime<chrono::Utc>,
     /// Associated iteration ID
     pub iteration_id: Option<String>,
+    /// Iteration timing information
+    pub iteration_duration: Option<std::time::Duration>,
+    /// Command timing breakdown
+    pub command_timings: Option<Vec<(String, std::time::Duration)>>,
+    /// Workflow timing statistics
+    pub workflow_timing: Option<crate::session::WorkflowTiming>,
 }
 
 impl Default for ProjectMetrics {
@@ -66,6 +72,9 @@ impl Default for ProjectMetrics {
             improvement_velocity: None,
             timestamp: chrono::Utc::now(),
             iteration_id: None,
+            iteration_duration: None,
+            command_timings: None,
+            workflow_timing: None,
         }
     }
 }

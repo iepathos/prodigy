@@ -297,7 +297,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         }
 
         // Create workflow executor
-        let executor = WorkflowExecutor::new(
+        let mut executor = WorkflowExecutor::new(
             self.claude_executor.clone(),
             self.session_manager.clone(),
             self.analysis_coordinator.clone(),

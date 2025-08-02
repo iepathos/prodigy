@@ -9,13 +9,15 @@ pub mod manager;
 pub mod persistence;
 pub mod state;
 pub mod storage;
+pub mod timing;
 
 pub use config::{ExecutionMode, SessionConfig, SessionOptions};
 pub use events::{SessionEvent, SessionObserver, TimestampedEvent};
 pub use manager::{InMemorySessionManager, SessionManager};
 pub use persistence::{PersistedSession, SessionCheckpoint, StateSnapshot};
-pub use state::{SessionProgress, SessionState, SessionSummary};
+pub use state::{IterationTiming, SessionProgress, SessionState, SessionSummary, WorkflowTiming};
 pub use storage::{FileSessionStorage, SessionStorage};
+pub use timing::{format_duration, TimingTracker};
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
