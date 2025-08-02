@@ -48,7 +48,7 @@ MMM_FOCUS: Optional focus directive (e.g., "security", "api", "core")
 **CRITICAL**: Create actionable spec file for `mmm-implement-spec` to consume.
 
 1. **Spec File Location**
-   - Directory: `specs/temp/`
+   - Directory: `specs/`
    - Filename: `iteration-{unix_timestamp}-coverage-improvements.md`
    - Must match pattern: `*-coverage-improvements.md`
 
