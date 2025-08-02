@@ -286,7 +286,7 @@ pub fn save_analysis_with_commit(
     let overall_score = health_score.overall;
 
     // Display score breakdown
-    eprintln!("📊 Project Health Score: {:.1}/100", overall_score);
+    eprintln!("📊 Project Health Score: {overall_score:.1}/100");
     eprintln!("\nComponents:");
 
     use crate::scoring::format_component;

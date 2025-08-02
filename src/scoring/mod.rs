@@ -189,8 +189,7 @@ impl ProjectHealthScore {
         if let Some(coverage) = self.components.test_coverage {
             if coverage < 60.0 {
                 suggestions.push(format!(
-                    "Increase test coverage (current: {:.1}%)",
-                    coverage
+                    "Increase test coverage (current: {coverage:.1}%)"
                 ));
             }
         } else {
@@ -208,8 +207,7 @@ impl ProjectHealthScore {
         if let Some(docs) = self.components.documentation {
             if docs < 50.0 {
                 suggestions.push(format!(
-                    "Improve documentation coverage (current: {:.1}%)",
-                    docs
+                    "Improve documentation coverage (current: {docs:.1}%)"
                 ));
             }
         }
@@ -224,7 +222,7 @@ impl ProjectHealthScore {
         // Check type safety
         if let Some(types) = self.components.type_safety {
             if types < 80.0 {
-                suggestions.push(format!("Improve type annotations (current: {:.1}%)", types));
+                suggestions.push(format!("Improve type annotations (current: {types:.1}%)"));
             }
         }
 
@@ -297,26 +295,26 @@ pub fn format_component(name: &str, value: Option<f64>, details: Option<&str>) -
     match value {
         Some(v) if v >= 70.0 => {
             if let Some(d) = details {
-                format!("  ✓ {}: {:.1}% {}", name, v, d)
+                format!("  ✓ {name}: {v:.1}% {d}")
             } else {
-                format!("  ✓ {}: {:.1}%", name, v)
+                format!("  ✓ {name}: {v:.1}%")
             }
         }
         Some(v) if v >= 40.0 => {
             if let Some(d) = details {
-                format!("  ⚠ {}: {:.1}% {}", name, v, d)
+                format!("  ⚠ {name}: {v:.1}% {d}")
             } else {
-                format!("  ⚠ {}: {:.1}%", name, v)
+                format!("  ⚠ {name}: {v:.1}%")
             }
         }
         Some(v) => {
             if let Some(d) = details {
-                format!("  ✗ {}: {:.1}% {}", name, v, d)
+                format!("  ✗ {name}: {v:.1}% {d}")
             } else {
-                format!("  ✗ {}: {:.1}%", name, v)
+                format!("  ✗ {name}: {v:.1}%")
             }
         }
-        None => format!("  - {}: N/A", name),
+        None => format!("  - {name}: N/A"),
     }
 }
 
