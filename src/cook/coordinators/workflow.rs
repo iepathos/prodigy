@@ -147,3 +147,97 @@ impl WorkflowCoordinator for DefaultWorkflowCoordinator {
         self.user_interaction.display_progress(message);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_workflow_should_continue() {
+        let context = WorkflowContext {
+            iteration: 3,
+            max_iterations: 5,
+            variables: HashMap::new(),
+        };
+
+        // Test with a simple mock coordinator
+        struct TestCoordinator;
+
+        #[async_trait]
+        impl WorkflowCoordinator for TestCoordinator {
+            async fn execute_step(
+                &self,
+                _step: &WorkflowStep,
+                _context: &WorkflowContext,
+            ) -> Result<HashMap<String, String>> {
+                Ok(HashMap::new())
+            }
+
+            async fn execute_workflow(
+                &self,
+                _commands: &[WorkflowCommand],
+                _context: &mut WorkflowContext,
+            ) -> Result<()> {
+                Ok(())
+            }
+
+            async fn should_continue(&self, context: &WorkflowContext) -> Result<bool> {
+                Ok(context.iteration <= context.max_iterations)
+            }
+
+            async fn prompt_user(&self, _message: &str, _default: bool) -> Result<bool> {
+                Ok(true)
+            }
+
+            fn display_progress(&self, _message: &str) {}
+        }
+
+        let coordinator = TestCoordinator;
+        let should_continue = coordinator.should_continue(&context).await.unwrap();
+        assert!(should_continue);
+    }
+
+    #[tokio::test]
+    async fn test_workflow_max_iterations_reached() {
+        let context = WorkflowContext {
+            iteration: 6,
+            max_iterations: 5,
+            variables: HashMap::new(),
+        };
+
+        struct TestCoordinator;
+
+        #[async_trait]
+        impl WorkflowCoordinator for TestCoordinator {
+            async fn execute_step(
+                &self,
+                _step: &WorkflowStep,
+                _context: &WorkflowContext,
+            ) -> Result<HashMap<String, String>> {
+                Ok(HashMap::new())
+            }
+
+            async fn execute_workflow(
+                &self,
+                _commands: &[WorkflowCommand],
+                _context: &mut WorkflowContext,
+            ) -> Result<()> {
+                Ok(())
+            }
+
+            async fn should_continue(&self, context: &WorkflowContext) -> Result<bool> {
+                Ok(context.iteration <= context.max_iterations)
+            }
+
+            async fn prompt_user(&self, _message: &str, _default: bool) -> Result<bool> {
+                Ok(true)
+            }
+
+            fn display_progress(&self, _message: &str) {}
+        }
+
+        let coordinator = TestCoordinator;
+        let should_continue = coordinator.should_continue(&context).await.unwrap();
+        assert!(!should_continue);
+    }
+}

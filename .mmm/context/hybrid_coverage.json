@@ -3,121 +3,13 @@
   "priority_gaps": [
     {
       "gap": {
-        "file": "tests/command_parsing_tests.rs",
-        "functions": [
-          "test_parse_command_string",
-          "test_parse_command_with_quotes",
-          "test_parse_command_edge_cases",
-          "test_string_to_structured_command",
-          "test_command_validation",
-          "parse_command_string",
-          "from_string",
-          "validate_command"
-        ],
-        "coverage_percentage": 0.0,
-        "risk": "High"
-      },
-      "quality_metrics": {
-        "file": "tests/command_parsing_tests.rs",
-        "complexity_trend": "Stable",
-        "lint_warnings_trend": "Stable",
-        "duplication_trend": "Stable",
-        "recent_changes": 0,
-        "bug_frequency": 0.0
-      },
-      "priority_score": 10.0,
-      "priority_reason": "Low coverage"
-    },
-    {
-      "gap": {
-        "file": "tests/context_integration.rs",
-        "functions": [
-          "test_metrics_storage_integration"
-        ],
-        "coverage_percentage": 0.0,
-        "risk": "High"
-      },
-      "quality_metrics": {
-        "file": "tests/context_integration.rs",
-        "complexity_trend": "Stable",
-        "lint_warnings_trend": "Stable",
-        "duplication_trend": "Stable",
-        "recent_changes": 0,
-        "bug_frequency": 0.0
-      },
-      "priority_score": 10.0,
-      "priority_reason": "Low coverage"
-    },
-    {
-      "gap": {
-        "file": "tests/workflow_commit_verification_tests.rs",
-        "functions": [
-          "setup_test_repo",
-          "test_workflow_fails_when_no_commits_and_required",
-          "test_workflow_succeeds_with_commit_required_false",
-          "test_mmm_lint_with_commit_required_false",
-          "test_implement_spec_workflow_validation",
-          "test_skip_commit_validation_flag"
-        ],
-        "coverage_percentage": 0.0,
-        "risk": "High"
-      },
-      "quality_metrics": {
-        "file": "tests/workflow_commit_verification_tests.rs",
-        "complexity_trend": "Stable",
-        "lint_warnings_trend": "Stable",
-        "duplication_trend": "Stable",
-        "recent_changes": 0,
-        "bug_frequency": 0.0
-      },
-      "priority_score": 10.0,
-      "priority_reason": "Low coverage"
-    },
-    {
-      "gap": {
-        "file": "src/cook/workflow/mod.rs",
+        "file": "src/cook/coordinators/mod.rs",
         "functions": [],
         "coverage_percentage": 0.0,
         "risk": "High"
       },
       "quality_metrics": {
-        "file": "src/cook/workflow/mod.rs",
-        "complexity_trend": "Stable",
-        "lint_warnings_trend": "Stable",
-        "duplication_trend": "Stable",
-        "recent_changes": 0,
-        "bug_frequency": 0.0
-      },
-      "priority_score": 10.0,
-      "priority_reason": "Low coverage"
-    },
-    {
-      "gap": {
-        "file": "src/abstractions/mod.rs",
-        "functions": [],
-        "coverage_percentage": 0.0,
-        "risk": "High"
-      },
-      "quality_metrics": {
-        "file": "src/abstractions/mod.rs",
-        "complexity_trend": "Stable",
-        "lint_warnings_trend": "Stable",
-        "duplication_trend": "Stable",
-        "recent_changes": 0,
-        "bug_frequency": 0.0
-      },
-      "priority_score": 10.0,
-      "priority_reason": "Low coverage"
-    },
-    {
-      "gap": {
-        "file": "src/config/workflow.rs",
-        "functions": [],
-        "coverage_percentage": 0.0,
-        "risk": "High"
-      },
-      "quality_metrics": {
-        "file": "src/config/workflow.rs",
+        "file": "src/cook/coordinators/mod.rs",
         "complexity_trend": "Stable",
         "lint_warnings_trend": "Stable",
         "duplication_trend": "Stable",
@@ -150,24 +42,22 @@
     },
     {
       "gap": {
-        "file": "src/subprocess/tests.rs",
+        "file": "tests/command_parsing_tests.rs",
         "functions": [
-          "test_production_runner_success",
-          "test_production_runner_failure",
-          "test_production_runner_command_not_found",
-          "test_production_runner_timeout",
-          "test_mock_runner_basic",
-          "test_mock_runner_multiple_calls",
-          "test_subprocess_manager",
-          "test_git_runner",
-          "test_claude_runner",
-          "test_process_command_builder"
+          "test_parse_command_string",
+          "test_parse_command_with_quotes",
+          "test_parse_command_edge_cases",
+          "test_string_to_structured_command",
+          "test_command_validation",
+          "parse_command_string",
+          "from_string",
+          "validate_command"
         ],
         "coverage_percentage": 0.0,
         "risk": "High"
       },
       "quality_metrics": {
-        "file": "src/subprocess/tests.rs",
+        "file": "tests/command_parsing_tests.rs",
         "complexity_trend": "Stable",
         "lint_warnings_trend": "Stable",
         "duplication_trend": "Stable",
@@ -179,22 +69,23 @@
     },
     {
       "gap": {
-        "file": "src/metrics/quality.rs",
+        "file": "src/cook/session/adapter.rs",
         "functions": [
           "new",
-          "analyze",
-          "get_test_coverage",
-          "estimate_test_coverage",
-          "get_lint_warnings",
-          "get_doc_coverage",
-          "estimate_type_coverage",
-          "default"
+          "inner",
+          "convert_state",
+          "start_session",
+          "update_session",
+          "complete_session",
+          "get_state",
+          "save_state",
+          "load_state"
         ],
         "coverage_percentage": 0.0,
         "risk": "High"
       },
       "quality_metrics": {
-        "file": "src/metrics/quality.rs",
+        "file": "src/cook/session/adapter.rs",
         "complexity_trend": "Stable",
         "lint_warnings_trend": "Stable",
         "duplication_trend": "Stable",
@@ -206,15 +97,21 @@
     },
     {
       "gap": {
-        "file": "tests/config_integration_tests.rs",
+        "file": "src/session/tests.rs",
         "functions": [
-          "test_cook_with_default_config"
+          "test_session_state_machine",
+          "test_concurrent_sessions",
+          "test_session_persistence_and_recovery",
+          "test_event_observers",
+          "on_event",
+          "test_session_progress_tracking",
+          "test_storage_operations"
         ],
         "coverage_percentage": 0.0,
         "risk": "High"
       },
       "quality_metrics": {
-        "file": "tests/config_integration_tests.rs",
+        "file": "src/session/tests.rs",
         "complexity_trend": "Stable",
         "lint_warnings_trend": "Stable",
         "duplication_trend": "Stable",
@@ -226,23 +123,23 @@
     },
     {
       "gap": {
-        "file": "src/metrics/performance.rs",
+        "file": "src/worktree/tests.rs",
         "functions": [
-          "new",
-          "profile",
-          "measure_compile_time",
-          "measure_binary_size",
-          "find_binary_size",
-          "has_benchmarks",
-          "run_benchmarks",
-          "estimate_memory_usage",
-          "default"
+          "setup_test_repo",
+          "cleanup_worktree_dir",
+          "test_worktree_manager_creation",
+          "test_create_session_with_generated_name",
+          "test_create_session_with_uuid_name",
+          "test_list_sessions",
+          "test_cleanup_session",
+          "test_get_worktree_for_branch",
+          "test_session_name_generation"
         ],
         "coverage_percentage": 0.0,
         "risk": "High"
       },
       "quality_metrics": {
-        "file": "src/metrics/performance.rs",
+        "file": "src/worktree/tests.rs",
         "complexity_trend": "Stable",
         "lint_warnings_trend": "Stable",
         "duplication_trend": "Stable",
@@ -254,26 +151,185 @@
     },
     {
       "gap": {
-        "file": "tests/cook_iteration_tests.rs",
+        "file": "tests/workflow_tests.rs",
         "functions": [
-          "test_cook_multiple_iterations",
-          "setup_test_environment",
-          "initialize_git_repo",
-          "create_test_structure",
-          "create_test_playbook",
-          "create_initial_commit",
-          "run_cook_command",
-          "verify_cook_output",
-          "test_cook_stops_early_when_no_changes",
+          "test_workflow_config_parsing",
+          "test_empty_workflow_config",
+          "test_invalid_workflow_config",
+          "test_spec_id_extraction_logic",
+          "test_implement_spec_command_parsing",
           "test_workflow_execution_order",
-          "create_mock_commands",
-          "test_cook_worktree_multiple_iterations"
+          "test_custom_workflow_configs",
+          "test_single_command_workflow",
+          "test_workflow_commands_with_arguments",
+          "test_structured_command_objects",
+          "test_mixed_command_formats",
+          "test_command_object_options"
         ],
         "coverage_percentage": 0.0,
         "risk": "High"
       },
       "quality_metrics": {
-        "file": "tests/cook_iteration_tests.rs",
+        "file": "tests/workflow_tests.rs",
+        "complexity_trend": "Stable",
+        "lint_warnings_trend": "Stable",
+        "duplication_trend": "Stable",
+        "recent_changes": 0,
+        "bug_frequency": 0.0
+      },
+      "priority_score": 10.0,
+      "priority_reason": "Low coverage"
+    },
+    {
+      "gap": {
+        "file": "src/cook/tests.rs",
+        "functions": [
+          "test_successful_improvement_loop",
+          "test_claude_cli_not_available",
+          "test_git_operation_failures",
+          "test_rate_limit_handling",
+          "test_worktree_creation_failure",
+          "test_merge_conflicts",
+          "test_empty_repository",
+          "test_spec_id_extraction",
+          "test_multiple_iterations",
+          "test_focus_directive",
+          "test_invalid_spec_id",
+          "test_workflow_configuration",
+          "test_parse_simple_workflow_yaml",
+          "test_parse_structured_workflow_with_outputs",
+          "test_parse_workflow_with_inputs",
+          "test_parse_full_default_workflow",
+          "test_parse_workflow_with_multiple_outputs",
+          "test_parse_workflow_with_commit_required",
+          "test_parse_workflow_with_environment_input",
+          "test_simplified_output_syntax",
+          "test_load_playbook_structure",
+          "test_comprehensive_transient_errors",
+          "test_error_formatting_edge_cases",
+          "test_concurrent_git_operations",
+          "test_git_command_tracking"
+        ],
+        "coverage_percentage": 0.0,
+        "risk": "High"
+      },
+      "quality_metrics": {
+        "file": "src/cook/tests.rs",
+        "complexity_trend": "Stable",
+        "lint_warnings_trend": "Stable",
+        "duplication_trend": "Stable",
+        "recent_changes": 0,
+        "bug_frequency": 0.0
+      },
+      "priority_score": 10.0,
+      "priority_reason": "Low coverage"
+    },
+    {
+      "gap": {
+        "file": "tests/error_handling_tests.rs",
+        "functions": [
+          "test_claude_cli_not_found",
+          "test_subprocess_failure_handling",
+          "test_concurrent_git_operations",
+          "simulate_claude_cli_call",
+          "test_error_recovery",
+          "test_retry_logic"
+        ],
+        "coverage_percentage": 0.0,
+        "risk": "High"
+      },
+      "quality_metrics": {
+        "file": "tests/error_handling_tests.rs",
+        "complexity_trend": "Stable",
+        "lint_warnings_trend": "Stable",
+        "duplication_trend": "Stable",
+        "recent_changes": 0,
+        "bug_frequency": 0.0
+      },
+      "priority_score": 10.0,
+      "priority_reason": "Low coverage"
+    },
+    {
+      "gap": {
+        "file": "src/cook/session/mod.rs",
+        "functions": [
+          "start_session",
+          "update_session",
+          "complete_session",
+          "get_state",
+          "save_state",
+          "load_state"
+        ],
+        "coverage_percentage": 0.0,
+        "risk": "High"
+      },
+      "quality_metrics": {
+        "file": "src/cook/session/mod.rs",
+        "complexity_trend": "Stable",
+        "lint_warnings_trend": "Stable",
+        "duplication_trend": "Stable",
+        "recent_changes": 0,
+        "bug_frequency": 0.0
+      },
+      "priority_score": 10.0,
+      "priority_reason": "Low coverage"
+    },
+    {
+      "gap": {
+        "file": "src/cook/analysis/mod.rs",
+        "functions": [
+          "analyze_project",
+          "analyze_incremental",
+          "get_cached_analysis",
+          "save_analysis",
+          "clear_cache"
+        ],
+        "coverage_percentage": 0.0,
+        "risk": "High"
+      },
+      "quality_metrics": {
+        "file": "src/cook/analysis/mod.rs",
+        "complexity_trend": "Stable",
+        "lint_warnings_trend": "Stable",
+        "duplication_trend": "Stable",
+        "recent_changes": 0,
+        "bug_frequency": 0.0
+      },
+      "priority_score": 10.0,
+      "priority_reason": "Low coverage"
+    },
+    {
+      "gap": {
+        "file": "src/cook/session/migration.rs",
+        "functions": [
+          "create_full_featured_manager",
+          "example_migration",
+          "example_recovery",
+          "test_migration_example"
+        ],
+        "coverage_percentage": 0.0,
+        "risk": "High"
+      },
+      "quality_metrics": {
+        "file": "src/cook/session/migration.rs",
+        "complexity_trend": "Stable",
+        "lint_warnings_trend": "Stable",
+        "duplication_trend": "Stable",
+        "recent_changes": 0,
+        "bug_frequency": 0.0
+      },
+      "priority_score": 10.0,
+      "priority_reason": "Low coverage"
+    },
+    {
+      "gap": {
+        "file": "src/worktree/state.rs",
+        "functions": [],
+        "coverage_percentage": 0.0,
+        "risk": "High"
+      },
+      "quality_metrics": {
+        "file": "src/worktree/state.rs",
         "complexity_trend": "Stable",
         "lint_warnings_trend": "Stable",
         "duplication_trend": "Stable",
@@ -319,71 +375,23 @@
     },
     {
       "gap": {
-        "file": "tests/subprocess_tests.rs",
-        "functions": [
-          "test_claude_cli_availability_check",
-          "test_subprocess_error_recovery",
-          "test_command_building_pattern",
-          "test_output_parsing",
-          "test_git_command_patterns",
-          "test_environment_variable_handling",
-          "test_command_timeout_pattern",
-          "test_stderr_handling"
-        ],
-        "coverage_percentage": 0.0,
-        "risk": "High"
-      },
-      "quality_metrics": {
-        "file": "tests/subprocess_tests.rs",
-        "complexity_trend": "Stable",
-        "lint_warnings_trend": "Stable",
-        "duplication_trend": "Stable",
-        "recent_changes": 0,
-        "bug_frequency": 0.0
-      },
-      "priority_score": 10.0,
-      "priority_reason": "Low coverage"
-    },
-    {
-      "gap": {
-        "file": "src/simple_state/mod.rs",
-        "functions": [
-          "init"
-        ],
-        "coverage_percentage": 0.0,
-        "risk": "High"
-      },
-      "quality_metrics": {
-        "file": "src/simple_state/mod.rs",
-        "complexity_trend": "Stable",
-        "lint_warnings_trend": "Stable",
-        "duplication_trend": "Stable",
-        "recent_changes": 0,
-        "bug_frequency": 0.0
-      },
-      "priority_score": 10.0,
-      "priority_reason": "Low coverage"
-    },
-    {
-      "gap": {
-        "file": "src/metrics/complexity.rs",
+        "file": "src/metrics/performance.rs",
         "functions": [
           "new",
-          "calculate",
-          "new",
-          "enter_scope",
-          "exit_scope",
-          "increment_complexity",
-          "visit_item_fn",
-          "visit_expr",
-          "visit_block",
+          "profile",
+          "measure_compile_time",
+          "measure_binary_size",
+          "find_binary_size",
+          "has_benchmarks",
+          "run_benchmarks",
+          "estimate_memory_usage",
           "default"
         ],
         "coverage_percentage": 0.0,
         "risk": "High"
       },
       "quality_metrics": {
-        "file": "src/metrics/complexity.rs",
+        "file": "src/metrics/performance.rs",
         "complexity_trend": "Stable",
         "lint_warnings_trend": "Stable",
         "duplication_trend": "Stable",
@@ -395,18 +403,13 @@
     },
     {
       "gap": {
-        "file": "tests/context_optimization_tests.rs",
-        "functions": [
-          "test_context_size_manager",
-          "test_hybrid_coverage_prioritization",
-          "test_size_optimization_for_analysis_result",
-          "create_test_analysis_result"
-        ],
+        "file": "src/cook/session/summary.rs",
+        "functions": [],
         "coverage_percentage": 0.0,
         "risk": "High"
       },
       "quality_metrics": {
-        "file": "tests/context_optimization_tests.rs",
+        "file": "src/cook/session/summary.rs",
         "complexity_trend": "Stable",
         "lint_warnings_trend": "Stable",
         "duplication_trend": "Stable",
@@ -418,21 +421,47 @@
     },
     {
       "gap": {
-        "file": "src/session/tests.rs",
+        "file": "src/cook/command.rs",
+        "functions": [],
+        "coverage_percentage": 0.0,
+        "risk": "High"
+      },
+      "quality_metrics": {
+        "file": "src/cook/command.rs",
+        "complexity_trend": "Stable",
+        "lint_warnings_trend": "Stable",
+        "duplication_trend": "Stable",
+        "recent_changes": 0,
+        "bug_frequency": 0.0
+      },
+      "priority_score": 10.0,
+      "priority_reason": "Low coverage"
+    },
+    {
+      "gap": {
+        "file": "src/simple_state/tests.rs",
         "functions": [
-          "test_session_state_machine",
-          "test_concurrent_sessions",
-          "test_session_persistence_and_recovery",
-          "test_event_observers",
-          "on_event",
-          "test_session_progress_tracking",
-          "test_storage_operations"
+          "test_state_manager_creation",
+          "test_state_persistence",
+          "test_session_recording",
+          "test_cache_manager",
+          "test_cache_expiration",
+          "test_state_corruption_recovery",
+          "test_history_retrieval",
+          "test_concurrent_state_access",
+          "test_session_record_edge_cases",
+          "test_cache_manager_edge_cases",
+          "test_state_file_permissions",
+          "test_invalid_root_directory",
+          "test_history_sorting",
+          "test_cache_cleanup",
+          "test_corrupted_cache_entry"
         ],
         "coverage_percentage": 0.0,
         "risk": "High"
       },
       "quality_metrics": {
-        "file": "src/session/tests.rs",
+        "file": "src/simple_state/tests.rs",
         "complexity_trend": "Stable",
         "lint_warnings_trend": "Stable",
         "duplication_trend": "Stable",
@@ -499,42 +528,13 @@
     },
     {
       "gap": {
-        "file": "src/testing/mod.rs",
-        "functions": [
-          "new",
-          "with_mocks",
-          "temp_path",
-          "create_test_file",
-          "default",
-          "new",
-          "is_repo",
-          "with_success",
-          "with_error",
-          "build",
-          "default",
-          "new",
-          "is_available",
-          "with_success",
-          "with_error",
-          "build",
-          "clean_repo_git",
-          "dirty_repo_git",
-          "successful_claude",
-          "rate_limited_claude",
-          "unavailable_claude",
-          "setup_test_project",
-          "create_test_file",
-          "create_test_files",
-          "test_context_creation",
-          "test_create_test_file",
-          "test_mock_builders",
-          "test_fixtures"
-        ],
+        "file": "src/abstractions/mod.rs",
+        "functions": [],
         "coverage_percentage": 0.0,
         "risk": "High"
       },
       "quality_metrics": {
-        "file": "src/testing/mod.rs",
+        "file": "src/abstractions/mod.rs",
         "complexity_trend": "Stable",
         "lint_warnings_trend": "Stable",
         "duplication_trend": "Stable",
@@ -551,47 +551,7 @@
   },
   "critical_files": [
     {
-      "file": "tests/command_parsing_tests.rs",
-      "coverage_percentage": 0.0,
-      "complexity": 10,
-      "lint_warnings": 5,
-      "recent_bugs": 2,
-      "risk_score": 5.0
-    },
-    {
-      "file": "tests/context_integration.rs",
-      "coverage_percentage": 0.0,
-      "complexity": 10,
-      "lint_warnings": 5,
-      "recent_bugs": 2,
-      "risk_score": 5.0
-    },
-    {
-      "file": "tests/workflow_commit_verification_tests.rs",
-      "coverage_percentage": 0.0,
-      "complexity": 10,
-      "lint_warnings": 5,
-      "recent_bugs": 2,
-      "risk_score": 5.0
-    },
-    {
-      "file": "src/cook/workflow/mod.rs",
-      "coverage_percentage": 0.0,
-      "complexity": 10,
-      "lint_warnings": 5,
-      "recent_bugs": 2,
-      "risk_score": 5.0
-    },
-    {
-      "file": "src/abstractions/mod.rs",
-      "coverage_percentage": 0.0,
-      "complexity": 10,
-      "lint_warnings": 5,
-      "recent_bugs": 2,
-      "risk_score": 5.0
-    },
-    {
-      "file": "src/config/workflow.rs",
+      "file": "src/cook/coordinators/mod.rs",
       "coverage_percentage": 0.0,
       "complexity": 10,
       "lint_warnings": 5,
@@ -607,7 +567,7 @@
       "risk_score": 5.0
     },
     {
-      "file": "src/subprocess/tests.rs",
+      "file": "tests/command_parsing_tests.rs",
       "coverage_percentage": 0.0,
       "complexity": 10,
       "lint_warnings": 5,
@@ -615,7 +575,7 @@
       "risk_score": 5.0
     },
     {
-      "file": "src/metrics/quality.rs",
+      "file": "src/cook/session/adapter.rs",
       "coverage_percentage": 0.0,
       "complexity": 10,
       "lint_warnings": 5,
@@ -623,7 +583,47 @@
       "risk_score": 5.0
     },
     {
-      "file": "tests/config_integration_tests.rs",
+      "file": "src/session/tests.rs",
+      "coverage_percentage": 0.0,
+      "complexity": 10,
+      "lint_warnings": 5,
+      "recent_bugs": 2,
+      "risk_score": 5.0
+    },
+    {
+      "file": "src/worktree/tests.rs",
+      "coverage_percentage": 0.0,
+      "complexity": 10,
+      "lint_warnings": 5,
+      "recent_bugs": 2,
+      "risk_score": 5.0
+    },
+    {
+      "file": "tests/workflow_tests.rs",
+      "coverage_percentage": 0.0,
+      "complexity": 10,
+      "lint_warnings": 5,
+      "recent_bugs": 2,
+      "risk_score": 5.0
+    },
+    {
+      "file": "src/cook/tests.rs",
+      "coverage_percentage": 0.0,
+      "complexity": 10,
+      "lint_warnings": 5,
+      "recent_bugs": 2,
+      "risk_score": 5.0
+    },
+    {
+      "file": "tests/error_handling_tests.rs",
+      "coverage_percentage": 0.0,
+      "complexity": 10,
+      "lint_warnings": 5,
+      "recent_bugs": 2,
+      "risk_score": 5.0
+    },
+    {
+      "file": "src/cook/session/mod.rs",
       "coverage_percentage": 0.0,
       "complexity": 10,
       "lint_warnings": 5,

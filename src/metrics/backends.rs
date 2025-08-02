@@ -548,4 +548,112 @@ mod tests {
         assert_eq!(result.value, 60.0);
         assert_eq!(result.count, 3);
     }
+
+    #[tokio::test]
+    async fn test_file_metrics_backend_query() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("metrics.log");
+        let backend = FileMetricsCollector::new("test", file_path.clone());
+
+        // Record some events
+        for i in 0..5 {
+            let event = MetricEvent::counter("test_metric", i, Tags::new());
+            backend.record(event).await.unwrap();
+        }
+        backend.flush().await.unwrap();
+
+        // Verify events were written to file
+        let content = fs::read_to_string(&file_path).await.unwrap();
+        let lines: Vec<&str> = content.lines().collect();
+        assert_eq!(lines.len(), 5);
+    }
+
+    #[tokio::test]
+    async fn test_file_metrics_backend_rotation() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("metrics.log");
+
+        let config = CollectorConfig::File {
+            path: file_path.clone(),
+            rotate_size: Some(100), // Small size to trigger rotation
+            compress: Some(false),
+        };
+
+        let backend = FileMetricsCollector::with_config("test", &config).unwrap();
+
+        // Write enough data to trigger rotation
+        for i in 0..10 {
+            let event = MetricEvent::counter("test_metric_with_long_name", i * 100, Tags::new());
+            backend.record(event).await.unwrap();
+        }
+        backend.flush().await.unwrap();
+
+        // Check that rotation would occur on next write if file is large enough
+        assert!(file_path.exists());
+    }
+
+    #[tokio::test]
+    async fn test_composite_collector() {
+        let memory_collector = Arc::new(MemoryMetricsCollector::new("memory"));
+        let temp_dir = TempDir::new().unwrap();
+        let file_collector = Arc::new(FileMetricsCollector::new(
+            "file",
+            temp_dir.path().join("metrics.log"),
+        ));
+
+        let composite = CompositeMetricsCollector::new(
+            "composite",
+            vec![memory_collector.clone(), file_collector.clone()],
+        );
+
+        let event = MetricEvent::counter("test.composite", 42, Tags::new());
+        composite.record(event).await.unwrap();
+        composite.flush().await.unwrap();
+
+        // Verify event was recorded in memory collector
+        assert_eq!(memory_collector.event_count().await, 1);
+
+        // Verify file was created
+        assert!(temp_dir.path().join("metrics.log").exists());
+    }
+
+    #[tokio::test]
+    async fn test_memory_reader_query_with_tags() {
+        let collector = MemoryMetricsCollector::new("test");
+
+        let mut tags1 = Tags::new();
+        tags1.insert("env".to_string(), "prod".to_string());
+
+        let mut tags2 = Tags::new();
+        tags2.insert("env".to_string(), "test".to_string());
+
+        collector
+            .record(MetricEvent::counter("app.requests", 100, tags1))
+            .await
+            .unwrap();
+        collector
+            .record(MetricEvent::counter("app.requests", 50, tags2))
+            .await
+            .unwrap();
+
+        // Query only prod events
+        let mut query_tags = Tags::new();
+        query_tags.insert("env".to_string(), "prod".to_string());
+
+        let query = MetricsQuery {
+            metric_names: vec!["app.requests".to_string()],
+            time_range: None,
+            tags: Some(query_tags),
+            aggregation: None,
+        };
+
+        let result = collector.query(query).await.unwrap();
+        assert_eq!(result.count, 1);
+        assert_eq!(result.events.len(), 1);
+
+        match &result.events[0] {
+            MetricEvent::Counter { value, .. } => assert_eq!(*value, 100),
+            _ => panic!("Expected counter event"),
+        }
+    }
 }

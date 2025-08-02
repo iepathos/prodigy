@@ -39,6 +39,18 @@ pub struct NamingRules {
     pub constant_naming: NamingStyle,
 }
 
+impl Default for NamingRules {
+    fn default() -> Self {
+        Self {
+            file_naming: NamingStyle::SnakeCase,
+            function_naming: NamingStyle::SnakeCase,
+            variable_naming: NamingStyle::SnakeCase,
+            type_naming: NamingStyle::PascalCase,
+            constant_naming: NamingStyle::ScreamingSnakeCase,
+        }
+    }
+}
+
 /// Naming style enumeration
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum NamingStyle {

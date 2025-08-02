@@ -549,4 +549,117 @@ mod tests {
         let error = result.unwrap_err();
         assert!(error.to_string().contains("Nothing to commit"));
     }
+
+    #[tokio::test]
+    async fn test_get_status() {
+        let (git, mock) = create_test_runner();
+        let temp_dir = TempDir::new().unwrap();
+
+        mock.add_response(
+            "git",
+            Ok(crate::subprocess::ProcessOutput {
+                status: crate::subprocess::ExitStatusHelper::success(),
+                stdout: "1 .M N... 100644 100644 100644 abc123 def456 test.txt\n".to_string(),
+                stderr: String::new(),
+                duration: std::time::Duration::from_millis(10),
+            }),
+        )
+        .await;
+
+        let status = git.get_status(temp_dir.path()).await.unwrap();
+        assert_eq!(status.added.len(), 0);
+        assert_eq!(status.modified.len(), 1);
+        assert_eq!(status.untracked.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_list_files() {
+        let (git, mock) = create_test_runner();
+        let temp_dir = TempDir::new().unwrap();
+
+        mock.add_response(
+            "git",
+            Ok(crate::subprocess::ProcessOutput {
+                status: crate::subprocess::ExitStatusHelper::success(),
+                stdout: "src/main.rs\nsrc/lib.rs\nCargo.toml\n".to_string(),
+                stderr: String::new(),
+                duration: std::time::Duration::from_millis(10),
+            }),
+        )
+        .await;
+
+        let files = git.list_files(temp_dir.path()).await.unwrap();
+        assert_eq!(files.len(), 3);
+        assert_eq!(files[0], PathBuf::from("src/main.rs"));
+        assert_eq!(files[1], PathBuf::from("src/lib.rs"));
+        assert_eq!(files[2], PathBuf::from("Cargo.toml"));
+    }
+
+    #[tokio::test]
+    async fn test_is_clean() {
+        let (git, mock) = create_test_runner();
+        let temp_dir = TempDir::new().unwrap();
+
+        mock.add_response(
+            "git",
+            Ok(crate::subprocess::ProcessOutput {
+                status: crate::subprocess::ExitStatusHelper::success(),
+                stdout: String::new(), // Empty output means clean
+                stderr: String::new(),
+                duration: std::time::Duration::from_millis(10),
+            }),
+        )
+        .await;
+
+        let is_clean = git.is_clean(temp_dir.path()).await.unwrap();
+        assert!(is_clean);
+    }
+
+    #[tokio::test]
+    async fn test_create_branch() {
+        let (git, mock) = create_test_runner();
+        let temp_dir = TempDir::new().unwrap();
+
+        mock.add_response(
+            "git",
+            Ok(crate::subprocess::ProcessOutput {
+                status: crate::subprocess::ExitStatusHelper::success(),
+                stdout: String::new(),
+                stderr: String::new(),
+                duration: std::time::Duration::from_millis(10),
+            }),
+        )
+        .await;
+
+        git.create_branch(temp_dir.path(), "feature-branch")
+            .await
+            .unwrap();
+
+        let calls = mock.get_calls().await;
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].args, vec!["branch", "feature-branch"]);
+    }
+
+    #[tokio::test]
+    async fn test_switch_branch() {
+        let (git, mock) = create_test_runner();
+        let temp_dir = TempDir::new().unwrap();
+
+        mock.add_response(
+            "git",
+            Ok(crate::subprocess::ProcessOutput {
+                status: crate::subprocess::ExitStatusHelper::success(),
+                stdout: String::new(),
+                stderr: String::new(),
+                duration: std::time::Duration::from_millis(10),
+            }),
+        )
+        .await;
+
+        git.switch_branch(temp_dir.path(), "main").await.unwrap();
+
+        let calls = mock.get_calls().await;
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].args, vec!["checkout", "main"]);
+    }
 }
