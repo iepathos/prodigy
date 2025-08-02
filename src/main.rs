@@ -33,9 +33,6 @@ enum Commands {
         )]
         path: Option<PathBuf>,
 
-        /// Focus directive for analysis (e.g., "user experience", "performance")
-        #[arg(short = 'f', long)]
-        focus: Option<String>,
 
         /// Maximum number of iterations to run (default: 10)
         #[arg(short = 'n', long, default_value = "10")]
@@ -165,7 +162,6 @@ async fn main() {
         Some(Commands::Cook {
             playbook,
             path,
-            focus,
             max_iterations,
             worktree,
             map,
@@ -187,7 +183,6 @@ async fn main() {
             let cook_cmd = mmm::cook::command::CookCommand {
                 playbook,
                 path,
-                focus,
                 max_iterations,
                 worktree,
                 map,
@@ -258,12 +253,6 @@ fn display_worktree_session(
 
     if let Ok(state_json) = std::fs::read_to_string(&state_file) {
         if let Ok(state) = serde_json::from_str::<mmm::worktree::WorktreeState>(&state_json) {
-            let focus_str = state
-                .focus
-                .as_deref()
-                .map(|f| format!(" - {f}"))
-                .unwrap_or_else(|| " - no focus".to_string());
-
             let status_emoji = match state.status {
                 mmm::worktree::WorktreeStatus::InProgress => "🔄",
                 mmm::worktree::WorktreeStatus::Completed => "✅",
@@ -274,11 +263,10 @@ fn display_worktree_session(
             };
 
             println!(
-                "  {} {} - {:?}{} ({}/{})",
+                "  {} {} - {:?} ({}/{})",
                 status_emoji,
                 session.name,
                 state.status,
-                focus_str,
                 state.iterations.completed,
                 state.iterations.max
             );
@@ -296,16 +284,10 @@ fn display_worktree_session(
 
 /// Display a worktree session using legacy format
 fn display_worktree_session_legacy(session: &mmm::worktree::WorktreeSession) {
-    let focus_str = session
-        .focus
-        .as_ref()
-        .map(|f| format!(" (focus: {f})"))
-        .unwrap_or_default();
     println!(
-        "  {} - {}{}",
+        "  {} - {}",
         session.name,
-        session.path.display(),
-        focus_str
+        session.path.display()
     );
 }
 

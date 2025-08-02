@@ -40,7 +40,7 @@ async fn test_state_file_creation() -> anyhow::Result<()> {
     let subprocess = SubprocessManager::production();
     let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
-    let session = manager.create_session(Some("test focus")).await?;
+    let session = manager.create_session().await?;
 
     // Check that .metadata directory was created
     let metadata_dir = manager.base_dir.join(".metadata");
@@ -58,7 +58,6 @@ async fn test_state_file_creation() -> anyhow::Result<()> {
     assert_eq!(state.session_id, session.name);
     assert_eq!(state.worktree_name, session.name);
     assert_eq!(state.branch, session.branch);
-    assert_eq!(state.focus, Some("test focus".to_string()));
     assert!(matches!(state.status, WorktreeStatus::InProgress));
     assert_eq!(state.iterations.completed, 0);
     assert_eq!(state.iterations.max, 10);
@@ -78,7 +77,7 @@ async fn test_state_updates() -> anyhow::Result<()> {
     let subprocess = SubprocessManager::production();
     let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
-    let session = manager.create_session(None).await?;
+    let session = manager.create_session().await?;
 
     // Update state
     manager.update_session_state(&session.name, |state| {
@@ -132,8 +131,8 @@ async fn test_list_sessions_with_state() -> anyhow::Result<()> {
     let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
     // Create sessions with different states
-    let session1 = manager.create_session(Some("performance")).await?;
-    let session2 = manager.create_session(Some("security")).await?;
+    let session1 = manager.create_session().await?;
+    let session2 = manager.create_session().await?;
 
     // Update first session to completed
     manager.update_session_state(&session1.name, |state| {
@@ -146,12 +145,9 @@ async fn test_list_sessions_with_state() -> anyhow::Result<()> {
     assert_eq!(sessions.len(), 2);
 
     // Find sessions by name
-    let s1 = sessions.iter().find(|s| s.name == session1.name).unwrap();
-    let s2 = sessions.iter().find(|s| s.name == session2.name).unwrap();
+    let _s1 = sessions.iter().find(|s| s.name == session1.name).unwrap();
+    let _s2 = sessions.iter().find(|s| s.name == session2.name).unwrap();
 
-    // Verify focus was loaded from state
-    assert_eq!(s1.focus, Some("performance".to_string()));
-    assert_eq!(s2.focus, Some("security".to_string()));
 
     // Clean up
     manager.cleanup_session(&session1.name, false).await?;
@@ -166,7 +162,7 @@ async fn test_merge_updates_state() -> anyhow::Result<()> {
     let subprocess = SubprocessManager::production();
     let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
-    let session = manager.create_session(None).await?;
+    let session = manager.create_session().await?;
 
     // Make a change in the worktree
     std::fs::write(session.path.join("test.txt"), "test content")?;
@@ -219,38 +215,3 @@ fn test_state_error_handling() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn test_legacy_worktree_compatibility() -> anyhow::Result<()> {
-    let temp_dir = setup_test_repo()?;
-    let subprocess = SubprocessManager::production();
-    let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
-
-    // Simulate a legacy worktree by creating one manually
-    let legacy_name = format!("mmm-performance-{}", chrono::Utc::now().timestamp());
-    let legacy_path = manager.base_dir.join(&legacy_name);
-
-    Command::new("git")
-        .current_dir(&temp_dir)
-        .args(["worktree", "add", "-b", &legacy_name])
-        .arg(&legacy_path)
-        .output()?;
-
-    // List sessions should extract focus from legacy name
-    let sessions = manager.list_sessions().await?;
-    let legacy_session = sessions.iter().find(|s| s.name == legacy_name);
-
-    assert!(legacy_session.is_some());
-    assert_eq!(
-        legacy_session.unwrap().focus,
-        Some("performance".to_string())
-    );
-
-    // Clean up
-    Command::new("git")
-        .current_dir(&temp_dir)
-        .args(["worktree", "remove", &legacy_path.to_string_lossy()])
-        .output()?;
-
-    cleanup_worktree_dir(&manager);
-    Ok(())
-}

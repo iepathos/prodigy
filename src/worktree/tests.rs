@@ -57,7 +57,7 @@ async fn test_create_session_without_focus() -> anyhow::Result<()> {
     let subprocess = SubprocessManager::production();
     let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
-    let session = manager.create_session(None).await?;
+    let session = manager.create_session().await?;
 
     assert!(session.name.starts_with("session-"));
     assert!(session.path.exists());
@@ -83,10 +83,9 @@ async fn test_create_session_with_focus() -> anyhow::Result<()> {
     let subprocess = SubprocessManager::production();
     let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
-    let session = manager.create_session(Some("performance")).await?;
+    let session = manager.create_session().await?;
 
     assert!(session.name.starts_with("session-"));
-    assert_eq!(session.focus, Some("performance".to_string()));
     assert!(session.path.exists());
 
     // Clean up
@@ -102,8 +101,8 @@ async fn test_list_sessions() -> anyhow::Result<()> {
     let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
     // Create multiple sessions
-    let session1 = manager.create_session(None).await?;
-    let session2 = manager.create_session(Some("security")).await?;
+    let session1 = manager.create_session().await?;
+    let session2 = manager.create_session().await?;
 
     let sessions = manager.list_sessions().await?;
 
@@ -123,7 +122,7 @@ async fn test_cleanup_session() -> anyhow::Result<()> {
     let subprocess = SubprocessManager::production();
     let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
-    let session = manager.create_session(None).await?;
+    let session = manager.create_session().await?;
     let session_name = session.name.clone();
 
     // Verify worktree exists
@@ -154,7 +153,7 @@ async fn test_get_worktree_for_branch() -> anyhow::Result<()> {
     let subprocess = SubprocessManager::production();
     let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
-    let session = manager.create_session(None).await?;
+    let session = manager.create_session().await?;
     let worktree_path = manager.get_worktree_for_branch(&session.branch).await?;
 
     assert!(worktree_path.is_some());
@@ -180,12 +179,11 @@ async fn test_focus_sanitization() -> anyhow::Result<()> {
 
     // Test with spaces and slashes
     let session = manager
-        .create_session(Some("user experience / testing"))
+        .create_session()
         .await?;
 
     // Should replace spaces and slashes with hyphens
     assert!(session.name.starts_with("session-"));
-    assert_eq!(session.focus, Some("user experience / testing".to_string()));
 
     // Clean up
     manager.cleanup_session(&session.name, false).await?;

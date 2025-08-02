@@ -191,19 +191,17 @@ pub enum WorkflowCommand {
     Simple(String),
     /// Full structured format
     Structured(Box<Command>),
-    /// Simple object format with focus
+    /// Simple object format
     SimpleObject(SimpleCommand),
 }
 
 /// Simple command representation for basic workflows
 ///
-/// Represents a command as a simple object with optional focus,
+/// Represents a command as a simple object with optional properties,
 /// used for backward compatibility and simple workflows.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimpleCommand {
     pub name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub focus: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub commit_required: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -217,10 +215,6 @@ impl WorkflowCommand {
             WorkflowCommand::Simple(s) => Command::from_string(s),
             WorkflowCommand::SimpleObject(simple) => {
                 let mut cmd = Command::new(&simple.name);
-                if let Some(focus) = &simple.focus {
-                    cmd.options
-                        .insert("focus".to_string(), serde_json::json!(focus));
-                }
                 if let Some(commit_required) = simple.commit_required {
                     cmd.metadata.commit_required = commit_required;
                 }
@@ -405,16 +399,11 @@ mod tests {
 
         let simple_obj = WorkflowCommand::SimpleObject(SimpleCommand {
             name: "mmm-code-review".to_string(),
-            focus: Some("security".to_string()),
             commit_required: None,
             args: None,
         });
         let cmd = simple_obj.to_command();
         assert_eq!(cmd.name, "mmm-code-review");
-        assert_eq!(
-            cmd.options.get("focus"),
-            Some(&serde_json::json!("security"))
-        );
 
         let structured = WorkflowCommand::Structured(Box::new(Command::new("mmm-lint")));
         let cmd = structured.to_command();
@@ -442,7 +431,6 @@ mod tests {
         // Test SimpleCommand with commit_required set to false
         let simple_obj = WorkflowCommand::SimpleObject(SimpleCommand {
             name: "mmm-lint".to_string(),
-            focus: None,
             commit_required: Some(false),
             args: None,
         });
@@ -453,7 +441,6 @@ mod tests {
         // Test SimpleCommand with commit_required set to true
         let simple_obj = WorkflowCommand::SimpleObject(SimpleCommand {
             name: "mmm-fix".to_string(),
-            focus: None,
             commit_required: Some(true),
             args: None,
         });
@@ -464,7 +451,6 @@ mod tests {
         // Test SimpleCommand with commit_required not set (should default to true)
         let simple_obj = WorkflowCommand::SimpleObject(SimpleCommand {
             name: "mmm-refactor".to_string(),
-            focus: None,
             commit_required: None,
             args: None,
         });
@@ -478,7 +464,6 @@ mod tests {
         // Test serialization and deserialization of SimpleCommand with commit_required
         let simple_cmd = SimpleCommand {
             name: "mmm-lint".to_string(),
-            focus: Some("performance".to_string()),
             commit_required: Some(false),
             args: None,
         };
@@ -488,13 +473,11 @@ mod tests {
 
         let deserialized: SimpleCommand = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.name, "mmm-lint");
-        assert_eq!(deserialized.focus, Some("performance".to_string()));
         assert_eq!(deserialized.commit_required, Some(false));
 
         // Test that commit_required is omitted when None
         let simple_cmd_none = SimpleCommand {
             name: "mmm-test".to_string(),
-            focus: None,
             commit_required: None,
             args: None,
         };

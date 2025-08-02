@@ -235,7 +235,6 @@ mod cook_tests {
         let cmd = CookCommand {
             playbook: playbook_path,
             path: None,
-            focus: None,
             max_iterations: 5,
             worktree: false,
             map: vec![],

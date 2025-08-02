@@ -30,7 +30,7 @@ pub trait ClaudeClient: Send + Sync {
     async fn check_availability(&self) -> Result<()>;
 
     /// Execute /mmm-code-review command
-    async fn code_review(&self, verbose: bool, focus: Option<&str>) -> Result<bool>;
+    async fn code_review(&self, verbose: bool) -> Result<bool>;
 
     /// Execute /mmm-implement-spec command
     async fn implement_spec(&self, spec_id: &str, verbose: bool) -> Result<bool>;
@@ -208,13 +208,10 @@ impl ClaudeClient for RealClaudeClient {
         Ok(())
     }
 
-    async fn code_review(&self, verbose: bool, focus: Option<&str>) -> Result<bool> {
+    async fn code_review(&self, verbose: bool) -> Result<bool> {
         println!("🤖 Running /mmm-code-review...");
 
         let mut env_vars = HashMap::new();
-        if let Some(f) = focus {
-            env_vars.insert("MMM_FOCUS".to_string(), f.to_string());
-        }
         if std::env::var("MMM_AUTOMATION").unwrap_or_default() == "true" {
             env_vars.insert("MMM_AUTOMATION".to_string(), "true".to_string());
         }
@@ -393,7 +390,7 @@ impl ClaudeClient for MockClaudeClient {
         }
     }
 
-    async fn code_review(&self, verbose: bool, _focus: Option<&str>) -> Result<bool> {
+    async fn code_review(&self, verbose: bool) -> Result<bool> {
         if !self.is_available {
             return Err(anyhow::anyhow!("Claude CLI not available"));
         }
@@ -464,7 +461,7 @@ mod tests {
         mock.add_success_response("Implementation completed").await;
 
         // Test code_review
-        let result = mock.code_review(false, Some("performance")).await.unwrap();
+        let result = mock.code_review(false).await.unwrap();
         assert!(result);
 
         // Test implement_spec
@@ -488,7 +485,7 @@ mod tests {
         assert!(result.is_err());
 
         // Test commands fail when unavailable
-        let result = mock.code_review(false, None).await;
+        let result = mock.code_review(false).await;
         assert!(result.is_err());
     }
 
@@ -500,7 +497,7 @@ mod tests {
         mock.add_error_response("rate limit exceeded", 1).await;
 
         // Test error handling
-        let result = mock.code_review(false, None).await.unwrap();
+        let result = mock.code_review(false).await.unwrap();
         assert!(!result);
     }
 
