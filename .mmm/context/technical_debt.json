@@ -2,17 +2,17 @@
   "statistics": {
     "total_items": 241,
     "by_type": {
-      "Todo": 52,
       "Hack": 7,
       "Complexity": 64,
       "Duplication": 100,
+      "Deprecated": 6,
       "Fixme": 12,
-      "Deprecated": 6
+      "Todo": 52
     },
     "by_impact": {
+      "High": 16,
       "Low": 52,
-      "Medium": 173,
-      "High": 16
+      "Medium": 173
     },
     "avg_impact": 5.33609958506224,
     "avg_effort": 3.9460580912863072
@@ -284,7 +284,7 @@
       "file": "/Users/glen/.mmm/worktrees/mmm/session-7598f9ca-771a-4379-8647-0db72e0a18f2/src/context/debt.rs",
       "total_issues": 38,
       "max_complexity": 49,
-      "primary_issue_type": "Fixme"
+      "primary_issue_type": "Todo"
     },
     {
       "file": "/Users/glen/.mmm/worktrees/mmm/session-7598f9ca-771a-4379-8647-0db72e0a18f2/src/config/mod.rs",
@@ -317,15 +317,21 @@
       "primary_issue_type": "Duplication"
     },
     {
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-7598f9ca-771a-4379-8647-0db72e0a18f2/src/abstractions/git.rs",
+      "total_issues": 7,
+      "max_complexity": 0,
+      "primary_issue_type": "Duplication"
+    },
+    {
       "file": "/Users/glen/.mmm/worktrees/mmm/session-7598f9ca-771a-4379-8647-0db72e0a18f2/src/context/tarpaulin_coverage.rs",
       "total_issues": 7,
       "max_complexity": 19,
       "primary_issue_type": "Duplication"
     },
     {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-7598f9ca-771a-4379-8647-0db72e0a18f2/src/abstractions/git.rs",
-      "total_issues": 7,
-      "max_complexity": 0,
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-7598f9ca-771a-4379-8647-0db72e0a18f2/tests/cook_iteration_tests.rs",
+      "total_issues": 6,
+      "max_complexity": 13,
       "primary_issue_type": "Duplication"
     },
     {
@@ -333,12 +339,6 @@
       "total_issues": 6,
       "max_complexity": 0,
       "primary_issue_type": "Todo"
-    },
-    {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-7598f9ca-771a-4379-8647-0db72e0a18f2/tests/cook_iteration_tests.rs",
-      "total_issues": 6,
-      "max_complexity": 13,
-      "primary_issue_type": "Complexity"
     }
   ],
   "duplication_summary": {
