@@ -3,11 +3,12 @@
 //! Coordinates all cook operations using the extracted components.
 
 use crate::abstractions::git::GitOperations;
-use crate::config::workflow::WorkflowConfig;
+use crate::config::{WorkflowCommand, WorkflowConfig};
 use crate::simple_state::StateManager;
 use crate::worktree::WorktreeManager;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -533,7 +534,7 @@ impl DefaultCookOrchestrator {
                             cmd_output_map.insert(output_name.clone(), file_path);
                         }
                         Err(e) => {
-                            self.user_interaction.display_error(&format!(
+                            self.user_interaction.display_warning(&format!(
                                 "❌ Failed to find output '{output_name}': {e}"
                             ));
                             return Err(e);
@@ -601,64 +602,8 @@ impl DefaultCookOrchestrator {
         env: &ExecutionEnvironment,
         config: &CookConfig,
     ) -> Result<()> {
-        use std::collections::HashMap;
-
         // Collect all inputs from --map patterns and --args
-        let mut all_inputs = Vec::new();
-
-        // First, process --map patterns
-        for pattern in &config.command.map {
-            self.user_interaction
-                .display_info(&format!("🔍 Processing file pattern: {pattern}"));
-
-            match glob::glob(pattern) {
-                Ok(entries) => {
-                    let mut pattern_matches = 0;
-                    for path in entries.flatten() {
-                        self.user_interaction
-                            .display_info(&format!("✓ Found file: {}", path.display()));
-
-                        // Extract spec ID or use the full path
-                        let input = if let Some(stem) = path.file_stem() {
-                            let filename = stem.to_string_lossy();
-                            // Extract numeric prefix if present (e.g., "65-cook-refactor" -> "65")
-                            if let Some(dash_pos) = filename.find('-') {
-                                filename[..dash_pos].to_string()
-                            } else {
-                                filename.to_string()
-                            }
-                        } else {
-                            path.to_string_lossy().to_string()
-                        };
-
-                        all_inputs.push(input);
-                        pattern_matches += 1;
-                    }
-
-                    if pattern_matches == 0 {
-                        self.user_interaction
-                            .display_warning(&format!("⚠️ No files matched pattern: {pattern}"));
-                    } else {
-                        self.user_interaction.display_success(&format!(
-                            "📁 Found {pattern_matches} files matching pattern: {pattern}"
-                        ));
-                    }
-                }
-                Err(e) => {
-                    self.user_interaction
-                        .display_error(&format!("❌ Error processing pattern '{pattern}': {e}"));
-                }
-            }
-        }
-
-        // Add direct arguments from --args
-        if !config.command.args.is_empty() {
-            self.user_interaction.display_info(&format!(
-                "📝 Adding {} direct arguments from --args",
-                config.command.args.len()
-            ));
-            all_inputs.extend(config.command.args.clone());
-        }
+        let all_inputs = self.collect_workflow_inputs(config)?;
 
         if all_inputs.is_empty() {
             return Err(anyhow!("No inputs found from --map patterns or --args"));
@@ -682,152 +627,8 @@ impl DefaultCookOrchestrator {
 
         // Process each input
         for (index, input) in all_inputs.iter().enumerate() {
-            self.user_interaction.display_info(&format!(
-                "\n🔄 Processing input {}/{}: {}",
-                index + 1,
-                all_inputs.len(),
-                input
-            ));
-
-            // Update session - increment iteration for each input processed
-            self.session_manager
-                .update_session(SessionUpdate::IncrementIteration)
+            self.process_workflow_input(env, config, input, index, all_inputs.len())
                 .await?;
-
-            // Build variables map for this input
-            let mut variables = HashMap::new();
-            variables.insert("ARG".to_string(), input.clone());
-            variables.insert("INDEX".to_string(), (index + 1).to_string());
-            variables.insert("TOTAL".to_string(), all_inputs.len().to_string());
-
-            // Execute each command in the workflow
-            for (step_index, cmd) in config.workflow.commands.iter().enumerate() {
-                let command = cmd.to_command();
-
-                self.user_interaction.display_progress(&format!(
-                    "Executing step {}/{}: {}",
-                    step_index + 1,
-                    config.workflow.commands.len(),
-                    command.name
-                ));
-
-                // Build the command with resolved arguments
-                let mut cmd_parts = vec![format!("/{}", command.name)];
-                let mut has_arg_reference = false;
-
-                // Resolve arguments
-                for arg in &command.args {
-                    let resolved_arg = arg.resolve(&variables);
-                    if !resolved_arg.is_empty() {
-                        cmd_parts.push(resolved_arg);
-                        // Check if this command actually uses the ARG variable
-                        if arg.is_variable()
-                            && matches!(arg, crate::config::command::CommandArg::Variable(var) if var == "ARG")
-                        {
-                            has_arg_reference = true;
-                        }
-                    }
-                }
-
-                let final_command = cmd_parts.join(" ");
-
-                // Only show ARG in log if the command actually uses it
-                if has_arg_reference {
-                    self.user_interaction.display_info(&format!(
-                        "🚀 Executing command: {final_command} (ARG={input})"
-                    ));
-                } else {
-                    self.user_interaction
-                        .display_info(&format!("🚀 Executing command: {final_command}"));
-                }
-
-                // Prepare environment variables
-                let mut env_vars = HashMap::new();
-                env_vars.insert("MMM_CONTEXT_AVAILABLE".to_string(), "true".to_string());
-                env_vars.insert(
-                    "MMM_CONTEXT_DIR".to_string(),
-                    env.working_dir
-                        .join(".mmm/context")
-                        .to_string_lossy()
-                        .to_string(),
-                );
-                env_vars.insert("MMM_AUTOMATION".to_string(), "true".to_string());
-
-                // Add variables as environment variables too
-                for (key, value) in &variables {
-                    env_vars.insert(format!("MMM_VAR_{key}"), value.clone());
-                }
-
-                // Handle test mode
-                let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
-                let skip_validation =
-                    std::env::var("MMM_NO_COMMIT_VALIDATION").unwrap_or_default() == "true";
-
-                // Get HEAD before command execution if we need to verify commits
-                let head_before =
-                    if !skip_validation && command.metadata.commit_required && !test_mode {
-                        Some(self.get_current_head(&env.working_dir).await?)
-                    } else {
-                        None
-                    };
-
-                // Execute the command
-                let result = self
-                    .claude_executor
-                    .execute_claude_command(&final_command, &env.working_dir, env_vars)
-                    .await?;
-
-                if !result.success {
-                    if config.command.fail_fast {
-                        return Err(anyhow!(
-                            "Command '{}' failed for input '{}' with exit code {:?}. Error: {}",
-                            command.name,
-                            input,
-                            result.exit_code,
-                            result.stderr
-                        ));
-                    } else {
-                        self.user_interaction.display_error(&format!(
-                            "❌ Command '{}' failed for input '{}', continuing...",
-                            command.name, input
-                        ));
-                    }
-                } else {
-                    // In test mode, check if this command requires commits and would have made no changes
-                    if test_mode && command.metadata.commit_required && !skip_validation {
-                        if let Ok(no_changes_cmds) = std::env::var("MMM_TEST_NO_CHANGES_COMMANDS") {
-                            if no_changes_cmds
-                                .split(',')
-                                .any(|cmd| cmd.trim() == command.name.trim_start_matches('/'))
-                            {
-                                // This command would not have made changes in real execution
-                                return Err(anyhow!(
-                                    "No changes were committed by {}",
-                                    final_command
-                                ));
-                            }
-                        }
-                    }
-                    // Check for commits if required
-                    if let Some(before) = head_before {
-                        let head_after = self.get_current_head(&env.working_dir).await?;
-                        if head_after == before {
-                            // No commits were created
-                            return Err(anyhow!("No changes were committed by {}", final_command));
-                        } else {
-                            // Track file changes when commits were made
-                            self.session_manager
-                                .update_session(SessionUpdate::AddFilesChanged(1))
-                                .await?;
-                        }
-                    }
-
-                    self.user_interaction.display_success(&format!(
-                        "✓ Command '{}' succeeded for input '{}'",
-                        command.name, input
-                    ));
-                }
-            }
         }
 
         self.user_interaction.display_success(&format!(
@@ -846,6 +647,290 @@ impl DefaultCookOrchestrator {
             .await
             .context("Failed to get git HEAD")?;
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    }
+
+    /// Collect inputs from --map patterns and --args
+    fn collect_workflow_inputs(&self, config: &CookConfig) -> Result<Vec<String>> {
+        let mut all_inputs = Vec::new();
+
+        // Process --map patterns
+        for pattern in &config.command.map {
+            self.user_interaction
+                .display_info(&format!("🔍 Processing file pattern: {pattern}"));
+
+            let pattern_inputs = self.process_glob_pattern(pattern)?;
+            all_inputs.extend(pattern_inputs);
+        }
+
+        // Add direct arguments from --args
+        if !config.command.args.is_empty() {
+            self.user_interaction.display_info(&format!(
+                "📝 Adding {} direct arguments from --args",
+                config.command.args.len()
+            ));
+            all_inputs.extend(config.command.args.clone());
+        }
+
+        Ok(all_inputs)
+    }
+
+    /// Process a single glob pattern and return extracted inputs
+    fn process_glob_pattern(&self, pattern: &str) -> Result<Vec<String>> {
+        let mut inputs = Vec::new();
+
+        match glob::glob(pattern) {
+            Ok(entries) => {
+                let mut pattern_matches = 0;
+                for path in entries.flatten() {
+                    self.user_interaction
+                        .display_info(&format!("✓ Found file: {}", path.display()));
+
+                    let input = self.extract_input_from_path(&path);
+                    inputs.push(input);
+                    pattern_matches += 1;
+                }
+
+                if pattern_matches == 0 {
+                    self.user_interaction
+                        .display_warning(&format!("⚠️ No files matched pattern: {pattern}"));
+                } else {
+                    self.user_interaction.display_success(&format!(
+                        "📁 Found {pattern_matches} files matching pattern: {pattern}"
+                    ));
+                }
+            }
+            Err(e) => {
+                self.user_interaction
+                    .display_error(&format!("❌ Error processing pattern '{pattern}': {e}"));
+            }
+        }
+
+        Ok(inputs)
+    }
+
+    /// Extract input string from a file path
+    fn extract_input_from_path(&self, path: &std::path::Path) -> String {
+        if let Some(stem) = path.file_stem() {
+            let filename = stem.to_string_lossy();
+            // Extract numeric prefix if present (e.g., "65-cook-refactor" -> "65")
+            if let Some(dash_pos) = filename.find('-') {
+                filename[..dash_pos].to_string()
+            } else {
+                filename.to_string()
+            }
+        } else {
+            path.to_string_lossy().to_string()
+        }
+    }
+
+    /// Process a single workflow input
+    async fn process_workflow_input(
+        &self,
+        env: &ExecutionEnvironment,
+        config: &CookConfig,
+        input: &str,
+        index: usize,
+        total: usize,
+    ) -> Result<()> {
+        self.user_interaction.display_info(&format!(
+            "\n🔄 Processing input {}/{}: {}",
+            index + 1,
+            total,
+            input
+        ));
+
+        // Update session - increment iteration for each input processed
+        self.session_manager
+            .update_session(SessionUpdate::IncrementIteration)
+            .await?;
+
+        // Build variables map for this input
+        let mut variables = HashMap::new();
+        variables.insert("ARG".to_string(), input.to_string());
+        variables.insert("INDEX".to_string(), (index + 1).to_string());
+        variables.insert("TOTAL".to_string(), total.to_string());
+
+        // Execute each command in the workflow
+        for (step_index, cmd) in config.workflow.commands.iter().enumerate() {
+            self.execute_workflow_command(env, config, cmd, step_index, input, &mut variables)
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    /// Execute a single workflow command
+    async fn execute_workflow_command(
+        &self,
+        env: &ExecutionEnvironment,
+        config: &CookConfig,
+        cmd: &WorkflowCommand,
+        step_index: usize,
+        input: &str,
+        variables: &mut HashMap<String, String>,
+    ) -> Result<()> {
+        let command = cmd.to_command();
+
+        self.user_interaction.display_progress(&format!(
+            "Executing step {}/{}: {}",
+            step_index + 1,
+            config.workflow.commands.len(),
+            command.name
+        ));
+
+        // Build the command with resolved arguments
+        let (final_command, has_arg_reference) = self.build_command(&command, variables);
+
+        // Only show ARG in log if the command actually uses it
+        if has_arg_reference {
+            self.user_interaction.display_info(&format!(
+                "🚀 Executing command: {final_command} (ARG={input})"
+            ));
+        } else {
+            self.user_interaction
+                .display_info(&format!("🚀 Executing command: {final_command}"));
+        }
+
+        // Prepare environment variables
+        let env_vars = self.prepare_environment_variables(env, variables);
+
+        // Execute and validate command
+        self.execute_and_validate_command(env, config, &command, &final_command, input, env_vars)
+            .await?;
+
+        self.user_interaction.display_success(&format!(
+            "✓ Command '{}' succeeded for input '{}'",
+            command.name, input
+        ));
+
+        Ok(())
+    }
+
+    /// Build command string with resolved arguments
+    fn build_command(
+        &self,
+        command: &crate::config::command::Command,
+        variables: &HashMap<String, String>,
+    ) -> (String, bool) {
+        let mut cmd_parts = vec![format!("/{}", command.name)];
+        let mut has_arg_reference = false;
+
+        // Resolve arguments
+        for arg in &command.args {
+            let resolved_arg = arg.resolve(variables);
+            if !resolved_arg.is_empty() {
+                cmd_parts.push(resolved_arg);
+                // Check if this command actually uses the ARG variable
+                if arg.is_variable()
+                    && matches!(arg, crate::config::command::CommandArg::Variable(var) if var == "ARG")
+                {
+                    has_arg_reference = true;
+                }
+            }
+        }
+
+        (cmd_parts.join(" "), has_arg_reference)
+    }
+
+    /// Prepare environment variables for command execution
+    fn prepare_environment_variables(
+        &self,
+        env: &ExecutionEnvironment,
+        variables: &HashMap<String, String>,
+    ) -> HashMap<String, String> {
+        let mut env_vars = HashMap::new();
+        env_vars.insert("MMM_CONTEXT_AVAILABLE".to_string(), "true".to_string());
+        env_vars.insert(
+            "MMM_CONTEXT_DIR".to_string(),
+            env.working_dir
+                .join(".mmm/context")
+                .to_string_lossy()
+                .to_string(),
+        );
+        env_vars.insert("MMM_AUTOMATION".to_string(), "true".to_string());
+
+        // Add variables as environment variables too
+        for (key, value) in variables {
+            env_vars.insert(format!("MMM_VAR_{key}"), value.clone());
+        }
+
+        env_vars
+    }
+
+    /// Execute command and validate results
+    async fn execute_and_validate_command(
+        &self,
+        env: &ExecutionEnvironment,
+        config: &CookConfig,
+        command: &crate::config::command::Command,
+        final_command: &str,
+        input: &str,
+        env_vars: HashMap<String, String>,
+    ) -> Result<()> {
+        // Handle test mode
+        let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
+        let skip_validation =
+            std::env::var("MMM_NO_COMMIT_VALIDATION").unwrap_or_default() == "true";
+
+        // Get HEAD before command execution if we need to verify commits
+        let head_before = if !skip_validation && command.metadata.commit_required && !test_mode {
+            Some(self.get_current_head(&env.working_dir).await?)
+        } else {
+            None
+        };
+
+        // Execute the command
+        let result = self
+            .claude_executor
+            .execute_claude_command(final_command, &env.working_dir, env_vars)
+            .await?;
+
+        if !result.success {
+            if config.command.fail_fast {
+                return Err(anyhow!(
+                    "Command '{}' failed for input '{}' with exit code {:?}. Error: {}",
+                    command.name,
+                    input,
+                    result.exit_code,
+                    result.stderr
+                ));
+            } else {
+                self.user_interaction.display_warning(&format!(
+                    "⚠️ Command '{}' failed for input '{}', continuing...",
+                    command.name, input
+                ));
+                return Ok(());
+            }
+        }
+
+        // In test mode with MMM_NO_COMMIT_VALIDATION or specific command list, skip validation
+        if test_mode && skip_validation {
+            // Check if this command is in the skip list
+            if let Ok(skip_cmds) = std::env::var("MMM_NO_COMMIT_VALIDATION") {
+                if skip_cmds
+                    .split(',')
+                    .any(|cmd| cmd.trim() == command.name.trim_start_matches('/'))
+                {
+                    // This command would not have made changes in real execution
+                    return Err(anyhow!("No changes were committed by {}", final_command));
+                }
+            }
+        }
+        // Check for commits if required
+        if let Some(before) = head_before {
+            let head_after = self.get_current_head(&env.working_dir).await?;
+            if head_after == before {
+                // No commits were created
+                return Err(anyhow!("No changes were committed by {}", final_command));
+            } else {
+                // Track file changes when commits were made
+                self.session_manager
+                    .update_session(SessionUpdate::AddFilesChanged(1))
+                    .await?;
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -971,7 +1056,8 @@ mod tests {
     #[tokio::test]
     async fn test_prerequisites_check_no_git() {
         // Ensure we're not in test mode for this test
-        std::env::remove_var("MMM_TEST_MODE");
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("MMM_TEST_MODE") };
 
         let temp_dir = TempDir::new().unwrap();
         let _mock_runner1 = MockCommandRunner::new();

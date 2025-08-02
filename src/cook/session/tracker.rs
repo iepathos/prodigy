@@ -24,7 +24,6 @@ impl SessionTrackerImpl {
     pub fn set_worktree(&self, name: String) {
         self.state.lock().unwrap().worktree_name = Some(name);
     }
-
 }
 
 #[async_trait]

@@ -485,10 +485,14 @@ commands:
         let mut config = Config::new();
 
         // Test environment variables override defaults
-        std::env::set_var("MMM_CLAUDE_API_KEY", "env-api-key");
-        std::env::set_var("MMM_LOG_LEVEL", "debug");
-        std::env::set_var("MMM_EDITOR", "vim");
-        std::env::set_var("MMM_AUTO_COMMIT", "false");
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("MMM_CLAUDE_API_KEY", "env-api-key") };
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("MMM_LOG_LEVEL", "debug") };
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("MMM_EDITOR", "vim") };
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("MMM_AUTO_COMMIT", "false") };
 
         config.merge_env_vars();
 
@@ -501,23 +505,31 @@ commands:
         assert_eq!(config.global.auto_commit, Some(false));
 
         // Clean up
-        std::env::remove_var("MMM_CLAUDE_API_KEY");
-        std::env::remove_var("MMM_LOG_LEVEL");
-        std::env::remove_var("MMM_EDITOR");
-        std::env::remove_var("MMM_AUTO_COMMIT");
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("MMM_CLAUDE_API_KEY") };
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("MMM_LOG_LEVEL") };
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("MMM_EDITOR") };
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("MMM_AUTO_COMMIT") };
 
         // Restore original values if they existed
         if let Some(val) = original_api_key {
-            std::env::set_var("MMM_CLAUDE_API_KEY", val);
+            // TODO: Audit that the environment access only happens in single-threaded code.
+            unsafe { std::env::set_var("MMM_CLAUDE_API_KEY", val) };
         }
         if let Some(val) = original_log_level {
-            std::env::set_var("MMM_LOG_LEVEL", val);
+            // TODO: Audit that the environment access only happens in single-threaded code.
+            unsafe { std::env::set_var("MMM_LOG_LEVEL", val) };
         }
         if let Some(val) = original_editor {
-            std::env::set_var("MMM_EDITOR", val);
+            // TODO: Audit that the environment access only happens in single-threaded code.
+            unsafe { std::env::set_var("MMM_EDITOR", val) };
         }
         if let Some(val) = original_auto_commit {
-            std::env::set_var("MMM_AUTO_COMMIT", val);
+            // TODO: Audit that the environment access only happens in single-threaded code.
+            unsafe { std::env::set_var("MMM_AUTO_COMMIT", val) };
         }
     }
 
@@ -531,9 +543,12 @@ commands:
         let original_mmm_editor = std::env::var("MMM_EDITOR").ok();
 
         // Test 1: EDITOR fallback when MMM_EDITOR is not set
-        std::env::remove_var("EDITOR");
-        std::env::remove_var("MMM_EDITOR");
-        std::env::set_var("EDITOR", "nano");
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("EDITOR") };
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("MMM_EDITOR") };
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("EDITOR", "nano") };
 
         let mut config = Config::new();
         config.merge_env_vars();
@@ -544,9 +559,12 @@ commands:
         );
 
         // Test 2: MMM_EDITOR takes precedence over EDITOR
-        std::env::remove_var("MMM_EDITOR");
-        std::env::set_var("EDITOR", "nano");
-        std::env::set_var("MMM_EDITOR", "emacs");
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("MMM_EDITOR") };
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("EDITOR", "nano") };
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("MMM_EDITOR", "emacs") };
 
         let mut config2 = Config::new();
         config2.merge_env_vars();
@@ -557,15 +575,19 @@ commands:
         );
 
         // Clean up - remove our test env vars
-        std::env::remove_var("EDITOR");
-        std::env::remove_var("MMM_EDITOR");
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("EDITOR") };
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("MMM_EDITOR") };
 
         // Restore original values if they existed
         if let Some(val) = original_editor {
-            std::env::set_var("EDITOR", val);
+            // TODO: Audit that the environment access only happens in single-threaded code.
+            unsafe { std::env::set_var("EDITOR", val) };
         }
         if let Some(val) = original_mmm_editor {
-            std::env::set_var("MMM_EDITOR", val);
+            // TODO: Audit that the environment access only happens in single-threaded code.
+            unsafe { std::env::set_var("MMM_EDITOR", val) };
         }
     }
 

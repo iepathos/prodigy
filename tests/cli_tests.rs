@@ -171,7 +171,8 @@ mod cook_dry_run_tests {
         .expect("Failed to write test playbook");
 
         // Set test mode to bypass Claude check
-        env::set_var("MMM_TEST_MODE", "true");
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { env::set_var("MMM_TEST_MODE", "true") };
 
         let mut cmd = Command::cargo_bin("mmm").unwrap();
         cmd.current_dir(temp_dir.path())
@@ -182,7 +183,8 @@ mod cook_dry_run_tests {
             .assert()
             .success();
 
-        env::remove_var("MMM_TEST_MODE");
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { env::remove_var("MMM_TEST_MODE") };
     }
 }
 

@@ -110,7 +110,6 @@ mod improve_command_tests {
         assert!(cmd.path.is_none());
         assert_eq!(cmd.max_iterations, 10);
     }
-
 }
 
 #[cfg(test)]

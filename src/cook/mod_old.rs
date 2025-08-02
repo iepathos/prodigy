@@ -449,7 +449,8 @@ async fn analyze_project_comprehensive(project_path: &Path, verbose: bool) -> Re
 
 /// Check if we're running in an interactive terminal
 fn is_tty() -> bool {
-    atty::is(atty::Stream::Stdin) && atty::is(atty::Stream::Stdout)
+    use std::io::IsTerminal;
+    std::io::stdin().is_terminal() && std::io::stdout().is_terminal()
 }
 
 /// Prompt user to merge a completed worktree

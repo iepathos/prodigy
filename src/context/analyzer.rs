@@ -101,13 +101,13 @@ impl ContextAnalyzer for ProjectAnalyzer {
         let files_analyzed = count_files(project_path)?;
 
         // Load metrics history if available
-        let metrics_history = if let Ok(metrics) =
-            crate::metrics::storage::load_metrics_history(project_path).await
-        {
-            metrics.snapshots
-        } else {
-            vec![]
-        };
+        let metrics_history =
+            match crate::metrics::storage::load_metrics_history(project_path).await {
+                Ok(metrics) => metrics.snapshots,
+                _ => {
+                    vec![]
+                }
+            };
 
         // Run hybrid coverage analysis if we have test coverage
         let hybrid_coverage = self
@@ -190,13 +190,13 @@ impl ContextAnalyzer for ProjectAnalyzer {
 
         // Update hybrid coverage if test coverage exists
         if let Some(ref test_coverage) = result.test_coverage {
-            let metrics_history = if let Ok(metrics) =
-                crate::metrics::storage::load_metrics_history(project_path).await
-            {
-                metrics.snapshots
-            } else {
-                vec![]
-            };
+            let metrics_history =
+                match crate::metrics::storage::load_metrics_history(project_path).await {
+                    Ok(metrics) => metrics.snapshots,
+                    _ => {
+                        vec![]
+                    }
+                };
 
             result.hybrid_coverage = self
                 .hybrid_coverage_analyzer

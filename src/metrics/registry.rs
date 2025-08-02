@@ -73,7 +73,7 @@ impl MetricsRegistry {
         if self.config.sampling_rate < 1.0 {
             use rand::Rng;
             let mut rng = rand::thread_rng();
-            if rng.gen::<f64>() > self.config.sampling_rate {
+            if rng.r#gen::<f64>() > self.config.sampling_rate {
                 return Ok(());
             }
         }
