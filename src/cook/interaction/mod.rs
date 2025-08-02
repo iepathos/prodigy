@@ -121,6 +121,12 @@ pub mod tests {
         text_responses: Arc<Mutex<Vec<String>>>,
     }
 
+    impl Default for MockUserInteraction {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl MockUserInteraction {
         pub fn new() -> Self {
             Self {

@@ -178,28 +178,28 @@ mod tests {
 
 #[cfg(test)]
 mod signal_tests {
-    use super::*;
     use super::tests::create_test_worktree_manager;
-    
+    use super::*;
+
     #[test]
     fn test_setup_interrupt_handlers() {
         let (_temp_dir, worktree_manager) = create_test_worktree_manager();
         let arc_manager: std::sync::Arc<WorktreeManager> = std::sync::Arc::new(worktree_manager);
         let session_name = "test-signal-session".to_string();
-        
+
         // Test that setup doesn't panic
         let result = setup_interrupt_handlers(arc_manager.clone(), session_name.clone());
         assert!(result.is_ok());
-        
+
         // Allow time for thread to spawn
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
-    
+
     #[test]
     fn test_update_interrupted_state_error_handling() {
         let (_temp_dir, worktree_manager) = create_test_worktree_manager();
         let nonexistent_session = "nonexistent-session";
-        
+
         // Should not panic even if session doesn't exist
         update_interrupted_state(
             &worktree_manager,

@@ -1,14 +1,14 @@
-use mmm::cook::orchestrator::{DefaultCookOrchestrator, CookOrchestrator};
-use mmm::subprocess::SubprocessManager;
-use mmm::cook::session::tracker::SessionTrackerImpl;
+use mmm::cook::analysis::runner::AnalysisRunnerImpl;
 use mmm::cook::execution::claude::ClaudeExecutorImpl;
 use mmm::cook::execution::runner::RealCommandRunner;
-use mmm::cook::analysis::runner::AnalysisRunnerImpl;
 use mmm::cook::metrics::collector::MetricsCollectorImpl;
+use mmm::cook::orchestrator::{CookOrchestrator, DefaultCookOrchestrator};
+use mmm::cook::session::tracker::SessionTrackerImpl;
 use mmm::simple_state::StateManager;
-use tempfile::TempDir;
-use std::sync::Arc;
+use mmm::subprocess::SubprocessManager;
 use std::os::unix::process::ExitStatusExt;
+use std::sync::Arc;
+use tempfile::TempDir;
 
 // Mock implementations for testing
 struct MockUserInteraction;
@@ -59,33 +59,62 @@ impl mmm::cook::interaction::SpinnerHandle for MockSpinnerHandle {
 
 #[async_trait::async_trait]
 impl mmm::abstractions::git::GitOperations for MockGitOperations {
-    async fn git_command(&self, _args: &[&str], _description: &str) -> anyhow::Result<std::process::Output> {
+    async fn git_command(
+        &self,
+        _args: &[&str],
+        _description: &str,
+    ) -> anyhow::Result<std::process::Output> {
         Ok(std::process::Output {
             status: std::process::ExitStatus::from_raw(0),
             stdout: vec![],
             stderr: vec![],
         })
     }
-    async fn is_git_repo(&self) -> bool { true }
-    async fn get_last_commit_message(&self) -> anyhow::Result<String> { Ok("test".to_string()) }
-    async fn check_git_status(&self) -> anyhow::Result<String> { Ok("clean".to_string()) }
-    async fn stage_all_changes(&self) -> anyhow::Result<()> { Ok(()) }
-    async fn create_commit(&self, _message: &str) -> anyhow::Result<()> { Ok(()) }
-    async fn create_worktree(&self, _name: &str, _path: &std::path::Path) -> anyhow::Result<()> { Ok(()) }
-    async fn get_current_branch(&self) -> anyhow::Result<String> { Ok("main".to_string()) }
-    async fn switch_branch(&self, _branch: &str) -> anyhow::Result<()> { Ok(()) }
+    async fn is_git_repo(&self) -> bool {
+        true
+    }
+    async fn get_last_commit_message(&self) -> anyhow::Result<String> {
+        Ok("test".to_string())
+    }
+    async fn check_git_status(&self) -> anyhow::Result<String> {
+        Ok("clean".to_string())
+    }
+    async fn stage_all_changes(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn create_commit(&self, _message: &str) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn create_worktree(&self, _name: &str, _path: &std::path::Path) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn get_current_branch(&self) -> anyhow::Result<String> {
+        Ok("main".to_string())
+    }
+    async fn switch_branch(&self, _branch: &str) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 #[async_trait::async_trait]
 impl mmm::cook::execution::CommandRunner for MockCommandRunner {
-    async fn run_command(&self, _command: &str, _args: &[String]) -> anyhow::Result<std::process::Output> {
+    async fn run_command(
+        &self,
+        _command: &str,
+        _args: &[String],
+    ) -> anyhow::Result<std::process::Output> {
         Ok(std::process::Output {
             status: std::process::ExitStatus::from_raw(0),
             stdout: vec![],
             stderr: vec![],
         })
     }
-    async fn run_with_context(&self, _command: &str, _args: &[String], _context: &mmm::cook::execution::ExecutionContext) -> anyhow::Result<mmm::cook::execution::ExecutionResult> {
+    async fn run_with_context(
+        &self,
+        _command: &str,
+        _args: &[String],
+        _context: &mmm::cook::execution::ExecutionContext,
+    ) -> anyhow::Result<mmm::cook::execution::ExecutionResult> {
         Ok(mmm::cook::execution::ExecutionResult {
             success: true,
             stdout: String::new(),
@@ -101,7 +130,7 @@ async fn test_orchestrator_full_workflow() {
     // Create subprocess manager with mock
     let mock_runner = Arc::new(mmm::subprocess::MockProcessRunner::new());
     let subprocess = SubprocessManager::new(mock_runner);
-    
+
     let session_manager = Arc::new(SessionTrackerImpl::new(
         "test".to_string(),
         temp_dir.path().to_path_buf(),
@@ -113,7 +142,7 @@ async fn test_orchestrator_full_workflow() {
     let user_interaction = Arc::new(MockUserInteraction::new());
     let git_operations = Arc::new(MockGitOperations::new());
     let state_manager = StateManager::new().unwrap();
-    
+
     let orchestrator = DefaultCookOrchestrator::new(
         session_manager,
         command_executor,
@@ -125,7 +154,7 @@ async fn test_orchestrator_full_workflow() {
         state_manager,
         subprocess,
     );
-    
+
     // Test basic orchestration
     let result = orchestrator.check_prerequisites().await;
     assert!(result.is_ok());
@@ -137,11 +166,11 @@ async fn test_orchestrator_error_handling() {
     // Create subprocess manager with mock
     let mock_runner = Arc::new(mmm::subprocess::MockProcessRunner::new());
     let subprocess = SubprocessManager::new(mock_runner.clone());
-    
+
     // Configure mock to simulate failures
     // Note: MockProcessRunner doesn't have expect_command method in the current implementation
     // So we'll just test the structure for now
-    
+
     let session_manager = Arc::new(SessionTrackerImpl::new(
         "test".to_string(),
         temp_dir.path().to_path_buf(),
@@ -153,7 +182,7 @@ async fn test_orchestrator_error_handling() {
     let user_interaction = Arc::new(MockUserInteraction::new());
     let git_operations = Arc::new(MockGitOperations::new());
     let state_manager = StateManager::new().unwrap();
-    
+
     let orchestrator = DefaultCookOrchestrator::new(
         session_manager,
         command_executor,
@@ -165,7 +194,7 @@ async fn test_orchestrator_error_handling() {
         state_manager,
         subprocess,
     );
-    
+
     // Test environment validation
     std::env::remove_var("MMM_TEST_MODE");
     let result = orchestrator.check_prerequisites().await;

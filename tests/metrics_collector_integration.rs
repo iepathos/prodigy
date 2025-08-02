@@ -1,8 +1,8 @@
-use mmm::metrics::registry::{MetricsRegistry, MetricsConfig};
 use mmm::cook::metrics::collector::MetricsCollectorImpl;
 use mmm::cook::metrics::MetricsCoordinator;
-use tempfile::TempDir;
+use mmm::metrics::registry::{MetricsConfig, MetricsRegistry};
 use std::os::unix::process::ExitStatusExt;
+use tempfile::TempDir;
 
 // Mock command runner for testing
 struct MockCommandRunner;
@@ -15,14 +15,23 @@ impl MockCommandRunner {
 
 #[async_trait::async_trait]
 impl mmm::cook::execution::CommandRunner for MockCommandRunner {
-    async fn run_command(&self, _command: &str, _args: &[String]) -> anyhow::Result<std::process::Output> {
+    async fn run_command(
+        &self,
+        _command: &str,
+        _args: &[String],
+    ) -> anyhow::Result<std::process::Output> {
         Ok(std::process::Output {
             status: std::process::ExitStatus::from_raw(0),
             stdout: vec![],
             stderr: vec![],
         })
     }
-    async fn run_with_context(&self, _command: &str, _args: &[String], _context: &mmm::cook::execution::ExecutionContext) -> anyhow::Result<mmm::cook::execution::ExecutionResult> {
+    async fn run_with_context(
+        &self,
+        _command: &str,
+        _args: &[String],
+        _context: &mmm::cook::execution::ExecutionContext,
+    ) -> anyhow::Result<mmm::cook::execution::ExecutionResult> {
         Ok(mmm::cook::execution::ExecutionResult {
             success: true,
             stdout: String::new(),
@@ -39,11 +48,11 @@ async fn test_metrics_collection_lifecycle() {
     let registry = MetricsRegistry::new(config);
     let mock_runner = MockCommandRunner::new();
     let collector = MetricsCollectorImpl::new(mock_runner);
-    
+
     // Test basic metrics collection
     let result = collector.collect_all(temp_dir.path()).await;
     assert!(result.is_ok());
-    
+
     let metrics = result.unwrap();
     // Should have default values for a directory without a Rust project
     assert_eq!(metrics.lint_warnings, 0);

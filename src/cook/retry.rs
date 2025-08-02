@@ -350,12 +350,12 @@ mod tests {
     #[test]
     fn test_format_subprocess_error_unauthorized() {
         let error = format_subprocess_error("claude", Some(1), "Error: unauthorized access", "");
-        
+
         assert!(error.contains("Check that you have authenticated"));
         assert!(error.contains("unauthorized access"));
         assert!(error.contains("claude"));
     }
-    
+
     #[test]
     fn test_format_subprocess_error_unauthorized_variations() {
         // Test different unauthorized error messages
@@ -364,7 +364,7 @@ mod tests {
             ("API key invalid", "API key"),
             ("Authentication failed", "Authentication"),
         ];
-        
+
         for (stderr, expected) in test_cases {
             let error = format_subprocess_error("claude", Some(1), stderr, "");
             assert!(error.contains(expected));
