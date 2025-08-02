@@ -2,27 +2,27 @@
   "statistics": {
     "total_items": 240,
     "by_type": {
+      "Complexity": 63,
+      "Todo": 52,
       "Duplication": 100,
-      "Hack": 7,
       "Fixme": 12,
       "Deprecated": 6,
-      "Todo": 52,
-      "Complexity": 63
+      "Hack": 7
     },
     "by_impact": {
-      "Low": 52,
+      "High": 16,
       "Medium": 172,
-      "High": 16
+      "Low": 52
     },
     "avg_impact": 5.333333333333333,
     "avg_effort": 3.941666666666667
   },
   "high_priority_items": [
     {
-      "id": "Deprecated_/Users/glen/memento-mori/mmm/src/context/hybrid_coverage.rs_L3",
+      "id": "Deprecated_/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/hybrid_coverage.rs_L3",
       "title": "Deprecated comment",
       "description": "**: This module has been replaced by the unified scoring system in `src/scoring/mod.rs`.",
-      "location": "/Users/glen/memento-mori/mmm/src/context/hybrid_coverage.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/hybrid_coverage.rs",
       "line_number": 3,
       "debt_type": "Deprecated",
       "impact": 8,
@@ -32,10 +32,10 @@
       ]
     },
     {
-      "id": "Deprecated_/Users/glen/memento-mori/mmm/src/context/debt.rs_L57",
+      "id": "Deprecated_/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs_L57",
       "title": "Deprecated comment",
       "description": "No description provided",
-      "location": "/Users/glen/memento-mori/mmm/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs",
       "line_number": 57,
       "debt_type": "Deprecated",
       "impact": 8,
@@ -45,10 +45,10 @@
       ]
     },
     {
-      "id": "Deprecated_/Users/glen/memento-mori/mmm/src/context/debt.rs_L219",
+      "id": "Deprecated_/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs_L219",
       "title": "Deprecated comment",
       "description": "\") || line_upper.contains(\"@DEPRECATED\") {",
-      "location": "/Users/glen/memento-mori/mmm/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs",
       "line_number": 219,
       "debt_type": "Deprecated",
       "impact": 8,
@@ -58,10 +58,10 @@
       ]
     },
     {
-      "id": "Deprecated_/Users/glen/memento-mori/mmm/src/context/debt.rs_L220",
+      "id": "Deprecated_/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs_L220",
       "title": "Deprecated comment",
       "description": "\")",
-      "location": "/Users/glen/memento-mori/mmm/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs",
       "line_number": 220,
       "debt_type": "Deprecated",
       "impact": 8,
@@ -71,10 +71,10 @@
       ]
     },
     {
-      "id": "Deprecated_/Users/glen/memento-mori/mmm/src/context/debt.rs_L238",
+      "id": "Deprecated_/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs_L238",
       "title": "Deprecated comment",
       "description": "No description provided",
-      "location": "/Users/glen/memento-mori/mmm/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs",
       "line_number": 238,
       "debt_type": "Deprecated",
       "impact": 8,
@@ -84,10 +84,10 @@
       ]
     },
     {
-      "id": "Deprecated_/Users/glen/memento-mori/mmm/src/main.rs_L174",
+      "id": "Deprecated_/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/main.rs_L174",
       "title": "Deprecated comment",
       "description": "No description provided",
-      "location": "/Users/glen/memento-mori/mmm/src/main.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/main.rs",
       "line_number": 174,
       "debt_type": "Deprecated",
       "impact": 8,
@@ -97,10 +97,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/memento-mori/mmm/src/context/debt.rs_L55",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs_L55",
       "title": "Fixme comment",
       "description": "No description provided",
-      "location": "/Users/glen/memento-mori/mmm/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs",
       "line_number": 55,
       "debt_type": "Fixme",
       "impact": 7,
@@ -110,10 +110,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/memento-mori/mmm/src/context/debt.rs_L213",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs_L213",
       "title": "Fixme comment",
       "description": "\") {",
-      "location": "/Users/glen/memento-mori/mmm/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs",
       "line_number": 213,
       "debt_type": "Fixme",
       "impact": 7,
@@ -123,10 +123,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/memento-mori/mmm/src/context/debt.rs_L214",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs_L214",
       "title": "Fixme comment",
       "description": "\")",
-      "location": "/Users/glen/memento-mori/mmm/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs",
       "line_number": 214,
       "debt_type": "Fixme",
       "impact": 7,
@@ -136,10 +136,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/memento-mori/mmm/src/context/debt.rs_L217",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs_L217",
       "title": "Fixme comment",
       "description": "\") {",
-      "location": "/Users/glen/memento-mori/mmm/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs",
       "line_number": 217,
       "debt_type": "Fixme",
       "impact": 7,
@@ -149,10 +149,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/memento-mori/mmm/src/context/debt.rs_L218",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs_L218",
       "title": "Fixme comment",
       "description": "No description provided",
-      "location": "/Users/glen/memento-mori/mmm/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs",
       "line_number": 218,
       "debt_type": "Fixme",
       "impact": 7,
@@ -162,10 +162,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/memento-mori/mmm/src/context/debt.rs_L236",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs_L236",
       "title": "Fixme comment",
       "description": "No description provided",
-      "location": "/Users/glen/memento-mori/mmm/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs",
       "line_number": 236,
       "debt_type": "Fixme",
       "impact": 7,
@@ -175,10 +175,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/memento-mori/mmm/src/context/debt.rs_L831",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs_L831",
       "title": "Fixme comment",
       "description": "This is a hack",
-      "location": "/Users/glen/memento-mori/mmm/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs",
       "line_number": 831,
       "debt_type": "Fixme",
       "impact": 7,
@@ -188,10 +188,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/memento-mori/mmm/src/context/debt.rs_L836",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs_L836",
       "title": "Fixme comment",
       "description": "This needs review",
-      "location": "/Users/glen/memento-mori/mmm/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs",
       "line_number": 836,
       "debt_type": "Fixme",
       "impact": 7,
@@ -201,10 +201,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/memento-mori/mmm/src/context/debt.rs_L850",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs_L850",
       "title": "Fixme comment",
       "description": "No description provided",
-      "location": "/Users/glen/memento-mori/mmm/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs",
       "line_number": 850,
       "debt_type": "Fixme",
       "impact": 7,
@@ -214,10 +214,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/memento-mori/mmm/src/context/debt.rs_L956",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs_L956",
       "title": "Fixme comment",
       "description": "No description provided",
-      "location": "/Users/glen/memento-mori/mmm/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs",
       "line_number": 956,
       "debt_type": "Fixme",
       "impact": 7,
@@ -227,10 +227,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/memento-mori/mmm/src/context/debt.rs_L990",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs_L990",
       "title": "Fixme comment",
       "description": "This can panic",
-      "location": "/Users/glen/memento-mori/mmm/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs",
       "line_number": 990,
       "debt_type": "Fixme",
       "impact": 7,
@@ -240,10 +240,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/memento-mori/mmm/src/scoring/mod.rs_L154",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/scoring/mod.rs_L154",
       "title": "Fixme comment",
       "description": "No description provided",
-      "location": "/Users/glen/memento-mori/mmm/src/scoring/mod.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/scoring/mod.rs",
       "line_number": 154,
       "debt_type": "Fixme",
       "impact": 7,
@@ -253,10 +253,10 @@
       ]
     },
     {
-      "id": "COMPLEX_/Users/glen/memento-mori/mmm/src/context/mod.rs_save_analysis_with_commit",
+      "id": "COMPLEX_/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/mod.rs_save_analysis_with_commit",
       "title": "High complexity in save_analysis_with_commit",
       "description": "Function has cyclomatic complexity of 28",
-      "location": "/Users/glen/memento-mori/mmm/src/context/mod.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/mod.rs",
       "line_number": null,
       "debt_type": "Complexity",
       "impact": 8,
@@ -266,10 +266,10 @@
       ]
     },
     {
-      "id": "COMPLEX_/Users/glen/memento-mori/mmm/src/context/debt.rs_count_match_arms",
+      "id": "COMPLEX_/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs_count_match_arms",
       "title": "High complexity in count_match_arms",
       "description": "Function has cyclomatic complexity of 49",
-      "location": "/Users/glen/memento-mori/mmm/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs",
       "line_number": null,
       "debt_type": "Complexity",
       "impact": 8,
@@ -281,64 +281,64 @@
   ],
   "hotspot_summary": [
     {
-      "file": "/Users/glen/memento-mori/mmm/src/context/debt.rs",
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/debt.rs",
       "total_issues": 38,
       "max_complexity": 49,
-      "primary_issue_type": "Todo"
+      "primary_issue_type": "Fixme"
     },
     {
-      "file": "/Users/glen/memento-mori/mmm/src/config/mod.rs",
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/config/mod.rs",
       "total_issues": 22,
       "max_complexity": 0,
       "primary_issue_type": "Todo"
     },
     {
-      "file": "/Users/glen/memento-mori/mmm/src/cook/orchestrator.rs",
-      "total_issues": 12,
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/cook/orchestrator.rs",
+      "total_issues": 13,
       "max_complexity": 39,
       "primary_issue_type": "Duplication"
     },
     {
-      "file": "/Users/glen/memento-mori/mmm/src/config/command_validator.rs",
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/abstractions/claude.rs",
+      "total_issues": 11,
+      "max_complexity": 20,
+      "primary_issue_type": "Duplication"
+    },
+    {
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/config/command_validator.rs",
       "total_issues": 10,
       "max_complexity": 17,
       "primary_issue_type": "Duplication"
     },
     {
-      "file": "/Users/glen/memento-mori/mmm/src/abstractions/claude.rs",
-      "total_issues": 10,
-      "max_complexity": 20,
-      "primary_issue_type": "Duplication"
-    },
-    {
-      "file": "/Users/glen/memento-mori/mmm/src/abstractions/git.rs",
-      "total_issues": 7,
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/abstractions/git.rs",
+      "total_issues": 9,
       "max_complexity": 0,
       "primary_issue_type": "Duplication"
     },
     {
-      "file": "/Users/glen/memento-mori/mmm/src/context/tarpaulin_coverage.rs",
-      "total_issues": 7,
-      "max_complexity": 19,
-      "primary_issue_type": "Duplication"
-    },
-    {
-      "file": "/Users/glen/memento-mori/mmm/tests/cook_iteration_tests.rs",
-      "total_issues": 7,
-      "max_complexity": 13,
-      "primary_issue_type": "Duplication"
-    },
-    {
-      "file": "/Users/glen/memento-mori/mmm/src/worktree/test_state.rs",
-      "total_issues": 7,
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/worktree/test_state.rs",
+      "total_issues": 8,
       "max_complexity": 11,
       "primary_issue_type": "Duplication"
     },
     {
-      "file": "/Users/glen/memento-mori/mmm/tests/subprocess_tests.rs",
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/scoring/mod.rs",
       "total_issues": 6,
-      "max_complexity": 0,
+      "max_complexity": 11,
       "primary_issue_type": "Todo"
+    },
+    {
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/tarpaulin_coverage.rs",
+      "total_issues": 6,
+      "max_complexity": 19,
+      "primary_issue_type": "Complexity"
+    },
+    {
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/tests/cook_iteration_tests.rs",
+      "total_issues": 6,
+      "max_complexity": 13,
+      "primary_issue_type": "Duplication"
     }
   ],
   "duplication_summary": {
