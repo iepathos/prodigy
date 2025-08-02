@@ -188,9 +188,7 @@ impl ProjectHealthScore {
         // Check test coverage
         if let Some(coverage) = self.components.test_coverage {
             if coverage < 60.0 {
-                suggestions.push(format!(
-                    "Increase test coverage (current: {coverage:.1}%)"
-                ));
+                suggestions.push(format!("Increase test coverage (current: {coverage:.1}%)"));
             }
         } else {
             suggestions.push("Add test coverage tracking to the project".to_string());
