@@ -399,8 +399,23 @@ impl DefaultCookOrchestrator {
         // Track outputs from previous commands
         let mut command_outputs: HashMap<String, HashMap<String, String>> = HashMap::new();
 
-        // Execute each command in sequence
-        for (step_index, cmd) in config.workflow.commands.iter().enumerate() {
+        // Execute iterations if configured
+        let max_iterations = config.command.max_iterations;
+        for iteration in 1..=max_iterations {
+            if iteration > 1 {
+                self.user_interaction.display_progress(&format!(
+                    "Starting iteration {}/{}",
+                    iteration, max_iterations
+                ));
+            }
+
+            // Increment iteration counter once per iteration, not per command
+            self.session_manager
+                .update_session(SessionUpdate::IncrementIteration)
+                .await?;
+
+            // Execute each command in sequence
+            for (step_index, cmd) in config.workflow.commands.iter().enumerate() {
             let command = cmd.to_command();
 
             self.user_interaction.display_progress(&format!(
@@ -410,10 +425,6 @@ impl DefaultCookOrchestrator {
                 command.name
             ));
 
-            // Update session - increment iteration for each command
-            self.session_manager
-                .update_session(SessionUpdate::IncrementIteration)
-                .await?;
 
             // Resolve inputs and build final command arguments
             let mut final_args = command.args.clone();
@@ -575,6 +586,13 @@ impl DefaultCookOrchestrator {
                     self.user_interaction
                         .display_success(&format!("💾 Stored outputs for command '{id}'"));
                 }
+            }
+        }
+
+            // Check if we should continue iterations
+            if iteration < max_iterations {
+                // Could add logic here to check if improvements were made
+                // For now, continue with all iterations as requested
             }
         }
 
