@@ -37,7 +37,7 @@ impl MetricsCollector {
             metrics.doc_coverage = 30.0;
             metrics.tech_debt_score = 30.0;
             metrics.improvement_velocity = 0.0;
-            metrics.total_lines = 100;  // Add mock total_lines for tests
+            metrics.total_lines = 100; // Add mock total_lines for tests
             metrics.cyclomatic_complexity.insert("main".to_string(), 5);
             println!("✅ Metrics collection complete. Overall score: 30.0");
             return Ok(metrics);
