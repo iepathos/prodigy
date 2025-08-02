@@ -98,12 +98,13 @@ pub struct DefaultCookOrchestrator {
 #### Phase 3: Refactor Orchestrator Implementation (Medium Risk)
 1. Update `DefaultCookOrchestrator` to use coordinators
 2. Delegate responsibilities to appropriate coordinators
-3. Ensure backward compatibility
+3. Remove old implementation completely
 
 #### Phase 4: Cleanup and Optimization (Low Risk)
-1. Remove redundant code
+1. Remove redundant code and old interfaces
 2. Optimize coordinator interactions
 3. Update documentation
+4. Delete legacy code paths
 
 ## Benefits
 
@@ -115,25 +116,24 @@ pub struct DefaultCookOrchestrator {
 
 ## Migration Strategy
 
-1. **Backward Compatibility**: Keep existing public APIs unchanged
+1. **Clean Break**: Remove old implementation completely
 2. **Incremental Migration**: Implement one coordinator at a time
-3. **Feature Flags**: Use feature flags to switch between old/new implementations
+3. **Direct Replacement**: Replace old code paths immediately
 4. **Comprehensive Testing**: Add integration tests before and after each phase
 
 ## Risk Mitigation
 
 1. **Extensive Testing**: Unit tests for each coordinator
 2. **Integration Tests**: End-to-end tests for cook workflows
-3. **Gradual Rollout**: Deploy behind feature flags
-4. **Monitoring**: Track performance metrics before/after
-5. **Rollback Plan**: Keep old implementation available
+3. **Performance Testing**: Ensure no performance regression
+4. **Code Review**: Thorough review of each phase
 
 ## Timeline Estimate
 
 - Phase 1: 2-3 days (create interfaces and implementations)
 - Phase 2: 1-2 days (update factory functions)
 - Phase 3: 2-3 days (refactor orchestrator)
-- Phase 4: 1 day (cleanup)
+- Phase 4: 1 day (cleanup and remove old code)
 
 Total: ~1.5-2 weeks for complete refactoring
 
@@ -142,5 +142,13 @@ Total: ~1.5-2 weeks for complete refactoring
 1. Reduced coupling (from 13 to 5 dependencies)
 2. Improved test coverage (target: 80%+)
 3. No performance regression
-4. All existing functionality preserved
+4. Cleaner, more maintainable codebase
 5. Easier to add new features
+
+## Notable Changes (No Backward Compatibility)
+
+1. **Remove `run_improvement_loop`**: Legacy function will be deleted
+2. **Simplify public API**: Only expose necessary interfaces
+3. **Remove worktree integration from orchestrator**: Move to EnvironmentCoordinator
+4. **Clean up module structure**: Remove `mod_old.rs` and other legacy files
+5. **Streamline configuration**: Remove redundant configuration paths
