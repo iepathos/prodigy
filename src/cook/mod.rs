@@ -5,6 +5,7 @@
 
 pub mod analysis;
 pub mod command;
+pub mod coordinators;
 pub mod execution;
 pub mod git_ops;
 pub mod interaction;
@@ -117,49 +118,77 @@ pub async fn cook(mut cmd: CookCommand) -> Result<()> {
 async fn create_orchestrator(project_path: &Path) -> Result<Arc<dyn CookOrchestrator>> {
     // Create shared dependencies
     let git_operations = Arc::new(RealGitOperations::new());
+    let subprocess = Arc::new(crate::subprocess::SubprocessManager::production());
 
     // Create runners - use multiple instances since RealCommandRunner is not Clone
     let command_runner1 = execution::runner::RealCommandRunner::new();
     let command_runner2 = execution::runner::RealCommandRunner::new();
     let command_runner3 = execution::runner::RealCommandRunner::new();
-    let command_runner4 = execution::runner::RealCommandRunner::new();
 
-    // Create session manager
+    // Create base components
+    let config_loader = Arc::new(ConfigLoader::new().await?);
+    let worktree_manager = Arc::new(crate::worktree::WorktreeManager::new(
+        project_path.to_path_buf(),
+        subprocess.as_ref().clone(),
+    )?);
     let session_manager = Arc::new(session::tracker::SessionTrackerImpl::new(
         format!("cook-{}", chrono::Utc::now().timestamp()),
         project_path.to_path_buf(),
     ));
+    let state_manager = Arc::new(StateManager::new()?);
+    let user_interaction = Arc::new(interaction::DefaultUserInteraction::new());
 
     // Create executors
     let command_executor = Arc::new(command_runner1);
     let claude_executor = Arc::new(execution::claude::ClaudeExecutorImpl::new(command_runner2));
 
-    // Create coordinators
+    // Create analysis coordinator
     let analysis_coordinator = Arc::new(analysis::runner::AnalysisRunnerImpl::new(command_runner3));
-    let metrics_coordinator = Arc::new(metrics::collector::MetricsCollectorImpl::new(
-        command_runner4,
+
+    // Create environment coordinator
+    let environment_coordinator = Arc::new(coordinators::DefaultEnvironmentCoordinator::new(
+        config_loader,
+        worktree_manager,
+        git_operations.clone(),
     ));
 
-    // Create user interaction
-    let user_interaction = Arc::new(interaction::DefaultUserInteraction::new());
-
-    // Create state manager
-    let state_manager = StateManager::new()?;
-
-    // Create subprocess manager
-    let subprocess = crate::subprocess::SubprocessManager::production();
-
-    // Create orchestrator
-    Ok(Arc::new(DefaultCookOrchestrator::new(
-        session_manager,
-        command_executor,
-        claude_executor,
-        analysis_coordinator,
-        metrics_coordinator,
-        user_interaction,
-        git_operations,
+    // Create session coordinator
+    let session_coordinator = Arc::new(coordinators::DefaultSessionCoordinator::new(
+        session_manager.clone(),
         state_manager,
-        subprocess,
+    ));
+
+    // Create execution coordinator
+    let execution_coordinator = Arc::new(coordinators::DefaultExecutionCoordinator::new(
+        command_executor,
+        claude_executor.clone(),
+        subprocess.clone(),
+    ));
+
+    // Create workflow executor
+    let workflow_executor = Arc::new(workflow::WorkflowExecutor::new(
+        claude_executor,
+        session_manager,
+        analysis_coordinator.clone(),
+        Arc::new(metrics::collector::MetricsCollectorImpl::new(
+            execution::runner::RealCommandRunner::new(),
+        )),
+        user_interaction.clone(),
+    ));
+
+    // Create workflow coordinator
+    let workflow_coordinator = Arc::new(coordinators::DefaultWorkflowCoordinator::new(
+        workflow_executor,
+        user_interaction,
+    ));
+
+    // Create orchestrator with coordinators
+    Ok(Arc::new(DefaultCookOrchestrator::new(
+        environment_coordinator,
+        session_coordinator,
+        execution_coordinator,
+        analysis_coordinator,
+        workflow_coordinator,
     )))
 }
 
