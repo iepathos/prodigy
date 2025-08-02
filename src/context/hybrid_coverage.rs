@@ -251,6 +251,12 @@ impl BasicHybridCoverageAnalyzer {
         priority_gaps: &[PriorityCoverageGap],
         critical_files: &[CriticalFile],
     ) -> f64 {
+        // If we have no coverage data at all, return a more informative score
+        if coverage_map.file_coverage.is_empty() {
+            // No coverage data available - return 50.0 as a neutral score
+            return 50.0;
+        }
+        
         let base_coverage = coverage_map.overall_coverage * 100.0;
 
         // Penalty for priority gaps

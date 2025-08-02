@@ -295,11 +295,16 @@ pub fn save_analysis_with_commit(
         overall_score += hybrid_coverage.hybrid_score * 0.3; // 30% weight
     }
 
-    // Calculate debt score (inverse of debt items count, normalized)
+    // Calculate debt score using logarithmic scaling for better handling of high debt counts
     let debt_score = if analysis.technical_debt.debt_items.is_empty() {
         100.0
     } else {
-        (100.0 - (analysis.technical_debt.debt_items.len() as f64).min(100.0)).max(0.0)
+        // Use logarithmic scaling: score = 100 * (1 - log(debt_count + 1) / log(max_expected_debt))
+        // This gives a more reasonable score distribution
+        let debt_count = analysis.technical_debt.debt_items.len() as f64;
+        let max_expected_debt: f64 = 1000.0; // Adjust based on typical project sizes
+        let score = 100.0 * (1.0 - (debt_count + 1.0).ln() / max_expected_debt.ln());
+        score.max(0.0).min(100.0)
     };
     eprintln!("🛠️  Technical debt score: {debt_score:.1}");
     overall_score += debt_score * 0.4; // 40% weight

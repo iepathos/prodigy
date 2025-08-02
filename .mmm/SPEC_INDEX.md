@@ -47,6 +47,7 @@ This file tracks the key specifications that shaped the current focused architec
 - **43**: `specs/43-mmm-command-initialization.md` - MMM init command to install default .claude/commands
 - **49**: `specs/49-dynamic-command-discovery.md` - Dynamic command discovery system replacing hardcoded registry
 - **64**: `specs/64-remove-focus-aspect.md` - Remove focus aspect in favor of explicit args
+- **65**: `specs/65-unified-scoring-system.md` - Unified scoring system to eliminate confusion between multiple scores
 
 ## Current Focus
 
