@@ -2,12 +2,12 @@
   "statistics": {
     "total_items": 240,
     "by_type": {
+      "Duplication": 100,
+      "Hack": 7,
       "Fixme": 12,
       "Deprecated": 6,
-      "Hack": 7,
       "Todo": 52,
-      "Complexity": 63,
-      "Duplication": 100
+      "Complexity": 63
     },
     "by_impact": {
       "Low": 52,
@@ -284,7 +284,7 @@
       "file": "/Users/glen/memento-mori/mmm/src/context/debt.rs",
       "total_issues": 38,
       "max_complexity": 49,
-      "primary_issue_type": "Fixme"
+      "primary_issue_type": "Todo"
     },
     {
       "file": "/Users/glen/memento-mori/mmm/src/config/mod.rs",
@@ -299,21 +299,27 @@
       "primary_issue_type": "Duplication"
     },
     {
-      "file": "/Users/glen/memento-mori/mmm/src/abstractions/claude.rs",
-      "total_issues": 10,
-      "max_complexity": 20,
-      "primary_issue_type": "Duplication"
-    },
-    {
       "file": "/Users/glen/memento-mori/mmm/src/config/command_validator.rs",
       "total_issues": 10,
       "max_complexity": 17,
       "primary_issue_type": "Duplication"
     },
     {
+      "file": "/Users/glen/memento-mori/mmm/src/abstractions/claude.rs",
+      "total_issues": 10,
+      "max_complexity": 20,
+      "primary_issue_type": "Duplication"
+    },
+    {
       "file": "/Users/glen/memento-mori/mmm/src/abstractions/git.rs",
       "total_issues": 7,
       "max_complexity": 0,
+      "primary_issue_type": "Duplication"
+    },
+    {
+      "file": "/Users/glen/memento-mori/mmm/src/context/tarpaulin_coverage.rs",
+      "total_issues": 7,
+      "max_complexity": 19,
       "primary_issue_type": "Duplication"
     },
     {
@@ -329,16 +335,10 @@
       "primary_issue_type": "Duplication"
     },
     {
-      "file": "/Users/glen/memento-mori/mmm/src/context/tarpaulin_coverage.rs",
-      "total_issues": 7,
-      "max_complexity": 19,
-      "primary_issue_type": "Duplication"
-    },
-    {
-      "file": "/Users/glen/memento-mori/mmm/src/scoring/mod.rs",
+      "file": "/Users/glen/memento-mori/mmm/tests/subprocess_tests.rs",
       "total_issues": 6,
-      "max_complexity": 11,
-      "primary_issue_type": "Duplication"
+      "max_complexity": 0,
+      "primary_issue_type": "Todo"
     }
   ],
   "duplication_summary": {
