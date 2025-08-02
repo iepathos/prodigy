@@ -2,8 +2,47 @@ use mmm::context::AnalysisResult;
 use mmm::cook::analysis::cache::{AnalysisCache, AnalysisCacheImpl};
 use mmm::cook::analysis::runner::{AnalysisRunner, AnalysisRunnerImpl};
 use mmm::cook::analysis::AnalysisCoordinator;
-use mmm::cook::execution::MockCommandRunner;
+use mmm::cook::execution::{CommandRunner, ExecutionContext, ExecutionResult};
+use std::os::unix::process::ExitStatusExt;
 use tempfile::TempDir;
+
+// Mock command runner for testing
+struct MockCommandRunner;
+
+impl MockCommandRunner {
+    fn new() -> Self {
+        Self
+    }
+}
+
+#[async_trait::async_trait]
+impl CommandRunner for MockCommandRunner {
+    async fn run_command(
+        &self,
+        _command: &str,
+        _args: &[String],
+    ) -> anyhow::Result<std::process::Output> {
+        Ok(std::process::Output {
+            status: std::process::ExitStatus::from_raw(0),
+            stdout: vec![],
+            stderr: vec![],
+        })
+    }
+    
+    async fn run_with_context(
+        &self,
+        _command: &str,
+        _args: &[String],
+        _context: &ExecutionContext,
+    ) -> anyhow::Result<ExecutionResult> {
+        Ok(ExecutionResult {
+            success: true,
+            stdout: String::new(),
+            stderr: String::new(),
+            exit_code: Some(0),
+        })
+    }
+}
 
 #[tokio::test]
 async fn test_analysis_coordinator_full_cycle() {
