@@ -367,7 +367,7 @@ commands:
 
         let focus_entries: Vec<&str> = focus_log.lines().collect();
         assert!(
-            focus_entries.len() >= 1,
+            !focus_entries.is_empty(),
             "Focus should be tracked at least once, found: {}",
             focus_entries.len()
         );

@@ -20,14 +20,6 @@ pub struct CookCommand {
     )]
     pub path: Option<PathBuf>,
 
-    /// Focus directive for improvements (e.g., "performance", "security", "testing")
-    ///
-    /// This optional parameter allows you to guide the code analysis towards
-    /// specific areas of concern. Claude will naturally interpret the focus area and
-    /// prioritize issues accordingly.
-    #[arg(short = 'f', long)]
-    pub focus: Option<String>,
-
     /// Maximum number of iterations to run (default: 10)
     ///
     /// This limits how many improvement cycles will be executed.

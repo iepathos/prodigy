@@ -91,11 +91,6 @@ impl WorkflowExecutor {
             workflow.name, workflow.max_iterations
         ));
 
-        if let Some(ref focus) = env.focus {
-            self.user_interaction
-                .display_info(&format!("🎯 Focus: {focus}"));
-        }
-
         let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
         let skip_validation =
             std::env::var("MMM_NO_COMMIT_VALIDATION").unwrap_or_default() == "true";
@@ -139,7 +134,7 @@ impl WorkflowExecutor {
 
                 // Execute the step
                 let step_result = self
-                    .execute_step(step, env, iteration == 1 && step_index == 0, &env.focus)
+                    .execute_step(step, env)
                     .await
                     .context(format!("Failed to execute step: {}", step.name))?;
 
@@ -209,13 +204,7 @@ impl WorkflowExecutor {
     }
 
     /// Execute a single workflow step
-    async fn execute_step(
-        &self,
-        step: &WorkflowStep,
-        env: &ExecutionEnvironment,
-        is_first_step: bool,
-        focus: &Option<String>,
-    ) -> Result<bool> {
+    async fn execute_step(&self, step: &WorkflowStep, env: &ExecutionEnvironment) -> Result<bool> {
         // Prepare environment variables
         let mut env_vars = HashMap::new();
 
@@ -228,13 +217,6 @@ impl WorkflowExecutor {
                 .to_string_lossy()
                 .to_string(),
         );
-
-        // Add focus for first step only
-        if is_first_step {
-            if let Some(ref focus_value) = focus {
-                env_vars.insert("MMM_FOCUS".to_string(), focus_value.clone());
-            }
-        }
 
         env_vars.insert("MMM_AUTOMATION".to_string(), "true".to_string());
 
@@ -280,15 +262,6 @@ impl WorkflowExecutor {
         if self.is_test_mode_no_changes_command(&step.command) {
             println!("[TEST MODE] Simulating no changes for: {}", step.command);
             return Ok(false);
-        }
-
-        // Track focus for mmm-code-review if requested
-        if step.command == "/mmm-code-review" {
-            if let Ok(track_file) = std::env::var("MMM_TRACK_FOCUS") {
-                if let Ok(focus) = std::env::var("MMM_FOCUS") {
-                    self.write_focus_to_file(&track_file, &focus);
-                }
-            }
         }
 
         Ok(true)
@@ -410,17 +383,5 @@ impl WorkflowExecutor {
                 .any(|cmd| cmd.trim() == command_name);
         }
         false
-    }
-
-    /// Write focus to tracking file
-    fn write_focus_to_file(&self, track_file: &str, focus_str: &str) {
-        use std::io::Write;
-        if let Ok(mut file) = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(track_file)
-        {
-            let _ = writeln!(file, "iteration: focus={focus_str}");
-        }
     }
 }

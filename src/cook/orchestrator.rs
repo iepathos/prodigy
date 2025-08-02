@@ -60,8 +60,6 @@ pub struct ExecutionEnvironment {
     pub worktree_name: Option<String>,
     /// Session ID
     pub session_id: String,
-    /// Focus area
-    pub focus: Option<String>,
 }
 
 /// Default implementation of cook orchestrator
@@ -200,9 +198,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         if config.command.worktree {
             let worktree_manager =
                 WorktreeManager::new(config.project_path.clone(), self.subprocess.clone())?;
-            let session = worktree_manager
-                .create_session(config.command.focus.as_deref())
-                .await?;
+            let session = worktree_manager.create_session().await?;
 
             working_dir = session.path.clone();
             worktree_name = Some(session.name.clone());
@@ -216,7 +212,6 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             project_dir: config.project_path.clone(),
             worktree_name,
             session_id,
-            focus: config.command.focus.clone(),
         })
     }
 
@@ -1013,7 +1008,6 @@ mod tests {
             command: CookCommand {
                 playbook: PathBuf::from("test.yml"),
                 path: None,
-                focus: None,
                 max_iterations: 5,
                 worktree: false,
                 map: vec![],
@@ -1052,7 +1046,6 @@ mod tests {
             command: CookCommand {
                 playbook: PathBuf::from("test.yml"),
                 path: None,
-                focus: None,
                 max_iterations: 1,
                 worktree: false,
                 map: vec![],
@@ -1178,7 +1171,6 @@ mod tests {
             command: CookCommand {
                 playbook: PathBuf::from("test.yml"),
                 path: None,
-                focus: None,
                 max_iterations: 1,
                 worktree: false,
                 map: vec![],
@@ -1304,7 +1296,6 @@ mod tests {
                 crate::config::command::WorkflowCommand::SimpleObject(
                     crate::config::command::SimpleCommand {
                         name: "mmm-implement-spec".to_string(),
-                        focus: None,
                         commit_required: Some(false),
                         args: Some(vec!["$ARG".to_string()]),
                     },
@@ -1313,7 +1304,6 @@ mod tests {
                 crate::config::command::WorkflowCommand::SimpleObject(
                     crate::config::command::SimpleCommand {
                         name: "mmm-lint".to_string(),
-                        focus: None,
                         commit_required: Some(false),
                         args: None,
                     },
@@ -1322,7 +1312,6 @@ mod tests {
                 crate::config::command::WorkflowCommand::SimpleObject(
                     crate::config::command::SimpleCommand {
                         name: "mmm-check".to_string(),
-                        focus: None,
                         commit_required: Some(false),
                         args: Some(vec!["--strict".to_string()]),
                     },
@@ -1334,7 +1323,6 @@ mod tests {
             command: CookCommand {
                 playbook: PathBuf::from("test.yml"),
                 path: None,
-                focus: None,
                 max_iterations: 1,
                 worktree: false,
                 map: vec![],
@@ -1354,7 +1342,6 @@ mod tests {
             project_dir: temp_dir.path().to_path_buf(),
             worktree_name: None,
             session_id: "test-session".to_string(),
-            focus: None,
         };
 
         // Execute the workflow

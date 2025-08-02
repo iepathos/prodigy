@@ -70,15 +70,12 @@ impl WorktreeManager {
 
     /// Create a new worktree session
     ///
-    /// # Arguments
-    /// * `focus` - Optional focus area for the session (e.g., "security", "performance")
-    ///
     /// # Returns
     /// * `Result<WorktreeSession>` - The created worktree session
     ///
     /// # Errors
     /// Returns error if worktree creation fails
-    pub async fn create_session(&self, focus: Option<&str>) -> Result<WorktreeSession> {
+    pub async fn create_session(&self) -> Result<WorktreeSession> {
         let session_id = Uuid::new_v4();
         // Simple name without focus, using UUID
         let name = format!("session-{session_id}");
@@ -104,12 +101,7 @@ impl WorktreeManager {
         }
 
         // Create session
-        let session = WorktreeSession::new(
-            name.clone(),
-            branch,
-            worktree_path,
-            focus.map(|s| s.to_string()),
-        );
+        let session = WorktreeSession::new(name.clone(), branch, worktree_path);
 
         // Save session state
         self.save_session_state(&session)?;
@@ -129,7 +121,6 @@ impl WorktreeManager {
             created_at: Utc::now(),
             updated_at: Utc::now(),
             status: WorktreeStatus::InProgress,
-            focus: session.focus.clone(),
             iterations: IterationInfo {
                 completed: 0,
                 max: 10,
@@ -228,22 +219,7 @@ impl WorktreeManager {
                             .unwrap_or(&branch)
                             .to_string();
 
-                        // Try to load state from metadata
-                        let state_file =
-                            self.base_dir.join(".metadata").join(format!("{name}.json"));
-                        let focus = if let Ok(state_json) = fs::read_to_string(&state_file) {
-                            if let Ok(state) = serde_json::from_str::<WorktreeState>(&state_json) {
-                                state.focus
-                            } else {
-                                // Fallback for legacy sessions
-                                extract_focus_from_name(&name)
-                            }
-                        } else {
-                            // Fallback for legacy sessions
-                            extract_focus_from_name(&name)
-                        };
-
-                        sessions.push(WorktreeSession::new(name, branch, canonical_path, focus));
+                        sessions.push(WorktreeSession::new(name, branch, canonical_path));
                     }
                 }
                 current_path = Some(PathBuf::from(line.trim_start_matches("worktree ")));
@@ -262,21 +238,7 @@ impl WorktreeManager {
                     .unwrap_or(&branch)
                     .to_string();
 
-                // Try to load state from metadata
-                let state_file = self.base_dir.join(".metadata").join(format!("{name}.json"));
-                let focus = if let Ok(state_json) = fs::read_to_string(&state_file) {
-                    if let Ok(state) = serde_json::from_str::<WorktreeState>(&state_json) {
-                        state.focus
-                    } else {
-                        // Fallback for legacy sessions
-                        extract_focus_from_name(&name)
-                    }
-                } else {
-                    // Fallback for legacy sessions
-                    extract_focus_from_name(&name)
-                };
-
-                sessions.push(WorktreeSession::new(name, branch, canonical_path, focus));
+                sessions.push(WorktreeSession::new(name, branch, canonical_path));
             }
         }
 
@@ -548,7 +510,6 @@ impl WorktreeManager {
             state.worktree_name.clone(),
             state.branch.clone(),
             worktree_path,
-            state.focus.clone(),
         ))
     }
 
@@ -596,17 +557,6 @@ impl WorktreeManager {
         Ok(state
             .last_checkpoint
             .map(|checkpoint| (checkpoint.last_command, checkpoint.last_command_type)))
-    }
-}
-
-/// Extract focus from legacy worktree names
-fn extract_focus_from_name(name: &str) -> Option<String> {
-    if name.starts_with("mmm-session-") || name.starts_with("session-") {
-        None
-    } else {
-        name.strip_prefix("mmm-")
-            .and_then(|s| s.rsplit_once('-'))
-            .map(|(focus, _)| focus.replace("-", " "))
     }
 }
 
@@ -672,7 +622,6 @@ mod tests {
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
             status: WorktreeStatus::InProgress,
-            focus: None,
             iterations: super::IterationInfo {
                 completed: 0,
                 max: 5,

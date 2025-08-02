@@ -12,7 +12,6 @@ pub struct WorktreeState {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub status: WorktreeStatus,
-    pub focus: Option<String>,
     pub iterations: IterationInfo,
     pub stats: WorktreeStats,
     pub merged: bool,

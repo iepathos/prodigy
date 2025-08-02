@@ -28,7 +28,6 @@ mod cook_tests {
         let cmd = CookCommand {
             playbook: PathBuf::from("examples/default.yml"),
             path: None,
-            focus: None,
             max_iterations: 2,
             worktree: false,
             map: Vec::new(),
@@ -82,7 +81,7 @@ mod cook_tests {
         let claude_mock = TestFixtures::rate_limited_claude().await;
 
         // Test code review with rate limit
-        let result = claude_mock.code_review(false, None).await;
+        let result = claude_mock.code_review(false).await;
         assert!(!result.unwrap());
     }
 
@@ -170,7 +169,7 @@ mod cook_tests {
             .await;
 
         // Test code review with focus
-        let result = claude_mock.code_review(false, Some("performance")).await;
+        let result = claude_mock.code_review(false).await;
         assert!(result.unwrap());
 
         // Verify the command was called
