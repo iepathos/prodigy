@@ -1,8 +1,8 @@
 {
   "metadata": {
-    "timestamp": "2025-08-02T21:10:50.160722Z",
-    "duration_ms": 30107,
-    "files_analyzed": 161,
+    "timestamp": "2025-08-02T22:06:36.712645Z",
+    "duration_ms": 113459,
+    "files_analyzed": 159,
     "incremental": false,
     "version": "0.1.0"
   },
@@ -14,30 +14,29 @@
     "test_coverage": "test_coverage.json"
   },
   "statistics": {
-    "total_files": 161,
+    "total_files": 159,
     "total_modules": 135,
-    "dependency_edges": 919,
+    "dependency_edges": 925,
     "circular_dependencies": 0,
     "architectural_violations": 1,
-    "debt_items": 240,
+    "debt_items": 238,
     "high_priority_debt": 28,
-    "overall_coverage": 0.0,
-    "untested_functions": 0,
-    "critical_untested": 0
+    "overall_coverage": 0.5902362653003131,
+    "untested_functions": 1406,
+    "critical_untested": 2
   },
   "health_score": {
-    "overall": 31.578947368421055,
+    "overall": 53.32449398474837,
     "components": {
-      "test_coverage": 0.0,
+      "test_coverage": 59.023626530031315,
       "code_quality": 78.0,
       "documentation": 80.0,
       "maintainability": 10.0,
       "type_safety": null
     },
-    "timestamp": "2025-08-02T21:10:50.160740Z"
+    "timestamp": "2025-08-02T22:06:36.712713Z"
   },
   "insights": [
-    "Low test coverage (0.0%) with 0 untested functions",
     "28 high-priority technical debt items require attention"
   ]
 }
