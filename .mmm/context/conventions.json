@@ -15,13 +15,14 @@
       ],
       "frequency": 2
     },
-    "async": {
-      "name": "Async/await pattern",
-      "description": "Uses async/await for asynchronous code",
+    "logging": {
+      "name": "Logging pattern",
+      "description": "Uses logging for debugging and monitoring",
       "examples": [
-        "async fn process()"
+        "println!",
+        "log::info!"
       ],
-      "frequency": 13
+      "frequency": 1
     },
     "error_handling": {
       "name": "Result-based error handling",
@@ -31,14 +32,13 @@
       ],
       "frequency": 30
     },
-    "logging": {
-      "name": "Logging pattern",
-      "description": "Uses logging for debugging and monitoring",
+    "async": {
+      "name": "Async/await pattern",
+      "description": "Uses async/await for asynchronous code",
       "examples": [
-        "println!",
-        "log::info!"
+        "async fn process()"
       ],
-      "frequency": 1
+      "frequency": 13
     }
   },
   "test_patterns": {
