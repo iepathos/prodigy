@@ -18,7 +18,9 @@ DESCRIPTION: $ARGUMENTS (required - natural language description of the feature 
 
 2. **Analyze Existing Specifications**
    - Scan specs/ directory to find existing specification files
-   - Determine next specification number by finding highest existing number
+   - Parse frontmatter from each spec file to extract metadata
+   - Determine next specification number by finding highest existing number + 1
+   - Skip SPEC_INDEX.md if it exists (deprecated)
    - Review existing specifications to understand format and depth
    - Identify related specifications and potential dependencies
    - Determine appropriate specification category (foundation, parallel, storage, etc.)
@@ -108,7 +110,7 @@ DESCRIPTION: $ARGUMENTS (required - natural language description of the feature 
    - Write specification to specs/{number}-{kebab-case-title}.md
    - Ensure proper file permissions and formatting
    - Validate file structure and content
-   - Include YAML frontmatter with metadata
+   - Include YAML frontmatter with metadata at the very beginning of the file
 
 ### Phase 7: Commit Changes
 
@@ -126,7 +128,7 @@ DESCRIPTION: $ARGUMENTS (required - natural language description of the feature 
    - Check that all modified files are included
    - Verify commit message follows project conventions
    - Ensure no unrelated changes are included
-   - Confirm specification is properly indexed
+   - Confirm specification file exists with proper frontmatter
 
 ## Specification Template Structure
 

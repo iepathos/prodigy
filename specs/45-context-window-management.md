@@ -1,3 +1,13 @@
+---
+number: 45
+title: Context Window Management
+category: optimization
+priority: high
+status: draft
+dependencies: [44, 11]
+created: 2024-01-15
+---
+
 # Specification 45: Context Window Management
 
 **Category**: optimization

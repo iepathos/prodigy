@@ -1,3 +1,13 @@
+---
+number: 61
+title: Fix Ignored Tests with Proper Mocking
+category: testing
+priority: high
+status: draft
+dependencies: [57]
+created: 2024-01-15
+---
+
 # Specification 61: Fix Ignored Tests with Proper Mocking
 
 **Category**: testing

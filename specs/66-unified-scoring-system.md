@@ -1,4 +1,14 @@
-# Specification 65: Unified Scoring System
+---
+number: 66
+title: Unified Scoring System
+category: optimization
+priority: high
+status: draft
+dependencies: [46]
+created: 2024-01-15
+---
+
+# Specification 66: Unified Scoring System
 
 **Category**: optimization
 **Priority**: high
