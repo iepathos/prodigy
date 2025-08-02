@@ -6,7 +6,7 @@ commands:
     commit_required: false  # Code review creates specs, not commits
     outputs:
       spec: 
-        file_pattern: "specs/temp/*.md"
+        file_pattern: "*-improvements.md"
   
   - name: mmm-implement-spec
     inputs:

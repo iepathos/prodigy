@@ -599,46 +599,79 @@ impl DefaultCookOrchestrator {
         Ok(())
     }
 
-    /// Find files matching a glob pattern in recent git commits
+    /// Find files matching a pattern in the last git commit
     async fn find_files_matching_pattern(
         &self,
         pattern: &str,
         working_dir: &std::path::Path,
     ) -> Result<String> {
-        use glob::glob;
-
-        // First, try to find files matching the pattern in the current directory
-        let full_pattern = working_dir.join(pattern);
+        use tokio::process::Command;
 
         self.user_interaction.display_info(&format!(
-            "🔎 Searching for files matching: {}",
-            full_pattern.display()
+            "🔎 Searching for files matching '{}' in last commit",
+            pattern
         ));
 
-        let mut found_files = Vec::new();
+        // Get list of files changed in the last commit
+        let output = Command::new("git")
+            .args(&["diff", "--name-only", "HEAD~1", "HEAD"])
+            .current_dir(working_dir)
+            .output()
+            .await?;
 
-        // Use glob to find matching files
-        if let Ok(entries) = glob(&full_pattern.to_string_lossy()) {
-            for path in entries.flatten() {
-                if path.is_file() {
-                    found_files.push(path);
-                }
+        if !output.status.success() {
+            return Err(anyhow!("Failed to get git diff: {}", 
+                String::from_utf8_lossy(&output.stderr)));
+        }
+
+        let files = String::from_utf8(output.stdout)?;
+        
+        // Check each file in the diff against the pattern
+        for file in files.lines() {
+            let file = file.trim();
+            if file.is_empty() {
+                continue;
+            }
+
+            // Match based on pattern type
+            let matches = if pattern.starts_with('*') {
+                // Wildcard pattern - match suffix
+                let suffix = &pattern[1..];
+                file.ends_with(suffix)
+            } else if pattern.contains('*') {
+                // Glob-style pattern
+                self.matches_glob_pattern(file, pattern)
+            } else {
+                // Simple substring match - just check if filename contains pattern
+                file.split('/').last().unwrap_or(file).contains(pattern)
+            };
+
+            if matches {
+                let full_path = working_dir.join(file);
+                return Ok(full_path.to_string_lossy().to_string());
             }
         }
 
-        if found_files.is_empty() {
-            return Err(anyhow!("No files found matching pattern: {}", pattern));
+        Err(anyhow!("No files found matching pattern '{}' in last commit", pattern))
+    }
+
+    /// Helper to match glob-style patterns
+    fn matches_glob_pattern(&self, file: &str, pattern: &str) -> bool {
+        // Simple glob matching for common cases
+        if pattern == "*" {
+            return true;
         }
-
-        // Sort by modification time and take the most recent
-        found_files.sort_by_key(|path| {
-            std::fs::metadata(path)
-                .and_then(|m| m.modified())
-                .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
-        });
-
-        let latest_file = found_files.into_iter().last().unwrap();
-        Ok(latest_file.to_string_lossy().to_string())
+        
+        // Handle patterns like "*.md" or "*test*"
+        let parts: Vec<&str> = pattern.split('*').collect();
+        if parts.len() == 2 {
+            let prefix = parts[0];
+            let suffix = parts[1];
+            let filename = file.split('/').last().unwrap_or(file);
+            return filename.starts_with(prefix) && filename.ends_with(suffix);
+        }
+        
+        false
     }
 
     /// Execute workflow with arguments from --args or --map
@@ -1281,35 +1314,77 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let (orchestrator, _, _) = create_test_orchestrator();
 
-        // Create test directory structure
-        std::fs::create_dir_all(temp_dir.path().join("specs/temp")).unwrap();
+        // Initialize git repo in temp dir
+        std::process::Command::new("git")
+            .args(&["init"])
+            .current_dir(temp_dir.path())
+            .output()
+            .unwrap();
+            
+        // Configure git user
+        std::process::Command::new("git")
+            .args(&["config", "user.email", "test@example.com"])
+            .current_dir(temp_dir.path())
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(&["config", "user.name", "Test User"])
+            .current_dir(temp_dir.path())
+            .output()
+            .unwrap();
+
+        // Create initial commit
+        std::fs::write(temp_dir.path().join("README.md"), "Initial").unwrap();
+        std::process::Command::new("git")
+            .args(&["add", "."])
+            .current_dir(temp_dir.path())
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(&["commit", "-m", "Initial commit"])
+            .current_dir(temp_dir.path())
+            .output()
+            .unwrap();
 
         // Create test files
+        std::fs::create_dir_all(temp_dir.path().join("specs")).unwrap();
         std::fs::write(
-            temp_dir.path().join("specs/temp/123-tech-debt-cleanup.md"),
+            temp_dir.path().join("specs/iteration-123-tech-debt-cleanup.md"),
             "test spec content",
         )
         .unwrap();
         std::fs::write(
-            temp_dir.path().join("specs/temp/456-tech-debt-cleanup.md"),
-            "newer spec content",
-        )
-        .unwrap();
-        std::fs::write(
-            temp_dir.path().join("specs/temp/other-file.md"),
+            temp_dir.path().join("specs/other-file.md"),
             "should not match",
         )
         .unwrap();
 
-        // Test pattern matching
+        // Add and commit files
+        std::process::Command::new("git")
+            .args(&["add", "."])
+            .current_dir(temp_dir.path())
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(&["commit", "-m", "Add test files"])
+            .current_dir(temp_dir.path())
+            .output()
+            .unwrap();
+
+        // Test pattern matching with wildcard
         let result = orchestrator
-            .find_files_matching_pattern("specs/temp/*-tech-debt-cleanup.md", temp_dir.path())
+            .find_files_matching_pattern("*-tech-debt-cleanup.md", temp_dir.path())
             .await;
 
         assert!(result.is_ok());
         let found_file = result.unwrap();
         assert!(found_file.contains("tech-debt-cleanup.md"));
-        assert!(!found_file.contains("other-file.md"));
+        
+        // Test that non-matching files are not found
+        let result2 = orchestrator
+            .find_files_matching_pattern("*-other-pattern.md", temp_dir.path())
+            .await;
+        assert!(result2.is_err());
     }
 
     #[tokio::test]

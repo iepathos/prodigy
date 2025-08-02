@@ -185,7 +185,7 @@ MMM_FOCUS: Optional focus directive to prioritize specific debt categories
 **CRITICAL FOR AUTOMATION**: When running in automation mode, generate a temporary specification file containing actionable implementation instructions for the technical debt cleanup, then commit it.
 
 1. **Spec File Creation**
-   - Create directory: `specs/temp/` if it doesn't exist
+   - Create directory: `specs/` if it doesn't exist
    - Generate filename: `iteration-{timestamp}-tech-debt-cleanup.md`
    - Write comprehensive implementation spec
 

@@ -5,7 +5,7 @@ commands:
       id: cleanup
       outputs:
         spec:
-          file_pattern: "specs/temp/*-tech-debt-cleanup.md"
+          file_pattern: "*-tech-debt-cleanup.md"
     
     - name: mmm-implement-spec
       inputs:
