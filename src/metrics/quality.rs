@@ -76,7 +76,7 @@ impl QualityAnalyzer {
             debug!("Running cargo-tarpaulin for test coverage");
 
             // Try to use existing tarpaulin coverage data first
-            let tarpaulin_path = project_path.join("tarpaulin-report.json");
+            let tarpaulin_path = project_path.join("target/coverage/tarpaulin-report.json");
             if tarpaulin_path.exists() {
                 // Parse existing tarpaulin report
                 if let Ok(content) = std::fs::read_to_string(&tarpaulin_path) {

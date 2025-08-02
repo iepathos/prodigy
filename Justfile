@@ -74,7 +74,7 @@ coverage:
     echo "Building mmm binary for integration tests..."
     cargo build --bin mmm
     echo "Generating code coverage report with cargo-tarpaulin..."
-    cargo tarpaulin --skip-clean --engine llvm --out Html --output-dir target/coverage
+    cargo tarpaulin --skip-clean --engine llvm --out Html --out Json --output-dir target/coverage
     echo "Coverage report generated at target/coverage/tarpaulin-report.html"
 
 # Run tests with coverage and check threshold
