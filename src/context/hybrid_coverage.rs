@@ -256,7 +256,7 @@ impl BasicHybridCoverageAnalyzer {
             // No coverage data available - return 50.0 as a neutral score
             return 50.0;
         }
-        
+
         let base_coverage = coverage_map.overall_coverage * 100.0;
 
         // Penalty for priority gaps
