@@ -1,69 +1,98 @@
-# Documentation Generation Command
+# Rust Documentation Generation Command
 
-Generates comprehensive documentation for undocumented or poorly documented code.
+Generates comprehensive Rust documentation for undocumented or poorly documented code, using project context from .mmm/ analysis.
 
 ## Usage
 
 ```
-/mmm-docs-generate [target]
+/mmm-docs-generate [documentation type description...]
 ```
 
 Examples:
-- `/mmm-docs-generate` - Generate docs for all undocumented code
-- `/mmm-docs-generate api` - Focus on API documentation
-- `/mmm-docs-generate examples` - Generate usage examples
-- `/mmm-docs-generate architecture` - Create architecture docs
+- `/mmm-docs-generate` - Generate docs for all undocumented Rust code
+- `/mmm-docs-generate public API documentation` - Focus on public API documentation
+- `/mmm-docs-generate usage examples and tutorials` - Generate usage examples and tutorials
+- `/mmm-docs-generate architecture overview` - Create architecture documentation
+- `/mmm-docs-generate module documentation for core components` - Document specific modules
 
 ## What This Command Does
 
-1. **Documentation Analysis**
-   - Identifies undocumented public APIs
-   - Finds missing module documentation
-   - Detects outdated documentation
-   - Evaluates documentation quality
+1. **Project Context Gathering**
+   - Reads .mmm/context/ analysis data for project understanding
+   - Reviews architecture patterns and conventions
+   - Analyzes dependency graph and module structure
+   - Identifies high-priority undocumented areas
 
-2. **Content Generation**
-   - Creates comprehensive API docs
-   - Generates usage examples
-   - Documents design decisions
-   - Adds inline code comments
+2. **Rust Documentation Analysis**
+   - Scans for missing `///` doc comments on public items
+   - Identifies undocumented public APIs (functions, structs, enums, traits)
+   - Finds missing module-level documentation
+   - Detects outdated or incomplete documentation
+   - Evaluates documentation quality against Rust standards
 
-3. **Documentation Spec**
-   - Commits documentation plan
-   - Organized by priority
-   - Follows project conventions
-   - Ready for implementation
+3. **Rust Documentation Generation**
+   - Creates comprehensive rustdoc-compatible documentation
+   - Generates usage examples with proper code blocks
+   - Documents design decisions and architectural patterns
+   - Adds inline code comments following Rust conventions
+   - Ensures examples compile and follow project patterns
 
-## Documentation Types
+4. **Automatic Commit**
+   - Commits generated documentation changes
+   - Creates descriptive commit message
+   - Preserves git history with documentation improvements
 
-- **API Documentation**: Function signatures, parameters, returns
-- **Module Documentation**: Purpose, architecture, dependencies
-- **Usage Examples**: Common use cases, code snippets
-- **Architecture Docs**: System design, data flow
-- **Getting Started**: Installation, quick start guides
-- **Contributing**: Development setup, guidelines
+## Rust Documentation Types
 
-## Documentation Standards
+- **API Documentation**: Rustdoc comments (`///`) for public functions, structs, enums, traits
+- **Module Documentation**: `//!` comments explaining module purpose and architecture
+- **Usage Examples**: Code blocks with `# Examples` sections that compile
+- **Crate Documentation**: Top-level crate documentation in lib.rs
+- **Error Documentation**: Documenting error types and handling patterns
+- **Feature Documentation**: Documenting optional features and their usage
 
-- Clear and concise language
-- Code examples for complex features
-- Diagrams for architecture
-- Versioning information
-- Cross-references
-- Search-friendly structure
+## Rust Documentation Standards
 
-## Output Format
+- Follow rustdoc conventions (`///` for items, `//!` for modules)
+- Include `# Examples` sections with working code
+- Document all public APIs with clear descriptions
+- Use `# Panics`, `# Errors`, and `# Safety` sections when appropriate
+- Cross-reference related items with `[`item`]` syntax
+- Include doctests that actually compile and run
 
-Generates and commits:
+## Context Integration
+
+Before generating documentation, the command:
+
+1. **Reads MMM Context**: Checks for .mmm/context/ directory and loads:
+   - `analysis.json` - Complete project analysis
+   - `architecture.json` - Architectural patterns and violations
+   - `conventions.json` - Code conventions and naming patterns
+   - `technical_debt.json` - Priority areas needing documentation
+
+2. **Prioritizes Documentation**: Uses context data to:
+   - Target high-impact undocumented areas
+   - Follow existing project conventions
+   - Address architectural documentation gaps
+   - Focus on frequently changed or complex modules
+
+## Commit Format
+
+Automatically commits changes with format:
 
 ```
-docs: generate documentation spec for {target} docs-{timestamp}
+docs: generate [documentation type] documentation
+
+- Add rustdoc comments for [specific areas]
+- Include usage examples and code samples
+- Follow project conventions from .mmm/context analysis
 ```
 
-## Best Practices
+## Implementation Workflow
 
-1. Document the "why" not just "what"
-2. Include examples for every public API
-3. Keep docs next to code
-4. Use consistent formatting
-5. Update docs with code changes
+1. **Context Analysis**: Read .mmm/context/ data for project understanding
+2. **Scope Determination**: Parse multi-word prompt to determine documentation scope
+3. **Gap Analysis**: Identify missing or inadequate documentation
+4. **Content Generation**: Create rustdoc-compatible documentation
+5. **Quality Check**: Ensure examples compile and follow conventions
+6. **Commit Changes**: Automatically commit with descriptive message
