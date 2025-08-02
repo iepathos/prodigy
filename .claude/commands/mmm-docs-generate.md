@@ -1,4 +1,4 @@
-# Rust Documentation Generation Command
+# /mmm-docs-generate
 
 Generates comprehensive Rust documentation for undocumented or poorly documented code, using project context from .mmm/ analysis.
 
@@ -24,7 +24,7 @@ Examples:
    - Identifies high-priority undocumented areas
 
 2. **Rust Documentation Analysis**
-   - Scans for missing `///` doc comments on public items
+   - Scans for missing /// doc comments on public items
    - Identifies undocumented public APIs (functions, structs, enums, traits)
    - Finds missing module-level documentation
    - Detects outdated or incomplete documentation
@@ -44,8 +44,8 @@ Examples:
 
 ## Rust Documentation Types
 
-- **API Documentation**: Rustdoc comments (`///`) for public functions, structs, enums, traits
-- **Module Documentation**: `//!` comments explaining module purpose and architecture
+- **API Documentation**: Rustdoc comments (///) for public functions, structs, enums, traits
+- **Module Documentation**: //! comments explaining module purpose and architecture
 - **Usage Examples**: Code blocks with `# Examples` sections that compile
 - **Crate Documentation**: Top-level crate documentation in lib.rs
 - **Error Documentation**: Documenting error types and handling patterns
@@ -53,11 +53,11 @@ Examples:
 
 ## Rust Documentation Standards
 
-- Follow rustdoc conventions (`///` for items, `//!` for modules)
+- Follow rustdoc conventions (/// for items, //! for modules)
 - Include `# Examples` sections with working code
 - Document all public APIs with clear descriptions
 - Use `# Panics`, `# Errors`, and `# Safety` sections when appropriate
-- Cross-reference related items with `[`item`]` syntax
+- Cross-reference related items with `[item]` syntax
 - Include doctests that actually compile and run
 
 ## Context Integration
