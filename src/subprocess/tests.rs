@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod tests {
+mod subprocess_tests {
     use super::super::*;
     use std::time::Duration;
 

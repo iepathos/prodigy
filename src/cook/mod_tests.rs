@@ -7,6 +7,7 @@ use tempfile::TempDir;
 
 // Test-specific session state
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct TestSessionState {
     session_id: String,
     started_at: i64,
@@ -436,7 +437,7 @@ version = "0.1.0"
             }
             Err(_) => {
                 // It's ok if WorktreeManager can't be created in test environment
-                assert!(true);
+                // No assertion needed
             }
         }
     }

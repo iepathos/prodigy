@@ -1208,4 +1208,169 @@ mod tests {
             );
         }
     }
+
+    #[tokio::test]
+    async fn test_arg_resolution_only_for_commands_with_args() {
+        let temp_dir = TempDir::new().unwrap();
+        let mock_runner = MockCommandRunner::new();
+        let mock_interaction = Arc::new(MockUserInteraction::new());
+        let mock_git = Arc::new(TestMockGitOperations::new());
+
+        // Set up mock responses for Claude commands (need 3 for our 3 commands)
+        for _ in 0..3 {
+            mock_runner.add_response(crate::cook::execution::ExecutionResult {
+                success: true,
+                stdout: "Command executed".to_string(),
+                stderr: String::new(),
+                exit_code: Some(0),
+            });
+        }
+
+        let session_manager = Arc::new(SessionTrackerImpl::new(
+            "test".to_string(),
+            temp_dir.path().to_path_buf(),
+        ));
+
+        let command_executor = Arc::new(crate::cook::execution::runner::RealCommandRunner::new());
+        let claude_executor = Arc::new(ClaudeExecutorImpl::new(mock_runner));
+        let analysis_coordinator = Arc::new(AnalysisRunnerImpl::new(MockCommandRunner::new()));
+        let metrics_coordinator = Arc::new(MetricsCollectorImpl::new(MockCommandRunner::new()));
+        let state_manager = StateManager::new().unwrap();
+        let subprocess = crate::subprocess::SubprocessManager::production();
+
+        let orchestrator = DefaultCookOrchestrator::new(
+            session_manager,
+            command_executor,
+            claude_executor,
+            analysis_coordinator,
+            metrics_coordinator,
+            mock_interaction.clone(),
+            mock_git.clone(),
+            state_manager,
+            subprocess,
+        );
+
+        // Create a workflow with commands that do and don't use $ARG
+        let workflow = WorkflowConfig {
+            commands: vec![
+                // Command with $ARG
+                crate::config::command::WorkflowCommand::SimpleObject(
+                    crate::config::command::SimpleCommand {
+                        name: "mmm-implement-spec".to_string(),
+                        focus: None,
+                        commit_required: Some(true),
+                        args: Some(vec!["$ARG".to_string()]),
+                    },
+                ),
+                // Command without args
+                crate::config::command::WorkflowCommand::SimpleObject(
+                    crate::config::command::SimpleCommand {
+                        name: "mmm-lint".to_string(),
+                        focus: None,
+                        commit_required: Some(false),
+                        args: None,
+                    },
+                ),
+                // Command with literal args
+                crate::config::command::WorkflowCommand::SimpleObject(
+                    crate::config::command::SimpleCommand {
+                        name: "mmm-check".to_string(),
+                        focus: None,
+                        commit_required: Some(false),
+                        args: Some(vec!["--strict".to_string()]),
+                    },
+                ),
+            ],
+        };
+
+        let config = CookConfig {
+            command: CookCommand {
+                playbook: PathBuf::from("test.yml"),
+                path: None,
+                focus: None,
+                max_iterations: 1,
+                worktree: false,
+                map: vec![],
+                args: vec!["test-value".to_string()],
+                fail_fast: false,
+                metrics: false,
+                auto_accept: false,
+                resume: None,
+                skip_analysis: true,
+            },
+            project_path: temp_dir.path().to_path_buf(),
+            workflow,
+        };
+
+        let env = ExecutionEnvironment {
+            working_dir: temp_dir.path().to_path_buf(),
+            project_dir: temp_dir.path().to_path_buf(),
+            worktree_name: None,
+            session_id: "test-session".to_string(),
+            focus: None,
+        };
+
+        // Execute the workflow
+        let result = orchestrator.execute_workflow(&env, &config).await;
+        assert!(result.is_ok());
+
+        // Check the interactions - should have different messages for commands with/without ARG
+        let messages = mock_interaction.get_messages();
+        
+        // Find the command execution messages
+        let command_messages: Vec<String> = messages
+            .iter()
+            .filter_map(|msg| {
+                // Messages are prefixed with INFO:, so we need to check the content after that
+                if msg.contains("🚀 Executing command:") {
+                    Some(msg.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        assert_eq!(command_messages.len(), 3, "Should have 3 command execution messages");
+        
+        // First command should show ARG
+        assert!(
+            command_messages[0].contains("(ARG=test-value)"),
+            "First command should show ARG: {}",
+            command_messages[0]
+        );
+        
+        // Second command should NOT show ARG
+        assert!(
+            !command_messages[1].contains("(ARG="),
+            "Second command should NOT show ARG: {}",
+            command_messages[1]
+        );
+        
+        // Third command should NOT show ARG (has literal args, not $ARG)
+        assert!(
+            !command_messages[2].contains("(ARG="),
+            "Third command should NOT show ARG: {}",
+            command_messages[2]
+        );
+    }
+
+    #[test]
+    fn test_command_arg_detection() {
+        use crate::config::command::CommandArg;
+
+        // Test variable detection
+        let arg_var = CommandArg::Variable("ARG".to_string());
+        assert!(arg_var.is_variable());
+        assert!(matches!(&arg_var, CommandArg::Variable(var) if var == "ARG"));
+
+        // Test literal detection
+        let arg_literal = CommandArg::Literal("--flag".to_string());
+        assert!(!arg_literal.is_variable());
+        assert!(!matches!(&arg_literal, CommandArg::Variable(var) if var == "ARG"));
+
+        // Test other variable
+        let other_var = CommandArg::Variable("FILE".to_string());
+        assert!(other_var.is_variable());
+        assert!(!matches!(&other_var, CommandArg::Variable(var) if var == "ARG"));
+    }
 }
