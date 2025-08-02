@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "timestamp": "2025-08-02T09:40:36.009738Z",
-    "duration_ms": 110400,
+    "timestamp": "2025-08-02T09:40:36.109525Z",
+    "duration_ms": 110510,
     "files_analyzed": 155,
     "incremental": false,
     "version": "0.1.0"
@@ -35,7 +35,7 @@
       "maintainability": 10.0,
       "type_safety": null
     },
-    "timestamp": "2025-08-02T09:40:36.009826Z"
+    "timestamp": "2025-08-02T09:40:36.109642Z"
   },
   "insights": [
     "28 high-priority technical debt items require attention"

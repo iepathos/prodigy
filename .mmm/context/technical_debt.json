@@ -2,17 +2,17 @@
   "statistics": {
     "total_items": 240,
     "by_type": {
+      "Hack": 7,
       "Duplication": 100,
       "Deprecated": 6,
       "Complexity": 63,
       "Todo": 52,
-      "Hack": 7,
       "Fixme": 12
     },
     "by_impact": {
-      "High": 16,
       "Low": 52,
-      "Medium": 172
+      "Medium": 172,
+      "High": 16
     },
     "avg_impact": 5.333333333333333,
     "avg_effort": 3.941666666666667
@@ -329,15 +329,15 @@
       "primary_issue_type": "Duplication"
     },
     {
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-017b0c4a-26ec-42d6-8f6a-8d80d6a34a79/src/context/tarpaulin_coverage.rs",
+      "total_issues": 6,
+      "max_complexity": 19,
+      "primary_issue_type": "Complexity"
+    },
+    {
       "file": "/Users/glen/.mmm/worktrees/mmm/session-017b0c4a-26ec-42d6-8f6a-8d80d6a34a79/src/git/mod.rs",
       "total_issues": 6,
       "max_complexity": 0,
-      "primary_issue_type": "Duplication"
-    },
-    {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-017b0c4a-26ec-42d6-8f6a-8d80d6a34a79/src/scoring/mod.rs",
-      "total_issues": 6,
-      "max_complexity": 11,
       "primary_issue_type": "Duplication"
     }
   ],
