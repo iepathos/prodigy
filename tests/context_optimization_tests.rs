@@ -96,8 +96,7 @@ async fn test_hybrid_coverage_prioritization() -> Result<()> {
     };
 
     // Create gaps separately for the test
-    let _critical_gaps = vec![
-        CoverageGap {
+    let _critical_gaps = [CoverageGap {
             file: PathBuf::from("src/critical.rs"),
             functions: vec!["process_payment".to_string()],
             coverage_percentage: 20.0,
@@ -108,8 +107,7 @@ async fn test_hybrid_coverage_prioritization() -> Result<()> {
             functions: vec!["format_output".to_string()],
             coverage_percentage: 80.0,
             risk: "Low".to_string(),
-        },
-    ];
+        }];
 
     // Empty metrics for simplicity
     let metrics_history = vec![];
@@ -147,8 +145,8 @@ fn test_size_optimization_for_analysis_result() {
     // Add many debt items
     for i in 0..1000 {
         analysis.technical_debt.debt_items.push(DebtItem {
-            id: format!("item_{}", i),
-            title: format!("Debt item {}", i),
+            id: format!("item_{i}"),
+            title: format!("Debt item {i}"),
             description: "Test".to_string(),
             location: PathBuf::from("test.rs"),
             line_number: Some(i),

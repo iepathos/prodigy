@@ -198,9 +198,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         if config.command.worktree {
             let worktree_manager =
                 WorktreeManager::new(config.project_path.clone(), self.subprocess.clone())?;
-            let session = worktree_manager
-                .create_session()
-                .await?;
+            let session = worktree_manager.create_session().await?;
 
             working_dir = session.path.clone();
             worktree_name = Some(session.name.clone());

@@ -178,9 +178,7 @@ async fn test_focus_sanitization() -> anyhow::Result<()> {
     let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
     // Test with spaces and slashes
-    let session = manager
-        .create_session()
-        .await?;
+    let session = manager.create_session().await?;
 
     // Should replace spaces and slashes with hyphens
     assert!(session.name.starts_with("session-"));

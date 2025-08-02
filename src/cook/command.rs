@@ -20,7 +20,6 @@ pub struct CookCommand {
     )]
     pub path: Option<PathBuf>,
 
-
     /// Maximum number of iterations to run (default: 10)
     ///
     /// This limits how many improvement cycles will be executed.

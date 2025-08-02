@@ -91,7 +91,6 @@ impl WorkflowExecutor {
             workflow.name, workflow.max_iterations
         ));
 
-
         let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
         let skip_validation =
             std::env::var("MMM_NO_COMMIT_VALIDATION").unwrap_or_default() == "true";
@@ -205,11 +204,7 @@ impl WorkflowExecutor {
     }
 
     /// Execute a single workflow step
-    async fn execute_step(
-        &self,
-        step: &WorkflowStep,
-        env: &ExecutionEnvironment,
-    ) -> Result<bool> {
+    async fn execute_step(&self, step: &WorkflowStep, env: &ExecutionEnvironment) -> Result<bool> {
         // Prepare environment variables
         let mut env_vars = HashMap::new();
 
@@ -222,7 +217,6 @@ impl WorkflowExecutor {
                 .to_string_lossy()
                 .to_string(),
         );
-
 
         env_vars.insert("MMM_AUTOMATION".to_string(), "true".to_string());
 
@@ -269,7 +263,6 @@ impl WorkflowExecutor {
             println!("[TEST MODE] Simulating no changes for: {}", step.command);
             return Ok(false);
         }
-
 
         Ok(true)
     }
@@ -391,5 +384,4 @@ impl WorkflowExecutor {
         }
         false
     }
-
 }

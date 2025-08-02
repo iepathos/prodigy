@@ -33,7 +33,6 @@ enum Commands {
         )]
         path: Option<PathBuf>,
 
-
         /// Maximum number of iterations to run (default: 10)
         #[arg(short = 'n', long, default_value = "10")]
         max_iterations: u32,
@@ -284,11 +283,7 @@ fn display_worktree_session(
 
 /// Display a worktree session using legacy format
 fn display_worktree_session_legacy(session: &mmm::worktree::WorktreeSession) {
-    println!(
-        "  {} - {}",
-        session.name,
-        session.path.display()
-    );
+    println!("  {} - {}", session.name, session.path.display());
 }
 
 /// Handle the list command for worktrees

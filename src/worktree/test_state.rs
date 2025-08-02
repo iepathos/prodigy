@@ -148,7 +148,6 @@ async fn test_list_sessions_with_state() -> anyhow::Result<()> {
     let _s1 = sessions.iter().find(|s| s.name == session1.name).unwrap();
     let _s2 = sessions.iter().find(|s| s.name == session2.name).unwrap();
 
-
     // Clean up
     manager.cleanup_session(&session1.name, false).await?;
     manager.cleanup_session(&session2.name, false).await?;
@@ -214,4 +213,3 @@ fn test_state_error_handling() -> anyhow::Result<()> {
     cleanup_worktree_dir(&manager);
     Ok(())
 }
-

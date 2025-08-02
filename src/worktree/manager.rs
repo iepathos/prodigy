@@ -101,11 +101,7 @@ impl WorktreeManager {
         }
 
         // Create session
-        let session = WorktreeSession::new(
-            name.clone(),
-            branch,
-            worktree_path,
-        );
+        let session = WorktreeSession::new(name.clone(), branch, worktree_path);
 
         // Save session state
         self.save_session_state(&session)?;
@@ -563,7 +559,6 @@ impl WorktreeManager {
             .map(|checkpoint| (checkpoint.last_command, checkpoint.last_command_type)))
     }
 }
-
 
 #[cfg(test)]
 mod tests {
