@@ -3,9 +3,7 @@
 use anyhow::Result;
 use mmm::context::{
     debt::{DebtItem, DebtType},
-    hybrid_coverage::{BasicHybridCoverageAnalyzer, CoverageGap, HybridCoverageAnalyzer},
     size_manager::ContextSizeManager,
-    test_coverage::{FileCoverage, TestCoverageMap},
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -57,6 +55,8 @@ async fn test_context_size_manager() -> Result<()> {
     Ok(())
 }
 
+// Test removed - hybrid coverage functionality has been removed
+/*
 #[tokio::test]
 async fn test_hybrid_coverage_prioritization() -> Result<()> {
     let analyzer = BasicHybridCoverageAnalyzer::new();
@@ -136,6 +136,7 @@ async fn test_hybrid_coverage_prioritization() -> Result<()> {
 
     Ok(())
 }
+*/
 
 #[test]
 fn test_size_optimization_for_analysis_result() {
@@ -221,7 +222,6 @@ fn create_test_analysis_result() -> mmm::context::AnalysisResult {
             priority_queue: std::collections::BinaryHeap::new(),
         },
         test_coverage: None,
-        hybrid_coverage: None,
         metadata: AnalysisMetadata {
             timestamp: chrono::Utc::now(),
             duration_ms: 1000,

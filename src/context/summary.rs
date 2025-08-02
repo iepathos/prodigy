@@ -24,7 +24,6 @@ pub struct ComponentReferences {
     pub conventions: String,
     pub technical_debt: String,
     pub test_coverage: Option<String>,
-    pub hybrid_coverage: Option<String>,
 }
 
 /// Key statistics from the analysis
@@ -202,10 +201,6 @@ impl AnalysisSummary {
                     .test_coverage
                     .as_ref()
                     .map(|_| "test_coverage.json".to_string()),
-                hybrid_coverage: analysis
-                    .hybrid_coverage
-                    .as_ref()
-                    .map(|_| "hybrid_coverage.json".to_string()),
             },
             statistics,
             health_score,

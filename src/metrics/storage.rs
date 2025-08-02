@@ -226,7 +226,6 @@ mod tests {
             memory_usage: std::collections::HashMap::new(),
             bugs_fixed: 0,
             features_added: 0,
-            tech_debt_score: 5.0,
             improvement_velocity: 1.2,
             health_score: None,
         };
@@ -276,7 +275,6 @@ mod tests {
                 memory_usage: std::collections::HashMap::new(),
                 bugs_fixed: 0,
                 features_added: 0,
-                tech_debt_score: 6.0,
                 improvement_velocity: 1.0,
                 health_score: None,
             },
@@ -320,7 +318,6 @@ mod tests {
             memory_usage: std::collections::HashMap::new(),
             bugs_fixed: 0,
             features_added: 0,
-            tech_debt_score: 3.0,
             improvement_velocity: 1.5,
             health_score: None,
         };
@@ -377,7 +374,6 @@ mod tests {
             memory_usage: std::collections::HashMap::new(),
             bugs_fixed: 0,
             features_added: 0,
-            tech_debt_score: 8.0,
             improvement_velocity: 0.5,
             health_score: None,
         };

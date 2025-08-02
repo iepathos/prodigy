@@ -13,7 +13,6 @@ pub struct ProjectAnalyzer {
     convention_detector: Box<dyn ConventionDetector>,
     debt_mapper: Box<dyn TechnicalDebtMapper>,
     coverage_analyzer: Box<dyn TestCoverageAnalyzer>,
-    hybrid_coverage_analyzer: Box<dyn hybrid_coverage::HybridCoverageAnalyzer>,
     cached_result: Option<AnalysisResult>,
     #[allow(dead_code)]
     subprocess: SubprocessManager,
@@ -37,7 +36,6 @@ impl ProjectAnalyzer {
             coverage_analyzer: Box::new(super::tarpaulin_coverage::TarpaulinCoverageAnalyzer::new(
                 subprocess.clone(),
             )),
-            hybrid_coverage_analyzer: Box::new(hybrid_coverage::BasicHybridCoverageAnalyzer::new()),
             cached_result: None,
             subprocess,
         }
@@ -57,7 +55,6 @@ impl ProjectAnalyzer {
             convention_detector,
             debt_mapper,
             coverage_analyzer,
-            hybrid_coverage_analyzer: Box::new(hybrid_coverage::BasicHybridCoverageAnalyzer::new()),
             subprocess: SubprocessManager::production(),
             cached_result: None,
         }
@@ -100,21 +97,7 @@ impl ContextAnalyzer for ProjectAnalyzer {
         // Count analyzed files
         let files_analyzed = count_files(project_path)?;
 
-        // Load metrics history if available
-        let metrics_history =
-            match crate::metrics::storage::load_metrics_history(project_path).await {
-                Ok(metrics) => metrics.snapshots,
-                _ => {
-                    vec![]
-                }
-            };
-
-        // Run hybrid coverage analysis if we have test coverage
-        let hybrid_coverage = self
-            .hybrid_coverage_analyzer
-            .analyze_hybrid_coverage(project_path, &coverage, &metrics_history)
-            .await
-            .ok();
+        // Note: metrics history loading removed as hybrid coverage has been removed
 
         let result = AnalysisResult {
             dependency_graph: deps,
@@ -122,7 +105,6 @@ impl ContextAnalyzer for ProjectAnalyzer {
             conventions: conv,
             technical_debt: debt,
             test_coverage: Some(coverage),
-            hybrid_coverage,
             metadata: AnalysisMetadata {
                 timestamp: chrono::Utc::now(),
                 duration_ms,
@@ -186,23 +168,6 @@ impl ContextAnalyzer for ProjectAnalyzer {
                     .update_coverage(project_path, test_coverage, changed_files)
                     .await?,
             );
-        }
-
-        // Update hybrid coverage if test coverage exists
-        if let Some(ref test_coverage) = result.test_coverage {
-            let metrics_history =
-                match crate::metrics::storage::load_metrics_history(project_path).await {
-                    Ok(metrics) => metrics.snapshots,
-                    _ => {
-                        vec![]
-                    }
-                };
-
-            result.hybrid_coverage = self
-                .hybrid_coverage_analyzer
-                .analyze_hybrid_coverage(project_path, test_coverage, &metrics_history)
-                .await
-                .ok();
         }
 
         // Update metadata

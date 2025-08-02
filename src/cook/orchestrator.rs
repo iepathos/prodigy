@@ -404,8 +404,7 @@ impl DefaultCookOrchestrator {
         for iteration in 1..=max_iterations {
             if iteration > 1 {
                 self.user_interaction.display_progress(&format!(
-                    "Starting iteration {}/{}",
-                    iteration, max_iterations
+                    "Starting iteration {iteration}/{max_iterations}"
                 ));
             }
 
@@ -610,13 +609,12 @@ impl DefaultCookOrchestrator {
         use tokio::process::Command;
 
         self.user_interaction.display_info(&format!(
-            "🔎 Searching for files matching '{}' in last commit",
-            pattern
+            "🔎 Searching for files matching '{pattern}' in last commit"
         ));
 
         // Get list of files changed in the last commit
         let output = Command::new("git")
-            .args(&["diff", "--name-only", "HEAD~1", "HEAD"])
+            .args(["diff", "--name-only", "HEAD~1", "HEAD"])
             .current_dir(working_dir)
             .output()
             .await?;
@@ -638,16 +636,15 @@ impl DefaultCookOrchestrator {
             }
 
             // Match based on pattern type
-            let matches = if pattern.starts_with('*') {
+            let matches = if let Some(suffix) = pattern.strip_prefix('*') {
                 // Wildcard pattern - match suffix
-                let suffix = &pattern[1..];
                 file.ends_with(suffix)
             } else if pattern.contains('*') {
                 // Glob-style pattern
                 self.matches_glob_pattern(file, pattern)
             } else {
                 // Simple substring match - just check if filename contains pattern
-                file.split('/').last().unwrap_or(file).contains(pattern)
+                file.split('/').next_back().unwrap_or(file).contains(pattern)
             };
 
             if matches {
@@ -674,7 +671,7 @@ impl DefaultCookOrchestrator {
         if parts.len() == 2 {
             let prefix = parts[0];
             let suffix = parts[1];
-            let filename = file.split('/').last().unwrap_or(file);
+            let filename = file.split('/').next_back().unwrap_or(file);
             return filename.starts_with(prefix) && filename.ends_with(suffix);
         }
 
@@ -1323,19 +1320,19 @@ mod tests {
 
         // Initialize git repo in temp dir
         std::process::Command::new("git")
-            .args(&["init"])
+            .args(["init"])
             .current_dir(temp_dir.path())
             .output()
             .unwrap();
 
         // Configure git user
         std::process::Command::new("git")
-            .args(&["config", "user.email", "test@example.com"])
+            .args(["config", "user.email", "test@example.com"])
             .current_dir(temp_dir.path())
             .output()
             .unwrap();
         std::process::Command::new("git")
-            .args(&["config", "user.name", "Test User"])
+            .args(["config", "user.name", "Test User"])
             .current_dir(temp_dir.path())
             .output()
             .unwrap();
@@ -1343,12 +1340,12 @@ mod tests {
         // Create initial commit
         std::fs::write(temp_dir.path().join("README.md"), "Initial").unwrap();
         std::process::Command::new("git")
-            .args(&["add", "."])
+            .args(["add", "."])
             .current_dir(temp_dir.path())
             .output()
             .unwrap();
         std::process::Command::new("git")
-            .args(&["commit", "-m", "Initial commit"])
+            .args(["commit", "-m", "Initial commit"])
             .current_dir(temp_dir.path())
             .output()
             .unwrap();
@@ -1370,12 +1367,12 @@ mod tests {
 
         // Add and commit files
         std::process::Command::new("git")
-            .args(&["add", "."])
+            .args(["add", "."])
             .current_dir(temp_dir.path())
             .output()
             .unwrap();
         std::process::Command::new("git")
-            .args(&["commit", "-m", "Add test files"])
+            .args(["commit", "-m", "Add test files"])
             .current_dir(temp_dir.path())
             .output()
             .unwrap();

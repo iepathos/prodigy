@@ -15,8 +15,6 @@ pub mod architecture;
 pub mod conventions;
 pub mod debt;
 pub mod dependencies;
-pub mod hybrid_coverage;
-pub mod optimized_hybrid;
 pub mod size_manager;
 pub mod summary;
 pub mod tarpaulin_coverage;
@@ -27,7 +25,6 @@ pub use architecture::ArchitectureExtractor;
 pub use conventions::{ConventionDetector, ProjectConventions};
 pub use debt::{DebtItem, TechnicalDebtMap, TechnicalDebtMapper};
 pub use dependencies::{DependencyAnalyzer, DependencyGraph};
-pub use hybrid_coverage::{HybridCoverageAnalyzer, HybridCoverageReport};
 pub use test_coverage::{TestCoverageAnalyzer, TestCoverageMap};
 
 /// Results from all context analyzers
@@ -38,7 +35,6 @@ pub struct AnalysisResult {
     pub conventions: ProjectConventions,
     pub technical_debt: TechnicalDebtMap,
     pub test_coverage: Option<TestCoverageMap>,
-    pub hybrid_coverage: Option<HybridCoverageReport>,
     pub metadata: AnalysisMetadata,
 }
 
@@ -260,56 +256,78 @@ pub fn save_analysis_with_commit(
         );
     }
 
-    if let Some(ref hybrid_coverage) = analysis.hybrid_coverage {
-        let hybrid_file = context_dir.join("hybrid_coverage.json");
-        // Create optimized version without duplication
-        let optimized = optimized_hybrid::OptimizedHybridCoverage::from_report(hybrid_coverage);
-        let content = serde_json::to_string_pretty(&optimized)?;
-        std::fs::write(&hybrid_file, &content)?;
-        eprintln!(
-            "🔍 Optimized hybrid coverage (removed duplication -> {} bytes)",
-            content.len()
-        );
-    }
-
     let metadata_file = context_dir.join("analysis_metadata.json");
     std::fs::write(
         &metadata_file,
         serde_json::to_string_pretty(&analysis.metadata)?,
     )?;
 
-    // Calculate and display key scores
-    let mut overall_score = 0.0;
+    // Calculate unified health score
+    let health_score = crate::scoring::ProjectHealthScore::from_context(analysis);
 
-    if let Some(ref test_coverage) = analysis.test_coverage {
-        let coverage_pct = (test_coverage.overall_coverage * 100.0) as f32;
-        eprintln!("📊 Test coverage: {coverage_pct:.1}%");
-        overall_score += coverage_pct as f64 * 0.3; // 30% weight
+    eprintln!("\n📊 Project Health Score: {:.1}/100", health_score.overall);
+    eprintln!("\nComponents:");
+
+    use crate::scoring::format_component;
+
+    // Display test coverage
+    eprintln!(
+        "{}",
+        format_component("Test Coverage", health_score.components.test_coverage, None)
+    );
+
+    // Display code quality with pattern/idiom count
+    let pattern_info = format!(
+        "({} patterns, {} idioms)",
+        analysis.conventions.code_patterns.len(),
+        analysis.conventions.project_idioms.len()
+    );
+    eprintln!(
+        "{}",
+        format_component(
+            "Code Quality",
+            health_score.components.code_quality,
+            Some(&pattern_info)
+        )
+    );
+
+    // Display maintainability with debt count
+    let debt_info = format!("({} debt items)", analysis.technical_debt.debt_items.len());
+    eprintln!(
+        "{}",
+        format_component(
+            "Maintainability",
+            health_score.components.maintainability,
+            Some(&debt_info)
+        )
+    );
+
+    // Display documentation estimate
+    eprintln!(
+        "{}",
+        format_component(
+            "Documentation",
+            health_score.components.documentation,
+            Some("(estimated)")
+        )
+    );
+
+    // Type safety not available in context analysis
+    eprintln!(
+        "{}",
+        format_component("Type Safety", health_score.components.type_safety, None)
+    );
+
+    // Show improvement suggestions
+    let suggestions = health_score.get_improvement_suggestions();
+    if !suggestions.is_empty() {
+        eprintln!("\n💡 Top improvements:");
+        for (i, suggestion) in suggestions.iter().enumerate() {
+            eprintln!("  {}. {}", i + 1, suggestion);
+        }
     }
 
-    if let Some(ref hybrid_coverage) = analysis.hybrid_coverage {
-        eprintln!(
-            "🔍 Hybrid coverage score: {:.1}",
-            hybrid_coverage.hybrid_score
-        );
-        overall_score += hybrid_coverage.hybrid_score * 0.3; // 30% weight
-    }
-
-    // Calculate debt score using logarithmic scaling for better handling of high debt counts
-    let debt_score = if analysis.technical_debt.debt_items.is_empty() {
-        100.0
-    } else {
-        // Use logarithmic scaling: score = 100 * (1 - log(debt_count + 1) / log(max_expected_debt))
-        // This gives a more reasonable score distribution
-        let debt_count = analysis.technical_debt.debt_items.len() as f64;
-        let max_expected_debt: f64 = 1000.0; // Adjust based on typical project sizes
-        let score = 100.0 * (1.0 - (debt_count + 1.0).ln() / max_expected_debt.ln());
-        score.clamp(0.0, 100.0)
-    };
-    eprintln!("🛠️  Technical debt score: {debt_score:.1}");
-    overall_score += debt_score * 0.4; // 40% weight
-
-    eprintln!("🎯 Overall quality score: {overall_score:.1}/100");
+    let overall_score = health_score.overall;
 
     // Analyze and report final context sizes
     if let Ok(size_metadata) = size_manager.analyze_context_sizes(&context_dir) {

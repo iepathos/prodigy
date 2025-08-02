@@ -176,7 +176,6 @@ mod tests {
                 priority_queue: BinaryHeap::new(),
             },
             test_coverage: None,
-            hybrid_coverage: None,
             metadata: AnalysisMetadata {
                 timestamp: Utc::now(),
                 duration_ms: 100,

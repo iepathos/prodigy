@@ -679,3 +679,21 @@ Replace the manual SPEC_INDEX.md system with a simpler file-based approach where
 - **Positive**: Zero manual maintenance required, always accurate spec status (file exists = unimplemented), faster command execution without index parsing, cleaner repository structure, easier onboarding for contributors, complete implementation history preserved in git
 - **Negative**: Loss of centralized view of all specs ever created (mitigated by git history), requires one-time migration of existing specs, commands that relied on index need updates
 - **Implementation**: Added YAML frontmatter to all existing spec files, updated mmm-implement-spec to delete specs after implementation, created mmm-list-specs command for dynamic spec discovery, updated mmm-add-spec to generate numbers from existing files, archived SPEC_INDEX.md for historical reference
+
+---
+
+## ADR-039: Unified Scoring System
+
+### Status
+Accepted
+
+### Context
+Spec 66 identified that MMM had multiple conflicting scoring systems: two different "overall quality scores" with different calculations, two different "technical debt scores" meaning opposite things, and a confusing "hybrid coverage score" that users didn't understand. This led to confusion when running `mmm analyze` or `mmm cook`, where multiple conflicting scores were displayed.
+
+### Decision
+Implement a single, unified scoring system with one clear "Project Health Score" from 0-100 where higher is consistently better. Remove the confusing hybrid coverage score entirely, unify technical debt calculation into a single maintainability metric, and display scores with clear component breakdowns showing what contributes to the overall health score.
+
+### Consequences
+- **Positive**: Single coherent scoring system, consistent meaning across all contexts, clear understanding for users, transparent score calculation, easier to track progress over time, no conflicting scores
+- **Negative**: Breaking change for any tooling relying on old scores, loss of hybrid coverage analysis (though it provided minimal value), slightly less granular debt tracking
+- **Implementation**: Created unified ProjectHealthScore struct in scoring module, removed hybrid_coverage field from AnalysisResult, removed tech_debt_score from ImprovementMetrics, updated all display logic to use unified scoring, maintained backward compatibility through health_score field

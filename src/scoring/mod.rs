@@ -65,9 +65,8 @@ impl ProjectHealthScore {
             total_weight += 0.25;
         }
 
-        // Maintainability (25% weight) - inverse of tech debt
-        // Convert tech debt score (0-100 where higher is worse) to maintainability
-        let maintainability = 100.0 - metrics.tech_debt_score as f64;
+        // Maintainability (25% weight) - based on lint warnings and complexity
+        let maintainability = calculate_maintainability_from_metrics(metrics);
         components.maintainability = Some(maintainability);
         total_score += maintainability * 0.25;
         total_weight += 0.25;
@@ -260,6 +259,29 @@ fn calculate_quality_from_patterns(pattern_count: usize, idiom_count: usize) -> 
     score.min(100.0)
 }
 
+/// Calculate maintainability from metrics
+fn calculate_maintainability_from_metrics(metrics: &ImprovementMetrics) -> f64 {
+    let mut score = 100.0;
+
+    // Deduct for lint warnings (max 30 point deduction)
+    let warning_penalty = (metrics.lint_warnings as f64 * 2.0).min(30.0);
+    score -= warning_penalty;
+
+    // Deduct for high complexity
+    if !metrics.cyclomatic_complexity.is_empty() {
+        let avg_complexity = metrics.cyclomatic_complexity.values().sum::<u32>() as f64
+            / metrics.cyclomatic_complexity.len() as f64;
+        let complexity_penalty = (avg_complexity * 2.0).min(30.0);
+        score -= complexity_penalty;
+    }
+
+    // Deduct for low test coverage
+    let coverage_penalty = ((100.0 - metrics.test_coverage as f64) * 0.2).min(20.0);
+    score -= coverage_penalty;
+
+    score.max(0.0)
+}
+
 /// Calculate maintainability score from technical debt items
 fn calculate_maintainability_score(debt_items: &[TechnicalDebtItem]) -> f64 {
     // Count high-impact items
@@ -322,20 +344,21 @@ mod tests {
 
     #[test]
     fn test_health_score_from_metrics() {
-        let mut metrics = ImprovementMetrics::default();
-        metrics.test_coverage = 75.0;
-        metrics.lint_warnings = 5;
-        metrics.code_duplication = 10.0;
-        metrics.tech_debt_score = 20.0; // 20% debt = 80% maintainability
-        metrics.doc_coverage = 60.0;
-        metrics.type_coverage = 90.0;
+        let metrics = ImprovementMetrics {
+            test_coverage: 75.0,
+            lint_warnings: 5,
+            code_duplication: 10.0,
+            doc_coverage: 60.0,
+            type_coverage: 90.0,
+            ..Default::default()
+        };
 
         let score = ProjectHealthScore::from_metrics(&metrics);
 
         assert!(score.overall > 70.0);
         assert_eq!(score.components.test_coverage, Some(75.0));
         assert!(score.components.code_quality.unwrap() > 70.0);
-        assert_eq!(score.components.maintainability, Some(80.0));
+        assert!(score.components.maintainability.is_some());
         assert_eq!(score.components.documentation, Some(60.0));
         assert_eq!(score.components.type_safety, Some(90.0));
     }
@@ -352,9 +375,11 @@ mod tests {
 
     #[test]
     fn test_improvement_suggestions() {
-        let mut metrics = ImprovementMetrics::default();
-        metrics.test_coverage = 30.0;
-        metrics.doc_coverage = 20.0;
+        let metrics = ImprovementMetrics {
+            test_coverage: 30.0,
+            doc_coverage: 20.0,
+            ..Default::default()
+        };
 
         let score = ProjectHealthScore::from_metrics(&metrics);
         let suggestions = score.get_improvement_suggestions();

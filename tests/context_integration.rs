@@ -28,7 +28,6 @@ async fn test_metrics_storage_integration() {
         memory_usage: std::collections::HashMap::new(),
         bugs_fixed: 2,
         features_added: 1,
-        tech_debt_score: 4.5,
         improvement_velocity: 1.2,
         health_score: None,
     };
