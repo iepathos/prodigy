@@ -132,7 +132,7 @@ impl ExecutionCoordinator for DefaultExecutionCoordinator {
         let start = std::time::Instant::now();
 
         // Convert args and build full command
-        let mut full_command = format!("/{}", command);
+        let mut full_command = format!("/{command}");
         for arg in args {
             full_command.push(' ');
             full_command.push_str(arg);

@@ -6,7 +6,7 @@ use crate::cook::CookCommand;
 use crate::worktree::WorktreeManager;
 use anyhow::Result;
 use async_trait::async_trait;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 /// Environment setup result
@@ -28,12 +28,12 @@ pub struct EnvironmentSetup {
 #[async_trait]
 pub trait EnvironmentCoordinator: Send + Sync {
     /// Verify git repository state
-    async fn verify_git_repository(&self, path: &PathBuf) -> Result<()>;
+    async fn verify_git_repository(&self, path: &Path) -> Result<()>;
 
     /// Load configuration and workflow
     async fn load_configuration(
         &self,
-        project_path: &PathBuf,
+        project_path: &Path,
         command: &CookCommand,
     ) -> Result<(crate::config::Config, WorkflowConfig)>;
 
@@ -41,14 +41,14 @@ pub trait EnvironmentCoordinator: Send + Sync {
     async fn setup_worktree(
         &self,
         command: &CookCommand,
-        project_path: &PathBuf,
+        project_path: &Path,
     ) -> Result<Option<(PathBuf, String)>>;
 
     /// Prepare complete execution environment
     async fn prepare_environment(
         &self,
         command: &CookCommand,
-        project_path: &PathBuf,
+        project_path: &Path,
     ) -> Result<EnvironmentSetup>;
 }
 
@@ -76,7 +76,7 @@ impl DefaultEnvironmentCoordinator {
 
 #[async_trait]
 impl EnvironmentCoordinator for DefaultEnvironmentCoordinator {
-    async fn verify_git_repository(&self, _path: &PathBuf) -> Result<()> {
+    async fn verify_git_repository(&self, _path: &Path) -> Result<()> {
         if !self.git_operations.is_git_repo().await {
             return Err(anyhow::Error::msg("Not a git repository"));
         }
@@ -85,7 +85,7 @@ impl EnvironmentCoordinator for DefaultEnvironmentCoordinator {
 
     async fn load_configuration(
         &self,
-        project_path: &PathBuf,
+        project_path: &Path,
         command: &CookCommand,
     ) -> Result<(crate::config::Config, WorkflowConfig)> {
         // Load config
@@ -103,7 +103,7 @@ impl EnvironmentCoordinator for DefaultEnvironmentCoordinator {
     async fn setup_worktree(
         &self,
         command: &CookCommand,
-        _project_path: &PathBuf,
+        _project_path: &Path,
     ) -> Result<Option<(PathBuf, String)>> {
         if !command.worktree {
             return Ok(None);
@@ -121,7 +121,7 @@ impl EnvironmentCoordinator for DefaultEnvironmentCoordinator {
     async fn prepare_environment(
         &self,
         command: &CookCommand,
-        project_path: &PathBuf,
+        project_path: &Path,
     ) -> Result<EnvironmentSetup> {
         // Verify git repository
         self.verify_git_repository(project_path).await?;
@@ -134,12 +134,12 @@ impl EnvironmentCoordinator for DefaultEnvironmentCoordinator {
             if let Some((dir, name)) = self.setup_worktree(command, project_path).await? {
                 (dir, Some(name))
             } else {
-                (project_path.clone(), None)
+                (project_path.to_path_buf(), None)
             };
 
         Ok(EnvironmentSetup {
             working_dir,
-            project_dir: project_path.clone(),
+            project_dir: project_path.to_path_buf(),
             worktree_name,
             config,
             workflow,

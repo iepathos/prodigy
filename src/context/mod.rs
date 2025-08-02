@@ -304,7 +304,7 @@ pub fn save_analysis_with_commit(
         let debt_count = analysis.technical_debt.debt_items.len() as f64;
         let max_expected_debt: f64 = 1000.0; // Adjust based on typical project sizes
         let score = 100.0 * (1.0 - (debt_count + 1.0).ln() / max_expected_debt.ln());
-        score.max(0.0).min(100.0)
+        score.clamp(0.0, 100.0)
     };
     eprintln!("🛠️  Technical debt score: {debt_score:.1}");
     overall_score += debt_score * 0.4; // 40% weight

@@ -215,7 +215,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         // Add args and map variables if present
         if !config.command.args.is_empty() {
             for (i, arg) in config.command.args.iter().enumerate() {
-                context.variables.insert(format!("ARG{}", i), arg.clone());
+                context.variables.insert(format!("ARG{i}"), arg.clone());
             }
             context
                 .variables

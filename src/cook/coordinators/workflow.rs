@@ -111,7 +111,7 @@ impl WorkflowCoordinator for DefaultWorkflowCoordinator {
                     command: if command_str.starts_with('/') {
                         command_str
                     } else {
-                        format!("/{}", command_str)
+                        format!("/{command_str}")
                     },
                     env: HashMap::new(),
                     commit_required: true,
