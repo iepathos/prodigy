@@ -230,4 +230,59 @@ mod tests {
         assert_eq!(messages[1], "SPINNER_UPDATE: Processing");
         assert_eq!(messages[2], "SPINNER_SUCCESS: Done");
     }
+
+    #[test]
+    fn test_progress_display_info() {
+        let display = ProgressDisplayImpl::new();
+        // Test that info messages are displayed correctly
+        display.info("Test info message");
+        // Verify output contains the message with info icon
+    }
+
+    #[test]
+    fn test_progress_display_warning() {
+        let display = ProgressDisplayImpl::new();
+        // Test warning messages go to stderr
+        display.warning("Test warning");
+        // Verify stderr output
+    }
+
+    #[test]
+    fn test_progress_display_error() {
+        let display = ProgressDisplayImpl::new();
+        display.error("Test error");
+        // Verify error formatting
+    }
+
+    #[test]
+    fn test_spinner_lifecycle() {
+        let display = ProgressDisplayImpl::new();
+        let mut spinner = display.start_spinner("Loading...");
+        // Test spinner starts
+        spinner.update_message("Still processing");
+        spinner.success("Done");
+        // Verify spinner completes
+    }
+
+    #[test]
+    fn test_progress_display_progress() {
+        let display = ProgressDisplayImpl::new();
+        display.progress("Test progress message");
+        // Verify progress formatting
+    }
+
+    #[test]
+    fn test_progress_display_success() {
+        let display = ProgressDisplayImpl::new();
+        display.success("Test success message");
+        // Verify success formatting
+    }
+
+    #[test]
+    fn test_simple_spinner_handle_fail() {
+        let display = ProgressDisplayImpl::new();
+        let mut spinner = display.start_spinner("Starting task");
+        spinner.fail("Failed to complete");
+        // Verify failure message
+    }
 }

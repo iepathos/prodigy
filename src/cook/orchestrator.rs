@@ -403,9 +403,8 @@ impl DefaultCookOrchestrator {
         let max_iterations = config.command.max_iterations;
         for iteration in 1..=max_iterations {
             if iteration > 1 {
-                self.user_interaction.display_progress(&format!(
-                    "Starting iteration {iteration}/{max_iterations}"
-                ));
+                self.user_interaction
+                    .display_progress(&format!("Starting iteration {iteration}/{max_iterations}"));
             }
 
             // Increment iteration counter once per iteration, not per command

@@ -7,6 +7,8 @@ pub mod prompts;
 
 pub use display::{ProgressDisplay, ProgressDisplayImpl};
 pub use prompts::{UserPrompter, UserPrompterImpl};
+#[cfg(test)]
+pub use tests::MockUserInteraction;
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -108,19 +110,19 @@ impl UserInteraction for DefaultUserInteraction {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
     use std::sync::{Arc, Mutex};
 
     /// Mock implementation for testing
-    struct MockUserInteraction {
+    pub struct MockUserInteraction {
         messages: Arc<Mutex<Vec<String>>>,
         yes_no_responses: Arc<Mutex<Vec<bool>>>,
         text_responses: Arc<Mutex<Vec<String>>>,
     }
 
     impl MockUserInteraction {
-        fn new() -> Self {
+        pub fn new() -> Self {
             Self {
                 messages: Arc::new(Mutex::new(Vec::new())),
                 yes_no_responses: Arc::new(Mutex::new(Vec::new())),
@@ -128,15 +130,15 @@ mod tests {
             }
         }
 
-        fn add_yes_no_response(&self, response: bool) {
+        pub fn add_yes_no_response(&self, response: bool) {
             self.yes_no_responses.lock().unwrap().push(response);
         }
 
-        fn add_text_response(&self, response: String) {
+        pub fn add_text_response(&self, response: String) {
             self.text_responses.lock().unwrap().push(response);
         }
 
-        fn get_messages(&self) -> Vec<String> {
+        pub fn get_messages(&self) -> Vec<String> {
             self.messages.lock().unwrap().clone()
         }
     }
