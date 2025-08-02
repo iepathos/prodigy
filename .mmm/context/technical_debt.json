@@ -3,9 +3,9 @@
     "total_items": 240,
     "by_type": {
       "Fixme": 12,
-      "Todo": 52,
-      "Hack": 7,
       "Deprecated": 6,
+      "Hack": 7,
+      "Todo": 52,
       "Complexity": 63,
       "Duplication": 100
     },
@@ -294,14 +294,8 @@
     },
     {
       "file": "/Users/glen/memento-mori/mmm/src/cook/orchestrator.rs",
-      "total_issues": 14,
+      "total_issues": 12,
       "max_complexity": 39,
-      "primary_issue_type": "Duplication"
-    },
-    {
-      "file": "/Users/glen/memento-mori/mmm/src/config/command_validator.rs",
-      "total_issues": 10,
-      "max_complexity": 17,
       "primary_issue_type": "Duplication"
     },
     {
@@ -311,14 +305,26 @@
       "primary_issue_type": "Duplication"
     },
     {
+      "file": "/Users/glen/memento-mori/mmm/src/config/command_validator.rs",
+      "total_issues": 10,
+      "max_complexity": 17,
+      "primary_issue_type": "Duplication"
+    },
+    {
       "file": "/Users/glen/memento-mori/mmm/src/abstractions/git.rs",
-      "total_issues": 8,
+      "total_issues": 7,
       "max_complexity": 0,
       "primary_issue_type": "Duplication"
     },
     {
+      "file": "/Users/glen/memento-mori/mmm/tests/cook_iteration_tests.rs",
+      "total_issues": 7,
+      "max_complexity": 13,
+      "primary_issue_type": "Duplication"
+    },
+    {
       "file": "/Users/glen/memento-mori/mmm/src/worktree/test_state.rs",
-      "total_issues": 8,
+      "total_issues": 7,
       "max_complexity": 11,
       "primary_issue_type": "Duplication"
     },
@@ -329,16 +335,10 @@
       "primary_issue_type": "Duplication"
     },
     {
-      "file": "/Users/glen/memento-mori/mmm/tests/subprocess_tests.rs",
+      "file": "/Users/glen/memento-mori/mmm/src/scoring/mod.rs",
       "total_issues": 6,
-      "max_complexity": 0,
-      "primary_issue_type": "Todo"
-    },
-    {
-      "file": "/Users/glen/memento-mori/mmm/tests/cook_iteration_tests.rs",
-      "total_issues": 6,
-      "max_complexity": 13,
-      "primary_issue_type": "Complexity"
+      "max_complexity": 11,
+      "primary_issue_type": "Duplication"
     }
   ],
   "duplication_summary": {

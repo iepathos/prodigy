@@ -1,8 +1,8 @@
 {
   "metadata": {
-    "timestamp": "2025-08-02T10:54:59.799788Z",
-    "duration_ms": 35916,
-    "files_analyzed": 153,
+    "timestamp": "2025-08-02T10:55:36.642999Z",
+    "duration_ms": 7187,
+    "files_analyzed": 154,
     "incremental": false,
     "version": "0.1.0"
   },
@@ -15,7 +15,7 @@
     "hybrid_coverage": "hybrid_coverage.json"
   },
   "statistics": {
-    "total_files": 153,
+    "total_files": 154,
     "total_modules": 128,
     "dependency_edges": 846,
     "circular_dependencies": 0,
@@ -35,7 +35,7 @@
       "maintainability": 10.0,
       "type_safety": null
     },
-    "timestamp": "2025-08-02T10:54:59.799814Z"
+    "timestamp": "2025-08-02T10:55:36.643016Z"
   },
   "insights": [
     "Low test coverage (0.0%) with 0 untested functions",
