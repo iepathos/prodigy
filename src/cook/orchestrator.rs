@@ -227,13 +227,22 @@ impl CookOrchestrator for DefaultCookOrchestrator {
     ) -> Result<()> {
         // Check if this is a structured workflow with inputs/outputs
         let has_structured_commands = config.workflow.commands.iter().any(|cmd| {
-            matches!(cmd, crate::config::command::WorkflowCommand::Structured(c) 
+            matches!(cmd, crate::config::command::WorkflowCommand::Structured(c)
                 if c.inputs.is_some() || c.outputs.is_some())
         });
 
         if has_structured_commands {
-            self.user_interaction.display_info("🔄 Executing structured workflow with inputs/outputs");
+            self.user_interaction
+                .display_info("🔄 Executing structured workflow with inputs/outputs");
             return self.execute_structured_workflow(env, config).await;
+        }
+
+        // Check if we're processing with --args or --map
+        let has_args_or_map = !config.command.args.is_empty() || !config.command.map.is_empty();
+        if has_args_or_map {
+            self.user_interaction
+                .display_info("🔄 Processing workflow with arguments or file patterns");
+            return self.execute_workflow_with_args(env, config).await;
         }
 
         // Convert WorkflowConfig to ExtendedWorkflowConfig
@@ -345,9 +354,9 @@ impl DefaultCookOrchestrator {
         env: &ExecutionEnvironment,
         config: &CookConfig,
     ) -> Result<()> {
-        use std::collections::HashMap;
         use crate::config::command::InputMethod;
-        
+        use std::collections::HashMap;
+
         // Run initial analysis if needed
         if !config.command.skip_analysis {
             self.user_interaction
@@ -367,7 +376,7 @@ impl DefaultCookOrchestrator {
         // Execute each command in sequence
         for (step_index, cmd) in config.workflow.commands.iter().enumerate() {
             let command = cmd.to_command();
-            
+
             self.user_interaction.display_progress(&format!(
                 "Executing step {}/{}: {}",
                 step_index + 1,
@@ -378,35 +387,47 @@ impl DefaultCookOrchestrator {
             // Resolve inputs and build final command arguments
             let mut final_args = command.args.clone();
             let mut resolved_variables = HashMap::new();
-            
+
             if let Some(ref inputs) = command.inputs {
                 for (input_name, input_ref) in inputs {
                     self.user_interaction.display_info(&format!(
-                        "🔍 Resolving input '{}' from: {}", input_name, input_ref.from
+                        "🔍 Resolving input '{}' from: {}",
+                        input_name, input_ref.from
                     ));
-                    
+
                     // Parse the reference (e.g., "${cleanup.spec}")
-                    let resolved_value = if input_ref.from.starts_with("${") && input_ref.from.ends_with('}') {
-                        let var_ref = &input_ref.from[2..input_ref.from.len()-1];
-                        if let Some((cmd_id, output_name)) = var_ref.split_once('.') {
-                            if let Some(cmd_outputs) = command_outputs.get(cmd_id) {
-                                if let Some(value) = cmd_outputs.get(output_name) {
-                                    self.user_interaction.display_success(&format!(
-                                        "✓ Resolved {}.{} = {}", cmd_id, output_name, value
-                                    ));
-                                    value.clone()
+                    let resolved_value =
+                        if input_ref.from.starts_with("${") && input_ref.from.ends_with('}') {
+                            let var_ref = &input_ref.from[2..input_ref.from.len() - 1];
+                            if let Some((cmd_id, output_name)) = var_ref.split_once('.') {
+                                if let Some(cmd_outputs) = command_outputs.get(cmd_id) {
+                                    if let Some(value) = cmd_outputs.get(output_name) {
+                                        self.user_interaction.display_success(&format!(
+                                            "✓ Resolved {cmd_id}.{output_name} = {value}"
+                                        ));
+                                        value.clone()
+                                    } else {
+                                        return Err(anyhow!(
+                                            "Output '{}' not found for command '{}'",
+                                            output_name,
+                                            cmd_id
+                                        ));
+                                    }
                                 } else {
-                                    return Err(anyhow!("Output '{}' not found for command '{}'", output_name, cmd_id));
+                                    return Err(anyhow!(
+                                        "Command '{}' not found or hasn't produced outputs yet",
+                                        cmd_id
+                                    ));
                                 }
                             } else {
-                                return Err(anyhow!("Command '{}' not found or hasn't produced outputs yet", cmd_id));
+                                return Err(anyhow!(
+                                    "Invalid variable reference format: {}",
+                                    input_ref.from
+                                ));
                             }
                         } else {
-                            return Err(anyhow!("Invalid variable reference format: {}", input_ref.from));
-                        }
-                    } else {
-                        input_ref.from.clone()
-                    };
+                            input_ref.from.clone()
+                        };
 
                     // Store resolved variable for later use
                     resolved_variables.insert(input_name.clone(), resolved_value.clone());
@@ -415,25 +436,28 @@ impl DefaultCookOrchestrator {
                     match &input_ref.pass_as {
                         InputMethod::Argument { position } => {
                             self.user_interaction.display_info(&format!(
-                                "📝 Passing '{}' as argument at position {}", resolved_value, position
+                                "📝 Passing '{resolved_value}' as argument at position {position}"
                             ));
-                            
+
                             // Ensure we have enough space in the args vector
                             while final_args.len() <= *position {
-                                final_args.push(crate::config::command::CommandArg::Literal(String::new()));
+                                final_args.push(crate::config::command::CommandArg::Literal(
+                                    String::new(),
+                                ));
                             }
-                            final_args[*position] = crate::config::command::CommandArg::Literal(resolved_value);
+                            final_args[*position] =
+                                crate::config::command::CommandArg::Literal(resolved_value);
                         }
                         InputMethod::Environment { name: env_name } => {
                             // This would be handled during command execution
                             self.user_interaction.display_info(&format!(
-                                "🌍 Will set environment variable {}={}", env_name, resolved_value
+                                "🌍 Will set environment variable {env_name}={resolved_value}"
                             ));
                         }
                         InputMethod::Stdin => {
                             // This would be handled during command execution
                             self.user_interaction.display_info(&format!(
-                                "📥 Will pass '{}' via stdin", resolved_value
+                                "📥 Will pass '{resolved_value}' via stdin"
                             ));
                         }
                     }
@@ -449,17 +473,19 @@ impl DefaultCookOrchestrator {
                 }
             }
             let final_command = cmd_parts.join(" ");
-            
-            self.user_interaction.display_info(&format!(
-                "🚀 Executing command: {}", final_command
-            ));
+
+            self.user_interaction
+                .display_info(&format!("🚀 Executing command: {final_command}"));
 
             // Execute the command
             let mut env_vars = HashMap::new();
             env_vars.insert("MMM_CONTEXT_AVAILABLE".to_string(), "true".to_string());
             env_vars.insert(
                 "MMM_CONTEXT_DIR".to_string(),
-                env.working_dir.join(".mmm/context").to_string_lossy().to_string(),
+                env.working_dir
+                    .join(".mmm/context")
+                    .to_string_lossy()
+                    .to_string(),
             );
             env_vars.insert("MMM_AUTOMATION".to_string(), "true".to_string());
 
@@ -480,37 +506,38 @@ impl DefaultCookOrchestrator {
             // Handle outputs if specified
             if let Some(ref outputs) = command.outputs {
                 let mut cmd_output_map = HashMap::new();
-                
+
                 for (output_name, output_decl) in outputs {
                     self.user_interaction.display_info(&format!(
-                        "🔍 Looking for output '{}' with pattern: {}", output_name, output_decl.file_pattern
+                        "🔍 Looking for output '{}' with pattern: {}",
+                        output_name, output_decl.file_pattern
                     ));
-                    
+
                     // Find files matching the pattern in git commits
-                    let pattern_result = self.find_files_matching_pattern(&output_decl.file_pattern, &env.working_dir).await;
-                    
+                    let pattern_result = self
+                        .find_files_matching_pattern(&output_decl.file_pattern, &env.working_dir)
+                        .await;
+
                     match pattern_result {
                         Ok(file_path) => {
-                            self.user_interaction.display_success(&format!(
-                                "✓ Found output file: {}", file_path
-                            ));
+                            self.user_interaction
+                                .display_success(&format!("✓ Found output file: {file_path}"));
                             cmd_output_map.insert(output_name.clone(), file_path);
                         }
                         Err(e) => {
                             self.user_interaction.display_error(&format!(
-                                "❌ Failed to find output '{}': {}", output_name, e
+                                "❌ Failed to find output '{output_name}': {e}"
                             ));
                             return Err(e);
                         }
                     }
                 }
-                
+
                 // Store outputs for this command
                 if let Some(ref id) = command.id {
                     command_outputs.insert(id.clone(), cmd_output_map);
-                    self.user_interaction.display_success(&format!(
-                        "💾 Stored outputs for command '{}'", id
-                    ));
+                    self.user_interaction
+                        .display_success(&format!("💾 Stored outputs for command '{id}'"));
                 }
             }
         }
@@ -519,42 +546,241 @@ impl DefaultCookOrchestrator {
     }
 
     /// Find files matching a glob pattern in recent git commits
-    async fn find_files_matching_pattern(&self, pattern: &str, working_dir: &std::path::Path) -> Result<String> {
+    async fn find_files_matching_pattern(
+        &self,
+        pattern: &str,
+        working_dir: &std::path::Path,
+    ) -> Result<String> {
         use glob::glob;
-        
+
         // First, try to find files matching the pattern in the current directory
         let full_pattern = working_dir.join(pattern);
-        
+
         self.user_interaction.display_info(&format!(
-            "🔎 Searching for files matching: {}", full_pattern.display()
+            "🔎 Searching for files matching: {}",
+            full_pattern.display()
         ));
-        
+
         let mut found_files = Vec::new();
-        
+
         // Use glob to find matching files
         if let Ok(entries) = glob(&full_pattern.to_string_lossy()) {
-            for entry in entries {
-                if let Ok(path) = entry {
-                    if path.is_file() {
-                        found_files.push(path);
-                    }
+            for path in entries.flatten() {
+                if path.is_file() {
+                    found_files.push(path);
                 }
             }
         }
-        
+
         if found_files.is_empty() {
             return Err(anyhow!("No files found matching pattern: {}", pattern));
         }
-        
+
         // Sort by modification time and take the most recent
         found_files.sort_by_key(|path| {
             std::fs::metadata(path)
                 .and_then(|m| m.modified())
                 .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
         });
-        
+
         let latest_file = found_files.into_iter().last().unwrap();
         Ok(latest_file.to_string_lossy().to_string())
+    }
+
+    /// Execute workflow with arguments from --args or --map
+    async fn execute_workflow_with_args(
+        &self,
+        env: &ExecutionEnvironment,
+        config: &CookConfig,
+    ) -> Result<()> {
+        use std::collections::HashMap;
+
+        // Collect all inputs from --map patterns and --args
+        let mut all_inputs = Vec::new();
+
+        // First, process --map patterns
+        for pattern in &config.command.map {
+            self.user_interaction
+                .display_info(&format!("🔍 Processing file pattern: {pattern}"));
+
+            match glob::glob(pattern) {
+                Ok(entries) => {
+                    let mut pattern_matches = 0;
+                    for path in entries.flatten() {
+                        self.user_interaction
+                            .display_info(&format!("✓ Found file: {}", path.display()));
+
+                        // Extract spec ID or use the full path
+                        let input = if let Some(stem) = path.file_stem() {
+                            let filename = stem.to_string_lossy();
+                            // Extract numeric prefix if present (e.g., "65-cook-refactor" -> "65")
+                            if let Some(dash_pos) = filename.find('-') {
+                                filename[..dash_pos].to_string()
+                            } else {
+                                filename.to_string()
+                            }
+                        } else {
+                            path.to_string_lossy().to_string()
+                        };
+
+                        all_inputs.push(input);
+                        pattern_matches += 1;
+                    }
+
+                    if pattern_matches == 0 {
+                        self.user_interaction
+                            .display_warning(&format!("⚠️ No files matched pattern: {pattern}"));
+                    } else {
+                        self.user_interaction.display_success(&format!(
+                            "📁 Found {pattern_matches} files matching pattern: {pattern}"
+                        ));
+                    }
+                }
+                Err(e) => {
+                    self.user_interaction
+                        .display_error(&format!("❌ Error processing pattern '{pattern}': {e}"));
+                }
+            }
+        }
+
+        // Add direct arguments from --args
+        if !config.command.args.is_empty() {
+            self.user_interaction.display_info(&format!(
+                "📝 Adding {} direct arguments from --args",
+                config.command.args.len()
+            ));
+            all_inputs.extend(config.command.args.clone());
+        }
+
+        if all_inputs.is_empty() {
+            return Err(anyhow!("No inputs found from --map patterns or --args"));
+        }
+
+        self.user_interaction
+            .display_info(&format!("📋 Total inputs to process: {}", all_inputs.len()));
+
+        // Run initial analysis if needed
+        if !config.command.skip_analysis {
+            self.user_interaction
+                .display_progress("Running initial analysis...");
+            let analysis = self
+                .analysis_coordinator
+                .analyze_project(&env.working_dir)
+                .await?;
+            self.analysis_coordinator
+                .save_analysis(&env.working_dir, &analysis)
+                .await?;
+        }
+
+        // Process each input
+        for (index, input) in all_inputs.iter().enumerate() {
+            self.user_interaction.display_info(&format!(
+                "\n🔄 Processing input {}/{}: {}",
+                index + 1,
+                all_inputs.len(),
+                input
+            ));
+
+            // Build variables map for this input
+            let mut variables = HashMap::new();
+            variables.insert("ARG".to_string(), input.clone());
+            variables.insert("INDEX".to_string(), (index + 1).to_string());
+            variables.insert("TOTAL".to_string(), all_inputs.len().to_string());
+
+            // Execute each command in the workflow
+            for (step_index, cmd) in config.workflow.commands.iter().enumerate() {
+                let command = cmd.to_command();
+
+                self.user_interaction.display_progress(&format!(
+                    "Executing step {}/{}: {}",
+                    step_index + 1,
+                    config.workflow.commands.len(),
+                    command.name
+                ));
+
+                // Build the command with resolved arguments
+                let mut cmd_parts = vec![format!("/{}", command.name)];
+                let mut has_arg_reference = false;
+
+                // Resolve arguments
+                for arg in &command.args {
+                    let resolved_arg = arg.resolve(&variables);
+                    if !resolved_arg.is_empty() {
+                        cmd_parts.push(resolved_arg);
+                        // Check if this command actually uses the ARG variable
+                        if arg.is_variable()
+                            && matches!(arg, crate::config::command::CommandArg::Variable(var) if var == "ARG")
+                        {
+                            has_arg_reference = true;
+                        }
+                    }
+                }
+
+                let final_command = cmd_parts.join(" ");
+
+                // Only show ARG in log if the command actually uses it
+                if has_arg_reference {
+                    self.user_interaction.display_info(&format!(
+                        "🚀 Executing command: {final_command} (ARG={input})"
+                    ));
+                } else {
+                    self.user_interaction
+                        .display_info(&format!("🚀 Executing command: {final_command}"));
+                }
+
+                // Prepare environment variables
+                let mut env_vars = HashMap::new();
+                env_vars.insert("MMM_CONTEXT_AVAILABLE".to_string(), "true".to_string());
+                env_vars.insert(
+                    "MMM_CONTEXT_DIR".to_string(),
+                    env.working_dir
+                        .join(".mmm/context")
+                        .to_string_lossy()
+                        .to_string(),
+                );
+                env_vars.insert("MMM_AUTOMATION".to_string(), "true".to_string());
+
+                // Add variables as environment variables too
+                for (key, value) in &variables {
+                    env_vars.insert(format!("MMM_VAR_{key}"), value.clone());
+                }
+
+                // Execute the command
+                let result = self
+                    .claude_executor
+                    .execute_claude_command(&final_command, &env.working_dir, env_vars)
+                    .await?;
+
+                if !result.success {
+                    if config.command.fail_fast {
+                        return Err(anyhow!(
+                            "Command '{}' failed for input '{}' with exit code {:?}. Error: {}",
+                            command.name,
+                            input,
+                            result.exit_code,
+                            result.stderr
+                        ));
+                    } else {
+                        self.user_interaction.display_error(&format!(
+                            "❌ Command '{}' failed for input '{}', continuing...",
+                            command.name, input
+                        ));
+                    }
+                } else {
+                    self.user_interaction.display_success(&format!(
+                        "✓ Command '{}' succeeded for input '{}'",
+                        command.name, input
+                    ));
+                }
+            }
+        }
+
+        self.user_interaction.display_success(&format!(
+            "🎉 Processed all {} inputs successfully!",
+            all_inputs.len()
+        ));
+
+        Ok(())
     }
 }
 
@@ -681,7 +907,7 @@ mod tests {
     async fn test_prerequisites_check_no_git() {
         // Ensure we're not in test mode for this test
         std::env::remove_var("MMM_TEST_MODE");
-        
+
         let temp_dir = TempDir::new().unwrap();
         let _mock_runner1 = MockCommandRunner::new();
         let mock_runner2 = MockCommandRunner::new();
@@ -796,7 +1022,7 @@ mod tests {
 
         // Should not detect as structured
         let has_structured = simple_config.workflow.commands.iter().any(|cmd| {
-            matches!(cmd, crate::config::command::WorkflowCommand::Structured(c) 
+            matches!(cmd, crate::config::command::WorkflowCommand::Structured(c)
                 if c.inputs.is_some() || c.outputs.is_some())
         });
         assert!(!has_structured);
@@ -820,9 +1046,9 @@ mod tests {
         };
 
         let structured_workflow = WorkflowConfig {
-            commands: vec![
-                crate::config::command::WorkflowCommand::Structured(Box::new(structured_cmd)),
-            ],
+            commands: vec![crate::config::command::WorkflowCommand::Structured(
+                Box::new(structured_cmd),
+            )],
         };
 
         let structured_config = CookConfig {
@@ -833,7 +1059,7 @@ mod tests {
 
         // Should detect as structured
         let has_structured = structured_config.workflow.commands.iter().any(|cmd| {
-            matches!(cmd, crate::config::command::WorkflowCommand::Structured(c) 
+            matches!(cmd, crate::config::command::WorkflowCommand::Structured(c)
                 if c.inputs.is_some() || c.outputs.is_some())
         });
         assert!(has_structured);
@@ -846,26 +1072,29 @@ mod tests {
 
         // Create test directory structure
         std::fs::create_dir_all(temp_dir.path().join("specs/temp")).unwrap();
-        
+
         // Create test files
         std::fs::write(
             temp_dir.path().join("specs/temp/123-tech-debt-cleanup.md"),
-            "test spec content"
-        ).unwrap();
+            "test spec content",
+        )
+        .unwrap();
         std::fs::write(
             temp_dir.path().join("specs/temp/456-tech-debt-cleanup.md"),
-            "newer spec content"
-        ).unwrap();
+            "newer spec content",
+        )
+        .unwrap();
         std::fs::write(
             temp_dir.path().join("specs/temp/other-file.md"),
-            "should not match"
-        ).unwrap();
+            "should not match",
+        )
+        .unwrap();
 
         // Test pattern matching
         let result = orchestrator
             .find_files_matching_pattern("specs/temp/*-tech-debt-cleanup.md", temp_dir.path())
             .await;
-        
+
         assert!(result.is_ok());
         let found_file = result.unwrap();
         assert!(found_file.contains("tech-debt-cleanup.md"));
@@ -893,9 +1122,9 @@ mod tests {
         };
 
         let workflow = WorkflowConfig {
-            commands: vec![
-                crate::config::command::WorkflowCommand::Structured(Box::new(cleanup_cmd)),
-            ],
+            commands: vec![crate::config::command::WorkflowCommand::Structured(
+                Box::new(cleanup_cmd),
+            )],
         };
 
         let config = CookConfig {
@@ -919,11 +1148,14 @@ mod tests {
 
         // The orchestrator should detect this as a structured workflow
         let has_structured = config.workflow.commands.iter().any(|cmd| {
-            matches!(cmd, crate::config::command::WorkflowCommand::Structured(c) 
+            matches!(cmd, crate::config::command::WorkflowCommand::Structured(c)
                 if c.inputs.is_some() || c.outputs.is_some())
         });
-        
-        assert!(has_structured, "Should detect workflow with outputs as structured");
+
+        assert!(
+            has_structured,
+            "Should detect workflow with outputs as structured"
+        );
     }
 
     #[test]
@@ -952,8 +1184,8 @@ mod tests {
 
         assert!(input_ref.from.starts_with("${"));
         assert!(input_ref.from.ends_with('}'));
-        
-        let var_ref = &input_ref.from[2..input_ref.from.len()-1];
+
+        let var_ref = &input_ref.from[2..input_ref.from.len() - 1];
         let parts: Vec<&str> = var_ref.split('.').collect();
         assert_eq!(parts, vec!["cleanup", "spec"]);
     }
@@ -970,7 +1202,10 @@ mod tests {
 
         for (pattern, expected_valid) in patterns {
             let is_valid = !pattern.is_empty();
-            assert_eq!(is_valid, expected_valid, "Pattern '{}' validation failed", pattern);
+            assert_eq!(
+                is_valid, expected_valid,
+                "Pattern '{pattern}' validation failed"
+            );
         }
     }
 }
