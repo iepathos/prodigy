@@ -4,34 +4,19 @@
   ],
   "layers": [],
   "components": {
-    "init": {
-      "name": "init",
+    "worktree": {
+      "name": "worktree",
       "responsibility": "Module functionality",
       "interfaces": [
-        "fn fn"
+        "struct WorktreeSession",
+        "fn new(name:"
       ],
       "dependencies": [
-        "clap",
+        "tempfile",
         "anyhow",
-        "tempfile"
-      ]
-    },
-    "subprocess": {
-      "name": "subprocess",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct SubprocessManager",
-        "fn new(runner:",
-        "fn production()",
-        "fn mock()",
-        "fn runner(&self)",
-        "fn git(&self)",
-        "fn claude(&self)"
-      ],
-      "dependencies": [
-        "async_trait",
-        "futures",
-        "tokio"
+        "chrono",
+        "uuid",
+        "serde"
       ]
     },
     "metrics": {
@@ -62,75 +47,6 @@
         "tracing"
       ]
     },
-    "abstractions": {
-      "name": "abstractions",
-      "responsibility": "Module functionality",
-      "interfaces": [],
-      "dependencies": [
-        "anyhow",
-        "async_trait",
-        "tokio",
-        "tempfile"
-      ]
-    },
-    "session": {
-      "name": "session",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct SessionId(String)",
-        "fn new()",
-        "fn from_string(id:",
-        "fn as_str(&self)",
-        "struct SessionInfo",
-        "struct IterationChanges",
-        "struct CommitInfo",
-        "struct ExecutedCommand"
-      ],
-      "dependencies": [
-        "async_trait",
-        "chrono",
-        "serde",
-        "anyhow",
-        "tokio",
-        "uuid",
-        "tempfile"
-      ]
-    },
-    "context": {
-      "name": "context",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct AnalysisResult",
-        "struct ArchitectureInfo",
-        "struct ComponentInfo",
-        "struct ArchitectureViolation",
-        "struct AnalysisMetadata",
-        "struct FileContext",
-        "struct FileConventions",
-        "struct Suggestion",
-        "trait ContextAnalyzer:",
-        "fn load_analysis(project_path:",
-        "fn save_analysis(project_path:"
-      ],
-      "dependencies": [
-        "anyhow",
-        "walkdir",
-        "serde",
-        "tempfile"
-      ]
-    },
-    "analyze": {
-      "name": "analyze",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn fn"
-      ],
-      "dependencies": [
-        "anyhow",
-        "command",
-        "tempfile"
-      ]
-    },
     "config": {
       "name": "config",
       "responsibility": "Configuration management",
@@ -154,21 +70,6 @@
         "once_cell",
         "tokio",
         "tempfile"
-      ]
-    },
-    "worktree": {
-      "name": "worktree",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct WorktreeSession",
-        "fn new(name:"
-      ],
-      "dependencies": [
-        "tempfile",
-        "anyhow",
-        "chrono",
-        "uuid",
-        "serde"
       ]
     },
     "testing": {
@@ -230,6 +131,53 @@
         "signal_hook"
       ]
     },
+    "init": {
+      "name": "init",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn"
+      ],
+      "dependencies": [
+        "clap",
+        "anyhow",
+        "tempfile"
+      ]
+    },
+    "context": {
+      "name": "context",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct AnalysisResult",
+        "struct ArchitectureInfo",
+        "struct ComponentInfo",
+        "struct ArchitectureViolation",
+        "struct AnalysisMetadata",
+        "struct FileContext",
+        "struct FileConventions",
+        "struct Suggestion",
+        "trait ContextAnalyzer:",
+        "fn load_analysis(project_path:",
+        "fn save_analysis(project_path:",
+        "fn save_analysis_with_commit"
+      ],
+      "dependencies": [
+        "anyhow",
+        "walkdir",
+        "serde",
+        "tempfile"
+      ]
+    },
+    "abstractions": {
+      "name": "abstractions",
+      "responsibility": "Module functionality",
+      "interfaces": [],
+      "dependencies": [
+        "anyhow",
+        "async_trait",
+        "tokio",
+        "tempfile"
+      ]
+    },
     "simple_state": {
       "name": "simple_state",
       "responsibility": "Module functionality",
@@ -261,20 +209,73 @@
         "tempfile",
         "tokio"
       ]
+    },
+    "subprocess": {
+      "name": "subprocess",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct SubprocessManager",
+        "fn new(runner:",
+        "fn production()",
+        "fn mock()",
+        "fn runner(&self)",
+        "fn git(&self)",
+        "fn claude(&self)"
+      ],
+      "dependencies": [
+        "async_trait",
+        "futures",
+        "tokio"
+      ]
+    },
+    "analyze": {
+      "name": "analyze",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn"
+      ],
+      "dependencies": [
+        "anyhow",
+        "command",
+        "tempfile"
+      ]
+    },
+    "session": {
+      "name": "session",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct SessionId(String)",
+        "fn new()",
+        "fn from_string(id:",
+        "fn as_str(&self)",
+        "struct SessionInfo",
+        "struct IterationChanges",
+        "struct CommitInfo",
+        "struct ExecutedCommand"
+      ],
+      "dependencies": [
+        "async_trait",
+        "chrono",
+        "serde",
+        "anyhow",
+        "tokio",
+        "uuid",
+        "tempfile"
+      ]
     }
   },
   "violations": [
-    {
-      "rule": "Components should expose interfaces",
-      "location": "abstractions",
-      "severity": "Low",
-      "description": "abstractions has no public interfaces"
-    },
     {
       "rule": "Avoid god components",
       "location": "cook",
       "severity": "Medium",
       "description": "cook has 13 dependencies, consider splitting"
+    },
+    {
+      "rule": "Components should expose interfaces",
+      "location": "abstractions",
+      "severity": "Low",
+      "description": "abstractions has no public interfaces"
     }
   ]
 }
