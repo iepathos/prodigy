@@ -18,6 +18,7 @@ impl ProcessCommandBuilder {
                 working_dir: None,
                 timeout: None,
                 stdin: None,
+                suppress_stderr: false,
             },
         }
     }
@@ -69,6 +70,12 @@ impl ProcessCommandBuilder {
 
     pub fn stdin(mut self, input: String) -> Self {
         self.command.stdin = Some(input);
+        self
+    }
+
+    #[cfg(test)]
+    pub fn suppress_stderr(mut self) -> Self {
+        self.command.suppress_stderr = true;
         self
     }
 

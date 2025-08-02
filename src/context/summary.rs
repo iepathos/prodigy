@@ -189,10 +189,7 @@ impl AnalysisSummary {
         let insights = Self::generate_insights(&statistics, analysis);
 
         // Calculate unified health score
-        let health_score = analysis
-            .health_score
-            .clone()
-            .or_else(|| Some(ProjectHealthScore::from_context(analysis)));
+        let health_score = Some(ProjectHealthScore::from_context(analysis));
 
         AnalysisSummary {
             metadata: analysis.metadata.clone(),

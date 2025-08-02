@@ -132,6 +132,13 @@ impl GitOperations for RealGitOperations {
     }
 
     async fn is_git_repo(&self) -> bool {
+        #[cfg(test)]
+        let command = ProcessCommandBuilder::new("git")
+            .args(["rev-parse", "--git-dir"])
+            .suppress_stderr()
+            .build();
+
+        #[cfg(not(test))]
         let command = ProcessCommandBuilder::new("git")
             .args(["rev-parse", "--git-dir"])
             .build();

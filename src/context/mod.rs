@@ -338,14 +338,17 @@ fn commit_analysis_changes(
     overall_score: f64,
 ) -> Result<()> {
     // Check if we're in a git repo
-    if !std::process::Command::new("git")
+    let mut git_check = std::process::Command::new("git");
+    git_check
         .arg("rev-parse")
         .arg("--git-dir")
-        .current_dir(project_path)
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
-    {
+        .current_dir(project_path);
+
+    // Suppress stderr during tests to avoid error spam
+    #[cfg(test)]
+    git_check.stderr(std::process::Stdio::null());
+
+    if !git_check.status().map(|s| s.success()).unwrap_or(false) {
         return Ok(()); // Not a git repo, skip commit
     }
 

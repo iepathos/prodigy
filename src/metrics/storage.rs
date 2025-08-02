@@ -228,6 +228,7 @@ mod tests {
             features_added: 0,
             tech_debt_score: 5.0,
             improvement_velocity: 1.2,
+            health_score: None,
         };
 
         // Save metrics
@@ -277,6 +278,7 @@ mod tests {
                 features_added: 0,
                 tech_debt_score: 6.0,
                 improvement_velocity: 1.0,
+                health_score: None,
             },
             "test-commit-sha".to_string(),
         );
@@ -320,6 +322,7 @@ mod tests {
             features_added: 0,
             tech_debt_score: 3.0,
             improvement_velocity: 1.5,
+            health_score: None,
         };
 
         let report = storage.generate_report(&metrics);
@@ -376,6 +379,7 @@ mod tests {
             features_added: 0,
             tech_debt_score: 8.0,
             improvement_velocity: 0.5,
+            health_score: None,
         };
 
         let report = storage.generate_report(&metrics);

@@ -146,29 +146,29 @@ async fn create_orchestrator(project_path: &Path) -> Result<Arc<dyn CookOrchestr
     let analysis_coordinator = Arc::new(analysis::runner::AnalysisRunnerImpl::new(command_runner3));
 
     // Create environment coordinator
-    let environment_coordinator = Arc::new(coordinators::DefaultEnvironmentCoordinator::new(
+    let _environment_coordinator = Arc::new(coordinators::DefaultEnvironmentCoordinator::new(
         config_loader,
         worktree_manager,
         git_operations.clone(),
     ));
 
     // Create session coordinator
-    let session_coordinator = Arc::new(coordinators::DefaultSessionCoordinator::new(
+    let _session_coordinator = Arc::new(coordinators::DefaultSessionCoordinator::new(
         session_manager.clone(),
-        state_manager,
+        state_manager.clone(),
     ));
 
     // Create execution coordinator
-    let execution_coordinator = Arc::new(coordinators::DefaultExecutionCoordinator::new(
-        command_executor,
+    let _execution_coordinator = Arc::new(coordinators::DefaultExecutionCoordinator::new(
+        command_executor.clone(),
         claude_executor.clone(),
         subprocess.clone(),
     ));
 
     // Create workflow executor
     let workflow_executor = Arc::new(workflow::WorkflowExecutor::new(
-        claude_executor,
-        session_manager,
+        claude_executor.clone(),
+        session_manager.clone(),
         analysis_coordinator.clone(),
         Arc::new(metrics::collector::MetricsCollectorImpl::new(
             execution::runner::RealCommandRunner::new(),
@@ -177,18 +177,27 @@ async fn create_orchestrator(project_path: &Path) -> Result<Arc<dyn CookOrchestr
     ));
 
     // Create workflow coordinator
-    let workflow_coordinator = Arc::new(coordinators::DefaultWorkflowCoordinator::new(
+    let _workflow_coordinator = Arc::new(coordinators::DefaultWorkflowCoordinator::new(
         workflow_executor,
-        user_interaction,
+        user_interaction.clone(),
     ));
 
-    // Create orchestrator with coordinators
+    // Create metrics coordinator
+    let metrics_coordinator = Arc::new(metrics::collector::MetricsCollectorImpl::new(
+        execution::runner::RealCommandRunner::new(),
+    ));
+
+    // Create orchestrator with correct trait implementations
     Ok(Arc::new(DefaultCookOrchestrator::new(
-        environment_coordinator,
-        session_coordinator,
-        execution_coordinator,
+        session_manager.clone(),
+        command_executor.clone(),
+        claude_executor.clone(),
         analysis_coordinator,
-        workflow_coordinator,
+        metrics_coordinator,
+        user_interaction.clone(),
+        git_operations,
+        StateManager::new()?,
+        (*subprocess).clone(),
     )))
 }
 

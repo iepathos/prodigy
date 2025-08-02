@@ -955,6 +955,23 @@ impl DefaultCookOrchestrator {
                     .update_session(SessionUpdate::AddFilesChanged(1))
                     .await?;
             }
+        } else if test_mode && command.metadata.commit_required && !skip_validation {
+            // In test mode, check if the command simulated no changes and is required to commit
+            if let Ok(no_changes_cmds) = std::env::var("MMM_TEST_NO_CHANGES_COMMANDS") {
+                let command_name = final_command.trim_start_matches('/');
+                // Extract just the command name, ignoring arguments
+                let command_name = command_name
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or(command_name);
+                if no_changes_cmds
+                    .split(',')
+                    .any(|cmd| cmd.trim() == command_name)
+                {
+                    // This command was configured to simulate no changes but requires commits
+                    return Err(anyhow!("No changes were committed by {}", final_command));
+                }
+            }
         }
 
         Ok(())
@@ -1669,6 +1686,9 @@ mod tests {
             project_path: temp_dir.path().to_path_buf(),
             workflow: WorkflowConfig { commands: vec![] },
         };
+
+        // Configure mock to respond to user prompts
+        mock_interaction.add_yes_no_response(false); // Response to "merge the worktree changes"
 
         // Test with manual config
         // Note: In test mode, the actual worktree operations won't happen

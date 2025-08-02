@@ -120,6 +120,11 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
         // Check if we should simulate no changes
         if let Ok(no_changes_cmds) = std::env::var("MMM_TEST_NO_CHANGES_COMMANDS") {
             let command_name = command.trim_start_matches('/');
+            // Extract just the command name, ignoring arguments
+            let command_name = command_name
+                .split_whitespace()
+                .next()
+                .unwrap_or(command_name);
             if no_changes_cmds
                 .split(',')
                 .any(|cmd| cmd.trim() == command_name)

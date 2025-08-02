@@ -30,6 +30,7 @@ async fn test_metrics_storage_integration() {
         features_added: 1,
         tech_debt_score: 4.5,
         improvement_velocity: 1.2,
+        health_score: None,
     };
 
     // Save and verify

@@ -15,6 +15,7 @@ pub struct ProcessCommand {
     pub working_dir: Option<PathBuf>,
     pub timeout: Option<Duration>,
     pub stdin: Option<String>,
+    pub suppress_stderr: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -123,7 +124,12 @@ impl ProcessRunner for TokioProcessRunner {
         }
 
         cmd.stdout(std::process::Stdio::piped());
-        cmd.stderr(std::process::Stdio::piped());
+
+        if command.suppress_stderr {
+            cmd.stderr(std::process::Stdio::null());
+        } else {
+            cmd.stderr(std::process::Stdio::piped());
+        }
 
         let mut child = cmd.spawn().map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
@@ -180,7 +186,11 @@ impl ProcessRunner for TokioProcessRunner {
         let result = ProcessOutput {
             status: status.clone(),
             stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+            stderr: if command.suppress_stderr {
+                String::new() // Empty stderr when suppressed
+            } else {
+                String::from_utf8_lossy(&output.stderr).to_string()
+            },
             duration,
         };
 
