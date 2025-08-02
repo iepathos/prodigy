@@ -35,9 +35,8 @@ impl MetricsCollector {
             metrics.lint_warnings = 0;
             metrics.code_duplication = 0.0;
             metrics.doc_coverage = 30.0;
-            metrics.tech_debt_score = 30.0;
             metrics.improvement_velocity = 0.0;
-            metrics.total_lines = 100;  // Add mock total_lines for tests
+            metrics.total_lines = 100; // Add mock total_lines for tests
             metrics.cyclomatic_complexity.insert("main".to_string(), 5);
             println!("✅ Metrics collection complete. Overall score: 30.0");
             return Ok(metrics);
@@ -97,7 +96,6 @@ impl MetricsCollector {
         }
 
         // Calculate derived metrics
-        metrics.tech_debt_score = self.calculate_tech_debt_score(&metrics);
         metrics.improvement_velocity = self.calculate_velocity(&metrics);
 
         // Update unified health score
@@ -111,32 +109,6 @@ impl MetricsCollector {
         Ok(metrics)
     }
 
-    /// Calculate technical debt score based on various metrics
-    /// NOTE: This is kept for backward compatibility but the unified scoring
-    /// system should be used instead (see ProjectHealthScore)
-    fn calculate_tech_debt_score(&self, metrics: &ImprovementMetrics) -> f32 {
-        let mut score = 0.0;
-
-        // Low test coverage increases debt
-        score += (100.0 - metrics.test_coverage) * 0.3;
-
-        // Lint warnings indicate debt
-        score += (metrics.lint_warnings as f32 * 0.5).min(30.0);
-
-        // High complexity increases debt
-        let avg_complexity = if !metrics.cyclomatic_complexity.is_empty() {
-            metrics.cyclomatic_complexity.values().sum::<u32>() as f32
-                / metrics.cyclomatic_complexity.len() as f32
-        } else {
-            0.0
-        };
-        score += (avg_complexity * 2.0).min(20.0);
-
-        // Low documentation increases debt
-        score += (100.0 - metrics.doc_coverage) * 0.2;
-
-        score.min(100.0)
-    }
 
     /// Calculate improvement velocity (rate of positive change)
     fn calculate_velocity(&self, _metrics: &ImprovementMetrics) -> f32 {

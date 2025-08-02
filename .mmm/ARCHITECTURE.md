@@ -86,7 +86,14 @@ MMM follows a dead simple architecture with clear separation of concerns. The en
 - Bootstraps new projects with required .claude/commands
 - Handles command conflicts and selective installation
 
-### 11. Metrics (`src/metrics/`)
+### 11. Scoring (`src/scoring/`)
+- **mod.rs**: Unified scoring system for project health assessment
+- Provides single, consistent ProjectHealthScore (0-100)
+- Calculates component scores for test coverage, code quality, maintainability, documentation, and type safety
+- Generates improvement suggestions based on scores
+- Replaces previous conflicting scoring systems
+
+### 12. Metrics (`src/metrics/`)
 - **events.rs**: Core metrics events, traits (MetricsCollector, MetricsReader), and data structures
 - **registry.rs**: MetricsRegistry for managing multiple collectors with sampling and configuration
 - **backends.rs**: File, memory, and composite collector implementations

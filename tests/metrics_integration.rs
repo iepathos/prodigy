@@ -89,7 +89,8 @@ version = "0.1.0"
 
     // Load metrics
     let loaded_content = fs::read_to_string(&current_file).unwrap();
-    let loaded_metrics: mmm::metrics::ImprovementMetrics = serde_json::from_str(&loaded_content).unwrap();
+    let loaded_metrics: mmm::metrics::ImprovementMetrics =
+        serde_json::from_str(&loaded_content).unwrap();
 
     // Verify loaded metrics match original
     assert_eq!(loaded_metrics.iteration_id, metrics.iteration_id);

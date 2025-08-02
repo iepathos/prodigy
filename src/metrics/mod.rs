@@ -73,7 +73,6 @@ pub struct ImprovementMetrics {
     // Progress metrics
     pub bugs_fixed: u32,
     pub features_added: u32,
-    pub tech_debt_score: f32,
     pub improvement_velocity: f32,
 
     // Unified health score
@@ -103,7 +102,6 @@ impl ImprovementMetrics {
             total_lines: 0,
             bugs_fixed: 0,
             features_added: 0,
-            tech_debt_score: 0.0,
             improvement_velocity: 0.0,
             health_score: None,
             timestamp: Utc::now(),

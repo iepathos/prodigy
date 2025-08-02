@@ -416,178 +416,180 @@ impl DefaultCookOrchestrator {
 
             // Execute each command in sequence
             for (step_index, cmd) in config.workflow.commands.iter().enumerate() {
-            let command = cmd.to_command();
+                let command = cmd.to_command();
 
-            self.user_interaction.display_progress(&format!(
-                "Executing step {}/{}: {}",
-                step_index + 1,
-                config.workflow.commands.len(),
-                command.name
-            ));
+                self.user_interaction.display_progress(&format!(
+                    "Executing step {}/{}: {}",
+                    step_index + 1,
+                    config.workflow.commands.len(),
+                    command.name
+                ));
 
+                // Resolve inputs and build final command arguments
+                let mut final_args = command.args.clone();
+                let mut resolved_variables = HashMap::new();
 
-            // Resolve inputs and build final command arguments
-            let mut final_args = command.args.clone();
-            let mut resolved_variables = HashMap::new();
+                if let Some(ref inputs) = command.inputs {
+                    for (input_name, input_ref) in inputs {
+                        self.user_interaction.display_info(&format!(
+                            "🔍 Resolving input '{}' from: {}",
+                            input_name, input_ref.from
+                        ));
 
-            if let Some(ref inputs) = command.inputs {
-                for (input_name, input_ref) in inputs {
-                    self.user_interaction.display_info(&format!(
-                        "🔍 Resolving input '{}' from: {}",
-                        input_name, input_ref.from
-                    ));
-
-                    // Parse the reference (e.g., "${cleanup.spec}")
-                    let resolved_value =
-                        if input_ref.from.starts_with("${") && input_ref.from.ends_with('}') {
-                            let var_ref = &input_ref.from[2..input_ref.from.len() - 1];
-                            if let Some((cmd_id, output_name)) = var_ref.split_once('.') {
-                                if let Some(cmd_outputs) = command_outputs.get(cmd_id) {
-                                    if let Some(value) = cmd_outputs.get(output_name) {
-                                        self.user_interaction.display_success(&format!(
-                                            "✓ Resolved {cmd_id}.{output_name} = {value}"
-                                        ));
-                                        value.clone()
+                        // Parse the reference (e.g., "${cleanup.spec}")
+                        let resolved_value =
+                            if input_ref.from.starts_with("${") && input_ref.from.ends_with('}') {
+                                let var_ref = &input_ref.from[2..input_ref.from.len() - 1];
+                                if let Some((cmd_id, output_name)) = var_ref.split_once('.') {
+                                    if let Some(cmd_outputs) = command_outputs.get(cmd_id) {
+                                        if let Some(value) = cmd_outputs.get(output_name) {
+                                            self.user_interaction.display_success(&format!(
+                                                "✓ Resolved {cmd_id}.{output_name} = {value}"
+                                            ));
+                                            value.clone()
+                                        } else {
+                                            return Err(anyhow!(
+                                                "Output '{}' not found for command '{}'",
+                                                output_name,
+                                                cmd_id
+                                            ));
+                                        }
                                     } else {
                                         return Err(anyhow!(
-                                            "Output '{}' not found for command '{}'",
-                                            output_name,
+                                            "Command '{}' not found or hasn't produced outputs yet",
                                             cmd_id
                                         ));
                                     }
                                 } else {
                                     return Err(anyhow!(
-                                        "Command '{}' not found or hasn't produced outputs yet",
-                                        cmd_id
+                                        "Invalid variable reference format: {}",
+                                        input_ref.from
                                     ));
                                 }
                             } else {
-                                return Err(anyhow!(
-                                    "Invalid variable reference format: {}",
-                                    input_ref.from
-                                ));
-                            }
-                        } else {
-                            input_ref.from.clone()
-                        };
+                                input_ref.from.clone()
+                            };
 
-                    // Store resolved variable for later use
-                    resolved_variables.insert(input_name.clone(), resolved_value.clone());
+                        // Store resolved variable for later use
+                        resolved_variables.insert(input_name.clone(), resolved_value.clone());
 
-                    // Apply the input based on the pass_as method
-                    match &input_ref.pass_as {
-                        InputMethod::Argument { position } => {
-                            self.user_interaction.display_info(&format!(
+                        // Apply the input based on the pass_as method
+                        match &input_ref.pass_as {
+                            InputMethod::Argument { position } => {
+                                self.user_interaction.display_info(&format!(
                                 "📝 Passing '{resolved_value}' as argument at position {position}"
                             ));
 
-                            // Ensure we have enough space in the args vector
-                            while final_args.len() <= *position {
-                                final_args.push(crate::config::command::CommandArg::Literal(
-                                    String::new(),
+                                // Ensure we have enough space in the args vector
+                                while final_args.len() <= *position {
+                                    final_args.push(crate::config::command::CommandArg::Literal(
+                                        String::new(),
+                                    ));
+                                }
+                                final_args[*position] =
+                                    crate::config::command::CommandArg::Literal(resolved_value);
+                            }
+                            InputMethod::Environment { name: env_name } => {
+                                // This would be handled during command execution
+                                self.user_interaction.display_info(&format!(
+                                    "🌍 Will set environment variable {env_name}={resolved_value}"
                                 ));
                             }
-                            final_args[*position] =
-                                crate::config::command::CommandArg::Literal(resolved_value);
-                        }
-                        InputMethod::Environment { name: env_name } => {
-                            // This would be handled during command execution
-                            self.user_interaction.display_info(&format!(
-                                "🌍 Will set environment variable {env_name}={resolved_value}"
-                            ));
-                        }
-                        InputMethod::Stdin => {
-                            // This would be handled during command execution
-                            self.user_interaction.display_info(&format!(
-                                "📥 Will pass '{resolved_value}' via stdin"
-                            ));
+                            InputMethod::Stdin => {
+                                // This would be handled during command execution
+                                self.user_interaction.display_info(&format!(
+                                    "📥 Will pass '{resolved_value}' via stdin"
+                                ));
+                            }
                         }
                     }
                 }
-            }
 
-            // Build final command string with resolved arguments
-            let mut cmd_parts = vec![format!("/{}", command.name)];
-            for arg in &final_args {
-                let resolved_arg = arg.resolve(&resolved_variables);
-                if !resolved_arg.is_empty() {
-                    cmd_parts.push(resolved_arg);
+                // Build final command string with resolved arguments
+                let mut cmd_parts = vec![format!("/{}", command.name)];
+                for arg in &final_args {
+                    let resolved_arg = arg.resolve(&resolved_variables);
+                    if !resolved_arg.is_empty() {
+                        cmd_parts.push(resolved_arg);
+                    }
                 }
-            }
-            let final_command = cmd_parts.join(" ");
+                let final_command = cmd_parts.join(" ");
 
-            self.user_interaction
-                .display_info(&format!("🚀 Executing command: {final_command}"));
+                self.user_interaction
+                    .display_info(&format!("🚀 Executing command: {final_command}"));
 
-            // Execute the command
-            let mut env_vars = HashMap::new();
-            env_vars.insert("MMM_CONTEXT_AVAILABLE".to_string(), "true".to_string());
-            env_vars.insert(
-                "MMM_CONTEXT_DIR".to_string(),
-                env.working_dir
-                    .join(".mmm/context")
-                    .to_string_lossy()
-                    .to_string(),
-            );
-            env_vars.insert("MMM_AUTOMATION".to_string(), "true".to_string());
-
-            let result = self
-                .claude_executor
-                .execute_claude_command(&final_command, &env.working_dir, env_vars)
-                .await?;
-
-            if !result.success {
-                anyhow::bail!(
-                    "Command '{}' failed with exit code {:?}. Error: {}",
-                    command.name,
-                    result.exit_code,
-                    result.stderr
+                // Execute the command
+                let mut env_vars = HashMap::new();
+                env_vars.insert("MMM_CONTEXT_AVAILABLE".to_string(), "true".to_string());
+                env_vars.insert(
+                    "MMM_CONTEXT_DIR".to_string(),
+                    env.working_dir
+                        .join(".mmm/context")
+                        .to_string_lossy()
+                        .to_string(),
                 );
-            } else {
-                // Track file changes when command succeeds
-                self.session_manager
-                    .update_session(SessionUpdate::AddFilesChanged(1))
+                env_vars.insert("MMM_AUTOMATION".to_string(), "true".to_string());
+
+                let result = self
+                    .claude_executor
+                    .execute_claude_command(&final_command, &env.working_dir, env_vars)
                     .await?;
-            }
 
-            // Handle outputs if specified
-            if let Some(ref outputs) = command.outputs {
-                let mut cmd_output_map = HashMap::new();
+                if !result.success {
+                    anyhow::bail!(
+                        "Command '{}' failed with exit code {:?}. Error: {}",
+                        command.name,
+                        result.exit_code,
+                        result.stderr
+                    );
+                } else {
+                    // Track file changes when command succeeds
+                    self.session_manager
+                        .update_session(SessionUpdate::AddFilesChanged(1))
+                        .await?;
+                }
 
-                for (output_name, output_decl) in outputs {
-                    self.user_interaction.display_info(&format!(
-                        "🔍 Looking for output '{}' with pattern: {}",
-                        output_name, output_decl.file_pattern
-                    ));
+                // Handle outputs if specified
+                if let Some(ref outputs) = command.outputs {
+                    let mut cmd_output_map = HashMap::new();
 
-                    // Find files matching the pattern in git commits
-                    let pattern_result = self
-                        .find_files_matching_pattern(&output_decl.file_pattern, &env.working_dir)
-                        .await;
+                    for (output_name, output_decl) in outputs {
+                        self.user_interaction.display_info(&format!(
+                            "🔍 Looking for output '{}' with pattern: {}",
+                            output_name, output_decl.file_pattern
+                        ));
 
-                    match pattern_result {
-                        Ok(file_path) => {
-                            self.user_interaction
-                                .display_success(&format!("✓ Found output file: {file_path}"));
-                            cmd_output_map.insert(output_name.clone(), file_path);
-                        }
-                        Err(e) => {
-                            self.user_interaction.display_warning(&format!(
-                                "❌ Failed to find output '{output_name}': {e}"
-                            ));
-                            return Err(e);
+                        // Find files matching the pattern in git commits
+                        let pattern_result = self
+                            .find_files_matching_pattern(
+                                &output_decl.file_pattern,
+                                &env.working_dir,
+                            )
+                            .await;
+
+                        match pattern_result {
+                            Ok(file_path) => {
+                                self.user_interaction
+                                    .display_success(&format!("✓ Found output file: {file_path}"));
+                                cmd_output_map.insert(output_name.clone(), file_path);
+                            }
+                            Err(e) => {
+                                self.user_interaction.display_warning(&format!(
+                                    "❌ Failed to find output '{output_name}': {e}"
+                                ));
+                                return Err(e);
+                            }
                         }
                     }
-                }
 
-                // Store outputs for this command
-                if let Some(ref id) = command.id {
-                    command_outputs.insert(id.clone(), cmd_output_map);
-                    self.user_interaction
-                        .display_success(&format!("💾 Stored outputs for command '{id}'"));
+                    // Store outputs for this command
+                    if let Some(ref id) = command.id {
+                        command_outputs.insert(id.clone(), cmd_output_map);
+                        self.user_interaction
+                            .display_success(&format!("💾 Stored outputs for command '{id}'"));
+                    }
                 }
             }
-        }
 
             // Check if we should continue iterations
             if iteration < max_iterations {
@@ -620,12 +622,14 @@ impl DefaultCookOrchestrator {
             .await?;
 
         if !output.status.success() {
-            return Err(anyhow!("Failed to get git diff: {}", 
-                String::from_utf8_lossy(&output.stderr)));
+            return Err(anyhow!(
+                "Failed to get git diff: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ));
         }
 
         let files = String::from_utf8(output.stdout)?;
-        
+
         // Check each file in the diff against the pattern
         for file in files.lines() {
             let file = file.trim();
@@ -652,7 +656,10 @@ impl DefaultCookOrchestrator {
             }
         }
 
-        Err(anyhow!("No files found matching pattern '{}' in last commit", pattern))
+        Err(anyhow!(
+            "No files found matching pattern '{}' in last commit",
+            pattern
+        ))
     }
 
     /// Helper to match glob-style patterns
@@ -661,7 +668,7 @@ impl DefaultCookOrchestrator {
         if pattern == "*" {
             return true;
         }
-        
+
         // Handle patterns like "*.md" or "*test*"
         let parts: Vec<&str> = pattern.split('*').collect();
         if parts.len() == 2 {
@@ -670,7 +677,7 @@ impl DefaultCookOrchestrator {
             let filename = file.split('/').last().unwrap_or(file);
             return filename.starts_with(prefix) && filename.ends_with(suffix);
         }
-        
+
         false
     }
 
@@ -1320,7 +1327,7 @@ mod tests {
             .current_dir(temp_dir.path())
             .output()
             .unwrap();
-            
+
         // Configure git user
         std::process::Command::new("git")
             .args(&["config", "user.email", "test@example.com"])
@@ -1349,7 +1356,9 @@ mod tests {
         // Create test files
         std::fs::create_dir_all(temp_dir.path().join("specs")).unwrap();
         std::fs::write(
-            temp_dir.path().join("specs/iteration-123-tech-debt-cleanup.md"),
+            temp_dir
+                .path()
+                .join("specs/iteration-123-tech-debt-cleanup.md"),
             "test spec content",
         )
         .unwrap();
@@ -1379,7 +1388,7 @@ mod tests {
         assert!(result.is_ok());
         let found_file = result.unwrap();
         assert!(found_file.contains("tech-debt-cleanup.md"));
-        
+
         // Test that non-matching files are not found
         let result2 = orchestrator
             .find_files_matching_pattern("*-other-pattern.md", temp_dir.path())

@@ -360,7 +360,6 @@ fn display_pretty_metrics(metrics: &crate::metrics::ImprovementMetrics) {
 
     // Progress
     println!("\n📈 Progress:");
-    println!("   Technical debt score: {:.1}", metrics.tech_debt_score);
     println!(
         "   Improvement velocity: {:.1}",
         metrics.improvement_velocity
@@ -431,7 +430,6 @@ fn display_summary_metrics(metrics: &crate::metrics::ImprovementMetrics) {
     if let Some(ref health_score) = metrics.health_score {
         println!("📊 Project Health Score: {:.1}/100", health_score.overall);
         println!("📊 Test coverage: {:.1}%", metrics.test_coverage);
-        println!("🛠️  Technical debt score: {:.1}", metrics.tech_debt_score);
         println!(
             "🚀 Improvement velocity: {:.1}",
             metrics.improvement_velocity
@@ -439,7 +437,6 @@ fn display_summary_metrics(metrics: &crate::metrics::ImprovementMetrics) {
     } else {
         // Fallback display
         println!("📊 Test coverage: {:.1}%", metrics.test_coverage);
-        println!("🛠️  Technical debt score: {:.1}", metrics.tech_debt_score);
         println!(
             "🚀 Improvement velocity: {:.1}",
             metrics.improvement_velocity
