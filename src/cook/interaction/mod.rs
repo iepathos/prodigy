@@ -108,6 +108,239 @@ impl UserInteraction for DefaultUserInteraction {
 }
 
 #[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{Arc, Mutex};
+
+    /// Mock implementation for testing
+    struct MockUserInteraction {
+        messages: Arc<Mutex<Vec<String>>>,
+        yes_no_responses: Arc<Mutex<Vec<bool>>>,
+        text_responses: Arc<Mutex<Vec<String>>>,
+    }
+
+    impl MockUserInteraction {
+        fn new() -> Self {
+            Self {
+                messages: Arc::new(Mutex::new(Vec::new())),
+                yes_no_responses: Arc::new(Mutex::new(Vec::new())),
+                text_responses: Arc::new(Mutex::new(Vec::new())),
+            }
+        }
+
+        fn add_yes_no_response(&self, response: bool) {
+            self.yes_no_responses.lock().unwrap().push(response);
+        }
+
+        fn add_text_response(&self, response: String) {
+            self.text_responses.lock().unwrap().push(response);
+        }
+
+        fn get_messages(&self) -> Vec<String> {
+            self.messages.lock().unwrap().clone()
+        }
+    }
+
+    #[async_trait]
+    impl UserInteraction for MockUserInteraction {
+        async fn prompt_yes_no(&self, message: &str) -> Result<bool> {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("Prompt: {}", message));
+            self.yes_no_responses
+                .lock()
+                .unwrap()
+                .pop()
+                .ok_or_else(|| anyhow::anyhow!("No yes/no response configured"))
+        }
+
+        async fn prompt_text(&self, message: &str, default: Option<&str>) -> Result<String> {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("Text prompt: {} (default: {:?})", message, default));
+            self.text_responses
+                .lock()
+                .unwrap()
+                .pop()
+                .ok_or_else(|| anyhow::anyhow!("No text response configured"))
+        }
+
+        fn display_info(&self, message: &str) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("Info: {}", message));
+        }
+
+        fn display_warning(&self, message: &str) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("Warning: {}", message));
+        }
+
+        fn display_error(&self, message: &str) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("Error: {}", message));
+        }
+
+        fn display_progress(&self, message: &str) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("Progress: {}", message));
+        }
+
+        fn start_spinner(&self, message: &str) -> Box<dyn SpinnerHandle> {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("Spinner started: {}", message));
+            Box::new(MockSpinnerHandle {
+                messages: self.messages.clone(),
+            })
+        }
+
+        fn display_success(&self, message: &str) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("Success: {}", message));
+        }
+    }
+
+    struct MockSpinnerHandle {
+        messages: Arc<Mutex<Vec<String>>>,
+    }
+
+    impl SpinnerHandle for MockSpinnerHandle {
+        fn update_message(&mut self, message: &str) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("Spinner update: {}", message));
+        }
+
+        fn success(&mut self, message: &str) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("Spinner success: {}", message));
+        }
+
+        fn fail(&mut self, message: &str) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("Spinner fail: {}", message));
+        }
+    }
+
+    #[test]
+    fn test_default_user_interaction_creation() {
+        let interaction = DefaultUserInteraction::new();
+        // Just verify it can be created
+        interaction.display_info("Test message");
+    }
+
+    #[tokio::test]
+    async fn test_mock_user_interaction() {
+        let mock = MockUserInteraction::new();
+
+        // Test display methods
+        mock.display_info("Information message");
+        mock.display_warning("Warning message");
+        mock.display_error("Error message");
+        mock.display_progress("Progress message");
+        mock.display_success("Success message");
+
+        let messages = mock.get_messages();
+        assert_eq!(messages.len(), 5);
+        assert!(messages[0].contains("Information message"));
+        assert!(messages[1].contains("Warning message"));
+        assert!(messages[2].contains("Error message"));
+        assert!(messages[3].contains("Progress message"));
+        assert!(messages[4].contains("Success message"));
+    }
+
+    #[tokio::test]
+    async fn test_mock_prompts() {
+        let mock = MockUserInteraction::new();
+
+        // Test yes/no prompt
+        mock.add_yes_no_response(true);
+        let result = mock.prompt_yes_no("Continue?").await.unwrap();
+        assert!(result);
+
+        // Test text prompt
+        mock.add_text_response("user input".to_string());
+        let text = mock
+            .prompt_text("Enter name:", Some("default"))
+            .await
+            .unwrap();
+        assert_eq!(text, "user input");
+
+        let messages = mock.get_messages();
+        assert!(messages.iter().any(|m| m.contains("Continue?")));
+        assert!(messages.iter().any(|m| m.contains("Enter name:")));
+    }
+
+    #[test]
+    fn test_spinner_handle() {
+        let mock = MockUserInteraction::new();
+        let mut spinner = mock.start_spinner("Loading...");
+
+        spinner.update_message("Still loading...");
+        spinner.success("Done!");
+
+        let messages = mock.get_messages();
+        assert!(messages
+            .iter()
+            .any(|m| m.contains("Spinner started: Loading")));
+        assert!(messages
+            .iter()
+            .any(|m| m.contains("Spinner update: Still loading")));
+        assert!(messages.iter().any(|m| m.contains("Spinner success: Done")));
+    }
+
+    #[test]
+    fn test_display_formatting() {
+        let display = DefaultUserInteraction::new();
+
+        // Test that messages are properly formatted
+        display.display_info("Test info");
+        display.display_warning("Test warning");
+        display.display_error("Test error");
+        display.display_progress("Test progress");
+        display.display_success("Test success");
+
+        // No panics means the test passes
+    }
+
+    #[tokio::test]
+    async fn test_error_handling() {
+        let mock = MockUserInteraction::new();
+
+        // Test missing yes/no response
+        let result = mock.prompt_yes_no("Should fail").await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("No yes/no response"));
+
+        // Test missing text response
+        let result = mock.prompt_text("Should also fail", None).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("No text response"));
+    }
+}
+
+#[cfg(test)]
 pub mod mocks {
     use super::*;
     use std::sync::Mutex;
