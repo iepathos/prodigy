@@ -2,17 +2,17 @@
   "statistics": {
     "total_items": 240,
     "by_type": {
-      "Complexity": 63,
       "Todo": 52,
       "Duplication": 100,
       "Fixme": 12,
-      "Deprecated": 6,
-      "Hack": 7
+      "Complexity": 63,
+      "Hack": 7,
+      "Deprecated": 6
     },
     "by_impact": {
       "High": 16,
-      "Medium": 172,
-      "Low": 52
+      "Low": 52,
+      "Medium": 172
     },
     "avg_impact": 5.333333333333333,
     "avg_effort": 3.941666666666667
@@ -329,16 +329,16 @@
       "primary_issue_type": "Todo"
     },
     {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/src/context/tarpaulin_coverage.rs",
-      "total_issues": 6,
-      "max_complexity": 19,
-      "primary_issue_type": "Complexity"
-    },
-    {
       "file": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/tests/cook_iteration_tests.rs",
       "total_issues": 6,
       "max_complexity": 13,
       "primary_issue_type": "Duplication"
+    },
+    {
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-19a831a3-b6db-4bc6-8a48-29bd69840916/tests/subprocess_tests.rs",
+      "total_issues": 6,
+      "max_complexity": 0,
+      "primary_issue_type": "Todo"
     }
   ],
   "duplication_summary": {
