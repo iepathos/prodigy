@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "timestamp": "2025-08-02T06:23:59.633280Z",
-    "duration_ms": 104590,
+    "timestamp": "2025-08-02T06:35:22.520331Z",
+    "duration_ms": 87030,
     "files_analyzed": 154,
     "incremental": false,
     "version": "0.1.0"
@@ -22,7 +22,7 @@
     "architectural_violations": 2,
     "debt_items": 211,
     "high_priority_debt": 28,
-    "overall_coverage": 0.5563931574369383,
+    "overall_coverage": 0.5562481878805451,
     "untested_functions": 1258,
     "critical_untested": 1,
     "hybrid_score": 0.0
