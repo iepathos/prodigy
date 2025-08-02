@@ -604,7 +604,7 @@ impl DefaultCookOrchestrator {
     ) -> Result<()> {
         // Collect all inputs from --map patterns and --args
         let all_inputs = self.collect_workflow_inputs(config)?;
-        
+
         if all_inputs.is_empty() {
             return Err(anyhow!("No inputs found from --map patterns or --args"));
         }
@@ -657,7 +657,7 @@ impl DefaultCookOrchestrator {
         for pattern in &config.command.map {
             self.user_interaction
                 .display_info(&format!("🔍 Processing file pattern: {pattern}"));
-            
+
             let pattern_inputs = self.process_glob_pattern(pattern)?;
             all_inputs.extend(pattern_inputs);
         }
@@ -677,7 +677,7 @@ impl DefaultCookOrchestrator {
     /// Process a single glob pattern and return extracted inputs
     fn process_glob_pattern(&self, pattern: &str) -> Result<Vec<String>> {
         let mut inputs = Vec::new();
-        
+
         match glob::glob(pattern) {
             Ok(entries) => {
                 let mut pattern_matches = 0;
@@ -704,7 +704,7 @@ impl DefaultCookOrchestrator {
                     .display_error(&format!("❌ Error processing pattern '{pattern}': {e}"));
             }
         }
-        
+
         Ok(inputs)
     }
 
@@ -873,12 +873,11 @@ impl DefaultCookOrchestrator {
             std::env::var("MMM_NO_COMMIT_VALIDATION").unwrap_or_default() == "true";
 
         // Get HEAD before command execution if we need to verify commits
-        let head_before =
-            if !skip_validation && command.metadata.commit_required && !test_mode {
-                Some(self.get_current_head(&env.working_dir).await?)
-            } else {
-                None
-            };
+        let head_before = if !skip_validation && command.metadata.commit_required && !test_mode {
+            Some(self.get_current_head(&env.working_dir).await?)
+        } else {
+            None
+        };
 
         // Execute the command
         let result = self
@@ -913,10 +912,7 @@ impl DefaultCookOrchestrator {
                     .any(|cmd| cmd.trim() == command.name.trim_start_matches('/'))
                 {
                     // This command would not have made changes in real execution
-                    return Err(anyhow!(
-                        "No changes were committed by {}",
-                        final_command
-                    ));
+                    return Err(anyhow!("No changes were committed by {}", final_command));
                 }
             }
         }
