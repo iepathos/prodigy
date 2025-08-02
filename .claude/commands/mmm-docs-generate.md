@@ -96,3 +96,8 @@ docs: generate [documentation type] documentation
 4. **Content Generation**: Create rustdoc-compatible documentation
 5. **Quality Check**: Ensure examples compile and follow conventions
 6. **Commit Changes**: Automatically commit with descriptive message
+
+IMPORTANT: Do not put "    
+    🤖 Generated with [Claude Code](https://claude.ai/code)
+    
+    Co-Authored-By: Claude <noreply@anthropic.com>" in the commit it just bloats the messages.
