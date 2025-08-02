@@ -1,21 +1,21 @@
 {
   "statistics": {
-    "total_items": 208,
+    "total_items": 210,
     "by_type": {
-      "Todo": 18,
-      "Fixme": 11,
       "Hack": 7,
+      "Todo": 18,
+      "Duplication": 100,
+      "Complexity": 69,
       "Deprecated": 5,
-      "Complexity": 67,
-      "Duplication": 100
+      "Fixme": 11
     },
     "by_impact": {
-      "Medium": 178,
+      "High": 13,
       "Low": 18,
-      "High": 12
+      "Medium": 179
     },
-    "avg_impact": 5.514423076923077,
-    "avg_effort": 4.125
+    "avg_impact": 5.5285714285714285,
+    "avg_effort": 4.133333333333334
   },
   "high_priority_items": [
     {
@@ -288,20 +288,20 @@
     },
     {
       "file": "/Users/glen/memento-mori/mmm/src/cook/mod_old.rs",
-      "total_issues": 14,
+      "total_issues": 15,
       "max_complexity": 22,
       "primary_issue_type": "Complexity"
-    },
-    {
-      "file": "/Users/glen/memento-mori/mmm/src/abstractions/claude.rs",
-      "total_issues": 11,
-      "max_complexity": 20,
-      "primary_issue_type": "Duplication"
     },
     {
       "file": "/Users/glen/memento-mori/mmm/src/config/command_validator.rs",
       "total_issues": 11,
       "max_complexity": 17,
+      "primary_issue_type": "Duplication"
+    },
+    {
+      "file": "/Users/glen/memento-mori/mmm/src/abstractions/claude.rs",
+      "total_issues": 10,
+      "max_complexity": 20,
       "primary_issue_type": "Duplication"
     },
     {
@@ -312,7 +312,7 @@
     },
     {
       "file": "/Users/glen/memento-mori/mmm/src/worktree/test_state.rs",
-      "total_issues": 6,
+      "total_issues": 7,
       "max_complexity": 11,
       "primary_issue_type": "Duplication"
     },
@@ -343,7 +343,7 @@
   ],
   "duplication_summary": {
     "total_duplicate_blocks": 100,
-    "total_duplicate_lines": 4641,
+    "total_duplicate_lines": 4647,
     "files_with_duplication": 98,
     "largest_duplicate_lines": 50
   }

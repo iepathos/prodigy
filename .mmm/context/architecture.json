@@ -4,6 +4,34 @@
   ],
   "layers": [],
   "components": {
+    "metrics": {
+      "name": "metrics",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct ImprovementMetrics",
+        "fn new(iteration_id:",
+        "fn overall_score(&self)",
+        "struct MetricsComparison",
+        "trait MetricsAnalyzer",
+        "struct MetricsData",
+        "trait MetricsReporter",
+        "fn fn",
+        "fn fn",
+        "fn create_disabled_registry()",
+        "fn create_context"
+      ],
+      "dependencies": [
+        "anyhow",
+        "tokio",
+        "tempfile",
+        "async_trait",
+        "chrono",
+        "serde",
+        "rand",
+        "syn",
+        "tracing"
+      ]
+    },
     "context": {
       "name": "context",
       "responsibility": "Module functionality",
@@ -27,24 +55,6 @@
         "tempfile"
       ]
     },
-    "subprocess": {
-      "name": "subprocess",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct SubprocessManager",
-        "fn new(runner:",
-        "fn production()",
-        "fn mock()",
-        "fn runner(&self)",
-        "fn git(&self)",
-        "fn claude(&self)"
-      ],
-      "dependencies": [
-        "async_trait",
-        "futures",
-        "tokio"
-      ]
-    },
     "analyze": {
       "name": "analyze",
       "responsibility": "Module functionality",
@@ -57,23 +67,16 @@
         "tempfile"
       ]
     },
-    "git": {
-      "name": "git",
+    "init": {
+      "name": "init",
       "responsibility": "Module functionality",
       "interfaces": [
-        "trait GitReader:",
-        "trait GitWriter:",
-        "trait GitWorktree:",
-        "trait GitOperations:",
-        "struct GitCommandRunner",
-        "fn new(process_runner:"
+        "fn fn"
       ],
       "dependencies": [
+        "clap",
         "anyhow",
-        "thiserror",
-        "async_trait",
-        "tempfile",
-        "tokio"
+        "tempfile"
       ]
     },
     "testing": {
@@ -151,16 +154,41 @@
         "serde"
       ]
     },
-    "init": {
-      "name": "init",
+    "subprocess": {
+      "name": "subprocess",
       "responsibility": "Module functionality",
       "interfaces": [
-        "fn fn"
+        "struct SubprocessManager",
+        "fn new(runner:",
+        "fn production()",
+        "fn mock()",
+        "fn runner(&self)",
+        "fn git(&self)",
+        "fn claude(&self)"
       ],
       "dependencies": [
-        "clap",
+        "async_trait",
+        "futures",
+        "tokio"
+      ]
+    },
+    "git": {
+      "name": "git",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "trait GitReader:",
+        "trait GitWriter:",
+        "trait GitWorktree:",
+        "trait GitOperations:",
+        "struct GitCommandRunner",
+        "fn new(process_runner:"
+      ],
+      "dependencies": [
         "anyhow",
-        "tempfile"
+        "thiserror",
+        "async_trait",
+        "tempfile",
+        "tokio"
       ]
     },
     "session": {
@@ -186,32 +214,27 @@
         "tempfile"
       ]
     },
-    "metrics": {
-      "name": "metrics",
+    "cook": {
+      "name": "cook",
       "responsibility": "Module functionality",
       "interfaces": [
-        "struct ImprovementMetrics",
-        "fn new(iteration_id:",
-        "fn overall_score(&self)",
-        "struct MetricsComparison",
-        "trait MetricsAnalyzer",
-        "struct MetricsData",
-        "trait MetricsReporter",
         "fn fn",
-        "fn fn",
-        "fn create_disabled_registry()",
-        "fn create_context"
+        "fn fn"
       ],
       "dependencies": [
         "anyhow",
-        "tokio",
-        "tempfile",
         "async_trait",
+        "tempfile",
         "chrono",
         "serde",
-        "rand",
-        "syn",
-        "tracing"
+        "tokio",
+        "git_ops",
+        "retry",
+        "workflow",
+        "glob",
+        "clap",
+        "once_cell",
+        "signal_hook"
       ]
     },
     "config": {
@@ -237,29 +260,6 @@
         "once_cell",
         "tokio",
         "tempfile"
-      ]
-    },
-    "cook": {
-      "name": "cook",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn fn",
-        "fn fn"
-      ],
-      "dependencies": [
-        "anyhow",
-        "async_trait",
-        "tempfile",
-        "chrono",
-        "serde",
-        "tokio",
-        "git_ops",
-        "retry",
-        "workflow",
-        "glob",
-        "clap",
-        "once_cell",
-        "signal_hook"
       ]
     }
   },
