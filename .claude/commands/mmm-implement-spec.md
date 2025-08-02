@@ -93,7 +93,6 @@ Update .mmm files (skip for temporary iteration specs):
   - **ARCHITECTURE.md**: Add architectural details for new components
   - **DECISIONS.md**: Add ADRs for significant implementation choices
   - **CONVENTIONS.md**: Document any new patterns discovered
-  - **Delete spec file**: Remove the implemented spec file after successful implementation
 - **Temporary specs**: Skip context updates, focus on implementing fixes
 
 ### Step 5: Validation and Commit
@@ -101,10 +100,11 @@ Update .mmm files (skip for temporary iteration specs):
 Final steps:
 - Run `cargo fmt` and `cargo clippy`
 - Run `cargo test` if tests exist
+- **Delete spec file**: Remove the implemented spec file after successful implementation (both permanent and temporary specs)
 - **Report modified files** (for automation tracking):
   - List all files that were created, modified, or deleted
   - Include brief description of changes made
-  - Format: "Modified: src/main.rs", "Created: tests/new_test.rs"
+  - Format: "Modified: src/main.rs", "Created: tests/new_test.rs", "Deleted: specs/67-worktree-cleanup-after-merge.md"
 - **Git commit (REQUIRED for automation)**:
   - Stage all changes: `git add .`
   - **Permanent specs**: "feat: implement spec {number} - {title}"
@@ -180,6 +180,6 @@ This would:
 2. Implement the worktree cleanup functionality
 3. Update orchestrator cleanup method
 4. Update PROJECT.md to show new capability
-5. Delete the spec file `specs/67-worktree-cleanup-after-merge.md`
-6. Run cargo fmt and clippy
+5. Run cargo fmt and clippy
+6. Delete the spec file `specs/67-worktree-cleanup-after-merge.md`
 7. Commit: "feat: implement spec 67 - worktree cleanup after merge"

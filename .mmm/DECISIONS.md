@@ -661,3 +661,21 @@ Extract metrics collection into an isolated, pluggable system with clear interfa
 - **Positive**: Complete isolation from execution logic, pluggable collectors and readers, comprehensive testing support with MetricsAssert, support for multiple backends, thread-safe and async-compatible, context-aware metrics with tag propagation, zero overhead when disabled, 95% test coverage for metrics system
 - **Negative**: Additional abstraction layer, slight increase in codebase complexity, requires migration for full benefits, maintains legacy metrics components for backward compatibility
 - **Implementation**: Created events.rs with core traits and data types, registry.rs with MetricsRegistry for managing collectors, backends.rs with file/memory/composite implementations, context.rs for tag-aware metrics contexts, testing.rs with comprehensive assertion utilities, factory functions for common configurations, full backward compatibility maintained
+
+---
+
+## ADR-038: Simplified Spec Management System
+
+### Status
+Accepted
+
+### Context
+Spec 68 identified that the specification management system using a manually maintained SPEC_INDEX.md file had become a maintenance burden with significant accuracy issues. The index showed 44 active specs but only 5 spec files existed, specs were missing from the index, and statuses were incorrectly tracked. The manual maintenance requirement for every status change led to a system where the index could not be trusted as the source of truth.
+
+### Decision
+Replace the manual SPEC_INDEX.md system with a simpler file-based approach where only unimplemented specs exist as files, completed specs are removed after implementation, and git history tracks what was implemented when. Commands work directly with spec files using YAML frontmatter for metadata instead of maintaining a separate index.
+
+### Consequences
+- **Positive**: Zero manual maintenance required, always accurate spec status (file exists = unimplemented), faster command execution without index parsing, cleaner repository structure, easier onboarding for contributors, complete implementation history preserved in git
+- **Negative**: Loss of centralized view of all specs ever created (mitigated by git history), requires one-time migration of existing specs, commands that relied on index need updates
+- **Implementation**: Added YAML frontmatter to all existing spec files, updated mmm-implement-spec to delete specs after implementation, created mmm-list-specs command for dynamic spec discovery, updated mmm-add-spec to generate numbers from existing files, archived SPEC_INDEX.md for historical reference

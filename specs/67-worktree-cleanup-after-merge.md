@@ -1,3 +1,13 @@
+---
+number: 67
+title: Worktree Cleanup After Merge
+category: parallel
+priority: high
+status: draft
+dependencies: [24, 25, 26, 41]
+created: 2024-01-15
+---
+
 # Specification 67: Worktree Cleanup After Merge
 
 **Category**: parallel

@@ -1,3 +1,13 @@
+---
+number: 65
+title: Cook Module Refactoring
+category: optimization
+priority: high
+status: draft
+dependencies: []
+created: 2024-01-15
+---
+
 # Cook Module Refactoring Plan
 
 ## Problem Statement
