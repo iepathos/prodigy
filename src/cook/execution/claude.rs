@@ -58,21 +58,26 @@ impl<R: CommandRunner + 'static> ClaudeExecutor for ClaudeExecutorImpl<R> {
         }
 
         // No timeout for Claude commands - let them run as long as needed for automated workflows
-        
+
         // Claude requires some input on stdin to work properly
         context.stdin = Some("".to_string());
 
-        let args = vec!["--print".to_string(), "--dangerously-skip-permissions".to_string(), command.to_string()];
+        let args = vec![
+            "--print".to_string(),
+            "--dangerously-skip-permissions".to_string(),
+            command.to_string(),
+        ];
         tracing::debug!("Executing claude command with args: {:?}", args);
-        
-        let result = self.runner
+
+        let result = self
+            .runner
             .run_with_context("claude", &args, &context)
             .await;
-            
+
         if let Err(ref e) = result {
             tracing::error!("Claude command failed: {:?}", e);
         }
-        
+
         result
     }
 

@@ -379,19 +379,23 @@ fn display_pretty_metrics(metrics: &crate::metrics::ImprovementMetrics) {
 /// Display metrics in summary format
 fn display_summary_metrics(metrics: &crate::metrics::ImprovementMetrics) {
     println!("\n✅ Metrics analysis complete!");
-    println!("   - Test coverage: {:.1}%", metrics.test_coverage);
+    println!("📊 Test coverage: {:.1}%", metrics.test_coverage);
+    println!("🛠️  Technical debt score: {:.1}", metrics.tech_debt_score);
     println!(
-        "   - Code quality score: {:.1}/100",
+        "🚀 Improvement velocity: {:.1}",
+        metrics.improvement_velocity
+    );
+    println!(
+        "🎯 Overall quality score: {:.1}/100",
         metrics.overall_score()
     );
-    println!("   - Technical debt: {:.1}", metrics.tech_debt_score);
     println!(
-        "   - Compile time: {:.2}s",
+        "⏱️  Compile time: {:.2}s",
         metrics.compile_time.as_secs_f64()
     );
 
     if metrics.lint_warnings > 0 {
-        println!("   ⚠️  {} lint warnings found", metrics.lint_warnings);
+        println!("⚠️  {} lint warnings found", metrics.lint_warnings);
     }
 
     println!("\n💡 Use --output=pretty for detailed metrics");

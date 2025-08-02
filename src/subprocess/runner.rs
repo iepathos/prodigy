@@ -90,17 +90,20 @@ impl ProcessRunner for TokioProcessRunner {
             command.program,
             command.args.join(" ")
         );
-        
+
         if !command.env.is_empty() {
             tracing::trace!("Environment variables: {:?}", command.env);
         }
-        
+
         if let Some(ref dir) = command.working_dir {
             tracing::trace!("Working directory: {:?}", dir);
         }
-        
+
         if command.stdin.is_some() {
-            tracing::trace!("Stdin provided: {} bytes", command.stdin.as_ref().unwrap().len());
+            tracing::trace!(
+                "Stdin provided: {} bytes",
+                command.stdin.as_ref().unwrap().len()
+            );
         }
 
         let mut cmd = tokio::process::Command::new(&command.program);
@@ -180,7 +183,7 @@ impl ProcessRunner for TokioProcessRunner {
             stderr: String::from_utf8_lossy(&output.stderr).to_string(),
             duration,
         };
-        
+
         // Log the result
         match &status {
             ExitStatus::Success => {

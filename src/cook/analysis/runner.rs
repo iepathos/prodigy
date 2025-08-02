@@ -181,13 +181,8 @@ impl<R: CommandRunner + 'static> AnalysisCoordinator for AnalysisRunnerImpl<R> {
     }
 
     async fn save_analysis(&self, project_path: &Path, analysis: &AnalysisResult) -> Result<()> {
-        let analysis_path = project_path.join(".mmm/context/analysis.json");
-        if let Some(parent) = analysis_path.parent() {
-            tokio::fs::create_dir_all(parent).await?;
-        }
-
-        let json = serde_json::to_string_pretty(analysis)?;
-        tokio::fs::write(&analysis_path, json).await?;
+        // Use the improved save_analysis function that includes git commit and scoring
+        crate::context::save_analysis(project_path, analysis)?;
         Ok(())
     }
 
