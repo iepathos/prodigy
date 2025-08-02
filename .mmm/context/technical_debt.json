@@ -2,17 +2,17 @@
   "statistics": {
     "total_items": 210,
     "by_type": {
-      "Hack": 7,
-      "Todo": 18,
-      "Duplication": 100,
       "Complexity": 69,
-      "Deprecated": 5,
-      "Fixme": 11
+      "Duplication": 100,
+      "Todo": 18,
+      "Fixme": 11,
+      "Hack": 7,
+      "Deprecated": 5
     },
     "by_impact": {
-      "High": 13,
       "Low": 18,
-      "Medium": 179
+      "Medium": 179,
+      "High": 13
     },
     "avg_impact": 5.5285714285714285,
     "avg_effort": 4.133333333333334
@@ -284,7 +284,7 @@
       "file": "/Users/glen/memento-mori/mmm/src/context/debt.rs",
       "total_issues": 38,
       "max_complexity": 49,
-      "primary_issue_type": "Fixme"
+      "primary_issue_type": "Todo"
     },
     {
       "file": "/Users/glen/memento-mori/mmm/src/cook/mod_old.rs",
@@ -300,7 +300,7 @@
     },
     {
       "file": "/Users/glen/memento-mori/mmm/src/abstractions/claude.rs",
-      "total_issues": 10,
+      "total_issues": 9,
       "max_complexity": 20,
       "primary_issue_type": "Duplication"
     },
@@ -317,10 +317,10 @@
       "primary_issue_type": "Duplication"
     },
     {
-      "file": "/Users/glen/memento-mori/mmm/src/context/tarpaulin_coverage.rs",
+      "file": "/Users/glen/memento-mori/mmm/src/cook/orchestrator.rs",
       "total_issues": 6,
-      "max_complexity": 19,
-      "primary_issue_type": "Duplication"
+      "max_complexity": 31,
+      "primary_issue_type": "Complexity"
     },
     {
       "file": "/Users/glen/memento-mori/mmm/tests/cook_iteration_tests.rs",
@@ -329,21 +329,21 @@
       "primary_issue_type": "Duplication"
     },
     {
-      "file": "/Users/glen/memento-mori/mmm/src/git/scenario.rs",
-      "total_issues": 5,
-      "max_complexity": 11,
+      "file": "/Users/glen/memento-mori/mmm/src/context/tarpaulin_coverage.rs",
+      "total_issues": 6,
+      "max_complexity": 19,
       "primary_issue_type": "Duplication"
     },
     {
-      "file": "/Users/glen/memento-mori/mmm/src/config/dynamic_registry.rs",
+      "file": "/Users/glen/memento-mori/mmm/src/git/mod.rs",
       "total_issues": 5,
-      "max_complexity": 17,
-      "primary_issue_type": "Complexity"
+      "max_complexity": 0,
+      "primary_issue_type": "Duplication"
     }
   ],
   "duplication_summary": {
     "total_duplicate_blocks": 100,
-    "total_duplicate_lines": 4647,
+    "total_duplicate_lines": 4653,
     "files_with_duplication": 98,
     "largest_duplicate_lines": 50
   }
