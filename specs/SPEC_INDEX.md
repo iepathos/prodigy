@@ -27,6 +27,7 @@ Features enabling concurrent execution and parallel processing.
 - **Spec 26**: Worktree CLI Flag - User-friendly parallel execution ✅
 - **Spec 29**: Centralized Worktree State - Enhanced state management ✅
 - **Spec 30**: Interrupted Worktree Recovery - Resume interrupted sessions (draft)
+- **Spec 67**: Worktree Cleanup After Merge - Restore cleanup prompt functionality (draft)
 
 ### Storage Specifications
 Data persistence, caching, and storage optimizations.
@@ -100,7 +101,7 @@ Performance improvements and system efficiency.
 - Spec 29: Centralized Worktree State
 - Spec 55: Fix Test Coverage Analysis
 
-### 📝 Draft (24 specs)
+### 📝 Draft (25 specs)
 - Spec 30: Interrupted Worktree Recovery
 - Spec 31: Product Management Command
 - Spec 32: CLI Help as Default
@@ -125,6 +126,7 @@ Performance improvements and system efficiency.
 - Spec 61: Fix Ignored Tests with Proper Mocking
 - Spec 62: Remove Duplicate AnalysisResult
 - Spec 63: Optimize Context File Sizes
+- Spec 67: Worktree Cleanup After Merge
 
 ### 🚧 In Progress (0 specs)
 None currently in progress.
@@ -200,6 +202,7 @@ Optimization Layer:
 ## Quick Reference
 
 ### Latest Specifications
+- Spec 67: Worktree Cleanup After Merge (draft) - Restore cleanup prompt functionality
 - Spec 63: Optimize Context File Sizes (draft) - Reduce context from 17MB to under 1MB
 - Spec 62: Remove Duplicate AnalysisResult (draft) - Eliminate duplicate struct definition
 - Spec 61: Fix Ignored Tests with Proper Mocking (draft) - Enable hanging tests with subprocess mocking
@@ -216,6 +219,7 @@ Optimization Layer:
 - Spec 49: Fix Test Coverage Analysis (draft) - Accurate coverage reporting
 
 ### High Priority Specifications
+- Spec 67: Worktree Cleanup After Merge - Restores expected user workflow
 - Spec 63: Optimize Context File Sizes - Critical for Claude context efficiency
 - Spec 62: Remove Duplicate AnalysisResult - Fixes architectural issue and prevents bugs
 - Spec 61: Fix Ignored Tests with Proper Mocking - Critical for CI/CD reliability and test coverage
