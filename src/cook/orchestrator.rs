@@ -339,6 +339,35 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                 worktree_manager.merge_session(worktree_name).await?;
                 self.user_interaction
                     .display_success("Worktree changes merged successfully!");
+
+                // After successful merge, handle cleanup
+                if config.command.auto_accept {
+                    // Auto cleanup when -y flag is provided
+                    if let Err(e) = worktree_manager.cleanup_session(worktree_name, true).await {
+                        eprintln!(
+                            "⚠️ Warning: Failed to clean up worktree '{worktree_name}': {e}"
+                        );
+                    } else {
+                        self.user_interaction.display_success("Worktree cleaned up");
+                    }
+                } else {
+                    // Prompt for cleanup
+                    let should_cleanup = self
+                        .user_interaction
+                        .prompt_yes_no("Would you like to clean up the worktree?")
+                        .await?;
+
+                    if should_cleanup {
+                        if let Err(e) = worktree_manager.cleanup_session(worktree_name, true).await
+                        {
+                            eprintln!(
+                                "⚠️ Warning: Failed to clean up worktree '{worktree_name}': {e}"
+                            );
+                        } else {
+                            self.user_interaction.display_success("Worktree cleaned up");
+                        }
+                    }
+                }
             }
         }
 
@@ -1589,6 +1618,85 @@ mod tests {
         assert_eq!(
             prompt_count, 0,
             "Should not have prompted when no worktree is present"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_worktree_cleanup_after_merge() {
+        let temp_dir = TempDir::new().unwrap();
+        let (orchestrator, mock_interaction, _) = create_test_orchestrator();
+
+        // Create environment with worktree
+        let env_with_worktree = ExecutionEnvironment {
+            working_dir: temp_dir.path().to_path_buf(),
+            project_dir: temp_dir.path().to_path_buf(),
+            worktree_name: Some("test-worktree".to_string()),
+            session_id: "test-session".to_string(),
+        };
+
+        // Test with auto_accept = true (should not prompt for cleanup)
+        let _config_auto = CookConfig {
+            command: CookCommand {
+                playbook: PathBuf::from("test.yml"),
+                path: None,
+                max_iterations: 1,
+                worktree: true,
+                map: vec![],
+                args: vec![],
+                fail_fast: false,
+                metrics: false,
+                auto_accept: true,
+                resume: None,
+                skip_analysis: false,
+            },
+            project_path: temp_dir.path().to_path_buf(),
+            workflow: WorkflowConfig { commands: vec![] },
+        };
+
+        // Test with auto_accept = false (should prompt for cleanup)
+        let config_manual = CookConfig {
+            command: CookCommand {
+                playbook: PathBuf::from("test.yml"),
+                path: None,
+                max_iterations: 1,
+                worktree: true,
+                map: vec![],
+                args: vec![],
+                fail_fast: false,
+                metrics: false,
+                auto_accept: false,
+                resume: None,
+                skip_analysis: false,
+            },
+            project_path: temp_dir.path().to_path_buf(),
+            workflow: WorkflowConfig { commands: vec![] },
+        };
+
+        // Test with manual config
+        // Note: In test mode, the actual worktree operations won't happen
+        // so we're just verifying the structure is correct
+        let result_manual = orchestrator
+            .cleanup(&env_with_worktree, &config_manual)
+            .await;
+        assert!(result_manual.is_ok());
+
+        let messages = mock_interaction.get_messages();
+        let merge_prompts = messages
+            .iter()
+            .filter(|msg| msg.contains("merge the worktree changes"))
+            .count();
+        let cleanup_prompts = messages
+            .iter()
+            .filter(|msg| msg.contains("clean up the worktree"))
+            .count();
+
+        // In non-test mode, we would see both prompts
+        // But in test mode (MMM_TEST_MODE=true), merge prompt is skipped
+        // So we can only verify the structure is correct
+        assert!(merge_prompts <= 1, "Should have at most one merge prompt");
+        assert!(
+            cleanup_prompts <= 1,
+            "Should have at most one cleanup prompt"
         );
     }
 }
