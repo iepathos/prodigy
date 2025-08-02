@@ -1,8 +1,8 @@
 {
   "metadata": {
-    "timestamp": "2025-08-02T09:15:02.441004Z",
-    "duration_ms": 114107,
-    "files_analyzed": 156,
+    "timestamp": "2025-08-02T09:40:36.009738Z",
+    "duration_ms": 110400,
+    "files_analyzed": 155,
     "incremental": false,
     "version": "0.1.0"
   },
@@ -15,7 +15,7 @@
     "hybrid_coverage": "hybrid_coverage.json"
   },
   "statistics": {
-    "total_files": 156,
+    "total_files": 155,
     "total_modules": 128,
     "dependency_edges": 840,
     "circular_dependencies": 0,
@@ -35,7 +35,7 @@
       "maintainability": 10.0,
       "type_safety": null
     },
-    "timestamp": "2025-08-02T09:15:02.441040Z"
+    "timestamp": "2025-08-02T09:40:36.009826Z"
   },
   "insights": [
     "28 high-priority technical debt items require attention"

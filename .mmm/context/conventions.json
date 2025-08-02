@@ -24,14 +24,6 @@
       ],
       "frequency": 2
     },
-    "error_handling": {
-      "name": "Result-based error handling",
-      "description": "Uses Result<T, E> for error handling",
-      "examples": [
-        "Result<String, Error>"
-      ],
-      "frequency": 30
-    },
     "async": {
       "name": "Async/await pattern",
       "description": "Uses async/await for asynchronous code",
@@ -39,6 +31,14 @@
         "async fn process()"
       ],
       "frequency": 13
+    },
+    "error_handling": {
+      "name": "Result-based error handling",
+      "description": "Uses Result<T, E> for error handling",
+      "examples": [
+        "Result<String, Error>"
+      ],
+      "frequency": 30
     }
   },
   "test_patterns": {
