@@ -6,7 +6,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::context::{debt::DebtItem as TechnicalDebtItem, AnalysisResult};
+use crate::context::{debt::DebtItem as TechnicalDebtItem, AnalysisMetadata, AnalysisResult};
 use crate::metrics::ImprovementMetrics;
 
 /// Unified project health score with component breakdown
@@ -164,8 +164,12 @@ impl ProjectHealthScore {
             total_weight += 0.10;
         }
 
-        // Type safety not available in context analysis
-        // Skip with no weight adjustment
+        // Type safety (5% weight) - load from metrics if available
+        if let Ok(type_coverage) = load_type_coverage_from_metrics(&analysis.metadata) {
+            components.type_safety = Some(type_coverage);
+            total_score += type_coverage * 0.05;
+            total_weight += 0.05;
+        }
 
         let overall = if total_weight > 0.0 {
             total_score / total_weight
@@ -388,6 +392,27 @@ pub fn format_component(name: &str, value: Option<f64>, details: Option<&str>) -
         }
         None => format!("  - {name}: N/A"),
     }
+}
+
+/// Load type coverage from metrics file
+fn load_type_coverage_from_metrics(_metadata: &AnalysisMetadata) -> Result<f64, ()> {
+    // Get the project path from the current directory
+    let project_path = std::env::current_dir().map_err(|_| ())?;
+    let metrics_file = project_path.join(".mmm").join("metrics").join("current.json");
+    
+    if !metrics_file.exists() {
+        return Err(());
+    }
+    
+    // Read and parse metrics file
+    let content = std::fs::read_to_string(&metrics_file).map_err(|_| ())?;
+    let metrics: serde_json::Value = serde_json::from_str(&content).map_err(|_| ())?;
+    
+    // Extract type coverage
+    metrics
+        .get("type_coverage")
+        .and_then(|v| v.as_f64())
+        .ok_or(())
 }
 
 #[cfg(test)]
