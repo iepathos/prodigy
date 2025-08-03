@@ -35,7 +35,22 @@ pub async fn execute_with_subprocess(
     println!("🔍 Analyzing project at: {}", project_path.display());
 
     match cmd.analysis_type.as_str() {
-        "context" => run_context_analysis(&project_path, &cmd, subprocess).await?,
+        "context" => {
+            // Run metrics first (without committing) so context can use test coverage
+            let mut cmd_no_commit = cmd.clone();
+            cmd_no_commit.no_commit = true;
+            cmd_no_commit.save = true; // Always save metrics for context to use
+            
+            if cmd.verbose {
+                println!("📊 Collecting metrics first for complete context analysis...");
+            }
+            
+            // Run metrics silently
+            run_metrics_analysis_silent(&project_path, &cmd_no_commit, subprocess.clone()).await?;
+            
+            // Now run context analysis with normal commit settings
+            run_context_analysis(&project_path, &cmd, subprocess).await?
+        }
         "metrics" => run_metrics_analysis(&project_path, &cmd, subprocess).await?,
         "all" => {
             // For "all" mode, we want to commit everything together
@@ -43,8 +58,9 @@ pub async fn execute_with_subprocess(
             let mut cmd_no_commit = cmd.clone();
             cmd_no_commit.no_commit = true;
 
-            run_context_analysis(&project_path, &cmd_no_commit, subprocess.clone()).await?;
-            run_metrics_analysis(&project_path, &cmd_no_commit, subprocess).await?;
+            // Run metrics first so context analysis can use test coverage data
+            run_metrics_analysis(&project_path, &cmd_no_commit, subprocess.clone()).await?;
+            run_context_analysis(&project_path, &cmd_no_commit, subprocess).await?;
 
             // Now commit everything together if save is enabled and no_commit is false
             if cmd.save && !cmd.no_commit {
@@ -161,6 +177,32 @@ async fn run_metrics_analysis(
                 println!("📝 Changes committed to git");
             }
         }
+    }
+
+    Ok(())
+}
+
+/// Run metrics analysis silently (for use as prerequisite)
+async fn run_metrics_analysis_silent(
+    project_path: &std::path::Path,
+    cmd: &AnalyzeCommand,
+    subprocess: SubprocessManager,
+) -> Result<()> {
+    // Create metrics collector with injected subprocess
+    let collector = crate::metrics::MetricsCollector::new(subprocess);
+
+    // Generate iteration ID (timestamp-based for now)
+    let iteration_id = format!("manual-{}", chrono::Utc::now().timestamp());
+
+    // Collect metrics
+    let metrics = collector
+        .collect_metrics(project_path, iteration_id)
+        .await?;
+
+    // Save metrics without any output
+    if cmd.save {
+        let storage = crate::metrics::MetricsStorage::new(project_path);
+        let _ = storage.save_current_with_commit(&metrics, false)?;
     }
 
     Ok(())

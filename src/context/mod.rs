@@ -15,6 +15,7 @@ pub mod architecture;
 pub mod conventions;
 pub mod debt;
 pub mod dependencies;
+pub mod metrics_aware_coverage;
 pub mod size_manager;
 pub mod summary;
 pub mod tarpaulin_coverage;

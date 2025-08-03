@@ -11,10 +11,6 @@ fn default_cache_duration() -> u64 {
     300
 }
 
-/// Default analysis types (context only)
-fn default_analysis_types() -> Vec<String> {
-    vec!["context".to_string()]
-}
 
 /// Represents a command argument that can be a literal value or a variable
 #[derive(Debug, Clone, PartialEq)]
@@ -125,10 +121,6 @@ pub struct Command {
 /// Configuration for per-step analysis requirements
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AnalysisConfig {
-    /// Types of analysis needed: ["context"], ["metrics"], or ["context", "metrics"]
-    #[serde(default = "default_analysis_types")]
-    pub analysis_types: Vec<String>,
-
     /// Force fresh analysis even if cached
     #[serde(default)]
     pub force_refresh: bool,
@@ -545,12 +537,10 @@ mod tests {
     #[test]
     fn test_analysis_config_defaults() {
         let analysis_config = AnalysisConfig {
-            analysis_types: vec!["context".to_string()],
             force_refresh: false,
             max_cache_age: 300,
         };
 
-        assert_eq!(analysis_config.analysis_types, vec!["context"]);
         assert!(!analysis_config.force_refresh);
         assert_eq!(analysis_config.max_cache_age, 300);
     }
@@ -558,7 +548,6 @@ mod tests {
     #[test]
     fn test_analysis_config_serialization() {
         let analysis_config = AnalysisConfig {
-            analysis_types: vec!["context".to_string(), "metrics".to_string()],
             force_refresh: true,
             max_cache_age: 600,
         };
@@ -566,7 +555,6 @@ mod tests {
         let json = serde_json::to_string(&analysis_config).unwrap();
         let deserialized: AnalysisConfig = serde_json::from_str(&json).unwrap();
 
-        assert_eq!(deserialized.analysis_types, vec!["context", "metrics"]);
         assert!(deserialized.force_refresh);
         assert_eq!(deserialized.max_cache_age, 600);
     }
@@ -575,19 +563,18 @@ mod tests {
     fn test_command_with_analysis_config() {
         let mut cmd = Command::new("mmm-code-review");
         cmd.metadata.analysis = Some(AnalysisConfig {
-            analysis_types: vec!["metrics".to_string()],
             force_refresh: false,
             max_cache_age: 300,
         });
 
         let json = serde_json::to_string(&cmd).unwrap();
         assert!(json.contains("\"analysis\""));
-        assert!(json.contains("\"analysis_types\":[\"metrics\"]"));
+        assert!(json.contains("\"max_cache_age\":300"));
 
         let deserialized: Command = serde_json::from_str(&json).unwrap();
         assert!(deserialized.metadata.analysis.is_some());
         let analysis = deserialized.metadata.analysis.unwrap();
-        assert_eq!(analysis.analysis_types, vec!["metrics"]);
+        assert_eq!(analysis.max_cache_age, 300);
     }
 
     #[test]
@@ -596,20 +583,13 @@ mod tests {
     }
 
     #[test]
-    fn test_default_analysis_types() {
-        assert_eq!(default_analysis_types(), vec!["context"]);
-    }
-
-    #[test]
-    fn test_analysis_config_with_default_types() {
-        // Test that deserializing without analysis_types uses the default
+    fn test_analysis_config_with_defaults() {
+        // Test that deserializing with minimal fields works
         let json = r#"{
-            "force_refresh": true,
-            "max_cache_age": 600
+            "force_refresh": true
         }"#;
         let deserialized: AnalysisConfig = serde_json::from_str(json).unwrap();
-        assert_eq!(deserialized.analysis_types, vec!["context"]);
         assert!(deserialized.force_refresh);
-        assert_eq!(deserialized.max_cache_age, 600);
+        assert_eq!(deserialized.max_cache_age, 300); // Should use default
     }
 }

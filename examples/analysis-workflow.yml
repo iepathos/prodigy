@@ -1,6 +1,6 @@
 # Example workflow demonstrating per-step analysis configuration
-# This workflow shows how to optimize analysis runs by specifying
-# which commands need fresh analysis data
+# This workflow shows how to control when analysis runs
+# Analysis always includes both metrics and context data
 
 commands:
   # First command: Implement a spec
@@ -17,26 +17,23 @@ commands:
     # No analysis needed - works with existing code structure
   
   # Third command: Code review
-  # This command benefits from both context and metrics
+  # This command benefits from fresh analysis
   - name: mmm-code-review
     analysis:
-      analysis_types: ["context", "metrics"]  # Run both context and metrics analysis
       max_cache_age: 300                       # Use cache if less than 5 minutes old
       force_refresh: false                     # Don't force if cache is fresh
   
   # Fourth command: Clean up technical debt
-  # This needs fresh metrics to prioritize cleanup
+  # This needs fresh analysis to prioritize cleanup
   - name: mmm-cleanup-tech-debt
     analysis:
-      analysis_types: ["metrics"]   # Only need metrics, not full context
-      force_refresh: true           # Always get fresh metrics for accuracy
+      force_refresh: true           # Always get fresh analysis for accuracy
       max_cache_age: 0              # Ignored when force_refresh is true
   
   # Fifth command: Generate documentation
-  # This needs updated context after all changes
+  # This needs updated analysis after all changes
   - name: mmm-generate-docs
     analysis:
-      analysis_types: ["context"]   # Only need context analysis (default if omitted)
       max_cache_age: 60             # Very short cache - 1 minute
       force_refresh: false          # Use cache if available and fresh
 

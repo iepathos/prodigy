@@ -1165,14 +1165,13 @@ impl DefaultCookOrchestrator {
             let mut all_cached = true;
             let mut oldest_age = 0i64;
 
-            // Check if all requested analysis types are cached and fresh
-            for analysis_type in &config.analysis_types {
-                let cache_path = match analysis_type.as_str() {
-                    "context" => env.working_dir.join(".mmm/context/analysis_metadata.json"),
-                    "metrics" => env.working_dir.join(".mmm/metrics/current.json"),
-                    _ => continue,
-                };
+            // Always check both context and metrics caches
+            let cache_paths = [
+                ("context", env.working_dir.join(".mmm/context/analysis_metadata.json")),
+                ("metrics", env.working_dir.join(".mmm/metrics/current.json")),
+            ];
 
+            for (_analysis_type, cache_path) in &cache_paths {
                 if !cache_path.exists() {
                     all_cached = false;
                     break;
@@ -1219,11 +1218,9 @@ impl DefaultCookOrchestrator {
             }
         }
 
-        // Run the appropriate analysis types
-        let analysis_types_str = config.analysis_types.join(", ");
+        // Always run both analyses: metrics first, then context
         self.user_interaction.display_progress(&format!(
-            "Running {} analysis{}...",
-            analysis_types_str,
+            "Running analysis{}...",
             if config.force_refresh {
                 " (forced refresh)"
             } else {
@@ -1231,38 +1228,31 @@ impl DefaultCookOrchestrator {
             }
         ));
 
-        // Validate analysis types
-        for analysis_type in &config.analysis_types {
-            if !["context", "metrics"].contains(&analysis_type.as_str()) {
-                return Err(anyhow!(
-                    "Invalid analysis type: '{}'. Must be 'context' or 'metrics'",
-                    analysis_type
-                ));
-            }
-        }
-
-        // Run requested analysis types
-        if config.analysis_types.contains(&"context".to_string()) {
-            // Run context analysis
-            let analysis = self
-                .analysis_coordinator
-                .analyze_project(&env.working_dir)
-                .await?;
-            self.analysis_coordinator
-                .save_analysis(&env.working_dir, &analysis)
-                .await?;
-        }
-
-        if config.analysis_types.contains(&"metrics".to_string()) {
-            // Run metrics analysis
-            let metrics = self
-                .metrics_coordinator
-                .collect_all(&env.working_dir)
-                .await?;
-            self.metrics_coordinator
-                .store_metrics(&env.working_dir, &metrics)
-                .await?;
-        }
+        // Run metrics analysis first (to collect test coverage data)
+        self.user_interaction
+            .display_progress("📊 Collecting project metrics...");
+        let metrics = self
+            .metrics_coordinator
+            .collect_all(&env.working_dir)
+            .await?;
+        
+        // Store metrics but don't commit yet
+        self.metrics_coordinator
+            .store_metrics(&env.working_dir, &metrics)
+            .await?;
+        
+        // Run context analysis (which can now use test coverage from metrics)
+        self.user_interaction
+            .display_progress("🔄 Running context analysis...");
+        let analysis = self
+            .analysis_coordinator
+            .analyze_project(&env.working_dir)
+            .await?;
+        
+        // Save context analysis (this will display the health score with test coverage)
+        self.analysis_coordinator
+            .save_analysis(&env.working_dir, &analysis)
+            .await?;
 
         // Commit analysis if in worktree mode
         if env.worktree_name.is_some() {
@@ -1303,7 +1293,7 @@ impl DefaultCookOrchestrator {
                         args: vec![
                             "commit".to_string(),
                             "-m".to_string(),
-                            "analysis: update project context".to_string(),
+                            "analysis: update project context and metrics".to_string(),
                         ],
                         env: HashMap::new(),
                         working_dir: Some(env.working_dir.clone()),

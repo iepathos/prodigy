@@ -7,7 +7,6 @@ commands:
         spec:
           file_pattern: "*-tech-debt-cleanup.md"
       analysis:
-        analysis_types: ["context", "metrics"]
         max_cache_age: 300
     
     - name: mmm-implement-spec
