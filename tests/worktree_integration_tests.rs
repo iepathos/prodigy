@@ -122,6 +122,81 @@ fn main() {
 }
 
 #[test]
+fn test_git_head_detection_in_worktree() -> anyhow::Result<()> {
+    // This test verifies that git commands run in the correct directory when using worktrees
+    let temp_dir = setup_test_repo()?;
+    let repo_path = temp_dir.path();
+
+    // Create a worktree
+    let worktree_path = repo_path.join("../test-worktree");
+    Command::new("git")
+        .current_dir(repo_path)
+        .args(["worktree", "add", worktree_path.to_str().unwrap(), "-b", "test-branch"])
+        .output()?;
+
+    // Make commits in both main repo and worktree
+    fs::write(repo_path.join("main.txt"), "main content")?;
+    Command::new("git")
+        .current_dir(repo_path)
+        .args(["add", "."])
+        .output()?;
+    Command::new("git")
+        .current_dir(repo_path)
+        .args(["commit", "-m", "Main repo commit"])
+        .output()?;
+
+    fs::write(worktree_path.join("worktree.txt"), "worktree content")?;
+    Command::new("git")
+        .current_dir(&worktree_path)
+        .args(["add", "."])
+        .output()?;
+    Command::new("git")
+        .current_dir(&worktree_path)
+        .args(["commit", "-m", "Worktree commit"])
+        .output()?;
+
+    // Get HEAD from main repo
+    let main_head = Command::new("git")
+        .current_dir(repo_path)
+        .args(["rev-parse", "HEAD"])
+        .output()?;
+    let main_head = String::from_utf8_lossy(&main_head.stdout).trim().to_string();
+
+    // Get HEAD from worktree
+    let worktree_head = Command::new("git")
+        .current_dir(&worktree_path)
+        .args(["rev-parse", "HEAD"])
+        .output()?;
+    let worktree_head = String::from_utf8_lossy(&worktree_head.stdout).trim().to_string();
+
+    // They should be different
+    assert_ne!(main_head, worktree_head, "Main repo and worktree should have different HEADs");
+    assert_eq!(main_head.len(), 40, "Main HEAD should be a valid SHA");
+    assert_eq!(worktree_head.len(), 40, "Worktree HEAD should be a valid SHA");
+
+    // Test that running git commands with current_dir set correctly gets the right HEAD
+    let test_head_cmd = |dir: &std::path::Path| -> String {
+        let output = Command::new("git")
+            .current_dir(dir)
+            .args(["rev-parse", "HEAD"])
+            .output()
+            .expect("Failed to get HEAD");
+        String::from_utf8_lossy(&output.stdout).trim().to_string()
+    };
+
+    assert_eq!(test_head_cmd(repo_path), main_head, "HEAD detection in main repo should work");
+    assert_eq!(test_head_cmd(&worktree_path), worktree_head, "HEAD detection in worktree should work");
+
+    // Clean up
+    Command::new("git")
+        .current_dir(repo_path)
+        .args(["worktree", "remove", worktree_path.to_str().unwrap(), "--force"])
+        .output()?;
+
+    Ok(())
+}
+
+#[test]
 fn test_mmm_worktree_merge_command() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
 

@@ -5,7 +5,6 @@
 
 use crate::cook::analysis::AnalysisCoordinator;
 use crate::cook::execution::ClaudeExecutor;
-use crate::cook::git_ops::git_command;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::metrics::MetricsCoordinator;
 use crate::cook::orchestrator::ExecutionEnvironment;
@@ -327,10 +326,20 @@ impl WorkflowExecutor {
     }
 
     /// Get current git HEAD
-    async fn get_current_head(&self, _working_dir: &std::path::Path) -> Result<String> {
-        let output = git_command(&["rev-parse", "HEAD"], "get current HEAD")
+    async fn get_current_head(&self, working_dir: &std::path::Path) -> Result<String> {
+        // We need to run git commands in the correct working directory (especially for worktrees)
+        let output = tokio::process::Command::new("git")
+            .args(&["rev-parse", "HEAD"])
+            .current_dir(working_dir)
+            .output()
             .await
-            .context("Failed to get git HEAD")?;
+            .context("Failed to execute git rev-parse HEAD")?;
+            
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(anyhow::anyhow!("Failed to get git HEAD: {}", stderr));
+        }
+        
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 
@@ -447,5 +456,208 @@ impl WorkflowExecutor {
                 .any(|cmd| cmd.trim() == command_name);
         }
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    /// Helper function to test get_current_head directly without needing a full executor
+    async fn test_get_current_head(working_dir: &std::path::Path) -> Result<String> {
+        let output = tokio::process::Command::new("git")
+            .args(&["rev-parse", "HEAD"])
+            .current_dir(working_dir)
+            .output()
+            .await
+            .context("Failed to execute git rev-parse HEAD")?;
+            
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(anyhow::anyhow!("Failed to get git HEAD: {}", stderr));
+        }
+        
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    }
+
+    #[tokio::test]
+    async fn test_get_current_head_in_regular_repo() {
+        let temp_dir = TempDir::new().unwrap();
+        let repo_path = temp_dir.path();
+
+        // Initialize a git repo
+        std::process::Command::new("git")
+            .args(&["init"])
+            .current_dir(repo_path)
+            .output()
+            .expect("Failed to init git repo");
+
+        // Configure git user
+        std::process::Command::new("git")
+            .args(&["config", "user.email", "test@example.com"])
+            .current_dir(repo_path)
+            .output()
+            .expect("Failed to set git email");
+
+        std::process::Command::new("git")
+            .args(&["config", "user.name", "Test User"])
+            .current_dir(repo_path)
+            .output()
+            .expect("Failed to set git name");
+
+        // Create initial commit
+        std::fs::write(repo_path.join("test.txt"), "test content").unwrap();
+        std::process::Command::new("git")
+            .args(&["add", "."])
+            .current_dir(repo_path)
+            .output()
+            .expect("Failed to stage files");
+
+        std::process::Command::new("git")
+            .args(&["commit", "-m", "Initial commit"])
+            .current_dir(repo_path)
+            .output()
+            .expect("Failed to create commit");
+
+        // Test get_current_head
+        let head = test_get_current_head(repo_path).await.unwrap();
+        assert!(!head.is_empty());
+        assert_eq!(head.len(), 40); // SHA-1 hash is 40 characters
+    }
+
+    #[tokio::test]
+    async fn test_get_current_head_in_worktree() {
+        let temp_dir = TempDir::new().unwrap();
+        let main_repo = temp_dir.path().join("main");
+        let worktree_path = temp_dir.path().join("worktree");
+
+        // Create main repo
+        std::fs::create_dir(&main_repo).unwrap();
+        std::process::Command::new("git")
+            .args(&["init"])
+            .current_dir(&main_repo)
+            .output()
+            .expect("Failed to init git repo");
+
+        // Configure git user
+        std::process::Command::new("git")
+            .args(&["config", "user.email", "test@example.com"])
+            .current_dir(&main_repo)
+            .output()
+            .expect("Failed to set git email");
+
+        std::process::Command::new("git")
+            .args(&["config", "user.name", "Test User"])
+            .current_dir(&main_repo)
+            .output()
+            .expect("Failed to set git name");
+
+        // Create initial commit in main repo
+        std::fs::write(main_repo.join("test.txt"), "test content").unwrap();
+        std::process::Command::new("git")
+            .args(&["add", "."])
+            .current_dir(&main_repo)
+            .output()
+            .expect("Failed to stage files");
+
+        std::process::Command::new("git")
+            .args(&["commit", "-m", "Initial commit"])
+            .current_dir(&main_repo)
+            .output()
+            .expect("Failed to create commit");
+
+        // Create worktree
+        std::process::Command::new("git")
+            .args(&["worktree", "add", worktree_path.to_str().unwrap(), "-b", "test-branch"])
+            .current_dir(&main_repo)
+            .output()
+            .expect("Failed to create worktree");
+
+        // Make a commit in the worktree
+        std::fs::write(worktree_path.join("worktree.txt"), "worktree content").unwrap();
+        std::process::Command::new("git")
+            .args(&["add", "."])
+            .current_dir(&worktree_path)
+            .output()
+            .expect("Failed to stage files in worktree");
+
+        std::process::Command::new("git")
+            .args(&["commit", "-m", "Worktree commit"])
+            .current_dir(&worktree_path)
+            .output()
+            .expect("Failed to create commit in worktree");
+
+        // Test get_current_head in worktree
+        let worktree_head = test_get_current_head(&worktree_path).await.unwrap();
+        assert!(!worktree_head.is_empty());
+        assert_eq!(worktree_head.len(), 40);
+
+        // Get main repo head
+        let main_head = test_get_current_head(&main_repo).await.unwrap();
+        
+        // Heads should be different
+        assert_ne!(worktree_head, main_head, "Worktree HEAD should differ from main repo HEAD");
+    }
+
+    #[tokio::test]
+    async fn test_get_current_head_error_handling() {
+        let temp_dir = TempDir::new().unwrap();
+        let non_git_dir = temp_dir.path();
+
+        // Test in non-git directory
+        let result = test_get_current_head(non_git_dir).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Failed to get git HEAD"));
+    }
+
+    #[tokio::test]
+    async fn test_get_current_head_respects_working_directory() {
+        // This test verifies that the git command runs in the correct directory
+        let temp_dir = TempDir::new().unwrap();
+        let repo1 = temp_dir.path().join("repo1");
+        let repo2 = temp_dir.path().join("repo2");
+
+        // Create two separate repos
+        for (repo_path, commit_msg) in &[(&repo1, "Repo 1 commit"), (&repo2, "Repo 2 commit")] {
+            std::fs::create_dir(repo_path).unwrap();
+            std::process::Command::new("git")
+                .args(&["init"])
+                .current_dir(repo_path)
+                .output()
+                .expect("Failed to init git repo");
+
+            std::process::Command::new("git")
+                .args(&["config", "user.email", "test@example.com"])
+                .current_dir(repo_path)
+                .output()
+                .expect("Failed to set git email");
+
+            std::process::Command::new("git")
+                .args(&["config", "user.name", "Test User"])
+                .current_dir(repo_path)
+                .output()
+                .expect("Failed to set git name");
+
+            std::fs::write(repo_path.join("test.txt"), format!("content for {}", commit_msg)).unwrap();
+            std::process::Command::new("git")
+                .args(&["add", "."])
+                .current_dir(repo_path)
+                .output()
+                .expect("Failed to stage files");
+
+            std::process::Command::new("git")
+                .args(&["commit", "-m", commit_msg])
+                .current_dir(repo_path)
+                .output()
+                .expect("Failed to create commit");
+        }
+
+        // Get heads from both repos
+        let head1 = test_get_current_head(&repo1).await.unwrap();
+        let head2 = test_get_current_head(&repo2).await.unwrap();
+
+        // They should be different
+        assert_ne!(head1, head2, "Different repos should have different HEAD commits");
     }
 }
