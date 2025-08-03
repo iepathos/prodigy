@@ -15,6 +15,14 @@
       ],
       "frequency": 13
     },
+    "builder": {
+      "name": "Builder pattern",
+      "description": "Uses builder pattern for object construction",
+      "examples": [
+        "RequestBuilder::new()"
+      ],
+      "frequency": 2
+    },
     "error_handling": {
       "name": "Result-based error handling",
       "description": "Uses Result<T, E> for error handling",
@@ -31,14 +39,6 @@
         "log::info!"
       ],
       "frequency": 1
-    },
-    "builder": {
-      "name": "Builder pattern",
-      "description": "Uses builder pattern for object construction",
-      "examples": [
-        "RequestBuilder::new()"
-      ],
-      "frequency": 2
     }
   },
   "test_patterns": {
