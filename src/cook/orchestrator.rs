@@ -3,6 +3,7 @@
 //! Coordinates all cook operations using the extracted components.
 
 use crate::abstractions::git::GitOperations;
+use crate::analysis::{run_analysis, AnalysisConfig, OutputFormat, ProgressReporter};
 use crate::config::{WorkflowCommand, WorkflowConfig};
 use crate::simple_state::StateManager;
 use crate::worktree::WorktreeManager;
@@ -308,13 +309,28 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         if extended_workflow.analyze_before && !config.command.skip_analysis {
             self.user_interaction
                 .display_progress("Running initial analysis...");
-            let analysis = self
-                .analysis_coordinator
-                .analyze_project(&env.working_dir)
-                .await?;
-            self.analysis_coordinator
-                .save_analysis(&env.working_dir, &analysis)
-                .await?;
+            
+            // Create progress reporter wrapper
+            let progress = Arc::new(OrchestrationProgressReporter {
+                interaction: self.user_interaction.clone(),
+            });
+
+            // Configure unified analysis
+            let analysis_config = AnalysisConfig::builder()
+                .output_format(OutputFormat::Summary)
+                .save_results(true)
+                .commit_changes(false)
+                .verbose(false)
+                .build();
+
+            // Run unified analysis
+            let _results = run_analysis(
+                &env.working_dir,
+                analysis_config,
+                self.subprocess.clone(),
+                progress,
+            )
+            .await?;
         } else if config.command.skip_analysis {
             self.user_interaction
                 .display_info("Skipping project analysis (--skip-analysis flag)");
@@ -394,6 +410,29 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         }
 
         Ok(())
+    }
+}
+
+/// Progress reporter wrapper for UserInteraction
+struct OrchestrationProgressReporter {
+    interaction: Arc<dyn UserInteraction>,
+}
+
+impl ProgressReporter for OrchestrationProgressReporter {
+    fn display_progress(&self, message: &str) {
+        self.interaction.display_progress(message);
+    }
+
+    fn display_info(&self, message: &str) {
+        self.interaction.display_info(message);
+    }
+
+    fn display_warning(&self, message: &str) {
+        self.interaction.display_warning(message);
+    }
+
+    fn display_success(&self, message: &str) {
+        self.interaction.display_success(message);
     }
 }
 
@@ -708,13 +747,28 @@ impl DefaultCookOrchestrator {
         if !config.command.skip_analysis {
             self.user_interaction
                 .display_progress("Running initial analysis...");
-            let analysis = self
-                .analysis_coordinator
-                .analyze_project(&env.working_dir)
-                .await?;
-            self.analysis_coordinator
-                .save_analysis(&env.working_dir, &analysis)
-                .await?;
+            
+            // Create progress reporter wrapper
+            let progress = Arc::new(OrchestrationProgressReporter {
+                interaction: self.user_interaction.clone(),
+            });
+
+            // Configure unified analysis
+            let analysis_config = AnalysisConfig::builder()
+                .output_format(OutputFormat::Summary)
+                .save_results(true)
+                .commit_changes(false)
+                .verbose(false)
+                .build();
+
+            // Run unified analysis
+            let _results = run_analysis(
+                &env.working_dir,
+                analysis_config,
+                self.subprocess.clone(),
+                progress,
+            )
+            .await?;
         }
 
         // Execute iterations if configured
@@ -815,13 +869,28 @@ impl DefaultCookOrchestrator {
         if !config.command.skip_analysis {
             self.user_interaction
                 .display_progress("Running initial analysis...");
-            let analysis = self
-                .analysis_coordinator
-                .analyze_project(&env.working_dir)
-                .await?;
-            self.analysis_coordinator
-                .save_analysis(&env.working_dir, &analysis)
-                .await?;
+            
+            // Create progress reporter wrapper
+            let progress = Arc::new(OrchestrationProgressReporter {
+                interaction: self.user_interaction.clone(),
+            });
+
+            // Configure unified analysis
+            let analysis_config = AnalysisConfig::builder()
+                .output_format(OutputFormat::Summary)
+                .save_results(true)
+                .commit_changes(false)
+                .verbose(false)
+                .build();
+
+            // Run unified analysis
+            let _results = run_analysis(
+                &env.working_dir,
+                analysis_config,
+                self.subprocess.clone(),
+                progress,
+            )
+            .await?;
         }
 
         // Process each input
@@ -1218,7 +1287,7 @@ impl DefaultCookOrchestrator {
             }
         }
 
-        // Always run both analyses: metrics first, then context
+        // Use unified analysis function
         self.user_interaction.display_progress(&format!(
             "Running analysis{}...",
             if config.force_refresh {
@@ -1228,31 +1297,30 @@ impl DefaultCookOrchestrator {
             }
         ));
 
-        // Run metrics analysis first (to collect test coverage data)
-        self.user_interaction
-            .display_progress("📊 Collecting project metrics...");
-        let metrics = self
-            .metrics_coordinator
-            .collect_all(&env.working_dir)
-            .await?;
-        
-        // Store metrics but don't commit yet
-        self.metrics_coordinator
-            .store_metrics(&env.working_dir, &metrics)
-            .await?;
-        
-        // Run context analysis (which can now use test coverage from metrics)
-        self.user_interaction
-            .display_progress("🔄 Running context analysis...");
-        let analysis = self
-            .analysis_coordinator
-            .analyze_project(&env.working_dir)
-            .await?;
-        
-        // Save context analysis (this will display the health score with test coverage)
-        self.analysis_coordinator
-            .save_analysis(&env.working_dir, &analysis)
-            .await?;
+        // Create progress reporter wrapper
+        let progress = Arc::new(OrchestrationProgressReporter {
+            interaction: self.user_interaction.clone(),
+        });
+
+        // Configure unified analysis
+        let analysis_config = AnalysisConfig::builder()
+            .output_format(OutputFormat::Summary)
+            .save_results(true)
+            .commit_changes(false) // We'll commit later if in worktree mode
+            .force_refresh(config.force_refresh)
+            .run_metrics(true)
+            .run_context(true)
+            .verbose(false)
+            .build();
+
+        // Run unified analysis
+        let _results = run_analysis(
+            &env.working_dir,
+            analysis_config,
+            self.subprocess.clone(),
+            progress,
+        )
+        .await?;
 
         // Commit analysis if in worktree mode
         if env.worktree_name.is_some() {

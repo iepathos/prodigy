@@ -11,6 +11,7 @@
 //! ## Modules
 //!
 //! - `abstractions` - Trait-based abstractions for external dependencies (git, Claude CLI)
+//! - `analysis` - Unified analysis function for consistent behavior
 //! - `analyze` - Project analysis and metrics commands
 //! - `config` - Configuration management for the tool
 //! - `context` - Context-aware project understanding and analysis
@@ -25,6 +26,7 @@
 //! - `session` - Session state management with event-driven architecture
 //! - `testing` - Testing utilities and fixtures for comprehensive testing
 pub mod abstractions;
+pub mod analysis;
 pub mod analyze;
 pub mod config;
 pub mod context;
