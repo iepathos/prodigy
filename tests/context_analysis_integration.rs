@@ -23,7 +23,7 @@ fn untested_function() -> Result<(), String> {
 "#,
     )
     .unwrap();
-    
+
     // Create Cargo.toml to make it a valid Rust project
     fs::write(
         temp_dir.path().join("Cargo.toml"),
@@ -53,7 +53,7 @@ async fn test_context_save_and_load_integration() {
     // Test saving and loading analysis data
     let temp_dir = TempDir::new().unwrap();
     let project_path = temp_dir.path();
-    
+
     // First create a context dir
     let context_dir = project_path.join(".mmm").join("context");
     fs::create_dir_all(&context_dir).unwrap();
@@ -70,5 +70,8 @@ async fn test_context_save_and_load_integration() {
     assert!(loaded.is_some());
 
     let loaded_analysis = loaded.unwrap();
-    assert_eq!(loaded_analysis.metadata.files_analyzed, analysis.metadata.files_analyzed);
+    assert_eq!(
+        loaded_analysis.metadata.files_analyzed,
+        analysis.metadata.files_analyzed
+    );
 }

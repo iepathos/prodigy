@@ -68,8 +68,7 @@ async fn test_git_operations_integration() {
         || status.contains("nothing to commit") 
         || status.contains("working tree clean")
         || status.contains("nothing added to commit"),
-        "Expected clean status, got: '{}'", 
-        status
+        "Expected clean status, got: '{status}'"
     );
 
     // Restore original directory

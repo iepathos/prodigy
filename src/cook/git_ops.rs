@@ -76,9 +76,9 @@ pub async fn is_git_repo() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
     use tempfile::TempDir;
     use tokio::process::Command;
-    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[tokio::test]
     async fn test_git_mutex_prevents_races() {
@@ -168,8 +168,11 @@ mod tests {
     /// Test helper: Create a commit in a repository
     async fn create_test_commit(repo_path: &std::path::Path, message: &str) -> Result<()> {
         // Create a unique file to avoid conflicts
-        let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
-        let filename = format!("test_{}.txt", timestamp);
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+        let filename = format!("test_{timestamp}.txt");
         let file_path = repo_path.join(&filename);
         std::fs::write(&file_path, "test content")?;
 

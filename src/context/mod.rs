@@ -763,9 +763,9 @@ mod tests {
 
     #[test]
     fn test_save_test_coverage_summary_detailed_data() {
+        use crate::context::test_coverage::{Criticality, FileCoverage, UntestedFunction};
         use std::path::PathBuf;
-        use crate::context::test_coverage::{FileCoverage, UntestedFunction, Criticality};
-        
+
         // Test saving detailed coverage data
         let temp_dir = tempfile::TempDir::new().unwrap();
         let context_dir = temp_dir.path();

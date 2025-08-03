@@ -517,8 +517,7 @@ mod additional_tests {
             let error_msg = result.unwrap_err().to_string();
             assert!(
                 error_msg.contains("claude") || error_msg.contains("install"),
-                "Error message should mention 'claude' or 'install': {}",
-                error_msg
+                "Error message should mention 'claude' or 'install': {error_msg}"
             );
         }
         // If Claude is installed, that's also OK - the test verifies error handling code path exists
