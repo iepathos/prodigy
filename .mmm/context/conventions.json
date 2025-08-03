@@ -15,6 +15,15 @@
       ],
       "frequency": 30
     },
+    "logging": {
+      "name": "Logging pattern",
+      "description": "Uses logging for debugging and monitoring",
+      "examples": [
+        "println!",
+        "log::info!"
+      ],
+      "frequency": 1
+    },
     "async": {
       "name": "Async/await pattern",
       "description": "Uses async/await for asynchronous code",
@@ -30,15 +39,6 @@
         "RequestBuilder::new()"
       ],
       "frequency": 2
-    },
-    "logging": {
-      "name": "Logging pattern",
-      "description": "Uses logging for debugging and monitoring",
-      "examples": [
-        "println!",
-        "log::info!"
-      ],
-      "frequency": 1
     }
   },
   "test_patterns": {
