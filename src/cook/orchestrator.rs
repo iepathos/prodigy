@@ -407,18 +407,7 @@ impl DefaultCookOrchestrator {
         use crate::config::command::InputMethod;
         use std::collections::HashMap;
 
-        // Run initial analysis if needed
-        if !config.command.skip_analysis {
-            self.user_interaction
-                .display_progress("Running initial analysis...");
-            let analysis = self
-                .analysis_coordinator
-                .analyze_project(&env.working_dir)
-                .await?;
-            self.analysis_coordinator
-                .save_analysis(&env.working_dir, &analysis)
-                .await?;
-        }
+        // Analysis will be run per-command as needed based on their configuration
 
         // Track outputs from previous commands
         let mut command_outputs: HashMap<String, HashMap<String, String>> = HashMap::new();
@@ -1173,30 +1162,60 @@ impl DefaultCookOrchestrator {
     ) -> Result<()> {
         // Check cache age if not forcing refresh
         if !config.force_refresh {
-            let cache_path = env.working_dir.join(".mmm/context/analysis_metadata.json");
-            if cache_path.exists() {
+            let mut all_cached = true;
+            let mut oldest_age = 0i64;
+
+            // Check if all requested analysis types are cached and fresh
+            for analysis_type in &config.analysis_types {
+                let cache_path = match analysis_type.as_str() {
+                    "context" => env.working_dir.join(".mmm/context/analysis_metadata.json"),
+                    "metrics" => env.working_dir.join(".mmm/metrics/current.json"),
+                    _ => continue,
+                };
+
+                if !cache_path.exists() {
+                    all_cached = false;
+                    break;
+                }
+
                 // Read metadata to check age
                 if let Ok(content) = tokio::fs::read_to_string(&cache_path).await {
-                    if let Ok(metadata) = serde_json::from_str::<serde_json::Value>(&content) {
-                        if let Some(timestamp_str) =
-                            metadata.get("timestamp").and_then(|v| v.as_str())
+                    if let Ok(data) = serde_json::from_str::<serde_json::Value>(&content) {
+                        if let Some(timestamp_str) = data.get("timestamp").and_then(|v| v.as_str())
                         {
                             if let Ok(timestamp) =
                                 chrono::DateTime::parse_from_rfc3339(timestamp_str)
                             {
                                 let age = chrono::Utc::now().signed_duration_since(timestamp);
-                                if age.num_seconds() < config.max_cache_age as i64 {
-                                    self.user_interaction.display_info(&format!(
-                                        "Using cached analysis (age: {}s, max: {}s)",
-                                        age.num_seconds(),
-                                        config.max_cache_age
-                                    ));
-                                    return Ok(());
+                                oldest_age = oldest_age.max(age.num_seconds());
+                                if age.num_seconds() >= config.max_cache_age as i64 {
+                                    all_cached = false;
+                                    break;
                                 }
+                            } else {
+                                all_cached = false;
+                                break;
                             }
+                        } else {
+                            all_cached = false;
+                            break;
                         }
+                    } else {
+                        all_cached = false;
+                        break;
                     }
+                } else {
+                    all_cached = false;
+                    break;
                 }
+            }
+
+            if all_cached {
+                self.user_interaction.display_info(&format!(
+                    "Using cached analysis (age: {}s, max: {}s)",
+                    oldest_age, config.max_cache_age
+                ));
+                return Ok(());
             }
         }
 
