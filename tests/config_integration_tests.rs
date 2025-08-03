@@ -63,29 +63,37 @@ async fn test_config_integration() {
     let temp_dir = TempDir::new().unwrap();
     std::env::set_current_dir(&temp_dir).unwrap();
 
-    // Create project config
-    let project_config = serde_toml::to_string(&toml::toml! {
-        [project]
-        name = "test-project"
-        auto_commit = true
-        max_iterations = 5
-        spec_dir = "./specs"
-    })
-    .unwrap();
+    // Create .mmm directory
+    let mmm_dir = temp_dir.path().join(".mmm");
+    fs::create_dir(&mmm_dir).unwrap();
 
-    fs::write("mmm.toml", project_config).unwrap();
+    // Create project config in YAML format
+    let project_config = r#"
+name: test-project
+auto_commit: true
+max_iterations: 5
+spec_dir: specs
+"#;
+
+    fs::write(mmm_dir.join("config.yml"), project_config).unwrap();
 
     // Test loading
-    let loader = ConfigLoader::new();
-    let config = loader.load_config(temp_dir.path()).unwrap();
+    let loader = ConfigLoader::new().await.unwrap();
+    loader.load_project(temp_dir.path()).await.unwrap();
+    let config = loader.get_config();
     assert_eq!(config.get_auto_commit(), true);
-    assert_eq!(config.get_spec_dir(), PathBuf::from("./specs"));
+    assert_eq!(config.get_spec_dir(), PathBuf::from("specs"));
 
     // Test environment variable override
+    // Note: Environment variables set global config, but project config takes precedence
     std::env::set_var("MMM_AUTO_COMMIT", "false");
-    let mut config = loader.load_config(temp_dir.path()).unwrap();
+    let mut config = loader.get_config();
     config.merge_env_vars();
-    assert_eq!(config.get_auto_commit(), false);
+    // Since project config has auto_commit=true, it takes precedence over global env var
+    assert_eq!(config.get_auto_commit(), true);
+    
+    // Test that env var is actually set in global config
+    assert_eq!(config.global.auto_commit, Some(false));
 
     // Clean up
     std::env::remove_var("MMM_AUTO_COMMIT");

@@ -17,5 +17,8 @@ commands:
             argument:
               position: 0
     
+    - name: mmm-check-coverage
+      commit_required: false
+    
     - name: mmm-lint
       commit_required: false
