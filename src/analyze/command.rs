@@ -42,10 +42,10 @@ pub async fn execute_with_subprocess(
             // So we temporarily disable auto-commit for individual analyses
             let mut cmd_no_commit = cmd.clone();
             cmd_no_commit.no_commit = true;
-            
+
             run_context_analysis(&project_path, &cmd_no_commit, subprocess.clone()).await?;
             run_metrics_analysis(&project_path, &cmd_no_commit, subprocess).await?;
-            
+
             // Now commit everything together if save is enabled and no_commit is false
             if cmd.save && !cmd.no_commit {
                 commit_all_analysis(&project_path)?;

@@ -334,12 +334,12 @@ impl WorkflowExecutor {
             .output()
             .await
             .context("Failed to execute git rev-parse HEAD")?;
-            
+
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(anyhow::anyhow!("Failed to get git HEAD: {}", stderr));
         }
-        
+
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 
@@ -472,12 +472,12 @@ mod tests {
             .output()
             .await
             .context("Failed to execute git rev-parse HEAD")?;
-            
+
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(anyhow::anyhow!("Failed to get git HEAD: {}", stderr));
         }
-        
+
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 
@@ -569,7 +569,13 @@ mod tests {
 
         // Create worktree
         std::process::Command::new("git")
-            .args(&["worktree", "add", worktree_path.to_str().unwrap(), "-b", "test-branch"])
+            .args(&[
+                "worktree",
+                "add",
+                worktree_path.to_str().unwrap(),
+                "-b",
+                "test-branch",
+            ])
             .current_dir(&main_repo)
             .output()
             .expect("Failed to create worktree");
@@ -595,9 +601,12 @@ mod tests {
 
         // Get main repo head
         let main_head = test_get_current_head(&main_repo).await.unwrap();
-        
+
         // Heads should be different
-        assert_ne!(worktree_head, main_head, "Worktree HEAD should differ from main repo HEAD");
+        assert_ne!(
+            worktree_head, main_head,
+            "Worktree HEAD should differ from main repo HEAD"
+        );
     }
 
     #[tokio::test]
@@ -608,7 +617,10 @@ mod tests {
         // Test in non-git directory
         let result = test_get_current_head(non_git_dir).await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Failed to get git HEAD"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Failed to get git HEAD"));
     }
 
     #[tokio::test]
@@ -639,7 +651,11 @@ mod tests {
                 .output()
                 .expect("Failed to set git name");
 
-            std::fs::write(repo_path.join("test.txt"), format!("content for {}", commit_msg)).unwrap();
+            std::fs::write(
+                repo_path.join("test.txt"),
+                format!("content for {}", commit_msg),
+            )
+            .unwrap();
             std::process::Command::new("git")
                 .args(&["add", "."])
                 .current_dir(repo_path)
@@ -658,6 +674,9 @@ mod tests {
         let head2 = test_get_current_head(&repo2).await.unwrap();
 
         // They should be different
-        assert_ne!(head1, head2, "Different repos should have different HEAD commits");
+        assert_ne!(
+            head1, head2,
+            "Different repos should have different HEAD commits"
+        );
     }
 }

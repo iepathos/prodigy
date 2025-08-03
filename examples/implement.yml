@@ -13,6 +13,9 @@ commands:
   # - The direct argument value when using --args
   - name: mmm-implement-spec
     args: ["$ARG"]
+    analysis:
+        analysis_types: ["context", "metrics"]
+        max_cache_age: 300
   
   # Run linting and formatting after implementation
   - name: mmm-lint

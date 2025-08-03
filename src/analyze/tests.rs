@@ -1,9 +1,9 @@
 //! Unit tests for the analyze module
 
 use super::*;
-use std::process::Command;
 use crate::subprocess::SubprocessManager;
 use crate::testing::test_mocks::TestMockSetup;
+use std::process::Command;
 use tempfile::TempDir;
 
 #[tokio::test]
@@ -325,7 +325,7 @@ mod tests {
         // Create temp dir and change to it for this test
         let temp_dir = TempDir::new().unwrap();
         create_test_project(temp_dir.path()).unwrap();
-        
+
         let original_dir = std::env::current_dir().unwrap();
         std::env::set_current_dir(temp_dir.path()).unwrap();
 
@@ -345,10 +345,10 @@ mod tests {
 
         // This should use current directory
         let result = command::execute_with_subprocess(cmd, subprocess).await;
-        
+
         // Restore original directory
         std::env::set_current_dir(original_dir).unwrap();
-        
+
         assert!(result.is_ok());
     }
 

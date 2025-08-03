@@ -271,7 +271,7 @@ commands:
     assert_eq!(cmd.name, "mmm-code-review");
     assert!(cmd.analysis.is_some());
     assert!(cmd.metadata.analysis.is_some());
-    
+
     let analysis = cmd.analysis.unwrap();
     assert_eq!(analysis.analysis_types, vec!["context"]);
     assert_eq!(analysis.max_cache_age, 300);

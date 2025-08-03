@@ -126,14 +126,14 @@ impl Default for MetricsCollector {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::testing::test_mocks::{CargoMocks, TestMockSetup};
     use std::fs;
     use tempfile::TempDir;
-    use crate::testing::test_mocks::{TestMockSetup, CargoMocks};
 
     #[tokio::test]
     async fn test_collect_metrics_success() {
         let temp_dir = TempDir::new().unwrap();
-        
+
         // Create a basic Rust project structure
         fs::create_dir_all(temp_dir.path().join("src")).unwrap();
         fs::write(
@@ -150,7 +150,7 @@ version = "0.1.0"
         // Create mocked subprocess environment
         let (subprocess, mut mock) = SubprocessManager::mock();
         TestMockSetup::setup_metrics_collection(&mut mock);
-        
+
         let collector = MetricsCollector::new(subprocess);
 
         let result = collector
@@ -171,35 +171,35 @@ version = "0.1.0"
 
         // Create mocked subprocess environment with some failures
         let (subprocess, mut mock) = SubprocessManager::mock();
-        
+
         // Mock some commands to fail
         mock.expect_command("cargo")
             .with_args(|args| args.get(0) == Some(&"tarpaulin".to_string()))
             .returns_stderr("error: cargo-tarpaulin not found")
             .returns_exit_code(1)
             .finish();
-            
+
         // But clippy should still work
         mock.expect_command("cargo")
             .with_args(|args| args.get(0) == Some(&"clippy".to_string()))
             .returns_stdout(&CargoMocks::clippy_output())
             .returns_exit_code(0)
             .finish();
-            
+
         // And build should work
         mock.expect_command("cargo")
             .with_args(|args| args.get(0) == Some(&"build".to_string()))
             .returns_stdout(&CargoMocks::build_success())
             .returns_exit_code(0)
             .finish();
-            
+
         // Check should work
         mock.expect_command("cargo")
             .with_args(|args| args.get(0) == Some(&"check".to_string()))
             .returns_stdout(&CargoMocks::check_success())
             .returns_exit_code(0)
             .finish();
-        
+
         let collector = MetricsCollector::new(subprocess);
 
         // Create directory without Cargo.toml to trigger failures

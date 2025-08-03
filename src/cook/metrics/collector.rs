@@ -39,7 +39,7 @@ impl<R: CommandRunner> MetricsCollectorImpl<R> {
     pub fn new(runner: R) -> Self {
         Self::with_subprocess(runner, SubprocessManager::production())
     }
-    
+
     /// Create a new metrics collector with injected subprocess manager
     pub fn with_subprocess(runner: R, subprocess: SubprocessManager) -> Self {
         Self {
@@ -276,7 +276,7 @@ mod tests {
     #[tokio::test]
     async fn test_metrics_collection() {
         use tempfile::TempDir;
-        
+
         let temp_dir = TempDir::new().unwrap();
         // Create a minimal Cargo.toml to simulate a Rust project
         let cargo_toml = temp_dir.path().join("Cargo.toml");
@@ -292,16 +292,17 @@ mod tests {
         TestMockSetup::setup_metrics_collection(&mut mock);
 
         let mock_runner = MockCommandRunner::new();
-        
+
         // Add mock response for clippy command that might be called by collect_lint_warnings
         mock_runner.add_response(crate::cook::execution::ExecutionResult {
             success: true,
             stdout: r#"{"level":"warning","message":"test1"}
-{"level":"warning","message":"test2"}"#.to_string(),
+{"level":"warning","message":"test2"}"#
+                .to_string(),
             stderr: String::new(),
             exit_code: Some(0),
         });
-        
+
         // Add mock response for cargo build that might be called by collect_compile_metrics
         mock_runner.add_response(crate::cook::execution::ExecutionResult {
             success: true,
@@ -309,7 +310,7 @@ mod tests {
             stderr: String::new(),
             exit_code: Some(0),
         });
-        
+
         let collector = MetricsCollectorImpl::with_subprocess(mock_runner, subprocess);
 
         let metrics = collector.collect_all(temp_dir.path()).await.unwrap();
