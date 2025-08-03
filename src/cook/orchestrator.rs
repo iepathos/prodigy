@@ -20,6 +20,8 @@ use super::interaction::UserInteraction;
 use super::metrics::MetricsCoordinator;
 use super::session::{SessionManager, SessionStatus, SessionUpdate};
 use super::workflow::{ExtendedWorkflowConfig, WorkflowExecutor, WorkflowStep};
+use crate::session::{format_duration, TimingTracker};
+use std::time::Instant;
 
 /// Configuration for cook orchestration
 #[derive(Debug, Clone)]
@@ -743,6 +745,9 @@ impl DefaultCookOrchestrator {
         env: &ExecutionEnvironment,
         config: &CookConfig,
     ) -> Result<()> {
+        let workflow_start = Instant::now();
+        let mut timing_tracker = TimingTracker::new();
+        
         // Run initial analysis if needed
         if !config.command.skip_analysis {
             self.user_interaction
@@ -774,6 +779,8 @@ impl DefaultCookOrchestrator {
         // Execute iterations if configured
         let max_iterations = config.command.max_iterations;
         for iteration in 1..=max_iterations {
+            timing_tracker.start_iteration();
+            
             if iteration > 1 {
                 self.user_interaction
                     .display_progress(&format!("Starting iteration {iteration}/{max_iterations}"));
@@ -794,6 +801,9 @@ impl DefaultCookOrchestrator {
                     config.workflow.commands.len(),
                     command.name
                 ));
+                
+                // Start timing this command
+                timing_tracker.start_command(command.name.clone());
 
                 // Check if this command requires analysis
                 if let Some(ref analysis_config) = command.analysis {
@@ -842,9 +852,36 @@ impl DefaultCookOrchestrator {
                     self.session_manager
                         .update_session(SessionUpdate::AddFilesChanged(1))
                         .await?;
+                    
+                    // Complete command timing
+                    if let Some((cmd_name, duration)) = timing_tracker.complete_command() {
+                        self.user_interaction.display_success(&format!(
+                            "✓ Command '{}' completed in {}",
+                            cmd_name,
+                            format_duration(duration)
+                        ));
+                    }
                 }
             }
+            
+            // Complete iteration timing
+            if let Some(iteration_duration) = timing_tracker.complete_iteration() {
+                self.user_interaction.display_info(&format!(
+                    "✓ Iteration {} completed in {}",
+                    iteration,
+                    format_duration(iteration_duration)
+                ));
+            }
         }
+        
+        // Display total workflow timing
+        let total_duration = workflow_start.elapsed();
+        self.user_interaction.display_info(&format!(
+            "\n📊 Total workflow time: {} across {} iteration{}",
+            format_duration(total_duration),
+            max_iterations,
+            if max_iterations == 1 { "" } else { "s" }
+        ));
 
         Ok(())
     }
@@ -855,6 +892,9 @@ impl DefaultCookOrchestrator {
         env: &ExecutionEnvironment,
         config: &CookConfig,
     ) -> Result<()> {
+        let workflow_start = Instant::now();
+        let mut timing_tracker = TimingTracker::new();
+        
         // Collect all inputs from --map patterns and --args
         let all_inputs = self.collect_workflow_inputs(config)?;
 
@@ -895,12 +935,30 @@ impl DefaultCookOrchestrator {
 
         // Process each input
         for (index, input) in all_inputs.iter().enumerate() {
-            self.process_workflow_input(env, config, input, index, all_inputs.len())
+            timing_tracker.start_iteration();
+            
+            self.process_workflow_input(env, config, input, index, all_inputs.len(), &mut timing_tracker)
                 .await?;
+                
+            if let Some(iteration_duration) = timing_tracker.complete_iteration() {
+                self.user_interaction.display_info(&format!(
+                    "✓ Input {} completed in {}",
+                    index + 1,
+                    format_duration(iteration_duration)
+                ));
+            }
         }
 
         self.user_interaction.display_success(&format!(
             "🎉 Processed all {} inputs successfully!",
+            all_inputs.len()
+        ));
+        
+        // Display total workflow timing
+        let total_duration = workflow_start.elapsed();
+        self.user_interaction.display_info(&format!(
+            "\n📊 Total workflow time: {} for {} inputs",
+            format_duration(total_duration),
             all_inputs.len()
         ));
 
@@ -999,6 +1057,7 @@ impl DefaultCookOrchestrator {
         input: &str,
         index: usize,
         total: usize,
+        timing_tracker: &mut TimingTracker,
     ) -> Result<()> {
         self.user_interaction.display_info(&format!(
             "\n🔄 Processing input {}/{}: {}",
@@ -1020,7 +1079,7 @@ impl DefaultCookOrchestrator {
 
         // Execute each command in the workflow
         for (step_index, cmd) in config.workflow.commands.iter().enumerate() {
-            self.execute_workflow_command(env, config, cmd, step_index, input, &mut variables)
+            self.execute_workflow_command(env, config, cmd, step_index, input, &mut variables, timing_tracker)
                 .await?;
         }
 
@@ -1036,6 +1095,7 @@ impl DefaultCookOrchestrator {
         step_index: usize,
         input: &str,
         variables: &mut HashMap<String, String>,
+        timing_tracker: &mut TimingTracker,
     ) -> Result<()> {
         let command = cmd.to_command();
 
@@ -1045,6 +1105,9 @@ impl DefaultCookOrchestrator {
             config.workflow.commands.len(),
             command.name
         ));
+        
+        // Start timing this command
+        timing_tracker.start_command(command.name.clone());
 
         // Check if this command requires analysis
         if let Some(ref analysis_config) = command.analysis {
@@ -1071,10 +1134,18 @@ impl DefaultCookOrchestrator {
         self.execute_and_validate_command(env, config, &command, &final_command, input, env_vars)
             .await?;
 
-        self.user_interaction.display_success(&format!(
-            "✓ Command '{}' succeeded for input '{}'",
-            command.name, input
-        ));
+        // Complete command timing
+        if let Some((cmd_name, duration)) = timing_tracker.complete_command() {
+            self.user_interaction.display_success(&format!(
+                "✓ Command '{}' succeeded for input '{}' in {}",
+                cmd_name, input, format_duration(duration)
+            ));
+        } else {
+            self.user_interaction.display_success(&format!(
+                "✓ Command '{}' succeeded for input '{}'",
+                command.name, input
+            ));
+        }
 
         Ok(())
     }
