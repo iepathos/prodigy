@@ -537,14 +537,20 @@ fn commit_all_analysis(project_path: &Path) -> Result<()> {
     }
     
     // Stage all analysis files
-    std::process::Command::new("git")
-        .args(["add", ".mmm/context/", ".mmm/metrics/current.json"])
+    // First, let's try adding the entire .mmm directory to catch all changes
+    let add_status = std::process::Command::new("git")
+        .args(["add", ".mmm/"])
         .current_dir(project_path)
-        .status()?;
+        .output()?;
+    
+    if !add_status.status.success() {
+        eprintln!("Failed to stage files: {}", String::from_utf8_lossy(&add_status.stderr));
+        return Ok(());
+    }
     
     // Check if there are changes to commit
     let git_status = std::process::Command::new("git")
-        .args(["status", "--porcelain", "--cached"])
+        .args(["diff", "--cached", "--name-only"])
         .current_dir(project_path)
         .output()?;
     
