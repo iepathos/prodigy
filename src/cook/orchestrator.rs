@@ -1200,10 +1200,11 @@ impl DefaultCookOrchestrator {
             }
         }
 
-        // Run the appropriate analysis type
+        // Run the appropriate analysis types
+        let analysis_types_str = config.analysis_types.join(", ");
         self.user_interaction.display_progress(&format!(
             "Running {} analysis{}...",
-            config.analysis_type,
+            analysis_types_str,
             if config.force_refresh {
                 " (forced refresh)"
             } else {
@@ -1211,51 +1212,37 @@ impl DefaultCookOrchestrator {
             }
         ));
 
-        match config.analysis_type.as_str() {
-            "context" => {
-                // Run context analysis only
-                let analysis = self
-                    .analysis_coordinator
-                    .analyze_project(&env.working_dir)
-                    .await?;
-                self.analysis_coordinator
-                    .save_analysis(&env.working_dir, &analysis)
-                    .await?;
-            }
-            "metrics" => {
-                // Run metrics analysis only
-                let metrics = self
-                    .metrics_coordinator
-                    .collect_all(&env.working_dir)
-                    .await?;
-                self.metrics_coordinator
-                    .store_metrics(&env.working_dir, &metrics)
-                    .await?;
-            }
-            "all" => {
-                // Run both context and metrics analysis
-                let analysis = self
-                    .analysis_coordinator
-                    .analyze_project(&env.working_dir)
-                    .await?;
-                self.analysis_coordinator
-                    .save_analysis(&env.working_dir, &analysis)
-                    .await?;
-
-                let metrics = self
-                    .metrics_coordinator
-                    .collect_all(&env.working_dir)
-                    .await?;
-                self.metrics_coordinator
-                    .store_metrics(&env.working_dir, &metrics)
-                    .await?;
-            }
-            _ => {
+        // Validate analysis types
+        for analysis_type in &config.analysis_types {
+            if !["context", "metrics"].contains(&analysis_type.as_str()) {
                 return Err(anyhow!(
-                    "Invalid analysis type: '{}'. Must be 'context', 'metrics', or 'all'",
-                    config.analysis_type
+                    "Invalid analysis type: '{}'. Must be 'context' or 'metrics'",
+                    analysis_type
                 ));
             }
+        }
+
+        // Run requested analysis types
+        if config.analysis_types.contains(&"context".to_string()) {
+            // Run context analysis
+            let analysis = self
+                .analysis_coordinator
+                .analyze_project(&env.working_dir)
+                .await?;
+            self.analysis_coordinator
+                .save_analysis(&env.working_dir, &analysis)
+                .await?;
+        }
+
+        if config.analysis_types.contains(&"metrics".to_string()) {
+            // Run metrics analysis
+            let metrics = self
+                .metrics_coordinator
+                .collect_all(&env.working_dir)
+                .await?;
+            self.metrics_coordinator
+                .store_metrics(&env.working_dir, &metrics)
+                .await?;
         }
 
         // Commit analysis if in worktree mode
