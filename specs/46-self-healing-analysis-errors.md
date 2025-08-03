@@ -41,18 +41,21 @@ Enable MMM to automatically detect, diagnose, and recover from analysis tool fai
 - Must preserve all error context for debugging
 - Should work with existing workflow files without modification
 - Must be configurable (enable/disable, max retries, timeout)
+- Manual `mmm analyze` commands should NOT trigger automatic recovery by default
+- Workflow analysis should trigger recovery by default (configurable)
 
 ## Acceptance Criteria
 
 - [ ] MMM detects coverage tool failures during analysis phase
 - [ ] Error context is captured and passed to recovery command
-- [ ] Recovery command `/mmm-fix-analysis-errors` is automatically invoked
+- [ ] Recovery command `/mmm-fix-analysis-errors` is automatically invoked in workflows
+- [ ] Manual `mmm analyze` does NOT trigger recovery unless `--auto-recover` flag is used
 - [ ] Analysis is retried after successful recovery
 - [ ] Workflow continues if retry succeeds
 - [ ] Clear error reporting if recovery fails after max attempts
-- [ ] Feature can be disabled via configuration
+- [ ] Feature can be disabled via workflow analysis configuration
 - [ ] Works with all existing analysis tools (coverage, lint, bench)
-- [ ] No changes required to existing workflow YAML files
+- [ ] Workflow YAML can configure recovery behavior per step
 
 ## Technical Details
 
@@ -61,13 +64,22 @@ Enable MMM to automatically detect, diagnose, and recover from analysis tool fai
 1. **Error Detection in Analysis Runner**
    ```rust
    // In src/metrics/analyzer.rs or similar
-   pub async fn run_analysis(&self, config: &AnalysisConfig) -> Result<Metrics> {
+   pub async fn run_analysis(&self, config: &AnalysisConfig, context: &AnalysisContext) -> Result<Metrics> {
        match self.run_analysis_tools().await {
            Ok(metrics) => Ok(metrics),
-           Err(e) if self.should_attempt_recovery(&e) => {
-               self.attempt_recovery(e).await
+           Err(e) if self.should_attempt_recovery(&e, context) => {
+               self.attempt_recovery(e, context).await
            }
            Err(e) => Err(e),
+       }
+   }
+   
+   fn should_attempt_recovery(&self, error: &AnalysisError, context: &AnalysisContext) -> bool {
+       match context.source {
+           AnalysisSource::Manual { auto_recover } => auto_recover,
+           AnalysisSource::Workflow { step_config } => {
+               step_config.analysis.auto_recover.unwrap_or(true)
+           }
        }
    }
    ```
@@ -142,6 +154,16 @@ pub struct RecoveryConfig {
     pub recovery_command: String,
 }
 
+pub enum AnalysisSource {
+    Manual { auto_recover: bool },
+    Workflow { step_config: WorkflowStep },
+}
+
+pub struct AnalysisContext {
+    pub source: AnalysisSource,
+    pub project_root: PathBuf,
+}
+
 pub struct AnalysisError {
     pub tool: String,
     pub phase: String,
@@ -157,6 +179,13 @@ pub struct ErrorSpecification {
     pub recent_changes: Vec<String>,
     pub timestamp: DateTime<Utc>,
 }
+
+pub struct WorkflowAnalysisConfig {
+    pub max_cache_age: Option<u64>,
+    pub auto_recover: Option<bool>,  // Default: true
+    pub recovery_command: Option<String>,
+    pub max_recovery_attempts: Option<u8>,
+}
 ```
 
 ### APIs and Interfaces
@@ -166,10 +195,30 @@ pub struct ErrorSpecification {
    - Output: Success/failure status
    - Side effects: Fixes to project files, dependencies, or environment
 
-2. **Configuration API**
+2. **CLI Interface**
+   ```bash
+   # Manual analysis - no auto-recovery by default
+   mmm analyze
+   
+   # Manual analysis with auto-recovery enabled
+   mmm analyze --auto-recover
+   ```
+
+3. **Workflow Configuration API**
+   ```yaml
+   commands:
+     - name: mmm-coverage
+       analysis:
+         max_cache_age: 300
+         auto_recover: true  # Default: true
+         recovery_command: "mmm-fix-analysis-errors"  # Optional override
+         max_recovery_attempts: 2  # Optional override
+   ```
+
+4. **Global Configuration API**
    ```toml
    [recovery]
-   enabled = true
+   # Global defaults for recovery behavior
    max_attempts = 2
    timeout_seconds = 300
    command = "mmm-fix-analysis-errors"
@@ -255,3 +304,43 @@ pub struct ErrorSpecification {
 4. **Environment Issue**
    - Error: "RUSTFLAGS conflict"
    - Recovery: Adjust environment variables
+
+## Usage Examples
+
+### Manual Analysis
+```bash
+# Default behavior - no auto-recovery
+$ mmm analyze
+✗ Coverage analysis failed: unresolved module 'serde_toml'
+  Run with --auto-recover to attempt automatic fixes
+
+# With auto-recovery enabled
+$ mmm analyze --auto-recover
+✗ Coverage analysis failed: unresolved module 'serde_toml'
+→ Attempting automatic recovery...
+✓ Fixed: Updated imports to use 'toml' crate
+✓ Analysis completed successfully
+```
+
+### Workflow Configuration
+```yaml
+# Enable recovery for specific step (default: true)
+commands:
+  - name: mmm-coverage
+    analysis:
+      auto_recover: true
+      
+# Disable recovery for specific step
+commands:
+  - name: mmm-lint
+    analysis:
+      auto_recover: false
+      
+# Custom recovery settings
+commands:
+  - name: mmm-benchmark
+    analysis:
+      auto_recover: true
+      recovery_command: "mmm-fix-bench-errors"
+      max_recovery_attempts: 3
+```
