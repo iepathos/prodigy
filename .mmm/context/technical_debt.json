@@ -1,21 +1,17 @@
 {
   "statistics": {
-    "total_items": 245,
+    "total_items": 20,
     "by_type": {
-      "Hack": 7,
-      "Duplication": 100,
+      "Complexity": 2,
       "Fixme": 12,
-      "Deprecated": 6,
-      "Todo": 50,
-      "Complexity": 70
+      "Deprecated": 6
     },
     "by_impact": {
-      "High": 19,
-      "Medium": 176,
-      "Low": 50
+      "Medium": 12,
+      "High": 8
     },
-    "avg_impact": 5.387755102040816,
-    "avg_effort": 3.979591836734694
+    "avg_impact": 7.4,
+    "avg_effort": 3.2
   },
   "high_priority_items": [
     {
@@ -282,69 +278,39 @@
   "hotspot_summary": [
     {
       "file": "/Users/glen/.mmm/worktrees/mmm/session-5b636df8-1832-40d6-81b0-b477a4cbc201/src/context/debt.rs",
-      "total_issues": 38,
-      "max_complexity": 49,
+      "total_issues": 15,
+      "max_complexity": 0,
       "primary_issue_type": "Fixme"
     },
     {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-5b636df8-1832-40d6-81b0-b477a4cbc201/src/config/mod.rs",
-      "total_issues": 22,
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-5b636df8-1832-40d6-81b0-b477a4cbc201/src/context/mod.rs",
+      "total_issues": 2,
       "max_complexity": 0,
-      "primary_issue_type": "Todo"
-    },
-    {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-5b636df8-1832-40d6-81b0-b477a4cbc201/src/cook/orchestrator.rs",
-      "total_issues": 20,
-      "max_complexity": 38,
-      "primary_issue_type": "Duplication"
-    },
-    {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-5b636df8-1832-40d6-81b0-b477a4cbc201/src/analyze/tests.rs",
-      "total_issues": 10,
-      "max_complexity": 0,
-      "primary_issue_type": "Duplication"
-    },
-    {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-5b636df8-1832-40d6-81b0-b477a4cbc201/src/config/command_validator.rs",
-      "total_issues": 10,
-      "max_complexity": 17,
-      "primary_issue_type": "Duplication"
-    },
-    {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-5b636df8-1832-40d6-81b0-b477a4cbc201/src/abstractions/git.rs",
-      "total_issues": 9,
-      "max_complexity": 0,
-      "primary_issue_type": "Duplication"
-    },
-    {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-5b636df8-1832-40d6-81b0-b477a4cbc201/src/analyze/command.rs",
-      "total_issues": 7,
-      "max_complexity": 19,
       "primary_issue_type": "Complexity"
     },
     {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-5b636df8-1832-40d6-81b0-b477a4cbc201/src/abstractions/claude.rs",
-      "total_issues": 7,
-      "max_complexity": 20,
-      "primary_issue_type": "Duplication"
-    },
-    {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-5b636df8-1832-40d6-81b0-b477a4cbc201/tests/subprocess_tests.rs",
-      "total_issues": 6,
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-5b636df8-1832-40d6-81b0-b477a4cbc201/src/main.rs",
+      "total_issues": 1,
       "max_complexity": 0,
-      "primary_issue_type": "Todo"
+      "primary_issue_type": "Deprecated"
     },
     {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-5b636df8-1832-40d6-81b0-b477a4cbc201/tests/cook_iteration_tests.rs",
-      "total_issues": 6,
-      "max_complexity": 13,
-      "primary_issue_type": "Duplication"
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-5b636df8-1832-40d6-81b0-b477a4cbc201/src/context/hybrid_coverage.rs",
+      "total_issues": 1,
+      "max_complexity": 0,
+      "primary_issue_type": "Deprecated"
+    },
+    {
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-5b636df8-1832-40d6-81b0-b477a4cbc201/src/scoring/mod.rs",
+      "total_issues": 1,
+      "max_complexity": 0,
+      "primary_issue_type": "Fixme"
     }
   ],
   "duplication_summary": {
-    "total_duplicate_blocks": 100,
-    "total_duplicate_lines": 5233,
-    "files_with_duplication": 109,
-    "largest_duplicate_lines": 50
+    "total_duplicate_blocks": 0,
+    "total_duplicate_lines": 0,
+    "files_with_duplication": 0,
+    "largest_duplicate_lines": 0
   }
 }

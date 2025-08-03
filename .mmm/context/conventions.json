@@ -7,6 +7,14 @@
     "constant_naming": "ScreamingSnakeCase"
   },
   "code_patterns": {
+    "async": {
+      "name": "Async/await pattern",
+      "description": "Uses async/await for asynchronous code",
+      "examples": [
+        "async fn process()"
+      ],
+      "frequency": 13
+    },
     "error_handling": {
       "name": "Result-based error handling",
       "description": "Uses Result<T, E> for error handling",
@@ -31,14 +39,6 @@
         "RequestBuilder::new()"
       ],
       "frequency": 2
-    },
-    "async": {
-      "name": "Async/await pattern",
-      "description": "Uses async/await for asynchronous code",
-      "examples": [
-        "async fn process()"
-      ],
-      "frequency": 13
     }
   },
   "test_patterns": {
