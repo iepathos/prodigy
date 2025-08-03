@@ -92,7 +92,10 @@ impl QualityAnalyzer {
                 .current_dir(project_path)
                 .build();
 
-            let output = self.subprocess.runner().run(test_command)
+            let output = self
+                .subprocess
+                .runner()
+                .run(test_command)
                 .await
                 .context("Failed to check test build")?;
 

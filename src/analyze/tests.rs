@@ -40,7 +40,6 @@ async fn test_analyze_with_custom_path() {
     assert_eq!(cmd.path.unwrap(), temp_dir.path());
 }
 
-
 #[tokio::test]
 async fn test_analyze_command_all_fields() {
     let temp_dir = TempDir::new().unwrap();
@@ -110,7 +109,7 @@ mod tests {
         TestMockSetup::setup_successful_analysis(&mut mock);
 
         let cmd = AnalyzeCommand {
-                output: "json".to_string(),
+            output: "json".to_string(),
             save: false,
             verbose: true,
             path: Some(temp_dir.path().to_path_buf()),
@@ -132,7 +131,7 @@ mod tests {
         TestMockSetup::setup_metrics_collection(&mut mock);
 
         let cmd = AnalyzeCommand {
-                output: "summary".to_string(),
+            output: "summary".to_string(),
             save: false,
             verbose: false,
             path: Some(temp_dir.path().to_path_buf()),
@@ -154,7 +153,7 @@ mod tests {
         TestMockSetup::setup_successful_analysis(&mut mock);
 
         let cmd = AnalyzeCommand {
-                output: "pretty".to_string(),
+            output: "pretty".to_string(),
             save: true,
             verbose: true,
             path: Some(temp_dir.path().to_path_buf()),
@@ -180,7 +179,7 @@ mod tests {
 
         // Test JSON output
         let cmd = AnalyzeCommand {
-                output: "json".to_string(),
+            output: "json".to_string(),
             save: false,
             verbose: false,
             path: Some(temp_dir.path().to_path_buf()),
@@ -193,7 +192,7 @@ mod tests {
 
         // Test pretty output
         let cmd = AnalyzeCommand {
-                output: "pretty".to_string(),
+            output: "pretty".to_string(),
             save: false,
             verbose: false,
             path: Some(temp_dir.path().to_path_buf()),
@@ -217,7 +216,7 @@ mod tests {
             TestMockSetup::setup_metrics_collection(&mut mock);
 
             let cmd = AnalyzeCommand {
-                        output: output_format.to_string(),
+                output: output_format.to_string(),
                 save: false,
                 verbose: false,
                 path: Some(temp_dir.path().to_path_buf()),
@@ -240,7 +239,7 @@ mod tests {
         TestMockSetup::setup_successful_analysis(&mut mock);
 
         let cmd = AnalyzeCommand {
-                output: "json".to_string(),
+            output: "json".to_string(),
             save: true,
             verbose: true,
             path: Some(temp_dir.path().to_path_buf()),
@@ -264,23 +263,23 @@ mod tests {
 
         // Create mocked subprocess environment that simulates non-Rust project
         let (subprocess, mut mock) = SubprocessManager::mock();
-        
+
         // Cargo commands should fail in non-Rust projects
         mock.expect_command("cargo")
-            .with_args(|args| args.get(0) == Some(&"check".to_string()))
+            .with_args(|args| args.first() == Some(&"check".to_string()))
             .returns_stderr("error: could not find `Cargo.toml` in `/path` or any parent directory")
             .returns_exit_code(101)
             .finish();
-            
+
         // Git might still work
         mock.expect_command("git")
-            .with_args(|args| args.get(0) == Some(&"status".to_string()))
+            .with_args(|args| args.first() == Some(&"status".to_string()))
             .returns_stdout("")
             .returns_exit_code(0)
             .finish();
 
         let cmd = AnalyzeCommand {
-                output: "json".to_string(),
+            output: "json".to_string(),
             save: false,
             verbose: false,
             path: Some(temp_dir.path().to_path_buf()),
@@ -308,7 +307,7 @@ mod tests {
         TestMockSetup::setup_successful_analysis(&mut mock);
 
         let cmd = AnalyzeCommand {
-                output: "summary".to_string(),
+            output: "summary".to_string(),
             save: false,
             verbose: false,
             path: Some(temp_dir.path().to_path_buf()),
@@ -334,7 +333,7 @@ mod tests {
         TestMockSetup::setup_successful_analysis(&mut mock);
 
         let cmd = AnalyzeCommand {
-                output: "json".to_string(),
+            output: "json".to_string(),
             save: false,
             verbose: false,
             path: None,
@@ -361,7 +360,7 @@ mod tests {
         TestMockSetup::setup_successful_analysis(&mut mock);
 
         let cmd = AnalyzeCommand {
-                output: "json".to_string(),
+            output: "json".to_string(),
             save: false,
             verbose: true,
             path: Some(temp_dir.path().to_path_buf()),
@@ -449,7 +448,7 @@ mod tests {
             .unwrap();
 
         let status_output = String::from_utf8_lossy(&git_status.stdout);
-        println!("Git status output: {}", status_output);
+        println!("Git status output: {status_output}");
 
         // If it's a new file and git add worked, we should see a commit
         if commit_made {
@@ -460,7 +459,7 @@ mod tests {
                 .unwrap();
 
             let log_output = String::from_utf8_lossy(&git_log.stdout);
-            println!("Git log output: {}", log_output);
+            println!("Git log output: {log_output}");
             assert!(
                 log_output.contains("metrics:"),
                 "Commit message should contain 'metrics:'"

@@ -195,10 +195,12 @@ pub fn load_analysis(project_path: &Path) -> Result<Option<AnalysisResult>> {
     let metadata = load_analysis_metadata(&context_dir)?;
 
     Ok(Some(AnalysisResult {
-        dependency_graph: dependency_graph.ok_or_else(|| anyhow::anyhow!("Failed to load dependency graph"))?,
+        dependency_graph: dependency_graph
+            .ok_or_else(|| anyhow::anyhow!("Failed to load dependency graph"))?,
         architecture: architecture.ok_or_else(|| anyhow::anyhow!("Failed to load architecture"))?,
         conventions: conventions.ok_or_else(|| anyhow::anyhow!("Failed to load conventions"))?,
-        technical_debt: technical_debt.ok_or_else(|| anyhow::anyhow!("Failed to load technical debt"))?,
+        technical_debt: technical_debt
+            .ok_or_else(|| anyhow::anyhow!("Failed to load technical debt"))?,
         test_coverage,
         metadata,
     }))
@@ -360,11 +362,10 @@ pub fn save_analysis_with_commit(
 
     // Commit analysis changes to git if requested
     let commit_made = if should_commit {
-        commit_analysis_changes(project_path, analysis, &health_score)
-            .unwrap_or_else(|e| {
-                eprintln!("⚠️  Failed to commit analysis changes: {e}");
-                false
-            })
+        commit_analysis_changes(project_path, analysis, &health_score).unwrap_or_else(|e| {
+            eprintln!("⚠️  Failed to commit analysis changes: {e}");
+            false
+        })
     } else {
         false
     };
@@ -417,10 +418,7 @@ fn save_analysis_components(context_dir: &Path, analysis: &AnalysisResult) -> Re
 }
 
 /// Save dependency graph summary
-fn save_dependency_graph_summary(
-    context_dir: &Path,
-    graph: &DependencyGraph,
-) -> Result<()> {
+fn save_dependency_graph_summary(context_dir: &Path, graph: &DependencyGraph) -> Result<()> {
     let deps_file = context_dir.join("dependency_graph.json");
     let deps_summary = summary::DependencyGraphSummary::from_graph(graph);
     let content = serde_json::to_string_pretty(&deps_summary)?;
@@ -434,10 +432,7 @@ fn save_dependency_graph_summary(
 }
 
 /// Save technical debt summary
-fn save_technical_debt_summary(
-    context_dir: &Path,
-    debt: &TechnicalDebtMap,
-) -> Result<()> {
+fn save_technical_debt_summary(context_dir: &Path, debt: &TechnicalDebtMap) -> Result<()> {
     let debt_file = context_dir.join("technical_debt.json");
     let debt_summary = summary::TechnicalDebtSummary::from_debt_map(debt);
     let content = serde_json::to_string_pretty(&debt_summary)?;
@@ -451,10 +446,7 @@ fn save_technical_debt_summary(
 }
 
 /// Save test coverage summary
-fn save_test_coverage_summary(
-    context_dir: &Path,
-    coverage: &TestCoverageMap,
-) -> Result<()> {
+fn save_test_coverage_summary(context_dir: &Path, coverage: &TestCoverageMap) -> Result<()> {
     let coverage_file = context_dir.join("test_coverage.json");
     let coverage_summary = summary::TestCoverageSummary::from_coverage(coverage);
     let content = serde_json::to_string_pretty(&coverage_summary)?;

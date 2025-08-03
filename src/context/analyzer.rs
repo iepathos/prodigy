@@ -33,9 +33,11 @@ impl ProjectAnalyzer {
             architecture_extractor: Box::new(architecture::BasicArchitectureExtractor::new()),
             convention_detector: Box::new(conventions::BasicConventionDetector::new()),
             debt_mapper: Box::new(debt::BasicTechnicalDebtMapper::new()),
-            coverage_analyzer: Box::new(super::metrics_aware_coverage::MetricsAwareCoverageAnalyzer::new(
-                subprocess.clone(),
-            )),
+            coverage_analyzer: Box::new(
+                super::metrics_aware_coverage::MetricsAwareCoverageAnalyzer::new(
+                    subprocess.clone(),
+                ),
+            ),
             cached_result: None,
             subprocess,
         }

@@ -187,7 +187,7 @@ pub fn create_test_playbook(path: &Path, name: &str, commands: &[&str]) -> Resul
     let playbook_path = path.join(name);
     let mut content = String::from("# Test playbook\ncommands:\n");
     for cmd in commands {
-        content.push_str(&format!("  - name: {}\n", cmd));
+        content.push_str(&format!("  - name: {cmd}\n"));
     }
     fs::write(&playbook_path, content)?;
     Ok(playbook_path)

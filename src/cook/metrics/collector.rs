@@ -318,7 +318,7 @@ mod tests {
         // Should have collected metrics from mocked subprocess
         assert!(metrics.test_coverage.is_some());
         let coverage = metrics.test_coverage.unwrap();
-        assert!(coverage >= 0.0 && coverage <= 100.0);
+        assert!((0.0..=100.0).contains(&coverage));
         // Compile time may or may not be set depending on mock runner behavior
         // We're not mocking the build command in MockCommandRunner
     }

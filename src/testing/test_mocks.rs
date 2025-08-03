@@ -165,8 +165,7 @@ impl MockResponses {
         // Add build finished
         let success = errors == 0;
         output.push_str(&format!(
-            r#"{{"reason":"build-finished","success":{}}}"#,
-            success
+            r#"{{"reason":"build-finished","success":{success}}}"#
         ));
 
         output
@@ -182,7 +181,7 @@ impl TestMockSetup {
         // Cargo check - no errors
         mock.expect_command("cargo")
             .with_args(|args| {
-                args.get(0) == Some(&"check".to_string())
+                args.first() == Some(&"check".to_string())
                     && args.contains(&"--message-format=json".to_string())
             })
             .returns_stdout(&CargoMocks::check_success())
@@ -192,7 +191,7 @@ impl TestMockSetup {
         // Cargo clippy
         mock.expect_command("cargo")
             .with_args(|args| {
-                args.get(0) == Some(&"clippy".to_string())
+                args.first() == Some(&"clippy".to_string())
                     && args.contains(&"--message-format=json".to_string())
             })
             .returns_stdout(&CargoMocks::clippy_output())
@@ -201,7 +200,7 @@ impl TestMockSetup {
 
         // Cargo test
         mock.expect_command("cargo")
-            .with_args(|args| args.get(0) == Some(&"test".to_string()))
+            .with_args(|args| args.first() == Some(&"test".to_string()))
             .returns_stdout(&CargoMocks::test_success())
             .returns_exit_code(0)
             .finish();
@@ -209,7 +208,7 @@ impl TestMockSetup {
         // Cargo tarpaulin for coverage
         mock.expect_command("cargo")
             .with_args(|args| {
-                args.get(0) == Some(&"tarpaulin".to_string())
+                args.first() == Some(&"tarpaulin".to_string())
                     && args.contains(&"--print-summary".to_string())
             })
             .returns_stdout(&TarpaulinMocks::coverage_report_good())
@@ -219,7 +218,7 @@ impl TestMockSetup {
         // Cargo build for compile time
         mock.expect_command("cargo")
             .with_args(|args| {
-                args.get(0) == Some(&"build".to_string()) && args.contains(&"--release".to_string())
+                args.first() == Some(&"build".to_string()) && args.contains(&"--release".to_string())
             })
             .returns_stdout(&CargoMocks::build_success())
             .returns_exit_code(0)
@@ -227,7 +226,7 @@ impl TestMockSetup {
 
         // Git status
         mock.expect_command("git")
-            .with_args(|args| args.get(0) == Some(&"status".to_string()))
+            .with_args(|args| args.first() == Some(&"status".to_string()))
             .returns_stdout(&GitMocks::status_clean())
             .returns_exit_code(0)
             .finish();
@@ -238,7 +237,7 @@ impl TestMockSetup {
         // Cargo check - with warnings
         mock.expect_command("cargo")
             .with_args(|args| {
-                args.get(0) == Some(&"check".to_string())
+                args.first() == Some(&"check".to_string())
                     && args.contains(&"--message-format=json".to_string())
             })
             .returns_stdout(&CargoMocks::check_with_warnings())
@@ -247,14 +246,14 @@ impl TestMockSetup {
 
         // Cargo clippy - fails
         mock.expect_command("cargo")
-            .with_args(|args| args.get(0) == Some(&"clippy".to_string()))
+            .with_args(|args| args.first() == Some(&"clippy".to_string()))
             .returns_stderr("error: clippy not found")
             .returns_exit_code(1)
             .finish();
 
         // Cargo tarpaulin - poor coverage
         mock.expect_command("cargo")
-            .with_args(|args| args.get(0) == Some(&"tarpaulin".to_string()))
+            .with_args(|args| args.first() == Some(&"tarpaulin".to_string()))
             .returns_stdout(&TarpaulinMocks::coverage_report_poor())
             .returns_exit_code(0)
             .finish();
@@ -267,7 +266,7 @@ impl TestMockSetup {
         // Check if tarpaulin is available
         mock.expect_command("cargo")
             .with_args(|args| {
-                args.get(0) == Some(&"tarpaulin".to_string())
+                args.first() == Some(&"tarpaulin".to_string())
                     && args.contains(&"--version".to_string())
             })
             .returns_stdout("cargo-tarpaulin version: 0.27.0")
@@ -277,7 +276,7 @@ impl TestMockSetup {
         // Test build check
         mock.expect_command("cargo")
             .with_args(|args| {
-                args.get(0) == Some(&"test".to_string()) && args.contains(&"--no-run".to_string())
+                args.first() == Some(&"test".to_string()) && args.contains(&"--no-run".to_string())
             })
             .returns_stdout("Compiling test v0.1.0")
             .returns_exit_code(0)
@@ -286,7 +285,7 @@ impl TestMockSetup {
         // Clippy for lint warnings (both JSON and regular format)
         mock.expect_command("cargo")
             .with_args(|args| {
-                args.get(0) == Some(&"clippy".to_string())
+                args.first() == Some(&"clippy".to_string())
                     && args.contains(&"--message-format=json".to_string())
             })
             .returns_stdout(&CargoMocks::clippy_output())
@@ -296,7 +295,7 @@ impl TestMockSetup {
         // Clippy regular format (for quality analyzer)
         mock.expect_command("cargo")
             .with_args(|args| {
-                args.get(0) == Some(&"clippy".to_string()) && args.contains(&"-W".to_string())
+                args.first() == Some(&"clippy".to_string()) && args.contains(&"-W".to_string())
             })
             .returns_stderr("warning: test warning 1\nwarning: test warning 2\n")
             .returns_exit_code(0)
@@ -305,7 +304,7 @@ impl TestMockSetup {
         // Build for compile time
         mock.expect_command("cargo")
             .with_args(|args| {
-                args.get(0) == Some(&"build".to_string()) && args.contains(&"--release".to_string())
+                args.first() == Some(&"build".to_string()) && args.contains(&"--release".to_string())
             })
             .returns_stdout(&CargoMocks::build_success())
             .returns_exit_code(0)
@@ -314,7 +313,7 @@ impl TestMockSetup {
         // Check for type checking
         mock.expect_command("cargo")
             .with_args(|args| {
-                args.get(0) == Some(&"check".to_string())
+                args.first() == Some(&"check".to_string())
                     && args.contains(&"--message-format=json".to_string())
             })
             .returns_stdout(&CargoMocks::check_success())

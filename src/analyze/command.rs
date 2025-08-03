@@ -25,22 +25,22 @@ struct CommandProgressReporter {
 impl ProgressReporter for CommandProgressReporter {
     fn display_progress(&self, message: &str) {
         if self.verbose {
-            println!("🔄 {}", message);
+            println!("🔄 {message}");
         }
     }
 
     fn display_info(&self, message: &str) {
         if self.verbose {
-            println!("ℹ️  {}", message);
+            println!("ℹ️  {message}");
         }
     }
 
     fn display_warning(&self, message: &str) {
-        println!("⚠️  {}", message);
+        println!("⚠️  {message}");
     }
 
     fn display_success(&self, message: &str) {
-        println!("✅ {}", message);
+        println!("✅ {message}");
     }
 }
 
@@ -62,7 +62,9 @@ pub async fn execute_with_subprocess(
     println!("🔍 Analyzing project at: {}", project_path.display());
 
     // Create progress reporter
-    let progress = Arc::new(CommandProgressReporter { verbose: cmd.verbose });
+    let progress = Arc::new(CommandProgressReporter {
+        verbose: cmd.verbose,
+    });
 
     // Build unified analysis config
     let config = AnalysisConfig::builder()

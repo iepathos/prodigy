@@ -488,20 +488,20 @@ mod tests {
 
         // Initialize a git repo
         std::process::Command::new("git")
-            .args(&["init"])
+            .args(["init"])
             .current_dir(repo_path)
             .output()
             .expect("Failed to init git repo");
 
         // Configure git user
         std::process::Command::new("git")
-            .args(&["config", "user.email", "test@example.com"])
+            .args(["config", "user.email", "test@example.com"])
             .current_dir(repo_path)
             .output()
             .expect("Failed to set git email");
 
         std::process::Command::new("git")
-            .args(&["config", "user.name", "Test User"])
+            .args(["config", "user.name", "Test User"])
             .current_dir(repo_path)
             .output()
             .expect("Failed to set git name");
@@ -509,13 +509,13 @@ mod tests {
         // Create initial commit
         std::fs::write(repo_path.join("test.txt"), "test content").unwrap();
         std::process::Command::new("git")
-            .args(&["add", "."])
+            .args(["add", "."])
             .current_dir(repo_path)
             .output()
             .expect("Failed to stage files");
 
         std::process::Command::new("git")
-            .args(&["commit", "-m", "Initial commit"])
+            .args(["commit", "-m", "Initial commit"])
             .current_dir(repo_path)
             .output()
             .expect("Failed to create commit");
@@ -535,20 +535,20 @@ mod tests {
         // Create main repo
         std::fs::create_dir(&main_repo).unwrap();
         std::process::Command::new("git")
-            .args(&["init"])
+            .args(["init"])
             .current_dir(&main_repo)
             .output()
             .expect("Failed to init git repo");
 
         // Configure git user
         std::process::Command::new("git")
-            .args(&["config", "user.email", "test@example.com"])
+            .args(["config", "user.email", "test@example.com"])
             .current_dir(&main_repo)
             .output()
             .expect("Failed to set git email");
 
         std::process::Command::new("git")
-            .args(&["config", "user.name", "Test User"])
+            .args(["config", "user.name", "Test User"])
             .current_dir(&main_repo)
             .output()
             .expect("Failed to set git name");
@@ -556,20 +556,20 @@ mod tests {
         // Create initial commit in main repo
         std::fs::write(main_repo.join("test.txt"), "test content").unwrap();
         std::process::Command::new("git")
-            .args(&["add", "."])
+            .args(["add", "."])
             .current_dir(&main_repo)
             .output()
             .expect("Failed to stage files");
 
         std::process::Command::new("git")
-            .args(&["commit", "-m", "Initial commit"])
+            .args(["commit", "-m", "Initial commit"])
             .current_dir(&main_repo)
             .output()
             .expect("Failed to create commit");
 
         // Create worktree
         std::process::Command::new("git")
-            .args(&[
+            .args([
                 "worktree",
                 "add",
                 worktree_path.to_str().unwrap(),
@@ -583,13 +583,13 @@ mod tests {
         // Make a commit in the worktree
         std::fs::write(worktree_path.join("worktree.txt"), "worktree content").unwrap();
         std::process::Command::new("git")
-            .args(&["add", "."])
+            .args(["add", "."])
             .current_dir(&worktree_path)
             .output()
             .expect("Failed to stage files in worktree");
 
         std::process::Command::new("git")
-            .args(&["commit", "-m", "Worktree commit"])
+            .args(["commit", "-m", "Worktree commit"])
             .current_dir(&worktree_path)
             .output()
             .expect("Failed to create commit in worktree");
@@ -634,36 +634,36 @@ mod tests {
         for (repo_path, commit_msg) in &[(&repo1, "Repo 1 commit"), (&repo2, "Repo 2 commit")] {
             std::fs::create_dir(repo_path).unwrap();
             std::process::Command::new("git")
-                .args(&["init"])
+                .args(["init"])
                 .current_dir(repo_path)
                 .output()
                 .expect("Failed to init git repo");
 
             std::process::Command::new("git")
-                .args(&["config", "user.email", "test@example.com"])
+                .args(["config", "user.email", "test@example.com"])
                 .current_dir(repo_path)
                 .output()
                 .expect("Failed to set git email");
 
             std::process::Command::new("git")
-                .args(&["config", "user.name", "Test User"])
+                .args(["config", "user.name", "Test User"])
                 .current_dir(repo_path)
                 .output()
                 .expect("Failed to set git name");
 
             std::fs::write(
                 repo_path.join("test.txt"),
-                format!("content for {}", commit_msg),
+                format!("content for {commit_msg}"),
             )
             .unwrap();
             std::process::Command::new("git")
-                .args(&["add", "."])
+                .args(["add", "."])
                 .current_dir(repo_path)
                 .output()
                 .expect("Failed to stage files");
 
             std::process::Command::new("git")
-                .args(&["commit", "-m", commit_msg])
+                .args(["commit", "-m", commit_msg])
                 .current_dir(repo_path)
                 .output()
                 .expect("Failed to create commit");

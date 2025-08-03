@@ -428,8 +428,7 @@ mod real_git_tests {
                 // Also accept detached HEAD state
                 assert!(
                     error_msg.contains("HEAD") || error_msg.contains("detached"),
-                    "Unexpected error: {}",
-                    error_msg
+                    "Unexpected error: {error_msg}"
                 );
             }
         }
