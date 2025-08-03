@@ -737,4 +737,71 @@ mod tests {
         let serialized = serde_json::to_string(&coverage).unwrap();
         assert_eq!(serialized, "null");
     }
+
+    #[test]
+    fn test_save_test_coverage_summary_minimal_data() {
+        // Test saving minimal coverage data from metrics
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let context_dir = temp_dir.path();
+
+        let coverage = TestCoverageMap {
+            overall_coverage: 0.75,
+            file_coverage: HashMap::new(),
+            untested_functions: vec![],
+            critical_paths: vec![],
+        };
+
+        let result = save_test_coverage_summary(context_dir, &coverage);
+        assert!(result.is_ok());
+
+        let coverage_file = context_dir.join("test_coverage.json");
+        assert!(coverage_file.exists());
+
+        let content = std::fs::read_to_string(&coverage_file).unwrap();
+        assert!(content.contains("0.75"));
+    }
+
+    #[test]
+    fn test_save_test_coverage_summary_detailed_data() {
+        use std::path::PathBuf;
+        use crate::context::test_coverage::{FileCoverage, UntestedFunction, Criticality};
+        
+        // Test saving detailed coverage data
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let context_dir = temp_dir.path();
+
+        let mut file_coverage = HashMap::new();
+        file_coverage.insert(
+            PathBuf::from("src/main.rs"),
+            FileCoverage {
+                path: PathBuf::from("src/main.rs"),
+                coverage_percentage: 0.85,
+                tested_lines: 120,
+                total_lines: 141,
+                tested_functions: 5,
+                total_functions: 6,
+                has_tests: true,
+            },
+        );
+
+        let coverage = TestCoverageMap {
+            overall_coverage: 0.85,
+            file_coverage,
+            untested_functions: vec![UntestedFunction {
+                file: PathBuf::from("src/main.rs"),
+                name: "run".to_string(),
+                line_number: 45,
+                criticality: Criticality::High,
+            }],
+            critical_paths: vec![],
+        };
+
+        let result = save_test_coverage_summary(context_dir, &coverage);
+        assert!(result.is_ok());
+
+        let coverage_file = context_dir.join("test_coverage.json");
+        let content = std::fs::read_to_string(&coverage_file).unwrap();
+        assert!(content.contains("src/main.rs"));
+        assert!(content.contains("run"));
+    }
 }
