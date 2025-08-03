@@ -1,8 +1,8 @@
 {
   "metadata": {
-    "timestamp": "2025-08-03T03:51:53.016740Z",
-    "duration_ms": 0,
-    "files_analyzed": 159,
+    "timestamp": "2025-08-03T06:11:08.035073Z",
+    "duration_ms": 94940,
+    "files_analyzed": 160,
     "incremental": false,
     "version": "0.1.0"
   },
@@ -11,33 +11,32 @@
     "architecture": "architecture.json",
     "conventions": "conventions.json",
     "technical_debt": "technical_debt.json",
-    "test_coverage": null
+    "test_coverage": "test_coverage.json"
   },
   "statistics": {
-    "total_files": 159,
-    "total_modules": 136,
-    "dependency_edges": 932,
+    "total_files": 160,
+    "total_modules": 138,
+    "dependency_edges": 947,
     "circular_dependencies": 0,
     "architectural_violations": 1,
-    "debt_items": 20,
-    "high_priority_debt": 20,
-    "overall_coverage": 0.0,
-    "untested_functions": 0,
-    "critical_untested": 0
+    "debt_items": 246,
+    "high_priority_debt": 31,
+    "overall_coverage": 0.6143108822333649,
+    "untested_functions": 1461,
+    "critical_untested": 2
   },
   "health_score": {
-    "overall": 64.59222443009585,
+    "overall": 54.21145355596608,
     "components": {
-      "test_coverage": null,
+      "test_coverage": 61.431088223336495,
       "code_quality": 78.0,
       "documentation": 80.0,
-      "maintainability": 45.02133863223005,
+      "maintainability": 10.0,
       "type_safety": null
     },
-    "timestamp": "2025-08-03T03:51:53.016751Z"
+    "timestamp": "2025-08-03T06:11:08.035168Z"
   },
   "insights": [
-    "Low test coverage (0.0%) with 0 untested functions",
-    "20 high-priority technical debt items require attention"
+    "31 high-priority technical debt items require attention"
   ]
 }
