@@ -588,4 +588,68 @@ mod tests {
             assert!(result.is_ok());
         }
     }
+
+    #[tokio::test]
+    async fn test_init_run_success() {
+        // Test normal operation
+        let temp_dir = TempDir::new().unwrap();
+
+        // Initialize as git repo
+        use crate::subprocess::ProcessCommandBuilder;
+        let subprocess = SubprocessManager::production();
+        subprocess
+            .runner()
+            .run(
+                ProcessCommandBuilder::new("git")
+                    .arg("init")
+                    .current_dir(temp_dir.path())
+                    .build(),
+            )
+            .await
+            .unwrap();
+
+        let args = InitCommand {
+            path: Some(temp_dir.path().to_path_buf()),
+            commands: None,
+            force: false,
+        };
+
+        let result = run(args).await;
+        assert!(result.is_ok());
+
+        // Verify .claude directory was created
+        assert!(temp_dir.path().join(".claude").exists());
+    }
+
+    #[tokio::test]
+    async fn test_init_run_already_initialized() {
+        // Test error conditions
+        let temp_dir = TempDir::new().unwrap();
+
+        // Initialize as git repo
+        use crate::subprocess::ProcessCommandBuilder;
+        let subprocess = SubprocessManager::production();
+        subprocess
+            .runner()
+            .run(
+                ProcessCommandBuilder::new("git")
+                    .arg("init")
+                    .current_dir(temp_dir.path())
+                    .build(),
+            )
+            .await
+            .unwrap();
+
+        // Create .claude directory
+        fs::create_dir(temp_dir.path().join(".claude")).unwrap();
+
+        let args = InitCommand {
+            path: Some(temp_dir.path().to_path_buf()),
+            commands: None,
+            force: false,
+        };
+
+        let result = run(args).await;
+        assert!(result.is_ok()); // This should succeed but skip existing commands
+    }
 }

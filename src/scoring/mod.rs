@@ -398,16 +398,19 @@ pub fn format_component(name: &str, value: Option<f64>, details: Option<&str>) -
 fn load_type_coverage_from_metrics(_metadata: &AnalysisMetadata) -> Result<f64, ()> {
     // Get the project path from the current directory
     let project_path = std::env::current_dir().map_err(|_| ())?;
-    let metrics_file = project_path.join(".mmm").join("metrics").join("current.json");
-    
+    let metrics_file = project_path
+        .join(".mmm")
+        .join("metrics")
+        .join("current.json");
+
     if !metrics_file.exists() {
         return Err(());
     }
-    
+
     // Read and parse metrics file
     let content = std::fs::read_to_string(&metrics_file).map_err(|_| ())?;
     let metrics: serde_json::Value = serde_json::from_str(&content).map_err(|_| ())?;
-    
+
     // Extract type coverage
     metrics
         .get("type_coverage")

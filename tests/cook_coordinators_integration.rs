@@ -57,8 +57,10 @@ async fn test_full_workflow_execution() {
     let interaction = Arc::new(MockUserInteraction::new());
     // let coordinator = DefaultWorkflowCoordinator::new(executor, interaction.clone());
 
-    let commands = [WorkflowCommand::Simple("/mmm-analyze".to_string()),
-        WorkflowCommand::Simple("/mmm-improve".to_string())];
+    let commands = [
+        WorkflowCommand::Simple("/mmm-analyze".to_string()),
+        WorkflowCommand::Simple("/mmm-improve".to_string()),
+    ];
 
     let mut context = WorkflowContext {
         iteration: 0,

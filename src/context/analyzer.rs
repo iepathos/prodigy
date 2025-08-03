@@ -373,3 +373,42 @@ fn suggest_from_coverage(coverage: &TestCoverageMap) -> Vec<Suggestion> {
 
     suggestions
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[tokio::test]
+    async fn test_analyze_full_project() {
+        // Test normal operation
+        let temp_dir = TempDir::new().unwrap();
+        let analyzer = ProjectAnalyzer::new();
+        let result = analyzer.analyze(temp_dir.path()).await;
+        assert!(result.is_ok());
+        let analysis = result.unwrap();
+        assert!(analysis.metadata.files_analyzed >= 0);
+    }
+
+    #[tokio::test]
+    async fn test_analyze_with_cache() {
+        // Test incremental analysis with cache
+        let temp_dir = TempDir::new().unwrap();
+        let analyzer = ProjectAnalyzer::new();
+
+        // First run
+        let _first_result = analyzer.analyze(temp_dir.path()).await.unwrap();
+
+        // Second run should use cache
+        let second_result = analyzer.analyze(temp_dir.path()).await.unwrap();
+        assert!(second_result.metadata.incremental);
+    }
+
+    #[tokio::test]
+    async fn test_analyze_error_cases() {
+        // Test error conditions
+        let analyzer = ProjectAnalyzer::new();
+        let result = analyzer.analyze(Path::new("/nonexistent/path")).await;
+        assert!(result.is_err());
+    }
+}

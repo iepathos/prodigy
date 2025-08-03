@@ -88,7 +88,6 @@ pub struct AnalysisConfigBuilder {
     config: AnalysisConfig,
 }
 
-
 impl AnalysisConfigBuilder {
     /// Create a new builder
     pub fn new() -> Self {
