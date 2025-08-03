@@ -239,14 +239,7 @@ pub fn load_analysis(project_path: &Path) -> Result<Option<AnalysisResult>> {
         let content = std::fs::read_to_string(&coverage_path)?;
         // The saved file might be in TestCoverageMap format or a summary
         // Try to parse it directly first
-        match serde_json::from_str::<TestCoverageMap>(&content) {
-            Ok(coverage) => Some(coverage),
-            Err(_) => {
-                // If that fails, it might be a summary format
-                // For now, return None to avoid breaking
-                None
-            }
-        }
+        serde_json::from_str::<TestCoverageMap>(&content).ok()
     } else {
         None
     };

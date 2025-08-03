@@ -329,7 +329,7 @@ impl WorkflowExecutor {
     async fn get_current_head(&self, working_dir: &std::path::Path) -> Result<String> {
         // We need to run git commands in the correct working directory (especially for worktrees)
         let output = tokio::process::Command::new("git")
-            .args(&["rev-parse", "HEAD"])
+            .args(["rev-parse", "HEAD"])
             .current_dir(working_dir)
             .output()
             .await
@@ -467,7 +467,7 @@ mod tests {
     /// Helper function to test get_current_head directly without needing a full executor
     async fn test_get_current_head(working_dir: &std::path::Path) -> Result<String> {
         let output = tokio::process::Command::new("git")
-            .args(&["rev-parse", "HEAD"])
+            .args(["rev-parse", "HEAD"])
             .current_dir(working_dir)
             .output()
             .await

@@ -121,7 +121,7 @@ impl MetricsStorage {
                 }
             }
             Err(e) => {
-                eprintln!("⚠️  Failed to run git commit: {}", e);
+                eprintln!("⚠️  Failed to run git commit: {e}");
                 return Ok(false);
             }
         }

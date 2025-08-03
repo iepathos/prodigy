@@ -579,7 +579,7 @@ fn commit_all_analysis(project_path: &Path) -> Result<()> {
     }
 
     let staged_count = String::from_utf8_lossy(&git_status.stdout).lines().count();
-    println!("Found {} staged files", staged_count);
+    println!("Found {staged_count} staged files");
 
     // Calculate health score from the saved analysis
     let analysis = crate::context::load_analysis(project_path)?
@@ -590,7 +590,7 @@ fn commit_all_analysis(project_path: &Path) -> Result<()> {
     let storage = crate::metrics::MetricsStorage::new(project_path);
     let metrics = storage
         .load_current()?
-        .unwrap_or_else(|| crate::metrics::ImprovementMetrics::default());
+        .unwrap_or_else(crate::metrics::ImprovementMetrics::default);
 
     // Create comprehensive commit message
     let commit_msg = format!(
@@ -637,7 +637,7 @@ fn commit_all_analysis(project_path: &Path) -> Result<()> {
             }
         }
         Err(e) => {
-            eprintln!("⚠️  Failed to run git commit: {}", e);
+            eprintln!("⚠️  Failed to run git commit: {e}");
         }
     }
 
