@@ -105,6 +105,10 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         create_test_project(temp_dir.path()).unwrap();
 
+        // Create mocked subprocess environment
+        let (subprocess, mut mock) = SubprocessManager::mock();
+        TestMockSetup::setup_successful_analysis(&mut mock);
+
         let cmd = AnalyzeCommand {
                 output: "json".to_string(),
             save: false,
@@ -114,7 +118,7 @@ mod tests {
             no_commit: false,
         };
 
-        let result = command::execute(cmd).await;
+        let result = command::execute_with_subprocess(cmd, subprocess).await;
         assert!(result.is_ok());
     }
 
@@ -170,6 +174,10 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         create_test_project(temp_dir.path()).unwrap();
 
+        // Create mocked subprocess environment
+        let (subprocess, mut mock) = SubprocessManager::mock();
+        TestMockSetup::setup_successful_analysis(&mut mock);
+
         // Test JSON output
         let cmd = AnalyzeCommand {
                 output: "json".to_string(),
@@ -180,7 +188,7 @@ mod tests {
             no_commit: false,
         };
 
-        let result = command::execute(cmd).await;
+        let result = command::execute_with_subprocess(cmd, subprocess.clone()).await;
         assert!(result.is_ok());
 
         // Test pretty output
@@ -193,7 +201,7 @@ mod tests {
             no_commit: false,
         };
 
-        let result = command::execute(cmd).await;
+        let result = command::execute_with_subprocess(cmd, subprocess).await;
         assert!(result.is_ok());
     }
 
@@ -227,6 +235,10 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         create_test_project(temp_dir.path()).unwrap();
 
+        // Create mocked subprocess environment
+        let (subprocess, mut mock) = SubprocessManager::mock();
+        TestMockSetup::setup_successful_analysis(&mut mock);
+
         let cmd = AnalyzeCommand {
                 output: "json".to_string(),
             save: true,
@@ -236,7 +248,7 @@ mod tests {
             no_commit: false,
         };
 
-        let result = command::execute(cmd).await;
+        let result = command::execute_with_subprocess(cmd, subprocess).await;
         assert!(result.is_ok());
 
         // Check that context was saved
@@ -250,6 +262,10 @@ mod tests {
         fs::create_dir_all(temp_dir.path().join("src")).unwrap();
         fs::write(temp_dir.path().join("src/main.py"), "print('Hello')").unwrap();
 
+        // Create mocked subprocess environment
+        let (subprocess, mut mock) = SubprocessManager::mock();
+        TestMockSetup::setup_successful_analysis(&mut mock);
+
         let cmd = AnalyzeCommand {
                 output: "json".to_string(),
             save: false,
@@ -259,7 +275,7 @@ mod tests {
             no_commit: false,
         };
 
-        let result = command::execute(cmd).await;
+        let result = command::execute_with_subprocess(cmd, subprocess).await;
         // Should handle gracefully
         assert!(result.is_ok());
     }
@@ -327,6 +343,10 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         create_test_project(temp_dir.path()).unwrap();
 
+        // Create mocked subprocess environment with coverage support
+        let (subprocess, mut mock) = SubprocessManager::mock();
+        TestMockSetup::setup_successful_analysis(&mut mock);
+
         let cmd = AnalyzeCommand {
                 output: "json".to_string(),
             save: false,
@@ -337,7 +357,7 @@ mod tests {
         };
 
         // This might fail if cargo-tarpaulin isn't installed, but should handle gracefully
-        let result = command::execute(cmd).await;
+        let result = command::execute_with_subprocess(cmd, subprocess).await;
         assert!(result.is_ok());
     }
 
