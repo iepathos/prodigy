@@ -244,7 +244,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         // Check if any commands have analysis configuration
         let has_analysis_config = config.workflow.commands.iter().any(|cmd| {
             matches!(cmd, crate::config::command::WorkflowCommand::Structured(c)
-                if c.metadata.analysis.is_some())
+                if c.analysis.is_some() || c.metadata.analysis.is_some())
         });
 
         if has_analysis_config {
@@ -266,12 +266,12 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                     WorkflowCommand::Structured(c) => (
                         c.name.clone(),
                         c.metadata.commit_required,
-                        c.metadata.analysis.clone(),
+                        c.analysis.clone().or_else(|| c.metadata.analysis.clone()),
                     ),
                     WorkflowCommand::SimpleObject(simple) => (
                         simple.name.clone(),
                         simple.commit_required.unwrap_or(true),
-                        None,
+                        simple.analysis.clone(),
                     ),
                 };
 
@@ -448,7 +448,7 @@ impl DefaultCookOrchestrator {
                 ));
 
                 // Check if this command requires analysis
-                if let Some(ref analysis_config) = command.metadata.analysis {
+                if let Some(ref analysis_config) = command.analysis {
                     self.run_analysis_if_needed(env, analysis_config).await?;
                 }
 
@@ -753,7 +753,7 @@ impl DefaultCookOrchestrator {
                 ));
 
                 // Check if this command requires analysis
-                if let Some(ref analysis_config) = command.metadata.analysis {
+                if let Some(ref analysis_config) = command.analysis {
                     self.run_analysis_if_needed(env, analysis_config).await?;
                 }
 
@@ -989,7 +989,7 @@ impl DefaultCookOrchestrator {
         ));
 
         // Check if this command requires analysis
-        if let Some(ref analysis_config) = command.metadata.analysis {
+        if let Some(ref analysis_config) = command.analysis {
             self.run_analysis_if_needed(env, analysis_config).await?;
         }
 
@@ -1561,6 +1561,7 @@ mod tests {
                     default: None,
                 },
             )])),
+            analysis: None,
         };
 
         let structured_workflow = WorkflowConfig {
@@ -1681,6 +1682,7 @@ mod tests {
                 },
             )])),
             inputs: None,
+            analysis: None,
         };
 
         let workflow = WorkflowConfig {
@@ -1820,6 +1822,7 @@ mod tests {
                         name: "mmm-implement-spec".to_string(),
                         commit_required: Some(false),
                         args: Some(vec!["$ARG".to_string()]),
+                        analysis: None,
                     },
                 ),
                 // Command without args
@@ -1828,6 +1831,7 @@ mod tests {
                         name: "mmm-lint".to_string(),
                         commit_required: Some(false),
                         args: None,
+                        analysis: None,
                     },
                 ),
                 // Command with literal args
@@ -1836,6 +1840,7 @@ mod tests {
                         name: "mmm-check".to_string(),
                         commit_required: Some(false),
                         args: Some(vec!["--strict".to_string()]),
+                        analysis: None,
                     },
                 ),
             ],

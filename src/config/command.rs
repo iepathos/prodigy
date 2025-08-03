@@ -116,6 +116,10 @@ pub struct Command {
     /// Inputs this command expects
     #[serde(skip_serializing_if = "Option::is_none")]
     pub inputs: Option<HashMap<String, InputReference>>,
+
+    /// Analysis requirements for this command (convenience field)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub analysis: Option<AnalysisConfig>,
 }
 
 /// Configuration for per-step analysis requirements
@@ -237,6 +241,8 @@ pub struct SimpleCommand {
     pub commit_required: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub args: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub analysis: Option<AnalysisConfig>,
 }
 
 impl WorkflowCommand {
@@ -253,6 +259,10 @@ impl WorkflowCommand {
                     for arg in args {
                         cmd.args.push(CommandArg::parse(arg));
                     }
+                }
+                if let Some(analysis) = simple.analysis.clone() {
+                    cmd.analysis = Some(analysis.clone());
+                    cmd.metadata.analysis = Some(analysis);
                 }
                 cmd
             }
@@ -272,6 +282,7 @@ impl Command {
             id: None,
             outputs: None,
             inputs: None,
+            analysis: None,
         }
     }
 
@@ -350,6 +361,8 @@ impl<'de> Deserialize<'de> for Command {
             inputs: Option<HashMap<String, InputReference>>,
             // Allow commit_required at top level for convenience
             commit_required: Option<bool>,
+            // Allow analysis at top level for convenience
+            analysis: Option<AnalysisConfig>,
         }
 
         let helper = CommandHelper::deserialize(deserializer)?;
@@ -360,6 +373,12 @@ impl<'de> Deserialize<'de> for Command {
             metadata.commit_required = commit_required;
         }
 
+        // Handle analysis configuration - prefer top-level over metadata.analysis
+        let analysis = helper.analysis.or(metadata.analysis.clone());
+        if analysis.is_some() {
+            metadata.analysis = analysis.clone();
+        }
+
         Ok(Command {
             name: helper.name,
             args: helper.args,
@@ -368,6 +387,7 @@ impl<'de> Deserialize<'de> for Command {
             id: helper.id,
             outputs: helper.outputs,
             inputs: helper.inputs,
+            analysis,
         })
     }
 }
@@ -464,6 +484,7 @@ mod tests {
             name: "mmm-lint".to_string(),
             commit_required: Some(false),
             args: None,
+            analysis: None,
         });
         let cmd = simple_obj.to_command();
         assert_eq!(cmd.name, "mmm-lint");
@@ -474,6 +495,7 @@ mod tests {
             name: "mmm-fix".to_string(),
             commit_required: Some(true),
             args: None,
+            analysis: None,
         });
         let cmd = simple_obj.to_command();
         assert_eq!(cmd.name, "mmm-fix");
@@ -484,6 +506,7 @@ mod tests {
             name: "mmm-refactor".to_string(),
             commit_required: None,
             args: None,
+            analysis: None,
         });
         let cmd = simple_obj.to_command();
         assert_eq!(cmd.name, "mmm-refactor");
@@ -497,6 +520,7 @@ mod tests {
             name: "mmm-lint".to_string(),
             commit_required: Some(false),
             args: None,
+            analysis: None,
         };
 
         let json = serde_json::to_string(&simple_cmd).unwrap();
@@ -511,6 +535,7 @@ mod tests {
             name: "mmm-test".to_string(),
             commit_required: None,
             args: None,
+            analysis: None,
         };
         let json_none = serde_json::to_string(&simple_cmd_none).unwrap();
         assert!(!json_none.contains("commit_required"));

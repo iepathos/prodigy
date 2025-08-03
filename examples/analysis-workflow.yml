@@ -19,29 +19,26 @@ commands:
   # Third command: Code review
   # This command benefits from both context and metrics
   - name: mmm-code-review
-    metadata:
-      analysis:
-        analysis_types: ["context", "metrics"]  # Run both context and metrics analysis
-        max_cache_age: 300                       # Use cache if less than 5 minutes old
-        force_refresh: false                     # Don't force if cache is fresh
+    analysis:
+      analysis_types: ["context", "metrics"]  # Run both context and metrics analysis
+      max_cache_age: 300                       # Use cache if less than 5 minutes old
+      force_refresh: false                     # Don't force if cache is fresh
   
   # Fourth command: Clean up technical debt
   # This needs fresh metrics to prioritize cleanup
   - name: mmm-cleanup-tech-debt
-    metadata:
-      analysis:
-        analysis_types: ["metrics"]   # Only need metrics, not full context
-        force_refresh: true           # Always get fresh metrics for accuracy
-        max_cache_age: 0              # Ignored when force_refresh is true
+    analysis:
+      analysis_types: ["metrics"]   # Only need metrics, not full context
+      force_refresh: true           # Always get fresh metrics for accuracy
+      max_cache_age: 0              # Ignored when force_refresh is true
   
   # Fifth command: Generate documentation
   # This needs updated context after all changes
   - name: mmm-generate-docs
-    metadata:
-      analysis:
-        analysis_types: ["context"]   # Only need context analysis (default if omitted)
-        max_cache_age: 60             # Very short cache - 1 minute
-        force_refresh: false          # Use cache if available and fresh
+    analysis:
+      analysis_types: ["context"]   # Only need context analysis (default if omitted)
+      max_cache_age: 60             # Very short cache - 1 minute
+      force_refresh: false          # Use cache if available and fresh
 
 # Usage examples:
 # 
