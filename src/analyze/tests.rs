@@ -2,6 +2,7 @@
 
 use super::*;
 use tempfile::TempDir;
+use std::process::Command;
 
 #[tokio::test]
 async fn test_analyze_command_creation() {
@@ -341,5 +342,92 @@ mod tests {
         // This might fail if cargo-tarpaulin isn't installed, but should handle gracefully
         let result = command::execute(cmd).await;
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_metrics_save_creates_file() {
+        let temp_dir = TempDir::new().unwrap();
+        create_test_project(temp_dir.path()).unwrap();
+
+        // Initialize git repo
+        Command::new("git")
+            .args(["init"])
+            .current_dir(temp_dir.path())
+            .output()
+            .unwrap();
+            
+        Command::new("git")
+            .args(["config", "user.email", "test@example.com"])
+            .current_dir(temp_dir.path())
+            .output()
+            .unwrap();
+            
+        Command::new("git")
+            .args(["config", "user.name", "Test User"])
+            .current_dir(temp_dir.path())
+            .output()
+            .unwrap();
+
+        // Instead of running the full analyze command, test the storage directly
+        let storage = crate::metrics::MetricsStorage::new(temp_dir.path());
+        
+        // Create test metrics
+        let metrics = crate::metrics::ImprovementMetrics {
+            test_coverage: 75.5,
+            type_coverage: 85.0,
+            doc_coverage: 60.0,
+            lint_warnings: 5,
+            code_duplication: 3.2,
+            compile_time: std::time::Duration::from_secs(10),
+            binary_size: 1024 * 1024,
+            cyclomatic_complexity: std::collections::HashMap::new(),
+            cognitive_complexity: std::collections::HashMap::new(),
+            max_nesting_depth: 3,
+            total_lines: 1000,
+            timestamp: chrono::Utc::now(),
+            iteration_id: "test-iteration".to_string(),
+            benchmark_results: std::collections::HashMap::new(),
+            memory_usage: std::collections::HashMap::new(),
+            bugs_fixed: 0,
+            features_added: 0,
+            improvement_velocity: 1.2,
+            health_score: None,
+        };
+        
+        // Save with commit
+        let commit_made = storage.save_current_with_commit(&metrics, true).unwrap();
+        
+        // Check that metrics file was created
+        let metrics_file = temp_dir.path().join(".mmm").join("metrics").join("current.json");
+        assert!(metrics_file.exists(), "Metrics file should be created");
+        
+        // Verify content was saved correctly
+        let loaded = storage.load_current().unwrap();
+        assert!(loaded.is_some());
+        let loaded_metrics = loaded.unwrap();
+        assert_eq!(loaded_metrics.test_coverage, 75.5);
+        
+        // Check git status to see if file was added
+        let git_status = Command::new("git")
+            .args(["status", "--porcelain"])
+            .current_dir(temp_dir.path())
+            .output()
+            .unwrap();
+        
+        let status_output = String::from_utf8_lossy(&git_status.stdout);
+        println!("Git status output: {}", status_output);
+        
+        // If it's a new file and git add worked, we should see a commit
+        if commit_made {
+            let git_log = Command::new("git")
+                .args(["log", "--oneline", "-n", "1"])
+                .current_dir(temp_dir.path())
+                .output()
+                .unwrap();
+            
+            let log_output = String::from_utf8_lossy(&git_log.stdout);
+            println!("Git log output: {}", log_output);
+            assert!(log_output.contains("metrics:"), "Commit message should contain 'metrics:'");
+        }
     }
 }

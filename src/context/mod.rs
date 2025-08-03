@@ -169,14 +169,107 @@ pub fn load_analysis(project_path: &Path) -> Result<Option<AnalysisResult>> {
         return Ok(None);
     }
 
-    let analysis_file = context_dir.join("analysis.json");
-    if !analysis_file.exists() {
+    // Load each component file
+    let dep_graph_path = context_dir.join("dependency_graph.json");
+    let dependency_graph = if dep_graph_path.exists() {
+        let content = std::fs::read_to_string(&dep_graph_path)?;
+        // The saved file is a DependencyGraphSummary, we need to convert it
+        let summary: summary::DependencyGraphSummary = serde_json::from_str(&content)?;
+        
+        // Convert summary back to full graph
+        let mut nodes = HashMap::new();
+        for (path, node_summary) in summary.nodes {
+            nodes.insert(path.clone(), dependencies::ModuleNode {
+                path: path.clone(),
+                module_type: node_summary.module_type,
+                imports: vec![], // Lost in optimization
+                exports: vec![], // Lost in optimization
+                external_deps: vec![], // Lost in optimization
+            });
+        }
+        
+        DependencyGraph {
+            nodes,
+            edges: summary.edges,
+            cycles: summary.cycles,
+            layers: summary.layers,
+        }
+    } else {
         return Ok(None);
-    }
+    };
 
-    // The analysis file contains a summary, not the full result
-    // Return None to force re-analysis for now
-    Ok(None)
+    let arch_path = context_dir.join("architecture.json");
+    let architecture = if arch_path.exists() {
+        let content = std::fs::read_to_string(&arch_path)?;
+        serde_json::from_str(&content)?
+    } else {
+        return Ok(None);
+    };
+
+    let conv_path = context_dir.join("conventions.json");
+    let conventions = if conv_path.exists() {
+        let content = std::fs::read_to_string(&conv_path)?;
+        serde_json::from_str(&content)?
+    } else {
+        return Ok(None);
+    };
+
+    let debt_path = context_dir.join("technical_debt.json");
+    let technical_debt = if debt_path.exists() {
+        let content = std::fs::read_to_string(&debt_path)?;
+        // The saved file is a TechnicalDebtSummary, we need to convert it
+        let summary: summary::TechnicalDebtSummary = serde_json::from_str(&content)?;
+        
+        // Convert summary back to full map
+        TechnicalDebtMap {
+            debt_items: summary.high_priority_items, // Only high priority items are saved
+            hotspots: vec![], // Convert from hotspot_summary if needed
+            duplication_map: HashMap::new(), // Lost in optimization
+            priority_queue: std::collections::BinaryHeap::new(), // Recreate empty
+        }
+    } else {
+        return Ok(None);
+    };
+
+    let coverage_path = context_dir.join("test_coverage.json");
+    let test_coverage = if coverage_path.exists() {
+        let content = std::fs::read_to_string(&coverage_path)?;
+        // The saved file might be in TestCoverageMap format or a summary
+        // Try to parse it directly first
+        match serde_json::from_str::<TestCoverageMap>(&content) {
+            Ok(coverage) => Some(coverage),
+            Err(_) => {
+                // If that fails, it might be a summary format
+                // For now, return None to avoid breaking
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    let metadata_path = context_dir.join("analysis_metadata.json");
+    let metadata = if metadata_path.exists() {
+        let content = std::fs::read_to_string(&metadata_path)?;
+        serde_json::from_str(&content)?
+    } else {
+        AnalysisMetadata {
+            timestamp: chrono::Utc::now(),
+            duration_ms: 0,
+            files_analyzed: 0,
+            incremental: false,
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        }
+    };
+
+    Ok(Some(AnalysisResult {
+        dependency_graph,
+        architecture,
+        conventions,
+        technical_debt,
+        test_coverage,
+        metadata,
+    }))
 }
 
 /// Save analysis results to disk with default commit behavior

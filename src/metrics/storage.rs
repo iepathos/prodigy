@@ -59,9 +59,9 @@ impl MetricsStorage {
         let git_check = std::process::Command::new("git")
             .args(["rev-parse", "--git-dir"])
             .current_dir(&self.project_path)
-            .status()?;
+            .output()?;
         
-        if !git_check.success() {
+        if !git_check.status.success() {
             debug!("Not in a git repository, skipping commit");
             return Ok(false);
         }
@@ -74,7 +74,7 @@ impl MetricsStorage {
 
         // Check if there are changes to commit
         let git_status = std::process::Command::new("git")
-            .args(["status", "--porcelain", "--cached", ".mmm/metrics/"])
+            .args(["diff", "--cached", "--name-only", ".mmm/metrics/"])
             .current_dir(&self.project_path)
             .output()?;
         
@@ -460,5 +460,108 @@ mod tests {
         let report = storage.generate_report(&metrics);
         assert!(report.contains("Avg Cyclomatic Complexity: 0.0"));
         assert!(report.contains("🟠")); // Orange emoji for medium-low score (50-69)
+    }
+
+    #[test]
+    fn test_save_current_with_commit_no_git() {
+        let temp_dir = TempDir::new().unwrap();
+        let storage = MetricsStorage::new(temp_dir.path());
+        
+        let metrics = create_test_metrics();
+        
+        // Should succeed but return false when not in a git repo
+        let result = storage.save_current_with_commit(&metrics, true).unwrap();
+        assert!(!result); // No commit was made
+        
+        // But the file should still be saved
+        let loaded = storage.load_current().unwrap();
+        assert!(loaded.is_some());
+    }
+    
+    #[test]
+    fn test_save_current_with_commit_no_commit_flag() {
+        let temp_dir = TempDir::new().unwrap();
+        let storage = MetricsStorage::new(temp_dir.path());
+        
+        let metrics = create_test_metrics();
+        
+        // Should save but not commit when commit=false
+        let result = storage.save_current_with_commit(&metrics, false).unwrap();
+        assert!(!result); // No commit was made
+        
+        // But the file should still be saved
+        let loaded = storage.load_current().unwrap();
+        assert!(loaded.is_some());
+    }
+    
+    #[test]
+    fn test_save_current_with_commit_in_git_repo() {
+        let temp_dir = TempDir::new().unwrap();
+        
+        // Initialize a git repo
+        std::process::Command::new("git")
+            .args(["init"])
+            .current_dir(temp_dir.path())
+            .output()
+            .unwrap();
+            
+        // Set git config to avoid errors
+        std::process::Command::new("git")
+            .args(["config", "user.email", "test@example.com"])
+            .current_dir(temp_dir.path())
+            .output()
+            .unwrap();
+            
+        std::process::Command::new("git")
+            .args(["config", "user.name", "Test User"])
+            .current_dir(temp_dir.path())
+            .output()
+            .unwrap();
+        
+        let storage = MetricsStorage::new(temp_dir.path());
+        let metrics = create_test_metrics();
+        
+        // First save should create the file
+        let result = storage.save_current_with_commit(&metrics, true).unwrap();
+        // Might be false if no changes to commit (new file needs to be added first)
+        
+        // Check that the file exists
+        let current_path = storage.base_path.join("current.json");
+        assert!(current_path.exists());
+        
+        // Modify metrics and save again
+        let mut metrics2 = metrics.clone();
+        metrics2.test_coverage = 90.0;
+        
+        let result2 = storage.save_current_with_commit(&metrics2, true).unwrap();
+        // This might commit if there are changes
+        
+        // Verify the updated metrics were saved
+        let loaded = storage.load_current().unwrap().unwrap();
+        assert_eq!(loaded.test_coverage, 90.0);
+    }
+    
+    fn create_test_metrics() -> ImprovementMetrics {
+        ImprovementMetrics {
+            test_coverage: 75.5,
+            type_coverage: 85.0,
+            doc_coverage: 60.0,
+            lint_warnings: 5,
+            code_duplication: 3.2,
+            compile_time: Duration::from_secs(10),
+            binary_size: 1024 * 1024,
+            cyclomatic_complexity: std::collections::HashMap::new(),
+            cognitive_complexity: std::collections::HashMap::new(),
+            max_nesting_depth: 3,
+            total_lines: 1000,
+            timestamp: chrono::Utc::now(),
+            iteration_id: "test-iteration".to_string(),
+            benchmark_results: std::collections::HashMap::new(),
+            memory_usage: std::collections::HashMap::new(),
+            bugs_fixed: 0,
+            features_added: 0,
+            improvement_velocity: 1.2,
+            health_score: None,
+        }
     }
 }

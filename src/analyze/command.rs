@@ -530,9 +530,9 @@ fn commit_all_analysis(project_path: &Path) -> Result<()> {
     let git_check = std::process::Command::new("git")
         .args(["rev-parse", "--git-dir"])
         .current_dir(project_path)
-        .status()?;
+        .output()?;
     
-    if !git_check.success() {
+    if !git_check.status.success() {
         return Ok(());
     }
     
