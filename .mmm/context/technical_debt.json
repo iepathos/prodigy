@@ -1,21 +1,21 @@
 {
   "statistics": {
-    "total_items": 239,
+    "total_items": 242,
     "by_type": {
-      "Duplication": 100,
-      "Fixme": 12,
       "Deprecated": 6,
       "Todo": 50,
-      "Complexity": 64,
-      "Hack": 7
+      "Hack": 7,
+      "Complexity": 67,
+      "Duplication": 100,
+      "Fixme": 12
     },
     "by_impact": {
+      "Medium": 175,
       "Low": 50,
-      "High": 17,
-      "Medium": 172
+      "High": 17
     },
-    "avg_impact": 5.355648535564853,
-    "avg_effort": 3.9539748953974896
+    "avg_impact": 5.363636363636363,
+    "avg_effort": 3.9669421487603307
   },
   "high_priority_items": [
     {
@@ -305,6 +305,12 @@
       "primary_issue_type": "Duplication"
     },
     {
+      "file": "/Users/glen/memento-mori/mmm/src/analyze/command.rs",
+      "total_issues": 9,
+      "max_complexity": 16,
+      "primary_issue_type": "Complexity"
+    },
+    {
       "file": "/Users/glen/memento-mori/mmm/src/abstractions/claude.rs",
       "total_issues": 9,
       "max_complexity": 20,
@@ -317,33 +323,27 @@
       "primary_issue_type": "Duplication"
     },
     {
-      "file": "/Users/glen/memento-mori/mmm/tests/cook_iteration_tests.rs",
-      "total_issues": 6,
-      "max_complexity": 13,
-      "primary_issue_type": "Complexity"
-    },
-    {
       "file": "/Users/glen/memento-mori/mmm/src/worktree/test_state.rs",
       "total_issues": 6,
       "max_complexity": 11,
       "primary_issue_type": "Duplication"
     },
     {
+      "file": "/Users/glen/memento-mori/mmm/tests/cook_iteration_tests.rs",
+      "total_issues": 6,
+      "max_complexity": 13,
+      "primary_issue_type": "Complexity"
+    },
+    {
       "file": "/Users/glen/memento-mori/mmm/src/context/tarpaulin_coverage.rs",
       "total_issues": 6,
       "max_complexity": 19,
       "primary_issue_type": "Complexity"
-    },
-    {
-      "file": "/Users/glen/memento-mori/mmm/src/analyze/command.rs",
-      "total_issues": 6,
-      "max_complexity": 15,
-      "primary_issue_type": "Duplication"
     }
   ],
   "duplication_summary": {
     "total_duplicate_blocks": 100,
-    "total_duplicate_lines": 4979,
+    "total_duplicate_lines": 4988,
     "files_with_duplication": 108,
     "largest_duplicate_lines": 50
   }
