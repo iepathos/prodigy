@@ -1,0 +1,58 @@
+# Example workflow demonstrating per-step analysis configuration
+# This workflow shows how to optimize analysis runs by specifying
+# which commands need fresh analysis data
+
+commands:
+  # First command: Implement a spec
+  # This uses the initial analysis from workflow start
+  - name: mmm-implement-spec
+    args: ["$ARG"]
+    commit_required: true
+    # No analysis configuration - uses initial context
+  
+  # Second command: Run linting
+  # Linting typically doesn't need metrics data
+  - name: mmm-lint
+    commit_required: false
+    # No analysis needed - works with existing code structure
+  
+  # Third command: Code review
+  # This command benefits from both context and metrics
+  - name: mmm-code-review
+    metadata:
+      analysis:
+        analysis_type: "all"      # Run both context and metrics analysis
+        max_cache_age: 300        # Use cache if less than 5 minutes old
+        force_refresh: false      # Don't force if cache is fresh
+  
+  # Fourth command: Clean up technical debt
+  # This needs fresh metrics to prioritize cleanup
+  - name: mmm-cleanup-tech-debt
+    metadata:
+      analysis:
+        analysis_type: "metrics"  # Only need metrics, not full context
+        force_refresh: true       # Always get fresh metrics for accuracy
+        max_cache_age: 0          # Ignored when force_refresh is true
+  
+  # Fifth command: Generate documentation
+  # This needs updated context after all changes
+  - name: mmm-generate-docs
+    metadata:
+      analysis:
+        analysis_type: "context"  # Only need context analysis
+        max_cache_age: 60         # Very short cache - 1 minute
+        force_refresh: false      # Use cache if available and fresh
+
+# Usage examples:
+# 
+# Run with a single spec:
+#   mmm cook -p analysis-workflow.yml --args 45
+#
+# Run with multiple specs:
+#   mmm cook -p analysis-workflow.yml --map "specs/*.md"
+#
+# Skip initial analysis (if commands have their own):
+#   mmm cook -p analysis-workflow.yml --skip-analysis
+#
+# Force metrics for all commands:
+#   mmm cook -p analysis-workflow.yml --metrics

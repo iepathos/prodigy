@@ -175,19 +175,22 @@ pub fn load_analysis(project_path: &Path) -> Result<Option<AnalysisResult>> {
         let content = std::fs::read_to_string(&dep_graph_path)?;
         // The saved file is a DependencyGraphSummary, we need to convert it
         let summary: summary::DependencyGraphSummary = serde_json::from_str(&content)?;
-        
+
         // Convert summary back to full graph
         let mut nodes = HashMap::new();
         for (path, node_summary) in summary.nodes {
-            nodes.insert(path.clone(), dependencies::ModuleNode {
-                path: path.clone(),
-                module_type: node_summary.module_type,
-                imports: vec![], // Lost in optimization
-                exports: vec![], // Lost in optimization
-                external_deps: vec![], // Lost in optimization
-            });
+            nodes.insert(
+                path.clone(),
+                dependencies::ModuleNode {
+                    path: path.clone(),
+                    module_type: node_summary.module_type,
+                    imports: vec![],       // Lost in optimization
+                    exports: vec![],       // Lost in optimization
+                    external_deps: vec![], // Lost in optimization
+                },
+            );
         }
-        
+
         DependencyGraph {
             nodes,
             edges: summary.edges,
@@ -219,12 +222,12 @@ pub fn load_analysis(project_path: &Path) -> Result<Option<AnalysisResult>> {
         let content = std::fs::read_to_string(&debt_path)?;
         // The saved file is a TechnicalDebtSummary, we need to convert it
         let summary: summary::TechnicalDebtSummary = serde_json::from_str(&content)?;
-        
+
         // Convert summary back to full map
         TechnicalDebtMap {
             debt_items: summary.high_priority_items, // Only high priority items are saved
-            hotspots: vec![], // Convert from hotspot_summary if needed
-            duplication_map: HashMap::new(), // Lost in optimization
+            hotspots: vec![],                        // Convert from hotspot_summary if needed
+            duplication_map: HashMap::new(),         // Lost in optimization
             priority_queue: std::collections::BinaryHeap::new(), // Recreate empty
         }
     } else {

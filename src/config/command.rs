@@ -6,6 +6,11 @@ fn default_true() -> bool {
     true
 }
 
+/// Default cache duration in seconds (5 minutes)
+fn default_cache_duration() -> u64 {
+    300
+}
+
 /// Represents a command argument that can be a literal value or a variable
 #[derive(Debug, Clone, PartialEq)]
 pub enum CommandArg {
@@ -108,6 +113,21 @@ pub struct Command {
     pub inputs: Option<HashMap<String, InputReference>>,
 }
 
+/// Configuration for per-step analysis requirements
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnalysisConfig {
+    /// Type of analysis needed: "context", "metrics", or "all"
+    pub analysis_type: String,
+
+    /// Force fresh analysis even if cached
+    #[serde(default)]
+    pub force_refresh: bool,
+
+    /// Maximum age of cached analysis in seconds
+    #[serde(default = "default_cache_duration")]
+    pub max_cache_age: u64,
+}
+
 /// Metadata for command execution control
 ///
 /// Contains optional parameters that control how a command is executed,
@@ -130,6 +150,10 @@ pub struct CommandMetadata {
     /// Whether this command is required to create commits (defaults to true)
     #[serde(default = "default_true")]
     pub commit_required: bool,
+
+    /// Analysis requirements for this command
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub analysis: Option<AnalysisConfig>,
 }
 
 impl Default for CommandMetadata {
@@ -140,6 +164,7 @@ impl Default for CommandMetadata {
             continue_on_error: None,
             env: HashMap::new(),
             commit_required: true,
+            analysis: None,
         }
     }
 }
@@ -483,5 +508,58 @@ mod tests {
         };
         let json_none = serde_json::to_string(&simple_cmd_none).unwrap();
         assert!(!json_none.contains("commit_required"));
+    }
+
+    #[test]
+    fn test_analysis_config_defaults() {
+        let analysis_config = AnalysisConfig {
+            analysis_type: "context".to_string(),
+            force_refresh: false,
+            max_cache_age: 300,
+        };
+
+        assert_eq!(analysis_config.analysis_type, "context");
+        assert!(!analysis_config.force_refresh);
+        assert_eq!(analysis_config.max_cache_age, 300);
+    }
+
+    #[test]
+    fn test_analysis_config_serialization() {
+        let analysis_config = AnalysisConfig {
+            analysis_type: "all".to_string(),
+            force_refresh: true,
+            max_cache_age: 600,
+        };
+
+        let json = serde_json::to_string(&analysis_config).unwrap();
+        let deserialized: AnalysisConfig = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.analysis_type, "all");
+        assert!(deserialized.force_refresh);
+        assert_eq!(deserialized.max_cache_age, 600);
+    }
+
+    #[test]
+    fn test_command_with_analysis_config() {
+        let mut cmd = Command::new("mmm-code-review");
+        cmd.metadata.analysis = Some(AnalysisConfig {
+            analysis_type: "metrics".to_string(),
+            force_refresh: false,
+            max_cache_age: 300,
+        });
+
+        let json = serde_json::to_string(&cmd).unwrap();
+        assert!(json.contains("\"analysis\""));
+        assert!(json.contains("\"analysis_type\":\"metrics\""));
+
+        let deserialized: Command = serde_json::from_str(&json).unwrap();
+        assert!(deserialized.metadata.analysis.is_some());
+        let analysis = deserialized.metadata.analysis.unwrap();
+        assert_eq!(analysis.analysis_type, "metrics");
+    }
+
+    #[test]
+    fn test_default_cache_duration() {
+        assert_eq!(default_cache_duration(), 300);
     }
 }
