@@ -61,12 +61,14 @@ async fn test_git_operations_integration() {
 
     // Check clean status
     let status = check_git_status().await.unwrap();
-    // Git status output varies by version, so check for common clean indicators
+    // Git status output varies by version and configuration
+    // An empty status can also indicate a clean working tree
     assert!(
-        status.contains("nothing to commit") 
+        status.is_empty() // git status --porcelain returns empty for clean tree
+        || status.contains("nothing to commit") 
         || status.contains("working tree clean")
         || status.contains("nothing added to commit"),
-        "Expected clean status, got: {}", 
+        "Expected clean status, got: '{}'", 
         status
     );
 

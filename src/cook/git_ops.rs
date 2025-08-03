@@ -78,6 +78,7 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
     use tokio::process::Command;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[tokio::test]
     async fn test_git_mutex_prevents_races() {
@@ -166,13 +167,15 @@ mod tests {
 
     /// Test helper: Create a commit in a repository
     async fn create_test_commit(repo_path: &std::path::Path, message: &str) -> Result<()> {
-        // Create a file
-        let file_path = repo_path.join("test.txt");
+        // Create a unique file to avoid conflicts
+        let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+        let filename = format!("test_{}.txt", timestamp);
+        let file_path = repo_path.join(&filename);
         std::fs::write(&file_path, "test content")?;
 
         // Stage the file
         Command::new("git")
-            .args(["add", "test.txt"])
+            .args(["add", &filename])
             .current_dir(repo_path)
             .output()
             .await?;
@@ -288,7 +291,7 @@ mod tests {
             .unwrap();
 
         // Stage a change
-        std::fs::write(temp_repo.path().join("test.txt"), "new content").unwrap();
+        std::fs::write(temp_repo.path().join("new_test.txt"), "new content").unwrap();
         stage_all_changes().await.unwrap();
 
         let result = create_commit("test: Add test file").await;

@@ -13,14 +13,27 @@ async fn test_context_analysis_integration() {
     fs::write(
         src_dir.join("main.rs"),
         r#"
-        fn main() {
-            println!("Hello, world!");
-        }
-        
-        fn untested_function() -> Result<(), String> {
-            Err("Not implemented".to_string())
-        }
-    "#,
+fn main() {
+    println!("Hello, world!");
+}
+
+fn untested_function() -> Result<(), String> {
+    Err("Not implemented".to_string())
+}
+"#,
+    )
+    .unwrap();
+    
+    // Create Cargo.toml to make it a valid Rust project
+    fs::write(
+        temp_dir.path().join("Cargo.toml"),
+        r#"[package]
+name = "test_project"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+"#,
     )
     .unwrap();
 
