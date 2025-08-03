@@ -10,6 +10,7 @@ use crate::subprocess::SubprocessManager;
 use anyhow::Result;
 use async_trait::async_trait;
 use std::path::Path;
+use std::str::FromStr;
 use std::sync::Arc;
 
 /// Output format options for analysis results
@@ -23,14 +24,15 @@ pub enum OutputFormat {
     Summary,
 }
 
-impl OutputFormat {
-    /// Parse from string
-    pub fn from_str(s: &str) -> Self {
+impl FromStr for OutputFormat {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "json" => Self::Json,
-            "pretty" => Self::Pretty,
-            "summary" => Self::Summary,
-            _ => Self::Summary,
+            "json" => Ok(Self::Json),
+            "pretty" => Ok(Self::Pretty),
+            "summary" => Ok(Self::Summary),
+            _ => Ok(Self::Summary),
         }
     }
 }
@@ -83,12 +85,18 @@ pub struct AnalysisConfigBuilder {
     config: AnalysisConfig,
 }
 
-impl AnalysisConfigBuilder {
-    /// Create a new builder
-    pub fn new() -> Self {
+impl Default for AnalysisConfigBuilder {
+    fn default() -> Self {
         Self {
             config: AnalysisConfig::default(),
         }
+    }
+}
+
+impl AnalysisConfigBuilder {
+    /// Create a new builder
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Set output format
@@ -759,10 +767,10 @@ mod tests {
 
     #[test]
     fn test_output_format_parsing() {
-        assert_eq!(OutputFormat::from_str("json"), OutputFormat::Json);
-        assert_eq!(OutputFormat::from_str("pretty"), OutputFormat::Pretty);
-        assert_eq!(OutputFormat::from_str("summary"), OutputFormat::Summary);
-        assert_eq!(OutputFormat::from_str("unknown"), OutputFormat::Summary);
+        assert_eq!("json".parse::<OutputFormat>().unwrap(), OutputFormat::Json);
+        assert_eq!("pretty".parse::<OutputFormat>().unwrap(), OutputFormat::Pretty);
+        assert_eq!("summary".parse::<OutputFormat>().unwrap(), OutputFormat::Summary);
+        assert_eq!("unknown".parse::<OutputFormat>().unwrap(), OutputFormat::Summary);
     }
 
     #[test]

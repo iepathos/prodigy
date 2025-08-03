@@ -66,7 +66,7 @@ pub async fn execute_with_subprocess(
 
     // Build unified analysis config
     let config = AnalysisConfig::builder()
-        .output_format(OutputFormat::from_str(&cmd.output))
+        .output_format(cmd.output.parse().unwrap_or(OutputFormat::Summary))
         .save_results(cmd.save)
         .commit_changes(cmd.save && !cmd.no_commit)
         .verbose(cmd.verbose)

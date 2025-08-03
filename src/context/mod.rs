@@ -171,102 +171,141 @@ pub fn load_analysis(project_path: &Path) -> Result<Option<AnalysisResult>> {
     }
 
     // Load each component file
+    let dependency_graph = load_dependency_graph(&context_dir)?;
+    if dependency_graph.is_none() {
+        return Ok(None);
+    }
+
+    let architecture = load_architecture(&context_dir)?;
+    if architecture.is_none() {
+        return Ok(None);
+    }
+
+    let conventions = load_conventions(&context_dir)?;
+    if conventions.is_none() {
+        return Ok(None);
+    }
+
+    let technical_debt = load_technical_debt(&context_dir)?;
+    if technical_debt.is_none() {
+        return Ok(None);
+    }
+
+    let test_coverage = load_test_coverage(&context_dir)?;
+    let metadata = load_analysis_metadata(&context_dir)?;
+
+    Ok(Some(AnalysisResult {
+        dependency_graph: dependency_graph.ok_or_else(|| anyhow::anyhow!("Failed to load dependency graph"))?,
+        architecture: architecture.ok_or_else(|| anyhow::anyhow!("Failed to load architecture"))?,
+        conventions: conventions.ok_or_else(|| anyhow::anyhow!("Failed to load conventions"))?,
+        technical_debt: technical_debt.ok_or_else(|| anyhow::anyhow!("Failed to load technical debt"))?,
+        test_coverage,
+        metadata,
+    }))
+}
+
+/// Load dependency graph from file
+fn load_dependency_graph(context_dir: &Path) -> Result<Option<DependencyGraph>> {
     let dep_graph_path = context_dir.join("dependency_graph.json");
-    let dependency_graph = if dep_graph_path.exists() {
-        let content = std::fs::read_to_string(&dep_graph_path)?;
-        // The saved file is a DependencyGraphSummary, we need to convert it
-        let summary: summary::DependencyGraphSummary = serde_json::from_str(&content)?;
-
-        // Convert summary back to full graph
-        let mut nodes = HashMap::new();
-        for (path, node_summary) in summary.nodes {
-            nodes.insert(
-                path.clone(),
-                dependencies::ModuleNode {
-                    path: path.clone(),
-                    module_type: node_summary.module_type,
-                    imports: vec![],       // Lost in optimization
-                    exports: vec![],       // Lost in optimization
-                    external_deps: vec![], // Lost in optimization
-                },
-            );
-        }
-
-        DependencyGraph {
-            nodes,
-            edges: summary.edges,
-            cycles: summary.cycles,
-            layers: summary.layers,
-        }
-    } else {
+    if !dep_graph_path.exists() {
         return Ok(None);
-    };
+    }
 
+    let content = std::fs::read_to_string(&dep_graph_path)?;
+    let summary: summary::DependencyGraphSummary = serde_json::from_str(&content)?;
+
+    // Convert summary back to full graph
+    let mut nodes = HashMap::new();
+    for (path, node_summary) in summary.nodes {
+        nodes.insert(
+            path.clone(),
+            dependencies::ModuleNode {
+                path: path.clone(),
+                module_type: node_summary.module_type,
+                imports: vec![],       // Lost in optimization
+                exports: vec![],       // Lost in optimization
+                external_deps: vec![], // Lost in optimization
+            },
+        );
+    }
+
+    Ok(Some(DependencyGraph {
+        nodes,
+        edges: summary.edges,
+        cycles: summary.cycles,
+        layers: summary.layers,
+    }))
+}
+
+/// Load architecture info from file
+fn load_architecture(context_dir: &Path) -> Result<Option<ArchitectureInfo>> {
     let arch_path = context_dir.join("architecture.json");
-    let architecture = if arch_path.exists() {
-        let content = std::fs::read_to_string(&arch_path)?;
-        serde_json::from_str(&content)?
-    } else {
+    if !arch_path.exists() {
         return Ok(None);
-    };
+    }
 
+    let content = std::fs::read_to_string(&arch_path)?;
+    Ok(Some(serde_json::from_str(&content)?))
+}
+
+/// Load conventions from file
+fn load_conventions(context_dir: &Path) -> Result<Option<ProjectConventions>> {
     let conv_path = context_dir.join("conventions.json");
-    let conventions = if conv_path.exists() {
-        let content = std::fs::read_to_string(&conv_path)?;
-        serde_json::from_str(&content)?
-    } else {
+    if !conv_path.exists() {
         return Ok(None);
-    };
+    }
 
+    let content = std::fs::read_to_string(&conv_path)?;
+    Ok(Some(serde_json::from_str(&content)?))
+}
+
+/// Load technical debt from file
+fn load_technical_debt(context_dir: &Path) -> Result<Option<TechnicalDebtMap>> {
     let debt_path = context_dir.join("technical_debt.json");
-    let technical_debt = if debt_path.exists() {
-        let content = std::fs::read_to_string(&debt_path)?;
-        // The saved file is a TechnicalDebtSummary, we need to convert it
-        let summary: summary::TechnicalDebtSummary = serde_json::from_str(&content)?;
-
-        // Convert summary back to full map
-        TechnicalDebtMap {
-            debt_items: summary.high_priority_items, // Only high priority items are saved
-            hotspots: vec![],                        // Convert from hotspot_summary if needed
-            duplication_map: HashMap::new(),         // Lost in optimization
-            priority_queue: std::collections::BinaryHeap::new(), // Recreate empty
-        }
-    } else {
+    if !debt_path.exists() {
         return Ok(None);
-    };
+    }
 
+    let content = std::fs::read_to_string(&debt_path)?;
+    let summary: summary::TechnicalDebtSummary = serde_json::from_str(&content)?;
+
+    // Convert summary back to full map
+    Ok(Some(TechnicalDebtMap {
+        debt_items: summary.high_priority_items, // Only high priority items are saved
+        hotspots: vec![],                        // Convert from hotspot_summary if needed
+        duplication_map: HashMap::new(),         // Lost in optimization
+        priority_queue: std::collections::BinaryHeap::new(), // Recreate empty
+    }))
+}
+
+/// Load test coverage from file
+fn load_test_coverage(context_dir: &Path) -> Result<Option<TestCoverageMap>> {
     let coverage_path = context_dir.join("test_coverage.json");
-    let test_coverage = if coverage_path.exists() {
-        let content = std::fs::read_to_string(&coverage_path)?;
-        // The saved file might be in TestCoverageMap format or a summary
-        // Try to parse it directly first
-        serde_json::from_str::<TestCoverageMap>(&content).ok()
-    } else {
-        None
-    };
+    if !coverage_path.exists() {
+        return Ok(None);
+    }
 
+    let content = std::fs::read_to_string(&coverage_path)?;
+    // The saved file might be in TestCoverageMap format or a summary
+    // Try to parse it directly first
+    Ok(serde_json::from_str::<TestCoverageMap>(&content).ok())
+}
+
+/// Load analysis metadata from file
+fn load_analysis_metadata(context_dir: &Path) -> Result<AnalysisMetadata> {
     let metadata_path = context_dir.join("analysis_metadata.json");
-    let metadata = if metadata_path.exists() {
-        let content = std::fs::read_to_string(&metadata_path)?;
-        serde_json::from_str(&content)?
-    } else {
-        AnalysisMetadata {
+    if !metadata_path.exists() {
+        return Ok(AnalysisMetadata {
             timestamp: chrono::Utc::now(),
             duration_ms: 0,
             files_analyzed: 0,
             incremental: false,
             version: env!("CARGO_PKG_VERSION").to_string(),
-        }
-    };
+        });
+    }
 
-    Ok(Some(AnalysisResult {
-        dependency_graph,
-        architecture,
-        conventions,
-        technical_debt,
-        test_coverage,
-        metadata,
-    }))
+    let content = std::fs::read_to_string(&metadata_path)?;
+    Ok(serde_json::from_str(&content)?)
 }
 
 /// Save analysis results to disk with default commit behavior
@@ -308,74 +347,131 @@ pub fn save_analysis_with_commit(
     let context_dir = project_path.join(".mmm").join("context");
     std::fs::create_dir_all(&context_dir)?;
 
-    // Create size manager to check and optimize files
+    // Save all analysis components
+    save_analysis_components(&context_dir, analysis)?;
+
+    // Calculate and display health score
+    let health_score = crate::scoring::ProjectHealthScore::from_context(analysis);
+    display_health_score(&health_score, analysis);
+
+    // Analyze and report context sizes
     let size_manager = size_manager::ContextSizeManager::new();
+    report_context_sizes(&size_manager, &context_dir)?;
 
-    // Create a lightweight summary instead of full analysis
+    // Commit analysis changes to git if requested
+    let commit_made = if should_commit {
+        commit_analysis_changes(project_path, analysis, &health_score)
+            .unwrap_or_else(|e| {
+                eprintln!("⚠️  Failed to commit analysis changes: {e}");
+                false
+            })
+    } else {
+        false
+    };
+
+    Ok(commit_made)
+}
+
+/// Save all analysis components to disk
+fn save_analysis_components(context_dir: &Path, analysis: &AnalysisResult) -> Result<()> {
+    // Save analysis summary
     let analysis_summary = summary::AnalysisSummary::from_analysis(analysis);
-
     let analysis_file = context_dir.join("analysis.json");
     let content = serde_json::to_string_pretty(&analysis_summary)?;
     std::fs::write(&analysis_file, &content)?;
-
     eprintln!("📄 Created analysis summary ({} bytes)", content.len());
 
-    // Save optimized dependency graph
-    let deps_file = context_dir.join("dependency_graph.json");
-    let deps_summary = summary::DependencyGraphSummary::from_graph(&analysis.dependency_graph);
-    let content = serde_json::to_string_pretty(&deps_summary)?;
-    std::fs::write(&deps_file, &content)?;
-    eprintln!(
-        "🔗 Optimized dependency graph ({} nodes -> {} bytes)",
-        analysis.dependency_graph.nodes.len(),
-        content.len()
-    );
+    // Save dependency graph
+    save_dependency_graph_summary(context_dir, &analysis.dependency_graph)?;
 
+    // Save architecture
     let arch_file = context_dir.join("architecture.json");
     std::fs::write(
         &arch_file,
         serde_json::to_string_pretty(&analysis.architecture)?,
     )?;
 
+    // Save conventions
     let conv_file = context_dir.join("conventions.json");
     std::fs::write(
         &conv_file,
         serde_json::to_string_pretty(&analysis.conventions)?,
     )?;
 
-    let debt_file = context_dir.join("technical_debt.json");
-    // Create optimized debt summary
-    let debt_summary = summary::TechnicalDebtSummary::from_debt_map(&analysis.technical_debt);
-    let content = serde_json::to_string_pretty(&debt_summary)?;
-    std::fs::write(&debt_file, &content)?;
-    eprintln!(
-        "🛠️  Optimized technical debt ({} items -> {} bytes)",
-        analysis.technical_debt.debt_items.len(),
-        content.len()
-    );
+    // Save technical debt
+    save_technical_debt_summary(context_dir, &analysis.technical_debt)?;
 
+    // Save test coverage if available
     if let Some(ref test_coverage) = analysis.test_coverage {
-        let coverage_file = context_dir.join("test_coverage.json");
-        // Create optimized summary
-        let coverage_summary = summary::TestCoverageSummary::from_coverage(test_coverage);
-        let content = serde_json::to_string_pretty(&coverage_summary)?;
-        std::fs::write(&coverage_file, &content)?;
-        eprintln!(
-            "📊 Optimized test coverage ({} untested functions -> {} bytes)",
-            test_coverage.untested_functions.len(),
-            content.len()
-        );
+        save_test_coverage_summary(context_dir, test_coverage)?;
     }
 
+    // Save metadata
     let metadata_file = context_dir.join("analysis_metadata.json");
     std::fs::write(
         &metadata_file,
         serde_json::to_string_pretty(&analysis.metadata)?,
     )?;
 
-    // Calculate unified health score
-    let health_score = crate::scoring::ProjectHealthScore::from_context(analysis);
+    Ok(())
+}
 
+/// Save dependency graph summary
+fn save_dependency_graph_summary(
+    context_dir: &Path,
+    graph: &DependencyGraph,
+) -> Result<()> {
+    let deps_file = context_dir.join("dependency_graph.json");
+    let deps_summary = summary::DependencyGraphSummary::from_graph(graph);
+    let content = serde_json::to_string_pretty(&deps_summary)?;
+    std::fs::write(&deps_file, &content)?;
+    eprintln!(
+        "🔗 Optimized dependency graph ({} nodes -> {} bytes)",
+        graph.nodes.len(),
+        content.len()
+    );
+    Ok(())
+}
+
+/// Save technical debt summary
+fn save_technical_debt_summary(
+    context_dir: &Path,
+    debt: &TechnicalDebtMap,
+) -> Result<()> {
+    let debt_file = context_dir.join("technical_debt.json");
+    let debt_summary = summary::TechnicalDebtSummary::from_debt_map(debt);
+    let content = serde_json::to_string_pretty(&debt_summary)?;
+    std::fs::write(&debt_file, &content)?;
+    eprintln!(
+        "🛠️  Optimized technical debt ({} items -> {} bytes)",
+        debt.debt_items.len(),
+        content.len()
+    );
+    Ok(())
+}
+
+/// Save test coverage summary
+fn save_test_coverage_summary(
+    context_dir: &Path,
+    coverage: &TestCoverageMap,
+) -> Result<()> {
+    let coverage_file = context_dir.join("test_coverage.json");
+    let coverage_summary = summary::TestCoverageSummary::from_coverage(coverage);
+    let content = serde_json::to_string_pretty(&coverage_summary)?;
+    std::fs::write(&coverage_file, &content)?;
+    eprintln!(
+        "📊 Optimized test coverage ({} untested functions -> {} bytes)",
+        coverage.untested_functions.len(),
+        content.len()
+    );
+    Ok(())
+}
+
+/// Display health score and components
+fn display_health_score(
+    health_score: &crate::scoring::ProjectHealthScore,
+    analysis: &AnalysisResult,
+) {
     eprintln!("\n📊 Context Health Score: {:.1}/100", health_score.overall);
     eprintln!("\nComponents:");
 
@@ -437,29 +533,21 @@ pub fn save_analysis_with_commit(
             eprintln!("  {}. {}", i + 1, suggestion);
         }
     }
+}
 
-    // Analyze and report final context sizes
-    if let Ok(size_metadata) = size_manager.analyze_context_sizes(&context_dir) {
+/// Report context sizes
+fn report_context_sizes(
+    size_manager: &size_manager::ContextSizeManager,
+    context_dir: &Path,
+) -> Result<()> {
+    if let Ok(size_metadata) = size_manager.analyze_context_sizes(context_dir) {
         size_manager.print_warnings(&size_metadata);
 
         // Log total size
         let total_mb = size_metadata.total_size as f64 / 1_000_000.0;
         eprintln!("💾 Total context size: {total_mb:.2} MB");
     }
-
-    // Commit analysis changes to git if requested and in a git repo
-    let mut commit_made = false;
-    if should_commit {
-        match commit_analysis_changes(project_path, analysis, &health_score) {
-            Ok(made_commit) => commit_made = made_commit,
-            Err(e) => {
-                eprintln!("⚠️  Failed to commit analysis changes: {e}");
-                // Don't fail the whole analysis if git commit fails
-            }
-        }
-    }
-
-    Ok(commit_made)
+    Ok(())
 }
 
 /// Commit analysis changes to git with a descriptive message
