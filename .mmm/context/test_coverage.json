@@ -1,0 +1,16 @@
+{
+  "file_coverage": {
+    "project_summary": {
+      "coverage_percentage": 41.37582,
+      "has_tests": true,
+      "untested_count": 0
+    }
+  },
+  "overall_coverage": 0.41375819999999996,
+  "untested_summary": {
+    "total_count": 0,
+    "by_criticality": {},
+    "by_file": []
+  },
+  "critical_gaps": []
+}
