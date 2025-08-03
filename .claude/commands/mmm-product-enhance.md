@@ -146,7 +146,7 @@ FOCUS: $MMM_FOCUS (optional - focus directive from mmm CLI, e.g., "onboarding", 
 **CRITICAL FOR AUTOMATION**: Generate a temporary specification file containing product enhancement proposals, then commit it.
 
 1. **Spec File Creation**
-   - Create directory: `specs/temp/` if it doesn't exist
+   - Create directory: `specs/` if it doesn't exist
    - Generate filename: `iteration-{timestamp}-product-enhancements.md`
    - Write comprehensive enhancement spec
 
