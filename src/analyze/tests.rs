@@ -3,6 +3,8 @@
 use super::*;
 use tempfile::TempDir;
 use std::process::Command;
+use crate::subprocess::SubprocessManager;
+use crate::testing::test_mocks::TestMockSetup;
 
 #[tokio::test]
 async fn test_analyze_command_creation() {
@@ -138,10 +140,13 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "Hangs waiting for external tools - needs timeout/mocking"]
     async fn test_execute_metrics_analysis() {
         let temp_dir = TempDir::new().unwrap();
         create_test_project(temp_dir.path()).unwrap();
+
+        // Create mocked subprocess environment
+        let (subprocess, mut mock) = SubprocessManager::mock();
+        TestMockSetup::setup_metrics_collection(&mut mock);
 
         let cmd = AnalyzeCommand {
             analysis_type: "metrics".to_string(),
@@ -150,18 +155,21 @@ mod tests {
             verbose: false,
             path: Some(temp_dir.path().to_path_buf()),
             run_coverage: false,
-        no_commit: false,
+            no_commit: false,
         };
 
-        let result = command::execute(cmd).await;
+        let result = command::execute_with_subprocess(cmd, subprocess).await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
-    #[ignore = "Hangs waiting for external tools - needs timeout/mocking"]
     async fn test_execute_all_analysis() {
         let temp_dir = TempDir::new().unwrap();
         create_test_project(temp_dir.path()).unwrap();
+
+        // Create mocked subprocess environment
+        let (subprocess, mut mock) = SubprocessManager::mock();
+        TestMockSetup::setup_successful_analysis(&mut mock);
 
         let cmd = AnalyzeCommand {
             analysis_type: "all".to_string(),
@@ -170,10 +178,10 @@ mod tests {
             verbose: true,
             path: Some(temp_dir.path().to_path_buf()),
             run_coverage: false,
-        no_commit: false,
+            no_commit: false,
         };
 
-        let result = command::execute(cmd).await;
+        let result = command::execute_with_subprocess(cmd, subprocess).await;
         assert!(result.is_ok());
 
         // Check that metrics were saved
@@ -215,13 +223,16 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "Hangs waiting for external tools - needs timeout/mocking"]
     async fn test_metrics_analysis_output_formats() {
         let temp_dir = TempDir::new().unwrap();
         create_test_project(temp_dir.path()).unwrap();
 
         // Test all output formats for metrics
         for output_format in &["json", "pretty", "summary"] {
+            // Create new mocked subprocess for each iteration
+            let (subprocess, mut mock) = SubprocessManager::mock();
+            TestMockSetup::setup_metrics_collection(&mut mock);
+
             let cmd = AnalyzeCommand {
                 analysis_type: "metrics".to_string(),
                 output: output_format.to_string(),
@@ -229,10 +240,10 @@ mod tests {
                 verbose: false,
                 path: Some(temp_dir.path().to_path_buf()),
                 run_coverage: false,
-        no_commit: false,
+                no_commit: false,
             };
 
-            let result = command::execute(cmd).await;
+            let result = command::execute_with_subprocess(cmd, subprocess).await;
             assert!(result.is_ok(), "Failed with output format: {output_format}");
         }
     }
@@ -282,7 +293,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "Hangs waiting for external tools - needs timeout/mocking"]
     async fn test_analyze_empty_project() {
         let temp_dir = TempDir::new().unwrap();
         // Create empty Cargo.toml
@@ -292,6 +302,10 @@ mod tests {
         )
         .unwrap();
 
+        // Create mocked subprocess environment
+        let (subprocess, mut mock) = SubprocessManager::mock();
+        TestMockSetup::setup_successful_analysis(&mut mock);
+
         let cmd = AnalyzeCommand {
             analysis_type: "all".to_string(),
             output: "summary".to_string(),
@@ -299,16 +313,26 @@ mod tests {
             verbose: false,
             path: Some(temp_dir.path().to_path_buf()),
             run_coverage: false,
-        no_commit: false,
+            no_commit: false,
         };
 
-        let result = command::execute(cmd).await;
+        let result = command::execute_with_subprocess(cmd, subprocess).await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
-    #[ignore] // This test can hang when analyzing the full mmm project
     async fn test_analyze_without_path_uses_current_dir() {
+        // Create temp dir and change to it for this test
+        let temp_dir = TempDir::new().unwrap();
+        create_test_project(temp_dir.path()).unwrap();
+        
+        let original_dir = std::env::current_dir().unwrap();
+        std::env::set_current_dir(temp_dir.path()).unwrap();
+
+        // Create mocked subprocess environment
+        let (subprocess, mut mock) = SubprocessManager::mock();
+        TestMockSetup::setup_successful_analysis(&mut mock);
+
         let cmd = AnalyzeCommand {
             analysis_type: "context".to_string(),
             output: "json".to_string(),
@@ -316,11 +340,15 @@ mod tests {
             verbose: false,
             path: None,
             run_coverage: false,
-        no_commit: false,
+            no_commit: false,
         };
 
         // This should use current directory
-        let result = command::execute(cmd).await;
+        let result = command::execute_with_subprocess(cmd, subprocess).await;
+        
+        // Restore original directory
+        std::env::set_current_dir(original_dir).unwrap();
+        
         assert!(result.is_ok());
     }
 
