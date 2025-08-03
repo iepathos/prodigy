@@ -4,18 +4,6 @@
   ],
   "layers": [],
   "components": {
-    "analyze": {
-      "name": "analyze",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn fn"
-      ],
-      "dependencies": [
-        "anyhow",
-        "command",
-        "tempfile"
-      ]
-    },
     "cook": {
       "name": "cook",
       "responsibility": "Module functionality",
@@ -35,15 +23,58 @@
         "signal_hook"
       ]
     },
-    "init": {
-      "name": "init",
+    "simple_state": {
+      "name": "simple_state",
       "responsibility": "Module functionality",
       "interfaces": [
-        "fn fn"
+        "fn init()"
       ],
       "dependencies": [
-        "clap",
         "anyhow",
+        "serde",
+        "chrono",
+        "tempfile"
+      ]
+    },
+    "git": {
+      "name": "git",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "trait GitReader:",
+        "trait GitWriter:",
+        "trait GitWorktree:",
+        "trait GitOperations:",
+        "struct GitCommandRunner",
+        "fn new(process_runner:"
+      ],
+      "dependencies": [
+        "anyhow",
+        "thiserror",
+        "async_trait",
+        "tempfile",
+        "tokio"
+      ]
+    },
+    "session": {
+      "name": "session",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct SessionId(String)",
+        "fn new()",
+        "fn from_string(id:",
+        "fn as_str(&self)",
+        "struct SessionInfo",
+        "struct IterationChanges",
+        "struct CommitInfo",
+        "struct ExecutedCommand"
+      ],
+      "dependencies": [
+        "async_trait",
+        "chrono",
+        "serde",
+        "anyhow",
+        "tokio",
+        "uuid",
         "tempfile"
       ]
     },
@@ -79,6 +110,18 @@
         "fn create_test_files(dir:"
       ],
       "dependencies": [
+        "anyhow",
+        "tempfile"
+      ]
+    },
+    "init": {
+      "name": "init",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn"
+      ],
+      "dependencies": [
+        "clap",
         "anyhow",
         "tempfile"
       ]
@@ -137,6 +180,43 @@
         "tracing"
       ]
     },
+    "context": {
+      "name": "context",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct AnalysisResult",
+        "struct ArchitectureInfo",
+        "struct ComponentInfo",
+        "struct ArchitectureViolation",
+        "struct AnalysisMetadata",
+        "struct FileContext",
+        "struct FileConventions",
+        "struct Suggestion",
+        "trait ContextAnalyzer:",
+        "fn load_analysis(project_path:",
+        "fn save_analysis(project_path:",
+        "fn save_analysis_with_options",
+        "fn save_analysis_with_commit"
+      ],
+      "dependencies": [
+        "anyhow",
+        "walkdir",
+        "serde",
+        "tempfile"
+      ]
+    },
+    "analyze": {
+      "name": "analyze",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn"
+      ],
+      "dependencies": [
+        "anyhow",
+        "command",
+        "tempfile"
+      ]
+    },
     "abstractions": {
       "name": "abstractions",
       "responsibility": "Module functionality",
@@ -167,36 +247,19 @@
         "tokio"
       ]
     },
-    "simple_state": {
-      "name": "simple_state",
+    "worktree": {
+      "name": "worktree",
       "responsibility": "Module functionality",
       "interfaces": [
-        "fn init()"
+        "struct WorktreeSession",
+        "fn new(name:"
       ],
       "dependencies": [
-        "anyhow",
-        "serde",
-        "chrono",
-        "tempfile"
-      ]
-    },
-    "git": {
-      "name": "git",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "trait GitReader:",
-        "trait GitWriter:",
-        "trait GitWorktree:",
-        "trait GitOperations:",
-        "struct GitCommandRunner",
-        "fn new(process_runner:"
-      ],
-      "dependencies": [
-        "anyhow",
-        "thiserror",
-        "async_trait",
         "tempfile",
-        "tokio"
+        "anyhow",
+        "chrono",
+        "uuid",
+        "serde"
       ]
     },
     "scoring": {
@@ -213,69 +276,6 @@
       ],
       "dependencies": [
         "chrono",
-        "serde"
-      ]
-    },
-    "context": {
-      "name": "context",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct AnalysisResult",
-        "struct ArchitectureInfo",
-        "struct ComponentInfo",
-        "struct ArchitectureViolation",
-        "struct AnalysisMetadata",
-        "struct FileContext",
-        "struct FileConventions",
-        "struct Suggestion",
-        "trait ContextAnalyzer:",
-        "fn load_analysis(project_path:",
-        "fn save_analysis(project_path:",
-        "fn save_analysis_with_options",
-        "fn save_analysis_with_commit"
-      ],
-      "dependencies": [
-        "anyhow",
-        "walkdir",
-        "serde",
-        "tempfile"
-      ]
-    },
-    "session": {
-      "name": "session",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct SessionId(String)",
-        "fn new()",
-        "fn from_string(id:",
-        "fn as_str(&self)",
-        "struct SessionInfo",
-        "struct IterationChanges",
-        "struct CommitInfo",
-        "struct ExecutedCommand"
-      ],
-      "dependencies": [
-        "async_trait",
-        "chrono",
-        "serde",
-        "anyhow",
-        "tokio",
-        "uuid",
-        "tempfile"
-      ]
-    },
-    "worktree": {
-      "name": "worktree",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct WorktreeSession",
-        "fn new(name:"
-      ],
-      "dependencies": [
-        "tempfile",
-        "anyhow",
-        "chrono",
-        "uuid",
         "serde"
       ]
     }
