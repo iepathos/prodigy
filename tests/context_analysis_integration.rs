@@ -30,5 +30,5 @@ async fn test_context_analysis_integration() {
 
     // Verify analysis results
     assert!(result.metadata.files_analyzed > 0);
-    assert!(result.conventions.code_patterns.len() > 0);
+    assert!(!result.conventions.code_patterns.is_empty());
 }

@@ -66,7 +66,7 @@ impl TestCoverageAnalyzer for MetricsAwareCoverageAnalyzer {
                     if let Some(test_coverage) =
                         metrics.get("test_coverage").and_then(|v| v.as_f64())
                     {
-                        eprintln!("📊 Using test coverage from metrics: {:.1}%", test_coverage);
+                        eprintln!("📊 Using test coverage from metrics: {test_coverage:.1}%");
                         // Create a simple coverage map with just the overall percentage
                         return Ok(TestCoverageMap {
                             file_coverage: Default::default(),
