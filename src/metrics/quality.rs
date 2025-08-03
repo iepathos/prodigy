@@ -56,7 +56,7 @@ impl QualityAnalyzer {
         };
 
         // Get test coverage
-        metrics.test_coverage = self.get_test_coverage(project_path)?;
+        metrics.test_coverage = self.get_test_coverage(project_path).await?;
 
         // Get lint warnings count
         metrics.lint_warnings = self.get_lint_warnings(project_path).await?;
@@ -71,7 +71,7 @@ impl QualityAnalyzer {
     }
 
     /// Get test coverage using cargo-tarpaulin or fallback
-    fn get_test_coverage(&self, project_path: &Path) -> Result<f32> {
+    async fn get_test_coverage(&self, project_path: &Path) -> Result<f32> {
         if self.use_tarpaulin {
             debug!("Running cargo-tarpaulin for test coverage");
 
@@ -94,7 +94,8 @@ impl QualityAnalyzer {
                 .current_dir(project_path)
                 .build();
 
-            let output = futures::executor::block_on(self.subprocess.runner().run(test_command))
+            let output = self.subprocess.runner().run(test_command)
+                .await
                 .context("Failed to check test build")?;
 
             if output.status.success() {
