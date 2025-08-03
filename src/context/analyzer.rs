@@ -386,7 +386,7 @@ mod tests {
         let analyzer = ProjectAnalyzer::new();
         let result = analyzer.analyze(temp_dir.path()).await;
         assert!(result.is_ok());
-        let analysis = result.unwrap();
+        let _analysis = result.unwrap();
         // files_analyzed is always >= 0 since it's a usize
     }
 
