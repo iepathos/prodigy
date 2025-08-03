@@ -4,6 +4,17 @@
   ],
   "layers": [],
   "components": {
+    "abstractions": {
+      "name": "abstractions",
+      "responsibility": "Module functionality",
+      "interfaces": [],
+      "dependencies": [
+        "anyhow",
+        "async_trait",
+        "tokio",
+        "tempfile"
+      ]
+    },
     "config": {
       "name": "config",
       "responsibility": "Configuration management",
@@ -26,6 +37,149 @@
         "directories",
         "once_cell",
         "tokio",
+        "tempfile"
+      ]
+    },
+    "worktree": {
+      "name": "worktree",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct WorktreeSession",
+        "fn new(name:"
+      ],
+      "dependencies": [
+        "tempfile",
+        "anyhow",
+        "chrono",
+        "uuid",
+        "serde"
+      ]
+    },
+    "subprocess": {
+      "name": "subprocess",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct SubprocessManager",
+        "fn new(runner:",
+        "fn production()",
+        "fn mock()",
+        "fn runner(&self)",
+        "fn git(&self)",
+        "fn claude(&self)"
+      ],
+      "dependencies": [
+        "async_trait",
+        "tempfile",
+        "futures",
+        "tokio"
+      ]
+    },
+    "init": {
+      "name": "init",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn"
+      ],
+      "dependencies": [
+        "clap",
+        "anyhow",
+        "tempfile"
+      ]
+    },
+    "testing": {
+      "name": "testing",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct TestContext",
+        "fn new()",
+        "fn with_mocks",
+        "fn temp_path(&self)",
+        "fn create_test_file(&self,",
+        "struct MockGitBuilder",
+        "fn new()",
+        "fn is_repo(mut",
+        "fn fn",
+        "fn fn",
+        "fn build(self)",
+        "struct MockClaudeBuilder",
+        "fn new()",
+        "fn is_available(mut",
+        "fn fn",
+        "fn fn",
+        "fn build(self)",
+        "struct TestFixtures",
+        "fn fn",
+        "fn fn",
+        "fn fn",
+        "fn fn",
+        "fn unavailable_claude()",
+        "fn setup_test_project(temp_dir:",
+        "fn create_test_file(dir:",
+        "fn create_test_files(dir:"
+      ],
+      "dependencies": [
+        "anyhow",
+        "tempfile"
+      ]
+    },
+    "analyze": {
+      "name": "analyze",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn"
+      ],
+      "dependencies": [
+        "anyhow",
+        "command",
+        "tempfile"
+      ]
+    },
+    "cook": {
+      "name": "cook",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn",
+        "fn fn"
+      ],
+      "dependencies": [
+        "anyhow",
+        "async_trait",
+        "tempfile",
+        "chrono",
+        "serde",
+        "tokio",
+        "clap",
+        "once_cell",
+        "signal_hook"
+      ]
+    },
+    "scoring": {
+      "name": "scoring",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct ProjectHealthScore",
+        "struct ScoreComponents",
+        "fn from_metrics(metrics:",
+        "fn from_context(analysis:",
+        "fn get_improvement_suggestions(&self)",
+        "fn calculate_technical_debt_score(debt_items:",
+        "fn format_component(name:"
+      ],
+      "dependencies": [
+        "chrono",
+        "serde"
+      ]
+    },
+    "simple_state": {
+      "name": "simple_state",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn init()"
+      ],
+      "dependencies": [
+        "anyhow",
+        "serde",
+        "chrono",
         "tempfile"
       ]
     },
@@ -77,40 +231,6 @@
         "tempfile"
       ]
     },
-    "worktree": {
-      "name": "worktree",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct WorktreeSession",
-        "fn new(name:"
-      ],
-      "dependencies": [
-        "tempfile",
-        "anyhow",
-        "chrono",
-        "uuid",
-        "serde"
-      ]
-    },
-    "git": {
-      "name": "git",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "trait GitReader:",
-        "trait GitWriter:",
-        "trait GitWorktree:",
-        "trait GitOperations:",
-        "struct GitCommandRunner",
-        "fn new(process_runner:"
-      ],
-      "dependencies": [
-        "anyhow",
-        "thiserror",
-        "async_trait",
-        "tempfile",
-        "tokio"
-      ]
-    },
     "metrics": {
       "name": "metrics",
       "responsibility": "Module functionality",
@@ -140,143 +260,23 @@
         "tracing"
       ]
     },
-    "scoring": {
-      "name": "scoring",
+    "git": {
+      "name": "git",
       "responsibility": "Module functionality",
       "interfaces": [
-        "struct ProjectHealthScore",
-        "struct ScoreComponents",
-        "fn from_metrics(metrics:",
-        "fn from_context(analysis:",
-        "fn get_improvement_suggestions(&self)",
-        "fn calculate_technical_debt_score(debt_items:",
-        "fn format_component(name:"
-      ],
-      "dependencies": [
-        "chrono",
-        "serde"
-      ]
-    },
-    "simple_state": {
-      "name": "simple_state",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn init()"
+        "trait GitReader:",
+        "trait GitWriter:",
+        "trait GitWorktree:",
+        "trait GitOperations:",
+        "struct GitCommandRunner",
+        "fn new(process_runner:"
       ],
       "dependencies": [
         "anyhow",
-        "serde",
-        "chrono",
-        "tempfile"
-      ]
-    },
-    "init": {
-      "name": "init",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn fn"
-      ],
-      "dependencies": [
-        "clap",
-        "anyhow",
-        "tempfile"
-      ]
-    },
-    "subprocess": {
-      "name": "subprocess",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct SubprocessManager",
-        "fn new(runner:",
-        "fn production()",
-        "fn mock()",
-        "fn runner(&self)",
-        "fn git(&self)",
-        "fn claude(&self)"
-      ],
-      "dependencies": [
+        "thiserror",
         "async_trait",
         "tempfile",
-        "futures",
         "tokio"
-      ]
-    },
-    "abstractions": {
-      "name": "abstractions",
-      "responsibility": "Module functionality",
-      "interfaces": [],
-      "dependencies": [
-        "anyhow",
-        "async_trait",
-        "tokio",
-        "tempfile"
-      ]
-    },
-    "analyze": {
-      "name": "analyze",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn fn"
-      ],
-      "dependencies": [
-        "anyhow",
-        "command",
-        "tempfile"
-      ]
-    },
-    "testing": {
-      "name": "testing",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct TestContext",
-        "fn new()",
-        "fn with_mocks",
-        "fn temp_path(&self)",
-        "fn create_test_file(&self,",
-        "struct MockGitBuilder",
-        "fn new()",
-        "fn is_repo(mut",
-        "fn fn",
-        "fn fn",
-        "fn build(self)",
-        "struct MockClaudeBuilder",
-        "fn new()",
-        "fn is_available(mut",
-        "fn fn",
-        "fn fn",
-        "fn build(self)",
-        "struct TestFixtures",
-        "fn fn",
-        "fn fn",
-        "fn fn",
-        "fn fn",
-        "fn unavailable_claude()",
-        "fn setup_test_project(temp_dir:",
-        "fn create_test_file(dir:",
-        "fn create_test_files(dir:"
-      ],
-      "dependencies": [
-        "anyhow",
-        "tempfile"
-      ]
-    },
-    "cook": {
-      "name": "cook",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn fn",
-        "fn fn"
-      ],
-      "dependencies": [
-        "anyhow",
-        "async_trait",
-        "tempfile",
-        "chrono",
-        "serde",
-        "tokio",
-        "clap",
-        "once_cell",
-        "signal_hook"
       ]
     }
   },

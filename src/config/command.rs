@@ -11,7 +11,6 @@ fn default_cache_duration() -> u64 {
     300
 }
 
-
 /// Represents a command argument that can be a literal value or a variable
 #[derive(Debug, Clone, PartialEq)]
 pub enum CommandArg {

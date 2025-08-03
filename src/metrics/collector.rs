@@ -174,28 +174,28 @@ version = "0.1.0"
 
         // Mock some commands to fail
         mock.expect_command("cargo")
-            .with_args(|args| args.get(0) == Some(&"tarpaulin".to_string()))
+            .with_args(|args| args.first() == Some(&"tarpaulin".to_string()))
             .returns_stderr("error: cargo-tarpaulin not found")
             .returns_exit_code(1)
             .finish();
 
         // But clippy should still work
         mock.expect_command("cargo")
-            .with_args(|args| args.get(0) == Some(&"clippy".to_string()))
+            .with_args(|args| args.first() == Some(&"clippy".to_string()))
             .returns_stdout(&CargoMocks::clippy_output())
             .returns_exit_code(0)
             .finish();
 
         // And build should work
         mock.expect_command("cargo")
-            .with_args(|args| args.get(0) == Some(&"build".to_string()))
+            .with_args(|args| args.first() == Some(&"build".to_string()))
             .returns_stdout(&CargoMocks::build_success())
             .returns_exit_code(0)
             .finish();
 
         // Check should work
         mock.expect_command("cargo")
-            .with_args(|args| args.get(0) == Some(&"check".to_string()))
+            .with_args(|args| args.first() == Some(&"check".to_string()))
             .returns_stdout(&CargoMocks::check_success())
             .returns_exit_code(0)
             .finish();

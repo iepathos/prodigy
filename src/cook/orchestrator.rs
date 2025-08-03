@@ -311,7 +311,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         if extended_workflow.analyze_before && !config.command.skip_analysis {
             self.user_interaction
                 .display_progress("Running initial analysis...");
-            
+
             // Create progress reporter wrapper
             let progress = Arc::new(OrchestrationProgressReporter {
                 interaction: self.user_interaction.clone(),
@@ -747,12 +747,12 @@ impl DefaultCookOrchestrator {
     ) -> Result<()> {
         let workflow_start = Instant::now();
         let mut timing_tracker = TimingTracker::new();
-        
+
         // Run initial analysis if needed
         if !config.command.skip_analysis {
             self.user_interaction
                 .display_progress("Running initial analysis...");
-            
+
             // Create progress reporter wrapper
             let progress = Arc::new(OrchestrationProgressReporter {
                 interaction: self.user_interaction.clone(),
@@ -780,7 +780,7 @@ impl DefaultCookOrchestrator {
         let max_iterations = config.command.max_iterations;
         for iteration in 1..=max_iterations {
             timing_tracker.start_iteration();
-            
+
             if iteration > 1 {
                 self.user_interaction
                     .display_progress(&format!("Starting iteration {iteration}/{max_iterations}"));
@@ -801,7 +801,7 @@ impl DefaultCookOrchestrator {
                     config.workflow.commands.len(),
                     command.name
                 ));
-                
+
                 // Start timing this command
                 timing_tracker.start_command(command.name.clone());
 
@@ -852,7 +852,7 @@ impl DefaultCookOrchestrator {
                     self.session_manager
                         .update_session(SessionUpdate::AddFilesChanged(1))
                         .await?;
-                    
+
                     // Complete command timing
                     if let Some((cmd_name, duration)) = timing_tracker.complete_command() {
                         self.user_interaction.display_success(&format!(
@@ -863,7 +863,7 @@ impl DefaultCookOrchestrator {
                     }
                 }
             }
-            
+
             // Complete iteration timing
             if let Some(iteration_duration) = timing_tracker.complete_iteration() {
                 self.user_interaction.display_info(&format!(
@@ -873,7 +873,7 @@ impl DefaultCookOrchestrator {
                 ));
             }
         }
-        
+
         // Display total workflow timing
         let total_duration = workflow_start.elapsed();
         self.user_interaction.display_info(&format!(
@@ -894,7 +894,7 @@ impl DefaultCookOrchestrator {
     ) -> Result<()> {
         let workflow_start = Instant::now();
         let mut timing_tracker = TimingTracker::new();
-        
+
         // Collect all inputs from --map patterns and --args
         let all_inputs = self.collect_workflow_inputs(config)?;
 
@@ -909,7 +909,7 @@ impl DefaultCookOrchestrator {
         if !config.command.skip_analysis {
             self.user_interaction
                 .display_progress("Running initial analysis...");
-            
+
             // Create progress reporter wrapper
             let progress = Arc::new(OrchestrationProgressReporter {
                 interaction: self.user_interaction.clone(),
@@ -936,10 +936,17 @@ impl DefaultCookOrchestrator {
         // Process each input
         for (index, input) in all_inputs.iter().enumerate() {
             timing_tracker.start_iteration();
-            
-            self.process_workflow_input(env, config, input, index, all_inputs.len(), &mut timing_tracker)
-                .await?;
-                
+
+            self.process_workflow_input(
+                env,
+                config,
+                input,
+                index,
+                all_inputs.len(),
+                &mut timing_tracker,
+            )
+            .await?;
+
             if let Some(iteration_duration) = timing_tracker.complete_iteration() {
                 self.user_interaction.display_info(&format!(
                     "✓ Input {} completed in {}",
@@ -953,7 +960,7 @@ impl DefaultCookOrchestrator {
             "🎉 Processed all {} inputs successfully!",
             all_inputs.len()
         ));
-        
+
         // Display total workflow timing
         let total_duration = workflow_start.elapsed();
         self.user_interaction.display_info(&format!(
@@ -1079,8 +1086,16 @@ impl DefaultCookOrchestrator {
 
         // Execute each command in the workflow
         for (step_index, cmd) in config.workflow.commands.iter().enumerate() {
-            self.execute_workflow_command(env, config, cmd, step_index, input, &mut variables, timing_tracker)
-                .await?;
+            self.execute_workflow_command(
+                env,
+                config,
+                cmd,
+                step_index,
+                input,
+                &mut variables,
+                timing_tracker,
+            )
+            .await?;
         }
 
         Ok(())
@@ -1105,7 +1120,7 @@ impl DefaultCookOrchestrator {
             config.workflow.commands.len(),
             command.name
         ));
-        
+
         // Start timing this command
         timing_tracker.start_command(command.name.clone());
 
@@ -1138,7 +1153,9 @@ impl DefaultCookOrchestrator {
         if let Some((cmd_name, duration)) = timing_tracker.complete_command() {
             self.user_interaction.display_success(&format!(
                 "✓ Command '{}' succeeded for input '{}' in {}",
-                cmd_name, input, format_duration(duration)
+                cmd_name,
+                input,
+                format_duration(duration)
             ));
         } else {
             self.user_interaction.display_success(&format!(
@@ -1307,7 +1324,10 @@ impl DefaultCookOrchestrator {
 
             // Always check both context and metrics caches
             let cache_paths = [
-                ("context", env.working_dir.join(".mmm/context/analysis_metadata.json")),
+                (
+                    "context",
+                    env.working_dir.join(".mmm/context/analysis_metadata.json"),
+                ),
                 ("metrics", env.working_dir.join(".mmm/metrics/current.json")),
             ];
 

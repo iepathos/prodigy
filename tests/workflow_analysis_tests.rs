@@ -2,7 +2,6 @@
 
 use mmm::config::command::{AnalysisConfig, Command, WorkflowCommand};
 use mmm::config::WorkflowConfig;
-use serde_yaml;
 
 #[test]
 fn test_workflow_yaml_with_analysis_config() {

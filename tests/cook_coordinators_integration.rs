@@ -1,7 +1,7 @@
 use mmm::config::WorkflowCommand;
-use mmm::cook::coordinators::{DefaultWorkflowCoordinator, WorkflowContext, WorkflowCoordinator};
+use mmm::cook::coordinators::WorkflowContext;
 use mmm::cook::interaction::UserInteraction;
-use mmm::cook::workflow::{WorkflowExecutor, WorkflowStep};
+use mmm::cook::workflow::WorkflowStep;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -57,10 +57,8 @@ async fn test_full_workflow_execution() {
     let interaction = Arc::new(MockUserInteraction::new());
     // let coordinator = DefaultWorkflowCoordinator::new(executor, interaction.clone());
 
-    let commands = vec![
-        WorkflowCommand::Simple("/mmm-analyze".to_string()),
-        WorkflowCommand::Simple("/mmm-improve".to_string()),
-    ];
+    let commands = [WorkflowCommand::Simple("/mmm-analyze".to_string()),
+        WorkflowCommand::Simple("/mmm-improve".to_string())];
 
     let mut context = WorkflowContext {
         iteration: 0,
@@ -123,7 +121,7 @@ async fn test_workflow_early_termination() {
     let interaction = Arc::new(MockUserInteraction::new());
     // let coordinator = DefaultWorkflowCoordinator::new(executor, interaction);
 
-    let commands = vec![WorkflowCommand::Simple("/mmm-analyze".to_string())];
+    let commands = [WorkflowCommand::Simple("/mmm-analyze".to_string())];
 
     let mut context = WorkflowContext {
         iteration: 10, // Already at max

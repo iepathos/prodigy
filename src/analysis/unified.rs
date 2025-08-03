@@ -3,13 +3,16 @@
 //! Provides a single entry point for both command-line and workflow-based analysis,
 //! ensuring consistent behavior and reducing code duplication.
 
-use crate::context::{save_analysis_with_options, AnalysisResult, ContextAnalyzer, ProjectAnalyzer};
+use crate::context::{
+    save_analysis_with_options, AnalysisResult, ContextAnalyzer, ProjectAnalyzer,
+};
 use crate::metrics::{ImprovementMetrics, MetricsCollector, MetricsStorage};
 use crate::scoring::ProjectHealthScore;
 use crate::subprocess::SubprocessManager;
 use anyhow::Result;
 use async_trait::async_trait;
 use std::path::Path;
+use std::str::FromStr;
 use std::sync::Arc;
 
 /// Output format options for analysis results
@@ -23,14 +26,15 @@ pub enum OutputFormat {
     Summary,
 }
 
-impl OutputFormat {
-    /// Parse from string
-    pub fn from_str(s: &str) -> Self {
+impl FromStr for OutputFormat {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "json" => Self::Json,
-            "pretty" => Self::Pretty,
-            "summary" => Self::Summary,
-            _ => Self::Summary,
+            "json" => Ok(Self::Json),
+            "pretty" => Ok(Self::Pretty),
+            "summary" => Ok(Self::Summary),
+            _ => Ok(Self::Summary),
         }
     }
 }
@@ -79,16 +83,16 @@ impl AnalysisConfig {
 }
 
 /// Builder for AnalysisConfig
+#[derive(Default)]
 pub struct AnalysisConfigBuilder {
     config: AnalysisConfig,
 }
 
+
 impl AnalysisConfigBuilder {
     /// Create a new builder
     pub fn new() -> Self {
-        Self {
-            config: AnalysisConfig::default(),
-        }
+        Self::default()
     }
 
     /// Set output format
@@ -218,19 +222,19 @@ pub struct DefaultProgressReporter;
 
 impl ProgressReporter for DefaultProgressReporter {
     fn display_progress(&self, message: &str) {
-        println!("🔄 {}", message);
+        println!("🔄 {message}");
     }
 
     fn display_info(&self, message: &str) {
-        println!("ℹ️  {}", message);
+        println!("ℹ️  {message}");
     }
 
     fn display_warning(&self, message: &str) {
-        println!("⚠️  {}", message);
+        println!("⚠️  {message}");
     }
 
     fn display_success(&self, message: &str) {
-        println!("✅ {}", message);
+        println!("✅ {message}");
     }
 }
 
@@ -251,17 +255,19 @@ pub async fn run_analysis(
             progress.display_progress("Running metrics analysis...");
         }
         let metrics_start = std::time::Instant::now();
-        
+
         let collector = MetricsCollector::new(subprocess.clone());
         let iteration_id = format!("analysis-{}", chrono::Utc::now().timestamp());
-        let mut metrics = collector.collect_metrics(project_path, iteration_id).await?;
-        
+        let mut metrics = collector
+            .collect_metrics(project_path, iteration_id)
+            .await?;
+
         // Calculate and add health score to metrics
         let health_score = ProjectHealthScore::from_metrics(&metrics);
         metrics.health_score = Some(health_score);
-        
+
         metrics_duration = Some(metrics_start.elapsed());
-        
+
         // Save metrics if requested
         if config.save_results {
             let storage = MetricsStorage::new(project_path);
@@ -273,7 +279,7 @@ pub async fn run_analysis(
                 }
             }
         }
-        
+
         Some(metrics)
     } else {
         None
@@ -285,19 +291,16 @@ pub async fn run_analysis(
             progress.display_progress("Running context analysis...");
         }
         let context_start = std::time::Instant::now();
-        
+
         let analyzer = ProjectAnalyzer::new();
         let analysis_result = analyzer.analyze(project_path).await?;
-        
+
         context_duration = Some(context_start.elapsed());
-        
+
         // Save context if requested
         if config.save_results {
-            let commit_made = save_analysis_with_options(
-                project_path,
-                &analysis_result,
-                config.commit_changes,
-            )?;
+            let commit_made =
+                save_analysis_with_options(project_path, &analysis_result, config.commit_changes)?;
             if config.verbose {
                 progress.display_info("Analysis saved to .mmm/context/");
                 if commit_made {
@@ -305,7 +308,7 @@ pub async fn run_analysis(
                 }
             }
         }
-        
+
         Some(analysis_result)
     } else {
         None
@@ -559,10 +562,7 @@ fn display_summary_results(
     if let Some(ctx) = context {
         let health_score = ProjectHealthScore::from_context(ctx);
         println!("📊 Context Health Score: {:.1}/100", health_score.overall);
-        println!(
-            "   - {} modules analyzed",
-            ctx.dependency_graph.nodes.len()
-        );
+        println!("   - {} modules analyzed", ctx.dependency_graph.nodes.len());
         println!(
             "   - {} technical debt items",
             ctx.technical_debt.debt_items.len()
@@ -624,17 +624,19 @@ fn commit_all_analysis(
     let health_score = if let Some(ctx) = context {
         scoring::ProjectHealthScore::from_context(ctx)
     } else if let Some(m) = metrics {
-        m.health_score.clone().unwrap_or_else(|| ProjectHealthScore {
-            overall: 0.0,
-            components: crate::scoring::ScoreComponents {
-                test_coverage: None,
-                code_quality: None,
-                maintainability: None,
-                documentation: None,
-                type_safety: None,
-            },
-            timestamp: chrono::Utc::now(),
-        })
+        m.health_score
+            .clone()
+            .unwrap_or_else(|| ProjectHealthScore {
+                overall: 0.0,
+                components: crate::scoring::ScoreComponents {
+                    test_coverage: None,
+                    code_quality: None,
+                    maintainability: None,
+                    documentation: None,
+                    type_safety: None,
+                },
+                timestamp: chrono::Utc::now(),
+            })
     } else {
         ProjectHealthScore {
             overall: 0.0,
@@ -732,37 +734,46 @@ mod tests {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("PROGRESS: {}", message));
+                .push(format!("PROGRESS: {message}"));
         }
 
         fn display_info(&self, message: &str) {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("INFO: {}", message));
+                .push(format!("INFO: {message}"));
         }
 
         fn display_warning(&self, message: &str) {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("WARNING: {}", message));
+                .push(format!("WARNING: {message}"));
         }
 
         fn display_success(&self, message: &str) {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("SUCCESS: {}", message));
+                .push(format!("SUCCESS: {message}"));
         }
     }
 
     #[test]
     fn test_output_format_parsing() {
-        assert_eq!(OutputFormat::from_str("json"), OutputFormat::Json);
-        assert_eq!(OutputFormat::from_str("pretty"), OutputFormat::Pretty);
-        assert_eq!(OutputFormat::from_str("summary"), OutputFormat::Summary);
-        assert_eq!(OutputFormat::from_str("unknown"), OutputFormat::Summary);
+        assert_eq!("json".parse::<OutputFormat>().unwrap(), OutputFormat::Json);
+        assert_eq!(
+            "pretty".parse::<OutputFormat>().unwrap(),
+            OutputFormat::Pretty
+        );
+        assert_eq!(
+            "summary".parse::<OutputFormat>().unwrap(),
+            OutputFormat::Summary
+        );
+        assert_eq!(
+            "unknown".parse::<OutputFormat>().unwrap(),
+            OutputFormat::Summary
+        );
     }
 
     #[test]
@@ -804,7 +815,11 @@ mod tests {
         let project_path = temp_dir.path();
 
         // Create a basic Rust project
-        std::fs::write(project_path.join("Cargo.toml"), "[package]\nname = \"test\"").unwrap();
+        std::fs::write(
+            project_path.join("Cargo.toml"),
+            "[package]\nname = \"test\"",
+        )
+        .unwrap();
         std::fs::create_dir_all(project_path.join("src")).unwrap();
         std::fs::write(project_path.join("src/main.rs"), "fn main() {}").unwrap();
 
