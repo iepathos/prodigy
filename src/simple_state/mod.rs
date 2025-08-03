@@ -34,7 +34,7 @@
 //!
 //! // Load or create project state
 //! let mut state = state_manager.load_or_create_state(&project_path)?;
-//! 
+//!
 //! // Update state
 //! state.last_run = Some(chrono::Utc::now());
 //! state.total_runs += 1;

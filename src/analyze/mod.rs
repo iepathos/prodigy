@@ -16,7 +16,7 @@
 //! # Analysis Types
 //!
 //! ## Context Analysis
-//! 
+//!
 //! Analyzes project structure, dependencies, conventions, and technical debt:
 //! - Module dependency graphs and circular dependency detection
 //! - Architectural patterns and violations
@@ -46,7 +46,7 @@
 //! # async fn example() -> anyhow::Result<()> {
 //! let cmd = AnalyzeCommand {
 //!     analysis_type: "all".to_string(),
-//!     output: "summary".to_string(), 
+//!     output: "summary".to_string(),
 //!     save: true,
 //!     verbose: false,
 //!     path: Some(PathBuf::from("/path/to/project")),

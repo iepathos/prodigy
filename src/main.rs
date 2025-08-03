@@ -108,6 +108,10 @@ enum Commands {
         /// Run cargo-tarpaulin for accurate coverage before analysis
         #[arg(long)]
         run_coverage: bool,
+
+        /// Skip automatic git commit after analysis
+        #[arg(long)]
+        no_commit: bool,
     },
 }
 
@@ -213,6 +217,7 @@ async fn main() {
             save,
             path,
             run_coverage,
+            no_commit,
         }) => {
             let analyze_cmd = mmm::analyze::command::AnalyzeCommand {
                 analysis_type,
@@ -221,6 +226,7 @@ async fn main() {
                 verbose: cli.verbose > 0,
                 path,
                 run_coverage,
+                no_commit,
             };
             mmm::analyze::run(analyze_cmd).await
         }

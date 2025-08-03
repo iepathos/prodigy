@@ -114,9 +114,6 @@ impl ContextAnalyzer for ProjectAnalyzer {
             },
         };
 
-        // Save analysis results
-        save_analysis(project_path, &result)?;
-
         println!("✅ Analysis complete in {}ms", duration_ms);
         Ok(result)
     }
@@ -174,9 +171,6 @@ impl ContextAnalyzer for ProjectAnalyzer {
         result.metadata.timestamp = chrono::Utc::now();
         result.metadata.duration_ms = start.elapsed().as_millis() as u64;
         result.metadata.incremental = true;
-
-        // Save updated analysis
-        save_analysis(project_path, &result)?;
 
         println!("✅ Analysis updated in {}ms", result.metadata.duration_ms);
         Ok(result)

@@ -29,15 +29,15 @@
 //! use mmm::session::SessionState;
 //!
 //! let mut state = SessionState::Created;
-//! 
+//!
 //! // Start session
 //! state = SessionState::Running { iteration: 1 };
 //! assert!(state.is_active());
 //! assert_eq!(state.current_iteration(), Some(1));
 //!
 //! // Complete session
-//! state = SessionState::Completed { 
-//!     summary: mmm::session::SessionSummary::default() 
+//! state = SessionState::Completed {
+//!     summary: mmm::session::SessionSummary::default()
 //! };
 //! assert!(state.is_terminal());
 //! ```
@@ -49,10 +49,10 @@
 //! use std::time::Duration;
 //!
 //! let mut progress = SessionProgress::new(5); // 5 max iterations
-//! 
+//!
 //! progress.start_iteration(1);
 //! progress.complete_iteration(Duration::from_secs(30));
-//! 
+//!
 //! assert_eq!(progress.iterations_completed, 1);
 //! assert_eq!(progress.completion_percentage(), 20.0);
 //! ```
@@ -79,7 +79,7 @@ use std::time::{Duration, Instant};
 ///
 /// ```rust
 /// use mmm::session::{SessionState, SessionSummary};
-/// 
+///
 /// let state = SessionState::Running { iteration: 3 };
 /// assert!(state.is_active());
 /// assert!(!state.is_terminal());

@@ -1,6 +1,6 @@
 //! Analyze command implementation
 
-use crate::context::{save_analysis, ContextAnalyzer, ProjectAnalyzer};
+use crate::context::{save_analysis_with_options, ContextAnalyzer, ProjectAnalyzer};
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 
@@ -13,6 +13,7 @@ pub struct AnalyzeCommand {
     pub verbose: bool,
     pub path: Option<PathBuf>,
     pub run_coverage: bool,
+    pub no_commit: bool,
 }
 
 /// Execute the analyze command
@@ -58,9 +59,15 @@ async fn run_context_analysis(project_path: &std::path::Path, cmd: &AnalyzeComma
 
     // Save if requested
     if cmd.save {
-        save_analysis(project_path, &analysis_result)?;
+        let commit_made =
+            save_analysis_with_options(project_path, &analysis_result, !cmd.no_commit)?;
         if cmd.verbose {
             println!("💾 Analysis saved to .mmm/context/");
+        }
+        if commit_made {
+            println!("✅ Analysis committed to git");
+        } else if !cmd.no_commit && cmd.verbose {
+            println!("ℹ️  No changes to commit or not a git repository");
         }
     }
 
@@ -279,7 +286,8 @@ fn display_pretty_analysis(
 
     // Calculate and display unified health score
     let health_score = crate::scoring::ProjectHealthScore::from_context(analysis);
-    println!("\n📊 Project Health Score: {:.1}/100", health_score.overall);
+    println!("\n📊 Context Health Score: {:.1}/100", health_score.overall);
+    println!("   (Based on static analysis: architecture, dependencies, technical debt)");
 
     println!("\nScore Components:");
     use crate::scoring::format_component;
@@ -336,7 +344,7 @@ fn display_summary_analysis(
     let debt_score =
         crate::scoring::calculate_technical_debt_score(&analysis.technical_debt.debt_items);
     println!("\n📊 Scores:");
-    println!("   - Project Health: {:.1}/100", health_score.overall);
+    println!("   - Context Health: {:.1}/100", health_score.overall);
     println!("   - Technical Debt: {debt_score:.1}/100");
 
     if let Some(ref test_coverage) = analysis.test_coverage {
@@ -409,7 +417,8 @@ fn display_pretty_metrics(metrics: &crate::metrics::ImprovementMetrics) {
 
     // Display unified health score
     if let Some(ref health_score) = metrics.health_score {
-        println!("\n📊 Project Health Score: {:.1}/100", health_score.overall);
+        println!("\n📊 Metrics Health Score: {:.1}/100", health_score.overall);
+        println!("   (Based on runtime metrics: lint warnings, complexity, test coverage)");
         println!("\nComponents:");
 
         use crate::scoring::format_component;
@@ -470,7 +479,7 @@ fn display_summary_metrics(metrics: &crate::metrics::ImprovementMetrics) {
 
     // Display unified health score
     if let Some(ref health_score) = metrics.health_score {
-        println!("📊 Project Health Score: {:.1}/100", health_score.overall);
+        println!("📊 Metrics Health Score: {:.1}/100", health_score.overall);
         println!("📊 Test coverage: {:.1}%", metrics.test_coverage);
         println!(
             "🚀 Improvement velocity: {:.1}",

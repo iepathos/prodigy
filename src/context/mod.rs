@@ -179,21 +179,42 @@ pub fn load_analysis(project_path: &Path) -> Result<Option<AnalysisResult>> {
     Ok(None)
 }
 
-/// Save analysis results to disk
+/// Save analysis results to disk with default commit behavior
 pub fn save_analysis(project_path: &Path, analysis: &AnalysisResult) -> Result<()> {
     // Check if git commits should be skipped (for CI/testing)
     let should_commit = std::env::var("MMM_SKIP_GIT_COMMITS")
         .map(|v| v != "true" && v != "1")
         .unwrap_or(true);
+    save_analysis_with_commit(project_path, analysis, should_commit)?;
+    Ok(())
+}
+
+/// Save analysis results to disk with explicit commit control
+/// Returns true if a commit was made
+pub fn save_analysis_with_options(
+    project_path: &Path,
+    analysis: &AnalysisResult,
+    commit: bool,
+) -> Result<bool> {
+    // Check environment variable override
+    let should_commit = if std::env::var("MMM_SKIP_GIT_COMMITS")
+        .map(|v| v == "true" || v == "1")
+        .unwrap_or(false)
+    {
+        false
+    } else {
+        commit
+    };
     save_analysis_with_commit(project_path, analysis, should_commit)
 }
 
 /// Save analysis results to disk with optional git commit
+/// Returns true if a commit was made
 pub fn save_analysis_with_commit(
     project_path: &Path,
     analysis: &AnalysisResult,
     should_commit: bool,
-) -> Result<()> {
+) -> Result<bool> {
     let context_dir = project_path.join(".mmm").join("context");
     std::fs::create_dir_all(&context_dir)?;
 
@@ -265,7 +286,7 @@ pub fn save_analysis_with_commit(
     // Calculate unified health score
     let health_score = crate::scoring::ProjectHealthScore::from_context(analysis);
 
-    eprintln!("\n📊 Project Health Score: {:.1}/100", health_score.overall);
+    eprintln!("\n📊 Context Health Score: {:.1}/100", health_score.overall);
     eprintln!("\nComponents:");
 
     use crate::scoring::format_component;
@@ -327,8 +348,6 @@ pub fn save_analysis_with_commit(
         }
     }
 
-    let overall_score = health_score.overall;
-
     // Analyze and report final context sizes
     if let Ok(size_metadata) = size_manager.analyze_context_sizes(&context_dir) {
         size_manager.print_warnings(&size_metadata);
@@ -339,22 +358,27 @@ pub fn save_analysis_with_commit(
     }
 
     // Commit analysis changes to git if requested and in a git repo
+    let mut commit_made = false;
     if should_commit {
-        if let Err(e) = commit_analysis_changes(project_path, analysis, overall_score) {
-            eprintln!("⚠️  Failed to commit analysis changes: {e}");
-            // Don't fail the whole analysis if git commit fails
+        match commit_analysis_changes(project_path, analysis, &health_score) {
+            Ok(made_commit) => commit_made = made_commit,
+            Err(e) => {
+                eprintln!("⚠️  Failed to commit analysis changes: {e}");
+                // Don't fail the whole analysis if git commit fails
+            }
         }
     }
 
-    Ok(())
+    Ok(commit_made)
 }
 
 /// Commit analysis changes to git with a descriptive message
+/// Returns true if a commit was made, false if no changes or not a git repo
 fn commit_analysis_changes(
     project_path: &Path,
     analysis: &AnalysisResult,
-    overall_score: f64,
-) -> Result<()> {
+    health_score: &crate::scoring::ProjectHealthScore,
+) -> Result<bool> {
     // Check if we're in a git repo
     let mut git_check = std::process::Command::new("git");
     git_check
@@ -367,7 +391,7 @@ fn commit_analysis_changes(
     git_check.stderr(std::process::Stdio::null());
 
     if !git_check.status().map(|s| s.success()).unwrap_or(false) {
-        return Ok(()); // Not a git repo, skip commit
+        return Ok(false); // Not a git repo, skip commit
     }
 
     // Check if there are any changes to commit
@@ -377,7 +401,7 @@ fn commit_analysis_changes(
         .output()?;
 
     if git_status.stdout.is_empty() {
-        return Ok(()); // No changes to commit
+        return Ok(false); // No changes to commit
     }
 
     // Stage .mmm directory
@@ -386,29 +410,67 @@ fn commit_analysis_changes(
         .current_dir(project_path)
         .status()?;
 
+    // Calculate context size more accurately
+    let context_size_mb = std::fs::read_dir(project_path.join(".mmm/context"))
+        .ok()
+        .map(|entries| {
+            entries
+                .filter_map(|e| e.ok())
+                .filter_map(|e| e.metadata().ok())
+                .map(|m| m.len())
+                .sum::<u64>() as f64
+                / 1_000_000.0
+        })
+        .unwrap_or(0.0);
+
+    // Build component summary for commit message
+    let mut components = Vec::new();
+
+    if let Some(coverage) = health_score.components.test_coverage {
+        components.push(format!("Test coverage: {coverage:.1}%"));
+    }
+
+    if let Some(quality) = health_score.components.code_quality {
+        let quality_marker = if quality >= 70.0 { "✓" } else { "⚠" };
+        components.push(format!("{quality_marker} Code quality: {quality:.1}%"));
+    }
+
+    if let Some(maint) = health_score.components.maintainability {
+        let maint_marker = if maint >= 70.0 { "✓" } else { "⚠" };
+        components.push(format!(
+            "{} Maintainability: {:.1}% ({} debt items)",
+            maint_marker,
+            maint,
+            analysis.technical_debt.debt_items.len()
+        ));
+    }
+
     // Create commit message with analysis summary
     let commit_msg = format!(
-        "analysis: update project context (score: {:.1}/100)
+        "analysis: update project context (context health: {:.1}/100)
 
+📊 Context Health Score: {:.1}/100
+{}
+
+📈 Context Analysis Summary:
 - {} modules analyzed
+- {} dependencies mapped
+- {} architectural violations
 - {} technical debt items
-- Test coverage: {:.1}%
 - Context size: {:.2}MB
 
+Note: This score is based on static analysis (architecture, dependencies, debt).
+For runtime metrics score, see 'mmm analyze metrics'.
+
 Generated by MMM v{}",
-        overall_score,
+        health_score.overall,
+        health_score.overall,
+        components.join("\n"),
         analysis.dependency_graph.nodes.len(),
+        analysis.dependency_graph.edges.len(),
+        analysis.architecture.violations.len(),
         analysis.technical_debt.debt_items.len(),
-        analysis
-            .test_coverage
-            .as_ref()
-            .map(|tc| tc.overall_coverage * 100.0)
-            .unwrap_or(0.0),
-        std::fs::metadata(project_path.join(".mmm"))
-            .ok()
-            .and_then(|_| std::fs::read_dir(project_path.join(".mmm/context")).ok())
-            .map(|entries| entries.count() as f64 * 0.1)
-            .unwrap_or(0.0),
+        context_size_mb,
         env!("CARGO_PKG_VERSION")
     );
 
@@ -418,11 +480,7 @@ Generated by MMM v{}",
         .current_dir(project_path)
         .status()?;
 
-    if commit_status.success() {
-        eprintln!("✅ Analysis committed to git");
-    }
-
-    Ok(())
+    Ok(commit_status.success())
 }
 
 #[cfg(test)]

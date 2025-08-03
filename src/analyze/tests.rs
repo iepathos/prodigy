@@ -12,6 +12,7 @@ async fn test_analyze_command_creation() {
         verbose: false,
         path: None,
         run_coverage: false,
+        no_commit: false,
     };
 
     assert_eq!(cmd.analysis_type, "context");
@@ -32,6 +33,7 @@ async fn test_analyze_with_custom_path() {
         verbose: false,
         path: Some(temp_dir.path().to_path_buf()),
         run_coverage: false,
+        no_commit: false,
     };
 
     assert!(cmd.path.is_some());
@@ -47,6 +49,7 @@ async fn test_run_analyze_with_invalid_type() {
         verbose: false,
         path: None,
         run_coverage: false,
+        no_commit: false,
     };
 
     // This should fail with exit code 1
@@ -63,6 +66,7 @@ async fn test_analyze_command_all_fields() {
         verbose: true,
         path: Some(temp_dir.path().to_path_buf()),
         run_coverage: true,
+        no_commit: false,
     };
 
     assert_eq!(cmd.analysis_type, "all");
@@ -125,6 +129,7 @@ mod tests {
             verbose: true,
             path: Some(temp_dir.path().to_path_buf()),
             run_coverage: false,
+        no_commit: false,
         };
 
         let result = command::execute(cmd).await;
@@ -144,6 +149,7 @@ mod tests {
             verbose: false,
             path: Some(temp_dir.path().to_path_buf()),
             run_coverage: false,
+        no_commit: false,
         };
 
         let result = command::execute(cmd).await;
@@ -163,6 +169,7 @@ mod tests {
             verbose: true,
             path: Some(temp_dir.path().to_path_buf()),
             run_coverage: false,
+        no_commit: false,
         };
 
         let result = command::execute(cmd).await;
@@ -185,6 +192,7 @@ mod tests {
             verbose: false,
             path: Some(temp_dir.path().to_path_buf()),
             run_coverage: false,
+        no_commit: false,
         };
 
         let result = command::execute(cmd).await;
@@ -198,6 +206,7 @@ mod tests {
             verbose: false,
             path: Some(temp_dir.path().to_path_buf()),
             run_coverage: false,
+        no_commit: false,
         };
 
         let result = command::execute(cmd).await;
@@ -219,6 +228,7 @@ mod tests {
                 verbose: false,
                 path: Some(temp_dir.path().to_path_buf()),
                 run_coverage: false,
+        no_commit: false,
             };
 
             let result = command::execute(cmd).await;
@@ -238,6 +248,7 @@ mod tests {
             verbose: true,
             path: Some(temp_dir.path().to_path_buf()),
             run_coverage: false,
+        no_commit: false,
         };
 
         let result = command::execute(cmd).await;
@@ -261,6 +272,7 @@ mod tests {
             verbose: false,
             path: Some(temp_dir.path().to_path_buf()),
             run_coverage: false,
+        no_commit: false,
         };
 
         let result = command::execute(cmd).await;
@@ -286,6 +298,7 @@ mod tests {
             verbose: false,
             path: Some(temp_dir.path().to_path_buf()),
             run_coverage: false,
+        no_commit: false,
         };
 
         let result = command::execute(cmd).await;
@@ -302,6 +315,7 @@ mod tests {
             verbose: false,
             path: None,
             run_coverage: false,
+        no_commit: false,
         };
 
         // This should use current directory
@@ -321,6 +335,7 @@ mod tests {
             verbose: true,
             path: Some(temp_dir.path().to_path_buf()),
             run_coverage: true,
+            no_commit: false,
         };
 
         // This might fail if cargo-tarpaulin isn't installed, but should handle gracefully

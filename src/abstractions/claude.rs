@@ -271,7 +271,7 @@ pub trait ClaudeClient: Send + Sync {
 ///
 /// # async fn example() -> anyhow::Result<()> {
 /// let client = RealClaudeClient::new();
-/// 
+///
 /// // Check availability before use
 /// client.check_availability().await?;
 ///
