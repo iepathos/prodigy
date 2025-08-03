@@ -491,23 +491,23 @@ fn display_pretty_metrics_inline(metrics: &ImprovementMetrics) {
     println!("\n🧩 Complexity:");
     println!("   Total lines: {}", metrics.total_lines);
     println!("   Max nesting depth: {}", metrics.max_nesting_depth);
-    
+
     // Display cyclomatic complexity for most complex functions
     if !metrics.cyclomatic_complexity.is_empty() {
         let mut complexities: Vec<_> = metrics.cyclomatic_complexity.iter().collect();
         complexities.sort_by(|a, b| b.1.cmp(a.1));
-        
+
         println!("   Cyclomatic complexity (top 5):");
         for (func_name, complexity) in complexities.iter().take(5) {
             // Extract just the function name from the full path
             let short_name = func_name.split("::").last().unwrap_or(func_name);
-            println!("      - {}: {}", short_name, complexity);
+            println!("      - {short_name}: {complexity}");
         }
-        
+
         // Calculate average complexity
         let total_complexity: u32 = metrics.cyclomatic_complexity.values().sum();
         let avg_complexity = total_complexity as f64 / metrics.cyclomatic_complexity.len() as f64;
-        println!("   Average complexity: {:.1}", avg_complexity);
+        println!("   Average complexity: {avg_complexity:.1}");
     }
 
     if let Some(ref health_score) = metrics.health_score {

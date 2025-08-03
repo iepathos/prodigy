@@ -1102,6 +1102,7 @@ impl DefaultCookOrchestrator {
     }
 
     /// Execute a single workflow command
+    #[allow(clippy::too_many_arguments)]
     async fn execute_workflow_command(
         &self,
         env: &ExecutionEnvironment,

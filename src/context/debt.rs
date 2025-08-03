@@ -1,6 +1,6 @@
 //! Technical debt detection and mapping
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
@@ -200,6 +200,42 @@ impl BasicTechnicalDebtMapper {
         self.detect_duplicates(&files)
     }
 
+    /// Load cyclomatic complexity data from metrics
+    async fn load_complexity_from_metrics(
+        &self,
+        project_path: &Path,
+    ) -> Result<HashMap<String, u32>> {
+        let metrics_file = project_path.join(".mmm/metrics/current.json");
+
+        if !metrics_file.exists() {
+            return Ok(HashMap::new());
+        }
+
+        let content = tokio::fs::read_to_string(&metrics_file)
+            .await
+            .with_context(|| format!("Failed to read metrics file: {}", metrics_file.display()))?;
+
+        // Parse the metrics JSON
+        let metrics: serde_json::Value =
+            serde_json::from_str(&content).with_context(|| "Failed to parse metrics JSON")?;
+
+        // Extract cyclomatic complexity
+        if let Some(complexity_obj) = metrics
+            .get("cyclomatic_complexity")
+            .and_then(|v| v.as_object())
+        {
+            let mut complexity_map = HashMap::new();
+            for (func_name, complexity_val) in complexity_obj {
+                if let Some(complexity) = complexity_val.as_u64() {
+                    complexity_map.insert(func_name.clone(), complexity as u32);
+                }
+            }
+            Ok(complexity_map)
+        } else {
+            Ok(HashMap::new())
+        }
+    }
+
     /// Extract TODO/FIXME/HACK comments
     async fn extract_comments(&self, file_path: &Path, content: &str) -> Vec<DebtItem> {
         let mut debt_items = Vec::new();
@@ -322,21 +358,48 @@ impl BasicTechnicalDebtMapper {
 
     /// Extract functions and calculate complexity
     async fn analyze_complexity(&self, file_path: &Path, content: &str) -> Vec<ComplexityHotspot> {
+        self.analyze_complexity_with_metrics(file_path, content, &HashMap::new())
+            .await
+    }
+
+    /// Extract functions and calculate complexity using metrics data when available
+    async fn analyze_complexity_with_metrics(
+        &self,
+        file_path: &Path,
+        content: &str,
+        metrics_complexity: &HashMap<String, u32>,
+    ) -> Vec<ComplexityHotspot> {
         let mut hotspots = Vec::new();
         let lines: Vec<&str> = content.lines().collect();
 
         for (i, line) in lines.iter().enumerate() {
             if let Some(function_name) = self.extract_function_name(line) {
                 if let Some((start, end)) = self.find_function_bounds(&lines, i) {
-                    let hotspot = self.analyze_function_complexity(
-                        file_path,
-                        &lines,
-                        &function_name,
-                        start,
-                        end,
-                    );
-                    if let Some(hotspot) = hotspot {
-                        hotspots.push(hotspot);
+                    // First check if we have metrics data for this function
+                    let complexity = if let Some(full_path) = metrics_complexity
+                        .keys()
+                        .find(|k| k.ends_with(&format!("::{function_name}")))
+                    {
+                        *metrics_complexity.get(full_path).unwrap_or(&0)
+                    } else {
+                        // Fall back to our basic calculation
+                        let hotspot = self.analyze_function_complexity(
+                            file_path,
+                            &lines,
+                            &function_name,
+                            start,
+                            end,
+                        );
+                        hotspot.map(|h| h.complexity).unwrap_or(0)
+                    };
+
+                    if complexity > 10 {
+                        hotspots.push(ComplexityHotspot {
+                            file: file_path.to_path_buf(),
+                            function: function_name.to_string(),
+                            complexity,
+                            lines: (end - start + 1) as u32,
+                        });
                     }
                 }
             }
@@ -681,6 +744,9 @@ impl TechnicalDebtMapper for BasicTechnicalDebtMapper {
     async fn map_technical_debt(&self, project_path: &Path) -> Result<TechnicalDebtMap> {
         use walkdir::WalkDir;
 
+        // Load complexity data from metrics if available
+        let metrics_complexity = self.load_complexity_from_metrics(project_path).await?;
+
         let mut all_debt_items = Vec::new();
         let mut all_hotspots = Vec::new();
         let mut files_content = Vec::new();
@@ -705,8 +771,10 @@ impl TechnicalDebtMapper for BasicTechnicalDebtMapper {
                 let debt_items = self.extract_comments(file_path, &content).await;
                 all_debt_items.extend(debt_items);
 
-                // Analyze complexity
-                let hotspots = self.analyze_complexity(file_path, &content).await;
+                // Analyze complexity using metrics data when available
+                let hotspots = self
+                    .analyze_complexity_with_metrics(file_path, &content, &metrics_complexity)
+                    .await;
                 all_hotspots.extend(hotspots);
 
                 // Store for duplicate detection
