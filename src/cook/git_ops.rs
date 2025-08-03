@@ -327,4 +327,40 @@ mod tests {
         // Restore original directory
         std::env::set_current_dir(original_dir).unwrap();
     }
+
+    #[tokio::test]
+    async fn test_check_git_status_success() {
+        // Test with clean repo
+        let temp_dir = create_temp_git_repo().await.unwrap();
+        let original_dir = std::env::current_dir().unwrap();
+        std::env::set_current_dir(temp_dir.path()).unwrap();
+
+        let status = check_git_status().await.unwrap();
+        // The --porcelain output is empty for a clean repo
+        assert_eq!(status.trim(), "", "Expected empty status for clean repo");
+
+        // Restore original directory
+        std::env::set_current_dir(original_dir).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_check_git_status_with_changes() {
+        // Test with uncommitted changes
+        let temp_dir = create_temp_git_repo().await.unwrap();
+        let original_dir = std::env::current_dir().unwrap();
+        std::env::set_current_dir(temp_dir.path()).unwrap();
+
+        // Create a file
+        std::fs::write(temp_dir.path().join("test.txt"), "test content").unwrap();
+
+        let status = check_git_status().await.unwrap();
+        // The --porcelain output shows untracked files with ??
+        assert!(
+            status.contains("?? test.txt"),
+            "Expected untracked file in status: {status}"
+        );
+
+        // Restore original directory
+        std::env::set_current_dir(original_dir).unwrap();
+    }
 }

@@ -387,7 +387,7 @@ mod tests {
         let result = analyzer.analyze(temp_dir.path()).await;
         assert!(result.is_ok());
         let analysis = result.unwrap();
-        assert!(analysis.metadata.files_analyzed >= 0);
+        // files_analyzed is always >= 0 since it's a usize
     }
 
     #[tokio::test]

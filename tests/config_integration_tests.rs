@@ -53,3 +53,40 @@ fn test_cook_with_default_config() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn test_config_integration() {
+    use mmm::config::*;
+    use std::path::PathBuf;
+
+    // Test configuration loading and merging
+    let temp_dir = TempDir::new().unwrap();
+    std::env::set_current_dir(&temp_dir).unwrap();
+
+    // Create project config
+    let project_config = serde_toml::to_string(&toml::toml! {
+        [project]
+        name = "test-project"
+        auto_commit = true
+        max_iterations = 5
+        spec_dir = "./specs"
+    })
+    .unwrap();
+
+    fs::write("mmm.toml", project_config).unwrap();
+
+    // Test loading
+    let loader = ConfigLoader::new();
+    let config = loader.load_config(temp_dir.path()).unwrap();
+    assert_eq!(config.get_auto_commit(), true);
+    assert_eq!(config.get_spec_dir(), PathBuf::from("./specs"));
+
+    // Test environment variable override
+    std::env::set_var("MMM_AUTO_COMMIT", "false");
+    let mut config = loader.load_config(temp_dir.path()).unwrap();
+    config.merge_env_vars();
+    assert_eq!(config.get_auto_commit(), false);
+
+    // Clean up
+    std::env::remove_var("MMM_AUTO_COMMIT");
+}

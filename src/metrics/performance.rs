@@ -243,7 +243,7 @@ mod tests {
         assert!(result.is_ok());
         let metrics = result.unwrap();
         assert!(metrics.compile_time > Duration::ZERO);
-        assert!(metrics.binary_size >= 0);
+        // binary_size is always >= 0 since it's a u64
     }
 
     #[tokio::test]

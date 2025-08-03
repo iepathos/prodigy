@@ -266,6 +266,7 @@ impl MetricsStorage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::metrics::MetricsSnapshot;
     use std::time::Duration;
     use tempfile::TempDir;
 
@@ -570,5 +571,55 @@ mod tests {
             improvement_velocity: 1.2,
             health_score: None,
         }
+    }
+
+    #[tokio::test]
+    async fn test_load_metrics_history_success() {
+        // Test normal operation with existing history file
+        let temp_dir = TempDir::new().unwrap();
+        let mmm_dir = temp_dir.path().join(".mmm");
+        let metrics_dir = mmm_dir.join("metrics");
+        std::fs::create_dir_all(&metrics_dir).unwrap();
+
+        // Create sample history
+        let history = MetricsHistory {
+            snapshots: vec![MetricsSnapshot {
+                metrics: create_test_metrics(),
+                iteration: 1,
+                commit_sha: "abc123".to_string(),
+            }],
+            trends: Default::default(),
+            baselines: Default::default(),
+        };
+
+        let history_path = metrics_dir.join("history.json");
+        std::fs::write(
+            &history_path,
+            serde_json::to_string_pretty(&history).unwrap(),
+        )
+        .unwrap();
+
+        let loaded = load_metrics_history(temp_dir.path()).await.unwrap();
+        assert_eq!(loaded.snapshots.len(), 1);
+        assert_eq!(loaded.snapshots[0].iteration, 1);
+    }
+
+    #[tokio::test]
+    async fn test_load_metrics_history_error_cases() {
+        // Test error conditions
+        let temp_dir = TempDir::new().unwrap();
+
+        // Case 1: No .mmm directory
+        let result = load_metrics_history(temp_dir.path()).await;
+        assert!(result.is_ok()); // Should return default empty history
+
+        // Case 2: Corrupted JSON file
+        let mmm_dir = temp_dir.path().join(".mmm");
+        let metrics_dir = mmm_dir.join("metrics");
+        std::fs::create_dir_all(&metrics_dir).unwrap();
+        std::fs::write(metrics_dir.join("history.json"), "invalid json").unwrap();
+
+        let result = load_metrics_history(temp_dir.path()).await;
+        assert!(result.is_err());
     }
 }
