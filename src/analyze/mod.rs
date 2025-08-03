@@ -7,23 +7,17 @@
 //!
 //! # Key Features
 //!
-//! - **Multi-Modal Analysis**: Supports context, metrics, and combined analysis modes
+//! - **Comprehensive Analysis**: Always runs both metrics and context analysis
 //! - **Incremental Analysis**: Only re-analyzes changed files for performance
 //! - **Coverage Integration**: Integrates with cargo-tarpaulin for accurate test coverage
 //! - **Persistent Results**: Saves analysis results to `.mmm/context/` for reuse
 //! - **Health Scoring**: Provides unified project health scores (0-100)
 //!
-//! # Analysis Types
+//! # Analysis Components
 //!
-//! ## Context Analysis
+//! The analyze command performs both metrics and context analysis in sequence:
 //!
-//! Analyzes project structure, dependencies, conventions, and technical debt:
-//! - Module dependency graphs and circular dependency detection
-//! - Architectural patterns and violations
-//! - Code conventions and naming patterns  
-//! - Technical debt items with impact scoring
-//!
-//! ## Metrics Analysis
+//! ## Metrics Analysis (runs first)
 //!
 //! Collects quantitative metrics about code quality:
 //! - Test coverage percentages
@@ -31,9 +25,14 @@
 //! - Code complexity metrics
 //! - Performance benchmarks
 //!
-//! ## Combined Analysis
+//! ## Context Analysis (runs second)
 //!
-//! Performs both context and metrics analysis for complete project assessment.
+//! Analyzes project structure, dependencies, conventions, and technical debt:
+//! - Module dependency graphs and circular dependency detection
+//! - Architectural patterns and violations
+//! - Code conventions and naming patterns  
+//! - Technical debt items with impact scoring
+//! - Uses test coverage data from metrics analysis
 //!
 //! # Examples
 //!
@@ -45,7 +44,6 @@
 //!
 //! # async fn example() -> anyhow::Result<()> {
 //! let cmd = AnalyzeCommand {
-//!     analysis_type: "all".to_string(),
 //!     output: "summary".to_string(),
 //!     save: true,
 //!     verbose: false,
@@ -66,12 +64,11 @@
 //! # use std::path::PathBuf;
 //! # async fn example() -> anyhow::Result<()> {
 //! let cmd = AnalyzeCommand {
-//!     analysis_type: "context".to_string(),
 //!     output: "json".to_string(),
 //!     save: true,
 //!     verbose: true,
 //!     path: None, // Use current directory
-//!     run_coverage: true, // Run cargo-tarpaulin first
+//!     run_coverage: true, // Run cargo-tarpaulin before analysis
 //!     no_commit: false,
 //! };
 //!

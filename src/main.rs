@@ -89,15 +89,11 @@ enum Commands {
     },
     /// Analyze project structure and gather metrics
     Analyze {
-        /// Type of analysis to run (context, metrics, all)
-        #[arg(short = 't', long, default_value = "all")]
-        analysis_type: String,
-
         /// Output format (json, pretty, summary)
         #[arg(short = 'o', long, default_value = "summary")]
         output: String,
 
-        /// Save results to .mmm/context directory
+        /// Save results to .mmm directory
         #[arg(short = 's', long)]
         save: bool,
 
@@ -212,7 +208,6 @@ async fn main() {
             mmm::init::run(init_cmd).await
         }
         Some(Commands::Analyze {
-            analysis_type,
             output,
             save,
             path,
@@ -220,7 +215,6 @@ async fn main() {
             no_commit,
         }) => {
             let analyze_cmd = mmm::analyze::command::AnalyzeCommand {
-                analysis_type,
                 output,
                 save,
                 verbose: cli.verbose > 0,

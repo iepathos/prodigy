@@ -20,9 +20,12 @@ impl MetricsAwareCoverageAnalyzer {
     /// Try to load coverage data from metrics file
     async fn load_from_metrics(&self, project_path: &Path) -> Option<f64> {
         let metrics_file = project_path.join(".mmm/metrics/current.json");
+        eprintln!("🔍 Checking for metrics file at: {}", metrics_file.display());
         if !metrics_file.exists() {
+            eprintln!("❌ Metrics file not found");
             return None;
         }
+        eprintln!("✅ Metrics file found");
         
         // Read metrics file
         match tokio::fs::read_to_string(&metrics_file).await {
@@ -30,9 +33,10 @@ impl MetricsAwareCoverageAnalyzer {
                 // Parse metrics
                 match serde_json::from_str::<serde_json::Value>(&content) {
                     Ok(metrics) => {
-                        // Extract test_coverage field
+                        // Extract test_coverage field (stored as percentage)
                         metrics.get("test_coverage")
                             .and_then(|v| v.as_f64())
+                            .map(|pct| pct / 100.0) // Convert percentage to fraction
                     }
                     Err(_) => None,
                 }
@@ -52,7 +56,7 @@ impl MetricsAwareCoverageAnalyzer {
             PathBuf::from("project_summary"),
             FileCoverage {
                 path: PathBuf::from("project_summary"),
-                coverage_percentage: coverage_percentage * 100.0,
+                coverage_percentage: coverage_percentage * 100.0, // Convert fraction to percentage
                 tested_lines: (coverage_percentage * 1000.0) as u32, // Estimate
                 total_lines: 1000, // Estimate
                 tested_functions: (coverage_percentage * 50.0) as u32, // Estimate
@@ -74,11 +78,13 @@ impl MetricsAwareCoverageAnalyzer {
 impl TestCoverageAnalyzer for MetricsAwareCoverageAnalyzer {
     async fn analyze_coverage(&self, project_path: &Path) -> Result<TestCoverageMap> {
         // First try to load from metrics
+        eprintln!("🔍 MetricsAwareCoverageAnalyzer: Checking for metrics data...");
         if let Some(coverage_pct) = self.load_from_metrics(project_path).await {
             eprintln!("📊 Loaded test coverage from metrics: {:.1}%", coverage_pct * 100.0);
             return Ok(self.create_coverage_map_from_metrics(coverage_pct));
         }
         
+        eprintln!("📊 No metrics found, falling back to tarpaulin analysis...");
         // Fall back to tarpaulin analysis
         self.tarpaulin_analyzer.analyze_coverage(project_path).await
     }

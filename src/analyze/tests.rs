@@ -9,7 +9,6 @@ use tempfile::TempDir;
 #[tokio::test]
 async fn test_analyze_command_creation() {
     let cmd = AnalyzeCommand {
-        analysis_type: "context".to_string(),
         output: "json".to_string(),
         save: false,
         verbose: false,
@@ -18,7 +17,6 @@ async fn test_analyze_command_creation() {
         no_commit: false,
     };
 
-    assert_eq!(cmd.analysis_type, "context");
     assert_eq!(cmd.output, "json");
     assert!(!cmd.save);
     assert!(!cmd.verbose);
@@ -30,7 +28,6 @@ async fn test_analyze_command_creation() {
 async fn test_analyze_with_custom_path() {
     let temp_dir = TempDir::new().unwrap();
     let cmd = AnalyzeCommand {
-        analysis_type: "context".to_string(),
         output: "json".to_string(),
         save: false,
         verbose: false,
@@ -43,27 +40,11 @@ async fn test_analyze_with_custom_path() {
     assert_eq!(cmd.path.unwrap(), temp_dir.path());
 }
 
-#[tokio::test]
-async fn test_run_analyze_with_invalid_type() {
-    let _cmd = AnalyzeCommand {
-        analysis_type: "invalid".to_string(),
-        output: "json".to_string(),
-        save: false,
-        verbose: false,
-        path: None,
-        run_coverage: false,
-        no_commit: false,
-    };
-
-    // This should fail with exit code 1
-    // We can't easily test process::exit, so we'll test the command module directly
-}
 
 #[tokio::test]
 async fn test_analyze_command_all_fields() {
     let temp_dir = TempDir::new().unwrap();
     let cmd = AnalyzeCommand {
-        analysis_type: "all".to_string(),
         output: "pretty".to_string(),
         save: true,
         verbose: true,
@@ -72,7 +53,6 @@ async fn test_analyze_command_all_fields() {
         no_commit: false,
     };
 
-    assert_eq!(cmd.analysis_type, "all");
     assert_eq!(cmd.output, "pretty");
     assert!(cmd.save);
     assert!(cmd.verbose);
@@ -126,8 +106,7 @@ mod tests {
         create_test_project(temp_dir.path()).unwrap();
 
         let cmd = AnalyzeCommand {
-            analysis_type: "context".to_string(),
-            output: "json".to_string(),
+                output: "json".to_string(),
             save: false,
             verbose: true,
             path: Some(temp_dir.path().to_path_buf()),
@@ -149,8 +128,7 @@ mod tests {
         TestMockSetup::setup_metrics_collection(&mut mock);
 
         let cmd = AnalyzeCommand {
-            analysis_type: "metrics".to_string(),
-            output: "summary".to_string(),
+                output: "summary".to_string(),
             save: false,
             verbose: false,
             path: Some(temp_dir.path().to_path_buf()),
@@ -172,8 +150,7 @@ mod tests {
         TestMockSetup::setup_successful_analysis(&mut mock);
 
         let cmd = AnalyzeCommand {
-            analysis_type: "all".to_string(),
-            output: "pretty".to_string(),
+                output: "pretty".to_string(),
             save: true,
             verbose: true,
             path: Some(temp_dir.path().to_path_buf()),
@@ -195,8 +172,7 @@ mod tests {
 
         // Test JSON output
         let cmd = AnalyzeCommand {
-            analysis_type: "context".to_string(),
-            output: "json".to_string(),
+                output: "json".to_string(),
             save: false,
             verbose: false,
             path: Some(temp_dir.path().to_path_buf()),
@@ -209,8 +185,7 @@ mod tests {
 
         // Test pretty output
         let cmd = AnalyzeCommand {
-            analysis_type: "context".to_string(),
-            output: "pretty".to_string(),
+                output: "pretty".to_string(),
             save: false,
             verbose: false,
             path: Some(temp_dir.path().to_path_buf()),
@@ -234,8 +209,7 @@ mod tests {
             TestMockSetup::setup_metrics_collection(&mut mock);
 
             let cmd = AnalyzeCommand {
-                analysis_type: "metrics".to_string(),
-                output: output_format.to_string(),
+                        output: output_format.to_string(),
                 save: false,
                 verbose: false,
                 path: Some(temp_dir.path().to_path_buf()),
@@ -254,8 +228,7 @@ mod tests {
         create_test_project(temp_dir.path()).unwrap();
 
         let cmd = AnalyzeCommand {
-            analysis_type: "context".to_string(),
-            output: "json".to_string(),
+                output: "json".to_string(),
             save: true,
             verbose: true,
             path: Some(temp_dir.path().to_path_buf()),
@@ -278,8 +251,7 @@ mod tests {
         fs::write(temp_dir.path().join("src/main.py"), "print('Hello')").unwrap();
 
         let cmd = AnalyzeCommand {
-            analysis_type: "context".to_string(),
-            output: "json".to_string(),
+                output: "json".to_string(),
             save: false,
             verbose: false,
             path: Some(temp_dir.path().to_path_buf()),
@@ -307,8 +279,7 @@ mod tests {
         TestMockSetup::setup_successful_analysis(&mut mock);
 
         let cmd = AnalyzeCommand {
-            analysis_type: "all".to_string(),
-            output: "summary".to_string(),
+                output: "summary".to_string(),
             save: false,
             verbose: false,
             path: Some(temp_dir.path().to_path_buf()),
@@ -334,8 +305,7 @@ mod tests {
         TestMockSetup::setup_successful_analysis(&mut mock);
 
         let cmd = AnalyzeCommand {
-            analysis_type: "context".to_string(),
-            output: "json".to_string(),
+                output: "json".to_string(),
             save: false,
             verbose: false,
             path: None,
@@ -358,8 +328,7 @@ mod tests {
         create_test_project(temp_dir.path()).unwrap();
 
         let cmd = AnalyzeCommand {
-            analysis_type: "context".to_string(),
-            output: "json".to_string(),
+                output: "json".to_string(),
             save: false,
             verbose: true,
             path: Some(temp_dir.path().to_path_buf()),
