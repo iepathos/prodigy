@@ -1,8 +1,8 @@
 //! Unit tests for the analyze module
 
 use super::*;
-use tempfile::TempDir;
 use std::process::Command;
+use tempfile::TempDir;
 
 #[tokio::test]
 async fn test_analyze_command_creation() {
@@ -130,7 +130,7 @@ mod tests {
             verbose: true,
             path: Some(temp_dir.path().to_path_buf()),
             run_coverage: false,
-        no_commit: false,
+            no_commit: false,
         };
 
         let result = command::execute(cmd).await;
@@ -150,7 +150,7 @@ mod tests {
             verbose: false,
             path: Some(temp_dir.path().to_path_buf()),
             run_coverage: false,
-        no_commit: false,
+            no_commit: false,
         };
 
         let result = command::execute(cmd).await;
@@ -170,7 +170,7 @@ mod tests {
             verbose: true,
             path: Some(temp_dir.path().to_path_buf()),
             run_coverage: false,
-        no_commit: false,
+            no_commit: false,
         };
 
         let result = command::execute(cmd).await;
@@ -193,7 +193,7 @@ mod tests {
             verbose: false,
             path: Some(temp_dir.path().to_path_buf()),
             run_coverage: false,
-        no_commit: false,
+            no_commit: false,
         };
 
         let result = command::execute(cmd).await;
@@ -207,7 +207,7 @@ mod tests {
             verbose: false,
             path: Some(temp_dir.path().to_path_buf()),
             run_coverage: false,
-        no_commit: false,
+            no_commit: false,
         };
 
         let result = command::execute(cmd).await;
@@ -229,7 +229,7 @@ mod tests {
                 verbose: false,
                 path: Some(temp_dir.path().to_path_buf()),
                 run_coverage: false,
-        no_commit: false,
+                no_commit: false,
             };
 
             let result = command::execute(cmd).await;
@@ -249,7 +249,7 @@ mod tests {
             verbose: true,
             path: Some(temp_dir.path().to_path_buf()),
             run_coverage: false,
-        no_commit: false,
+            no_commit: false,
         };
 
         let result = command::execute(cmd).await;
@@ -273,7 +273,7 @@ mod tests {
             verbose: false,
             path: Some(temp_dir.path().to_path_buf()),
             run_coverage: false,
-        no_commit: false,
+            no_commit: false,
         };
 
         let result = command::execute(cmd).await;
@@ -299,7 +299,7 @@ mod tests {
             verbose: false,
             path: Some(temp_dir.path().to_path_buf()),
             run_coverage: false,
-        no_commit: false,
+            no_commit: false,
         };
 
         let result = command::execute(cmd).await;
@@ -316,7 +316,7 @@ mod tests {
             verbose: false,
             path: None,
             run_coverage: false,
-        no_commit: false,
+            no_commit: false,
         };
 
         // This should use current directory
@@ -355,13 +355,13 @@ mod tests {
             .current_dir(temp_dir.path())
             .output()
             .unwrap();
-            
+
         Command::new("git")
             .args(["config", "user.email", "test@example.com"])
             .current_dir(temp_dir.path())
             .output()
             .unwrap();
-            
+
         Command::new("git")
             .args(["config", "user.name", "Test User"])
             .current_dir(temp_dir.path())
@@ -370,7 +370,7 @@ mod tests {
 
         // Instead of running the full analyze command, test the storage directly
         let storage = crate::metrics::MetricsStorage::new(temp_dir.path());
-        
+
         // Create test metrics
         let metrics = crate::metrics::ImprovementMetrics {
             test_coverage: 75.5,
@@ -393,30 +393,34 @@ mod tests {
             improvement_velocity: 1.2,
             health_score: None,
         };
-        
+
         // Save with commit
         let commit_made = storage.save_current_with_commit(&metrics, true).unwrap();
-        
+
         // Check that metrics file was created
-        let metrics_file = temp_dir.path().join(".mmm").join("metrics").join("current.json");
+        let metrics_file = temp_dir
+            .path()
+            .join(".mmm")
+            .join("metrics")
+            .join("current.json");
         assert!(metrics_file.exists(), "Metrics file should be created");
-        
+
         // Verify content was saved correctly
         let loaded = storage.load_current().unwrap();
         assert!(loaded.is_some());
         let loaded_metrics = loaded.unwrap();
         assert_eq!(loaded_metrics.test_coverage, 75.5);
-        
+
         // Check git status to see if file was added
         let git_status = Command::new("git")
             .args(["status", "--porcelain"])
             .current_dir(temp_dir.path())
             .output()
             .unwrap();
-        
+
         let status_output = String::from_utf8_lossy(&git_status.stdout);
         println!("Git status output: {}", status_output);
-        
+
         // If it's a new file and git add worked, we should see a commit
         if commit_made {
             let git_log = Command::new("git")
@@ -424,10 +428,13 @@ mod tests {
                 .current_dir(temp_dir.path())
                 .output()
                 .unwrap();
-            
+
             let log_output = String::from_utf8_lossy(&git_log.stdout);
             println!("Git log output: {}", log_output);
-            assert!(log_output.contains("metrics:"), "Commit message should contain 'metrics:'");
+            assert!(
+                log_output.contains("metrics:"),
+                "Commit message should contain 'metrics:'"
+            );
         }
     }
 }

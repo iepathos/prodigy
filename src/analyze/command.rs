@@ -33,10 +33,10 @@ pub async fn execute(cmd: AnalyzeCommand) -> Result<()> {
             // So we temporarily disable auto-commit for individual analyses
             let mut cmd_no_commit = cmd.clone();
             cmd_no_commit.no_commit = true;
-            
+
             run_context_analysis(&project_path, &cmd_no_commit).await?;
             run_metrics_analysis(&project_path, &cmd_no_commit).await?;
-            
+
             // Now commit everything together if save is enabled and no_commit is false
             if cmd.save && !cmd.no_commit {
                 commit_all_analysis(&project_path)?;
@@ -525,56 +525,57 @@ fn display_summary_metrics(metrics: &crate::metrics::ImprovementMetrics) {
 /// Commit all analysis files (context and metrics) together
 fn commit_all_analysis(project_path: &Path) -> Result<()> {
     use crate::scoring;
-    
+
     // Check if we're in a git repository
     let git_check = std::process::Command::new("git")
         .args(["rev-parse", "--git-dir"])
         .current_dir(project_path)
         .output()?;
-    
+
     if !git_check.status.success() {
         return Ok(());
     }
-    
+
     // Stage all analysis files
     // First, let's try adding the entire .mmm directory to catch all changes
     let add_status = std::process::Command::new("git")
         .args(["add", ".mmm/"])
         .current_dir(project_path)
         .output()?;
-    
+
     if !add_status.status.success() {
-        eprintln!("Failed to stage files: {}", String::from_utf8_lossy(&add_status.stderr));
+        eprintln!(
+            "Failed to stage files: {}",
+            String::from_utf8_lossy(&add_status.stderr)
+        );
         return Ok(());
     }
-    
+
     // Check if there are changes to commit
     let git_status = std::process::Command::new("git")
         .args(["diff", "--cached", "--name-only"])
         .current_dir(project_path)
         .output()?;
-    
+
     if git_status.stdout.is_empty() {
         println!("No staged changes to commit");
         return Ok(());
     }
-    
-    let staged_count = String::from_utf8_lossy(&git_status.stdout)
-        .lines()
-        .count();
+
+    let staged_count = String::from_utf8_lossy(&git_status.stdout).lines().count();
     println!("Found {} staged files", staged_count);
-    
+
     // Calculate health score from the saved analysis
     let analysis = crate::context::load_analysis(project_path)?
         .ok_or_else(|| anyhow::anyhow!("No analysis data found"))?;
     let health_score = scoring::ProjectHealthScore::from_context(&analysis);
-    
+
     // Load metrics for the commit message
     let storage = crate::metrics::MetricsStorage::new(project_path);
-    let metrics = storage.load_current()?.unwrap_or_else(|| {
-        crate::metrics::ImprovementMetrics::default()
-    });
-    
+    let metrics = storage
+        .load_current()?
+        .unwrap_or_else(|| crate::metrics::ImprovementMetrics::default());
+
     // Create comprehensive commit message
     let commit_msg = format!(
         "analysis: update project context and metrics (health: {:.1}/100)\n\n\
@@ -601,14 +602,14 @@ fn commit_all_analysis(project_path: &Path) -> Result<()> {
         metrics.lint_warnings,
         env!("CARGO_PKG_VERSION")
     );
-    
+
     println!("Creating commit with message length: {}", commit_msg.len());
-    
+
     let mut git_commit = std::process::Command::new("git");
     git_commit
         .args(["commit", "-m", &commit_msg])
         .current_dir(project_path);
-    
+
     match git_commit.output() {
         Ok(output) => {
             if output.status.success() {
@@ -623,6 +624,6 @@ fn commit_all_analysis(project_path: &Path) -> Result<()> {
             eprintln!("⚠️  Failed to run git commit: {}", e);
         }
     }
-    
+
     Ok(())
 }

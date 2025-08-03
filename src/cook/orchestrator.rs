@@ -241,6 +241,17 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             return self.execute_workflow_with_args(env, config).await;
         }
 
+        // Check if any commands have analysis configuration
+        let has_analysis_config = config.workflow.commands.iter().any(|cmd| {
+            matches!(cmd, crate::config::command::WorkflowCommand::Structured(c)
+                if c.metadata.analysis.is_some())
+        });
+
+        if has_analysis_config {
+            // Use the new direct command execution approach that supports per-step analysis
+            return self.execute_workflow_with_analysis(env, config).await;
+        }
+
         // Convert WorkflowConfig to ExtendedWorkflowConfig
         // For now, create a simple workflow with the commands
         let steps: Vec<WorkflowStep> = config
@@ -250,13 +261,26 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             .enumerate()
             .map(|(i, cmd)| {
                 use crate::config::command::WorkflowCommand;
-                let (command_str, commit_required) = match cmd {
-                    WorkflowCommand::Simple(s) => (s.clone(), true),
-                    WorkflowCommand::Structured(c) => (c.name.clone(), c.metadata.commit_required),
-                    WorkflowCommand::SimpleObject(simple) => {
-                        (simple.name.clone(), simple.commit_required.unwrap_or(true))
-                    }
+                let (command_str, commit_required, analysis_config) = match cmd {
+                    WorkflowCommand::Simple(s) => (s.clone(), true, None),
+                    WorkflowCommand::Structured(c) => (
+                        c.name.clone(),
+                        c.metadata.commit_required,
+                        c.metadata.analysis.clone(),
+                    ),
+                    WorkflowCommand::SimpleObject(simple) => (
+                        simple.name.clone(),
+                        simple.commit_required.unwrap_or(true),
+                        None,
+                    ),
                 };
+
+                // If analysis is configured, run it before this step
+                if let Some(ref _analysis_cfg) = analysis_config {
+                    // Store the analysis config for later use
+                    // We'll need to run analysis before executing this step
+                }
+
                 WorkflowStep {
                     name: format!("Step {}", i + 1),
                     command: if command_str.starts_with('/') {
@@ -422,6 +446,11 @@ impl DefaultCookOrchestrator {
                     config.workflow.commands.len(),
                     command.name
                 ));
+
+                // Check if this command requires analysis
+                if let Some(ref analysis_config) = command.metadata.analysis {
+                    self.run_analysis_if_needed(env, analysis_config).await?;
+                }
 
                 // Resolve inputs and build final command arguments
                 let mut final_args = command.args.clone();
@@ -680,6 +709,103 @@ impl DefaultCookOrchestrator {
         false
     }
 
+    /// Execute workflow with per-step analysis configuration
+    async fn execute_workflow_with_analysis(
+        &self,
+        env: &ExecutionEnvironment,
+        config: &CookConfig,
+    ) -> Result<()> {
+        // Run initial analysis if needed
+        if !config.command.skip_analysis {
+            self.user_interaction
+                .display_progress("Running initial analysis...");
+            let analysis = self
+                .analysis_coordinator
+                .analyze_project(&env.working_dir)
+                .await?;
+            self.analysis_coordinator
+                .save_analysis(&env.working_dir, &analysis)
+                .await?;
+        }
+
+        // Execute iterations if configured
+        let max_iterations = config.command.max_iterations;
+        for iteration in 1..=max_iterations {
+            if iteration > 1 {
+                self.user_interaction
+                    .display_progress(&format!("Starting iteration {iteration}/{max_iterations}"));
+            }
+
+            // Increment iteration counter
+            self.session_manager
+                .update_session(SessionUpdate::IncrementIteration)
+                .await?;
+
+            // Execute each command in sequence
+            for (step_index, cmd) in config.workflow.commands.iter().enumerate() {
+                let command = cmd.to_command();
+
+                self.user_interaction.display_progress(&format!(
+                    "Executing step {}/{}: {}",
+                    step_index + 1,
+                    config.workflow.commands.len(),
+                    command.name
+                ));
+
+                // Check if this command requires analysis
+                if let Some(ref analysis_config) = command.metadata.analysis {
+                    self.run_analysis_if_needed(env, analysis_config).await?;
+                }
+
+                // Build command string
+                let mut cmd_parts = vec![format!("/{}", command.name)];
+                for arg in &command.args {
+                    let resolved_arg = arg.resolve(&HashMap::new());
+                    if !resolved_arg.is_empty() {
+                        cmd_parts.push(resolved_arg);
+                    }
+                }
+                let final_command = cmd_parts.join(" ");
+
+                self.user_interaction
+                    .display_info(&format!("🚀 Executing command: {final_command}"));
+
+                // Execute the command
+                let mut env_vars = HashMap::new();
+                env_vars.insert("MMM_CONTEXT_AVAILABLE".to_string(), "true".to_string());
+                env_vars.insert(
+                    "MMM_CONTEXT_DIR".to_string(),
+                    env.working_dir
+                        .join(".mmm/context")
+                        .to_string_lossy()
+                        .to_string(),
+                );
+                env_vars.insert("MMM_AUTOMATION".to_string(), "true".to_string());
+
+                let result = self
+                    .claude_executor
+                    .execute_claude_command(&final_command, &env.working_dir, env_vars)
+                    .await?;
+
+                if !result.success {
+                    anyhow::bail!(
+                        "Command '{}' failed with exit code {:?}. Error: {}",
+                        command.name,
+                        result.exit_code,
+                        result.stderr
+                    );
+                } else {
+                    // Track file changes when command succeeds
+                    self.session_manager
+                        .update_session(SessionUpdate::AddFilesChanged(1))
+                        .await?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Execute workflow with arguments from --args or --map
     async fn execute_workflow_with_args(
         &self,
@@ -862,6 +988,11 @@ impl DefaultCookOrchestrator {
             command.name
         ));
 
+        // Check if this command requires analysis
+        if let Some(ref analysis_config) = command.metadata.analysis {
+            self.run_analysis_if_needed(env, analysis_config).await?;
+        }
+
         // Build the command with resolved arguments
         let (final_command, has_arg_reference) = self.build_command(&command, variables);
 
@@ -1028,6 +1159,156 @@ impl DefaultCookOrchestrator {
                     // This command was configured to simulate no changes but requires commits
                     return Err(anyhow!("No changes were committed by {}", final_command));
                 }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Run analysis if needed based on configuration
+    async fn run_analysis_if_needed(
+        &self,
+        env: &ExecutionEnvironment,
+        config: &crate::config::command::AnalysisConfig,
+    ) -> Result<()> {
+        // Check cache age if not forcing refresh
+        if !config.force_refresh {
+            let cache_path = env.working_dir.join(".mmm/context/analysis_metadata.json");
+            if cache_path.exists() {
+                // Read metadata to check age
+                if let Ok(content) = tokio::fs::read_to_string(&cache_path).await {
+                    if let Ok(metadata) = serde_json::from_str::<serde_json::Value>(&content) {
+                        if let Some(timestamp_str) =
+                            metadata.get("timestamp").and_then(|v| v.as_str())
+                        {
+                            if let Ok(timestamp) =
+                                chrono::DateTime::parse_from_rfc3339(timestamp_str)
+                            {
+                                let age = chrono::Utc::now().signed_duration_since(timestamp);
+                                if age.num_seconds() < config.max_cache_age as i64 {
+                                    self.user_interaction.display_info(&format!(
+                                        "Using cached analysis (age: {}s, max: {}s)",
+                                        age.num_seconds(),
+                                        config.max_cache_age
+                                    ));
+                                    return Ok(());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Run the appropriate analysis type
+        self.user_interaction.display_progress(&format!(
+            "Running {} analysis{}...",
+            config.analysis_type,
+            if config.force_refresh {
+                " (forced refresh)"
+            } else {
+                ""
+            }
+        ));
+
+        match config.analysis_type.as_str() {
+            "context" => {
+                // Run context analysis only
+                let analysis = self
+                    .analysis_coordinator
+                    .analyze_project(&env.working_dir)
+                    .await?;
+                self.analysis_coordinator
+                    .save_analysis(&env.working_dir, &analysis)
+                    .await?;
+            }
+            "metrics" => {
+                // Run metrics analysis only
+                let metrics = self
+                    .metrics_coordinator
+                    .collect_all(&env.working_dir)
+                    .await?;
+                self.metrics_coordinator
+                    .store_metrics(&env.working_dir, &metrics)
+                    .await?;
+            }
+            "all" => {
+                // Run both context and metrics analysis
+                let analysis = self
+                    .analysis_coordinator
+                    .analyze_project(&env.working_dir)
+                    .await?;
+                self.analysis_coordinator
+                    .save_analysis(&env.working_dir, &analysis)
+                    .await?;
+
+                let metrics = self
+                    .metrics_coordinator
+                    .collect_all(&env.working_dir)
+                    .await?;
+                self.metrics_coordinator
+                    .store_metrics(&env.working_dir, &metrics)
+                    .await?;
+            }
+            _ => {
+                return Err(anyhow!(
+                    "Invalid analysis type: '{}'. Must be 'context', 'metrics', or 'all'",
+                    config.analysis_type
+                ));
+            }
+        }
+
+        // Commit analysis if in worktree mode
+        if env.worktree_name.is_some() {
+            // Check if there are changes to commit
+            let status_output = self
+                .subprocess
+                .runner()
+                .run(crate::subprocess::runner::ProcessCommand {
+                    program: "git".to_string(),
+                    args: vec!["status".to_string(), "--porcelain".to_string()],
+                    env: HashMap::new(),
+                    working_dir: Some(env.working_dir.clone()),
+                    timeout: None,
+                    stdin: None,
+                    suppress_stderr: false,
+                })
+                .await?;
+
+            if !status_output.stdout.is_empty() {
+                // Add and commit analysis changes
+                self.subprocess
+                    .runner()
+                    .run(crate::subprocess::runner::ProcessCommand {
+                        program: "git".to_string(),
+                        args: vec!["add".to_string(), ".mmm/".to_string()],
+                        env: HashMap::new(),
+                        working_dir: Some(env.working_dir.clone()),
+                        timeout: None,
+                        stdin: None,
+                        suppress_stderr: false,
+                    })
+                    .await?;
+
+                self.subprocess
+                    .runner()
+                    .run(crate::subprocess::runner::ProcessCommand {
+                        program: "git".to_string(),
+                        args: vec![
+                            "commit".to_string(),
+                            "-m".to_string(),
+                            "analysis: update project context".to_string(),
+                        ],
+                        env: HashMap::new(),
+                        working_dir: Some(env.working_dir.clone()),
+                        timeout: None,
+                        stdin: None,
+                        suppress_stderr: false,
+                    })
+                    .await?;
+
+                self.user_interaction
+                    .display_success("Analysis committed to git");
             }
         }
 

@@ -103,6 +103,7 @@ impl CommandRegistry {
                 continue_on_error: Some(false),
                 env: HashMap::new(),
                 commit_required: true,
+                analysis: None,
             },
         });
 
@@ -123,6 +124,7 @@ impl CommandRegistry {
                 continue_on_error: Some(false),
                 env: HashMap::new(),
                 commit_required: true,
+                analysis: None,
             },
         });
 
@@ -144,6 +146,7 @@ impl CommandRegistry {
                 continue_on_error: Some(true),
                 env: HashMap::new(),
                 commit_required: false,
+                analysis: None,
             },
         });
 
@@ -174,6 +177,7 @@ impl CommandRegistry {
                 continue_on_error: Some(false),
                 env: HashMap::new(),
                 commit_required: true,
+                analysis: None,
             },
         });
 
@@ -206,6 +210,7 @@ impl CommandRegistry {
                 continue_on_error: Some(false),
                 env: HashMap::new(),
                 commit_required: true,
+                analysis: None,
             },
         });
     }
