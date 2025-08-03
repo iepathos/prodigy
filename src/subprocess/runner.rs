@@ -207,7 +207,9 @@ impl ProcessRunner for TokioProcessRunner {
                 tracing::trace!("Stderr length: {} bytes", result.stderr.len());
             }
             ExitStatus::Error(code) => {
-                tracing::warn!(
+                // Use debug level for expected failures like cargo clean/test when no Cargo.toml exists
+                // This prevents noisy warnings during normal operation
+                tracing::debug!(
                     "Subprocess failed with exit code {} in {:?}: {} {}",
                     code,
                     duration,
@@ -215,7 +217,7 @@ impl ProcessRunner for TokioProcessRunner {
                     command.args.join(" ")
                 );
                 if !result.stderr.is_empty() {
-                    tracing::debug!("Stderr: {}", result.stderr);
+                    tracing::trace!("Stderr: {}", result.stderr);
                 }
             }
             ExitStatus::Signal(signal) => {
