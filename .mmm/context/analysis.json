@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "timestamp": "2025-08-03T03:08:44.989752Z",
-    "duration_ms": 82867,
+    "timestamp": "2025-08-03T03:51:53.016740Z",
+    "duration_ms": 0,
     "files_analyzed": 159,
     "incremental": false,
     "version": "0.1.0"
@@ -34,7 +34,7 @@
       "maintainability": 45.02133863223005,
       "type_safety": null
     },
-    "timestamp": "2025-08-03T03:22:58.069639Z"
+    "timestamp": "2025-08-03T03:51:53.016751Z"
   },
   "insights": [
     "Low test coverage (0.0%) with 0 untested functions",

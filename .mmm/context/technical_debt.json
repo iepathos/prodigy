@@ -2,13 +2,13 @@
   "statistics": {
     "total_items": 20,
     "by_type": {
+      "Complexity": 2,
       "Deprecated": 6,
-      "Fixme": 12,
-      "Complexity": 2
+      "Fixme": 12
     },
     "by_impact": {
-      "High": 8,
-      "Medium": 12
+      "Medium": 12,
+      "High": 8
     },
     "avg_impact": 7.4,
     "avg_effort": 3.2
@@ -283,7 +283,7 @@
       "primary_issue_type": "Fixme"
     },
     {
-      "file": "/Users/glen/memento-mori/mmm/src/context/hybrid_coverage.rs",
+      "file": "/Users/glen/memento-mori/mmm/src/main.rs",
       "total_issues": 1,
       "max_complexity": 0,
       "primary_issue_type": "Deprecated"
@@ -301,7 +301,7 @@
       "primary_issue_type": "Complexity"
     },
     {
-      "file": "/Users/glen/memento-mori/mmm/src/main.rs",
+      "file": "/Users/glen/memento-mori/mmm/src/context/hybrid_coverage.rs",
       "total_issues": 1,
       "max_complexity": 0,
       "primary_issue_type": "Deprecated"
