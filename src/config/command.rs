@@ -452,6 +452,7 @@ mod tests {
             name: "mmm-code-review".to_string(),
             commit_required: None,
             args: None,
+            analysis: None,
         });
         let cmd = simple_obj.to_command();
         assert_eq!(cmd.name, "mmm-code-review");
