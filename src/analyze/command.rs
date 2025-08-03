@@ -1,6 +1,7 @@
 //! Analyze command implementation
 
 use crate::context::{save_analysis_with_options, ContextAnalyzer, ProjectAnalyzer};
+use crate::subprocess::SubprocessManager;
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 
@@ -16,8 +17,16 @@ pub struct AnalyzeCommand {
     pub no_commit: bool,
 }
 
-/// Execute the analyze command
+/// Execute the analyze command with production subprocess manager
 pub async fn execute(cmd: AnalyzeCommand) -> Result<()> {
+    execute_with_subprocess(cmd, SubprocessManager::production()).await
+}
+
+/// Execute the analyze command with injected subprocess manager
+pub async fn execute_with_subprocess(
+    cmd: AnalyzeCommand,
+    subprocess: SubprocessManager,
+) -> Result<()> {
     let project_path = match cmd.path.clone() {
         Some(path) => path,
         None => std::env::current_dir().context("Failed to get current directory")?,
@@ -26,16 +35,16 @@ pub async fn execute(cmd: AnalyzeCommand) -> Result<()> {
     println!("🔍 Analyzing project at: {}", project_path.display());
 
     match cmd.analysis_type.as_str() {
-        "context" => run_context_analysis(&project_path, &cmd).await?,
-        "metrics" => run_metrics_analysis(&project_path, &cmd).await?,
+        "context" => run_context_analysis(&project_path, &cmd, subprocess).await?,
+        "metrics" => run_metrics_analysis(&project_path, &cmd, subprocess).await?,
         "all" => {
             // For "all" mode, we want to commit everything together
             // So we temporarily disable auto-commit for individual analyses
             let mut cmd_no_commit = cmd.clone();
             cmd_no_commit.no_commit = true;
             
-            run_context_analysis(&project_path, &cmd_no_commit).await?;
-            run_metrics_analysis(&project_path, &cmd_no_commit).await?;
+            run_context_analysis(&project_path, &cmd_no_commit, subprocess.clone()).await?;
+            run_metrics_analysis(&project_path, &cmd_no_commit, subprocess).await?;
             
             // Now commit everything together if save is enabled and no_commit is false
             if cmd.save && !cmd.no_commit {
@@ -53,7 +62,11 @@ pub async fn execute(cmd: AnalyzeCommand) -> Result<()> {
 }
 
 /// Run context analysis
-async fn run_context_analysis(project_path: &std::path::Path, cmd: &AnalyzeCommand) -> Result<()> {
+async fn run_context_analysis(
+    project_path: &std::path::Path,
+    cmd: &AnalyzeCommand,
+    _subprocess: SubprocessManager,
+) -> Result<()> {
     if cmd.verbose {
         println!("\n📊 Running context analysis...");
     }
@@ -102,14 +115,17 @@ async fn run_context_analysis(project_path: &std::path::Path, cmd: &AnalyzeComma
 }
 
 /// Run metrics analysis
-async fn run_metrics_analysis(project_path: &std::path::Path, cmd: &AnalyzeCommand) -> Result<()> {
+async fn run_metrics_analysis(
+    project_path: &std::path::Path,
+    cmd: &AnalyzeCommand,
+    subprocess: SubprocessManager,
+) -> Result<()> {
     if cmd.verbose {
         println!("\n📈 Running metrics analysis...");
     }
 
-    // Create metrics collector
-    let collector =
-        crate::metrics::MetricsCollector::new(crate::subprocess::SubprocessManager::production());
+    // Create metrics collector with injected subprocess
+    let collector = crate::metrics::MetricsCollector::new(subprocess);
 
     // Generate iteration ID (timestamp-based for now)
     let iteration_id = format!("manual-{}", chrono::Utc::now().timestamp());

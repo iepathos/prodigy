@@ -128,13 +128,12 @@ mod tests {
     use super::*;
     use std::fs;
     use tempfile::TempDir;
+    use crate::testing::test_mocks::{TestMockSetup, CargoMocks};
 
     #[tokio::test]
-    #[ignore = "Hangs waiting for external tools - needs timeout/mocking"]
     async fn test_collect_metrics_success() {
-        let collector = MetricsCollector::new(SubprocessManager::production());
         let temp_dir = TempDir::new().unwrap();
-
+        
         // Create a basic Rust project structure
         fs::create_dir_all(temp_dir.path().join("src")).unwrap();
         fs::write(
@@ -148,6 +147,12 @@ version = "0.1.0"
         .unwrap();
         fs::write(temp_dir.path().join("src/main.rs"), "fn main() {}").unwrap();
 
+        // Create mocked subprocess environment
+        let (subprocess, mut mock) = SubprocessManager::mock();
+        TestMockSetup::setup_metrics_collection(&mut mock);
+        
+        let collector = MetricsCollector::new(subprocess);
+
         let result = collector
             .collect_metrics(temp_dir.path(), "test-iteration".to_string())
             .await;
@@ -155,14 +160,47 @@ version = "0.1.0"
 
         let metrics = result.unwrap();
         assert_eq!(metrics.iteration_id, "test-iteration");
-        assert!(metrics.test_coverage >= 0.0);
+        // The quality analyzer returns percentage based on estimate_test_coverage
+        assert!(metrics.test_coverage >= 0.0 && metrics.test_coverage <= 100.0);
+        // Lint warnings count check - removed useless comparison since u32 is always >= 0
     }
 
     #[tokio::test]
-    #[ignore = "Hangs waiting for external tools - needs timeout/mocking"]
     async fn test_collect_metrics_analyzer_failure() {
-        let collector = MetricsCollector::new(SubprocessManager::production());
         let temp_dir = TempDir::new().unwrap();
+
+        // Create mocked subprocess environment with some failures
+        let (subprocess, mut mock) = SubprocessManager::mock();
+        
+        // Mock some commands to fail
+        mock.expect_command("cargo")
+            .with_args(|args| args.get(0) == Some(&"tarpaulin".to_string()))
+            .returns_stderr("error: cargo-tarpaulin not found")
+            .returns_exit_code(1)
+            .finish();
+            
+        // But clippy should still work
+        mock.expect_command("cargo")
+            .with_args(|args| args.get(0) == Some(&"clippy".to_string()))
+            .returns_stdout(&CargoMocks::clippy_output())
+            .returns_exit_code(0)
+            .finish();
+            
+        // And build should work
+        mock.expect_command("cargo")
+            .with_args(|args| args.get(0) == Some(&"build".to_string()))
+            .returns_stdout(&CargoMocks::build_success())
+            .returns_exit_code(0)
+            .finish();
+            
+        // Check should work
+        mock.expect_command("cargo")
+            .with_args(|args| args.get(0) == Some(&"check".to_string()))
+            .returns_stdout(&CargoMocks::check_success())
+            .returns_exit_code(0)
+            .finish();
+        
+        let collector = MetricsCollector::new(subprocess);
 
         // Create directory without Cargo.toml to trigger failures
         let result = collector
@@ -172,6 +210,9 @@ version = "0.1.0"
         // Should still return metrics even with some analyzer failures
         assert!(result.is_ok());
         let metrics = result.unwrap();
+        // Test coverage will be 0.0 when no project structure exists
         assert_eq!(metrics.test_coverage, 0.0);
+        // Lint warnings will be 0 without project structure
+        assert_eq!(metrics.lint_warnings, 0);
     }
 }

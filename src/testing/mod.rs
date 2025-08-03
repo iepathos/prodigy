@@ -3,6 +3,8 @@
 //! This module provides test helpers, fixtures, and utilities for
 //! comprehensive testing of the mmm codebase.
 
+pub mod test_mocks;
+
 use crate::abstractions::{ClaudeClient, GitOperations, MockClaudeClient, MockGitOperations};
 use anyhow::Result;
 use std::path::PathBuf;

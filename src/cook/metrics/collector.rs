@@ -4,6 +4,7 @@ use super::{MetricsCoordinator, ProjectMetrics};
 use crate::cook::execution::CommandRunner;
 use crate::cook::metrics::reporter::MetricsReporter;
 use crate::metrics::MetricsCollector;
+use crate::subprocess::SubprocessManager;
 use anyhow::Result;
 use async_trait::async_trait;
 use std::path::Path;
@@ -34,11 +35,16 @@ pub struct MetricsCollectorImpl<R: CommandRunner> {
 }
 
 impl<R: CommandRunner> MetricsCollectorImpl<R> {
-    /// Create a new metrics collector
+    /// Create a new metrics collector with production subprocess
     pub fn new(runner: R) -> Self {
+        Self::with_subprocess(runner, SubprocessManager::production())
+    }
+    
+    /// Create a new metrics collector with injected subprocess manager
+    pub fn with_subprocess(runner: R, subprocess: SubprocessManager) -> Self {
         Self {
             runner,
-            collector: MetricsCollector::new(crate::subprocess::SubprocessManager::production()),
+            collector: MetricsCollector::new(subprocess),
         }
     }
 }
@@ -231,6 +237,8 @@ impl<R: CommandRunner + 'static> MetricsCoordinator for MetricsCollectorImpl<R> 
 mod tests {
     use super::*;
     use crate::cook::execution::runner::tests::MockCommandRunner;
+    use crate::subprocess::SubprocessManager;
+    use crate::testing::test_mocks::TestMockSetup;
 
     #[tokio::test]
     async fn test_lint_warnings_collection() {
@@ -266,16 +274,51 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "Hangs waiting for external tools - needs timeout/mocking"]
     async fn test_metrics_collection() {
+        use tempfile::TempDir;
+        
+        let temp_dir = TempDir::new().unwrap();
+        // Create a minimal Cargo.toml to simulate a Rust project
+        let cargo_toml = temp_dir.path().join("Cargo.toml");
+        tokio::fs::write(
+            &cargo_toml,
+            "[package]\nname = \"test\"\nversion = \"0.1.0\"",
+        )
+        .await
+        .unwrap();
+
+        // Create mocked subprocess for underlying metrics collector
+        let (subprocess, mut mock) = SubprocessManager::mock();
+        TestMockSetup::setup_metrics_collection(&mut mock);
+
         let mock_runner = MockCommandRunner::new();
-        let collector = MetricsCollectorImpl::new(mock_runner);
+        
+        // Add mock response for clippy command that might be called by collect_lint_warnings
+        mock_runner.add_response(crate::cook::execution::ExecutionResult {
+            success: true,
+            stdout: r#"{"level":"warning","message":"test1"}
+{"level":"warning","message":"test2"}"#.to_string(),
+            stderr: String::new(),
+            exit_code: Some(0),
+        });
+        
+        // Add mock response for cargo build that might be called by collect_compile_metrics
+        mock_runner.add_response(crate::cook::execution::ExecutionResult {
+            success: true,
+            stdout: "Finished release [optimized] target(s) in 1.0s".to_string(),
+            stderr: String::new(),
+            exit_code: Some(0),
+        });
+        
+        let collector = MetricsCollectorImpl::with_subprocess(mock_runner, subprocess);
 
-        let metrics = collector.collect_all(Path::new("/tmp")).await.unwrap();
+        let metrics = collector.collect_all(temp_dir.path()).await.unwrap();
 
-        // Should have default values
-        assert_eq!(metrics.lint_warnings, 0);
-        assert!(metrics.test_coverage.is_none());
-        assert!(metrics.compile_time.is_none());
+        // Should have collected metrics from mocked subprocess
+        assert!(metrics.test_coverage.is_some());
+        let coverage = metrics.test_coverage.unwrap();
+        assert!(coverage >= 0.0 && coverage <= 100.0);
+        // Compile time may or may not be set depending on mock runner behavior
+        // We're not mocking the build command in MockCommandRunner
     }
 }
