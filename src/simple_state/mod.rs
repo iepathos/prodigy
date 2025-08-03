@@ -30,17 +30,16 @@
 //!
 //! # fn example() -> anyhow::Result<()> {
 //! let mut state_manager = StateManager::new()?;
-//! let project_path = PathBuf::from("/path/to/project");
 //!
-//! // Load or create project state
-//! let mut state = state_manager.load_or_create_state(&project_path)?;
+//! // Get mutable state
+//! let state = state_manager.state_mut();
 //!
 //! // Update state
 //! state.last_run = Some(chrono::Utc::now());
 //! state.total_runs += 1;
 //!
 //! // Save changes
-//! state_manager.save_state(&project_path, &state)?;
+//! state_manager.save()?;
 //! # Ok(())
 //! # }
 //! ```
@@ -64,7 +63,7 @@
 //! };
 //!
 //! // Save session history
-//! state_manager.save_session_record(&session)?;
+//! state_manager.record_session(session)?;
 //! # Ok(())
 //! # }
 //! ```

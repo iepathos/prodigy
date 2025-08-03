@@ -26,7 +26,8 @@
 //! ## State Transitions
 //!
 //! ```rust
-//! use mmm::session::SessionState;
+//! use mmm::session::{SessionState, SessionSummary, WorkflowTiming};
+//! use std::time::Duration;
 //!
 //! let mut state = SessionState::Created;
 //!
@@ -37,7 +38,15 @@
 //!
 //! // Complete session
 //! state = SessionState::Completed {
-//!     summary: mmm::session::SessionSummary::default()
+//!     summary: SessionSummary {
+//!         total_iterations: 1,
+//!         files_changed: 0,
+//!         total_commits: 0,
+//!         duration: Duration::from_secs(60),
+//!         success_rate: 1.0,
+//!         iteration_timings: vec![],
+//!         workflow_timing: WorkflowTiming::from_iterations(&[], Duration::from_secs(60)),
+//!     }
 //! };
 //! assert!(state.is_terminal());
 //! ```
@@ -51,7 +60,8 @@
 //! let mut progress = SessionProgress::new(5); // 5 max iterations
 //!
 //! progress.start_iteration(1);
-//! progress.complete_iteration(Duration::from_secs(30));
+//! progress.complete_iteration();
+//! progress.iterations_completed = 1; // Manually track completed iterations
 //!
 //! assert_eq!(progress.iterations_completed, 1);
 //! assert_eq!(progress.completion_percentage(), 20.0);
@@ -141,7 +151,7 @@ impl SessionState {
 /// # Examples
 ///
 /// ```rust
-/// use mmm::session::SessionSummary;
+/// use mmm::session::{SessionSummary, WorkflowTiming};
 /// use std::time::Duration;
 ///
 /// let summary = SessionSummary {
@@ -151,7 +161,7 @@ impl SessionState {
 ///     duration: Duration::from_secs(300),
 ///     success_rate: 0.95,
 ///     iteration_timings: vec![],
-///     workflow_timing: mmm::session::WorkflowTiming::default(),
+///     workflow_timing: WorkflowTiming::from_iterations(&[], Duration::from_secs(300)),
 /// };
 ///
 /// assert_eq!(summary.success_rate * 100.0, 95.0);

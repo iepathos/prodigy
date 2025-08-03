@@ -33,7 +33,7 @@
 //! let subprocess = SubprocessManager::production();
 //! let manager = WorktreeManager::new(PathBuf::from("/repo"), subprocess)?;
 //!
-//! let session = manager.create_session("feature-improvement").await?;
+//! let session = manager.create_session().await?;
 //! println!("Created session: {}", session.name);
 //! # Ok(())
 //! # }

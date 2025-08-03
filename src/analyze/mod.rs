@@ -51,6 +51,7 @@
 //!     verbose: false,
 //!     path: Some(PathBuf::from("/path/to/project")),
 //!     run_coverage: false,
+//!     no_commit: false,
 //! };
 //!
 //! mmm::analyze::run(cmd).await?;
@@ -71,6 +72,7 @@
 //!     verbose: true,
 //!     path: None, // Use current directory
 //!     run_coverage: true, // Run cargo-tarpaulin first
+//!     no_commit: false,
 //! };
 //!
 //! mmm::analyze::run(cmd).await?;

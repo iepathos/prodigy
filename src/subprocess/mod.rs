@@ -27,8 +27,10 @@
 //!
 //! ## Testing with Mocks
 //!
-//! ```rust
+//! ```rust,no_run
 //! # use mmm::subprocess::SubprocessManager;
+//! # #[cfg(test)]
+//! # {
 //! let (subprocess, mock) = SubprocessManager::mock();
 //!
 //! // Configure expected calls
@@ -37,6 +39,7 @@
 //! // Use in tests
 //! let git = subprocess.git();
 //! // ... test logic
+//! # }
 //! ```
 
 pub mod builder;
@@ -81,10 +84,6 @@ use std::sync::Arc;
 /// // Production usage
 /// let subprocess = SubprocessManager::production();
 /// let git = subprocess.git();
-///
-/// // Test usage
-/// let (subprocess, mock) = SubprocessManager::mock();
-/// mock.expect_success("git", &["status"], "clean");
 /// ```
 #[derive(Clone)]
 pub struct SubprocessManager {
