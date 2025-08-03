@@ -515,6 +515,30 @@ fn display_pretty_metrics_inline(metrics: &ImprovementMetrics) {
     }
 }
 
+/// Calculate the size of the analysis result when serialized
+fn calculate_context_size(analysis: &AnalysisResult) -> Result<usize> {
+    let serialized = serde_json::to_string(analysis)?;
+    Ok(serialized.len())
+}
+
+/// Format bytes into human-readable format
+fn format_bytes(bytes: usize) -> String {
+    const UNITS: &[&str] = &["B", "KB", "MB", "GB"];
+    let mut size = bytes as f64;
+    let mut unit_index = 0;
+
+    while size >= 1024.0 && unit_index < UNITS.len() - 1 {
+        size /= 1024.0;
+        unit_index += 1;
+    }
+
+    if unit_index == 0 {
+        format!("{} {}", bytes, UNITS[0])
+    } else {
+        format!("{:.2} {}", size, UNITS[unit_index])
+    }
+}
+
 /// Display context analysis in pretty format (inline version)
 fn display_pretty_analysis_inline(analysis: &AnalysisResult) {
     println!("\n📦 Dependencies:");
@@ -552,6 +576,12 @@ fn display_pretty_analysis_inline(analysis: &AnalysisResult) {
         "   Code duplication areas: {}",
         analysis.technical_debt.duplication_map.len()
     );
+
+    // Calculate context size
+    if let Ok(context_size) = calculate_context_size(analysis) {
+        println!("\n📏 Context Size:");
+        println!("   Serialized size: {}", format_bytes(context_size));
+    }
 
     let health_score = ProjectHealthScore::from_context(analysis);
     println!("\n📊 Context Health Score: {:.1}/100", health_score.overall);
