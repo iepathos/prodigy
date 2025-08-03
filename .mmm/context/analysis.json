@@ -11,7 +11,7 @@
     "architecture": "architecture.json",
     "conventions": "conventions.json",
     "technical_debt": "technical_debt.json",
-    "test_coverage": "test_coverage.json"
+    "test_coverage": null
   },
   "statistics": {
     "total_files": 161,
@@ -19,24 +19,25 @@
     "dependency_edges": 952,
     "circular_dependencies": 0,
     "architectural_violations": 1,
-    "debt_items": 246,
-    "high_priority_debt": 31,
-    "overall_coverage": 61.431087,
+    "debt_items": 20,
+    "high_priority_debt": 20,
+    "overall_coverage": 0.0,
     "untested_functions": 0,
     "critical_untested": 0
   },
   "health_score": {
-    "overall": 2294.8295210526317,
+    "overall": 64.59222443009585,
     "components": {
-      "test_coverage": 6143.1087,
+      "test_coverage": null,
       "code_quality": 78.0,
       "documentation": 80.0,
-      "maintainability": 10.0,
+      "maintainability": 45.02133863223005,
       "type_safety": null
     },
-    "timestamp": "2025-08-03T07:26:58.087588Z"
+    "timestamp": "2025-08-03T07:34:43.086327Z"
   },
   "insights": [
-    "31 high-priority technical debt items require attention"
+    "Low test coverage (0.0%) with 0 untested functions",
+    "20 high-priority technical debt items require attention"
   ]
 }
