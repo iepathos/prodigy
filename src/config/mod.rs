@@ -604,4 +604,31 @@ commands:
         assert!(global.claude_api_key.is_none());
         assert!(global.plugins.is_none());
     }
+
+    #[test]
+    fn test_get_global_mmm_dir_success() {
+        // Test normal operation
+        let result = get_global_mmm_dir();
+        assert!(result.is_ok());
+
+        let path = result.unwrap();
+        assert!(path.is_absolute());
+        assert!(path.to_string_lossy().contains("mmm"));
+    }
+
+    #[test]
+    fn test_get_global_mmm_dir_path_structure() {
+        // Test path structure is correct
+        let path = get_global_mmm_dir().unwrap();
+
+        // The path ends with the full app identifier "com.mmm.mmm" on most platforms
+        let file_name = path.file_name().unwrap().to_string_lossy();
+        assert!(
+            file_name == "com.mmm.mmm" || file_name == "mmm",
+            "Expected directory name to be 'com.mmm.mmm' or 'mmm', got '{file_name}'"
+        );
+
+        // Should be an absolute path
+        assert!(path.is_absolute());
+    }
 }

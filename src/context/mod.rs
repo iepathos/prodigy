@@ -288,20 +288,26 @@ fn load_test_coverage(context_dir: &Path) -> Result<Option<TestCoverageMap>> {
     }
 
     let content = std::fs::read_to_string(&coverage_path)?;
-    
+
     // Try to parse as TestCoverageMap first
     if let Ok(coverage_map) = serde_json::from_str::<TestCoverageMap>(&content) {
-        eprintln!("📊 Loaded test coverage data ({} files)", coverage_map.file_coverage.len());
+        eprintln!(
+            "📊 Loaded test coverage data ({} files)",
+            coverage_map.file_coverage.len()
+        );
         return Ok(Some(coverage_map));
     }
-    
+
     // If that fails, try to parse as TestCoverageSummary and convert
     if let Ok(summary) = serde_json::from_str::<summary::TestCoverageSummary>(&content) {
-        eprintln!("📊 Loaded test coverage summary (overall: {:.1}%)", summary.overall_coverage * 100.0);
-        
+        eprintln!(
+            "📊 Loaded test coverage summary (overall: {:.1}%)",
+            summary.overall_coverage * 100.0
+        );
+
         // Convert summary back to a basic TestCoverageMap
         let mut file_coverage = HashMap::new();
-        
+
         // Convert summary format to full format
         for (path, summary_cov) in summary.file_coverage {
             file_coverage.insert(
@@ -309,25 +315,28 @@ fn load_test_coverage(context_dir: &Path) -> Result<Option<TestCoverageMap>> {
                 FileCoverage {
                     path,
                     coverage_percentage: summary_cov.coverage_percentage,
-                    tested_lines: 0, // Not available in summary
-                    total_lines: 0,  // Not available in summary
+                    tested_lines: 0,     // Not available in summary
+                    total_lines: 0,      // Not available in summary
                     tested_functions: 0, // Not available in summary
                     total_functions: summary_cov.untested_count as u32, // Approximate
                     has_tests: summary_cov.has_tests,
                 },
             );
         }
-        
+
         return Ok(Some(TestCoverageMap {
             file_coverage,
             untested_functions: Vec::new(), // Not available in summary
-            critical_paths: Vec::new(), // Not available in summary
+            critical_paths: Vec::new(),     // Not available in summary
             overall_coverage: summary.overall_coverage,
         }));
     }
-    
+
     // If parsing fails, log the error
-    eprintln!("⚠️  Failed to parse test coverage data from {}", coverage_path.display());
+    eprintln!(
+        "⚠️  Failed to parse test coverage data from {}",
+        coverage_path.display()
+    );
     Ok(None)
 }
 
@@ -486,7 +495,7 @@ fn save_technical_debt_summary(context_dir: &Path, debt: &TechnicalDebtMap) -> R
 /// Save test coverage summary
 pub fn save_test_coverage_summary(context_dir: &Path, coverage: &TestCoverageMap) -> Result<()> {
     let coverage_file = context_dir.join("test_coverage.json");
-    
+
     // Check if we have detailed coverage data
     if coverage.file_coverage.is_empty() && coverage.untested_functions.is_empty() {
         // This is minimal coverage data from metrics, save as summary
@@ -507,7 +516,7 @@ pub fn save_test_coverage_summary(context_dir: &Path, coverage: &TestCoverageMap
             coverage.untested_functions.len()
         );
     }
-    
+
     Ok(())
 }
 
@@ -727,5 +736,72 @@ mod tests {
         let coverage: Option<TestCoverageMap> = None;
         let serialized = serde_json::to_string(&coverage).unwrap();
         assert_eq!(serialized, "null");
+    }
+
+    #[test]
+    fn test_save_test_coverage_summary_minimal_data() {
+        // Test saving minimal coverage data from metrics
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let context_dir = temp_dir.path();
+
+        let coverage = TestCoverageMap {
+            overall_coverage: 0.75,
+            file_coverage: HashMap::new(),
+            untested_functions: vec![],
+            critical_paths: vec![],
+        };
+
+        let result = save_test_coverage_summary(context_dir, &coverage);
+        assert!(result.is_ok());
+
+        let coverage_file = context_dir.join("test_coverage.json");
+        assert!(coverage_file.exists());
+
+        let content = std::fs::read_to_string(&coverage_file).unwrap();
+        assert!(content.contains("0.75"));
+    }
+
+    #[test]
+    fn test_save_test_coverage_summary_detailed_data() {
+        use crate::context::test_coverage::{Criticality, FileCoverage, UntestedFunction};
+        use std::path::PathBuf;
+
+        // Test saving detailed coverage data
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let context_dir = temp_dir.path();
+
+        let mut file_coverage = HashMap::new();
+        file_coverage.insert(
+            PathBuf::from("src/main.rs"),
+            FileCoverage {
+                path: PathBuf::from("src/main.rs"),
+                coverage_percentage: 0.85,
+                tested_lines: 120,
+                total_lines: 141,
+                tested_functions: 5,
+                total_functions: 6,
+                has_tests: true,
+            },
+        );
+
+        let coverage = TestCoverageMap {
+            overall_coverage: 0.85,
+            file_coverage,
+            untested_functions: vec![UntestedFunction {
+                file: PathBuf::from("src/main.rs"),
+                name: "run".to_string(),
+                line_number: 45,
+                criticality: Criticality::High,
+            }],
+            critical_paths: vec![],
+        };
+
+        let result = save_test_coverage_summary(context_dir, &coverage);
+        assert!(result.is_ok());
+
+        let coverage_file = context_dir.join("test_coverage.json");
+        let content = std::fs::read_to_string(&coverage_file).unwrap();
+        assert!(content.contains("src/main.rs"));
+        assert!(content.contains("run"));
     }
 }

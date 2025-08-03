@@ -227,3 +227,35 @@ impl Default for PerformanceProfiler {
         Self::new(SubprocessManager::production())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[tokio::test]
+    async fn test_performance_profile_success() {
+        // Test normal operation
+        let temp_dir = TempDir::new().unwrap();
+        let profiler = PerformanceProfiler::new(SubprocessManager::production());
+        let result = profiler.profile(temp_dir.path()).await;
+
+        assert!(result.is_ok());
+        let metrics = result.unwrap();
+        assert!(metrics.compile_time > Duration::ZERO);
+        // binary_size is always >= 0 since it's a u64
+    }
+
+    #[tokio::test]
+    async fn test_performance_profile_no_cargo_toml() {
+        // Test error conditions
+        let temp_dir = TempDir::new().unwrap();
+        let profiler = PerformanceProfiler::new(SubprocessManager::production());
+        let result = profiler.profile(temp_dir.path()).await;
+
+        // Should handle missing Cargo.toml gracefully
+        assert!(result.is_ok());
+        let metrics = result.unwrap();
+        assert!(metrics.compile_time == Duration::from_secs(60)); // Default duration when build fails
+    }
+}

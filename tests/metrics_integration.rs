@@ -286,3 +286,50 @@ Timestamp: {}
     assert!(saved_report.contains("Test Coverage: 75.5%"));
     assert!(saved_report.contains("Total Lines: 1234"));
 }
+
+#[tokio::test]
+async fn test_metrics_integration() {
+    // Test full metrics workflow
+    let temp_dir = TempDir::new().unwrap();
+    let project_path = temp_dir.path();
+
+    // Create project structure
+    std::fs::create_dir_all(project_path.join(".mmm/metrics")).unwrap();
+
+    // Test loading empty history
+    let history = mmm::metrics::storage::load_metrics_history(project_path)
+        .await
+        .unwrap();
+    assert_eq!(history.snapshots.len(), 0);
+
+    // Test saving and loading metrics
+    let metrics = mmm::metrics::ImprovementMetrics {
+        test_coverage: 75.5,
+        type_coverage: 90.0,
+        ..Default::default()
+    };
+
+    let snapshot = mmm::metrics::MetricsSnapshot {
+        metrics,
+        iteration: 1,
+        commit_sha: "abc123".to_string(),
+    };
+
+    // Save metrics
+    let mut history = MetricsHistory::new();
+    history.snapshots.push(snapshot);
+
+    let history_path = project_path.join(".mmm/metrics/history.json");
+    fs::write(
+        &history_path,
+        serde_json::to_string_pretty(&history).unwrap(),
+    )
+    .unwrap();
+
+    // Load and verify
+    let loaded = mmm::metrics::storage::load_metrics_history(project_path)
+        .await
+        .unwrap();
+    assert_eq!(loaded.snapshots.len(), 1);
+    assert_eq!(loaded.snapshots[0].metrics.test_coverage, 75.5);
+}

@@ -88,7 +88,6 @@ pub struct AnalysisConfigBuilder {
     config: AnalysisConfig,
 }
 
-
 impl AnalysisConfigBuilder {
     /// Create a new builder
     pub fn new() -> Self {
@@ -862,5 +861,65 @@ mod tests {
 
         let lint_suggestion = suggestions.iter().any(|s| s.title.contains("lint"));
         assert!(lint_suggestion);
+    }
+
+    #[tokio::test]
+    async fn test_run_analysis_error_cases() {
+        // Test error handling - the function returns Ok with empty results for non-existent paths
+        let temp_dir = TempDir::new().unwrap();
+        let non_existent = temp_dir.path().join("non-existent");
+
+        let config = AnalysisConfig::builder()
+            .output_format(OutputFormat::Summary)
+            .save_results(false)
+            .verbose(false)
+            .build();
+
+        let subprocess = SubprocessManager::production();
+        let progress = Arc::new(MockProgressReporter::new());
+
+        let result = run_analysis(&non_existent, config, subprocess, progress).await;
+
+        // The function handles missing projects gracefully, returning Ok with results
+        assert!(result.is_ok());
+        let results = result.unwrap();
+        // Metrics should exist (with default values) but context might be None
+        assert!(results.metrics.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_run_analysis_with_options() {
+        // Test with various analysis options
+        let temp_dir = TempDir::new().unwrap();
+
+        // Create a simple Rust project
+        std::fs::write(
+            temp_dir.path().join("Cargo.toml"),
+            r#"
+            [package]
+            name = "test"
+            version = "0.1.0"
+        "#,
+        )
+        .unwrap();
+
+        std::fs::create_dir(temp_dir.path().join("src")).unwrap();
+        std::fs::write(temp_dir.path().join("src/lib.rs"), "pub fn test() {}").unwrap();
+
+        let config = AnalysisConfig::builder()
+            .output_format(OutputFormat::Json)
+            .save_results(false)
+            .run_metrics(true)
+            .run_context(true)
+            .force_refresh(true)
+            .verbose(false)
+            .build();
+
+        let subprocess = SubprocessManager::production();
+        let progress = Arc::new(MockProgressReporter::new());
+
+        let result = run_analysis(temp_dir.path(), config, subprocess, progress).await;
+
+        assert!(result.is_ok());
     }
 }

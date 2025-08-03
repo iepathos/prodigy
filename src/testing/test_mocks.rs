@@ -218,7 +218,8 @@ impl TestMockSetup {
         // Cargo build for compile time
         mock.expect_command("cargo")
             .with_args(|args| {
-                args.first() == Some(&"build".to_string()) && args.contains(&"--release".to_string())
+                args.first() == Some(&"build".to_string())
+                    && args.contains(&"--release".to_string())
             })
             .returns_stdout(&CargoMocks::build_success())
             .returns_exit_code(0)
@@ -304,7 +305,8 @@ impl TestMockSetup {
         // Build for compile time
         mock.expect_command("cargo")
             .with_args(|args| {
-                args.first() == Some(&"build".to_string()) && args.contains(&"--release".to_string())
+                args.first() == Some(&"build".to_string())
+                    && args.contains(&"--release".to_string())
             })
             .returns_stdout(&CargoMocks::build_success())
             .returns_exit_code(0)

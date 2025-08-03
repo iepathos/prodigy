@@ -531,3 +531,133 @@ impl DependencyGraphSummary {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_analysis_summary_from_analysis() {
+        // Test normal operation
+        let analysis = create_test_analysis();
+        let summary = AnalysisSummary::from_analysis(&analysis);
+
+        assert!(summary.statistics.total_files > 0);
+        assert!(summary.health_score.is_some());
+        assert!(!summary.insights.is_empty());
+    }
+
+    #[test]
+    fn test_analysis_summary_empty_analysis() {
+        // Test with empty analysis
+        let analysis = AnalysisResult {
+            dependency_graph: super::super::dependencies::DependencyGraph {
+                nodes: HashMap::new(),
+                edges: vec![],
+                cycles: vec![],
+                layers: vec![],
+            },
+            architecture: super::super::ArchitectureInfo {
+                patterns: vec![],
+                layers: vec![],
+                components: HashMap::new(),
+                violations: vec![],
+            },
+            conventions: super::super::conventions::ProjectConventions {
+                naming_patterns: super::super::conventions::NamingRules {
+                    file_naming: super::super::conventions::NamingStyle::SnakeCase,
+                    function_naming: super::super::conventions::NamingStyle::SnakeCase,
+                    variable_naming: super::super::conventions::NamingStyle::SnakeCase,
+                    type_naming: super::super::conventions::NamingStyle::PascalCase,
+                    constant_naming: super::super::conventions::NamingStyle::ScreamingSnakeCase,
+                },
+                code_patterns: HashMap::new(),
+                test_patterns: super::super::conventions::TestingConventions {
+                    test_file_pattern: "test_".to_string(),
+                    test_function_prefix: "test_".to_string(),
+                    test_module_pattern: "tests".to_string(),
+                    assertion_style: "assert".to_string(),
+                },
+                project_idioms: vec![],
+            },
+            technical_debt: super::super::debt::TechnicalDebtMap {
+                debt_items: vec![],
+                hotspots: vec![],
+                duplication_map: HashMap::new(),
+                priority_queue: std::collections::BinaryHeap::new(),
+            },
+            test_coverage: None,
+            metadata: super::super::AnalysisMetadata {
+                timestamp: chrono::Utc::now(),
+                duration_ms: 0,
+                files_analyzed: 0,
+                incremental: false,
+                version: "1.0.0".to_string(),
+            },
+        };
+        let summary = AnalysisSummary::from_analysis(&analysis);
+
+        assert_eq!(summary.statistics.total_files, 0);
+        assert_eq!(summary.statistics.debt_items, 0);
+    }
+
+    fn create_test_analysis() -> AnalysisResult {
+        use super::super::debt::{DebtItem, DebtType, TechnicalDebtMap};
+
+        AnalysisResult {
+            metadata: super::super::AnalysisMetadata {
+                timestamp: chrono::Utc::now(),
+                duration_ms: 100,
+                files_analyzed: 10,
+                incremental: false,
+                version: "1.0.0".to_string(),
+            },
+            dependency_graph: super::super::dependencies::DependencyGraph {
+                nodes: HashMap::new(),
+                edges: vec![],
+                cycles: vec![],
+                layers: vec![],
+            },
+            architecture: super::super::ArchitectureInfo {
+                patterns: vec![],
+                layers: vec![],
+                components: HashMap::new(),
+                violations: vec![],
+            },
+            conventions: super::super::conventions::ProjectConventions {
+                naming_patterns: super::super::conventions::NamingRules {
+                    file_naming: super::super::conventions::NamingStyle::SnakeCase,
+                    function_naming: super::super::conventions::NamingStyle::SnakeCase,
+                    variable_naming: super::super::conventions::NamingStyle::SnakeCase,
+                    type_naming: super::super::conventions::NamingStyle::PascalCase,
+                    constant_naming: super::super::conventions::NamingStyle::ScreamingSnakeCase,
+                },
+                code_patterns: HashMap::new(),
+                test_patterns: super::super::conventions::TestingConventions {
+                    test_file_pattern: "test_".to_string(),
+                    test_function_prefix: "test_".to_string(),
+                    test_module_pattern: "tests".to_string(),
+                    assertion_style: "assert".to_string(),
+                },
+                project_idioms: vec![],
+            },
+            technical_debt: TechnicalDebtMap {
+                debt_items: vec![DebtItem {
+                    id: "test-debt-1".to_string(),
+                    title: "Test debt".to_string(),
+                    description: "Test description".to_string(),
+                    debt_type: DebtType::Complexity,
+                    location: PathBuf::from("test.rs"),
+                    line_number: Some(10),
+                    impact: 8,
+                    effort: 3,
+                    tags: vec![],
+                }],
+                hotspots: vec![],
+                duplication_map: HashMap::new(),
+                priority_queue: std::collections::BinaryHeap::new(),
+            },
+            test_coverage: None,
+        }
+    }
+}

@@ -482,4 +482,61 @@ mod tests {
             .insert("max-issues".to_string(), serde_json::json!("not-a-number"));
         assert!(registry.validate_command(&cmd).is_err());
     }
+
+    #[test]
+    fn test_validate_command_valid() {
+        // Test validating a valid command
+        let command = Command {
+            name: "mmm-code-review".to_string(),
+            args: vec![],
+            options: HashMap::new(),
+            metadata: CommandMetadata::default(),
+            id: None,
+            outputs: None,
+            inputs: None,
+            analysis: None,
+        };
+
+        let result = validate_command(&command);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_command_invalid_name() {
+        // Test error for invalid command name
+        let command = Command {
+            name: "".to_string(),
+            args: vec![],
+            options: HashMap::new(),
+            metadata: CommandMetadata::default(),
+            id: None,
+            outputs: None,
+            inputs: None,
+            analysis: None,
+        };
+
+        let result = validate_command(&command);
+        assert!(result.is_err());
+        // Empty name is treated as unknown command
+        assert!(result.unwrap_err().to_string().contains("Unknown command"));
+    }
+
+    #[test]
+    fn test_validate_command_empty_command() {
+        // Test error for unknown command
+        let command = Command {
+            name: "test-command".to_string(),
+            args: vec![],
+            options: HashMap::new(),
+            metadata: CommandMetadata::default(),
+            id: None,
+            outputs: None,
+            inputs: None,
+            analysis: None,
+        };
+
+        let result = validate_command(&command);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Unknown command"));
+    }
 }

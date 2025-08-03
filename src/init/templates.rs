@@ -58,3 +58,46 @@ pub fn get_templates_by_names(names: &[String]) -> Vec<CommandTemplate> {
         .filter(|t| name_set.contains_key(t.name))
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_all_templates_success() {
+        // Test normal operation
+        let templates = get_all_templates();
+
+        // Verify expected templates are present
+        assert!(templates.len() >= 4); // At least the core templates
+
+        let template_names: Vec<&str> = templates.iter().map(|t| t.name).collect();
+        assert!(template_names.contains(&"mmm-code-review"));
+        assert!(template_names.contains(&"mmm-implement-spec"));
+        assert!(template_names.contains(&"mmm-lint"));
+        assert!(template_names.contains(&"mmm-cleanup-tech-debt"));
+
+        // Verify each template has required fields
+        for template in &templates {
+            assert!(!template.name.is_empty());
+            assert!(!template.description.is_empty());
+            assert!(!template.content.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_get_templates_by_names() {
+        // Test filtering templates by name
+        let names = vec!["mmm-code-review".to_string(), "mmm-lint".to_string()];
+        let templates = get_templates_by_names(&names);
+
+        assert_eq!(templates.len(), 2);
+        assert_eq!(templates[0].name, "mmm-code-review");
+        assert_eq!(templates[1].name, "mmm-lint");
+
+        // Test with non-existent template
+        let names = vec!["non-existent".to_string()];
+        let templates = get_templates_by_names(&names);
+        assert_eq!(templates.len(), 0);
+    }
+}

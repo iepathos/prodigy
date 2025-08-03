@@ -202,4 +202,35 @@ mod tests {
         );
         assert_eq!(cmd.options.get("verbose"), Some(&serde_json::json!(true)));
     }
+
+    #[test]
+    fn test_parse_command_string_simple() {
+        // Test parsing a simple command string
+        let result = parse_command_string("echo hello");
+        assert!(result.is_ok());
+
+        let command = result.unwrap();
+        assert_eq!(command.name, "echo");
+        assert_eq!(command.args.len(), 1);
+        assert_eq!(command.args[0], CommandArg::Literal("hello".to_string()));
+    }
+
+    #[test]
+    fn test_parse_command_string_with_variables() {
+        // Test parsing command with variables
+        let result = parse_command_string("echo ${USER}");
+        assert!(result.is_ok());
+
+        let command = result.unwrap();
+        assert_eq!(command.name, "echo");
+        assert_eq!(command.args.len(), 1);
+        assert_eq!(command.args[0], CommandArg::Variable("USER".to_string()));
+    }
+
+    #[test]
+    fn test_parse_command_string_empty() {
+        // Test error for empty string
+        let result = parse_command_string("");
+        assert!(result.is_err());
+    }
 }
