@@ -262,9 +262,22 @@ mod tests {
         fs::create_dir_all(temp_dir.path().join("src")).unwrap();
         fs::write(temp_dir.path().join("src/main.py"), "print('Hello')").unwrap();
 
-        // Create mocked subprocess environment
+        // Create mocked subprocess environment that simulates non-Rust project
         let (subprocess, mut mock) = SubprocessManager::mock();
-        TestMockSetup::setup_successful_analysis(&mut mock);
+        
+        // Cargo commands should fail in non-Rust projects
+        mock.expect_command("cargo")
+            .with_args(|args| args.get(0) == Some(&"check".to_string()))
+            .returns_stderr("error: could not find `Cargo.toml` in `/path` or any parent directory")
+            .returns_exit_code(101)
+            .finish();
+            
+        // Git might still work
+        mock.expect_command("git")
+            .with_args(|args| args.get(0) == Some(&"status".to_string()))
+            .returns_stdout("")
+            .returns_exit_code(0)
+            .finish();
 
         let cmd = AnalyzeCommand {
                 output: "json".to_string(),
