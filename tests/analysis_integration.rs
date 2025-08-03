@@ -1,7 +1,5 @@
-use mmm::context::AnalysisResult;
 use mmm::cook::analysis::cache::{AnalysisCache, AnalysisCacheImpl};
 use mmm::cook::analysis::runner::{AnalysisRunner, AnalysisRunnerImpl};
-use mmm::cook::analysis::AnalysisCoordinator;
 use mmm::cook::execution::{CommandRunner, ExecutionContext, ExecutionResult};
 use std::os::unix::process::ExitStatusExt;
 use tempfile::TempDir;

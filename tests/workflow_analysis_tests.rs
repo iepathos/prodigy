@@ -18,12 +18,10 @@ commands:
   
   - name: mmm-code-review
     analysis:
-      analysis_types: ["context", "metrics"]
       max_cache_age: 300
   
   - name: mmm-cleanup-tech-debt
     analysis:
-      analysis_types: ["metrics"]
       force_refresh: true
 "#;
 
@@ -46,7 +44,6 @@ commands:
     assert_eq!(cmd3.name, "mmm-code-review");
     assert!(cmd3.analysis.is_some());
     let analysis3 = cmd3.analysis.unwrap();
-    assert_eq!(analysis3.analysis_types, vec!["context", "metrics"]);
     assert_eq!(analysis3.max_cache_age, 300);
     assert!(!analysis3.force_refresh);
 
@@ -55,32 +52,27 @@ commands:
     assert_eq!(cmd4.name, "mmm-cleanup-tech-debt");
     assert!(cmd4.analysis.is_some());
     let analysis4 = cmd4.analysis.unwrap();
-    assert_eq!(analysis4.analysis_types, vec!["metrics"]);
     assert!(analysis4.force_refresh);
 }
 
 #[test]
 fn test_analysis_config_deserialization() {
     let json = r#"{
-        "analysis_types": ["context"],
         "force_refresh": false,
         "max_cache_age": 600
     }"#;
 
     let config: AnalysisConfig = serde_json::from_str(json).unwrap();
-    assert_eq!(config.analysis_types, vec!["context"]);
     assert!(!config.force_refresh);
     assert_eq!(config.max_cache_age, 600);
 
     // Test with multiple types
     let json_multi = r#"{
-        "analysis_types": ["context", "metrics"],
         "force_refresh": true,
         "max_cache_age": 300
     }"#;
 
     let config_multi: AnalysisConfig = serde_json::from_str(json_multi).unwrap();
-    assert_eq!(config_multi.analysis_types, vec!["context", "metrics"]);
     assert!(config_multi.force_refresh);
     assert_eq!(config_multi.max_cache_age, 300);
 
@@ -90,15 +82,13 @@ fn test_analysis_config_deserialization() {
         "max_cache_age": 600
     }"#;
 
-    let config_default: AnalysisConfig = serde_json::from_str(json_default).unwrap();
-    assert_eq!(config_default.analysis_types, vec!["context"]);
+    let _config_default: AnalysisConfig = serde_json::from_str(json_default).unwrap();
 }
 
 #[test]
 fn test_command_with_top_level_analysis() {
     let mut cmd = Command::new("mmm-test");
     cmd.analysis = Some(AnalysisConfig {
-        analysis_types: vec!["context".to_string(), "metrics".to_string()],
         force_refresh: true,
         max_cache_age: 120,
     });
@@ -107,7 +97,6 @@ fn test_command_with_top_level_analysis() {
     assert!(cmd.analysis.is_some());
 
     let analysis = cmd.analysis.as_ref().unwrap();
-    assert_eq!(analysis.analysis_types, vec!["context", "metrics"]);
     assert!(analysis.force_refresh);
     assert_eq!(analysis.max_cache_age, 120);
 }
@@ -116,7 +105,6 @@ fn test_command_with_top_level_analysis() {
 fn test_structured_command_with_analysis() {
     let mut cmd = Command::new("mmm-test");
     cmd.analysis = Some(AnalysisConfig {
-        analysis_types: vec!["metrics".to_string()],
         force_refresh: false,
         max_cache_age: 300,
     });
@@ -126,49 +114,36 @@ fn test_structured_command_with_analysis() {
 
     assert_eq!(converted.name, "mmm-test");
     assert!(converted.analysis.is_some());
-    assert_eq!(
-        converted.analysis.as_ref().unwrap().analysis_types,
-        vec!["metrics"]
-    );
 }
 
 #[test]
 fn test_analysis_types_validation() {
     // Test single type
     let config_single = AnalysisConfig {
-        analysis_types: vec!["context".to_string()],
         force_refresh: false,
         max_cache_age: 300,
     };
 
     let json = serde_json::to_string(&config_single).unwrap();
-    let deserialized: AnalysisConfig = serde_json::from_str(&json).unwrap();
-    assert_eq!(deserialized.analysis_types, vec!["context"]);
+    let _deserialized: AnalysisConfig = serde_json::from_str(&json).unwrap();
 
     // Test multiple types
     let config_multi = AnalysisConfig {
-        analysis_types: vec!["context".to_string(), "metrics".to_string()],
         force_refresh: false,
         max_cache_age: 300,
     };
 
     let json_multi = serde_json::to_string(&config_multi).unwrap();
-    let deserialized_multi: AnalysisConfig = serde_json::from_str(&json_multi).unwrap();
-    assert_eq!(
-        deserialized_multi.analysis_types,
-        vec!["context", "metrics"]
-    );
+    let _deserialized_multi: AnalysisConfig = serde_json::from_str(&json_multi).unwrap();
 
     // Test empty types (should use default)
     let config_empty = AnalysisConfig {
-        analysis_types: vec![],
         force_refresh: false,
         max_cache_age: 300,
     };
 
     let json_empty = serde_json::to_string(&config_empty).unwrap();
-    let deserialized_empty: AnalysisConfig = serde_json::from_str(&json_empty).unwrap();
-    assert_eq!(deserialized_empty.analysis_types, Vec::<String>::new());
+    let _deserialized_empty: AnalysisConfig = serde_json::from_str(&json_empty).unwrap();
 }
 
 #[test]
@@ -195,7 +170,6 @@ fn test_workflow_has_analysis_detection() {
     // Workflow with analysis
     let mut cmd_with_analysis = Command::new("mmm-code-review");
     cmd_with_analysis.analysis = Some(AnalysisConfig {
-        analysis_types: vec!["context".to_string(), "metrics".to_string()],
         force_refresh: false,
         max_cache_age: 300,
     });
@@ -226,7 +200,6 @@ commands:
   - name: mmm-test
     commit_required: false
     analysis:
-      analysis_types: ["metrics"]
       force_refresh: true
 "#;
 
@@ -238,7 +211,6 @@ commands:
     assert_eq!(cmd1.name, "mmm-code-review");
     assert!(cmd1.analysis.is_some());
     let analysis1 = cmd1.analysis.unwrap();
-    assert_eq!(analysis1.analysis_types, vec!["context"]);
     assert_eq!(analysis1.max_cache_age, 300);
     assert!(!analysis1.force_refresh);
 
@@ -248,7 +220,6 @@ commands:
     assert!(!cmd2.metadata.commit_required);
     assert!(cmd2.analysis.is_some());
     let analysis2 = cmd2.analysis.unwrap();
-    assert_eq!(analysis2.analysis_types, vec!["metrics"]);
     assert!(analysis2.force_refresh);
 }
 
@@ -259,7 +230,6 @@ commands:
   - name: mmm-code-review
     metadata:
       analysis:
-        analysis_types: ["context"]
         max_cache_age: 300
 "#;
 
@@ -273,6 +243,5 @@ commands:
     assert!(cmd.metadata.analysis.is_some());
 
     let analysis = cmd.analysis.unwrap();
-    assert_eq!(analysis.analysis_types, vec!["context"]);
     assert_eq!(analysis.max_cache_age, 300);
 }
