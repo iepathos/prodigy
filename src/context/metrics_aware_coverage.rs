@@ -20,31 +20,81 @@ impl MetricsAwareCoverageAnalyzer {
         &self,
         project_path: &Path,
     ) -> Result<Option<TestCoverageMap>> {
-        let coverage_file = project_path.join(".mmm/context/test_coverage.json");
+        let context_dir = project_path.join(".mmm/context");
+        let coverage_map_file = context_dir.join("test_coverage.json");
+        let coverage_summary_file = context_dir.join("test_coverage_summary.json");
 
-        if !coverage_file.exists() {
-            eprintln!(
-                "⚠️  No test coverage data found at {}",
-                coverage_file.display()
-            );
-            return Ok(None);
+        // First try to load the full coverage map
+        if coverage_map_file.exists() {
+            let content = tokio::fs::read_to_string(&coverage_map_file)
+                .await
+                .with_context(|| {
+                    format!(
+                        "Failed to read coverage file: {}",
+                        coverage_map_file.display()
+                    )
+                })?;
+
+            if let Ok(coverage_map) = serde_json::from_str::<TestCoverageMap>(&content) {
+                eprintln!(
+                    "✅ Loaded test coverage data: {:.1}% overall coverage ({} files)",
+                    coverage_map.overall_coverage * 100.0,
+                    coverage_map.file_coverage.len()
+                );
+                return Ok(Some(coverage_map));
+            }
         }
 
-        // Read and parse the coverage data
-        let content = tokio::fs::read_to_string(&coverage_file)
-            .await
-            .with_context(|| {
-                format!("Failed to read coverage file: {}", coverage_file.display())
-            })?;
+        // If no full map exists, try to load the summary
+        if coverage_summary_file.exists() {
+            let content = tokio::fs::read_to_string(&coverage_summary_file)
+                .await
+                .with_context(|| {
+                    format!(
+                        "Failed to read coverage summary file: {}",
+                        coverage_summary_file.display()
+                    )
+                })?;
 
-        let coverage: TestCoverageMap =
-            serde_json::from_str(&content).with_context(|| "Failed to parse test coverage data")?;
+            if let Ok(summary) =
+                serde_json::from_str::<crate::context::summary::TestCoverageSummary>(&content)
+            {
+                // Convert summary format to full format
+                use crate::context::test_coverage::FileCoverage;
+                use std::collections::HashMap;
 
-        eprintln!(
-            "✅ Loaded test coverage data: {:.1}% overall coverage",
-            coverage.overall_coverage * 100.0
-        );
-        Ok(Some(coverage))
+                let mut file_coverage = HashMap::new();
+                for (path, summary_cov) in summary.file_coverage {
+                    file_coverage.insert(
+                        path.clone(),
+                        FileCoverage {
+                            path,
+                            coverage_percentage: summary_cov.coverage_percentage,
+                            tested_lines: 0,
+                            total_lines: 0,
+                            tested_functions: 0,
+                            total_functions: 0,
+                            has_tests: summary_cov.has_tests,
+                        },
+                    );
+                }
+
+                let coverage = TestCoverageMap {
+                    file_coverage,
+                    untested_functions: Vec::new(),
+                    critical_paths: Vec::new(),
+                    overall_coverage: summary.overall_coverage,
+                };
+
+                eprintln!(
+                    "✅ Loaded test coverage summary: {:.1}% overall coverage",
+                    coverage.overall_coverage * 100.0
+                );
+                return Ok(Some(coverage));
+            }
+        }
+
+        Ok(None)
     }
 }
 

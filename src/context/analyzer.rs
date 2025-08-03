@@ -242,7 +242,18 @@ fn count_files(project_path: &Path) -> Result<usize> {
                 .map(|ext| {
                     matches!(
                         ext,
-                        "rs" | "toml" | "yaml" | "yml" | "json" | "md" | "txt" | "sh" | "py" | "js" | "ts" | "jsx" | "tsx"
+                        "rs" | "toml"
+                            | "yaml"
+                            | "yml"
+                            | "json"
+                            | "md"
+                            | "txt"
+                            | "sh"
+                            | "py"
+                            | "js"
+                            | "ts"
+                            | "jsx"
+                            | "tsx"
                     )
                 })
                 .unwrap_or(false)
@@ -417,7 +428,7 @@ mod tests {
         let result = analyzer.analyze(Path::new("/nonexistent/path")).await;
         // Current implementation doesn't fail on non-existent paths
         assert!(result.is_ok());
-        
+
         let analysis = result.unwrap();
         assert_eq!(analysis.metadata.files_analyzed, 0);
     }

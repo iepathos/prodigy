@@ -91,7 +91,7 @@ spec_dir: specs
     config.merge_env_vars();
     // Since project config has auto_commit=true, it takes precedence over global env var
     assert_eq!(config.get_auto_commit(), true);
-    
+
     // Test that env var is actually set in global config
     assert_eq!(config.global.auto_commit, Some(false));
 

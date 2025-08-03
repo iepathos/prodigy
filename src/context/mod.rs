@@ -282,61 +282,59 @@ fn load_technical_debt(context_dir: &Path) -> Result<Option<TechnicalDebtMap>> {
 
 /// Load test coverage from file
 fn load_test_coverage(context_dir: &Path) -> Result<Option<TestCoverageMap>> {
-    let coverage_path = context_dir.join("test_coverage.json");
-    if !coverage_path.exists() {
-        return Ok(None);
-    }
+    let coverage_map_path = context_dir.join("test_coverage.json");
+    let coverage_summary_path = context_dir.join("test_coverage_summary.json");
 
-    let content = std::fs::read_to_string(&coverage_path)?;
-
-    // Try to parse as TestCoverageMap first
-    if let Ok(coverage_map) = serde_json::from_str::<TestCoverageMap>(&content) {
-        eprintln!(
-            "📊 Loaded test coverage data ({} files)",
-            coverage_map.file_coverage.len()
-        );
-        return Ok(Some(coverage_map));
-    }
-
-    // If that fails, try to parse as TestCoverageSummary and convert
-    if let Ok(summary) = serde_json::from_str::<summary::TestCoverageSummary>(&content) {
-        eprintln!(
-            "📊 Loaded test coverage summary (overall: {:.1}%)",
-            summary.overall_coverage * 100.0
-        );
-
-        // Convert summary back to a basic TestCoverageMap
-        let mut file_coverage = HashMap::new();
-
-        // Convert summary format to full format
-        for (path, summary_cov) in summary.file_coverage {
-            file_coverage.insert(
-                path.clone(),
-                FileCoverage {
-                    path,
-                    coverage_percentage: summary_cov.coverage_percentage,
-                    tested_lines: 0,     // Not available in summary
-                    total_lines: 0,      // Not available in summary
-                    tested_functions: 0, // Not available in summary
-                    total_functions: summary_cov.untested_count as u32, // Approximate
-                    has_tests: summary_cov.has_tests,
-                },
+    // First try to load the full coverage map
+    if coverage_map_path.exists() {
+        let content = std::fs::read_to_string(&coverage_map_path)?;
+        if let Ok(coverage_map) = serde_json::from_str::<TestCoverageMap>(&content) {
+            eprintln!(
+                "📊 Loaded test coverage data ({} files)",
+                coverage_map.file_coverage.len()
             );
+            return Ok(Some(coverage_map));
         }
-
-        return Ok(Some(TestCoverageMap {
-            file_coverage,
-            untested_functions: Vec::new(), // Not available in summary
-            critical_paths: Vec::new(),     // Not available in summary
-            overall_coverage: summary.overall_coverage,
-        }));
     }
 
-    // If parsing fails, log the error
-    eprintln!(
-        "⚠️  Failed to parse test coverage data from {}",
-        coverage_path.display()
-    );
+    // If no full map exists, try to load the summary
+    if coverage_summary_path.exists() {
+        let content = std::fs::read_to_string(&coverage_summary_path)?;
+        if let Ok(summary) = serde_json::from_str::<summary::TestCoverageSummary>(&content) {
+            eprintln!(
+                "📊 Loaded test coverage summary (overall: {:.1}%)",
+                summary.overall_coverage * 100.0
+            );
+
+            // Convert summary back to a basic TestCoverageMap
+            let mut file_coverage = HashMap::new();
+
+            // Convert summary format to full format
+            for (path, summary_cov) in summary.file_coverage {
+                file_coverage.insert(
+                    path.clone(),
+                    FileCoverage {
+                        path,
+                        coverage_percentage: summary_cov.coverage_percentage,
+                        tested_lines: 0,     // Not available in summary
+                        total_lines: 0,      // Not available in summary
+                        tested_functions: 0, // Not available in summary
+                        total_functions: summary_cov.untested_count as u32, // Approximate
+                        has_tests: summary_cov.has_tests,
+                    },
+                );
+            }
+
+            return Ok(Some(TestCoverageMap {
+                file_coverage,
+                untested_functions: Vec::new(), // Not available in summary
+                critical_paths: Vec::new(),     // Not available in summary
+                overall_coverage: summary.overall_coverage,
+            }));
+        }
+    }
+
+    // No coverage data found
     Ok(None)
 }
 
@@ -494,14 +492,22 @@ fn save_technical_debt_summary(context_dir: &Path, debt: &TechnicalDebtMap) -> R
 
 /// Save test coverage summary
 pub fn save_test_coverage_summary(context_dir: &Path, coverage: &TestCoverageMap) -> Result<()> {
-    let coverage_file = context_dir.join("test_coverage.json");
+    // Use separate files for different formats
+    let coverage_map_file = context_dir.join("test_coverage.json");
+    let coverage_summary_file = context_dir.join("test_coverage_summary.json");
 
     // Check if we have detailed coverage data
     if coverage.file_coverage.is_empty() && coverage.untested_functions.is_empty() {
         // This is minimal coverage data from metrics, save as summary
         let coverage_summary = summary::TestCoverageSummary::from_coverage(coverage);
         let content = serde_json::to_string_pretty(&coverage_summary)?;
-        std::fs::write(&coverage_file, &content)?;
+        std::fs::write(&coverage_summary_file, &content)?;
+
+        // Remove the full coverage file if it exists to avoid confusion
+        if coverage_map_file.exists() {
+            std::fs::remove_file(&coverage_map_file).ok();
+        }
+
         eprintln!(
             "📊 Saved test coverage summary (overall: {:.1}%)",
             coverage.overall_coverage * 100.0
@@ -509,7 +515,13 @@ pub fn save_test_coverage_summary(context_dir: &Path, coverage: &TestCoverageMap
     } else {
         // This is detailed coverage data, save the full map
         let content = serde_json::to_string_pretty(coverage)?;
-        std::fs::write(&coverage_file, &content)?;
+        std::fs::write(&coverage_map_file, &content)?;
+
+        // Also save a summary for quick access
+        let coverage_summary = summary::TestCoverageSummary::from_coverage(coverage);
+        let summary_content = serde_json::to_string_pretty(&coverage_summary)?;
+        std::fs::write(&coverage_summary_file, &summary_content)?;
+
         eprintln!(
             "📊 Saved detailed test coverage ({} files, {} untested functions)",
             coverage.file_coverage.len(),

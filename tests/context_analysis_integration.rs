@@ -37,14 +37,17 @@ edition = "2021"
     )
     .unwrap();
 
-
     // Run analysis
     let analyzer = ProjectAnalyzer::new();
     let result = analyzer.analyze(temp_dir.path()).await.unwrap();
 
     // Verify analysis results
     // We created at least 2 files (main.rs and Cargo.toml)
-    assert!(result.metadata.files_analyzed >= 2, "Expected at least 2 files, found {}", result.metadata.files_analyzed);
+    assert!(
+        result.metadata.files_analyzed >= 2,
+        "Expected at least 2 files, found {}",
+        result.metadata.files_analyzed
+    );
     // Code patterns might be empty for a minimal project
 }
 
