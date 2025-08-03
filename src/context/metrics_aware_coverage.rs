@@ -104,6 +104,28 @@ impl TestCoverageAnalyzer for MetricsAwareCoverageAnalyzer {
         // Load coverage data from context directory (saved by metrics)
         eprintln!("📊 Loading test coverage data from metrics analysis...");
 
+        // First check if there's a fresh tarpaulin report
+        let tarpaulin_path = project_path.join("target/coverage/tarpaulin-report.json");
+        if tarpaulin_path.exists() {
+            if let Ok(metadata) = tokio::fs::metadata(&tarpaulin_path).await {
+                if let Ok(modified) = metadata.modified() {
+                    let age = std::time::SystemTime::now()
+                        .duration_since(modified)
+                        .unwrap_or(std::time::Duration::from_secs(u64::MAX));
+                    
+                    // If the report is less than 5 minutes old, use it
+                    if age.as_secs() < 300 {
+                        eprintln!("📊 Found recent tarpaulin report, using it for coverage data");
+                        // Use TarpaulinCoverageAnalyzer to parse the report
+                        let tarpaulin_analyzer = super::tarpaulin_coverage::TarpaulinCoverageAnalyzer::new(self.subprocess.clone());
+                        if let Ok(coverage) = tarpaulin_analyzer.analyze_coverage(project_path).await {
+                            return Ok(coverage);
+                        }
+                    }
+                }
+            }
+        }
+
         if let Some(coverage) = self.load_coverage_from_context(project_path).await? {
             return Ok(coverage);
         }

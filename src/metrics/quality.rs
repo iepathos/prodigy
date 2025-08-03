@@ -45,6 +45,11 @@ impl QualityAnalyzer {
 
     /// Analyze code quality metrics
     pub async fn analyze(&self, project_path: &Path) -> Result<QualityMetrics> {
+        self.analyze_with_coverage(project_path, false).await
+    }
+
+    /// Analyze code quality metrics with optional coverage run
+    pub async fn analyze_with_coverage(&self, project_path: &Path, run_coverage: bool) -> Result<QualityMetrics> {
         let mut metrics = QualityMetrics {
             test_coverage: 0.0,
             type_coverage: 0.0,
@@ -54,7 +59,7 @@ impl QualityAnalyzer {
         };
 
         // Get test coverage
-        metrics.test_coverage = self.get_test_coverage(project_path).await?;
+        metrics.test_coverage = self.get_test_coverage(project_path, run_coverage).await?;
 
         // Get lint warnings count
         metrics.lint_warnings = self.get_lint_warnings(project_path).await?;
@@ -69,13 +74,62 @@ impl QualityAnalyzer {
     }
 
     /// Get test coverage using cargo-tarpaulin or fallback
-    async fn get_test_coverage(&self, project_path: &Path) -> Result<f32> {
+    async fn get_test_coverage(&self, project_path: &Path, run_coverage: bool) -> Result<f32> {
         if self.use_tarpaulin {
-            debug!("Running cargo-tarpaulin for test coverage");
+            debug!("Checking for cargo-tarpaulin coverage");
 
-            // Try to use existing tarpaulin coverage data first
             let tarpaulin_path = project_path.join("target/coverage/tarpaulin-report.json");
-            if tarpaulin_path.exists() {
+            
+            // If run_coverage is true, actually run tarpaulin
+            if run_coverage {
+                println!("🔬 Running cargo-tarpaulin for accurate test coverage...");
+                
+                // Create coverage directory if it doesn't exist
+                if let Some(parent) = tarpaulin_path.parent() {
+                    std::fs::create_dir_all(parent).ok();
+                }
+                
+                // Run tarpaulin with JSON output
+                // Add --frozen to avoid updating dependencies and --lib to only test library
+                let tarpaulin_command = ProcessCommandBuilder::new("cargo")
+                    .args([
+                        "tarpaulin",
+                        "--out", "Json",
+                        "--output-dir", "target/coverage",
+                        "--skip-clean",
+                        "--timeout", "180",
+                        "--frozen",
+                        "--lib",
+                        "--exclude-files", "*/tests/*",
+                        "--exclude-files", "*/target/*",
+                    ])
+                    .current_dir(project_path)
+                    .build();
+                
+                match self.subprocess.runner().run(tarpaulin_command).await {
+                    Ok(output) => {
+                        if output.status.success() {
+                            // Try to read the generated report
+                            if let Ok(content) = std::fs::read_to_string(&tarpaulin_path) {
+                                if let Ok(report) = serde_json::from_str::<serde_json::Value>(&content) {
+                                    if let Some(coverage) = report.get("coverage").and_then(|c| c.as_f64()) {
+                                        println!("✅ Test coverage analysis complete: {:.1}%", coverage);
+                                        return Ok(coverage as f32);
+                                    }
+                                }
+                            }
+                        } else {
+                            eprintln!("⚠️  cargo-tarpaulin failed: {}", output.stderr);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("⚠️  Failed to run cargo-tarpaulin: {}", e);
+                    }
+                }
+            }
+            
+            // Try to use existing tarpaulin coverage data
+            if tarpaulin_path.exists() && !run_coverage {
                 // Parse existing tarpaulin report
                 if let Ok(content) = std::fs::read_to_string(&tarpaulin_path) {
                     if let Ok(report) = serde_json::from_str::<serde_json::Value>(&content) {

@@ -258,7 +258,7 @@ pub async fn run_analysis(
         let collector = MetricsCollector::new(subprocess.clone());
         let iteration_id = format!("analysis-{}", chrono::Utc::now().timestamp());
         let mut metrics = collector
-            .collect_metrics(project_path, iteration_id)
+            .collect_metrics_with_config(project_path, iteration_id, config.run_coverage)
             .await?;
 
         // Calculate and add health score to metrics
