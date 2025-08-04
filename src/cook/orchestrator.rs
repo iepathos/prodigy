@@ -685,34 +685,6 @@ impl DefaultCookOrchestrator {
         let workflow_start = Instant::now();
         let mut timing_tracker = TimingTracker::new();
 
-        // Run initial analysis if needed
-        if !config.command.skip_analysis {
-            self.user_interaction
-                .display_progress("Running initial analysis...");
-
-            // Create progress reporter wrapper
-            let progress = Arc::new(OrchestrationProgressReporter {
-                interaction: self.user_interaction.clone(),
-            });
-
-            // Configure unified analysis
-            let analysis_config = AnalysisConfig::builder()
-                .output_format(OutputFormat::Summary)
-                .save_results(true)
-                .commit_changes(false)
-                .verbose(false)
-                .build();
-
-            // Run unified analysis
-            let _results = run_analysis(
-                &env.working_dir,
-                analysis_config,
-                self.subprocess.clone(),
-                progress,
-            )
-            .await?;
-        }
-
         // Execute iterations if configured
         let max_iterations = config.command.max_iterations;
         for iteration in 1..=max_iterations {
@@ -843,34 +815,6 @@ impl DefaultCookOrchestrator {
 
         self.user_interaction
             .display_info(&format!("📋 Total inputs to process: {}", all_inputs.len()));
-
-        // Run initial analysis if needed
-        if !config.command.skip_analysis {
-            self.user_interaction
-                .display_progress("Running initial analysis...");
-
-            // Create progress reporter wrapper
-            let progress = Arc::new(OrchestrationProgressReporter {
-                interaction: self.user_interaction.clone(),
-            });
-
-            // Configure unified analysis
-            let analysis_config = AnalysisConfig::builder()
-                .output_format(OutputFormat::Summary)
-                .save_results(true)
-                .commit_changes(false)
-                .verbose(false)
-                .build();
-
-            // Run unified analysis
-            let _results = run_analysis(
-                &env.working_dir,
-                analysis_config,
-                self.subprocess.clone(),
-                progress,
-            )
-            .await?;
-        }
 
         // Process each input
         for (index, input) in all_inputs.iter().enumerate() {
