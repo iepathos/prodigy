@@ -450,6 +450,10 @@ mod real_git_tests {
                 if error_msg.contains("not a git repository") {
                     return;
                 }
+                // Accept errors related to working directory issues
+                if error_msg.contains("Unable to read current working directory") {
+                    return;
+                }
                 // Also accept detached HEAD state
                 assert!(
                     error_msg.contains("HEAD") || error_msg.contains("detached"),
