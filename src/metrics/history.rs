@@ -62,8 +62,8 @@ impl MetricsHistory {
         };
 
         // Complexity trend
-        let recent_complexity: u32 = recent.cyclomatic_complexity.values().sum();
-        let previous_complexity: u32 = previous.cyclomatic_complexity.values().sum();
+        let recent_complexity = calculate_total_complexity(recent);
+        let previous_complexity = calculate_total_complexity(previous);
         let complexity_delta = recent_complexity as f32 - previous_complexity as f32;
 
         self.trends.complexity_trend = if complexity_delta < -1.0 {
@@ -168,7 +168,20 @@ pub struct MetricsBaselines {
 impl MetricsBaselines {
     /// Create baselines from initial metrics
     fn from_metrics(metrics: &ImprovementMetrics) -> Self {
-        let avg_complexity = if !metrics.cyclomatic_complexity.is_empty() {
+        let avg_complexity = if let Some(ref summary) = metrics.complexity_summary {
+            // New format: calculate weighted average
+            if summary.total_functions > 0 {
+                summary
+                    .by_file
+                    .values()
+                    .map(|stats| stats.avg_cyclomatic * stats.functions_count as f32)
+                    .sum::<f32>()
+                    / summary.total_functions as f32
+            } else {
+                0.0
+            }
+        } else if !metrics.cyclomatic_complexity.is_empty() {
+            // Old format
             metrics.cyclomatic_complexity.values().sum::<u32>() as f32
                 / metrics.cyclomatic_complexity.len() as f32 // Safe: len > 0 checked above
         } else {
@@ -181,5 +194,20 @@ impl MetricsBaselines {
             initial_quality_score: metrics.overall_score(),
             initial_lint_warnings: metrics.lint_warnings,
         }
+    }
+}
+
+/// Helper function to calculate total complexity from either old or new format
+fn calculate_total_complexity(metrics: &ImprovementMetrics) -> u32 {
+    if let Some(ref summary) = metrics.complexity_summary {
+        // New format: sum up all function complexities from file averages
+        summary
+            .by_file
+            .values()
+            .map(|stats| (stats.avg_cyclomatic * stats.functions_count as f32) as u32)
+            .sum()
+    } else {
+        // Old format: sum all individual complexities
+        metrics.cyclomatic_complexity.values().sum()
     }
 }
