@@ -15,8 +15,8 @@
   },
   "statistics": {
     "total_files": 1560,
-    "total_modules": 144,
-    "dependency_edges": 997,
+    "total_modules": 142,
+    "dependency_edges": 0,
     "circular_dependencies": 0,
     "architectural_violations": 2,
     "debt_items": 20,
@@ -26,15 +26,15 @@
     "critical_untested": 2
   },
   "health_score": {
-    "overall": 64.81175061164677,
+    "overall": 64.81148561164677,
     "components": {
       "test_coverage": 58.26978701025506,
       "code_quality": 78.0,
       "documentation": 80.0,
       "maintainability": 45.02133863223005,
-      "type_safety": 113.23981
+      "type_safety": 113.23451
     },
-    "timestamp": "2025-08-04T11:07:54.762549Z"
+    "timestamp": "2025-08-04T11:13:41.425061Z"
   },
   "insights": [
     "20 high-priority technical debt items require attention"
