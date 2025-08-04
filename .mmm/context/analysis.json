@@ -1,10 +1,17 @@
 {
   "metadata": {
-    "timestamp": "2025-08-04T10:13:56.815256Z",
-    "duration_ms": 56995,
-    "files_analyzed": 1560,
+    "timestamp": "2025-08-04T11:22:17.478982Z",
+    "duration_ms": 12742,
+    "files_analyzed": 1563,
     "incremental": false,
-    "version": "0.1.0"
+    "version": "0.1.0",
+    "scoring_algorithm": "multi-factor-v1",
+    "criticality_distribution": {
+      "high": 35,
+      "medium": 997,
+      "low": 619,
+      "confidence_score": 0.87
+    }
   },
   "component_files": {
     "dependency_graph": "dependency_graph.json",
@@ -14,29 +21,29 @@
     "test_coverage": "test_coverage.json"
   },
   "statistics": {
-    "total_files": 1560,
-    "total_modules": 142,
-    "dependency_edges": 0,
+    "total_files": 1563,
+    "total_modules": 147,
+    "dependency_edges": 1030,
     "circular_dependencies": 0,
     "architectural_violations": 2,
-    "debt_items": 20,
-    "high_priority_debt": 20,
-    "overall_coverage": 0.5826978701025506,
-    "untested_functions": 42,
-    "critical_untested": 2
+    "debt_items": 254,
+    "high_priority_debt": 33,
+    "overall_coverage": 0.5811348929815828,
+    "untested_functions": 1651,
+    "critical_untested": 35
   },
   "health_score": {
-    "overall": 64.81148561164677,
+    "overall": 56.0014467543554,
     "components": {
-      "test_coverage": 58.26978701025506,
+      "test_coverage": 58.113489298158285,
       "code_quality": 78.0,
       "documentation": 80.0,
-      "maintainability": 45.02133863223005,
+      "maintainability": 10.0,
       "type_safety": 113.23451
     },
-    "timestamp": "2025-08-04T11:13:41.425061Z"
+    "timestamp": "2025-08-04T11:22:17.479129Z"
   },
   "insights": [
-    "20 high-priority technical debt items require attention"
+    "33 high-priority technical debt items require attention"
   ]
 }

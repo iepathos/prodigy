@@ -4,42 +4,35 @@
   ],
   "layers": [],
   "components": {
-    "git": {
-      "name": "git",
+    "cook": {
+      "name": "cook",
       "responsibility": "Module functionality",
       "interfaces": [
-        "trait GitReader:",
-        "trait GitWriter:",
-        "trait GitWorktree:",
-        "trait GitOperations:",
-        "struct GitCommandRunner",
-        "fn new(process_runner:"
+        "fn fn",
+        "fn fn"
       ],
       "dependencies": [
         "anyhow",
-        "thiserror",
         "async_trait",
         "tempfile",
-        "tokio"
+        "chrono",
+        "serde",
+        "tokio",
+        "clap",
+        "once_cell",
+        "signal_hook"
       ]
     },
-    "subprocess": {
-      "name": "subprocess",
+    "init": {
+      "name": "init",
       "responsibility": "Module functionality",
       "interfaces": [
-        "struct SubprocessManager",
-        "fn new(runner:",
-        "fn production()",
-        "fn mock()",
-        "fn runner(&self)",
-        "fn git(&self)",
-        "fn claude(&self)"
+        "fn fn"
       ],
       "dependencies": [
-        "async_trait",
-        "tempfile",
-        "futures",
-        "tokio"
+        "clap",
+        "anyhow",
+        "tempfile"
       ]
     },
     "session": {
@@ -63,6 +56,77 @@
         "tokio",
         "uuid",
         "tempfile"
+      ]
+    },
+    "analysis": {
+      "name": "analysis",
+      "responsibility": "Module functionality",
+      "interfaces": [],
+      "dependencies": [
+        "anyhow",
+        "async_trait",
+        "tempfile"
+      ]
+    },
+    "scoring": {
+      "name": "scoring",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct ProjectHealthScore",
+        "struct ScoreComponents",
+        "fn from_metrics(metrics:",
+        "fn from_context(analysis:",
+        "fn get_improvement_suggestions(&self)",
+        "fn calculate_technical_debt_score(debt_items:",
+        "fn format_component(name:"
+      ],
+      "dependencies": [
+        "chrono",
+        "serde"
+      ]
+    },
+    "analyze": {
+      "name": "analyze",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn"
+      ],
+      "dependencies": [
+        "anyhow",
+        "command",
+        "tempfile"
+      ]
+    },
+    "simple_state": {
+      "name": "simple_state",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn init()"
+      ],
+      "dependencies": [
+        "anyhow",
+        "serde",
+        "chrono",
+        "tempfile"
+      ]
+    },
+    "subprocess": {
+      "name": "subprocess",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct SubprocessManager",
+        "fn new(runner:",
+        "fn production()",
+        "fn mock()",
+        "fn runner(&self)",
+        "fn git(&self)",
+        "fn claude(&self)"
+      ],
+      "dependencies": [
+        "async_trait",
+        "tempfile",
+        "futures",
+        "tokio"
       ]
     },
     "metrics": {
@@ -95,69 +159,6 @@
         "rand",
         "syn",
         "tracing"
-      ]
-    },
-    "analysis": {
-      "name": "analysis",
-      "responsibility": "Module functionality",
-      "interfaces": [],
-      "dependencies": [
-        "anyhow",
-        "async_trait",
-        "tempfile"
-      ]
-    },
-    "init": {
-      "name": "init",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn fn"
-      ],
-      "dependencies": [
-        "clap",
-        "anyhow",
-        "tempfile"
-      ]
-    },
-    "context": {
-      "name": "context",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct AnalysisResult",
-        "struct ArchitectureInfo",
-        "struct ComponentInfo",
-        "struct ArchitectureViolation",
-        "struct AnalysisMetadata",
-        "struct FileContext",
-        "struct FileConventions",
-        "struct Suggestion",
-        "trait ContextAnalyzer:",
-        "fn load_analysis(project_path:",
-        "fn save_analysis(project_path:",
-        "fn save_analysis_with_options",
-        "fn save_analysis_with_commit",
-        "fn save_test_coverage_summary(context_dir:"
-      ],
-      "dependencies": [
-        "anyhow",
-        "walkdir",
-        "tempfile",
-        "serde"
-      ]
-    },
-    "worktree": {
-      "name": "worktree",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct WorktreeSession",
-        "fn new(name:"
-      ],
-      "dependencies": [
-        "tempfile",
-        "anyhow",
-        "chrono",
-        "uuid",
-        "serde"
       ]
     },
     "testing": {
@@ -196,53 +197,34 @@
         "tempfile"
       ]
     },
-    "cook": {
-      "name": "cook",
+    "abstractions": {
+      "name": "abstractions",
       "responsibility": "Module functionality",
-      "interfaces": [
-        "fn fn",
-        "fn fn"
-      ],
+      "interfaces": [],
       "dependencies": [
         "anyhow",
         "async_trait",
-        "tempfile",
-        "chrono",
-        "serde",
         "tokio",
-        "clap",
-        "once_cell",
-        "signal_hook"
+        "tempfile"
       ]
     },
-    "scoring": {
-      "name": "scoring",
+    "git": {
+      "name": "git",
       "responsibility": "Module functionality",
       "interfaces": [
-        "struct ProjectHealthScore",
-        "struct ScoreComponents",
-        "fn from_metrics(metrics:",
-        "fn from_context(analysis:",
-        "fn get_improvement_suggestions(&self)",
-        "fn calculate_technical_debt_score(debt_items:",
-        "fn format_component(name:"
-      ],
-      "dependencies": [
-        "chrono",
-        "serde"
-      ]
-    },
-    "simple_state": {
-      "name": "simple_state",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn init()"
+        "trait GitReader:",
+        "trait GitWriter:",
+        "trait GitWorktree:",
+        "trait GitOperations:",
+        "struct GitCommandRunner",
+        "fn new(process_runner:"
       ],
       "dependencies": [
         "anyhow",
-        "serde",
-        "chrono",
-        "tempfile"
+        "thiserror",
+        "async_trait",
+        "tempfile",
+        "tokio"
       ]
     },
     "config": {
@@ -270,42 +252,62 @@
         "tempfile"
       ]
     },
-    "analyze": {
-      "name": "analyze",
+    "context": {
+      "name": "context",
       "responsibility": "Module functionality",
       "interfaces": [
-        "fn fn"
+        "struct AnalysisResult",
+        "struct ArchitectureInfo",
+        "struct ComponentInfo",
+        "struct ArchitectureViolation",
+        "struct CriticalityDistribution",
+        "struct AnalysisMetadata",
+        "struct FileContext",
+        "struct FileConventions",
+        "struct Suggestion",
+        "trait ContextAnalyzer:",
+        "fn load_analysis(project_path:",
+        "fn save_analysis(project_path:",
+        "fn save_analysis_with_options",
+        "fn save_analysis_with_commit",
+        "fn save_test_coverage_summary(context_dir:"
       ],
       "dependencies": [
         "anyhow",
-        "command",
-        "tempfile"
+        "walkdir",
+        "tempfile",
+        "serde",
+        "test_coverage"
       ]
     },
-    "abstractions": {
-      "name": "abstractions",
+    "worktree": {
+      "name": "worktree",
       "responsibility": "Module functionality",
-      "interfaces": [],
+      "interfaces": [
+        "struct WorktreeSession",
+        "fn new(name:"
+      ],
       "dependencies": [
+        "tempfile",
         "anyhow",
-        "async_trait",
-        "tokio",
-        "tempfile"
+        "chrono",
+        "uuid",
+        "serde"
       ]
     }
   },
   "violations": [
     {
       "rule": "Components should expose interfaces",
-      "location": "abstractions",
-      "severity": "Low",
-      "description": "abstractions has no public interfaces"
-    },
-    {
-      "rule": "Components should expose interfaces",
       "location": "analysis",
       "severity": "Low",
       "description": "analysis has no public interfaces"
+    },
+    {
+      "rule": "Components should expose interfaces",
+      "location": "abstractions",
+      "severity": "Low",
+      "description": "abstractions has no public interfaces"
     }
   ]
 }
