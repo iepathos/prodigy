@@ -81,14 +81,23 @@ async fn is_git_repository(path: &Path, subprocess: &SubprocessManager) -> bool 
 
     // Also check using git command to handle edge cases
     use crate::subprocess::ProcessCommandBuilder;
+
+    #[cfg(test)]
+    let command = ProcessCommandBuilder::new("git")
+        .args(["rev-parse", "--git-dir"])
+        .current_dir(path)
+        .suppress_stderr()
+        .build();
+
+    #[cfg(not(test))]
+    let command = ProcessCommandBuilder::new("git")
+        .args(["rev-parse", "--git-dir"])
+        .current_dir(path)
+        .build();
+
     subprocess
         .runner()
-        .run(
-            ProcessCommandBuilder::new("git")
-                .args(["rev-parse", "--git-dir"])
-                .current_dir(path)
-                .build(),
-        )
+        .run(command)
         .await
         .map(|output| output.status.success())
         .unwrap_or(false)

@@ -341,11 +341,36 @@ mod tests {
 
     #[tokio::test]
     async fn test_real_git_operations_is_git_repo() {
-        let real = RealGitOperations::new();
+        use std::process::Command;
+        use tempfile::TempDir;
 
-        // This test will pass or fail depending on whether it's run in a git repo
-        // Just verify it doesn't panic
-        let _ = real.is_git_repo().await;
+        // Create a temporary directory with a git repo
+        let temp_dir = TempDir::new().unwrap();
+
+        // Initialize git repo
+        let output = Command::new("git")
+            .args(["init"])
+            .current_dir(temp_dir.path())
+            .output()
+            .expect("Failed to run git init");
+
+        if output.status.success() {
+            // Change to the temp directory for the test
+            let _original_dir = std::env::current_dir().ok();
+            let _ = std::env::set_current_dir(temp_dir.path());
+
+            let real = RealGitOperations::new();
+            let result = real.is_git_repo().await;
+            assert!(result, "Should detect git repository");
+
+            // Restore original directory
+            if let Some(orig) = _original_dir {
+                let _ = std::env::set_current_dir(orig);
+            }
+        } else {
+            // If git init fails, just skip the test
+            println!("Skipping test - git init failed");
+        }
     }
 }
 
