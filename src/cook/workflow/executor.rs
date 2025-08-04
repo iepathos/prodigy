@@ -705,9 +705,7 @@ impl WorkflowExecutor {
             CommandType::Shell(cmd) => cmd,
         };
 
-        eprintln!(
-            "\n❌ Workflow stopped: No changes were committed by {step_display}"
-        );
+        eprintln!("\n❌ Workflow stopped: No changes were committed by {step_display}");
         eprintln!("\nThe command executed successfully but did not create any git commits.");
 
         // Check if this is a command that might legitimately not create commits
