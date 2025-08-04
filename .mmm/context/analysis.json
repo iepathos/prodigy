@@ -26,15 +26,15 @@
     "critical_untested": 2
   },
   "health_score": {
-    "overall": 64.79310511164678,
+    "overall": 64.81175061164677,
     "components": {
       "test_coverage": 58.26978701025506,
       "code_quality": 78.0,
       "documentation": 80.0,
       "maintainability": 45.02133863223005,
-      "type_safety": 112.8669
+      "type_safety": 113.23981
     },
-    "timestamp": "2025-08-04T10:41:15.072453Z"
+    "timestamp": "2025-08-04T11:07:54.762549Z"
   },
   "insights": [
     "20 high-priority technical debt items require attention"
