@@ -352,6 +352,7 @@ impl EnhancedCriticalityScorer {
     }
 
     /// Calculate total score with weights
+    #[allow(clippy::too_many_arguments)]
     fn calculate_total_score(
         &self,
         base_score: f32,

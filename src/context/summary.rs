@@ -133,10 +133,17 @@ pub struct DependencyGraphSummary {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeSummary {
     pub module_type: super::dependencies::ModuleType,
+    #[serde(skip_serializing_if = "is_zero")]
     pub import_count: usize,
+    #[serde(skip_serializing_if = "is_zero")]
     pub export_count: usize,
+    #[serde(skip_serializing_if = "is_zero")]
     pub external_dep_count: usize,
     pub coupling_score: usize,
+}
+
+fn is_zero(n: &usize) -> bool {
+    *n == 0
 }
 
 /// Coupling analysis summary
@@ -467,39 +474,69 @@ impl TechnicalDebtSummary {
 impl DependencyGraphSummary {
     /// Create a summary from full dependency graph
     pub fn from_graph(graph: &super::dependencies::DependencyGraph) -> Self {
-        // Calculate coupling scores
+        // Filter edges to only include project-internal dependencies
+        let filtered_edges: Vec<_> = graph
+            .edges
+            .iter()
+            .filter(|edge| {
+                // Keep only edges where both source and target are project files
+                graph.nodes.contains_key(&edge.from) && graph.nodes.contains_key(&edge.to)
+            })
+            .cloned()
+            .collect();
+
+        // Calculate coupling scores only for internal dependencies
         let mut in_degree: HashMap<String, usize> = HashMap::new();
         let mut out_degree: HashMap<String, usize> = HashMap::new();
 
-        for edge in &graph.edges {
+        for edge in &filtered_edges {
             *out_degree.entry(edge.from.clone()).or_insert(0) += 1;
             *in_degree.entry(edge.to.clone()).or_insert(0) += 1;
         }
 
-        // Create node summaries
+        // Create node summaries with only essential data
         let nodes = graph
             .nodes
             .iter()
-            .map(|(name, node)| {
+            .filter_map(|(name, node)| {
                 let coupling =
                     in_degree.get(name).unwrap_or(&0) + out_degree.get(name).unwrap_or(&0);
-                let summary = NodeSummary {
-                    module_type: node.module_type.clone(),
-                    import_count: node.imports.len(),
-                    export_count: node.exports.len(),
-                    external_dep_count: node.external_deps.len(),
-                    coupling_score: coupling,
-                };
-                (name.clone(), summary)
+
+                // Only include nodes with actual coupling or important module types
+                if coupling > 0
+                    || matches!(
+                        node.module_type,
+                        super::dependencies::ModuleType::Binary
+                            | super::dependencies::ModuleType::Library
+                    )
+                {
+                    let summary = NodeSummary {
+                        module_type: node.module_type.clone(),
+                        import_count: node.imports.len(),
+                        export_count: node.exports.len(),
+                        external_dep_count: node.external_deps.len(),
+                        coupling_score: coupling,
+                    };
+                    Some((name.clone(), summary))
+                } else {
+                    None
+                }
             })
             .collect();
 
-        // Find high coupling modules
-        let mut coupling_scores: Vec<_> = in_degree
-            .iter()
-            .map(|(name, &in_deg)| {
+        // Find high coupling modules (only from project files)
+        let mut coupling_scores: Vec<_> = graph
+            .nodes
+            .keys()
+            .filter_map(|name| {
+                let in_deg = in_degree.get(name).unwrap_or(&0);
                 let out_deg = out_degree.get(name).unwrap_or(&0);
-                (name.clone(), in_deg + out_deg)
+                let total = in_deg + out_deg;
+                if total > 0 {
+                    Some((name.clone(), total))
+                } else {
+                    None
+                }
             })
             .collect();
         coupling_scores.sort_by(|a, b| b.1.cmp(&a.1));
@@ -524,7 +561,7 @@ impl DependencyGraphSummary {
 
         DependencyGraphSummary {
             nodes,
-            edges: graph.edges.clone(),
+            edges: filtered_edges,
             cycles: graph.cycles.clone(),
             layers: graph.layers.clone(),
             coupling_analysis,

@@ -9,6 +9,7 @@ As of version 0.1.0, MMM's context generation has been optimized to reduce file 
 - Analysis files reduced from 8.9MB to under 500KB  
 - Metrics files reduced from 100KB+ to under 10KB through complexity aggregation
 - Test coverage files reduced from 266KB+ to under 30KB through smart filtering
+- Dependency graph files reduced from 155KB+ to under 20KB by filtering external dependencies
 - Total context size kept under 1MB for typical projects
 - Maximal duplicate detection replaces inefficient sliding windows
 - Smart aggregation limits items per category while preserving high-impact issues
@@ -84,21 +85,43 @@ Complete project analysis combining all components:
 ```
 
 #### `context/dependency_graph.json`
-Module dependency analysis:
+Module dependency analysis (optimized):
 ```json
 {
-  "nodes": ["src/main.rs", "src/lib.rs", /* ... */],
+  "nodes": {
+    "src/main.rs": {
+      "module_type": "Binary", 
+      "coupling_score": 3
+    },
+    "src/lib.rs": {
+      "module_type": "Library",
+      "import_count": 5,        // Only shown if > 0
+      "export_count": 12,       // Only shown if > 0
+      "coupling_score": 8
+    }
+  },
   "edges": [
-    {"from": "src/main.rs", "to": "src/lib.rs", "import_type": "use"}
+    // Only internal project dependencies (excludes std, external crates)
+    {"from": "src/main.rs", "to": "src/lib.rs", "dep_type": "Import"}
   ],
   "cycles": [
     ["module_a", "module_b", "module_a"]  // Circular dependencies
   ],
-  "coupling_scores": {
-    "src/lib.rs": 8  // Number of dependencies
+  "layers": [/* architectural layers */],
+  "coupling_analysis": {
+    "high_coupling_modules": [["src/lib.rs", 8]],  // Top 10 only
+    "avg_coupling": 3.5,
+    "max_coupling": 8
   }
 }
 ```
+
+**Optimization Details (v0.1.0+)**:
+- External dependencies filtered out (std, crates)
+- Only project-internal edges preserved
+- Node data compressed (zero values omitted)
+- Coupling analysis aggregated to top 10 modules
+- Reduces file size from ~155KB to ~20KB (87% reduction)
 
 #### `context/architecture.json`
 Architectural patterns and violations:
