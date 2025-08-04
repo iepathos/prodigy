@@ -378,7 +378,7 @@ async fn handle_clean_command(
 
     let cleanup_config = CleanupConfig {
         auto_cleanup: false, // Manual cleanup via CLI
-        confirm_before_cleanup: !std::env::var("MMM_AUTOMATION").is_ok(),
+        confirm_before_cleanup: std::env::var("MMM_AUTOMATION").is_err(),
         retention_days: 7,
         dry_run,
     };

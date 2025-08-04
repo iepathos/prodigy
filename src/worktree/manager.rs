@@ -805,7 +805,7 @@ impl WorktreeManager {
                 .unwrap_or(true),
             confirm_before_cleanup: std::env::var("MMM_CONFIRM_CLEANUP")
                 .map(|v| v.to_lowercase() == "true")
-                .unwrap_or(!std::env::var("MMM_AUTOMATION").is_ok()),
+                .unwrap_or(std::env::var("MMM_AUTOMATION").is_err()),
             retention_days: std::env::var("MMM_RETENTION_DAYS")
                 .ok()
                 .and_then(|v| v.parse().ok())

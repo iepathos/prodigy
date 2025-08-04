@@ -1,6 +1,5 @@
 use anyhow::Result;
 use mmm::cook::workflow::WorkflowStep;
-use serde_yaml;
 use std::collections::HashMap;
 
 // Define WorkflowContext for testing
@@ -18,18 +17,18 @@ impl WorkflowContext {
 
         // Replace ${VAR} and $VAR patterns
         for (key, value) in &self.variables {
-            result = result.replace(&format!("${{{}}}", key), value);
-            result = result.replace(&format!("${}", key), value);
+            result = result.replace(&format!("${{{key}}}"), value);
+            result = result.replace(&format!("${key}"), value);
         }
 
         for (key, value) in &self.captured_outputs {
-            result = result.replace(&format!("${{{}}}", key), value);
-            result = result.replace(&format!("${}", key), value);
+            result = result.replace(&format!("${{{key}}}"), value);
+            result = result.replace(&format!("${key}"), value);
         }
 
         for (key, value) in &self.iteration_vars {
-            result = result.replace(&format!("${{{}}}", key), value);
-            result = result.replace(&format!("${}", key), value);
+            result = result.replace(&format!("${{{key}}}"), value);
+            result = result.replace(&format!("${key}"), value);
         }
 
         result
