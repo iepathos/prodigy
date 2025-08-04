@@ -134,6 +134,12 @@ enum WorktreeCommands {
         /// Force removal even if there are untracked or modified files
         #[arg(long)]
         force: bool,
+        /// Only clean up sessions that have been merged
+        #[arg(long)]
+        merged_only: bool,
+        /// Show what would be cleaned up without actually doing it
+        #[arg(long)]
+        dry_run: bool,
     },
 }
 
@@ -257,6 +263,7 @@ fn display_worktree_session(
                 mmm::worktree::WorktreeStatus::InProgress => "🔄",
                 mmm::worktree::WorktreeStatus::Completed => "✅",
                 mmm::worktree::WorktreeStatus::Merged => "🔀",
+                mmm::worktree::WorktreeStatus::CleanedUp => "🧹",
                 mmm::worktree::WorktreeStatus::Failed => "❌",
                 mmm::worktree::WorktreeStatus::Abandoned => "⚠️",
                 mmm::worktree::WorktreeStatus::Interrupted => "⏸️",
@@ -364,17 +371,63 @@ async fn handle_clean_command(
     name: Option<String>,
     all: bool,
     force: bool,
+    merged_only: bool,
+    dry_run: bool,
 ) -> anyhow::Result<()> {
-    if all {
+    use mmm::worktree::CleanupConfig;
+    
+    let cleanup_config = CleanupConfig {
+        auto_cleanup: false, // Manual cleanup via CLI
+        confirm_before_cleanup: !std::env::var("MMM_AUTOMATION").is_ok(),
+        retention_days: 7,
+        dry_run,
+    };
+
+    if merged_only {
+        println!("🔍 Cleaning up merged sessions only...");
+        let cleaned_sessions = worktree_manager.cleanup_merged_sessions(&cleanup_config).await?;
+        if cleaned_sessions.is_empty() {
+            println!("ℹ️  No merged sessions found for cleanup");
+        } else {
+            println!("✅ Cleaned up {} merged session(s): {}", 
+                     cleaned_sessions.len(), 
+                     cleaned_sessions.join(", "));
+        }
+    } else if all {
         println!("Cleaning up all MMM worktrees...");
         worktree_manager.cleanup_all_sessions(force).await?;
         println!("✅ All worktrees cleaned up");
     } else if let Some(name) = name {
-        println!("Cleaning up worktree '{name}'...");
-        worktree_manager.cleanup_session(&name, force).await?;
+        // Check if the session is marked as merged and use appropriate cleanup method
+        if let Ok(state) = worktree_manager.get_session_state(&name) {
+            if state.merged {
+                println!("🔍 Session '{name}' is merged, using safe cleanup...");
+                worktree_manager.cleanup_session_after_merge(&name).await?;
+            } else {
+                println!("Cleaning up worktree '{name}'...");
+                worktree_manager.cleanup_session(&name, force).await?;
+            }
+        } else {
+            println!("Cleaning up worktree '{name}'...");
+            worktree_manager.cleanup_session(&name, force).await?;
+        }
         println!("✅ Worktree '{name}' cleaned up");
     } else {
-        anyhow::bail!("Either --all or a worktree name must be specified");
+        // Default to showing mergeable sessions if no specific action requested
+        println!("🔍 Checking for sessions that can be cleaned up...");
+        let mergeable = worktree_manager.detect_mergeable_sessions().await?;
+        if mergeable.is_empty() {
+            println!("ℹ️  No merged sessions found for cleanup");
+            println!("💡 Use --all to clean up all sessions, or specify a session name");
+        } else {
+            println!("📋 Found {} merged session(s) ready for cleanup:", mergeable.len());
+            for session in &mergeable {
+                println!("  • {session}");
+            }
+            println!();
+            println!("💡 Run with --merged-only to clean up all merged sessions");
+            println!("💡 Run with --dry-run to see what would be cleaned up");
+        }
     }
     Ok(())
 }
@@ -391,8 +444,8 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
         WorktreeCommands::Merge { name, all } => {
             handle_merge_command(&worktree_manager, name, all).await
         }
-        WorktreeCommands::Clean { all, name, force } => {
-            handle_clean_command(&worktree_manager, name, all, force).await
+        WorktreeCommands::Clean { all, name, force, merged_only, dry_run } => {
+            handle_clean_command(&worktree_manager, name, all, force, merged_only, dry_run).await
         }
     }
 }

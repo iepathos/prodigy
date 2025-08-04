@@ -70,7 +70,7 @@ mod test_state;
 #[cfg(test)]
 mod tests;
 
-pub use manager::WorktreeManager;
+pub use manager::{CleanupConfig, CleanupPolicy, WorktreeManager};
 pub use state::{
     Checkpoint, CommandType, InterruptionType, IterationInfo, WorktreeState, WorktreeStats,
     WorktreeStatus,

@@ -32,6 +32,7 @@ pub enum WorktreeStatus {
     InProgress,
     Completed,
     Merged,
+    CleanedUp,
     Failed,
     Abandoned,
     Interrupted,
