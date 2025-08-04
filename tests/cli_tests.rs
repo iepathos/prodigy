@@ -139,7 +139,7 @@ fn test_worktree_subcommands() {
         .arg("--help")
         .assert()
         .success()
-        .stdout(predicate::str::contains("list"))
+        .stdout(predicate::str::contains("ls"))
         .stdout(predicate::str::contains("merge"))
         .stdout(predicate::str::contains("clean"));
 }
