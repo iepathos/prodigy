@@ -215,10 +215,12 @@ pub enum InputMethod {
 pub enum WorkflowCommand {
     /// Legacy string format
     Simple(String),
-    /// Full structured format
-    Structured(Box<Command>),
+    /// New workflow step format (check this before other object formats)
+    WorkflowStep(WorkflowStepCommand),
     /// Simple object format
     SimpleObject(SimpleCommand),
+    /// Full structured format
+    Structured(Box<Command>),
 }
 
 /// Simple command representation for basic workflows
@@ -236,11 +238,129 @@ pub struct SimpleCommand {
     pub analysis: Option<AnalysisConfig>,
 }
 
+/// New workflow step command format supporting claude: and shell: syntax
+#[derive(Debug, Clone, Serialize)]
+pub struct WorkflowStepCommand {
+    /// Claude CLI command with args
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub claude: Option<String>,
+
+    /// Shell command to execute
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shell: Option<String>,
+
+    /// Command ID for referencing outputs
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+
+    /// Whether this command is expected to create commits
+    #[serde(default = "default_true")]
+    pub commit_required: bool,
+
+    /// Analysis configuration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub analysis: Option<AnalysisConfig>,
+
+    /// Output declarations
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outputs: Option<HashMap<String, OutputDeclaration>>,
+
+    /// Input references
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inputs: Option<HashMap<String, InputReference>>,
+
+    /// Whether to capture command output
+    #[serde(default)]
+    pub capture_output: bool,
+
+    /// Conditional execution on failure
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_failure: Option<Box<WorkflowStepCommand>>,
+
+    /// Conditional execution on success
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_success: Option<Box<WorkflowStepCommand>>,
+}
+
+impl<'de> Deserialize<'de> for WorkflowStepCommand {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Helper {
+            claude: Option<String>,
+            shell: Option<String>,
+            id: Option<String>,
+            #[serde(default = "default_true")]
+            commit_required: bool,
+            analysis: Option<AnalysisConfig>,
+            outputs: Option<HashMap<String, OutputDeclaration>>,
+            inputs: Option<HashMap<String, InputReference>>,
+            #[serde(default)]
+            capture_output: bool,
+            on_failure: Option<Box<WorkflowStepCommand>>,
+            on_success: Option<Box<WorkflowStepCommand>>,
+        }
+
+        let helper = Helper::deserialize(deserializer)?;
+
+        // Validate that at least one of claude or shell is present
+        if helper.claude.is_none() && helper.shell.is_none() {
+            return Err(serde::de::Error::custom(
+                "WorkflowStepCommand must have either 'claude' or 'shell' field",
+            ));
+        }
+
+        Ok(WorkflowStepCommand {
+            claude: helper.claude,
+            shell: helper.shell,
+            id: helper.id,
+            commit_required: helper.commit_required,
+            analysis: helper.analysis,
+            outputs: helper.outputs,
+            inputs: helper.inputs,
+            capture_output: helper.capture_output,
+            on_failure: helper.on_failure,
+            on_success: helper.on_success,
+        })
+    }
+}
+
 impl WorkflowCommand {
     #[must_use]
     pub fn to_command(&self) -> Command {
         match self {
             WorkflowCommand::Simple(s) => Command::from_string(s),
+            WorkflowCommand::WorkflowStep(step) => {
+                // Convert WorkflowStepCommand to Command
+                let command_str = if let Some(claude_cmd) = &step.claude {
+                    claude_cmd.clone()
+                } else if let Some(shell_cmd) = &step.shell {
+                    // For shell commands, we might need special handling
+                    // For now, treat it as a simple command
+                    format!("shell {shell_cmd}")
+                } else {
+                    // No command specified
+                    String::new()
+                };
+
+                let mut cmd = Command::from_string(&command_str);
+
+                // Apply metadata
+                cmd.metadata.commit_required = step.commit_required;
+                if let Some(analysis) = &step.analysis {
+                    cmd.analysis = Some(analysis.clone());
+                    cmd.metadata.analysis = Some(analysis.clone());
+                }
+
+                // Apply ID, outputs, and inputs
+                cmd.id = step.id.clone();
+                cmd.outputs = step.outputs.clone();
+                cmd.inputs = step.inputs.clone();
+
+                cmd
+            }
             WorkflowCommand::SimpleObject(simple) => {
                 let mut cmd = Command::new(&simple.name);
                 if let Some(commit_required) = simple.commit_required {
@@ -386,6 +506,7 @@ impl<'de> Deserialize<'de> for Command {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::WorkflowConfig;
 
     #[test]
     fn test_command_creation() {
@@ -590,5 +711,165 @@ mod tests {
         let deserialized: AnalysisConfig = serde_json::from_str(json).unwrap();
         assert!(deserialized.force_refresh);
         assert_eq!(deserialized.max_cache_age, 300); // Should use default
+    }
+
+    #[test]
+    fn test_workflow_step_command_parsing() {
+        // Test parsing of new workflow step format
+        let yaml = r#"
+claude: "/mmm-coverage"
+id: coverage
+commit_required: false
+outputs:
+  spec:
+    file_pattern: "*-coverage-improvements.md"
+analysis:
+  max_cache_age: 300
+"#;
+
+        let step: WorkflowStepCommand = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(step.claude, Some("/mmm-coverage".to_string()));
+        assert_eq!(step.id, Some("coverage".to_string()));
+        assert!(!step.commit_required);
+        assert!(step.outputs.is_some());
+        assert!(step.analysis.is_some());
+    }
+
+    #[test]
+    fn test_workflow_command_with_workflow_step() {
+        // Test the full workflow command enum with new step format
+        let yaml = r#"
+- claude: "/mmm-coverage"
+  id: coverage
+  commit_required: false
+"#;
+
+        let commands: Vec<WorkflowCommand> = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(commands.len(), 1);
+
+        match &commands[0] {
+            WorkflowCommand::WorkflowStep(step) => {
+                assert_eq!(step.claude, Some("/mmm-coverage".to_string()));
+                assert_eq!(step.id, Some("coverage".to_string()));
+                assert!(!step.commit_required);
+            }
+            _ => panic!("Expected WorkflowStep variant"),
+        }
+    }
+
+    #[test]
+    fn test_untagged_enum_debug() {
+        // Debug why untagged enum doesn't work
+        let yaml_simple = r#"mmm-code-review"#;
+        let cmd_simple: WorkflowCommand = serde_yaml::from_str(yaml_simple).unwrap();
+        assert!(matches!(cmd_simple, WorkflowCommand::Simple(_)));
+
+        // Now test our new format FIRST since it's before SimpleObject in the enum
+        let yaml_new = r#"
+claude: "/mmm-coverage"
+id: coverage
+"#;
+        match serde_yaml::from_str::<WorkflowCommand>(yaml_new) {
+            Ok(cmd) => {
+                assert!(matches!(cmd, WorkflowCommand::WorkflowStep(_)));
+            }
+            Err(e) => panic!("Failed to parse new format: {}", e),
+        }
+
+        let yaml_simple_obj = r#"
+name: mmm-code-review
+commit_required: false
+"#;
+        let cmd_simple_obj: WorkflowCommand = serde_yaml::from_str(yaml_simple_obj).unwrap();
+        assert!(matches!(cmd_simple_obj, WorkflowCommand::SimpleObject(_)));
+    }
+
+    #[test]
+    fn test_workflow_config_with_new_syntax() {
+        // Test parsing the exact structure used in coverage.yml
+        let yaml = r#"
+commands:
+    - claude: "/mmm-coverage"
+      id: coverage
+      commit_required: false
+      outputs:
+        spec:
+          file_pattern: "*-coverage-improvements.md"
+      analysis:
+        max_cache_age: 300
+    
+    - claude: "/mmm-implement-spec ${coverage.spec}"
+      inputs:
+        spec:
+          from: "${coverage.spec}"
+          pass_as:
+            argument:
+              position: 0
+    
+    - claude: "/mmm-lint"
+      commit_required: false
+"#;
+
+        let config: WorkflowConfig = match serde_yaml::from_str(yaml) {
+            Ok(c) => c,
+            Err(e) => {
+                // Try to parse just the commands array to debug
+                let yaml_value: serde_yaml::Value = serde_yaml::from_str(yaml).unwrap();
+                if let Some(commands) = yaml_value.get("commands") {
+                    println!("Commands value: {:?}", commands);
+
+                    // Try to parse each command
+                    if let Some(seq) = commands.as_sequence() {
+                        for (i, cmd) in seq.iter().enumerate() {
+                            println!("\nCommand {}: {:?}", i, cmd);
+                            match serde_yaml::from_value::<WorkflowStepCommand>(cmd.clone()) {
+                                Ok(parsed) => println!("  Parsed as WorkflowStepCommand: success"),
+                                Err(e2) => println!("  Failed as WorkflowStepCommand: {}", e2),
+                            }
+                            match serde_yaml::from_value::<WorkflowCommand>(cmd.clone()) {
+                                Ok(parsed) => println!("  Parsed as WorkflowCommand: {:?}", parsed),
+                                Err(e2) => println!("  Failed as WorkflowCommand: {}", e2),
+                            }
+                        }
+                    }
+                }
+                panic!("Failed to parse WorkflowConfig: {}", e);
+            }
+        };
+        assert_eq!(config.commands.len(), 3);
+
+        // Verify first command
+        match &config.commands[0] {
+            WorkflowCommand::WorkflowStep(step) => {
+                assert_eq!(step.claude, Some("/mmm-coverage".to_string()));
+                assert_eq!(step.id, Some("coverage".to_string()));
+                assert!(!step.commit_required);
+                assert!(step.outputs.is_some());
+                assert!(step.analysis.is_some());
+            }
+            _ => panic!("Expected WorkflowStep variant for first command"),
+        }
+
+        // Verify second command
+        match &config.commands[1] {
+            WorkflowCommand::WorkflowStep(step) => {
+                assert_eq!(
+                    step.claude,
+                    Some("/mmm-implement-spec ${coverage.spec}".to_string())
+                );
+                assert!(step.inputs.is_some());
+                // pass_as is now inside the InputReference, not at top level
+            }
+            _ => panic!("Expected WorkflowStep variant for second command"),
+        }
+
+        // Verify third command
+        match &config.commands[2] {
+            WorkflowCommand::WorkflowStep(step) => {
+                assert_eq!(step.claude, Some("/mmm-lint".to_string()));
+                assert!(!step.commit_required);
+            }
+            _ => panic!("Expected WorkflowStep variant for third command"),
+        }
     }
 }

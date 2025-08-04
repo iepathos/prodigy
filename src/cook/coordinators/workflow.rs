@@ -103,8 +103,17 @@ impl WorkflowCoordinator for DefaultWorkflowCoordinator {
                 // Convert to workflow step
                 let command_str = match command {
                     crate::config::WorkflowCommand::Simple(s) => s.clone(),
-                    crate::config::WorkflowCommand::Structured(c) => c.name.clone(),
+                    crate::config::WorkflowCommand::WorkflowStep(step) => {
+                        if let Some(claude_cmd) = &step.claude {
+                            claude_cmd.clone()
+                        } else if let Some(shell_cmd) = &step.shell {
+                            format!("shell {shell_cmd}")
+                        } else {
+                            String::new()
+                        }
+                    }
                     crate::config::WorkflowCommand::SimpleObject(obj) => obj.name.clone(),
+                    crate::config::WorkflowCommand::Structured(c) => c.name.clone(),
                 };
 
                 let step = WorkflowStep {

@@ -220,12 +220,57 @@ async fn load_playbook(path: &Path) -> Result<WorkflowConfig> {
     if path.extension().and_then(|s| s.to_str()) == Some("yml")
         || path.extension().and_then(|s| s.to_str()) == Some("yaml")
     {
-        serde_yaml::from_str(&content)
-            .context(format!("Failed to parse YAML playbook: {}", path.display()))
+        match serde_yaml::from_str::<WorkflowConfig>(&content) {
+            Ok(config) => Ok(config),
+            Err(e) => {
+                // Try to provide more helpful error messages
+                let mut error_msg = format!("Failed to parse YAML playbook: {}\n", path.display());
+
+                // Extract line and column info if available
+                if let Some(location) = e.location() {
+                    error_msg.push_str(&format!(
+                        "Error at line {}, column {}\n",
+                        location.line(),
+                        location.column()
+                    ));
+
+                    // Try to show the problematic line
+                    if let Some(line) = content.lines().nth(location.line().saturating_sub(1)) {
+                        error_msg.push_str(&format!("Problematic line: {line}\n"));
+                        if location.column() > 0 {
+                            error_msg.push_str(&format!(
+                                "{}^\n",
+                                " ".repeat(location.column().saturating_sub(1))
+                            ));
+                        }
+                    }
+                }
+
+                error_msg.push_str(&format!("\nOriginal error: {e}"));
+
+                // Add hints for common issues
+                if content.contains("claude:") || content.contains("shell:") {
+                    error_msg.push_str("\n\nHint: This appears to use the new workflow syntax with 'claude:' or 'shell:' commands.");
+                    error_msg.push_str("\nThe workflow configuration expects 'commands:' as a list of command objects.");
+                    error_msg.push_str("\nEnsure your YAML structure matches the expected format.");
+                }
+
+                Err(anyhow!(error_msg))
+            }
+        }
     } else {
         // Default to JSON parsing
-        serde_json::from_str(&content)
-            .context(format!("Failed to parse JSON playbook: {}", path.display()))
+        match serde_json::from_str::<WorkflowConfig>(&content) {
+            Ok(config) => Ok(config),
+            Err(e) => {
+                let mut error_msg = format!("Failed to parse JSON playbook: {}\n", path.display());
+
+                // JSON errors usually include line/column info
+                error_msg.push_str(&format!("Error: {e}"));
+
+                Err(anyhow!(error_msg))
+            }
+        }
     }
 }
 
@@ -290,5 +335,61 @@ mod cook_tests {
         // Should load default workflow
         assert!(!workflow.commands.is_empty());
         assert_eq!(workflow.commands.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_yaml_error_messages() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Test case 1: Invalid YAML syntax
+        let playbook_path = temp_dir.path().join("invalid.yml");
+        let invalid_content = r#"commands:
+  - claude: "/mmm-coverage"
+    id: coverage
+      commit_required: false  # Wrong indentation
+"#;
+        tokio::fs::write(&playbook_path, invalid_content)
+            .await
+            .unwrap();
+
+        let err = load_playbook(&playbook_path).await.unwrap_err();
+        let err_msg = err.to_string();
+        assert!(err_msg.contains("Error at line"));
+        assert!(err_msg.contains("column"));
+        assert!(err_msg.contains("commit_required: false"));
+
+        // Test case 2: Wrong structure that triggers new syntax hint
+        let playbook_path2 = temp_dir.path().join("new_syntax.yml");
+        let new_syntax_content = r#"commands:
+  - claude: "/mmm-coverage"
+    inputs:
+      spec:
+        from: "${coverage.spec}"
+      pass_as:  # Wrong level - should be inside spec
+        argument:
+          position: 0
+"#;
+        tokio::fs::write(&playbook_path2, new_syntax_content)
+            .await
+            .unwrap();
+
+        let err2 = load_playbook(&playbook_path2).await.unwrap_err();
+        let err_msg2 = err2.to_string();
+        assert!(err_msg2.contains("claude:") || err_msg2.contains("shell:"));
+        assert!(err_msg2.contains("workflow"));
+
+        // Test case 3: Missing required field
+        let playbook_path3 = temp_dir.path().join("missing_field.yml");
+        let missing_field_content = r#"commands:
+  - id: coverage  # Missing claude or shell field
+    commit_required: false
+"#;
+        tokio::fs::write(&playbook_path3, missing_field_content)
+            .await
+            .unwrap();
+
+        let err3 = load_playbook(&playbook_path3).await.unwrap_err();
+        let err_msg3 = err3.to_string();
+        assert!(err_msg3.contains("data did not match any variant"));
     }
 }
