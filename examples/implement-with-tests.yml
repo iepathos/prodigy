@@ -1,0 +1,80 @@
+# implement-with-tests.yml - Implementation workflow with test-driven recovery
+# This extends the basic implementation workflow with automatic test execution
+# and recovery from test failures.
+#
+# Usage examples:
+#   mmm cook examples/implement-with-tests.yml --args "33"
+#   mmm cook examples/implement-with-tests.yml --map "specs/*.md"
+#   mmm cook examples/implement-with-tests.yml --map "specs/temp/*.md" --worktree
+#
+# This workflow demonstrates:
+# - Implementing specifications
+# - Running tests automatically
+# - Recovering from test failures with Claude
+# - Conditional execution based on test results
+#
+# NOTE: This example uses the proposed new syntax from spec 47.
+# Until implemented, use the current name-based syntax.
+
+commands:
+  # Step 1: Implement the specification
+  - claude: "/mmm-implement-spec $ARG"
+    analysis:
+      max_cache_age: 300
+  
+  # Step 2: Run tests to verify implementation  
+  - shell: "cargo test"
+    capture_output: true
+    commit_required: false
+    on_failure:
+      # If tests fail, debug and fix them
+      claude: "/mmm-debug-test-failures '$CAPTURED_OUTPUT'"
+      commit_required: true
+      on_success:
+        # After fixing, verify tests pass
+        shell: "cargo test"
+        commit_required: false
+        on_failure:
+          # If still failing, try a more thorough fix
+          claude: "/mmm-fix-test-failures '$CAPTURED_OUTPUT' --deep-analysis"
+          commit_required: true
+  
+  # Step 3: Run linting after tests pass
+  - claude: "/mmm-lint"
+    commit_required: false
+    
+  # Step 4: Run benchmarks if available
+  - shell: "cargo bench --no-run"
+    commit_required: false
+    on_failure:
+      # Benchmarks compilation failures are non-critical
+      shell: "echo 'Skipping benchmarks due to compilation issues'"
+      commit_required: false
+  
+  # Step 5: Final verification
+  - shell: "cargo test --release"
+    capture_output: true
+    commit_required: false
+    on_failure:
+      # Report persistent failures for manual intervention
+      claude: "/mmm-report-test-status failed '$CAPTURED_OUTPUT' --notify"
+      commit_required: false
+    on_success:
+      shell: "echo '✅ All tests passing! Implementation complete.'"
+      commit_required: false
+
+# Configuration for the workflow
+config:
+  # Maximum iterations when using --iterate flag
+  max_iterations: 3
+  
+  # Whether to continue on non-critical failures
+  continue_on_error: false
+  
+  # Timeout for individual commands (in seconds)
+  command_timeout: 300
+  
+  # Environment variables available to all commands
+  environment:
+    RUST_BACKTRACE: "1"
+    CARGO_TERM_COLOR: "always"
