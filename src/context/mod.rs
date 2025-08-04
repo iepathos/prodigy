@@ -513,8 +513,9 @@ pub fn save_test_coverage_summary(context_dir: &Path, coverage: &TestCoverageMap
             coverage.overall_coverage * 100.0
         );
     } else {
-        // This is detailed coverage data, save the full map
-        let content = serde_json::to_string_pretty(coverage)?;
+        // Create an optimized version for Claude to consume
+        let optimized_coverage = optimize_coverage_for_context(coverage);
+        let content = serde_json::to_string_pretty(&optimized_coverage)?;
         std::fs::write(&coverage_map_file, &content)?;
 
         // Also save a summary for quick access
@@ -523,13 +524,65 @@ pub fn save_test_coverage_summary(context_dir: &Path, coverage: &TestCoverageMap
         std::fs::write(&coverage_summary_file, &summary_content)?;
 
         eprintln!(
-            "📊 Saved detailed test coverage ({} files, {} untested functions)",
-            coverage.file_coverage.len(),
-            coverage.untested_functions.len()
+            "📊 Optimized test coverage ({} untested -> {} prioritized, {} bytes)",
+            coverage.untested_functions.len(),
+            optimized_coverage.untested_functions.len(),
+            content.len()
         );
     }
 
     Ok(())
+}
+
+/// Optimize coverage data for context consumption
+fn optimize_coverage_for_context(coverage: &TestCoverageMap) -> TestCoverageMap {
+    use test_coverage::Criticality;
+    
+    // Group untested functions by criticality
+    let mut high_crit = Vec::new();
+    let mut medium_crit = Vec::new();
+    let mut low_crit = Vec::new();
+    
+    for func in &coverage.untested_functions {
+        match func.criticality {
+            Criticality::High => high_crit.push(func.clone()),
+            Criticality::Medium => medium_crit.push(func.clone()),
+            Criticality::Low => low_crit.push(func.clone()),
+        }
+    }
+    
+    // Sort by file and function name for consistent ordering
+    let sort_funcs = |a: &test_coverage::UntestedFunction, b: &test_coverage::UntestedFunction| {
+        a.file.cmp(&b.file).then(a.name.cmp(&b.name))
+    };
+    
+    high_crit.sort_by(sort_funcs);
+    medium_crit.sort_by(sort_funcs);
+    low_crit.sort_by(sort_funcs);
+    
+    // Keep all high criticality (only 2), top 30 medium, top 10 low
+    let mut optimized_untested = Vec::new();
+    optimized_untested.extend(high_crit);
+    optimized_untested.extend(medium_crit.into_iter().take(30));
+    optimized_untested.extend(low_crit.into_iter().take(10));
+    
+    // For file coverage, only keep files with < 50% coverage or no tests
+    let mut optimized_file_coverage = HashMap::new();
+    for (path, file_cov) in &coverage.file_coverage {
+        if file_cov.coverage_percentage < 0.5 || !file_cov.has_tests {
+            // Remove redundant path field
+            let mut optimized_cov = file_cov.clone();
+            optimized_cov.path = PathBuf::new(); // Clear redundant path
+            optimized_file_coverage.insert(path.clone(), optimized_cov);
+        }
+    }
+    
+    TestCoverageMap {
+        file_coverage: optimized_file_coverage,
+        untested_functions: optimized_untested,
+        critical_paths: coverage.critical_paths.clone(),
+        overall_coverage: coverage.overall_coverage,
+    }
 }
 
 /// Display health score and components
