@@ -99,6 +99,8 @@ impl TarpaulinCoverageAnalyzer {
                         "--engine",
                         "llvm",
                         "--out",
+                        "Html",
+                        "--out",
                         "Json",
                         "--output-dir",
                         "target/coverage",
@@ -131,6 +133,8 @@ impl TarpaulinCoverageAnalyzer {
                         "--skip-clean",
                         "--engine",
                         "llvm",
+                        "--out",
+                        "Html",
                         "--out",
                         "Json",
                         "--output-dir",
@@ -194,11 +198,6 @@ impl TarpaulinCoverageAnalyzer {
                 .strip_prefix(project_path)
                 .unwrap_or(&file_path)
                 .to_path_buf();
-
-            // Skip test files in coverage calculation
-            if self.is_test_file(&relative_path) {
-                continue;
-            }
 
             let coverage_percentage = if file_data.coverable > 0 {
                 file_data.covered as f64 / file_data.coverable as f64
@@ -266,14 +265,6 @@ impl TarpaulinCoverageAnalyzer {
         }
     }
 
-    /// Check if a path is a test file
-    fn is_test_file(&self, path: &Path) -> bool {
-        let path_str = path.to_string_lossy();
-        path_str.contains("/tests/")
-            || path_str.contains("_test.rs")
-            || path_str.contains("test_")
-            || path_str.ends_with("_test.rs")
-    }
 
     /// Analyze functions in a file and determine coverage
     async fn analyze_file_functions(
