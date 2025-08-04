@@ -34,3 +34,40 @@ impl ExitStatusExt for std::process::ExitStatus {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_from_raw_success() {
+        let status = std::process::ExitStatus::from_raw(0);
+        assert!(status.success());
+        // On Unix, exit status might be encoded differently
+        #[cfg(unix)]
+        {
+            // On Unix, from_raw(0) should be success
+            assert!(status.success());
+        }
+        #[cfg(not(unix))]
+        {
+            assert_eq!(status.code(), Some(0));
+        }
+    }
+    
+    #[test] 
+    fn test_from_raw_failure() {
+        let status = std::process::ExitStatus::from_raw(256); // Exit code 1 is typically 256 on Unix
+        assert!(!status.success());
+        // On Unix, exit status might be encoded differently
+        #[cfg(unix)]
+        {
+            // from_raw(256) represents exit code 1 on Unix
+            assert!(!status.success());
+        }
+        #[cfg(not(unix))]
+        {
+            assert_eq!(status.code(), Some(1));
+        }
+    }
+}

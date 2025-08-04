@@ -80,3 +80,62 @@ async fn test_context_save_and_load_integration() {
         analysis.metadata.files_analyzed
     );
 }
+
+#[tokio::test]
+async fn test_context_analyzer_rust_project() -> anyhow::Result<()> {
+    use mmm::context::save_analysis;
+    
+    let temp_dir = TempDir::new()?;
+    let project_path = temp_dir.path();
+    
+    // Create test Rust project structure
+    std::fs::create_dir_all(project_path.join("src"))?;
+    std::fs::write(project_path.join("Cargo.toml"), r#"
+[package]
+name = "test-project"
+version = "0.1.0"
+"#)?;
+    std::fs::write(project_path.join("src/main.rs"), r#"
+fn main() {
+    println!("Hello, world!");
+}
+
+fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_add() {
+        assert_eq!(add(2, 2), 4);
+    }
+}
+"#)?;
+    
+    // Set env var to skip git commits in tests
+    std::env::set_var("MMM_SKIP_GIT_COMMITS", "true");
+    
+    // Run analysis
+    let analyzer = ContextAnalyzer::new(project_path)?;
+    let result = analyzer.analyze().await?;
+    
+    // Verify analysis results - at least some basic structures should be found
+    assert!(!result.technical_debt.debt_items.is_empty() || !result.architecture.components.is_empty());
+    
+    // Save analysis
+    save_analysis(project_path, &result)?;
+    
+    // Verify saved files
+    let context_dir = project_path.join(".mmm/context");
+    assert!(context_dir.join("analysis.json").exists());
+    assert!(context_dir.join("technical_debt.json").exists());
+    assert!(context_dir.join("architecture.json").exists());
+    
+    // Clean up
+    std::env::remove_var("MMM_SKIP_GIT_COMMITS");
+    
+    Ok(())
+}

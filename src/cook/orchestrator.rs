@@ -2146,4 +2146,63 @@ mod tests {
             "Should have at most one cleanup prompt"
         );
     }
+
+    #[test]
+    fn test_process_glob_pattern_matches_files() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let base_path = temp_dir.path();
+        
+        // Create test files with numeric prefixes for extraction
+        std::fs::create_dir_all(base_path.join("specs"))?;
+        std::fs::write(base_path.join("specs/01-feature.md"), "# Feature")?;
+        std::fs::write(base_path.join("specs/02-another.md"), "# Another")?;
+        std::fs::write(base_path.join("test.txt"), "test")?;
+        
+        // Change to the temp directory to make glob patterns work
+        let original_dir = std::env::current_dir()?;
+        std::env::set_current_dir(&base_path)?;
+        
+        let (orchestrator, _, _) = create_test_orchestrator();
+        
+        let pattern = "specs/*.md";
+        let inputs = orchestrator.process_glob_pattern(pattern)?;
+        
+        // Restore original directory
+        std::env::set_current_dir(original_dir)?;
+        
+        // The method extracts the numeric prefix from filenames
+        assert_eq!(inputs.len(), 2);
+        assert!(inputs.contains(&"01".to_string()));
+        assert!(inputs.contains(&"02".to_string()));
+        Ok(())
+    }
+    
+    #[test]
+    fn test_process_glob_pattern_recursive() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let base_path = temp_dir.path();
+        
+        // Create nested structure with numeric prefixes
+        std::fs::create_dir_all(base_path.join("specs/nested"))?;
+        std::fs::write(base_path.join("specs/10-top.md"), "# Top")?;
+        std::fs::write(base_path.join("specs/nested/20-nested.md"), "# Nested")?;
+        
+        // Change to the temp directory to make glob patterns work
+        let original_dir = std::env::current_dir()?;
+        std::env::set_current_dir(&base_path)?;
+        
+        let (orchestrator, _, _) = create_test_orchestrator();
+        
+        let pattern = "specs/**/*.md";
+        let inputs = orchestrator.process_glob_pattern(pattern)?;
+        
+        // Restore original directory
+        std::env::set_current_dir(original_dir)?;
+        
+        // Should find both files and extract their numeric prefixes
+        assert_eq!(inputs.len(), 2);
+        assert!(inputs.contains(&"10".to_string()));
+        assert!(inputs.contains(&"20".to_string()));
+        Ok(())
+    }
 }

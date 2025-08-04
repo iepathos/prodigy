@@ -74,3 +74,59 @@ async fn test_git_operations_integration() {
     // Restore original directory
     std::env::set_current_dir(original_dir).unwrap();
 }
+
+#[tokio::test]
+async fn test_git_operations_with_git_reader_writer() -> Result<()> {
+    use mmm::git::{GitCommandRunner, GitReader, GitWriter};
+    use mmm::subprocess::SubprocessManager;
+    use anyhow::Result;
+    
+    let temp_dir = TempDir::new()?;
+    let subprocess = SubprocessManager::production();
+    let git = GitCommandRunner::new(subprocess.runner());
+    
+    // Initialize repo
+    git.init(temp_dir.path()).await?;
+    
+    // Test status
+    let status = git.get_status(temp_dir.path()).await?;
+    assert!(status.untracked.is_empty());
+    assert!(status.modified.is_empty());
+    
+    // Create and add file
+    std::fs::write(temp_dir.path().join("test.txt"), "hello")?;
+    git.add(temp_dir.path(), &["test.txt"]).await?;
+    
+    // Verify staged
+    let status = git.get_status(temp_dir.path()).await?;
+    assert_eq!(status.staged.len(), 1);
+    
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_git_worktree_operations_with_git_ops() -> Result<()> {
+    use mmm::git::{GitCommandRunner, GitWorktreeOps, GitWriter};
+    use mmm::subprocess::SubprocessManager;
+    use anyhow::Result;
+    
+    let temp_dir = TempDir::new()?;
+    let subprocess = SubprocessManager::production();
+    let git = GitCommandRunner::new(subprocess.runner());
+    
+    // Initialize repo with initial commit
+    git.init(temp_dir.path()).await?;
+    std::fs::write(temp_dir.path().join("README.md"), "# Test")?;
+    git.add(temp_dir.path(), &["README.md"]).await?;
+    git.commit(temp_dir.path(), "Initial commit").await?;
+    
+    // Create worktree
+    let worktree_path = temp_dir.path().join("worktree1");
+    git.create_worktree(temp_dir.path(), &worktree_path, "feature-branch").await?;
+    
+    // List worktrees
+    let worktrees = git.list_worktrees(temp_dir.path()).await?;
+    assert_eq!(worktrees.len(), 2); // main + worktree1
+    
+    Ok(())
+}

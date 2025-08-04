@@ -427,6 +427,69 @@ commands:
     }
 
     #[test]
+    fn test_get_claude_api_key_from_config() {
+        let mut config = Config::default();
+        config.global.claude_api_key = Some("test-key-123".to_string());
+        
+        let result = config.get_claude_api_key();
+        assert_eq!(result, Some("test-key-123"));
+    }
+    
+    #[test]
+    fn test_get_claude_api_key_from_env() {
+        let _guard = ENV_TEST_MUTEX.lock().unwrap();
+        
+        // Save original env value
+        let original = std::env::var("MMM_CLAUDE_API_KEY").ok();
+        
+        unsafe { std::env::set_var("MMM_CLAUDE_API_KEY", "env-key-456") };
+        let mut config = Config::default();
+        config.merge_env_vars();
+        
+        let result = config.get_claude_api_key();
+        assert_eq!(result, Some("env-key-456"));
+        
+        // Restore original
+        unsafe { std::env::remove_var("MMM_CLAUDE_API_KEY") };
+        if let Some(val) = original {
+            unsafe { std::env::set_var("MMM_CLAUDE_API_KEY", val) };
+        }
+    }
+    
+    #[test]
+    fn test_get_claude_api_key_config_precedence_over_env() {
+        let _guard = ENV_TEST_MUTEX.lock().unwrap();
+        
+        // Save original env value
+        let original = std::env::var("MMM_CLAUDE_API_KEY").ok();
+        
+        unsafe { std::env::set_var("MMM_CLAUDE_API_KEY", "env-key") };
+        let mut config = Config::default();
+        config.merge_env_vars();
+        
+        // Now set config value - it should take precedence
+        config.project = Some(ProjectConfig {
+            name: "test".to_string(),
+            description: None,
+            version: None,
+            spec_dir: None,
+            claude_api_key: Some("config-key".to_string()),
+            auto_commit: None,
+            variables: None,
+        });
+        
+        // Project config takes precedence over env
+        let result = config.get_claude_api_key();
+        assert_eq!(result, Some("config-key"));
+        
+        // Restore original
+        unsafe { std::env::remove_var("MMM_CLAUDE_API_KEY") };
+        if let Some(val) = original {
+            unsafe { std::env::set_var("MMM_CLAUDE_API_KEY", val) };
+        }
+    }
+
+    #[test]
     fn test_get_auto_commit_precedence() {
         let mut config = Config::new();
 

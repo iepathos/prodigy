@@ -765,4 +765,29 @@ mod tests {
         ));
         assert!(!RealClaudeClient::is_transient_error("Syntax error"));
     }
+
+    #[tokio::test]
+    async fn test_add_error_response() {
+        let mock = MockClaudeClient::new();
+        mock.add_error_response("test error", 1).await;
+        
+        let result = mock.execute_command("/test", &[], None, 1, false).await;
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        // Check that status is not success (exit code is non-zero)
+        assert!(!output.status.success());
+        assert_eq!(String::from_utf8_lossy(&output.stderr), "test error");
+    }
+    
+    #[tokio::test]
+    async fn test_add_success_response() {
+        let mock = MockClaudeClient::new();
+        mock.add_success_response("success output").await;
+        
+        let result = mock.execute_command("/test", &[], None, 1, false).await;
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        assert!(output.status.success());
+        assert_eq!(String::from_utf8_lossy(&output.stdout), "success output");
+    }
 }

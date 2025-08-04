@@ -391,4 +391,36 @@ mod cook_tests {
         let err_msg3 = err3.to_string();
         assert!(err_msg3.contains("data did not match any variant"));
     }
+
+    #[tokio::test]
+    async fn test_create_orchestrator_default() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let project_path = temp_dir.path();
+        
+        // Initialize git repo to avoid git-related errors
+        std::fs::create_dir_all(project_path.join(".git"))?;
+        
+        let orchestrator = create_orchestrator(project_path).await?;
+        // Verify orchestrator was created successfully
+        // Note: The Arc<dyn CookOrchestrator> doesn't have session_id() method exposed
+        let _ = orchestrator;
+        Ok(())
+    }
+    
+    #[tokio::test]
+    async fn test_create_orchestrator_with_mmm_dir() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let project_path = temp_dir.path();
+        
+        // Create .mmm directory
+        std::fs::create_dir_all(project_path.join(".mmm"))?;
+        // Initialize git repo
+        std::fs::create_dir_all(project_path.join(".git"))?;
+        
+        let orchestrator = create_orchestrator(project_path).await?;
+        // Verify orchestrator was created successfully
+        // Note: The Arc<dyn CookOrchestrator> doesn't have session_id() method exposed
+        let _ = orchestrator;
+        Ok(())
+    }
 }
