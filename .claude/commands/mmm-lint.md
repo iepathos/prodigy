@@ -76,5 +76,6 @@ When `MMM_AUTOMATION=true` environment variable is set:
 - Do NOT modify test code unless it's formatting
 - Always check git status before and after
 - Only commit if actual changes were made by the tools
+- **IMPORTANT**: Do NOT add any attribution text like "🤖 Generated with [Claude Code]" or "Co-Authored-By: Claude" to commit messages. Keep commits clean and focused on the change itself.
 
 Your goal is to ensure code quality through automated tools while preserving the intent and logic of the code.
