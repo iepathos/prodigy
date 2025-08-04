@@ -109,6 +109,8 @@ impl WorkflowCoordinator for DefaultWorkflowCoordinator {
                             claude_cmd.clone()
                         } else if let Some(shell_cmd) = &step.shell {
                             format!("shell {shell_cmd}")
+                        } else if let Some(test_cmd) = &step.test {
+                            format!("test {}", test_cmd.command)
                         } else {
                             String::new()
                         }
@@ -125,6 +127,7 @@ impl WorkflowCoordinator for DefaultWorkflowCoordinator {
                     }),
                     claude: None,
                     shell: None,
+                    test: None,
                     capture_output: false,
                     timeout: None,
                     working_dir: None,

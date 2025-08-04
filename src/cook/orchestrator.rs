@@ -285,6 +285,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                     }),
                     claude: None,
                     shell: None,
+                    test: None,
                     capture_output: false,
                     timeout: None,
                     working_dir: None,
