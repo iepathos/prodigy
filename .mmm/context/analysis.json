@@ -22,7 +22,7 @@
     "debt_items": 20,
     "high_priority_debt": 20,
     "overall_coverage": 0.5826978701025506,
-    "untested_functions": 1616,
+    "untested_functions": 42,
     "critical_untested": 2
   },
   "health_score": {
@@ -34,7 +34,7 @@
       "maintainability": 45.02133863223005,
       "type_safety": 112.8669
     },
-    "timestamp": "2025-08-04T10:35:44.470622Z"
+    "timestamp": "2025-08-04T10:41:15.072453Z"
   },
   "insights": [
     "20 high-priority technical debt items require attention"
