@@ -1,29 +1,37 @@
 {
-  "test_coverage": 58.30713,
-  "type_coverage": 112.8669,
-  "lint_warnings": 0,
+  "test_coverage": 58.13838,
+  "type_coverage": 113.23981,
+  "lint_warnings": 2,
   "code_duplication": 0.0,
-  "doc_coverage": 22.014051,
+  "doc_coverage": 21.460176,
   "benchmark_results": {},
   "memory_usage": {
-    "estimated_heap": 8388608,
-    "estimated_stack": 2097152
+    "estimated_stack": 2097152,
+    "estimated_heap": 8388608
   },
   "compile_time": {
-    "secs": 0,
-    "nanos": 246996042
+    "secs": 12,
+    "nanos": 799698041
   },
-  "binary_size": 9827488,
+  "binary_size": 9972848,
   "max_nesting_depth": 17,
-  "total_lines": 38912,
+  "total_lines": 40431,
   "complexity_summary": {
     "by_file": {
-      "src/config/command_validator.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 11,
+      "src/metrics/history.rs": {
+        "avg_cyclomatic": 2.0,
+        "max_cyclomatic": 2,
+        "avg_cognitive": 15.0,
+        "max_cognitive": 15,
+        "functions_count": 1,
+        "high_complexity_count": 0
+      },
+      "src/init/mod.rs": {
+        "avg_cyclomatic": 2.0454545,
+        "max_cyclomatic": 9,
+        "avg_cognitive": 9.363636,
+        "max_cognitive": 60,
+        "functions_count": 22,
         "high_complexity_count": 0
       },
       "src/metrics/complexity.rs": {
@@ -34,6 +42,14 @@
         "functions_count": 6,
         "high_complexity_count": 0
       },
+      "src/session/state.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 2,
+        "high_complexity_count": 0
+      },
       "src/cook/analysis/mod.rs": {
         "avg_cyclomatic": 1.0,
         "max_cyclomatic": 1,
@@ -42,76 +58,12 @@
         "functions_count": 2,
         "high_complexity_count": 0
       },
-      "src/cook/analysis/cache.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 4,
-        "high_complexity_count": 0
-      },
-      "src/cook/orchestrator.rs": {
-        "avg_cyclomatic": 1.25,
+      "src/metrics/registry.rs": {
+        "avg_cyclomatic": 1.6666666,
         "max_cyclomatic": 3,
-        "avg_cognitive": 6.5833335,
-        "max_cognitive": 28,
-        "functions_count": 12,
-        "high_complexity_count": 0
-      },
-      "src/analyze/mod.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 1,
-        "high_complexity_count": 0
-      },
-      "src/session/timing.rs": {
-        "avg_cyclomatic": 2.3333333,
-        "max_cyclomatic": 5,
-        "avg_cognitive": 20.0,
-        "max_cognitive": 56,
+        "avg_cognitive": 5.0,
+        "max_cognitive": 11,
         "functions_count": 3,
-        "high_complexity_count": 0
-      },
-      "src/cook/git_ops.rs": {
-        "avg_cyclomatic": 1.0869565,
-        "max_cyclomatic": 2,
-        "avg_cognitive": 2.9130435,
-        "max_cognitive": 17,
-        "functions_count": 23,
-        "high_complexity_count": 0
-      },
-      "src/metrics/testing.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.2222223,
-        "max_cognitive": 4,
-        "functions_count": 9,
-        "high_complexity_count": 0
-      },
-      "src/cook/execution/runner.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 3,
-        "high_complexity_count": 0
-      },
-      "src/config/command_discovery.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 4,
-        "high_complexity_count": 0
-      },
-      "src/cook/tests.rs": {
-        "avg_cyclomatic": 1.8695652,
-        "max_cyclomatic": 7,
-        "avg_cognitive": 5.9565215,
-        "max_cognitive": 23,
-        "functions_count": 23,
         "high_complexity_count": 0
       },
       "src/session/storage.rs": {
@@ -122,6 +74,174 @@
         "functions_count": 1,
         "high_complexity_count": 0
       },
+      "src/simple_state/mod.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 1,
+        "high_complexity_count": 0
+      },
+      "src/session/persistence.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 1,
+        "high_complexity_count": 0
+      },
+      "src/config/metadata_parser.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 5,
+        "high_complexity_count": 0
+      },
+      "src/context/analyzer.rs": {
+        "avg_cyclomatic": 2.7777777,
+        "max_cyclomatic": 6,
+        "avg_cognitive": 13.222222,
+        "max_cognitive": 24,
+        "functions_count": 9,
+        "high_complexity_count": 0
+      },
+      "src/cook/execution/claude.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 3,
+        "high_complexity_count": 0
+      },
+      "src/cook/coordinators/workflow.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 12.0,
+        "max_cognitive": 12,
+        "functions_count": 2,
+        "high_complexity_count": 0
+      },
+      "src/config/command_validator.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 11,
+        "high_complexity_count": 0
+      },
+      "src/metrics/storage.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 15,
+        "high_complexity_count": 0
+      },
+      "src/analyze/mod.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 1,
+        "high_complexity_count": 0
+      },
+      "src/context/architecture.rs": {
+        "avg_cyclomatic": 1.2,
+        "max_cyclomatic": 2,
+        "avg_cognitive": 3.2,
+        "max_cognitive": 8,
+        "functions_count": 5,
+        "high_complexity_count": 0
+      },
+      "src/cook/git_ops.rs": {
+        "avg_cyclomatic": 1.0869565,
+        "max_cyclomatic": 2,
+        "avg_cognitive": 2.9130435,
+        "max_cognitive": 17,
+        "functions_count": 23,
+        "high_complexity_count": 0
+      },
+      "src/cook/mod_tests.rs": {
+        "avg_cyclomatic": 1.25,
+        "max_cyclomatic": 4,
+        "avg_cognitive": 3.5833333,
+        "max_cognitive": 15,
+        "functions_count": 36,
+        "high_complexity_count": 0
+      },
+      "src/metrics/backends.rs": {
+        "avg_cyclomatic": 2.3333333,
+        "max_cyclomatic": 5,
+        "avg_cognitive": 6.2222223,
+        "max_cognitive": 10,
+        "functions_count": 9,
+        "high_complexity_count": 0
+      },
+      "src/git/scenario.rs": {
+        "avg_cyclomatic": 1.8888888,
+        "max_cyclomatic": 9,
+        "avg_cognitive": 7.6666665,
+        "max_cognitive": 53,
+        "functions_count": 9,
+        "high_complexity_count": 0
+      },
+      "src/context/conventions.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 8,
+        "high_complexity_count": 0
+      },
+      "src/config/command_discovery.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 4,
+        "high_complexity_count": 0
+      },
+      "src/context/summary.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 4,
+        "high_complexity_count": 0
+      },
+      "src/session/tests.rs": {
+        "avg_cyclomatic": 2.0,
+        "max_cyclomatic": 4,
+        "avg_cognitive": 10.666667,
+        "max_cognitive": 30,
+        "functions_count": 6,
+        "high_complexity_count": 0
+      },
+      "src/context/criticality.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 3,
+        "high_complexity_count": 0
+      },
+      "src/cook/signal_handler.rs": {
+        "avg_cyclomatic": 1.5,
+        "max_cyclomatic": 5,
+        "avg_cognitive": 7.375,
+        "max_cognitive": 40,
+        "functions_count": 8,
+        "high_complexity_count": 0
+      },
+      "src/cook/interaction/mod.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 6,
+        "high_complexity_count": 0
+      },
       "src/session/config.rs": {
         "avg_cyclomatic": 1.0,
         "max_cyclomatic": 1,
@@ -130,20 +250,12 @@
         "functions_count": 2,
         "high_complexity_count": 0
       },
-      "src/context/size_manager.rs": {
+      "src/metrics/mod.rs": {
         "avg_cyclomatic": 1.0,
         "max_cyclomatic": 1,
         "avg_cognitive": 2.0,
         "max_cognitive": 2,
-        "functions_count": 2,
-        "high_complexity_count": 0
-      },
-      "src/context/summary.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 3,
+        "functions_count": 4,
         "high_complexity_count": 0
       },
       "src/config/command.rs": {
@@ -154,15 +266,383 @@
         "functions_count": 17,
         "high_complexity_count": 1
       },
-      "src/metrics/registry.rs": {
-        "avg_cyclomatic": 1.6666666,
-        "max_cyclomatic": 3,
-        "avg_cognitive": 5.0,
-        "max_cognitive": 11,
+      "src/worktree/tests.rs": {
+        "avg_cyclomatic": 1.1111112,
+        "max_cyclomatic": 2,
+        "avg_cognitive": 2.6666667,
+        "max_cognitive": 8,
+        "functions_count": 9,
+        "high_complexity_count": 0
+      },
+      "src/metrics/collector.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 3.6,
+        "max_cognitive": 10,
+        "functions_count": 5,
+        "high_complexity_count": 0
+      },
+      "src/cook/tests.rs": {
+        "avg_cyclomatic": 1.8695652,
+        "max_cyclomatic": 7,
+        "avg_cognitive": 5.9565215,
+        "max_cognitive": 23,
+        "functions_count": 23,
+        "high_complexity_count": 0
+      },
+      "src/git/mod.rs": {
+        "avg_cyclomatic": 1.3076923,
+        "max_cyclomatic": 5,
+        "avg_cognitive": 2.6153846,
+        "max_cognitive": 10,
+        "functions_count": 13,
+        "high_complexity_count": 0
+      },
+      "src/subprocess/tests.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.8,
+        "max_cognitive": 4,
+        "functions_count": 10,
+        "high_complexity_count": 0
+      },
+      "src/session/manager.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 2,
+        "high_complexity_count": 0
+      },
+      "src/analysis/unified.rs": {
+        "avg_cyclomatic": 3.8888888,
+        "max_cyclomatic": 17,
+        "avg_cognitive": 25.833334,
+        "max_cognitive": 156,
+        "functions_count": 18,
+        "high_complexity_count": 1
+      },
+      "src/session/events.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 2,
+        "high_complexity_count": 0
+      },
+      "src/main.rs": {
+        "avg_cyclomatic": 7.0,
+        "max_cyclomatic": 13,
+        "avg_cognitive": 51.42857,
+        "max_cognitive": 133,
+        "functions_count": 7,
+        "high_complexity_count": 1
+      },
+      "src/cook/workflow/executor.rs": {
+        "avg_cyclomatic": 1.3333334,
+        "max_cyclomatic": 2,
+        "avg_cognitive": 4.0,
+        "max_cognitive": 8,
+        "functions_count": 6,
+        "high_complexity_count": 0
+      },
+      "src/context/mod.rs": {
+        "avg_cyclomatic": 2.952381,
+        "max_cyclomatic": 8,
+        "avg_cognitive": 17.095238,
+        "max_cognitive": 82,
+        "functions_count": 21,
+        "high_complexity_count": 0
+      },
+      "src/cook/interaction/prompts.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
         "functions_count": 3,
         "high_complexity_count": 0
       },
-      "src/session/events.rs": {
+      "src/cook/orchestrator.rs": {
+        "avg_cyclomatic": 1.25,
+        "max_cyclomatic": 3,
+        "avg_cognitive": 6.5833335,
+        "max_cognitive": 28,
+        "functions_count": 12,
+        "high_complexity_count": 0
+      },
+      "src/context/tarpaulin_coverage.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 3,
+        "high_complexity_count": 0
+      },
+      "src/context/debt.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 5,
+        "high_complexity_count": 0
+      },
+      "src/subprocess/git.rs": {
+        "avg_cyclomatic": 2.5,
+        "max_cyclomatic": 3,
+        "avg_cognitive": 6.5,
+        "max_cognitive": 8,
+        "functions_count": 2,
+        "high_complexity_count": 0
+      },
+      "src/context/test_coverage.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 6,
+        "high_complexity_count": 0
+      },
+      "src/testing/mod.rs": {
+        "avg_cyclomatic": 1.2857143,
+        "max_cyclomatic": 2,
+        "avg_cognitive": 3.7142856,
+        "max_cognitive": 8,
+        "functions_count": 7,
+        "high_complexity_count": 0
+      },
+      "src/cook/mod.rs": {
+        "avg_cyclomatic": 3.25,
+        "max_cyclomatic": 12,
+        "avg_cognitive": 26.625,
+        "max_cognitive": 109,
+        "functions_count": 8,
+        "high_complexity_count": 1
+      },
+      "src/cook/metrics/reporter.rs": {
+        "avg_cyclomatic": 2.5,
+        "max_cyclomatic": 7,
+        "avg_cognitive": 5.0,
+        "max_cognitive": 14,
+        "functions_count": 4,
+        "high_complexity_count": 0
+      },
+      "src/abstractions/git.rs": {
+        "avg_cyclomatic": 2.125,
+        "max_cyclomatic": 6,
+        "avg_cognitive": 10.375,
+        "max_cognitive": 38,
+        "functions_count": 8,
+        "high_complexity_count": 0
+      },
+      "src/context/dependencies.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 6,
+        "high_complexity_count": 0
+      },
+      "src/metrics/testing.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.2222223,
+        "max_cognitive": 4,
+        "functions_count": 9,
+        "high_complexity_count": 0
+      },
+      "src/config/loader.rs": {
+        "avg_cyclomatic": 1.2,
+        "max_cyclomatic": 3,
+        "avg_cognitive": 3.6,
+        "max_cognitive": 18,
+        "functions_count": 10,
+        "high_complexity_count": 0
+      },
+      "src/cook/session/tracker.rs": {
+        "avg_cyclomatic": 2.25,
+        "max_cyclomatic": 6,
+        "avg_cognitive": 13.0,
+        "max_cognitive": 46,
+        "functions_count": 4,
+        "high_complexity_count": 0
+      },
+      "src/simple_state/tests.rs": {
+        "avg_cyclomatic": 1.4,
+        "max_cyclomatic": 3,
+        "avg_cognitive": 7.133333,
+        "max_cognitive": 36,
+        "functions_count": 15,
+        "high_complexity_count": 0
+      },
+      "src/config/dynamic_registry.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 4,
+        "high_complexity_count": 0
+      },
+      "src/context/size_manager.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 2,
+        "high_complexity_count": 0
+      },
+      "src/analyze/command.rs": {
+        "avg_cyclomatic": 2.5,
+        "max_cyclomatic": 4,
+        "avg_cognitive": 4.5,
+        "max_cognitive": 7,
+        "functions_count": 2,
+        "high_complexity_count": 0
+      },
+      "src/abstractions/claude.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 4,
+        "high_complexity_count": 0
+      },
+      "src/config/mod.rs": {
+        "avg_cyclomatic": 1.7222222,
+        "max_cyclomatic": 5,
+        "avg_cognitive": 10.277778,
+        "max_cognitive": 58,
+        "functions_count": 18,
+        "high_complexity_count": 0
+      },
+      "src/cook/execution/runner.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 3,
+        "high_complexity_count": 0
+      },
+      "src/context/enhanced_coverage.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 1,
+        "high_complexity_count": 0
+      },
+      "src/worktree/test_state.rs": {
+        "avg_cyclomatic": 1.125,
+        "max_cyclomatic": 2,
+        "avg_cognitive": 5.75,
+        "max_cognitive": 11,
+        "functions_count": 8,
+        "high_complexity_count": 0
+      },
+      "src/git/parsers.rs": {
+        "avg_cyclomatic": 4.357143,
+        "max_cyclomatic": 14,
+        "avg_cognitive": 41.714287,
+        "max_cognitive": 222,
+        "functions_count": 14,
+        "high_complexity_count": 3
+      },
+      "src/config/command_parser.rs": {
+        "avg_cyclomatic": 1.9285715,
+        "max_cyclomatic": 8,
+        "avg_cognitive": 11.571428,
+        "max_cognitive": 84,
+        "functions_count": 14,
+        "high_complexity_count": 0
+      },
+      "src/cook/session/adapter.rs": {
+        "avg_cyclomatic": 1.1428572,
+        "max_cyclomatic": 2,
+        "avg_cognitive": 2.857143,
+        "max_cognitive": 8,
+        "functions_count": 7,
+        "high_complexity_count": 0
+      },
+      "src/worktree/manager.rs": {
+        "avg_cyclomatic": 1.2857143,
+        "max_cyclomatic": 3,
+        "avg_cognitive": 3.0,
+        "max_cognitive": 9,
+        "functions_count": 7,
+        "high_complexity_count": 0
+      },
+      "src/cook/retry.rs": {
+        "avg_cyclomatic": 1.75,
+        "max_cyclomatic": 13,
+        "avg_cognitive": 8.6875,
+        "max_cognitive": 149,
+        "functions_count": 32,
+        "high_complexity_count": 1
+      },
+      "src/context/optimizer.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 3,
+        "high_complexity_count": 0
+      },
+      "src/metrics/context.rs": {
+        "avg_cyclomatic": 2.3333333,
+        "max_cyclomatic": 3,
+        "avg_cognitive": 6.6666665,
+        "max_cognitive": 9,
+        "functions_count": 3,
+        "high_complexity_count": 0
+      },
+      "src/session/timing.rs": {
+        "avg_cyclomatic": 2.3333333,
+        "max_cyclomatic": 5,
+        "avg_cognitive": 20.0,
+        "max_cognitive": 56,
+        "functions_count": 3,
+        "high_complexity_count": 0
+      },
+      "src/init/templates.rs": {
+        "avg_cyclomatic": 1.25,
+        "max_cyclomatic": 2,
+        "avg_cognitive": 5.0,
+        "max_cognitive": 10,
+        "functions_count": 4,
+        "high_complexity_count": 0
+      },
+      "src/analyze/tests.rs": {
+        "avg_cyclomatic": 1.1333333,
+        "max_cyclomatic": 2,
+        "avg_cognitive": 3.0666666,
+        "max_cognitive": 8,
+        "functions_count": 15,
+        "high_complexity_count": 0
+      },
+      "src/scoring/mod.rs": {
+        "avg_cyclomatic": 3.4,
+        "max_cyclomatic": 11,
+        "avg_cognitive": 18.7,
+        "max_cognitive": 62,
+        "functions_count": 10,
+        "high_complexity_count": 1
+      },
+      "src/cook/analysis/cache.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 4,
+        "high_complexity_count": 0
+      },
+      "src/cook/interaction/display.rs": {
+        "avg_cyclomatic": 1.0,
+        "max_cyclomatic": 1,
+        "avg_cognitive": 2.0,
+        "max_cognitive": 2,
+        "functions_count": 9,
+        "high_complexity_count": 0
+      },
+      "src/metrics/performance.rs": {
         "avg_cyclomatic": 1.0,
         "max_cyclomatic": 1,
         "avg_cognitive": 2.0,
@@ -186,38 +666,6 @@
         "functions_count": 2,
         "high_complexity_count": 0
       },
-      "src/cook/retry.rs": {
-        "avg_cyclomatic": 1.75,
-        "max_cyclomatic": 13,
-        "avg_cognitive": 8.6875,
-        "max_cognitive": 149,
-        "functions_count": 32,
-        "high_complexity_count": 1
-      },
-      "src/metrics/performance.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 2,
-        "high_complexity_count": 0
-      },
-      "src/git/scenario.rs": {
-        "avg_cyclomatic": 1.8888888,
-        "max_cyclomatic": 9,
-        "avg_cognitive": 7.6666665,
-        "max_cognitive": 53,
-        "functions_count": 9,
-        "high_complexity_count": 0
-      },
-      "src/main.rs": {
-        "avg_cyclomatic": 7.0,
-        "max_cyclomatic": 13,
-        "avg_cognitive": 51.42857,
-        "max_cognitive": 133,
-        "functions_count": 7,
-        "high_complexity_count": 1
-      },
       "src/cook/session/migration.rs": {
         "avg_cyclomatic": 2.25,
         "max_cyclomatic": 4,
@@ -225,434 +673,10 @@
         "max_cognitive": 16,
         "functions_count": 4,
         "high_complexity_count": 0
-      },
-      "src/session/persistence.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 1,
-        "high_complexity_count": 0
-      },
-      "src/cook/metrics/reporter.rs": {
-        "avg_cyclomatic": 2.5,
-        "max_cyclomatic": 7,
-        "avg_cognitive": 5.0,
-        "max_cognitive": 14,
-        "functions_count": 4,
-        "high_complexity_count": 0
-      },
-      "src/worktree/test_state.rs": {
-        "avg_cyclomatic": 1.125,
-        "max_cyclomatic": 2,
-        "avg_cognitive": 5.75,
-        "max_cognitive": 11,
-        "functions_count": 8,
-        "high_complexity_count": 0
-      },
-      "src/context/dependencies.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 6,
-        "high_complexity_count": 0
-      },
-      "src/cook/interaction/mod.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 6,
-        "high_complexity_count": 0
-      },
-      "src/metrics/history.rs": {
-        "avg_cyclomatic": 2.0,
-        "max_cyclomatic": 2,
-        "avg_cognitive": 15.0,
-        "max_cognitive": 15,
-        "functions_count": 1,
-        "high_complexity_count": 0
-      },
-      "src/abstractions/claude.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 4,
-        "high_complexity_count": 0
-      },
-      "src/metrics/mod.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 4,
-        "high_complexity_count": 0
-      },
-      "src/config/dynamic_registry.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 4,
-        "high_complexity_count": 0
-      },
-      "src/context/conventions.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 8,
-        "high_complexity_count": 0
-      },
-      "src/subprocess/git.rs": {
-        "avg_cyclomatic": 2.5,
-        "max_cyclomatic": 3,
-        "avg_cognitive": 6.5,
-        "max_cognitive": 8,
-        "functions_count": 2,
-        "high_complexity_count": 0
-      },
-      "src/metrics/collector.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 3.6,
-        "max_cognitive": 10,
-        "functions_count": 5,
-        "high_complexity_count": 0
-      },
-      "src/context/mod.rs": {
-        "avg_cyclomatic": 2.952381,
-        "max_cyclomatic": 8,
-        "avg_cognitive": 17.095238,
-        "max_cognitive": 82,
-        "functions_count": 21,
-        "high_complexity_count": 0
-      },
-      "src/cook/interaction/prompts.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 3,
-        "high_complexity_count": 0
-      },
-      "src/config/mod.rs": {
-        "avg_cyclomatic": 1.7222222,
-        "max_cyclomatic": 5,
-        "avg_cognitive": 10.277778,
-        "max_cognitive": 58,
-        "functions_count": 18,
-        "high_complexity_count": 0
-      },
-      "src/subprocess/tests.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.8,
-        "max_cognitive": 4,
-        "functions_count": 10,
-        "high_complexity_count": 0
-      },
-      "src/simple_state/mod.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 1,
-        "high_complexity_count": 0
-      },
-      "src/cook/session/adapter.rs": {
-        "avg_cyclomatic": 1.1428572,
-        "max_cyclomatic": 2,
-        "avg_cognitive": 2.857143,
-        "max_cognitive": 8,
-        "functions_count": 7,
-        "high_complexity_count": 0
-      },
-      "src/cook/mod_tests.rs": {
-        "avg_cyclomatic": 1.25,
-        "max_cyclomatic": 4,
-        "avg_cognitive": 3.5833333,
-        "max_cognitive": 15,
-        "functions_count": 36,
-        "high_complexity_count": 0
-      },
-      "src/analyze/tests.rs": {
-        "avg_cyclomatic": 1.1333333,
-        "max_cyclomatic": 2,
-        "avg_cognitive": 3.0666666,
-        "max_cognitive": 8,
-        "functions_count": 15,
-        "high_complexity_count": 0
-      },
-      "src/metrics/context.rs": {
-        "avg_cyclomatic": 2.3333333,
-        "max_cyclomatic": 3,
-        "avg_cognitive": 6.6666665,
-        "max_cognitive": 9,
-        "functions_count": 3,
-        "high_complexity_count": 0
-      },
-      "src/metrics/backends.rs": {
-        "avg_cyclomatic": 2.3333333,
-        "max_cyclomatic": 5,
-        "avg_cognitive": 6.2222223,
-        "max_cognitive": 10,
-        "functions_count": 9,
-        "high_complexity_count": 0
-      },
-      "src/cook/interaction/display.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 9,
-        "high_complexity_count": 0
-      },
-      "src/abstractions/git.rs": {
-        "avg_cyclomatic": 2.125,
-        "max_cyclomatic": 6,
-        "avg_cognitive": 10.375,
-        "max_cognitive": 38,
-        "functions_count": 8,
-        "high_complexity_count": 0
-      },
-      "src/analysis/unified.rs": {
-        "avg_cyclomatic": 3.8888888,
-        "max_cyclomatic": 17,
-        "avg_cognitive": 25.833334,
-        "max_cognitive": 156,
-        "functions_count": 18,
-        "high_complexity_count": 1
-      },
-      "src/context/analyzer.rs": {
-        "avg_cyclomatic": 2.7777777,
-        "max_cyclomatic": 6,
-        "avg_cognitive": 13.222222,
-        "max_cognitive": 24,
-        "functions_count": 9,
-        "high_complexity_count": 0
-      },
-      "src/session/tests.rs": {
-        "avg_cyclomatic": 2.0,
-        "max_cyclomatic": 4,
-        "avg_cognitive": 10.666667,
-        "max_cognitive": 30,
-        "functions_count": 6,
-        "high_complexity_count": 0
-      },
-      "src/cook/execution/claude.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 3,
-        "high_complexity_count": 0
-      },
-      "src/context/debt.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 5,
-        "high_complexity_count": 0
-      },
-      "src/analyze/command.rs": {
-        "avg_cyclomatic": 2.5,
-        "max_cyclomatic": 4,
-        "avg_cognitive": 4.5,
-        "max_cognitive": 7,
-        "functions_count": 2,
-        "high_complexity_count": 0
-      },
-      "src/cook/mod.rs": {
-        "avg_cyclomatic": 3.25,
-        "max_cyclomatic": 12,
-        "avg_cognitive": 26.625,
-        "max_cognitive": 109,
-        "functions_count": 8,
-        "high_complexity_count": 1
-      },
-      "src/context/test_coverage.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 6,
-        "high_complexity_count": 0
-      },
-      "src/config/metadata_parser.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 5,
-        "high_complexity_count": 0
-      },
-      "src/config/command_parser.rs": {
-        "avg_cyclomatic": 1.9285715,
-        "max_cyclomatic": 8,
-        "avg_cognitive": 11.571428,
-        "max_cognitive": 84,
-        "functions_count": 14,
-        "high_complexity_count": 0
-      },
-      "src/cook/session/tracker.rs": {
-        "avg_cyclomatic": 2.25,
-        "max_cyclomatic": 6,
-        "avg_cognitive": 13.0,
-        "max_cognitive": 46,
-        "functions_count": 4,
-        "high_complexity_count": 0
-      },
-      "src/worktree/tests.rs": {
-        "avg_cyclomatic": 1.1111112,
-        "max_cyclomatic": 2,
-        "avg_cognitive": 2.6666667,
-        "max_cognitive": 8,
-        "functions_count": 9,
-        "high_complexity_count": 0
-      },
-      "src/cook/workflow/executor.rs": {
-        "avg_cyclomatic": 1.3333334,
-        "max_cyclomatic": 2,
-        "avg_cognitive": 4.0,
-        "max_cognitive": 8,
-        "functions_count": 6,
-        "high_complexity_count": 0
-      },
-      "src/git/parsers.rs": {
-        "avg_cyclomatic": 4.357143,
-        "max_cyclomatic": 14,
-        "avg_cognitive": 41.714287,
-        "max_cognitive": 222,
-        "functions_count": 14,
-        "high_complexity_count": 3
-      },
-      "src/context/tarpaulin_coverage.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 3,
-        "high_complexity_count": 0
-      },
-      "src/init/mod.rs": {
-        "avg_cyclomatic": 2.0454545,
-        "max_cyclomatic": 9,
-        "avg_cognitive": 9.363636,
-        "max_cognitive": 60,
-        "functions_count": 22,
-        "high_complexity_count": 0
-      },
-      "src/cook/signal_handler.rs": {
-        "avg_cyclomatic": 1.5,
-        "max_cyclomatic": 5,
-        "avg_cognitive": 7.375,
-        "max_cognitive": 40,
-        "functions_count": 8,
-        "high_complexity_count": 0
-      },
-      "src/config/loader.rs": {
-        "avg_cyclomatic": 1.2,
-        "max_cyclomatic": 3,
-        "avg_cognitive": 3.6,
-        "max_cognitive": 18,
-        "functions_count": 10,
-        "high_complexity_count": 0
-      },
-      "src/metrics/storage.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 15,
-        "high_complexity_count": 0
-      },
-      "src/session/state.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 2,
-        "high_complexity_count": 0
-      },
-      "src/cook/coordinators/workflow.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 12.0,
-        "max_cognitive": 12,
-        "functions_count": 2,
-        "high_complexity_count": 0
-      },
-      "src/scoring/mod.rs": {
-        "avg_cyclomatic": 3.4,
-        "max_cyclomatic": 11,
-        "avg_cognitive": 18.7,
-        "max_cognitive": 62,
-        "functions_count": 10,
-        "high_complexity_count": 1
-      },
-      "src/simple_state/tests.rs": {
-        "avg_cyclomatic": 1.4,
-        "max_cyclomatic": 3,
-        "avg_cognitive": 7.133333,
-        "max_cognitive": 36,
-        "functions_count": 15,
-        "high_complexity_count": 0
-      },
-      "src/testing/mod.rs": {
-        "avg_cyclomatic": 1.2857143,
-        "max_cyclomatic": 2,
-        "avg_cognitive": 3.7142856,
-        "max_cognitive": 8,
-        "functions_count": 7,
-        "high_complexity_count": 0
-      },
-      "src/git/mod.rs": {
-        "avg_cyclomatic": 1.3076923,
-        "max_cyclomatic": 5,
-        "avg_cognitive": 2.6153846,
-        "max_cognitive": 10,
-        "functions_count": 13,
-        "high_complexity_count": 0
-      },
-      "src/context/architecture.rs": {
-        "avg_cyclomatic": 1.2,
-        "max_cyclomatic": 2,
-        "avg_cognitive": 3.2,
-        "max_cognitive": 8,
-        "functions_count": 5,
-        "high_complexity_count": 0
-      },
-      "src/session/manager.rs": {
-        "avg_cyclomatic": 1.0,
-        "max_cyclomatic": 1,
-        "avg_cognitive": 2.0,
-        "max_cognitive": 2,
-        "functions_count": 2,
-        "high_complexity_count": 0
-      },
-      "src/init/templates.rs": {
-        "avg_cyclomatic": 1.25,
-        "max_cyclomatic": 2,
-        "avg_cognitive": 5.0,
-        "max_cognitive": 10,
-        "functions_count": 4,
-        "high_complexity_count": 0
-      },
-      "src/worktree/manager.rs": {
-        "avg_cyclomatic": 1.2857143,
-        "max_cyclomatic": 3,
-        "avg_cognitive": 3.0,
-        "max_cognitive": 9,
-        "functions_count": 7,
-        "high_complexity_count": 0
       }
     },
-    "total_functions": 616,
-    "filtered_functions": 585
+    "total_functions": 624,
+    "filtered_functions": 593
   },
   "complexity_hotspots": [
     {
@@ -728,16 +752,16 @@
       "cognitive": 78
     },
     {
+      "file": "src/git/scenario.rs",
+      "function": "format_status_output",
+      "cyclomatic": 9,
+      "cognitive": 53
+    },
+    {
       "file": "src/init/mod.rs",
       "function": "handle_existing_commands",
       "cyclomatic": 9,
       "cognitive": 60
-    },
-    {
-      "file": "src/main.rs",
-      "function": "handle_merge_command",
-      "cyclomatic": 9,
-      "cognitive": 111
     },
     {
       "file": "src/main.rs",
@@ -746,10 +770,10 @@
       "cognitive": 133
     },
     {
-      "file": "src/git/scenario.rs",
-      "function": "format_status_output",
+      "file": "src/main.rs",
+      "function": "handle_merge_command",
       "cyclomatic": 9,
-      "cognitive": 53
+      "cognitive": 111
     },
     {
       "file": "src/scoring/mod.rs",
@@ -758,38 +782,38 @@
       "cognitive": 62
     },
     {
-      "file": "src/context/mod.rs",
-      "function": "optimize_coverage_for_context",
+      "file": "src/config/command_parser.rs",
+      "function": "parse_command_string",
       "cyclomatic": 8,
-      "cognitive": 37
-    },
-    {
-      "file": "src/cook/mod.rs",
-      "function": "cook",
-      "cyclomatic": 8,
-      "cognitive": 92
+      "cognitive": 84
     },
     {
       "file": "src/context/mod.rs",
       "function": "commit_analysis_changes",
       "cyclomatic": 8,
       "cognitive": 82
+    },
+    {
+      "file": "src/cook/mod.rs",
+      "function": "cook",
+      "cyclomatic": 8,
+      "cognitive": 92
     }
   ],
   "bugs_fixed": 0,
   "features_added": 0,
   "improvement_velocity": 0.0,
   "health_score": {
-    "overall": 75.29016649723052,
+    "overall": 73.19076311588286,
     "components": {
-      "test_coverage": 58.30712890625,
-      "code_quality": 100.0,
-      "documentation": 22.01405143737793,
-      "maintainability": 88.15168542861939,
-      "type_safety": 112.86689758300781
+      "test_coverage": 58.13837814331055,
+      "code_quality": 96.0,
+      "documentation": 21.460176467895508,
+      "maintainability": 84.13729104995727,
+      "type_safety": 113.23980712890625
     },
-    "timestamp": "2025-08-04T10:41:15.071691Z"
+    "timestamp": "2025-08-04T11:07:54.719731Z"
   },
-  "timestamp": "2025-08-04T10:41:03.215775Z",
-  "iteration_id": "analysis-1754304063"
+  "timestamp": "2025-08-04T11:07:20.952466Z",
+  "iteration_id": "analysis-1754305640"
 }
