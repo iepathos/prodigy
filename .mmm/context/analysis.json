@@ -1,8 +1,8 @@
 {
   "metadata": {
-    "timestamp": "2025-08-04T04:05:39.093316Z",
-    "duration_ms": 10170,
-    "files_analyzed": 1223,
+    "timestamp": "2025-08-04T07:30:13.606314Z",
+    "duration_ms": 11562,
+    "files_analyzed": 1560,
     "incremental": false,
     "version": "0.1.0"
   },
@@ -14,29 +14,29 @@
     "test_coverage": "test_coverage.json"
   },
   "statistics": {
-    "total_files": 1223,
-    "total_modules": 143,
-    "dependency_edges": 990,
+    "total_files": 1560,
+    "total_modules": 144,
+    "dependency_edges": 998,
     "circular_dependencies": 0,
     "architectural_violations": 2,
-    "debt_items": 247,
-    "high_priority_debt": 32,
-    "overall_coverage": 0.5916442048517521,
-    "untested_functions": 1532,
+    "debt_items": 250,
+    "high_priority_debt": 33,
+    "overall_coverage": 0.5838402539010844,
+    "untested_functions": 1548,
     "critical_untested": 2
   },
   "health_score": {
-    "overall": 56.35171516981132,
+    "overall": 56.08325113653795,
     "components": {
-      "test_coverage": 59.16442048517521,
+      "test_coverage": 58.38402539010844,
       "code_quality": 78.0,
       "documentation": 80.0,
       "maintainability": 10.0,
-      "type_safety": 112.88336
+      "type_safety": 112.976845
     },
-    "timestamp": "2025-08-04T04:05:39.094643Z"
+    "timestamp": "2025-08-04T07:30:13.606469Z"
   },
   "insights": [
-    "32 high-priority technical debt items require attention"
+    "33 high-priority technical debt items require attention"
   ]
 }
