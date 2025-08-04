@@ -7,6 +7,7 @@ This document explains how MMM (memento-mori-management) stores and provides con
 As of version 0.1.0, MMM's context generation has been optimized to reduce file sizes by over 90%:
 - Technical debt files reduced from 8.2MB to under 500KB
 - Analysis files reduced from 8.9MB to under 500KB  
+- Metrics files reduced from 100KB+ to under 10KB through complexity aggregation
 - Total context size kept under 1MB for typical projects
 - Maximal duplicate detection replaces inefficient sliding windows
 - Smart aggregation limits items per category while preserving high-impact issues
@@ -272,7 +273,7 @@ Hybrid coverage information combining test coverage with quality metrics:
 ### 2. Metrics Files
 
 #### `metrics/current.json`
-Latest performance and quality metrics:
+Latest performance and quality metrics (optimized format as of v0.1.0):
 ```json
 {
   "test_coverage": 73.5,
@@ -286,11 +287,28 @@ Latest performance and quality metrics:
   },
   "compile_time": "12.5s",
   "binary_size": 4194304,
-  "cyclomatic_complexity": {
-    "main": 8,
-    "parser": 15,
-    "utils": 6
+  "complexity_summary": {
+    "by_file": {
+      "src/main.rs": {
+        "avg_cyclomatic": 8.5,
+        "max_cyclomatic": 15,
+        "avg_cognitive": 10.2,
+        "max_cognitive": 18,
+        "functions_count": 12,
+        "high_complexity_count": 2
+      }
+    },
+    "total_functions": 597,
+    "filtered_functions": 485
   },
+  "complexity_hotspots": [
+    {
+      "file": "src/parser.rs",
+      "function": "parse_args",
+      "cyclomatic": 15,
+      "cognitive": 22
+    }
+  ],
   "max_nesting_depth": 4,
   "total_lines": 2847,
   "tech_debt_score": 7.2,
@@ -299,6 +317,8 @@ Latest performance and quality metrics:
   "iteration_id": "iteration-1704110400"
 }
 ```
+
+**Note**: The complexity metrics format was optimized in v0.1.0 to reduce file size by 90%+. The old format with individual function entries (`cyclomatic_complexity` and `cognitive_complexity` maps) is still supported for backward compatibility but new files use the compressed format shown above.
 
 #### `metrics/history.json`
 Historical metrics for trend analysis:

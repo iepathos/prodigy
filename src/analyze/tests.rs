@@ -413,6 +413,8 @@ mod tests {
             cognitive_complexity: std::collections::HashMap::new(),
             max_nesting_depth: 3,
             total_lines: 1000,
+            complexity_summary: None,
+            complexity_hotspots: Vec::new(),
             timestamp: chrono::Utc::now(),
             iteration_id: "test-iteration".to_string(),
             benchmark_results: std::collections::HashMap::new(),

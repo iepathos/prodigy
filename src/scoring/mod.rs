@@ -271,10 +271,29 @@ fn calculate_maintainability_from_metrics(metrics: &ImprovementMetrics) -> f64 {
     let warning_penalty = (metrics.lint_warnings as f64 * 2.0).min(30.0);
     score -= warning_penalty;
 
+    // Calculate average complexity from either new or old format
+    let avg_complexity = if let Some(ref summary) = metrics.complexity_summary {
+        // New compressed format: calculate weighted average across files
+        if summary.total_functions > 0 {
+            let total_cyclomatic: f32 = summary
+                .by_file
+                .values()
+                .map(|stats| stats.avg_cyclomatic * stats.functions_count as f32)
+                .sum();
+            (total_cyclomatic / summary.total_functions as f32) as f64
+        } else {
+            0.0
+        }
+    } else if !metrics.cyclomatic_complexity.is_empty() {
+        // Old format: calculate average from raw data
+        metrics.cyclomatic_complexity.values().sum::<u32>() as f64
+            / metrics.cyclomatic_complexity.len() as f64
+    } else {
+        0.0
+    };
+
     // Deduct for high complexity
-    if !metrics.cyclomatic_complexity.is_empty() {
-        let avg_complexity = metrics.cyclomatic_complexity.values().sum::<u32>() as f64
-            / metrics.cyclomatic_complexity.len() as f64;
+    if avg_complexity > 0.0 {
         let complexity_penalty = (avg_complexity * 2.0).min(30.0);
         score -= complexity_penalty;
     }

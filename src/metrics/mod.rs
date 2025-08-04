@@ -64,11 +64,19 @@ pub struct ImprovementMetrics {
     pub compile_time: Duration,
     pub binary_size: u64, // in bytes
 
-    // Complexity metrics
+    // Complexity metrics (legacy fields for backward compatibility)
+    #[serde(skip_serializing_if = "HashMap::is_empty", default)]
     pub cyclomatic_complexity: HashMap<String, u32>,
+    #[serde(skip_serializing_if = "HashMap::is_empty", default)]
     pub cognitive_complexity: HashMap<String, u32>,
     pub max_nesting_depth: u32,
     pub total_lines: u32,
+
+    // Compressed complexity metrics (new format)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub complexity_summary: Option<ComplexitySummary>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub complexity_hotspots: Vec<ComplexityHotspot>,
 
     // Progress metrics
     pub bugs_fixed: u32,
@@ -100,6 +108,8 @@ impl ImprovementMetrics {
             cognitive_complexity: HashMap::new(),
             max_nesting_depth: 0,
             total_lines: 0,
+            complexity_summary: None,
+            complexity_hotspots: Vec::new(),
             bugs_fixed: 0,
             features_added: 0,
             improvement_velocity: 0.0,
@@ -141,6 +151,34 @@ pub struct MetricsComparison {
     pub complexity_delta: i32,
     pub performance_delta: f32,
     pub overall_improvement: f32,
+}
+
+/// Compressed complexity summary for reducing metrics file size
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplexitySummary {
+    pub by_file: HashMap<String, FileComplexityStats>,
+    pub total_functions: u32,
+    pub filtered_functions: u32,
+}
+
+/// File-level complexity statistics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileComplexityStats {
+    pub avg_cyclomatic: f32,
+    pub max_cyclomatic: u32,
+    pub avg_cognitive: f32,
+    pub max_cognitive: u32,
+    pub functions_count: u32,
+    pub high_complexity_count: u32, // functions with complexity > 10
+}
+
+/// High complexity function hotspot
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplexityHotspot {
+    pub file: String,     // relative path
+    pub function: String, // function name only
+    pub cyclomatic: u32,
+    pub cognitive: u32,
 }
 
 /// Trait for metrics analysis
