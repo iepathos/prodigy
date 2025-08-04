@@ -3,6 +3,7 @@
 //! Executes workflow steps in sequence, verifies git commits when required,
 //! and manages iteration logic for continuous improvement sessions.
 
+use crate::config::command::AnalysisConfig;
 use crate::cook::analysis::AnalysisCoordinator;
 use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
@@ -13,22 +14,117 @@ use crate::session::{format_duration, TimingTracker};
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
-/// A simple workflow step
+/// Command type for workflow steps
+#[derive(Debug, Clone, PartialEq)]
+pub enum CommandType {
+    /// Claude CLI command with args
+    Claude(String),
+    /// Shell command to execute
+    Shell(String),
+    /// Legacy name-based approach
+    Legacy(String),
+}
+
+/// Result of executing a step
+#[derive(Debug, Clone)]
+pub struct StepResult {
+    pub success: bool,
+    pub exit_code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+/// Workflow context for variable interpolation
+#[derive(Debug, Clone, Default)]
+pub struct WorkflowContext {
+    pub variables: HashMap<String, String>,
+    pub captured_outputs: HashMap<String, String>,
+    pub iteration_vars: HashMap<String, String>,
+}
+
+impl WorkflowContext {
+    /// Interpolate variables in a template string
+    pub fn interpolate(&self, template: &str) -> String {
+        let mut result = template.to_string();
+
+        // Replace ${VAR} and $VAR patterns
+        for (key, value) in &self.variables {
+            result = result.replace(&format!("${{{key}}}"), value);
+            result = result.replace(&format!("${key}"), value);
+        }
+
+        for (key, value) in &self.captured_outputs {
+            result = result.replace(&format!("${{{key}}}"), value);
+            result = result.replace(&format!("${key}"), value);
+        }
+
+        for (key, value) in &self.iteration_vars {
+            result = result.replace(&format!("${{{key}}}"), value);
+            result = result.replace(&format!("${key}"), value);
+        }
+
+        result
+    }
+}
+
+/// A workflow step with extended syntax support
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkflowStep {
-    /// Step name
-    pub name: String,
-    /// Command to execute
-    pub command: String,
+    /// Legacy step name (for backward compatibility)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+
+    /// Claude CLI command with args
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub claude: Option<String>,
+
+    /// Shell command to execute
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shell: Option<String>,
+
+    /// Legacy command field (for backward compatibility)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub command: Option<String>,
+
+    /// Whether to capture command output
+    #[serde(default)]
+    pub capture_output: bool,
+
+    /// Timeout in seconds
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timeout: Option<u64>,
+
+    /// Working directory for the command
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub working_dir: Option<PathBuf>,
+
     /// Environment variables
     #[serde(default)]
     pub env: HashMap<String, String>,
+
+    /// Conditional execution on failure
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_failure: Option<Box<WorkflowStep>>,
+
+    /// Conditional execution on success
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_success: Option<Box<WorkflowStep>>,
+
+    /// Conditional execution based on exit codes
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub on_exit_code: HashMap<i32, Box<WorkflowStep>>,
+
     /// Whether this command is expected to create commits
     #[serde(default = "default_commit_required")]
     pub commit_required: bool,
+
+    /// Analysis configuration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub analysis: Option<AnalysisConfig>,
 }
 
 fn default_commit_required() -> bool {
@@ -83,6 +179,68 @@ impl WorkflowExecutor {
         }
     }
 
+    /// Determine command type from a workflow step
+    fn determine_command_type(&self, step: &WorkflowStep) -> Result<CommandType> {
+        // Count how many command fields are specified
+        let mut specified_count = 0;
+        if step.claude.is_some() {
+            specified_count += 1;
+        }
+        if step.shell.is_some() {
+            specified_count += 1;
+        }
+        if step.name.is_some() || step.command.is_some() {
+            specified_count += 1;
+        }
+
+        // Ensure only one command type is specified
+        if specified_count > 1 {
+            return Err(anyhow!(
+                "Multiple command types specified. Use only one of: claude, shell, or name/command"
+            ));
+        }
+
+        if specified_count == 0 {
+            return Err(anyhow!(
+                "No command specified. Use one of: claude, shell, or name/command"
+            ));
+        }
+
+        // Return the appropriate command type
+        if let Some(claude_cmd) = &step.claude {
+            Ok(CommandType::Claude(claude_cmd.clone()))
+        } else if let Some(shell_cmd) = &step.shell {
+            Ok(CommandType::Shell(shell_cmd.clone()))
+        } else if let Some(name) = &step.name {
+            // Legacy support - prepend / if not present
+            let command = if name.starts_with('/') {
+                name.clone()
+            } else {
+                format!("/{name}")
+            };
+            Ok(CommandType::Legacy(command))
+        } else if let Some(command) = &step.command {
+            Ok(CommandType::Legacy(command.clone()))
+        } else {
+            Err(anyhow!("No valid command found in step"))
+        }
+    }
+
+    /// Get display name for a step
+    fn get_step_display_name(&self, step: &WorkflowStep) -> String {
+        if let Some(claude_cmd) = &step.claude {
+            format!("claude: {claude_cmd}")
+        } else if let Some(shell_cmd) = &step.shell {
+            format!("shell: {shell_cmd}")
+        } else if let Some(name) = &step.name {
+            name.clone()
+        } else if let Some(command) = &step.command {
+            command.clone()
+        } else {
+            "unnamed step".to_string()
+        }
+    }
+
     /// Execute a workflow
     pub async fn execute(
         &mut self,
@@ -108,6 +266,27 @@ impl WorkflowExecutor {
         let mut iteration = 0;
         let mut should_continue = true;
 
+        // Initialize workflow context
+        let mut workflow_context = WorkflowContext::default();
+
+        // Add any command-line arguments or environment variables
+        if let Ok(arg) = std::env::var("MMM_ARG") {
+            workflow_context.variables.insert("ARG".to_string(), arg);
+        }
+
+        // Add project root and working directory
+        workflow_context.variables.insert(
+            "PROJECT_ROOT".to_string(),
+            env.working_dir.to_string_lossy().to_string(),
+        );
+
+        // Add worktree name if available
+        if let Ok(worktree) = std::env::var("MMM_WORKTREE") {
+            workflow_context
+                .variables
+                .insert("WORKTREE".to_string(), worktree);
+        }
+
         // Start workflow timing in session
         self.session_manager
             .update_session(SessionUpdate::StartWorkflow)
@@ -115,6 +294,12 @@ impl WorkflowExecutor {
 
         while should_continue && iteration < workflow.max_iterations {
             iteration += 1;
+
+            // Update iteration context
+            workflow_context
+                .iteration_vars
+                .insert("ITERATION".to_string(), iteration.to_string());
+
             self.user_interaction.display_progress(&format!(
                 "Starting iteration {}/{}",
                 iteration, workflow.max_iterations
@@ -134,11 +319,12 @@ impl WorkflowExecutor {
             // Execute workflow steps
             let mut any_changes = false;
             for (step_index, step) in workflow.steps.iter().enumerate() {
+                let step_display = self.get_step_display_name(step);
                 self.user_interaction.display_progress(&format!(
                     "Executing step {}/{}: {}",
                     step_index + 1,
                     workflow.steps.len(),
-                    step.command
+                    step_display
                 ));
 
                 // Get HEAD before command execution if we need to verify commits
@@ -149,14 +335,14 @@ impl WorkflowExecutor {
                 };
 
                 // Start command timing
-                self.timing_tracker.start_command(step.command.clone());
+                self.timing_tracker.start_command(step_display.clone());
                 let command_start = Instant::now();
 
-                // Execute the step
+                // Execute the step with context
                 let step_result = self
-                    .execute_step(step, env)
+                    .execute_step(step, env, &mut workflow_context)
                     .await
-                    .context(format!("Failed to execute step: {}", step.name))?;
+                    .context(format!("Failed to execute step: {step_display}"))?;
 
                 // Complete command timing
                 let command_duration = command_start.elapsed();
@@ -178,11 +364,11 @@ impl WorkflowExecutor {
                     } else {
                         any_changes = true;
                         self.user_interaction
-                            .display_success(&format!("✓ {} created commits", step.name));
+                            .display_success(&format!("✓ {step_display} created commits"));
                     }
                 } else {
                     // In test mode or when commit_required is false
-                    if step_result {
+                    if step_result.success {
                         any_changes = true;
                     } else if test_mode && step.commit_required && !skip_validation {
                         // In test mode, if no changes were made and commits were required, fail
@@ -262,7 +448,11 @@ impl WorkflowExecutor {
         &mut self,
         step: &WorkflowStep,
         env: &ExecutionEnvironment,
-    ) -> Result<bool> {
+        ctx: &mut WorkflowContext,
+    ) -> Result<StepResult> {
+        // Determine command type
+        let command_type = self.determine_command_type(step)?;
+
         // Prepare environment variables
         let mut env_vars = HashMap::new();
 
@@ -278,27 +468,82 @@ impl WorkflowExecutor {
 
         env_vars.insert("MMM_AUTOMATION".to_string(), "true".to_string());
 
-        // Add step-specific environment variables
+        // Add step-specific environment variables with interpolation
         for (key, value) in &step.env {
-            env_vars.insert(key.clone(), value.clone());
+            let interpolated_value = ctx.interpolate(value);
+            env_vars.insert(key.clone(), interpolated_value);
         }
 
         // Handle test mode
         let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
         if test_mode {
-            return self.handle_test_mode_execution(step);
+            return self.handle_test_mode_execution(step, &command_type);
         }
 
-        // Execute the command
-        let result = self
-            .claude_executor
-            .execute_claude_command(&step.command, &env.working_dir, env_vars)
-            .await?;
+        // Execute the command based on its type
+        let mut result = match command_type {
+            CommandType::Claude(cmd) => {
+                let interpolated_cmd = ctx.interpolate(&cmd);
+                self.execute_claude_command(&interpolated_cmd, env, env_vars)
+                    .await?
+            }
+            CommandType::Shell(cmd) => {
+                let interpolated_cmd = ctx.interpolate(&cmd);
+                self.execute_shell_command(&interpolated_cmd, env, env_vars, step.timeout)
+                    .await?
+            }
+            CommandType::Legacy(cmd) => {
+                // Legacy commands still use Claude executor
+                let interpolated_cmd = ctx.interpolate(&cmd);
+                self.execute_claude_command(&interpolated_cmd, env, env_vars)
+                    .await?
+            }
+        };
+
+        // Capture output if requested
+        if step.capture_output {
+            ctx.captured_outputs
+                .insert("CAPTURED_OUTPUT".to_string(), result.stdout.clone());
+        }
+
+        // Handle conditional execution
+        if !result.success {
+            if let Some(on_failure) = &step.on_failure {
+                self.user_interaction
+                    .display_info("Executing on_failure step...");
+                let failure_result = Box::pin(self.execute_step(on_failure, env, ctx)).await?;
+                // Merge results
+                result.stdout.push_str("\n--- on_failure output ---\n");
+                result.stdout.push_str(&failure_result.stdout);
+            }
+        } else if let Some(on_success) = &step.on_success {
+            self.user_interaction
+                .display_info("Executing on_success step...");
+            let success_result = Box::pin(self.execute_step(on_success, env, ctx)).await?;
+            // Merge results
+            result.stdout.push_str("\n--- on_success output ---\n");
+            result.stdout.push_str(&success_result.stdout);
+        }
+
+        // Handle exit code specific steps
+        if let Some(exit_code) = result.exit_code {
+            if let Some(exit_step) = step.on_exit_code.get(&exit_code) {
+                self.user_interaction
+                    .display_info(&format!("Executing on_exit_code[{exit_code}] step..."));
+                let exit_result = Box::pin(self.execute_step(exit_step, env, ctx)).await?;
+                // Merge results
+                result
+                    .stdout
+                    .push_str(&format!("\n--- on_exit_code[{exit_code}] output ---\n"));
+                result.stdout.push_str(&exit_result.stdout);
+            }
+        }
 
         if !result.success {
+            let step_display = self.get_step_display_name(step);
             anyhow::bail!(
                 "Step '{}' failed with exit code {:?}. Error: {}",
-                step.name,
+                step_display,
                 result.exit_code,
                 result.stderr
             );
@@ -309,20 +554,123 @@ impl WorkflowExecutor {
             .update_session(SessionUpdate::AddFilesChanged(1))
             .await?;
 
-        Ok(true)
+        Ok(result)
+    }
+
+    /// Execute a Claude command
+    async fn execute_claude_command(
+        &self,
+        command: &str,
+        env: &ExecutionEnvironment,
+        env_vars: HashMap<String, String>,
+    ) -> Result<StepResult> {
+        let result = self
+            .claude_executor
+            .execute_claude_command(command, &env.working_dir, env_vars)
+            .await?;
+
+        Ok(StepResult {
+            success: result.success,
+            exit_code: result.exit_code,
+            stdout: result.stdout,
+            stderr: result.stderr,
+        })
+    }
+
+    /// Execute a shell command
+    async fn execute_shell_command(
+        &self,
+        command: &str,
+        env: &ExecutionEnvironment,
+        env_vars: HashMap<String, String>,
+        timeout: Option<u64>,
+    ) -> Result<StepResult> {
+        use tokio::process::Command;
+        use tokio::time::{timeout as tokio_timeout, Duration};
+
+        // Create command
+        let mut cmd = if cfg!(target_os = "windows") {
+            let mut c = Command::new("cmd");
+            c.args(["/C", command]);
+            c
+        } else {
+            let mut c = Command::new("sh");
+            c.args(["-c", command]);
+            c
+        };
+
+        // Set working directory
+        cmd.current_dir(&env.working_dir);
+
+        // Set environment variables
+        for (key, value) in env_vars {
+            cmd.env(key, value);
+        }
+
+        // Execute with optional timeout
+        let output = if let Some(timeout_secs) = timeout {
+            let duration = Duration::from_secs(timeout_secs);
+            match tokio_timeout(duration, cmd.output()).await {
+                Ok(result) => result?,
+                Err(_) => {
+                    return Ok(StepResult {
+                        success: false,
+                        exit_code: Some(-1),
+                        stdout: String::new(),
+                        stderr: format!("Command timed out after {timeout_secs} seconds"),
+                    });
+                }
+            }
+        } else {
+            cmd.output().await?
+        };
+
+        Ok(StepResult {
+            success: output.status.success(),
+            exit_code: output.status.code(),
+            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+        })
     }
 
     /// Handle test mode execution
-    fn handle_test_mode_execution(&self, step: &WorkflowStep) -> Result<bool> {
-        println!("[TEST MODE] Would execute Claude command: {}", step.command);
+    fn handle_test_mode_execution(
+        &self,
+        _step: &WorkflowStep,
+        command_type: &CommandType,
+    ) -> Result<StepResult> {
+        let command_str = match command_type {
+            CommandType::Claude(cmd) => format!("Claude command: {cmd}"),
+            CommandType::Shell(cmd) => format!("Shell command: {cmd}"),
+            CommandType::Legacy(cmd) => format!("Legacy command: {cmd}"),
+        };
+
+        println!("[TEST MODE] Would execute {command_str}");
 
         // Check if we should simulate no changes
-        if self.is_test_mode_no_changes_command(&step.command) {
-            println!("[TEST MODE] Simulating no changes for: {}", step.command);
-            return Ok(false);
+        let should_simulate_no_changes = match command_type {
+            CommandType::Claude(cmd) | CommandType::Legacy(cmd) => {
+                self.is_test_mode_no_changes_command(cmd)
+            }
+            CommandType::Shell(_) => false,
+        };
+
+        if should_simulate_no_changes {
+            println!("[TEST MODE] Simulating no changes");
+            return Ok(StepResult {
+                success: true,
+                exit_code: Some(0),
+                stdout: "[TEST MODE] No changes made".to_string(),
+                stderr: String::new(),
+            });
         }
 
-        Ok(true)
+        Ok(StepResult {
+            success: true,
+            exit_code: Some(0),
+            stdout: "[TEST MODE] Command executed successfully".to_string(),
+            stderr: String::new(),
+        })
     }
 
     /// Get current git HEAD
@@ -345,12 +693,19 @@ impl WorkflowExecutor {
 
     /// Handle the case where no commits were created when expected
     fn handle_no_commits_error(&self, step: &WorkflowStep) -> Result<()> {
-        let command_name = step.command.trim_start_matches('/');
+        let step_display = self.get_step_display_name(step);
+        let command_type = self.determine_command_type(step)?;
 
-        eprintln!(
-            "\n❌ Workflow stopped: No changes were committed by {}",
-            step.command
-        );
+        let command_name = match &command_type {
+            CommandType::Claude(cmd) | CommandType::Legacy(cmd) => cmd
+                .trim_start_matches('/')
+                .split_whitespace()
+                .next()
+                .unwrap_or(""),
+            CommandType::Shell(cmd) => cmd,
+        };
+
+        eprintln!("\n❌ Workflow stopped: No changes were committed by {step_display}");
         eprintln!("\nThe command executed successfully but did not create any git commits.");
 
         // Check if this is a command that might legitimately not create commits
@@ -381,7 +736,7 @@ impl WorkflowExecutor {
             "\nAlternatively, run with MMM_NO_COMMIT_VALIDATION=true to skip all validation."
         );
 
-        Err(anyhow!("No commits created by command {}", step.command))
+        Err(anyhow!("No commits created by {}", step_display))
     }
 
     /// Check if we should continue iterations

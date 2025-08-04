@@ -1,0 +1,25 @@
+# implement-with-new-syntax.yml - Example using the new workflow syntax
+# This demonstrates the improved syntax with explicit claude/shell commands
+#
+# Usage examples:
+#   mmm cook examples/implement-with-new-syntax.yml --args "33"
+#   mmm cook examples/implement-with-new-syntax.yml --map "specs/*.md"
+
+# Commands to execute for each specification
+commands:
+  # Implement the spec using the new claude: syntax
+  - claude: "/mmm-implement-spec $ARG"
+    analysis:
+      max_cache_age: 300
+  
+  # Run tests using shell command
+  - shell: "cargo test"
+    capture_output: true
+    on_failure:
+      claude: "/mmm-fix-test-failures '$CAPTURED_OUTPUT'"
+      on_success:
+        shell: "cargo test"
+        
+  # Run linting with conditional logic
+  - claude: "/mmm-lint"
+    commit_required: false

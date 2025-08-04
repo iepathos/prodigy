@@ -1,0 +1,30 @@
+# complex-build-pipeline.yml - Example complex build pipeline
+# This demonstrates conditional execution and output capture
+#
+# Usage: mmm cook examples/complex-build-pipeline.yml
+
+commands:
+  # Check compilation first
+  - shell: "cargo check"
+    on_success:
+      shell: "cargo build --release"
+      on_success:
+        shell: "cargo test --release"
+        on_failure:
+          claude: "/mmm-debug-and-fix '$CAPTURED_OUTPUT'"
+          
+  # Run clippy and fix any issues
+  - shell: "cargo clippy -- -D warnings"
+    capture_output: true
+    on_failure:
+      claude: "/mmm-fix-clippy-warnings '$CAPTURED_OUTPUT'"
+      
+  # Run benchmarks if all tests pass
+  - shell: "cargo bench"
+    timeout: 600  # 10 minutes
+    capture_output: true
+    on_exit_code:
+      0:
+        shell: "echo 'Benchmarks completed successfully!'"
+      101:
+        claude: "/mmm-fix-compilation-errors '$CAPTURED_OUTPUT'"
