@@ -362,12 +362,11 @@ mod cook_tests {
         let playbook_path2 = temp_dir.path().join("new_syntax.yml");
         let new_syntax_content = r#"commands:
   - claude: "/mmm-coverage"
-    inputs:
+    outputs:
       spec:
-        from: "${coverage.spec}"
-      pass_as:  # Wrong level - should be inside spec
-        argument:
-          position: 0
+        file_pattern: "*.md"
+      invalid_field:  # Wrong field at wrong level
+        something: true
 "#;
         tokio::fs::write(&playbook_path2, new_syntax_content)
             .await

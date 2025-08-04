@@ -8,11 +8,5 @@ commands:
           file_pattern: "analysis/*.md"
     
     - claude: "/custom-fixer ${analyze.spec}"
-      inputs:
-        spec:
-          from: "${analyze.spec}"
-          pass_as:
-            argument:
-              position: 0
               
     - claude: "/custom-validator"

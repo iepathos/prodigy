@@ -236,7 +236,7 @@ command = "/mmm-implement-spec"
 
 #[cfg(test)]
 mod workflow_parsing_tests {
-    use crate::config::command::{InputMethod, WorkflowCommand};
+    use crate::config::command::WorkflowCommand;
     use crate::config::workflow::WorkflowConfig;
 
     #[test]
@@ -288,44 +288,6 @@ commands:
     }
 
     #[test]
-    fn test_parse_workflow_with_inputs() {
-        let yaml = r#"
-commands:
-  - name: mmm-implement-spec
-    inputs:
-      spec:
-        from: "${review.spec}"
-        pass_as:
-          argument:
-            position: 0
-"#;
-        let config: WorkflowConfig =
-            serde_yaml::from_str(yaml).expect("Failed to parse workflow with inputs");
-        assert_eq!(config.commands.len(), 1);
-
-        match &config.commands[0] {
-            WorkflowCommand::Structured(cmd) => {
-                assert_eq!(cmd.name, "mmm-implement-spec");
-                assert!(cmd.inputs.is_some());
-
-                let inputs = cmd.inputs.as_ref().unwrap();
-                assert!(inputs.contains_key("spec"));
-
-                let spec_input = &inputs["spec"];
-                assert_eq!(spec_input.from, "${review.spec}");
-
-                match &spec_input.pass_as {
-                    InputMethod::Argument { position } => {
-                        assert_eq!(position, &0);
-                    }
-                    _ => panic!("Expected Argument input method"),
-                }
-            }
-            _ => panic!("Expected Structured command"),
-        }
-    }
-
-    #[test]
     fn test_parse_full_default_workflow() {
         let yaml = r#"
 commands:
@@ -336,12 +298,6 @@ commands:
         file_pattern: "specs/temp/*.md"
   
   - name: mmm-implement-spec
-    inputs:
-      spec:
-        from: "${review.spec}"
-        pass_as:
-          argument:
-            position: 0
   
   - name: mmm-lint
 "#;
@@ -365,7 +321,7 @@ commands:
         match &config.commands[1] {
             WorkflowCommand::Structured(cmd) => {
                 assert_eq!(cmd.name, "mmm-implement-spec");
-                assert!(cmd.inputs.is_some());
+                // inputs removed - arguments now passed directly in command string
             }
             _ => panic!("Expected Structured command for mmm-implement-spec"),
         }
@@ -375,7 +331,7 @@ commands:
             WorkflowCommand::Structured(cmd) => {
                 assert_eq!(cmd.name, "mmm-lint");
                 assert!(cmd.id.is_none());
-                assert!(cmd.inputs.is_none());
+                // inputs removed - arguments now passed directly in command string
                 assert!(cmd.outputs.is_none());
             }
             _ => panic!("Expected Structured command for mmm-lint"),
@@ -439,48 +395,6 @@ commands:
     }
 
     #[test]
-    fn test_parse_workflow_with_environment_input() {
-        let yaml = r#"
-commands:
-  - name: custom-command
-    inputs:
-      api_key:
-        from: "${config.api_key}"
-        pass_as:
-          environment:
-            name: "API_KEY"
-      data:
-        from: "${previous.output}"
-        pass_as: stdin
-        default: "default data"
-"#;
-        let config: WorkflowConfig =
-            serde_yaml::from_str(yaml).expect("Failed to parse workflow with env inputs");
-
-        match &config.commands[0] {
-            WorkflowCommand::Structured(cmd) => {
-                let inputs = cmd.inputs.as_ref().unwrap();
-
-                // Check environment input
-                let api_key = &inputs["api_key"];
-                match &api_key.pass_as {
-                    InputMethod::Environment { name } => assert_eq!(name, "API_KEY"),
-                    _ => panic!("Expected Environment input method"),
-                }
-
-                // Check stdin input with default
-                let data = &inputs["data"];
-                match &data.pass_as {
-                    InputMethod::Stdin => {}
-                    _ => panic!("Expected Stdin input method"),
-                }
-                assert_eq!(data.default.as_ref().unwrap(), "default data");
-            }
-            _ => panic!("Expected Structured command"),
-        }
-    }
-
-    #[test]
     fn test_simplified_output_syntax() {
         // Test that the simplified syntax with just file_pattern works
         let yaml = r#"
@@ -517,12 +431,6 @@ commands:
         file_pattern: "specs/temp/*.md"
   
   - name: mmm-implement-spec
-    inputs:
-      spec: 
-        from: "${review.spec}"
-        pass_as:
-          argument:
-            position: 0
   
   - name: mmm-lint
 "#;

@@ -10,12 +10,6 @@ commands:
         max_cache_age: 300
     
     - claude: "/mmm-implement-spec ${cleanup.spec}"
-      inputs:
-        spec:
-          from: "${cleanup.spec}"
-          pass_as:
-            argument:
-              position: 0
     
     - claude: "/mmm-lint"
       commit_required: false

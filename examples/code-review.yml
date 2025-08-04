@@ -9,12 +9,6 @@ commands:
         file_pattern: "*-improvements.md"
   
   - claude: "/mmm-implement-spec ${review.spec}"
-    inputs:
-      spec: 
-        from: "${review.spec}"
-        pass_as:
-          argument:
-            position: 0
   
   - claude: "/mmm-lint"
     commit_required: false  # OK if no linting issues found

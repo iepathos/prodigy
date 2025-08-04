@@ -224,15 +224,15 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         env: &ExecutionEnvironment,
         config: &CookConfig,
     ) -> Result<()> {
-        // Check if this is a structured workflow with inputs/outputs
+        // Check if this is a structured workflow with outputs
         let has_structured_commands = config.workflow.commands.iter().any(|cmd| {
             matches!(cmd, crate::config::command::WorkflowCommand::Structured(c)
-                if c.inputs.is_some() || c.outputs.is_some())
+                if c.outputs.is_some())
         });
 
         if has_structured_commands {
             self.user_interaction
-                .display_info("Executing structured workflow with inputs/outputs");
+                .display_info("Executing structured workflow with outputs");
             return self.execute_structured_workflow(env, config).await;
         }
 
@@ -440,13 +440,12 @@ impl ProgressReporter for OrchestrationProgressReporter {
 }
 
 impl DefaultCookOrchestrator {
-    /// Execute a structured workflow with inputs/outputs
+    /// Execute a structured workflow with outputs
     async fn execute_structured_workflow(
         &self,
         env: &ExecutionEnvironment,
         config: &CookConfig,
     ) -> Result<()> {
-        use crate::config::command::InputMethod;
         use std::collections::HashMap;
 
         // Analysis will be run per-command as needed based on their configuration
@@ -485,85 +484,20 @@ impl DefaultCookOrchestrator {
                     self.run_analysis_if_needed(env, analysis_config).await?;
                 }
 
-                // Resolve inputs and build final command arguments
-                let mut final_args = command.args.clone();
+                // Resolve variables from command outputs for use in variable expansion
                 let mut resolved_variables = HashMap::new();
 
-                if let Some(ref inputs) = command.inputs {
-                    for (input_name, input_ref) in inputs {
-                        self.user_interaction.display_info(&format!(
-                            "🔍 Resolving input '{}' from: {}",
-                            input_name, input_ref.from
-                        ));
-
-                        // Parse the reference (e.g., "${cleanup.spec}")
-                        let resolved_value =
-                            if input_ref.from.starts_with("${") && input_ref.from.ends_with('}') {
-                                let var_ref = &input_ref.from[2..input_ref.from.len() - 1];
-                                if let Some((cmd_id, output_name)) = var_ref.split_once('.') {
-                                    if let Some(cmd_outputs) = command_outputs.get(cmd_id) {
-                                        if let Some(value) = cmd_outputs.get(output_name) {
-                                            self.user_interaction.display_success(&format!(
-                                                "✓ Resolved {cmd_id}.{output_name} = {value}"
-                                            ));
-                                            value.clone()
-                                        } else {
-                                            return Err(anyhow!(
-                                                "Output '{}' not found for command '{}'",
-                                                output_name,
-                                                cmd_id
-                                            ));
-                                        }
-                                    } else {
-                                        return Err(anyhow!(
-                                            "Command '{}' not found or hasn't produced outputs yet",
-                                            cmd_id
-                                        ));
-                                    }
-                                } else {
-                                    return Err(anyhow!(
-                                        "Invalid variable reference format: {}",
-                                        input_ref.from
-                                    ));
-                                }
-                            } else {
-                                input_ref.from.clone()
-                            };
-
-                        // Store resolved variable for later use
-                        resolved_variables.insert(input_name.clone(), resolved_value.clone());
-
-                        // Apply the input based on the pass_as method
-                        match &input_ref.pass_as {
-                            InputMethod::Argument { position } => {
-                                self.user_interaction.display_info(&format!(
-                                "📝 Passing '{resolved_value}' as argument at position {position}"
-                            ));
-
-                                // Ensure we have enough space in the args vector
-                                while final_args.len() <= *position {
-                                    final_args.push(crate::config::command::CommandArg::Literal(
-                                        String::new(),
-                                    ));
-                                }
-                                final_args[*position] =
-                                    crate::config::command::CommandArg::Literal(resolved_value);
-                            }
-                            InputMethod::Environment { name: env_name } => {
-                                // This would be handled during command execution
-                                self.user_interaction.display_info(&format!(
-                                    "🌍 Will set environment variable {env_name}={resolved_value}"
-                                ));
-                            }
-                            InputMethod::Stdin => {
-                                // This would be handled during command execution
-                                self.user_interaction.display_info(&format!(
-                                    "📥 Will pass '{resolved_value}' via stdin"
-                                ));
-                            }
-                        }
+                // Collect all available outputs as variables
+                for (cmd_id, outputs) in &command_outputs {
+                    for (output_name, value) in outputs {
+                        let var_name = format!("{cmd_id}.{output_name}");
+                        resolved_variables.insert(var_name, value.clone());
                     }
                 }
+
+                // The command args already contain variable references that will be
+                // expanded by the command parser
+                let final_args = command.args.clone();
 
                 // Build final command string with resolved arguments
                 let mut cmd_parts = vec![format!("/{}", command.name)];
@@ -1727,24 +1661,21 @@ mod tests {
         // Should not detect as structured
         let has_structured = simple_config.workflow.commands.iter().any(|cmd| {
             matches!(cmd, crate::config::command::WorkflowCommand::Structured(c)
-                if c.inputs.is_some() || c.outputs.is_some())
+                if c.outputs.is_some())
         });
         assert!(!has_structured);
 
-        // Test with structured workflow (has inputs/outputs)
+        // Test with structured workflow (has outputs)
         let structured_cmd = crate::config::command::Command {
             name: "mmm-implement-spec".to_string(),
             args: vec![],
             options: HashMap::new(),
             metadata: crate::config::command::CommandMetadata::default(),
             id: Some("implement".to_string()),
-            outputs: None,
-            inputs: Some(HashMap::from([(
+            outputs: Some(HashMap::from([(
                 "spec".to_string(),
-                crate::config::command::InputReference {
-                    from: "${cleanup.spec}".to_string(),
-                    pass_as: crate::config::command::InputMethod::Argument { position: 0 },
-                    default: None,
+                crate::config::command::OutputDeclaration {
+                    file_pattern: "*-improvements.md".to_string(),
                 },
             )])),
             analysis: None,
@@ -1765,7 +1696,7 @@ mod tests {
         // Should detect as structured
         let has_structured = structured_config.workflow.commands.iter().any(|cmd| {
             matches!(cmd, crate::config::command::WorkflowCommand::Structured(c)
-                if c.inputs.is_some() || c.outputs.is_some())
+                if c.outputs.is_some())
         });
         assert!(has_structured);
     }
@@ -1867,7 +1798,6 @@ mod tests {
                     file_pattern: "specs/temp/*-tech-debt-cleanup.md".to_string(),
                 },
             )])),
-            inputs: None,
             analysis: None,
         };
 
@@ -1898,7 +1828,7 @@ mod tests {
         // The orchestrator should detect this as a structured workflow
         let has_structured = config.workflow.commands.iter().any(|cmd| {
             matches!(cmd, crate::config::command::WorkflowCommand::Structured(c)
-                if c.inputs.is_some() || c.outputs.is_some())
+                if c.outputs.is_some())
         });
 
         assert!(
@@ -1908,8 +1838,8 @@ mod tests {
     }
 
     #[test]
-    fn test_input_resolution_logic() {
-        use crate::config::command::{CommandArg, InputMethod, InputReference};
+    fn test_variable_resolution_logic() {
+        use crate::config::command::CommandArg;
 
         // Test variable resolution
         let mut resolved_variables = HashMap::new();
@@ -1924,18 +1854,13 @@ mod tests {
         let resolved_literal = literal_arg.resolve(&resolved_variables);
         assert_eq!(resolved_literal, "literal_value");
 
-        // Test input reference parsing
-        let input_ref = InputReference {
-            from: "${cleanup.spec}".to_string(),
-            pass_as: InputMethod::Argument { position: 0 },
-            default: None,
-        };
+        // Test variable reference parsing
+        let var_ref = "${cleanup.spec}";
+        assert!(var_ref.starts_with("${"));
+        assert!(var_ref.ends_with('}'));
 
-        assert!(input_ref.from.starts_with("${"));
-        assert!(input_ref.from.ends_with('}'));
-
-        let var_ref = &input_ref.from[2..input_ref.from.len() - 1];
-        let parts: Vec<&str> = var_ref.split('.').collect();
+        let inner = &var_ref[2..var_ref.len() - 1];
+        let parts: Vec<&str> = inner.split('.').collect();
         assert_eq!(parts, vec!["cleanup", "spec"]);
     }
 

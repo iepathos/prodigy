@@ -13,8 +13,7 @@ pub mod metadata_parser;
 pub mod workflow;
 
 pub use command::{
-    Command, CommandArg, CommandMetadata, InputMethod, InputReference, OutputDeclaration,
-    SimpleCommand, WorkflowCommand,
+    Command, CommandArg, CommandMetadata, OutputDeclaration, SimpleCommand, WorkflowCommand,
 };
 pub use command_parser::{expand_variables, parse_command_string};
 pub use command_validator::{apply_command_defaults, validate_command, CommandRegistry};

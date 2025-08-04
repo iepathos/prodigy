@@ -493,7 +493,6 @@ mod tests {
             metadata: CommandMetadata::default(),
             id: None,
             outputs: None,
-            inputs: None,
             analysis: None,
         };
 
@@ -511,7 +510,6 @@ mod tests {
             metadata: CommandMetadata::default(),
             id: None,
             outputs: None,
-            inputs: None,
             analysis: None,
         };
 
@@ -531,7 +529,6 @@ mod tests {
             metadata: CommandMetadata::default(),
             id: None,
             outputs: None,
-            inputs: None,
             analysis: None,
         };
 

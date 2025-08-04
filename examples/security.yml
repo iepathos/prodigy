@@ -8,11 +8,5 @@ commands:
           file_pattern: "specs/temp/*-security.md"
     
     - claude: "/mmm-implement-spec ${audit.spec}"
-      inputs:
-        spec:
-          from: "${audit.spec}"
-          pass_as:
-            argument:
-              position: 0
     
     - claude: "/mmm-security-validate"

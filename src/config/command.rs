@@ -108,10 +108,6 @@ pub struct Command {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub outputs: Option<HashMap<String, OutputDeclaration>>,
 
-    /// Inputs this command expects
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub inputs: Option<HashMap<String, InputReference>>,
-
     /// Analysis requirements for this command (convenience field)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub analysis: Option<AnalysisConfig>,
@@ -180,36 +176,6 @@ pub struct OutputDeclaration {
     pub file_pattern: String,
 }
 
-/// Reference to an output from a previous command
-///
-/// Specifies which command's output to use and how to pass it
-/// to the current command (via argument, environment, or stdin).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InputReference {
-    /// Reference to output: `"${command_id.output_name}"`
-    pub from: String,
-
-    /// How to pass the input to the command
-    pub pass_as: InputMethod,
-
-    /// Fallback value if reference not found
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub default: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum InputMethod {
-    /// Pass as positional argument
-    Argument { position: usize },
-
-    /// Set as environment variable
-    Environment { name: String },
-
-    /// Pass via stdin
-    Stdin,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum WorkflowCommand {
@@ -265,10 +231,6 @@ pub struct WorkflowStepCommand {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub outputs: Option<HashMap<String, OutputDeclaration>>,
 
-    /// Input references
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub inputs: Option<HashMap<String, InputReference>>,
-
     /// Whether to capture command output
     #[serde(default)]
     pub capture_output: bool,
@@ -296,7 +258,6 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
             commit_required: bool,
             analysis: Option<AnalysisConfig>,
             outputs: Option<HashMap<String, OutputDeclaration>>,
-            inputs: Option<HashMap<String, InputReference>>,
             #[serde(default)]
             capture_output: bool,
             on_failure: Option<Box<WorkflowStepCommand>>,
@@ -319,7 +280,6 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
             commit_required: helper.commit_required,
             analysis: helper.analysis,
             outputs: helper.outputs,
-            inputs: helper.inputs,
             capture_output: helper.capture_output,
             on_failure: helper.on_failure,
             on_success: helper.on_success,
@@ -355,10 +315,9 @@ impl WorkflowCommand {
                     cmd.metadata.analysis = Some(analysis.clone());
                 }
 
-                // Apply ID, outputs, and inputs
+                // Apply ID and outputs
                 cmd.id = step.id.clone();
                 cmd.outputs = step.outputs.clone();
-                cmd.inputs = step.inputs.clone();
 
                 cmd
             }
@@ -392,7 +351,6 @@ impl Command {
             metadata: CommandMetadata::default(),
             id: None,
             outputs: None,
-            inputs: None,
             analysis: None,
         }
     }
@@ -469,7 +427,6 @@ impl<'de> Deserialize<'de> for Command {
             metadata: CommandMetadata,
             id: Option<String>,
             outputs: Option<HashMap<String, OutputDeclaration>>,
-            inputs: Option<HashMap<String, InputReference>>,
             // Allow commit_required at top level for convenience
             commit_required: Option<bool>,
             // Allow analysis at top level for convenience
@@ -497,7 +454,6 @@ impl<'de> Deserialize<'de> for Command {
             metadata,
             id: helper.id,
             outputs: helper.outputs,
-            inputs: helper.inputs,
             analysis,
         })
     }
@@ -800,12 +756,6 @@ commands:
         max_cache_age: 300
     
     - claude: "/mmm-implement-spec ${coverage.spec}"
-      inputs:
-        spec:
-          from: "${coverage.spec}"
-          pass_as:
-            argument:
-              position: 0
     
     - claude: "/mmm-lint"
       commit_required: false
@@ -824,7 +774,7 @@ commands:
                         for (i, cmd) in seq.iter().enumerate() {
                             println!("\nCommand {i}: {cmd:?}");
                             match serde_yaml::from_value::<WorkflowStepCommand>(cmd.clone()) {
-                                Ok(parsed) => println!("  Parsed as WorkflowStepCommand: success"),
+                                Ok(_parsed) => println!("  Parsed as WorkflowStepCommand: success"),
                                 Err(e2) => println!("  Failed as WorkflowStepCommand: {e2}"),
                             }
                             match serde_yaml::from_value::<WorkflowCommand>(cmd.clone()) {
@@ -858,8 +808,7 @@ commands:
                     step.claude,
                     Some("/mmm-implement-spec ${coverage.spec}".to_string())
                 );
-                assert!(step.inputs.is_some());
-                // pass_as is now inside the InputReference, not at top level
+                // inputs removed - arguments now passed directly in command string
             }
             _ => panic!("Expected WorkflowStep variant for second command"),
         }
