@@ -593,6 +593,8 @@ mod tests {
                 files_analyzed: 0,
                 incremental: false,
                 version: "1.0.0".to_string(),
+                scoring_algorithm: None,
+                criticality_distribution: None,
             },
         };
         let summary = AnalysisSummary::from_analysis(&analysis);
@@ -611,6 +613,8 @@ mod tests {
                 files_analyzed: 10,
                 incremental: false,
                 version: "1.0.0".to_string(),
+                scoring_algorithm: None,
+                criticality_distribution: None,
             },
             dependency_graph: super::super::dependencies::DependencyGraph {
                 nodes: HashMap::new(),
