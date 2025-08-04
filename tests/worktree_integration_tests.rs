@@ -65,7 +65,26 @@ fn cleanup_mmm_worktrees() {
 fn test_mmm_worktree_list_command() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
 
-    // Run mmm worktree list in the test repo
+    // Run mmm worktree ls in the test repo
+    let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
+        .current_dir(&temp_dir)
+        .args(["worktree", "ls"])
+        .output()?;
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should indicate no active worktrees
+    assert!(stdout.contains("No active MMM worktrees found") || stdout.trim().is_empty());
+
+    Ok(())
+}
+
+#[test]
+fn test_mmm_worktree_list_alias_backward_compatibility() -> anyhow::Result<()> {
+    let temp_dir = setup_test_repo()?;
+
+    // Run mmm worktree list (using the alias) in the test repo
     let output = Command::new(env!("CARGO_BIN_EXE_mmm"))
         .current_dir(&temp_dir)
         .args(["worktree", "list"])

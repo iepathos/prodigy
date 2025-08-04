@@ -283,18 +283,6 @@
       "primary_issue_type": "Fixme"
     },
     {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-4023d432-8d49-45cd-8fe4-27972f196a17/src/main.rs",
-      "total_issues": 1,
-      "max_complexity": 0,
-      "primary_issue_type": "Deprecated"
-    },
-    {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-4023d432-8d49-45cd-8fe4-27972f196a17/src/context/conventions.rs",
-      "total_issues": 1,
-      "max_complexity": 0,
-      "primary_issue_type": "Complexity"
-    },
-    {
       "file": "/Users/glen/.mmm/worktrees/mmm/session-4023d432-8d49-45cd-8fe4-27972f196a17/src/scoring/mod.rs",
       "total_issues": 1,
       "max_complexity": 0,
@@ -302,6 +290,18 @@
     },
     {
       "file": "/Users/glen/.mmm/worktrees/mmm/session-4023d432-8d49-45cd-8fe4-27972f196a17/src/subprocess/runner.rs",
+      "total_issues": 1,
+      "max_complexity": 0,
+      "primary_issue_type": "Complexity"
+    },
+    {
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-4023d432-8d49-45cd-8fe4-27972f196a17/src/main.rs",
+      "total_issues": 1,
+      "max_complexity": 0,
+      "primary_issue_type": "Deprecated"
+    },
+    {
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-4023d432-8d49-45cd-8fe4-27972f196a17/src/context/conventions.rs",
       "total_issues": 1,
       "max_complexity": 0,
       "primary_issue_type": "Complexity"

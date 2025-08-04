@@ -122,7 +122,7 @@ Original commits from worktree:
 
 ```bash
 # Check what needs merging
-$ mmm worktree list
+$ mmm worktree ls
 Active MMM worktrees:
   mmm-performance-1234567890 - /path/to/.mmm/worktrees/... (focus: performance)
   mmm-security-1234567891 - /path/to/.mmm/worktrees/... (focus: security)
