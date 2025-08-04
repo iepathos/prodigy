@@ -428,17 +428,19 @@ impl WorktreeManager {
         let cleanup_config = Self::get_cleanup_config();
         if cleanup_config.auto_cleanup {
             println!("🧹 Auto-cleanup is enabled, checking if session can be cleaned up...");
-            
+
             // Give a moment for the merge to propagate
             tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-            
+
             match self.cleanup_session_after_merge(name).await {
                 Ok(()) => {
                     println!("✅ Successfully cleaned up merged session: {name}");
                 }
                 Err(e) => {
                     eprintln!("⚠️  Auto-cleanup failed for session {name}: {e}");
-                    eprintln!("   You can manually clean up later with: mmm worktree cleanup {name}");
+                    eprintln!(
+                        "   You can manually clean up later with: mmm worktree cleanup {name}"
+                    );
                 }
             }
         } else {
@@ -681,7 +683,11 @@ impl WorktreeManager {
         for session in sessions {
             // Check if this session is marked as merged in our state
             if let Ok(state) = self.get_session_state(&session.name) {
-                if state.merged && self.is_branch_merged(&session.branch, target_branch).await? {
+                if state.merged
+                    && self
+                        .is_branch_merged(&session.branch, target_branch)
+                        .await?
+                {
                     mergeable.push(session.name);
                 }
             }
@@ -754,9 +760,7 @@ impl WorktreeManager {
                 .context("Failed to check worktree status")?;
 
             if status_output.status.success() && !status_output.stdout.trim().is_empty() {
-                anyhow::bail!(
-                    "Worktree '{name}' has uncommitted changes. Cannot clean up safely."
-                );
+                anyhow::bail!("Worktree '{name}' has uncommitted changes. Cannot clean up safely.");
             }
         }
 
@@ -775,18 +779,20 @@ impl WorktreeManager {
             chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC"),
             state.branch
         );
-        
+
         let log_file = self.base_dir.join(".metadata").join("cleanup.log");
         let log_dir = log_file.parent().unwrap();
         fs::create_dir_all(log_dir).context("Failed to create log directory")?;
-        
-        fs::write(&log_file, 
+
+        fs::write(
+            &log_file,
             if log_file.exists() {
                 format!("{}\n{log_entry}", fs::read_to_string(&log_file)?)
             } else {
                 log_entry
-            }
-        ).context("Failed to write cleanup log")?;
+            },
+        )
+        .context("Failed to write cleanup log")?;
 
         Ok(())
     }
@@ -920,12 +926,12 @@ mod tests {
         std::env::set_var("MMM_AUTO_CLEANUP", "false");
         std::env::set_var("MMM_DRY_RUN", "true");
         std::env::set_var("MMM_RETENTION_DAYS", "14");
-        
+
         let config = WorktreeManager::get_cleanup_config();
         assert!(!config.auto_cleanup);
         assert!(config.dry_run);
         assert_eq!(config.retention_days, 14);
-        
+
         // Clean up environment variables
         std::env::remove_var("MMM_AUTO_CLEANUP");
         std::env::remove_var("MMM_DRY_RUN");
@@ -975,22 +981,25 @@ mod tests {
         // Should fail because session is not marked as merged
         let result = manager.cleanup_session_after_merge("test-session").await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("not marked as merged"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("not marked as merged"));
     }
 
     #[tokio::test]
     async fn test_detect_mergeable_sessions_empty() {
         let temp_dir = TempDir::new().unwrap();
         let subprocess = SubprocessManager::production();
-        
+
         // Initialize git repository in temp directory first
         let init_command = crate::subprocess::ProcessCommandBuilder::new("git")
             .current_dir(temp_dir.path())
             .args(["init"])
             .build();
-        
+
         let _ = subprocess.runner().run(init_command).await;
-        
+
         let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess).unwrap();
 
         // No sessions created, should detect no mergeable sessions

@@ -375,7 +375,7 @@ async fn handle_clean_command(
     dry_run: bool,
 ) -> anyhow::Result<()> {
     use mmm::worktree::CleanupConfig;
-    
+
     let cleanup_config = CleanupConfig {
         auto_cleanup: false, // Manual cleanup via CLI
         confirm_before_cleanup: !std::env::var("MMM_AUTOMATION").is_ok(),
@@ -385,13 +385,17 @@ async fn handle_clean_command(
 
     if merged_only {
         println!("🔍 Cleaning up merged sessions only...");
-        let cleaned_sessions = worktree_manager.cleanup_merged_sessions(&cleanup_config).await?;
+        let cleaned_sessions = worktree_manager
+            .cleanup_merged_sessions(&cleanup_config)
+            .await?;
         if cleaned_sessions.is_empty() {
             println!("ℹ️  No merged sessions found for cleanup");
         } else {
-            println!("✅ Cleaned up {} merged session(s): {}", 
-                     cleaned_sessions.len(), 
-                     cleaned_sessions.join(", "));
+            println!(
+                "✅ Cleaned up {} merged session(s): {}",
+                cleaned_sessions.len(),
+                cleaned_sessions.join(", ")
+            );
         }
     } else if all {
         println!("Cleaning up all MMM worktrees...");
@@ -420,7 +424,10 @@ async fn handle_clean_command(
             println!("ℹ️  No merged sessions found for cleanup");
             println!("💡 Use --all to clean up all sessions, or specify a session name");
         } else {
-            println!("📋 Found {} merged session(s) ready for cleanup:", mergeable.len());
+            println!(
+                "📋 Found {} merged session(s) ready for cleanup:",
+                mergeable.len()
+            );
             for session in &mergeable {
                 println!("  • {session}");
             }
@@ -444,8 +451,12 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
         WorktreeCommands::Merge { name, all } => {
             handle_merge_command(&worktree_manager, name, all).await
         }
-        WorktreeCommands::Clean { all, name, force, merged_only, dry_run } => {
-            handle_clean_command(&worktree_manager, name, all, force, merged_only, dry_run).await
-        }
+        WorktreeCommands::Clean {
+            all,
+            name,
+            force,
+            merged_only,
+            dry_run,
+        } => handle_clean_command(&worktree_manager, name, all, force, merged_only, dry_run).await,
     }
 }
