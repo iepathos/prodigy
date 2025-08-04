@@ -324,7 +324,7 @@ impl EnhancedCriticalityScorer {
             }
 
             // Check if it's part of a key component
-            for (_component_name, component) in &arch.components {
+            for component in arch.components.values() {
                 // Check if this function is in a component's interface
                 if component.interfaces.contains(&func_name.to_string()) {
                     score += 5.0;

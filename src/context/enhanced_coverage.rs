@@ -1,11 +1,11 @@
 //! Enhanced test coverage analyzer with multi-factor criticality scoring
 
-use super::ArchitectureInfo;
 use super::architecture::ArchitectureExtractor;
 use super::criticality::{AnalysisContext, BugHistory, EnhancedCriticalityScorer, GitHistory};
 use super::debt::{TechnicalDebtMap, TechnicalDebtMapper};
 use super::dependencies::{DependencyAnalyzer, DependencyGraph};
 use super::test_coverage::{TestCoverageAnalyzer, TestCoverageMap};
+use super::ArchitectureInfo;
 use crate::metrics::complexity::ComplexityMetrics;
 use crate::subprocess::SubprocessManager;
 use anyhow::Result;
@@ -208,7 +208,7 @@ impl EnhancedCoverageAnalyzer {
 
         // Simple git log parsing for file change counts
         let output = tokio::process::Command::new("git")
-            .args(&[
+            .args([
                 "log",
                 "--pretty=format:",
                 "--name-only",
@@ -225,13 +225,14 @@ impl EnhancedCoverageAnalyzer {
             for line in stdout.lines() {
                 if !line.is_empty() && !line.starts_with(' ') {
                     let path = PathBuf::from(line);
-                    let entry = file_changes
-                        .entry(path.clone())
-                        .or_insert_with(|| FileChangeHistory {
-                            change_count: 0,
-                            last_modified: chrono::Utc::now(),
-                            authors: vec![],
-                        });
+                    let entry =
+                        file_changes
+                            .entry(path.clone())
+                            .or_insert_with(|| FileChangeHistory {
+                                change_count: 0,
+                                last_modified: chrono::Utc::now(),
+                                authors: vec![],
+                            });
                     entry.change_count += 1;
                 }
             }
@@ -244,7 +245,7 @@ impl EnhancedCoverageAnalyzer {
     async fn load_bug_history(&self, project_path: &Path) -> Result<BugHistory> {
         // Look for bug-related commits
         let output = tokio::process::Command::new("git")
-            .args(&[
+            .args([
                 "log",
                 "--grep=fix",
                 "--grep=bug",

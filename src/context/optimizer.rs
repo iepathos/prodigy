@@ -282,28 +282,28 @@ impl ContextOptimizer {
             .filter(|h| h.complexity > 15)
             .take(5)
             .collect();
-            
+
         for hotspot in hotspots {
-                priority_items.push(ActionableItem {
-                    item_type: ItemType::CodeQualityIssue,
-                    priority: Priority::Medium,
-                    estimated_impact: ImpactScore {
-                        coverage_improvement: None,
-                        quality_improvement: Some(15.0),
-                        risk_reduction: Some(10.0),
-                        effort_estimate: 60,
-                    },
-                    suggested_action: format!("Reduce complexity in {}", hotspot.file.display()),
-                    implementation_hints: vec![
-                        format!("Current complexity: {}", hotspot.complexity),
-                        "Consider extracting functions or simplifying logic".to_string(),
-                    ],
-                    related_context: vec![ContextReference {
-                        ref_type: ReferenceType::File,
-                        location: hotspot.file.to_string_lossy().to_string(),
-                        details: format!("Complexity: {}", hotspot.complexity),
-                    }],
-                });
+            priority_items.push(ActionableItem {
+                item_type: ItemType::CodeQualityIssue,
+                priority: Priority::Medium,
+                estimated_impact: ImpactScore {
+                    coverage_improvement: None,
+                    quality_improvement: Some(15.0),
+                    risk_reduction: Some(10.0),
+                    effort_estimate: 60,
+                },
+                suggested_action: format!("Reduce complexity in {}", hotspot.file.display()),
+                implementation_hints: vec![
+                    format!("Current complexity: {}", hotspot.complexity),
+                    "Consider extracting functions or simplifying logic".to_string(),
+                ],
+                related_context: vec![ContextReference {
+                    ref_type: ReferenceType::File,
+                    location: hotspot.file.to_string_lossy().to_string(),
+                    details: format!("Complexity: {}", hotspot.complexity),
+                }],
+            });
         }
 
         key_metrics.insert(
@@ -451,17 +451,16 @@ impl ContextOptimizer {
         format!(
             r#"
 #[test]
-fn test_{}() {{
+fn test_{func_name}() {{
     // Arrange
     let input = // TODO: Set up test input
     
     // Act
-    let result = {}(input);
+    let result = {func_name}(input);
     
     // Assert
     assert_eq!(result, expected_value);
-}}"#,
-            func_name, func_name
+}}"#
         )
     }
 
