@@ -24,6 +24,7 @@ pub fn init_test_env() {
 }
 
 /// Test context builder for setting up test environments
+#[allow(dead_code)]
 pub struct TestContextBuilder {
     temp_dir: TempDir,
     with_git: bool,
@@ -33,6 +34,7 @@ pub struct TestContextBuilder {
     initial_files: Vec<(PathBuf, String)>,
 }
 
+#[allow(dead_code)]
 impl TestContextBuilder {
     /// Create a new test context builder
     pub fn new() -> Result<Self> {
@@ -111,10 +113,12 @@ impl TestContextBuilder {
 }
 
 /// Test context that manages temporary directories and cleanup
+#[allow(dead_code)]
 pub struct TestContext {
     temp_dir: TempDir,
 }
 
+#[allow(dead_code)]
 impl TestContext {
     /// Get the path to the test directory
     pub fn path(&self) -> &Path {
@@ -152,6 +156,7 @@ impl TestContext {
 }
 
 /// Initialize a git repository
+#[allow(dead_code)]
 pub fn init_git_repo(path: &Path) -> Result<()> {
     Command::new("git")
         .current_dir(path)
@@ -161,6 +166,7 @@ pub fn init_git_repo(path: &Path) -> Result<()> {
 }
 
 /// Configure git user
+#[allow(dead_code)]
 pub fn configure_git_user(path: &Path, email: &str, name: &str) -> Result<()> {
     Command::new("git")
         .current_dir(path)
@@ -176,6 +182,7 @@ pub fn configure_git_user(path: &Path, email: &str, name: &str) -> Result<()> {
 }
 
 /// Create standard MMM directories
+#[allow(dead_code)]
 pub fn create_mmm_directories(path: &Path) -> Result<()> {
     fs::create_dir_all(path.join(".mmm"))?;
     fs::create_dir_all(path.join("specs/temp"))?;
@@ -183,6 +190,7 @@ pub fn create_mmm_directories(path: &Path) -> Result<()> {
 }
 
 /// Create a test playbook
+#[allow(dead_code)]
 pub fn create_test_playbook(path: &Path, name: &str, commands: &[&str]) -> Result<PathBuf> {
     let playbook_path = path.join(name);
     let mut content = String::from("# Test playbook\ncommands:\n");
@@ -194,6 +202,7 @@ pub fn create_test_playbook(path: &Path, name: &str, commands: &[&str]) -> Resul
 }
 
 /// Common assertion helpers
+#[allow(dead_code)]
 pub mod assertions {
     use std::path::Path;
 
@@ -233,6 +242,7 @@ pub mod assertions {
 }
 
 /// Parse command string helper (moved from individual tests)
+#[allow(dead_code)]
 pub fn parse_command_string(command: &str) -> (String, Vec<String>) {
     let parts: Vec<&str> = command.split_whitespace().collect();
     if parts.is_empty() {

@@ -16,5 +16,5 @@ async fn test_metrics_collection_integration() {
 
     let metrics = result.unwrap();
     assert!(metrics.test_coverage >= 0.0);
-    assert!(metrics.lint_warnings >= 0);
+    // lint_warnings is u32, so it's always >= 0
 }

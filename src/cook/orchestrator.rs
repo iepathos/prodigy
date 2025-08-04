@@ -973,10 +973,10 @@ impl DefaultCookOrchestrator {
     }
 
     /// Get current git HEAD
-    async fn get_current_head(&self, _working_dir: &std::path::Path) -> Result<String> {
+    async fn get_current_head(&self, working_dir: &std::path::Path) -> Result<String> {
         let output = self
             .git_operations
-            .git_command(&["rev-parse", "HEAD"], "get current HEAD")
+            .git_command_in_dir(&["rev-parse", "HEAD"], "get current HEAD", working_dir)
             .await
             .context("Failed to get git HEAD")?;
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
@@ -1548,6 +1548,16 @@ mod tests {
 
         async fn switch_branch(&self, _branch: &str) -> Result<()> {
             Ok(())
+        }
+
+        async fn git_command_in_dir(
+            &self,
+            args: &[&str],
+            description: &str,
+            _working_dir: &Path,
+        ) -> Result<std::process::Output> {
+            // For test mocks, just delegate to git_command
+            self.git_command(args, description).await
         }
     }
 

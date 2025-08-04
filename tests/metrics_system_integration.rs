@@ -167,7 +167,7 @@ async fn test_metrics_time_range_filtering() {
     registry.register_collector(collector.clone()).await;
 
     // Record events at different times (simulated)
-    let base_time = Utc::now();
+    let _base_time = Utc::now();
 
     // Record some metrics
     registry

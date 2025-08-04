@@ -16,6 +16,14 @@ pub trait GitOperations: Send + Sync {
     /// Execute a git command with exclusive access
     async fn git_command(&self, args: &[&str], description: &str) -> Result<std::process::Output>;
 
+    /// Execute a git command with exclusive access in a specific directory
+    async fn git_command_in_dir(
+        &self,
+        args: &[&str],
+        description: &str,
+        working_dir: &Path,
+    ) -> Result<std::process::Output>;
+
     /// Get the last commit message
     async fn get_last_commit_message(&self) -> Result<String>;
 
@@ -149,6 +157,43 @@ impl GitOperations for RealGitOperations {
             .await
             .map(|output| output.status.success())
             .unwrap_or(false)
+    }
+
+    async fn git_command_in_dir(
+        &self,
+        args: &[&str],
+        description: &str,
+        working_dir: &Path,
+    ) -> Result<std::process::Output> {
+        // Acquire the mutex to ensure exclusive access
+        let _guard = self.git_mutex.lock().await;
+
+        let command = ProcessCommandBuilder::new("git")
+            .args(args)
+            .current_dir(working_dir)
+            .build();
+
+        let output = self
+            .subprocess
+            .runner()
+            .run(command)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to execute git {}: {}", description, e))?;
+
+        if !output.status.success() {
+            let stderr = &output.stderr;
+            return Err(anyhow::anyhow!(
+                "Git {} failed: {}",
+                description,
+                stderr.trim()
+            ));
+        }
+
+        Ok(std::process::Output {
+            status: std::process::ExitStatus::from_raw(output.status.code().unwrap_or(0)),
+            stdout: output.stdout.into_bytes(),
+            stderr: output.stderr.into_bytes(),
+        })
     }
 
     async fn create_worktree(&self, name: &str, path: &Path) -> Result<()> {
@@ -292,6 +337,16 @@ impl GitOperations for MockGitOperations {
     async fn switch_branch(&self, branch: &str) -> Result<()> {
         self.git_command(&["checkout", branch], "checkout").await?;
         Ok(())
+    }
+
+    async fn git_command_in_dir(
+        &self,
+        args: &[&str],
+        description: &str,
+        _working_dir: &Path,
+    ) -> Result<std::process::Output> {
+        // For mocks, just delegate to git_command since we don't actually run commands
+        self.git_command(args, description).await
     }
 }
 

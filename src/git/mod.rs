@@ -369,7 +369,8 @@ impl GitWorktree for GitCommandRunner {
     }
 }
 
-impl GitOperations for GitCommandRunner {}
+// GitCommandRunner is a different abstraction layer that doesn't implement crate::abstractions::git::GitOperations
+// It implements its own trait hierarchy: GitReader + GitWriter + GitWorktree
 
 #[cfg(test)]
 mod tests {

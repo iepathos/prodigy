@@ -96,6 +96,15 @@ impl mmm::abstractions::git::GitOperations for MockGitOperations {
     async fn switch_branch(&self, _branch: &str) -> anyhow::Result<()> {
         Ok(())
     }
+    async fn git_command_in_dir(
+        &self,
+        args: &[&str],
+        description: &str,
+        _working_dir: &std::path::Path,
+    ) -> anyhow::Result<std::process::Output> {
+        // For test mocks, just delegate to git_command
+        self.git_command(args, description).await
+    }
 }
 
 #[async_trait::async_trait]

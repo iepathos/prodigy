@@ -1,6 +1,6 @@
 //! Scenario-based git mocking for comprehensive testing
 
-use super::{error::GitError, types::*, GitOperations, GitReader, GitWorktree, GitWriter};
+use super::{error::GitError, types::*, GitReader, GitWorktree, GitWriter};
 use anyhow::Result;
 use async_trait::async_trait;
 use std::collections::HashMap;
@@ -510,7 +510,8 @@ impl GitWorktree for GitScenarioMock {
     }
 }
 
-impl GitOperations for GitScenarioMock {}
+// GitScenarioMock is a different abstraction layer that doesn't implement crate::abstractions::git::GitOperations
+// It implements its own trait hierarchy
 
 #[cfg(test)]
 mod tests {
