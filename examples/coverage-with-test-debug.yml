@@ -1,0 +1,30 @@
+# Test coverage improvement workflow with automatic test debugging
+# Identifies coverage gaps, implements tests, and automatically fixes failing tests
+commands:
+    - claude: "/mmm-coverage"
+      id: coverage
+      outputs:
+        spec:
+          file_pattern: "*-coverage-improvements.md"
+      analysis:
+        max_cache_age: 300
+    
+    - claude: "/mmm-implement-spec ${coverage.spec}"
+    
+    - test:
+        command: "cargo test"
+        on_failure:
+          claude: "/mmm-debug-test-failure --spec ${coverage.spec} --output ${test.output} --attempt ${test.attempt}"
+          max_attempts: 3
+          stop_on_success: true
+          fail_workflow: false  # Continue workflow even if tests can't be fixed
+    
+    - test:
+        command: "cargo test --doc"
+        on_failure:
+          claude: "/mmm-fix-doc-tests --output ${test.output}"
+          max_attempts: 2
+          fail_workflow: false  # Doc test failures shouldn't stop the workflow
+    
+    - claude: "/mmm-lint"
+      commit_required: false  # OK if no linting issues found

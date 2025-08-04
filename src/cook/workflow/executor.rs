@@ -25,6 +25,8 @@ pub enum CommandType {
     Claude(String),
     /// Shell command to execute
     Shell(String),
+    /// Test command with retry logic
+    Test(crate::config::command::TestCommand),
     /// Legacy name-based approach
     Legacy(String),
 }
@@ -85,6 +87,10 @@ pub struct WorkflowStep {
     /// Shell command to execute
     #[serde(skip_serializing_if = "Option::is_none")]
     pub shell: Option<String>,
+
+    /// Test command configuration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub test: Option<crate::config::command::TestCommand>,
 
     /// Legacy command field (for backward compatibility)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -189,6 +195,9 @@ impl WorkflowExecutor {
         if step.shell.is_some() {
             specified_count += 1;
         }
+        if step.test.is_some() {
+            specified_count += 1;
+        }
         if step.name.is_some() || step.command.is_some() {
             specified_count += 1;
         }
@@ -196,13 +205,13 @@ impl WorkflowExecutor {
         // Ensure only one command type is specified
         if specified_count > 1 {
             return Err(anyhow!(
-                "Multiple command types specified. Use only one of: claude, shell, or name/command"
+                "Multiple command types specified. Use only one of: claude, shell, test, or name/command"
             ));
         }
 
         if specified_count == 0 {
             return Err(anyhow!(
-                "No command specified. Use one of: claude, shell, or name/command"
+                "No command specified. Use one of: claude, shell, test, or name/command"
             ));
         }
 
@@ -211,6 +220,8 @@ impl WorkflowExecutor {
             Ok(CommandType::Claude(claude_cmd.clone()))
         } else if let Some(shell_cmd) = &step.shell {
             Ok(CommandType::Shell(shell_cmd.clone()))
+        } else if let Some(test_cmd) = &step.test {
+            Ok(CommandType::Test(test_cmd.clone()))
         } else if let Some(name) = &step.name {
             // Legacy support - prepend / if not present
             let command = if name.starts_with('/') {
@@ -232,6 +243,8 @@ impl WorkflowExecutor {
             format!("claude: {claude_cmd}")
         } else if let Some(shell_cmd) = &step.shell {
             format!("shell: {shell_cmd}")
+        } else if let Some(test_cmd) = &step.test {
+            format!("test: {}", test_cmd.command)
         } else if let Some(name) = &step.name {
             name.clone()
         } else if let Some(command) = &step.command {
@@ -492,6 +505,10 @@ impl WorkflowExecutor {
                 self.execute_shell_command(&interpolated_cmd, env, env_vars, step.timeout)
                     .await?
             }
+            CommandType::Test(test_cmd) => {
+                self.execute_test_command(test_cmd, env, ctx, env_vars)
+                    .await?
+            }
             CommandType::Legacy(cmd) => {
                 // Legacy commands still use Claude executor
                 let interpolated_cmd = ctx.interpolate(&cmd);
@@ -633,6 +650,131 @@ impl WorkflowExecutor {
         })
     }
 
+    /// Execute a test command with retry logic
+    async fn execute_test_command(
+        &self,
+        test_cmd: crate::config::command::TestCommand,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+        mut env_vars: HashMap<String, String>,
+    ) -> Result<StepResult> {
+        use std::fs;
+        use tempfile::NamedTempFile;
+
+        let interpolated_test_cmd = ctx.interpolate(&test_cmd.command);
+
+        // First, execute the test command
+        let mut attempt = 0;
+        loop {
+            attempt += 1;
+            self.user_interaction.display_progress(&format!(
+                "Running test command (attempt {attempt}): {interpolated_test_cmd}"
+            ));
+
+            // Add test-specific variables
+            env_vars.insert("TEST_ATTEMPT".to_string(), attempt.to_string());
+
+            // Execute the test command
+            let test_result = self
+                .execute_shell_command(&interpolated_test_cmd, env, env_vars.clone(), None)
+                .await?;
+
+            // Check if tests passed
+            if test_result.success {
+                self.user_interaction
+                    .display_success(&format!("✓ Tests passed on attempt {attempt}"));
+                return Ok(test_result);
+            }
+
+            // Tests failed - check if we should retry
+            if let Some(debug_config) = &test_cmd.on_failure {
+                if attempt >= debug_config.max_attempts {
+                    self.user_interaction.display_error(&format!(
+                        "❌ Tests failed after {} attempts",
+                        debug_config.max_attempts
+                    ));
+
+                    if debug_config.fail_workflow {
+                        return Err(anyhow!(
+                            "Test command failed after {} attempts and fail_workflow is true",
+                            debug_config.max_attempts
+                        ));
+                    } else {
+                        // Return the last test result
+                        return Ok(test_result);
+                    }
+                }
+
+                // Run the debug command
+                self.user_interaction.display_info(&format!(
+                    "Tests failed, running debug command (attempt {}/{})",
+                    attempt, debug_config.max_attempts
+                ));
+
+                // Save test output to a temp file if it's too large
+                let output_path = if test_result.stdout.len() + test_result.stderr.len() > 10000 {
+                    // Create a temporary file for large outputs
+                    let temp_file = NamedTempFile::new()?;
+                    let combined_output = format!(
+                        "=== STDOUT ===\n{}\n\n=== STDERR ===\n{}",
+                        test_result.stdout, test_result.stderr
+                    );
+                    fs::write(temp_file.path(), &combined_output)?;
+                    Some(temp_file.path().to_string_lossy().to_string())
+                } else {
+                    None
+                };
+
+                // Prepare the debug command with variables
+                let mut debug_cmd = debug_config.claude.clone();
+
+                // Add test-specific variables to context
+                ctx.variables
+                    .insert("test.attempt".to_string(), attempt.to_string());
+                ctx.variables.insert(
+                    "test.exit_code".to_string(),
+                    test_result.exit_code.unwrap_or(-1).to_string(),
+                );
+
+                if let Some(output_file) = output_path {
+                    ctx.variables.insert("test.output".to_string(), output_file);
+                } else {
+                    // For smaller outputs, pass directly
+                    let combined_output = format!(
+                        "STDOUT:\n{}\n\nSTDERR:\n{}",
+                        test_result.stdout, test_result.stderr
+                    );
+                    ctx.variables
+                        .insert("test.output".to_string(), combined_output);
+                }
+
+                // Interpolate the debug command
+                debug_cmd = ctx.interpolate(&debug_cmd);
+
+                // Execute the debug command
+                let debug_result = self
+                    .execute_claude_command(&debug_cmd, env, env_vars.clone())
+                    .await?;
+
+                if !debug_result.success {
+                    self.user_interaction
+                        .display_error("Debug command failed, but continuing with retry");
+                }
+
+                // If stop_on_success is false, we might want to continue even if fixed
+                if !debug_config.stop_on_success {
+                    self.user_interaction
+                        .display_info("Continuing with next attempt (stop_on_success is false)");
+                }
+
+                // Continue to next attempt
+            } else {
+                // No on_failure configuration, return the failed result
+                return Ok(test_result);
+            }
+        }
+    }
+
     /// Handle test mode execution
     fn handle_test_mode_execution(
         &self,
@@ -642,6 +784,7 @@ impl WorkflowExecutor {
         let command_str = match command_type {
             CommandType::Claude(cmd) => format!("Claude command: {cmd}"),
             CommandType::Shell(cmd) => format!("Shell command: {cmd}"),
+            CommandType::Test(test_cmd) => format!("Test command: {}", test_cmd.command),
             CommandType::Legacy(cmd) => format!("Legacy command: {cmd}"),
         };
 
@@ -653,6 +796,7 @@ impl WorkflowExecutor {
                 self.is_test_mode_no_changes_command(cmd)
             }
             CommandType::Shell(_) => false,
+            CommandType::Test(_) => false,
         };
 
         if should_simulate_no_changes {
@@ -713,6 +857,7 @@ impl WorkflowExecutor {
                 .next()
                 .unwrap_or(""),
             CommandType::Shell(cmd) => cmd,
+            CommandType::Test(test_cmd) => &test_cmd.command,
         };
 
         eprintln!("\n❌ Workflow stopped: No changes were committed by {step_display}");

@@ -176,6 +176,40 @@ pub struct OutputDeclaration {
     pub file_pattern: String,
 }
 
+/// Configuration for test debugging on failure
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TestDebugConfig {
+    /// Claude command to run on test failure
+    pub claude: String,
+
+    /// Maximum number of retry attempts
+    #[serde(default = "default_max_attempts")]
+    pub max_attempts: u32,
+
+    /// Whether to stop retrying when tests pass
+    #[serde(default = "default_true")]
+    pub stop_on_success: bool,
+
+    /// Whether to fail the workflow if max attempts reached
+    #[serde(default)]
+    pub fail_workflow: bool,
+}
+
+fn default_max_attempts() -> u32 {
+    3
+}
+
+/// Test command configuration
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TestCommand {
+    /// The test command to execute
+    pub command: String,
+
+    /// Configuration for handling test failures
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_failure: Option<TestDebugConfig>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum WorkflowCommand {
@@ -204,7 +238,7 @@ pub struct SimpleCommand {
     pub analysis: Option<AnalysisConfig>,
 }
 
-/// New workflow step command format supporting claude: and shell: syntax
+/// New workflow step command format supporting claude:, shell:, and test: syntax
 #[derive(Debug, Clone, Serialize)]
 pub struct WorkflowStepCommand {
     /// Claude CLI command with args
@@ -214,6 +248,10 @@ pub struct WorkflowStepCommand {
     /// Shell command to execute
     #[serde(skip_serializing_if = "Option::is_none")]
     pub shell: Option<String>,
+
+    /// Test command configuration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub test: Option<TestCommand>,
 
     /// Command ID for referencing outputs
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -253,6 +291,7 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
         struct Helper {
             claude: Option<String>,
             shell: Option<String>,
+            test: Option<TestCommand>,
             id: Option<String>,
             #[serde(default = "default_true")]
             commit_required: bool,
@@ -266,16 +305,17 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
 
         let helper = Helper::deserialize(deserializer)?;
 
-        // Validate that at least one of claude or shell is present
-        if helper.claude.is_none() && helper.shell.is_none() {
+        // Validate that at least one of claude, shell, or test is present
+        if helper.claude.is_none() && helper.shell.is_none() && helper.test.is_none() {
             return Err(serde::de::Error::custom(
-                "WorkflowStepCommand must have either 'claude' or 'shell' field",
+                "WorkflowStepCommand must have either 'claude', 'shell', or 'test' field",
             ));
         }
 
         Ok(WorkflowStepCommand {
             claude: helper.claude,
             shell: helper.shell,
+            test: helper.test,
             id: helper.id,
             commit_required: helper.commit_required,
             analysis: helper.analysis,
@@ -301,6 +341,9 @@ impl WorkflowCommand {
                     // For shell commands, we might need special handling
                     // For now, treat it as a simple command
                     format!("shell {shell_cmd}")
+                } else if let Some(test_cmd) = &step.test {
+                    // For test commands, we need special handling
+                    format!("test {}", test_cmd.command)
                 } else {
                     // No command specified
                     String::new()

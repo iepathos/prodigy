@@ -25,7 +25,7 @@ async fn test_metrics_collection_and_reporting() {
         .await
         .unwrap();
     registry
-        .record(MetricEvent::gauge("test.gauge", 3.14, Tags::new()))
+        .record(MetricEvent::gauge("test.gauge", 3.14159, Tags::new()))
         .await
         .unwrap();
     registry

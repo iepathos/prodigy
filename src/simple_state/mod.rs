@@ -17,7 +17,7 @@
 //! The state management system consists of:
 //! - [`StateManager`] - Main interface for state operations  
 //! - [`CacheManager`] - In-memory caching for performance
-//! - [`ProjectState`] - Project-specific state container
+//! - [`State`] - Project-specific state container
 //! - [`SessionRecord`] - Individual session tracking
 //!
 //! # Examples
