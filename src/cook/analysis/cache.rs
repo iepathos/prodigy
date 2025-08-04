@@ -182,6 +182,8 @@ mod tests {
                 files_analyzed: 10,
                 incremental: false,
                 version: "0.1.0".to_string(),
+                scoring_algorithm: None,
+                criticality_distribution: None,
             },
         }
     }

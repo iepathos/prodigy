@@ -76,6 +76,8 @@ impl<R: CommandRunner + 'static> AnalysisRunner for AnalysisRunnerImpl<R> {
             files_analyzed: result.metadata.files_analyzed,
             incremental: false,
             version: env!("CARGO_PKG_VERSION").to_string(),
+            scoring_algorithm: result.metadata.scoring_algorithm,
+            criticality_distribution: result.metadata.criticality_distribution,
         };
 
         Ok(result)

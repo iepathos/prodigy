@@ -228,6 +228,8 @@ fn create_test_analysis_result() -> mmm::context::AnalysisResult {
             files_analyzed: 100,
             incremental: false,
             version: "0.1.0".to_string(),
+            scoring_algorithm: None,
+            criticality_distribution: None,
         },
     }
 }

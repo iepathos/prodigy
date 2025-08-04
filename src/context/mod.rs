@@ -13,9 +13,12 @@ use std::path::{Path, PathBuf};
 pub mod analyzer;
 pub mod architecture;
 pub mod conventions;
+pub mod criticality;
 pub mod debt;
 pub mod dependencies;
+pub mod enhanced_coverage;
 pub mod metrics_aware_coverage;
+pub mod optimizer;
 pub mod size_manager;
 pub mod summary;
 pub mod tarpaulin_coverage;
@@ -74,6 +77,15 @@ pub enum ViolationSeverity {
     Low,
 }
 
+/// Distribution of criticality levels
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CriticalityDistribution {
+    pub high: usize,
+    pub medium: usize,
+    pub low: usize,
+    pub confidence_score: f32,
+}
+
 /// Metadata about the analysis run
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnalysisMetadata {
@@ -82,6 +94,10 @@ pub struct AnalysisMetadata {
     pub files_analyzed: usize,
     pub incremental: bool,
     pub version: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scoring_algorithm: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub criticality_distribution: Option<CriticalityDistribution>,
 }
 
 /// Context information for a specific file
@@ -348,6 +364,8 @@ fn load_analysis_metadata(context_dir: &Path) -> Result<AnalysisMetadata> {
             files_analyzed: 0,
             incremental: false,
             version: env!("CARGO_PKG_VERSION").to_string(),
+            scoring_algorithm: None,
+            criticality_distribution: None,
         });
     }
 
@@ -537,12 +555,12 @@ pub fn save_test_coverage_summary(context_dir: &Path, coverage: &TestCoverageMap
 /// Optimize coverage data for context consumption
 fn optimize_coverage_for_context(coverage: &TestCoverageMap) -> TestCoverageMap {
     use test_coverage::Criticality;
-    
+
     // Group untested functions by criticality
     let mut high_crit = Vec::new();
     let mut medium_crit = Vec::new();
     let mut low_crit = Vec::new();
-    
+
     for func in &coverage.untested_functions {
         match func.criticality {
             Criticality::High => high_crit.push(func.clone()),
@@ -550,22 +568,22 @@ fn optimize_coverage_for_context(coverage: &TestCoverageMap) -> TestCoverageMap 
             Criticality::Low => low_crit.push(func.clone()),
         }
     }
-    
+
     // Sort by file and function name for consistent ordering
     let sort_funcs = |a: &test_coverage::UntestedFunction, b: &test_coverage::UntestedFunction| {
         a.file.cmp(&b.file).then(a.name.cmp(&b.name))
     };
-    
+
     high_crit.sort_by(sort_funcs);
     medium_crit.sort_by(sort_funcs);
     low_crit.sort_by(sort_funcs);
-    
+
     // Keep all high criticality (only 2), top 30 medium, top 10 low
     let mut optimized_untested = Vec::new();
     optimized_untested.extend(high_crit);
     optimized_untested.extend(medium_crit.into_iter().take(30));
     optimized_untested.extend(low_crit.into_iter().take(10));
-    
+
     // For file coverage, only keep files with < 50% coverage or no tests
     let mut optimized_file_coverage = HashMap::new();
     for (path, file_cov) in &coverage.file_coverage {
@@ -576,7 +594,7 @@ fn optimize_coverage_for_context(coverage: &TestCoverageMap) -> TestCoverageMap 
             optimized_file_coverage.insert(path.clone(), optimized_cov);
         }
     }
-    
+
     TestCoverageMap {
         file_coverage: optimized_file_coverage,
         untested_functions: optimized_untested,

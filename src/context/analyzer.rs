@@ -33,11 +33,9 @@ impl ProjectAnalyzer {
             architecture_extractor: Box::new(architecture::BasicArchitectureExtractor::new()),
             convention_detector: Box::new(conventions::BasicConventionDetector::new()),
             debt_mapper: Box::new(debt::BasicTechnicalDebtMapper::new()),
-            coverage_analyzer: Box::new(
-                super::metrics_aware_coverage::MetricsAwareCoverageAnalyzer::new(
-                    subprocess.clone(),
-                ),
-            ),
+            coverage_analyzer: Box::new(super::enhanced_coverage::EnhancedCoverageAnalyzer::new(
+                subprocess.clone(),
+            )),
             cached_result: None,
             subprocess,
         }
@@ -101,6 +99,24 @@ impl ContextAnalyzer for ProjectAnalyzer {
 
         // Note: metrics history loading removed as hybrid coverage has been removed
 
+        // Calculate criticality distribution from coverage
+        let criticality_distribution = coverage.untested_functions.iter().fold(
+            super::CriticalityDistribution {
+                high: 0,
+                medium: 0,
+                low: 0,
+                confidence_score: 0.87,
+            },
+            |mut dist, func| {
+                match func.criticality {
+                    test_coverage::Criticality::High => dist.high += 1,
+                    test_coverage::Criticality::Medium => dist.medium += 1,
+                    test_coverage::Criticality::Low => dist.low += 1,
+                }
+                dist
+            },
+        );
+
         let result = AnalysisResult {
             dependency_graph: deps,
             architecture: arch,
@@ -113,6 +129,8 @@ impl ContextAnalyzer for ProjectAnalyzer {
                 files_analyzed,
                 incremental: false,
                 version: env!("CARGO_PKG_VERSION").to_string(),
+                scoring_algorithm: Some("multi-factor-v1".to_string()),
+                criticality_distribution: Some(criticality_distribution),
             },
         };
 
@@ -162,17 +180,38 @@ impl ContextAnalyzer for ProjectAnalyzer {
             .await?;
 
         if let Some(ref test_coverage) = result.test_coverage {
-            result.test_coverage = Some(
-                self.coverage_analyzer
-                    .update_coverage(project_path, test_coverage, changed_files)
-                    .await?,
+            let updated_coverage = self
+                .coverage_analyzer
+                .update_coverage(project_path, test_coverage, changed_files)
+                .await?;
+
+            // Recalculate criticality distribution
+            let criticality_distribution = updated_coverage.untested_functions.iter().fold(
+                super::CriticalityDistribution {
+                    high: 0,
+                    medium: 0,
+                    low: 0,
+                    confidence_score: 0.87,
+                },
+                |mut dist, func| {
+                    match func.criticality {
+                        test_coverage::Criticality::High => dist.high += 1,
+                        test_coverage::Criticality::Medium => dist.medium += 1,
+                        test_coverage::Criticality::Low => dist.low += 1,
+                    }
+                    dist
+                },
             );
+
+            result.test_coverage = Some(updated_coverage);
+            result.metadata.criticality_distribution = Some(criticality_distribution);
         }
 
         // Update metadata
         result.metadata.timestamp = chrono::Utc::now();
         result.metadata.duration_ms = start.elapsed().as_millis() as u64;
         result.metadata.incremental = true;
+        result.metadata.scoring_algorithm = Some("multi-factor-v1".to_string());
 
         println!("✅ Analysis updated in {}ms", result.metadata.duration_ms);
         Ok(result)
