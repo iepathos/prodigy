@@ -215,12 +215,12 @@ pub enum InputMethod {
 pub enum WorkflowCommand {
     /// Legacy string format
     Simple(String),
-    /// New workflow step format (check this before other object formats)
+    /// Full structured format (check before WorkflowStep since it's more specific)
+    Structured(Box<Command>),
+    /// New workflow step format (must have claude or shell field)
     WorkflowStep(WorkflowStepCommand),
     /// Simple object format
     SimpleObject(SimpleCommand),
-    /// Full structured format
-    Structured(Box<Command>),
 }
 
 /// Simple command representation for basic workflows
@@ -332,6 +332,7 @@ impl WorkflowCommand {
     pub fn to_command(&self) -> Command {
         match self {
             WorkflowCommand::Simple(s) => Command::from_string(s),
+            WorkflowCommand::Structured(c) => *c.clone(),
             WorkflowCommand::WorkflowStep(step) => {
                 // Convert WorkflowStepCommand to Command
                 let command_str = if let Some(claude_cmd) = &step.claude {
@@ -377,7 +378,6 @@ impl WorkflowCommand {
                 }
                 cmd
             }
-            WorkflowCommand::Structured(c) => *c.clone(),
         }
     }
 }
@@ -781,7 +781,8 @@ name: mmm-code-review
 commit_required: false
 "#;
         let cmd_simple_obj: WorkflowCommand = serde_yaml::from_str(yaml_simple_obj).unwrap();
-        assert!(matches!(cmd_simple_obj, WorkflowCommand::SimpleObject(_)));
+        // With the new enum ordering, this parses as Structured since Command can deserialize from minimal fields
+        assert!(matches!(cmd_simple_obj, WorkflowCommand::Structured(_)));
     }
 
     #[test]
