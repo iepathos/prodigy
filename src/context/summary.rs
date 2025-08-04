@@ -133,17 +133,13 @@ pub struct DependencyGraphSummary {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeSummary {
     pub module_type: super::dependencies::ModuleType,
-    #[serde(skip_serializing_if = "is_zero")]
-    pub import_count: usize,
-    #[serde(skip_serializing_if = "is_zero")]
-    pub export_count: usize,
-    #[serde(skip_serializing_if = "is_zero")]
-    pub external_dep_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub import_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub export_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub external_dep_count: Option<usize>,
     pub coupling_score: usize,
-}
-
-fn is_zero(n: &usize) -> bool {
-    *n == 0
 }
 
 /// Coupling analysis summary
@@ -512,9 +508,9 @@ impl DependencyGraphSummary {
                 {
                     let summary = NodeSummary {
                         module_type: node.module_type.clone(),
-                        import_count: node.imports.len(),
-                        export_count: node.exports.len(),
-                        external_dep_count: node.external_deps.len(),
+                        import_count: if node.imports.is_empty() { None } else { Some(node.imports.len()) },
+                        export_count: if node.exports.is_empty() { None } else { Some(node.exports.len()) },
+                        external_dep_count: if node.external_deps.is_empty() { None } else { Some(node.external_deps.len()) },
                         coupling_score: coupling,
                     };
                     Some((name.clone(), summary))
