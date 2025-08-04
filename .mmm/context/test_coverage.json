@@ -1,32 +1,5 @@
 {
   "file_coverage": {
-    "src/context/summary.rs": {
-      "path": "src/context/summary.rs",
-      "coverage_percentage": 0.7961783439490446,
-      "tested_lines": 125,
-      "total_lines": 157,
-      "tested_functions": 1,
-      "total_functions": 8,
-      "has_tests": true
-    },
-    "src/cook/coordinators/session.rs": {
-      "path": "src/cook/coordinators/session.rs",
-      "coverage_percentage": 0.058823529411764705,
-      "tested_lines": 2,
-      "total_lines": 34,
-      "tested_functions": 5,
-      "total_functions": 13,
-      "has_tests": true
-    },
-    "src/metrics/history.rs": {
-      "path": "src/metrics/history.rs",
-      "coverage_percentage": 0.3230769230769231,
-      "tested_lines": 21,
-      "total_lines": 65,
-      "tested_functions": 3,
-      "total_functions": 9,
-      "has_tests": true
-    },
     "tests/cli_tests.rs": {
       "path": "tests/cli_tests.rs",
       "coverage_percentage": 0.0,
@@ -36,8 +9,8 @@
       "total_functions": 15,
       "has_tests": false
     },
-    "src/cook/command.rs": {
-      "path": "src/cook/command.rs",
+    "src/init/command.rs": {
+      "path": "src/init/command.rs",
       "coverage_percentage": 0.0,
       "tested_lines": 0,
       "total_lines": 0,
@@ -45,40 +18,22 @@
       "total_functions": 0,
       "has_tests": false
     },
-    "src/cook/coordinators/workflow.rs": {
-      "path": "src/cook/coordinators/workflow.rs",
-      "coverage_percentage": 0.027777777777777776,
-      "tested_lines": 1,
-      "total_lines": 36,
-      "tested_functions": 2,
-      "total_functions": 23,
+    "src/subprocess/runner.rs": {
+      "path": "src/subprocess/runner.rs",
+      "coverage_percentage": 0.5797101449275363,
+      "tested_lines": 40,
+      "total_lines": 69,
+      "tested_functions": 4,
+      "total_functions": 8,
       "has_tests": true
     },
-    "src/context/architecture.rs": {
-      "path": "src/context/architecture.rs",
-      "coverage_percentage": 0.6012269938650306,
-      "tested_lines": 98,
-      "total_lines": 163,
-      "tested_functions": 8,
-      "total_functions": 19,
-      "has_tests": true
-    },
-    "src/metrics/context.rs": {
-      "path": "src/metrics/context.rs",
-      "coverage_percentage": 0.42857142857142855,
-      "tested_lines": 18,
-      "total_lines": 42,
-      "tested_functions": 3,
-      "total_functions": 15,
-      "has_tests": true
-    },
-    "tests/config_integration_tests.rs": {
-      "path": "tests/config_integration_tests.rs",
+    "src/worktree/test_state.rs": {
+      "path": "src/worktree/test_state.rs",
       "coverage_percentage": 0.0,
       "tested_lines": 0,
       "total_lines": 0,
       "tested_functions": 0,
-      "total_functions": 2,
+      "total_functions": 8,
       "has_tests": false
     },
     "src/config/dynamic_registry.rs": {
@@ -90,26 +45,26 @@
       "total_functions": 16,
       "has_tests": true
     },
-    "src/git/scenario.rs": {
-      "path": "src/git/scenario.rs",
-      "coverage_percentage": 0.6145833333333334,
-      "tested_lines": 118,
-      "total_lines": 192,
-      "tested_functions": 11,
-      "total_functions": 44,
+    "src/cook/analysis/runner.rs": {
+      "path": "src/cook/analysis/runner.rs",
+      "coverage_percentage": 0.3125,
+      "tested_lines": 25,
+      "total_lines": 80,
+      "tested_functions": 4,
+      "total_functions": 13,
       "has_tests": true
     },
-    "tests/context_analysis_integration.rs": {
-      "path": "tests/context_analysis_integration.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 4,
-      "has_tests": false
+    "src/cook/orchestrator.rs": {
+      "path": "src/cook/orchestrator.rs",
+      "coverage_percentage": 0.33980582524271846,
+      "tested_lines": 140,
+      "total_lines": 412,
+      "tested_functions": 12,
+      "total_functions": 55,
+      "has_tests": true
     },
-    "src/cook/coordinators/mod.rs": {
-      "path": "src/cook/coordinators/mod.rs",
+    "src/cook/workflow/mod.rs": {
+      "path": "src/cook/workflow/mod.rs",
       "coverage_percentage": 0.0,
       "tested_lines": 0,
       "total_lines": 0,
@@ -117,58 +72,121 @@
       "total_functions": 0,
       "has_tests": false
     },
-    "src/context/conventions.rs": {
-      "path": "src/context/conventions.rs",
-      "coverage_percentage": 0.7439613526570048,
-      "tested_lines": 154,
-      "total_lines": 207,
-      "tested_functions": 13,
-      "total_functions": 39,
-      "has_tests": true
-    },
-    "src/cook/session/migration.rs": {
-      "path": "src/cook/session/migration.rs",
+    "src/lib.rs": {
+      "path": "src/lib.rs",
       "coverage_percentage": 0.0,
       "tested_lines": 0,
       "total_lines": 0,
       "tested_functions": 0,
-      "total_functions": 4,
+      "total_functions": 0,
       "has_tests": false
     },
-    "src/cook/execution/runner.rs": {
-      "path": "src/cook/execution/runner.rs",
-      "coverage_percentage": 0.8333333333333334,
-      "tested_lines": 20,
-      "total_lines": 24,
-      "tested_functions": 2,
-      "total_functions": 16,
-      "has_tests": true
-    },
-    "src/cook/metrics/collector.rs": {
-      "path": "src/cook/metrics/collector.rs",
-      "coverage_percentage": 0.40625,
-      "tested_lines": 39,
-      "total_lines": 96,
-      "tested_functions": 8,
-      "total_functions": 17,
-      "has_tests": true
-    },
-    "tests/edge_case_tests.rs": {
-      "path": "tests/edge_case_tests.rs",
+    "tests/cook_iteration_tests.rs": {
+      "path": "tests/cook_iteration_tests.rs",
       "coverage_percentage": 0.0,
       "tested_lines": 0,
       "total_lines": 0,
       "tested_functions": 0,
-      "total_functions": 7,
-      "has_tests": false
-    },
-    "src/metrics/collector.rs": {
-      "path": "src/metrics/collector.rs",
-      "coverage_percentage": 0.927710843373494,
-      "tested_lines": 77,
-      "total_lines": 83,
-      "tested_functions": 3,
       "total_functions": 12,
+      "has_tests": false
+    },
+    "src/subprocess/mod.rs": {
+      "path": "src/subprocess/mod.rs",
+      "coverage_percentage": 1.0,
+      "tested_lines": 13,
+      "total_lines": 13,
+      "tested_functions": 0,
+      "total_functions": 6,
+      "has_tests": true
+    },
+    "src/metrics/mod.rs": {
+      "path": "src/metrics/mod.rs",
+      "coverage_percentage": 0.45714285714285713,
+      "tested_lines": 16,
+      "total_lines": 35,
+      "tested_functions": 0,
+      "total_functions": 14,
+      "has_tests": true
+    },
+    "src/session/config.rs": {
+      "path": "src/session/config.rs",
+      "coverage_percentage": 1.0,
+      "tested_lines": 11,
+      "total_lines": 11,
+      "tested_functions": 0,
+      "total_functions": 6,
+      "has_tests": true
+    },
+    "src/session/mod.rs": {
+      "path": "src/session/mod.rs",
+      "coverage_percentage": 0.6,
+      "tested_lines": 6,
+      "total_lines": 10,
+      "tested_functions": 0,
+      "total_functions": 5,
+      "has_tests": true
+    },
+    "tests/metrics_system_integration.rs": {
+      "path": "tests/metrics_system_integration.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 6,
+      "has_tests": false
+    },
+    "tests/error_handling_tests.rs": {
+      "path": "tests/error_handling_tests.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 6,
+      "has_tests": false
+    },
+    "src/cook/mod.rs": {
+      "path": "src/cook/mod.rs",
+      "coverage_percentage": 0.46153846153846156,
+      "tested_lines": 36,
+      "total_lines": 78,
+      "tested_functions": 1,
+      "total_functions": 8,
+      "has_tests": true
+    },
+    "src/analysis/unified.rs": {
+      "path": "src/analysis/unified.rs",
+      "coverage_percentage": 0.7591836734693878,
+      "tested_lines": 186,
+      "total_lines": 245,
+      "tested_functions": 22,
+      "total_functions": 45,
+      "has_tests": true
+    },
+    "src/config/command_parser.rs": {
+      "path": "src/config/command_parser.rs",
+      "coverage_percentage": 0.9696969696969697,
+      "tested_lines": 32,
+      "total_lines": 33,
+      "tested_functions": 1,
+      "total_functions": 14,
+      "has_tests": true
+    },
+    "src/session/state.rs": {
+      "path": "src/session/state.rs",
+      "coverage_percentage": 0.9102564102564102,
+      "tested_lines": 71,
+      "total_lines": 78,
+      "tested_functions": 0,
+      "total_functions": 19,
+      "has_tests": true
+    },
+    "src/context/analyzer.rs": {
+      "path": "src/context/analyzer.rs",
+      "coverage_percentage": 0.2709677419354839,
+      "tested_lines": 42,
+      "total_lines": 155,
+      "tested_functions": 6,
+      "total_functions": 17,
       "has_tests": true
     },
     "src/simple_state/tests.rs": {
@@ -180,121 +198,13 @@
       "total_functions": 15,
       "has_tests": false
     },
-    "tests/context_integration.rs": {
-      "path": "tests/context_integration.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 1,
-      "has_tests": false
-    },
-    "src/metrics/complexity.rs": {
-      "path": "src/metrics/complexity.rs",
-      "coverage_percentage": 0.8333333333333334,
-      "tested_lines": 60,
-      "total_lines": 72,
-      "tested_functions": 2,
-      "total_functions": 21,
-      "has_tests": true
-    },
-    "src/simple_state/cache.rs": {
-      "path": "src/simple_state/cache.rs",
-      "coverage_percentage": 0.4264705882352941,
-      "tested_lines": 29,
-      "total_lines": 68,
-      "tested_functions": 4,
-      "total_functions": 9,
-      "has_tests": true
-    },
-    "src/simple_state/types.rs": {
-      "path": "src/simple_state/types.rs",
-      "coverage_percentage": 0.8461538461538461,
-      "tested_lines": 11,
-      "total_lines": 13,
-      "tested_functions": 0,
+    "src/init/templates.rs": {
+      "path": "src/init/templates.rs",
+      "coverage_percentage": 1.0,
+      "tested_lines": 31,
+      "total_lines": 31,
+      "tested_functions": 1,
       "total_functions": 4,
-      "has_tests": true
-    },
-    "src/git/types.rs": {
-      "path": "src/git/types.rs",
-      "coverage_percentage": 0.7592592592592593,
-      "tested_lines": 41,
-      "total_lines": 54,
-      "tested_functions": 2,
-      "total_functions": 18,
-      "has_tests": true
-    },
-    "src/subprocess/mod.rs": {
-      "path": "src/subprocess/mod.rs",
-      "coverage_percentage": 1.0,
-      "tested_lines": 13,
-      "total_lines": 13,
-      "tested_functions": 0,
-      "total_functions": 6,
-      "has_tests": true
-    },
-    "src/cook/metrics/mod.rs": {
-      "path": "src/cook/metrics/mod.rs",
-      "coverage_percentage": 1.0,
-      "tested_lines": 2,
-      "total_lines": 2,
-      "tested_functions": 0,
-      "total_functions": 6,
-      "has_tests": true
-    },
-    "src/subprocess/mock.rs": {
-      "path": "src/subprocess/mock.rs",
-      "coverage_percentage": 0.8666666666666667,
-      "tested_lines": 65,
-      "total_lines": 75,
-      "tested_functions": 6,
-      "total_functions": 17,
-      "has_tests": true
-    },
-    "src/scoring/mod.rs": {
-      "path": "src/scoring/mod.rs",
-      "coverage_percentage": 0.7692307692307693,
-      "tested_lines": 130,
-      "total_lines": 169,
-      "tested_functions": 2,
-      "total_functions": 13,
-      "has_tests": true
-    },
-    "src/analysis/mod.rs": {
-      "path": "src/analysis/mod.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 0,
-      "has_tests": false
-    },
-    "src/cook/mod_tests.rs": {
-      "path": "src/cook/mod_tests.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 36,
-      "has_tests": false
-    },
-    "tests/cook_tests.rs": {
-      "path": "tests/cook_tests.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 5,
-      "has_tests": false
-    },
-    "src/git/parsers.rs": {
-      "path": "src/git/parsers.rs",
-      "coverage_percentage": 0.8617021276595744,
-      "tested_lines": 81,
-      "total_lines": 94,
-      "tested_functions": 2,
-      "total_functions": 14,
       "has_tests": true
     },
     "src/subprocess/claude.rs": {
@@ -315,440 +225,8 @@
       "total_functions": 1,
       "has_tests": true
     },
-    "src/context/analyzer.rs": {
-      "path": "src/context/analyzer.rs",
-      "coverage_percentage": 0.2709677419354839,
-      "tested_lines": 42,
-      "total_lines": 155,
-      "tested_functions": 6,
-      "total_functions": 17,
-      "has_tests": true
-    },
-    "tests/git_operations_integration.rs": {
-      "path": "tests/git_operations_integration.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 2,
-      "has_tests": false
-    },
-    "src/cook/signal_handler.rs": {
-      "path": "src/cook/signal_handler.rs",
-      "coverage_percentage": 0.5555555555555556,
-      "tested_lines": 10,
-      "total_lines": 18,
-      "tested_functions": 1,
-      "total_functions": 8,
-      "has_tests": true
-    },
-    "src/metrics/storage.rs": {
-      "path": "src/metrics/storage.rs",
-      "coverage_percentage": 0.8559322033898306,
-      "tested_lines": 101,
-      "total_lines": 118,
-      "tested_functions": 5,
-      "total_functions": 24,
-      "has_tests": true
-    },
-    "src/cook/git_ops.rs": {
-      "path": "src/cook/git_ops.rs",
-      "coverage_percentage": 0.21052631578947367,
-      "tested_lines": 4,
-      "total_lines": 19,
-      "tested_functions": 0,
-      "total_functions": 23,
-      "has_tests": true
-    },
-    "src/metrics/registry.rs": {
-      "path": "src/metrics/registry.rs",
-      "coverage_percentage": 0.4230769230769231,
-      "tested_lines": 33,
-      "total_lines": 78,
-      "tested_functions": 5,
-      "total_functions": 19,
-      "has_tests": true
-    },
-    "src/git/mod.rs": {
-      "path": "src/git/mod.rs",
-      "coverage_percentage": 0.3863636363636363,
-      "tested_lines": 51,
-      "total_lines": 132,
-      "tested_functions": 23,
-      "total_functions": 53,
-      "has_tests": true
-    },
-    "src/cook/session/tracker.rs": {
-      "path": "src/cook/session/tracker.rs",
-      "coverage_percentage": 0.5692307692307692,
-      "tested_lines": 37,
-      "total_lines": 65,
-      "tested_functions": 4,
-      "total_functions": 18,
-      "has_tests": true
-    },
-    "src/context/mod.rs": {
-      "path": "src/context/mod.rs",
-      "coverage_percentage": 0.47692307692307695,
-      "tested_lines": 93,
-      "total_lines": 195,
-      "tested_functions": 5,
-      "total_functions": 24,
-      "has_tests": true
-    },
-    "src/abstractions/exit_status.rs": {
-      "path": "src/abstractions/exit_status.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 2,
-      "has_tests": false
-    },
-    "src/cook/workflow/executor.rs": {
-      "path": "src/cook/workflow/executor.rs",
-      "coverage_percentage": 0.008130081300813009,
-      "tested_lines": 2,
-      "total_lines": 246,
-      "tested_functions": 6,
-      "total_functions": 22,
-      "has_tests": true
-    },
-    "tests/cook_iteration_tests.rs": {
-      "path": "tests/cook_iteration_tests.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 12,
-      "has_tests": false
-    },
-    "src/metrics/performance.rs": {
-      "path": "src/metrics/performance.rs",
-      "coverage_percentage": 0.6666666666666666,
-      "tested_lines": 44,
-      "total_lines": 66,
-      "tested_functions": 3,
-      "total_functions": 11,
-      "has_tests": true
-    },
-    "src/context/debt.rs": {
-      "path": "src/context/debt.rs",
-      "coverage_percentage": 0.7322033898305085,
-      "tested_lines": 216,
-      "total_lines": 295,
-      "tested_functions": 16,
-      "total_functions": 48,
-      "has_tests": true
-    },
-    "src/config/workflow.rs": {
-      "path": "src/config/workflow.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 0,
-      "has_tests": false
-    },
-    "src/cook/analysis/mod.rs": {
-      "path": "src/cook/analysis/mod.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 12,
-      "has_tests": false
-    },
-    "src/subprocess/tests.rs": {
-      "path": "src/subprocess/tests.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 10,
-      "has_tests": false
-    },
-    "src/analyze/tests.rs": {
-      "path": "src/analyze/tests.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 17,
-      "has_tests": false
-    },
-    "src/session/mod.rs": {
-      "path": "src/session/mod.rs",
-      "coverage_percentage": 0.6,
-      "tested_lines": 6,
-      "total_lines": 10,
-      "tested_functions": 0,
-      "total_functions": 5,
-      "has_tests": true
-    },
-    "src/analysis/unified.rs": {
-      "path": "src/analysis/unified.rs",
-      "coverage_percentage": 0.7591836734693878,
-      "tested_lines": 186,
-      "total_lines": 245,
-      "tested_functions": 22,
-      "total_functions": 45,
-      "has_tests": true
-    },
-    "src/cook/execution/mod.rs": {
-      "path": "src/cook/execution/mod.rs",
-      "coverage_percentage": 0.3,
-      "tested_lines": 3,
-      "total_lines": 10,
-      "tested_functions": 0,
-      "total_functions": 3,
-      "has_tests": true
-    },
-    "src/metrics/mod.rs": {
-      "path": "src/metrics/mod.rs",
-      "coverage_percentage": 0.45714285714285713,
-      "tested_lines": 16,
-      "total_lines": 35,
-      "tested_functions": 0,
-      "total_functions": 14,
-      "has_tests": true
-    },
-    "src/init/command.rs": {
-      "path": "src/init/command.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 0,
-      "has_tests": false
-    },
-    "src/lib.rs": {
-      "path": "src/lib.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 0,
-      "has_tests": false
-    },
-    "src/config/command_validator.rs": {
-      "path": "src/config/command_validator.rs",
-      "coverage_percentage": 0.7990196078431373,
-      "tested_lines": 163,
-      "total_lines": 204,
-      "tested_functions": 3,
-      "total_functions": 21,
-      "has_tests": true
-    },
-    "src/metrics/events.rs": {
-      "path": "src/metrics/events.rs",
-      "coverage_percentage": 0.6333333333333333,
-      "tested_lines": 19,
-      "total_lines": 30,
-      "tested_functions": 0,
-      "total_functions": 12,
-      "has_tests": true
-    },
-    "src/config/command_discovery.rs": {
-      "path": "src/config/command_discovery.rs",
-      "coverage_percentage": 0.8709677419354839,
-      "tested_lines": 27,
-      "total_lines": 31,
-      "tested_functions": 1,
-      "total_functions": 8,
-      "has_tests": true
-    },
-    "src/worktree/manager.rs": {
-      "path": "src/worktree/manager.rs",
-      "coverage_percentage": 0.4474885844748858,
-      "tested_lines": 98,
-      "total_lines": 219,
-      "tested_functions": 6,
-      "total_functions": 20,
-      "has_tests": true
-    },
-    "tests/workflow_tests.rs": {
-      "path": "tests/workflow_tests.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 12,
-      "has_tests": false
-    },
-    "src/metrics/quality.rs": {
-      "path": "src/metrics/quality.rs",
-      "coverage_percentage": 0.8217821782178217,
-      "tested_lines": 83,
-      "total_lines": 101,
-      "tested_functions": 4,
-      "total_functions": 8,
-      "has_tests": true
-    },
-    "src/cook/coordinators/environment.rs": {
-      "path": "src/cook/coordinators/environment.rs",
-      "coverage_percentage": 0.034482758620689655,
-      "tested_lines": 1,
-      "total_lines": 29,
-      "tested_functions": 0,
-      "total_functions": 9,
-      "has_tests": true
-    },
-    "src/metrics/backends.rs": {
-      "path": "src/metrics/backends.rs",
-      "coverage_percentage": 0.5611510791366906,
-      "tested_lines": 78,
-      "total_lines": 139,
-      "tested_functions": 4,
-      "total_functions": 30,
-      "has_tests": true
-    },
-    "tests/analysis_integration.rs": {
-      "path": "tests/analysis_integration.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 5,
-      "has_tests": false
-    },
-    "src/session/events.rs": {
-      "path": "src/session/events.rs",
-      "coverage_percentage": 0.4,
-      "tested_lines": 10,
-      "total_lines": 25,
-      "tested_functions": 0,
-      "total_functions": 9,
-      "has_tests": true
-    },
-    "src/analyze/command.rs": {
-      "path": "src/analyze/command.rs",
-      "coverage_percentage": 0.7777777777777778,
-      "tested_lines": 14,
-      "total_lines": 18,
-      "tested_functions": 0,
-      "total_functions": 6,
-      "has_tests": true
-    },
-    "src/cook/analysis/cache.rs": {
-      "path": "src/cook/analysis/cache.rs",
-      "coverage_percentage": 0.813953488372093,
-      "tested_lines": 35,
-      "total_lines": 43,
-      "tested_functions": 7,
-      "total_functions": 17,
-      "has_tests": true
-    },
-    "src/cook/orchestrator.rs": {
-      "path": "src/cook/orchestrator.rs",
-      "coverage_percentage": 0.3160270880361174,
-      "tested_lines": 140,
-      "total_lines": 443,
-      "tested_functions": 16,
-      "total_functions": 55,
-      "has_tests": true
-    },
-    "tests/metrics_system_integration.rs": {
-      "path": "tests/metrics_system_integration.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 6,
-      "has_tests": false
-    },
-    "src/cook/session/mod.rs": {
-      "path": "src/cook/session/mod.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 6,
-      "has_tests": false
-    },
-    "tests/cook_coordinators_integration.rs": {
-      "path": "tests/cook_coordinators_integration.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 14,
-      "has_tests": false
-    },
-    "src/cook/mod.rs": {
-      "path": "src/cook/mod.rs",
-      "coverage_percentage": 0.4615384615384616,
-      "tested_lines": 36,
-      "total_lines": 78,
-      "tested_functions": 1,
-      "total_functions": 8,
-      "has_tests": true
-    },
-    "src/session/persistence.rs": {
-      "path": "src/session/persistence.rs",
-      "coverage_percentage": 1.0,
-      "tested_lines": 7,
-      "total_lines": 7,
-      "tested_functions": 0,
-      "total_functions": 4,
-      "has_tests": true
-    },
-    "tests/subprocess_tests.rs": {
-      "path": "tests/subprocess_tests.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 8,
-      "has_tests": false
-    },
-    "src/cook/tests.rs": {
-      "path": "src/cook/tests.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 25,
-      "has_tests": false
-    },
-    "src/context/metrics_aware_coverage.rs": {
-      "path": "src/context/metrics_aware_coverage.rs",
-      "coverage_percentage": 0.627906976744186,
-      "tested_lines": 27,
-      "total_lines": 43,
-      "tested_functions": 2,
-      "total_functions": 4,
-      "has_tests": true
-    },
-    "tests/signal_handling_integration.rs": {
-      "path": "tests/signal_handling_integration.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 1,
-      "has_tests": false
-    },
-    "src/init/mod.rs": {
-      "path": "src/init/mod.rs",
-      "coverage_percentage": 0.7560975609756098,
-      "tested_lines": 62,
-      "total_lines": 82,
-      "tested_functions": 1,
-      "total_functions": 22,
-      "has_tests": true
-    },
-    "src/session/timing.rs": {
-      "path": "src/session/timing.rs",
-      "coverage_percentage": 0.8108108108108109,
-      "tested_lines": 30,
-      "total_lines": 37,
-      "tested_functions": 3,
-      "total_functions": 13,
-      "has_tests": true
-    },
-    "src/session/tests.rs": {
-      "path": "src/session/tests.rs",
+    "tests/edge_case_tests.rs": {
+      "path": "tests/edge_case_tests.rs",
       "coverage_percentage": 0.0,
       "tested_lines": 0,
       "total_lines": 0,
@@ -756,14 +234,14 @@
       "total_functions": 7,
       "has_tests": false
     },
-    "src/cook/coordinators/execution.rs": {
-      "path": "src/cook/coordinators/execution.rs",
-      "coverage_percentage": 0.02040816326530612,
-      "tested_lines": 1,
-      "total_lines": 49,
-      "tested_functions": 2,
-      "total_functions": 9,
-      "has_tests": true
+    "tests/common/mod.rs": {
+      "path": "tests/common/mod.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 20,
+      "has_tests": false
     },
     "src/session/storage.rs": {
       "path": "src/session/storage.rs",
@@ -774,139 +252,22 @@
       "total_functions": 17,
       "has_tests": true
     },
-    "src/simple_state/mod.rs": {
-      "path": "src/simple_state/mod.rs",
+    "tests/worktree_commit_verification_test.rs": {
+      "path": "tests/worktree_commit_verification_test.rs",
       "coverage_percentage": 0.0,
       "tested_lines": 0,
-      "total_lines": 6,
+      "total_lines": 0,
       "tested_functions": 0,
-      "total_functions": 1,
+      "total_functions": 3,
       "has_tests": false
     },
-    "src/cook/session/state.rs": {
-      "path": "src/cook/session/state.rs",
-      "coverage_percentage": 0.5454545454545454,
-      "tested_lines": 12,
-      "total_lines": 22,
+    "src/main.rs": {
+      "path": "src/main.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
       "tested_functions": 0,
       "total_functions": 7,
-      "has_tests": true
-    },
-    "src/config/command.rs": {
-      "path": "src/config/command.rs",
-      "coverage_percentage": 0.6422018348623854,
-      "tested_lines": 70,
-      "total_lines": 109,
-      "tested_functions": 7,
-      "total_functions": 34,
-      "has_tests": true
-    },
-    "src/metrics/testing.rs": {
-      "path": "src/metrics/testing.rs",
-      "coverage_percentage": 0.5185185185185185,
-      "tested_lines": 70,
-      "total_lines": 135,
-      "tested_functions": 10,
-      "total_functions": 27,
-      "has_tests": true
-    },
-    "src/context/tarpaulin_coverage.rs": {
-      "path": "src/context/tarpaulin_coverage.rs",
-      "coverage_percentage": 0.6708074534161491,
-      "tested_lines": 108,
-      "total_lines": 161,
-      "tested_functions": 2,
-      "total_functions": 14,
-      "has_tests": true
-    },
-    "src/config/mod.rs": {
-      "path": "src/config/mod.rs",
-      "coverage_percentage": 1.0,
-      "tested_lines": 30,
-      "total_lines": 30,
-      "tested_functions": 1,
-      "total_functions": 24,
-      "has_tests": true
-    },
-    "src/cook/interaction/display.rs": {
-      "path": "src/cook/interaction/display.rs",
-      "coverage_percentage": 0.9285714285714286,
-      "tested_lines": 26,
-      "total_lines": 28,
-      "tested_functions": 6,
-      "total_functions": 39,
-      "has_tests": true
-    },
-    "tests/context_optimization_tests.rs": {
-      "path": "tests/context_optimization_tests.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 4,
-      "has_tests": false
-    },
-    "src/cook/interaction/mod.rs": {
-      "path": "src/cook/interaction/mod.rs",
-      "coverage_percentage": 0.6190476190476191,
-      "tested_lines": 13,
-      "total_lines": 21,
-      "tested_functions": 1,
-      "total_functions": 59,
-      "has_tests": true
-    },
-    "src/init/templates.rs": {
-      "path": "src/init/templates.rs",
-      "coverage_percentage": 1.0,
-      "tested_lines": 31,
-      "total_lines": 31,
-      "tested_functions": 1,
-      "total_functions": 4,
-      "has_tests": true
-    },
-    "src/config/metadata_parser.rs": {
-      "path": "src/config/metadata_parser.rs",
-      "coverage_percentage": 0.868421052631579,
-      "tested_lines": 99,
-      "total_lines": 114,
-      "tested_functions": 6,
-      "total_functions": 20,
-      "has_tests": true
-    },
-    "src/cook/retry.rs": {
-      "path": "src/cook/retry.rs",
-      "coverage_percentage": 0.8852459016393442,
-      "tested_lines": 54,
-      "total_lines": 61,
-      "tested_functions": 1,
-      "total_functions": 32,
-      "has_tests": true
-    },
-    "tests/workflow_syntax_tests.rs": {
-      "path": "tests/workflow_syntax_tests.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 9,
-      "has_tests": false
-    },
-    "src/simple_state/state.rs": {
-      "path": "src/simple_state/state.rs",
-      "coverage_percentage": 0.8461538461538461,
-      "tested_lines": 55,
-      "total_lines": 65,
-      "tested_functions": 5,
-      "total_functions": 8,
-      "has_tests": true
-    },
-    "tests/common/mod.rs": {
-      "path": "tests/common/mod.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 20,
       "has_tests": false
     },
     "src/config/loader.rs": {
@@ -918,35 +279,8 @@
       "total_functions": 15,
       "has_tests": true
     },
-    "src/worktree/state.rs": {
-      "path": "src/worktree/state.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 0,
-      "has_tests": false
-    },
-    "tests/metrics_integration.rs": {
-      "path": "tests/metrics_integration.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 11,
-      "has_tests": false
-    },
-    "src/cook/execution/claude.rs": {
-      "path": "src/cook/execution/claude.rs",
-      "coverage_percentage": 0.26229508196721313,
-      "tested_lines": 16,
-      "total_lines": 61,
-      "tested_functions": 5,
-      "total_functions": 12,
-      "has_tests": true
-    },
-    "src/testing/mod.rs": {
-      "path": "src/testing/mod.rs",
+    "tests/cook_orchestrator_integration.rs": {
+      "path": "tests/cook_orchestrator_integration.rs",
       "coverage_percentage": 0.0,
       "tested_lines": 0,
       "total_lines": 0,
@@ -954,139 +288,31 @@
       "total_functions": 28,
       "has_tests": false
     },
-    "src/config/command_parser.rs": {
-      "path": "src/config/command_parser.rs",
-      "coverage_percentage": 0.9696969696969696,
-      "tested_lines": 32,
-      "total_lines": 33,
+    "src/git/types.rs": {
+      "path": "src/git/types.rs",
+      "coverage_percentage": 0.7592592592592593,
+      "tested_lines": 41,
+      "total_lines": 54,
+      "tested_functions": 2,
+      "total_functions": 18,
+      "has_tests": true
+    },
+    "src/cook/interaction/mod.rs": {
+      "path": "src/cook/interaction/mod.rs",
+      "coverage_percentage": 0.6190476190476191,
+      "tested_lines": 13,
+      "total_lines": 21,
       "tested_functions": 1,
-      "total_functions": 14,
+      "total_functions": 59,
       "has_tests": true
     },
-    "src/main.rs": {
-      "path": "src/main.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 7,
-      "has_tests": false
-    },
-    "src/cook/interaction/prompts.rs": {
-      "path": "src/cook/interaction/prompts.rs",
-      "coverage_percentage": 0.05714285714285714,
-      "tested_lines": 2,
-      "total_lines": 35,
-      "tested_functions": 6,
-      "total_functions": 16,
-      "has_tests": true
-    },
-    "tests/error_handling_tests.rs": {
-      "path": "tests/error_handling_tests.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 6,
-      "has_tests": false
-    },
-    "tests/command_parsing_tests.rs": {
-      "path": "tests/command_parsing_tests.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 8,
-      "has_tests": false
-    },
-    "src/session/state.rs": {
-      "path": "src/session/state.rs",
-      "coverage_percentage": 0.9102564102564102,
-      "tested_lines": 71,
-      "total_lines": 78,
-      "tested_functions": 0,
-      "total_functions": 19,
-      "has_tests": true
-    },
-    "src/cook/session/summary.rs": {
-      "path": "src/cook/session/summary.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 0,
-      "has_tests": false
-    },
-    "src/abstractions/git.rs": {
-      "path": "src/abstractions/git.rs",
-      "coverage_percentage": 0.680672268907563,
-      "tested_lines": 81,
-      "total_lines": 119,
-      "tested_functions": 15,
-      "total_functions": 47,
-      "has_tests": true
-    },
-    "src/worktree/tests.rs": {
-      "path": "src/worktree/tests.rs",
+    "tests/workflow_syntax_tests.rs": {
+      "path": "tests/workflow_syntax_tests.rs",
       "coverage_percentage": 0.0,
       "tested_lines": 0,
       "total_lines": 0,
       "tested_functions": 0,
       "total_functions": 9,
-      "has_tests": false
-    },
-    "src/session/config.rs": {
-      "path": "src/session/config.rs",
-      "coverage_percentage": 1.0,
-      "tested_lines": 11,
-      "total_lines": 11,
-      "tested_functions": 0,
-      "total_functions": 6,
-      "has_tests": true
-    },
-    "tests/unified_scoring_tests.rs": {
-      "path": "tests/unified_scoring_tests.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 5,
-      "has_tests": false
-    },
-    "src/cook/metrics/reporter.rs": {
-      "path": "src/cook/metrics/reporter.rs",
-      "coverage_percentage": 0.7285714285714285,
-      "tested_lines": 51,
-      "total_lines": 70,
-      "tested_functions": 7,
-      "total_functions": 14,
-      "has_tests": true
-    },
-    "src/cook/analysis/runner.rs": {
-      "path": "src/cook/analysis/runner.rs",
-      "coverage_percentage": 0.3125,
-      "tested_lines": 25,
-      "total_lines": 80,
-      "tested_functions": 4,
-      "total_functions": 13,
-      "has_tests": true
-    },
-    "tests/workflow_analysis_tests.rs": {
-      "path": "tests/workflow_analysis_tests.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 8,
-      "has_tests": false
-    },
-    "tests/workflow_commit_verification_tests.rs": {
-      "path": "tests/workflow_commit_verification_tests.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 6,
       "has_tests": false
     },
     "src/abstractions/mod.rs": {
@@ -1098,6 +324,24 @@
       "total_functions": 0,
       "has_tests": false
     },
+    "src/context/architecture.rs": {
+      "path": "src/context/architecture.rs",
+      "coverage_percentage": 0.6012269938650306,
+      "tested_lines": 98,
+      "total_lines": 163,
+      "tested_functions": 8,
+      "total_functions": 19,
+      "has_tests": true
+    },
+    "tests/git_operations_integration.rs": {
+      "path": "tests/git_operations_integration.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 2,
+      "has_tests": false
+    },
     "src/session/manager.rs": {
       "path": "src/session/manager.rs",
       "coverage_percentage": 0.9193548387096774,
@@ -1105,6 +349,672 @@
       "total_lines": 124,
       "tested_functions": 13,
       "total_functions": 24,
+      "has_tests": true
+    },
+    "src/cook/signal_handler.rs": {
+      "path": "src/cook/signal_handler.rs",
+      "coverage_percentage": 0.5555555555555556,
+      "tested_lines": 10,
+      "total_lines": 18,
+      "tested_functions": 1,
+      "total_functions": 8,
+      "has_tests": true
+    },
+    "src/subprocess/tests.rs": {
+      "path": "src/subprocess/tests.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 10,
+      "has_tests": false
+    },
+    "src/context/conventions.rs": {
+      "path": "src/context/conventions.rs",
+      "coverage_percentage": 0.7439613526570048,
+      "tested_lines": 154,
+      "total_lines": 207,
+      "tested_functions": 13,
+      "total_functions": 39,
+      "has_tests": true
+    },
+    "src/session/tests.rs": {
+      "path": "src/session/tests.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 7,
+      "has_tests": false
+    },
+    "src/metrics/performance.rs": {
+      "path": "src/metrics/performance.rs",
+      "coverage_percentage": 0.6666666666666666,
+      "tested_lines": 44,
+      "total_lines": 66,
+      "tested_functions": 3,
+      "total_functions": 11,
+      "has_tests": true
+    },
+    "src/cook/coordinators/execution.rs": {
+      "path": "src/cook/coordinators/execution.rs",
+      "coverage_percentage": 0.02040816326530612,
+      "tested_lines": 1,
+      "total_lines": 49,
+      "tested_functions": 2,
+      "total_functions": 9,
+      "has_tests": true
+    },
+    "src/cook/session/state.rs": {
+      "path": "src/cook/session/state.rs",
+      "coverage_percentage": 0.5454545454545454,
+      "tested_lines": 12,
+      "total_lines": 22,
+      "tested_functions": 0,
+      "total_functions": 7,
+      "has_tests": true
+    },
+    "src/context/tarpaulin_coverage.rs": {
+      "path": "src/context/tarpaulin_coverage.rs",
+      "coverage_percentage": 0.6729559748427673,
+      "tested_lines": 107,
+      "total_lines": 159,
+      "tested_functions": 2,
+      "total_functions": 13,
+      "has_tests": true
+    },
+    "src/context/debt.rs": {
+      "path": "src/context/debt.rs",
+      "coverage_percentage": 0.7322033898305085,
+      "tested_lines": 216,
+      "total_lines": 295,
+      "tested_functions": 16,
+      "total_functions": 48,
+      "has_tests": true
+    },
+    "src/metrics/storage.rs": {
+      "path": "src/metrics/storage.rs",
+      "coverage_percentage": 0.8559322033898306,
+      "tested_lines": 101,
+      "total_lines": 118,
+      "tested_functions": 5,
+      "total_functions": 24,
+      "has_tests": true
+    },
+    "tests/context_analysis_integration.rs": {
+      "path": "tests/context_analysis_integration.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 4,
+      "has_tests": false
+    },
+    "tests/config_integration_tests.rs": {
+      "path": "tests/config_integration_tests.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 2,
+      "has_tests": false
+    },
+    "tests/metrics_collection_integration.rs": {
+      "path": "tests/metrics_collection_integration.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 1,
+      "has_tests": false
+    },
+    "src/config/command_discovery.rs": {
+      "path": "src/config/command_discovery.rs",
+      "coverage_percentage": 0.8709677419354839,
+      "tested_lines": 27,
+      "total_lines": 31,
+      "tested_functions": 1,
+      "total_functions": 8,
+      "has_tests": true
+    },
+    "src/git/scenario.rs": {
+      "path": "src/git/scenario.rs",
+      "coverage_percentage": 0.6145833333333334,
+      "tested_lines": 118,
+      "total_lines": 192,
+      "tested_functions": 11,
+      "total_functions": 44,
+      "has_tests": true
+    },
+    "src/cook/analysis/mod.rs": {
+      "path": "src/cook/analysis/mod.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 12,
+      "has_tests": false
+    },
+    "src/cook/coordinators/session.rs": {
+      "path": "src/cook/coordinators/session.rs",
+      "coverage_percentage": 0.058823529411764705,
+      "tested_lines": 2,
+      "total_lines": 34,
+      "tested_functions": 5,
+      "total_functions": 13,
+      "has_tests": true
+    },
+    "src/simple_state/cache.rs": {
+      "path": "src/simple_state/cache.rs",
+      "coverage_percentage": 0.4264705882352941,
+      "tested_lines": 29,
+      "total_lines": 68,
+      "tested_functions": 4,
+      "total_functions": 9,
+      "has_tests": true
+    },
+    "tests/command_parsing_tests.rs": {
+      "path": "tests/command_parsing_tests.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 8,
+      "has_tests": false
+    },
+    "src/config/command.rs": {
+      "path": "src/config/command.rs",
+      "coverage_percentage": 0.660377358490566,
+      "tested_lines": 70,
+      "total_lines": 106,
+      "tested_functions": 7,
+      "total_functions": 34,
+      "has_tests": true
+    },
+    "src/metrics/history.rs": {
+      "path": "src/metrics/history.rs",
+      "coverage_percentage": 0.3230769230769231,
+      "tested_lines": 21,
+      "total_lines": 65,
+      "tested_functions": 3,
+      "total_functions": 9,
+      "has_tests": true
+    },
+    "src/cook/metrics/mod.rs": {
+      "path": "src/cook/metrics/mod.rs",
+      "coverage_percentage": 1.0,
+      "tested_lines": 2,
+      "total_lines": 2,
+      "tested_functions": 0,
+      "total_functions": 6,
+      "has_tests": true
+    },
+    "tests/cook_coordinators_integration.rs": {
+      "path": "tests/cook_coordinators_integration.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 14,
+      "has_tests": false
+    },
+    "src/subprocess/error.rs": {
+      "path": "src/subprocess/error.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 0,
+      "has_tests": false
+    },
+    "tests/context_optimization_tests.rs": {
+      "path": "tests/context_optimization_tests.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 4,
+      "has_tests": false
+    },
+    "src/cook/coordinators/workflow.rs": {
+      "path": "src/cook/coordinators/workflow.rs",
+      "coverage_percentage": 0.027777777777777776,
+      "tested_lines": 1,
+      "total_lines": 36,
+      "tested_functions": 2,
+      "total_functions": 23,
+      "has_tests": true
+    },
+    "src/git/mod.rs": {
+      "path": "src/git/mod.rs",
+      "coverage_percentage": 0.38636363636363635,
+      "tested_lines": 51,
+      "total_lines": 132,
+      "tested_functions": 23,
+      "total_functions": 53,
+      "has_tests": true
+    },
+    "src/cook/coordinators/environment.rs": {
+      "path": "src/cook/coordinators/environment.rs",
+      "coverage_percentage": 0.034482758620689655,
+      "tested_lines": 1,
+      "total_lines": 29,
+      "tested_functions": 0,
+      "total_functions": 9,
+      "has_tests": true
+    },
+    "src/simple_state/state.rs": {
+      "path": "src/simple_state/state.rs",
+      "coverage_percentage": 0.8461538461538461,
+      "tested_lines": 55,
+      "total_lines": 65,
+      "tested_functions": 5,
+      "total_functions": 8,
+      "has_tests": true
+    },
+    "src/cook/execution/claude.rs": {
+      "path": "src/cook/execution/claude.rs",
+      "coverage_percentage": 0.26229508196721313,
+      "tested_lines": 16,
+      "total_lines": 61,
+      "tested_functions": 5,
+      "total_functions": 12,
+      "has_tests": true
+    },
+    "tests/integration_test_cook_path.rs": {
+      "path": "tests/integration_test_cook_path.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 8,
+      "has_tests": false
+    },
+    "src/cook/metrics/reporter.rs": {
+      "path": "src/cook/metrics/reporter.rs",
+      "coverage_percentage": 0.7285714285714285,
+      "tested_lines": 51,
+      "total_lines": 70,
+      "tested_functions": 7,
+      "total_functions": 14,
+      "has_tests": true
+    },
+    "src/cook/session/tracker.rs": {
+      "path": "src/cook/session/tracker.rs",
+      "coverage_percentage": 0.5692307692307692,
+      "tested_lines": 37,
+      "total_lines": 65,
+      "tested_functions": 4,
+      "total_functions": 18,
+      "has_tests": true
+    },
+    "src/cook/git_ops.rs": {
+      "path": "src/cook/git_ops.rs",
+      "coverage_percentage": 0.21052631578947367,
+      "tested_lines": 4,
+      "total_lines": 19,
+      "tested_functions": 0,
+      "total_functions": 23,
+      "has_tests": true
+    },
+    "tests/subprocess_tests.rs": {
+      "path": "tests/subprocess_tests.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 8,
+      "has_tests": false
+    },
+    "src/worktree/state.rs": {
+      "path": "src/worktree/state.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 0,
+      "has_tests": false
+    },
+    "src/context/test_coverage.rs": {
+      "path": "src/context/test_coverage.rs",
+      "coverage_percentage": 0.7219917012448133,
+      "tested_lines": 174,
+      "total_lines": 241,
+      "tested_functions": 10,
+      "total_functions": 35,
+      "has_tests": true
+    },
+    "src/cook/coordinators/mod.rs": {
+      "path": "src/cook/coordinators/mod.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 0,
+      "has_tests": false
+    },
+    "src/config/mod.rs": {
+      "path": "src/config/mod.rs",
+      "coverage_percentage": 1.0,
+      "tested_lines": 30,
+      "total_lines": 30,
+      "tested_functions": 1,
+      "total_functions": 24,
+      "has_tests": true
+    },
+    "src/init/mod.rs": {
+      "path": "src/init/mod.rs",
+      "coverage_percentage": 0.7560975609756098,
+      "tested_lines": 62,
+      "total_lines": 82,
+      "tested_functions": 1,
+      "total_functions": 22,
+      "has_tests": true
+    },
+    "src/cook/execution/runner.rs": {
+      "path": "src/cook/execution/runner.rs",
+      "coverage_percentage": 0.8333333333333334,
+      "tested_lines": 20,
+      "total_lines": 24,
+      "tested_functions": 2,
+      "total_functions": 16,
+      "has_tests": true
+    },
+    "tests/metrics_collector_integration.rs": {
+      "path": "tests/metrics_collector_integration.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 4,
+      "has_tests": false
+    },
+    "tests/unified_scoring_tests.rs": {
+      "path": "tests/unified_scoring_tests.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 5,
+      "has_tests": false
+    },
+    "tests/workflow_tests.rs": {
+      "path": "tests/workflow_tests.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 12,
+      "has_tests": false
+    },
+    "src/git/parsers.rs": {
+      "path": "src/git/parsers.rs",
+      "coverage_percentage": 0.8617021276595744,
+      "tested_lines": 81,
+      "total_lines": 94,
+      "tested_functions": 2,
+      "total_functions": 14,
+      "has_tests": true
+    },
+    "src/subprocess/mock.rs": {
+      "path": "src/subprocess/mock.rs",
+      "coverage_percentage": 0.8666666666666667,
+      "tested_lines": 65,
+      "total_lines": 75,
+      "tested_functions": 6,
+      "total_functions": 17,
+      "has_tests": true
+    },
+    "src/cook/retry.rs": {
+      "path": "src/cook/retry.rs",
+      "coverage_percentage": 0.8852459016393442,
+      "tested_lines": 54,
+      "total_lines": 61,
+      "tested_functions": 1,
+      "total_functions": 32,
+      "has_tests": true
+    },
+    "src/subprocess/git.rs": {
+      "path": "src/subprocess/git.rs",
+      "coverage_percentage": 0.3333333333333333,
+      "tested_lines": 35,
+      "total_lines": 105,
+      "tested_functions": 11,
+      "total_functions": 19,
+      "has_tests": true
+    },
+    "src/analyze/tests.rs": {
+      "path": "src/analyze/tests.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 17,
+      "has_tests": false
+    },
+    "src/cook/session/mod.rs": {
+      "path": "src/cook/session/mod.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 6,
+      "has_tests": false
+    },
+    "tests/worktree_integration_tests.rs": {
+      "path": "tests/worktree_integration_tests.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 10,
+      "has_tests": false
+    },
+    "src/subprocess/builder.rs": {
+      "path": "src/subprocess/builder.rs",
+      "coverage_percentage": 0.9090909090909091,
+      "tested_lines": 30,
+      "total_lines": 33,
+      "tested_functions": 3,
+      "total_functions": 10,
+      "has_tests": true
+    },
+    "src/abstractions/git.rs": {
+      "path": "src/abstractions/git.rs",
+      "coverage_percentage": 0.680672268907563,
+      "tested_lines": 81,
+      "total_lines": 119,
+      "tested_functions": 15,
+      "total_functions": 47,
+      "has_tests": true
+    },
+    "src/metrics/complexity.rs": {
+      "path": "src/metrics/complexity.rs",
+      "coverage_percentage": 0.8333333333333334,
+      "tested_lines": 60,
+      "total_lines": 72,
+      "tested_functions": 2,
+      "total_functions": 21,
+      "has_tests": true
+    },
+    "src/cook/session/migration.rs": {
+      "path": "src/cook/session/migration.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 4,
+      "has_tests": false
+    },
+    "src/analysis/mod.rs": {
+      "path": "src/analysis/mod.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 0,
+      "has_tests": false
+    },
+    "src/config/workflow.rs": {
+      "path": "src/config/workflow.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 0,
+      "has_tests": false
+    },
+    "src/cook/session/summary.rs": {
+      "path": "src/cook/session/summary.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 0,
+      "has_tests": false
+    },
+    "src/cook/workflow/executor.rs": {
+      "path": "src/cook/workflow/executor.rs",
+      "coverage_percentage": 0.008130081300813009,
+      "tested_lines": 2,
+      "total_lines": 246,
+      "tested_functions": 6,
+      "total_functions": 22,
+      "has_tests": true
+    },
+    "src/metrics/collector.rs": {
+      "path": "src/metrics/collector.rs",
+      "coverage_percentage": 0.927710843373494,
+      "tested_lines": 77,
+      "total_lines": 83,
+      "tested_functions": 3,
+      "total_functions": 12,
+      "has_tests": true
+    },
+    "src/worktree/tests.rs": {
+      "path": "src/worktree/tests.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 9,
+      "has_tests": false
+    },
+    "src/abstractions/claude.rs": {
+      "path": "src/abstractions/claude.rs",
+      "coverage_percentage": 0.36813186813186816,
+      "tested_lines": 67,
+      "total_lines": 182,
+      "tested_functions": 2,
+      "total_functions": 29,
+      "has_tests": true
+    },
+    "src/scoring/mod.rs": {
+      "path": "src/scoring/mod.rs",
+      "coverage_percentage": 0.7633136094674556,
+      "tested_lines": 129,
+      "total_lines": 169,
+      "tested_functions": 2,
+      "total_functions": 13,
+      "has_tests": true
+    },
+    "src/simple_state/mod.rs": {
+      "path": "src/simple_state/mod.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 6,
+      "tested_functions": 0,
+      "total_functions": 1,
+      "has_tests": false
+    },
+    "tests/analysis_integration.rs": {
+      "path": "tests/analysis_integration.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 5,
+      "has_tests": false
+    },
+    "tests/workflow_commit_verification_tests.rs": {
+      "path": "tests/workflow_commit_verification_tests.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 6,
+      "has_tests": false
+    },
+    "src/config/metadata_parser.rs": {
+      "path": "src/config/metadata_parser.rs",
+      "coverage_percentage": 0.868421052631579,
+      "tested_lines": 99,
+      "total_lines": 114,
+      "tested_functions": 6,
+      "total_functions": 20,
+      "has_tests": true
+    },
+    "src/cook/mod_tests.rs": {
+      "path": "src/cook/mod_tests.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 36,
+      "has_tests": false
+    },
+    "src/metrics/context.rs": {
+      "path": "src/metrics/context.rs",
+      "coverage_percentage": 0.42857142857142855,
+      "tested_lines": 18,
+      "total_lines": 42,
+      "tested_functions": 3,
+      "total_functions": 15,
+      "has_tests": true
+    },
+    "src/context/summary.rs": {
+      "path": "src/context/summary.rs",
+      "coverage_percentage": 0.7961783439490446,
+      "tested_lines": 125,
+      "total_lines": 157,
+      "tested_functions": 1,
+      "total_functions": 8,
+      "has_tests": true
+    },
+    "src/cook/analysis/cache.rs": {
+      "path": "src/cook/analysis/cache.rs",
+      "coverage_percentage": 0.813953488372093,
+      "tested_lines": 35,
+      "total_lines": 43,
+      "tested_functions": 7,
+      "total_functions": 17,
+      "has_tests": true
+    },
+    "src/cook/execution/mod.rs": {
+      "path": "src/cook/execution/mod.rs",
+      "coverage_percentage": 0.3,
+      "tested_lines": 3,
+      "total_lines": 10,
+      "tested_functions": 0,
+      "total_functions": 3,
+      "has_tests": true
+    },
+    "src/cook/interaction/prompts.rs": {
+      "path": "src/cook/interaction/prompts.rs",
+      "coverage_percentage": 0.05714285714285714,
+      "tested_lines": 2,
+      "total_lines": 35,
+      "tested_functions": 6,
+      "total_functions": 16,
+      "has_tests": true
+    },
+    "src/session/timing.rs": {
+      "path": "src/session/timing.rs",
+      "coverage_percentage": 0.8108108108108109,
+      "tested_lines": 30,
+      "total_lines": 37,
+      "tested_functions": 3,
+      "total_functions": 13,
       "has_tests": true
     },
     "src/context/dependencies.rs": {
@@ -1116,8 +1026,8 @@
       "total_functions": 26,
       "has_tests": true
     },
-    "src/cook/workflow/mod.rs": {
-      "path": "src/cook/workflow/mod.rs",
+    "src/cook/command.rs": {
+      "path": "src/cook/command.rs",
       "coverage_percentage": 0.0,
       "tested_lines": 0,
       "total_lines": 0,
@@ -1125,41 +1035,86 @@
       "total_functions": 0,
       "has_tests": false
     },
-    "src/subprocess/git.rs": {
-      "path": "src/subprocess/git.rs",
-      "coverage_percentage": 0.3333333333333333,
-      "tested_lines": 35,
-      "total_lines": 105,
-      "tested_functions": 11,
+    "src/testing/mod.rs": {
+      "path": "src/testing/mod.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 28,
+      "has_tests": false
+    },
+    "tests/metrics_integration.rs": {
+      "path": "tests/metrics_integration.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 11,
+      "has_tests": false
+    },
+    "src/metrics/registry.rs": {
+      "path": "src/metrics/registry.rs",
+      "coverage_percentage": 0.4230769230769231,
+      "tested_lines": 33,
+      "total_lines": 78,
+      "tested_functions": 5,
       "total_functions": 19,
       "has_tests": true
     },
-    "src/context/size_manager.rs": {
-      "path": "src/context/size_manager.rs",
-      "coverage_percentage": 0.21904761904761905,
-      "tested_lines": 23,
-      "total_lines": 105,
-      "tested_functions": 6,
-      "total_functions": 13,
+    "src/analyze/command.rs": {
+      "path": "src/analyze/command.rs",
+      "coverage_percentage": 0.7777777777777778,
+      "tested_lines": 14,
+      "total_lines": 18,
+      "tested_functions": 0,
+      "total_functions": 6,
       "has_tests": true
     },
-    "tests/worktree_integration_tests.rs": {
-      "path": "tests/worktree_integration_tests.rs",
+    "src/metrics/quality.rs": {
+      "path": "src/metrics/quality.rs",
+      "coverage_percentage": 0.8217821782178217,
+      "tested_lines": 83,
+      "total_lines": 101,
+      "tested_functions": 4,
+      "total_functions": 8,
+      "has_tests": true
+    },
+    "tests/cook_tests.rs": {
+      "path": "tests/cook_tests.rs",
       "coverage_percentage": 0.0,
       "tested_lines": 0,
       "total_lines": 0,
       "tested_functions": 0,
-      "total_functions": 10,
+      "total_functions": 5,
       "has_tests": false
     },
-    "tests/metrics_collector_integration.rs": {
-      "path": "tests/metrics_collector_integration.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
-      "tested_functions": 0,
-      "total_functions": 4,
-      "has_tests": false
+    "src/context/mod.rs": {
+      "path": "src/context/mod.rs",
+      "coverage_percentage": 0.47692307692307695,
+      "tested_lines": 93,
+      "total_lines": 195,
+      "tested_functions": 5,
+      "total_functions": 24,
+      "has_tests": true
+    },
+    "src/metrics/backends.rs": {
+      "path": "src/metrics/backends.rs",
+      "coverage_percentage": 0.5611510791366906,
+      "tested_lines": 78,
+      "total_lines": 139,
+      "tested_functions": 4,
+      "total_functions": 30,
+      "has_tests": true
+    },
+    "src/config/command_validator.rs": {
+      "path": "src/config/command_validator.rs",
+      "coverage_percentage": 0.7990196078431373,
+      "tested_lines": 163,
+      "total_lines": 204,
+      "tested_functions": 3,
+      "total_functions": 21,
+      "has_tests": true
     },
     "src/git/error.rs": {
       "path": "src/git/error.rs",
@@ -1170,8 +1125,89 @@
       "total_functions": 2,
       "has_tests": false
     },
-    "tests/metrics_collection_integration.rs": {
-      "path": "tests/metrics_collection_integration.rs",
+    "src/cook/session/adapter.rs": {
+      "path": "src/cook/session/adapter.rs",
+      "coverage_percentage": 0.63,
+      "tested_lines": 63,
+      "total_lines": 100,
+      "tested_functions": 4,
+      "total_functions": 16,
+      "has_tests": true
+    },
+    "src/worktree/manager.rs": {
+      "path": "src/worktree/manager.rs",
+      "coverage_percentage": 0.39464882943143814,
+      "tested_lines": 118,
+      "total_lines": 299,
+      "tested_functions": 8,
+      "total_functions": 30,
+      "has_tests": true
+    },
+    "tests/context_integration.rs": {
+      "path": "tests/context_integration.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 1,
+      "has_tests": false
+    },
+    "src/cook/tests.rs": {
+      "path": "src/cook/tests.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 23,
+      "has_tests": false
+    },
+    "src/cook/interaction/display.rs": {
+      "path": "src/cook/interaction/display.rs",
+      "coverage_percentage": 0.9285714285714286,
+      "tested_lines": 26,
+      "total_lines": 28,
+      "tested_functions": 6,
+      "total_functions": 39,
+      "has_tests": true
+    },
+    "tests/workflow_analysis_tests.rs": {
+      "path": "tests/workflow_analysis_tests.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 8,
+      "has_tests": false
+    },
+    "src/session/events.rs": {
+      "path": "src/session/events.rs",
+      "coverage_percentage": 0.4,
+      "tested_lines": 10,
+      "total_lines": 25,
+      "tested_functions": 0,
+      "total_functions": 9,
+      "has_tests": true
+    },
+    "src/context/metrics_aware_coverage.rs": {
+      "path": "src/context/metrics_aware_coverage.rs",
+      "coverage_percentage": 0.627906976744186,
+      "tested_lines": 27,
+      "total_lines": 43,
+      "tested_functions": 2,
+      "total_functions": 4,
+      "has_tests": true
+    },
+    "src/testing/test_mocks.rs": {
+      "path": "src/testing/test_mocks.rs",
+      "coverage_percentage": 0.0,
+      "tested_lines": 0,
+      "total_lines": 0,
+      "tested_functions": 0,
+      "total_functions": 15,
+      "has_tests": false
+    },
+    "tests/signal_handling_integration.rs": {
+      "path": "tests/signal_handling_integration.rs",
       "coverage_percentage": 0.0,
       "tested_lines": 0,
       "total_lines": 0,
@@ -1188,58 +1224,67 @@
       "total_functions": 1,
       "has_tests": false
     },
-    "src/subprocess/error.rs": {
-      "path": "src/subprocess/error.rs",
+    "src/metrics/testing.rs": {
+      "path": "src/metrics/testing.rs",
+      "coverage_percentage": 0.5185185185185185,
+      "tested_lines": 70,
+      "total_lines": 135,
+      "tested_functions": 10,
+      "total_functions": 27,
+      "has_tests": true
+    },
+    "src/session/persistence.rs": {
+      "path": "src/session/persistence.rs",
+      "coverage_percentage": 1.0,
+      "tested_lines": 7,
+      "total_lines": 7,
+      "tested_functions": 0,
+      "total_functions": 4,
+      "has_tests": true
+    },
+    "src/metrics/events.rs": {
+      "path": "src/metrics/events.rs",
+      "coverage_percentage": 0.6333333333333333,
+      "tested_lines": 19,
+      "total_lines": 30,
+      "tested_functions": 0,
+      "total_functions": 12,
+      "has_tests": true
+    },
+    "src/cook/metrics/collector.rs": {
+      "path": "src/cook/metrics/collector.rs",
+      "coverage_percentage": 0.40625,
+      "tested_lines": 39,
+      "total_lines": 96,
+      "tested_functions": 8,
+      "total_functions": 17,
+      "has_tests": true
+    },
+    "src/abstractions/exit_status.rs": {
+      "path": "src/abstractions/exit_status.rs",
       "coverage_percentage": 0.0,
       "tested_lines": 0,
       "total_lines": 0,
       "tested_functions": 0,
-      "total_functions": 0,
+      "total_functions": 2,
       "has_tests": false
     },
-    "tests/cook_orchestrator_integration.rs": {
-      "path": "tests/cook_orchestrator_integration.rs",
-      "coverage_percentage": 0.0,
-      "tested_lines": 0,
-      "total_lines": 0,
+    "src/simple_state/types.rs": {
+      "path": "src/simple_state/types.rs",
+      "coverage_percentage": 0.8461538461538461,
+      "tested_lines": 11,
+      "total_lines": 13,
       "tested_functions": 0,
-      "total_functions": 28,
-      "has_tests": false
-    },
-    "src/subprocess/builder.rs": {
-      "path": "src/subprocess/builder.rs",
-      "coverage_percentage": 0.9090909090909092,
-      "tested_lines": 30,
-      "total_lines": 33,
-      "tested_functions": 3,
-      "total_functions": 10,
+      "total_functions": 4,
       "has_tests": true
     },
-    "src/cook/session/adapter.rs": {
-      "path": "src/cook/session/adapter.rs",
-      "coverage_percentage": 0.63,
-      "tested_lines": 63,
-      "total_lines": 100,
-      "tested_functions": 4,
-      "total_functions": 16,
-      "has_tests": true
-    },
-    "src/subprocess/runner.rs": {
-      "path": "src/subprocess/runner.rs",
-      "coverage_percentage": 0.5797101449275363,
-      "tested_lines": 40,
-      "total_lines": 69,
-      "tested_functions": 4,
-      "total_functions": 8,
-      "has_tests": true
-    },
-    "src/abstractions/claude.rs": {
-      "path": "src/abstractions/claude.rs",
-      "coverage_percentage": 0.36813186813186816,
-      "tested_lines": 67,
-      "total_lines": 182,
-      "tested_functions": 2,
-      "total_functions": 29,
+    "src/context/size_manager.rs": {
+      "path": "src/context/size_manager.rs",
+      "coverage_percentage": 0.21904761904761905,
+      "tested_lines": 23,
+      "total_lines": 105,
+      "tested_functions": 6,
+      "total_functions": 13,
       "has_tests": true
     }
   },
@@ -1895,163 +1940,163 @@
     {
       "file": "src/config/command.rs",
       "name": "default",
-      "line_number": 161,
+      "line_number": 157,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "deserialize",
-      "line_number": 286,
+      "line_number": 248,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "to_command",
-      "line_number": 332,
+      "line_number": 292,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "new",
-      "line_number": 387,
+      "line_number": 346,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "from_string",
-      "line_number": 402,
+      "line_number": 360,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "with_arg",
-      "line_number": 415,
+      "line_number": 373,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "with_option",
-      "line_number": 422,
+      "line_number": 380,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "with_retries",
-      "line_number": 429,
+      "line_number": 387,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "with_timeout",
-      "line_number": 436,
+      "line_number": 394,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "with_continue_on_error",
-      "line_number": 443,
+      "line_number": 401,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "with_env",
-      "line_number": 449,
+      "line_number": 407,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "deserialize",
-      "line_number": 457,
+      "line_number": 415,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "test_command_creation",
-      "line_number": 512,
+      "line_number": 468,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "test_command_from_string",
-      "line_number": 531,
+      "line_number": 487,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "test_workflow_command_conversion",
-      "line_number": 558,
+      "line_number": 514,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "test_command_serialization",
-      "line_number": 578,
+      "line_number": 534,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "test_commit_required_field",
-      "line_number": 590,
+      "line_number": 546,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "test_commit_required_serialization",
-      "line_number": 630,
+      "line_number": 586,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "test_analysis_config_defaults",
-      "line_number": 658,
+      "line_number": 614,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "test_analysis_config_serialization",
-      "line_number": 669,
+      "line_number": 625,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "test_command_with_analysis_config",
-      "line_number": 683,
+      "line_number": 639,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "test_default_cache_duration",
-      "line_number": 701,
+      "line_number": 657,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "test_analysis_config_with_defaults",
-      "line_number": 706,
+      "line_number": 662,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "test_workflow_step_command_parsing",
-      "line_number": 717,
+      "line_number": 673,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "test_workflow_command_with_workflow_step",
-      "line_number": 739,
+      "line_number": 695,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "test_untagged_enum_debug",
-      "line_number": 761,
+      "line_number": 717,
       "criticality": "Low"
     },
     {
       "file": "src/config/command.rs",
       "name": "test_workflow_config_with_new_syntax",
-      "line_number": 789,
+      "line_number": 745,
       "criticality": "Low"
     },
     {
@@ -2273,13 +2318,13 @@
     {
       "file": "src/config/command_validator.rs",
       "name": "test_validate_command_invalid_name",
-      "line_number": 505,
+      "line_number": 504,
       "criticality": "Medium"
     },
     {
       "file": "src/config/command_validator.rs",
       "name": "test_validate_command_empty_command",
-      "line_number": 525,
+      "line_number": 523,
       "criticality": "Medium"
     },
     {
@@ -2501,139 +2546,139 @@
     {
       "file": "src/config/mod.rs",
       "name": "default",
-      "line_number": 88,
+      "line_number": 87,
       "criticality": "Low"
     },
     {
       "file": "src/config/mod.rs",
       "name": "new",
-      "line_number": 102,
+      "line_number": 101,
       "criticality": "Low"
     },
     {
       "file": "src/config/mod.rs",
       "name": "merge_env_vars",
-      "line_number": 110,
+      "line_number": 109,
       "criticality": "Low"
     },
     {
       "file": "src/config/mod.rs",
       "name": "get_claude_api_key",
-      "line_number": 132,
+      "line_number": 131,
       "criticality": "Low"
     },
     {
       "file": "src/config/mod.rs",
       "name": "get_auto_commit",
-      "line_number": 139,
+      "line_number": 138,
       "criticality": "Low"
     },
     {
       "file": "src/config/mod.rs",
       "name": "get_spec_dir",
-      "line_number": 147,
+      "line_number": 146,
       "criticality": "Low"
     },
     {
       "file": "src/config/mod.rs",
       "name": "test_simple_workflow_config_parsing",
-      "line_number": 166,
+      "line_number": 165,
       "criticality": "Low"
     },
     {
       "file": "src/config/mod.rs",
       "name": "test_structured_workflow_config_parsing",
-      "line_number": 186,
+      "line_number": 185,
       "criticality": "Low"
     },
     {
       "file": "src/config/mod.rs",
       "name": "test_mixed_workflow_config",
-      "line_number": 216,
+      "line_number": 215,
       "criticality": "Low"
     },
     {
       "file": "src/config/mod.rs",
       "name": "test_command_string_parsing",
-      "line_number": 243,
+      "line_number": 242,
       "criticality": "Low"
     },
     {
       "file": "src/config/mod.rs",
       "name": "test_command_validation",
-      "line_number": 291,
+      "line_number": 290,
       "criticality": "Low"
     },
     {
       "file": "src/config/mod.rs",
       "name": "test_variable_expansion",
-      "line_number": 319,
+      "line_number": 318,
       "criticality": "Low"
     },
     {
       "file": "src/config/mod.rs",
       "name": "test_command_metadata_defaults",
-      "line_number": 349,
+      "line_number": 348,
       "criticality": "Low"
     },
     {
       "file": "src/config/mod.rs",
       "name": "test_command_serialization_roundtrip",
-      "line_number": 368,
+      "line_number": 367,
       "criticality": "Low"
     },
     {
       "file": "src/config/mod.rs",
       "name": "test_config_new_creates_defaults",
-      "line_number": 396,
+      "line_number": 395,
       "criticality": "Low"
     },
     {
       "file": "src/config/mod.rs",
       "name": "test_get_claude_api_key_precedence",
-      "line_number": 407,
+      "line_number": 406,
       "criticality": "Low"
     },
     {
       "file": "src/config/mod.rs",
       "name": "test_get_auto_commit_precedence",
-      "line_number": 431,
+      "line_number": 430,
       "criticality": "Low"
     },
     {
       "file": "src/config/mod.rs",
       "name": "test_get_spec_dir",
-      "line_number": 455,
+      "line_number": 454,
       "criticality": "Low"
     },
     {
       "file": "src/config/mod.rs",
       "name": "test_merge_env_vars",
-      "line_number": 475,
+      "line_number": 474,
       "criticality": "Low"
     },
     {
       "file": "src/config/mod.rs",
       "name": "test_merge_env_vars_editor_fallback",
-      "line_number": 537,
+      "line_number": 536,
       "criticality": "Low"
     },
     {
       "file": "src/config/mod.rs",
       "name": "test_global_config_default",
-      "line_number": 595,
+      "line_number": 594,
       "criticality": "Low"
     },
     {
       "file": "src/config/mod.rs",
       "name": "test_get_global_mmm_dir_success",
-      "line_number": 609,
+      "line_number": 608,
       "criticality": "Low"
     },
     {
       "file": "src/config/mod.rs",
       "name": "test_get_global_mmm_dir_path_structure",
-      "line_number": 620,
+      "line_number": 619,
       "criticality": "Low"
     },
     {
@@ -3431,73 +3476,217 @@
     {
       "file": "src/context/tarpaulin_coverage.rs",
       "name": "convert_tarpaulin_data",
-      "line_number": 169,
-      "criticality": "Low"
-    },
-    {
-      "file": "src/context/tarpaulin_coverage.rs",
-      "name": "is_test_file",
-      "line_number": 270,
+      "line_number": 173,
       "criticality": "Low"
     },
     {
       "file": "src/context/tarpaulin_coverage.rs",
       "name": "analyze_file_functions",
-      "line_number": 279,
+      "line_number": 269,
       "criticality": "Low"
     },
     {
       "file": "src/context/tarpaulin_coverage.rs",
       "name": "extract_functions_with_lines",
-      "line_number": 317,
+      "line_number": 307,
       "criticality": "Low"
     },
     {
       "file": "src/context/tarpaulin_coverage.rs",
       "name": "determine_criticality",
-      "line_number": 342,
+      "line_number": 332,
       "criticality": "Low"
     },
     {
       "file": "src/context/tarpaulin_coverage.rs",
       "name": "identify_critical_paths_with_coverage",
-      "line_number": 378,
+      "line_number": 368,
       "criticality": "Low"
     },
     {
       "file": "src/context/tarpaulin_coverage.rs",
       "name": "analyze_coverage",
-      "line_number": 473,
+      "line_number": 463,
       "criticality": "Low"
     },
     {
       "file": "src/context/tarpaulin_coverage.rs",
       "name": "update_coverage",
-      "line_number": 499,
+      "line_number": 489,
       "criticality": "Medium"
     },
     {
       "file": "src/context/tarpaulin_coverage.rs",
       "name": "default",
-      "line_number": 512,
+      "line_number": 502,
       "criticality": "Low"
     },
     {
       "file": "src/context/tarpaulin_coverage.rs",
       "name": "test_tarpaulin_unavailable",
-      "line_number": 526,
+      "line_number": 516,
       "criticality": "Low"
     },
     {
       "file": "src/context/tarpaulin_coverage.rs",
       "name": "test_run_tarpaulin_success",
-      "line_number": 549,
+      "line_number": 539,
       "criticality": "Low"
     },
     {
       "file": "src/context/tarpaulin_coverage.rs",
       "name": "test_run_tarpaulin_with_justfile",
-      "line_number": 587,
+      "line_number": 577,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "is_test_file",
+      "line_number": 244,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "find_test_files",
+      "line_number": 253,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "extract_functions_with_lines",
+      "line_number": 284,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "extract_tests",
+      "line_number": 309,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "estimate_coverage",
+      "line_number": 332,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "determine_criticality",
+      "line_number": 357,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "identify_critical_paths_in_project",
+      "line_number": 386,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "analyze_coverage",
+      "line_number": 425,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "update_coverage",
+      "line_number": 540,
+      "criticality": "Medium"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "test_function_extraction",
+      "line_number": 610,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "add",
+      "line_number": 614,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "subtract",
+      "line_number": 618,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "fetch_data",
+      "line_number": 622,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "internal_helper",
+      "line_number": 626,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "test_tested_function_detection",
+      "line_number": 638,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "test_add",
+      "line_number": 647,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "test_subtract",
+      "line_number": 652,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "test_fetch_data",
+      "line_number": 657,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "test_coverage_calculation",
+      "line_number": 672,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "test_critical_path_identification",
+      "line_number": 707,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "test_full_coverage_analysis",
+      "line_number": 731,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "multiply",
+      "line_number": 741,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "divide",
+      "line_number": 745,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "test_multiply",
+      "line_number": 761,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/context/test_coverage.rs",
+      "name": "test_is_test_file",
+      "line_number": 792,
       "criticality": "Low"
     },
     {
@@ -5236,6 +5425,30 @@
     },
     {
       "file": "src/cook/orchestrator.rs",
+      "name": "display_progress",
+      "line_number": 425,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/cook/orchestrator.rs",
+      "name": "display_info",
+      "line_number": 429,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/cook/orchestrator.rs",
+      "name": "display_warning",
+      "line_number": 433,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/cook/orchestrator.rs",
+      "name": "display_success",
+      "line_number": 437,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/cook/orchestrator.rs",
       "name": "execute_structured_workflow",
       "line_number": 444,
       "criticality": "Low"
@@ -5243,229 +5456,229 @@
     {
       "file": "src/cook/orchestrator.rs",
       "name": "find_files_matching_pattern",
-      "line_number": 665,
+      "line_number": 599,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "matches_glob_pattern",
-      "line_number": 727,
+      "line_number": 661,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "execute_workflow_with_analysis",
-      "line_number": 746,
+      "line_number": 680,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "execute_workflow_with_args",
-      "line_number": 895,
+      "line_number": 829,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "get_current_head",
-      "line_number": 981,
+      "line_number": 915,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "collect_workflow_inputs",
-      "line_number": 991,
+      "line_number": 925,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "process_glob_pattern",
-      "line_number": 1016,
+      "line_number": 950,
       "criticality": "Medium"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "extract_input_from_path",
-      "line_number": 1050,
+      "line_number": 984,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "process_workflow_input",
-      "line_number": 1065,
+      "line_number": 999,
       "criticality": "Medium"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "execute_workflow_command",
-      "line_number": 1111,
+      "line_number": 1045,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "build_command",
-      "line_number": 1179,
+      "line_number": 1113,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "prepare_environment_variables",
-      "line_number": 1205,
+      "line_number": 1139,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "execute_and_validate_command",
-      "line_number": 1230,
+      "line_number": 1164,
       "criticality": "Medium"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "run_analysis_if_needed",
-      "line_number": 1323,
+      "line_number": 1257,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "new",
-      "line_number": 1503,
+      "line_number": 1437,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "set_is_git_repo",
-      "line_number": 1509,
+      "line_number": 1443,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "git_command",
-      "line_number": 1516,
+      "line_number": 1450,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "is_git_repo",
-      "line_number": 1528,
+      "line_number": 1462,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "get_last_commit_message",
-      "line_number": 1532,
+      "line_number": 1466,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "check_git_status",
-      "line_number": 1536,
+      "line_number": 1470,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "stage_all_changes",
-      "line_number": 1540,
+      "line_number": 1474,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "create_commit",
-      "line_number": 1544,
+      "line_number": 1478,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "create_worktree",
-      "line_number": 1548,
+      "line_number": 1482,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "get_current_branch",
-      "line_number": 1552,
+      "line_number": 1486,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "switch_branch",
-      "line_number": 1556,
+      "line_number": 1490,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "git_command_in_dir",
-      "line_number": 1560,
+      "line_number": 1494,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "create_test_orchestrator",
-      "line_number": 1571,
+      "line_number": 1505,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "test_prerequisites_check_no_git",
-      "line_number": 1612,
+      "line_number": 1546,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "test_setup_environment_basic",
-      "line_number": 1668,
+      "line_number": 1602,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "test_detect_structured_workflow",
-      "line_number": 1698,
+      "line_number": 1632,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "test_find_files_matching_pattern",
-      "line_number": 1774,
+      "line_number": 1705,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "test_workflow_detects_structured_commands",
-      "line_number": 1854,
+      "line_number": 1785,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
-      "name": "test_input_resolution_logic",
-      "line_number": 1911,
+      "name": "test_variable_resolution_logic",
+      "line_number": 1841,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "test_file_pattern_validation",
-      "line_number": 1943,
+      "line_number": 1868,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "test_arg_resolution_only_for_commands_with_args",
-      "line_number": 1962,
+      "line_number": 1887,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "test_command_arg_detection",
-      "line_number": 2109,
+      "line_number": 2034,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "test_auto_accept_worktree_merge",
-      "line_number": 2129,
+      "line_number": 2054,
       "criticality": "Low"
     },
     {
       "file": "src/cook/orchestrator.rs",
       "name": "test_worktree_cleanup_after_merge",
-      "line_number": 2200,
+      "line_number": 2125,
       "criticality": "Low"
     },
     {
@@ -6040,68 +6253,56 @@
     },
     {
       "file": "src/cook/tests.rs",
-      "name": "test_parse_workflow_with_inputs",
+      "name": "test_parse_full_default_workflow",
       "line_number": 291,
       "criticality": "Low"
     },
     {
       "file": "src/cook/tests.rs",
-      "name": "test_parse_full_default_workflow",
-      "line_number": 329,
-      "criticality": "Low"
-    },
-    {
-      "file": "src/cook/tests.rs",
       "name": "test_parse_workflow_with_multiple_outputs",
-      "line_number": 386,
+      "line_number": 342,
       "criticality": "Low"
     },
     {
       "file": "src/cook/tests.rs",
       "name": "test_parse_workflow_with_commit_required",
-      "line_number": 413,
-      "criticality": "Low"
-    },
-    {
-      "file": "src/cook/tests.rs",
-      "name": "test_parse_workflow_with_environment_input",
-      "line_number": 442,
+      "line_number": 369,
       "criticality": "Low"
     },
     {
       "file": "src/cook/tests.rs",
       "name": "test_simplified_output_syntax",
-      "line_number": 484,
+      "line_number": 398,
       "criticality": "Low"
     },
     {
       "file": "src/cook/tests.rs",
       "name": "test_load_playbook_structure",
-      "line_number": 508,
+      "line_number": 422,
       "criticality": "Low"
     },
     {
       "file": "src/cook/tests.rs",
       "name": "test_comprehensive_transient_errors",
-      "line_number": 550,
+      "line_number": 458,
       "criticality": "Low"
     },
     {
       "file": "src/cook/tests.rs",
       "name": "test_error_formatting_edge_cases",
-      "line_number": 589,
+      "line_number": 497,
       "criticality": "Low"
     },
     {
       "file": "src/cook/tests.rs",
       "name": "test_concurrent_git_operations",
-      "line_number": 613,
+      "line_number": 521,
       "criticality": "Low"
     },
     {
       "file": "src/cook/tests.rs",
       "name": "test_git_command_tracking",
-      "line_number": 636,
+      "line_number": 544,
       "criticality": "Low"
     },
     {
@@ -6905,43 +7106,43 @@
     {
       "file": "src/main.rs",
       "name": "main",
-      "line_number": 141,
+      "line_number": 147,
       "criticality": "Low"
     },
     {
       "file": "src/main.rs",
       "name": "display_worktree_session",
-      "line_number": 245,
+      "line_number": 251,
       "criticality": "Low"
     },
     {
       "file": "src/main.rs",
       "name": "display_worktree_session_legacy",
-      "line_number": 286,
+      "line_number": 293,
       "criticality": "Low"
     },
     {
       "file": "src/main.rs",
       "name": "handle_list_command",
-      "line_number": 291,
+      "line_number": 298,
       "criticality": "Medium"
     },
     {
       "file": "src/main.rs",
       "name": "handle_merge_command",
-      "line_number": 307,
+      "line_number": 314,
       "criticality": "Medium"
     },
     {
       "file": "src/main.rs",
       "name": "handle_clean_command",
-      "line_number": 362,
+      "line_number": 369,
       "criticality": "Medium"
     },
     {
       "file": "src/main.rs",
       "name": "run_worktree_command",
-      "line_number": 382,
+      "line_number": 442,
       "criticality": "Low"
     },
     {
@@ -9105,93 +9306,279 @@
       "criticality": "Low"
     },
     {
-      "file": "src/worktree/manager.rs",
-      "name": "merge_session",
-      "line_number": 258,
+      "file": "src/testing/test_mocks.rs",
+      "name": "check_success",
+      "line_number": 13,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/testing/test_mocks.rs",
+      "name": "check_with_warnings",
+      "line_number": 19,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/testing/test_mocks.rs",
+      "name": "clippy_output",
+      "line_number": 25,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/testing/test_mocks.rs",
+      "name": "build_success",
+      "line_number": 31,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/testing/test_mocks.rs",
+      "name": "test_success",
+      "line_number": 38,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/testing/test_mocks.rs",
+      "name": "coverage_report_good",
+      "line_number": 59,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/testing/test_mocks.rs",
+      "name": "coverage_report_poor",
+      "line_number": 76,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/testing/test_mocks.rs",
+      "name": "coverage_xml",
+      "line_number": 92,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/testing/test_mocks.rs",
+      "name": "status_clean",
+      "line_number": 118,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/testing/test_mocks.rs",
+      "name": "status_dirty",
+      "line_number": 123,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/testing/test_mocks.rs",
+      "name": "log_output",
+      "line_number": 131,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/testing/test_mocks.rs",
+      "name": "cargo_check_json",
+      "line_number": 144,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/testing/test_mocks.rs",
+      "name": "setup_successful_analysis",
+      "line_number": 180,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/testing/test_mocks.rs",
+      "name": "setup_analysis_with_failures",
+      "line_number": 237,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/testing/test_mocks.rs",
+      "name": "setup_metrics_collection",
+      "line_number": 264,
       "criticality": "Low"
     },
     {
       "file": "src/worktree/manager.rs",
       "name": "cleanup_session",
-      "line_number": 413,
+      "line_number": 464,
       "criticality": "Low"
     },
     {
       "file": "src/worktree/manager.rs",
       "name": "cleanup_all_sessions",
-      "line_number": 477,
+      "line_number": 528,
       "criticality": "Low"
     },
     {
       "file": "src/worktree/manager.rs",
       "name": "get_worktree_for_branch",
-      "line_number": 487,
+      "line_number": 538,
       "criticality": "Low"
     },
     {
       "file": "src/worktree/manager.rs",
       "name": "create_checkpoint",
-      "line_number": 496,
+      "line_number": 547,
       "criticality": "Low"
     },
     {
       "file": "src/worktree/manager.rs",
       "name": "update_checkpoint",
-      "line_number": 508,
+      "line_number": 559,
       "criticality": "Medium"
     },
     {
       "file": "src/worktree/manager.rs",
       "name": "load_session_state",
-      "line_number": 520,
+      "line_number": 571,
       "criticality": "Low"
     },
     {
       "file": "src/worktree/manager.rs",
       "name": "restore_session",
-      "line_number": 525,
+      "line_number": 576,
       "criticality": "Low"
     },
     {
       "file": "src/worktree/manager.rs",
       "name": "list_interrupted_sessions",
-      "line_number": 545,
+      "line_number": 596,
       "criticality": "Low"
     },
     {
       "file": "src/worktree/manager.rs",
       "name": "mark_session_abandoned",
-      "line_number": 572,
+      "line_number": 623,
       "criticality": "Low"
     },
     {
       "file": "src/worktree/manager.rs",
       "name": "get_last_successful_command",
-      "line_number": 580,
+      "line_number": 631,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/worktree/manager.rs",
+      "name": "is_branch_merged",
+      "line_number": 642,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/worktree/manager.rs",
+      "name": "detect_mergeable_sessions",
+      "line_number": 663,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/worktree/manager.rs",
+      "name": "cleanup_merged_sessions",
+      "line_number": 700,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/worktree/manager.rs",
+      "name": "cleanup_session_after_merge",
+      "line_number": 739,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/worktree/manager.rs",
+      "name": "get_cleanup_config",
+      "line_number": 801,
       "criticality": "Low"
     },
     {
       "file": "src/worktree/manager.rs",
       "name": "test_claude_merge_command_construction",
-      "line_number": 597,
+      "line_number": 826,
       "criticality": "Low"
     },
     {
       "file": "src/worktree/manager.rs",
       "name": "test_merge_session_success",
-      "line_number": 618,
+      "line_number": 847,
       "criticality": "Low"
     },
     {
       "file": "src/worktree/manager.rs",
       "name": "test_merge_session_claude_cli_failure",
-      "line_number": 636,
+      "line_number": 865,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/worktree/manager.rs",
+      "name": "test_cleanup_config_defaults",
+      "line_number": 915,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/worktree/manager.rs",
+      "name": "test_get_cleanup_config_from_env",
+      "line_number": 924,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/worktree/manager.rs",
+      "name": "test_cleanup_session_after_merge_not_merged",
+      "line_number": 942,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/worktree/manager.rs",
+      "name": "test_detect_mergeable_sessions_empty",
+      "line_number": 991,
       "criticality": "Low"
     },
     {
       "file": "src/worktree/mod.rs",
       "name": "new",
       "line_number": 144,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/worktree/test_state.rs",
+      "name": "setup_test_repo",
+      "line_number": 7,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/worktree/test_state.rs",
+      "name": "cleanup_worktree_dir",
+      "line_number": 30,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/worktree/test_state.rs",
+      "name": "test_state_file_creation",
+      "line_number": 38,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/worktree/test_state.rs",
+      "name": "test_state_updates",
+      "line_number": 75,
+      "criticality": "Medium"
+    },
+    {
+      "file": "src/worktree/test_state.rs",
+      "name": "test_gitignore_creation",
+      "line_number": 110,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/worktree/test_state.rs",
+      "name": "test_list_sessions_with_state",
+      "line_number": 128,
+      "criticality": "Low"
+    },
+    {
+      "file": "src/worktree/test_state.rs",
+      "name": "test_merge_updates_state",
+      "line_number": 159,
+      "criticality": "Medium"
+    },
+    {
+      "file": "src/worktree/test_state.rs",
+      "name": "test_state_error_handling",
+      "line_number": 202,
       "criticality": "Low"
     },
     {
@@ -10047,6 +10434,54 @@
       "criticality": "Low"
     },
     {
+      "file": "tests/integration_test_cook_path.rs",
+      "name": "test_cook_without_path",
+      "line_number": 11,
+      "criticality": "Low"
+    },
+    {
+      "file": "tests/integration_test_cook_path.rs",
+      "name": "test_cook_with_absolute_path",
+      "line_number": 46,
+      "criticality": "Low"
+    },
+    {
+      "file": "tests/integration_test_cook_path.rs",
+      "name": "test_cook_with_relative_path",
+      "line_number": 82,
+      "criticality": "Low"
+    },
+    {
+      "file": "tests/integration_test_cook_path.rs",
+      "name": "test_cook_path_not_found",
+      "line_number": 121,
+      "criticality": "Low"
+    },
+    {
+      "file": "tests/integration_test_cook_path.rs",
+      "name": "test_cook_path_not_directory",
+      "line_number": 142,
+      "criticality": "Low"
+    },
+    {
+      "file": "tests/integration_test_cook_path.rs",
+      "name": "test_cook_path_not_git_repo",
+      "line_number": 167,
+      "criticality": "Low"
+    },
+    {
+      "file": "tests/integration_test_cook_path.rs",
+      "name": "test_cook_path_with_flags",
+      "line_number": 191,
+      "criticality": "Low"
+    },
+    {
+      "file": "tests/integration_test_cook_path.rs",
+      "name": "test_cook_path_tilde_expansion",
+      "line_number": 231,
+      "criticality": "Low"
+    },
+    {
       "file": "tests/metrics_collection_integration.rs",
       "name": "test_metrics_collection_integration",
       "line_number": 6,
@@ -10349,55 +10784,55 @@
     {
       "file": "tests/workflow_syntax_tests.rs",
       "name": "interpolate",
-      "line_number": 16,
+      "line_number": 15,
       "criticality": "Low"
     },
     {
       "file": "tests/workflow_syntax_tests.rs",
       "name": "test_workflow_context_interpolation",
-      "line_number": 40,
+      "line_number": 39,
       "criticality": "Low"
     },
     {
       "file": "tests/workflow_syntax_tests.rs",
       "name": "test_parse_claude_command_syntax",
-      "line_number": 74,
+      "line_number": 73,
       "criticality": "Low"
     },
     {
       "file": "tests/workflow_syntax_tests.rs",
       "name": "test_parse_shell_command_syntax",
-      "line_number": 94,
+      "line_number": 93,
       "criticality": "Low"
     },
     {
       "file": "tests/workflow_syntax_tests.rs",
       "name": "test_parse_legacy_syntax",
-      "line_number": 119,
+      "line_number": 118,
       "criticality": "Low"
     },
     {
       "file": "tests/workflow_syntax_tests.rs",
       "name": "test_parse_conditional_execution",
-      "line_number": 135,
+      "line_number": 134,
       "criticality": "Low"
     },
     {
       "file": "tests/workflow_syntax_tests.rs",
       "name": "test_parse_complete_workflow",
-      "line_number": 160,
+      "line_number": 159,
       "criticality": "Low"
     },
     {
       "file": "tests/workflow_syntax_tests.rs",
       "name": "test_environment_variables",
-      "line_number": 203,
+      "line_number": 202,
       "criticality": "Low"
     },
     {
       "file": "tests/workflow_syntax_tests.rs",
       "name": "test_workflow_step_defaults",
-      "line_number": 220,
+      "line_number": 219,
       "criticality": "Low"
     },
     {
@@ -10473,6 +10908,24 @@
       "criticality": "Low"
     },
     {
+      "file": "tests/worktree_commit_verification_test.rs",
+      "name": "setup_test_repo_with_worktree_support",
+      "line_number": 9,
+      "criticality": "Low"
+    },
+    {
+      "file": "tests/worktree_commit_verification_test.rs",
+      "name": "test_worktree_workflow_detects_no_commits",
+      "line_number": 95,
+      "criticality": "Low"
+    },
+    {
+      "file": "tests/worktree_commit_verification_test.rs",
+      "name": "test_regular_workflow_detects_no_commits",
+      "line_number": 115,
+      "criticality": "Low"
+    },
+    {
       "file": "tests/worktree_integration_tests.rs",
       "name": "setup_test_repo",
       "line_number": 7,
@@ -10534,5 +10987,5 @@
     }
   ],
   "critical_paths": [],
-  "overall_coverage": 0.5838402539010844
+  "overall_coverage": 0.5828293452537471
 }
