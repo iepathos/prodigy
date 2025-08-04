@@ -91,6 +91,13 @@ impl QualityAnalyzer {
                 
                 // Run tarpaulin with JSON output
                 // Add --frozen to avoid updating dependencies and --lib to only test library
+                // Check for MMM_SKIP_TARPAULIN env var for testing
+                if std::env::var("MMM_SKIP_TARPAULIN").is_ok() {
+                    eprintln!("⚠️  Skipping tarpaulin execution (MMM_SKIP_TARPAULIN set)");
+                    eprintln!("⚠️  Falling back to test coverage estimation (files with tests assumed 50% covered)");
+                    return self.estimate_test_coverage(project_path);
+                }
+                
                 let tarpaulin_command = ProcessCommandBuilder::new("cargo")
                     .args([
                         "tarpaulin",
@@ -119,11 +126,14 @@ impl QualityAnalyzer {
                                 }
                             }
                         } else {
-                            eprintln!("⚠️  cargo-tarpaulin failed: {}", output.stderr);
+                            eprintln!("❌ cargo-tarpaulin failed with exit code: {:?}", output.status.code());
+                            eprintln!("   Error output: {}", output.stderr);
+                            eprintln!("   💡 Try running 'cargo tarpaulin' manually to see detailed errors");
                         }
                     }
                     Err(e) => {
-                        eprintln!("⚠️  Failed to run cargo-tarpaulin: {}", e);
+                        eprintln!("❌ Failed to run cargo-tarpaulin: {}", e);
+                        eprintln!("   💡 Make sure cargo-tarpaulin is installed: cargo install cargo-tarpaulin");
                     }
                 }
             }
@@ -160,6 +170,9 @@ impl QualityAnalyzer {
         }
 
         // Fallback to estimation
+        if run_coverage {
+            eprintln!("⚠️  Falling back to test coverage estimation (files with tests assumed 50% covered)");
+        }
         self.estimate_test_coverage(project_path)
     }
 

@@ -766,10 +766,11 @@ mod tests {
         let result = save_test_coverage_summary(context_dir, &coverage);
         assert!(result.is_ok());
 
-        let coverage_file = context_dir.join("test_coverage.json");
-        assert!(coverage_file.exists());
+        // For minimal data, it saves to test_coverage_summary.json
+        let coverage_summary_file = context_dir.join("test_coverage_summary.json");
+        assert!(coverage_summary_file.exists());
 
-        let content = std::fs::read_to_string(&coverage_file).unwrap();
+        let content = std::fs::read_to_string(&coverage_summary_file).unwrap();
         assert!(content.contains("0.75"));
     }
 
