@@ -81,7 +81,7 @@ spec_dir: specs
     let loader = ConfigLoader::new().await.unwrap();
     loader.load_project(temp_dir.path()).await.unwrap();
     let config = loader.get_config();
-    assert_eq!(config.get_auto_commit(), true);
+    assert!(config.get_auto_commit());
     assert_eq!(config.get_spec_dir(), PathBuf::from("specs"));
 
     // Test environment variable override
@@ -90,7 +90,7 @@ spec_dir: specs
     let mut config = loader.get_config();
     config.merge_env_vars();
     // Since project config has auto_commit=true, it takes precedence over global env var
-    assert_eq!(config.get_auto_commit(), true);
+    assert!(config.get_auto_commit());
 
     // Test that env var is actually set in global config
     assert_eq!(config.global.auto_commit, Some(false));
