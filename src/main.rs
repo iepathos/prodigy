@@ -101,9 +101,9 @@ enum Commands {
         #[arg(short = 'p', long)]
         path: Option<PathBuf>,
 
-        /// Run cargo-tarpaulin for accurate coverage before analysis
+        /// Skip running cargo-tarpaulin for coverage analysis
         #[arg(long)]
-        run_coverage: bool,
+        no_coverage: bool,
 
         /// Skip automatic git commit after analysis
         #[arg(long)]
@@ -211,7 +211,7 @@ async fn main() {
             output,
             save,
             path,
-            run_coverage,
+            no_coverage,
             no_commit,
         }) => {
             let analyze_cmd = mmm::analyze::command::AnalyzeCommand {
@@ -219,7 +219,7 @@ async fn main() {
                 save,
                 verbose: cli.verbose > 0,
                 path,
-                run_coverage,
+                run_coverage: !no_coverage,  // Invert the flag
                 no_commit,
             };
             mmm::analyze::run(analyze_cmd).await

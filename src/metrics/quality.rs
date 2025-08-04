@@ -73,7 +73,7 @@ impl QualityAnalyzer {
         Ok(metrics)
     }
 
-    /// Get test coverage using cargo-tarpaulin or fallback
+    /// Get test coverage using cargo-tarpaulin
     async fn get_test_coverage(&self, project_path: &Path, run_coverage: bool) -> Result<f32> {
         if self.use_tarpaulin {
             debug!("Checking for cargo-tarpaulin coverage");
@@ -94,8 +94,7 @@ impl QualityAnalyzer {
                 // Check for MMM_SKIP_TARPAULIN env var for testing
                 if std::env::var("MMM_SKIP_TARPAULIN").is_ok() {
                     eprintln!("⚠️  Skipping tarpaulin execution (MMM_SKIP_TARPAULIN set)");
-                    eprintln!("⚠️  Falling back to test coverage estimation (files with tests assumed 50% covered)");
-                    return self.estimate_test_coverage(project_path);
+                    return Ok(0.0); // Return 0.0 to indicate N/A
                 }
                 
                 let tarpaulin_command = ProcessCommandBuilder::new("cargo")
@@ -138,80 +137,26 @@ impl QualityAnalyzer {
                 }
             }
             
-            // Try to use existing tarpaulin coverage data
-            if tarpaulin_path.exists() && !run_coverage {
+            // Try to use existing tarpaulin coverage data (whether or not run_coverage is true)
+            if tarpaulin_path.exists() {
                 // Parse existing tarpaulin report
                 if let Ok(content) = std::fs::read_to_string(&tarpaulin_path) {
                     if let Ok(report) = serde_json::from_str::<serde_json::Value>(&content) {
                         if let Some(coverage) = report.get("coverage").and_then(|c| c.as_f64()) {
+                            debug!("Using existing tarpaulin coverage: {:.1}%", coverage);
                             return Ok(coverage as f32);
                         }
                     }
                 }
             }
 
-            // If no existing report, try to run tests quickly
-            let test_command = ProcessCommandBuilder::new("cargo")
-                .args(["test", "--no-run"])
-                .current_dir(project_path)
-                .build();
-
-            let output = self
-                .subprocess
-                .runner()
-                .run(test_command)
-                .await
-                .context("Failed to check test build")?;
-
-            if output.status.success() {
-                // Tests compile, estimate coverage from test file count
-                return self.estimate_test_coverage(project_path);
-            }
         }
 
-        // Fallback to estimation
-        if run_coverage {
-            eprintln!("⚠️  Falling back to test coverage estimation (files with tests assumed 50% covered)");
-        }
-        self.estimate_test_coverage(project_path)
+        // No coverage data available
+        eprintln!("⚠️  No test coverage data available. Run 'cargo tarpaulin' to generate coverage data.");
+        Ok(0.0) // Return 0.0 to indicate N/A
     }
 
-    /// Estimate test coverage from test file analysis
-    fn estimate_test_coverage(&self, project_path: &Path) -> Result<f32> {
-        let src_dir = project_path.join("src");
-        if !src_dir.exists() {
-            return Ok(0.0);
-        }
-
-        let mut total_modules = 0;
-        let mut tested_modules = 0;
-
-        // Walk through source files
-        for entry in walkdir::WalkDir::new(&src_dir)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
-        {
-            let path = entry.path();
-            let content = std::fs::read_to_string(path)?;
-
-            // Count modules (functions, impl blocks)
-            let module_count = content.matches("fn ").count() + content.matches("impl ").count();
-            total_modules += module_count;
-
-            // Check for tests
-            if content.contains("#[test]") || content.contains("#[cfg(test)]") {
-                // Rough estimation: assume 50% coverage if tests exist
-                tested_modules += module_count / 2;
-            }
-        }
-
-        if total_modules > 0 {
-            Ok((tested_modules as f32 / total_modules as f32) * 100.0)
-        } else {
-            Ok(0.0)
-        }
-    }
 
     /// Get clippy warning count
     async fn get_lint_warnings(&self, project_path: &Path) -> Result<u32> {

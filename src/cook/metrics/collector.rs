@@ -58,7 +58,13 @@ impl<R: CommandRunner + 'static> MetricsCollectorTrait for MetricsCollectorImpl<
             .collect_metrics(project_path, "temp".to_string())
             .await
         {
-            Ok(metrics) => Ok(Some(metrics.test_coverage as f64)),
+            Ok(metrics) => {
+                if metrics.test_coverage == 0.0 {
+                    Ok(None)  // Return None for N/A coverage
+                } else {
+                    Ok(Some(metrics.test_coverage as f64))
+                }
+            },
             Err(_) => Ok(None),
         }
     }
@@ -316,9 +322,10 @@ mod tests {
         let metrics = collector.collect_all(temp_dir.path()).await.unwrap();
 
         // Should have collected metrics from mocked subprocess
-        assert!(metrics.test_coverage.is_some());
-        let coverage = metrics.test_coverage.unwrap();
-        assert!((0.0..=100.0).contains(&coverage));
+        // Note: test_coverage may be None if no tarpaulin data is available
+        if let Some(coverage) = metrics.test_coverage {
+            assert!((0.0..=100.0).contains(&coverage));
+        }
         // Compile time may or may not be set depending on mock runner behavior
         // We're not mocking the build command in MockCommandRunner
     }
