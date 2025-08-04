@@ -265,7 +265,6 @@ impl TarpaulinCoverageAnalyzer {
         }
     }
 
-
     /// Analyze functions in a file and determine coverage
     async fn analyze_file_functions(
         &self,

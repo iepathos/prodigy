@@ -773,7 +773,7 @@ id: coverage
             Ok(cmd) => {
                 assert!(matches!(cmd, WorkflowCommand::WorkflowStep(_)));
             }
-            Err(e) => panic!("Failed to parse new format: {}", e),
+            Err(e) => panic!("Failed to parse new format: {e}"),
         }
 
         let yaml_simple_obj = r#"
@@ -817,24 +817,24 @@ commands:
                 // Try to parse just the commands array to debug
                 let yaml_value: serde_yaml::Value = serde_yaml::from_str(yaml).unwrap();
                 if let Some(commands) = yaml_value.get("commands") {
-                    println!("Commands value: {:?}", commands);
+                    println!("Commands value: {commands:?}");
 
                     // Try to parse each command
                     if let Some(seq) = commands.as_sequence() {
                         for (i, cmd) in seq.iter().enumerate() {
-                            println!("\nCommand {}: {:?}", i, cmd);
+                            println!("\nCommand {i}: {cmd:?}");
                             match serde_yaml::from_value::<WorkflowStepCommand>(cmd.clone()) {
                                 Ok(parsed) => println!("  Parsed as WorkflowStepCommand: success"),
-                                Err(e2) => println!("  Failed as WorkflowStepCommand: {}", e2),
+                                Err(e2) => println!("  Failed as WorkflowStepCommand: {e2}"),
                             }
                             match serde_yaml::from_value::<WorkflowCommand>(cmd.clone()) {
-                                Ok(parsed) => println!("  Parsed as WorkflowCommand: {:?}", parsed),
-                                Err(e2) => println!("  Failed as WorkflowCommand: {}", e2),
+                                Ok(parsed) => println!("  Parsed as WorkflowCommand: {parsed:?}"),
+                                Err(e2) => println!("  Failed as WorkflowCommand: {e2}"),
                             }
                         }
                     }
                 }
-                panic!("Failed to parse WorkflowConfig: {}", e);
+                panic!("Failed to parse WorkflowConfig: {e}");
             }
         };
         assert_eq!(config.commands.len(), 3);
