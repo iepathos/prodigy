@@ -99,7 +99,7 @@ impl WorkflowCoordinator for DefaultWorkflowCoordinator {
             }
 
             // Execute all commands in the workflow
-            for (i, command) in commands.iter().enumerate() {
+            for command in commands.iter() {
                 // Convert to workflow step
                 let command_str = match command {
                     crate::config::WorkflowCommand::Simple(s) => s.clone(),
@@ -108,7 +108,7 @@ impl WorkflowCoordinator for DefaultWorkflowCoordinator {
                 };
 
                 let step = WorkflowStep {
-                    name: Some(format!("Step {}", i + 1)),
+                    name: None,
                     command: Some(if command_str.starts_with('/') {
                         command_str
                     } else {

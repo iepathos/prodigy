@@ -1,13 +1,13 @@
 # Custom analyzer workflow example
 # Shows how to create a workflow with custom commands
 commands:
-    - name: custom-code-analyzer
+    - claude: "/custom-code-analyzer"
       id: analyze
       outputs:
         spec:
           file_pattern: "analysis/*.md"
     
-    - name: custom-fixer
+    - claude: "/custom-fixer ${analyze.spec}"
       inputs:
         spec:
           from: "${analyze.spec}"
@@ -15,4 +15,4 @@ commands:
             argument:
               position: 0
               
-    - name: custom-validator
+    - claude: "/custom-validator"

@@ -1,13 +1,13 @@
 # Test-driven development workflow
 # Focuses on improving test coverage and quality
 commands:
-    - name: mmm-test-analysis
+    - claude: "/mmm-test-analysis"
       id: analysis
       outputs:
         spec:
           file_pattern: "specs/temp/*-test-improvements.md"
     
-    - name: mmm-generate-tests
+    - claude: "/mmm-generate-tests ${analysis.spec}"
       inputs:
         spec:
           from: "${analysis.spec}"
@@ -15,8 +15,8 @@ commands:
             argument:
               position: 0
     
-    - name: mmm-test-runner
+    - claude: "/mmm-test-runner"
       metadata:
         continue_on_error: true
         
-    - name: mmm-lint
+    - claude: "/mmm-lint"

@@ -6,17 +6,17 @@
 
 commands:
   # Step 1: Analyze from product management perspective
-  - name: mmm-product-enhance
+  - claude: "/mmm-product-enhance --area cli-ux --max-enhancements 8"
     options:
       area: "cli-ux"  # Optional: target specific area
       max-enhancements: 8
       
   # Step 2: Implement the enhancements
-  - name: mmm-implement-spec
+  - claude: "/mmm-implement-spec $SPEC_ID"
     args: ["$SPEC_ID"]  # Auto-extracted from previous command
       
   # Step 3: Clean up and ensure quality
-  - name: mmm-lint
+  - claude: "/mmm-lint --fix"
     options:
       fix: true
     metadata:

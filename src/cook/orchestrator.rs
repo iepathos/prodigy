@@ -261,22 +261,14 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             .workflow
             .commands
             .iter()
-            .enumerate()
-            .map(|(i, cmd)| {
-                use crate::config::command::WorkflowCommand;
-                let (command_str, commit_required, analysis_config) = match cmd {
-                    WorkflowCommand::Simple(s) => (s.clone(), true, None),
-                    WorkflowCommand::Structured(c) => (
-                        c.name.clone(),
-                        c.metadata.commit_required,
-                        c.analysis.clone().or_else(|| c.metadata.analysis.clone()),
-                    ),
-                    WorkflowCommand::SimpleObject(simple) => (
-                        simple.name.clone(),
-                        simple.commit_required.unwrap_or(true),
-                        simple.analysis.clone(),
-                    ),
-                };
+            .map(|cmd| {
+                // Convert to command and apply defaults to get proper commit_required
+                let mut command = cmd.to_command();
+                crate::config::apply_command_defaults(&mut command);
+
+                let command_str = command.name.clone();
+                let commit_required = command.metadata.commit_required;
+                let analysis_config = command.analysis.clone();
 
                 // If analysis is configured, run it before this step
                 if let Some(ref _analysis_cfg) = analysis_config {
@@ -285,7 +277,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                 }
 
                 WorkflowStep {
-                    name: Some(format!("Step {}", i + 1)),
+                    name: None,
                     command: Some(if command_str.starts_with('/') {
                         command_str
                     } else {
@@ -477,7 +469,9 @@ impl DefaultCookOrchestrator {
 
             // Execute each command in sequence
             for (step_index, cmd) in config.workflow.commands.iter().enumerate() {
-                let command = cmd.to_command();
+                let mut command = cmd.to_command();
+                // Apply defaults from the command registry
+                crate::config::apply_command_defaults(&mut command);
 
                 self.user_interaction.display_progress(&format!(
                     "Executing step {}/{}: {}",
@@ -802,7 +796,9 @@ impl DefaultCookOrchestrator {
 
             // Execute each command in sequence
             for (step_index, cmd) in config.workflow.commands.iter().enumerate() {
-                let command = cmd.to_command();
+                let mut command = cmd.to_command();
+                // Apply defaults from the command registry
+                crate::config::apply_command_defaults(&mut command);
 
                 self.user_interaction.display_progress(&format!(
                     "Executing step {}/{}: {}",
@@ -1122,7 +1118,9 @@ impl DefaultCookOrchestrator {
         variables: &mut HashMap<String, String>,
         timing_tracker: &mut TimingTracker,
     ) -> Result<()> {
-        let command = cmd.to_command();
+        let mut command = cmd.to_command();
+        // Apply defaults from the command registry
+        crate::config::apply_command_defaults(&mut command);
 
         self.user_interaction.display_progress(&format!(
             "Executing step {}/{}: {}",

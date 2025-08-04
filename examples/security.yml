@@ -1,13 +1,13 @@
 # Security-focused workflow
 # Analyzes code for security issues and applies fixes
 commands:
-    - name: mmm-security-audit
+    - claude: "/mmm-security-audit"
       id: audit
       outputs:
         spec:
           file_pattern: "specs/temp/*-security.md"
     
-    - name: mmm-implement-spec
+    - claude: "/mmm-implement-spec ${audit.spec}"
       inputs:
         spec:
           from: "${audit.spec}"
@@ -15,4 +15,4 @@ commands:
             argument:
               position: 0
     
-    - name: mmm-security-validate
+    - claude: "/mmm-security-validate"

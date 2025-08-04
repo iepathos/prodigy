@@ -2,13 +2,13 @@
 # Improve code documentation and readability
 
 commands:
-  - mmm-docs-generate
-  - mmm-implement-spec
-  - mmm-code-review
-  - mmm-implement-spec
-  - mmm-docs-generate
-  - mmm-implement-spec
-  - mmm-lint
+  - claude: "/mmm-docs-generate"
+  - claude: "/mmm-implement-spec"
+  - claude: "/mmm-code-review"
+  - claude: "/mmm-implement-spec"
+  - claude: "/mmm-docs-generate"
+  - claude: "/mmm-implement-spec"
+  - claude: "/mmm-lint"
 
 
 # This workflow:

@@ -636,7 +636,7 @@ impl WorkflowExecutor {
     /// Handle test mode execution
     fn handle_test_mode_execution(
         &self,
-        _step: &WorkflowStep,
+        step: &WorkflowStep,
         command_type: &CommandType,
     ) -> Result<StepResult> {
         let command_str = match command_type {
@@ -657,6 +657,16 @@ impl WorkflowExecutor {
 
         if should_simulate_no_changes {
             println!("[TEST MODE] Simulating no changes");
+            // If this command requires commits but simulates no changes,
+            // it should fail UNLESS commit validation is explicitly skipped
+            let skip_validation =
+                std::env::var("MMM_NO_COMMIT_VALIDATION").unwrap_or_default() == "true";
+            if step.commit_required && !skip_validation {
+                return Err(anyhow::anyhow!(
+                    "No changes were committed by {}",
+                    self.get_step_display_name(step)
+                ));
+            }
             return Ok(StepResult {
                 success: true,
                 exit_code: Some(0),

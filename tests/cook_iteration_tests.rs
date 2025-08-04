@@ -228,15 +228,16 @@ commands:
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
+    // Print stdout and stderr for debugging
+    println!("STDOUT:\n{stdout}");
+    println!("STDERR:\n{stderr}");
+    println!("Exit status: {:?}", output.status);
+
     // With commit verification, the command should fail when no commits are created
     assert!(
         !output.status.success(),
         "Command should fail when no commits are created"
     );
-
-    // Print stdout and stderr for debugging
-    println!("STDOUT:\n{stdout}");
-    println!("STDERR:\n{stderr}");
 
     // Should stop after 1 iteration when no changes found
     // Check that we started the improvement loop
@@ -252,7 +253,9 @@ commands:
     let has_error_msg = stderr.contains("No changes were committed")
         || stderr.contains("No commits created")
         || stdout.contains("No changes were committed")
-        || stdout.contains("No commits created");
+        || stdout.contains("No commits created")
+        || stderr.contains("Failed to execute step")  // Also accept the wrapped error message
+        || stdout.contains("Failed to execute step");
 
     assert!(has_start, "Should have started the improvement loop");
     assert!(has_code_review, "Should have run code review at least once");

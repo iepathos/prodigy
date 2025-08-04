@@ -2,9 +2,9 @@
 # Simple YAML with focus arguments
 
 commands:
-  - mmm-performance --focus performance
-  - mmm-implement-spec
-  - mmm-lint
+  - claude: "/mmm-performance --focus performance"
+  - claude: "/mmm-implement-spec"
+  - claude: "/mmm-lint"
 
 # Simple and effective:
 # 1. Analyzes performance bottlenecks

@@ -11,12 +11,11 @@ commands:
   # Implement the spec using the $ARG variable which contains:
   # - The spec ID extracted from filename when using --map
   # - The direct argument value when using --args
-  - name: mmm-implement-spec
-    args: ["$ARG"]
+  - claude: "/mmm-implement-spec $ARG"
     analysis:
         max_cache_age: 300
   
   # Run linting and formatting after implementation
-  - name: mmm-lint
+  - claude: "/mmm-lint"
     commit_required: false
   

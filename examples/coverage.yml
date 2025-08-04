@@ -1,7 +1,7 @@
 # Test coverage improvement workflow
 # Identifies coverage gaps and implements comprehensive test coverage
 commands:
-    - name: mmm-coverage
+    - claude: "/mmm-coverage"
       id: coverage
       commit_required: false  # Coverage analysis doesn't create commits
       outputs:
@@ -10,7 +10,7 @@ commands:
       analysis:
         max_cache_age: 300
     
-    - name: mmm-implement-spec
+    - claude: "/mmm-implement-spec ${coverage.spec}"
       inputs:
         spec:
           from: "${coverage.spec}"
@@ -18,5 +18,5 @@ commands:
             argument:
               position: 0
     
-    - name: mmm-lint
+    - claude: "/mmm-lint"
       commit_required: false  # OK if no linting issues found

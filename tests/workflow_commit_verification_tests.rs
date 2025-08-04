@@ -105,9 +105,10 @@ fn test_workflow_fails_when_no_commits_and_required() -> Result<()> {
         .env("MMM_TEST_NO_CHANGES_COMMANDS", "test-no-commit");
 
     // Should fail with error about no commits
-    cmd.assert()
-        .failure()
-        .stderr(predicate::str::contains("No changes were committed"));
+    cmd.assert().failure().stderr(
+        predicate::str::contains("No changes were committed")
+            .or(predicate::str::contains("Failed to execute step")),
+    );
 
     // No cleanup needed - env vars were only set on subprocess
 

@@ -1,7 +1,7 @@
 # Tech debt cleanup workflow
 # Focuses on cleaning up technical debt in the codebase
 commands:
-    - name: mmm-cleanup-tech-debt
+    - claude: "/mmm-cleanup-tech-debt"
       id: cleanup
       outputs:
         spec:
@@ -9,7 +9,7 @@ commands:
       analysis:
         max_cache_age: 300
     
-    - name: mmm-implement-spec
+    - claude: "/mmm-implement-spec ${cleanup.spec}"
       inputs:
         spec:
           from: "${cleanup.spec}"
@@ -17,5 +17,5 @@ commands:
             argument:
               position: 0
     
-    - name: mmm-lint
+    - claude: "/mmm-lint"
       commit_required: false
