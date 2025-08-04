@@ -148,7 +148,7 @@ impl SubprocessManager {
 
     /// Create a git-specific runner
     ///
-    /// Returns a [`GitRunnerImpl`] that provides high-level git operations
+    /// Returns a [`GitRunner`] implementation that provides high-level git operations
     /// with proper error handling and logging.
     ///
     /// # Examples
@@ -165,7 +165,7 @@ impl SubprocessManager {
 
     /// Create a Claude CLI-specific runner
     ///
-    /// Returns a [`ClaudeRunnerImpl`] that provides high-level Claude CLI operations
+    /// Returns a [`ClaudeRunner`] implementation that provides high-level Claude CLI operations
     /// with proper error handling and environment setup.
     ///
     /// # Examples
