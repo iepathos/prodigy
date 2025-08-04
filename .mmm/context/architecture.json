@@ -4,53 +4,6 @@
   ],
   "layers": [],
   "components": {
-    "analyze": {
-      "name": "analyze",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn fn"
-      ],
-      "dependencies": [
-        "anyhow",
-        "command",
-        "tempfile"
-      ]
-    },
-    "session": {
-      "name": "session",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct SessionId(String)",
-        "fn new()",
-        "fn from_string(id:",
-        "fn as_str(&self)",
-        "struct SessionInfo",
-        "struct IterationChanges",
-        "struct CommitInfo",
-        "struct ExecutedCommand"
-      ],
-      "dependencies": [
-        "async_trait",
-        "chrono",
-        "serde",
-        "anyhow",
-        "tokio",
-        "uuid",
-        "tempfile"
-      ]
-    },
-    "init": {
-      "name": "init",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn fn"
-      ],
-      "dependencies": [
-        "clap",
-        "anyhow",
-        "tempfile"
-      ]
-    },
     "context": {
       "name": "context",
       "responsibility": "Module functionality",
@@ -77,139 +30,6 @@
         "serde"
       ]
     },
-    "analysis": {
-      "name": "analysis",
-      "responsibility": "Module functionality",
-      "interfaces": [],
-      "dependencies": [
-        "anyhow",
-        "async_trait",
-        "tempfile"
-      ]
-    },
-    "scoring": {
-      "name": "scoring",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct ProjectHealthScore",
-        "struct ScoreComponents",
-        "fn from_metrics(metrics:",
-        "fn from_context(analysis:",
-        "fn get_improvement_suggestions(&self)",
-        "fn calculate_technical_debt_score(debt_items:",
-        "fn format_component(name:"
-      ],
-      "dependencies": [
-        "chrono",
-        "serde"
-      ]
-    },
-    "simple_state": {
-      "name": "simple_state",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "fn init()"
-      ],
-      "dependencies": [
-        "anyhow",
-        "serde",
-        "chrono",
-        "tempfile"
-      ]
-    },
-    "testing": {
-      "name": "testing",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct TestContext",
-        "fn new()",
-        "fn with_mocks",
-        "fn temp_path(&self)",
-        "fn create_test_file(&self,",
-        "struct MockGitBuilder",
-        "fn new()",
-        "fn is_repo(mut",
-        "fn fn",
-        "fn fn",
-        "fn build(self)",
-        "struct MockClaudeBuilder",
-        "fn new()",
-        "fn is_available(mut",
-        "fn fn",
-        "fn fn",
-        "fn build(self)",
-        "struct TestFixtures",
-        "fn fn",
-        "fn fn",
-        "fn fn",
-        "fn fn",
-        "fn unavailable_claude()",
-        "fn setup_test_project(temp_dir:",
-        "fn create_test_file(dir:",
-        "fn create_test_files(dir:"
-      ],
-      "dependencies": [
-        "anyhow",
-        "tempfile"
-      ]
-    },
-    "config": {
-      "name": "config",
-      "responsibility": "Configuration management",
-      "interfaces": [
-        "fn get_global_mmm_dir()",
-        "struct Config",
-        "struct GlobalConfig",
-        "struct ProjectConfig",
-        "struct PluginConfig",
-        "fn new()",
-        "fn merge_env_vars(&mut",
-        "fn get_claude_api_key(&self)",
-        "fn get_auto_commit(&self)",
-        "fn get_spec_dir(&self)"
-      ],
-      "dependencies": [
-        "anyhow",
-        "regex",
-        "serde",
-        "directories",
-        "once_cell",
-        "tokio",
-        "tempfile"
-      ]
-    },
-    "metrics": {
-      "name": "metrics",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct ImprovementMetrics",
-        "fn new(iteration_id:",
-        "fn overall_score(&self)",
-        "fn update_health_score(&mut",
-        "struct MetricsComparison",
-        "struct ComplexitySummary",
-        "struct FileComplexityStats",
-        "struct ComplexityHotspot",
-        "trait MetricsAnalyzer",
-        "struct MetricsData",
-        "trait MetricsReporter",
-        "fn fn",
-        "fn fn",
-        "fn create_disabled_registry()",
-        "fn create_context"
-      ],
-      "dependencies": [
-        "anyhow",
-        "tokio",
-        "tempfile",
-        "async_trait",
-        "chrono",
-        "serde",
-        "rand",
-        "syn",
-        "tracing"
-      ]
-    },
     "subprocess": {
       "name": "subprocess",
       "responsibility": "Module functionality",
@@ -227,21 +47,6 @@
         "tempfile",
         "futures",
         "tokio"
-      ]
-    },
-    "worktree": {
-      "name": "worktree",
-      "responsibility": "Module functionality",
-      "interfaces": [
-        "struct WorktreeSession",
-        "fn new(name:"
-      ],
-      "dependencies": [
-        "tempfile",
-        "anyhow",
-        "chrono",
-        "uuid",
-        "serde"
       ]
     },
     "git": {
@@ -282,6 +87,80 @@
         "signal_hook"
       ]
     },
+    "metrics": {
+      "name": "metrics",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct ImprovementMetrics",
+        "fn new(iteration_id:",
+        "fn overall_score(&self)",
+        "fn update_health_score(&mut",
+        "struct MetricsComparison",
+        "struct ComplexitySummary",
+        "struct FileComplexityStats",
+        "struct ComplexityHotspot",
+        "trait MetricsAnalyzer",
+        "struct MetricsData",
+        "trait MetricsReporter",
+        "fn fn",
+        "fn fn",
+        "fn create_disabled_registry()",
+        "fn create_context"
+      ],
+      "dependencies": [
+        "anyhow",
+        "tokio",
+        "tempfile",
+        "async_trait",
+        "chrono",
+        "serde",
+        "rand",
+        "syn",
+        "tracing"
+      ]
+    },
+    "scoring": {
+      "name": "scoring",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct ProjectHealthScore",
+        "struct ScoreComponents",
+        "fn from_metrics(metrics:",
+        "fn from_context(analysis:",
+        "fn get_improvement_suggestions(&self)",
+        "fn calculate_technical_debt_score(debt_items:",
+        "fn format_component(name:"
+      ],
+      "dependencies": [
+        "chrono",
+        "serde"
+      ]
+    },
+    "config": {
+      "name": "config",
+      "responsibility": "Configuration management",
+      "interfaces": [
+        "fn get_global_mmm_dir()",
+        "struct Config",
+        "struct GlobalConfig",
+        "struct ProjectConfig",
+        "struct PluginConfig",
+        "fn new()",
+        "fn merge_env_vars(&mut",
+        "fn get_claude_api_key(&self)",
+        "fn get_auto_commit(&self)",
+        "fn get_spec_dir(&self)"
+      ],
+      "dependencies": [
+        "anyhow",
+        "regex",
+        "serde",
+        "directories",
+        "once_cell",
+        "tokio",
+        "tempfile"
+      ]
+    },
     "abstractions": {
       "name": "abstractions",
       "responsibility": "Module functionality",
@@ -290,6 +169,127 @@
         "anyhow",
         "async_trait",
         "tokio",
+        "tempfile"
+      ]
+    },
+    "session": {
+      "name": "session",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct SessionId(String)",
+        "fn new()",
+        "fn from_string(id:",
+        "fn as_str(&self)",
+        "struct SessionInfo",
+        "struct IterationChanges",
+        "struct CommitInfo",
+        "struct ExecutedCommand"
+      ],
+      "dependencies": [
+        "async_trait",
+        "chrono",
+        "serde",
+        "anyhow",
+        "tokio",
+        "uuid",
+        "tempfile"
+      ]
+    },
+    "testing": {
+      "name": "testing",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct TestContext",
+        "fn new()",
+        "fn with_mocks",
+        "fn temp_path(&self)",
+        "fn create_test_file(&self,",
+        "struct MockGitBuilder",
+        "fn new()",
+        "fn is_repo(mut",
+        "fn fn",
+        "fn fn",
+        "fn build(self)",
+        "struct MockClaudeBuilder",
+        "fn new()",
+        "fn is_available(mut",
+        "fn fn",
+        "fn fn",
+        "fn build(self)",
+        "struct TestFixtures",
+        "fn fn",
+        "fn fn",
+        "fn fn",
+        "fn fn",
+        "fn unavailable_claude()",
+        "fn setup_test_project(temp_dir:",
+        "fn create_test_file(dir:",
+        "fn create_test_files(dir:"
+      ],
+      "dependencies": [
+        "anyhow",
+        "tempfile"
+      ]
+    },
+    "simple_state": {
+      "name": "simple_state",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn init()"
+      ],
+      "dependencies": [
+        "anyhow",
+        "serde",
+        "chrono",
+        "tempfile"
+      ]
+    },
+    "init": {
+      "name": "init",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn"
+      ],
+      "dependencies": [
+        "clap",
+        "anyhow",
+        "tempfile"
+      ]
+    },
+    "worktree": {
+      "name": "worktree",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "struct WorktreeSession",
+        "fn new(name:"
+      ],
+      "dependencies": [
+        "tempfile",
+        "anyhow",
+        "chrono",
+        "uuid",
+        "serde"
+      ]
+    },
+    "analyze": {
+      "name": "analyze",
+      "responsibility": "Module functionality",
+      "interfaces": [
+        "fn fn"
+      ],
+      "dependencies": [
+        "anyhow",
+        "command",
+        "tempfile"
+      ]
+    },
+    "analysis": {
+      "name": "analysis",
+      "responsibility": "Module functionality",
+      "interfaces": [],
+      "dependencies": [
+        "anyhow",
+        "async_trait",
         "tempfile"
       ]
     }
