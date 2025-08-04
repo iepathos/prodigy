@@ -14,9 +14,9 @@ commands:
       inputs:
         spec:
           from: "${coverage.spec}"
-          pass_as:
-            argument:
-              position: 0
+        pass_as:
+          argument:
+            position: 0
     
     - claude: "/mmm-lint"
       commit_required: false  # OK if no linting issues found
