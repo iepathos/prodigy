@@ -8,6 +8,7 @@ As of version 0.1.0, MMM's context generation has been optimized to reduce file 
 - Technical debt files reduced from 8.2MB to under 500KB
 - Analysis files reduced from 8.9MB to under 500KB  
 - Metrics files reduced from 100KB+ to under 10KB through complexity aggregation
+- Test coverage files reduced from 266KB+ to under 30KB through smart filtering
 - Total context size kept under 1MB for typical projects
 - Maximal duplicate detection replaces inefficient sliding windows
 - Smart aggregation limits items per category while preserving high-impact issues
@@ -27,7 +28,7 @@ MMM maintains rich project context in the `.mmm/` directory, providing structure
 │   ├── architecture.json      # Architecture patterns & violations
 │   ├── conventions.json       # Code conventions & naming patterns
 │   ├── technical_debt.json    # Debt items & complexity hotspots (optimized)
-│   ├── test_coverage.json     # Test coverage data
+│   ├── test_coverage.json     # Test coverage data (optimized)
 │   ├── hybrid_coverage.json   # Hybrid coverage with quality metrics
 │   └── analysis_metadata.json # Analysis timestamps & stats
 ├── metrics/                    # Performance & quality metrics
@@ -201,30 +202,62 @@ Technical debt analysis:
 ```
 
 #### `context/test_coverage.json`
-Test coverage information:
+Test coverage information (optimized for Claude consumption):
 ```json
 {
   "overall_coverage": 0.73,
   "file_coverage": {
-    "src/lib.rs": {
-      "coverage_percentage": 0.85,
-      "lines_covered": 120,
-      "lines_total": 141
+    "src/auth.rs": {  // Only files with < 50% coverage or no tests
+      "path": "",     // Path field cleared to save space
+      "coverage_percentage": 0.15,
+      "tested_lines": 20,
+      "total_lines": 133,
+      "tested_functions": 2,
+      "total_functions": 10,
+      "has_tests": true
     }
   },
   "untested_functions": [
-    "src/utils.rs:handle_error",
-    "src/db.rs:migrate_schema"
-  ],
-  "critical_gaps": [
+    // ALL High criticality functions (typically 0-5)
     {
       "file": "src/auth.rs",
-      "functions": ["validate_token", "refresh_session"],
-      "risk": "High"
+      "name": "validate_token",
+      "line_number": 45,
+      "criticality": "High"
+    },
+    // Top 30 Medium criticality functions
+    {
+      "file": "src/payment.rs",
+      "name": "process_payment",
+      "line_number": 123,
+      "criticality": "Medium"
+    },
+    // Top 10 Low criticality functions as examples
+    {
+      "file": "src/utils.rs",
+      "name": "format_string",
+      "line_number": 67,
+      "criticality": "Low"
+    }
+  ],
+  "critical_paths": [
+    {
+      "description": "Authentication and authorization",
+      "files": ["src/auth"],
+      "risk_level": "Critical"
     }
   ]
 }
 ```
+
+**Optimization Details (v0.1.0+)**:
+- File coverage: Only includes files with < 50% coverage or no tests
+- Untested functions: Prioritized by criticality
+  - ALL High criticality functions (preserves critical security/payment functions)
+  - Top 30 Medium criticality functions (most important business logic)
+  - Top 10 Low criticality functions (examples for pattern recognition)
+- Reduces file size from ~266KB to ~26KB (90% reduction)
+- Redundant "path" field cleared in file_coverage entries
 
 #### `context/hybrid_coverage.json`
 Hybrid coverage information combining test coverage with quality metrics:
