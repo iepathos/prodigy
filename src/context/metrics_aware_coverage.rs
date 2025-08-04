@@ -112,13 +112,18 @@ impl TestCoverageAnalyzer for MetricsAwareCoverageAnalyzer {
                     let age = std::time::SystemTime::now()
                         .duration_since(modified)
                         .unwrap_or(std::time::Duration::from_secs(u64::MAX));
-                    
+
                     // If the report is less than 5 minutes old, use it
                     if age.as_secs() < 300 {
                         eprintln!("📊 Found recent tarpaulin report, using it for coverage data");
                         // Use TarpaulinCoverageAnalyzer to parse the report
-                        let tarpaulin_analyzer = super::tarpaulin_coverage::TarpaulinCoverageAnalyzer::new(self.subprocess.clone());
-                        if let Ok(coverage) = tarpaulin_analyzer.analyze_coverage(project_path).await {
+                        let tarpaulin_analyzer =
+                            super::tarpaulin_coverage::TarpaulinCoverageAnalyzer::new(
+                                self.subprocess.clone(),
+                            );
+                        if let Ok(coverage) =
+                            tarpaulin_analyzer.analyze_coverage(project_path).await
+                        {
                             return Ok(coverage);
                         }
                     }

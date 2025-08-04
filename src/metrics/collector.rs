@@ -23,7 +23,8 @@ impl MetricsCollector {
         project_path: &Path,
         iteration_id: String,
     ) -> Result<ImprovementMetrics> {
-        self.collect_metrics_with_config(project_path, iteration_id, false).await
+        self.collect_metrics_with_config(project_path, iteration_id, false)
+            .await
     }
 
     /// Collect all metrics for the project with configuration
@@ -65,7 +66,9 @@ impl MetricsCollector {
         let (quality_result, perf_result, complex_result) = tokio::join!(
             async {
                 let analyzer = QualityAnalyzer::new(subprocess_quality).await;
-                analyzer.analyze_with_coverage(&quality_path, run_coverage).await
+                analyzer
+                    .analyze_with_coverage(&quality_path, run_coverage)
+                    .await
             },
             async {
                 let profiler = PerformanceProfiler::new(subprocess_perf);

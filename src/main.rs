@@ -219,7 +219,7 @@ async fn main() {
                 save,
                 verbose: cli.verbose > 0,
                 path,
-                run_coverage: !no_coverage,  // Invert the flag
+                run_coverage: !no_coverage, // Invert the flag
                 no_commit,
             };
             mmm::analyze::run(analyze_cmd).await

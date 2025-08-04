@@ -60,11 +60,11 @@ impl<R: CommandRunner + 'static> MetricsCollectorTrait for MetricsCollectorImpl<
         {
             Ok(metrics) => {
                 if metrics.test_coverage == 0.0 {
-                    Ok(None)  // Return None for N/A coverage
+                    Ok(None) // Return None for N/A coverage
                 } else {
                     Ok(Some(metrics.test_coverage as f64))
                 }
-            },
+            }
             Err(_) => Ok(None),
         }
     }

@@ -78,6 +78,46 @@ mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
     use tempfile::TempDir;
+
+    /// Test helper: Execute git command in a specific directory
+    async fn git_in_dir(dir: &std::path::Path, args: &[&str]) -> Result<std::process::Output> {
+        let output = Command::new("git")
+            .args(args)
+            .current_dir(dir)
+            .output()
+            .await?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(anyhow::anyhow!("Git command failed: {}", stderr));
+        }
+
+        Ok(output)
+    }
+
+    /// Test helper: Check git status in a specific directory
+    async fn check_git_status_in_dir(dir: &std::path::Path) -> Result<String> {
+        let output = git_in_dir(dir, &["status", "--porcelain"]).await?;
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    }
+
+    /// Test helper: Get last commit message in a specific directory
+    async fn get_last_commit_message_in_dir(dir: &std::path::Path) -> Result<String> {
+        let output = git_in_dir(dir, &["log", "-1", "--pretty=format:%s"]).await?;
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    }
+
+    /// Test helper: Stage all changes in a specific directory
+    async fn stage_all_changes_in_dir(dir: &std::path::Path) -> Result<()> {
+        git_in_dir(dir, &["add", "."]).await?;
+        Ok(())
+    }
+
+    /// Test helper: Create commit in a specific directory
+    async fn create_commit_in_dir(dir: &std::path::Path, message: &str) -> Result<()> {
+        git_in_dir(dir, &["commit", "-m", message]).await?;
+        Ok(())
+    }
     use tokio::process::Command;
 
     #[tokio::test]
@@ -197,9 +237,6 @@ mod tests {
     async fn test_get_last_commit_message_success() {
         // Test getting last commit message in a valid repo
         let temp_repo = create_temp_git_repo().await.unwrap();
-        let original_dir = std::env::current_dir().unwrap();
-
-        std::env::set_current_dir(temp_repo.path()).unwrap();
 
         // Create commits
         create_test_commit(temp_repo.path(), "Initial commit")
@@ -209,37 +246,25 @@ mod tests {
             .await
             .unwrap();
 
-        let result = get_last_commit_message().await;
+        let result = get_last_commit_message_in_dir(temp_repo.path()).await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Feature: Add new functionality");
-
-        // Restore original directory
-        std::env::set_current_dir(original_dir).unwrap();
     }
 
     #[tokio::test]
     async fn test_get_last_commit_message_no_commits() {
         // Test error when no commits exist
         let temp_repo = create_temp_git_repo().await.unwrap();
-        let original_dir = std::env::current_dir().unwrap();
 
-        std::env::set_current_dir(temp_repo.path()).unwrap();
-
-        let result = get_last_commit_message().await;
+        let result = get_last_commit_message_in_dir(temp_repo.path()).await;
         assert!(result.is_err());
         // Git error messages vary by version, so just check it failed
-
-        // Restore original directory
-        std::env::set_current_dir(original_dir).unwrap();
     }
 
     #[tokio::test]
     async fn test_stage_all_changes_success() {
         // Test staging all changes successfully
         let temp_repo = create_temp_git_repo().await.unwrap();
-        let original_dir = std::env::current_dir().unwrap();
-
-        std::env::set_current_dir(temp_repo.path()).unwrap();
 
         // Create initial commit
         create_test_commit(temp_repo.path(), "Initial commit")
@@ -249,44 +274,32 @@ mod tests {
         // Create a new file
         std::fs::write(temp_repo.path().join("new_file.txt"), "content").unwrap();
 
-        let result = stage_all_changes().await;
+        let result = stage_all_changes_in_dir(temp_repo.path()).await;
         assert!(result.is_ok());
 
         // Verify file is staged
-        let status = check_git_status().await.unwrap();
+        let status = check_git_status_in_dir(temp_repo.path()).await.unwrap();
         assert!(status.contains("new_file.txt"));
-
-        // Restore original directory
-        std::env::set_current_dir(original_dir).unwrap();
     }
 
     #[tokio::test]
     async fn test_stage_all_changes_no_changes() {
         // Test staging when no changes exist
         let temp_repo = create_temp_git_repo().await.unwrap();
-        let original_dir = std::env::current_dir().unwrap();
-
-        std::env::set_current_dir(temp_repo.path()).unwrap();
 
         // Create initial commit
         create_test_commit(temp_repo.path(), "Initial commit")
             .await
             .unwrap();
 
-        let result = stage_all_changes().await;
+        let result = stage_all_changes_in_dir(temp_repo.path()).await;
         assert!(result.is_ok()); // Should succeed even with no changes
-
-        // Restore original directory
-        std::env::set_current_dir(original_dir).unwrap();
     }
 
     #[tokio::test]
     async fn test_create_commit_success() {
         // Test creating a commit successfully
         let temp_repo = create_temp_git_repo().await.unwrap();
-        let original_dir = std::env::current_dir().unwrap();
-
-        std::env::set_current_dir(temp_repo.path()).unwrap();
 
         // Create initial commit
         create_test_commit(temp_repo.path(), "Initial commit")
@@ -295,72 +308,55 @@ mod tests {
 
         // Stage a change
         std::fs::write(temp_repo.path().join("new_test.txt"), "new content").unwrap();
-        stage_all_changes().await.unwrap();
+        stage_all_changes_in_dir(temp_repo.path()).await.unwrap();
 
-        let result = create_commit("test: Add test file").await;
+        let result = create_commit_in_dir(temp_repo.path(), "test: Add test file").await;
         assert!(result.is_ok());
 
-        let last_message = get_last_commit_message().await.unwrap();
+        let last_message = get_last_commit_message_in_dir(temp_repo.path())
+            .await
+            .unwrap();
         assert_eq!(last_message, "test: Add test file");
-
-        // Restore original directory
-        std::env::set_current_dir(original_dir).unwrap();
     }
 
     #[tokio::test]
     async fn test_create_commit_no_staged_changes() {
         // Test error when no changes are staged
         let temp_repo = create_temp_git_repo().await.unwrap();
-        let original_dir = std::env::current_dir().unwrap();
-
-        std::env::set_current_dir(temp_repo.path()).unwrap();
 
         // Create initial commit
         create_test_commit(temp_repo.path(), "Initial commit")
             .await
             .unwrap();
 
-        let result = create_commit("test: Empty commit").await;
+        let result = create_commit_in_dir(temp_repo.path(), "test: Empty commit").await;
         assert!(result.is_err());
         // Git will reject commits with no changes
-
-        // Restore original directory
-        std::env::set_current_dir(original_dir).unwrap();
     }
 
     #[tokio::test]
     async fn test_check_git_status_success() {
         // Test with clean repo
         let temp_dir = create_temp_git_repo().await.unwrap();
-        let original_dir = std::env::current_dir().unwrap();
-        std::env::set_current_dir(temp_dir.path()).unwrap();
 
-        let status = check_git_status().await.unwrap();
+        let status = check_git_status_in_dir(temp_dir.path()).await.unwrap();
         // The --porcelain output is empty for a clean repo
         assert_eq!(status.trim(), "", "Expected empty status for clean repo");
-
-        // Restore original directory
-        std::env::set_current_dir(original_dir).unwrap();
     }
 
     #[tokio::test]
     async fn test_check_git_status_with_changes() {
         // Test with uncommitted changes
         let temp_dir = create_temp_git_repo().await.unwrap();
-        let original_dir = std::env::current_dir().unwrap();
-        std::env::set_current_dir(temp_dir.path()).unwrap();
 
         // Create a file
         std::fs::write(temp_dir.path().join("test.txt"), "test content").unwrap();
 
-        let status = check_git_status().await.unwrap();
+        let status = check_git_status_in_dir(temp_dir.path()).await.unwrap();
         // The --porcelain output shows untracked files with ??
         assert!(
             status.contains("?? test.txt"),
             "Expected untracked file in status: {status}"
         );
-
-        // Restore original directory
-        std::env::set_current_dir(original_dir).unwrap();
     }
 }

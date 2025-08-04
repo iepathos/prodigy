@@ -49,7 +49,11 @@ impl QualityAnalyzer {
     }
 
     /// Analyze code quality metrics with optional coverage run
-    pub async fn analyze_with_coverage(&self, project_path: &Path, run_coverage: bool) -> Result<QualityMetrics> {
+    pub async fn analyze_with_coverage(
+        &self,
+        project_path: &Path,
+        run_coverage: bool,
+    ) -> Result<QualityMetrics> {
         let mut metrics = QualityMetrics {
             test_coverage: 0.0,
             type_coverage: 0.0,
@@ -79,16 +83,16 @@ impl QualityAnalyzer {
             debug!("Checking for cargo-tarpaulin coverage");
 
             let tarpaulin_path = project_path.join("target/coverage/tarpaulin-report.json");
-            
+
             // If run_coverage is true, actually run tarpaulin
             if run_coverage {
                 println!("🔬 Running cargo-tarpaulin for accurate test coverage...");
-                
+
                 // Create coverage directory if it doesn't exist
                 if let Some(parent) = tarpaulin_path.parent() {
                     std::fs::create_dir_all(parent).ok();
                 }
-                
+
                 // Run tarpaulin with JSON output
                 // Add --frozen to avoid updating dependencies and --lib to only test library
                 // Check for MMM_SKIP_TARPAULIN env var for testing
@@ -96,47 +100,61 @@ impl QualityAnalyzer {
                     eprintln!("⚠️  Skipping tarpaulin execution (MMM_SKIP_TARPAULIN set)");
                     return Ok(0.0); // Return 0.0 to indicate N/A
                 }
-                
+
                 let tarpaulin_command = ProcessCommandBuilder::new("cargo")
                     .args([
                         "tarpaulin",
-                        "--out", "Json",
-                        "--output-dir", "target/coverage",
+                        "--out",
+                        "Json",
+                        "--output-dir",
+                        "target/coverage",
                         "--skip-clean",
-                        "--timeout", "180",
+                        "--timeout",
+                        "180",
                         "--frozen",
                         "--lib",
-                        "--exclude-files", "*/tests/*",
-                        "--exclude-files", "*/target/*",
+                        "--exclude-files",
+                        "*/tests/*",
+                        "--exclude-files",
+                        "*/target/*",
                     ])
                     .current_dir(project_path)
                     .build();
-                
+
                 match self.subprocess.runner().run(tarpaulin_command).await {
                     Ok(output) => {
                         if output.status.success() {
                             // Try to read the generated report
                             if let Ok(content) = std::fs::read_to_string(&tarpaulin_path) {
-                                if let Ok(report) = serde_json::from_str::<serde_json::Value>(&content) {
-                                    if let Some(coverage) = report.get("coverage").and_then(|c| c.as_f64()) {
-                                        println!("✅ Test coverage analysis complete: {:.1}%", coverage);
+                                if let Ok(report) =
+                                    serde_json::from_str::<serde_json::Value>(&content)
+                                {
+                                    if let Some(coverage) =
+                                        report.get("coverage").and_then(|c| c.as_f64())
+                                    {
+                                        println!(
+                                            "✅ Test coverage analysis complete: {coverage:.1}%"
+                                        );
                                         return Ok(coverage as f32);
                                     }
                                 }
                             }
                         } else {
-                            eprintln!("❌ cargo-tarpaulin failed with exit code: {:?}", output.status.code());
+                            eprintln!(
+                                "❌ cargo-tarpaulin failed with exit code: {:?}",
+                                output.status.code()
+                            );
                             eprintln!("   Error output: {}", output.stderr);
                             eprintln!("   💡 Try running 'cargo tarpaulin' manually to see detailed errors");
                         }
                     }
                     Err(e) => {
-                        eprintln!("❌ Failed to run cargo-tarpaulin: {}", e);
+                        eprintln!("❌ Failed to run cargo-tarpaulin: {e}");
                         eprintln!("   💡 Make sure cargo-tarpaulin is installed: cargo install cargo-tarpaulin");
                     }
                 }
             }
-            
+
             // Try to use existing tarpaulin coverage data (whether or not run_coverage is true)
             if tarpaulin_path.exists() {
                 // Parse existing tarpaulin report
@@ -149,14 +167,14 @@ impl QualityAnalyzer {
                     }
                 }
             }
-
         }
 
         // No coverage data available
-        eprintln!("⚠️  No test coverage data available. Run 'cargo tarpaulin' to generate coverage data.");
+        eprintln!(
+            "⚠️  No test coverage data available. Run 'cargo tarpaulin' to generate coverage data."
+        );
         Ok(0.0) // Return 0.0 to indicate N/A
     }
-
 
     /// Get clippy warning count
     async fn get_lint_warnings(&self, project_path: &Path) -> Result<u32> {
