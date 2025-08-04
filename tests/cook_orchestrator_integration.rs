@@ -220,7 +220,7 @@ async fn test_cook_orchestrator_basic_workflow() -> anyhow::Result<()> {
     let temp_dir = TempDir::new()?;
     let mock_runner = Arc::new(mmm::subprocess::MockProcessRunner::new());
     let subprocess = SubprocessManager::new(mock_runner);
-    
+
     // Create all required components
     let session_manager = Arc::new(SessionTrackerImpl::new(
         "test-basic".to_string(),
@@ -233,7 +233,7 @@ async fn test_cook_orchestrator_basic_workflow() -> anyhow::Result<()> {
     let user_interaction = Arc::new(MockUserInteraction::new());
     let git_operations = Arc::new(MockGitOperations::new());
     let state_manager = StateManager::new()?;
-    
+
     let orchestrator = DefaultCookOrchestrator::new(
         session_manager.clone(),
         command_executor,
@@ -245,24 +245,24 @@ async fn test_cook_orchestrator_basic_workflow() -> anyhow::Result<()> {
         state_manager,
         subprocess,
     );
-    
+
     // Verify orchestrator was created with proper session ID
     assert_eq!(orchestrator.session_id(), "test-basic");
-    
+
     Ok(())
 }
 
 #[tokio::test]
 async fn test_cook_orchestrator_with_metrics() -> anyhow::Result<()> {
     let temp_dir = TempDir::new()?;
-    
+
     // Initialize git repo and .mmm directory
     std::fs::create_dir_all(temp_dir.path().join(".git"))?;
     std::fs::create_dir_all(temp_dir.path().join(".mmm/metrics"))?;
-    
+
     let mock_runner = Arc::new(mmm::subprocess::MockProcessRunner::new());
     let subprocess = SubprocessManager::new(mock_runner);
-    
+
     let session_manager = Arc::new(SessionTrackerImpl::new(
         "test-metrics".to_string(),
         temp_dir.path().to_path_buf(),
@@ -274,7 +274,7 @@ async fn test_cook_orchestrator_with_metrics() -> anyhow::Result<()> {
     let user_interaction = Arc::new(MockUserInteraction::new());
     let git_operations = Arc::new(MockGitOperations::new());
     let state_manager = StateManager::new()?;
-    
+
     let orchestrator = DefaultCookOrchestrator::new(
         session_manager,
         command_executor,
@@ -286,12 +286,12 @@ async fn test_cook_orchestrator_with_metrics() -> anyhow::Result<()> {
         state_manager,
         subprocess,
     );
-    
+
     // Verify orchestrator and metrics coordinator are properly initialized
     assert_eq!(orchestrator.session_id(), "test-metrics");
-    
+
     // Note: Actually collecting metrics would require running the full orchestration,
     // which requires more complex setup including mocking Claude API responses
-    
+
     Ok(())
 }

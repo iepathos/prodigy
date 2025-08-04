@@ -1021,9 +1021,9 @@ mod tests {
         let temp_dir = TempDir::new()?;
         let subprocess = SubprocessManager::production();
         let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
-        
+
         // First create a session with a checkpoint
-        let mut state = WorktreeState {
+        let state = WorktreeState {
             session_id: "test-session".to_string(),
             worktree_name: "test-session".to_string(),
             branch: "test-branch".to_string(),
@@ -1057,19 +1057,19 @@ mod tests {
             }),
             resumable: true,
         };
-        
+
         // Create the metadata directory and save state directly
         let metadata_dir = manager.base_dir.join(".metadata");
         std::fs::create_dir_all(&metadata_dir)?;
         let state_path = metadata_dir.join("test-session.json");
         std::fs::write(&state_path, serde_json::to_string_pretty(&state)?)?;
-        
+
         // Update the checkpoint
         manager.update_checkpoint("test-session", |checkpoint| {
             checkpoint.iteration = 2;
             checkpoint.last_command = "/mmm-updated".to_string();
         })?;
-        
+
         // Verify checkpoint was updated
         let updated_state = manager.get_session_state("test-session")?;
         let checkpoint = updated_state.last_checkpoint.unwrap();
@@ -1077,16 +1077,16 @@ mod tests {
         assert_eq!(checkpoint.last_command, "/mmm-updated");
         Ok(())
     }
-    
+
     #[tokio::test]
     async fn test_update_checkpoint_increments_iteration() -> Result<()> {
         use crate::worktree::Checkpoint;
         let temp_dir = TempDir::new()?;
         let subprocess = SubprocessManager::production();
         let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
-        
+
         // Create a session with initial checkpoint
-        let mut state = WorktreeState {
+        let state = WorktreeState {
             session_id: "test-session".to_string(),
             worktree_name: "test-session".to_string(),
             branch: "test-branch".to_string(),
@@ -1120,19 +1120,19 @@ mod tests {
             }),
             resumable: true,
         };
-        
+
         // Create the metadata directory and save state directly
         let metadata_dir = manager.base_dir.join(".metadata");
         std::fs::create_dir_all(&metadata_dir)?;
         let state_path = metadata_dir.join("test-session.json");
         std::fs::write(&state_path, serde_json::to_string_pretty(&state)?)?;
-        
+
         // Update checkpoint with new iteration
         manager.update_checkpoint("test-session", |checkpoint| {
             checkpoint.iteration = 2;
             checkpoint.last_command = "/mmm-test2".to_string();
         })?;
-        
+
         let state = manager.get_session_state("test-session")?;
         assert_eq!(state.last_checkpoint.unwrap().iteration, 2);
         Ok(())

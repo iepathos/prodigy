@@ -87,8 +87,8 @@ pub async fn execute_with_subprocess(
 mod tests {
     use super::*;
     use crate::subprocess::MockProcessRunner;
-    use tempfile::TempDir;
     use std::sync::Arc;
+    use tempfile::TempDir;
 
     #[tokio::test]
     async fn test_execute_with_subprocess_success() -> Result<()> {

@@ -38,7 +38,7 @@ impl ExitStatusExt for std::process::ExitStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_from_raw_success() {
         let status = std::process::ExitStatus::from_raw(0);
@@ -54,8 +54,8 @@ mod tests {
             assert_eq!(status.code(), Some(0));
         }
     }
-    
-    #[test] 
+
+    #[test]
     fn test_from_raw_failure() {
         let status = std::process::ExitStatus::from_raw(256); // Exit code 1 is typically 256 on Unix
         assert!(!status.success());

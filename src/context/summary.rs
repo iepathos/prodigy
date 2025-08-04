@@ -508,9 +508,21 @@ impl DependencyGraphSummary {
                 {
                     let summary = NodeSummary {
                         module_type: node.module_type.clone(),
-                        import_count: if node.imports.is_empty() { None } else { Some(node.imports.len()) },
-                        export_count: if node.exports.is_empty() { None } else { Some(node.exports.len()) },
-                        external_dep_count: if node.external_deps.is_empty() { None } else { Some(node.external_deps.len()) },
+                        import_count: if node.imports.is_empty() {
+                            None
+                        } else {
+                            Some(node.imports.len())
+                        },
+                        export_count: if node.exports.is_empty() {
+                            None
+                        } else {
+                            Some(node.exports.len())
+                        },
+                        external_dep_count: if node.external_deps.is_empty() {
+                            None
+                        } else {
+                            Some(node.external_deps.len())
+                        },
                         coupling_score: coupling,
                     };
                     Some((name.clone(), summary))

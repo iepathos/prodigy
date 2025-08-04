@@ -6,7 +6,7 @@ use predicates::prelude::*;
 fn test_main_help_command() -> Result<()> {
     let mut cmd = Command::cargo_bin("mmm")?;
     cmd.arg("--help");
-    
+
     cmd.assert()
         .success()
         .stdout(predicate::str::contains("memento-mori management"));
@@ -17,7 +17,7 @@ fn test_main_help_command() -> Result<()> {
 fn test_main_version_command() -> Result<()> {
     let mut cmd = Command::cargo_bin("mmm")?;
     cmd.arg("--version");
-    
+
     cmd.assert()
         .success()
         .stdout(predicate::str::contains(env!("CARGO_PKG_VERSION")));
@@ -28,7 +28,7 @@ fn test_main_version_command() -> Result<()> {
 fn test_main_invalid_command() -> Result<()> {
     let mut cmd = Command::cargo_bin("mmm")?;
     cmd.arg("invalid-command");
-    
+
     cmd.assert()
         .failure()
         .stderr(predicate::str::contains("error"));
