@@ -93,6 +93,18 @@ impl QualityAnalyzer {
                     std::fs::create_dir_all(parent).ok();
                 }
 
+                // Ensure target/debug/deps exists before running tarpaulin
+                let deps_dir = project_path.join("target/debug/deps");
+                if let Err(e) = std::fs::create_dir_all(&deps_dir) {
+                    eprintln!("⚠️  Failed to create target/debug/deps directory: {e}");
+                }
+                
+                // Also create target/debug/.fingerprint
+                let fingerprint_dir = project_path.join("target/debug/.fingerprint");
+                if let Err(e) = std::fs::create_dir_all(&fingerprint_dir) {
+                    eprintln!("⚠️  Failed to create target/debug/.fingerprint directory: {e}");
+                }
+
                 // Run tarpaulin with JSON output
                 // Add --frozen to avoid updating dependencies and --lib to only test library
                 // Check for MMM_SKIP_TARPAULIN env var for testing
@@ -111,7 +123,6 @@ impl QualityAnalyzer {
                         "--skip-clean",
                         "--timeout",
                         "180",
-                        "--frozen",
                         "--lib",
                         "--exclude-files",
                         "*/tests/*",
