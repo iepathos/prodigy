@@ -7,9 +7,9 @@ fn test_main_help_command() -> Result<()> {
     let mut cmd = Command::cargo_bin("mmm")?;
     cmd.arg("--help");
 
-    cmd.assert()
-        .success()
-        .stdout(predicate::str::contains("memento-mori management"));
+    cmd.assert().success().stdout(predicate::str::contains(
+        "Cook your code to perfection automatically",
+    ));
     Ok(())
 }
 

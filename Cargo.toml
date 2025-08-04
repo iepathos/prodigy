@@ -52,3 +52,6 @@ signal-hook = "0.3"
 [dev-dependencies]
 assert_cmd = "2.0"
 predicates = "3.1"
+tokio-test = "0.4"
+criterion = { version = "0.5", features = ["html_reports"] }
+insta = { version = "1.39", features = ["json", "redactions"] }

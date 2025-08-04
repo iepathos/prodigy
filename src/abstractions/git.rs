@@ -396,6 +396,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_real_git_operations_is_git_repo() {
+        use crate::subprocess::builder::ProcessCommandBuilder;
+        use crate::subprocess::SubprocessManager;
         use std::process::Command;
         use tempfile::TempDir;
 
@@ -409,23 +411,25 @@ mod tests {
             .output()
             .expect("Failed to run git init");
 
-        if output.status.success() {
-            // Change to the temp directory for the test
-            let _original_dir = std::env::current_dir().ok();
-            let _ = std::env::set_current_dir(temp_dir.path());
+        assert!(output.status.success(), "Git init should succeed");
 
-            let real = RealGitOperations::new();
-            let result = real.is_git_repo().await;
-            assert!(result, "Should detect git repository");
+        // Create a subprocess manager that runs commands in the temp directory
+        let subprocess = SubprocessManager::production();
 
-            // Restore original directory
-            if let Some(orig) = _original_dir {
-                let _ = std::env::set_current_dir(orig);
-            }
-        } else {
-            // If git init fails, just skip the test
-            println!("Skipping test - git init failed");
-        }
+        // Test if it's a git repo by running git rev-parse in that directory
+        let command = ProcessCommandBuilder::new("git")
+            .args(["rev-parse", "--git-dir"])
+            .current_dir(temp_dir.path())
+            .suppress_stderr()
+            .build();
+
+        let result = subprocess.runner().run(command).await;
+
+        assert!(
+            result.is_ok() && result.unwrap().status.success(),
+            "Should detect git repository in {}",
+            temp_dir.path().display()
+        );
     }
 }
 

@@ -344,10 +344,17 @@ mod tests {
         // This should use current directory
         let result = command::execute_with_subprocess(cmd, subprocess).await;
 
-        // Restore original directory
-        std::env::set_current_dir(original_dir).unwrap();
+        // Restore original directory before temp_dir is dropped
+        // Use unwrap_or_else to handle the case where original_dir no longer exists
+        std::env::set_current_dir(&original_dir).unwrap_or_else(|_| {
+            // If we can't restore, try to set to a known directory
+            std::env::set_current_dir("/tmp").unwrap_or(())
+        });
 
         assert!(result.is_ok());
+
+        // Keep temp_dir alive until after we've changed directories
+        drop(temp_dir);
     }
 
     #[tokio::test]

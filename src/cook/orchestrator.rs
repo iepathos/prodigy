@@ -1544,6 +1544,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_setup_environment_basic() {
+        let temp_dir = TempDir::new().unwrap();
+        let original_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/tmp"));
+        std::env::set_current_dir(temp_dir.path()).unwrap();
+
         let (orchestrator, _, _) = create_test_orchestrator();
 
         let config = CookConfig {
@@ -1566,6 +1570,9 @@ mod tests {
 
         let env = orchestrator.setup_environment(&config).await.unwrap();
 
+        // Restore directory before assertions that might fail
+        std::env::set_current_dir(&original_dir).unwrap();
+
         assert_eq!(env.project_dir, PathBuf::from("/tmp/test"));
         assert_eq!(env.working_dir, PathBuf::from("/tmp/test"));
         assert!(env.worktree_name.is_none());
@@ -1574,6 +1581,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_detect_structured_workflow() {
+        let temp_dir = TempDir::new().unwrap();
+        let original_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/tmp"));
+        std::env::set_current_dir(temp_dir.path()).unwrap();
+
         let (_orchestrator, _, _) = create_test_orchestrator();
 
         // Test with simple workflow (no inputs/outputs)
@@ -1643,6 +1654,9 @@ mod tests {
                 if c.outputs.is_some())
         });
         assert!(has_structured);
+
+        // Restore original directory
+        let _ = std::env::set_current_dir(&original_dir);
     }
 
     #[tokio::test]
@@ -1727,6 +1741,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_workflow_detects_structured_commands() {
+        let temp_dir = TempDir::new().unwrap();
+        let original_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/tmp"));
+        std::env::set_current_dir(temp_dir.path()).unwrap();
+
         let (_orchestrator, _, _) = create_test_orchestrator();
 
         // Create a structured workflow
@@ -1779,6 +1797,9 @@ mod tests {
             has_structured,
             "Should detect workflow with outputs as structured"
         );
+
+        // Restore original directory
+        let _ = std::env::set_current_dir(&original_dir);
     }
 
     #[test]
@@ -1997,6 +2018,9 @@ mod tests {
     #[tokio::test]
     async fn test_auto_accept_worktree_merge() {
         let temp_dir = TempDir::new().unwrap();
+        let original_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/tmp"));
+        std::env::set_current_dir(temp_dir.path()).unwrap();
+
         let (orchestrator, mock_interaction, _) = create_test_orchestrator();
 
         // Create environment without worktree to test the basic flow
@@ -2063,11 +2087,17 @@ mod tests {
             prompt_count, 0,
             "Should not have prompted when no worktree is present"
         );
+
+        // Restore original directory
+        let _ = std::env::set_current_dir(&original_dir);
     }
 
     #[tokio::test]
     async fn test_worktree_cleanup_after_merge() {
         let temp_dir = TempDir::new().unwrap();
+        let original_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/tmp"));
+        std::env::set_current_dir(temp_dir.path()).unwrap();
+
         let (orchestrator, mock_interaction, _) = create_test_orchestrator();
 
         // Create environment with worktree
@@ -2145,6 +2175,9 @@ mod tests {
             cleanup_prompts <= 1,
             "Should have at most one cleanup prompt"
         );
+
+        // Restore original directory
+        let _ = std::env::set_current_dir(&original_dir);
     }
 
     #[test]
@@ -2158,20 +2191,14 @@ mod tests {
         std::fs::write(base_path.join("specs/02-another.md"), "# Another")?;
         std::fs::write(base_path.join("test.txt"), "test")?;
 
-        // Change to the temp directory to make glob patterns work
-        let original_dir = std::env::current_dir()?;
-        std::env::set_current_dir(base_path)?;
-
         let (orchestrator, _, _) = create_test_orchestrator();
 
-        let pattern = "specs/*.md";
-        let inputs = orchestrator.process_glob_pattern(pattern)?;
-
-        // Restore original directory
-        std::env::set_current_dir(original_dir)?;
+        // Use absolute path pattern
+        let pattern = format!("{}/specs/*.md", base_path.display());
+        let inputs = orchestrator.process_glob_pattern(&pattern)?;
 
         // The method extracts the numeric prefix from filenames
-        assert_eq!(inputs.len(), 2);
+        assert_eq!(inputs.len(), 2, "Expected 2 files, found: {:?}", inputs);
         assert!(inputs.contains(&"01".to_string()));
         assert!(inputs.contains(&"02".to_string()));
         Ok(())
@@ -2183,26 +2210,32 @@ mod tests {
         let base_path = temp_dir.path();
 
         // Create nested structure with numeric prefixes
-        std::fs::create_dir_all(base_path.join("specs/nested"))?;
-        std::fs::write(base_path.join("specs/10-top.md"), "# Top")?;
-        std::fs::write(base_path.join("specs/nested/20-nested.md"), "# Nested")?;
-
-        // Change to the temp directory to make glob patterns work
-        let original_dir = std::env::current_dir()?;
-        std::env::set_current_dir(base_path)?;
+        std::fs::create_dir_all(base_path.join("recursive_specs/nested"))?;
+        std::fs::write(base_path.join("recursive_specs/10-top.md"), "# Top")?;
+        std::fs::write(
+            base_path.join("recursive_specs/nested/20-nested.md"),
+            "# Nested",
+        )?;
 
         let (orchestrator, _, _) = create_test_orchestrator();
 
-        let pattern = "specs/**/*.md";
-        let inputs = orchestrator.process_glob_pattern(pattern)?;
-
-        // Restore original directory
-        std::env::set_current_dir(original_dir)?;
+        // Use absolute path pattern
+        let pattern = format!("{}/recursive_specs/**/*.md", base_path.display());
+        let inputs = orchestrator.process_glob_pattern(&pattern)?;
 
         // Should find both files and extract their numeric prefixes
-        assert_eq!(inputs.len(), 2);
-        assert!(inputs.contains(&"10".to_string()));
-        assert!(inputs.contains(&"20".to_string()));
+        assert_eq!(inputs.len(), 2, "Expected 2 files, found: {:?}", inputs);
+        assert!(
+            inputs.contains(&"10".to_string()),
+            "Missing '10' in {:?}",
+            inputs
+        );
+        assert!(
+            inputs.contains(&"20".to_string()),
+            "Missing '20' in {:?}",
+            inputs
+        );
+
         Ok(())
     }
 }

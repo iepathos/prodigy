@@ -6,6 +6,7 @@ use tracing::{debug, error, trace};
 #[derive(Parser)]
 #[command(name = "mmm")]
 #[command(about = "mmm - Cook your code to perfection automatically", long_about = None)]
+#[command(version)]
 struct Cli {
     /// Enable verbose output (-v for debug, -vv for trace, -vvv for all)
     #[arg(short, long, action = clap::ArgAction::Count, global = true)]
