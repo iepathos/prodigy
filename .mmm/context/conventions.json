@@ -23,14 +23,6 @@
       ],
       "frequency": 30
     },
-    "async": {
-      "name": "Async/await pattern",
-      "description": "Uses async/await for asynchronous code",
-      "examples": [
-        "async fn process()"
-      ],
-      "frequency": 13
-    },
     "logging": {
       "name": "Logging pattern",
       "description": "Uses logging for debugging and monitoring",
@@ -39,6 +31,14 @@
         "log::info!"
       ],
       "frequency": 1
+    },
+    "async": {
+      "name": "Async/await pattern",
+      "description": "Uses async/await for asynchronous code",
+      "examples": [
+        "async fn process()"
+      ],
+      "frequency": 13
     }
   },
   "test_patterns": {
