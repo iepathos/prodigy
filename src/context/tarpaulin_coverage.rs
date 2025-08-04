@@ -95,15 +95,20 @@ impl TarpaulinCoverageAnalyzer {
                 let command = ProcessCommandBuilder::new("cargo")
                     .args([
                         "tarpaulin",
-                        "--skip-clean",
-                        "--engine",
-                        "llvm",
-                        "--out",
-                        "Html",
                         "--out",
                         "Json",
+                        "--out",
+                        "Html",
                         "--output-dir",
                         "target/coverage",
+                        "--skip-clean",
+                        "--timeout",
+                        "180",
+                        "--lib",
+                        "--exclude-files",
+                        "*/tests/*",
+                        "--exclude-files",
+                        "*/target/*",
                     ])
                     .current_dir(project_path)
                     .build();
@@ -130,15 +135,20 @@ impl TarpaulinCoverageAnalyzer {
                 let command = ProcessCommandBuilder::new("cargo")
                     .args([
                         "tarpaulin",
-                        "--skip-clean",
-                        "--engine",
-                        "llvm",
-                        "--out",
-                        "Html",
                         "--out",
                         "Json",
+                        "--out",
+                        "Html",
                         "--output-dir",
                         "target/coverage",
+                        "--skip-clean",
+                        "--timeout",
+                        "180",
+                        "--lib",
+                        "--exclude-files",
+                        "*/tests/*",
+                        "--exclude-files",
+                        "*/target/*",
                     ])
                     .current_dir(project_path)
                     .build();
