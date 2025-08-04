@@ -496,22 +496,29 @@ fn display_pretty_metrics_inline(metrics: &ImprovementMetrics) {
     println!("   Total lines: {}", metrics.total_lines);
     println!("   Max nesting depth: {}", metrics.max_nesting_depth);
 
-    // Display cyclomatic complexity for most complex functions
-    if !metrics.cyclomatic_complexity.is_empty() {
-        let mut complexities: Vec<_> = metrics.cyclomatic_complexity.iter().collect();
-        complexities.sort_by(|a, b| b.1.cmp(a.1));
-
-        println!("   Cyclomatic complexity (top 5):");
-        for (func_name, complexity) in complexities.iter().take(5) {
-            // Extract just the function name from the full path
-            let short_name = func_name.split("::").last().unwrap_or(func_name);
-            println!("      - {short_name}: {complexity}");
+    // Display complexity metrics from the new format
+    if let Some(ref summary) = metrics.complexity_summary {
+        // Calculate overall average complexity
+        if summary.total_functions > 0 {
+            let total_cyclomatic: f32 = summary
+                .by_file
+                .values()
+                .map(|stats| stats.avg_cyclomatic * stats.functions_count as f32)
+                .sum();
+            let avg_complexity = total_cyclomatic / summary.total_functions as f32;
+            println!("   Average cyclomatic complexity: {avg_complexity:.1}");
         }
 
-        // Calculate average complexity
-        let total_complexity: u32 = metrics.cyclomatic_complexity.values().sum();
-        let avg_complexity = total_complexity as f64 / metrics.cyclomatic_complexity.len() as f64;
-        println!("   Average complexity: {avg_complexity:.1}");
+        // Display hotspots if available
+        if !metrics.complexity_hotspots.is_empty() {
+            println!("   Complexity hotspots (top 5):");
+            for hotspot in metrics.complexity_hotspots.iter().take(5) {
+                println!(
+                    "      - {}: {} (cognitive: {})",
+                    hotspot.function, hotspot.cyclomatic, hotspot.cognitive
+                );
+            }
+        }
     }
 
     if let Some(ref health_score) = metrics.health_score {
