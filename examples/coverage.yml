@@ -3,7 +3,6 @@
 commands:
     - claude: "/mmm-coverage"
       id: coverage
-      commit_required: false  # Coverage analysis doesn't create commits
       outputs:
         spec:
           file_pattern: "*-coverage-improvements.md"
