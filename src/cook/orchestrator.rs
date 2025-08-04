@@ -285,14 +285,23 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                 }
 
                 WorkflowStep {
-                    name: format!("Step {}", i + 1),
-                    command: if command_str.starts_with('/') {
+                    name: Some(format!("Step {}", i + 1)),
+                    command: Some(if command_str.starts_with('/') {
                         command_str
                     } else {
                         format!("/{command_str}")
-                    },
+                    }),
+                    claude: None,
+                    shell: None,
+                    capture_output: false,
+                    timeout: None,
+                    working_dir: None,
                     env: std::collections::HashMap::new(),
+                    on_failure: None,
+                    on_success: None,
+                    on_exit_code: std::collections::HashMap::new(),
                     commit_required,
+                    analysis: analysis_config,
                 }
             })
             .collect();

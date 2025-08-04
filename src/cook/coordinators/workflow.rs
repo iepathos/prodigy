@@ -74,9 +74,10 @@ impl WorkflowCoordinator for DefaultWorkflowCoordinator {
         context: &WorkflowContext,
     ) -> Result<HashMap<String, String>> {
         // Display progress
+        let step_display = step.name.as_deref().unwrap_or("unnamed step");
         self.display_progress(&format!(
             "Executing step: {} (iteration {}/{})",
-            step.name, context.iteration, context.max_iterations
+            step_display, context.iteration, context.max_iterations
         ));
 
         // For now, return empty outputs as we delegate to workflow executor
@@ -107,14 +108,23 @@ impl WorkflowCoordinator for DefaultWorkflowCoordinator {
                 };
 
                 let step = WorkflowStep {
-                    name: format!("Step {}", i + 1),
-                    command: if command_str.starts_with('/') {
+                    name: Some(format!("Step {}", i + 1)),
+                    command: Some(if command_str.starts_with('/') {
                         command_str
                     } else {
                         format!("/{command_str}")
-                    },
+                    }),
+                    claude: None,
+                    shell: None,
+                    capture_output: false,
+                    timeout: None,
+                    working_dir: None,
                     env: HashMap::new(),
+                    on_failure: None,
+                    on_success: None,
+                    on_exit_code: HashMap::new(),
                     commit_required: true,
+                    analysis: None,
                 };
 
                 // Execute step
