@@ -88,12 +88,12 @@ fn test_cook_with_invalid_iterations() {
 
 #[test]
 fn test_worktree_list_outside_repo() {
-    // Test worktree list command outside a git repo
+    // Test worktree ls command outside a git repo
     let temp_dir = TempDir::new().unwrap();
     let mut cmd = Command::cargo_bin("mmm").unwrap();
     cmd.current_dir(temp_dir.path())
         .arg("worktree")
-        .arg("list")
+        .arg("ls")
         .assert()
         .failure();
 }

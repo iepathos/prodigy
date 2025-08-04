@@ -363,7 +363,7 @@ mmm cook examples/test-driven.yml --worktree --yes &
 mmm cook examples/documentation.yml --worktree --yes &
 
 # List active worktree sessions
-mmm worktree list
+mmm worktree ls
 
 # Merge improvements back to main branch
 mmm worktree merge mmm-performance-1234567890

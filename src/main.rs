@@ -114,7 +114,8 @@ enum Commands {
 #[derive(Subcommand)]
 enum WorktreeCommands {
     /// List active MMM worktrees
-    List,
+    #[command(alias = "list")]
+    Ls,
     /// Merge a worktree's changes to the default branch (main or master)
     Merge {
         /// Name of the worktree to merge
@@ -386,7 +387,7 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
     let worktree_manager = WorktreeManager::new(std::env::current_dir()?, subprocess)?;
 
     match command {
-        WorktreeCommands::List => handle_list_command(&worktree_manager).await,
+        WorktreeCommands::Ls => handle_list_command(&worktree_manager).await,
         WorktreeCommands::Merge { name, all } => {
             handle_merge_command(&worktree_manager, name, all).await
         }
