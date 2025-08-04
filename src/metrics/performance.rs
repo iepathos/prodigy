@@ -58,17 +58,9 @@ impl PerformanceProfiler {
     async fn measure_compile_time(&self, project_path: &Path) -> Result<Duration> {
         debug!("Measuring compile time");
 
-        // Clean build to get accurate timing
-        let clean_command = ProcessCommandBuilder::new("cargo")
-            .arg("clean")
-            .current_dir(project_path)
-            .build();
-
-        self.subprocess
-            .runner()
-            .run(clean_command)
-            .await
-            .context("Failed to clean project")?;
+        // Note: We don't run cargo clean here to avoid deleting the target directory
+        // This means the compile time might be faster due to incremental compilation,
+        // but it prevents losing built binaries
 
         let start = Instant::now();
 

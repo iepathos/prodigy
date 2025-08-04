@@ -98,7 +98,7 @@ impl QualityAnalyzer {
                 if let Err(e) = std::fs::create_dir_all(&deps_dir) {
                     eprintln!("⚠️  Failed to create target/debug/deps directory: {e}");
                 }
-                
+
                 // Also create target/debug/.fingerprint
                 let fingerprint_dir = project_path.join("target/debug/.fingerprint");
                 if let Err(e) = std::fs::create_dir_all(&fingerprint_dir) {
