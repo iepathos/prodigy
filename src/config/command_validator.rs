@@ -375,8 +375,9 @@ impl CommandRegistry {
             if command.metadata.continue_on_error.is_none() {
                 command.metadata.continue_on_error = definition.defaults.continue_on_error;
             }
-            // Apply commit_required default from registry (CommandMetadata default is false)
-            // The registry can override this to true for specific commands
+            // Apply commit_required default from registry
+            // Always apply the registry default - if the test needs different behavior,
+            // it should use a different approach (like environment variables)
             command.metadata.commit_required = definition.defaults.commit_required;
 
             // Apply default option values if not set

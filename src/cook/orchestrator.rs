@@ -1894,6 +1894,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_arg_resolution_only_for_commands_with_args() {
+        // Set environment variable to skip commit validation in test
+        std::env::set_var("MMM_NO_COMMIT_VALIDATION", "true");
+        
         let temp_dir = TempDir::new().unwrap();
         let mock_runner = MockCommandRunner::new();
         let mock_interaction = Arc::new(MockUserInteraction::new());
@@ -2037,6 +2040,9 @@ mod tests {
             "Third command should NOT show ARG: {}",
             command_messages[2]
         );
+        
+        // Clean up environment variable
+        std::env::remove_var("MMM_NO_COMMIT_VALIDATION");
     }
 
     #[test]
