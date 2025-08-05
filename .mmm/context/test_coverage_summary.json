@@ -1,64 +1,254 @@
 {
   "file_coverage": {
-    "src/cook/metrics/collector.rs": {
-      "coverage_percentage": 0.40625,
-      "has_tests": true,
-      "untested_count": 9
-    },
-    "src/testing/mod.rs": {
+    "src/analysis/mod.rs": {
       "coverage_percentage": 0.0,
       "has_tests": false,
-      "untested_count": 28
+      "untested_count": 0
     },
-    "src/context/analyzer.rs": {
-      "coverage_percentage": 0.26136363636363635,
-      "has_tests": true,
-      "untested_count": 11
-    },
-    "src/simple_state/mod.rs": {
+    "tests/metrics_collection_integration.rs": {
       "coverage_percentage": 0.0,
       "has_tests": false,
       "untested_count": 1
     },
-    "tests/cook_iteration_tests.rs": {
+    "tests/cook_orchestrator_integration.rs": {
       "coverage_percentage": 0.0,
       "has_tests": false,
-      "untested_count": 12
+      "untested_count": 30
     },
-    "tests/test_command_workflow_tests.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 7
-    },
-    "tests/cli_tests.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 15
-    },
-    "tests/analysis_integration.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 5
-    },
-    "src/subprocess/claude.rs": {
-      "coverage_percentage": 0.42857142857142855,
+    "src/abstractions/git.rs": {
+      "coverage_percentage": 0.680672268907563,
       "has_tests": true,
-      "untested_count": 3
-    },
-    "src/cook/session/summary.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 0
+      "untested_count": 32
     },
     "src/cook/workflow/mod.rs": {
       "coverage_percentage": 0.0,
       "has_tests": false,
       "untested_count": 0
     },
+    "tests/metrics_collector_integration.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 4
+    },
+    "src/cook/session/tracker.rs": {
+      "coverage_percentage": 0.5692307692307692,
+      "has_tests": true,
+      "untested_count": 14
+    },
+    "tests/workflow_analysis_tests.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 8
+    },
+    "tests/metrics_integration.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 11
+    },
+    "src/worktree/test_state.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 8
+    },
+    "src/worktree/manager.rs": {
+      "coverage_percentage": 0.40468227424749165,
+      "has_tests": true,
+      "untested_count": 24
+    },
+    "src/git/error.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 2
+    },
+    "src/config/mod.rs": {
+      "coverage_percentage": 1.0,
+      "has_tests": true,
+      "untested_count": 26
+    },
+    "src/context/mod.rs": {
+      "coverage_percentage": 0.5291479820627802,
+      "has_tests": true,
+      "untested_count": 22
+    },
+    "src/subprocess/builder.rs": {
+      "coverage_percentage": 0.9090909090909091,
+      "has_tests": true,
+      "untested_count": 7
+    },
+    "tests/workflow_commit_verification_tests.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 6
+    },
+    "src/cook/execution/mod.rs": {
+      "coverage_percentage": 0.3,
+      "has_tests": true,
+      "untested_count": 3
+    },
+    "src/git/types.rs": {
+      "coverage_percentage": 0.7592592592592593,
+      "has_tests": true,
+      "untested_count": 16
+    },
+    "src/session/config.rs": {
+      "coverage_percentage": 1.0,
+      "has_tests": true,
+      "untested_count": 6
+    },
+    "src/cook/tests.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 23
+    },
+    "src/cook/interaction/mod.rs": {
+      "coverage_percentage": 0.6190476190476191,
+      "has_tests": true,
+      "untested_count": 58
+    },
     "src/cook/coordinators/session.rs": {
       "coverage_percentage": 0.058823529411764705,
       "has_tests": true,
       "untested_count": 8
+    },
+    "src/simple_state/state.rs": {
+      "coverage_percentage": 0.8461538461538461,
+      "has_tests": true,
+      "untested_count": 3
+    },
+    "src/cook/metrics/mod.rs": {
+      "coverage_percentage": 1.0,
+      "has_tests": true,
+      "untested_count": 6
+    },
+    "src/subprocess/runner.rs": {
+      "coverage_percentage": 0.5797101449275363,
+      "has_tests": true,
+      "untested_count": 4
+    },
+    "src/metrics/registry.rs": {
+      "coverage_percentage": 0.4230769230769231,
+      "has_tests": true,
+      "untested_count": 14
+    },
+    "src/session/state.rs": {
+      "coverage_percentage": 0.8974358974358975,
+      "has_tests": true,
+      "untested_count": 19
+    },
+    "src/cook/session/adapter.rs": {
+      "coverage_percentage": 0.63,
+      "has_tests": true,
+      "untested_count": 12
+    },
+    "src/cook/analysis/cache.rs": {
+      "coverage_percentage": 0.813953488372093,
+      "has_tests": true,
+      "untested_count": 10
+    },
+    "src/lib.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 0
+    },
+    "src/session/persistence.rs": {
+      "coverage_percentage": 1.0,
+      "has_tests": true,
+      "untested_count": 4
+    },
+    "src/config/metadata_parser.rs": {
+      "coverage_percentage": 0.868421052631579,
+      "has_tests": true,
+      "untested_count": 14
+    },
+    "src/subprocess/error.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 0
+    },
+    "src/context/summary.rs": {
+      "coverage_percentage": 0.8,
+      "has_tests": true,
+      "untested_count": 7
+    },
+    "src/metrics/collector.rs": {
+      "coverage_percentage": 0.927710843373494,
+      "has_tests": true,
+      "untested_count": 9
+    },
+    "src/cook/mod_tests.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 36
+    },
+    "src/git/scenario.rs": {
+      "coverage_percentage": 0.6145833333333334,
+      "has_tests": true,
+      "untested_count": 33
+    },
+    "tests/analysis_integration.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 5
+    },
+    "src/metrics/backends.rs": {
+      "coverage_percentage": 0.5611510791366906,
+      "has_tests": true,
+      "untested_count": 26
+    },
+    "src/session/events.rs": {
+      "coverage_percentage": 0.4,
+      "has_tests": true,
+      "untested_count": 9
+    },
+    "tests/workflow_syntax_tests.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 9
+    },
+    "tests/context_analysis_integration.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 8
+    },
+    "src/config/command_validator.rs": {
+      "coverage_percentage": 0.7990196078431373,
+      "has_tests": true,
+      "untested_count": 18
+    },
+    "src/subprocess/claude.rs": {
+      "coverage_percentage": 0.42857142857142855,
+      "has_tests": true,
+      "untested_count": 3
+    },
+    "src/cook/git_ops.rs": {
+      "coverage_percentage": 0.21052631578947367,
+      "has_tests": true,
+      "untested_count": 23
+    },
+    "src/context/optimizer.rs": {
+      "coverage_percentage": 0.436241610738255,
+      "has_tests": true,
+      "untested_count": 11
+    },
+    "tests/integration_test_cook_path.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 8
+    },
+    "tests/main_integration.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 3
+    },
+    "src/init/command.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 0
+    },
+    "src/config/loader.rs": {
+      "coverage_percentage": 0.803921568627451,
+      "has_tests": true,
+      "untested_count": 13
     },
     "tests/edge_case_tests.rs": {
       "coverage_percentage": 0.0,
@@ -70,542 +260,62 @@
       "has_tests": true,
       "untested_count": 11
     },
-    "src/cook/execution/runner.rs": {
-      "coverage_percentage": 0.8333333333333334,
-      "has_tests": true,
-      "untested_count": 14
-    },
-    "src/context/mod.rs": {
-      "coverage_percentage": 0.5336322869955157,
-      "has_tests": true,
-      "untested_count": 22
-    },
-    "src/session/state.rs": {
-      "coverage_percentage": 0.9102564102564102,
-      "has_tests": true,
-      "untested_count": 19
-    },
-    "src/context/dependencies.rs": {
-      "coverage_percentage": 0.6436781609195402,
-      "has_tests": true,
-      "untested_count": 17
-    },
-    "src/context/conventions.rs": {
-      "coverage_percentage": 0.7439613526570048,
-      "has_tests": true,
-      "untested_count": 26
-    },
-    "tests/git_operations_integration.rs": {
+    "src/simple_state/tests.rs": {
       "coverage_percentage": 0.0,
       "has_tests": false,
-      "untested_count": 4
+      "untested_count": 15
     },
-    "src/init/command.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 0
-    },
-    "tests/context_optimization_tests.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 4
-    },
-    "src/subprocess/mock.rs": {
-      "coverage_percentage": 0.8666666666666667,
+    "src/context/analyzer.rs": {
+      "coverage_percentage": 0.26136363636363635,
       "has_tests": true,
       "untested_count": 11
-    },
-    "src/cook/coordinators/mod.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 0
-    },
-    "tests/worktree_integration_tests.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 10
-    },
-    "src/context/debt.rs": {
-      "coverage_percentage": 0.7322033898305085,
-      "has_tests": true,
-      "untested_count": 32
-    },
-    "src/metrics/complexity.rs": {
-      "coverage_percentage": 0.8333333333333334,
-      "has_tests": true,
-      "untested_count": 19
-    },
-    "src/session/mod.rs": {
-      "coverage_percentage": 0.6,
-      "has_tests": true,
-      "untested_count": 5
-    },
-    "tests/main_integration.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 3
-    },
-    "src/context/criticality.rs": {
-      "coverage_percentage": 0.6083333333333333,
-      "has_tests": true,
-      "untested_count": 13
-    },
-    "src/cook/analysis/cache.rs": {
-      "coverage_percentage": 0.813953488372093,
-      "has_tests": true,
-      "untested_count": 10
-    },
-    "tests/workflow_tests.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 12
-    },
-    "src/context/enhanced_coverage.rs": {
-      "coverage_percentage": 0.6504854368932039,
-      "has_tests": true,
-      "untested_count": 10
-    },
-    "src/analyze/command.rs": {
-      "coverage_percentage": 0.7777777777777778,
-      "has_tests": true,
-      "untested_count": 8
-    },
-    "src/subprocess/mod.rs": {
-      "coverage_percentage": 1.0,
-      "has_tests": true,
-      "untested_count": 6
-    },
-    "src/abstractions/exit_status.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 4
-    },
-    "src/context/test_coverage.rs": {
-      "coverage_percentage": 0.7219917012448133,
-      "has_tests": true,
-      "untested_count": 25
-    },
-    "src/git/scenario.rs": {
-      "coverage_percentage": 0.6145833333333334,
-      "has_tests": true,
-      "untested_count": 33
-    },
-    "src/git/error.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 2
-    },
-    "src/metrics/collector.rs": {
-      "coverage_percentage": 0.927710843373494,
-      "has_tests": true,
-      "untested_count": 9
-    },
-    "src/subprocess/builder.rs": {
-      "coverage_percentage": 0.9090909090909091,
-      "has_tests": true,
-      "untested_count": 7
-    },
-    "src/metrics/storage.rs": {
-      "coverage_percentage": 0.8559322033898306,
-      "has_tests": true,
-      "untested_count": 19
-    },
-    "src/config/workflow.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 0
-    },
-    "src/cook/tests.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 23
-    },
-    "src/simple_state/types.rs": {
-      "coverage_percentage": 0.8461538461538461,
-      "has_tests": true,
-      "untested_count": 4
-    },
-    "tests/metrics_collection_integration.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 1
-    },
-    "src/metrics/backends.rs": {
-      "coverage_percentage": 0.5611510791366906,
-      "has_tests": true,
-      "untested_count": 26
-    },
-    "src/lib.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 0
-    },
-    "src/session/manager.rs": {
-      "coverage_percentage": 0.9193548387096774,
-      "has_tests": true,
-      "untested_count": 11
-    },
-    "tests/workflow_commit_verification_tests.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 6
-    },
-    "tests/context_analysis_integration.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 8
-    },
-    "src/metrics/context.rs": {
-      "coverage_percentage": 0.42857142857142855,
-      "has_tests": true,
-      "untested_count": 12
-    },
-    "src/cook/session/mod.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 6
-    },
-    "tests/subprocess_tests.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 8
-    },
-    "src/scoring/mod.rs": {
-      "coverage_percentage": 0.7692307692307693,
-      "has_tests": true,
-      "untested_count": 11
-    },
-    "src/worktree/manager.rs": {
-      "coverage_percentage": 0.40468227424749165,
-      "has_tests": true,
-      "untested_count": 24
-    },
-    "src/config/mod.rs": {
-      "coverage_percentage": 1.0,
-      "has_tests": true,
-      "untested_count": 26
-    },
-    "tests/signal_handling_integration.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 1
-    },
-    "src/session/events.rs": {
-      "coverage_percentage": 0.4,
-      "has_tests": true,
-      "untested_count": 9
-    },
-    "src/config/loader.rs": {
-      "coverage_percentage": 0.803921568627451,
-      "has_tests": true,
-      "untested_count": 13
-    },
-    "src/git/mod.rs": {
-      "coverage_percentage": 0.38636363636363635,
-      "has_tests": true,
-      "untested_count": 30
-    },
-    "src/main.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 7
-    },
-    "src/worktree/tests.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 9
-    },
-    "src/metrics/quality.rs": {
-      "coverage_percentage": 0.8217821782178217,
-      "has_tests": true,
-      "untested_count": 4
-    },
-    "src/cook/session/migration.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 4
-    },
-    "src/init/mod.rs": {
-      "coverage_percentage": 0.7560975609756098,
-      "has_tests": true,
-      "untested_count": 21
-    },
-    "tests/cook_tests.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 5
-    },
-    "src/cook/metrics/mod.rs": {
-      "coverage_percentage": 1.0,
-      "has_tests": true,
-      "untested_count": 6
-    },
-    "src/session/tests.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 7
-    },
-    "src/git/types.rs": {
-      "coverage_percentage": 0.7592592592592593,
-      "has_tests": true,
-      "untested_count": 16
-    },
-    "src/config/dynamic_registry.rs": {
-      "coverage_percentage": 0.3333333333333333,
-      "has_tests": true,
-      "untested_count": 9
     },
     "src/analysis/unified.rs": {
       "coverage_percentage": 0.7670682730923695,
       "has_tests": true,
       "untested_count": 23
     },
-    "src/metrics/performance.rs": {
-      "coverage_percentage": 0.6666666666666666,
-      "has_tests": true,
-      "untested_count": 8
-    },
-    "src/abstractions/git.rs": {
-      "coverage_percentage": 0.680672268907563,
-      "has_tests": true,
-      "untested_count": 32
-    },
-    "src/subprocess/tests.rs": {
+    "src/abstractions/exit_status.rs": {
       "coverage_percentage": 0.0,
       "has_tests": false,
-      "untested_count": 10
-    },
-    "tests/workflow_syntax_tests.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 9
-    },
-    "src/subprocess/git.rs": {
-      "coverage_percentage": 0.3333333333333333,
-      "has_tests": true,
-      "untested_count": 8
-    },
-    "src/metrics/events.rs": {
-      "coverage_percentage": 0.6333333333333333,
-      "has_tests": true,
-      "untested_count": 12
-    },
-    "src/config/command_validator.rs": {
-      "coverage_percentage": 0.7990196078431373,
-      "has_tests": true,
-      "untested_count": 18
-    },
-    "src/config/command_discovery.rs": {
-      "coverage_percentage": 0.8709677419354839,
-      "has_tests": true,
-      "untested_count": 7
-    },
-    "src/cook/session/adapter.rs": {
-      "coverage_percentage": 0.63,
-      "has_tests": true,
-      "untested_count": 12
-    },
-    "src/context/size_manager.rs": {
-      "coverage_percentage": 0.21904761904761905,
-      "has_tests": true,
-      "untested_count": 7
-    },
-    "src/context/summary.rs": {
-      "coverage_percentage": 0.8,
-      "has_tests": true,
-      "untested_count": 7
-    },
-    "src/cook/workflow/executor.rs": {
-      "coverage_percentage": 0.006779661016949152,
-      "has_tests": true,
-      "untested_count": 17
-    },
-    "src/cook/interaction/prompts.rs": {
-      "coverage_percentage": 0.05714285714285714,
-      "has_tests": true,
-      "untested_count": 10
-    },
-    "src/worktree/mod.rs": {
-      "coverage_percentage": 1.0,
-      "has_tests": true,
-      "untested_count": 1
-    },
-    "src/context/tarpaulin_coverage.rs": {
-      "coverage_percentage": 0.6729559748427673,
-      "has_tests": true,
-      "untested_count": 11
-    },
-    "tests/unified_scoring_tests.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 5
-    },
-    "src/cook/execution/mod.rs": {
-      "coverage_percentage": 0.3,
-      "has_tests": true,
-      "untested_count": 3
-    },
-    "src/cook/coordinators/workflow.rs": {
-      "coverage_percentage": 0.02631578947368421,
-      "has_tests": true,
-      "untested_count": 21
-    },
-    "tests/worktree_commit_verification_test.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 3
-    },
-    "src/cook/interaction/mod.rs": {
-      "coverage_percentage": 0.6190476190476191,
-      "has_tests": true,
-      "untested_count": 58
-    },
-    "src/cook/coordinators/execution.rs": {
-      "coverage_percentage": 0.02040816326530612,
-      "has_tests": true,
-      "untested_count": 7
-    },
-    "src/cook/command.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 0
-    },
-    "tests/common/mod.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 20
+      "untested_count": 4
     },
     "src/cook/signal_handler.rs": {
       "coverage_percentage": 0.5555555555555556,
       "has_tests": true,
       "untested_count": 7
     },
-    "src/context/optimizer.rs": {
-      "coverage_percentage": 0.436241610738255,
-      "has_tests": true,
-      "untested_count": 11
-    },
-    "src/cook/execution/claude.rs": {
-      "coverage_percentage": 0.26229508196721313,
-      "has_tests": true,
-      "untested_count": 7
-    },
-    "src/cook/mod.rs": {
-      "coverage_percentage": 0.46153846153846156,
-      "has_tests": true,
-      "untested_count": 9
-    },
-    "tests/integration_test_cook_path.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 8
-    },
-    "src/cook/orchestrator.rs": {
-      "coverage_percentage": 0.3700980392156863,
-      "has_tests": true,
-      "untested_count": 45
-    },
     "src/session/storage.rs": {
       "coverage_percentage": 0.9285714285714286,
       "has_tests": true,
       "untested_count": 13
-    },
-    "tests/metrics_integration.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 11
-    },
-    "tests/cook_coordinators_integration.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 14
-    },
-    "src/cook/mod_tests.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 36
-    },
-    "src/abstractions/claude.rs": {
-      "coverage_percentage": 0.36813186813186816,
-      "has_tests": true,
-      "untested_count": 29
-    },
-    "src/cook/session/tracker.rs": {
-      "coverage_percentage": 0.5692307692307692,
-      "has_tests": true,
-      "untested_count": 14
-    },
-    "src/config/metadata_parser.rs": {
-      "coverage_percentage": 0.868421052631579,
-      "has_tests": true,
-      "untested_count": 14
-    },
-    "src/cook/interaction/display.rs": {
-      "coverage_percentage": 0.9285714285714286,
-      "has_tests": true,
-      "untested_count": 33
     },
     "src/cook/analysis/runner.rs": {
       "coverage_percentage": 0.3048780487804878,
       "has_tests": true,
       "untested_count": 9
     },
-    "src/cook/retry.rs": {
-      "coverage_percentage": 0.8852459016393442,
-      "has_tests": true,
-      "untested_count": 31
-    },
-    "src/config/command.rs": {
-      "coverage_percentage": 0.6363636363636364,
-      "has_tests": true,
-      "untested_count": 28
-    },
-    "src/subprocess/runner.rs": {
-      "coverage_percentage": 0.5797101449275363,
-      "has_tests": true,
-      "untested_count": 4
-    },
-    "src/testing/test_mocks.rs": {
+    "src/session/tests.rs": {
       "coverage_percentage": 0.0,
       "has_tests": false,
-      "untested_count": 15
+      "untested_count": 7
     },
-    "src/session/timing.rs": {
-      "coverage_percentage": 0.8108108108108109,
+    "src/context/tarpaulin_coverage.rs": {
+      "coverage_percentage": 0.6729559748427673,
       "has_tests": true,
-      "untested_count": 10
+      "untested_count": 11
     },
-    "src/analyze/tests.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 17
-    },
-    "src/simple_state/tests.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 15
-    },
-    "src/session/persistence.rs": {
-      "coverage_percentage": 1.0,
+    "src/metrics/history.rs": {
+      "coverage_percentage": 0.3230769230769231,
       "has_tests": true,
-      "untested_count": 4
+      "untested_count": 6
     },
-    "tests/config_integration_tests.rs": {
+    "tests/unified_scoring_tests.rs": {
       "coverage_percentage": 0.0,
       "has_tests": false,
-      "untested_count": 2
+      "untested_count": 5
     },
-    "src/abstractions/mod.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 0
-    },
-    "src/simple_state/state.rs": {
-      "coverage_percentage": 0.8153846153846154,
-      "has_tests": true,
-      "untested_count": 3
-    },
-    "src/cook/analysis/mod.rs": {
+    "tests/cook_iteration_tests.rs": {
       "coverage_percentage": 0.0,
       "has_tests": false,
       "untested_count": 12
@@ -615,107 +325,37 @@
       "has_tests": true,
       "untested_count": 3
     },
-    "src/cook/git_ops.rs": {
-      "coverage_percentage": 0.21052631578947367,
+    "src/session/timing.rs": {
+      "coverage_percentage": 0.8108108108108109,
       "has_tests": true,
-      "untested_count": 23
+      "untested_count": 10
     },
-    "src/metrics/history.rs": {
-      "coverage_percentage": 0.3230769230769231,
-      "has_tests": true,
-      "untested_count": 6
+    "src/cook/session/migration.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 4
     },
-    "src/context/metrics_aware_coverage.rs": {
-      "coverage_percentage": 0.627906976744186,
+    "src/session/manager.rs": {
+      "coverage_percentage": 0.9193548387096774,
       "has_tests": true,
-      "untested_count": 2
+      "untested_count": 11
+    },
+    "src/context/conventions.rs": {
+      "coverage_percentage": 0.7439613526570048,
+      "has_tests": true,
+      "untested_count": 26
     },
     "tests/error_handling_tests.rs": {
       "coverage_percentage": 0.0,
       "has_tests": false,
       "untested_count": 6
     },
-    "src/worktree/state.rs": {
+    "tests/cli_tests.rs": {
       "coverage_percentage": 0.0,
       "has_tests": false,
-      "untested_count": 0
+      "untested_count": 15
     },
-    "src/session/config.rs": {
-      "coverage_percentage": 1.0,
-      "has_tests": true,
-      "untested_count": 6
-    },
-    "tests/workflow_analysis_tests.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 8
-    },
-    "tests/command_parsing_tests.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 8
-    },
-    "src/cook/session/state.rs": {
-      "coverage_percentage": 0.5454545454545454,
-      "has_tests": true,
-      "untested_count": 7
-    },
-    "src/cook/metrics/reporter.rs": {
-      "coverage_percentage": 0.7285714285714285,
-      "has_tests": true,
-      "untested_count": 7
-    },
-    "src/worktree/test_state.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 8
-    },
-    "src/analyze/mod.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 1
-    },
-    "src/git/parsers.rs": {
-      "coverage_percentage": 0.8617021276595744,
-      "has_tests": true,
-      "untested_count": 12
-    },
-    "src/metrics/registry.rs": {
-      "coverage_percentage": 0.4230769230769231,
-      "has_tests": true,
-      "untested_count": 14
-    },
-    "tests/cook_orchestrator_integration.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 30
-    },
-    "src/cook/coordinators/environment.rs": {
-      "coverage_percentage": 0.034482758620689655,
-      "has_tests": true,
-      "untested_count": 9
-    },
-    "src/config/command_parser.rs": {
-      "coverage_percentage": 0.9696969696969697,
-      "has_tests": true,
-      "untested_count": 13
-    },
-    "tests/metrics_collector_integration.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 4
-    },
-    "src/analysis/mod.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 0
-    },
-    "tests/context_integration.rs": {
-      "coverage_percentage": 0.0,
-      "has_tests": false,
-      "untested_count": 1
-    },
-    "src/subprocess/error.rs": {
+    "src/cook/coordinators/mod.rs": {
       "coverage_percentage": 0.0,
       "has_tests": false,
       "untested_count": 0
@@ -725,15 +365,375 @@
       "has_tests": false,
       "untested_count": 6
     },
+    "tests/config_integration_tests.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 2
+    },
+    "tests/worktree_integration_tests.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 10
+    },
+    "src/init/mod.rs": {
+      "coverage_percentage": 0.7560975609756098,
+      "has_tests": true,
+      "untested_count": 21
+    },
+    "src/analyze/mod.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 1
+    },
+    "src/simple_state/mod.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 1
+    },
+    "tests/test_command_workflow_tests.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 7
+    },
+    "src/cook/session/summary.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 0
+    },
+    "src/metrics/quality.rs": {
+      "coverage_percentage": 0.8217821782178217,
+      "has_tests": true,
+      "untested_count": 4
+    },
+    "src/simple_state/types.rs": {
+      "coverage_percentage": 0.8461538461538461,
+      "has_tests": true,
+      "untested_count": 4
+    },
+    "src/context/test_coverage.rs": {
+      "coverage_percentage": 0.7219917012448133,
+      "has_tests": true,
+      "untested_count": 25
+    },
+    "src/worktree/state.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 0
+    },
     "src/metrics/testing.rs": {
       "coverage_percentage": 0.5185185185185185,
       "has_tests": true,
       "untested_count": 17
     },
+    "src/cook/metrics/collector.rs": {
+      "coverage_percentage": 0.40625,
+      "has_tests": true,
+      "untested_count": 9
+    },
+    "src/session/mod.rs": {
+      "coverage_percentage": 0.6,
+      "has_tests": true,
+      "untested_count": 5
+    },
+    "src/git/mod.rs": {
+      "coverage_percentage": 0.38636363636363635,
+      "has_tests": true,
+      "untested_count": 30
+    },
+    "tests/command_parsing_tests.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 8
+    },
+    "src/abstractions/mod.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 0
+    },
+    "src/cook/orchestrator.rs": {
+      "coverage_percentage": 0.36829268292682926,
+      "has_tests": true,
+      "untested_count": 45
+    },
+    "src/context/criticality.rs": {
+      "coverage_percentage": 0.6083333333333333,
+      "has_tests": true,
+      "untested_count": 13
+    },
+    "src/context/metrics_aware_coverage.rs": {
+      "coverage_percentage": 0.627906976744186,
+      "has_tests": true,
+      "untested_count": 2
+    },
+    "src/cook/coordinators/environment.rs": {
+      "coverage_percentage": 0.034482758620689655,
+      "has_tests": true,
+      "untested_count": 9
+    },
+    "src/cook/command.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 0
+    },
+    "tests/cook_coordinators_integration.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 14
+    },
+    "src/subprocess/tests.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 10
+    },
+    "src/config/dynamic_registry.rs": {
+      "coverage_percentage": 0.3333333333333333,
+      "has_tests": true,
+      "untested_count": 9
+    },
+    "src/abstractions/claude.rs": {
+      "coverage_percentage": 0.36813186813186816,
+      "has_tests": true,
+      "untested_count": 29
+    },
+    "src/subprocess/mock.rs": {
+      "coverage_percentage": 0.8666666666666667,
+      "has_tests": true,
+      "untested_count": 11
+    },
+    "src/cook/session/mod.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 6
+    },
+    "src/worktree/tests.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 9
+    },
+    "src/metrics/events.rs": {
+      "coverage_percentage": 0.6333333333333333,
+      "has_tests": true,
+      "untested_count": 12
+    },
+    "tests/worktree_commit_verification_test.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 3
+    },
+    "src/worktree/mod.rs": {
+      "coverage_percentage": 1.0,
+      "has_tests": true,
+      "untested_count": 1
+    },
+    "src/context/enhanced_coverage.rs": {
+      "coverage_percentage": 0.6504854368932039,
+      "has_tests": true,
+      "untested_count": 10
+    },
+    "src/metrics/complexity.rs": {
+      "coverage_percentage": 0.8333333333333334,
+      "has_tests": true,
+      "untested_count": 19
+    },
+    "src/testing/mod.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 28
+    },
+    "src/cook/metrics/reporter.rs": {
+      "coverage_percentage": 0.7285714285714285,
+      "has_tests": true,
+      "untested_count": 7
+    },
+    "src/cook/analysis/mod.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 12
+    },
+    "src/git/parsers.rs": {
+      "coverage_percentage": 0.8617021276595744,
+      "has_tests": true,
+      "untested_count": 12
+    },
+    "tests/git_operations_integration.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 4
+    },
+    "tests/context_optimization_tests.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 4
+    },
+    "src/cook/coordinators/workflow.rs": {
+      "coverage_percentage": 0.02631578947368421,
+      "has_tests": true,
+      "untested_count": 21
+    },
+    "src/context/debt.rs": {
+      "coverage_percentage": 0.7322033898305085,
+      "has_tests": true,
+      "untested_count": 32
+    },
+    "tests/common/mod.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 20
+    },
+    "tests/subprocess_tests.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 8
+    },
+    "src/cook/session/state.rs": {
+      "coverage_percentage": 0.5454545454545454,
+      "has_tests": true,
+      "untested_count": 7
+    },
+    "src/cook/execution/runner.rs": {
+      "coverage_percentage": 0.8333333333333334,
+      "has_tests": true,
+      "untested_count": 14
+    },
+    "src/cook/workflow/executor.rs": {
+      "coverage_percentage": 0.006825938566552901,
+      "has_tests": true,
+      "untested_count": 17
+    },
+    "src/subprocess/mod.rs": {
+      "coverage_percentage": 1.0,
+      "has_tests": true,
+      "untested_count": 6
+    },
+    "src/context/size_manager.rs": {
+      "coverage_percentage": 0.21904761904761905,
+      "has_tests": true,
+      "untested_count": 7
+    },
+    "src/config/command_discovery.rs": {
+      "coverage_percentage": 0.8709677419354839,
+      "has_tests": true,
+      "untested_count": 7
+    },
+    "src/scoring/mod.rs": {
+      "coverage_percentage": 0.7692307692307693,
+      "has_tests": true,
+      "untested_count": 11
+    },
+    "src/cook/retry.rs": {
+      "coverage_percentage": 0.8852459016393442,
+      "has_tests": true,
+      "untested_count": 31
+    },
+    "src/metrics/storage.rs": {
+      "coverage_percentage": 0.8559322033898306,
+      "has_tests": true,
+      "untested_count": 19
+    },
+    "tests/signal_handling_integration.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 1
+    },
+    "src/subprocess/git.rs": {
+      "coverage_percentage": 0.3333333333333333,
+      "has_tests": true,
+      "untested_count": 8
+    },
+    "src/cook/coordinators/execution.rs": {
+      "coverage_percentage": 0.02040816326530612,
+      "has_tests": true,
+      "untested_count": 7
+    },
+    "src/cook/interaction/display.rs": {
+      "coverage_percentage": 0.9285714285714286,
+      "has_tests": true,
+      "untested_count": 33
+    },
+    "src/cook/interaction/prompts.rs": {
+      "coverage_percentage": 0.05714285714285714,
+      "has_tests": true,
+      "untested_count": 10
+    },
+    "tests/cook_tests.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 5
+    },
+    "src/cook/mod.rs": {
+      "coverage_percentage": 0.46153846153846156,
+      "has_tests": true,
+      "untested_count": 9
+    },
+    "src/analyze/tests.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 17
+    },
+    "src/main.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 7
+    },
+    "src/metrics/context.rs": {
+      "coverage_percentage": 0.42857142857142855,
+      "has_tests": true,
+      "untested_count": 12
+    },
+    "tests/workflow_tests.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 12
+    },
+    "src/config/command.rs": {
+      "coverage_percentage": 0.6181818181818182,
+      "has_tests": true,
+      "untested_count": 28
+    },
+    "tests/context_integration.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 1
+    },
+    "src/context/dependencies.rs": {
+      "coverage_percentage": 0.6436781609195402,
+      "has_tests": true,
+      "untested_count": 17
+    },
+    "src/config/command_parser.rs": {
+      "coverage_percentage": 0.9696969696969697,
+      "has_tests": true,
+      "untested_count": 13
+    },
+    "src/testing/test_mocks.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 15
+    },
     "src/metrics/mod.rs": {
       "coverage_percentage": 0.45714285714285713,
       "has_tests": true,
       "untested_count": 14
+    },
+    "src/analyze/command.rs": {
+      "coverage_percentage": 0.7777777777777778,
+      "has_tests": true,
+      "untested_count": 8
+    },
+    "src/metrics/performance.rs": {
+      "coverage_percentage": 0.6666666666666666,
+      "has_tests": true,
+      "untested_count": 8
+    },
+    "src/cook/execution/claude.rs": {
+      "coverage_percentage": 0.26229508196721313,
+      "has_tests": true,
+      "untested_count": 7
+    },
+    "src/config/workflow.rs": {
+      "coverage_percentage": 0.0,
+      "has_tests": false,
+      "untested_count": 0
     },
     "src/simple_state/cache.rs": {
       "coverage_percentage": 0.4264705882352941,
@@ -741,12 +741,12 @@
       "untested_count": 5
     }
   },
-  "overall_coverage": 0.5802271044186621,
+  "overall_coverage": 0.5799802517896816,
   "untested_summary": {
     "total_count": 1688,
     "by_criticality": {
-      "Low": 597,
       "Medium": 1003,
+      "Low": 597,
       "High": 88
     },
     "by_file": [
@@ -766,22 +766,22 @@
         "highest_criticality": "Medium"
       },
       {
-        "file": "src/cook/interaction/display.rs",
-        "count": 33,
-        "highest_criticality": "Medium"
-      },
-      {
         "file": "src/git/scenario.rs",
         "count": 33,
         "highest_criticality": "Medium"
       },
       {
-        "file": "src/abstractions/git.rs",
-        "count": 32,
+        "file": "src/cook/interaction/display.rs",
+        "count": 33,
         "highest_criticality": "Medium"
       },
       {
         "file": "src/context/debt.rs",
+        "count": 32,
+        "highest_criticality": "Medium"
+      },
+      {
+        "file": "src/abstractions/git.rs",
         "count": 32,
         "highest_criticality": "Medium"
       },
@@ -791,12 +791,12 @@
         "highest_criticality": "High"
       },
       {
-        "file": "tests/cook_orchestrator_integration.rs",
+        "file": "src/git/mod.rs",
         "count": 30,
         "highest_criticality": "Medium"
       },
       {
-        "file": "src/git/mod.rs",
+        "file": "tests/cook_orchestrator_integration.rs",
         "count": 30,
         "highest_criticality": "Medium"
       },
@@ -816,11 +816,6 @@
         "highest_criticality": "Medium"
       },
       {
-        "file": "src/context/conventions.rs",
-        "count": 26,
-        "highest_criticality": "Medium"
-      },
-      {
         "file": "src/metrics/backends.rs",
         "count": 26,
         "highest_criticality": "Medium"
@@ -829,6 +824,11 @@
         "file": "src/config/mod.rs",
         "count": 26,
         "highest_criticality": "High"
+      },
+      {
+        "file": "src/context/conventions.rs",
+        "count": 26,
+        "highest_criticality": "Medium"
       },
       {
         "file": "src/context/test_coverage.rs",
@@ -841,40 +841,18 @@
         "highest_criticality": "High"
       },
       {
-        "file": "src/cook/git_ops.rs",
+        "file": "src/analysis/unified.rs",
         "count": 23,
         "highest_criticality": "Medium"
       },
       {
-        "file": "src/analysis/unified.rs",
+        "file": "src/cook/tests.rs",
         "count": 23,
         "highest_criticality": "Medium"
       }
     ]
   },
   "critical_gaps": [
-    {
-      "file": "src/main.rs",
-      "critical_functions": [
-        "display_worktree_session",
-        "display_worktree_session_legacy",
-        "handle_clean_command",
-        "handle_list_command",
-        "handle_merge_command",
-        "main",
-        "run_worktree_command"
-      ],
-      "coverage_percentage": 0.0
-    },
-    {
-      "file": "src/worktree/manager.rs",
-      "critical_functions": [
-        "test_update_checkpoint_increments_iteration",
-        "test_update_checkpoint_success",
-        "update_checkpoint"
-      ],
-      "coverage_percentage": 0.40468227424749165
-    },
     {
       "file": "src/context/mod.rs",
       "critical_functions": [
@@ -890,7 +868,7 @@
         "test_save_test_coverage_summary_detailed_data",
         "test_save_test_coverage_summary_minimal_data"
       ],
-      "coverage_percentage": 0.5336322869955157
+      "coverage_percentage": 0.5291479820627802
     },
     {
       "file": "src/cook/retry.rs",
@@ -901,15 +879,19 @@
       "coverage_percentage": 0.8852459016393442
     },
     {
-      "file": "src/config/mod.rs",
+      "file": "src/cook/mod.rs",
       "critical_functions": [
-        "get_claude_api_key",
-        "test_get_claude_api_key_config_precedence_over_env",
-        "test_get_claude_api_key_from_config",
-        "test_get_claude_api_key_from_env",
-        "test_get_claude_api_key_precedence"
+        "create_orchestrator",
+        "load_playbook",
+        "load_workflow",
+        "run_improvement_loop",
+        "test_create_orchestrator",
+        "test_create_orchestrator_default",
+        "test_create_orchestrator_with_mmm_dir",
+        "test_load_workflow_default",
+        "test_yaml_error_messages"
       ],
-      "coverage_percentage": 1.0
+      "coverage_percentage": 0.46153846153846156
     },
     {
       "file": "src/cook/orchestrator.rs",
@@ -960,7 +942,29 @@
         "test_workflow_detects_structured_commands",
         "test_worktree_cleanup_after_merge"
       ],
-      "coverage_percentage": 0.3700980392156863
+      "coverage_percentage": 0.36829268292682926
+    },
+    {
+      "file": "src/main.rs",
+      "critical_functions": [
+        "display_worktree_session",
+        "display_worktree_session_legacy",
+        "handle_clean_command",
+        "handle_list_command",
+        "handle_merge_command",
+        "main",
+        "run_worktree_command"
+      ],
+      "coverage_percentage": 0.0
+    },
+    {
+      "file": "src/worktree/manager.rs",
+      "critical_functions": [
+        "test_update_checkpoint_increments_iteration",
+        "test_update_checkpoint_success",
+        "update_checkpoint"
+      ],
+      "coverage_percentage": 0.40468227424749165
     },
     {
       "file": "src/init/mod.rs",
@@ -981,19 +985,15 @@
       "coverage_percentage": 0.7777777777777778
     },
     {
-      "file": "src/cook/mod.rs",
+      "file": "src/config/mod.rs",
       "critical_functions": [
-        "create_orchestrator",
-        "load_playbook",
-        "load_workflow",
-        "run_improvement_loop",
-        "test_create_orchestrator",
-        "test_create_orchestrator_default",
-        "test_create_orchestrator_with_mmm_dir",
-        "test_load_workflow_default",
-        "test_yaml_error_messages"
+        "get_claude_api_key",
+        "test_get_claude_api_key_config_precedence_over_env",
+        "test_get_claude_api_key_from_config",
+        "test_get_claude_api_key_from_env",
+        "test_get_claude_api_key_precedence"
       ],
-      "coverage_percentage": 0.46153846153846156
+      "coverage_percentage": 1.0
     }
   ]
 }

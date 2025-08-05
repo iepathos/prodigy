@@ -130,6 +130,7 @@ pub struct AnalysisConfig {
 /// Contains optional parameters that control how a command is executed,
 /// including retry behavior, timeouts, and error handling strategies.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct CommandMetadata {
     /// Number of retry attempts (overrides global setting)
     pub retries: Option<u32>,
@@ -153,18 +154,6 @@ pub struct CommandMetadata {
     pub analysis: Option<AnalysisConfig>,
 }
 
-impl Default for CommandMetadata {
-    fn default() -> Self {
-        Self {
-            retries: None,
-            timeout: None,
-            continue_on_error: None,
-            env: HashMap::new(),
-            commit_required: false,
-            analysis: None,
-        }
-    }
-}
 
 /// Declaration of a command output
 ///
