@@ -289,14 +289,17 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                         crate::config::apply_command_defaults(&mut command);
 
                         let command_str = command.name.clone();
-                        
+
                         // Determine commit_required based on command type and defaults
                         let commit_required = match cmd {
                             WorkflowCommand::SimpleObject(simple) => {
                                 // If explicitly set in YAML, use that value
                                 if let Some(cr) = simple.commit_required {
                                     cr
-                                } else if crate::config::command_validator::COMMAND_REGISTRY.get(&command.name).is_some() {
+                                } else if crate::config::command_validator::COMMAND_REGISTRY
+                                    .get(&command.name)
+                                    .is_some()
+                                {
                                     // Command is in registry, use its configured default
                                     command.metadata.commit_required
                                 } else {
@@ -310,7 +313,10 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                             }
                             _ => {
                                 // For string commands, check registry or use WorkflowStep default
-                                if crate::config::command_validator::COMMAND_REGISTRY.get(&command.name).is_some() {
+                                if crate::config::command_validator::COMMAND_REGISTRY
+                                    .get(&command.name)
+                                    .is_some()
+                                {
                                     command.metadata.commit_required
                                 } else {
                                     true
@@ -1896,7 +1902,7 @@ mod tests {
     async fn test_arg_resolution_only_for_commands_with_args() {
         // Set environment variable to skip commit validation in test
         std::env::set_var("MMM_NO_COMMIT_VALIDATION", "true");
-        
+
         let temp_dir = TempDir::new().unwrap();
         let mock_runner = MockCommandRunner::new();
         let mock_interaction = Arc::new(MockUserInteraction::new());
@@ -2040,7 +2046,7 @@ mod tests {
             "Third command should NOT show ARG: {}",
             command_messages[2]
         );
-        
+
         // Clean up environment variable
         std::env::remove_var("MMM_NO_COMMIT_VALIDATION");
     }
@@ -2248,7 +2254,7 @@ mod tests {
         let inputs = orchestrator.process_glob_pattern(&pattern)?;
 
         // The method extracts the numeric prefix from filenames
-        assert_eq!(inputs.len(), 2, "Expected 2 files, found: {:?}", inputs);
+        assert_eq!(inputs.len(), 2, "Expected 2 files, found: {inputs:?}");
         assert!(inputs.contains(&"01".to_string()));
         assert!(inputs.contains(&"02".to_string()));
         Ok(())
@@ -2274,16 +2280,14 @@ mod tests {
         let inputs = orchestrator.process_glob_pattern(&pattern)?;
 
         // Should find both files and extract their numeric prefixes
-        assert_eq!(inputs.len(), 2, "Expected 2 files, found: {:?}", inputs);
+        assert_eq!(inputs.len(), 2, "Expected 2 files, found: {inputs:?}");
         assert!(
             inputs.contains(&"10".to_string()),
-            "Missing '10' in {:?}",
-            inputs
+            "Missing '10' in {inputs:?}"
         );
         assert!(
             inputs.contains(&"20".to_string()),
-            "Missing '20' in {:?}",
-            inputs
+            "Missing '20' in {inputs:?}"
         );
 
         Ok(())
