@@ -262,39 +262,67 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             .commands
             .iter()
             .map(|cmd| {
-                // Convert to command and apply defaults to get proper commit_required
-                let mut command = cmd.to_command();
-                crate::config::apply_command_defaults(&mut command);
+                match cmd {
+                    WorkflowCommand::WorkflowStep(step) => {
+                        // Handle new workflow step format directly
+                        WorkflowStep {
+                            name: None,
+                            command: None,
+                            claude: step.claude.clone(),
+                            shell: step.shell.clone(),
+                            test: step.test.clone(),
+                            capture_output: step.capture_output,
+                            timeout: None,
+                            working_dir: None,
+                            env: std::collections::HashMap::new(),
+                            on_failure: None,
+                            on_success: None,
+                            on_exit_code: std::collections::HashMap::new(),
+                            // Test commands should not require commits by default
+                            commit_required: if step.test.is_some() {
+                                false
+                            } else {
+                                step.commit_required
+                            },
+                            analysis: step.analysis.clone(),
+                        }
+                    }
+                    _ => {
+                        // Convert to command and apply defaults to get proper commit_required
+                        let mut command = cmd.to_command();
+                        crate::config::apply_command_defaults(&mut command);
 
-                let command_str = command.name.clone();
-                let commit_required = command.metadata.commit_required;
-                let analysis_config = command.analysis.clone();
+                        let command_str = command.name.clone();
+                        let commit_required = command.metadata.commit_required;
+                        let analysis_config = command.analysis.clone();
 
-                // If analysis is configured, run it before this step
-                if let Some(ref _analysis_cfg) = analysis_config {
-                    // Store the analysis config for later use
-                    // We'll need to run analysis before executing this step
-                }
+                        // If analysis is configured, run it before this step
+                        if let Some(ref _analysis_cfg) = analysis_config {
+                            // Store the analysis config for later use
+                            // We'll need to run analysis before executing this step
+                        }
 
-                WorkflowStep {
-                    name: None,
-                    command: Some(if command_str.starts_with('/') {
-                        command_str
-                    } else {
-                        format!("/{command_str}")
-                    }),
-                    claude: None,
-                    shell: None,
-                    test: None,
-                    capture_output: false,
-                    timeout: None,
-                    working_dir: None,
-                    env: std::collections::HashMap::new(),
-                    on_failure: None,
-                    on_success: None,
-                    on_exit_code: std::collections::HashMap::new(),
-                    commit_required,
-                    analysis: analysis_config,
+                        WorkflowStep {
+                            name: None,
+                            command: Some(if command_str.starts_with('/') {
+                                command_str
+                            } else {
+                                format!("/{command_str}")
+                            }),
+                            claude: None,
+                            shell: None,
+                            test: None,
+                            capture_output: false,
+                            timeout: None,
+                            working_dir: None,
+                            env: std::collections::HashMap::new(),
+                            on_failure: None,
+                            on_success: None,
+                            on_exit_code: std::collections::HashMap::new(),
+                            commit_required,
+                            analysis: analysis_config,
+                        }
+                    }
                 }
             })
             .collect();
