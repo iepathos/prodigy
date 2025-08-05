@@ -706,7 +706,8 @@ impl WorkflowExecutor {
                 }
 
                 // Save test output to a temp file if it's too large
-                let output_path = if test_result.stdout.len() + test_result.stderr.len() > 10000 {
+                // We need to keep the temp file alive until after the debug command runs
+                let temp_file = if test_result.stdout.len() + test_result.stderr.len() > 10000 {
                     // Create a temporary file for large outputs
                     let temp_file = NamedTempFile::new()?;
                     let combined_output = format!(
@@ -714,10 +715,14 @@ impl WorkflowExecutor {
                         test_result.stdout, test_result.stderr
                     );
                     fs::write(temp_file.path(), &combined_output)?;
-                    Some(temp_file.path().to_string_lossy().to_string())
+                    Some(temp_file)
                 } else {
                     None
                 };
+                
+                let output_path = temp_file
+                    .as_ref()
+                    .map(|f| f.path().to_string_lossy().to_string());
 
                 // Prepare the debug command with variables
                 let mut debug_cmd = debug_config.claude.clone();
@@ -765,6 +770,10 @@ impl WorkflowExecutor {
                         .display_error("Debug command failed, but continuing with retry");
                 }
 
+                // The temp_file will be dropped here, which is safe because the debug command
+                // has already been executed and no longer needs the file
+                drop(temp_file);
+                
                 // Continue to next attempt
             } else {
                 // No on_failure configuration, return the failed result
