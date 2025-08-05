@@ -2419,7 +2419,24 @@ mod tests {
     async fn test_execute_structured_workflow_with_analysis() {
         let temp_dir = TempDir::new().unwrap();
         let original_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/tmp"));
-        std::env::set_current_dir(temp_dir.path()).unwrap();
+        
+        // Set the current directory and ensure we restore it before temp_dir is dropped
+        let _guard = {
+            std::env::set_current_dir(temp_dir.path()).unwrap();
+            
+            // Create a guard that restores the directory when dropped
+            struct DirGuard {
+                original: PathBuf,
+            }
+            
+            impl Drop for DirGuard {
+                fn drop(&mut self) {
+                    let _ = std::env::set_current_dir(&self.original);
+                }
+            }
+            
+            DirGuard { original: original_dir }
+        };
 
         let (orchestrator, _, _) = create_test_orchestrator();
 
@@ -2473,9 +2490,6 @@ mod tests {
         let result = orchestrator
             .execute_structured_workflow(&env, &config)
             .await;
-
-        // Restore directory
-        std::env::set_current_dir(&original_dir).unwrap();
 
         // In test mode, Claude commands will fail
         assert!(result.is_err());
