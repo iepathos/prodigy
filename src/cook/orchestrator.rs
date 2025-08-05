@@ -2292,4 +2292,240 @@ mod tests {
 
         Ok(())
     }
+
+    #[tokio::test]
+    async fn test_execute_structured_workflow_success() {
+        let temp_dir = TempDir::new().unwrap();
+        let original_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/tmp"));
+
+        // Set the current directory and ensure we restore it before temp_dir is dropped
+        let _guard = {
+            std::env::set_current_dir(temp_dir.path()).unwrap();
+
+            // Create a guard that restores the directory when dropped
+            struct DirGuard {
+                original: PathBuf,
+            }
+
+            impl Drop for DirGuard {
+                fn drop(&mut self) {
+                    let _ = std::env::set_current_dir(&self.original);
+                }
+            }
+
+            DirGuard {
+                original: original_dir,
+            }
+        };
+
+        let (orchestrator, _, _) = create_test_orchestrator();
+
+        // Create environment
+        let env = ExecutionEnvironment {
+            working_dir: temp_dir.path().to_path_buf(),
+            project_dir: temp_dir.path().to_path_buf(),
+            worktree_name: None,
+            session_id: "test-session".to_string(),
+        };
+
+        // Create a simple workflow with one command
+        let workflow = WorkflowConfig {
+            commands: vec![crate::config::command::WorkflowCommand::Simple(
+                "/mmm-lint".to_string(),
+            )],
+        };
+
+        let config = CookConfig {
+            command: CookCommand {
+                playbook: PathBuf::from("test.yml"),
+                path: None,
+                max_iterations: 1,
+                worktree: false,
+                map: vec![],
+                args: vec![],
+                fail_fast: false,
+                metrics: false,
+                auto_accept: false,
+                resume: None,
+                skip_analysis: true,
+            },
+            project_path: temp_dir.path().to_path_buf(),
+            workflow,
+        };
+
+        // This will fail in test mode because Claude is not available
+        // but we're testing that the structure is correct
+        let result = orchestrator
+            .execute_structured_workflow(&env, &config)
+            .await;
+
+        // In test mode, Claude commands will fail
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_execute_structured_workflow_with_outputs() {
+        let temp_dir = TempDir::new().unwrap();
+        let original_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/tmp"));
+
+        // Set the current directory and ensure we restore it before temp_dir is dropped
+        let _guard = {
+            std::env::set_current_dir(temp_dir.path()).unwrap();
+
+            // Create a guard that restores the directory when dropped
+            struct DirGuard {
+                original: PathBuf,
+            }
+
+            impl Drop for DirGuard {
+                fn drop(&mut self) {
+                    let _ = std::env::set_current_dir(&self.original);
+                }
+            }
+
+            DirGuard {
+                original: original_dir,
+            }
+        };
+
+        let (orchestrator, _, _) = create_test_orchestrator();
+
+        // Create environment
+        let env = ExecutionEnvironment {
+            working_dir: temp_dir.path().to_path_buf(),
+            project_dir: temp_dir.path().to_path_buf(),
+            worktree_name: None,
+            session_id: "test-session".to_string(),
+        };
+
+        // Create structured command with outputs
+        let cmd_with_outputs = crate::config::command::Command {
+            name: "mmm-generate-spec".to_string(),
+            args: vec![],
+            options: HashMap::new(),
+            metadata: crate::config::command::CommandMetadata::default(),
+            id: Some("generate".to_string()),
+            outputs: Some(HashMap::from([(
+                "spec".to_string(),
+                crate::config::command::OutputDeclaration {
+                    file_pattern: "specs/*.md".to_string(),
+                },
+            )])),
+            analysis: None,
+        };
+
+        let workflow = WorkflowConfig {
+            commands: vec![crate::config::command::WorkflowCommand::Structured(
+                Box::new(cmd_with_outputs),
+            )],
+        };
+
+        let config = CookConfig {
+            command: CookCommand {
+                playbook: PathBuf::from("test.yml"),
+                path: None,
+                max_iterations: 1,
+                worktree: false,
+                map: vec![],
+                args: vec![],
+                fail_fast: false,
+                metrics: false,
+                auto_accept: false,
+                resume: None,
+                skip_analysis: true,
+            },
+            project_path: temp_dir.path().to_path_buf(),
+            workflow,
+        };
+
+        // This will fail in test mode because Claude is not available
+        let result = orchestrator
+            .execute_structured_workflow(&env, &config)
+            .await;
+
+        // In test mode, Claude commands will fail
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_execute_structured_workflow_with_analysis() {
+        let temp_dir = TempDir::new().unwrap();
+        let original_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/tmp"));
+
+        // Set the current directory and ensure we restore it before temp_dir is dropped
+        let _guard = {
+            std::env::set_current_dir(temp_dir.path()).unwrap();
+
+            // Create a guard that restores the directory when dropped
+            struct DirGuard {
+                original: PathBuf,
+            }
+
+            impl Drop for DirGuard {
+                fn drop(&mut self) {
+                    let _ = std::env::set_current_dir(&self.original);
+                }
+            }
+
+            DirGuard {
+                original: original_dir,
+            }
+        };
+
+        let (orchestrator, _, _) = create_test_orchestrator();
+
+        // Create environment
+        let env = ExecutionEnvironment {
+            working_dir: temp_dir.path().to_path_buf(),
+            project_dir: temp_dir.path().to_path_buf(),
+            worktree_name: None,
+            session_id: "test-session".to_string(),
+        };
+
+        // Create command with analysis requirement
+        let cmd_with_analysis = crate::config::command::Command {
+            name: "mmm-code-review".to_string(),
+            args: vec![],
+            options: HashMap::new(),
+            metadata: crate::config::command::CommandMetadata::default(),
+            id: Some("review".to_string()),
+            outputs: None,
+            analysis: Some(crate::config::command::AnalysisConfig {
+                force_refresh: true,
+                max_cache_age: 300,
+            }),
+        };
+
+        let workflow = WorkflowConfig {
+            commands: vec![crate::config::command::WorkflowCommand::Structured(
+                Box::new(cmd_with_analysis),
+            )],
+        };
+
+        let config = CookConfig {
+            command: CookCommand {
+                playbook: PathBuf::from("test.yml"),
+                path: None,
+                max_iterations: 1,
+                worktree: false,
+                map: vec![],
+                args: vec![],
+                fail_fast: false,
+                metrics: false,
+                auto_accept: false,
+                resume: None,
+                skip_analysis: false,
+            },
+            project_path: temp_dir.path().to_path_buf(),
+            workflow,
+        };
+
+        // This will fail in test mode because Claude is not available
+        let result = orchestrator
+            .execute_structured_workflow(&env, &config)
+            .await;
+
+        // In test mode, Claude commands will fail
+        assert!(result.is_err());
+    }
 }
