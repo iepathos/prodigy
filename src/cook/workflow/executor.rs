@@ -719,7 +719,7 @@ impl WorkflowExecutor {
                 } else {
                     None
                 };
-                
+
                 let output_path = temp_file
                     .as_ref()
                     .map(|f| f.path().to_string_lossy().to_string());
@@ -773,7 +773,7 @@ impl WorkflowExecutor {
                 // The temp_file will be dropped here, which is safe because the debug command
                 // has already been executed and no longer needs the file
                 drop(temp_file);
-                
+
                 // Continue to next attempt
             } else {
                 // No on_failure configuration, return the failed result
@@ -902,21 +902,10 @@ impl WorkflowExecutor {
     }
 
     /// Check if we should continue iterations
-    async fn should_continue_iterations(&self, env: &ExecutionEnvironment) -> Result<bool> {
-        // Try to use metrics
-        if let Ok(metrics) = self.metrics_coordinator.collect_all(&env.working_dir).await {
-            // Simple heuristic: stop if no lint warnings
-            if metrics.lint_warnings == 0 {
-                self.user_interaction
-                    .display_success("No lint warnings remaining, stopping iterations");
-                return Ok(false);
-            }
-        }
-
-        // Ask user
-        self.user_interaction
-            .prompt_yes_no("Continue with another iteration?")
-            .await
+    async fn should_continue_iterations(&self, _env: &ExecutionEnvironment) -> Result<bool> {
+        // Always continue iterations until max_iterations is reached
+        // The iteration loop already handles the max_iterations check
+        Ok(true)
     }
 
     /// Collect and report final metrics
