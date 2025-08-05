@@ -2,6 +2,8 @@
 
 Fix failing tests by analyzing test output and applying targeted fixes.
 
+**Important**: This command MUST create a commit after successfully fixing tests, as it's configured with `commit_required: true` in workflow on_failure handlers.
+
 ## Variables
 
 --spec: Path to spec file that generated the tests
@@ -46,7 +48,16 @@ Fix failing tests by analyzing test output and applying targeted fixes.
    cargo test  # Run full suite, not just specific tests
    ```
 
-6. **Output**:
+6. **Create a commit** after fixing the tests:
+   ```bash
+   git add -A
+   git commit -m "fix: resolve test failures from implementation
+
+   - Fixed N failing tests
+   - [List specific fixes applied]"
+   ```
+
+7. **Output**:
    - Success: "✓ All tests passing after fixing N tests"
    - Failed: "✗ Fixed N tests but M still failing"
 

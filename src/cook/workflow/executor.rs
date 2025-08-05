@@ -756,6 +756,10 @@ impl WorkflowExecutor {
                     .execute_claude_command(&debug_cmd, env, env_vars.clone())
                     .await?;
 
+                // Note: commit verification for debug commands happens at a higher level
+                // The debug_config.commit_required field indicates that the command
+                // should create commits, which is enforced in the command template
+
                 if !debug_result.success {
                     self.user_interaction
                         .display_error("Debug command failed, but continuing with retry");

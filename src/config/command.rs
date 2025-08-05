@@ -193,6 +193,10 @@ pub struct TestDebugConfig {
     /// Whether to fail the workflow if max attempts reached
     #[serde(default)]
     pub fail_workflow: bool,
+
+    /// Whether the debug command should create commits
+    #[serde(default = "default_true")]
+    pub commit_required: bool,
 }
 
 fn default_max_attempts() -> u32 {

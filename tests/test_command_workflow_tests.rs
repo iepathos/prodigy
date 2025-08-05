@@ -42,6 +42,7 @@ test:
     assert_eq!(debug_config.max_attempts, 3);
     assert!(debug_config.stop_on_success);
     assert!(!debug_config.fail_workflow);
+    assert!(debug_config.commit_required); // Should default to true
 }
 
 #[test]
@@ -61,6 +62,7 @@ test:
     assert_eq!(debug_config.max_attempts, 3); // default
     assert!(debug_config.stop_on_success); // default true
     assert!(!debug_config.fail_workflow); // default false
+    assert!(debug_config.commit_required); // default true
 }
 
 #[test]
@@ -195,6 +197,7 @@ fn test_test_command_serialization() {
             max_attempts: 5,
             stop_on_success: false,
             fail_workflow: true,
+            commit_required: false,
         }),
     };
 
@@ -207,4 +210,5 @@ fn test_test_command_serialization() {
     assert_eq!(debug_config.max_attempts, 5);
     assert!(!debug_config.stop_on_success);
     assert!(debug_config.fail_workflow);
+    assert!(!debug_config.commit_required);
 }
