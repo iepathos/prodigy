@@ -92,7 +92,7 @@ fn test_command_with_top_level_analysis() {
         max_cache_age: 120,
     });
 
-    assert!(cmd.metadata.commit_required); // Default is true
+    assert!(!cmd.metadata.commit_required); // Default is false
     assert!(cmd.analysis.is_some());
 
     let analysis = cmd.analysis.as_ref().unwrap();
