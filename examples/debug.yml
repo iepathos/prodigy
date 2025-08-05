@@ -1,0 +1,12 @@
+# Test execution with automatic debugging on failure
+# Runs tests and automatically attempts to fix failures before proceeding to linting
+commands:
+    - test:
+        command: "just test"
+        on_failure:
+          claude: "/mmm-debug-test-failure --output ${test.output}"
+          max_attempts: 3
+          fail_workflow: true  # Fail if tests can't be fixed after 3 attempts
+          commit_required: true  # Create commits when fixing tests
+    
+    - claude: "/mmm-lint"  # Clean up code after tests pass
