@@ -1,12 +1,11 @@
 # Test execution with automatic debugging that continues on failure
 # Attempts to fix test failures but continues to linting even if tests can't be fixed
-commands:
-    - test:
-        command: "just test"
-        on_failure:
-          claude: "/mmm-debug-test-failure --output ${test.output}"
-          max_attempts: 2
-          fail_workflow: false  # Continue even if tests can't be fixed
-          commit_required: true  # Create commits when fixing tests
-    
-    - claude: "/mmm-lint"  # Clean up code regardless of test status
+- test:
+    command: "just test"
+    on_failure:
+      claude: "/mmm-debug-test-failure --output ${test.output}"
+      max_attempts: 2
+      fail_workflow: false  # Continue even if tests can't be fixed
+      commit_required: true  # Create commits when fixing tests
+
+- claude: "/mmm-lint"  # Clean up code regardless of test status

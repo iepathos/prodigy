@@ -1,14 +1,13 @@
 # Default MMM playbook - the original hardcoded workflow
 # This is what was previously built into MMM
-commands:
-  - claude: "/mmm-code-review"
-    id: review
-    commit_required: false  # Code review creates specs, not commits
-    outputs:
-      spec: 
-        file_pattern: "*-improvements.md"
-  
-  - claude: "/mmm-implement-spec ${review.spec}"
-  
-  - claude: "/mmm-lint"
-    commit_required: false  # OK if no linting issues found
+- claude: "/mmm-code-review"
+  id: review
+  commit_required: false  # Code review creates specs, not commits
+  outputs:
+    spec: 
+      file_pattern: "*-improvements.md"
+
+- claude: "/mmm-implement-spec ${review.spec}"
+
+- claude: "/mmm-lint"
+  commit_required: false  # OK if no linting issues found

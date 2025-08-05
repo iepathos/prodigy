@@ -4,23 +4,22 @@
 # This workflow uses the new mmm-product-enhance command
 # to identify and implement product improvements
 
-commands:
-  # Step 1: Analyze from product management perspective
-  - claude: "/mmm-product-enhance --area cli-ux --max-enhancements 8"
-    options:
-      area: "cli-ux"  # Optional: target specific area
-      max-enhancements: 8
-      
-  # Step 2: Implement the enhancements
-  - claude: "/mmm-implement-spec $SPEC_ID"
-    args: ["$SPEC_ID"]  # Auto-extracted from previous command
-      
-  # Step 3: Clean up and ensure quality
-  - claude: "/mmm-lint --fix"
-    options:
-      fix: true
-    metadata:
-      continue_on_error: true
+# Step 1: Analyze from product management perspective
+- claude: "/mmm-product-enhance --area cli-ux --max-enhancements 8"
+  options:
+    area: "cli-ux"  # Optional: target specific area
+    max-enhancements: 8
+    
+# Step 2: Implement the enhancements
+- claude: "/mmm-implement-spec $SPEC_ID"
+  args: ["$SPEC_ID"]  # Auto-extracted from previous command
+    
+# Step 3: Clean up and ensure quality
+- claude: "/mmm-lint --fix"
+  options:
+    fix: true
+  metadata:
+    continue_on_error: true
 
 # Example usage:
 # mmm improve --config examples/product-enhancement-workflow.yml

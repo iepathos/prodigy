@@ -214,6 +214,36 @@ commands:
     }
 
     #[tokio::test]
+    async fn test_load_playbook_without_commands_wrapper() {
+        let temp_dir = TempDir::new().unwrap();
+        let playbook_path = temp_dir.path().join("test_new_format.yml");
+
+        // New format: direct array of commands
+        let yaml_content = r#"
+- name: mmm-code-review
+  id: review
+  commit_required: false
+- claude: /mmm-implement-spec ${review.spec}
+  name: implement
+  commit_required: true
+- name: mmm-lint
+  commit_required: false
+"#;
+
+        tokio::fs::write(&playbook_path, yaml_content)
+            .await
+            .unwrap();
+
+        let result = load_playbook(&playbook_path).await;
+        assert!(result.is_ok(), "Failed to parse new format: {:?}", result);
+
+        let workflow = result.unwrap();
+        assert_eq!(workflow.commands.len(), 3);
+        assert_eq!(workflow.commands[0].to_command().name, "mmm-code-review");
+        assert_eq!(workflow.commands[2].to_command().name, "mmm-lint");
+    }
+
+    #[tokio::test]
     async fn test_run_analysis() {
         let temp_dir = TempDir::new().unwrap();
         let project_path = temp_dir.path();

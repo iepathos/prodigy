@@ -1,13 +1,12 @@
 # Test debugging workflow with spec context
 # Useful when implementing from a spec - provides the spec to the debug command
 # Usage: mmm cook examples/debug-with-spec.yml --args spec-file.md
-commands:
-    - test:
-        command: "just test"
-        on_failure:
-          claude: "/mmm-debug-test-failure --spec $ARG --output ${test.output}"
-          max_attempts: 3
-          fail_workflow: false  # Continue workflow even if tests can't be fixed
-          commit_required: true  # Create commits when fixing tests
-    
-    - claude: "/mmm-lint"  # Clean up code after test phase
+- test:
+    command: "just test"
+    on_failure:
+      claude: "/mmm-debug-test-failure --spec $ARG --output ${test.output}"
+      max_attempts: 3
+      fail_workflow: false  # Continue workflow even if tests can't be fixed
+      commit_required: true  # Create commits when fixing tests
+
+- claude: "/mmm-lint"  # Clean up code after test phase

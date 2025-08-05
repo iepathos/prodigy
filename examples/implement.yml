@@ -7,16 +7,15 @@
 #   mmm cook examples/implement.yml --map "specs/temp/*.md" --worktree
 
 # Commands to execute for each specification
-commands:
-  # Implement the spec using the $ARG variable which contains:
-  # - The spec ID extracted from filename when using --map
-  # - The direct argument value when using --args
-  - claude: "/mmm-implement-spec $ARG"
-    commit_required: true
-    analysis:
-        max_cache_age: 300
-  
-  # Run linting and formatting after implementation
-  - claude: "/mmm-lint"
-    commit_required: false
+# Implement the spec using the $ARG variable which contains:
+# - The spec ID extracted from filename when using --map
+# - The direct argument value when using --args
+- claude: "/mmm-implement-spec $ARG"
+  commit_required: true
+  analysis:
+      max_cache_age: 300
+
+# Run linting and formatting after implementation
+- claude: "/mmm-lint"
+  commit_required: false
   
