@@ -2,9 +2,9 @@
   "statistics": {
     "total_items": 20,
     "by_type": {
+      "Complexity": 3,
       "Deprecated": 5,
-      "Fixme": 12,
-      "Complexity": 3
+      "Fixme": 12
     },
     "by_impact": {
       "High": 8,
@@ -283,28 +283,28 @@
       "primary_issue_type": "Fixme"
     },
     {
-      "file": "/Users/glen/memento-mori/mmm/src/context/mod.rs",
-      "total_issues": 1,
-      "max_complexity": 0,
-      "primary_issue_type": "Complexity"
-    },
-    {
       "file": "/Users/glen/memento-mori/mmm/src/scoring/mod.rs",
       "total_issues": 1,
       "max_complexity": 0,
       "primary_issue_type": "Fixme"
     },
     {
-      "file": "/Users/glen/memento-mori/mmm/src/main.rs",
-      "total_issues": 1,
-      "max_complexity": 0,
-      "primary_issue_type": "Deprecated"
-    },
-    {
       "file": "/Users/glen/memento-mori/mmm/src/metrics/quality.rs",
       "total_issues": 1,
       "max_complexity": 0,
       "primary_issue_type": "Complexity"
+    },
+    {
+      "file": "/Users/glen/memento-mori/mmm/src/context/mod.rs",
+      "total_issues": 1,
+      "max_complexity": 0,
+      "primary_issue_type": "Complexity"
+    },
+    {
+      "file": "/Users/glen/memento-mori/mmm/src/main.rs",
+      "total_issues": 1,
+      "max_complexity": 0,
+      "primary_issue_type": "Deprecated"
     }
   ],
   "duplication_summary": {
