@@ -705,12 +705,6 @@ impl WorkflowExecutor {
                     }
                 }
 
-                // Run the debug command
-                self.user_interaction.display_info(&format!(
-                    "Tests failed, running debug command (attempt {}/{})",
-                    attempt, debug_config.max_attempts
-                ));
-
                 // Save test output to a temp file if it's too large
                 let output_path = if test_result.stdout.len() + test_result.stderr.len() > 10000 {
                     // Create a temporary file for large outputs
@@ -750,6 +744,12 @@ impl WorkflowExecutor {
 
                 // Interpolate the debug command
                 debug_cmd = ctx.interpolate(&debug_cmd);
+
+                // Log the actual command being run
+                self.user_interaction.display_info(&format!(
+                    "Tests failed, running: {} (attempt {}/{})",
+                    debug_cmd, attempt, debug_config.max_attempts
+                ));
 
                 // Execute the debug command
                 let debug_result = self
