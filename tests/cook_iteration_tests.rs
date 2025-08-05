@@ -196,7 +196,9 @@ fn test_cook_stops_early_when_no_changes() -> Result<()> {
     let playbook_content = r#"# Simple test playbook
 commands:
   - name: mmm-code-review
-  - name: mmm-lint"#;
+    commit_required: true
+  - name: mmm-lint
+    commit_required: true"#;
     fs::write(&playbook_path, playbook_content)?;
 
     create_mock_commands(temp_path)?;
