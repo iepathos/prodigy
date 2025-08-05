@@ -1,5 +1,10 @@
 # mmm
 
+[![CI](https://github.com/iepathos/mmm/actions/workflows/ci.yml/badge.svg)](https://github.com/iepathos/mmm/actions/workflows/ci.yml)
+[![Security](https://github.com/iepathos/mmm/actions/workflows/security.yml/badge.svg)](https://github.com/iepathos/mmm/actions/workflows/security.yml)
+[![Release](https://github.com/iepathos/mmm/actions/workflows/release.yml/badge.svg)](https://github.com/iepathos/mmm/actions/workflows/release.yml)
+
+
 A dead simple CLI tool that enables highly configurable and easily manageable self-sufficient Claude development loops.
 
 ## What Are Self-Sufficient Claude Development Loops?
