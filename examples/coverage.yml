@@ -3,6 +3,7 @@
 commands:
     - claude: "/mmm-coverage"
       id: coverage
+      commit_required: true
       outputs:
         spec:
           file_pattern: "*-coverage-improvements.md"
@@ -10,6 +11,7 @@ commands:
         max_cache_age: 300
     
     - claude: "/mmm-implement-spec ${coverage.spec}"
+      commit_required: true
     
     - test:
         command: "just test"
@@ -19,5 +21,4 @@ commands:
           stop_on_success: true
           fail_workflow: false  # Continue workflow even if tests can't be fixed
     
-    - claude: "/mmm-lint"
-      commit_required: false  # OK if no linting issues found
+    - claude: "/mmm-lint"  # Defaults to commit_required: false

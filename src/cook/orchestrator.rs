@@ -278,12 +278,8 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                             on_failure: None,
                             on_success: None,
                             on_exit_code: std::collections::HashMap::new(),
-                            // Test commands should not require commits by default
-                            commit_required: if step.test.is_some() {
-                                false
-                            } else {
-                                step.commit_required
-                            },
+                            // Commands don't require commits by default unless explicitly set
+                            commit_required: step.commit_required,
                             analysis: step.analysis.clone(),
                         }
                     }

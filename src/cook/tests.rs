@@ -383,10 +383,10 @@ commands:
         eprintln!("Command 0: {:?}", config.commands[0]);
         eprintln!("Command 1: {:?}", config.commands[1]);
 
-        // Check first command (should default to commit_required = true)
+        // Check first command (should default to commit_required = false)
         let cmd1 = config.commands[0].to_command();
         assert_eq!(cmd1.name, "mmm-implement-spec");
-        assert!(cmd1.metadata.commit_required);
+        assert!(!cmd1.metadata.commit_required);
 
         // Check second command (should have commit_required = false)
         let cmd2 = config.commands[1].to_command();

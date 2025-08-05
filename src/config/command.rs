@@ -144,8 +144,8 @@ pub struct CommandMetadata {
     #[serde(default)]
     pub env: HashMap<String, String>,
 
-    /// Whether this command is required to create commits (defaults to true)
-    #[serde(default = "default_true")]
+    /// Whether this command is required to create commits (defaults to false)
+    #[serde(default)]
     pub commit_required: bool,
 
     /// Analysis requirements for this command
@@ -160,7 +160,7 @@ impl Default for CommandMetadata {
             timeout: None,
             continue_on_error: None,
             env: HashMap::new(),
-            commit_required: true,
+            commit_required: false,
             analysis: None,
         }
     }
@@ -258,7 +258,7 @@ pub struct WorkflowStepCommand {
     pub id: Option<String>,
 
     /// Whether this command is expected to create commits
-    #[serde(default = "default_true")]
+    #[serde(default)]
     pub commit_required: bool,
 
     /// Analysis configuration
@@ -293,7 +293,7 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
             shell: Option<String>,
             test: Option<TestCommand>,
             id: Option<String>,
-            #[serde(default = "default_true")]
+            #[serde(default)]
             commit_required: bool,
             analysis: Option<AnalysisConfig>,
             outputs: Option<HashMap<String, OutputDeclaration>>,
@@ -589,7 +589,7 @@ mod tests {
     fn test_commit_required_field() {
         // Test default value
         let cmd = Command::new("mmm-implement-spec");
-        assert!(cmd.metadata.commit_required);
+        assert!(!cmd.metadata.commit_required);
 
         // Test SimpleCommand with commit_required set to false
         let simple_obj = WorkflowCommand::SimpleObject(SimpleCommand {
@@ -613,7 +613,7 @@ mod tests {
         assert_eq!(cmd.name, "mmm-fix");
         assert!(cmd.metadata.commit_required);
 
-        // Test SimpleCommand with commit_required not set (should default to true)
+        // Test SimpleCommand with commit_required not set (should default to false)
         let simple_obj = WorkflowCommand::SimpleObject(SimpleCommand {
             name: "mmm-refactor".to_string(),
             commit_required: None,
@@ -622,7 +622,7 @@ mod tests {
         });
         let cmd = simple_obj.to_command();
         assert_eq!(cmd.name, "mmm-refactor");
-        assert!(cmd.metadata.commit_required);
+        assert!(!cmd.metadata.commit_required);
     }
 
     #[test]
