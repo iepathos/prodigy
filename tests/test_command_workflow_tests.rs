@@ -24,7 +24,6 @@ test:
   on_failure:
     claude: "/mmm-debug-test-failure --spec ${spec} --output ${test.output}"
     max_attempts: 3
-    stop_on_success: true
     fail_workflow: false
 "#;
 
@@ -40,7 +39,6 @@ test:
         "/mmm-debug-test-failure --spec ${spec} --output ${test.output}"
     );
     assert_eq!(debug_config.max_attempts, 3);
-    assert!(debug_config.stop_on_success);
     assert!(!debug_config.fail_workflow);
     assert!(debug_config.commit_required); // Should default to true
 }
@@ -60,7 +58,6 @@ test:
 
     // Check defaults
     assert_eq!(debug_config.max_attempts, 3); // default
-    assert!(debug_config.stop_on_success); // default true
     assert!(!debug_config.fail_workflow); // default false
     assert!(debug_config.commit_required); // default true
 }
@@ -144,7 +141,6 @@ commands:
         on_failure:
           claude: "/mmm-debug-test-failure --spec ${coverage.spec} --output ${test.output}"
           max_attempts: 3
-          stop_on_success: true
     
     - claude: "/mmm-lint"
       commit_required: false
@@ -195,7 +191,6 @@ fn test_test_command_serialization() {
         on_failure: Some(TestDebugConfig {
             claude: "/mmm-debug-test-failure".to_string(),
             max_attempts: 5,
-            stop_on_success: false,
             fail_workflow: true,
             commit_required: false,
         }),
@@ -208,7 +203,6 @@ fn test_test_command_serialization() {
     let debug_config = deserialized.on_failure.unwrap();
     assert_eq!(debug_config.claude, "/mmm-debug-test-failure");
     assert_eq!(debug_config.max_attempts, 5);
-    assert!(!debug_config.stop_on_success);
     assert!(debug_config.fail_workflow);
     assert!(!debug_config.commit_required);
 }

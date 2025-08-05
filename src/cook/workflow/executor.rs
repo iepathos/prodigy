@@ -765,12 +765,6 @@ impl WorkflowExecutor {
                         .display_error("Debug command failed, but continuing with retry");
                 }
 
-                // If stop_on_success is false, we might want to continue even if fixed
-                if !debug_config.stop_on_success {
-                    self.user_interaction
-                        .display_info("Continuing with next attempt (stop_on_success is false)");
-                }
-
                 // Continue to next attempt
             } else {
                 // No on_failure configuration, return the failed result

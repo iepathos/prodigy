@@ -18,7 +18,6 @@ commands:
         on_failure:
           claude: "/mmm-debug-test-failure --spec ${coverage.spec} --output ${test.output}"
           max_attempts: 3
-          stop_on_success: true
           fail_workflow: false  # Continue workflow even if tests can't be fixed
     
     - claude: "/mmm-lint"  # Defaults to commit_required: false

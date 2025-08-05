@@ -186,10 +186,6 @@ pub struct TestDebugConfig {
     #[serde(default = "default_max_attempts")]
     pub max_attempts: u32,
 
-    /// Whether to stop retrying when tests pass
-    #[serde(default = "default_true")]
-    pub stop_on_success: bool,
-
     /// Whether to fail the workflow if max attempts reached
     #[serde(default)]
     pub fail_workflow: bool,
