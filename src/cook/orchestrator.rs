@@ -1518,7 +1518,7 @@ mod tests {
         let claude_executor = Arc::new(ClaudeExecutorImpl::new(mock_runner2));
         let analysis_coordinator = Arc::new(AnalysisRunnerImpl::new(mock_runner3));
         let metrics_coordinator = Arc::new(MetricsCollectorImpl::new(mock_runner4));
-        let state_manager = StateManager::new().unwrap();
+        let state_manager = StateManager::with_root(temp_dir.path().join(".mmm")).unwrap();
         let subprocess = crate::subprocess::SubprocessManager::production();
 
         let orchestrator = DefaultCookOrchestrator::new(
@@ -1567,7 +1567,7 @@ mod tests {
         let claude_executor = Arc::new(ClaudeExecutorImpl::new(mock_runner2));
         let analysis_coordinator = Arc::new(AnalysisRunnerImpl::new(mock_runner3));
         let metrics_coordinator = Arc::new(MetricsCollectorImpl::new(mock_runner4));
-        let state_manager = StateManager::new().unwrap();
+        let state_manager = StateManager::with_root(temp_dir.path().join(".mmm")).unwrap();
         let subprocess = crate::subprocess::SubprocessManager::production();
 
         let orchestrator = DefaultCookOrchestrator::new(
@@ -1927,7 +1927,7 @@ mod tests {
         let claude_executor = Arc::new(ClaudeExecutorImpl::new(mock_runner));
         let analysis_coordinator = Arc::new(AnalysisRunnerImpl::new(MockCommandRunner::new()));
         let metrics_coordinator = Arc::new(MetricsCollectorImpl::new(MockCommandRunner::new()));
-        let state_manager = StateManager::new().unwrap();
+        let state_manager = StateManager::with_root(temp_dir.path().join(".mmm")).unwrap();
         let subprocess = crate::subprocess::SubprocessManager::production();
 
         let orchestrator = DefaultCookOrchestrator::new(

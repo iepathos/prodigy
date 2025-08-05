@@ -129,8 +129,7 @@ pub struct AnalysisConfig {
 ///
 /// Contains optional parameters that control how a command is executed,
 /// including retry behavior, timeouts, and error handling strategies.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CommandMetadata {
     /// Number of retry attempts (overrides global setting)
     pub retries: Option<u32>,
@@ -153,7 +152,6 @@ pub struct CommandMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub analysis: Option<AnalysisConfig>,
 }
-
 
 /// Declaration of a command output
 ///
