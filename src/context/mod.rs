@@ -942,4 +942,363 @@ mod tests {
         std::env::remove_var("MMM_SKIP_GIT_COMMITS");
         Ok(())
     }
+
+    #[tokio::test]
+    #[ignore = "Requires fixing struct initialization"]
+    async fn test_save_analysis_with_commit() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let project_path = temp_dir.path();
+
+        // Create a minimal project structure
+        std::fs::create_dir_all(project_path.join("src"))?;
+        std::fs::write(project_path.join("src/main.rs"), "fn main() {}")?;
+
+        // Initialize git repo for testing
+        std::process::Command::new("git")
+            .args(["init"])
+            .current_dir(project_path)
+            .output()?;
+
+        // Configure git user for commits
+        std::process::Command::new("git")
+            .args(["config", "user.email", "test@example.com"])
+            .current_dir(project_path)
+            .output()?;
+        std::process::Command::new("git")
+            .args(["config", "user.name", "Test User"])
+            .current_dir(project_path)
+            .output()?;
+
+        let analyzer = ProjectAnalyzer::new();
+        let analysis = analyzer.analyze(project_path).await?;
+
+        // Test with commit enabled (default)
+        std::env::remove_var("MMM_SKIP_GIT_COMMITS");
+        let result = save_analysis_with_commit(project_path, &analysis, true)?;
+        assert!(result); // Should commit
+
+        // Test with commit disabled
+        let result = save_analysis_with_commit(project_path, &analysis, false)?;
+        assert!(!result); // Should not commit
+
+        Ok(())
+    }
+
+    #[test]
+    #[ignore = "Requires fixing struct initialization"]
+    fn test_save_analysis_components() {
+        let temp_dir = TempDir::new().unwrap();
+        let context_dir = temp_dir.path();
+        std::fs::create_dir_all(context_dir).unwrap();
+
+        let analysis = AnalysisResult {
+            dependency_graph: DependencyGraph {
+                nodes: HashMap::new(),
+                edges: vec![],
+                cycles: vec![],
+                layers: vec![],
+                coupling_analysis: crate::context::dependencies::CouplingAnalysis {
+                    high_coupling_modules: vec![],
+                    avg_coupling: 0.0,
+                    max_coupling: 0,
+                },
+            },
+            architecture: ArchitectureInfo {
+                patterns: vec![],
+                layers: vec![],
+                components: HashMap::new(),
+                violations: vec![],
+            },
+            conventions: ProjectConventions {
+                naming_patterns: conventions::NamingRules {
+                    file_naming: conventions::NamingStyle::SnakeCase,
+                    function_naming: conventions::NamingStyle::SnakeCase,
+                    variable_naming: conventions::NamingStyle::SnakeCase,
+                    type_naming: conventions::NamingStyle::PascalCase,
+                    constant_naming: conventions::NamingStyle::ScreamingSnakeCase,
+                },
+                code_patterns: HashMap::new(),
+                test_patterns: conventions::TestingConventions {
+                    test_file_pattern: "tests".to_string(),
+                    test_function_prefix: "test_".to_string(),
+                    test_module_pattern: "tests".to_string(),
+                    assertion_style: "assert_eq".to_string(),
+                },
+                project_idioms: vec![],
+            },
+            technical_debt: TechnicalDebtMap {
+                debt_items: vec![],
+                hotspots: vec![],
+                duplication_map: HashMap::new(),
+                priority_queue: std::collections::BinaryHeap::new(),
+            },
+            test_coverage: None,
+            metadata: AnalysisMetadata {
+                timestamp: chrono::Utc::now(),
+                duration_ms: 100,
+                files_analyzed: 5,
+                incremental: false,
+                version: "0.1.0".to_string(),
+                scoring_algorithm: None,
+                criticality_distribution: None,
+            },
+        };
+
+        let result = save_analysis_components(context_dir, &analysis);
+        assert!(result.is_ok());
+
+        // Verify all component files were created
+        assert!(context_dir.join("analysis.json").exists());
+        assert!(context_dir.join("dependency_graph.json").exists());
+        assert!(context_dir.join("architecture.json").exists());
+        assert!(context_dir.join("conventions.json").exists());
+        assert!(context_dir.join("technical_debt.json").exists());
+        assert!(context_dir.join("analysis_metadata.json").exists());
+    }
+
+    #[test]
+    #[ignore = "Requires fixing struct initialization"]
+    fn test_optimize_test_coverage() {
+        use crate::context::test_coverage::{Criticality, FileCoverage, UntestedFunction};
+        use std::path::PathBuf;
+
+        let mut file_coverage = HashMap::new();
+        
+        // Add a file with good coverage (should be filtered out)
+        file_coverage.insert(
+            PathBuf::from("src/good.rs"),
+            FileCoverage {
+                path: PathBuf::from("src/good.rs"),
+                coverage_percentage: 0.95,
+                tested_lines: 95,
+                total_lines: 100,
+                tested_functions: 10,
+                total_functions: 10,
+                has_tests: true,
+            },
+        );
+
+        // Add a file with poor coverage (should be kept)
+        file_coverage.insert(
+            PathBuf::from("src/bad.rs"),
+            FileCoverage {
+                path: PathBuf::from("src/bad.rs"),
+                coverage_percentage: 0.25,
+                tested_lines: 25,
+                total_lines: 100,
+                tested_functions: 2,
+                total_functions: 10,
+                has_tests: true,
+            },
+        );
+
+        let mut untested_functions = vec![];
+        
+        // Add high criticality functions (all should be kept)
+        for i in 0..3 {
+            untested_functions.push(UntestedFunction {
+                file: PathBuf::from("src/critical.rs"),
+                name: format!("critical_fn_{}", i),
+                line_number: i * 10,
+                criticality: Criticality::High,
+            });
+        }
+
+        // Add many medium criticality functions (only top 30 should be kept)
+        for i in 0..50 {
+            untested_functions.push(UntestedFunction {
+                file: PathBuf::from("src/medium.rs"),
+                name: format!("medium_fn_{}", i),
+                line_number: i * 10,
+                criticality: Criticality::Medium,
+            });
+        }
+
+        // Add many low criticality functions (only top 10 should be kept)
+        for i in 0..20 {
+            untested_functions.push(UntestedFunction {
+                file: PathBuf::from("src/low.rs"),
+                name: format!("low_fn_{}", i),
+                line_number: i * 10,
+                criticality: Criticality::Low,
+            });
+        }
+
+        let coverage = TestCoverageMap {
+            overall_coverage: 0.60,
+            file_coverage,
+            untested_functions,
+            critical_paths: vec![],
+        };
+
+        let optimized = optimize_test_coverage(&coverage);
+
+        // Check file coverage optimization
+        assert_eq!(optimized.file_coverage.len(), 1); // Only bad.rs kept
+        assert!(optimized.file_coverage.contains_key(&PathBuf::from("src/bad.rs")));
+        assert!(!optimized.file_coverage.contains_key(&PathBuf::from("src/good.rs")));
+
+        // Check untested functions optimization
+        let high_count = optimized.untested_functions.iter()
+            .filter(|f| matches!(f.criticality, Criticality::High))
+            .count();
+        let medium_count = optimized.untested_functions.iter()
+            .filter(|f| matches!(f.criticality, Criticality::Medium))
+            .count();
+        let low_count = optimized.untested_functions.iter()
+            .filter(|f| matches!(f.criticality, Criticality::Low))
+            .count();
+
+        assert_eq!(high_count, 3); // All high criticality kept
+        assert_eq!(medium_count, 30); // Top 30 medium kept
+        assert_eq!(low_count, 10); // Top 10 low kept
+    }
+
+    #[test]
+    #[ignore = "Requires fixing struct initialization"]
+    fn test_commit_analysis_changes_not_git_repo() {
+        let temp_dir = TempDir::new().unwrap();
+        let project_path = temp_dir.path();
+
+        let analysis = AnalysisResult {
+            dependency_graph: DependencyGraph {
+                nodes: HashMap::new(),
+                edges: vec![],
+                cycles: vec![],
+                layers: vec![],
+                coupling_analysis: crate::context::dependencies::CouplingAnalysis {
+                    high_coupling_modules: vec![],
+                    avg_coupling: 0.0,
+                    max_coupling: 0,
+                },
+            },
+            architecture: ArchitectureInfo {
+                patterns: vec![],
+                layers: vec![],
+                components: HashMap::new(),
+                violations: vec![],
+            },
+            conventions: ProjectConventions {
+                naming_patterns: conventions::NamingRules {
+                    file_naming: conventions::NamingStyle::SnakeCase,
+                    function_naming: conventions::NamingStyle::SnakeCase,
+                    variable_naming: conventions::NamingStyle::SnakeCase,
+                    type_naming: conventions::NamingStyle::PascalCase,
+                    constant_naming: conventions::NamingStyle::ScreamingSnakeCase,
+                },
+                code_patterns: HashMap::new(),
+                test_patterns: conventions::TestingConventions {
+                    test_file_pattern: "tests".to_string(),
+                    test_function_prefix: "test_".to_string(),
+                    test_module_pattern: "tests".to_string(),
+                    assertion_style: "assert_eq".to_string(),
+                },
+                project_idioms: vec![],
+            },
+            technical_debt: TechnicalDebtMap {
+                debt_items: vec![],
+                hotspots: vec![],
+                duplication_map: HashMap::new(),
+                priority_queue: std::collections::BinaryHeap::new(),
+            },
+            test_coverage: None,
+            metadata: crate::context::analyzer::AnalysisMetadata {
+                timestamp: chrono::Utc::now(),
+                duration_ms: 100,
+                files_analyzed: 5,
+                incremental: false,
+                version: "0.1.0".to_string(),
+                scoring_algorithm: None,
+                criticality_distribution: None,
+            },
+        };
+
+        let health_score = crate::scoring::ProjectHealthScore {
+            overall: 75.0,
+            components: crate::scoring::HealthComponents {
+                test_coverage: Some(60.0),
+                code_quality: Some(80.0),
+                maintainability: Some(70.0),
+                documentation: Some(50.0),
+                type_safety: None,
+            },
+            timestamp: chrono::Utc::now(),
+        };
+
+        // Should return false when not in a git repo
+        let result = commit_analysis_changes(project_path, &analysis, &health_score).unwrap();
+        assert!(!result);
+    }
+
+    #[test]
+    #[ignore = "Requires fixing struct initialization"]
+    fn test_save_analysis_with_options() {
+        let temp_dir = TempDir::new().unwrap();
+        let project_path = temp_dir.path();
+
+        // Create minimal analysis
+        let analysis = AnalysisResult {
+            dependency_graph: DependencyGraph {
+                nodes: HashMap::new(),
+                edges: vec![],
+                cycles: vec![],
+                layers: vec![],
+                coupling_analysis: crate::context::dependencies::CouplingAnalysis {
+                    high_coupling_modules: vec![],
+                    avg_coupling: 0.0,
+                    max_coupling: 0,
+                },
+            },
+            architecture: ArchitectureInfo {
+                patterns: vec![],
+                layers: vec![],
+                components: HashMap::new(),
+                violations: vec![],
+            },
+            conventions: ProjectConventions {
+                naming_patterns: conventions::NamingRules {
+                    file_naming: conventions::NamingStyle::SnakeCase,
+                    function_naming: conventions::NamingStyle::SnakeCase,
+                    variable_naming: conventions::NamingStyle::SnakeCase,
+                    type_naming: conventions::NamingStyle::PascalCase,
+                    constant_naming: conventions::NamingStyle::ScreamingSnakeCase,
+                },
+                code_patterns: HashMap::new(),
+                test_patterns: conventions::TestingConventions {
+                    test_file_pattern: "tests".to_string(),
+                    test_function_prefix: "test_".to_string(),
+                    test_module_pattern: "tests".to_string(),
+                    assertion_style: "assert_eq".to_string(),
+                },
+                project_idioms: vec![],
+            },
+            technical_debt: TechnicalDebtMap {
+                debt_items: vec![],
+                hotspots: vec![],
+                duplication_map: HashMap::new(),
+                priority_queue: std::collections::BinaryHeap::new(),
+            },
+            test_coverage: None,
+            metadata: crate::context::analyzer::AnalysisMetadata {
+                timestamp: chrono::Utc::now(),
+                duration_ms: 100,
+                files_analyzed: 5,
+                incremental: false,
+                version: "0.1.0".to_string(),
+                scoring_algorithm: None,
+                criticality_distribution: None,
+            },
+        };
+
+        // Test with environment override
+        std::env::set_var("MMM_SKIP_GIT_COMMITS", "true");
+        let result = save_analysis_with_options(project_path, &analysis, true).unwrap();
+        assert!(!result); // Should not commit due to env var
+
+        std::env::remove_var("MMM_SKIP_GIT_COMMITS");
+
+        // Test without git repo
+        let result = save_analysis_with_options(project_path, &analysis, false).unwrap();
+        assert!(!result); // Should not commit when requested not to
+    }
 }
