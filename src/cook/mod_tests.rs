@@ -235,7 +235,7 @@ commands:
             .unwrap();
 
         let result = load_playbook(&playbook_path).await;
-        assert!(result.is_ok(), "Failed to parse new format: {:?}", result);
+        assert!(result.is_ok(), "Failed to parse new format: {result:?}");
 
         let workflow = result.unwrap();
         assert_eq!(workflow.commands.len(), 3);

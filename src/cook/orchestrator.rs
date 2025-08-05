@@ -1117,8 +1117,21 @@ impl DefaultCookOrchestrator {
         command: &crate::config::command::Command,
         variables: &HashMap<String, String>,
     ) -> (String, bool) {
-        let mut cmd_parts = vec![format!("/{}", command.name)];
         let mut has_arg_reference = false;
+
+        // Check if this is a shell or test command based on the name
+        let display_prefix = match command.name.as_str() {
+            "shell" => "shell: ",
+            "test" => "test: ",
+            _ => "/",
+        };
+
+        let mut cmd_parts = if display_prefix == "/" {
+            vec![format!("/{}", command.name)]
+        } else {
+            // For shell/test commands, the actual command is in the args
+            vec![]
+        };
 
         // Resolve arguments
         for arg in &command.args {
@@ -1134,7 +1147,13 @@ impl DefaultCookOrchestrator {
             }
         }
 
-        (cmd_parts.join(" "), has_arg_reference)
+        let final_command = if display_prefix != "/" {
+            format!("{}{}", display_prefix, cmd_parts.join(" "))
+        } else {
+            cmd_parts.join(" ")
+        };
+
+        (final_command, has_arg_reference)
     }
 
     /// Prepare environment variables for command execution

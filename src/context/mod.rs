@@ -997,11 +997,6 @@ mod tests {
                 edges: vec![],
                 cycles: vec![],
                 layers: vec![],
-                coupling_analysis: crate::context::dependencies::CouplingAnalysis {
-                    high_coupling_modules: vec![],
-                    avg_coupling: 0.0,
-                    max_coupling: 0,
-                },
             },
             architecture: ArchitectureInfo {
                 patterns: vec![],
@@ -1057,13 +1052,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Requires fixing struct initialization"]
     fn test_optimize_test_coverage() {
         use crate::context::test_coverage::{Criticality, FileCoverage, UntestedFunction};
         use std::path::PathBuf;
 
         let mut file_coverage = HashMap::new();
-        
+
         // Add a file with good coverage (should be filtered out)
         file_coverage.insert(
             PathBuf::from("src/good.rs"),
@@ -1093,12 +1087,12 @@ mod tests {
         );
 
         let mut untested_functions = vec![];
-        
+
         // Add high criticality functions (all should be kept)
         for i in 0..3 {
             untested_functions.push(UntestedFunction {
                 file: PathBuf::from("src/critical.rs"),
-                name: format!("critical_fn_{}", i),
+                name: format!("critical_fn_{i}"),
                 line_number: i * 10,
                 criticality: Criticality::High,
             });
@@ -1108,7 +1102,7 @@ mod tests {
         for i in 0..50 {
             untested_functions.push(UntestedFunction {
                 file: PathBuf::from("src/medium.rs"),
-                name: format!("medium_fn_{}", i),
+                name: format!("medium_fn_{i}"),
                 line_number: i * 10,
                 criticality: Criticality::Medium,
             });
@@ -1118,7 +1112,7 @@ mod tests {
         for i in 0..20 {
             untested_functions.push(UntestedFunction {
                 file: PathBuf::from("src/low.rs"),
-                name: format!("low_fn_{}", i),
+                name: format!("low_fn_{i}"),
                 line_number: i * 10,
                 criticality: Criticality::Low,
             });
@@ -1131,21 +1125,31 @@ mod tests {
             critical_paths: vec![],
         };
 
-        let optimized = optimize_test_coverage(&coverage);
+        let optimized = size_manager::optimize_test_coverage(&coverage);
 
         // Check file coverage optimization
         assert_eq!(optimized.file_coverage.len(), 1); // Only bad.rs kept
-        assert!(optimized.file_coverage.contains_key(&PathBuf::from("src/bad.rs")));
-        assert!(!optimized.file_coverage.contains_key(&PathBuf::from("src/good.rs")));
+        assert!(optimized
+            .file_coverage
+            .contains_key(&PathBuf::from("src/bad.rs")));
+        assert!(!optimized
+            .file_coverage
+            .contains_key(&PathBuf::from("src/good.rs")));
 
         // Check untested functions optimization
-        let high_count = optimized.untested_functions.iter()
+        let high_count = optimized
+            .untested_functions
+            .iter()
             .filter(|f| matches!(f.criticality, Criticality::High))
             .count();
-        let medium_count = optimized.untested_functions.iter()
+        let medium_count = optimized
+            .untested_functions
+            .iter()
             .filter(|f| matches!(f.criticality, Criticality::Medium))
             .count();
-        let low_count = optimized.untested_functions.iter()
+        let low_count = optimized
+            .untested_functions
+            .iter()
             .filter(|f| matches!(f.criticality, Criticality::Low))
             .count();
 
@@ -1166,11 +1170,6 @@ mod tests {
                 edges: vec![],
                 cycles: vec![],
                 layers: vec![],
-                coupling_analysis: crate::context::dependencies::CouplingAnalysis {
-                    high_coupling_modules: vec![],
-                    avg_coupling: 0.0,
-                    max_coupling: 0,
-                },
             },
             architecture: ArchitectureInfo {
                 patterns: vec![],
@@ -1202,7 +1201,7 @@ mod tests {
                 priority_queue: std::collections::BinaryHeap::new(),
             },
             test_coverage: None,
-            metadata: crate::context::analyzer::AnalysisMetadata {
+            metadata: AnalysisMetadata {
                 timestamp: chrono::Utc::now(),
                 duration_ms: 100,
                 files_analyzed: 5,
@@ -1215,7 +1214,7 @@ mod tests {
 
         let health_score = crate::scoring::ProjectHealthScore {
             overall: 75.0,
-            components: crate::scoring::HealthComponents {
+            components: crate::scoring::ScoreComponents {
                 test_coverage: Some(60.0),
                 code_quality: Some(80.0),
                 maintainability: Some(70.0),
@@ -1243,11 +1242,6 @@ mod tests {
                 edges: vec![],
                 cycles: vec![],
                 layers: vec![],
-                coupling_analysis: crate::context::dependencies::CouplingAnalysis {
-                    high_coupling_modules: vec![],
-                    avg_coupling: 0.0,
-                    max_coupling: 0,
-                },
             },
             architecture: ArchitectureInfo {
                 patterns: vec![],
@@ -1279,7 +1273,7 @@ mod tests {
                 priority_queue: std::collections::BinaryHeap::new(),
             },
             test_coverage: None,
-            metadata: crate::context::analyzer::AnalysisMetadata {
+            metadata: AnalysisMetadata {
                 timestamp: chrono::Utc::now(),
                 duration_ms: 100,
                 files_analyzed: 5,

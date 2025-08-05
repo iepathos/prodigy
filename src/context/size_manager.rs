@@ -47,6 +47,55 @@ pub struct FileSizeInfo {
     pub reduction_percentage: Option<f64>,
 }
 
+use super::test_coverage::{Criticality, TestCoverageMap};
+
+/// Optimize test coverage data to reduce size while preserving critical information
+pub fn optimize_test_coverage(coverage: &TestCoverageMap) -> TestCoverageMap {
+    let mut optimized = coverage.clone();
+
+    // Filter file coverage to only include files with < 50% coverage or no tests
+    // Note: coverage_percentage in TestCoverageMap is stored as a decimal (0.0-1.0)
+    optimized
+        .file_coverage
+        .retain(|_, file_cov| file_cov.coverage_percentage < 0.5 || !file_cov.has_tests);
+
+    // Prioritize untested functions by criticality
+    optimized
+        .untested_functions
+        .sort_by_key(|f| match f.criticality {
+            Criticality::High => 0,
+            Criticality::Medium => 1,
+            Criticality::Low => 2,
+        });
+
+    // Limit untested functions:
+    // - Keep all High criticality functions
+    // - Keep up to 30 Medium criticality functions
+    // - Keep up to 10 Low criticality functions
+    let mut high_count = 0;
+    let mut medium_count = 0;
+    let mut low_count = 0;
+
+    optimized
+        .untested_functions
+        .retain(|f| match f.criticality {
+            Criticality::High => {
+                high_count += 1;
+                true
+            }
+            Criticality::Medium => {
+                medium_count += 1;
+                medium_count <= 30
+            }
+            Criticality::Low => {
+                low_count += 1;
+                low_count <= 10
+            }
+        });
+
+    optimized
+}
+
 /// Manager for monitoring and controlling context file sizes
 pub struct ContextSizeManager {
     config: ContextSizeConfig,
