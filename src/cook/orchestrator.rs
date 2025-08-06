@@ -1612,6 +1612,58 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_prerequisites_check_claude_unavailable() {
+        unsafe { std::env::remove_var("MMM_TEST_MODE") };
+
+        let temp_dir = TempDir::new().unwrap();
+        let _mock_runner1 = MockCommandRunner::new();
+        let mock_runner2 = MockCommandRunner::new();
+        let mock_runner3 = MockCommandRunner::new();
+        let mock_runner4 = MockCommandRunner::new();
+        let mock_interaction = Arc::new(MockUserInteraction::new());
+        let mock_git = Arc::new(TestMockGitOperations::new());
+
+        // Claude CLI check fails
+        mock_runner2.add_response(crate::cook::execution::ExecutionResult {
+            success: false,
+            stdout: String::new(),
+            stderr: "command not found".to_string(),
+            exit_code: Some(127),
+        });
+
+        let session_manager = Arc::new(SessionTrackerImpl::new(
+            "test".to_string(),
+            temp_dir.path().to_path_buf(),
+        ));
+
+        let command_executor = Arc::new(crate::cook::execution::runner::RealCommandRunner::new());
+        let claude_executor = Arc::new(ClaudeExecutorImpl::new(mock_runner2));
+        let analysis_coordinator = Arc::new(AnalysisRunnerImpl::new(mock_runner3));
+        let metrics_coordinator = Arc::new(MetricsCollectorImpl::new(mock_runner4));
+        let state_manager = StateManager::with_root(temp_dir.path().join(".mmm")).unwrap();
+        let subprocess = crate::subprocess::SubprocessManager::production();
+
+        let orchestrator = DefaultCookOrchestrator::new(
+            session_manager,
+            command_executor,
+            claude_executor,
+            analysis_coordinator,
+            metrics_coordinator,
+            mock_interaction,
+            mock_git,
+            state_manager,
+            subprocess,
+        );
+
+        let result = orchestrator.check_prerequisites().await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Claude CLI is not available"));
+    }
+
+    #[tokio::test]
     async fn test_setup_environment_basic() {
         let temp_dir = TempDir::new().unwrap();
         let original_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/tmp"));

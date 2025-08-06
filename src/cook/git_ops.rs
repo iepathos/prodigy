@@ -78,6 +78,7 @@ mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
     use tempfile::TempDir;
+    use tokio::process::Command;
 
     /// Test helper: Execute git command in a specific directory
     async fn git_in_dir(dir: &std::path::Path, args: &[&str]) -> Result<std::process::Output> {
@@ -118,7 +119,6 @@ mod tests {
         git_in_dir(dir, &["commit", "-m", message]).await?;
         Ok(())
     }
-    use tokio::process::Command;
 
     #[tokio::test]
     async fn test_git_mutex_prevents_races() {
