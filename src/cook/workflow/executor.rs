@@ -966,6 +966,10 @@ impl WorkflowExecutor {
 }
 
 #[cfg(test)]
+#[path = "executor_tests.rs"]
+mod executor_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use tempfile::TempDir;
