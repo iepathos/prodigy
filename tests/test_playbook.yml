@@ -1,3 +1,0 @@
-# Test playbook for integration tests
-commands:
-  - name: mmm-test-command

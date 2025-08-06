@@ -1,4 +1,0 @@
-# Simple test playbook without command chaining
-commands:
-  - name: mmm-code-review
-  - name: mmm-lint
