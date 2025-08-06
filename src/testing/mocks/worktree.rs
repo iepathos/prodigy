@@ -83,11 +83,11 @@ impl MockWorktreeManager {
 impl MockWorktreeManager {
     pub async fn create_session(&self) -> Result<WorktreeSession> {
         *self.create_count.lock().unwrap() += 1;
-        
+
         if let Some(error) = &self.fail_on_create {
             return Err(anyhow::anyhow!(error.clone()));
         }
-        
+
         if let Some(session) = &*self.session.lock().unwrap() {
             Ok(session.clone())
         } else {
@@ -103,11 +103,11 @@ impl MockWorktreeManager {
 
     pub async fn cleanup_session(&self, _name: &str) -> Result<()> {
         *self.cleanup_count.lock().unwrap() += 1;
-        
+
         if let Some(error) = &self.fail_on_cleanup {
             return Err(anyhow::anyhow!(error.clone()));
         }
-        
+
         Ok(())
     }
 
@@ -125,11 +125,11 @@ impl MockWorktreeManager {
 
     pub async fn cleanup_all(&self) -> Result<()> {
         *self.cleanup_count.lock().unwrap() += 1;
-        
+
         if let Some(error) = &self.fail_on_cleanup {
             return Err(anyhow::anyhow!(error.clone()));
         }
-        
+
         Ok(())
     }
 }

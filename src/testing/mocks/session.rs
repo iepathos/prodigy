@@ -22,10 +22,7 @@ pub struct MockSessionManager {
 impl MockSessionManager {
     /// Create new mock session manager
     pub fn new() -> Self {
-        let state = SessionState::new(
-            "test-session".to_string(),
-            PathBuf::from("/test"),
-        );
+        let state = SessionState::new("test-session".to_string(), PathBuf::from("/test"));
         Self {
             state: Arc::new(Mutex::new(state)),
             start_called: Arc::new(Mutex::new(false)),
@@ -80,9 +77,9 @@ impl SessionManager for MockSessionManager {
         if self.should_fail {
             return Err(anyhow::anyhow!("Mock failure"));
         }
-        
+
         self.update_calls.lock().unwrap().push(update.clone());
-        
+
         let mut state = self.state.lock().unwrap();
         match update {
             SessionUpdate::IncrementIteration => {
@@ -108,7 +105,7 @@ impl SessionManager for MockSessionManager {
         }
         *self.complete_called.lock().unwrap() = true;
         self.state.lock().unwrap().complete();
-        
+
         Ok(SessionSummary {
             iterations: self.state.lock().unwrap().iterations_completed,
             files_changed: self.state.lock().unwrap().files_changed,

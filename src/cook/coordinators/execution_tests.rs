@@ -39,7 +39,7 @@ mod tests {
         }
     }
 
-    // Create a minimal mock for ClaudeExecutor  
+    // Create a minimal mock for ClaudeExecutor
     struct TestClaudeExecutor {
         should_fail: bool,
     }
@@ -78,16 +78,11 @@ mod tests {
             should_fail: false,
             exit_code: 0,
         });
-        let claude_executor = Arc::new(TestClaudeExecutor {
-            should_fail: false,
-        });
+        let claude_executor = Arc::new(TestClaudeExecutor { should_fail: false });
         let subprocess = Arc::new(SubprocessManager::production());
 
-        let coordinator = DefaultExecutionCoordinator::new(
-            command_executor,
-            claude_executor,
-            subprocess,
-        );
+        let coordinator =
+            DefaultExecutionCoordinator::new(command_executor, claude_executor, subprocess);
 
         let result = coordinator
             .execute_command("echo", &["test".to_string()], None, None)
@@ -105,20 +100,13 @@ mod tests {
             should_fail: false,
             exit_code: 1,
         });
-        let claude_executor = Arc::new(TestClaudeExecutor {
-            should_fail: false,
-        });
+        let claude_executor = Arc::new(TestClaudeExecutor { should_fail: false });
         let subprocess = Arc::new(SubprocessManager::production());
 
-        let coordinator = DefaultExecutionCoordinator::new(
-            command_executor,
-            claude_executor,
-            subprocess,
-        );
+        let coordinator =
+            DefaultExecutionCoordinator::new(command_executor, claude_executor, subprocess);
 
-        let result = coordinator
-            .execute_command("false", &[], None, None)
-            .await;
+        let result = coordinator.execute_command("false", &[], None, None).await;
 
         assert!(result.is_ok());
         let exec_result = result.unwrap();
@@ -131,20 +119,13 @@ mod tests {
             should_fail: false,
             exit_code: 0,
         });
-        let claude_executor = Arc::new(TestClaudeExecutor {
-            should_fail: false,
-        });
+        let claude_executor = Arc::new(TestClaudeExecutor { should_fail: false });
         let subprocess = Arc::new(SubprocessManager::production());
 
-        let coordinator = DefaultExecutionCoordinator::new(
-            command_executor,
-            claude_executor,
-            subprocess,
-        );
+        let coordinator =
+            DefaultExecutionCoordinator::new(command_executor, claude_executor, subprocess);
 
-        let result = coordinator
-            .execute_claude("test", &[], None, None)
-            .await;
+        let result = coordinator.execute_claude("test", &[], None, None).await;
 
         assert!(result.is_ok());
         let exec_result = result.unwrap();
@@ -158,20 +139,13 @@ mod tests {
             should_fail: false,
             exit_code: 0,
         });
-        let claude_executor = Arc::new(TestClaudeExecutor {
-            should_fail: true,
-        });
+        let claude_executor = Arc::new(TestClaudeExecutor { should_fail: true });
         let subprocess = Arc::new(SubprocessManager::production());
 
-        let coordinator = DefaultExecutionCoordinator::new(
-            command_executor,
-            claude_executor,
-            subprocess,
-        );
+        let coordinator =
+            DefaultExecutionCoordinator::new(command_executor, claude_executor, subprocess);
 
-        let result = coordinator
-            .execute_claude("fail", &[], None, None)
-            .await;
+        let result = coordinator.execute_claude("fail", &[], None, None).await;
 
         assert!(result.is_err());
     }
@@ -182,16 +156,11 @@ mod tests {
             should_fail: false,
             exit_code: 0,
         });
-        let claude_executor = Arc::new(TestClaudeExecutor {
-            should_fail: false,
-        });
+        let claude_executor = Arc::new(TestClaudeExecutor { should_fail: false });
         let subprocess = Arc::new(SubprocessManager::production());
 
-        let coordinator = DefaultExecutionCoordinator::new(
-            command_executor,
-            claude_executor,
-            subprocess,
-        );
+        let coordinator =
+            DefaultExecutionCoordinator::new(command_executor, claude_executor, subprocess);
 
         let retry_config = RetryConfig {
             max_attempts: Some(3),
@@ -213,16 +182,11 @@ mod tests {
             should_fail: false,
             exit_code: 0,
         });
-        let claude_executor = Arc::new(TestClaudeExecutor {
-            should_fail: false,
-        });
+        let claude_executor = Arc::new(TestClaudeExecutor { should_fail: false });
         let subprocess = Arc::new(SubprocessManager::production());
 
-        let coordinator = DefaultExecutionCoordinator::new(
-            command_executor,
-            claude_executor,
-            subprocess,
-        );
+        let coordinator =
+            DefaultExecutionCoordinator::new(command_executor, claude_executor, subprocess);
 
         let result = coordinator.check_command_available("test").await;
         assert!(result.is_ok());
