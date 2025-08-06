@@ -2,28 +2,63 @@ use anyhow::Result;
 use mmm::cook::CookCommand;
 use tempfile::TempDir;
 
+/// Helper to initialize a git repo for testing
+fn init_test_git_repo(temp_dir: &TempDir) -> Result<()> {
+    // Skip actual git commands when running under tarpaulin
+    #[cfg(not(tarpaulin))]
+    {
+        std::process::Command::new("git")
+            .args(["init"])
+            .current_dir(temp_dir.path())
+            .output()?;
+
+        std::process::Command::new("git")
+            .args(["config", "user.email", "test@example.com"])
+            .current_dir(temp_dir.path())
+            .output()?;
+
+        std::process::Command::new("git")
+            .args(["config", "user.name", "Test User"])
+            .current_dir(temp_dir.path())
+            .output()?;
+    }
+    
+    // Create a fake .git directory for tarpaulin
+    #[cfg(tarpaulin)]
+    {
+        std::fs::create_dir_all(temp_dir.path().join(".git"))?;
+    }
+    
+    Ok(())
+}
+
+/// Helper to commit files in test repo
+fn commit_test_files(temp_dir: &TempDir, message: &str) -> Result<()> {
+    // Skip actual git commands when running under tarpaulin
+    #[cfg(not(tarpaulin))]
+    {
+        std::process::Command::new("git")
+            .args(["add", "."])
+            .current_dir(temp_dir.path())
+            .output()?;
+        std::process::Command::new("git")
+            .args(["commit", "-m", message])
+            .current_dir(temp_dir.path())
+            .output()?;
+    }
+    
+    Ok(())
+}
+
 #[tokio::test]
 async fn test_cook_workflow_integration() -> Result<()> {
-    // Set test mode to mock Claude CLI
+    // Set test mode to mock Claude CLI (belt and suspenders - cfg!(test) should handle it too)
     std::env::set_var("MMM_TEST_MODE", "true");
 
     let temp_dir = TempDir::new()?;
 
     // Initialize git repo
-    std::process::Command::new("git")
-        .args(["init"])
-        .current_dir(temp_dir.path())
-        .output()?;
-
-    std::process::Command::new("git")
-        .args(["config", "user.email", "test@example.com"])
-        .current_dir(temp_dir.path())
-        .output()?;
-
-    std::process::Command::new("git")
-        .args(["config", "user.name", "Test User"])
-        .current_dir(temp_dir.path())
-        .output()?;
+    init_test_git_repo(&temp_dir)?;
 
     // Create a simple test project structure
     let src_dir = temp_dir.path().join("src");
@@ -41,14 +76,7 @@ edition = "2021""#,
     )?;
 
     // Create initial commit
-    std::process::Command::new("git")
-        .args(["add", "."])
-        .current_dir(temp_dir.path())
-        .output()?;
-    std::process::Command::new("git")
-        .args(["commit", "-m", "Initial commit"])
-        .current_dir(temp_dir.path())
-        .output()?;
+    commit_test_files(&temp_dir, "Initial commit")?;
 
     // Create a test playbook
     let playbook_path = temp_dir.path().join("test-playbook.yml");
@@ -75,10 +103,7 @@ edition = "2021""#,
     // since Claude commands are mocked
     let result = mmm::cook::cook(cmd).await;
 
-    if let Err(e) = &result {
-        eprintln!("Test failed with error: {:?}", e);
-    }
-    assert!(result.is_ok());
+    assert!(result.is_ok(), "Cook command failed: {:?}", result.err());
 
     Ok(())
 }
@@ -91,20 +116,7 @@ async fn test_cook_with_metrics() -> Result<()> {
     let temp_dir = TempDir::new()?;
 
     // Initialize git repo
-    std::process::Command::new("git")
-        .args(["init"])
-        .current_dir(temp_dir.path())
-        .output()?;
-
-    std::process::Command::new("git")
-        .args(["config", "user.email", "test@example.com"])
-        .current_dir(temp_dir.path())
-        .output()?;
-
-    std::process::Command::new("git")
-        .args(["config", "user.name", "Test User"])
-        .current_dir(temp_dir.path())
-        .output()?;
+    init_test_git_repo(&temp_dir)?;
 
     // Create test project
     let src_dir = temp_dir.path().join("src");
@@ -121,14 +133,7 @@ edition = "2021"
     )?;
 
     // Create initial commit
-    std::process::Command::new("git")
-        .args(["add", "."])
-        .current_dir(temp_dir.path())
-        .output()?;
-    std::process::Command::new("git")
-        .args(["commit", "-m", "Initial commit"])
-        .current_dir(temp_dir.path())
-        .output()?;
+    commit_test_files(&temp_dir, "Initial commit")?;
 
     // Create metrics-enabled playbook
     let playbook_path = temp_dir.path().join("metrics-playbook.yml");
@@ -171,20 +176,7 @@ async fn test_cook_with_worktree() -> Result<()> {
     let temp_dir = TempDir::new()?;
 
     // Initialize git repo
-    std::process::Command::new("git")
-        .args(["init"])
-        .current_dir(temp_dir.path())
-        .output()?;
-
-    std::process::Command::new("git")
-        .args(["config", "user.email", "test@example.com"])
-        .current_dir(temp_dir.path())
-        .output()?;
-
-    std::process::Command::new("git")
-        .args(["config", "user.name", "Test User"])
-        .current_dir(temp_dir.path())
-        .output()?;
+    init_test_git_repo(&temp_dir)?;
 
     // Create initial commit
     std::fs::write(temp_dir.path().join("README.md"), "# Test Project")?;
@@ -235,20 +227,7 @@ async fn test_cook_with_structured_workflow() -> Result<()> {
     let temp_dir = TempDir::new()?;
 
     // Initialize git repo
-    std::process::Command::new("git")
-        .args(["init"])
-        .current_dir(temp_dir.path())
-        .output()?;
-
-    std::process::Command::new("git")
-        .args(["config", "user.email", "test@example.com"])
-        .current_dir(temp_dir.path())
-        .output()?;
-
-    std::process::Command::new("git")
-        .args(["config", "user.name", "Test User"])
-        .current_dir(temp_dir.path())
-        .output()?;
+    init_test_git_repo(&temp_dir)?;
 
     // Create test project
     std::fs::create_dir_all(temp_dir.path().join("src"))?;
@@ -265,14 +244,7 @@ edition = "2021""#,
     )?;
 
     // Create initial commit
-    std::process::Command::new("git")
-        .args(["add", "."])
-        .current_dir(temp_dir.path())
-        .output()?;
-    std::process::Command::new("git")
-        .args(["commit", "-m", "Initial commit"])
-        .current_dir(temp_dir.path())
-        .output()?;
+    commit_test_files(&temp_dir, "Initial commit")?;
 
     // Create a structured workflow playbook with simpler commands
     let playbook_path = temp_dir.path().join("structured-playbook.yml");
@@ -316,20 +288,7 @@ async fn test_cook_with_arguments() -> Result<()> {
     let temp_dir = TempDir::new()?;
 
     // Initialize git repo
-    std::process::Command::new("git")
-        .args(["init"])
-        .current_dir(temp_dir.path())
-        .output()?;
-
-    std::process::Command::new("git")
-        .args(["config", "user.email", "test@example.com"])
-        .current_dir(temp_dir.path())
-        .output()?;
-
-    std::process::Command::new("git")
-        .args(["config", "user.name", "Test User"])
-        .current_dir(temp_dir.path())
-        .output()?;
+    init_test_git_repo(&temp_dir)?;
 
     // Create test files
     std::fs::create_dir_all(temp_dir.path().join("src"))?;
@@ -337,14 +296,7 @@ async fn test_cook_with_arguments() -> Result<()> {
     std::fs::write(temp_dir.path().join("src/lib.rs"), "pub fn helper() {}")?;
 
     // Create initial commit
-    std::process::Command::new("git")
-        .args(["add", "."])
-        .current_dir(temp_dir.path())
-        .output()?;
-    std::process::Command::new("git")
-        .args(["commit", "-m", "Initial commit"])
-        .current_dir(temp_dir.path())
-        .output()?;
+    commit_test_files(&temp_dir, "Initial commit")?;
 
     // Create playbook that uses arguments
     let playbook_path = temp_dir.path().join("args-playbook.yml");
