@@ -33,10 +33,8 @@ impl MockSubprocessManagerBuilder {
     }
 
     pub fn with_success(mut self, command: &str, stdout: &str) -> Self {
-        self.responses.insert(
-            command.to_string(),
-            (stdout.to_string(), String::new(), 0),
-        );
+        self.responses
+            .insert(command.to_string(), (stdout.to_string(), String::new(), 0));
         self
     }
 
@@ -118,10 +116,7 @@ impl MockSubprocessManager {
         history.iter().any(|(cmd, cmd_args)| {
             cmd == command
                 && cmd_args.len() == args.len()
-                && cmd_args
-                    .iter()
-                    .zip(args.iter())
-                    .all(|(a, b)| a == *b)
+                && cmd_args.iter().zip(args.iter()).all(|(a, b)| a == *b)
         })
     }
 

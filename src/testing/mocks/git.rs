@@ -1,7 +1,7 @@
 //! Mock Git operations implementation for testing
 
-use crate::abstractions::git::GitOperations;
 use crate::abstractions::exit_status::ExitStatusExt;
+use crate::abstractions::git::GitOperations;
 use anyhow::Result;
 use async_trait::async_trait;
 use std::collections::VecDeque;
@@ -116,9 +116,7 @@ impl GitOperations for MockGitOperations {
         // Simulate different git commands based on args
         let output = if args.starts_with(&["status", "--porcelain"]) {
             let mut status_responses = self.status_responses.lock().unwrap();
-            status_responses
-                .pop_front()
-                .unwrap_or_else(String::new)
+            status_responses.pop_front().unwrap_or_else(String::new)
         } else if args.starts_with(&["log", "-1"]) {
             let messages = self.commit_messages.lock().unwrap();
             messages
@@ -165,9 +163,7 @@ impl GitOperations for MockGitOperations {
 
     async fn check_git_status(&self) -> Result<String> {
         let mut status_responses = self.status_responses.lock().unwrap();
-        Ok(status_responses
-            .pop_front()
-            .unwrap_or_else(String::new))
+        Ok(status_responses.pop_front().unwrap_or_else(String::new))
     }
 
     async fn stage_all_changes(&self) -> Result<()> {

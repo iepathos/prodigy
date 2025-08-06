@@ -37,10 +37,8 @@ impl MockClaudeClientBuilder {
     }
 
     pub fn with_error(mut self, command: &str, error: &str) -> Self {
-        self.responses.insert(
-            command.to_string(),
-            Err(anyhow::anyhow!(error.to_string())),
-        );
+        self.responses
+            .insert(command.to_string(), Err(anyhow::anyhow!(error.to_string())));
         self
     }
 
@@ -119,18 +117,19 @@ impl ClaudeClient for MockClaudeClient {
 
         if let Some(fail_after) = self.error_on_call {
             if current_call > fail_after {
-                return Err(anyhow::anyhow!("Simulated failure after {} calls", fail_after));
+                return Err(anyhow::anyhow!(
+                    "Simulated failure after {} calls",
+                    fail_after
+                ));
             }
         }
 
         // Create a key from command and args
         let key = format!("{} {}", command, args.join(" "));
-        
+
         let responses = self.responses.lock().unwrap();
-        let response_result = responses
-            .get(&key)
-            .or_else(|| responses.get(command));
-        
+        let response_result = responses.get(&key).or_else(|| responses.get(command));
+
         let response = match response_result {
             Some(Ok(s)) => s.clone(),
             Some(Err(e)) => return Err(anyhow::anyhow!(e.to_string())),
@@ -169,7 +168,10 @@ impl ClaudeClient for MockClaudeClient {
         // Check if we should fail after a certain number of calls
         if let Some(fail_after) = self.error_on_call {
             if current_call > fail_after {
-                return Err(anyhow::anyhow!("Simulated failure after {} calls", fail_after));
+                return Err(anyhow::anyhow!(
+                    "Simulated failure after {} calls",
+                    fail_after
+                ));
             }
         }
 
@@ -191,8 +193,11 @@ impl ClaudeClient for MockClaudeClient {
 
         let responses = self.responses.lock().unwrap();
         let key = format!("/mmm-implement-spec {}", spec_id);
-        
-        if let Some(response) = responses.get(&key).or_else(|| responses.get("/mmm-implement-spec")) {
+
+        if let Some(response) = responses
+            .get(&key)
+            .or_else(|| responses.get("/mmm-implement-spec"))
+        {
             match response {
                 Ok(_) => Ok(true),
                 Err(e) => Err(anyhow::anyhow!(e.to_string())),
@@ -240,10 +245,7 @@ mod tests {
         let has_improvements = mock.code_review(false).await.unwrap();
         assert!(!has_improvements); // "No issues" means no improvements
 
-        let error = mock
-            .implement_spec("test-spec", false)
-            .await
-            .unwrap_err();
+        let error = mock.implement_spec("test-spec", false).await.unwrap_err();
         assert!(error.to_string().contains("Spec not found"));
     }
 

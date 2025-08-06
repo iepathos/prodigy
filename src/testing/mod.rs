@@ -3,10 +3,10 @@
 //! This module provides test helpers, fixtures, and utilities for
 //! comprehensive testing of the mmm codebase.
 
-pub mod test_mocks;
-pub mod mocks;
 pub mod fixtures;
 pub mod helpers;
+pub mod mocks;
+pub mod test_mocks;
 
 use crate::abstractions::{ClaudeClient, GitOperations, MockClaudeClient, MockGitOperations};
 use anyhow::Result;

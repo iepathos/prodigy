@@ -88,10 +88,10 @@ pub fn assert_file_not_contains(path: &Path, unexpected: &str) -> Result<()> {
 pub fn assert_files_equal(path1: &Path, path2: &Path) -> Result<()> {
     assert_file_exists(path1);
     assert_file_exists(path2);
-    
+
     let content1 = std::fs::read_to_string(path1)?;
     let content2 = std::fs::read_to_string(path2)?;
-    
+
     assert_eq!(
         content1, content2,
         "Files {:?} and {:?} have different content",
@@ -112,12 +112,7 @@ pub fn assert_contains<T: PartialEq + std::fmt::Debug>(vec: &[T], item: &T) {
 
 /// Assert that a vector does not contain a specific element
 pub fn assert_not_contains<T: PartialEq + std::fmt::Debug>(vec: &[T], item: &T) {
-    assert!(
-        !vec.contains(item),
-        "Vector {:?} contains {:?}",
-        vec,
-        item
-    );
+    assert!(!vec.contains(item), "Vector {:?} contains {:?}", vec, item);
 }
 
 /// Assert that a string matches a regex pattern
@@ -168,7 +163,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.txt");
         std::fs::write(&file_path, "content").unwrap();
-        
+
         assert_file_exists(&file_path);
     }
 
@@ -183,7 +178,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.txt");
         std::fs::write(&file_path, "Hello, world!").unwrap();
-        
+
         assert_file_contains(&file_path, "Hello").unwrap();
     }
 

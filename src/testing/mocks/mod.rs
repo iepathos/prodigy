@@ -3,11 +3,19 @@
 //! This module provides comprehensive mock implementations for all external dependencies.
 
 pub mod claude;
-pub mod git;
-pub mod subprocess;
+pub mod config;
 pub mod fs;
+pub mod git;
+pub mod session;
+pub mod subprocess;
+pub mod workflow;
+pub mod worktree;
 
 pub use claude::*;
-pub use git::*;
-pub use subprocess::*;
+pub use config::*;
 pub use fs::*;
+pub use git::*;
+pub use session::*;
+pub use subprocess::*;
+pub use workflow::*;
+pub use worktree::*;

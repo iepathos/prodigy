@@ -4,14 +4,14 @@ use super::*;
 use crate::config::command::TestCommand;
 use crate::context::AnalysisResult;
 use crate::cook::execution::ExecutionResult;
-use crate::cook::metrics::ProjectMetrics;
-use crate::cook::session::summary::SessionSummary;
-use crate::cook::session::state::SessionState;
 use crate::cook::interaction::SpinnerHandle;
+use crate::cook::metrics::ProjectMetrics;
+use crate::cook::session::state::SessionState;
+use crate::cook::session::summary::SessionSummary;
 use async_trait::async_trait;
-use std::collections::{HashMap, BinaryHeap};
-use std::sync::{Arc, Mutex};
+use std::collections::{BinaryHeap, HashMap};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use tempfile::TempDir;
 
 // Mock implementations for testing
@@ -28,11 +28,11 @@ impl MockClaudeExecutor {
             calls: Arc::new(Mutex::new(Vec::new())),
         }
     }
-    
+
     fn add_response(&self, response: ExecutionResult) {
         self.responses.lock().unwrap().push(response);
     }
-    
+
     fn get_calls(&self) -> Vec<(String, PathBuf, HashMap<String, String>)> {
         self.calls.lock().unwrap().clone()
     }
@@ -51,18 +51,18 @@ impl ClaudeExecutor for MockClaudeExecutor {
             working_dir.to_path_buf(),
             env_vars.clone(),
         ));
-        
+
         self.responses
             .lock()
             .unwrap()
             .pop()
             .ok_or_else(|| anyhow::anyhow!("No mock response configured"))
     }
-    
+
     async fn check_claude_cli(&self) -> Result<bool> {
         Ok(true)
     }
-    
+
     async fn get_claude_version(&self) -> Result<String> {
         Ok("mock-version-1.0.0".to_string())
     }
@@ -80,7 +80,7 @@ impl MockSessionManager {
             iteration: Arc::new(Mutex::new(0)),
         }
     }
-    
+
     fn get_updates(&self) -> Vec<SessionUpdate> {
         self.updates.lock().unwrap().clone()
     }
@@ -90,33 +90,33 @@ impl MockSessionManager {
 impl SessionManager for MockSessionManager {
     async fn update_session(&self, update: SessionUpdate) -> Result<()> {
         self.updates.lock().unwrap().push(update.clone());
-        
+
         if let SessionUpdate::IncrementIteration = update {
             *self.iteration.lock().unwrap() += 1;
         }
-        
+
         Ok(())
     }
-    
+
     async fn start_session(&self, _session_id: &str) -> Result<()> {
         Ok(())
     }
-    
+
     async fn complete_session(&self) -> Result<SessionSummary> {
         Ok(SessionSummary {
             iterations: 1,
             files_changed: 0,
         })
     }
-    
+
     fn get_state(&self) -> SessionState {
         SessionState::new("test-session".to_string(), PathBuf::from("/tmp"))
     }
-    
+
     async fn save_state(&self, _path: &Path) -> Result<()> {
         Ok(())
     }
-    
+
     async fn load_state(&self, _path: &Path) -> Result<()> {
         Ok(())
     }
@@ -132,7 +132,7 @@ impl MockAnalysisCoordinator {
             analysis_called: Arc::new(Mutex::new(false)),
         }
     }
-    
+
     fn was_called(&self) -> bool {
         *self.analysis_called.lock().unwrap()
     }
@@ -189,11 +189,11 @@ impl AnalysisCoordinator for MockAnalysisCoordinator {
             },
         })
     }
-    
+
     async fn save_analysis(&self, _working_dir: &Path, _analysis: &AnalysisResult) -> Result<()> {
         Ok(())
     }
-    
+
     async fn analyze_incremental(
         &self,
         _project_path: &Path,
@@ -246,11 +246,11 @@ impl AnalysisCoordinator for MockAnalysisCoordinator {
             },
         })
     }
-    
+
     async fn get_cached_analysis(&self, _project_path: &Path) -> Result<Option<AnalysisResult>> {
         Ok(None)
     }
-    
+
     async fn clear_cache(&self, _project_path: &Path) -> Result<()> {
         Ok(())
     }
@@ -268,7 +268,7 @@ impl MockMetricsCoordinator {
             report: "Test metrics report".to_string(),
         }
     }
-    
+
     fn was_collected(&self) -> bool {
         *self.metrics_collected.lock().unwrap()
     }
@@ -276,7 +276,10 @@ impl MockMetricsCoordinator {
 
 #[async_trait]
 impl MetricsCoordinator for MockMetricsCoordinator {
-    async fn collect_all(&self, _working_dir: &Path) -> Result<crate::cook::metrics::ProjectMetrics> {
+    async fn collect_all(
+        &self,
+        _working_dir: &Path,
+    ) -> Result<crate::cook::metrics::ProjectMetrics> {
         *self.metrics_collected.lock().unwrap() = true;
         Ok(ProjectMetrics {
             test_coverage: Some(0.0),
@@ -299,20 +302,32 @@ impl MetricsCoordinator for MockMetricsCoordinator {
             workflow_timing: None,
         })
     }
-    
-    async fn store_metrics(&self, _working_dir: &Path, _metrics: &crate::cook::metrics::ProjectMetrics) -> Result<()> {
+
+    async fn store_metrics(
+        &self,
+        _working_dir: &Path,
+        _metrics: &crate::cook::metrics::ProjectMetrics,
+    ) -> Result<()> {
         Ok(())
     }
-    
+
     async fn load_history(&self, _working_dir: &Path) -> Result<Vec<ProjectMetrics>> {
         Ok(vec![])
     }
-    
-    async fn generate_report(&self, _metrics: &crate::cook::metrics::ProjectMetrics, _history: &[ProjectMetrics]) -> Result<String> {
+
+    async fn generate_report(
+        &self,
+        _metrics: &crate::cook::metrics::ProjectMetrics,
+        _history: &[ProjectMetrics],
+    ) -> Result<String> {
         Ok(self.report.clone())
     }
-    
-    async fn collect_metric(&self, _project_path: &Path, _metric: &str) -> Result<serde_json::Value> {
+
+    async fn collect_metric(
+        &self,
+        _project_path: &Path,
+        _metric: &str,
+    ) -> Result<serde_json::Value> {
         Ok(serde_json::json!({}))
     }
 }
@@ -336,7 +351,7 @@ impl MockUserInteraction {
             messages: Arc::new(Mutex::new(Vec::new())),
         }
     }
-    
+
     fn get_messages(&self) -> Vec<(String, String)> {
         self.messages.lock().unwrap().clone()
     }
@@ -345,33 +360,48 @@ impl MockUserInteraction {
 #[async_trait]
 impl UserInteraction for MockUserInteraction {
     fn display_info(&self, message: &str) {
-        self.messages.lock().unwrap().push(("info".to_string(), message.to_string()));
+        self.messages
+            .lock()
+            .unwrap()
+            .push(("info".to_string(), message.to_string()));
     }
-    
+
     fn display_progress(&self, message: &str) {
-        self.messages.lock().unwrap().push(("progress".to_string(), message.to_string()));
+        self.messages
+            .lock()
+            .unwrap()
+            .push(("progress".to_string(), message.to_string()));
     }
-    
+
     fn display_success(&self, message: &str) {
-        self.messages.lock().unwrap().push(("success".to_string(), message.to_string()));
+        self.messages
+            .lock()
+            .unwrap()
+            .push(("success".to_string(), message.to_string()));
     }
-    
+
     fn display_error(&self, message: &str) {
-        self.messages.lock().unwrap().push(("error".to_string(), message.to_string()));
+        self.messages
+            .lock()
+            .unwrap()
+            .push(("error".to_string(), message.to_string()));
     }
-    
+
     fn display_warning(&self, message: &str) {
-        self.messages.lock().unwrap().push(("warning".to_string(), message.to_string()));
+        self.messages
+            .lock()
+            .unwrap()
+            .push(("warning".to_string(), message.to_string()));
     }
-    
+
     async fn prompt_yes_no(&self, _message: &str) -> Result<bool> {
         Ok(true)
     }
-    
+
     async fn prompt_text(&self, _message: &str, _default: Option<&str>) -> Result<String> {
         Ok("test".to_string())
     }
-    
+
     fn start_spinner(&self, _message: &str) -> Box<dyn SpinnerHandle> {
         Box::new(MockSpinnerHandle)
     }
@@ -391,7 +421,7 @@ fn create_test_executor() -> (
     let analysis_coordinator = Arc::new(MockAnalysisCoordinator::new());
     let metrics_coordinator = Arc::new(MockMetricsCoordinator::new());
     let user_interaction = Arc::new(MockUserInteraction::new());
-    
+
     let executor = WorkflowExecutor::new(
         claude_executor.clone() as Arc<dyn ClaudeExecutor>,
         session_manager.clone() as Arc<dyn SessionManager>,
@@ -399,7 +429,7 @@ fn create_test_executor() -> (
         metrics_coordinator.clone() as Arc<dyn MetricsCoordinator>,
         user_interaction.clone() as Arc<dyn UserInteraction>,
     );
-    
+
     (
         executor,
         claude_executor,
@@ -413,27 +443,33 @@ fn create_test_executor() -> (
 #[test]
 fn test_context_interpolation() {
     let mut context = WorkflowContext::default();
-    context.variables.insert("VAR1".to_string(), "value1".to_string());
-    context.captured_outputs.insert("OUTPUT".to_string(), "output_value".to_string());
-    context.iteration_vars.insert("ITERATION".to_string(), "3".to_string());
-    
+    context
+        .variables
+        .insert("VAR1".to_string(), "value1".to_string());
+    context
+        .captured_outputs
+        .insert("OUTPUT".to_string(), "output_value".to_string());
+    context
+        .iteration_vars
+        .insert("ITERATION".to_string(), "3".to_string());
+
     // Test ${VAR} format
     assert_eq!(context.interpolate("${VAR1}"), "value1");
     assert_eq!(context.interpolate("$VAR1"), "value1");
-    
+
     // Test ${OUTPUT} format
     assert_eq!(context.interpolate("${OUTPUT}"), "output_value");
     assert_eq!(context.interpolate("$OUTPUT"), "output_value");
-    
+
     // Test iteration variables
     assert_eq!(context.interpolate("Iteration ${ITERATION}"), "Iteration 3");
-    
+
     // Test multiple replacements
     assert_eq!(
         context.interpolate("${VAR1} and ${OUTPUT} in iteration ${ITERATION}"),
         "value1 and output_value in iteration 3"
     );
-    
+
     // Test no replacement for missing variables
     assert_eq!(context.interpolate("${MISSING}"), "${MISSING}");
 }
@@ -441,12 +477,18 @@ fn test_context_interpolation() {
 #[test]
 fn test_context_interpolation_priority() {
     let mut context = WorkflowContext::default();
-    
+
     // Add same key to different maps
-    context.variables.insert("KEY".to_string(), "from_variables".to_string());
-    context.captured_outputs.insert("KEY".to_string(), "from_outputs".to_string());
-    context.iteration_vars.insert("KEY".to_string(), "from_iteration".to_string());
-    
+    context
+        .variables
+        .insert("KEY".to_string(), "from_variables".to_string());
+    context
+        .captured_outputs
+        .insert("KEY".to_string(), "from_outputs".to_string());
+    context
+        .iteration_vars
+        .insert("KEY".to_string(), "from_iteration".to_string());
+
     // The interpolation uses the first match found (variables takes precedence)
     assert_eq!(context.interpolate("${KEY}"), "from_variables");
 }
@@ -454,7 +496,7 @@ fn test_context_interpolation_priority() {
 #[test]
 fn test_determine_command_type_claude() {
     let (executor, _, _, _, _, _) = create_test_executor();
-    
+
     let step = WorkflowStep {
         name: None,
         claude: Some("/mmm-code-review".to_string()),
@@ -471,7 +513,7 @@ fn test_determine_command_type_claude() {
         commit_required: true,
         analysis: None,
     };
-    
+
     let result = executor.determine_command_type(&step).unwrap();
     assert!(matches!(result, CommandType::Claude(cmd) if cmd == "/mmm-code-review"));
 }
@@ -479,7 +521,7 @@ fn test_determine_command_type_claude() {
 #[test]
 fn test_determine_command_type_shell() {
     let (executor, _, _, _, _, _) = create_test_executor();
-    
+
     let step = WorkflowStep {
         name: None,
         claude: None,
@@ -496,7 +538,7 @@ fn test_determine_command_type_shell() {
         commit_required: false,
         analysis: None,
     };
-    
+
     let result = executor.determine_command_type(&step).unwrap();
     assert!(matches!(result, CommandType::Shell(cmd) if cmd == "cargo test"));
 }
@@ -504,12 +546,12 @@ fn test_determine_command_type_shell() {
 #[test]
 fn test_determine_command_type_test() {
     let (executor, _, _, _, _, _) = create_test_executor();
-    
+
     let test_cmd = TestCommand {
         command: "cargo test".to_string(),
         on_failure: None,
     };
-    
+
     let step = WorkflowStep {
         name: None,
         claude: None,
@@ -526,7 +568,7 @@ fn test_determine_command_type_test() {
         commit_required: false,
         analysis: None,
     };
-    
+
     let result = executor.determine_command_type(&step).unwrap();
     assert!(matches!(result, CommandType::Test(cmd) if cmd.command == "cargo test"));
 }
@@ -534,7 +576,7 @@ fn test_determine_command_type_test() {
 #[test]
 fn test_determine_command_type_legacy_name() {
     let (executor, _, _, _, _, _) = create_test_executor();
-    
+
     let step = WorkflowStep {
         name: Some("mmm-code-review".to_string()),
         claude: None,
@@ -551,7 +593,7 @@ fn test_determine_command_type_legacy_name() {
         commit_required: true,
         analysis: None,
     };
-    
+
     let result = executor.determine_command_type(&step).unwrap();
     assert!(matches!(result, CommandType::Legacy(cmd) if cmd == "/mmm-code-review"));
 }
@@ -559,7 +601,7 @@ fn test_determine_command_type_legacy_name() {
 #[test]
 fn test_determine_command_type_multiple_error() {
     let (executor, _, _, _, _, _) = create_test_executor();
-    
+
     let step = WorkflowStep {
         name: None,
         claude: Some("/mmm-code-review".to_string()),
@@ -576,16 +618,19 @@ fn test_determine_command_type_multiple_error() {
         commit_required: false,
         analysis: None,
     };
-    
+
     let result = executor.determine_command_type(&step);
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("Multiple command types specified"));
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("Multiple command types specified"));
 }
 
 #[test]
 fn test_determine_command_type_none_error() {
     let (executor, _, _, _, _, _) = create_test_executor();
-    
+
     let step = WorkflowStep {
         name: None,
         claude: None,
@@ -602,16 +647,19 @@ fn test_determine_command_type_none_error() {
         commit_required: false,
         analysis: None,
     };
-    
+
     let result = executor.determine_command_type(&step);
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("No command specified"));
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("No command specified"));
 }
 
 #[test]
 fn test_get_step_display_name_claude() {
     let (executor, _, _, _, _, _) = create_test_executor();
-    
+
     let step = WorkflowStep {
         name: None,
         claude: Some("/mmm-code-review --strict".to_string()),
@@ -628,7 +676,7 @@ fn test_get_step_display_name_claude() {
         commit_required: true,
         analysis: None,
     };
-    
+
     let display = executor.get_step_display_name(&step);
     assert_eq!(display, "claude: /mmm-code-review --strict");
 }
@@ -636,7 +684,7 @@ fn test_get_step_display_name_claude() {
 #[test]
 fn test_get_step_display_name_shell() {
     let (executor, _, _, _, _, _) = create_test_executor();
-    
+
     let step = WorkflowStep {
         name: None,
         claude: None,
@@ -653,7 +701,7 @@ fn test_get_step_display_name_shell() {
         commit_required: false,
         analysis: None,
     };
-    
+
     let display = executor.get_step_display_name(&step);
     assert_eq!(display, "shell: cargo test --verbose");
 }
@@ -661,12 +709,12 @@ fn test_get_step_display_name_shell() {
 #[test]
 fn test_get_step_display_name_test() {
     let (executor, _, _, _, _, _) = create_test_executor();
-    
+
     let test_cmd = TestCommand {
         command: "pytest tests/".to_string(),
         on_failure: None,
     };
-    
+
     let step = WorkflowStep {
         name: None,
         claude: None,
@@ -683,7 +731,7 @@ fn test_get_step_display_name_test() {
         commit_required: false,
         analysis: None,
     };
-    
+
     let display = executor.get_step_display_name(&step);
     assert_eq!(display, "test: pytest tests/");
 }
@@ -691,7 +739,7 @@ fn test_get_step_display_name_test() {
 #[test]
 fn test_get_step_display_name_unnamed() {
     let (executor, _, _, _, _, _) = create_test_executor();
-    
+
     let step = WorkflowStep {
         name: None,
         claude: None,
@@ -708,7 +756,7 @@ fn test_get_step_display_name_unnamed() {
         commit_required: false,
         analysis: None,
     };
-    
+
     let display = executor.get_step_display_name(&step);
     assert_eq!(display, "unnamed step");
 }
@@ -716,9 +764,9 @@ fn test_get_step_display_name_unnamed() {
 #[test]
 fn test_handle_test_mode_execution_success() {
     let (executor, _, _, _, _, _) = create_test_executor();
-    
+
     std::env::set_var("MMM_TEST_MODE", "true");
-    
+
     let step = WorkflowStep {
         name: None,
         claude: Some("/mmm-code-review".to_string()),
@@ -735,67 +783,69 @@ fn test_handle_test_mode_execution_success() {
         commit_required: false,
         analysis: None,
     };
-    
+
     let command_type = CommandType::Claude("/mmm-code-review".to_string());
-    let result = executor.handle_test_mode_execution(&step, &command_type).unwrap();
-    
+    let result = executor
+        .handle_test_mode_execution(&step, &command_type)
+        .unwrap();
+
     assert!(result.success);
     assert_eq!(result.exit_code, Some(0));
     assert!(result.stdout.contains("[TEST MODE]"));
-    
+
     std::env::remove_var("MMM_TEST_MODE");
 }
 
 #[test]
 fn test_is_test_mode_no_changes_command() {
     let (executor, _, _, _, _, _) = create_test_executor();
-    
+
     std::env::set_var("MMM_TEST_NO_CHANGES_COMMANDS", "mmm-code-review,mmm-lint");
-    
+
     assert!(executor.is_test_mode_no_changes_command("/mmm-code-review"));
     assert!(executor.is_test_mode_no_changes_command("mmm-lint"));
     assert!(!executor.is_test_mode_no_changes_command("/mmm-implement-spec"));
-    
+
     // Test with arguments
     assert!(executor.is_test_mode_no_changes_command("/mmm-code-review --strict"));
     assert!(executor.is_test_mode_no_changes_command("mmm-lint --fix"));
-    
+
     std::env::remove_var("MMM_TEST_NO_CHANGES_COMMANDS");
 }
 
 #[test]
 fn test_should_stop_early_in_test_mode() {
     let (executor, _, _, _, _, _) = create_test_executor();
-    
+
     // Without the env var, should return false
     assert!(!executor.should_stop_early_in_test_mode());
-    
+
     std::env::set_var("MMM_TEST_NO_CHANGES_COMMANDS", "mmm-code-review,mmm-lint");
     assert!(executor.should_stop_early_in_test_mode());
-    
+
     std::env::set_var("MMM_TEST_NO_CHANGES_COMMANDS", "mmm-implement-spec");
     assert!(!executor.should_stop_early_in_test_mode());
-    
+
     std::env::remove_var("MMM_TEST_NO_CHANGES_COMMANDS");
 }
 
 #[test]
 fn test_is_focus_tracking_test() {
     let (executor, _, _, _, _, _) = create_test_executor();
-    
+
     // Without the env var, should return false
     assert!(!executor.is_focus_tracking_test());
-    
+
     std::env::set_var("MMM_TRACK_FOCUS", "true");
     assert!(executor.is_focus_tracking_test());
-    
+
     std::env::remove_var("MMM_TRACK_FOCUS");
 }
 
 #[test]
 fn test_handle_no_commits_error_general_command() {
     let (executor, _, _, _, _, _) = create_test_executor();
-    
+
     let step = WorkflowStep {
         name: None,
         claude: Some("/mmm-implement-spec".to_string()),
@@ -812,7 +862,7 @@ fn test_handle_no_commits_error_general_command() {
         commit_required: true,
         analysis: None,
     };
-    
+
     let result = executor.handle_no_commits_error(&step);
     assert!(result.is_err());
     let err = result.unwrap_err();
@@ -822,7 +872,7 @@ fn test_handle_no_commits_error_general_command() {
 #[tokio::test]
 async fn test_execute_claude_command() {
     let (executor, claude_mock, _, _, _, _) = create_test_executor();
-    
+
     let command = "/mmm-code-review";
     let temp_dir = TempDir::new().unwrap();
     let working_dir = temp_dir.path();
@@ -832,10 +882,10 @@ async fn test_execute_claude_command() {
         worktree_name: None,
         session_id: "test".to_string(),
     };
-    
+
     let mut env_vars = HashMap::new();
     env_vars.insert("MMM_CONTEXT_AVAILABLE".to_string(), "true".to_string());
-    
+
     // Set up mock response
     claude_mock.add_response(ExecutionResult {
         success: true,
@@ -843,13 +893,16 @@ async fn test_execute_claude_command() {
         stdout: "Command executed".to_string(),
         stderr: String::new(),
     });
-    
-    let result = executor.execute_claude_command(command, &env, env_vars.clone()).await.unwrap();
-    
+
+    let result = executor
+        .execute_claude_command(command, &env, env_vars.clone())
+        .await
+        .unwrap();
+
     assert!(result.success);
     assert_eq!(result.exit_code, Some(0));
     assert_eq!(result.stdout, "Command executed");
-    
+
     // Verify the call was made
     let calls = claude_mock.get_calls();
     assert_eq!(calls.len(), 1);
@@ -860,7 +913,7 @@ async fn test_execute_claude_command() {
 #[tokio::test]
 async fn test_execute_shell_command_success() {
     let (executor, _, _, _, _, _) = create_test_executor();
-    
+
     let temp_dir = TempDir::new().unwrap();
     let env = ExecutionEnvironment {
         working_dir: temp_dir.path().to_path_buf(),
@@ -868,12 +921,15 @@ async fn test_execute_shell_command_success() {
         worktree_name: None,
         session_id: "test".to_string(),
     };
-    
+
     let env_vars = HashMap::new();
-    
+
     // Execute a simple echo command
-    let result = executor.execute_shell_command("echo 'test'", &env, env_vars, None).await.unwrap();
-    
+    let result = executor
+        .execute_shell_command("echo 'test'", &env, env_vars, None)
+        .await
+        .unwrap();
+
     assert!(result.success);
     assert_eq!(result.exit_code, Some(0));
     assert!(result.stdout.contains("test"));
@@ -882,7 +938,7 @@ async fn test_execute_shell_command_success() {
 #[tokio::test]
 async fn test_workflow_execution_single_iteration() {
     let (mut executor, _, session_mock, _, _, user_mock) = create_test_executor();
-    
+
     let temp_dir = TempDir::new().unwrap();
     let env = ExecutionEnvironment {
         working_dir: temp_dir.path().to_path_buf(),
@@ -890,58 +946,62 @@ async fn test_workflow_execution_single_iteration() {
         worktree_name: None,
         session_id: "test".to_string(),
     };
-    
+
     // Set up test mode to avoid actual command execution
     std::env::set_var("MMM_TEST_MODE", "true");
-    
+
     // Set up workflow
     let workflow = ExtendedWorkflowConfig {
         name: "Test Workflow".to_string(),
-        steps: vec![
-            WorkflowStep {
-                name: None,
-                claude: Some("/mmm-code-review".to_string()),
-                shell: None,
-                test: None,
-                command: None,
-                capture_output: false,
-                timeout: None,
-                working_dir: None,
-                env: HashMap::new(),
-                on_failure: None,
-                on_success: None,
-                on_exit_code: HashMap::new(),
-                commit_required: false,
-                analysis: None,
-            },
-        ],
+        steps: vec![WorkflowStep {
+            name: None,
+            claude: Some("/mmm-code-review".to_string()),
+            shell: None,
+            test: None,
+            command: None,
+            capture_output: false,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_failure: None,
+            on_success: None,
+            on_exit_code: HashMap::new(),
+            commit_required: false,
+            analysis: None,
+        }],
         max_iterations: 1,
         iterate: false,
         analyze_before: false,
         analyze_between: false,
         collect_metrics: false,
     };
-    
+
     // Execute workflow
     let result = executor.execute(&workflow, &env).await;
     assert!(result.is_ok());
-    
+
     // Verify session updates were made
     let updates = session_mock.get_updates();
-    assert!(updates.iter().any(|u| matches!(u, SessionUpdate::StartWorkflow)));
-    assert!(updates.iter().any(|u| matches!(u, SessionUpdate::IncrementIteration)));
-    
+    assert!(updates
+        .iter()
+        .any(|u| matches!(u, SessionUpdate::StartWorkflow)));
+    assert!(updates
+        .iter()
+        .any(|u| matches!(u, SessionUpdate::IncrementIteration)));
+
     // Verify user messages
     let messages = user_mock.get_messages();
-    assert!(messages.iter().any(|(t, m)| t == "info" && m.contains("Test Workflow")));
-    
+    assert!(messages
+        .iter()
+        .any(|(t, m)| t == "info" && m.contains("Test Workflow")));
+
     std::env::remove_var("MMM_TEST_MODE");
 }
 
 #[tokio::test]
 async fn test_execute_step_with_capture_output() {
     let (mut executor, _, _, _, _, _) = create_test_executor();
-    
+
     let temp_dir = TempDir::new().unwrap();
     let env = ExecutionEnvironment {
         working_dir: temp_dir.path().to_path_buf(),
@@ -949,9 +1009,9 @@ async fn test_execute_step_with_capture_output() {
         worktree_name: None,
         session_id: "test".to_string(),
     };
-    
+
     let mut context = WorkflowContext::default();
-    
+
     let step = WorkflowStep {
         name: None,
         shell: Some("echo 'captured output'".to_string()),
@@ -968,9 +1028,12 @@ async fn test_execute_step_with_capture_output() {
         commit_required: false,
         analysis: None,
     };
-    
-    let result = executor.execute_step(&step, &env, &mut context).await.unwrap();
-    
+
+    let result = executor
+        .execute_step(&step, &env, &mut context)
+        .await
+        .unwrap();
+
     assert!(result.success);
     assert!(context.captured_outputs.contains_key("CAPTURED_OUTPUT"));
     assert!(context.captured_outputs["CAPTURED_OUTPUT"].contains("captured output"));
@@ -979,7 +1042,7 @@ async fn test_execute_step_with_capture_output() {
 #[tokio::test]
 async fn test_execute_step_with_env_interpolation() {
     let (mut executor, _, _, _, _, _) = create_test_executor();
-    
+
     let temp_dir = TempDir::new().unwrap();
     let env = ExecutionEnvironment {
         working_dir: temp_dir.path().to_path_buf(),
@@ -987,13 +1050,15 @@ async fn test_execute_step_with_env_interpolation() {
         worktree_name: None,
         session_id: "test".to_string(),
     };
-    
+
     let mut context = WorkflowContext::default();
-    context.variables.insert("VERSION".to_string(), "1.0.0".to_string());
-    
+    context
+        .variables
+        .insert("VERSION".to_string(), "1.0.0".to_string());
+
     let mut step_env = HashMap::new();
     step_env.insert("APP_VERSION".to_string(), "${VERSION}".to_string());
-    
+
     let step = WorkflowStep {
         name: None,
         shell: Some("echo $APP_VERSION".to_string()),
@@ -1010,9 +1075,12 @@ async fn test_execute_step_with_env_interpolation() {
         commit_required: false,
         analysis: None,
     };
-    
-    let result = executor.execute_step(&step, &env, &mut context).await.unwrap();
-    
+
+    let result = executor
+        .execute_step(&step, &env, &mut context)
+        .await
+        .unwrap();
+
     assert!(result.success);
     assert!(result.stdout.contains("1.0.0"));
 }

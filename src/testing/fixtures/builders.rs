@@ -1,12 +1,12 @@
 //! Test data builders for complex test scenarios
 
-use crate::metrics::{ImprovementMetrics, MetricsSnapshot};
-use crate::context::AnalysisResult;
-use crate::context::test_coverage::{TestCoverageMap, FileCoverage, UntestedFunction};
 use crate::context::summary::{TechnicalDebtSummary, TestCoverageSummary};
+use crate::context::test_coverage::{FileCoverage, TestCoverageMap, UntestedFunction};
+use crate::context::AnalysisResult;
+use crate::metrics::{ImprovementMetrics, MetricsSnapshot};
+use chrono::Utc;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use chrono::Utc;
 
 /// Builder for creating test metrics
 pub struct MetricsBuilder {
@@ -59,7 +59,7 @@ impl AnalysisResultBuilder {
     pub fn new() -> Self {
         use crate::context::AnalysisMetadata;
         use chrono::Utc;
-        
+
         Self {
             result: crate::context::summary::AnalysisSummary {
                 metadata: AnalysisMetadata {
@@ -145,7 +145,7 @@ impl TestCoverageBuilder {
 
     pub fn build(self) -> crate::context::summary::TestCoverageSummary {
         use crate::context::summary::{TestCoverageSummary, UntestedFunctionSummary};
-        
+
         TestCoverageSummary {
             overall_coverage: self.overall_coverage,
             file_coverage: self.file_coverage,
@@ -249,7 +249,7 @@ mod tests {
     #[test]
     fn test_debt_builder() {
         use crate::context::debt::DebtType;
-        
+
         let debt = TechnicalDebtBuilder::new("High cyclomatic complexity")
             .with_description("Function has complexity of 15")
             .with_type(DebtType::Complexity)

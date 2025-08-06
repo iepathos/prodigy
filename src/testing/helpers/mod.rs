@@ -9,24 +9,24 @@ use tempfile::TempDir;
 /// Create a temporary directory with a git repository initialized
 pub async fn create_test_repo() -> Result<TempDir> {
     let temp_dir = TempDir::new()?;
-    
+
     // Initialize git repo
     std::process::Command::new("git")
         .args(["init"])
         .current_dir(temp_dir.path())
         .output()?;
-    
+
     // Configure git user
     std::process::Command::new("git")
         .args(["config", "user.email", "test@example.com"])
         .current_dir(temp_dir.path())
         .output()?;
-    
+
     std::process::Command::new("git")
         .args(["config", "user.name", "Test User"])
         .current_dir(temp_dir.path())
         .output()?;
-    
+
     Ok(temp_dir)
 }
 
@@ -45,7 +45,7 @@ pub fn create_rust_project(dir: &Path) -> Result<()> {
     // Create directories
     std::fs::create_dir_all(dir.join("src"))?;
     std::fs::create_dir_all(dir.join("tests"))?;
-    
+
     // Create Cargo.toml
     create_file(
         dir,
@@ -59,21 +59,21 @@ edition = "2021"
 anyhow = "1.0"
 "#,
     )?;
-    
+
     // Create main.rs
     create_file(
         dir,
         "src/main.rs",
         "fn main() {\n    println!(\"Hello, world!\");\n}",
     )?;
-    
+
     // Create lib.rs
     create_file(
         dir,
         "src/lib.rs",
         "pub fn add(a: i32, b: i32) -> i32 {\n    a + b\n}",
     )?;
-    
+
     Ok(())
 }
 
@@ -84,12 +84,12 @@ pub async fn run_command(command: &str, args: &[&str], dir: &Path) -> Result<Str
         .current_dir(dir)
         .output()
         .await?;
-    
+
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(anyhow::anyhow!("Command failed: {}", stderr));
     }
-    
+
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
@@ -114,25 +114,25 @@ pub fn count_files(dir: &Path) -> Result<usize> {
 /// Compare two directories for equality
 pub fn dirs_equal(dir1: &Path, dir2: &Path) -> Result<bool> {
     use std::collections::HashSet;
-    
+
     let files1: HashSet<_> = walkdir::WalkDir::new(dir1)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
         .map(|e| e.path().strip_prefix(dir1).unwrap().to_path_buf())
         .collect();
-    
+
     let files2: HashSet<_> = walkdir::WalkDir::new(dir2)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
         .map(|e| e.path().strip_prefix(dir2).unwrap().to_path_buf())
         .collect();
-    
+
     if files1 != files2 {
         return Ok(false);
     }
-    
+
     // Compare file contents
     for file in files1 {
         let content1 = std::fs::read_to_string(dir1.join(&file))?;
@@ -141,7 +141,7 @@ pub fn dirs_equal(dir1: &Path, dir2: &Path) -> Result<bool> {
             return Ok(false);
         }
     }
-    
+
     Ok(true)
 }
 
@@ -159,7 +159,7 @@ mod tests {
     fn test_create_rust_project() {
         let temp_dir = TempDir::new().unwrap();
         create_rust_project(temp_dir.path()).unwrap();
-        
+
         assert!(temp_dir.path().join("Cargo.toml").exists());
         assert!(temp_dir.path().join("src/main.rs").exists());
         assert!(temp_dir.path().join("src/lib.rs").exists());
@@ -170,7 +170,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.txt");
         std::fs::write(&file_path, "Hello, world!").unwrap();
-        
+
         assert!(file_contains(&file_path, "Hello").unwrap());
         assert!(!file_contains(&file_path, "Goodbye").unwrap());
     }

@@ -49,7 +49,7 @@ impl MockFileSystem {
 
     pub fn read_file(&self, path: impl AsRef<Path>) -> Result<String> {
         let path = path.as_ref();
-        
+
         // Check for read errors
         let errors = self.read_errors.lock().unwrap();
         if let Some(error) = errors.get(path) {
@@ -66,7 +66,7 @@ impl MockFileSystem {
 
     pub fn write_file(&self, path: impl AsRef<Path>, content: &str) -> Result<()> {
         let path = path.as_ref();
-        
+
         // Check for write errors
         let errors = self.write_errors.lock().unwrap();
         if let Some(error) = errors.get(path) {
@@ -98,16 +98,16 @@ impl MockFileSystem {
 
     pub fn list_dir(&self, path: impl AsRef<Path>) -> Result<Vec<PathBuf>> {
         let path = path.as_ref();
-        
+
         if !self.is_dir(path) {
             return Err(anyhow::anyhow!("Not a directory: {:?}", path));
         }
 
         let files = self.files.lock().unwrap();
         let dirs = self.directories.lock().unwrap();
-        
+
         let mut entries = Vec::new();
-        
+
         // Find all files in this directory
         for file_path in files.keys() {
             if let Some(parent) = file_path.parent() {
@@ -116,7 +116,7 @@ impl MockFileSystem {
                 }
             }
         }
-        
+
         // Find all subdirectories
         for dir_path in dirs.iter() {
             if let Some(parent) = dir_path.parent() {
@@ -125,7 +125,7 @@ impl MockFileSystem {
                 }
             }
         }
-        
+
         Ok(entries)
     }
 
@@ -161,16 +161,23 @@ impl MockFileSystemBuilder {
         self.fs.add_directory("src");
         self.fs.add_directory("tests");
         self.fs.add_directory("benches");
-        self.fs.add_file("Cargo.toml", r#"[package]
+        self.fs.add_file(
+            "Cargo.toml",
+            r#"[package]
 name = "test_project"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
-"#);
-        self.fs.add_file("src/main.rs", "fn main() {\n    println!(\"Hello, world!\");\n}");
-        self.fs.add_file("src/lib.rs", "pub fn lib_function() -> i32 {\n    42\n}");
+"#,
+        );
+        self.fs.add_file(
+            "src/main.rs",
+            "fn main() {\n    println!(\"Hello, world!\");\n}",
+        );
+        self.fs
+            .add_file("src/lib.rs", "pub fn lib_function() -> i32 {\n    42\n}");
         self
     }
 
@@ -196,16 +203,16 @@ mod tests {
     #[test]
     fn test_mock_fs_basic_operations() {
         let fs = MockFileSystem::new();
-        
+
         // Test file operations
         fs.add_file("test.txt", "Hello, world!");
         assert!(fs.exists("test.txt"));
         assert!(fs.is_file("test.txt"));
         assert!(!fs.is_dir("test.txt"));
-        
+
         let content = fs.read_file("test.txt").unwrap();
         assert_eq!(content, "Hello, world!");
-        
+
         // Test directory operations
         fs.add_directory("src");
         assert!(fs.exists("src"));
@@ -220,11 +227,11 @@ mod tests {
             .with_directory("docs")
             .with_file("docs/guide.md", "# Guide")
             .build();
-        
+
         assert!(fs.exists("README.md"));
         assert!(fs.exists("docs"));
         assert!(fs.exists("docs/guide.md"));
-        
+
         let readme = fs.read_file("README.md").unwrap();
         assert_eq!(readme, "# Test Project");
     }
@@ -236,15 +243,15 @@ mod tests {
             .with_read_error("forbidden.txt", "Permission denied")
             .with_write_error("readonly.txt", "Read-only file system")
             .build();
-        
+
         // Test read error
         let error = fs.read_file("forbidden.txt").unwrap_err();
         assert!(error.to_string().contains("Permission denied"));
-        
+
         // Test write error
         let error = fs.write_file("readonly.txt", "new content").unwrap_err();
         assert!(error.to_string().contains("Read-only file system"));
-        
+
         // Can still read the file
         let content = fs.read_file("readonly.txt").unwrap();
         assert_eq!(content, "content");
@@ -255,13 +262,13 @@ mod tests {
         let fs = MockFileSystemBuilder::new()
             .with_project_structure()
             .build();
-        
+
         assert!(fs.exists("src"));
         assert!(fs.exists("tests"));
         assert!(fs.exists("Cargo.toml"));
         assert!(fs.exists("src/main.rs"));
         assert!(fs.exists("src/lib.rs"));
-        
+
         let cargo = fs.read_file("Cargo.toml").unwrap();
         assert!(cargo.contains("test_project"));
     }
@@ -274,7 +281,7 @@ mod tests {
             .with_file("src/lib.rs", "")
             .with_directory("src/modules")
             .build();
-        
+
         let entries = fs.list_dir("src").unwrap();
         assert_eq!(entries.len(), 3);
         assert!(entries.contains(&PathBuf::from("src/main.rs")));

@@ -5,8 +5,8 @@
 pub mod builders;
 
 use crate::testing::mocks::{
-    MockClaudeClientBuilder, MockGitOperationsBuilder, MockSubprocessManagerBuilder,
-    MockFileSystemBuilder,
+    MockClaudeClientBuilder, MockFileSystemBuilder, MockGitOperationsBuilder,
+    MockSubprocessManagerBuilder,
 };
 
 /// Common test fixtures for various scenarios
@@ -37,14 +37,19 @@ impl Fixtures {
     pub fn successful_claude() -> MockClaudeClientBuilder {
         MockClaudeClientBuilder::new()
             .with_success("/mmm-code-review", "No issues found. Code looks good!")
-            .with_success("/mmm-implement-spec", "Specification implemented successfully")
+            .with_success(
+                "/mmm-implement-spec",
+                "Specification implemented successfully",
+            )
             .with_success("/mmm-lint", "Linting completed. No issues found.")
     }
 
     /// Create a Claude client that simulates rate limiting
     pub fn rate_limited_claude() -> MockClaudeClientBuilder {
-        MockClaudeClientBuilder::new()
-            .with_error("/mmm-code-review", "Error: Rate limit exceeded. Please try again later.")
+        MockClaudeClientBuilder::new().with_error(
+            "/mmm-code-review",
+            "Error: Rate limit exceeded. Please try again later.",
+        )
     }
 
     /// Create an unavailable Claude client
@@ -69,11 +74,26 @@ impl Fixtures {
         MockFileSystemBuilder::new()
             .with_project_structure()
             .with_directory("src/modules")
-            .with_file("src/modules/auth.rs", "pub mod auth {\n    // Authentication logic\n}")
-            .with_file("src/modules/database.rs", "pub mod database {\n    // Database logic\n}")
+            .with_file(
+                "src/modules/auth.rs",
+                "pub mod auth {\n    // Authentication logic\n}",
+            )
+            .with_file(
+                "src/modules/database.rs",
+                "pub mod database {\n    // Database logic\n}",
+            )
             .with_directory("src/handlers")
-            .with_file("src/handlers/api.rs", "pub mod api {\n    // API handlers\n}")
-            .with_file("src/config.rs", "pub struct Config {\n    // Configuration\n}")
-            .with_file("tests/integration_test.rs", "#[test]\nfn test_integration() {\n    assert!(true);\n}")
+            .with_file(
+                "src/handlers/api.rs",
+                "pub mod api {\n    // API handlers\n}",
+            )
+            .with_file(
+                "src/config.rs",
+                "pub struct Config {\n    // Configuration\n}",
+            )
+            .with_file(
+                "tests/integration_test.rs",
+                "#[test]\nfn test_integration() {\n    assert!(true);\n}",
+            )
     }
 }
