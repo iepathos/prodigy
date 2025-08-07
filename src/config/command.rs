@@ -236,7 +236,7 @@ pub struct WorkflowStepCommand {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub shell: Option<String>,
 
-    /// Test command configuration
+    /// Test command configuration (deprecated, use shell with on_failure instead)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub test: Option<TestCommand>,
 
@@ -260,9 +260,9 @@ pub struct WorkflowStepCommand {
     #[serde(default)]
     pub capture_output: bool,
 
-    /// Conditional execution on failure
+    /// Conditional execution on failure (for shell commands, replaces test on_failure)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub on_failure: Option<Box<WorkflowStepCommand>>,
+    pub on_failure: Option<TestDebugConfig>,
 
     /// Conditional execution on success
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -286,29 +286,48 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
             outputs: Option<HashMap<String, OutputDeclaration>>,
             #[serde(default)]
             capture_output: bool,
-            on_failure: Option<Box<WorkflowStepCommand>>,
+            on_failure: Option<TestDebugConfig>,
             on_success: Option<Box<WorkflowStepCommand>>,
         }
 
         let helper = Helper::deserialize(deserializer)?;
 
-        // Validate that at least one of claude, shell, or test is present
-        if helper.claude.is_none() && helper.shell.is_none() && helper.test.is_none() {
+        // Handle deprecated test command - convert to shell with on_failure
+        let (shell, test, on_failure) = if let Some(test_cmd) = helper.test {
+            // Show deprecation warning
+            eprintln!("Warning: 'test:' command syntax is deprecated. Use 'shell:' with 'on_failure:' instead.");
+            eprintln!(
+                "  Old: test: {{ command: \"{}\", on_failure: ... }}",
+                test_cmd.command
+            );
+            eprintln!("  New: shell: \"{}\"", test_cmd.command);
+            eprintln!("       on_failure: ...");
+
+            // Convert test command to shell command
+            let shell_cmd = Some(test_cmd.command.clone());
+            let on_failure_config = test_cmd.on_failure.clone().or(helper.on_failure);
+            (shell_cmd, None, on_failure_config)
+        } else {
+            (helper.shell, None, helper.on_failure)
+        };
+
+        // Validate that at least one of claude or shell is present
+        if helper.claude.is_none() && shell.is_none() {
             return Err(serde::de::Error::custom(
-                "WorkflowStepCommand must have either 'claude', 'shell', or 'test' field",
+                "WorkflowStepCommand must have either 'claude' or 'shell' field",
             ));
         }
 
         Ok(WorkflowStepCommand {
             claude: helper.claude,
-            shell: helper.shell,
-            test: helper.test,
+            shell,
+            test,
             id: helper.id,
             commit_required: helper.commit_required,
             analysis: helper.analysis,
             outputs: helper.outputs,
             capture_output: helper.capture_output,
-            on_failure: helper.on_failure,
+            on_failure,
             on_success: helper.on_success,
         })
     }

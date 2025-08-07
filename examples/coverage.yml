@@ -12,11 +12,10 @@
 - claude: "/mmm-implement-spec ${coverage.spec}"
   commit_required: true
 
-- test:
-    command: "just test"
-    on_failure:
-      claude: "/mmm-debug-test-failure --spec ${coverage.spec} --output ${test.output}"
-      max_attempts: 3
-      fail_workflow: false  # Continue workflow even if tests can't be fixed
+- shell: "just test"
+  on_failure:
+    claude: "/mmm-debug-test-failure --spec ${coverage.spec} --output ${shell.output}"
+    max_attempts: 3
+    fail_workflow: false  # Continue workflow even if tests can't be fixed
 
 - claude: "/mmm-lint"  # Defaults to commit_required: false

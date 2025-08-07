@@ -10,19 +10,17 @@
 
 - claude: "/mmm-implement-spec ${coverage.spec}"
 
-- test:
-    command: "cargo test"
-    on_failure:
-      claude: "/mmm-debug-test-failure --spec ${coverage.spec} --output ${test.output}"
-      max_attempts: 3
-      fail_workflow: false  # Continue workflow even if tests can't be fixed
+- shell: "cargo test"
+  on_failure:
+    claude: "/mmm-debug-test-failure --spec ${coverage.spec} --output ${shell.output}"
+    max_attempts: 3
+    fail_workflow: false  # Continue workflow even if tests can't be fixed
 
-- test:
-    command: "cargo test --doc"
-    on_failure:
-      claude: "/mmm-fix-doc-tests --output ${test.output}"
-      max_attempts: 2
-      fail_workflow: false  # Doc test failures shouldn't stop the workflow
+- shell: "cargo test --doc"
+  on_failure:
+    claude: "/mmm-fix-doc-tests --output ${shell.output}"
+    max_attempts: 2
+    fail_workflow: false  # Doc test failures shouldn't stop the workflow
 
 - claude: "/mmm-lint"
   commit_required: false  # OK if no linting issues found
