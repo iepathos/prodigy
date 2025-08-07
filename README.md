@@ -10,7 +10,7 @@ Orchestration layer for Claude Code that enables autonomous code improvement thr
 ## Architecture: How MMM Orchestrates Claude Commands
 
 ```
-┌─────────────────────────────────────────────────────┐
+┌──────────────────────────────────────────────────────┐
 │                   MMM Orchestration                  │
 │  • Workflow management (YAML configs)                │
 │  • Git operations & commit tracking                  │
@@ -18,9 +18,9 @@ Orchestration layer for Claude Code that enables autonomous code improvement thr
 │  • Parallel worktree sessions                        │
 │  • Test validation & static code analysis            │
 │  • Context generation for Claude commands            │
-└──────────────────┬──────────────────────────────────┘
-                   │ Orchestrates & provides context to
-┌──────────────────▼──────────────────────────────────┐
+└───────────────────┬──────────────────────────────────┘
+                    │ Orchestrates & provides context to
+┌───────────────────▼──────────────────────────────────┐
 │              Claude Commands Layer                   │
 │  • /mmm-code-review - Analyzes & generates specs     │
 │  • /mmm-implement-spec - Applies improvements        │
@@ -28,9 +28,9 @@ Orchestration layer for Claude Code that enables autonomous code improvement thr
 │  • /mmm-security-audit - Security analysis           │
 │  • /mmm-performance - Performance optimization       │
 │  • [Custom commands for your workflow]               │
-└──────────────────┬──────────────────────────────────┘
-                   │ Executed by
-┌──────────────────▼──────────────────────────────────┐
+└───────────────────┬──────────────────────────────────┘
+                    │ Executed by
+┌───────────────────▼──────────────────────────────────┐
 │                  Claude Code CLI                     │
 │  • Runs the actual AI analysis & implementation      │
 │  • Understands your codebase context                 │
