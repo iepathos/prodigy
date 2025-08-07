@@ -17,7 +17,7 @@ created: 2025-01-07
 
 ## Context
 
-The MMM codebase currently uses environment variables extensively for test configuration and behavior modification. This approach has led to several issues:
+The MMM codebase currently uses environment variables extensively for test configuration and behavior modification. This is tech debt from rapid prototyping that needs to be cleaned up. The approach has led to several issues:
 
 1. **Race Conditions**: Tests that modify environment variables (e.g., `MMM_TEST_MODE`, `MMM_TEST_NO_CHANGES_COMMANDS`) can interfere with each other when running in parallel, causing intermittent test failures.
 
@@ -27,22 +27,25 @@ The MMM codebase currently uses environment variables extensively for test confi
 
 4. **Maintenance Burden**: The current pattern requires careful management of setting and unsetting environment variables, with potential for leaks if cleanup doesn't happen.
 
-Current environment variables used in tests and production code:
+5. **Poor Design**: Using environment variables for configuration is an anti-pattern that hides dependencies and makes code harder to understand and test.
+
+Current environment variables to be removed:
 - `MMM_TEST_MODE` - Enables test mode behavior
 - `MMM_TEST_NO_CHANGES_COMMANDS` - Specifies commands that should simulate no changes
 - `MMM_NO_COMMIT_VALIDATION` - Skips commit validation
 - `MMM_TRACK_FOCUS` - Enables focus tracking for tests
 - `MMM_WORKTREE` - Specifies worktree name
 - `MMM_ARG` - Command-line arguments
-- Various other configuration variables
+- All other environment-based configuration
 
 ## Objective
 
-Refactor the test configuration system to eliminate environment variable dependencies in favor of dependency injection, providing:
+Clean up tech debt by completely removing environment variable usage in favor of explicit dependency injection, providing:
 - Deterministic test execution regardless of parallelism
-- Proper test isolation
-- Type-safe configuration
-- Easier testing and maintenance
+- Proper test isolation without global state
+- Type-safe, explicit configuration
+- Clear dependencies and easier maintenance
+- Simplified codebase without backward compatibility baggage
 
 ## Requirements
 
@@ -54,9 +57,9 @@ Refactor the test configuration system to eliminate environment variable depende
 
 3. **Builder Pattern**: Implement a builder pattern for `TestConfiguration` to allow easy construction in tests with sensible defaults.
 
-4. **Runtime Configuration**: Provide a way to read environment variables once at application startup and convert them to the configuration struct for production use.
+4. **Explicit Configuration**: All configuration must be explicitly passed through constructors or method parameters - no hidden global state.
 
-5. **Backward Compatibility**: Ensure the refactor doesn't break existing command-line interfaces or production behavior.
+5. **Clean Architecture**: Remove all environment variable usage in favor of explicit configuration passing.
 
 ### Non-Functional Requirements
 
@@ -71,7 +74,7 @@ Refactor the test configuration system to eliminate environment variable depende
 - [ ] No environment variable mutations in test code
 - [ ] All configuration is passed through dependency injection
 - [ ] `TestConfiguration` struct implemented with builder pattern
-- [ ] Production code reads environment variables once at startup
+- [ ] All environment variable usage removed from codebase
 - [ ] Zero race conditions in test execution
 - [ ] All existing tests migrated to new configuration system
 - [ ] Documentation updated to reflect new testing patterns
@@ -98,22 +101,7 @@ Refactor the test configuration system to eliminate environment variable depende
            TestConfigurationBuilder::default()
        }
        
-       pub fn from_env() -> Self {
-           // Read environment variables once
-           Self {
-               test_mode: std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true",
-               no_changes_commands: std::env::var("MMM_TEST_NO_CHANGES_COMMANDS")
-                   .unwrap_or_default()
-                   .split(',')
-                   .map(|s| s.trim().to_string())
-                   .collect(),
-               skip_commit_validation: std::env::var("MMM_NO_COMMIT_VALIDATION")
-                   .unwrap_or_default() == "true",
-               track_focus: std::env::var("MMM_TRACK_FOCUS").is_ok(),
-               worktree_name: std::env::var("MMM_WORKTREE").ok(),
-               additional_args: HashMap::new(),
-           }
-       }
+       // No from_env() method - all configuration must be explicit
    }
    ```
 
@@ -134,9 +122,7 @@ Refactor the test configuration system to eliminate environment variable depende
    ```
    Application Start
         ↓
-   Read Environment Variables Once
-        ↓
-   Create Configuration Struct
+   Create Configuration Struct Explicitly
         ↓
    Pass to Components via DI
         ↓
@@ -245,19 +231,19 @@ impl WorkflowExecutor {
 4. **Debug Output**: Implement Debug trait for easy troubleshooting
 5. **Default Values**: Ensure sensible defaults for all configuration options
 
-## Migration and Compatibility
+## Migration and Cleanup
 
-1. **Production Compatibility**: The refactor maintains backward compatibility by reading environment variables at startup in production mode.
+1. **Complete Removal**: Remove all environment variable usage - this is tech debt cleanup, not a compatibility exercise.
 
-2. **Test Migration Path**:
-   - Identify all tests using environment variables
-   - Migrate tests incrementally, component by component
-   - Run both old and new patterns during transition
-   - Remove old patterns once migration complete
+2. **Migration Path**:
+   - Identify all environment variable usage (105 occurrences across 12 files)
+   - Replace with explicit configuration passing
+   - Delete all env var reading/writing code
+   - No transition period - clean cutover
 
-3. **Breaking Changes**: None for end users; only internal test changes
+3. **Breaking Changes**: This is a breaking change and that's intentional - we're in prototyping stage and cleaning up tech debt.
 
-4. **Rollback Plan**: Git revert if issues discovered, as changes are internal
+4. **Simplification**: Removing backward compatibility requirements significantly simplifies the implementation.
 
 ## Implementation Order
 
