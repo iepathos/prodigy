@@ -192,8 +192,8 @@ async fn test_merge_updates_state() -> anyhow::Result<()> {
     assert!(state.merged);
     assert!(state.merged_at.is_some());
 
-    // Clean up
-    manager.cleanup_session(&session.name, false).await?;
+    // Clean up - use force=true since we made commits in the worktree
+    manager.cleanup_session(&session.name, true).await?;
     cleanup_worktree_dir(&manager);
     Ok(())
 }
