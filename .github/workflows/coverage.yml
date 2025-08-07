@@ -1,10 +1,10 @@
 name: Coverage
 
 on:
-  push:
-    branches: [ master, main ]
-  pull_request:
-    branches: [ master, main ]
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
 
 env:
   CARGO_TERM_COLOR: always
@@ -13,6 +13,8 @@ jobs:
   coverage:
     name: Code Coverage
     runs-on: ubuntu-latest
+    # Only run if CI workflow succeeded
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
     - uses: actions/checkout@v4
     
