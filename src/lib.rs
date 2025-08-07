@@ -40,5 +40,4 @@ pub mod simple_state;
 pub mod subprocess;
 pub mod worktree;
 
-#[cfg(test)]
 pub mod testing;

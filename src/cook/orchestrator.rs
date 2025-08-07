@@ -6,6 +6,7 @@ use crate::abstractions::git::GitOperations;
 use crate::analysis::{run_analysis, AnalysisConfig, OutputFormat, ProgressReporter};
 use crate::config::{WorkflowCommand, WorkflowConfig};
 use crate::simple_state::StateManager;
+use crate::testing::config::TestConfiguration;
 use crate::worktree::WorktreeManager;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
@@ -88,6 +89,8 @@ pub struct DefaultCookOrchestrator {
     state_manager: StateManager,
     /// Subprocess manager
     subprocess: crate::subprocess::SubprocessManager,
+    /// Test configuration
+    test_config: Option<Arc<TestConfiguration>>,
 }
 
 impl DefaultCookOrchestrator {
@@ -114,6 +117,35 @@ impl DefaultCookOrchestrator {
             git_operations,
             state_manager,
             subprocess,
+            test_config: None,
+        }
+    }
+
+    /// Create a new orchestrator with test configuration
+    #[allow(clippy::too_many_arguments)]
+    pub fn with_test_config(
+        session_manager: Arc<dyn SessionManager>,
+        command_executor: Arc<dyn CommandExecutor>,
+        claude_executor: Arc<dyn ClaudeExecutor>,
+        analysis_coordinator: Arc<dyn AnalysisCoordinator>,
+        metrics_coordinator: Arc<dyn MetricsCoordinator>,
+        user_interaction: Arc<dyn UserInteraction>,
+        git_operations: Arc<dyn GitOperations>,
+        state_manager: StateManager,
+        subprocess: crate::subprocess::SubprocessManager,
+        test_config: Arc<TestConfiguration>,
+    ) -> Self {
+        Self {
+            session_manager,
+            command_executor,
+            claude_executor,
+            analysis_coordinator,
+            metrics_coordinator,
+            user_interaction,
+            git_operations,
+            state_manager,
+            subprocess,
+            test_config: Some(test_config),
         }
     }
 
@@ -1196,9 +1228,11 @@ impl DefaultCookOrchestrator {
         env_vars: HashMap<String, String>,
     ) -> Result<()> {
         // Handle test mode
-        let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
-        let skip_validation =
-            std::env::var("MMM_NO_COMMIT_VALIDATION").unwrap_or_default() == "true";
+        let test_mode = self.test_config.as_ref().is_some_and(|c| c.test_mode);
+        let skip_validation = self
+            .test_config
+            .as_ref()
+            .is_some_and(|c| c.skip_commit_validation);
 
         // Get HEAD before command execution if we need to verify commits
         let head_before = if !skip_validation && command.metadata.commit_required && !test_mode {
@@ -1231,7 +1265,7 @@ impl DefaultCookOrchestrator {
             }
         }
 
-        // In test mode with MMM_NO_COMMIT_VALIDATION, skip validation entirely
+        // In test mode with skip_commit_validation, skip validation entirely
         if test_mode && skip_validation {
             // Skip validation - return success
             return Ok(());
@@ -1250,15 +1284,16 @@ impl DefaultCookOrchestrator {
             }
         } else if test_mode && command.metadata.commit_required && !skip_validation {
             // In test mode, check if the command simulated no changes and is required to commit
-            if let Ok(no_changes_cmds) = std::env::var("MMM_TEST_NO_CHANGES_COMMANDS") {
+            if let Some(config) = &self.test_config {
                 let command_name = final_command.trim_start_matches('/');
                 // Extract just the command name, ignoring arguments
                 let command_name = command_name
                     .split_whitespace()
                     .next()
                     .unwrap_or(command_name);
-                if no_changes_cmds
-                    .split(',')
+                if config
+                    .no_changes_commands
+                    .iter()
                     .any(|cmd| cmd.trim() == command_name)
                 {
                     // This command was configured to simulate no changes but requires commits
@@ -1433,6 +1468,7 @@ impl DefaultCookOrchestrator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::testing::config::TestConfiguration;
 
     use crate::cook::analysis::runner::AnalysisRunnerImpl;
     use crate::cook::execution::claude::ClaudeExecutorImpl;
@@ -1559,11 +1595,59 @@ mod tests {
         (orchestrator, mock_interaction, mock_git)
     }
 
+    #[allow(dead_code)]
+    fn create_test_orchestrator_with_config(
+        test_config: TestConfiguration,
+    ) -> (
+        DefaultCookOrchestrator,
+        Arc<MockUserInteraction>,
+        Arc<TestMockGitOperations>,
+    ) {
+        let temp_dir = TempDir::new().unwrap();
+        let _mock_runner1 = MockCommandRunner::new();
+        let mock_runner2 = MockCommandRunner::new();
+        let mock_runner3 = MockCommandRunner::new();
+        let mock_runner4 = MockCommandRunner::new();
+        let mock_interaction = Arc::new(MockUserInteraction::new());
+        let mock_git = Arc::new(TestMockGitOperations::new());
+
+        let session_manager = Arc::new(SessionTrackerImpl::new(
+            "test".to_string(),
+            temp_dir.path().to_path_buf(),
+        ));
+
+        let command_executor = Arc::new(crate::cook::execution::runner::RealCommandRunner::new());
+
+        let test_config_arc = Arc::new(test_config);
+        let claude_executor = Arc::new(ClaudeExecutorImpl::with_test_config(
+            mock_runner2,
+            test_config_arc.clone(),
+        ));
+
+        let analysis_coordinator = Arc::new(AnalysisRunnerImpl::new(mock_runner3));
+        let metrics_coordinator = Arc::new(MetricsCollectorImpl::new(mock_runner4));
+        let state_manager = StateManager::with_root(temp_dir.path().join(".mmm")).unwrap();
+        let subprocess = crate::subprocess::SubprocessManager::production();
+
+        let orchestrator = DefaultCookOrchestrator::with_test_config(
+            session_manager,
+            command_executor,
+            claude_executor,
+            analysis_coordinator,
+            metrics_coordinator,
+            mock_interaction.clone() as Arc<dyn UserInteraction>,
+            mock_git.clone() as Arc<dyn GitOperations>,
+            state_manager,
+            subprocess,
+            test_config_arc,
+        );
+
+        (orchestrator, mock_interaction, mock_git)
+    }
+
     #[tokio::test]
     async fn test_prerequisites_check_no_git() {
-        // Ensure we're not in test mode for this test
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::remove_var("MMM_TEST_MODE") };
+        // Test without test mode enabled
 
         let temp_dir = TempDir::new().unwrap();
         let _mock_runner1 = MockCommandRunner::new();
@@ -1617,7 +1701,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_prerequisites_check_claude_unavailable() {
-        unsafe { std::env::remove_var("MMM_TEST_MODE") };
+        // Test without test mode enabled
 
         let temp_dir = TempDir::new().unwrap();
         let _mock_runner1 = MockCommandRunner::new();
@@ -1975,8 +2059,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_arg_resolution_only_for_commands_with_args() {
-        // Set environment variable to skip commit validation in test
-        std::env::set_var("MMM_NO_COMMIT_VALIDATION", "true");
+        // Create orchestrator with test configuration to skip commit validation
 
         let temp_dir = TempDir::new().unwrap();
         let mock_runner = MockCommandRunner::new();
@@ -1999,13 +2082,22 @@ mod tests {
         ));
 
         let command_executor = Arc::new(crate::cook::execution::runner::RealCommandRunner::new());
-        let claude_executor = Arc::new(ClaudeExecutorImpl::new(mock_runner));
+
+        let test_config = TestConfiguration::builder()
+            .skip_commit_validation(true)
+            .build();
+        let test_config_arc = Arc::new(test_config);
+
+        let claude_executor = Arc::new(ClaudeExecutorImpl::with_test_config(
+            mock_runner,
+            test_config_arc.clone(),
+        ));
         let analysis_coordinator = Arc::new(AnalysisRunnerImpl::new(MockCommandRunner::new()));
         let metrics_coordinator = Arc::new(MetricsCollectorImpl::new(MockCommandRunner::new()));
         let state_manager = StateManager::with_root(temp_dir.path().join(".mmm")).unwrap();
         let subprocess = crate::subprocess::SubprocessManager::production();
 
-        let orchestrator = DefaultCookOrchestrator::new(
+        let orchestrator = DefaultCookOrchestrator::with_test_config(
             session_manager,
             command_executor,
             claude_executor,
@@ -2015,6 +2107,7 @@ mod tests {
             mock_git.clone(),
             state_manager,
             subprocess,
+            test_config_arc,
         );
 
         // Create a workflow with commands that do and don't use $ARG
@@ -2122,8 +2215,7 @@ mod tests {
             command_messages[2]
         );
 
-        // Clean up environment variable
-        std::env::remove_var("MMM_NO_COMMIT_VALIDATION");
+        // Test complete
     }
 
     #[test]

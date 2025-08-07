@@ -3,6 +3,7 @@
 //! This module provides test helpers, fixtures, and utilities for
 //! comprehensive testing of the mmm codebase.
 
+pub mod config;
 pub mod fixtures;
 pub mod helpers;
 pub mod mocks;
@@ -11,7 +12,10 @@ pub mod test_mocks;
 use crate::abstractions::{ClaudeClient, GitOperations, MockClaudeClient, MockGitOperations};
 use anyhow::Result;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tempfile::TempDir;
+
+use self::config::TestConfiguration;
 
 /// Test context containing all necessary mocks and utilities
 pub struct TestContext {
@@ -21,6 +25,8 @@ pub struct TestContext {
     pub claude_client: Box<dyn ClaudeClient>,
     /// Temporary directory for test files
     pub temp_dir: TempDir,
+    /// Test configuration for dependency injection
+    pub config: Arc<TestConfiguration>,
 }
 
 impl TestContext {
@@ -29,11 +35,13 @@ impl TestContext {
         let temp_dir = TempDir::new()?;
         let git_ops = Box::new(MockGitOperations::new());
         let claude_client = Box::new(MockClaudeClient::new());
+        let config = Arc::new(TestConfiguration::default());
 
         Ok(Self {
             git_ops,
             claude_client,
             temp_dir,
+            config,
         })
     }
 
@@ -43,11 +51,45 @@ impl TestContext {
         claude_client: Box<dyn ClaudeClient>,
     ) -> Result<Self> {
         let temp_dir = TempDir::new()?;
+        let config = Arc::new(TestConfiguration::default());
 
         Ok(Self {
             git_ops,
             claude_client,
             temp_dir,
+            config,
+        })
+    }
+
+    /// Create a test context with custom configuration
+    pub fn with_config(config: TestConfiguration) -> Result<Self> {
+        let temp_dir = TempDir::new()?;
+        let git_ops = Box::new(MockGitOperations::new());
+        let claude_client = Box::new(MockClaudeClient::new());
+        let config = Arc::new(config);
+
+        Ok(Self {
+            git_ops,
+            claude_client,
+            temp_dir,
+            config,
+        })
+    }
+
+    /// Create a test context with custom mocks and configuration
+    pub fn with_mocks_and_config(
+        git_ops: Box<dyn GitOperations>,
+        claude_client: Box<dyn ClaudeClient>,
+        config: TestConfiguration,
+    ) -> Result<Self> {
+        let temp_dir = TempDir::new()?;
+        let config = Arc::new(config);
+
+        Ok(Self {
+            git_ops,
+            claude_client,
+            temp_dir,
+            config,
         })
     }
 

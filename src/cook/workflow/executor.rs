@@ -11,6 +11,7 @@ use crate::cook::metrics::MetricsCoordinator;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::{SessionManager, SessionUpdate};
 use crate::session::{format_duration, TimingTracker};
+use crate::testing::config::TestConfiguration;
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -164,6 +165,7 @@ pub struct WorkflowExecutor {
     metrics_coordinator: Arc<dyn MetricsCoordinator>,
     user_interaction: Arc<dyn UserInteraction>,
     timing_tracker: TimingTracker,
+    test_config: Option<Arc<TestConfiguration>>,
 }
 
 impl WorkflowExecutor {
@@ -182,6 +184,27 @@ impl WorkflowExecutor {
             metrics_coordinator,
             user_interaction,
             timing_tracker: TimingTracker::new(),
+            test_config: None,
+        }
+    }
+
+    /// Create a new workflow executor with test configuration
+    pub fn with_test_config(
+        claude_executor: Arc<dyn ClaudeExecutor>,
+        session_manager: Arc<dyn SessionManager>,
+        analysis_coordinator: Arc<dyn AnalysisCoordinator>,
+        metrics_coordinator: Arc<dyn MetricsCoordinator>,
+        user_interaction: Arc<dyn UserInteraction>,
+        test_config: Arc<TestConfiguration>,
+    ) -> Self {
+        Self {
+            claude_executor,
+            session_manager,
+            analysis_coordinator,
+            metrics_coordinator,
+            user_interaction,
+            timing_tracker: TimingTracker::new(),
+            test_config: Some(test_config),
         }
     }
 
@@ -1081,28 +1104,30 @@ impl WorkflowExecutor {
     /// Check if we should stop early in test mode
     pub fn should_stop_early_in_test_mode(&self) -> bool {
         // Check if we're configured to simulate no changes
-        std::env::var("MMM_TEST_NO_CHANGES_COMMANDS")
-            .unwrap_or_default()
-            .split(',')
-            .any(|cmd| cmd.trim() == "mmm-code-review" || cmd.trim() == "mmm-lint")
+        self.test_config.as_ref().is_some_and(|c| {
+            c.no_changes_commands
+                .iter()
+                .any(|cmd| cmd.trim() == "mmm-code-review" || cmd.trim() == "mmm-lint")
+        })
     }
 
     /// Check if this is the focus tracking test
     fn is_focus_tracking_test(&self) -> bool {
-        std::env::var("MMM_TRACK_FOCUS").is_ok()
+        self.test_config.as_ref().is_some_and(|c| c.track_focus)
     }
 
     /// Check if this is a test mode command that should simulate no changes
     pub fn is_test_mode_no_changes_command(&self, command: &str) -> bool {
-        if let Ok(no_changes_cmds) = std::env::var("MMM_TEST_NO_CHANGES_COMMANDS") {
+        if let Some(config) = &self.test_config {
             let command_name = command.trim_start_matches('/');
             // Extract just the command name, ignoring arguments
             let command_name = command_name
                 .split_whitespace()
                 .next()
                 .unwrap_or(command_name);
-            return no_changes_cmds
-                .split(',')
+            return config
+                .no_changes_commands
+                .iter()
                 .any(|cmd| cmd.trim() == command_name);
         }
         false
@@ -1112,6 +1137,29 @@ impl WorkflowExecutor {
 #[cfg(test)]
 #[path = "executor_tests.rs"]
 mod executor_tests;
+
+// Implement the WorkflowExecutor trait
+#[async_trait::async_trait]
+impl super::traits::WorkflowExecutor for WorkflowExecutor {
+    async fn execute(
+        &mut self,
+        workflow: &ExtendedWorkflowConfig,
+        env: &ExecutionEnvironment,
+    ) -> Result<()> {
+        // Call the existing execute method
+        self.execute(workflow, env).await
+    }
+
+    async fn execute_step(
+        &mut self,
+        step: &WorkflowStep,
+        env: &ExecutionEnvironment,
+        context: &mut WorkflowContext,
+    ) -> Result<StepResult> {
+        // Call the existing execute_step method
+        self.execute_step(step, env, context).await
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -1332,28 +1380,5 @@ mod tests {
             head1, head2,
             "Different repos should have different HEAD commits"
         );
-    }
-}
-
-// Implement the WorkflowExecutor trait
-#[async_trait::async_trait]
-impl super::traits::WorkflowExecutor for WorkflowExecutor {
-    async fn execute(
-        &mut self,
-        workflow: &ExtendedWorkflowConfig,
-        env: &ExecutionEnvironment,
-    ) -> Result<()> {
-        // Call the existing execute method
-        self.execute(workflow, env).await
-    }
-
-    async fn execute_step(
-        &mut self,
-        step: &WorkflowStep,
-        env: &ExecutionEnvironment,
-        context: &mut WorkflowContext,
-    ) -> Result<StepResult> {
-        // Call the existing execute_step method
-        self.execute_step(step, env, context).await
     }
 }

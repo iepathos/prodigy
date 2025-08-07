@@ -444,6 +444,43 @@ fn create_test_executor() -> (
     )
 }
 
+// Helper function to create a test executor with configuration
+#[allow(clippy::type_complexity)]
+fn create_test_executor_with_config(
+    config: TestConfiguration,
+) -> (
+    WorkflowExecutor,
+    Arc<MockClaudeExecutor>,
+    Arc<MockSessionManager>,
+    Arc<MockAnalysisCoordinator>,
+    Arc<MockMetricsCoordinator>,
+    Arc<MockUserInteraction>,
+) {
+    let claude_executor = Arc::new(MockClaudeExecutor::new());
+    let session_manager = Arc::new(MockSessionManager::new());
+    let analysis_coordinator = Arc::new(MockAnalysisCoordinator::new());
+    let metrics_coordinator = Arc::new(MockMetricsCoordinator::new());
+    let user_interaction = Arc::new(MockUserInteraction::new());
+
+    let executor = WorkflowExecutor::with_test_config(
+        claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+        session_manager.clone() as Arc<dyn SessionManager>,
+        analysis_coordinator.clone() as Arc<dyn AnalysisCoordinator>,
+        metrics_coordinator.clone() as Arc<dyn MetricsCoordinator>,
+        user_interaction.clone() as Arc<dyn UserInteraction>,
+        Arc::new(config),
+    );
+
+    (
+        executor,
+        claude_executor,
+        session_manager,
+        analysis_coordinator,
+        metrics_coordinator,
+        user_interaction,
+    )
+}
+
 #[test]
 fn test_context_interpolation() {
     let mut context = WorkflowContext::default();
@@ -767,9 +804,8 @@ fn test_get_step_display_name_unnamed() {
 
 #[test]
 fn test_handle_test_mode_execution_success() {
-    let (executor, _, _, _, _, _) = create_test_executor();
-
-    std::env::set_var("MMM_TEST_MODE", "true");
+    let config = TestConfiguration::builder().test_mode(true).build();
+    let (executor, _, _, _, _, _) = create_test_executor_with_config(config);
 
     let step = WorkflowStep {
         name: None,
@@ -802,9 +838,14 @@ fn test_handle_test_mode_execution_success() {
 
 #[test]
 fn test_is_test_mode_no_changes_command() {
-    let (executor, _, _, _, _, _) = create_test_executor();
+    use crate::testing::config::TestConfiguration;
 
-    std::env::set_var("MMM_TEST_NO_CHANGES_COMMANDS", "mmm-code-review,mmm-lint");
+    let config = TestConfiguration::builder()
+        .test_mode(true)
+        .no_changes_commands(vec!["mmm-code-review".to_string(), "mmm-lint".to_string()])
+        .build();
+
+    let (executor, _, _, _, _, _) = create_test_executor_with_config(config);
 
     assert!(executor.is_test_mode_no_changes_command("/mmm-code-review"));
     assert!(executor.is_test_mode_no_changes_command("mmm-lint"));
@@ -813,40 +854,50 @@ fn test_is_test_mode_no_changes_command() {
     // Test with arguments
     assert!(executor.is_test_mode_no_changes_command("/mmm-code-review --strict"));
     assert!(executor.is_test_mode_no_changes_command("mmm-lint --fix"));
-
-    std::env::remove_var("MMM_TEST_NO_CHANGES_COMMANDS");
 }
 
 #[test]
 fn test_should_stop_early_in_test_mode() {
-    let (executor, _, _, _, _, _) = create_test_executor();
+    use crate::testing::config::TestConfiguration;
 
-    // Clear any existing env var first
-    std::env::remove_var("MMM_TEST_NO_CHANGES_COMMANDS");
-
-    // Without the env var, should return false
+    // Test without no_changes_commands
+    let config = TestConfiguration::builder().test_mode(true).build();
+    let (executor, _, _, _, _, _) = create_test_executor_with_config(config);
     assert!(!executor.should_stop_early_in_test_mode());
 
-    std::env::set_var("MMM_TEST_NO_CHANGES_COMMANDS", "mmm-code-review,mmm-lint");
+    // Test with mmm-code-review and mmm-lint
+    let config = TestConfiguration::builder()
+        .test_mode(true)
+        .no_changes_commands(vec!["mmm-code-review".to_string(), "mmm-lint".to_string()])
+        .build();
+    let (executor, _, _, _, _, _) = create_test_executor_with_config(config);
     assert!(executor.should_stop_early_in_test_mode());
 
-    std::env::set_var("MMM_TEST_NO_CHANGES_COMMANDS", "mmm-implement-spec");
+    // Test with mmm-implement-spec only
+    let config = TestConfiguration::builder()
+        .test_mode(true)
+        .no_changes_commands(vec!["mmm-implement-spec".to_string()])
+        .build();
+    let (executor, _, _, _, _, _) = create_test_executor_with_config(config);
     assert!(!executor.should_stop_early_in_test_mode());
-
-    std::env::remove_var("MMM_TEST_NO_CHANGES_COMMANDS");
 }
 
 #[test]
 fn test_is_focus_tracking_test() {
-    let (executor, _, _, _, _, _) = create_test_executor();
+    use crate::testing::config::TestConfiguration;
 
-    // Without the env var, should return false
+    // Test without track_focus
+    let config = TestConfiguration::builder().test_mode(true).build();
+    let (executor, _, _, _, _, _) = create_test_executor_with_config(config);
     assert!(!executor.is_focus_tracking_test());
 
-    std::env::set_var("MMM_TRACK_FOCUS", "true");
+    // Test with track_focus enabled
+    let config = TestConfiguration::builder()
+        .test_mode(true)
+        .track_focus(true)
+        .build();
+    let (executor, _, _, _, _, _) = create_test_executor_with_config(config);
     assert!(executor.is_focus_tracking_test());
-
-    std::env::remove_var("MMM_TRACK_FOCUS");
 }
 
 #[test]
