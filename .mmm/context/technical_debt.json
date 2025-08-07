@@ -1,28 +1,28 @@
 {
   "statistics": {
-    "total_items": 258,
+    "total_items": 242,
     "by_type": {
-      "Deprecated": 5,
-      "Todo": 51,
-      "Fixme": 12,
       "Hack": 7,
-      "Complexity": 83,
-      "Duplication": 100
+      "Todo": 44,
+      "Deprecated": 5,
+      "Complexity": 74,
+      "Duplication": 100,
+      "Fixme": 12
     },
     "by_impact": {
-      "Low": 51,
-      "Medium": 185,
+      "Low": 44,
+      "Medium": 176,
       "High": 22
     },
-    "avg_impact": 5.434108527131783,
-    "avg_effort": 4.0310077519379846
+    "avg_impact": 5.454545454545454,
+    "avg_effort": 4.024793388429752
   },
   "high_priority_items": [
     {
-      "id": "Deprecated_/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs_L57",
+      "id": "Deprecated_/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs_L57",
       "title": "Deprecated comment",
       "description": "No description provided",
-      "location": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs",
       "line_number": 57,
       "debt_type": "Deprecated",
       "impact": 8,
@@ -32,10 +32,10 @@
       ]
     },
     {
-      "id": "Deprecated_/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs_L255",
+      "id": "Deprecated_/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs_L255",
       "title": "Deprecated comment",
       "description": "\") || line_upper.contains(\"@DEPRECATED\") {",
-      "location": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs",
       "line_number": 255,
       "debt_type": "Deprecated",
       "impact": 8,
@@ -45,10 +45,10 @@
       ]
     },
     {
-      "id": "Deprecated_/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs_L256",
+      "id": "Deprecated_/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs_L256",
       "title": "Deprecated comment",
       "description": "\")",
-      "location": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs",
       "line_number": 256,
       "debt_type": "Deprecated",
       "impact": 8,
@@ -58,10 +58,10 @@
       ]
     },
     {
-      "id": "Deprecated_/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs_L274",
+      "id": "Deprecated_/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs_L274",
       "title": "Deprecated comment",
       "description": "No description provided",
-      "location": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs",
       "line_number": 274,
       "debt_type": "Deprecated",
       "impact": 8,
@@ -71,10 +71,10 @@
       ]
     },
     {
-      "id": "Deprecated_/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/main.rs_L182",
+      "id": "Deprecated_/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/main.rs_L182",
       "title": "Deprecated comment",
       "description": "No description provided",
-      "location": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/main.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/main.rs",
       "line_number": 182,
       "debt_type": "Deprecated",
       "impact": 8,
@@ -84,10 +84,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs_L55",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs_L55",
       "title": "Fixme comment",
       "description": "No description provided",
-      "location": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs",
       "line_number": 55,
       "debt_type": "Fixme",
       "impact": 7,
@@ -97,10 +97,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs_L249",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs_L249",
       "title": "Fixme comment",
       "description": "\") {",
-      "location": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs",
       "line_number": 249,
       "debt_type": "Fixme",
       "impact": 7,
@@ -110,10 +110,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs_L250",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs_L250",
       "title": "Fixme comment",
       "description": "\")",
-      "location": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs",
       "line_number": 250,
       "debt_type": "Fixme",
       "impact": 7,
@@ -123,10 +123,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs_L253",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs_L253",
       "title": "Fixme comment",
       "description": "\") {",
-      "location": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs",
       "line_number": 253,
       "debt_type": "Fixme",
       "impact": 7,
@@ -136,10 +136,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs_L254",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs_L254",
       "title": "Fixme comment",
       "description": "No description provided",
-      "location": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs",
       "line_number": 254,
       "debt_type": "Fixme",
       "impact": 7,
@@ -149,10 +149,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs_L272",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs_L272",
       "title": "Fixme comment",
       "description": "No description provided",
-      "location": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs",
       "line_number": 272,
       "debt_type": "Fixme",
       "impact": 7,
@@ -162,10 +162,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs_L899",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs_L899",
       "title": "Fixme comment",
       "description": "This is a hack",
-      "location": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs",
       "line_number": 899,
       "debt_type": "Fixme",
       "impact": 7,
@@ -175,10 +175,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs_L904",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs_L904",
       "title": "Fixme comment",
       "description": "This needs review",
-      "location": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs",
       "line_number": 904,
       "debt_type": "Fixme",
       "impact": 7,
@@ -188,10 +188,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs_L918",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs_L918",
       "title": "Fixme comment",
       "description": "No description provided",
-      "location": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs",
       "line_number": 918,
       "debt_type": "Fixme",
       "impact": 7,
@@ -201,10 +201,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs_L1024",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs_L1024",
       "title": "Fixme comment",
       "description": "No description provided",
-      "location": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs",
       "line_number": 1024,
       "debt_type": "Fixme",
       "impact": 7,
@@ -214,10 +214,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs_L1058",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs_L1058",
       "title": "Fixme comment",
       "description": "This can panic",
-      "location": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs",
       "line_number": 1058,
       "debt_type": "Fixme",
       "impact": 7,
@@ -227,10 +227,10 @@
       ]
     },
     {
-      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/scoring/mod.rs_L153",
+      "id": "Fixme_/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/scoring/mod.rs_L153",
       "title": "Fixme comment",
       "description": "No description provided",
-      "location": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/scoring/mod.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/scoring/mod.rs",
       "line_number": 153,
       "debt_type": "Fixme",
       "impact": 7,
@@ -240,10 +240,10 @@
       ]
     },
     {
-      "id": "COMPLEX_/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/metrics/quality.rs_get_test_coverage",
+      "id": "COMPLEX_/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/metrics/quality.rs_get_test_coverage",
       "title": "High complexity in get_test_coverage",
       "description": "Function has cyclomatic complexity of 22",
-      "location": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/metrics/quality.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/metrics/quality.rs",
       "line_number": null,
       "debt_type": "Complexity",
       "impact": 8,
@@ -253,10 +253,10 @@
       ]
     },
     {
-      "id": "COMPLEX_/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/mod.rs_load_analysis",
+      "id": "COMPLEX_/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/mod.rs_load_analysis",
       "title": "High complexity in load_analysis",
       "description": "Function has cyclomatic complexity of 21",
-      "location": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/mod.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/mod.rs",
       "line_number": null,
       "debt_type": "Complexity",
       "impact": 8,
@@ -266,10 +266,10 @@
       ]
     },
     {
-      "id": "COMPLEX_/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs_count_match_arms",
+      "id": "COMPLEX_/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs_count_match_arms",
       "title": "High complexity in count_match_arms",
       "description": "Function has cyclomatic complexity of 51",
-      "location": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs",
+      "location": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs",
       "line_number": null,
       "debt_type": "Complexity",
       "impact": 8,
@@ -281,70 +281,70 @@
   ],
   "hotspot_summary": [
     {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/debt.rs",
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/debt.rs",
       "total_issues": 37,
       "max_complexity": 51,
-      "primary_issue_type": "Fixme"
+      "primary_issue_type": "Todo"
     },
     {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/config/mod.rs",
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/config/mod.rs",
       "total_issues": 22,
       "max_complexity": 0,
       "primary_issue_type": "Todo"
     },
     {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/cook/orchestrator.rs",
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/cook/orchestrator.rs",
       "total_issues": 18,
       "max_complexity": 27,
       "primary_issue_type": "Duplication"
     },
     {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/analysis/unified.rs",
-      "total_issues": 13,
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/analysis/unified.rs",
+      "total_issues": 11,
       "max_complexity": 24,
       "primary_issue_type": "Duplication"
     },
     {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/abstractions/git.rs",
-      "total_issues": 12,
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/abstractions/git.rs",
+      "total_issues": 11,
       "max_complexity": 0,
       "primary_issue_type": "Duplication"
     },
     {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/config/command_validator.rs",
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/config/command_validator.rs",
       "total_issues": 8,
       "max_complexity": 17,
       "primary_issue_type": "Complexity"
     },
     {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/analyze/tests.rs",
-      "total_issues": 7,
-      "max_complexity": 0,
-      "primary_issue_type": "Duplication"
-    },
-    {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/abstractions/claude.rs",
-      "total_issues": 7,
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/abstractions/claude.rs",
+      "total_issues": 8,
       "max_complexity": 20,
       "primary_issue_type": "Duplication"
     },
     {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/tests/subprocess_tests.rs",
-      "total_issues": 6,
-      "max_complexity": 0,
-      "primary_issue_type": "Todo"
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/context/mod.rs",
+      "total_issues": 7,
+      "max_complexity": 21,
+      "primary_issue_type": "Complexity"
     },
     {
-      "file": "/Users/glen/.mmm/worktrees/mmm/session-f01eb194-e870-4a7b-ac9a-4f7c78d466f4/src/context/tarpaulin_coverage.rs",
-      "total_issues": 6,
-      "max_complexity": 19,
-      "primary_issue_type": "Complexity"
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/cook/workflow/executor_tests.rs",
+      "total_issues": 7,
+      "max_complexity": 0,
+      "primary_issue_type": "Duplication"
+    },
+    {
+      "file": "/Users/glen/.mmm/worktrees/mmm/session-79f9a066-f20e-42be-a3dd-a5265bc5b1fd/src/analyze/tests.rs",
+      "total_issues": 7,
+      "max_complexity": 0,
+      "primary_issue_type": "Duplication"
     }
   ],
   "duplication_summary": {
     "total_duplicate_blocks": 100,
-    "total_duplicate_lines": 5968,
-    "files_with_duplication": 121,
+    "total_duplicate_lines": 6392,
+    "files_with_duplication": 110,
     "largest_duplicate_lines": 50
   }
 }
