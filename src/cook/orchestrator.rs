@@ -1228,11 +1228,11 @@ impl DefaultCookOrchestrator {
         env_vars: HashMap<String, String>,
     ) -> Result<()> {
         // Handle test mode
-        let test_mode = self.test_config.as_ref().map_or(false, |c| c.test_mode);
+        let test_mode = self.test_config.as_ref().is_some_and(|c| c.test_mode);
         let skip_validation = self
             .test_config
             .as_ref()
-            .map_or(false, |c| c.skip_commit_validation);
+            .is_some_and(|c| c.skip_commit_validation);
 
         // Get HEAD before command execution if we need to verify commits
         let head_before = if !skip_validation && command.metadata.commit_required && !test_mode {
@@ -1595,6 +1595,7 @@ mod tests {
         (orchestrator, mock_interaction, mock_git)
     }
 
+    #[allow(dead_code)]
     fn create_test_orchestrator_with_config(
         test_config: TestConfiguration,
     ) -> (

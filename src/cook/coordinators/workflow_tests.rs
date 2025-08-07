@@ -395,7 +395,7 @@ mod tests {
 
         // Verify commands were processed
         let messages = user_interaction.get_messages();
-        assert!(messages.len() > 0);
+        assert!(!messages.is_empty());
     }
 
     #[tokio::test]

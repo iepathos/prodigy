@@ -292,7 +292,6 @@ impl Default for MetricsCollector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testing::config::TestConfiguration;
     use crate::testing::test_mocks::{CargoMocks, TestMockSetup};
     use std::fs;
     use tempfile::TempDir;

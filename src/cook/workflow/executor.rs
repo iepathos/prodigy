@@ -1104,7 +1104,7 @@ impl WorkflowExecutor {
     /// Check if we should stop early in test mode
     pub fn should_stop_early_in_test_mode(&self) -> bool {
         // Check if we're configured to simulate no changes
-        self.test_config.as_ref().map_or(false, |c| {
+        self.test_config.as_ref().is_some_and(|c| {
             c.no_changes_commands
                 .iter()
                 .any(|cmd| cmd.trim() == "mmm-code-review" || cmd.trim() == "mmm-lint")
@@ -1113,7 +1113,7 @@ impl WorkflowExecutor {
 
     /// Check if this is the focus tracking test
     fn is_focus_tracking_test(&self) -> bool {
-        self.test_config.as_ref().map_or(false, |c| c.track_focus)
+        self.test_config.as_ref().is_some_and(|c| c.track_focus)
     }
 
     /// Check if this is a test mode command that should simulate no changes
@@ -1125,7 +1125,8 @@ impl WorkflowExecutor {
                 .split_whitespace()
                 .next()
                 .unwrap_or(command_name);
-            return config.no_changes_commands
+            return config
+                .no_changes_commands
                 .iter()
                 .any(|cmd| cmd.trim() == command_name);
         }
@@ -1136,6 +1137,29 @@ impl WorkflowExecutor {
 #[cfg(test)]
 #[path = "executor_tests.rs"]
 mod executor_tests;
+
+// Implement the WorkflowExecutor trait
+#[async_trait::async_trait]
+impl super::traits::WorkflowExecutor for WorkflowExecutor {
+    async fn execute(
+        &mut self,
+        workflow: &ExtendedWorkflowConfig,
+        env: &ExecutionEnvironment,
+    ) -> Result<()> {
+        // Call the existing execute method
+        self.execute(workflow, env).await
+    }
+
+    async fn execute_step(
+        &mut self,
+        step: &WorkflowStep,
+        env: &ExecutionEnvironment,
+        context: &mut WorkflowContext,
+    ) -> Result<StepResult> {
+        // Call the existing execute_step method
+        self.execute_step(step, env, context).await
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -1356,28 +1380,5 @@ mod tests {
             head1, head2,
             "Different repos should have different HEAD commits"
         );
-    }
-}
-
-// Implement the WorkflowExecutor trait
-#[async_trait::async_trait]
-impl super::traits::WorkflowExecutor for WorkflowExecutor {
-    async fn execute(
-        &mut self,
-        workflow: &ExtendedWorkflowConfig,
-        env: &ExecutionEnvironment,
-    ) -> Result<()> {
-        // Call the existing execute method
-        self.execute(workflow, env).await
-    }
-
-    async fn execute_step(
-        &mut self,
-        step: &WorkflowStep,
-        env: &ExecutionEnvironment,
-        context: &mut WorkflowContext,
-    ) -> Result<StepResult> {
-        // Call the existing execute_step method
-        self.execute_step(step, env, context).await
     }
 }
