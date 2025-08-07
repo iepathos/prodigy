@@ -1,10 +1,12 @@
 //! Claude CLI execution implementation
 
 use super::{CommandExecutor, CommandRunner, ExecutionContext, ExecutionResult};
+use crate::testing::config::TestConfiguration;
 use anyhow::Result;
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Arc;
 
 /// Trait for executing Claude commands
 #[async_trait]
@@ -27,12 +29,24 @@ pub trait ClaudeExecutor: Send + Sync {
 /// Implementation of Claude executor
 pub struct ClaudeExecutorImpl<R: CommandRunner> {
     runner: R,
+    test_config: Option<Arc<TestConfiguration>>,
 }
 
 impl<R: CommandRunner> ClaudeExecutorImpl<R> {
     /// Create a new Claude executor
     pub fn new(runner: R) -> Self {
-        Self { runner }
+        Self {
+            runner,
+            test_config: None,
+        }
+    }
+
+    /// Create a new Claude executor with test configuration
+    pub fn with_test_config(runner: R, test_config: Arc<TestConfiguration>) -> Self {
+        Self {
+            runner,
+            test_config: Some(test_config),
+        }
     }
 }
 
@@ -45,7 +59,7 @@ impl<R: CommandRunner + 'static> ClaudeExecutor for ClaudeExecutorImpl<R> {
         env_vars: HashMap<String, String>,
     ) -> Result<ExecutionResult> {
         // Handle test mode
-        let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
+        let test_mode = self.test_config.as_ref().map_or(false, |c| c.test_mode);
         if test_mode {
             return self.handle_test_mode_execution(command).await;
         }
@@ -83,7 +97,7 @@ impl<R: CommandRunner + 'static> ClaudeExecutor for ClaudeExecutorImpl<R> {
 
     async fn check_claude_cli(&self) -> Result<bool> {
         // Always return true in test mode
-        let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
+        let test_mode = self.test_config.as_ref().map_or(false, |c| c.test_mode);
         if test_mode {
             return Ok(true);
         }
@@ -118,15 +132,16 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
         println!("[TEST MODE] Would execute Claude command: {command}");
 
         // Check if we should simulate no changes
-        if let Ok(no_changes_cmds) = std::env::var("MMM_TEST_NO_CHANGES_COMMANDS") {
+        if let Some(config) = &self.test_config {
             let command_name = command.trim_start_matches('/');
             // Extract just the command name, ignoring arguments
             let command_name = command_name
                 .split_whitespace()
                 .next()
                 .unwrap_or(command_name);
-            if no_changes_cmds
-                .split(',')
+            if config
+                .no_changes_commands
+                .iter()
                 .any(|cmd| cmd.trim() == command_name)
             {
                 println!("[TEST MODE] Simulating no changes for: {command_name}");

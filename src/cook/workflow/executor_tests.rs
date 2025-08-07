@@ -444,6 +444,43 @@ fn create_test_executor() -> (
     )
 }
 
+// Helper function to create a test executor with configuration
+#[allow(clippy::type_complexity)]
+fn create_test_executor_with_config(
+    config: TestConfiguration,
+) -> (
+    WorkflowExecutor,
+    Arc<MockClaudeExecutor>,
+    Arc<MockSessionManager>,
+    Arc<MockAnalysisCoordinator>,
+    Arc<MockMetricsCoordinator>,
+    Arc<MockUserInteraction>,
+) {
+    let claude_executor = Arc::new(MockClaudeExecutor::new());
+    let session_manager = Arc::new(MockSessionManager::new());
+    let analysis_coordinator = Arc::new(MockAnalysisCoordinator::new());
+    let metrics_coordinator = Arc::new(MockMetricsCoordinator::new());
+    let user_interaction = Arc::new(MockUserInteraction::new());
+
+    let executor = WorkflowExecutor::with_test_config(
+        claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+        session_manager.clone() as Arc<dyn SessionManager>,
+        analysis_coordinator.clone() as Arc<dyn AnalysisCoordinator>,
+        metrics_coordinator.clone() as Arc<dyn MetricsCoordinator>,
+        user_interaction.clone() as Arc<dyn UserInteraction>,
+        Arc::new(config),
+    );
+
+    (
+        executor,
+        claude_executor,
+        session_manager,
+        analysis_coordinator,
+        metrics_coordinator,
+        user_interaction,
+    )
+}
+
 #[test]
 fn test_context_interpolation() {
     let mut context = WorkflowContext::default();
@@ -767,9 +804,8 @@ fn test_get_step_display_name_unnamed() {
 
 #[test]
 fn test_handle_test_mode_execution_success() {
-    let (executor, _, _, _, _, _) = create_test_executor();
-
-    std::env::set_var("MMM_TEST_MODE", "true");
+    let config = TestConfiguration::builder().test_mode(true).build();
+    let (executor, _, _, _, _, _) = create_test_executor_with_config(config);
 
     let step = WorkflowStep {
         name: None,
