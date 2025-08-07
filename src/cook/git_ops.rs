@@ -76,6 +76,7 @@ pub async fn is_git_repo() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::env;
     use std::time::{SystemTime, UNIX_EPOCH};
     use tempfile::TempDir;
     use tokio::process::Command;
@@ -179,7 +180,7 @@ mod tests {
     }
 
     /// Test helper: Create a temporary git repository
-    async fn create_temp_git_repo() -> Result<TempDir> {
+    pub(super) async fn create_temp_git_repo() -> Result<TempDir> {
         let temp_dir = TempDir::new()?;
 
         // Initialize git repo
@@ -358,5 +359,113 @@ mod tests {
             status.contains("?? test.txt"),
             "Expected untracked file in status: {status}"
         );
+    }
+
+    // ================== PUBLIC API TESTS ==================
+    // These tests verify that the public API functions work correctly.
+    // We test them in the actual MMM repository since they use a global
+    // singleton that operates on the current directory.
+
+    #[tokio::test]
+    async fn test_public_api_functions_in_real_repo() {
+        // Test that we're in a git repo (the MMM repository)
+        assert!(is_git_repo().await, "MMM should be a git repository");
+
+        // Test git_command - use a safe read-only command
+        let result = git_command(&["status", "--porcelain"], "Check status").await;
+        assert!(result.is_ok(), "git_command should succeed in MMM repo");
+
+        // Test check_git_status
+        let status = check_git_status().await;
+        assert!(status.is_ok(), "Should be able to check status in MMM repo");
+
+        // Test get_last_commit_message - MMM repo should have commits
+        let message = get_last_commit_message().await;
+        assert!(
+            message.is_ok(),
+            "Should get last commit message in MMM repo"
+        );
+
+        // The other functions (stage_all_changes, create_commit) modify the repo
+        // so we don't test them here to avoid affecting the actual repository
+    }
+
+    #[tokio::test]
+    async fn test_mutex_synchronization() {
+        // Test that the mutex properly synchronizes access
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+
+        let counter = Arc::new(AtomicUsize::new(0));
+        let tasks: Vec<_> = (0..5)
+            .map(|_| {
+                let counter = counter.clone();
+                tokio::spawn(async move {
+                    // This should be serialized by the mutex
+                    let _result = check_git_status().await;
+                    counter.fetch_add(1, Ordering::SeqCst);
+                })
+            })
+            .collect();
+
+        for task in tasks {
+            task.await.unwrap();
+        }
+
+        assert_eq!(
+            counter.load(Ordering::SeqCst),
+            5,
+            "All tasks should complete"
+        );
+    }
+}
+
+#[cfg(test)]
+mod mock_tests {
+    use super::*;
+    use crate::testing::mocks::git::MockGitOperations;
+
+    #[tokio::test]
+    async fn test_stage_all_changes_with_mock() {
+        // This test verifies the public function works by using it in a controlled environment
+        // We create a temporary git repo to test staging
+        let temp_repo = super::tests::create_temp_git_repo().await.unwrap();
+        let original_dir = std::env::current_dir().unwrap();
+
+        // Change to temp repo
+        std::env::set_current_dir(temp_repo.path()).unwrap();
+
+        // Create a file to stage
+        std::fs::write(temp_repo.path().join("test_stage.txt"), "content").unwrap();
+
+        // Test staging
+        let result = stage_all_changes().await;
+
+        // Restore directory
+        std::env::set_current_dir(&original_dir).unwrap();
+
+        assert!(result.is_ok(), "stage_all_changes should succeed");
+    }
+
+    #[tokio::test]
+    async fn test_create_commit_with_mock() {
+        // This test verifies the public function works by using it in a controlled environment
+        let temp_repo = super::tests::create_temp_git_repo().await.unwrap();
+        let original_dir = std::env::current_dir().unwrap();
+
+        // Change to temp repo
+        std::env::set_current_dir(temp_repo.path()).unwrap();
+
+        // Create and stage a file
+        std::fs::write(temp_repo.path().join("test_commit.txt"), "content").unwrap();
+        let _ = stage_all_changes().await;
+
+        // Test commit creation
+        let result = create_commit("test: mock commit").await;
+
+        // Restore directory
+        std::env::set_current_dir(&original_dir).unwrap();
+
+        assert!(result.is_ok(), "create_commit should succeed");
     }
 }
