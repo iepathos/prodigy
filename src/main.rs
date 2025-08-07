@@ -138,9 +138,6 @@ enum WorktreeCommands {
         /// Only clean up sessions that have been merged
         #[arg(long)]
         merged_only: bool,
-        /// Show what would be cleaned up without actually doing it
-        #[arg(long)]
-        dry_run: bool,
     },
 }
 
@@ -373,7 +370,6 @@ async fn handle_clean_command(
     all: bool,
     force: bool,
     merged_only: bool,
-    dry_run: bool,
 ) -> anyhow::Result<()> {
     use mmm::worktree::CleanupConfig;
 
@@ -381,7 +377,7 @@ async fn handle_clean_command(
         auto_cleanup: false, // Manual cleanup via CLI
         confirm_before_cleanup: std::env::var("MMM_AUTOMATION").is_err(),
         retention_days: 7,
-        dry_run,
+        dry_run: false,
     };
 
     if merged_only {
@@ -434,7 +430,6 @@ async fn handle_clean_command(
             }
             println!();
             println!("💡 Run with --merged-only to clean up all merged sessions");
-            println!("💡 Run with --dry-run to see what would be cleaned up");
         }
     }
     Ok(())
@@ -457,7 +452,6 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
             name,
             force,
             merged_only,
-            dry_run,
-        } => handle_clean_command(&worktree_manager, name, all, force, merged_only, dry_run).await,
+        } => handle_clean_command(&worktree_manager, name, all, force, merged_only).await,
     }
 }
