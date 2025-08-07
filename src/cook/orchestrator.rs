@@ -265,17 +265,21 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                 match cmd {
                     WorkflowCommand::WorkflowStep(step) => {
                         // Handle new workflow step format directly
+                        // Note: For shell commands with on_failure (TestDebugConfig),
+                        // the shell command will be handled specially by the executor
+                        // which will check for step.test and use its on_failure config
+
                         WorkflowStep {
                             name: None,
                             command: None,
                             claude: step.claude.clone(),
                             shell: step.shell.clone(),
-                            test: step.test.clone(),
+                            test: step.test.clone(), // Preserve test field for retry logic
                             capture_output: step.capture_output,
                             timeout: None,
                             working_dir: None,
                             env: std::collections::HashMap::new(),
-                            on_failure: None,
+                            on_failure: None, // WorkflowStep on_failure is different from TestDebugConfig
                             on_success: None,
                             on_exit_code: std::collections::HashMap::new(),
                             // Commands don't require commits by default unless explicitly set

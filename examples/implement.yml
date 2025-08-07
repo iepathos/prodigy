@@ -15,12 +15,11 @@
   analysis:
       max_cache_age: 300
 
-- test:
-    command: "just test"
-    on_failure:
-      claude: "/mmm-debug-test-failure --spec $ARG --output ${test.output}"
-      max_attempts: 3
-      fail_workflow: false  # Continue workflow even if tests can't be fixed
+- shell: "just test"
+  on_failure:
+    claude: "/mmm-debug-test-failure --spec $ARG --output ${shell.output}"
+    max_attempts: 3
+    fail_workflow: false  # Continue workflow even if tests can't be fixed
 
 # Run linting and formatting after implementation
 - claude: "/mmm-lint"

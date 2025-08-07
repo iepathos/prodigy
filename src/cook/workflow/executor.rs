@@ -502,8 +502,30 @@ impl WorkflowExecutor {
             }
             CommandType::Shell(cmd) => {
                 let interpolated_cmd = ctx.interpolate(&cmd);
-                self.execute_shell_command(&interpolated_cmd, env, env_vars, step.timeout)
-                    .await?
+                // Check if this shell command has test-style retry logic
+                // For backward compatibility with converted test commands
+                if step.test.is_some() {
+                    // This is a deprecated test command that was converted to shell
+                    // Use the test command's on_failure configuration
+                    if let Some(test_cmd) = &step.test {
+                        self.execute_shell_with_retry(
+                            &interpolated_cmd,
+                            test_cmd.on_failure.as_ref(),
+                            env,
+                            ctx,
+                            env_vars,
+                            step.timeout,
+                        )
+                        .await?
+                    } else {
+                        self.execute_shell_command(&interpolated_cmd, env, env_vars, step.timeout)
+                            .await?
+                    }
+                } else {
+                    // Regular shell command without retry logic
+                    self.execute_shell_command(&interpolated_cmd, env, env_vars, step.timeout)
+                        .await?
+                }
             }
             CommandType::Test(test_cmd) => {
                 self.execute_test_command(test_cmd, env, ctx, env_vars)
@@ -641,6 +663,135 @@ impl WorkflowExecutor {
             stdout: String::from_utf8_lossy(&output.stdout).to_string(),
             stderr: String::from_utf8_lossy(&output.stderr).to_string(),
         })
+    }
+
+    /// Execute a shell command with retry logic (for shell commands with on_failure)
+    async fn execute_shell_with_retry(
+        &self,
+        command: &str,
+        on_failure: Option<&crate::config::command::TestDebugConfig>,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+        mut env_vars: HashMap<String, String>,
+        timeout: Option<u64>,
+    ) -> Result<StepResult> {
+        use std::fs;
+        use tempfile::NamedTempFile;
+
+        let interpolated_cmd = ctx.interpolate(command);
+
+        // Execute the shell command with retry logic
+        let mut attempt = 0;
+        loop {
+            attempt += 1;
+            self.user_interaction.display_progress(&format!(
+                "Running shell command (attempt {attempt}): {interpolated_cmd}"
+            ));
+
+            // Add attempt number to environment
+            env_vars.insert("SHELL_ATTEMPT".to_string(), attempt.to_string());
+
+            // Execute the shell command
+            let shell_result = self
+                .execute_shell_command(&interpolated_cmd, env, env_vars.clone(), timeout)
+                .await?;
+
+            // Check if command succeeded
+            if shell_result.success {
+                self.user_interaction
+                    .display_success(&format!("✓ Shell command succeeded on attempt {attempt}"));
+                return Ok(shell_result);
+            }
+
+            // Command failed - check if we should retry
+            if let Some(debug_config) = on_failure {
+                if attempt >= debug_config.max_attempts {
+                    self.user_interaction.display_error(&format!(
+                        "❌ Shell command failed after {} attempts",
+                        debug_config.max_attempts
+                    ));
+
+                    if debug_config.fail_workflow {
+                        return Err(anyhow!(
+                            "Shell command failed after {} attempts and fail_workflow is true",
+                            debug_config.max_attempts
+                        ));
+                    } else {
+                        // Return the last result
+                        return Ok(shell_result);
+                    }
+                }
+
+                // Save shell output to a temp file if it's too large
+                let temp_file = if shell_result.stdout.len() + shell_result.stderr.len() > 10000 {
+                    // Create a temporary file for large outputs
+                    let temp_file = NamedTempFile::new()?;
+                    let combined_output = format!(
+                        "=== STDOUT ===\n{}\n\n=== STDERR ===\n{}",
+                        shell_result.stdout, shell_result.stderr
+                    );
+                    fs::write(temp_file.path(), &combined_output)?;
+                    Some(temp_file)
+                } else {
+                    None
+                };
+
+                let output_path = temp_file
+                    .as_ref()
+                    .map(|f| f.path().to_string_lossy().to_string());
+
+                // Prepare the debug command with variables
+                let mut debug_cmd = debug_config.claude.clone();
+
+                // Add shell-specific variables to context
+                ctx.variables
+                    .insert("shell.attempt".to_string(), attempt.to_string());
+                ctx.variables.insert(
+                    "shell.exit_code".to_string(),
+                    shell_result.exit_code.unwrap_or(-1).to_string(),
+                );
+
+                if let Some(output_file) = output_path {
+                    ctx.variables
+                        .insert("shell.output".to_string(), output_file);
+                } else {
+                    // For smaller outputs, pass directly
+                    let combined_output = format!(
+                        "STDOUT:\n{}\n\nSTDERR:\n{}",
+                        shell_result.stdout, shell_result.stderr
+                    );
+                    ctx.variables
+                        .insert("shell.output".to_string(), combined_output);
+                }
+
+                // Interpolate the debug command
+                debug_cmd = ctx.interpolate(&debug_cmd);
+
+                // Log the actual command being run
+                self.user_interaction.display_info(&format!(
+                    "Shell command failed, running: {} (attempt {}/{})",
+                    debug_cmd, attempt, debug_config.max_attempts
+                ));
+
+                // Execute the debug command
+                let debug_result = self
+                    .execute_claude_command(&debug_cmd, env, env_vars.clone())
+                    .await?;
+
+                if !debug_result.success {
+                    self.user_interaction
+                        .display_error("Debug command failed, but continuing with retry");
+                }
+
+                // Clean up temp file
+                drop(temp_file);
+
+                // Continue to next attempt
+            } else {
+                // No on_failure configuration, return the failed result
+                return Ok(shell_result);
+            }
+        }
     }
 
     /// Execute a test command with retry logic
