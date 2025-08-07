@@ -5,7 +5,38 @@
 [![Release](https://github.com/iepathos/mmm/actions/workflows/release.yml/badge.svg)](https://github.com/iepathos/mmm/actions/workflows/release.yml)
 
 
-A dead simple CLI tool that enables highly configurable and easily manageable self-sufficient Claude development loops.
+Orchestration layer for Claude Code that enables autonomous code improvement through self-sufficient development loops. Combine Claude commands with elegant YAML workflows to run continuous review → fix → enhance cycles with a single command.
+
+## Architecture: How MMM Orchestrates Claude Commands
+
+```
+┌─────────────────────────────────────────────────────┐
+│                   MMM Orchestration                  │
+│  • Workflow management (YAML configs)                │
+│  • Git operations & commit tracking                  │
+│  • Iteration control & state management              │
+│  • Parallel worktree sessions                        │
+│  • Test validation & static code analysis            │
+│  • Context generation for Claude commands            │
+└──────────────────┬──────────────────────────────────┘
+                   │ Orchestrates & provides context to
+┌──────────────────▼──────────────────────────────────┐
+│              Claude Commands Layer                   │
+│  • /mmm-code-review - Analyzes & generates specs     │
+│  • /mmm-implement-spec - Applies improvements        │
+│  • /mmm-lint - Formats & validates code              │
+│  • /mmm-security-audit - Security analysis           │
+│  • /mmm-performance - Performance optimization       │
+│  • [Custom commands for your workflow]               │
+└──────────────────┬──────────────────────────────────┘
+                   │ Executed by
+┌──────────────────▼──────────────────────────────────┐
+│                  Claude Code CLI                     │
+│  • Runs the actual AI analysis & implementation      │
+│  • Understands your codebase context                 │
+│  • Makes intelligent improvement decisions           │
+└──────────────────────────────────────────────────────┘
+```
 
 ## What Are Self-Sufficient Claude Development Loops?
 
