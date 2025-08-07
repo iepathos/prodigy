@@ -49,14 +49,14 @@ pub trait WorkflowCoordinator: Send + Sync {
 /// Default implementation of workflow coordinator
 pub struct DefaultWorkflowCoordinator {
     #[allow(dead_code)]
-    workflow_executor: Arc<crate::cook::workflow::WorkflowExecutor>,
+    workflow_executor: Arc<dyn crate::cook::workflow::WorkflowExecutor>,
     user_interaction: Arc<dyn UserInteraction>,
 }
 
 impl DefaultWorkflowCoordinator {
     /// Create new workflow coordinator
     pub fn new(
-        workflow_executor: Arc<crate::cook::workflow::WorkflowExecutor>,
+        workflow_executor: Arc<dyn crate::cook::workflow::WorkflowExecutor>,
         user_interaction: Arc<dyn UserInteraction>,
     ) -> Self {
         Self {
@@ -80,7 +80,8 @@ impl WorkflowCoordinator for DefaultWorkflowCoordinator {
             step_display, context.iteration, context.max_iterations
         ));
 
-        // For now, return empty outputs as we delegate to workflow executor
+        // For now, return empty outputs as actual execution would be done elsewhere
+        // The coordinator just coordinates, doesn't execute
         Ok(HashMap::new())
     }
 

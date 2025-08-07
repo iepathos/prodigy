@@ -19,7 +19,7 @@ use super::execution::{ClaudeExecutor, CommandExecutor};
 use super::interaction::UserInteraction;
 use super::metrics::MetricsCoordinator;
 use super::session::{SessionManager, SessionStatus, SessionUpdate};
-use super::workflow::{ExtendedWorkflowConfig, WorkflowExecutor, WorkflowStep};
+use super::workflow::{ExtendedWorkflowConfig, WorkflowStep};
 use crate::session::{format_duration, TimingTracker};
 use std::time::Instant;
 
@@ -402,7 +402,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         }
 
         // Create workflow executor
-        let mut executor = WorkflowExecutor::new(
+        let mut executor = crate::cook::workflow::WorkflowExecutorImpl::new(
             self.claude_executor.clone(),
             self.session_manager.clone(),
             self.analysis_coordinator.clone(),

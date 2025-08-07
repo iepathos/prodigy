@@ -1,13 +1,16 @@
 //! Mock workflow executor for testing
 
-use crate::cook::workflow::WorkflowStep;
+use crate::cook::orchestrator::ExecutionEnvironment;
+use crate::cook::workflow::{
+    ExtendedWorkflowConfig, StepResult, WorkflowContext, WorkflowExecutor, WorkflowStep,
+};
 use anyhow::Result;
+use async_trait::async_trait;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
-/// Mock workflow executor for testing - since WorkflowExecutor is a struct not a trait,
-/// we create a simple mock struct to use in tests
+/// Mock workflow executor for testing
 pub struct MockWorkflowExecutor {
     pub steps_executed: Arc<Mutex<Vec<WorkflowStep>>>,
     pub should_fail: bool,
@@ -91,5 +94,47 @@ impl MockWorkflowExecutor {
             return Err(anyhow::anyhow!("Mock failure"));
         }
         Ok(())
+    }
+}
+
+// Implement the WorkflowExecutor trait for MockWorkflowExecutor
+#[async_trait]
+impl WorkflowExecutor for MockWorkflowExecutor {
+    async fn execute(
+        &mut self,
+        workflow: &ExtendedWorkflowConfig,
+        _env: &ExecutionEnvironment,
+    ) -> Result<()> {
+        if self.should_fail {
+            return Err(anyhow::anyhow!("Mock workflow execution failed"));
+        }
+
+        // Record all steps from the workflow
+        for step in &workflow.steps {
+            self.steps_executed.lock().unwrap().push(step.clone());
+        }
+
+        Ok(())
+    }
+
+    async fn execute_step(
+        &mut self,
+        step: &WorkflowStep,
+        _env: &ExecutionEnvironment,
+        _context: &mut WorkflowContext,
+    ) -> Result<StepResult> {
+        // Record that this step was executed
+        self.steps_executed.lock().unwrap().push(step.clone());
+
+        if self.should_fail {
+            return Err(anyhow::anyhow!("Mock step execution failed"));
+        }
+
+        Ok(StepResult {
+            success: true,
+            exit_code: Some(0),
+            stdout: self.outputs.get("stdout").cloned().unwrap_or_default(),
+            stderr: String::new(),
+        })
     }
 }

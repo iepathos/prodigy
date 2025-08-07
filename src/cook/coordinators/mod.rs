@@ -14,8 +14,8 @@ mod environment_tests;
 mod execution_tests;
 #[cfg(test)]
 mod session_tests;
-// #[cfg(test)]
-// mod workflow_tests; // TODO: Fix workflow tests - WorkflowExecutor is a struct not a trait
+#[cfg(test)]
+mod workflow_tests;
 
 pub use environment::{DefaultEnvironmentCoordinator, EnvironmentCoordinator, EnvironmentSetup};
 pub use execution::{DefaultExecutionCoordinator, ExecutionCoordinator};

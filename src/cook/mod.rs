@@ -166,19 +166,20 @@ async fn create_orchestrator(project_path: &Path) -> Result<Arc<dyn CookOrchestr
     ));
 
     // Create workflow executor
-    let workflow_executor = Arc::new(workflow::WorkflowExecutor::new(
-        claude_executor.clone(),
-        session_manager.clone(),
-        analysis_coordinator.clone(),
-        Arc::new(metrics::collector::MetricsCollectorImpl::new(
-            execution::runner::RealCommandRunner::new(),
-        )),
-        user_interaction.clone(),
-    ));
+    let workflow_executor: Arc<dyn workflow::WorkflowExecutor> =
+        Arc::new(workflow::WorkflowExecutorImpl::new(
+            claude_executor.clone(),
+            session_manager.clone(),
+            analysis_coordinator.clone(),
+            Arc::new(metrics::collector::MetricsCollectorImpl::new(
+                execution::runner::RealCommandRunner::new(),
+            )),
+            user_interaction.clone(),
+        ));
 
     // Create workflow coordinator
     let _workflow_coordinator = Arc::new(coordinators::DefaultWorkflowCoordinator::new(
-        workflow_executor,
+        workflow_executor.clone(),
         user_interaction.clone(),
     ));
 

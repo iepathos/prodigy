@@ -1079,7 +1079,7 @@ impl WorkflowExecutor {
     }
 
     /// Check if we should stop early in test mode
-    fn should_stop_early_in_test_mode(&self) -> bool {
+    pub fn should_stop_early_in_test_mode(&self) -> bool {
         // Check if we're configured to simulate no changes
         std::env::var("MMM_TEST_NO_CHANGES_COMMANDS")
             .unwrap_or_default()
@@ -1093,7 +1093,7 @@ impl WorkflowExecutor {
     }
 
     /// Check if this is a test mode command that should simulate no changes
-    fn is_test_mode_no_changes_command(&self, command: &str) -> bool {
+    pub fn is_test_mode_no_changes_command(&self, command: &str) -> bool {
         if let Ok(no_changes_cmds) = std::env::var("MMM_TEST_NO_CHANGES_COMMANDS") {
             let command_name = command.trim_start_matches('/');
             // Extract just the command name, ignoring arguments
@@ -1332,5 +1332,28 @@ mod tests {
             head1, head2,
             "Different repos should have different HEAD commits"
         );
+    }
+}
+
+// Implement the WorkflowExecutor trait
+#[async_trait::async_trait]
+impl super::traits::WorkflowExecutor for WorkflowExecutor {
+    async fn execute(
+        &mut self,
+        workflow: &ExtendedWorkflowConfig,
+        env: &ExecutionEnvironment,
+    ) -> Result<()> {
+        // Call the existing execute method
+        self.execute(workflow, env).await
+    }
+
+    async fn execute_step(
+        &mut self,
+        step: &WorkflowStep,
+        env: &ExecutionEnvironment,
+        context: &mut WorkflowContext,
+    ) -> Result<StepResult> {
+        // Call the existing execute_step method
+        self.execute_step(step, env, context).await
     }
 }

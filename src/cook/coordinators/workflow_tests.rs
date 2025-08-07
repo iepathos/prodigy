@@ -2,8 +2,12 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::config::command::{WorkflowCommand, Command, SimpleCommand, WorkflowStepCommand, TestCommand};
-    use crate::cook::coordinators::workflow::{DefaultWorkflowCoordinator, WorkflowContext, WorkflowCoordinator};
+    use crate::config::command::{
+        Command, SimpleCommand, TestCommand, WorkflowCommand, WorkflowStepCommand,
+    };
+    use crate::cook::coordinators::workflow::{
+        DefaultWorkflowCoordinator, WorkflowContext, WorkflowCoordinator,
+    };
     use crate::cook::interaction::UserInteraction;
     use crate::cook::workflow::WorkflowStep;
     use crate::testing::mocks::MockWorkflowExecutor;
@@ -37,10 +41,7 @@ mod tests {
     impl UserInteraction for MockUserInteraction {
         async fn prompt_yes_no(&self, _message: &str) -> Result<bool> {
             let mut index = self.response_index.lock().unwrap();
-            let response = self.yes_no_responses
-                .get(*index)
-                .copied()
-                .unwrap_or(false);
+            let response = self.yes_no_responses.get(*index).copied().unwrap_or(false);
             *index += 1;
             Ok(response)
         }
@@ -69,7 +70,10 @@ mod tests {
             self.messages.lock().unwrap().push(message.to_string());
         }
 
-        fn start_spinner(&self, _message: &str) -> Box<dyn crate::cook::interaction::SpinnerHandle> {
+        fn start_spinner(
+            &self,
+            _message: &str,
+        ) -> Box<dyn crate::cook::interaction::SpinnerHandle> {
             struct MockSpinner;
             impl crate::cook::interaction::SpinnerHandle for MockSpinner {
                 fn update_message(&mut self, _message: &str) {}
@@ -87,7 +91,7 @@ mod tests {
             max_iterations: 10,
             variables: HashMap::new(),
         };
-        
+
         assert_eq!(context.iteration, 1);
         assert_eq!(context.max_iterations, 10);
         assert!(context.variables.is_empty());
@@ -97,13 +101,13 @@ mod tests {
     async fn test_workflow_context_with_variables() {
         let mut variables = HashMap::new();
         variables.insert("key".to_string(), "value".to_string());
-        
+
         let context = WorkflowContext {
             iteration: 5,
             max_iterations: 10,
             variables,
         };
-        
+
         assert_eq!(context.iteration, 5);
         assert_eq!(context.variables.get("key"), Some(&"value".to_string()));
     }
@@ -111,13 +115,12 @@ mod tests {
     #[tokio::test]
     async fn test_execute_step() {
         // Setup
-        let workflow_executor = Arc::new(MockWorkflowExecutor::new());
+        let workflow_executor: Arc<dyn crate::cook::workflow::WorkflowExecutor> =
+            Arc::new(MockWorkflowExecutor::new());
         let user_interaction = Arc::new(MockUserInteraction::new(vec![]));
-        
-        let coordinator = DefaultWorkflowCoordinator::new(
-            workflow_executor.clone(),
-            user_interaction.clone(),
-        );
+
+        let coordinator =
+            DefaultWorkflowCoordinator::new(workflow_executor.clone(), user_interaction.clone());
 
         let step = WorkflowStep {
             name: Some("test step".to_string()),
@@ -160,11 +163,8 @@ mod tests {
         // Setup
         let workflow_executor = Arc::new(MockWorkflowExecutor::new());
         let user_interaction = Arc::new(MockUserInteraction::new(vec![]));
-        
-        let coordinator = DefaultWorkflowCoordinator::new(
-            workflow_executor,
-            user_interaction,
-        );
+
+        let coordinator = DefaultWorkflowCoordinator::new(workflow_executor, user_interaction);
 
         let context = WorkflowContext {
             iteration: 3,
@@ -185,11 +185,8 @@ mod tests {
         // Setup
         let workflow_executor = Arc::new(MockWorkflowExecutor::new());
         let user_interaction = Arc::new(MockUserInteraction::new(vec![]));
-        
-        let coordinator = DefaultWorkflowCoordinator::new(
-            workflow_executor,
-            user_interaction,
-        );
+
+        let coordinator = DefaultWorkflowCoordinator::new(workflow_executor, user_interaction);
 
         let context = WorkflowContext {
             iteration: 5,
@@ -210,11 +207,9 @@ mod tests {
         // Setup
         let workflow_executor = Arc::new(MockWorkflowExecutor::new());
         let user_interaction = Arc::new(MockUserInteraction::new(vec![]));
-        
-        let coordinator = DefaultWorkflowCoordinator::new(
-            workflow_executor,
-            user_interaction.clone(),
-        );
+
+        let coordinator =
+            DefaultWorkflowCoordinator::new(workflow_executor, user_interaction.clone());
 
         let context = WorkflowContext {
             iteration: 6,
@@ -237,13 +232,11 @@ mod tests {
     #[tokio::test]
     async fn test_prompt_user() {
         // Setup
-        let workflow_executor = Arc::new(MockWorkflowExecutor::new());
+        let workflow_executor: Arc<dyn crate::cook::workflow::WorkflowExecutor> =
+            Arc::new(MockWorkflowExecutor::new());
         let user_interaction = Arc::new(MockUserInteraction::new(vec![true, false, true]));
-        
-        let coordinator = DefaultWorkflowCoordinator::new(
-            workflow_executor,
-            user_interaction,
-        );
+
+        let coordinator = DefaultWorkflowCoordinator::new(workflow_executor, user_interaction);
 
         // Test multiple prompts
         let result1 = coordinator.prompt_user("Continue?", true).await;
@@ -264,11 +257,9 @@ mod tests {
         // Setup
         let workflow_executor = Arc::new(MockWorkflowExecutor::new());
         let user_interaction = Arc::new(MockUserInteraction::new(vec![]));
-        
-        let coordinator = DefaultWorkflowCoordinator::new(
-            workflow_executor,
-            user_interaction.clone(),
-        );
+
+        let coordinator =
+            DefaultWorkflowCoordinator::new(workflow_executor, user_interaction.clone());
 
         // Test
         coordinator.display_progress("Step 1 complete");
@@ -288,11 +279,9 @@ mod tests {
         // Setup
         let workflow_executor = Arc::new(MockWorkflowExecutor::new());
         let user_interaction = Arc::new(MockUserInteraction::new(vec![]));
-        
-        let coordinator = DefaultWorkflowCoordinator::new(
-            workflow_executor,
-            user_interaction.clone(),
-        );
+
+        let coordinator =
+            DefaultWorkflowCoordinator::new(workflow_executor, user_interaction.clone());
 
         let commands = vec![
             WorkflowCommand::Simple("/test-command-1".to_string()),
@@ -323,11 +312,9 @@ mod tests {
         // Setup
         let workflow_executor = Arc::new(MockWorkflowExecutor::new());
         let user_interaction = Arc::new(MockUserInteraction::new(vec![]));
-        
-        let coordinator = DefaultWorkflowCoordinator::new(
-            workflow_executor,
-            user_interaction.clone(),
-        );
+
+        let coordinator =
+            DefaultWorkflowCoordinator::new(workflow_executor, user_interaction.clone());
 
         let commands = vec![
             WorkflowCommand::Simple("/analyze".to_string()),
@@ -350,7 +337,10 @@ mod tests {
         // Verify
         assert!(result.is_ok());
         assert_eq!(context.iteration, 2); // Should have executed 1 iteration then stopped
-        assert_eq!(context.variables.get("target"), Some(&"performance".to_string()));
+        assert_eq!(
+            context.variables.get("target"),
+            Some(&"performance".to_string())
+        );
     }
 
     #[tokio::test]
@@ -358,11 +348,9 @@ mod tests {
         // Setup
         let workflow_executor = Arc::new(MockWorkflowExecutor::new());
         let user_interaction = Arc::new(MockUserInteraction::new(vec![]));
-        
-        let coordinator = DefaultWorkflowCoordinator::new(
-            workflow_executor,
-            user_interaction.clone(),
-        );
+
+        let coordinator =
+            DefaultWorkflowCoordinator::new(workflow_executor, user_interaction.clone());
 
         let commands = vec![
             WorkflowCommand::Structured(Box::new(Command {
@@ -382,6 +370,7 @@ mod tests {
                 },
                 id: None,
                 outputs: None,
+                analysis: None,
             })),
             WorkflowCommand::SimpleObject(SimpleCommand {
                 name: "optimize".to_string(),
@@ -414,33 +403,49 @@ mod tests {
         // Setup
         let workflow_executor = Arc::new(MockWorkflowExecutor::new());
         let user_interaction = Arc::new(MockUserInteraction::new(vec![]));
-        
-        let coordinator = DefaultWorkflowCoordinator::new(
-            workflow_executor,
-            user_interaction.clone(),
-        );
+
+        let coordinator =
+            DefaultWorkflowCoordinator::new(workflow_executor, user_interaction.clone());
 
         let commands = vec![
             WorkflowCommand::WorkflowStep(WorkflowStepCommand {
-                name: Some("Claude analysis".to_string()),
                 claude: Some("/mmm-analyze".to_string()),
                 shell: None,
                 test: None,
+                id: Some("claude-analysis".to_string()),
+                commit_required: false,
+                analysis: None,
+                outputs: None,
+                capture_output: false,
+                on_failure: None,
+                on_success: None,
             }),
             WorkflowCommand::WorkflowStep(WorkflowStepCommand {
-                name: Some("Shell test".to_string()),
                 claude: None,
                 shell: Some("cargo test".to_string()),
                 test: None,
+                id: Some("shell-test".to_string()),
+                commit_required: false,
+                analysis: None,
+                outputs: None,
+                capture_output: false,
+                on_failure: None,
+                on_success: None,
             }),
             WorkflowCommand::WorkflowStep(WorkflowStepCommand {
-                name: Some("Test command".to_string()),
                 claude: None,
                 shell: None,
                 test: Some(TestCommand {
                     command: "cargo build".to_string(),
-                    expect: Some("success".to_string()),
+                    on_failure: None,
                 }),
+                id: Some("test-command".to_string()),
+                commit_required: false,
+                analysis: None,
+                outputs: None,
+                capture_output: false,
+                on_failure: None,
+                on_success: None,
             }),
         ];
 
@@ -467,15 +472,11 @@ mod tests {
         // Setup
         let workflow_executor = Arc::new(MockWorkflowExecutor::new());
         let user_interaction = Arc::new(MockUserInteraction::new(vec![]));
-        
-        let coordinator = DefaultWorkflowCoordinator::new(
-            workflow_executor,
-            user_interaction.clone(),
-        );
 
-        let commands = vec![
-            WorkflowCommand::Simple("/command".to_string()),
-        ];
+        let coordinator =
+            DefaultWorkflowCoordinator::new(workflow_executor, user_interaction.clone());
+
+        let commands = vec![WorkflowCommand::Simple("/command".to_string())];
 
         let mut context = WorkflowContext {
             iteration: 0,
@@ -500,11 +501,8 @@ mod tests {
         // Setup
         let workflow_executor = Arc::new(MockWorkflowExecutor::new());
         let user_interaction = Arc::new(MockUserInteraction::new(vec![]));
-        
-        let coordinator = DefaultWorkflowCoordinator::new(
-            workflow_executor,
-            user_interaction,
-        );
+
+        let coordinator = DefaultWorkflowCoordinator::new(workflow_executor, user_interaction);
 
         let commands: Vec<WorkflowCommand> = vec![];
 
