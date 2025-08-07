@@ -15,6 +15,12 @@ pub struct MockGitOperationsBuilder {
     commit_messages: Vec<String>,
 }
 
+impl Default for MockGitOperationsBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MockGitOperationsBuilder {
     pub fn new() -> Self {
         Self {
@@ -78,6 +84,12 @@ pub struct MockGitOperations {
     commits: Arc<Mutex<Vec<String>>>,
 }
 
+impl Default for MockGitOperations {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MockGitOperations {
     pub fn new() -> Self {
         Self {
@@ -106,7 +118,7 @@ impl MockGitOperations {
         let mut responses = self.responses.lock().unwrap();
         responses
             .pop_front()
-            .unwrap_or_else(|| Ok("Mock response".to_string()))
+            .unwrap_or(Ok("Mock response".to_string()))
     }
 }
 
@@ -116,7 +128,7 @@ impl GitOperations for MockGitOperations {
         // Simulate different git commands based on args
         let output = if args.starts_with(&["status", "--porcelain"]) {
             let mut status_responses = self.status_responses.lock().unwrap();
-            status_responses.pop_front().unwrap_or_else(String::new)
+            status_responses.pop_front().unwrap_or_default()
         } else if args.starts_with(&["log", "-1"]) {
             let messages = self.commit_messages.lock().unwrap();
             messages
@@ -163,7 +175,7 @@ impl GitOperations for MockGitOperations {
 
     async fn check_git_status(&self) -> Result<String> {
         let mut status_responses = self.status_responses.lock().unwrap();
-        Ok(status_responses.pop_front().unwrap_or_else(String::new))
+        Ok(status_responses.pop_front().unwrap_or_default())
     }
 
     async fn stage_all_changes(&self) -> Result<()> {

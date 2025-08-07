@@ -1,6 +1,6 @@
 //! Mock configuration loader for testing
 
-use crate::config::{Config, ConfigLoader};
+use crate::config::Config;
 use anyhow::Result;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
@@ -9,6 +9,12 @@ use std::sync::{Arc, RwLock};
 pub struct MockConfigLoaderBuilder {
     config: Config,
     fail_on_load: Option<String>,
+}
+
+impl Default for MockConfigLoaderBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MockConfigLoaderBuilder {
@@ -41,6 +47,12 @@ impl MockConfigLoaderBuilder {
 pub struct MockConfigLoader {
     config: Arc<RwLock<Config>>,
     fail_on_load: Option<String>,
+}
+
+impl Default for MockConfigLoader {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MockConfigLoader {

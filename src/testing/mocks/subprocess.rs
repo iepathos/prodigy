@@ -10,6 +10,12 @@ pub struct MockSubprocessManagerBuilder {
     default_response: (String, String, i32),
 }
 
+impl Default for MockSubprocessManagerBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MockSubprocessManagerBuilder {
     pub fn new() -> Self {
         Self {
@@ -62,9 +68,17 @@ impl MockSubprocessManagerBuilder {
 
 /// Mock subprocess manager for testing
 pub struct MockSubprocessManager {
+    #[allow(clippy::type_complexity)]
     responses: Arc<Mutex<HashMap<String, (String, String, i32)>>>,
     default_response: (String, String, i32),
+    #[allow(clippy::type_complexity)]
     call_history: Arc<Mutex<Vec<(String, Vec<String>)>>>, // (command, args)
+}
+
+impl Default for MockSubprocessManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MockSubprocessManager {

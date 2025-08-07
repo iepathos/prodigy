@@ -1,8 +1,6 @@
 //! Mock session manager for testing
 
-use crate::cook::session::{
-    SessionManager, SessionState, SessionStatus, SessionSummary, SessionUpdate,
-};
+use crate::cook::session::{SessionManager, SessionState, SessionSummary, SessionUpdate};
 use anyhow::Result;
 use async_trait::async_trait;
 use std::path::{Path, PathBuf};
@@ -17,6 +15,12 @@ pub struct MockSessionManager {
     pub save_path: Arc<Mutex<Option<PathBuf>>>,
     pub load_path: Arc<Mutex<Option<PathBuf>>>,
     pub should_fail: bool,
+}
+
+impl Default for MockSessionManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MockSessionManager {

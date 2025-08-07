@@ -1,16 +1,18 @@
 //! Test data builders for complex test scenarios
 
-use crate::context::summary::{TechnicalDebtSummary, TestCoverageSummary};
-use crate::context::test_coverage::{FileCoverage, TestCoverageMap, UntestedFunction};
-use crate::context::AnalysisResult;
-use crate::metrics::{ImprovementMetrics, MetricsSnapshot};
-use chrono::Utc;
+use crate::metrics::ImprovementMetrics;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// Builder for creating test metrics
 pub struct MetricsBuilder {
     metrics: ImprovementMetrics,
+}
+
+impl Default for MetricsBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MetricsBuilder {
@@ -53,6 +55,12 @@ impl MetricsBuilder {
 /// Builder for creating test analysis results
 pub struct AnalysisResultBuilder {
     result: crate::context::summary::AnalysisSummary,
+}
+
+impl Default for AnalysisResultBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AnalysisResultBuilder {
@@ -115,6 +123,12 @@ impl AnalysisResultBuilder {
 pub struct TestCoverageBuilder {
     overall_coverage: f64,
     file_coverage: HashMap<PathBuf, crate::context::summary::FileCoverageSummary>,
+}
+
+impl Default for TestCoverageBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TestCoverageBuilder {

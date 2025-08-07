@@ -14,6 +14,12 @@ pub struct MockWorkflowExecutor {
     pub outputs: HashMap<String, String>,
 }
 
+impl Default for MockWorkflowExecutor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MockWorkflowExecutor {
     /// Create new mock workflow executor
     pub fn new() -> Self {

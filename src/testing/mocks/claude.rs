@@ -15,6 +15,12 @@ pub struct MockClaudeClientBuilder {
     call_count: Arc<Mutex<usize>>,
 }
 
+impl Default for MockClaudeClientBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MockClaudeClientBuilder {
     pub fn new() -> Self {
         Self {
@@ -70,6 +76,12 @@ pub struct MockClaudeClient {
     error_on_call: Option<usize>,
     call_count: Arc<Mutex<usize>>,
     default_response: Result<String>,
+}
+
+impl Default for MockClaudeClient {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MockClaudeClient {
@@ -192,7 +204,7 @@ impl ClaudeClient for MockClaudeClient {
         }
 
         let responses = self.responses.lock().unwrap();
-        let key = format!("/mmm-implement-spec {}", spec_id);
+        let key = format!("/mmm-implement-spec {spec_id}");
 
         if let Some(response) = responses
             .get(&key)

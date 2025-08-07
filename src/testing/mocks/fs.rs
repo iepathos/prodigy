@@ -13,6 +13,12 @@ pub struct MockFileSystem {
     write_errors: Arc<Mutex<HashMap<PathBuf, String>>>,
 }
 
+impl Default for MockFileSystem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MockFileSystem {
     pub fn new() -> Self {
         Self {
@@ -137,6 +143,12 @@ impl MockFileSystem {
 /// Builder for creating configured mock file systems
 pub struct MockFileSystemBuilder {
     fs: MockFileSystem,
+}
+
+impl Default for MockFileSystemBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MockFileSystemBuilder {

@@ -1,6 +1,6 @@
 //! Mock worktree manager for testing
 
-use crate::worktree::{WorktreeSession, WorktreeStatus};
+use crate::worktree::WorktreeSession;
 use anyhow::Result;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -10,6 +10,12 @@ pub struct MockWorktreeManagerBuilder {
     session: Option<WorktreeSession>,
     fail_on_create: Option<String>,
     fail_on_cleanup: Option<String>,
+}
+
+impl Default for MockWorktreeManagerBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MockWorktreeManagerBuilder {
@@ -54,6 +60,12 @@ pub struct MockWorktreeManager {
     fail_on_cleanup: Option<String>,
     create_count: Arc<Mutex<usize>>,
     cleanup_count: Arc<Mutex<usize>>,
+}
+
+impl Default for MockWorktreeManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MockWorktreeManager {

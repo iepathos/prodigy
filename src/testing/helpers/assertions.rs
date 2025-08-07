@@ -1,4 +1,5 @@
 //! Custom test assertions for complex validations
+#![allow(clippy::uninlined_format_args)]
 
 use anyhow::Result;
 use std::path::Path;
@@ -116,7 +117,7 @@ pub fn assert_not_contains<T: PartialEq + std::fmt::Debug>(vec: &[T], item: &T) 
 }
 
 /// Assert that a string matches a regex pattern
-#[cfg(feature = "regex")]
+#[cfg(test)]
 pub fn assert_matches_pattern(text: &str, pattern: &str) -> Result<()> {
     use regex::Regex;
     let re = Regex::new(pattern)?;
@@ -198,7 +199,7 @@ mod tests {
     #[test]
     fn test_assert_approx_eq() {
         assert_approx_eq(1.0, 1.00001, 0.0001);
-        assert_approx_eq(3.14159, 3.14158, 0.00002);
+        assert_approx_eq(3.0, 3.001, 0.01);
     }
 
     #[test]

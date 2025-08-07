@@ -216,9 +216,23 @@ new-example NAME:
 
 # === CI/CD SIMULATION ===
 
-# Run all CI checks locally
-ci: fmt-check lint test doc-check
-    @echo "All CI checks passed!"
+# Run all CI checks locally (matches GitHub Actions)
+ci:
+    @echo "Running CI checks (matching GitHub Actions)..."
+    @echo "Setting environment variables..."
+    @export CARGO_TERM_COLOR=always && \
+     export CARGO_INCREMENTAL=0 && \
+     export RUSTFLAGS="-Dwarnings" && \
+     export RUST_BACKTRACE=1 && \
+     echo "Running tests..." && \
+     cargo test --all-features && \
+     echo "Running clippy..." && \
+     cargo clippy --all-targets --all-features -- -D warnings && \
+     echo "Checking formatting..." && \
+     cargo fmt --all -- --check && \
+     echo "Checking documentation..." && \
+     cargo doc --no-deps --document-private-items && \
+     echo "All CI checks passed!"
 
 # Run compatibility tests only
 test-compatibility:

@@ -9,7 +9,7 @@ use crate::cook::metrics::ProjectMetrics;
 use crate::cook::session::state::SessionState;
 use crate::cook::session::summary::SessionSummary;
 use async_trait::async_trait;
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tempfile::TempDir;
@@ -18,6 +18,7 @@ use tempfile::TempDir;
 
 struct MockClaudeExecutor {
     responses: Arc<Mutex<Vec<ExecutionResult>>>,
+    #[allow(clippy::type_complexity)]
     calls: Arc<Mutex<Vec<(String, PathBuf, HashMap<String, String>)>>>,
 }
 
@@ -133,6 +134,7 @@ impl MockAnalysisCoordinator {
         }
     }
 
+    #[allow(dead_code)]
     fn was_called(&self) -> bool {
         *self.analysis_called.lock().unwrap()
     }
@@ -269,6 +271,7 @@ impl MockMetricsCoordinator {
         }
     }
 
+    #[allow(dead_code)]
     fn was_collected(&self) -> bool {
         *self.metrics_collected.lock().unwrap()
     }
@@ -408,6 +411,7 @@ impl UserInteraction for MockUserInteraction {
 }
 
 // Helper function to create a test executor with mocks
+#[allow(clippy::type_complexity)]
 fn create_test_executor() -> (
     WorkflowExecutor,
     Arc<MockClaudeExecutor>,
@@ -816,6 +820,9 @@ fn test_is_test_mode_no_changes_command() {
 #[test]
 fn test_should_stop_early_in_test_mode() {
     let (executor, _, _, _, _, _) = create_test_executor();
+
+    // Clear any existing env var first
+    std::env::remove_var("MMM_TEST_NO_CHANGES_COMMANDS");
 
     // Without the env var, should return false
     assert!(!executor.should_stop_early_in_test_mode());
