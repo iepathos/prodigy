@@ -944,7 +944,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "Requires fixing struct initialization"]
     async fn test_save_analysis_with_commit() -> Result<()> {
         let temp_dir = TempDir::new()?;
         let project_path = temp_dir.path();
@@ -985,7 +984,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Requires fixing struct initialization"]
     fn test_save_analysis_components() {
         let temp_dir = TempDir::new().unwrap();
         let context_dir = temp_dir.path();
@@ -1230,7 +1228,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Requires fixing struct initialization"]
     fn test_save_analysis_with_options() {
         let temp_dir = TempDir::new().unwrap();
         let project_path = temp_dir.path();
