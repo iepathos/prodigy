@@ -605,16 +605,9 @@ impl WorkflowExecutor {
         use tokio::process::Command;
         use tokio::time::{timeout as tokio_timeout, Duration};
 
-        // Create command
-        let mut cmd = if cfg!(target_os = "windows") {
-            let mut c = Command::new("cmd");
-            c.args(["/C", command]);
-            c
-        } else {
-            let mut c = Command::new("sh");
-            c.args(["-c", command]);
-            c
-        };
+        // Create command (Unix-like systems only)
+        let mut cmd = Command::new("sh");
+        cmd.args(["-c", command]);
 
         // Set working directory
         cmd.current_dir(&env.working_dir);

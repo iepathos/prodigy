@@ -130,10 +130,7 @@ impl PerformanceProfiler {
 
                 #[cfg(not(unix))]
                 {
-                    // On Windows, check for .exe extension
-                    if path.extension().map_or(false, |ext| ext == "exe") {
-                        return Ok(metadata.len());
-                    }
+                    panic!("Only Unix-like systems (Linux, macOS) are supported. Windows support has been removed.");
                 }
             }
         }
