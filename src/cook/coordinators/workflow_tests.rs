@@ -410,7 +410,7 @@ mod tests {
             DefaultWorkflowCoordinator::new(workflow_executor, user_interaction.clone());
 
         let commands = vec![
-            WorkflowCommand::WorkflowStep(WorkflowStepCommand {
+            WorkflowCommand::WorkflowStep(Box::new(WorkflowStepCommand {
                 analyze: None,
                 claude: Some("/mmm-analyze".to_string()),
                 shell: None,
@@ -422,8 +422,8 @@ mod tests {
                 capture_output: false,
                 on_failure: None,
                 on_success: None,
-            }),
-            WorkflowCommand::WorkflowStep(WorkflowStepCommand {
+            })),
+            WorkflowCommand::WorkflowStep(Box::new(WorkflowStepCommand {
                 analyze: None,
                 claude: None,
                 shell: Some("cargo test".to_string()),
@@ -435,8 +435,8 @@ mod tests {
                 capture_output: false,
                 on_failure: None,
                 on_success: None,
-            }),
-            WorkflowCommand::WorkflowStep(WorkflowStepCommand {
+            })),
+            WorkflowCommand::WorkflowStep(Box::new(WorkflowStepCommand {
                 analyze: None,
                 claude: None,
                 shell: None,
@@ -451,7 +451,7 @@ mod tests {
                 capture_output: false,
                 on_failure: None,
                 on_success: None,
-            }),
+            })),
         ];
 
         let mut context = WorkflowContext {

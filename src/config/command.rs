@@ -205,7 +205,7 @@ pub enum WorkflowCommand {
     /// Full structured format (check before WorkflowStep since it's more specific)
     Structured(Box<Command>),
     /// New workflow step format (must have claude or shell field)
-    WorkflowStep(WorkflowStepCommand),
+    WorkflowStep(Box<WorkflowStepCommand>),
     /// Simple object format
     SimpleObject(SimpleCommand),
 }
@@ -347,6 +347,7 @@ impl WorkflowCommand {
             WorkflowCommand::Structured(c) => *c.clone(),
             WorkflowCommand::WorkflowStep(step) => {
                 // Convert WorkflowStepCommand to Command
+                let step = &**step;
                 let command_str = if let Some(claude_cmd) = &step.claude {
                     claude_cmd.clone()
                 } else if let Some(shell_cmd) = &step.shell {

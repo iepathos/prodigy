@@ -243,6 +243,10 @@ impl WorkflowExecutor {
 
     /// Convert serde_json::Value to AttributeValue
     fn json_to_attribute_value(&self, value: serde_json::Value) -> AttributeValue {
+        Self::json_to_attribute_value_static(value)
+    }
+
+    fn json_to_attribute_value_static(value: serde_json::Value) -> AttributeValue {
         match value {
             serde_json::Value::String(s) => AttributeValue::String(s),
             serde_json::Value::Number(n) => {
@@ -257,13 +261,13 @@ impl WorkflowExecutor {
             serde_json::Value::Bool(b) => AttributeValue::Boolean(b),
             serde_json::Value::Array(arr) => AttributeValue::Array(
                 arr.into_iter()
-                    .map(|v| self.json_to_attribute_value(v))
+                    .map(Self::json_to_attribute_value_static)
                     .collect(),
             ),
             serde_json::Value::Object(obj) => {
                 let mut map = HashMap::new();
                 for (k, v) in obj {
-                    map.insert(k, self.json_to_attribute_value(v));
+                    map.insert(k, Self::json_to_attribute_value_static(v));
                 }
                 AttributeValue::Object(map)
             }

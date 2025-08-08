@@ -87,16 +87,17 @@ fn create_exit_status(code: i32) -> std::process::ExitStatus {
 
 /// Mock subprocess executor for testing
 #[cfg(test)]
+type MockResponse = (
+    String,
+    Vec<String>,
+    Option<std::path::PathBuf>,
+    Option<Duration>,
+    Output,
+);
+
+#[cfg(test)]
 pub struct MockSubprocessExecutor {
-    responses: std::sync::Mutex<
-        Vec<(
-            String,
-            Vec<String>,
-            Option<std::path::PathBuf>,
-            Option<Duration>,
-            Output,
-        )>,
-    >,
+    responses: std::sync::Mutex<Vec<MockResponse>>,
 }
 
 #[cfg(test)]
