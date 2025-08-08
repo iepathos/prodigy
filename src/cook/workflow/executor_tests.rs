@@ -1142,3 +1142,131 @@ async fn test_execute_step_with_env_interpolation() {
     assert!(result.success);
     assert!(result.stdout.contains("1.0.0"));
 }
+
+#[tokio::test]
+async fn test_shell_command_with_on_failure_retry() {
+    let (mut executor, claude_mock, _, _, _, _) = create_test_executor();
+
+    // Add responses for claude commands (the on_failure handler)
+    claude_mock.add_response(ExecutionResult {
+        stdout: "Fixed the test".to_string(),
+        stderr: String::new(),
+        exit_code: Some(0),
+        success: true,
+    });
+
+    let temp_dir = TempDir::new().unwrap();
+    let env = ExecutionEnvironment {
+        working_dir: temp_dir.path().to_path_buf(),
+        project_dir: temp_dir.path().to_path_buf(),
+        session_id: "test-session".to_string(),
+        worktree_name: None,
+    };
+
+    let mut context = WorkflowContext::default();
+
+    // Create a shell command with on_failure retry logic
+    // This simulates what happens after conversion from YAML
+    // When a shell command has on_failure, it's converted to a test command
+    let step = WorkflowStep {
+        name: None,
+        claude: None,
+        shell: None, // shell is cleared when converted to test
+        test: Some(TestCommand {
+            command: "false".to_string(),
+            on_failure: Some(crate::config::command::TestDebugConfig {
+                claude: "/mmm-debug-test-failure".to_string(),
+                max_attempts: 2,
+                fail_workflow: false,
+                commit_required: true,
+            }),
+        }),
+        command: None,
+        capture_output: false,
+        timeout: None,
+        working_dir: None,
+        env: HashMap::new(),
+        on_failure: None,
+        on_success: None,
+        on_exit_code: HashMap::new(),
+        commit_required: false,
+        analysis: None,
+    };
+
+    // Execute the step - it should use retry logic
+    let result = executor.execute_step(&step, &env, &mut context).await;
+
+    // Since fail_workflow is false and we have retries, it should not error
+    if let Err(e) = &result {
+        eprintln!("Unexpected error: {}", e);
+    }
+    assert!(result.is_ok());
+    let step_result = result.unwrap();
+    
+    // The command still fails but we don't fail the workflow
+    assert!(!step_result.success);
+
+    // Verify that the claude command was called for debugging
+    let calls = claude_mock.get_calls();
+    assert!(!calls.is_empty());
+    assert!(calls[0].0.contains("/mmm-debug-test-failure"));
+}
+
+#[tokio::test]
+async fn test_shell_command_with_on_failure_fail_workflow() {
+    let (mut executor, claude_mock, _, _, _, _) = create_test_executor();
+
+    // Add responses for claude commands (the on_failure handler)
+    claude_mock.add_response(ExecutionResult {
+        stdout: "Could not fix the test".to_string(),
+        stderr: String::new(),
+        exit_code: Some(0),
+        success: true,
+    });
+
+    let temp_dir = TempDir::new().unwrap();
+    let env = ExecutionEnvironment {
+        working_dir: temp_dir.path().to_path_buf(),
+        project_dir: temp_dir.path().to_path_buf(),
+        session_id: "test-session".to_string(),
+        worktree_name: None,
+    };
+
+    let mut context = WorkflowContext::default();
+
+    // Create a shell command with on_failure retry logic that fails the workflow
+    let step = WorkflowStep {
+        name: None,
+        claude: None,
+        shell: None, // shell is cleared when converted to test
+        test: Some(TestCommand {
+            command: "false".to_string(),
+            on_failure: Some(crate::config::command::TestDebugConfig {
+                claude: "/mmm-debug-test-failure".to_string(),
+                max_attempts: 1,
+                fail_workflow: true,
+                commit_required: true,
+            }),
+        }),
+        command: None,
+        capture_output: false,
+        timeout: None,
+        working_dir: None,
+        env: HashMap::new(),
+        on_failure: None,
+        on_success: None,
+        on_exit_code: HashMap::new(),
+        commit_required: false,
+        analysis: None,
+    };
+
+    // Execute the step - it should fail since fail_workflow is true
+    let result = executor.execute_step(&step, &env, &mut context).await;
+
+    // Should error since fail_workflow is true
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    eprintln!("Error message: {}", err);
+    // The error message says "Test command" because shell commands with on_failure are converted to test commands
+    assert!(err.to_string().contains("Test command failed after 1 attempts and fail_workflow is true"));
+}

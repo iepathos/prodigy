@@ -601,7 +601,22 @@ impl WorkflowExecutor {
             }
         }
 
-        if !result.success {
+        // Check if we should fail the workflow based on the result
+        // For test commands with fail_workflow: false, we allow failures
+        let should_fail = if let Some(test_cmd) = &step.test {
+            if let Some(on_failure_cfg) = &test_cmd.on_failure {
+                // Only fail if fail_workflow is true and the command failed
+                !result.success && on_failure_cfg.fail_workflow
+            } else {
+                // No on_failure config, fail on any error
+                !result.success
+            }
+        } else {
+            // Not a test command, fail on any error
+            !result.success
+        };
+
+        if should_fail {
             let step_display = self.get_step_display_name(step);
             anyhow::bail!(
                 "Step '{}' failed with exit code {:?}. Error: {}",
