@@ -1202,7 +1202,7 @@ async fn test_shell_command_with_on_failure_retry() {
     }
     assert!(result.is_ok());
     let step_result = result.unwrap();
-    
+
     // The command still fails but we don't fail the workflow
     assert!(!step_result.success);
 
@@ -1268,5 +1268,7 @@ async fn test_shell_command_with_on_failure_fail_workflow() {
     let err = result.unwrap_err();
     eprintln!("Error message: {}", err);
     // The error message says "Test command" because shell commands with on_failure are converted to test commands
-    assert!(err.to_string().contains("Test command failed after 1 attempts and fail_workflow is true"));
+    assert!(err
+        .to_string()
+        .contains("Test command failed after 1 attempts and fail_workflow is true"));
 }

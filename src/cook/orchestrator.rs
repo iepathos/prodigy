@@ -298,38 +298,39 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                     WorkflowCommand::WorkflowStep(step) => {
                         // Handle new workflow step format directly
                         // For shell commands with on_failure (retry logic), convert to test format
-                        let (shell, test, on_failure) = if step.shell.is_some() && step.on_failure.is_some() {
-                            // Convert shell command with on_failure to test command for retry logic
-                            let test_cmd = crate::config::command::TestCommand {
-                                command: step.shell.clone().unwrap(),
-                                on_failure: step.on_failure.clone(),
+                        let (shell, test, on_failure) =
+                            if step.shell.is_some() && step.on_failure.is_some() {
+                                // Convert shell command with on_failure to test command for retry logic
+                                let test_cmd = crate::config::command::TestCommand {
+                                    command: step.shell.clone().unwrap(),
+                                    on_failure: step.on_failure.clone(),
+                                };
+                                // Clear shell field when converting to test
+                                (None, Some(test_cmd), None)
+                            } else if step.on_failure.is_some() {
+                                // For non-shell commands, convert TestDebugConfig to WorkflowStep
+                                let on_failure = step.on_failure.as_ref().map(|debug_config| {
+                                    Box::new(WorkflowStep {
+                                        name: None,
+                                        command: None,
+                                        claude: Some(debug_config.claude.clone()),
+                                        shell: None,
+                                        test: None,
+                                        capture_output: false,
+                                        timeout: None,
+                                        working_dir: None,
+                                        env: std::collections::HashMap::new(),
+                                        on_failure: None,
+                                        on_success: None,
+                                        on_exit_code: std::collections::HashMap::new(),
+                                        commit_required: debug_config.commit_required,
+                                        analysis: None,
+                                    })
+                                });
+                                (step.shell.clone(), step.test.clone(), on_failure)
+                            } else {
+                                (step.shell.clone(), step.test.clone(), None)
                             };
-                            // Clear shell field when converting to test
-                            (None, Some(test_cmd), None)
-                        } else if step.on_failure.is_some() {
-                            // For non-shell commands, convert TestDebugConfig to WorkflowStep
-                            let on_failure = step.on_failure.as_ref().map(|debug_config| {
-                                Box::new(WorkflowStep {
-                                    name: None,
-                                    command: None,
-                                    claude: Some(debug_config.claude.clone()),
-                                    shell: None,
-                                    test: None,
-                                    capture_output: false,
-                                    timeout: None,
-                                    working_dir: None,
-                                    env: std::collections::HashMap::new(),
-                                    on_failure: None,
-                                    on_success: None,
-                                    on_exit_code: std::collections::HashMap::new(),
-                                    commit_required: debug_config.commit_required,
-                                    analysis: None,
-                                })
-                            });
-                            (step.shell.clone(), step.test.clone(), on_failure)
-                        } else {
-                            (step.shell.clone(), step.test.clone(), None)
-                        };
 
                         WorkflowStep {
                             name: None,
