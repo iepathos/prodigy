@@ -311,7 +311,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                                 // For non-shell commands, convert TestDebugConfig to WorkflowStep
                                 let on_failure = step.on_failure.as_ref().map(|debug_config| {
                                     Box::new(WorkflowStep {
-                            analyze: None,
+                                        analyze: None,
                                         name: None,
                                         command: None,
                                         claude: Some(debug_config.claude.clone()),

@@ -98,8 +98,7 @@ impl CommandHandler for AnalyzeHandler {
             Ok(fmt) => fmt,
             Err(_) => {
                 return CommandResult::error(format!(
-                    "Invalid format '{}'. Must be one of: json, pretty, summary",
-                    format_str
+                    "Invalid format '{format_str}'. Must be one of: json, pretty, summary"
                 ))
             }
         };
@@ -111,8 +110,7 @@ impl CommandHandler for AnalyzeHandler {
         if context.dry_run {
             let duration = start.elapsed().as_millis() as u64;
             return CommandResult::success(Value::String(format!(
-                "[DRY RUN] Would run analysis with force_refresh={}, max_cache_age={}, save={}, format={}",
-                force_refresh, max_cache_age, save, format_str
+                "[DRY RUN] Would run analysis with force_refresh={force_refresh}, max_cache_age={max_cache_age}, save={save}, format={format_str}"
             )))
             .with_duration(duration);
         }
@@ -128,12 +126,16 @@ impl CommandHandler for AnalyzeHandler {
 
             // Check if cached analysis is still valid
             // Try to get from cache with age check
-            if let Ok(is_valid) = cache.is_valid("analysis", chrono::Duration::seconds(max_cache_age as i64)).await {
+            if let Ok(is_valid) = cache
+                .is_valid("analysis", chrono::Duration::seconds(max_cache_age as i64))
+                .await
+            {
                 if is_valid {
                     if let Ok(Some(cached)) = cache.get("analysis").await {
                         analysis_result = Some(cached);
-                        if false { // TODO: add verbose flag to context
-                            eprintln!("Using cached analysis (age < {} seconds)", max_cache_age);
+                        if false {
+                            // TODO: add verbose flag to context
+                            eprintln!("Using cached analysis (age < {max_cache_age} seconds)");
                         }
                     }
                 }
@@ -154,7 +156,7 @@ impl CommandHandler for AnalyzeHandler {
             // Create subprocess manager and progress reporter
             let subprocess = SubprocessManager::new(std::sync::Arc::new(TokioProcessRunner));
             let progress = std::sync::Arc::new(DefaultProgressReporter);
-            
+
             // Run unified analysis
             match run_analysis(&project_path, config.clone(), subprocess, progress).await {
                 Ok(results) => {
@@ -174,7 +176,7 @@ impl CommandHandler for AnalyzeHandler {
                     }
                 }
                 Err(e) => {
-                    return CommandResult::error(format!("Analysis failed: {}", e));
+                    return CommandResult::error(format!("Analysis failed: {e}"));
                 }
             }
         }
@@ -183,7 +185,7 @@ impl CommandHandler for AnalyzeHandler {
         if save {
             if let Some(ref result) = analysis_result {
                 if let Err(e) = save_analysis_with_options(&project_path, result, false) {
-                    eprintln!("Warning: Failed to save analysis results: {}", e);
+                    eprintln!("Warning: Failed to save analysis results: {e}");
                 }
             }
         }
@@ -247,10 +249,14 @@ fn format_analysis_pretty(result: &crate::context::AnalysisResult) -> String {
 
     // Technical debt
     let total_items = result.technical_debt.debt_items.len();
-    let high_priority = result.technical_debt.debt_items.iter().filter(|d| d.impact >= 7).count();
+    let high_priority = result
+        .technical_debt
+        .debt_items
+        .iter()
+        .filter(|d| d.impact >= 7)
+        .count();
     output.push_str(&format!(
-        "Technical Debt: {} items ({} high priority)\n",
-        total_items, high_priority
+        "Technical Debt: {total_items} items ({high_priority} high priority)\n"
     ));
 
     // Test coverage
@@ -280,11 +286,17 @@ fn format_analysis_summary(result: &crate::context::AnalysisResult) -> String {
     }
 
     // Technical debt
-    parts.push(format!("{} debt items", result.technical_debt.debt_items.len()));
+    parts.push(format!(
+        "{} debt items",
+        result.technical_debt.debt_items.len()
+    ));
 
     // Architecture violations
     if !result.architecture.violations.is_empty() {
-        parts.push(format!("{} violations", result.architecture.violations.len()));
+        parts.push(format!(
+            "{} violations",
+            result.architecture.violations.len()
+        ));
     }
 
     // Join all parts
