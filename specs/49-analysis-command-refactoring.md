@@ -43,7 +43,7 @@ Refactor the analysis system to be a standalone command in workflows while maint
 - **Workflow Integration**: Update workflow parsing to support `analyze:` commands
 - **Legacy Support**: Maintain existing `mmm analyze` CLI command functionality
 - **Cache Control**: Support cache control parameters (max_cache_age, force_refresh) as command attributes
-- **Output Control**: Support different output formats and save options
+- **Format Control**: Support different display formats and save options
 - **Coverage Integration**: Always runs coverage analysis as part of the standard analysis process
 
 ### Non-Functional Requirements
@@ -56,7 +56,7 @@ Refactor the analysis system to be a standalone command in workflows while maint
 ## Acceptance Criteria
 
 - [ ] `AnalyzeCommandHandler` struct implemented with `CommandHandler` trait
-- [ ] Analysis command supports all attributes: `force_refresh`, `max_cache_age`, `save`, `output`
+- [ ] Analysis command supports all attributes: `force_refresh`, `max_cache_age`, `save`, `format`
 - [ ] Workflow parser recognizes `analyze:` command syntax
 - [ ] Example workflows updated to use `analyze:` commands instead of `analysis:` attributes
 - [ ] All existing `analysis:` attribute functionality migrated to command attributes
@@ -91,7 +91,7 @@ impl CommandHandler for AnalyzeCommandHandler {
         schema.add_optional_with_default("force_refresh", "Force fresh analysis ignoring cache", AttributeValue::Boolean(false));
         schema.add_optional_with_default("max_cache_age", "Maximum cache age in seconds", AttributeValue::Number(3600.0));
         schema.add_optional_with_default("save", "Save results to .mmm directory", AttributeValue::Boolean(true));
-        schema.add_optional_with_default("output", "Output format (json, pretty, summary)", AttributeValue::String("summary".to_string()));
+        schema.add_optional_with_default("format", "Display format (json, pretty, summary)", AttributeValue::String("summary".to_string()));
         schema
     }
     
@@ -107,15 +107,15 @@ impl CommandHandler for AnalyzeCommandHandler {
     force_refresh: true
     max_cache_age: 300
     save: true
-    output: "json"
+    format: "json"
 
 # Multiple analysis steps
 - analyze:
-    output: "summary"
+    format: "summary"
 - claude: "/mmm-implement-spec $ARG"
 - analyze:
     force_refresh: true
-    output: "json"
+    format: "json"
 ```
 
 ### APIs and Interfaces
@@ -146,7 +146,7 @@ The analyze command will use existing analysis infrastructure:
 - Test workflows with `analyze:` commands
 - Test cache behavior with different `max_cache_age` values
 - Test `force_refresh` functionality
-- Test different output formats
+- Test different display formats
 
 ### Performance Tests
 - Verify analysis command performance matches existing `mmm analyze`
@@ -185,7 +185,7 @@ The analyze command will use existing analysis infrastructure:
 | `force_refresh` | boolean | false | Forces fresh analysis, ignoring cached results entirely. When true, skips cache checks and regenerates all analysis data. |
 | `max_cache_age` | number | 3600 | Maximum age of cached analysis in seconds. Ignored when `force_refresh` is true. Cache entries older than this are considered stale and regenerated. |
 | `save` | boolean | true | Whether to save analysis results to `.mmm/context/` directory for use by other commands. |
-| `output` | string | "summary" | Output format: "json" (structured data), "pretty" (formatted display), "summary" (concise overview). |
+| `format` | string | "summary" | Display format: "json" (structured data), "pretty" (formatted display), "summary" (concise overview). |
 
 ### Command Attribute Mapping
 
@@ -194,7 +194,7 @@ The analyze command will use existing analysis infrastructure:
 | `max_cache_age` | `max_cache_age` |
 | `force_refresh` | `force_refresh` |
 | N/A | `save` (always true in workflows) |
-| N/A | `output` (defaults to "summary") |
+| N/A | `format` (defaults to "summary") |
 
 ### Workflow Migration Strategy
 
@@ -262,18 +262,18 @@ The analyze command will use existing analysis infrastructure:
 # Comprehensive analysis (coverage always included)
 - analyze:
     force_refresh: true
-    output: "json"
+    format: "json"
     save: true
 
 # Quick analysis check
 - analyze:
     max_cache_age: 600
-    output: "summary"
+    format: "summary"
 
 # Analysis for metrics only
 - analyze:
     force_refresh: false
-    output: "json"
+    format: "json"
 ```
 
 This refactoring will make workflows more explicit about when analysis occurs, improve command modularity, and maintain the flexibility of the current system while providing a cleaner architectural foundation.
