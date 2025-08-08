@@ -606,7 +606,7 @@ impl DefaultCookOrchestrator {
 
                 // Check if this command requires analysis
                 if let Some(ref analysis_config) = command.analysis {
-                    self.run_analysis_if_needed(env, analysis_config).await?;
+                    self.run_analysis_if_needed(env, analysis_config, Some(iteration as usize)).await?;
                 }
 
                 // Resolve variables from command outputs for use in variable expansion
@@ -843,7 +843,7 @@ impl DefaultCookOrchestrator {
 
                 // Check if this command requires analysis
                 if let Some(ref analysis_config) = command.analysis {
-                    self.run_analysis_if_needed(env, analysis_config).await?;
+                    self.run_analysis_if_needed(env, analysis_config, Some(iteration as usize)).await?;
                 }
 
                 // Build command string
@@ -1137,7 +1137,7 @@ impl DefaultCookOrchestrator {
 
         // Check if this command requires analysis
         if let Some(ref analysis_config) = command.analysis {
-            self.run_analysis_if_needed(env, analysis_config).await?;
+            self.run_analysis_if_needed(env, analysis_config, None).await?;
         }
 
         // Build the command with resolved arguments
@@ -1341,9 +1341,13 @@ impl DefaultCookOrchestrator {
         &self,
         env: &ExecutionEnvironment,
         config: &crate::config::command::AnalysisConfig,
+        iteration: Option<usize>,
     ) -> Result<()> {
+        // Force refresh on iterations after the first one
+        let force_refresh = config.force_refresh || iteration.unwrap_or(1) > 1;
+        
         // Check cache age if not forcing refresh
-        if !config.force_refresh {
+        if !force_refresh {
             let mut all_cached = true;
             let mut oldest_age = 0i64;
 
@@ -1406,8 +1410,12 @@ impl DefaultCookOrchestrator {
         // Use unified analysis function
         self.user_interaction.display_progress(&format!(
             "Running analysis{}...",
-            if config.force_refresh {
-                " (forced refresh)"
+            if force_refresh {
+                if iteration.unwrap_or(1) > 1 {
+                    " (iteration refresh)"
+                } else {
+                    " (forced refresh)"
+                }
             } else {
                 ""
             }
@@ -1423,7 +1431,7 @@ impl DefaultCookOrchestrator {
             .output_format(OutputFormat::Summary)
             .save_results(true)
             .commit_changes(false) // We'll commit later if in worktree mode
-            .force_refresh(config.force_refresh)
+            .force_refresh(force_refresh)
             .run_metrics(true)
             .run_context(true)
             .verbose(false)

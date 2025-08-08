@@ -1,0 +1,6 @@
+# Test workflow to verify analysis runs on each iteration
+- shell: "echo '=== Step with analysis requirement ===' && date"
+  analysis:
+    max_cache_age: 300  # 5 minutes - should force refresh on iteration 2+
+
+- shell: "echo 'Current analysis timestamp:' && jq -r .timestamp .mmm/context/analysis_metadata.json"
