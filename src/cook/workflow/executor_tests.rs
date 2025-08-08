@@ -1198,7 +1198,7 @@ async fn test_shell_command_with_on_failure_retry() {
 
     // Since fail_workflow is false and we have retries, it should not error
     if let Err(e) = &result {
-        eprintln!("Unexpected error: {}", e);
+        eprintln!("Unexpected error: {e}");
     }
     assert!(result.is_ok());
     let step_result = result.unwrap();
@@ -1266,7 +1266,7 @@ async fn test_shell_command_with_on_failure_fail_workflow() {
     // Should error since fail_workflow is true
     assert!(result.is_err());
     let err = result.unwrap_err();
-    eprintln!("Error message: {}", err);
+    eprintln!("Error message: {err}");
     // The error message says "Test command" because shell commands with on_failure are converted to test commands
     assert!(err
         .to_string()
