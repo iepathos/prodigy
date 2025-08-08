@@ -16,24 +16,32 @@
 
 # Third command: Code review
 # This command benefits from fresh analysis
+- analyze:
+    max_cache_age: 300        # Use cache if less than 5 minutes old
+    force_refresh: false      # Don't force if cache is fresh
+    save: true
+    format: "summary"
+
 - claude: "/mmm-code-review"
-  analysis:
-    max_cache_age: 300                       # Use cache if less than 5 minutes old
-    force_refresh: false                     # Don't force if cache is fresh
 
 # Fourth command: Clean up technical debt
 # This needs fresh analysis to prioritize cleanup
+- analyze:
+    force_refresh: true       # Always get fresh analysis for accuracy
+    save: true
+    format: "summary"
+
 - claude: "/mmm-cleanup-tech-debt"
-  analysis:
-    force_refresh: true           # Always get fresh analysis for accuracy
-    max_cache_age: 0              # Ignored when force_refresh is true
 
 # Fifth command: Generate documentation
 # This needs updated analysis after all changes
+- analyze:
+    max_cache_age: 60         # Very short cache - 1 minute
+    force_refresh: false      # Use cache if available and fresh
+    save: true
+    format: "summary"
+
 - claude: "/mmm-generate-docs"
-  analysis:
-    max_cache_age: 60             # Very short cache - 1 minute
-    force_refresh: false          # Use cache if available and fresh
 
 # Usage examples:
 # 

@@ -123,6 +123,7 @@ mod tests {
             DefaultWorkflowCoordinator::new(workflow_executor.clone(), user_interaction.clone());
 
         let step = WorkflowStep {
+            analyze: None,
             name: Some("test step".to_string()),
             command: Some("/test-command".to_string()),
             claude: None,
@@ -410,6 +411,7 @@ mod tests {
 
         let commands = vec![
             WorkflowCommand::WorkflowStep(WorkflowStepCommand {
+                analyze: None,
                 claude: Some("/mmm-analyze".to_string()),
                 shell: None,
                 test: None,
@@ -422,6 +424,7 @@ mod tests {
                 on_success: None,
             }),
             WorkflowCommand::WorkflowStep(WorkflowStepCommand {
+                analyze: None,
                 claude: None,
                 shell: Some("cargo test".to_string()),
                 test: None,
@@ -434,6 +437,7 @@ mod tests {
                 on_success: None,
             }),
             WorkflowCommand::WorkflowStep(WorkflowStepCommand {
+                analyze: None,
                 claude: None,
                 shell: None,
                 test: Some(TestCommand {

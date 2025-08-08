@@ -539,6 +539,7 @@ fn test_determine_command_type_claude() {
     let (executor, _, _, _, _, _) = create_test_executor();
 
     let step = WorkflowStep {
+        analyze: None,
         name: None,
         claude: Some("/mmm-code-review".to_string()),
         shell: None,
@@ -565,6 +566,7 @@ fn test_determine_command_type_shell() {
     let (executor, _, _, _, _, _) = create_test_executor();
 
     let step = WorkflowStep {
+        analyze: None,
         name: None,
         claude: None,
         shell: Some("cargo test".to_string()),
@@ -596,6 +598,7 @@ fn test_determine_command_type_test() {
     };
 
     let step = WorkflowStep {
+        analyze: None,
         name: None,
         claude: None,
         shell: None,
@@ -622,6 +625,7 @@ fn test_determine_command_type_legacy_name() {
     let (executor, _, _, _, _, _) = create_test_executor();
 
     let step = WorkflowStep {
+        analyze: None,
         name: Some("mmm-code-review".to_string()),
         claude: None,
         shell: None,
@@ -648,6 +652,7 @@ fn test_determine_command_type_multiple_error() {
     let (executor, _, _, _, _, _) = create_test_executor();
 
     let step = WorkflowStep {
+        analyze: None,
         name: None,
         claude: Some("/mmm-code-review".to_string()),
         shell: Some("cargo test".to_string()),
@@ -678,6 +683,7 @@ fn test_determine_command_type_none_error() {
     let (executor, _, _, _, _, _) = create_test_executor();
 
     let step = WorkflowStep {
+        analyze: None,
         name: None,
         claude: None,
         shell: None,
@@ -708,6 +714,7 @@ fn test_get_step_display_name_claude() {
     let (executor, _, _, _, _, _) = create_test_executor();
 
     let step = WorkflowStep {
+        analyze: None,
         name: None,
         claude: Some("/mmm-code-review --strict".to_string()),
         shell: None,
@@ -734,6 +741,7 @@ fn test_get_step_display_name_shell() {
     let (executor, _, _, _, _, _) = create_test_executor();
 
     let step = WorkflowStep {
+        analyze: None,
         name: None,
         claude: None,
         shell: Some("cargo test --verbose".to_string()),
@@ -765,6 +773,7 @@ fn test_get_step_display_name_test() {
     };
 
     let step = WorkflowStep {
+        analyze: None,
         name: None,
         claude: None,
         shell: None,
@@ -791,6 +800,7 @@ fn test_get_step_display_name_unnamed() {
     let (executor, _, _, _, _, _) = create_test_executor();
 
     let step = WorkflowStep {
+        analyze: None,
         name: None,
         claude: None,
         shell: None,
@@ -818,6 +828,7 @@ fn test_handle_test_mode_execution_success() {
     let (executor, _, _, _, _, _) = create_test_executor_with_config(config);
 
     let step = WorkflowStep {
+        analyze: None,
         name: None,
         claude: Some("/mmm-code-review".to_string()),
         shell: None,
@@ -916,6 +927,7 @@ fn test_handle_no_commits_error_general_command() {
     let (executor, _, _, _, _, _) = create_test_executor();
 
     let step = WorkflowStep {
+        analyze: None,
         name: None,
         claude: Some("/mmm-implement-spec".to_string()),
         shell: None,
@@ -1024,6 +1036,7 @@ async fn test_workflow_execution_single_iteration() {
     let workflow = ExtendedWorkflowConfig {
         name: "Test Workflow".to_string(),
         steps: vec![WorkflowStep {
+            analyze: None,
             name: None,
             claude: Some("/mmm-code-review".to_string()),
             shell: None,
@@ -1084,6 +1097,7 @@ async fn test_execute_step_with_capture_output() {
     let mut context = WorkflowContext::default();
 
     let step = WorkflowStep {
+        analyze: None,
         name: None,
         shell: Some("echo 'captured output'".to_string()),
         claude: None,
@@ -1132,6 +1146,7 @@ async fn test_execute_step_with_env_interpolation() {
     step_env.insert("APP_VERSION".to_string(), "${VERSION}".to_string());
 
     let step = WorkflowStep {
+        analyze: None,
         name: None,
         shell: Some("echo $APP_VERSION".to_string()),
         claude: None,
@@ -1184,6 +1199,7 @@ async fn test_shell_command_with_on_failure_retry() {
     // This simulates what happens after conversion from YAML
     // When a shell command has on_failure, it's converted to a test command
     let step = WorkflowStep {
+        analyze: None,
         name: None,
         claude: None,
         shell: None, // shell is cleared when converted to test
@@ -1252,6 +1268,7 @@ async fn test_shell_command_with_on_failure_fail_workflow() {
 
     // Create a shell command with on_failure retry logic that fails the workflow
     let step = WorkflowStep {
+        analyze: None,
         name: None,
         claude: None,
         shell: None, // shell is cleared when converted to test

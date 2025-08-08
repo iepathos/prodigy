@@ -105,6 +105,10 @@ pub struct WorkflowStep {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub shell: Option<String>,
 
+    /// Analyze command configuration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub analyze: Option<HashMap<String, serde_json::Value>>,
+
     /// Test command configuration
     #[serde(skip_serializing_if = "Option::is_none")]
     pub test: Option<crate::config::command::TestCommand>,
@@ -277,6 +281,9 @@ impl WorkflowExecutor {
         if step.shell.is_some() {
             specified_count += 1;
         }
+        if step.analyze.is_some() {
+            specified_count += 1;
+        }
         if step.test.is_some() {
             specified_count += 1;
         }
@@ -290,13 +297,13 @@ impl WorkflowExecutor {
         // Ensure only one command type is specified
         if specified_count > 1 {
             return Err(anyhow!(
-                "Multiple command types specified. Use only one of: claude, shell, test, handler, or name/command"
+                "Multiple command types specified. Use only one of: claude, shell, analyze, test, handler, or name/command"
             ));
         }
 
         if specified_count == 0 {
             return Err(anyhow!(
-                "No command specified. Use one of: claude, shell, test, handler, or name/command"
+                "No command specified. Use one of: claude, shell, analyze, test, handler, or name/command"
             ));
         }
 
@@ -315,6 +322,16 @@ impl WorkflowExecutor {
             Ok(CommandType::Claude(claude_cmd.clone()))
         } else if let Some(shell_cmd) = &step.shell {
             Ok(CommandType::Shell(shell_cmd.clone()))
+        } else if let Some(analyze_attrs) = &step.analyze {
+            // Convert analyze attributes to handler command
+            let mut attributes = HashMap::new();
+            for (key, value) in analyze_attrs {
+                attributes.insert(key.clone(), self.json_to_attribute_value(value.clone()));
+            }
+            Ok(CommandType::Handler {
+                handler_name: "analyze".to_string(),
+                attributes,
+            })
         } else if let Some(test_cmd) = &step.test {
             Ok(CommandType::Test(test_cmd.clone()))
         } else if let Some(name) = &step.name {
@@ -338,6 +355,8 @@ impl WorkflowExecutor {
             format!("claude: {claude_cmd}")
         } else if let Some(shell_cmd) = &step.shell {
             format!("shell: {shell_cmd}")
+        } else if step.analyze.is_some() {
+            "analyze".to_string()
         } else if let Some(test_cmd) = &step.test {
             format!("test: {}", test_cmd.command)
         } else if let Some(handler_step) = &step.handler {

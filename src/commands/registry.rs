@@ -24,9 +24,10 @@ impl CommandRegistry {
 
         // Register built-in handlers
         use crate::commands::handlers::{
-            CargoHandler, ClaudeHandler, FileHandler, GitHandler, ShellHandler,
+            AnalyzeHandler, CargoHandler, ClaudeHandler, FileHandler, GitHandler, ShellHandler,
         };
 
+        registry.register(Box::new(AnalyzeHandler::new()));
         registry.register(Box::new(ShellHandler::new()));
         registry.register(Box::new(ClaudeHandler::new()));
         registry.register(Box::new(GitHandler::new()));

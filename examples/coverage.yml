@@ -1,13 +1,15 @@
 # Test coverage improvement workflow with automatic test debugging
 # Identifies coverage gaps, implements tests, and automatically fixes failing tests
+- analyze:
+    max_cache_age: 300
+    save: true
+
 - claude: "/mmm-coverage"
   id: coverage
   commit_required: true
   outputs:
     spec:
       file_pattern: "*-coverage-improvements.md"
-  analysis:
-    max_cache_age: 300
 
 - claude: "/mmm-implement-spec ${coverage.spec}"
   commit_required: true

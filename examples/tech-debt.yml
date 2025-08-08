@@ -1,12 +1,14 @@
 # Tech debt cleanup workflow
 # Focuses on cleaning up technical debt in the codebase
+- analyze:
+    max_cache_age: 300
+    save: true
+
 - claude: "/mmm-cleanup-tech-debt"
   id: cleanup
   outputs:
     spec:
       file_pattern: "*-tech-debt-cleanup.md"
-  analysis:
-    max_cache_age: 300
 
 - claude: "/mmm-implement-spec ${cleanup.spec}"
 

@@ -57,7 +57,8 @@ impl CommandHandler for ClaudeHandler {
         // Extract optional parameters
         let model = attributes
             .get("model")
-            .and_then(|v| v.as_string()).cloned()
+            .and_then(|v| v.as_string())
+            .cloned()
             .unwrap_or_else(|| "claude-3-sonnet".to_string());
 
         let temperature = attributes
@@ -73,7 +74,8 @@ impl CommandHandler for ClaudeHandler {
 
         let system = attributes
             .get("system")
-            .and_then(|v| v.as_string()).cloned();
+            .and_then(|v| v.as_string())
+            .cloned();
 
         let timeout = attributes
             .get("timeout")
