@@ -129,6 +129,7 @@ impl WorkflowCoordinator for DefaultWorkflowCoordinator {
                     claude: None,
                     shell: None,
                     test: None,
+                    handler: None,
                     capture_output: false,
                     timeout: None,
                     working_dir: None,

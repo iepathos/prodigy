@@ -6,8 +6,8 @@
       "Deprecated": 9
     },
     "by_impact": {
-      "High": 9,
-      "Medium": 11
+      "Medium": 11,
+      "High": 9
     },
     "avg_impact": 7.45,
     "avg_effort": 3.0
@@ -288,13 +288,13 @@
       "primary_issue_type": "Deprecated"
     },
     {
-      "file": "/Users/glen/memento-mori/mmm/src/main.rs",
+      "file": "/Users/glen/memento-mori/mmm/src/cook/workflow/executor.rs",
       "total_issues": 1,
       "max_complexity": 0,
       "primary_issue_type": "Deprecated"
     },
     {
-      "file": "/Users/glen/memento-mori/mmm/src/cook/workflow/executor.rs",
+      "file": "/Users/glen/memento-mori/mmm/src/main.rs",
       "total_issues": 1,
       "max_complexity": 0,
       "primary_issue_type": "Deprecated"

@@ -42,6 +42,7 @@
 //! # }
 //! ```
 
+pub mod adapter;
 pub mod builder;
 pub mod claude;
 pub mod error;
@@ -52,6 +53,9 @@ pub mod runner;
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+pub use adapter::MockSubprocessExecutor;
+pub use adapter::{RealSubprocessExecutor, SubprocessError, SubprocessExecutor};
 pub use builder::ProcessCommandBuilder;
 pub use claude::ClaudeRunner;
 pub use error::ProcessError;
