@@ -57,8 +57,7 @@ impl CommandHandler for ClaudeHandler {
         // Extract optional parameters
         let model = attributes
             .get("model")
-            .and_then(|v| v.as_string())
-            .map(|s| s.clone())
+            .and_then(|v| v.as_string()).cloned()
             .unwrap_or_else(|| "claude-3-sonnet".to_string());
 
         let temperature = attributes
@@ -74,8 +73,7 @@ impl CommandHandler for ClaudeHandler {
 
         let system = attributes
             .get("system")
-            .and_then(|v| v.as_string())
-            .map(|s| s.clone());
+            .and_then(|v| v.as_string()).cloned();
 
         let timeout = attributes
             .get("timeout")
@@ -91,12 +89,11 @@ impl CommandHandler for ClaudeHandler {
                     let abs_path = context.resolve_path(file_path.as_ref());
                     match tokio::fs::read_to_string(&abs_path).await {
                         Ok(content) => {
-                            file_contents.push(format!("=== {} ===\n{}", file_path, content));
+                            file_contents.push(format!("=== {file_path} ===\n{content}"));
                         }
                         Err(e) => {
                             return CommandResult::error(format!(
-                                "Failed to read context file {}: {}",
-                                file_path, e
+                                "Failed to read context file {file_path}: {e}"
                             ));
                         }
                     }
@@ -173,11 +170,11 @@ impl CommandHandler for ClaudeHandler {
                     }))
                     .with_duration(duration)
                 } else {
-                    CommandResult::error(format!("Claude CLI failed: {}", stderr))
+                    CommandResult::error(format!("Claude CLI failed: {stderr}"))
                         .with_duration(duration)
                 }
             }
-            Err(e) => CommandResult::error(format!("Failed to execute Claude CLI: {}", e))
+            Err(e) => CommandResult::error(format!("Failed to execute Claude CLI: {e}"))
                 .with_duration(duration),
         }
     }
@@ -204,7 +201,11 @@ impl Default for ClaudeHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::subprocess::MockSubprocessExecutor;
+    use crate::subprocess::adapter::MockSubprocessExecutor;
+    #[cfg(unix)]
+    use std::os::unix::process::ExitStatusExt;
+    #[cfg(windows)]
+    use std::os::windows::process::ExitStatusExt;
     use std::path::PathBuf;
     use std::process::Output;
     use std::sync::Arc;

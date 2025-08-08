@@ -148,8 +148,7 @@ impl AttributeSchema {
         for required_key in self.required.keys() {
             if !attributes.contains_key(required_key) {
                 return Err(crate::commands::CommandError::ValidationError(format!(
-                    "Missing required attribute: {}",
-                    required_key
+                    "Missing required attribute: {required_key}"
                 )));
             }
         }
@@ -160,8 +159,7 @@ impl AttributeSchema {
                 && !self.optional.contains_key(provided_key)
             {
                 return Err(crate::commands::CommandError::ValidationError(format!(
-                    "Unknown attribute: {}",
-                    provided_key
+                    "Unknown attribute: {provided_key}"
                 )));
             }
         }

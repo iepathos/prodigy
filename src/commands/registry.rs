@@ -51,12 +51,23 @@ impl CommandRegistry {
     pub fn register_sync(&self, handler: Box<dyn CommandHandler>) {
         let handlers = self.handlers.clone();
         let handler: Arc<dyn CommandHandler> = Arc::from(handler);
-        let rt = tokio::runtime::Handle::current();
-        rt.block_on(async {
-            let mut handlers = handlers.write().await;
-            let name = handler.name().to_string();
-            handlers.insert(name, handler);
-        });
+        let name = handler.name().to_string();
+
+        // Use try_current to check if we're in an async context
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            // We're in an async context, spawn the task
+            handle.spawn(async move {
+                let mut handlers = handlers.write().await;
+                handlers.insert(name, handler);
+            });
+        } else {
+            // We're not in an async context, create a new runtime
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                let mut handlers = handlers.write().await;
+                handlers.insert(name, handler);
+            });
+        }
     }
 
     /// Gets a handler by name
@@ -83,7 +94,7 @@ impl CommandRegistry {
         if let Some(handler) = handlers.get(handler_name) {
             handler.execute(context, attributes).await
         } else {
-            CommandResult::error(format!("Unknown command handler: {}", handler_name))
+            CommandResult::error(format!("Unknown command handler: {handler_name}"))
         }
     }
 
@@ -98,7 +109,7 @@ impl CommandRegistry {
         if let Some(handler) = handlers.get(handler_name) {
             handler.validate(attributes).map_err(|e| e.to_string())
         } else {
-            Err(format!("Unknown command handler: {}", handler_name))
+            Err(format!("Unknown command handler: {handler_name}"))
         }
     }
 
@@ -126,7 +137,7 @@ impl Clone for CommandRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commands::{AttributeSchema, CommandError};
+    use crate::commands::AttributeSchema;
     use async_trait::async_trait;
     use serde_json::Value;
 
@@ -166,6 +177,9 @@ mod tests {
 
         registry.register_sync(handler);
 
+        // Wait a bit for the async registration to complete
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+
         let names = registry.list().await;
         assert!(names.contains(&"test".to_string()));
     }
@@ -179,6 +193,9 @@ mod tests {
 
         registry.register_sync(handler);
 
+        // Wait a bit for the async registration to complete
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+
         let retrieved = registry.get("test").await;
         assert!(retrieved.is_some());
     }
@@ -191,6 +208,9 @@ mod tests {
         });
 
         registry.register_sync(handler);
+
+        // Wait a bit for the async registration to complete
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
 
         let context = ExecutionContext::new(std::env::current_dir().unwrap());
         let result = registry.execute("test", &context, HashMap::new()).await;

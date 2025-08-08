@@ -199,11 +199,11 @@ impl CommandHandler for CargoHandler {
                     }))
                     .with_duration(duration)
                 } else {
-                    CommandResult::error(format!("Cargo command failed:\n{}", stderr))
+                    CommandResult::error(format!("Cargo command failed:\n{stderr}"))
                         .with_duration(duration)
                 }
             }
-            Err(e) => CommandResult::error(format!("Failed to execute cargo command: {}", e))
+            Err(e) => CommandResult::error(format!("Failed to execute cargo command: {e}"))
                 .with_duration(duration),
         }
     }
@@ -231,7 +231,11 @@ impl Default for CargoHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::subprocess::MockSubprocessExecutor;
+    use crate::subprocess::adapter::MockSubprocessExecutor;
+    #[cfg(unix)]
+    use std::os::unix::process::ExitStatusExt;
+    #[cfg(windows)]
+    use std::os::windows::process::ExitStatusExt;
     use std::path::PathBuf;
     use std::process::Output;
     use std::sync::Arc;

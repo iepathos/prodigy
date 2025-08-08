@@ -194,6 +194,6 @@ mod tests {
             ExecutionContext::new(PathBuf::from("/test")).with_executor(mock_executor.clone());
 
         // The executor is set (we can't easily test the actual value due to trait object)
-        assert!(ctx.is_in_session() == false);
+        assert!(!ctx.is_in_session());
     }
 }

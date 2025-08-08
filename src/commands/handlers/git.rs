@@ -88,7 +88,7 @@ impl CommandHandler for GitHandler {
                         .and_then(|v| v.as_array())
                         .map(|arr| {
                             arr.iter()
-                                .filter_map(|v| v.as_string().map(|s| s.clone()))
+                                .filter_map(|v| v.as_string().cloned())
                                 .collect::<Vec<_>>()
                         })
                         .unwrap_or_else(|| vec![".".to_string()]);
@@ -110,7 +110,7 @@ impl CommandHandler for GitHandler {
                             .await;
 
                         if let Err(e) = add_result {
-                            return CommandResult::error(format!("Failed to stage files: {}", e));
+                            return CommandResult::error(format!("Failed to stage files: {e}"));
                         }
                     }
                 }
@@ -195,11 +195,11 @@ impl CommandHandler for GitHandler {
                     }))
                     .with_duration(duration)
                 } else {
-                    CommandResult::error(format!("Git command failed: {}", stderr))
+                    CommandResult::error(format!("Git command failed: {stderr}"))
                         .with_duration(duration)
                 }
             }
-            Err(e) => CommandResult::error(format!("Failed to execute git command: {}", e))
+            Err(e) => CommandResult::error(format!("Failed to execute git command: {e}"))
                 .with_duration(duration),
         }
     }
@@ -227,7 +227,11 @@ impl Default for GitHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::subprocess::MockSubprocessExecutor;
+    use crate::subprocess::adapter::MockSubprocessExecutor;
+    #[cfg(unix)]
+    use std::os::unix::process::ExitStatusExt;
+    #[cfg(windows)]
+    use std::os::windows::process::ExitStatusExt;
     use std::path::PathBuf;
     use std::process::Output;
     use std::sync::Arc;

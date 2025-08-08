@@ -92,8 +92,7 @@ impl CommandHandler for ShellHandler {
         if context.dry_run {
             let duration = start.elapsed().as_millis() as u64;
             return CommandResult::success(Value::String(format!(
-                "[DRY RUN] Would execute: {} -c '{}'",
-                shell, command
+                "[DRY RUN] Would execute: {shell} -c '{command}'"
             )))
             .with_duration(duration);
         }
@@ -119,7 +118,7 @@ impl CommandHandler for ShellHandler {
 
                 CommandResult::from_output(stdout, stderr, exit_code).with_duration(duration)
             }
-            Err(e) => CommandResult::error(format!("Failed to execute command: {}", e))
+            Err(e) => CommandResult::error(format!("Failed to execute command: {e}"))
                 .with_duration(duration),
         }
     }
@@ -146,7 +145,11 @@ impl Default for ShellHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::subprocess::MockSubprocessExecutor;
+    use crate::subprocess::adapter::MockSubprocessExecutor;
+    #[cfg(unix)]
+    use std::os::unix::process::ExitStatusExt;
+    #[cfg(windows)]
+    use std::os::windows::process::ExitStatusExt;
     use std::path::PathBuf;
     use std::process::Output;
     use std::sync::Arc;

@@ -142,13 +142,13 @@ impl CommandError {
 impl fmt::Display for CommandError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CommandError::ValidationError(msg) => write!(f, "Validation error: {}", msg),
-            CommandError::ExecutionError(msg) => write!(f, "Execution error: {}", msg),
-            CommandError::IoError(msg) => write!(f, "IO error: {}", msg),
-            CommandError::NotFound(msg) => write!(f, "Command not found: {}", msg),
-            CommandError::Timeout(msg) => write!(f, "Timeout: {}", msg),
-            CommandError::PermissionDenied(msg) => write!(f, "Permission denied: {}", msg),
-            CommandError::Other(msg) => write!(f, "Error: {}", msg),
+            CommandError::ValidationError(msg) => write!(f, "Validation error: {msg}"),
+            CommandError::ExecutionError(msg) => write!(f, "Execution error: {msg}"),
+            CommandError::IoError(msg) => write!(f, "IO error: {msg}"),
+            CommandError::NotFound(msg) => write!(f, "Command not found: {msg}"),
+            CommandError::Timeout(msg) => write!(f, "Timeout: {msg}"),
+            CommandError::PermissionDenied(msg) => write!(f, "Permission denied: {msg}"),
+            CommandError::Other(msg) => write!(f, "Error: {msg}"),
         }
     }
 }

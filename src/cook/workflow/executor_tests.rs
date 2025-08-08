@@ -552,6 +552,7 @@ fn test_determine_command_type_claude() {
         on_success: None,
         on_exit_code: HashMap::new(),
         commit_required: true,
+        handler: None,
         analysis: None,
     };
 
@@ -577,6 +578,7 @@ fn test_determine_command_type_shell() {
         on_success: None,
         on_exit_code: HashMap::new(),
         commit_required: false,
+        handler: None,
         analysis: None,
     };
 
@@ -607,6 +609,7 @@ fn test_determine_command_type_test() {
         on_success: None,
         on_exit_code: HashMap::new(),
         commit_required: false,
+        handler: None,
         analysis: None,
     };
 
@@ -632,6 +635,7 @@ fn test_determine_command_type_legacy_name() {
         on_success: None,
         on_exit_code: HashMap::new(),
         commit_required: true,
+        handler: None,
         analysis: None,
     };
 
@@ -657,6 +661,7 @@ fn test_determine_command_type_multiple_error() {
         on_success: None,
         on_exit_code: HashMap::new(),
         commit_required: false,
+        handler: None,
         analysis: None,
     };
 
@@ -686,6 +691,7 @@ fn test_determine_command_type_none_error() {
         on_success: None,
         on_exit_code: HashMap::new(),
         commit_required: false,
+        handler: None,
         analysis: None,
     };
 
@@ -715,6 +721,7 @@ fn test_get_step_display_name_claude() {
         on_success: None,
         on_exit_code: HashMap::new(),
         commit_required: true,
+        handler: None,
         analysis: None,
     };
 
@@ -740,6 +747,7 @@ fn test_get_step_display_name_shell() {
         on_success: None,
         on_exit_code: HashMap::new(),
         commit_required: false,
+        handler: None,
         analysis: None,
     };
 
@@ -770,6 +778,7 @@ fn test_get_step_display_name_test() {
         on_success: None,
         on_exit_code: HashMap::new(),
         commit_required: false,
+        handler: None,
         analysis: None,
     };
 
@@ -795,6 +804,7 @@ fn test_get_step_display_name_unnamed() {
         on_success: None,
         on_exit_code: HashMap::new(),
         commit_required: false,
+        handler: None,
         analysis: None,
     };
 
@@ -821,6 +831,7 @@ fn test_handle_test_mode_execution_success() {
         on_success: None,
         on_exit_code: HashMap::new(),
         commit_required: false,
+        handler: None,
         analysis: None,
     };
 
@@ -918,6 +929,7 @@ fn test_handle_no_commits_error_general_command() {
         on_success: None,
         on_exit_code: HashMap::new(),
         commit_required: true,
+        handler: None,
         analysis: None,
     };
 
@@ -1025,6 +1037,7 @@ async fn test_workflow_execution_single_iteration() {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            handler: None,
             analysis: None,
         }],
         max_iterations: 1,
@@ -1084,6 +1097,7 @@ async fn test_execute_step_with_capture_output() {
         on_success: None,
         on_exit_code: HashMap::new(),
         commit_required: false,
+        handler: None,
         analysis: None,
     };
 
@@ -1131,6 +1145,7 @@ async fn test_execute_step_with_env_interpolation() {
         on_success: None,
         on_exit_code: HashMap::new(),
         commit_required: false,
+        handler: None,
         analysis: None,
     };
 
@@ -1190,6 +1205,7 @@ async fn test_shell_command_with_on_failure_retry() {
         on_success: None,
         on_exit_code: HashMap::new(),
         commit_required: false,
+        handler: None,
         analysis: None,
     };
 
@@ -1257,6 +1273,7 @@ async fn test_shell_command_with_on_failure_fail_workflow() {
         on_success: None,
         on_exit_code: HashMap::new(),
         commit_required: false,
+        handler: None,
         analysis: None,
     };
 

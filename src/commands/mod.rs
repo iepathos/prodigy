@@ -82,7 +82,7 @@ impl Default for CommandHandlerBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testing::TempDirFixture;
+    use serde_json::Value;
 
     struct MockHandler {
         name: String,
@@ -112,8 +112,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_command_handler_builder() {
+    #[tokio::test]
+    async fn test_command_handler_builder() {
         let handler = Box::new(MockHandler {
             name: "mock".to_string(),
             schema: AttributeSchema::new("mock"),
@@ -121,7 +121,10 @@ mod tests {
 
         let registry = CommandHandlerBuilder::new().register(handler).build();
 
-        assert!(registry.get("mock").is_some());
+        // Wait a bit for the async registration to complete
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+
+        assert!(registry.get("mock").await.is_some());
     }
 
     #[tokio::test]

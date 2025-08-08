@@ -91,7 +91,7 @@ impl CommandHandler for FileHandler {
                     "path": path.display().to_string(),
                     "size": content.len(),
                 })),
-                Err(e) => CommandResult::error(format!("Failed to read file: {}", e)),
+                Err(e) => CommandResult::error(format!("Failed to read file: {e}")),
             },
             "write" => {
                 let content = match attributes.get("content").and_then(|v| v.as_string()) {
@@ -125,8 +125,7 @@ impl CommandHandler for FileHandler {
                     if let Some(parent) = path.parent() {
                         if let Err(e) = fs::create_dir_all(parent).await {
                             return CommandResult::error(format!(
-                                "Failed to create directories: {}",
-                                e
+                                "Failed to create directories: {e}"
                             ));
                         }
                     }
@@ -138,7 +137,7 @@ impl CommandHandler for FileHandler {
                         "size": content.len(),
                         "operation": "write",
                     })),
-                    Err(e) => CommandResult::error(format!("Failed to write file: {}", e)),
+                    Err(e) => CommandResult::error(format!("Failed to write file: {e}")),
                 }
             }
             "append" => {
@@ -161,8 +160,7 @@ impl CommandHandler for FileHandler {
                     if let Some(parent) = path.parent() {
                         if let Err(e) = fs::create_dir_all(parent).await {
                             return CommandResult::error(format!(
-                                "Failed to create directories: {}",
-                                e
+                                "Failed to create directories: {e}"
                             ));
                         }
                     }
@@ -180,10 +178,10 @@ impl CommandHandler for FileHandler {
                             "appended_size": content.len(),
                             "operation": "append",
                         })),
-                        Err(e) => CommandResult::error(format!("Failed to append to file: {}", e)),
+                        Err(e) => CommandResult::error(format!("Failed to append to file: {e}")),
                     },
                     Err(e) => {
-                        CommandResult::error(format!("Failed to open file for append: {}", e))
+                        CommandResult::error(format!("Failed to open file for append: {e}"))
                     }
                 }
             }
@@ -192,7 +190,7 @@ impl CommandHandler for FileHandler {
                     "path": path.display().to_string(),
                     "operation": "delete",
                 })),
-                Err(e) => CommandResult::error(format!("Failed to delete file: {}", e)),
+                Err(e) => CommandResult::error(format!("Failed to delete file: {e}")),
             },
             "copy" => {
                 let destination = match attributes.get("destination").and_then(|v| v.as_string()) {
@@ -222,7 +220,7 @@ impl CommandHandler for FileHandler {
                         "size": bytes,
                         "operation": "copy",
                     })),
-                    Err(e) => CommandResult::error(format!("Failed to copy file: {}", e)),
+                    Err(e) => CommandResult::error(format!("Failed to copy file: {e}")),
                 }
             }
             "move" => {
@@ -252,7 +250,7 @@ impl CommandHandler for FileHandler {
                         "destination": destination.display().to_string(),
                         "operation": "move",
                     })),
-                    Err(e) => CommandResult::error(format!("Failed to move file: {}", e)),
+                    Err(e) => CommandResult::error(format!("Failed to move file: {e}")),
                 }
             }
             "exists" => {
@@ -276,7 +274,7 @@ impl CommandHandler for FileHandler {
                     "metadata": metadata,
                 }))
             }
-            _ => CommandResult::error(format!("Unknown file operation: {}", operation)),
+            _ => CommandResult::error(format!("Unknown file operation: {operation}")),
         };
 
         let duration = start.elapsed().as_millis() as u64;

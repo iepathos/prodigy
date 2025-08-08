@@ -100,6 +100,13 @@ pub struct MockSubprocessExecutor {
 }
 
 #[cfg(test)]
+impl Default for MockSubprocessExecutor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(test)]
 impl MockSubprocessExecutor {
     pub fn new() -> Self {
         Self {
@@ -158,8 +165,7 @@ impl SubprocessExecutor for MockSubprocessExecutor {
         }
 
         Err(SubprocessError::MockExpectationNotMet(format!(
-            "Unexpected command: {} {:?}",
-            command, args
+            "Unexpected command: {command} {args:?}"
         )))
     }
 }
