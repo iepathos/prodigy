@@ -1,14 +1,14 @@
 {
-  "timestamp": "2025-08-08T07:18:48.118455Z",
-  "duration_ms": 15848,
-  "files_analyzed": 2596,
+  "timestamp": "2025-08-08T11:07:36.565128Z",
+  "duration_ms": 15815,
+  "files_analyzed": 1272,
   "incremental": false,
   "version": "0.1.0",
   "scoring_algorithm": "multi-factor-v1",
   "criticality_distribution": {
-    "high": 99,
-    "medium": 1005,
-    "low": 640,
+    "high": 100,
+    "medium": 1009,
+    "low": 763,
     "confidence_score": 0.87
   }
 }
