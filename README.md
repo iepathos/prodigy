@@ -1,11 +1,34 @@
-# mmm
+# MMM - Declarative LLM Orchestration
 
 [![CI](https://github.com/iepathos/mmm/actions/workflows/ci.yml/badge.svg)](https://github.com/iepathos/mmm/actions/workflows/ci.yml)
 [![Security](https://github.com/iepathos/mmm/actions/workflows/security.yml/badge.svg)](https://github.com/iepathos/mmm/actions/workflows/security.yml)
 [![Release](https://github.com/iepathos/mmm/actions/workflows/release.yml/badge.svg)](https://github.com/iepathos/mmm/actions/workflows/release.yml)
 
+Define AI-assisted development workflows in YAML. Run bounded, testable improvement loops. Ship better code.
 
-Orchestration layer for Claude Code that enables autonomous code improvement through self-sufficient development loops. Combine Claude commands with elegant YAML workflows to run continuous review → fix → enhance cycles with a single command.
+## What Is MMM?
+
+MMM lets you declare LLM-powered development workflows in simple YAML files, similar to how you define CI/CD pipelines. Instead of copy-pasting between Claude and your terminal, you declare the workflow once and run it repeatedly.
+
+```yaml
+# Example: Improve test coverage
+- claude: "/mmm-analyze-coverage"
+  id: coverage_analysis
+  
+- claude: "/mmm-write-tests ${coverage_analysis.spec}"
+  
+- shell: "cargo test"
+  on_failure:
+    claude: "/mmm-fix-test --error ${shell.output}"
+```
+
+## Why Declarative?
+
+**Reproducible**: Same YAML, same workflow, every time.  
+**Shareable**: Check workflows into git, share with your team.  
+**Testable**: Define success criteria, verify outcomes.  
+**Bounded**: Set iteration limits, prevent runaway costs.  
+**Observable**: Every decision is logged, every change tracked.
 
 ## Architecture: How MMM Orchestrates Claude Commands
 
@@ -38,46 +61,61 @@ Orchestration layer for Claude Code that enables autonomous code improvement thr
 └──────────────────────────────────────────────────────┘
 ```
 
-## What Are Self-Sufficient Claude Development Loops?
+## The Problem We Solve
 
-Self-sufficient Claude development loops are fully autonomous improvement cycles where Claude AI acts as both the reviewer and implementor of code changes. These loops run without human intervention, making decisions about what to improve, how to implement changes, and when to stop - creating a continuous improvement process that enhances code quality automatically.
+Developers are increasingly using LLMs for code improvements, but managing these interactions is ad-hoc:
+- Copy-pasting between Claude and your editor
+- Manually running tests after AI suggestions  
+- No reproducibility across team members
+- No way to share successful improvement patterns
+- Runaway costs from uncontrolled AI loops
 
-### Why Are They Powerful?
+MMM provides the orchestration layer that makes AI-assisted development **reproducible, shareable, and safe**.
 
-1. **Autonomous Operation**: Once started, the loop runs completely independently, analyzing code, identifying issues, implementing fixes, and validating changes without manual oversight
-2. **Consistent Quality**: Every iteration follows the same high standards, applying best practices uniformly across your entire codebase
-3. **Parallel Execution**: Multiple loops can run simultaneously on different aspects (security, performance, testing) using git worktrees
-4. **Git-Native Workflow**: Every change is tracked through commits, providing complete auditability and easy rollback if needed
-5. **Customizable Workflows**: Create targeted improvement loops for security, performance, testing, or any development aspect
+## What MMM Is
 
-## How MMM Simplifies Running These Loops
+- **Bounded LLM Orchestration**: Run AI-assisted development tasks with iteration limits and clear success criteria
+- **Declarative Workflows**: Define complex AI workflows in simple YAML
+- **Test-Driven Validation**: Ensure AI changes actually work through integrated testing
+- **Git-Native Isolation**: All work happens in isolated worktrees, preserving your main branch
+- **Composable Commands**: Mix Claude commands, shell scripts, and custom handlers
 
-`mmm` makes self-sufficient development loops accessible with a single command:
+## What MMM Is NOT
 
-```bash
-# Start an autonomous improvement loop
-mmm cook examples/default.yml
-```
+- ❌ Not an autonomous agent that runs forever
+- ❌ Not a replacement for human developers  
+- ❌ Not a general-purpose AI framework
+- ❌ Not another chatbot interface
 
-Behind this simplicity, `mmm` handles all the complexity:
+## Core Concepts
 
-1. **Automated Claude CLI Integration**: Manages all interactions with Claude CLI, handling authentication, retries, and error recovery
-2. **Git Workflow Management**: Automatically creates commits for each step (review, implementation, linting) with meaningful messages
-3. **Worktree Isolation**: Optionally runs improvements in isolated git worktrees, enabling parallel improvement sessions
-4. **Configurable Workflows**: Define custom sequences of Claude commands via simple YAML files
-5. **Smart State Management**: Tracks progress, handles interruptions, and provides clear status updates
-6. **Workflow Persistence**: Maintains improvement strategy across all iterations in a session
+### Bounded Autonomy
+Unlike AutoGPT-style agents, MMM workflows have:
+- Maximum iteration limits
+- Required success criteria (tests must pass)
+- Isolated execution environments (git worktrees)
+- Automatic rollback on failure
 
-## What It Does
+### Observable Decisions
+Every step is logged, every change is in git, every decision can be audited.
 
-`mmm` orchestrates self-sufficient Claude development loops that continuously improve your codebase. Run `mmm cook <playbook>` and it automatically:
+### Practical Focus
+Built for real development tasks:
+- Improving test coverage
+- Fixing linting issues
+- Implementing specifications
+- Refactoring code
+- Debugging test failures
 
-1. **Reviews** code with Claude CLI and creates improvement specs
-2. **Implements** the improvements by applying fixes to your code
-3. **Lints** and formats the code with automated tools
-4. **Repeats** until your target iterations is reached or no more improvements are found
+## Quick Start
 
-Each iteration is fully autonomous - Claude handles review, implementation, and validation without manual intervention. All changes are committed to git with clear audit trails. Configure workflows to target security, performance, testing, or any development aspect you need.
+Run `mmm cook <playbook.yml>` and MMM will:
+
+1. **Execute** your declared workflow steps in order
+2. **Validate** changes with tests and linting
+3. **Commit** each successful change to git
+4. **Iterate** within bounded limits
+5. **Stop** when success criteria are met or limits reached
 
 ## Installation
 
@@ -209,30 +247,24 @@ f6g7h8i review: generate improvement spec for iteration-1708123456-improvements
 
 ## How It Works
 
-### Git-Native Architecture
+### Declarative Workflow Execution
 ```
 mmm cook <playbook.yml>
     ↓
-Load playbook configuration
+Parse YAML workflow definition
     ↓
-┌─────────────────── COOKING LOOP ──────────────────────┐
-│  Call claude /mmm-code-review                         │
+┌─────────────────── WORKFLOW LOOP ─────────────────────┐
+│  For each step in workflow:                           │
 │      ↓                                                │
-│  Generate specs/temp/iteration-*-improvements.md      │
+│  Execute command (claude:, shell:, etc.)              │
 │      ↓                                                │
-│  Commit: "review: generate improvement spec..."       │
+│  Validate results                                     │
 │      ↓                                                │
-│  Extract spec ID from git log                         │
+│  Handle on_failure/on_success conditions              │
 │      ↓                                                │
-│  Call claude /mmm-implement-spec {spec-id}            │
+│  Commit changes if successful                         │
 │      ↓                                                │
-│  Apply fixes and commit: "fix: apply improvements..." │
-│      ↓                                                │
-│  Call claude /mmm-lint                                │
-│      ↓                                                │
-│  Format/lint and commit: "style: apply automated..."  │
-│      ↓                                                │
-│  Check iterations → Continue or Exit                  │
+│  Check iteration limit → Continue or Exit             │
 └───────────────────────────────────────────────────────┘
 ```
 
@@ -242,6 +274,28 @@ Load playbook configuration
 - **Simple State**: `.mmm/state.json` tracks basic session info (current score, run count)
 - **Project Context**: `.mmm/PROJECT.md`, `ARCHITECTURE.md` provide Claude with project understanding
 - All human-readable, git-friendly, no complex databases
+
+## Why MMM vs Other Approaches?
+
+### vs AutoGPT/Agent Frameworks
+- **Bounded**: Limited iterations prevent runaway costs
+- **Declarative**: Define workflows in YAML, not code
+- **Development-focused**: Built specifically for code improvements
+
+### vs Custom Scripts
+- **Reusable**: Share workflows across projects and teams
+- **Composable**: Mix and match commands to build complex workflows
+- **Tested**: Battle-tested patterns for common tasks
+
+### vs LangChain/LlamaIndex
+- **Practical**: Focused on real development tasks, not general AI chains
+- **Git-native**: Every change tracked, easy rollback
+- **Test-driven**: Validation built into the workflow
+
+### vs Manual LLM Interaction
+- **Reproducible**: Same workflow produces consistent results
+- **Automated**: No copy-paste between Claude and terminal
+- **Auditable**: Complete history of all changes
 
 ### Supported Languages
 MMM is currently **Rust-first** during early development as we refine the tool by using it to build itself. While the architecture is designed to be language-agnostic (our end goal), we're prioritizing Rust to ensure a solid foundation.
@@ -266,35 +320,68 @@ The tool's core architecture is language-agnostic and relies on Claude's ability
 - **Auditable**: Complete paper trail of what was changed and why
 - **Validation**: Code is linted and formatted after each change
 
-## Configuration - Flexible Development Loops
+## Workflow Configuration
 
-`mmm` works out of the box with smart defaults, but its real power comes from customizable workflows that create targeted development loops.
+### Simple Workflows
 
-### Configurable Workflows
-
-Create custom playbook files to define your improvement workflows:
-
+Basic improvement workflow:
 ```yaml
-# my-playbook.yml
-# Simple YAML format - dead simple and clean
-commands:
-  - mmm-code-review
-  - mmm-implement-spec
-  - name: mmm-lint
-    commit_required: false  # Linting may not always make changes
+# improve.yml
+- claude: "/mmm-code-review"
+- claude: "/mmm-implement-spec"
+- claude: "/mmm-lint"
 ```
 
-The default workflow runs these three commands in order:
-1. `mmm-code-review` - Analyzes code and generates improvement specs
-2. `mmm-implement-spec` - Implements the improvements (spec ID extracted automatically)
-3. `mmm-lint` - Runs formatting and linting (won't fail if no changes needed)
+### Advanced Workflows
 
-Run your custom playbook:
-```bash
-mmm cook my-playbook.yml
+Test-driven development workflow:
+```yaml
+# tdd.yml
+- claude: "/mmm-analyze-coverage"
+  id: coverage
+  
+- claude: "/mmm-write-tests ${coverage.spec}"
+  
+- shell: "cargo test"
+  on_failure:
+    claude: "/mmm-fix-test --error ${shell.output}"
+    max_attempts: 3
+    
+- claude: "/mmm-lint"
 ```
 
-You can create custom development loops by combining different Claude commands.
+Security audit workflow:
+```yaml
+# security.yml
+- claude: "/mmm-security-audit"
+  id: audit
+  analysis:
+    force_refresh: true
+    
+- claude: "/mmm-implement-spec ${audit.spec}"
+  commit_required: true
+  
+- shell: "cargo audit"
+  on_failure:
+    fail_workflow: true
+```
+
+Performance optimization:
+```yaml
+# performance.yml  
+- shell: "cargo bench --bench main -- --save-baseline before"
+
+- claude: "/mmm-performance-review"
+  id: perf
+  
+- claude: "/mmm-implement-spec ${perf.spec}"
+
+- shell: "cargo bench --bench main -- --baseline before"
+  capture_output: true
+  id: bench_results
+  
+- claude: "/mmm-analyze-results --data ${bench_results.output}"
+```
 
 #### Command Arguments
 
