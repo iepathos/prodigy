@@ -44,7 +44,7 @@ Refactor the analysis system to be a standalone command in workflows while maint
 - **Legacy Support**: Maintain existing `mmm analyze` CLI command functionality
 - **Cache Control**: Support cache control parameters (max_cache_age, force_refresh) as command attributes
 - **Output Control**: Support different output formats and save options
-- **Coverage Integration**: Support running coverage analysis as part of the command
+- **Coverage Integration**: Always runs coverage analysis as part of the standard analysis process
 
 ### Non-Functional Requirements
 
@@ -56,7 +56,7 @@ Refactor the analysis system to be a standalone command in workflows while maint
 ## Acceptance Criteria
 
 - [ ] `AnalyzeCommandHandler` struct implemented with `CommandHandler` trait
-- [ ] Analysis command supports all attributes: `force_refresh`, `max_cache_age`, `save`, `output`, `run_coverage`
+- [ ] Analysis command supports all attributes: `force_refresh`, `max_cache_age`, `save`, `output`
 - [ ] Workflow parser recognizes `analyze:` command syntax
 - [ ] Example workflows updated to use `analyze:` commands instead of `analysis:` attributes
 - [ ] All existing `analysis:` attribute functionality migrated to command attributes
@@ -88,11 +88,10 @@ impl CommandHandler for AnalyzeCommandHandler {
     
     fn schema(&self) -> AttributeSchema {
         let mut schema = AttributeSchema::new("analyze");
-        schema.add_optional("force_refresh", "Force fresh analysis ignoring cache");
+        schema.add_optional_with_default("force_refresh", "Force fresh analysis ignoring cache", AttributeValue::Boolean(false));
         schema.add_optional_with_default("max_cache_age", "Maximum cache age in seconds", AttributeValue::Number(3600.0));
         schema.add_optional_with_default("save", "Save results to .mmm directory", AttributeValue::Boolean(true));
         schema.add_optional_with_default("output", "Output format (json, pretty, summary)", AttributeValue::String("summary".to_string()));
-        schema.add_optional_with_default("run_coverage", "Run coverage analysis", AttributeValue::Boolean(false));
         schema
     }
     
@@ -109,7 +108,6 @@ impl CommandHandler for AnalyzeCommandHandler {
     max_cache_age: 300
     save: true
     output: "json"
-    run_coverage: false
 
 # Multiple analysis steps
 - analyze:
@@ -180,6 +178,15 @@ The analyze command will use existing analysis infrastructure:
 
 ## Implementation Notes
 
+### Command Attribute Details
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `force_refresh` | boolean | false | Forces fresh analysis, ignoring cached results entirely. When true, skips cache checks and regenerates all analysis data. |
+| `max_cache_age` | number | 3600 | Maximum age of cached analysis in seconds. Ignored when `force_refresh` is true. Cache entries older than this are considered stale and regenerated. |
+| `save` | boolean | true | Whether to save analysis results to `.mmm/context/` directory for use by other commands. |
+| `output` | string | "summary" | Output format: "json" (structured data), "pretty" (formatted display), "summary" (concise overview). |
+
 ### Command Attribute Mapping
 
 | Old Analysis Attribute | New Analyze Command Attribute |
@@ -188,7 +195,6 @@ The analyze command will use existing analysis infrastructure:
 | `force_refresh` | `force_refresh` |
 | N/A | `save` (always true in workflows) |
 | N/A | `output` (defaults to "summary") |
-| N/A | `run_coverage` (defaults to false) |
 
 ### Workflow Migration Strategy
 
@@ -253,10 +259,9 @@ The analyze command will use existing analysis infrastructure:
 
 ### Advanced Configuration
 ```yaml
-# Comprehensive analysis with coverage
+# Comprehensive analysis (coverage always included)
 - analyze:
     force_refresh: true
-    run_coverage: true
     output: "json"
     save: true
 
