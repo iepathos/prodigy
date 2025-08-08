@@ -3,6 +3,7 @@
 //! Executes workflow steps in sequence, verifies git commits when required,
 //! and manages iteration logic for continuous improvement sessions.
 
+use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};
 use crate::config::command::AnalysisConfig;
 use crate::cook::analysis::AnalysisCoordinator;
 use crate::cook::execution::ClaudeExecutor;
@@ -30,6 +31,11 @@ pub enum CommandType {
     Test(crate::config::command::TestCommand),
     /// Legacy name-based approach
     Legacy(String),
+    /// Modular command handler
+    Handler {
+        handler_name: String,
+        attributes: HashMap<String, AttributeValue>,
+    },
 }
 
 /// Result of executing a step
@@ -74,6 +80,16 @@ impl WorkflowContext {
     }
 }
 
+/// Handler step configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HandlerStep {
+    /// Handler name (e.g., "shell", "claude", "git", "cargo", "file")
+    pub name: String,
+    /// Attributes to pass to the handler
+    #[serde(default)]
+    pub attributes: HashMap<String, serde_json::Value>,
+}
+
 /// A workflow step with extended syntax support
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkflowStep {
@@ -96,6 +112,10 @@ pub struct WorkflowStep {
     /// Legacy command field (for backward compatibility)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub command: Option<String>,
+
+    /// Modular command handler with attributes
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub handler: Option<HandlerStep>,
 
     /// Whether to capture command output
     #[serde(default)]
@@ -166,9 +186,16 @@ pub struct WorkflowExecutor {
     user_interaction: Arc<dyn UserInteraction>,
     timing_tracker: TimingTracker,
     test_config: Option<Arc<TestConfiguration>>,
+    command_registry: Option<CommandRegistry>,
 }
 
 impl WorkflowExecutor {
+    /// Sets the command registry for modular command handlers
+    pub async fn with_command_registry(mut self) -> Self {
+        self.command_registry = Some(CommandRegistry::with_defaults().await);
+        self
+    }
+
     /// Create a new workflow executor
     pub fn new(
         claude_executor: Arc<dyn ClaudeExecutor>,
@@ -185,6 +212,7 @@ impl WorkflowExecutor {
             user_interaction,
             timing_tracker: TimingTracker::new(),
             test_config: None,
+            command_registry: None,
         }
     }
 
@@ -205,6 +233,37 @@ impl WorkflowExecutor {
             user_interaction,
             timing_tracker: TimingTracker::new(),
             test_config: Some(test_config),
+            command_registry: None,
+        }
+    }
+
+    /// Convert serde_json::Value to AttributeValue
+    fn json_to_attribute_value(&self, value: serde_json::Value) -> AttributeValue {
+        match value {
+            serde_json::Value::String(s) => AttributeValue::String(s),
+            serde_json::Value::Number(n) => {
+                if let Some(i) = n.as_i64() {
+                    AttributeValue::Number(i as f64)
+                } else if let Some(f) = n.as_f64() {
+                    AttributeValue::Number(f)
+                } else {
+                    AttributeValue::Number(0.0)
+                }
+            }
+            serde_json::Value::Bool(b) => AttributeValue::Boolean(b),
+            serde_json::Value::Array(arr) => AttributeValue::Array(
+                arr.into_iter()
+                    .map(|v| self.json_to_attribute_value(v))
+                    .collect(),
+            ),
+            serde_json::Value::Object(obj) => {
+                let mut map = HashMap::new();
+                for (k, v) in obj {
+                    map.insert(k, self.json_to_attribute_value(v));
+                }
+                AttributeValue::Object(map)
+            }
+            serde_json::Value::Null => AttributeValue::Null,
         }
     }
 
@@ -221,6 +280,9 @@ impl WorkflowExecutor {
         if step.test.is_some() {
             specified_count += 1;
         }
+        if step.handler.is_some() {
+            specified_count += 1;
+        }
         if step.name.is_some() || step.command.is_some() {
             specified_count += 1;
         }
@@ -228,18 +290,28 @@ impl WorkflowExecutor {
         // Ensure only one command type is specified
         if specified_count > 1 {
             return Err(anyhow!(
-                "Multiple command types specified. Use only one of: claude, shell, test, or name/command"
+                "Multiple command types specified. Use only one of: claude, shell, test, handler, or name/command"
             ));
         }
 
         if specified_count == 0 {
             return Err(anyhow!(
-                "No command specified. Use one of: claude, shell, test, or name/command"
+                "No command specified. Use one of: claude, shell, test, handler, or name/command"
             ));
         }
 
         // Return the appropriate command type
-        if let Some(claude_cmd) = &step.claude {
+        if let Some(handler_step) = &step.handler {
+            // Convert serde_json::Value to AttributeValue
+            let mut attributes = HashMap::new();
+            for (key, value) in &handler_step.attributes {
+                attributes.insert(key.clone(), self.json_to_attribute_value(value.clone()));
+            }
+            Ok(CommandType::Handler {
+                handler_name: handler_step.name.clone(),
+                attributes,
+            })
+        } else if let Some(claude_cmd) = &step.claude {
             Ok(CommandType::Claude(claude_cmd.clone()))
         } else if let Some(shell_cmd) = &step.shell {
             Ok(CommandType::Shell(shell_cmd.clone()))
@@ -268,6 +340,8 @@ impl WorkflowExecutor {
             format!("shell: {shell_cmd}")
         } else if let Some(test_cmd) = &step.test {
             format!("test: {}", test_cmd.command)
+        } else if let Some(handler_step) = &step.handler {
+            format!("handler: {}", handler_step.name)
         } else if let Some(name) = &step.name {
             name.clone()
         } else if let Some(command) = &step.command {
@@ -560,6 +634,14 @@ impl WorkflowExecutor {
                 self.execute_claude_command(&interpolated_cmd, env, env_vars)
                     .await?
             }
+            CommandType::Handler {
+                handler_name,
+                attributes,
+            } => {
+                // Execute using the modular command handler
+                self.execute_handler_command(handler_name, attributes, env, ctx, env_vars)
+                    .await?
+            }
         };
 
         // Capture output if requested
@@ -632,6 +714,63 @@ impl WorkflowExecutor {
             .await?;
 
         Ok(result)
+    }
+
+    /// Execute a modular handler command
+    async fn execute_handler_command(
+        &self,
+        handler_name: String,
+        mut attributes: HashMap<String, AttributeValue>,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+        env_vars: HashMap<String, String>,
+    ) -> Result<StepResult> {
+        // Check if command registry is available
+        let registry = self.command_registry.as_ref().ok_or_else(|| {
+            anyhow!("Command registry not initialized. Call with_command_registry() first.")
+        })?;
+
+        // Create execution context for the handler
+        let mut exec_context = ExecutionContext::new(env.working_dir.clone());
+        exec_context.add_env_vars(env_vars);
+
+        // Add session information if available
+        if let Some(session_id) = ctx.variables.get("SESSION_ID") {
+            exec_context = exec_context.with_session_id(session_id.clone());
+        }
+        if let Some(iteration) = ctx.iteration_vars.get("ITERATION") {
+            if let Ok(iter_num) = iteration.parse::<usize>() {
+                exec_context = exec_context.with_iteration(iter_num);
+            }
+        }
+
+        // Interpolate attribute values
+        for (_, value) in attributes.iter_mut() {
+            if let AttributeValue::String(s) = value {
+                *s = ctx.interpolate(s);
+            }
+        }
+
+        // Execute the handler
+        let result = registry
+            .execute(&handler_name, &exec_context, attributes)
+            .await;
+
+        // Convert CommandResult to StepResult
+        Ok(StepResult {
+            success: result.is_success(),
+            exit_code: result.exit_code,
+            stdout: result.stdout.unwrap_or_else(|| {
+                result
+                    .data
+                    .as_ref()
+                    .map(|d| serde_json::to_string_pretty(d).unwrap_or_default())
+                    .unwrap_or_default()
+            }),
+            stderr: result
+                .stderr
+                .unwrap_or_else(|| result.error.unwrap_or_default()),
+        })
     }
 
     /// Execute a Claude command
@@ -975,6 +1114,7 @@ impl WorkflowExecutor {
             CommandType::Shell(cmd) => format!("Shell command: {cmd}"),
             CommandType::Test(test_cmd) => format!("Test command: {}", test_cmd.command),
             CommandType::Legacy(cmd) => format!("Legacy command: {cmd}"),
+            CommandType::Handler { handler_name, .. } => format!("Handler command: {handler_name}"),
         };
 
         println!("[TEST MODE] Would execute {command_str}");
@@ -986,6 +1126,7 @@ impl WorkflowExecutor {
             }
             CommandType::Shell(_) => false,
             CommandType::Test(_) => false,
+            CommandType::Handler { .. } => false,
         };
 
         if should_simulate_no_changes {
@@ -1047,6 +1188,7 @@ impl WorkflowExecutor {
                 .unwrap_or(""),
             CommandType::Shell(cmd) => cmd,
             CommandType::Test(test_cmd) => &test_cmd.command,
+            CommandType::Handler { handler_name, .. } => handler_name,
         };
 
         eprintln!("\n❌ Workflow stopped: No changes were committed by {step_display}");

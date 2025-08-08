@@ -13,6 +13,7 @@
 //! - `abstractions` - Trait-based abstractions for external dependencies (git, Claude CLI)
 //! - `analysis` - Unified analysis function for consistent behavior
 //! - `analyze` - Project analysis and metrics commands
+//! - `commands` - Modular command handler architecture for extensible workflow commands
 //! - `config` - Configuration management for the tool
 //! - `context` - Context-aware project understanding and analysis
 //! - `cook` - Core cooking command implementation with mapping support
@@ -28,6 +29,7 @@
 pub mod abstractions;
 pub mod analysis;
 pub mod analyze;
+pub mod commands;
 pub mod config;
 pub mod context;
 pub mod cook;

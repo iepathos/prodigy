@@ -316,6 +316,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                                         claude: Some(debug_config.claude.clone()),
                                         shell: None,
                                         test: None,
+                                        handler: None,
                                         capture_output: false,
                                         timeout: None,
                                         working_dir: None,
@@ -338,6 +339,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                             claude: step.claude.clone(),
                             shell,
                             test, // Contains retry logic for shell commands
+                            handler: None,
                             capture_output: step.capture_output,
                             timeout: None,
                             working_dir: None,
@@ -408,6 +410,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                             claude: None,
                             shell: None,
                             test: None,
+                            handler: None,
                             capture_output: false,
                             timeout: None,
                             working_dir: None,
@@ -606,7 +609,8 @@ impl DefaultCookOrchestrator {
 
                 // Check if this command requires analysis
                 if let Some(ref analysis_config) = command.analysis {
-                    self.run_analysis_if_needed(env, analysis_config, Some(iteration as usize)).await?;
+                    self.run_analysis_if_needed(env, analysis_config, Some(iteration as usize))
+                        .await?;
                 }
 
                 // Resolve variables from command outputs for use in variable expansion
@@ -843,7 +847,8 @@ impl DefaultCookOrchestrator {
 
                 // Check if this command requires analysis
                 if let Some(ref analysis_config) = command.analysis {
-                    self.run_analysis_if_needed(env, analysis_config, Some(iteration as usize)).await?;
+                    self.run_analysis_if_needed(env, analysis_config, Some(iteration as usize))
+                        .await?;
                 }
 
                 // Build command string
@@ -1137,7 +1142,8 @@ impl DefaultCookOrchestrator {
 
         // Check if this command requires analysis
         if let Some(ref analysis_config) = command.analysis {
-            self.run_analysis_if_needed(env, analysis_config, None).await?;
+            self.run_analysis_if_needed(env, analysis_config, None)
+                .await?;
         }
 
         // Build the command with resolved arguments
@@ -1345,7 +1351,7 @@ impl DefaultCookOrchestrator {
     ) -> Result<()> {
         // Force refresh on iterations after the first one
         let force_refresh = config.force_refresh || iteration.unwrap_or(1) > 1;
-        
+
         // Check cache age if not forcing refresh
         if !force_refresh {
             let mut all_cached = true;
