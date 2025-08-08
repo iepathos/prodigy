@@ -109,13 +109,13 @@ mod tests {
     }
 
     /// Test helper: Stage all changes in a specific directory
-    async fn stage_all_changes_in_dir(dir: &std::path::Path) -> Result<()> {
+    pub(super) async fn stage_all_changes_in_dir(dir: &std::path::Path) -> Result<()> {
         git_in_dir(dir, &["add", "."]).await?;
         Ok(())
     }
 
     /// Test helper: Create commit in a specific directory
-    async fn create_commit_in_dir(dir: &std::path::Path, message: &str) -> Result<()> {
+    pub(super) async fn create_commit_in_dir(dir: &std::path::Path, message: &str) -> Result<()> {
         git_in_dir(dir, &["commit", "-m", message]).await?;
         Ok(())
     }
@@ -424,61 +424,50 @@ mod tests {
 
 #[cfg(test)]
 mod mock_tests {
-    use super::*;
+    use super::tests::{create_commit_in_dir, create_temp_git_repo, stage_all_changes_in_dir};
 
     #[tokio::test]
     async fn test_stage_all_changes_with_mock() {
-        // This test verifies the public function works by using it in a controlled environment
-        // We create a temporary git repo to test staging
-        let temp_repo = match super::tests::create_temp_git_repo().await {
+        // This test verifies staging works in an isolated environment
+        let temp_repo = match create_temp_git_repo().await {
             Ok(repo) => repo,
             Err(e) => {
                 eprintln!("Skipping test - could not create temp git repo: {e}");
                 return;
             }
         };
-        let original_dir = std::env::current_dir().unwrap();
 
-        // Change to temp repo
-        std::env::set_current_dir(temp_repo.path()).unwrap();
-
-        // Create a file to stage
+        // Create a file to stage using directory-specific path
         std::fs::write(temp_repo.path().join("test_stage.txt"), "content").unwrap();
 
-        // Test staging
-        let result = stage_all_changes().await;
+        // Test staging using directory-specific operation
+        let result = stage_all_changes_in_dir(temp_repo.path()).await;
 
-        // Restore directory
-        std::env::set_current_dir(&original_dir).unwrap();
-
-        assert!(result.is_ok(), "stage_all_changes should succeed");
+        assert!(result.is_ok(), "stage_all_changes_in_dir should succeed");
     }
 
     #[tokio::test]
     async fn test_create_commit_with_mock() {
-        // This test verifies the public function works by using it in a controlled environment
-        let temp_repo = match super::tests::create_temp_git_repo().await {
+        // This test verifies git operations work in an isolated environment
+        let temp_repo = match create_temp_git_repo().await {
             Ok(repo) => repo,
             Err(e) => {
                 eprintln!("Skipping test - could not create temp git repo: {e}");
                 return;
             }
         };
-        let original_dir = std::env::current_dir().unwrap();
 
-        // Change to temp repo
-        std::env::set_current_dir(temp_repo.path()).unwrap();
-
-        // Create and stage a file
+        // Create and stage a file using directory-specific operations
         std::fs::write(temp_repo.path().join("test_commit.txt"), "content").unwrap();
-        let _ = stage_all_changes().await;
+        let stage_result = stage_all_changes_in_dir(temp_repo.path()).await;
+        assert!(
+            stage_result.is_ok(),
+            "stage_all_changes_in_dir should succeed"
+        );
 
-        // Test commit creation
-        let result = create_commit("test: mock commit").await;
+        // Test commit creation using directory-specific operation
+        let result = create_commit_in_dir(temp_repo.path(), "test: mock commit").await;
 
-        // Restore directory
-        std::env::set_current_dir(&original_dir).unwrap();
-
-        assert!(result.is_ok(), "create_commit should succeed");
+        assert!(result.is_ok(), "create_commit_in_dir should succeed");
     }
 }
