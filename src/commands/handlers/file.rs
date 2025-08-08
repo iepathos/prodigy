@@ -180,9 +180,7 @@ impl CommandHandler for FileHandler {
                         })),
                         Err(e) => CommandResult::error(format!("Failed to append to file: {e}")),
                     },
-                    Err(e) => {
-                        CommandResult::error(format!("Failed to open file for append: {e}"))
-                    }
+                    Err(e) => CommandResult::error(format!("Failed to open file for append: {e}")),
                 }
             }
             "delete" => match fs::remove_file(&path).await {

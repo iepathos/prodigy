@@ -225,7 +225,7 @@ pub struct SimpleCommand {
     pub analysis: Option<AnalysisConfig>,
 }
 
-/// New workflow step command format supporting claude:, shell:, and test: syntax
+/// New workflow step command format supporting claude:, shell:, analyze:, and test: syntax
 #[derive(Debug, Clone, Serialize)]
 pub struct WorkflowStepCommand {
     /// Claude CLI command with args
@@ -235,6 +235,10 @@ pub struct WorkflowStepCommand {
     /// Shell command to execute
     #[serde(skip_serializing_if = "Option::is_none")]
     pub shell: Option<String>,
+
+    /// Analyze command configuration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub analyze: Option<HashMap<String, serde_json::Value>>,
 
     /// Test command configuration (deprecated, use shell with on_failure instead)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -278,6 +282,7 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
         struct Helper {
             claude: Option<String>,
             shell: Option<String>,
+            analyze: Option<HashMap<String, serde_json::Value>>,
             test: Option<TestCommand>,
             id: Option<String>,
             #[serde(default)]
@@ -311,16 +316,17 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
             (helper.shell, None, helper.on_failure)
         };
 
-        // Validate that at least one of claude or shell is present
-        if helper.claude.is_none() && shell.is_none() {
+        // Validate that at least one of claude, shell, or analyze is present
+        if helper.claude.is_none() && shell.is_none() && helper.analyze.is_none() {
             return Err(serde::de::Error::custom(
-                "WorkflowStepCommand must have either 'claude' or 'shell' field",
+                "WorkflowStepCommand must have 'claude', 'shell', or 'analyze' field",
             ));
         }
 
         Ok(WorkflowStepCommand {
             claude: helper.claude,
             shell,
+            analyze: helper.analyze,
             test,
             id: helper.id,
             commit_required: helper.commit_required,
@@ -347,6 +353,9 @@ impl WorkflowCommand {
                     // For shell commands, we might need special handling
                     // For now, treat it as a simple command
                     format!("shell {shell_cmd}")
+                } else if let Some(_analyze_attrs) = &step.analyze {
+                    // Analyze commands are handled via modular handlers
+                    "analyze".to_string()
                 } else if let Some(test_cmd) = &step.test {
                     // For test commands, we need special handling
                     format!("test {}", test_cmd.command)

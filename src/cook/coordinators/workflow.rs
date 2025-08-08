@@ -120,6 +120,7 @@ impl WorkflowCoordinator for DefaultWorkflowCoordinator {
                 };
 
                 let step = WorkflowStep {
+                    analyze: None,
                     name: None,
                     command: Some(if command_str.starts_with('/') {
                         command_str
