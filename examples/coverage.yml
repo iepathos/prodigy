@@ -1,9 +1,5 @@
 # Test coverage improvement workflow with automatic test debugging
 # Identifies coverage gaps, implements tests, and automatically fixes failing tests
-- analyze:
-    max_cache_age: 300
-    save: true
-
 - claude: "/mmm-coverage"
   id: coverage
   commit_required: true
@@ -21,3 +17,8 @@
     fail_workflow: false  # Continue workflow even if tests can't be fixed
 
 - claude: "/mmm-lint"  # Defaults to commit_required: false
+
+- analyze:
+    max_cache_age: 300
+    save: true
+
