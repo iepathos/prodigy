@@ -429,12 +429,18 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             })
             .collect();
 
+        // Check if workflow explicitly requests analysis at the beginning
+        // Only run initial analysis if there's no analyze step in the workflow
+        let has_analyze_step = config.workflow.commands.iter().any(
+            |cmd| matches!(cmd, WorkflowCommand::WorkflowStep(step) if step.analyze.is_some()),
+        );
+
         let extended_workflow = ExtendedWorkflowConfig {
             name: "default".to_string(),
             steps,
             max_iterations: config.command.max_iterations,
             iterate: config.command.max_iterations > 1,
-            analyze_before: true,
+            analyze_before: !has_analyze_step, // Only analyze before if no explicit analyze steps
             analyze_between: false,
             collect_metrics: config.command.metrics,
         };
