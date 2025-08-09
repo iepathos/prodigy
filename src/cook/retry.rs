@@ -38,54 +38,29 @@ pub async fn execute_with_retry(
 
     while attempt <= max_retries {
         if attempt > 0 {
-            let delay = Duration::from_secs(2u64.pow(attempt.min(3))); // Exponential backoff, max 8s
-            if verbose {
-                println!(
-                    "⏳ Retrying {description} after {delay:?} (attempt {attempt}/{max_retries})"
-                );
-            }
-            sleep(delay).await;
+            await_retry_delay(attempt, description, max_retries, verbose).await;
         }
 
         match command.output().await {
             Ok(output) => {
-                // Check if it's a transient error we should retry
-                if !output.status.success() {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-
-                    // Retry on specific error conditions
-                    if is_transient_error(&stderr) && attempt < max_retries {
-                        if verbose {
-                            eprintln!(
-                                "⚠️  Transient error detected: {}",
-                                stderr.lines().next().unwrap_or("Unknown error")
-                            );
-                        }
-                        last_error = Some(stderr.to_string());
-                        attempt += 1;
-                        continue;
-                    }
-                }
-
-                return Ok(output);
-            }
-            Err(e) => {
-                // System-level errors (e.g., command not found) shouldn't be retried
-                if e.kind() == std::io::ErrorKind::NotFound {
-                    return Err(e).context(format!("Command not found for {description}"));
-                }
-
-                // Other IO errors might be transient
-                if attempt < max_retries {
+                if let Some(retry_reason) = should_retry_output(&output, attempt, max_retries) {
                     if verbose {
-                        eprintln!("⚠️  IO error: {e}");
+                        eprintln!("⚠️  Transient error detected: {retry_reason}");
                     }
-                    last_error = Some(e.to_string());
+                    last_error = Some(retry_reason);
                     attempt += 1;
                     continue;
                 }
-
-                return Err(e).context(format!("Failed to execute {description}"));
+                return Ok(output);
+            }
+            Err(e) => {
+                let retry_result =
+                    handle_command_error(e, description, attempt, max_retries, verbose)?;
+                if let Some(error_msg) = retry_result {
+                    last_error = Some(error_msg);
+                    attempt += 1;
+                    continue;
+                }
             }
         }
     }
@@ -96,6 +71,51 @@ pub async fn execute_with_retry(
         max_retries,
         last_error.unwrap_or_else(|| "Unknown error".to_string())
     ))
+}
+
+async fn await_retry_delay(attempt: u32, description: &str, max_retries: u32, verbose: bool) {
+    let delay = Duration::from_secs(2u64.pow(attempt.min(3))); // Exponential backoff, max 8s
+    if verbose {
+        println!("⏳ Retrying {description} after {delay:?} (attempt {attempt}/{max_retries})");
+    }
+    sleep(delay).await;
+}
+
+fn should_retry_output(
+    output: &std::process::Output,
+    attempt: u32,
+    max_retries: u32,
+) -> Option<String> {
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if is_transient_error(&stderr) && attempt < max_retries {
+            return Some(stderr.lines().next().unwrap_or("Unknown error").to_string());
+        }
+    }
+    None
+}
+
+fn handle_command_error(
+    error: std::io::Error,
+    description: &str,
+    attempt: u32,
+    max_retries: u32,
+    verbose: bool,
+) -> Result<Option<String>> {
+    // System-level errors (e.g., command not found) shouldn't be retried
+    if error.kind() == std::io::ErrorKind::NotFound {
+        return Err(error).context(format!("Command not found for {description}"));
+    }
+
+    // Other IO errors might be transient
+    if attempt < max_retries {
+        if verbose {
+            eprintln!("⚠️  IO error: {error}");
+        }
+        return Ok(Some(error.to_string()));
+    }
+
+    Err(error).context(format!("Failed to execute {description}"))
 }
 
 /// Check if an error message indicates a transient failure

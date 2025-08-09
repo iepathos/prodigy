@@ -802,7 +802,15 @@ commit_required: false
 
     #[test]
     fn test_workflow_config_with_new_syntax() {
-        // Test parsing the exact structure used in coverage.yml
+        let config = parse_test_workflow_config();
+        assert_eq!(config.commands.len(), 3);
+
+        verify_coverage_command(&config.commands[0]);
+        verify_implement_spec_command(&config.commands[1]);
+        verify_lint_command(&config.commands[2]);
+    }
+
+    fn parse_test_workflow_config() -> WorkflowConfig {
         let yaml = r#"
 commands:
     - claude: "/mmm-coverage"
@@ -820,36 +828,42 @@ commands:
       commit_required: false
 "#;
 
-        let config: WorkflowConfig = match serde_yaml::from_str(yaml) {
-            Ok(c) => c,
-            Err(e) => {
-                // Try to parse just the commands array to debug
-                let yaml_value: serde_yaml::Value = serde_yaml::from_str(yaml).unwrap();
-                if let Some(commands) = yaml_value.get("commands") {
-                    println!("Commands value: {commands:?}");
+        serde_yaml::from_str(yaml).unwrap_or_else(|e| {
+            debug_workflow_parsing_error(yaml, &e);
+            panic!("Failed to parse WorkflowConfig: {e}");
+        })
+    }
 
-                    // Try to parse each command
-                    if let Some(seq) = commands.as_sequence() {
-                        for (i, cmd) in seq.iter().enumerate() {
-                            println!("\nCommand {i}: {cmd:?}");
-                            match serde_yaml::from_value::<WorkflowStepCommand>(cmd.clone()) {
-                                Ok(_parsed) => println!("  Parsed as WorkflowStepCommand: success"),
-                                Err(e2) => println!("  Failed as WorkflowStepCommand: {e2}"),
-                            }
-                            match serde_yaml::from_value::<WorkflowCommand>(cmd.clone()) {
-                                Ok(parsed) => println!("  Parsed as WorkflowCommand: {parsed:?}"),
-                                Err(e2) => println!("  Failed as WorkflowCommand: {e2}"),
-                            }
-                        }
-                    }
-                }
-                panic!("Failed to parse WorkflowConfig: {e}");
+    fn debug_workflow_parsing_error(yaml: &str, _error: &serde_yaml::Error) {
+        let yaml_value: serde_yaml::Value = serde_yaml::from_str(yaml).unwrap();
+        if let Some(commands) = yaml_value.get("commands") {
+            println!("Commands value: {commands:?}");
+            if let Some(seq) = commands.as_sequence() {
+                debug_command_sequence(seq);
             }
-        };
-        assert_eq!(config.commands.len(), 3);
+        }
+    }
 
-        // Verify first command
-        match &config.commands[0] {
+    fn debug_command_sequence(seq: &[serde_yaml::Value]) {
+        for (i, cmd) in seq.iter().enumerate() {
+            println!("\nCommand {i}: {cmd:?}");
+            try_parse_as::<WorkflowStepCommand>(cmd, "WorkflowStepCommand");
+            try_parse_as::<WorkflowCommand>(cmd, "WorkflowCommand");
+        }
+    }
+
+    fn try_parse_as<T: serde::de::DeserializeOwned + std::fmt::Debug>(
+        value: &serde_yaml::Value,
+        type_name: &str,
+    ) {
+        match serde_yaml::from_value::<T>(value.clone()) {
+            Ok(parsed) => println!("  Parsed as {type_name}: {parsed:?}"),
+            Err(e) => println!("  Failed as {type_name}: {e}"),
+        }
+    }
+
+    fn verify_coverage_command(command: &WorkflowCommand) {
+        match command {
             WorkflowCommand::WorkflowStep(step) => {
                 assert_eq!(step.claude, Some("/mmm-coverage".to_string()));
                 assert_eq!(step.id, Some("coverage".to_string()));
@@ -857,28 +871,29 @@ commands:
                 assert!(step.outputs.is_some());
                 assert!(step.analysis.is_some());
             }
-            _ => panic!("Expected WorkflowStep variant for first command"),
+            _ => panic!("Expected WorkflowStep variant for coverage command"),
         }
+    }
 
-        // Verify second command
-        match &config.commands[1] {
+    fn verify_implement_spec_command(command: &WorkflowCommand) {
+        match command {
             WorkflowCommand::WorkflowStep(step) => {
                 assert_eq!(
                     step.claude,
                     Some("/mmm-implement-spec ${coverage.spec}".to_string())
                 );
-                // inputs removed - arguments now passed directly in command string
             }
-            _ => panic!("Expected WorkflowStep variant for second command"),
+            _ => panic!("Expected WorkflowStep variant for implement-spec command"),
         }
+    }
 
-        // Verify third command
-        match &config.commands[2] {
+    fn verify_lint_command(command: &WorkflowCommand) {
+        match command {
             WorkflowCommand::WorkflowStep(step) => {
                 assert_eq!(step.claude, Some("/mmm-lint".to_string()));
                 assert!(!step.commit_required);
             }
-            _ => panic!("Expected WorkflowStep variant for third command"),
+            _ => panic!("Expected WorkflowStep variant for lint command"),
         }
     }
 }

@@ -2,7 +2,7 @@
 
 use super::types::*;
 use anyhow::Result;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Parse git status --porcelain=v2 output
 pub fn parse_status_output(output: &str) -> Result<GitStatus> {
@@ -13,39 +13,44 @@ pub fn parse_status_output(output: &str) -> Result<GitStatus> {
             continue;
         }
 
-        if line.starts_with("# branch.head ") {
-            let branch_name = line.strip_prefix("# branch.head ").unwrap_or("");
-            if branch_name != "(detached)" {
-                status.branch = Some(branch_name.to_string());
-            }
-        } else if line.starts_with("# branch.upstream ") {
-            // Ignore upstream info for now
-        } else if line.starts_with("# branch.ab ") {
-            // Ignore ahead/behind info for now
-        } else if line.starts_with("# merge.in-progress ") {
-            status.in_merge = line.contains("true");
-        } else if line.starts_with("1 ") {
-            // Regular file entry: 1 <xy> <sub> <mH> <mI> <mW> <hH> <hI> <path>
-            parse_status_line(&mut status, line)?;
-        } else if line.starts_with("2 ") {
-            // Renamed/copied file entry: 2 <xy> <sub> <mH> <mI> <mW> <hH> <hI> <X><score> <path><sep><origPath>
-            parse_renamed_line(&mut status, line)?;
-        } else if line.starts_with("u ") {
-            // Unmerged file entry: u <xy> <sub> <m1> <m2> <m3> <mW> <h1> <h2> <h3> <path>
-            parse_unmerged_line(&mut status, line)?;
-        } else if line.starts_with("? ") {
-            // Untracked file: ? <path>
-            let path = line.strip_prefix("? ").unwrap_or("").trim();
-            if !path.is_empty() {
-                status.untracked.push(PathBuf::from(path));
-            }
-        } else if line.starts_with("! ") {
-            // Ignored file: ! <path>
-            // We don't track ignored files in our status
-        }
+        parse_status_line_entry(&mut status, line)?;
     }
 
     Ok(status)
+}
+
+fn parse_status_line_entry(status: &mut GitStatus, line: &str) -> Result<()> {
+    match line.chars().next() {
+        Some('#') => parse_header_line(status, line),
+        Some('1') => parse_status_line(status, line),
+        Some('2') => parse_renamed_line(status, line),
+        Some('u') => parse_unmerged_line(status, line),
+        Some('?') => parse_untracked_line(status, line),
+        Some('!') => Ok(()), // Ignored files - we don't track these
+        _ => Ok(()),
+    }
+}
+
+fn parse_header_line(status: &mut GitStatus, line: &str) -> Result<()> {
+    if let Some(branch_name) = line.strip_prefix("# branch.head ") {
+        if branch_name != "(detached)" {
+            status.branch = Some(branch_name.to_string());
+        }
+    } else if line.starts_with("# merge.in-progress ") {
+        status.in_merge = line.contains("true");
+    }
+    // Ignore other header lines (upstream, ahead/behind info)
+    Ok(())
+}
+
+fn parse_untracked_line(status: &mut GitStatus, line: &str) -> Result<()> {
+    if let Some(path) = line.strip_prefix("? ") {
+        let path = path.trim();
+        if !path.is_empty() {
+            status.untracked.push(PathBuf::from(path));
+        }
+    }
+    Ok(())
 }
 
 fn parse_status_line(status: &mut GitStatus, line: &str) -> Result<()> {
@@ -170,60 +175,66 @@ pub fn parse_worktree_list(output: &str) -> Result<Vec<WorktreeInfo>> {
 
     for line in output.lines() {
         if line.is_empty() {
-            if let Some(worktree) = current_worktree.take() {
-                worktrees.push(worktree);
-            }
+            finalize_worktree(&mut worktrees, &mut current_worktree);
             continue;
         }
 
         if line.starts_with("worktree ") {
-            // Start of new worktree entry
-            if let Some(worktree) = current_worktree.take() {
-                worktrees.push(worktree);
-            }
-
-            let path = line.strip_prefix("worktree ").unwrap_or("");
-            let path_buf = PathBuf::from(path);
-            let name = path_buf
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("unknown")
-                .to_string();
-
-            current_worktree = Some(WorktreeInfo {
-                name,
-                path: path_buf,
-                branch: String::new(),
-                commit: CommitId::new(String::new()),
-                is_bare: false,
-                is_detached: false,
-                is_locked: false,
-            });
+            finalize_worktree(&mut worktrees, &mut current_worktree);
+            current_worktree = Some(create_worktree_from_line(line));
         } else if let Some(ref mut worktree) = current_worktree {
-            if line.starts_with("HEAD ") {
-                let commit_hash = line.strip_prefix("HEAD ").unwrap_or("");
-                worktree.commit = CommitId::new(commit_hash.to_string());
-            } else if line.starts_with("branch ") {
-                let branch = line.strip_prefix("branch ").unwrap_or("");
-                if !branch.is_empty() {
-                    worktree.branch = branch.to_string();
-                }
-            } else if line == "detached" {
-                worktree.is_detached = true;
-            } else if line == "bare" {
-                worktree.is_bare = true;
-            } else if line.starts_with("locked") {
-                worktree.is_locked = true;
-            }
+            update_worktree_info(worktree, line);
         }
     }
 
     // Don't forget the last worktree
-    if let Some(worktree) = current_worktree {
+    finalize_worktree(&mut worktrees, &mut current_worktree);
+    Ok(worktrees)
+}
+
+fn finalize_worktree(worktrees: &mut Vec<WorktreeInfo>, current: &mut Option<WorktreeInfo>) {
+    if let Some(worktree) = current.take() {
         worktrees.push(worktree);
     }
+}
 
-    Ok(worktrees)
+fn create_worktree_from_line(line: &str) -> WorktreeInfo {
+    let path = line.strip_prefix("worktree ").unwrap_or("");
+    let path_buf = PathBuf::from(path);
+    let name = extract_worktree_name(&path_buf);
+
+    WorktreeInfo {
+        name,
+        path: path_buf,
+        branch: String::new(),
+        commit: CommitId::new(String::new()),
+        is_bare: false,
+        is_detached: false,
+        is_locked: false,
+    }
+}
+
+fn extract_worktree_name(path: &Path) -> String {
+    path.file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("unknown")
+        .to_string()
+}
+
+fn update_worktree_info(worktree: &mut WorktreeInfo, line: &str) {
+    if let Some(commit_hash) = line.strip_prefix("HEAD ") {
+        worktree.commit = CommitId::new(commit_hash.to_string());
+    } else if let Some(branch) = line.strip_prefix("branch ") {
+        if !branch.is_empty() {
+            worktree.branch = branch.to_string();
+        }
+    } else if line == "detached" {
+        worktree.is_detached = true;
+    } else if line == "bare" {
+        worktree.is_bare = true;
+    } else if line.starts_with("locked") {
+        worktree.is_locked = true;
+    }
 }
 
 #[cfg(test)]
