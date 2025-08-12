@@ -215,47 +215,58 @@ impl DynamicCommandRegistry {
         value: &serde_json::Value,
         option_type: &super::command_validator::ArgumentType,
     ) -> Result<()> {
+        Self::validate_json_value_type(value, option_type)
+    }
+
+    /// Pure function to validate JSON value against expected type
+    fn validate_json_value_type(
+        value: &serde_json::Value,
+        expected_type: &super::command_validator::ArgumentType,
+    ) -> Result<()> {
         use super::command_validator::ArgumentType;
 
-        match option_type {
-            ArgumentType::String => {
-                if !value.is_string() {
-                    return Err(anyhow!("Expected string value"));
-                }
-                Ok(())
-            }
-            ArgumentType::Integer => {
-                if !value.is_number() {
-                    return Err(anyhow!("Expected integer value"));
-                }
-                Ok(())
-            }
-            ArgumentType::Boolean => {
-                if !value.is_boolean() {
-                    return Err(anyhow!("Expected boolean value"));
-                }
-                Ok(())
-            }
-            ArgumentType::Path => {
-                if !value.is_string() {
-                    return Err(anyhow!("Expected path string"));
-                }
-                Ok(())
-            }
-            ArgumentType::Enum(values) => {
-                if let Some(s) = value.as_str() {
-                    if !values.contains(&s.to_string()) {
-                        return Err(anyhow!(
-                            "Invalid value '{}'. Expected one of: {}",
-                            s,
-                            values.join(", ")
-                        ));
-                    }
-                    Ok(())
-                } else {
-                    Err(anyhow!("Expected string value for enum"))
-                }
-            }
+        let type_name = Self::get_type_name(expected_type);
+        let is_valid = Self::check_value_type(value, expected_type);
+
+        match (is_valid, expected_type) {
+            (true, _) => Ok(()),
+            (false, ArgumentType::Enum(values)) if value.is_string() => Err(anyhow!(
+                "Invalid value '{}'. Expected one of: {}",
+                value.as_str().unwrap_or(""),
+                values.join(", ")
+            )),
+            (false, _) => Err(anyhow!("Expected {} value", type_name)),
+        }
+    }
+
+    /// Get human-readable type name
+    fn get_type_name(arg_type: &super::command_validator::ArgumentType) -> &'static str {
+        use super::command_validator::ArgumentType;
+
+        match arg_type {
+            ArgumentType::String => "string",
+            ArgumentType::Integer => "integer",
+            ArgumentType::Boolean => "boolean",
+            ArgumentType::Path => "path string",
+            ArgumentType::Enum(_) => "string value for enum",
+        }
+    }
+
+    /// Check if JSON value matches expected type
+    fn check_value_type(
+        value: &serde_json::Value,
+        expected_type: &super::command_validator::ArgumentType,
+    ) -> bool {
+        use super::command_validator::ArgumentType;
+
+        match expected_type {
+            ArgumentType::String | ArgumentType::Path => value.is_string(),
+            ArgumentType::Integer => value.is_number(),
+            ArgumentType::Boolean => value.is_boolean(),
+            ArgumentType::Enum(values) => value
+                .as_str()
+                .map(|s| values.contains(&s.to_string()))
+                .unwrap_or(false),
         }
     }
 
@@ -425,5 +436,328 @@ A minimal command without metadata.
         assert!(commands.contains(&"mmm-custom".to_string()));
         assert!(commands.contains(&"mmm-code-review".to_string()));
         assert!(commands.contains(&"mmm-implement-spec".to_string()));
+    }
+
+    #[test]
+    fn test_validate_json_value_type_string() {
+        use super::super::command_validator::ArgumentType;
+
+        // Valid string
+        let value = serde_json::json!("test string");
+        let result =
+            DynamicCommandRegistry::validate_json_value_type(&value, &ArgumentType::String);
+        assert!(result.is_ok());
+
+        // Invalid - number instead of string
+        let value = serde_json::json!(123);
+        let result =
+            DynamicCommandRegistry::validate_json_value_type(&value, &ArgumentType::String);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Expected string value"));
+
+        // Invalid - boolean instead of string
+        let value = serde_json::json!(true);
+        let result =
+            DynamicCommandRegistry::validate_json_value_type(&value, &ArgumentType::String);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_json_value_type_integer() {
+        use super::super::command_validator::ArgumentType;
+
+        // Valid integer
+        let value = serde_json::json!(42);
+        let result =
+            DynamicCommandRegistry::validate_json_value_type(&value, &ArgumentType::Integer);
+        assert!(result.is_ok());
+
+        // Valid float (JSON numbers include floats)
+        let value = serde_json::json!(3.5);
+        let result =
+            DynamicCommandRegistry::validate_json_value_type(&value, &ArgumentType::Integer);
+        assert!(result.is_ok());
+
+        // Invalid - string instead of number
+        let value = serde_json::json!("42");
+        let result =
+            DynamicCommandRegistry::validate_json_value_type(&value, &ArgumentType::Integer);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Expected integer value"));
+    }
+
+    #[test]
+    fn test_validate_json_value_type_boolean() {
+        use super::super::command_validator::ArgumentType;
+
+        // Valid true
+        let value = serde_json::json!(true);
+        let result =
+            DynamicCommandRegistry::validate_json_value_type(&value, &ArgumentType::Boolean);
+        assert!(result.is_ok());
+
+        // Valid false
+        let value = serde_json::json!(false);
+        let result =
+            DynamicCommandRegistry::validate_json_value_type(&value, &ArgumentType::Boolean);
+        assert!(result.is_ok());
+
+        // Invalid - string instead of boolean
+        let value = serde_json::json!("true");
+        let result =
+            DynamicCommandRegistry::validate_json_value_type(&value, &ArgumentType::Boolean);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Expected boolean value"));
+
+        // Invalid - number instead of boolean
+        let value = serde_json::json!(1);
+        let result =
+            DynamicCommandRegistry::validate_json_value_type(&value, &ArgumentType::Boolean);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_json_value_type_path() {
+        use super::super::command_validator::ArgumentType;
+
+        // Valid path string
+        let value = serde_json::json!("/path/to/file.txt");
+        let result = DynamicCommandRegistry::validate_json_value_type(&value, &ArgumentType::Path);
+        assert!(result.is_ok());
+
+        // Valid relative path
+        let value = serde_json::json!("./relative/path");
+        let result = DynamicCommandRegistry::validate_json_value_type(&value, &ArgumentType::Path);
+        assert!(result.is_ok());
+
+        // Invalid - number instead of path string
+        let value = serde_json::json!(123);
+        let result = DynamicCommandRegistry::validate_json_value_type(&value, &ArgumentType::Path);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Expected path string value"));
+
+        // Invalid - object instead of path string
+        let value = serde_json::json!({"path": "/some/path"});
+        let result = DynamicCommandRegistry::validate_json_value_type(&value, &ArgumentType::Path);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_json_value_type_enum() {
+        use super::super::command_validator::ArgumentType;
+
+        let valid_values = vec![
+            "option1".to_string(),
+            "option2".to_string(),
+            "option3".to_string(),
+        ];
+
+        // Valid enum value
+        let value = serde_json::json!("option1");
+        let result = DynamicCommandRegistry::validate_json_value_type(
+            &value,
+            &ArgumentType::Enum(valid_values.clone()),
+        );
+        assert!(result.is_ok());
+
+        // Valid enum value - different option
+        let value = serde_json::json!("option3");
+        let result = DynamicCommandRegistry::validate_json_value_type(
+            &value,
+            &ArgumentType::Enum(valid_values.clone()),
+        );
+        assert!(result.is_ok());
+
+        // Invalid - value not in enum
+        let value = serde_json::json!("invalid_option");
+        let result = DynamicCommandRegistry::validate_json_value_type(
+            &value,
+            &ArgumentType::Enum(valid_values.clone()),
+        );
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("Invalid value 'invalid_option'"));
+        assert!(error_msg.contains("Expected one of: option1, option2, option3"));
+
+        // Invalid - non-string value for enum
+        let value = serde_json::json!(123);
+        let result = DynamicCommandRegistry::validate_json_value_type(
+            &value,
+            &ArgumentType::Enum(valid_values.clone()),
+        );
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Expected string value for enum"));
+
+        // Invalid - boolean value for enum
+        let value = serde_json::json!(true);
+        let result = DynamicCommandRegistry::validate_json_value_type(
+            &value,
+            &ArgumentType::Enum(valid_values.clone()),
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_get_type_name() {
+        use super::super::command_validator::ArgumentType;
+
+        assert_eq!(
+            DynamicCommandRegistry::get_type_name(&ArgumentType::String),
+            "string"
+        );
+        assert_eq!(
+            DynamicCommandRegistry::get_type_name(&ArgumentType::Integer),
+            "integer"
+        );
+        assert_eq!(
+            DynamicCommandRegistry::get_type_name(&ArgumentType::Boolean),
+            "boolean"
+        );
+        assert_eq!(
+            DynamicCommandRegistry::get_type_name(&ArgumentType::Path),
+            "path string"
+        );
+        assert_eq!(
+            DynamicCommandRegistry::get_type_name(&ArgumentType::Enum(vec![])),
+            "string value for enum"
+        );
+    }
+
+    #[test]
+    fn test_check_value_type() {
+        use super::super::command_validator::ArgumentType;
+
+        // String type checks
+        assert!(DynamicCommandRegistry::check_value_type(
+            &serde_json::json!("test"),
+            &ArgumentType::String
+        ));
+        assert!(!DynamicCommandRegistry::check_value_type(
+            &serde_json::json!(123),
+            &ArgumentType::String
+        ));
+
+        // Integer type checks
+        assert!(DynamicCommandRegistry::check_value_type(
+            &serde_json::json!(42),
+            &ArgumentType::Integer
+        ));
+        assert!(DynamicCommandRegistry::check_value_type(
+            &serde_json::json!(3.5),
+            &ArgumentType::Integer
+        ));
+        assert!(!DynamicCommandRegistry::check_value_type(
+            &serde_json::json!("42"),
+            &ArgumentType::Integer
+        ));
+
+        // Boolean type checks
+        assert!(DynamicCommandRegistry::check_value_type(
+            &serde_json::json!(true),
+            &ArgumentType::Boolean
+        ));
+        assert!(DynamicCommandRegistry::check_value_type(
+            &serde_json::json!(false),
+            &ArgumentType::Boolean
+        ));
+        assert!(!DynamicCommandRegistry::check_value_type(
+            &serde_json::json!(1),
+            &ArgumentType::Boolean
+        ));
+
+        // Path type checks (same as string)
+        assert!(DynamicCommandRegistry::check_value_type(
+            &serde_json::json!("/path"),
+            &ArgumentType::Path
+        ));
+        assert!(!DynamicCommandRegistry::check_value_type(
+            &serde_json::json!(null),
+            &ArgumentType::Path
+        ));
+
+        // Enum type checks
+        let enum_values = vec!["a".to_string(), "b".to_string()];
+        assert!(DynamicCommandRegistry::check_value_type(
+            &serde_json::json!("a"),
+            &ArgumentType::Enum(enum_values.clone())
+        ));
+        assert!(DynamicCommandRegistry::check_value_type(
+            &serde_json::json!("b"),
+            &ArgumentType::Enum(enum_values.clone())
+        ));
+        assert!(!DynamicCommandRegistry::check_value_type(
+            &serde_json::json!("c"),
+            &ArgumentType::Enum(enum_values.clone())
+        ));
+        assert!(!DynamicCommandRegistry::check_value_type(
+            &serde_json::json!(123),
+            &ArgumentType::Enum(enum_values.clone())
+        ));
+    }
+
+    #[test]
+    fn test_edge_cases_json_values() {
+        use super::super::command_validator::ArgumentType;
+
+        // Null value
+        let value = serde_json::json!(null);
+        assert!(
+            DynamicCommandRegistry::validate_json_value_type(&value, &ArgumentType::String)
+                .is_err()
+        );
+        assert!(
+            DynamicCommandRegistry::validate_json_value_type(&value, &ArgumentType::Integer)
+                .is_err()
+        );
+        assert!(
+            DynamicCommandRegistry::validate_json_value_type(&value, &ArgumentType::Boolean)
+                .is_err()
+        );
+
+        // Array value
+        let value = serde_json::json!([1, 2, 3]);
+        assert!(
+            DynamicCommandRegistry::validate_json_value_type(&value, &ArgumentType::String)
+                .is_err()
+        );
+        assert!(
+            DynamicCommandRegistry::validate_json_value_type(&value, &ArgumentType::Integer)
+                .is_err()
+        );
+
+        // Object value
+        let value = serde_json::json!({"key": "value"});
+        assert!(
+            DynamicCommandRegistry::validate_json_value_type(&value, &ArgumentType::String)
+                .is_err()
+        );
+        assert!(
+            DynamicCommandRegistry::validate_json_value_type(&value, &ArgumentType::Path).is_err()
+        );
+
+        // Empty string for enum
+        let value = serde_json::json!("");
+        let enum_values = vec!["a".to_string(), "b".to_string()];
+        let result = DynamicCommandRegistry::validate_json_value_type(
+            &value,
+            &ArgumentType::Enum(enum_values),
+        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid value ''"));
     }
 }
