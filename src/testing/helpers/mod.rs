@@ -174,4 +174,147 @@ mod tests {
         assert!(file_contains(&file_path, "Hello").unwrap());
         assert!(!file_contains(&file_path, "Goodbye").unwrap());
     }
+
+    #[test]
+    fn test_dirs_equal_identical_dirs() {
+        let temp_dir = TempDir::new().unwrap();
+        let dir1 = temp_dir.path().join("dir1");
+        let dir2 = temp_dir.path().join("dir2");
+
+        std::fs::create_dir(&dir1).unwrap();
+        std::fs::create_dir(&dir2).unwrap();
+
+        // Create identical files in both directories
+        std::fs::write(dir1.join("file1.txt"), "content1").unwrap();
+        std::fs::write(dir2.join("file1.txt"), "content1").unwrap();
+        std::fs::write(dir1.join("file2.txt"), "content2").unwrap();
+        std::fs::write(dir2.join("file2.txt"), "content2").unwrap();
+
+        assert!(dirs_equal(&dir1, &dir2).unwrap());
+    }
+
+    #[test]
+    fn test_dirs_equal_different_files() {
+        let temp_dir = TempDir::new().unwrap();
+        let dir1 = temp_dir.path().join("dir1");
+        let dir2 = temp_dir.path().join("dir2");
+
+        std::fs::create_dir(&dir1).unwrap();
+        std::fs::create_dir(&dir2).unwrap();
+
+        // Different file sets
+        std::fs::write(dir1.join("file1.txt"), "content1").unwrap();
+        std::fs::write(dir2.join("file2.txt"), "content2").unwrap();
+
+        assert!(!dirs_equal(&dir1, &dir2).unwrap());
+    }
+
+    #[test]
+    fn test_dirs_equal_different_content() {
+        let temp_dir = TempDir::new().unwrap();
+        let dir1 = temp_dir.path().join("dir1");
+        let dir2 = temp_dir.path().join("dir2");
+
+        std::fs::create_dir(&dir1).unwrap();
+        std::fs::create_dir(&dir2).unwrap();
+
+        // Same files but different content
+        std::fs::write(dir1.join("file.txt"), "content1").unwrap();
+        std::fs::write(dir2.join("file.txt"), "content2").unwrap();
+
+        assert!(!dirs_equal(&dir1, &dir2).unwrap());
+    }
+
+    #[test]
+    fn test_dirs_equal_empty_dirs() {
+        let temp_dir = TempDir::new().unwrap();
+        let dir1 = temp_dir.path().join("dir1");
+        let dir2 = temp_dir.path().join("dir2");
+
+        std::fs::create_dir(&dir1).unwrap();
+        std::fs::create_dir(&dir2).unwrap();
+
+        // Both directories are empty
+        assert!(dirs_equal(&dir1, &dir2).unwrap());
+    }
+
+    #[test]
+    fn test_dirs_equal_nested_structure() {
+        let temp_dir = TempDir::new().unwrap();
+        let dir1 = temp_dir.path().join("dir1");
+        let dir2 = temp_dir.path().join("dir2");
+
+        std::fs::create_dir(&dir1).unwrap();
+        std::fs::create_dir(&dir2).unwrap();
+
+        // Create nested directory structure
+        std::fs::create_dir(dir1.join("subdir")).unwrap();
+        std::fs::create_dir(dir2.join("subdir")).unwrap();
+        std::fs::write(dir1.join("subdir").join("nested.txt"), "nested content").unwrap();
+        std::fs::write(dir2.join("subdir").join("nested.txt"), "nested content").unwrap();
+
+        assert!(dirs_equal(&dir1, &dir2).unwrap());
+    }
+
+    #[test]
+    fn test_dirs_equal_missing_nested_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let dir1 = temp_dir.path().join("dir1");
+        let dir2 = temp_dir.path().join("dir2");
+
+        std::fs::create_dir(&dir1).unwrap();
+        std::fs::create_dir(&dir2).unwrap();
+
+        // Create nested structure with missing file in dir2
+        std::fs::create_dir(dir1.join("subdir")).unwrap();
+        std::fs::create_dir(dir2.join("subdir")).unwrap();
+        std::fs::write(dir1.join("subdir").join("nested.txt"), "content").unwrap();
+        // Missing file in dir2/subdir
+
+        assert!(!dirs_equal(&dir1, &dir2).unwrap());
+    }
+
+    #[test]
+    fn test_dirs_equal_nonexistent_dir() {
+        let temp_dir = TempDir::new().unwrap();
+        let dir1 = temp_dir.path().join("dir1");
+        let dir2 = temp_dir.path().join("nonexistent");
+
+        std::fs::create_dir(&dir1).unwrap();
+        std::fs::write(dir1.join("file.txt"), "content").unwrap();
+
+        // dir2 doesn't exist, should return false (dirs not equal)
+        assert!(!dirs_equal(&dir1, &dir2).unwrap());
+    }
+
+    #[test]
+    fn test_dirs_equal_with_subdirs_only() {
+        let temp_dir = TempDir::new().unwrap();
+        let dir1 = temp_dir.path().join("dir1");
+        let dir2 = temp_dir.path().join("dir2");
+
+        std::fs::create_dir(&dir1).unwrap();
+        std::fs::create_dir(&dir2).unwrap();
+
+        // Create only subdirectories, no files
+        std::fs::create_dir(dir1.join("empty_subdir")).unwrap();
+        std::fs::create_dir(dir2.join("empty_subdir")).unwrap();
+
+        // Should be equal since both have same structure (empty subdirs)
+        assert!(dirs_equal(&dir1, &dir2).unwrap());
+    }
+
+    #[test]
+    fn test_count_files() {
+        let temp_dir = TempDir::new().unwrap();
+        let dir = temp_dir.path();
+
+        // Create files and subdirectories
+        std::fs::write(dir.join("file1.txt"), "content1").unwrap();
+        std::fs::write(dir.join("file2.txt"), "content2").unwrap();
+        std::fs::create_dir(dir.join("subdir")).unwrap();
+        std::fs::write(dir.join("subdir").join("file3.txt"), "content3").unwrap();
+
+        assert_eq!(count_files(dir).unwrap(), 3);
+    }
 }
