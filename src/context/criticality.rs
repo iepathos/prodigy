@@ -533,4 +533,246 @@ mod tests {
 
         assert!(factor > 2.0);
     }
+
+    #[test]
+    fn test_explain_score_critical_patterns() {
+        let scorer = EnhancedCriticalityScorer::new(None);
+        let score = CriticalityScore {
+            base_score: 20.0,
+            complexity_factor: 1.0,
+            dependency_factor: 1.0,
+            change_frequency: 0.0,
+            bug_correlation: 0.0,
+            architecture_role: 0.0,
+            test_gap_impact: 0.0,
+            total_score: 20.0,
+            criticality_level: Criticality::High,
+        };
+
+        let explanation = scorer.explain_score(&score, "auth_handler");
+
+        assert_eq!(explanation.function_name, "auth_handler");
+        assert_eq!(explanation.score, 20.0);
+        assert_eq!(explanation.level, Criticality::High);
+        assert!(explanation
+            .primary_factors
+            .contains(&"Contains critical patterns (auth/security/payment)".to_string()));
+        assert!(explanation.recommendations.is_empty());
+    }
+
+    #[test]
+    fn test_explain_score_high_complexity() {
+        let scorer = EnhancedCriticalityScorer::new(None);
+        let score = CriticalityScore {
+            base_score: 5.0,
+            complexity_factor: 2.5,
+            dependency_factor: 1.0,
+            change_frequency: 0.0,
+            bug_correlation: 0.0,
+            architecture_role: 0.0,
+            test_gap_impact: 0.0,
+            total_score: 12.5,
+            criticality_level: Criticality::Medium,
+        };
+
+        let explanation = scorer.explain_score(&score, "complex_function");
+
+        assert_eq!(explanation.function_name, "complex_function");
+        assert!(explanation
+            .primary_factors
+            .contains(&"High code complexity".to_string()));
+        assert!(explanation
+            .recommendations
+            .contains(&"Consider refactoring to reduce complexity".to_string()));
+    }
+
+    #[test]
+    fn test_explain_score_high_coupling() {
+        let scorer = EnhancedCriticalityScorer::new(None);
+        let score = CriticalityScore {
+            base_score: 5.0,
+            complexity_factor: 1.0,
+            dependency_factor: 1.8,
+            change_frequency: 0.0,
+            bug_correlation: 0.0,
+            architecture_role: 0.0,
+            test_gap_impact: 0.0,
+            total_score: 9.0,
+            criticality_level: Criticality::Low,
+        };
+
+        let explanation = scorer.explain_score(&score, "coupled_function");
+
+        assert!(explanation
+            .primary_factors
+            .contains(&"High coupling with other modules".to_string()));
+        assert_eq!(explanation.recommendations.len(), 0);
+    }
+
+    #[test]
+    fn test_explain_score_frequent_changes() {
+        let scorer = EnhancedCriticalityScorer::new(None);
+        let score = CriticalityScore {
+            base_score: 5.0,
+            complexity_factor: 1.0,
+            dependency_factor: 1.0,
+            change_frequency: 15.0,
+            bug_correlation: 0.0,
+            architecture_role: 0.0,
+            test_gap_impact: 0.0,
+            total_score: 20.0,
+            criticality_level: Criticality::Medium,
+        };
+
+        let explanation = scorer.explain_score(&score, "volatile_function");
+
+        assert!(explanation
+            .primary_factors
+            .contains(&"Frequently modified code".to_string()));
+        assert!(explanation
+            .recommendations
+            .contains(&"Add comprehensive tests due to high change rate".to_string()));
+    }
+
+    #[test]
+    fn test_explain_score_bug_history() {
+        let scorer = EnhancedCriticalityScorer::new(None);
+        let score = CriticalityScore {
+            base_score: 5.0,
+            complexity_factor: 1.0,
+            dependency_factor: 1.0,
+            change_frequency: 0.0,
+            bug_correlation: 12.0,
+            architecture_role: 0.0,
+            test_gap_impact: 0.0,
+            total_score: 17.0,
+            criticality_level: Criticality::Medium,
+        };
+
+        let explanation = scorer.explain_score(&score, "buggy_function");
+
+        assert!(explanation
+            .primary_factors
+            .contains(&"History of bugs in this area".to_string()));
+        assert!(explanation
+            .recommendations
+            .contains(&"Add tests to prevent regression".to_string()));
+    }
+
+    #[test]
+    fn test_explain_score_architecture_boundary() {
+        let scorer = EnhancedCriticalityScorer::new(None);
+        let score = CriticalityScore {
+            base_score: 5.0,
+            complexity_factor: 1.0,
+            dependency_factor: 1.0,
+            change_frequency: 0.0,
+            bug_correlation: 0.0,
+            architecture_role: 12.0,
+            test_gap_impact: 0.0,
+            total_score: 17.0,
+            criticality_level: Criticality::Medium,
+        };
+
+        let explanation = scorer.explain_score(&score, "boundary_function");
+
+        assert!(explanation
+            .primary_factors
+            .contains(&"Critical architectural boundary".to_string()));
+        assert_eq!(explanation.recommendations.len(), 0);
+    }
+
+    #[test]
+    fn test_explain_score_test_gap() {
+        let scorer = EnhancedCriticalityScorer::new(None);
+        let score = CriticalityScore {
+            base_score: 5.0,
+            complexity_factor: 1.0,
+            dependency_factor: 1.0,
+            change_frequency: 0.0,
+            bug_correlation: 0.0,
+            architecture_role: 0.0,
+            test_gap_impact: 18.0,
+            total_score: 23.0,
+            criticality_level: Criticality::Medium,
+        };
+
+        let explanation = scorer.explain_score(&score, "untested_function");
+
+        assert!(explanation
+            .primary_factors
+            .contains(&"Low test coverage in surrounding code".to_string()));
+        assert!(explanation
+            .recommendations
+            .contains(&"Improve overall file coverage".to_string()));
+    }
+
+    #[test]
+    fn test_explain_score_multiple_factors() {
+        let scorer = EnhancedCriticalityScorer::new(None);
+        let score = CriticalityScore {
+            base_score: 18.0,
+            complexity_factor: 2.2,
+            dependency_factor: 1.6,
+            change_frequency: 12.0,
+            bug_correlation: 11.0,
+            architecture_role: 10.0,
+            test_gap_impact: 16.0,
+            total_score: 80.0,
+            criticality_level: Criticality::High,
+        };
+
+        let explanation = scorer.explain_score(&score, "critical_function");
+
+        assert_eq!(explanation.function_name, "critical_function");
+        assert_eq!(explanation.level, Criticality::High);
+
+        // Should have multiple factors identified
+        assert!(explanation.primary_factors.len() >= 5);
+        assert!(explanation
+            .primary_factors
+            .contains(&"Contains critical patterns (auth/security/payment)".to_string()));
+        assert!(explanation
+            .primary_factors
+            .contains(&"High code complexity".to_string()));
+        assert!(explanation
+            .primary_factors
+            .contains(&"High coupling with other modules".to_string()));
+        assert!(explanation
+            .primary_factors
+            .contains(&"Frequently modified code".to_string()));
+        assert!(explanation
+            .primary_factors
+            .contains(&"History of bugs in this area".to_string()));
+
+        // Should have multiple recommendations
+        assert!(explanation.recommendations.len() >= 3);
+    }
+
+    #[test]
+    fn test_explain_score_no_special_factors() {
+        let scorer = EnhancedCriticalityScorer::new(None);
+        let score = CriticalityScore {
+            base_score: 5.0,
+            complexity_factor: 1.0,
+            dependency_factor: 1.0,
+            change_frequency: 2.0,
+            bug_correlation: 1.0,
+            architecture_role: 3.0,
+            test_gap_impact: 5.0,
+            total_score: 15.0,
+            criticality_level: Criticality::Low,
+        };
+
+        let explanation = scorer.explain_score(&score, "simple_function");
+
+        assert_eq!(explanation.function_name, "simple_function");
+        assert_eq!(explanation.score, 15.0);
+        assert_eq!(explanation.level, Criticality::Low);
+        assert_eq!(explanation.primary_factors.len(), 1);
+        assert!(explanation
+            .primary_factors
+            .contains(&"Standard code with no special risk factors".to_string()));
+        assert!(explanation.recommendations.is_empty());
+    }
 }
