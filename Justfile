@@ -96,6 +96,15 @@ coverage-check:
 coverage-open: coverage
     open target/coverage/tarpaulin-report.html
 
+# Analyze the current repository with debtmap using coverage data
+analyze-self:
+    #!/usr/bin/env bash
+    echo "Generating code coverage (lcov format)..."
+    cargo tarpaulin --config .tarpaulin.toml --out Lcov --output-dir target/coverage
+    echo "Analyzing current repository with debtmap..."
+    debtmap analyze . --lcov target/coverage/lcov.info
+    echo "Analysis complete!"
+
 # Run property-based tests only (if using proptest)
 test-prop:
     cargo test prop
