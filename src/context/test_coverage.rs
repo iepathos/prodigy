@@ -418,6 +418,64 @@ impl BasicTestCoverageAnalyzer {
 
         paths
     }
+
+    /// Pure function to determine if a file should be analyzed for coverage
+    pub fn should_analyze_file(file: &Path) -> bool {
+        file.extension().and_then(|s| s.to_str()) == Some("rs")
+    }
+
+    /// Pure function to calculate overall line coverage from file coverages
+    pub fn calculate_overall_line_coverage(file_coverage: &HashMap<PathBuf, FileCoverage>) -> f64 {
+        let (total_tested, total) = file_coverage
+            .values()
+            .fold((0, 0), |(tested, total), cov| {
+                (tested + cov.tested_lines, total + cov.total_lines)
+            });
+
+        if total > 0 {
+            total_tested as f64 / total as f64
+        } else {
+            0.0
+        }
+    }
+
+    /// Pure function to calculate tested count from total and coverage percentage
+    pub fn calculate_tested_count(total: usize, coverage: f64) -> u32 {
+        (total as f64 * coverage) as u32
+    }
+
+    /// Analyze coverage for a single file
+    async fn analyze_file_coverage(&self, file: &Path, project_path: &Path) -> Option<FileCoverage> {
+        let full_path = project_path.join(file);
+        let content = tokio::fs::read_to_string(&full_path).await.ok()?;
+        
+        let functions = self.extract_functions_with_lines(&content);
+        let line_count = content.lines().count() as u32;
+
+        // Find and extract tests
+        let test_files = self.find_test_files(file, project_path);
+        let mut file_tests = Vec::new();
+
+        for test_file in test_files {
+            if let Ok(test_content) = tokio::fs::read_to_string(&test_file).await {
+                file_tests.extend(self.extract_tests(&test_content));
+            }
+        }
+
+        let coverage = self.estimate_coverage(&functions, &file_tests);
+        let tested_functions = Self::calculate_tested_count(functions.len(), coverage);
+        let tested_lines = Self::calculate_tested_count(line_count as usize, coverage);
+
+        Some(FileCoverage {
+            path: file.to_path_buf(),
+            coverage_percentage: coverage,
+            tested_lines,
+            total_lines: line_count,
+            tested_functions,
+            total_functions: functions.len() as u32,
+            has_tests: !file_tests.is_empty(),
+        })
+    }
 }
 
 #[async_trait::async_trait]
@@ -547,55 +605,15 @@ impl TestCoverageAnalyzer for BasicTestCoverageAnalyzer {
 
         // Re-analyze changed files and their test files
         for file in changed_files {
-            if file.extension().and_then(|s| s.to_str()) == Some("rs") {
-                let full_path = project_path.join(file);
-                if let Ok(content) = tokio::fs::read_to_string(&full_path).await {
-                    let functions = self.extract_functions_with_lines(&content);
-                    let line_count = content.lines().count() as u32;
-
-                    // Find tests
-                    let test_files = self.find_test_files(file, project_path);
-                    let mut file_tests = Vec::new();
-
-                    for test_file in test_files {
-                        if let Ok(test_content) = tokio::fs::read_to_string(&test_file).await {
-                            file_tests.extend(self.extract_tests(&test_content));
-                        }
-                    }
-
-                    let coverage = self.estimate_coverage(&functions, &file_tests);
-                    let tested_functions = (functions.len() as f64 * coverage) as u32;
-                    let tested_lines = (line_count as f64 * coverage) as u32;
-
-                    updated_map.file_coverage.insert(
-                        file.clone(),
-                        FileCoverage {
-                            path: file.clone(),
-                            coverage_percentage: coverage,
-                            tested_lines,
-                            total_lines: line_count,
-                            tested_functions,
-                            total_functions: functions.len() as u32,
-                            has_tests: !file_tests.is_empty(),
-                        },
-                    );
+            if Self::should_analyze_file(file) {
+                if let Some(coverage) = self.analyze_file_coverage(file, project_path).await {
+                    updated_map.file_coverage.insert(file.clone(), coverage);
                 }
             }
         }
 
         // Recalculate overall coverage
-        let (total_tested, total) = updated_map
-            .file_coverage
-            .values()
-            .fold((0, 0), |(tested, total), cov| {
-                (tested + cov.tested_lines, total + cov.total_lines)
-            });
-
-        updated_map.overall_coverage = if total > 0 {
-            total_tested as f64 / total as f64
-        } else {
-            0.0
-        };
+        updated_map.overall_coverage = Self::calculate_overall_line_coverage(&updated_map.file_coverage);
 
         Ok(updated_map)
     }
@@ -797,5 +815,235 @@ mod tests {
         assert!(analyzer.is_test_file(Path::new("src/math_test.rs")));
         assert!(!analyzer.is_test_file(Path::new("src/lib.rs")));
         assert!(!analyzer.is_test_file(Path::new("src/main.rs")));
+    }
+
+    #[test]
+    fn test_should_analyze_file() {
+        // Test Rust files should be analyzed
+        assert!(BasicTestCoverageAnalyzer::should_analyze_file(Path::new("src/main.rs")));
+        assert!(BasicTestCoverageAnalyzer::should_analyze_file(Path::new("lib.rs")));
+        assert!(BasicTestCoverageAnalyzer::should_analyze_file(Path::new("tests/integration.rs")));
+        
+        // Non-Rust files should not be analyzed
+        assert!(!BasicTestCoverageAnalyzer::should_analyze_file(Path::new("README.md")));
+        assert!(!BasicTestCoverageAnalyzer::should_analyze_file(Path::new("Cargo.toml")));
+        assert!(!BasicTestCoverageAnalyzer::should_analyze_file(Path::new("src/data.json")));
+        assert!(!BasicTestCoverageAnalyzer::should_analyze_file(Path::new("script.py")));
+    }
+
+    #[test]
+    fn test_calculate_tested_count() {
+        // Test exact calculations
+        assert_eq!(BasicTestCoverageAnalyzer::calculate_tested_count(100, 0.5), 50);
+        assert_eq!(BasicTestCoverageAnalyzer::calculate_tested_count(100, 0.75), 75);
+        assert_eq!(BasicTestCoverageAnalyzer::calculate_tested_count(100, 1.0), 100);
+        assert_eq!(BasicTestCoverageAnalyzer::calculate_tested_count(100, 0.0), 0);
+        
+        // Test rounding behavior
+        assert_eq!(BasicTestCoverageAnalyzer::calculate_tested_count(100, 0.334), 33);
+        assert_eq!(BasicTestCoverageAnalyzer::calculate_tested_count(100, 0.666), 66);
+        
+        // Test edge cases
+        assert_eq!(BasicTestCoverageAnalyzer::calculate_tested_count(0, 0.5), 0);
+        assert_eq!(BasicTestCoverageAnalyzer::calculate_tested_count(1, 0.5), 0);
+        assert_eq!(BasicTestCoverageAnalyzer::calculate_tested_count(1, 1.0), 1);
+    }
+
+    #[test]
+    fn test_calculate_overall_line_coverage() {
+        let mut file_coverage = HashMap::new();
+        
+        // Test with multiple files
+        file_coverage.insert(
+            PathBuf::from("src/main.rs"),
+            FileCoverage {
+                path: PathBuf::from("src/main.rs"),
+                coverage_percentage: 0.8,
+                tested_lines: 80,
+                total_lines: 100,
+                tested_functions: 8,
+                total_functions: 10,
+                has_tests: true,
+            }
+        );
+        
+        file_coverage.insert(
+            PathBuf::from("src/lib.rs"),
+            FileCoverage {
+                path: PathBuf::from("src/lib.rs"),
+                coverage_percentage: 0.6,
+                tested_lines: 120,
+                total_lines: 200,
+                tested_functions: 12,
+                total_functions: 20,
+                has_tests: true,
+            }
+        );
+        
+        let coverage = BasicTestCoverageAnalyzer::calculate_overall_line_coverage(&file_coverage);
+        // (80 + 120) / (100 + 200) = 200/300 = 0.666...
+        assert!((coverage - 0.6666).abs() < 0.001);
+        
+        // Test with empty coverage map
+        let empty_coverage = HashMap::new();
+        assert_eq!(BasicTestCoverageAnalyzer::calculate_overall_line_coverage(&empty_coverage), 0.0);
+        
+        // Test with single file
+        let mut single_file = HashMap::new();
+        single_file.insert(
+            PathBuf::from("src/single.rs"),
+            FileCoverage {
+                path: PathBuf::from("src/single.rs"),
+                coverage_percentage: 0.9,
+                tested_lines: 90,
+                total_lines: 100,
+                tested_functions: 9,
+                total_functions: 10,
+                has_tests: true,
+            }
+        );
+        assert_eq!(BasicTestCoverageAnalyzer::calculate_overall_line_coverage(&single_file), 0.9);
+    }
+
+    #[tokio::test]
+    async fn test_update_coverage() {
+        let analyzer = BasicTestCoverageAnalyzer::new();
+        let temp_dir = tempfile::tempdir().unwrap();
+        let project_path = temp_dir.path();
+        
+        // Create test files
+        let src_dir = project_path.join("src");
+        std::fs::create_dir_all(&src_dir).unwrap();
+        
+        let math_file = src_dir.join("math.rs");
+        std::fs::write(&math_file, r#"
+            pub fn add(a: i32, b: i32) -> i32 {
+                a + b
+            }
+            
+            pub fn multiply(a: i32, b: i32) -> i32 {
+                a * b
+            }
+        "#).unwrap();
+        
+        // Create initial coverage map
+        let mut file_coverage = HashMap::new();
+        file_coverage.insert(
+            PathBuf::from("src/math.rs"),
+            FileCoverage {
+                path: PathBuf::from("src/math.rs"),
+                coverage_percentage: 0.5,
+                tested_lines: 3,
+                total_lines: 6,
+                tested_functions: 1,
+                total_functions: 2,
+                has_tests: false,
+            }
+        );
+        
+        let initial_map = TestCoverageMap {
+            file_coverage: file_coverage.clone(),
+            untested_functions: vec![],
+            critical_paths: vec![],
+            overall_coverage: BasicTestCoverageAnalyzer::calculate_overall_line_coverage(&file_coverage),
+        };
+        
+        // Test updating with changed files
+        let changed_files = vec![PathBuf::from("src/math.rs")];
+        let result = analyzer.update_coverage(project_path, &initial_map, &changed_files).await;
+        
+        assert!(result.is_ok());
+        let updated_map = result.unwrap();
+        
+        // Verify the file was re-analyzed
+        assert!(updated_map.file_coverage.contains_key(&PathBuf::from("src/math.rs")));
+        
+        // Test with non-Rust file (should be skipped)
+        let changed_files = vec![PathBuf::from("README.md")];
+        let result = analyzer.update_coverage(project_path, &initial_map, &changed_files).await;
+        assert!(result.is_ok());
+        
+        // Test with empty changed files
+        let result = analyzer.update_coverage(project_path, &initial_map, &[]).await;
+        assert!(result.is_ok());
+        let unchanged_map = result.unwrap();
+        assert_eq!(unchanged_map.overall_coverage, initial_map.overall_coverage);
+    }
+
+    #[tokio::test]
+    async fn test_analyze_file_coverage() {
+        let analyzer = BasicTestCoverageAnalyzer::new();
+        let temp_dir = tempfile::tempdir().unwrap();
+        let project_path = temp_dir.path();
+        
+        // Create test file
+        let src_dir = project_path.join("src");
+        std::fs::create_dir_all(&src_dir).unwrap();
+        
+        let lib_file = src_dir.join("lib.rs");
+        std::fs::write(&lib_file, r#"
+            pub fn process_data(input: &str) -> String {
+                input.to_uppercase()
+            }
+            
+            pub fn validate_input(input: &str) -> bool {
+                !input.is_empty()
+            }
+        "#).unwrap();
+        
+        // Analyze the file
+        let file_path = PathBuf::from("src/lib.rs");
+        let coverage = analyzer.analyze_file_coverage(&file_path, project_path).await;
+        
+        assert!(coverage.is_some());
+        let coverage = coverage.unwrap();
+        
+        assert_eq!(coverage.path, file_path);
+        assert_eq!(coverage.total_functions, 2);
+        assert!(coverage.total_lines > 0);
+        
+        // Test with non-existent file
+        let non_existent = PathBuf::from("src/nonexistent.rs");
+        let coverage = analyzer.analyze_file_coverage(&non_existent, project_path).await;
+        assert!(coverage.is_none());
+    }
+
+    #[test]
+    fn test_update_coverage_edge_cases() {
+        // Test calculate_overall_line_coverage with zero total lines
+        let mut edge_coverage = HashMap::new();
+        edge_coverage.insert(
+            PathBuf::from("empty.rs"),
+            FileCoverage {
+                path: PathBuf::from("empty.rs"),
+                coverage_percentage: 0.0,
+                tested_lines: 0,
+                total_lines: 0,
+                tested_functions: 0,
+                total_functions: 0,
+                has_tests: false,
+            }
+        );
+        
+        let coverage = BasicTestCoverageAnalyzer::calculate_overall_line_coverage(&edge_coverage);
+        assert_eq!(coverage, 0.0);
+        
+        // Test with 100% coverage
+        let mut full_coverage = HashMap::new();
+        full_coverage.insert(
+            PathBuf::from("perfect.rs"),
+            FileCoverage {
+                path: PathBuf::from("perfect.rs"),
+                coverage_percentage: 1.0,
+                tested_lines: 100,
+                total_lines: 100,
+                tested_functions: 10,
+                total_functions: 10,
+                has_tests: true,
+            }
+        );
+        
+        let coverage = BasicTestCoverageAnalyzer::calculate_overall_line_coverage(&full_coverage);
+        assert_eq!(coverage, 1.0);
     }
 }
