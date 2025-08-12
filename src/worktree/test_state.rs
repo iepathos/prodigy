@@ -446,3 +446,67 @@ fn test_validate_initial_state_wrong_branch() {
         "test-branch"
     ));
 }
+
+#[test]
+fn test_validate_initial_state_wrong_worktree_name() {
+    let state = WorktreeState {
+        session_id: "test-session".to_string(),
+        worktree_name: "wrong-worktree".to_string(),
+        branch: "test-branch".to_string(),
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+        status: WorktreeStatus::InProgress,
+        iterations: IterationInfo {
+            completed: 0,
+            max: 10,
+        },
+        stats: WorktreeStats::default(),
+        merged: false,
+        merged_at: None,
+        error: None,
+        merge_prompt_shown: false,
+        merge_prompt_response: None,
+        interrupted_at: None,
+        interruption_type: None,
+        last_checkpoint: None,
+        resumable: false,
+    };
+
+    assert!(!validate_initial_state(
+        &state,
+        "test-session",
+        "test-branch"
+    ));
+}
+
+#[test]
+fn test_validate_initial_state_wrong_max_iterations() {
+    let state = WorktreeState {
+        session_id: "test-session".to_string(),
+        worktree_name: "test-session".to_string(),
+        branch: "test-branch".to_string(),
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+        status: WorktreeStatus::InProgress,
+        iterations: IterationInfo {
+            completed: 0,
+            max: 5, // Wrong max iterations (should be 10)
+        },
+        stats: WorktreeStats::default(),
+        merged: false,
+        merged_at: None,
+        error: None,
+        merge_prompt_shown: false,
+        merge_prompt_response: None,
+        interrupted_at: None,
+        interruption_type: None,
+        last_checkpoint: None,
+        resumable: false,
+    };
+
+    assert!(!validate_initial_state(
+        &state,
+        "test-session",
+        "test-branch"
+    ));
+}
