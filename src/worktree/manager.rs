@@ -42,6 +42,50 @@ pub struct WorktreeManager {
 }
 
 impl WorktreeManager {
+    /// Filter session states by a specific status
+    ///
+    /// This is a pure function that can be tested in isolation
+    pub(crate) fn filter_sessions_by_status(
+        states: Vec<WorktreeState>,
+        target_status: WorktreeStatus,
+    ) -> Vec<WorktreeState> {
+        states
+            .into_iter()
+            .filter(|state| state.status == target_status)
+            .collect()
+    }
+
+    /// Load and parse a worktree state from a JSON file path
+    ///
+    /// Returns None if the file cannot be read or parsed
+    pub(crate) fn load_state_from_file(path: &std::path::Path) -> Option<WorktreeState> {
+        if path.extension().and_then(|s| s.to_str()) != Some("json") {
+            return None;
+        }
+
+        fs::read_to_string(path)
+            .ok()
+            .and_then(|content| serde_json::from_str::<WorktreeState>(&content).ok())
+    }
+
+    /// Collect all worktree states from a metadata directory
+    pub(crate) fn collect_all_states(metadata_dir: &std::path::Path) -> Result<Vec<WorktreeState>> {
+        if !metadata_dir.exists() {
+            return Ok(Vec::new());
+        }
+
+        let mut states = Vec::new();
+
+        for entry in fs::read_dir(metadata_dir)? {
+            let path = entry?.path();
+            if let Some(state) = Self::load_state_from_file(&path) {
+                states.push(state);
+            }
+        }
+
+        Ok(states)
+    }
+
     /// Create a new WorktreeManager for the given repository
     ///
     /// # Arguments
@@ -595,28 +639,11 @@ impl WorktreeManager {
     /// List all interrupted sessions
     pub fn list_interrupted_sessions(&self) -> Result<Vec<WorktreeState>> {
         let metadata_dir = self.base_dir.join(".metadata");
-        if !metadata_dir.exists() {
-            return Ok(Vec::new());
-        }
-
-        let mut interrupted_sessions = Vec::new();
-
-        for entry in fs::read_dir(&metadata_dir)? {
-            let entry = entry?;
-            let path = entry.path();
-
-            if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                if let Ok(state_json) = fs::read_to_string(&path) {
-                    if let Ok(state) = serde_json::from_str::<WorktreeState>(&state_json) {
-                        if state.status == WorktreeStatus::Interrupted {
-                            interrupted_sessions.push(state);
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(interrupted_sessions)
+        let all_states = Self::collect_all_states(&metadata_dir)?;
+        Ok(Self::filter_sessions_by_status(
+            all_states,
+            WorktreeStatus::Interrupted,
+        ))
     }
 
     /// Mark a session as abandoned (non-resumable)
