@@ -7,6 +7,28 @@ use async_trait::async_trait;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
+#[derive(Debug, PartialEq)]
+enum GitCommandType {
+    Status,
+    Log,
+    Add,
+    Commit,
+    Other,
+}
+
+impl GitCommandType {
+    /// Classify git command based on arguments - pure function for testability
+    fn classify(args: &[&str]) -> Self {
+        match args.first() {
+            Some(&"status") if args.get(1) == Some(&"--porcelain") => Self::Status,
+            Some(&"log") if args.get(1) == Some(&"-1") => Self::Log,
+            Some(&"add") => Self::Add,
+            Some(&"commit") => Self::Commit,
+            _ => Self::Other,
+        }
+    }
+}
+
 /// Builder for creating configured mock Git operations
 pub struct MockGitOperationsBuilder {
     is_repo: bool,
@@ -125,27 +147,31 @@ impl MockGitOperations {
 #[async_trait]
 impl GitOperations for MockGitOperations {
     async fn git_command(&self, args: &[&str], _description: &str) -> Result<std::process::Output> {
-        // Simulate different git commands based on args
-        let output = if args.starts_with(&["status", "--porcelain"]) {
-            let mut status_responses = self.status_responses.lock().unwrap();
-            status_responses.pop_front().unwrap_or_default()
-        } else if args.starts_with(&["log", "-1"]) {
-            let messages = self.commit_messages.lock().unwrap();
-            messages
-                .last()
-                .cloned()
-                .unwrap_or_else(|| "Initial commit".to_string())
-        } else if args.starts_with(&["add"]) {
-            let mut staged = self.staged_files.lock().unwrap();
-            staged.push("all files".to_string());
-            String::new()
-        } else if args.starts_with(&["commit"]) {
-            let message = args.get(2).unwrap_or(&"commit");
-            let mut commits = self.commits.lock().unwrap();
-            commits.push(message.to_string());
-            String::new()
-        } else {
-            self.next_response()?
+        // Use the pure classifier function to determine command type
+        let output = match GitCommandType::classify(args) {
+            GitCommandType::Status => {
+                let mut status_responses = self.status_responses.lock().unwrap();
+                status_responses.pop_front().unwrap_or_default()
+            }
+            GitCommandType::Log => {
+                let messages = self.commit_messages.lock().unwrap();
+                messages
+                    .last()
+                    .cloned()
+                    .unwrap_or_else(|| "Initial commit".to_string())
+            }
+            GitCommandType::Add => {
+                let mut staged = self.staged_files.lock().unwrap();
+                staged.push("all files".to_string());
+                String::new()
+            }
+            GitCommandType::Commit => {
+                let message = args.get(2).unwrap_or(&"commit");
+                let mut commits = self.commits.lock().unwrap();
+                commits.push(message.to_string());
+                String::new()
+            }
+            GitCommandType::Other => self.next_response()?,
         };
 
         Ok(std::process::Output {
@@ -211,6 +237,83 @@ impl GitOperations for MockGitOperations {
 mod tests {
     use super::*;
 
+    #[test]
+    fn test_git_command_type_classify_status() {
+        assert_eq!(
+            GitCommandType::classify(&["status", "--porcelain"]),
+            GitCommandType::Status
+        );
+        assert_eq!(GitCommandType::classify(&["status"]), GitCommandType::Other);
+    }
+
+    #[test]
+    fn test_git_command_type_classify_log() {
+        assert_eq!(
+            GitCommandType::classify(&["log", "-1"]),
+            GitCommandType::Log
+        );
+        assert_eq!(
+            GitCommandType::classify(&["log", "--oneline"]),
+            GitCommandType::Other
+        );
+        assert_eq!(GitCommandType::classify(&["log"]), GitCommandType::Other);
+    }
+
+    #[test]
+    fn test_git_command_type_classify_add() {
+        assert_eq!(GitCommandType::classify(&["add", "."]), GitCommandType::Add);
+        assert_eq!(
+            GitCommandType::classify(&["add", "file.rs"]),
+            GitCommandType::Add
+        );
+        assert_eq!(GitCommandType::classify(&["add"]), GitCommandType::Add);
+    }
+
+    #[test]
+    fn test_git_command_type_classify_commit() {
+        assert_eq!(
+            GitCommandType::classify(&["commit", "-m", "message"]),
+            GitCommandType::Commit
+        );
+        assert_eq!(
+            GitCommandType::classify(&["commit", "--amend"]),
+            GitCommandType::Commit
+        );
+        assert_eq!(
+            GitCommandType::classify(&["commit"]),
+            GitCommandType::Commit
+        );
+    }
+
+    #[test]
+    fn test_git_command_type_classify_other() {
+        assert_eq!(GitCommandType::classify(&["push"]), GitCommandType::Other);
+        assert_eq!(GitCommandType::classify(&["pull"]), GitCommandType::Other);
+        assert_eq!(
+            GitCommandType::classify(&["checkout", "branch"]),
+            GitCommandType::Other
+        );
+        assert_eq!(GitCommandType::classify(&[]), GitCommandType::Other);
+    }
+
+    #[test]
+    fn test_git_command_type_classify_edge_cases() {
+        // Empty args
+        assert_eq!(GitCommandType::classify(&[]), GitCommandType::Other);
+
+        // Partial matches that shouldn't match
+        assert_eq!(
+            GitCommandType::classify(&["status", "something"]),
+            GitCommandType::Other
+        );
+
+        // Case sensitive check
+        assert_eq!(
+            GitCommandType::classify(&["STATUS", "--porcelain"]),
+            GitCommandType::Other
+        );
+    }
+
     #[tokio::test]
     async fn test_mock_git_builder() {
         let mock = MockGitOperationsBuilder::new()
@@ -260,5 +363,38 @@ mod tests {
         assert_eq!(commits.len(), 2);
         assert_eq!(commits[0], "Initial commit");
         assert_eq!(commits[1], "Add feature");
+    }
+
+    #[tokio::test]
+    async fn test_git_command_with_classifier() {
+        let mock = MockGitOperationsBuilder::new()
+            .with_clean_status()
+            .with_commit_message("test commit")
+            .build();
+
+        // Test status command
+        let output = mock
+            .git_command(&["status", "--porcelain"], "status")
+            .await
+            .unwrap();
+        assert_eq!(String::from_utf8_lossy(&output.stdout), "");
+
+        // Test log command
+        let output = mock.git_command(&["log", "-1"], "log").await.unwrap();
+        assert_eq!(String::from_utf8_lossy(&output.stdout), "test commit");
+
+        // Test add command
+        let output = mock.git_command(&["add", "."], "add").await.unwrap();
+        assert_eq!(String::from_utf8_lossy(&output.stdout), "");
+        assert_eq!(mock.get_staged_files().len(), 1);
+
+        // Test commit command
+        let output = mock
+            .git_command(&["commit", "-m", "new commit"], "commit")
+            .await
+            .unwrap();
+        assert_eq!(String::from_utf8_lossy(&output.stdout), "");
+        assert_eq!(mock.get_commits().len(), 1);
+        assert_eq!(mock.get_commits()[0], "new commit");
     }
 }
