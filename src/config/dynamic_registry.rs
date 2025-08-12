@@ -326,7 +326,9 @@ impl Default for DynamicCommandRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{Command, CommandArg};
+    use crate::config::command_validator::{ArgumentType, CommandDefinition, OptionDef};
+    use crate::config::{command, Command, CommandArg};
+    use std::collections::HashMap;
     use tempfile::TempDir;
     use tokio::fs;
 
@@ -759,5 +761,319 @@ A minimal command without metadata.
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Invalid value ''"));
+    }
+
+    #[tokio::test]
+    async fn test_apply_definition_defaults_all_metadata_unset() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir(&commands_dir).await.unwrap();
+        let registry = DynamicCommandRegistry::new(Some(commands_dir))
+            .await
+            .unwrap();
+
+        // Create a command with no metadata set
+        let mut command = Command::new("test-command".to_string());
+        assert!(command.metadata.retries.is_none());
+        assert!(command.metadata.timeout.is_none());
+        assert!(command.metadata.continue_on_error.is_none());
+
+        // Create a definition with all defaults
+        let definition = CommandDefinition {
+            name: "test-command".to_string(),
+            description: "Test command".to_string(),
+            required_args: vec![],
+            optional_args: vec![],
+            options: vec![],
+            defaults: command::CommandMetadata {
+                retries: Some(3),
+                timeout: Some(5000),
+                continue_on_error: Some(true),
+                env: HashMap::new(),
+                commit_required: false,
+                analysis: None,
+            },
+        };
+
+        // Apply defaults
+        registry.apply_definition_defaults(&mut command, &definition);
+
+        // All metadata should be set from defaults
+        assert_eq!(command.metadata.retries, Some(3));
+        assert_eq!(command.metadata.timeout, Some(5000));
+        assert_eq!(command.metadata.continue_on_error, Some(true));
+    }
+
+    #[tokio::test]
+    async fn test_apply_definition_defaults_metadata_already_set() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir(&commands_dir).await.unwrap();
+        let registry = DynamicCommandRegistry::new(Some(commands_dir))
+            .await
+            .unwrap();
+
+        // Create a command with metadata already set
+        let mut command = Command::new("test-command".to_string());
+        command.metadata.retries = Some(5);
+        command.metadata.timeout = Some(10000);
+        command.metadata.continue_on_error = Some(false);
+
+        // Create a definition with different defaults
+        let definition = CommandDefinition {
+            name: "test-command".to_string(),
+            description: "Test command".to_string(),
+            required_args: vec![],
+            optional_args: vec![],
+            options: vec![],
+            defaults: command::CommandMetadata {
+                retries: Some(3),
+                timeout: Some(5000),
+                continue_on_error: Some(true),
+                env: HashMap::new(),
+                commit_required: false,
+                analysis: None,
+            },
+        };
+
+        // Apply defaults
+        registry.apply_definition_defaults(&mut command, &definition);
+
+        // Existing values should not be overridden
+        assert_eq!(command.metadata.retries, Some(5));
+        assert_eq!(command.metadata.timeout, Some(10000));
+        assert_eq!(command.metadata.continue_on_error, Some(false));
+    }
+
+    #[tokio::test]
+    async fn test_apply_definition_defaults_partial_metadata() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir(&commands_dir).await.unwrap();
+        let registry = DynamicCommandRegistry::new(Some(commands_dir))
+            .await
+            .unwrap();
+
+        // Create a command with some metadata set
+        let mut command = Command::new("test-command".to_string());
+        command.metadata.retries = Some(2);
+        // timeout and continue_on_error are None
+
+        // Create a definition with all defaults
+        let definition = CommandDefinition {
+            name: "test-command".to_string(),
+            description: "Test command".to_string(),
+            required_args: vec![],
+            optional_args: vec![],
+            options: vec![],
+            defaults: command::CommandMetadata {
+                retries: Some(3),
+                timeout: Some(5000),
+                continue_on_error: Some(true),
+                env: HashMap::new(),
+                commit_required: false,
+                analysis: None,
+            },
+        };
+
+        // Apply defaults
+        registry.apply_definition_defaults(&mut command, &definition);
+
+        // Only unset values should be filled
+        assert_eq!(command.metadata.retries, Some(2)); // kept existing
+        assert_eq!(command.metadata.timeout, Some(5000)); // filled from default
+        assert_eq!(command.metadata.continue_on_error, Some(true)); // filled from default
+    }
+
+    #[tokio::test]
+    async fn test_apply_definition_defaults_options_with_defaults() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir(&commands_dir).await.unwrap();
+        let registry = DynamicCommandRegistry::new(Some(commands_dir))
+            .await
+            .unwrap();
+
+        // Create a command with no options
+        let mut command = Command::new("test-command".to_string());
+        assert!(command.options.is_empty());
+
+        // Create a definition with options that have defaults
+        let definition = CommandDefinition {
+            name: "test-command".to_string(),
+            description: "Test command".to_string(),
+            required_args: vec![],
+            optional_args: vec![],
+            options: vec![
+                OptionDef {
+                    name: "verbose".to_string(),
+                    description: "Verbose output".to_string(),
+                    option_type: ArgumentType::Boolean,
+                    default: Some(serde_json::json!(true)),
+                },
+                OptionDef {
+                    name: "count".to_string(),
+                    description: "Count value".to_string(),
+                    option_type: ArgumentType::Integer,
+                    default: Some(serde_json::json!(10)),
+                },
+            ],
+            defaults: command::CommandMetadata::default(),
+        };
+
+        // Apply defaults
+        registry.apply_definition_defaults(&mut command, &definition);
+
+        // Options should be set from defaults
+        assert_eq!(
+            command.options.get("verbose"),
+            Some(&serde_json::json!(true))
+        );
+        assert_eq!(command.options.get("count"), Some(&serde_json::json!(10)));
+    }
+
+    #[tokio::test]
+    async fn test_apply_definition_defaults_options_already_set() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir(&commands_dir).await.unwrap();
+        let registry = DynamicCommandRegistry::new(Some(commands_dir))
+            .await
+            .unwrap();
+
+        // Create a command with options already set
+        let mut command = Command::new("test-command".to_string());
+        command
+            .options
+            .insert("verbose".to_string(), serde_json::json!(false));
+        command
+            .options
+            .insert("count".to_string(), serde_json::json!(5));
+
+        // Create a definition with different defaults
+        let definition = CommandDefinition {
+            name: "test-command".to_string(),
+            description: "Test command".to_string(),
+            required_args: vec![],
+            optional_args: vec![],
+            options: vec![
+                OptionDef {
+                    name: "verbose".to_string(),
+                    description: "Verbose output".to_string(),
+                    option_type: ArgumentType::Boolean,
+                    default: Some(serde_json::json!(true)),
+                },
+                OptionDef {
+                    name: "count".to_string(),
+                    description: "Count value".to_string(),
+                    option_type: ArgumentType::Integer,
+                    default: Some(serde_json::json!(10)),
+                },
+            ],
+            defaults: command::CommandMetadata::default(),
+        };
+
+        // Apply defaults
+        registry.apply_definition_defaults(&mut command, &definition);
+
+        // Existing options should not be overridden
+        assert_eq!(
+            command.options.get("verbose"),
+            Some(&serde_json::json!(false))
+        );
+        assert_eq!(command.options.get("count"), Some(&serde_json::json!(5)));
+    }
+
+    #[tokio::test]
+    async fn test_apply_definition_defaults_mixed_options() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir(&commands_dir).await.unwrap();
+        let registry = DynamicCommandRegistry::new(Some(commands_dir))
+            .await
+            .unwrap();
+
+        // Create a command with one option set
+        let mut command = Command::new("test-command".to_string());
+        command
+            .options
+            .insert("verbose".to_string(), serde_json::json!(false));
+
+        // Create a definition with multiple options
+        let definition = CommandDefinition {
+            name: "test-command".to_string(),
+            description: "Test command".to_string(),
+            required_args: vec![],
+            optional_args: vec![],
+            options: vec![
+                OptionDef {
+                    name: "verbose".to_string(),
+                    description: "Verbose output".to_string(),
+                    option_type: ArgumentType::Boolean,
+                    default: Some(serde_json::json!(true)),
+                },
+                OptionDef {
+                    name: "count".to_string(),
+                    description: "Count value".to_string(),
+                    option_type: ArgumentType::Integer,
+                    default: Some(serde_json::json!(10)),
+                },
+                OptionDef {
+                    name: "mode".to_string(),
+                    description: "Mode value".to_string(),
+                    option_type: ArgumentType::String,
+                    default: None, // No default
+                },
+            ],
+            defaults: command::CommandMetadata::default(),
+        };
+
+        // Apply defaults
+        registry.apply_definition_defaults(&mut command, &definition);
+
+        // Check results
+        assert_eq!(
+            command.options.get("verbose"),
+            Some(&serde_json::json!(false))
+        ); // kept existing
+        assert_eq!(command.options.get("count"), Some(&serde_json::json!(10))); // filled from default
+        assert_eq!(command.options.get("mode"), None); // no default, not set
+    }
+
+    #[tokio::test]
+    async fn test_apply_definition_defaults_no_defaults() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir(&commands_dir).await.unwrap();
+        let registry = DynamicCommandRegistry::new(Some(commands_dir))
+            .await
+            .unwrap();
+
+        // Create a command with no values
+        let mut command = Command::new("test-command".to_string());
+
+        // Create a definition with no defaults
+        let definition = CommandDefinition {
+            name: "test-command".to_string(),
+            description: "Test command".to_string(),
+            required_args: vec![],
+            optional_args: vec![],
+            options: vec![OptionDef {
+                name: "verbose".to_string(),
+                description: "Verbose output".to_string(),
+                option_type: ArgumentType::Boolean,
+                default: None,
+            }],
+            defaults: command::CommandMetadata::default(), // All None
+        };
+
+        // Apply defaults
+        registry.apply_definition_defaults(&mut command, &definition);
+
+        // Nothing should be set
+        assert!(command.metadata.retries.is_none());
+        assert!(command.metadata.timeout.is_none());
+        assert!(command.metadata.continue_on_error.is_none());
+        assert!(command.options.is_empty());
     }
 }
