@@ -34,19 +34,6 @@ fn cleanup_worktree_dir(manager: &WorktreeManager) {
     }
 }
 
-/// Validates that a newly created worktree state has the expected initial values
-fn validate_initial_state(state: &WorktreeState, session_name: &str, branch: &str) -> bool {
-    state.session_id == session_name
-        && state.worktree_name == session_name
-        && state.branch == branch
-        && matches!(state.status, WorktreeStatus::InProgress)
-        && state.iterations.completed == 0
-        && state.iterations.max == 10
-        && !state.merged
-        && state.merged_at.is_none()
-        && state.error.is_none()
-}
-
 #[tokio::test]
 async fn test_state_file_creation() -> anyhow::Result<()> {
     let temp_dir = setup_test_repo()?;
@@ -68,9 +55,9 @@ async fn test_state_file_creation() -> anyhow::Result<()> {
     let state_json = std::fs::read_to_string(&state_file)?;
     let state: WorktreeState = serde_json::from_str(&state_json)?;
 
-    // Use the extracted validation function
+    // Use the validation method
     assert!(
-        validate_initial_state(&state, &session.name, &session.branch),
+        state.validate_initial_state(&session.name, &session.branch),
         "State validation failed"
     );
 
@@ -248,11 +235,7 @@ fn test_validate_initial_state_valid() {
         resumable: false,
     };
 
-    assert!(validate_initial_state(
-        &state,
-        "test-session",
-        "test-branch"
-    ));
+    assert!(state.validate_initial_state("test-session", "test-branch"));
 }
 
 #[test]
@@ -280,11 +263,7 @@ fn test_validate_initial_state_wrong_session_id() {
         resumable: false,
     };
 
-    assert!(!validate_initial_state(
-        &state,
-        "test-session",
-        "test-branch"
-    ));
+    assert!(!state.validate_initial_state("test-session", "test-branch"));
 }
 
 #[test]
@@ -312,11 +291,7 @@ fn test_validate_initial_state_wrong_status() {
         resumable: false,
     };
 
-    assert!(!validate_initial_state(
-        &state,
-        "test-session",
-        "test-branch"
-    ));
+    assert!(!state.validate_initial_state("test-session", "test-branch"));
 }
 
 #[test]
@@ -344,11 +319,7 @@ fn test_validate_initial_state_non_zero_iterations() {
         resumable: false,
     };
 
-    assert!(!validate_initial_state(
-        &state,
-        "test-session",
-        "test-branch"
-    ));
+    assert!(!state.validate_initial_state("test-session", "test-branch"));
 }
 
 #[test]
@@ -376,11 +347,7 @@ fn test_validate_initial_state_already_merged() {
         resumable: false,
     };
 
-    assert!(!validate_initial_state(
-        &state,
-        "test-session",
-        "test-branch"
-    ));
+    assert!(!state.validate_initial_state("test-session", "test-branch"));
 }
 
 #[test]
@@ -408,11 +375,7 @@ fn test_validate_initial_state_has_error() {
         resumable: false,
     };
 
-    assert!(!validate_initial_state(
-        &state,
-        "test-session",
-        "test-branch"
-    ));
+    assert!(!state.validate_initial_state("test-session", "test-branch"));
 }
 
 #[test]
@@ -440,11 +403,7 @@ fn test_validate_initial_state_wrong_branch() {
         resumable: false,
     };
 
-    assert!(!validate_initial_state(
-        &state,
-        "test-session",
-        "test-branch"
-    ));
+    assert!(!state.validate_initial_state("test-session", "test-branch"));
 }
 
 #[test]
@@ -472,11 +431,7 @@ fn test_validate_initial_state_wrong_worktree_name() {
         resumable: false,
     };
 
-    assert!(!validate_initial_state(
-        &state,
-        "test-session",
-        "test-branch"
-    ));
+    assert!(!state.validate_initial_state("test-session", "test-branch"));
 }
 
 #[test]
@@ -504,9 +459,5 @@ fn test_validate_initial_state_wrong_max_iterations() {
         resumable: false,
     };
 
-    assert!(!validate_initial_state(
-        &state,
-        "test-session",
-        "test-branch"
-    ));
+    assert!(!state.validate_initial_state("test-session", "test-branch"));
 }

@@ -84,3 +84,37 @@ pub enum CommandType {
     Lint,
     Custom(String),
 }
+
+impl WorktreeState {
+    /// Validates that a worktree state has the expected initial values
+    ///
+    /// This method checks that all fields match the expected initial state for a newly
+    /// created worktree session. It validates:
+    /// - Session ID and worktree name match the expected session name
+    /// - Branch matches the expected branch
+    /// - Status is InProgress
+    /// - No iterations have been completed yet
+    /// - Maximum iterations is set to 10
+    /// - The worktree has not been merged
+    /// - No errors have occurred
+    ///
+    /// # Arguments
+    ///
+    /// * `session_name` - The expected session name (should match session_id and worktree_name)
+    /// * `branch` - The expected branch name
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` if all validations pass, `false` otherwise
+    pub fn validate_initial_state(&self, session_name: &str, branch: &str) -> bool {
+        self.session_id == session_name
+            && self.worktree_name == session_name
+            && self.branch == branch
+            && matches!(self.status, WorktreeStatus::InProgress)
+            && self.iterations.completed == 0
+            && self.iterations.max == 10
+            && !self.merged
+            && self.merged_at.is_none()
+            && self.error.is_none()
+    }
+}
