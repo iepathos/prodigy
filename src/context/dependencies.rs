@@ -626,6 +626,210 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_js_exports() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        // Test 1: Named const export
+        let content = "export const API_URL = 'https://api.example.com';";
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 1);
+        assert_eq!(exports[0], "API_URL");
+
+        // Test 2: Named let export
+        let content = "export let counter = 0;";
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 1);
+        assert_eq!(exports[0], "counter");
+
+        // Test 3: Named var export
+        let content = "export var isEnabled = true;";
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 1);
+        assert_eq!(exports[0], "isEnabled");
+
+        // Test 4: Named function export
+        let content = "export function processData(data) { return data; }";
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 1);
+        assert_eq!(exports[0], "processData");
+
+        // Test 5: Named class export
+        let content = "export class UserService { constructor() {} }";
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 1);
+        assert_eq!(exports[0], "UserService");
+
+        // Test 6: Export statement with multiple items
+        let content = "const a = 1; const b = 2; export { a, b };";
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 2);
+        assert!(exports.contains(&"a".to_string()));
+        assert!(exports.contains(&"b".to_string()));
+
+        // Test 7: Export statement with 'as' renaming
+        let content = "const internal = 'value'; export { internal as external };";
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 1);
+        assert_eq!(exports[0], "internal");
+    }
+
+    #[test]
+    fn test_parse_js_exports_complex() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        // Test mixed export types in single file
+        let content = r#"
+            export const CONFIG = { debug: true };
+            export function calculate(x, y) {
+                return x + y;
+            }
+            export class Calculator {
+                add(a, b) { return a + b; }
+            }
+            const helper1 = () => {};
+            const helper2 = () => {};
+            export { helper1, helper2 };
+        "#;
+
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 5);
+        assert!(exports.contains(&"CONFIG".to_string()));
+        assert!(exports.contains(&"calculate".to_string()));
+        assert!(exports.contains(&"Calculator".to_string()));
+        assert!(exports.contains(&"helper1".to_string()));
+        assert!(exports.contains(&"helper2".to_string()));
+    }
+
+    #[test]
+    fn test_parse_js_exports_with_spaces() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        // Test export statement with various spacing
+        let content = "export   {   item1  ,   item2   ,  item3   };";
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 3);
+        assert!(exports.contains(&"item1".to_string()));
+        assert!(exports.contains(&"item2".to_string()));
+        assert!(exports.contains(&"item3".to_string()));
+    }
+
+    #[test]
+    fn test_parse_js_exports_multiline() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        // Test multiline export statement
+        let content = r#"export {
+            moduleA,
+            moduleB,
+            moduleC as moduleRenamed
+        };"#;
+
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 3);
+        assert!(exports.contains(&"moduleA".to_string()));
+        assert!(exports.contains(&"moduleB".to_string()));
+        assert!(exports.contains(&"moduleC".to_string()));
+    }
+
+    #[test]
+    fn test_parse_js_exports_edge_cases() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        // Test empty content
+        let exports = analyzer.parse_js_exports("");
+        assert_eq!(exports.len(), 0);
+
+        // Test content with no exports
+        let content = "const internal = 'not exported';";
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 0);
+
+        // Test empty export statement
+        let content = "export { };";
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 0);
+
+        // Test export with only whitespace
+        let content = "export {   };";
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 0);
+    }
+
+    #[test]
+    fn test_parse_js_exports_real_world() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        // Test realistic JavaScript module exports
+        let content = r#"
+            // API endpoints
+            export const API_BASE = 'https://api.example.com';
+            export const API_VERSION = 'v1';
+            
+            // Utility functions
+            export function formatDate(date) {
+                return date.toISOString();
+            }
+            
+            export function parseResponse(response) {
+                return JSON.parse(response);
+            }
+            
+            // Service class
+            export class ApiService {
+                constructor(baseUrl) {
+                    this.baseUrl = baseUrl;
+                }
+            }
+            
+            // Re-export from other modules
+            const utils = { format: () => {} };
+            const helpers = { parse: () => {} };
+            export { utils, helpers as utilHelpers };
+            
+            // Default export (not captured by this parser)
+            export default ApiService;
+        "#;
+
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 7);
+        assert!(exports.contains(&"API_BASE".to_string()));
+        assert!(exports.contains(&"API_VERSION".to_string()));
+        assert!(exports.contains(&"formatDate".to_string()));
+        assert!(exports.contains(&"parseResponse".to_string()));
+        assert!(exports.contains(&"ApiService".to_string()));
+        assert!(exports.contains(&"utils".to_string()));
+        assert!(exports.contains(&"helpers".to_string()));
+    }
+
+    #[test]
+    fn test_parse_js_exports_typescript() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        // Test TypeScript-specific exports (should work the same)
+        let content = r#"
+            export interface User {
+                id: number;
+                name: string;
+            }
+            
+            export type UserId = number;
+            
+            export enum Status {
+                Active,
+                Inactive
+            }
+            
+            export const getUser: (id: UserId) => User;
+        "#;
+
+        // Note: The current regex doesn't capture interface, type, or enum
+        // but does capture const declarations
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 1);
+        assert!(exports.contains(&"getUser".to_string()));
+    }
+
+    #[test]
     fn test_python_import_parsing() {
         let analyzer = BasicDependencyAnalyzer::new();
 
