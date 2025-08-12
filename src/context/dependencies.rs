@@ -513,40 +513,49 @@ impl BasicDependencyAnalyzer {
 
     /// Parse Python exports (__all__ or public names)
     fn parse_python_exports(&self, content: &str) -> Vec<String> {
-        let mut exports = Vec::new();
-
-        // Check for __all__ definition
-        let all_re = regex::Regex::new(r"__all__\s*=\s*\[([^\]]+)\]")
-            .expect("Failed to compile Python __all__ regex");
-
-        if let Some(cap) = all_re.captures(content) {
-            if let Some(items) = cap.get(1) {
-                for item in items.as_str().split(',') {
-                    let item = item.trim().trim_matches(|c| c == '"' || c == '\'');
-                    if !item.is_empty() {
-                        exports.push(item.to_string());
-                    }
-                }
-            }
-        } else {
-            // If no __all__, consider all non-private items as exports
-            let def_re = regex::Regex::new(r"^(def|class)\s+([a-zA-Z]\w*)")
-                .expect("Failed to compile Python definition regex");
-
-            for line in content.lines() {
-                if let Some(cap) = def_re.captures(line) {
-                    if let Some(name) = cap.get(2) {
-                        let name_str = name.as_str();
-                        // Skip private names (starting with _)
-                        if !name_str.starts_with('_') {
-                            exports.push(name_str.to_string());
-                        }
-                    }
-                }
-            }
+        // Try to extract from __all__ first
+        if let Some(exports) = Self::extract_python_all_exports(content) {
+            return exports;
         }
 
-        exports
+        // Fall back to extracting public definitions
+        Self::extract_python_public_definitions(content)
+    }
+
+    /// Extract exports from Python __all__ definition
+    fn extract_python_all_exports(content: &str) -> Option<Vec<String>> {
+        let all_re = regex::Regex::new(r"__all__\s*=\s*\[([^\]]*)\]")
+            .expect("Failed to compile Python __all__ regex");
+
+        all_re.captures(content).map(|cap| {
+            cap.get(1)
+                .map(|items| Self::parse_python_string_list(items.as_str()))
+                .unwrap_or_default()
+        })
+    }
+
+    /// Parse a comma-separated list of Python strings
+    fn parse_python_string_list(items_str: &str) -> Vec<String> {
+        items_str
+            .split(',')
+            .map(|item| item.trim().trim_matches(|c| c == '"' || c == '\''))
+            .filter(|item| !item.is_empty())
+            .map(String::from)
+            .collect()
+    }
+
+    /// Extract public function and class definitions from Python code
+    fn extract_python_public_definitions(content: &str) -> Vec<String> {
+        let def_re = regex::Regex::new(r"^(def|class)\s+([a-zA-Z]\w*)")
+            .expect("Failed to compile Python definition regex");
+
+        content
+            .lines()
+            .filter_map(|line| def_re.captures(line))
+            .filter_map(|cap| cap.get(2).map(|m| m.as_str()))
+            .filter(|name| !name.starts_with('_'))
+            .map(String::from)
+            .collect()
     }
 
     /// Parse dependencies from Cargo.toml
@@ -623,6 +632,210 @@ mod tests {
         assert!(imports.contains(&"fs".to_string()));
         assert!(imports.contains(&"fs/promises".to_string()));
         assert!(imports.contains(&"./styles.css".to_string()));
+    }
+
+    #[test]
+    fn test_parse_js_exports() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        // Test 1: Named const export
+        let content = "export const API_URL = 'https://api.example.com';";
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 1);
+        assert_eq!(exports[0], "API_URL");
+
+        // Test 2: Named let export
+        let content = "export let counter = 0;";
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 1);
+        assert_eq!(exports[0], "counter");
+
+        // Test 3: Named var export
+        let content = "export var isEnabled = true;";
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 1);
+        assert_eq!(exports[0], "isEnabled");
+
+        // Test 4: Named function export
+        let content = "export function processData(data) { return data; }";
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 1);
+        assert_eq!(exports[0], "processData");
+
+        // Test 5: Named class export
+        let content = "export class UserService { constructor() {} }";
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 1);
+        assert_eq!(exports[0], "UserService");
+
+        // Test 6: Export statement with multiple items
+        let content = "const a = 1; const b = 2; export { a, b };";
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 2);
+        assert!(exports.contains(&"a".to_string()));
+        assert!(exports.contains(&"b".to_string()));
+
+        // Test 7: Export statement with 'as' renaming
+        let content = "const internal = 'value'; export { internal as external };";
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 1);
+        assert_eq!(exports[0], "internal");
+    }
+
+    #[test]
+    fn test_parse_js_exports_complex() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        // Test mixed export types in single file
+        let content = r#"
+            export const CONFIG = { debug: true };
+            export function calculate(x, y) {
+                return x + y;
+            }
+            export class Calculator {
+                add(a, b) { return a + b; }
+            }
+            const helper1 = () => {};
+            const helper2 = () => {};
+            export { helper1, helper2 };
+        "#;
+
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 5);
+        assert!(exports.contains(&"CONFIG".to_string()));
+        assert!(exports.contains(&"calculate".to_string()));
+        assert!(exports.contains(&"Calculator".to_string()));
+        assert!(exports.contains(&"helper1".to_string()));
+        assert!(exports.contains(&"helper2".to_string()));
+    }
+
+    #[test]
+    fn test_parse_js_exports_with_spaces() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        // Test export statement with various spacing
+        let content = "export   {   item1  ,   item2   ,  item3   };";
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 3);
+        assert!(exports.contains(&"item1".to_string()));
+        assert!(exports.contains(&"item2".to_string()));
+        assert!(exports.contains(&"item3".to_string()));
+    }
+
+    #[test]
+    fn test_parse_js_exports_multiline() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        // Test multiline export statement
+        let content = r#"export {
+            moduleA,
+            moduleB,
+            moduleC as moduleRenamed
+        };"#;
+
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 3);
+        assert!(exports.contains(&"moduleA".to_string()));
+        assert!(exports.contains(&"moduleB".to_string()));
+        assert!(exports.contains(&"moduleC".to_string()));
+    }
+
+    #[test]
+    fn test_parse_js_exports_edge_cases() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        // Test empty content
+        let exports = analyzer.parse_js_exports("");
+        assert_eq!(exports.len(), 0);
+
+        // Test content with no exports
+        let content = "const internal = 'not exported';";
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 0);
+
+        // Test empty export statement
+        let content = "export { };";
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 0);
+
+        // Test export with only whitespace
+        let content = "export {   };";
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 0);
+    }
+
+    #[test]
+    fn test_parse_js_exports_real_world() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        // Test realistic JavaScript module exports
+        let content = r#"
+            // API endpoints
+            export const API_BASE = 'https://api.example.com';
+            export const API_VERSION = 'v1';
+            
+            // Utility functions
+            export function formatDate(date) {
+                return date.toISOString();
+            }
+            
+            export function parseResponse(response) {
+                return JSON.parse(response);
+            }
+            
+            // Service class
+            export class ApiService {
+                constructor(baseUrl) {
+                    this.baseUrl = baseUrl;
+                }
+            }
+            
+            // Re-export from other modules
+            const utils = { format: () => {} };
+            const helpers = { parse: () => {} };
+            export { utils, helpers as utilHelpers };
+            
+            // Default export (not captured by this parser)
+            export default ApiService;
+        "#;
+
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 7);
+        assert!(exports.contains(&"API_BASE".to_string()));
+        assert!(exports.contains(&"API_VERSION".to_string()));
+        assert!(exports.contains(&"formatDate".to_string()));
+        assert!(exports.contains(&"parseResponse".to_string()));
+        assert!(exports.contains(&"ApiService".to_string()));
+        assert!(exports.contains(&"utils".to_string()));
+        assert!(exports.contains(&"helpers".to_string()));
+    }
+
+    #[test]
+    fn test_parse_js_exports_typescript() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        // Test TypeScript-specific exports (should work the same)
+        let content = r#"
+            export interface User {
+                id: number;
+                name: string;
+            }
+            
+            export type UserId = number;
+            
+            export enum Status {
+                Active,
+                Inactive
+            }
+            
+            export const getUser: (id: UserId) => User;
+        "#;
+
+        // Note: The current regex doesn't capture interface, type, or enum
+        // but does capture const declarations
+        let exports = analyzer.parse_js_exports(content);
+        assert_eq!(exports.len(), 1);
+        assert!(exports.contains(&"getUser".to_string()));
     }
 
     #[test]
@@ -788,5 +1001,214 @@ mod tests {
         assert_eq!(layers[0].name, "root");
         assert_eq!(layers[0].level, 0);
         assert!(layers[0].modules.contains(&"main.rs".to_string()));
+    }
+
+    #[test]
+    fn test_parse_python_exports_with_all() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        let content = r#"
+"""Module docstring"""
+
+__all__ = ['public_func', "PublicClass", 'CONSTANT']
+
+def public_func():
+    pass
+
+def _private_func():
+    pass
+
+class PublicClass:
+    pass
+
+class _PrivateClass:
+    pass
+
+CONSTANT = 42
+"#;
+
+        let exports = analyzer.parse_python_exports(content);
+        assert_eq!(exports.len(), 3);
+        assert!(exports.contains(&"public_func".to_string()));
+        assert!(exports.contains(&"PublicClass".to_string()));
+        assert!(exports.contains(&"CONSTANT".to_string()));
+    }
+
+    #[test]
+    fn test_parse_python_exports_without_all() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        let content = r#"
+def public_function():
+    """Public function"""
+    pass
+
+def _private_function():
+    """Private function"""
+    pass
+
+class PublicClass:
+    """Public class"""
+    pass
+
+class _PrivateClass:
+    """Private class"""
+    pass
+
+def another_public():
+    pass
+"#;
+
+        let exports = analyzer.parse_python_exports(content);
+        assert_eq!(exports.len(), 3);
+        assert!(exports.contains(&"public_function".to_string()));
+        assert!(exports.contains(&"PublicClass".to_string()));
+        assert!(exports.contains(&"another_public".to_string()));
+        assert!(!exports.iter().any(|e| e.starts_with('_')));
+    }
+
+    #[test]
+    fn test_parse_python_exports_empty_all() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        let content = r#"
+__all__ = []
+
+def some_function():
+    pass
+"#;
+
+        let exports = analyzer.parse_python_exports(content);
+        // Empty __all__ is valid and means explicitly no exports
+        assert_eq!(exports.len(), 0);
+    }
+
+    #[test]
+    fn test_parse_python_exports_multiline_all() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        // Note: Current implementation only handles single-line __all__
+        let content = r#"
+__all__ = [
+    'func1',
+    'func2'
+]
+
+def func1():
+    pass
+
+def func2():
+    pass
+"#;
+
+        let exports = analyzer.parse_python_exports(content);
+        // Falls back to parsing function definitions since multiline __all__ isn't supported
+        assert_eq!(exports.len(), 2);
+        assert!(exports.contains(&"func1".to_string()));
+        assert!(exports.contains(&"func2".to_string()));
+    }
+
+    #[test]
+    fn test_parse_python_exports_mixed_quotes() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        let content = r#"
+__all__ = ['single', "double", 'mixed']
+"#;
+
+        let exports = analyzer.parse_python_exports(content);
+        assert_eq!(exports.len(), 3);
+        assert!(exports.contains(&"single".to_string()));
+        assert!(exports.contains(&"double".to_string()));
+        assert!(exports.contains(&"mixed".to_string()));
+    }
+
+    #[test]
+    fn test_parse_python_exports_with_spaces() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        let content = r#"
+__all__ = [  'spaced'  ,  "items"  ,  'here'  ]
+"#;
+
+        let exports = analyzer.parse_python_exports(content);
+        assert_eq!(exports.len(), 3);
+        assert!(exports.contains(&"spaced".to_string()));
+        assert!(exports.contains(&"items".to_string()));
+        assert!(exports.contains(&"here".to_string()));
+    }
+
+    #[test]
+    fn test_extract_python_all_exports() {
+        let content = r#"
+__all__ = ['export1', "export2", 'export3']
+"#;
+
+        let exports = BasicDependencyAnalyzer::extract_python_all_exports(content);
+        assert!(exports.is_some());
+        let exports = exports.unwrap();
+        assert_eq!(exports.len(), 3);
+        assert!(exports.contains(&"export1".to_string()));
+        assert!(exports.contains(&"export2".to_string()));
+        assert!(exports.contains(&"export3".to_string()));
+
+        // Test empty __all__
+        let content_empty = "__all__ = []";
+        let exports_empty = BasicDependencyAnalyzer::extract_python_all_exports(content_empty);
+        assert!(exports_empty.is_some());
+        assert_eq!(exports_empty.unwrap().len(), 0);
+
+        // Test no __all__
+        let content_none = "def some_func(): pass";
+        assert!(BasicDependencyAnalyzer::extract_python_all_exports(content_none).is_none());
+    }
+
+    #[test]
+    fn test_parse_python_string_list() {
+        let items = "'item1', \"item2\", 'item3'";
+        let parsed = BasicDependencyAnalyzer::parse_python_string_list(items);
+        assert_eq!(parsed.len(), 3);
+        assert_eq!(parsed[0], "item1");
+        assert_eq!(parsed[1], "item2");
+        assert_eq!(parsed[2], "item3");
+    }
+
+    #[test]
+    fn test_extract_python_public_definitions() {
+        let content = r#"
+def public_func():
+    pass
+
+def _private_func():
+    pass
+
+class PublicClass:
+    pass
+
+class _PrivateClass:
+    pass
+"#;
+
+        let exports = BasicDependencyAnalyzer::extract_python_public_definitions(content);
+        assert_eq!(exports.len(), 2);
+        assert!(exports.contains(&"public_func".to_string()));
+        assert!(exports.contains(&"PublicClass".to_string()));
+    }
+
+    #[test]
+    fn test_parse_python_exports_edge_cases() {
+        let analyzer = BasicDependencyAnalyzer::new();
+
+        // Empty content
+        assert_eq!(analyzer.parse_python_exports("").len(), 0);
+
+        // Only comments
+        let content = "# Comment\n# Another comment";
+        assert_eq!(analyzer.parse_python_exports(content).len(), 0);
+
+        // Malformed __all__
+        let content = "__all__ = 'not_a_list'";
+        let exports = analyzer.parse_python_exports(content);
+        assert_eq!(exports.len(), 0);
     }
 }
