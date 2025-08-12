@@ -1363,6 +1363,163 @@ mod tests {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 
+    #[test]
+    fn test_json_to_attribute_value_static_string() {
+        let json = serde_json::json!("hello world");
+        let result = WorkflowExecutor::json_to_attribute_value_static(json);
+        assert_eq!(result, AttributeValue::String("hello world".to_string()));
+    }
+
+    #[test]
+    fn test_json_to_attribute_value_static_integer() {
+        let json = serde_json::json!(42);
+        let result = WorkflowExecutor::json_to_attribute_value_static(json);
+        assert_eq!(result, AttributeValue::Number(42.0));
+    }
+
+    #[test]
+    fn test_json_to_attribute_value_static_float() {
+        let json = serde_json::json!(123.456);
+        let result = WorkflowExecutor::json_to_attribute_value_static(json);
+        assert_eq!(result, AttributeValue::Number(123.456));
+    }
+
+    #[test]
+    fn test_json_to_attribute_value_static_boolean_true() {
+        let json = serde_json::json!(true);
+        let result = WorkflowExecutor::json_to_attribute_value_static(json);
+        assert_eq!(result, AttributeValue::Boolean(true));
+    }
+
+    #[test]
+    fn test_json_to_attribute_value_static_boolean_false() {
+        let json = serde_json::json!(false);
+        let result = WorkflowExecutor::json_to_attribute_value_static(json);
+        assert_eq!(result, AttributeValue::Boolean(false));
+    }
+
+    #[test]
+    fn test_json_to_attribute_value_static_null() {
+        let json = serde_json::json!(null);
+        let result = WorkflowExecutor::json_to_attribute_value_static(json);
+        assert_eq!(result, AttributeValue::Null);
+    }
+
+    #[test]
+    fn test_json_to_attribute_value_static_array() {
+        let json = serde_json::json!([1, "two", true, null]);
+        let result = WorkflowExecutor::json_to_attribute_value_static(json);
+        assert_eq!(
+            result,
+            AttributeValue::Array(vec![
+                AttributeValue::Number(1.0),
+                AttributeValue::String("two".to_string()),
+                AttributeValue::Boolean(true),
+                AttributeValue::Null,
+            ])
+        );
+    }
+
+    #[test]
+    fn test_json_to_attribute_value_static_nested_array() {
+        let json = serde_json::json!([[1, 2], [3, 4]]);
+        let result = WorkflowExecutor::json_to_attribute_value_static(json);
+        assert_eq!(
+            result,
+            AttributeValue::Array(vec![
+                AttributeValue::Array(vec![
+                    AttributeValue::Number(1.0),
+                    AttributeValue::Number(2.0),
+                ]),
+                AttributeValue::Array(vec![
+                    AttributeValue::Number(3.0),
+                    AttributeValue::Number(4.0),
+                ]),
+            ])
+        );
+    }
+
+    #[test]
+    fn test_json_to_attribute_value_static_object() {
+        let json = serde_json::json!({
+            "name": "test",
+            "count": 42,
+            "active": true,
+            "data": null
+        });
+        let result = WorkflowExecutor::json_to_attribute_value_static(json);
+
+        if let AttributeValue::Object(map) = result {
+            assert_eq!(
+                map.get("name"),
+                Some(&AttributeValue::String("test".to_string()))
+            );
+            assert_eq!(map.get("count"), Some(&AttributeValue::Number(42.0)));
+            assert_eq!(map.get("active"), Some(&AttributeValue::Boolean(true)));
+            assert_eq!(map.get("data"), Some(&AttributeValue::Null));
+            assert_eq!(map.len(), 4);
+        } else {
+            panic!("Expected Object variant");
+        }
+    }
+
+    #[test]
+    fn test_json_to_attribute_value_static_nested_object() {
+        let json = serde_json::json!({
+            "user": {
+                "name": "Alice",
+                "age": 30
+            },
+            "settings": {
+                "theme": "dark",
+                "notifications": true
+            }
+        });
+        let result = WorkflowExecutor::json_to_attribute_value_static(json);
+
+        if let AttributeValue::Object(map) = result {
+            // Check user object
+            if let Some(AttributeValue::Object(user_map)) = map.get("user") {
+                assert_eq!(
+                    user_map.get("name"),
+                    Some(&AttributeValue::String("Alice".to_string()))
+                );
+                assert_eq!(user_map.get("age"), Some(&AttributeValue::Number(30.0)));
+            } else {
+                panic!("Expected user to be an Object");
+            }
+
+            // Check settings object
+            if let Some(AttributeValue::Object(settings_map)) = map.get("settings") {
+                assert_eq!(
+                    settings_map.get("theme"),
+                    Some(&AttributeValue::String("dark".to_string()))
+                );
+                assert_eq!(
+                    settings_map.get("notifications"),
+                    Some(&AttributeValue::Boolean(true))
+                );
+            } else {
+                panic!("Expected settings to be an Object");
+            }
+        } else {
+            panic!("Expected Object variant");
+        }
+    }
+
+    #[test]
+    fn test_json_to_attribute_value_static_large_numbers() {
+        // Test large integer
+        let json = serde_json::json!(9007199254740991i64); // Max safe integer in JavaScript
+        let result = WorkflowExecutor::json_to_attribute_value_static(json);
+        assert_eq!(result, AttributeValue::Number(9007199254740991.0));
+
+        // Test negative integer
+        let json = serde_json::json!(-42);
+        let result = WorkflowExecutor::json_to_attribute_value_static(json);
+        assert_eq!(result, AttributeValue::Number(-42.0));
+    }
+
     #[tokio::test]
     async fn test_get_current_head_in_regular_repo() {
         let temp_dir = TempDir::new().unwrap();
