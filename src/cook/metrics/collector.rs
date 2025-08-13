@@ -47,6 +47,16 @@ impl<R: CommandRunner> MetricsCollectorImpl<R> {
             collector: MetricsCollector::new(subprocess),
         }
     }
+
+    /// Trim history to keep only the most recent entries
+    fn trim_history(history: Vec<ProjectMetrics>, max_entries: usize) -> Vec<ProjectMetrics> {
+        if history.len() > max_entries {
+            let skip_amount = history.len() - max_entries;
+            history.into_iter().skip(skip_amount).collect()
+        } else {
+            history
+        }
+    }
 }
 
 #[async_trait]
@@ -206,10 +216,7 @@ impl<R: CommandRunner + 'static> MetricsCoordinator for MetricsCollectorImpl<R> 
         history.push(metrics.clone());
 
         // Keep only last 100 entries
-        if history.len() > 100 {
-            let skip_amount = history.len() - 100;
-            history = history.into_iter().skip(skip_amount).collect();
-        }
+        history = Self::trim_history(history, 100);
 
         let history_json = serde_json::to_string_pretty(&history)?;
         tokio::fs::write(&history_path, history_json).await?;
@@ -328,5 +335,201 @@ mod tests {
         }
         // Compile time may or may not be set depending on mock runner behavior
         // We're not mocking the build command in MockCommandRunner
+    }
+
+    #[test]
+    fn test_trim_history_empty() {
+        let history: Vec<ProjectMetrics> = Vec::new();
+        let result = MetricsCollectorImpl::<MockCommandRunner>::trim_history(history, 100);
+        assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    fn test_trim_history_under_limit() {
+        let history = vec![
+            create_test_metrics(1),
+            create_test_metrics(2),
+            create_test_metrics(3),
+        ];
+        let result = MetricsCollectorImpl::<MockCommandRunner>::trim_history(history.clone(), 100);
+        assert_eq!(result.len(), 3);
+        // Verify the order is preserved
+        assert_eq!(result[0].lint_warnings, 1);
+        assert_eq!(result[1].lint_warnings, 2);
+        assert_eq!(result[2].lint_warnings, 3);
+    }
+
+    #[test]
+    fn test_trim_history_at_limit() {
+        let history = vec![
+            create_test_metrics(1),
+            create_test_metrics(2),
+            create_test_metrics(3),
+        ];
+        let result = MetricsCollectorImpl::<MockCommandRunner>::trim_history(history.clone(), 3);
+        assert_eq!(result.len(), 3);
+        // Verify the order is preserved
+        assert_eq!(result[0].lint_warnings, 1);
+        assert_eq!(result[1].lint_warnings, 2);
+        assert_eq!(result[2].lint_warnings, 3);
+    }
+
+    #[test]
+    fn test_trim_history_over_limit() {
+        let history = vec![
+            create_test_metrics(1),
+            create_test_metrics(2),
+            create_test_metrics(3),
+            create_test_metrics(4),
+            create_test_metrics(5),
+        ];
+        let result = MetricsCollectorImpl::<MockCommandRunner>::trim_history(history.clone(), 3);
+        assert_eq!(result.len(), 3);
+        // Should keep the last 3 entries
+        assert_eq!(result[0].lint_warnings, 3);
+        assert_eq!(result[1].lint_warnings, 4);
+        assert_eq!(result[2].lint_warnings, 5);
+    }
+
+    #[test]
+    fn test_trim_history_limit_zero() {
+        let history = vec![create_test_metrics(1), create_test_metrics(2)];
+        let result = MetricsCollectorImpl::<MockCommandRunner>::trim_history(history, 0);
+        assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    fn test_trim_history_limit_one() {
+        let history = vec![
+            create_test_metrics(1),
+            create_test_metrics(2),
+            create_test_metrics(3),
+        ];
+        let result = MetricsCollectorImpl::<MockCommandRunner>::trim_history(history, 1);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].lint_warnings, 3); // Should keep the last entry
+    }
+
+    #[tokio::test]
+    async fn test_store_metrics_creates_directories() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let mock_runner = MockCommandRunner::new();
+        let collector = MetricsCollectorImpl::new(mock_runner);
+
+        let metrics = create_test_metrics(42);
+
+        // Store metrics
+        collector
+            .store_metrics(temp_dir.path(), &metrics)
+            .await
+            .unwrap();
+
+        // Verify directories were created
+        assert!(temp_dir.path().join(".mmm/metrics").exists());
+        assert!(temp_dir.path().join(".mmm/metrics/current.json").exists());
+        assert!(temp_dir.path().join(".mmm/metrics/history.json").exists());
+    }
+
+    #[tokio::test]
+    async fn test_store_metrics_appends_to_history() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let mock_runner = MockCommandRunner::new();
+        let collector = MetricsCollectorImpl::new(mock_runner);
+
+        // Store first metrics
+        let metrics1 = create_test_metrics(1);
+        collector
+            .store_metrics(temp_dir.path(), &metrics1)
+            .await
+            .unwrap();
+
+        // Store second metrics
+        let metrics2 = create_test_metrics(2);
+        collector
+            .store_metrics(temp_dir.path(), &metrics2)
+            .await
+            .unwrap();
+
+        // Load history and verify both entries exist
+        let history = collector.load_history(temp_dir.path()).await.unwrap();
+        assert_eq!(history.len(), 2);
+        assert_eq!(history[0].lint_warnings, 1);
+        assert_eq!(history[1].lint_warnings, 2);
+    }
+
+    #[tokio::test]
+    async fn test_store_metrics_trims_history_over_100() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let mock_runner = MockCommandRunner::new();
+        let collector = MetricsCollectorImpl::new(mock_runner);
+
+        // Create initial history with 100 entries
+        let mut initial_history = Vec::new();
+        for i in 1..=100 {
+            initial_history.push(create_test_metrics(i));
+        }
+
+        // Write initial history
+        let history_path = temp_dir.path().join(".mmm/metrics/history.json");
+        tokio::fs::create_dir_all(temp_dir.path().join(".mmm/metrics"))
+            .await
+            .unwrap();
+        let json = serde_json::to_string_pretty(&initial_history).unwrap();
+        tokio::fs::write(&history_path, json).await.unwrap();
+
+        // Store new metrics (101st entry)
+        let new_metrics = create_test_metrics(101);
+        collector
+            .store_metrics(temp_dir.path(), &new_metrics)
+            .await
+            .unwrap();
+
+        // Load history and verify it was trimmed
+        let history = collector.load_history(temp_dir.path()).await.unwrap();
+        assert_eq!(history.len(), 100);
+        assert_eq!(history[0].lint_warnings, 2); // First entry should be the 2nd original
+        assert_eq!(history[99].lint_warnings, 101); // Last entry should be the new one
+    }
+
+    #[tokio::test]
+    async fn test_load_history_empty_directory() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let mock_runner = MockCommandRunner::new();
+        let collector = MetricsCollectorImpl::new(mock_runner);
+
+        let history = collector.load_history(temp_dir.path()).await.unwrap();
+        assert_eq!(history.len(), 0);
+    }
+
+    // Helper function to create test metrics
+    fn create_test_metrics(id: usize) -> ProjectMetrics {
+        ProjectMetrics {
+            test_coverage: Some(50.0 + id as f64),
+            type_coverage: Some(60.0 + id as f64),
+            lint_warnings: id,
+            code_duplication: Some(5.0),
+            doc_coverage: Some(70.0),
+            benchmark_results: None,
+            compile_time: Some(10.0),
+            binary_size: Some(1000000),
+            cyclomatic_complexity: None,
+            max_nesting_depth: None,
+            total_lines: None,
+            tech_debt_score: None,
+            improvement_velocity: None,
+            timestamp: chrono::Utc::now(),
+            iteration_id: Some(format!("test-{id}")),
+            iteration_duration: None,
+            command_timings: None,
+            workflow_timing: None,
+        }
     }
 }
