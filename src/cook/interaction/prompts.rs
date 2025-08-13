@@ -36,6 +36,43 @@ impl UserPrompterImpl {
         io::stdin().read_line(&mut input)?;
         Ok(input.trim().to_string())
     }
+
+    /// Validate and parse a choice input
+    /// Returns Some(index) if valid, None if invalid
+    pub fn validate_choice_input(input: &str, num_choices: usize) -> Option<usize> {
+        if num_choices == 0 {
+            return None;
+        }
+
+        input.parse::<usize>().ok().and_then(|num| {
+            if num > 0 && num <= num_choices {
+                Some(num - 1)
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Format choice prompt message
+    pub fn format_choice_prompt(message: &str, choices: &[String]) -> String {
+        let mut output = String::new();
+        output.push_str(message);
+        output.push('\n');
+        for (i, choice) in choices.iter().enumerate() {
+            output.push_str(&format!("  {}. {}\n", i + 1, choice));
+        }
+        output
+    }
+
+    /// Format choice input prompt
+    pub fn format_choice_input_prompt(num_choices: usize) -> String {
+        format!("Enter choice (1-{num_choices}): ")
+    }
+
+    /// Format invalid choice message  
+    pub fn format_invalid_choice_message(num_choices: usize) -> String {
+        format!("Invalid choice. Please enter a number between 1 and {num_choices}: ")
+    }
 }
 
 #[async_trait]
@@ -68,24 +105,20 @@ impl UserPrompter for UserPrompterImpl {
     }
 
     async fn prompt_choice(&self, message: &str, choices: &[String]) -> Result<usize> {
-        println!("{}", message);
-        for (i, choice) in choices.iter().enumerate() {
-            println!("  {}. {}", i + 1, choice);
+        if choices.is_empty() {
+            anyhow::bail!("No choices provided");
         }
-        print!("Enter choice (1-{}): ", choices.len());
+
+        print!("{}", Self::format_choice_prompt(message, choices));
+        print!("{}", Self::format_choice_input_prompt(choices.len()));
         io::stdout().flush()?;
 
         loop {
             let input = Self::read_line()?;
-            if let Ok(num) = input.parse::<usize>() {
-                if num > 0 && num <= choices.len() {
-                    return Ok(num - 1);
-                }
+            if let Some(index) = Self::validate_choice_input(&input, choices.len()) {
+                return Ok(index);
             }
-            print!(
-                "Invalid choice. Please enter a number between 1 and {}: ",
-                choices.len()
-            );
+            print!("{}", Self::format_invalid_choice_message(choices.len()));
             io::stdout().flush()?;
         }
     }
@@ -184,5 +217,114 @@ mod tests {
 
         let choice = prompter.prompt_choice("Choose", &choices).await.unwrap();
         assert_eq!(choice, 1); // 0-based index
+    }
+
+    #[test]
+    fn test_validate_choice_input_valid_single_digit() {
+        assert_eq!(UserPrompterImpl::validate_choice_input("1", 3), Some(0));
+        assert_eq!(UserPrompterImpl::validate_choice_input("2", 3), Some(1));
+        assert_eq!(UserPrompterImpl::validate_choice_input("3", 3), Some(2));
+    }
+
+    #[test]
+    fn test_validate_choice_input_valid_multi_digit() {
+        assert_eq!(UserPrompterImpl::validate_choice_input("10", 10), Some(9));
+        assert_eq!(UserPrompterImpl::validate_choice_input("99", 100), Some(98));
+    }
+
+    #[test]
+    fn test_validate_choice_input_invalid_zero() {
+        assert_eq!(UserPrompterImpl::validate_choice_input("0", 3), None);
+    }
+
+    #[test]
+    fn test_validate_choice_input_invalid_out_of_bounds() {
+        assert_eq!(UserPrompterImpl::validate_choice_input("4", 3), None);
+        assert_eq!(UserPrompterImpl::validate_choice_input("100", 10), None);
+    }
+
+    #[test]
+    fn test_validate_choice_input_invalid_negative() {
+        assert_eq!(UserPrompterImpl::validate_choice_input("-1", 3), None);
+    }
+
+    #[test]
+    fn test_validate_choice_input_invalid_non_numeric() {
+        assert_eq!(UserPrompterImpl::validate_choice_input("abc", 3), None);
+        assert_eq!(UserPrompterImpl::validate_choice_input("1.5", 3), None);
+        assert_eq!(UserPrompterImpl::validate_choice_input("", 3), None);
+        assert_eq!(UserPrompterImpl::validate_choice_input(" ", 3), None);
+    }
+
+    #[test]
+    fn test_validate_choice_input_empty_choices() {
+        assert_eq!(UserPrompterImpl::validate_choice_input("1", 0), None);
+    }
+
+    #[test]
+    fn test_validate_choice_input_single_choice() {
+        assert_eq!(UserPrompterImpl::validate_choice_input("1", 1), Some(0));
+        assert_eq!(UserPrompterImpl::validate_choice_input("2", 1), None);
+    }
+
+    #[test]
+    fn test_format_choice_prompt() {
+        let choices = vec!["Option A".to_string(), "Option B".to_string()];
+        let formatted = UserPrompterImpl::format_choice_prompt("Choose an option:", &choices);
+        assert_eq!(
+            formatted,
+            "Choose an option:\n  1. Option A\n  2. Option B\n"
+        );
+    }
+
+    #[test]
+    fn test_format_choice_prompt_empty() {
+        let choices: Vec<String> = vec![];
+        let formatted = UserPrompterImpl::format_choice_prompt("Choose:", &choices);
+        assert_eq!(formatted, "Choose:\n");
+    }
+
+    #[test]
+    fn test_format_choice_prompt_single() {
+        let choices = vec!["Only Option".to_string()];
+        let formatted = UserPrompterImpl::format_choice_prompt("Pick:", &choices);
+        assert_eq!(formatted, "Pick:\n  1. Only Option\n");
+    }
+
+    #[test]
+    fn test_format_choice_input_prompt() {
+        assert_eq!(
+            UserPrompterImpl::format_choice_input_prompt(3),
+            "Enter choice (1-3): "
+        );
+        assert_eq!(
+            UserPrompterImpl::format_choice_input_prompt(1),
+            "Enter choice (1-1): "
+        );
+        assert_eq!(
+            UserPrompterImpl::format_choice_input_prompt(10),
+            "Enter choice (1-10): "
+        );
+    }
+
+    #[test]
+    fn test_format_invalid_choice_message() {
+        assert_eq!(
+            UserPrompterImpl::format_invalid_choice_message(3),
+            "Invalid choice. Please enter a number between 1 and 3: "
+        );
+        assert_eq!(
+            UserPrompterImpl::format_invalid_choice_message(1),
+            "Invalid choice. Please enter a number between 1 and 1: "
+        );
+    }
+
+    #[tokio::test]
+    async fn test_prompt_choice_empty_choices() {
+        let prompter = UserPrompterImpl::new();
+        let choices: Vec<String> = vec![];
+        let result = prompter.prompt_choice("Choose", &choices).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "No choices provided");
     }
 }
