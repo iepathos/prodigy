@@ -82,6 +82,22 @@ mod tests {
             }
             Box::new(MockSpinner)
         }
+
+        fn iteration_start(&self, _current: u32, _total: u32) {}
+
+        fn iteration_end(&self, _current: u32, _duration: std::time::Duration, _success: bool) {}
+
+        fn step_start(&self, _step: u32, _total: u32, _description: &str) {}
+
+        fn step_end(&self, _step: u32, _success: bool) {}
+
+        fn command_output(&self, _output: &str, _verbosity: crate::cook::interaction::VerbosityLevel) {}
+
+        fn debug_output(&self, _message: &str, _min_verbosity: crate::cook::interaction::VerbosityLevel) {}
+
+        fn verbosity(&self) -> crate::cook::interaction::VerbosityLevel {
+            crate::cook::interaction::VerbosityLevel::Normal
+        }
     }
 
     #[tokio::test]

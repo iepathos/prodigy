@@ -84,4 +84,12 @@ pub struct CookCommand {
     /// Useful when you want to run Claude commands immediately without gathering context.
     #[arg(long)]
     pub skip_analysis: bool,
+
+    /// Increase output verbosity (-v verbose, -vv debug, -vvv trace)
+    #[arg(short = 'v', long = "verbose", action = clap::ArgAction::Count)]
+    pub verbosity: u8,
+
+    /// Decrease output verbosity (opposite of -v)
+    #[arg(short = 'q', long = "quiet", conflicts_with = "verbosity")]
+    pub quiet: bool,
 }

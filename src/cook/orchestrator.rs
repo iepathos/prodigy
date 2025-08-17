@@ -609,12 +609,17 @@ impl DefaultCookOrchestrator {
                 // Apply defaults from the command registry
                 crate::config::apply_command_defaults(&mut command);
 
-                self.user_interaction.display_progress(&format!(
-                    "Executing step {}/{}: {}",
-                    step_index + 1,
-                    config.workflow.commands.len(),
-                    command.name
-                ));
+                // Display step start with description
+                let step_description = format!("{}: {}", command.name, command.args.iter()
+                    .map(|a| a.resolve(&HashMap::new()))
+                    .filter(|s| !s.is_empty())
+                    .collect::<Vec<_>>()
+                    .join(" "));
+                self.user_interaction.step_start(
+                    (step_index + 1) as u32,
+                    config.workflow.commands.len() as u32,
+                    &step_description
+                );
 
                 // Check if this command requires analysis
                 if let Some(ref analysis_config) = command.analysis {
@@ -828,10 +833,8 @@ impl DefaultCookOrchestrator {
         for iteration in 1..=max_iterations {
             timing_tracker.start_iteration();
 
-            if iteration > 1 {
-                self.user_interaction
-                    .display_progress(&format!("Starting iteration {iteration}/{max_iterations}"));
-            }
+            // Display iteration start with visual boundary
+            self.user_interaction.iteration_start(iteration, max_iterations);
 
             // Increment iteration counter
             self.session_manager
@@ -844,12 +847,17 @@ impl DefaultCookOrchestrator {
                 // Apply defaults from the command registry
                 crate::config::apply_command_defaults(&mut command);
 
-                self.user_interaction.display_progress(&format!(
-                    "Executing step {}/{}: {}",
-                    step_index + 1,
-                    config.workflow.commands.len(),
-                    command.name
-                ));
+                // Display step start with description
+                let step_description = format!("{}: {}", command.name, command.args.iter()
+                    .map(|a| a.resolve(&HashMap::new()))
+                    .filter(|s| !s.is_empty())
+                    .collect::<Vec<_>>()
+                    .join(" "));
+                self.user_interaction.step_start(
+                    (step_index + 1) as u32,
+                    config.workflow.commands.len() as u32,
+                    &step_description
+                );
 
                 // Start timing this command
                 timing_tracker.start_command(command.name.clone());
@@ -914,13 +922,9 @@ impl DefaultCookOrchestrator {
                 }
             }
 
-            // Complete iteration timing
+            // Complete iteration timing and display summary
             if let Some(iteration_duration) = timing_tracker.complete_iteration() {
-                self.user_interaction.display_info(&format!(
-                    "✓ Iteration {} completed in {}",
-                    iteration,
-                    format_duration(iteration_duration)
-                ));
+                self.user_interaction.iteration_end(iteration, iteration_duration, true);
             }
         }
 
@@ -1826,6 +1830,8 @@ mod tests {
                 auto_accept: false,
                 resume: None,
                 skip_analysis: false,
+                verbosity: 0,
+                quiet: false,
             },
             project_path: PathBuf::from("/tmp/test"),
             workflow: WorkflowConfig { commands: vec![] },
@@ -1871,6 +1877,8 @@ mod tests {
                 auto_accept: false,
                 resume: None,
                 skip_analysis: true,
+                verbosity: 0,
+                quiet: false,
             },
             project_path: PathBuf::from("/tmp/test"),
             workflow: simple_workflow,
@@ -2045,6 +2053,8 @@ mod tests {
                 auto_accept: false,
                 resume: None,
                 skip_analysis: true,
+                verbosity: 0,
+                quiet: false,
             },
             project_path: PathBuf::from("/tmp/test"),
             workflow,
@@ -2210,6 +2220,8 @@ mod tests {
                 auto_accept: false,
                 resume: None,
                 skip_analysis: true,
+                verbosity: 0,
+                quiet: false,
             },
             project_path: temp_dir.path().to_path_buf(),
             workflow,
@@ -2322,6 +2334,8 @@ mod tests {
                 auto_accept: true, // This should skip the prompt
                 resume: None,
                 skip_analysis: false,
+                verbosity: 0,
+                quiet: false,
             },
             project_path: temp_dir.path().to_path_buf(),
             workflow: WorkflowConfig { commands: vec![] },
@@ -2341,6 +2355,8 @@ mod tests {
                 auto_accept: false, // This should prompt the user
                 resume: None,
                 skip_analysis: false,
+                verbosity: 0,
+                quiet: false,
             },
             project_path: temp_dir.path().to_path_buf(),
             workflow: WorkflowConfig { commands: vec![] },
@@ -2399,6 +2415,8 @@ mod tests {
                 auto_accept: true,
                 resume: None,
                 skip_analysis: false,
+                verbosity: 0,
+                quiet: false,
             },
             project_path: temp_dir.path().to_path_buf(),
             workflow: WorkflowConfig { commands: vec![] },
@@ -2418,6 +2436,8 @@ mod tests {
                 auto_accept: false,
                 resume: None,
                 skip_analysis: false,
+                verbosity: 0,
+                quiet: false,
             },
             project_path: temp_dir.path().to_path_buf(),
             workflow: WorkflowConfig { commands: vec![] },
@@ -2569,6 +2589,8 @@ mod tests {
                 auto_accept: false,
                 resume: None,
                 skip_analysis: true,
+                verbosity: 0,
+                quiet: false,
             },
             project_path: temp_dir.path().to_path_buf(),
             workflow,
@@ -2654,6 +2676,8 @@ mod tests {
                 auto_accept: false,
                 resume: None,
                 skip_analysis: true,
+                verbosity: 0,
+                quiet: false,
             },
             project_path: temp_dir.path().to_path_buf(),
             workflow,
@@ -2736,6 +2760,8 @@ mod tests {
                 auto_accept: false,
                 resume: None,
                 skip_analysis: false,
+                verbosity: 0,
+                quiet: false,
             },
             project_path: temp_dir.path().to_path_buf(),
             workflow,

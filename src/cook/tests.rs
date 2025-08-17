@@ -37,6 +37,8 @@ mod cook_tests {
             metrics: false,
             resume: None,
             skip_analysis: false,
+            verbosity: 0,
+            quiet: false,
         };
 
         // Run the command (this would require refactoring cook::run to accept injected dependencies)
