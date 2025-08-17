@@ -410,24 +410,24 @@ impl UserInteraction for MockUserInteraction {
     }
 
     fn iteration_start(&self, current: u32, total: u32) {
-        self.messages
-            .lock()
-            .unwrap()
-            .push(("iteration_start".to_string(), format!("{}/{}", current, total)));
+        self.messages.lock().unwrap().push((
+            "iteration_start".to_string(),
+            format!("{}/{}", current, total),
+        ));
     }
 
     fn iteration_end(&self, current: u32, duration: std::time::Duration, success: bool) {
-        self.messages
-            .lock()
-            .unwrap()
-            .push(("iteration_end".to_string(), format!("{} {:?} {}", current, duration, success)));
+        self.messages.lock().unwrap().push((
+            "iteration_end".to_string(),
+            format!("{} {:?} {}", current, duration, success),
+        ));
     }
 
     fn step_start(&self, step: u32, total: u32, description: &str) {
-        self.messages
-            .lock()
-            .unwrap()
-            .push(("step_start".to_string(), format!("{}/{} {}", step, total, description)));
+        self.messages.lock().unwrap().push((
+            "step_start".to_string(),
+            format!("{}/{} {}", step, total, description),
+        ));
     }
 
     fn step_end(&self, step: u32, success: bool) {
@@ -444,7 +444,11 @@ impl UserInteraction for MockUserInteraction {
             .push(("command_output".to_string(), output.to_string()));
     }
 
-    fn debug_output(&self, message: &str, _min_verbosity: crate::cook::interaction::VerbosityLevel) {
+    fn debug_output(
+        &self,
+        message: &str,
+        _min_verbosity: crate::cook::interaction::VerbosityLevel,
+    ) {
         self.messages
             .lock()
             .unwrap()

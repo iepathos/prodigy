@@ -115,7 +115,10 @@ pub async fn cook(mut cmd: CookCommand) -> Result<()> {
 }
 
 /// Create the orchestrator with all dependencies
-async fn create_orchestrator(project_path: &Path, cmd: &CookCommand) -> Result<Arc<dyn CookOrchestrator>> {
+async fn create_orchestrator(
+    project_path: &Path,
+    cmd: &CookCommand,
+) -> Result<Arc<dyn CookOrchestrator>> {
     // Create shared dependencies
     let git_operations = Arc::new(RealGitOperations::new());
     let subprocess = Arc::new(crate::subprocess::SubprocessManager::production());
@@ -136,10 +139,12 @@ async fn create_orchestrator(project_path: &Path, cmd: &CookCommand) -> Result<A
         project_path.to_path_buf(),
     ));
     let state_manager = Arc::new(StateManager::new()?);
-    
+
     // Create user interaction with verbosity from command args
     let verbosity = interaction::VerbosityLevel::from_args(cmd.verbosity, cmd.quiet);
-    let user_interaction = Arc::new(interaction::DefaultUserInteraction::with_verbosity(verbosity));
+    let user_interaction = Arc::new(interaction::DefaultUserInteraction::with_verbosity(
+        verbosity,
+    ));
 
     // Create executors
     let command_executor = Arc::new(command_runner1);

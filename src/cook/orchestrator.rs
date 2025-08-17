@@ -610,15 +610,21 @@ impl DefaultCookOrchestrator {
                 crate::config::apply_command_defaults(&mut command);
 
                 // Display step start with description
-                let step_description = format!("{}: {}", command.name, command.args.iter()
-                    .map(|a| a.resolve(&HashMap::new()))
-                    .filter(|s| !s.is_empty())
-                    .collect::<Vec<_>>()
-                    .join(" "));
+                let step_description = format!(
+                    "{}: {}",
+                    command.name,
+                    command
+                        .args
+                        .iter()
+                        .map(|a| a.resolve(&HashMap::new()))
+                        .filter(|s| !s.is_empty())
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                );
                 self.user_interaction.step_start(
                     (step_index + 1) as u32,
                     config.workflow.commands.len() as u32,
-                    &step_description
+                    &step_description,
                 );
 
                 // Check if this command requires analysis
@@ -834,7 +840,8 @@ impl DefaultCookOrchestrator {
             timing_tracker.start_iteration();
 
             // Display iteration start with visual boundary
-            self.user_interaction.iteration_start(iteration, max_iterations);
+            self.user_interaction
+                .iteration_start(iteration, max_iterations);
 
             // Increment iteration counter
             self.session_manager
@@ -848,15 +855,21 @@ impl DefaultCookOrchestrator {
                 crate::config::apply_command_defaults(&mut command);
 
                 // Display step start with description
-                let step_description = format!("{}: {}", command.name, command.args.iter()
-                    .map(|a| a.resolve(&HashMap::new()))
-                    .filter(|s| !s.is_empty())
-                    .collect::<Vec<_>>()
-                    .join(" "));
+                let step_description = format!(
+                    "{}: {}",
+                    command.name,
+                    command
+                        .args
+                        .iter()
+                        .map(|a| a.resolve(&HashMap::new()))
+                        .filter(|s| !s.is_empty())
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                );
                 self.user_interaction.step_start(
                     (step_index + 1) as u32,
                     config.workflow.commands.len() as u32,
-                    &step_description
+                    &step_description,
                 );
 
                 // Start timing this command
@@ -924,7 +937,8 @@ impl DefaultCookOrchestrator {
 
             // Complete iteration timing and display summary
             if let Some(iteration_duration) = timing_tracker.complete_iteration() {
-                self.user_interaction.iteration_end(iteration, iteration_duration, true);
+                self.user_interaction
+                    .iteration_end(iteration, iteration_duration, true);
             }
         }
 

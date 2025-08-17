@@ -91,9 +91,19 @@ mod tests {
 
         fn step_end(&self, _step: u32, _success: bool) {}
 
-        fn command_output(&self, _output: &str, _verbosity: crate::cook::interaction::VerbosityLevel) {}
+        fn command_output(
+            &self,
+            _output: &str,
+            _verbosity: crate::cook::interaction::VerbosityLevel,
+        ) {
+        }
 
-        fn debug_output(&self, _message: &str, _min_verbosity: crate::cook::interaction::VerbosityLevel) {}
+        fn debug_output(
+            &self,
+            _message: &str,
+            _min_verbosity: crate::cook::interaction::VerbosityLevel,
+        ) {
+        }
 
         fn verbosity(&self) -> crate::cook::interaction::VerbosityLevel {
             crate::cook::interaction::VerbosityLevel::Normal

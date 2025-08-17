@@ -240,15 +240,14 @@ impl ProgressDisplay for ProgressDisplayImpl {
             let width = 60;
             let title = format!(" ITERATION {current}/{total} ");
             let padding = (width - title.len()) / 2;
-            
+
             println!();
             println!(
-                "{}{}{}{}{}",
+                "{}{}{}",
                 chars.top_left,
-                std::iter::repeat(chars.horizontal).take(width).collect::<String>(),
-                chars.top_right,
-                "",
-                ""
+                std::iter::repeat_n(chars.horizontal, width)
+                    .collect::<String>(),
+                chars.top_right
             );
             println!(
                 "{}{:padding$}{}{:padding$}{}",
@@ -262,7 +261,8 @@ impl ProgressDisplay for ProgressDisplayImpl {
             println!(
                 "{}{}{}",
                 chars.bottom_left,
-                std::iter::repeat(chars.horizontal).take(width).collect::<String>(),
+                std::iter::repeat_n(chars.horizontal, width)
+                    .collect::<String>(),
                 chars.bottom_right
             );
             println!();
@@ -273,7 +273,7 @@ impl ProgressDisplay for ProgressDisplayImpl {
         if self.verbosity >= VerbosityLevel::Normal {
             let duration_str = Self::format_duration(duration);
             let status = if success { "✅ Success" } else { "❌ Failed" };
-            
+
             println!();
             println!("┌─ Iteration {current} Summary ──────────────────────────────────────┐");
             println!("│ Duration: {:<49}│", duration_str);
@@ -648,7 +648,7 @@ mod tests {
     fn test_command_output_display() {
         let display = MockProgressDisplay::new();
         display.command_output("test output", VerbosityLevel::Debug);
-        
+
         let messages = display.get_messages();
         assert!(messages.contains(&"COMMAND_OUTPUT: test output".to_string()));
     }
@@ -657,15 +657,24 @@ mod tests {
     fn test_debug_output() {
         let display = MockProgressDisplay::new();
         display.debug_output("debug info", VerbosityLevel::Trace);
-        
+
         let messages = display.get_messages();
         assert!(messages.contains(&"DEBUG: debug info".to_string()));
     }
 
     #[test]
     fn test_format_duration() {
-        assert_eq!(ProgressDisplayImpl::format_duration(Duration::from_millis(500)), "500ms");
-        assert_eq!(ProgressDisplayImpl::format_duration(Duration::from_secs(5)), "5.000s");
-        assert_eq!(ProgressDisplayImpl::format_duration(Duration::from_secs(65)), "1m 5s");
+        assert_eq!(
+            ProgressDisplayImpl::format_duration(Duration::from_millis(500)),
+            "500ms"
+        );
+        assert_eq!(
+            ProgressDisplayImpl::format_duration(Duration::from_secs(5)),
+            "5.000s"
+        );
+        assert_eq!(
+            ProgressDisplayImpl::format_duration(Duration::from_secs(65)),
+            "1m 5s"
+        );
     }
 }
