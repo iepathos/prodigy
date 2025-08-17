@@ -6,7 +6,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::context::{debt::DebtItem as TechnicalDebtItem, AnalysisMetadata, AnalysisResult};
 use crate::metrics::ImprovementMetrics;
 
 /// Unified project health score with component breakdown
@@ -98,6 +97,7 @@ impl ProjectHealthScore {
         }
     }
 
+    /* REMOVED: Analysis-dependent method
     /// Calculate unified health score from context analysis
     pub fn from_context(analysis: &AnalysisResult) -> Self {
         let mut total_score = 0.0;
@@ -183,6 +183,7 @@ impl ProjectHealthScore {
             timestamp: Utc::now(),
         }
     }
+    */
 
     /// Get improvement suggestions based on component scores
     pub fn get_improvement_suggestions(&self) -> Vec<String> {
@@ -305,7 +306,8 @@ fn calculate_maintainability_from_metrics(metrics: &ImprovementMetrics) -> f64 {
     score.max(0.0)
 }
 
-/// Calculate maintainability score from technical debt items
+/* REMOVED: Analysis-dependent functions
+/// Calculate maintainability score from technical debt items  
 fn calculate_maintainability_score(debt_items: &[TechnicalDebtItem]) -> f64 {
     // Count high-impact items
     let high_impact_count = debt_items.iter().filter(|item| item.impact >= 7).count();
@@ -384,6 +386,7 @@ pub fn calculate_technical_debt_score(debt_items: &[TechnicalDebtItem]) -> f64 {
 
     score.max(0.0)
 }
+*/
 
 /// Format score component for display
 pub fn format_component(name: &str, value: Option<f64>, details: Option<&str>) -> String {
@@ -413,6 +416,7 @@ pub fn format_component(name: &str, value: Option<f64>, details: Option<&str>) -
     }
 }
 
+/* REMOVED: Analysis-dependent function
 /// Load type coverage from metrics file
 fn load_type_coverage_from_metrics(_metadata: &AnalysisMetadata) -> Result<f64, ()> {
     // Get the project path from the current directory
@@ -436,6 +440,7 @@ fn load_type_coverage_from_metrics(_metadata: &AnalysisMetadata) -> Result<f64, 
         .and_then(|v| v.as_f64())
         .ok_or(())
 }
+*/
 
 #[cfg(test)]
 mod tests {
