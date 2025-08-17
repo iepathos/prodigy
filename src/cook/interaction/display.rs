@@ -1,7 +1,6 @@
 //! Progress and message display implementation
 
 use super::SpinnerHandle;
-use std::io::IsTerminal;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -77,7 +76,6 @@ pub trait ProgressDisplay: Send + Sync {
 pub struct ProgressDisplayImpl {
     verbosity: VerbosityLevel,
     use_unicode: bool,
-    use_color: bool,
 }
 
 impl Default for ProgressDisplayImpl {
@@ -90,12 +88,10 @@ impl ProgressDisplayImpl {
     pub fn new(verbosity: VerbosityLevel) -> Self {
         // Detect terminal capabilities
         let use_unicode = Self::supports_unicode();
-        let use_color = std::io::stdout().is_terminal();
 
         Self {
             verbosity,
             use_unicode,
-            use_color,
         }
     }
 
@@ -156,11 +152,6 @@ struct BoxChars {
     top_right: char,
     bottom_left: char,
     bottom_right: char,
-    cross: char,
-    t_down: char,
-    t_up: char,
-    t_right: char,
-    t_left: char,
 }
 
 impl BoxChars {
@@ -172,11 +163,6 @@ impl BoxChars {
             top_right: '╗',
             bottom_left: '╚',
             bottom_right: '╝',
-            cross: '╬',
-            t_down: '╦',
-            t_up: '╩',
-            t_right: '╠',
-            t_left: '╣',
         }
     }
 
@@ -188,11 +174,6 @@ impl BoxChars {
             top_right: '+',
             bottom_left: '+',
             bottom_right: '+',
-            cross: '+',
-            t_down: '+',
-            t_up: '+',
-            t_right: '+',
-            t_left: '+',
         }
     }
 }
@@ -245,8 +226,7 @@ impl ProgressDisplay for ProgressDisplayImpl {
             println!(
                 "{}{}{}",
                 chars.top_left,
-                std::iter::repeat_n(chars.horizontal, width)
-                    .collect::<String>(),
+                std::iter::repeat_n(chars.horizontal, width).collect::<String>(),
                 chars.top_right
             );
             println!(
@@ -261,8 +241,7 @@ impl ProgressDisplay for ProgressDisplayImpl {
             println!(
                 "{}{}{}",
                 chars.bottom_left,
-                std::iter::repeat_n(chars.horizontal, width)
-                    .collect::<String>(),
+                std::iter::repeat_n(chars.horizontal, width).collect::<String>(),
                 chars.bottom_right
             );
             println!();
@@ -367,6 +346,7 @@ mod tests {
             }
         }
 
+        #[cfg(test)]
         pub fn with_verbosity(verbosity: VerbosityLevel) -> Self {
             Self {
                 messages: Arc::new(Mutex::new(Vec::new())),
