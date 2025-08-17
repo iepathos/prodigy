@@ -488,17 +488,18 @@ impl WorkflowExecutor {
                             tracing::debug!("Command stdout:\n{}", step_result.stdout);
                         } else {
                             // Show abbreviated output at DEBUG level
-                            let preview: String = stdout_lines.iter()
+                            let preview: String = stdout_lines
+                                .iter()
                                 .take(10)
                                 .chain(std::iter::once(&"... [output truncated] ..."))
                                 .chain(stdout_lines.iter().rev().take(5).rev())
-                                .map(|s| *s)
+                                .copied()
                                 .collect::<Vec<_>>()
                                 .join("\n");
                             tracing::debug!("Command stdout (abbreviated):\n{}", preview);
                         }
                     }
-                    
+
                     if !step_result.stderr.is_empty() {
                         let stderr_lines: Vec<&str> = step_result.stderr.lines().collect();
                         if stderr_lines.len() <= 20 || tracing::enabled!(tracing::Level::TRACE) {
@@ -506,11 +507,12 @@ impl WorkflowExecutor {
                             tracing::debug!("Command stderr:\n{}", step_result.stderr);
                         } else {
                             // Show abbreviated output at DEBUG level
-                            let preview: String = stderr_lines.iter()
+                            let preview: String = stderr_lines
+                                .iter()
                                 .take(10)
                                 .chain(std::iter::once(&"... [output truncated] ..."))
                                 .chain(stderr_lines.iter().rev().take(5).rev())
-                                .map(|s| *s)
+                                .copied()
                                 .collect::<Vec<_>>()
                                 .join("\n");
                             tracing::debug!("Command stderr (abbreviated):\n{}", preview);

@@ -414,7 +414,8 @@ mod tests {
 
     #[test]
     fn test_create_default_workflow_step() {
-        let step = DefaultWorkflowCoordinator::create_default_workflow_step(Some("/test".to_string()));
+        let step =
+            DefaultWorkflowCoordinator::create_default_workflow_step(Some("/test".to_string()));
         assert_eq!(step.command, Some("/test".to_string()));
         assert!(step.commit_required);
         assert!(step.env.is_empty());
@@ -466,6 +467,9 @@ mod tests {
             outputs: None,
         };
         let result = DefaultWorkflowCoordinator::extract_workflow_step_command(&step);
-        assert_eq!(result, "claude", "claude should take priority over shell and test");
+        assert_eq!(
+            result, "claude",
+            "claude should take priority over shell and test"
+        );
     }
 }
