@@ -149,7 +149,6 @@ mod tests {
             DefaultWorkflowCoordinator::new(workflow_executor.clone(), user_interaction.clone());
 
         let step = WorkflowStep {
-            analyze: None,
             name: Some("test step".to_string()),
             command: Some("/test-command".to_string()),
             claude: None,
@@ -164,7 +163,6 @@ mod tests {
             on_exit_code: HashMap::new(),
             commit_required: false,
             handler: None,
-            analysis: None,
         };
 
         let context = WorkflowContext {

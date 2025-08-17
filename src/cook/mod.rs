@@ -308,7 +308,6 @@ mod cook_tests {
             auto_accept: false,
             metrics: false,
             resume: None,
-            skip_analysis: false,
             verbosity: 0,
             quiet: false,
         };
@@ -344,7 +343,6 @@ mod cook_tests {
             metrics: false,
             auto_accept: false,
             resume: None,
-            skip_analysis: false,
             verbosity: 0,
             quiet: false,
         };
@@ -423,7 +421,6 @@ mod cook_tests {
             metrics: false,
             auto_accept: false,
             resume: None,
-            skip_analysis: false,
             verbosity: 0,
             quiet: false,
         };

@@ -402,7 +402,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             .collect();
 
         // Analysis functionality has been removed in v0.3.0
-        let has_analyze_step = false;
+        let _has_analyze_step = false;
 
         let extended_workflow = ExtendedWorkflowConfig {
             name: "default".to_string(),
@@ -1827,7 +1827,6 @@ mod tests {
                     file_pattern: "*-improvements.md".to_string(),
                 },
             )])),
-            analysis: None,
         };
 
         let structured_workflow = WorkflowConfig {
@@ -1954,7 +1953,6 @@ mod tests {
                     file_pattern: "specs/temp/*-tech-debt-cleanup.md".to_string(),
                 },
             )])),
-            analysis: None,
         };
 
         let workflow = WorkflowConfig {
@@ -2106,7 +2104,6 @@ mod tests {
                         name: "mmm-implement-spec".to_string(),
                         commit_required: Some(false),
                         args: Some(vec!["$ARG".to_string()]),
-                        analysis: None,
                     },
                 ),
                 // Command without args
@@ -2115,7 +2112,6 @@ mod tests {
                         name: "mmm-lint".to_string(),
                         commit_required: Some(false),
                         args: None,
-                        analysis: None,
                     },
                 ),
                 // Command with literal args
@@ -2124,7 +2120,6 @@ mod tests {
                         name: "mmm-check".to_string(),
                         commit_required: Some(false),
                         args: Some(vec!["--strict".to_string()]),
-                        analysis: None,
                     },
                 ),
             ],
@@ -2577,7 +2572,6 @@ mod tests {
                     file_pattern: "specs/*.md".to_string(),
                 },
             )])),
-            analysis: None,
         };
 
         let workflow = WorkflowConfig {

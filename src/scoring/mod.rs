@@ -251,6 +251,7 @@ fn calculate_code_quality_score(lint_warnings: u32, code_duplication: f32) -> Op
 }
 
 /// Calculate code quality from patterns and idioms
+#[allow(dead_code)]
 fn calculate_quality_from_patterns(pattern_count: usize, idiom_count: usize) -> f64 {
     // Start with base score
     let mut score = 50.0;
@@ -307,7 +308,7 @@ fn calculate_maintainability_from_metrics(metrics: &ImprovementMetrics) -> f64 {
 }
 
 /* REMOVED: Analysis-dependent functions
-/// Calculate maintainability score from technical debt items  
+/// Calculate maintainability score from technical debt items
 fn calculate_maintainability_score(debt_items: &[TechnicalDebtItem]) -> f64 {
     // Count high-impact items
     let high_impact_count = debt_items.iter().filter(|item| item.impact >= 7).count();

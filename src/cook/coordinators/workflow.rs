@@ -99,7 +99,6 @@ impl DefaultWorkflowCoordinator {
 
     fn create_default_workflow_step(command: Option<String>) -> WorkflowStep {
         WorkflowStep {
-            analyze: None,
             name: None,
             command,
             claude: None,
@@ -114,7 +113,6 @@ impl DefaultWorkflowCoordinator {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: true,
-            analysis: None,
         }
     }
 
@@ -325,8 +323,8 @@ mod tests {
         let step = WorkflowStepCommand {
             claude: Some("claude-command".to_string()),
             shell: None,
-            test: None,
             analyze: None,
+            test: None,
             id: None,
             capture_output: false,
             on_failure: None,
@@ -344,8 +342,8 @@ mod tests {
         let step = WorkflowStepCommand {
             claude: None,
             shell: Some("ls -la".to_string()),
-            test: None,
             analyze: None,
+            test: None,
             id: None,
             capture_output: false,
             on_failure: None,
@@ -364,11 +362,11 @@ mod tests {
         let step = WorkflowStepCommand {
             claude: None,
             shell: None,
+            analyze: None,
             test: Some(TestCommand {
                 command: "cargo test".to_string(),
                 on_failure: None,
             }),
-            analyze: None,
             id: None,
             capture_output: false,
             on_failure: None,
@@ -386,8 +384,8 @@ mod tests {
         let step = WorkflowStepCommand {
             claude: None,
             shell: None,
-            test: None,
             analyze: None,
+            test: None,
             id: None,
             capture_output: false,
             on_failure: None,
@@ -420,7 +418,6 @@ mod tests {
         assert!(step.commit_required);
         assert!(step.env.is_empty());
         assert!(step.on_exit_code.is_empty());
-        assert!(step.analyze.is_none());
         assert!(step.name.is_none());
         assert!(step.claude.is_none());
         assert!(step.shell.is_none());
@@ -431,7 +428,6 @@ mod tests {
         assert!(step.working_dir.is_none());
         assert!(step.on_failure.is_none());
         assert!(step.on_success.is_none());
-        assert!(step.analysis.is_none());
     }
 
     #[test]
@@ -453,11 +449,11 @@ mod tests {
         let step = WorkflowStepCommand {
             claude: Some("claude".to_string()),
             shell: Some("shell".to_string()),
+            analyze: None,
             test: Some(crate::config::command::TestCommand {
                 command: "test".to_string(),
                 on_failure: None,
             }),
-            analyze: None,
             id: None,
             capture_output: false,
             on_failure: None,

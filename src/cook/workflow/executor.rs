@@ -103,7 +103,6 @@ pub struct WorkflowStep {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub shell: Option<String>,
 
-
     /// Test command configuration
     #[serde(skip_serializing_if = "Option::is_none")]
     pub test: Option<crate::config::command::TestCommand>,
@@ -147,7 +146,6 @@ pub struct WorkflowStep {
     /// Whether this command is expected to create commits
     #[serde(default = "default_commit_required")]
     pub commit_required: bool,
-
 }
 
 fn default_commit_required() -> bool {
@@ -556,18 +554,18 @@ impl WorkflowExecutor {
                 ));
             }
 
-            // Run analysis between iterations if configured
-            if should_continue && workflow.analyze_between {
-                self.user_interaction
-                    .display_progress("Running analysis between iterations...");
-                let analysis = self
-                    .analysis_coordinator
-                    .analyze_project(&env.working_dir)
-                    .await?;
-                self.analysis_coordinator
-                    .save_analysis(&env.working_dir, &analysis)
-                    .await?;
-            }
+            // Analysis between iterations removed in this version
+            // if should_continue && workflow.analyze_between {
+            //     self.user_interaction
+            //         .display_progress("Running analysis between iterations...");
+            //     let analysis = self
+            //         .analysis_coordinator
+            //         .analyze_project(&env.working_dir)
+            //         .await?;
+            //     self.analysis_coordinator
+            //         .save_analysis(&env.working_dir, &analysis)
+            //         .await?;
+            // }
         }
 
         // Collect final metrics if enabled

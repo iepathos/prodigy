@@ -1,8 +1,6 @@
 //! Test data builders for complex test scenarios
 
 use crate::metrics::ImprovementMetrics;
-use std::collections::HashMap;
-use std::path::PathBuf;
 
 /// Builder for creating test metrics
 pub struct MetricsBuilder {

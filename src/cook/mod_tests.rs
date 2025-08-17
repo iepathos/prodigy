@@ -29,10 +29,10 @@ mod core_tests {
     use crate::worktree::WorktreeManager;
 
     // Test helper functions
-    async fn run_analysis(project_path: &Path, _run_coverage: bool) -> Result<()> {
-        use crate::context::ContextAnalyzer;
-        let analyzer = crate::context::analyzer::ProjectAnalyzer::new();
-        let _analysis = analyzer.analyze(project_path).await?;
+    // DISABLED: Analysis functionality removed
+    async fn run_analysis(_project_path: &Path, _run_coverage: bool) -> Result<()> {
+        // Analysis functionality has been removed from MMM as specified in the recent changes.
+        // This is now a no-op function to maintain test compatibility.
         Ok(())
     }
 

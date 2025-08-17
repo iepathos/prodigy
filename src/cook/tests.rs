@@ -36,7 +36,6 @@ mod cook_tests {
             auto_accept: false,
             metrics: false,
             resume: None,
-            skip_analysis: false,
             verbosity: 0,
             quiet: false,
         };
