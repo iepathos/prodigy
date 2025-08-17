@@ -10,9 +10,6 @@
 # Implement the spec using the $ARG variable which contains:
 # - The spec ID extracted from filename when using --map
 # - The direct argument value when using --args
-- analyze:
-    max_cache_age: 300
-    save: true
 
 - claude: "/mmm-implement-spec $ARG"
   commit_required: true
