@@ -1,5 +1,6 @@
 //! Workflow coordinator for high-level workflow orchestration
 
+use crate::config::command::WorkflowStepCommand;
 use crate::config::WorkflowCommand;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::workflow::WorkflowStep;
@@ -64,6 +65,64 @@ impl DefaultWorkflowCoordinator {
             user_interaction,
         }
     }
+
+    fn extract_command_string(command: &WorkflowCommand) -> String {
+        match command {
+            crate::config::WorkflowCommand::Simple(s) => s.clone(),
+            crate::config::WorkflowCommand::Structured(c) => c.name.clone(),
+            crate::config::WorkflowCommand::WorkflowStep(step) => {
+                Self::extract_workflow_step_command(step)
+            }
+            crate::config::WorkflowCommand::SimpleObject(obj) => obj.name.clone(),
+        }
+    }
+
+    fn extract_workflow_step_command(step: &WorkflowStepCommand) -> String {
+        if let Some(claude_cmd) = &step.claude {
+            claude_cmd.clone()
+        } else if let Some(shell_cmd) = &step.shell {
+            format!("shell {shell_cmd}")
+        } else if let Some(test_cmd) = &step.test {
+            format!("test {}", test_cmd.command)
+        } else {
+            String::new()
+        }
+    }
+
+    fn normalize_command_string(command_str: String) -> String {
+        if command_str.starts_with('/') {
+            command_str
+        } else {
+            format!("/{command_str}")
+        }
+    }
+
+    fn create_default_workflow_step(command: Option<String>) -> WorkflowStep {
+        WorkflowStep {
+            analyze: None,
+            name: None,
+            command,
+            claude: None,
+            shell: None,
+            test: None,
+            handler: None,
+            capture_output: false,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_failure: None,
+            on_success: None,
+            on_exit_code: HashMap::new(),
+            commit_required: true,
+            analysis: None,
+        }
+    }
+
+    fn convert_to_workflow_step(command: &WorkflowCommand) -> WorkflowStep {
+        let command_str = Self::extract_command_string(command);
+        let normalized_command = Self::normalize_command_string(command_str);
+        Self::create_default_workflow_step(Some(normalized_command))
+    }
 }
 
 #[async_trait]
@@ -101,48 +160,7 @@ impl WorkflowCoordinator for DefaultWorkflowCoordinator {
 
             // Execute all commands in the workflow
             for command in commands.iter() {
-                // Convert to workflow step
-                let command_str = match command {
-                    crate::config::WorkflowCommand::Simple(s) => s.clone(),
-                    crate::config::WorkflowCommand::Structured(c) => c.name.clone(),
-                    crate::config::WorkflowCommand::WorkflowStep(step) => {
-                        if let Some(claude_cmd) = &step.claude {
-                            claude_cmd.clone()
-                        } else if let Some(shell_cmd) = &step.shell {
-                            format!("shell {shell_cmd}")
-                        } else if let Some(test_cmd) = &step.test {
-                            format!("test {}", test_cmd.command)
-                        } else {
-                            String::new()
-                        }
-                    }
-                    crate::config::WorkflowCommand::SimpleObject(obj) => obj.name.clone(),
-                };
-
-                let step = WorkflowStep {
-                    analyze: None,
-                    name: None,
-                    command: Some(if command_str.starts_with('/') {
-                        command_str
-                    } else {
-                        format!("/{command_str}")
-                    }),
-                    claude: None,
-                    shell: None,
-                    test: None,
-                    handler: None,
-                    capture_output: false,
-                    timeout: None,
-                    working_dir: None,
-                    env: HashMap::new(),
-                    on_failure: None,
-                    on_success: None,
-                    on_exit_code: HashMap::new(),
-                    commit_required: true,
-                    analysis: None,
-                };
-
-                // Execute step
+                let step = Self::convert_to_workflow_step(command);
                 let _outputs = self.execute_step(&step, context).await?;
             }
         }
@@ -264,5 +282,190 @@ mod tests {
         let coordinator = TestCoordinator;
         let should_continue = coordinator.should_continue(&context).await.unwrap();
         assert!(!should_continue);
+    }
+
+    #[test]
+    fn test_extract_command_string_simple() {
+        let command = WorkflowCommand::Simple("test-command".to_string());
+        let result = DefaultWorkflowCoordinator::extract_command_string(&command);
+        assert_eq!(result, "test-command");
+    }
+
+    #[test]
+    fn test_extract_command_string_structured() {
+        use crate::config::command::Command;
+        let command = WorkflowCommand::Structured(Box::new(Command {
+            name: "structured-command".to_string(),
+            args: vec![],
+            options: HashMap::new(),
+            metadata: Default::default(),
+            id: None,
+            outputs: None,
+            analysis: None,
+        }));
+        let result = DefaultWorkflowCoordinator::extract_command_string(&command);
+        assert_eq!(result, "structured-command");
+    }
+
+    #[test]
+    fn test_extract_command_string_simple_object() {
+        use crate::config::command::SimpleCommand;
+        let command = WorkflowCommand::SimpleObject(SimpleCommand {
+            name: "simple-object".to_string(),
+            commit_required: None,
+            args: None,
+            analysis: None,
+        });
+        let result = DefaultWorkflowCoordinator::extract_command_string(&command);
+        assert_eq!(result, "simple-object");
+    }
+
+    #[test]
+    fn test_extract_workflow_step_command_claude() {
+        let step = WorkflowStepCommand {
+            claude: Some("claude-command".to_string()),
+            shell: None,
+            test: None,
+            analyze: None,
+            id: None,
+            capture_output: false,
+            on_failure: None,
+            on_success: None,
+            commit_required: true,
+            analysis: None,
+            outputs: None,
+        };
+        let result = DefaultWorkflowCoordinator::extract_workflow_step_command(&step);
+        assert_eq!(result, "claude-command");
+    }
+
+    #[test]
+    fn test_extract_workflow_step_command_shell() {
+        let step = WorkflowStepCommand {
+            claude: None,
+            shell: Some("ls -la".to_string()),
+            test: None,
+            analyze: None,
+            id: None,
+            capture_output: false,
+            on_failure: None,
+            on_success: None,
+            commit_required: true,
+            analysis: None,
+            outputs: None,
+        };
+        let result = DefaultWorkflowCoordinator::extract_workflow_step_command(&step);
+        assert_eq!(result, "shell ls -la");
+    }
+
+    #[test]
+    fn test_extract_workflow_step_command_test() {
+        use crate::config::command::TestCommand;
+        let step = WorkflowStepCommand {
+            claude: None,
+            shell: None,
+            test: Some(TestCommand {
+                command: "cargo test".to_string(),
+                on_failure: None,
+            }),
+            analyze: None,
+            id: None,
+            capture_output: false,
+            on_failure: None,
+            on_success: None,
+            commit_required: true,
+            analysis: None,
+            outputs: None,
+        };
+        let result = DefaultWorkflowCoordinator::extract_workflow_step_command(&step);
+        assert_eq!(result, "test cargo test");
+    }
+
+    #[test]
+    fn test_extract_workflow_step_command_empty() {
+        let step = WorkflowStepCommand {
+            claude: None,
+            shell: None,
+            test: None,
+            analyze: None,
+            id: None,
+            capture_output: false,
+            on_failure: None,
+            on_success: None,
+            commit_required: true,
+            analysis: None,
+            outputs: None,
+        };
+        let result = DefaultWorkflowCoordinator::extract_workflow_step_command(&step);
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn test_normalize_command_string_with_slash() {
+        let result = DefaultWorkflowCoordinator::normalize_command_string("/command".to_string());
+        assert_eq!(result, "/command");
+    }
+
+    #[test]
+    fn test_normalize_command_string_without_slash() {
+        let result = DefaultWorkflowCoordinator::normalize_command_string("command".to_string());
+        assert_eq!(result, "/command");
+    }
+
+    #[test]
+    fn test_create_default_workflow_step() {
+        let step = DefaultWorkflowCoordinator::create_default_workflow_step(Some("/test".to_string()));
+        assert_eq!(step.command, Some("/test".to_string()));
+        assert!(step.commit_required);
+        assert!(step.env.is_empty());
+        assert!(step.on_exit_code.is_empty());
+        assert!(step.analyze.is_none());
+        assert!(step.name.is_none());
+        assert!(step.claude.is_none());
+        assert!(step.shell.is_none());
+        assert!(step.test.is_none());
+        assert!(step.handler.is_none());
+        assert!(!step.capture_output);
+        assert!(step.timeout.is_none());
+        assert!(step.working_dir.is_none());
+        assert!(step.on_failure.is_none());
+        assert!(step.on_success.is_none());
+        assert!(step.analysis.is_none());
+    }
+
+    #[test]
+    fn test_convert_to_workflow_step_integration() {
+        // Test with a simple command
+        let command = WorkflowCommand::Simple("test".to_string());
+        let step = DefaultWorkflowCoordinator::convert_to_workflow_step(&command);
+        assert_eq!(step.command, Some("/test".to_string()));
+
+        // Test with a command already having slash
+        let command = WorkflowCommand::Simple("/test".to_string());
+        let step = DefaultWorkflowCoordinator::convert_to_workflow_step(&command);
+        assert_eq!(step.command, Some("/test".to_string()));
+    }
+
+    #[test]
+    fn test_extract_workflow_step_command_priority() {
+        // Test priority: claude > shell > test
+        let step = WorkflowStepCommand {
+            claude: Some("claude".to_string()),
+            shell: Some("shell".to_string()),
+            test: Some(crate::config::command::TestCommand {
+                command: "test".to_string(),
+                on_failure: None,
+            }),
+            analyze: None,
+            id: None,
+            capture_output: false,
+            on_failure: None,
+            on_success: None,
+            commit_required: true,
+            analysis: None,
+            outputs: None,
+        };
+        let result = DefaultWorkflowCoordinator::extract_workflow_step_command(&step);
+        assert_eq!(result, "claude", "claude should take priority over shell and test");
     }
 }
