@@ -5,13 +5,14 @@
 pub mod display;
 pub mod prompts;
 
-pub use display::{ProgressDisplay, ProgressDisplayImpl};
+pub use display::{ProgressDisplay, ProgressDisplayImpl, VerbosityLevel};
 pub use prompts::{UserPrompter, UserPrompterImpl};
 #[cfg(test)]
 pub use tests::MockUserInteraction;
 
 use anyhow::Result;
 use async_trait::async_trait;
+use std::time::Duration;
 
 /// Trait for user interaction
 #[async_trait]
@@ -39,6 +40,27 @@ pub trait UserInteraction: Send + Sync {
 
     /// Display success message
     fn display_success(&self, message: &str);
+
+    /// Display iteration start boundary
+    fn iteration_start(&self, current: u32, total: u32);
+
+    /// Display iteration end summary
+    fn iteration_end(&self, current: u32, duration: Duration, success: bool);
+
+    /// Display step start
+    fn step_start(&self, step: u32, total: u32, description: &str);
+
+    /// Display step end
+    fn step_end(&self, step: u32, success: bool);
+
+    /// Display command output based on verbosity
+    fn command_output(&self, output: &str, verbosity: VerbosityLevel);
+
+    /// Display debug output if verbosity allows
+    fn debug_output(&self, message: &str, min_verbosity: VerbosityLevel);
+
+    /// Get current verbosity level
+    fn verbosity(&self) -> VerbosityLevel;
 }
 
 /// Handle for controlling a spinner
@@ -69,7 +91,14 @@ impl DefaultUserInteraction {
     pub fn new() -> Self {
         Self {
             prompter: UserPrompterImpl::new(),
-            display: ProgressDisplayImpl::new(),
+            display: ProgressDisplayImpl::new(VerbosityLevel::Normal),
+        }
+    }
+
+    pub fn with_verbosity(verbosity: VerbosityLevel) -> Self {
+        Self {
+            prompter: UserPrompterImpl::new(),
+            display: ProgressDisplayImpl::new(verbosity),
         }
     }
 }
@@ -106,6 +135,34 @@ impl UserInteraction for DefaultUserInteraction {
 
     fn display_success(&self, message: &str) {
         self.display.success(message);
+    }
+
+    fn iteration_start(&self, current: u32, total: u32) {
+        self.display.iteration_start(current, total);
+    }
+
+    fn iteration_end(&self, current: u32, duration: Duration, success: bool) {
+        self.display.iteration_end(current, duration, success);
+    }
+
+    fn step_start(&self, step: u32, total: u32, description: &str) {
+        self.display.step_start(step, total, description);
+    }
+
+    fn step_end(&self, step: u32, success: bool) {
+        self.display.step_end(step, success);
+    }
+
+    fn command_output(&self, output: &str, verbosity: VerbosityLevel) {
+        self.display.command_output(output, verbosity);
+    }
+
+    fn debug_output(&self, message: &str, min_verbosity: VerbosityLevel) {
+        self.display.debug_output(message, min_verbosity);
+    }
+
+    fn verbosity(&self) -> VerbosityLevel {
+        self.display.verbosity()
     }
 }
 
@@ -218,6 +275,52 @@ pub mod tests {
                 .lock()
                 .unwrap()
                 .push(format!("Success: {message}"));
+        }
+
+        fn iteration_start(&self, current: u32, total: u32) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("Iteration start: {current}/{total}"));
+        }
+
+        fn iteration_end(&self, current: u32, duration: Duration, success: bool) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("Iteration end: {current} {:?} {success}", duration));
+        }
+
+        fn step_start(&self, step: u32, total: u32, description: &str) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("Step start: {step}/{total} {description}"));
+        }
+
+        fn step_end(&self, step: u32, success: bool) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("Step end: {step} {success}"));
+        }
+
+        fn command_output(&self, output: &str, _verbosity: VerbosityLevel) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("Command output: {output}"));
+        }
+
+        fn debug_output(&self, message: &str, _min_verbosity: VerbosityLevel) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("Debug: {message}"));
+        }
+
+        fn verbosity(&self) -> VerbosityLevel {
+            VerbosityLevel::Normal
         }
     }
 
@@ -454,6 +557,52 @@ pub mod mocks {
                 .lock()
                 .unwrap()
                 .push(format!("SUCCESS: {message}"));
+        }
+
+        fn iteration_start(&self, current: u32, total: u32) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("ITERATION_START: {current}/{total}"));
+        }
+
+        fn iteration_end(&self, current: u32, duration: Duration, success: bool) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("ITERATION_END: {current} {:?} {success}", duration));
+        }
+
+        fn step_start(&self, step: u32, total: u32, description: &str) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("STEP_START: {step}/{total} {description}"));
+        }
+
+        fn step_end(&self, step: u32, success: bool) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("STEP_END: {step} {success}"));
+        }
+
+        fn command_output(&self, output: &str, _verbosity: VerbosityLevel) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("COMMAND_OUTPUT: {output}"));
+        }
+
+        fn debug_output(&self, message: &str, _min_verbosity: VerbosityLevel) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("DEBUG: {message}"));
+        }
+
+        fn verbosity(&self) -> VerbosityLevel {
+            VerbosityLevel::Normal
         }
     }
 

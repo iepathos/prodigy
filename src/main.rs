@@ -196,6 +196,8 @@ async fn main() {
                 metrics,
                 resume,
                 skip_analysis,
+                quiet: false,
+                verbosity: 0,
             };
             mmm::cook::cook(cook_cmd).await
         }

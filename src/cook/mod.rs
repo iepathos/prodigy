@@ -101,7 +101,7 @@ pub async fn cook(mut cmd: CookCommand) -> Result<()> {
     let workflow = load_workflow(&cmd, &config).await?;
 
     // Create orchestrator with all dependencies
-    let orchestrator = create_orchestrator(&project_path).await?;
+    let orchestrator = create_orchestrator(&project_path, &cmd).await?;
 
     // Create cook configuration
     let cook_config = CookConfig {
@@ -115,7 +115,10 @@ pub async fn cook(mut cmd: CookCommand) -> Result<()> {
 }
 
 /// Create the orchestrator with all dependencies
-async fn create_orchestrator(project_path: &Path) -> Result<Arc<dyn CookOrchestrator>> {
+async fn create_orchestrator(
+    project_path: &Path,
+    cmd: &CookCommand,
+) -> Result<Arc<dyn CookOrchestrator>> {
     // Create shared dependencies
     let git_operations = Arc::new(RealGitOperations::new());
     let subprocess = Arc::new(crate::subprocess::SubprocessManager::production());
@@ -136,7 +139,12 @@ async fn create_orchestrator(project_path: &Path) -> Result<Arc<dyn CookOrchestr
         project_path.to_path_buf(),
     ));
     let state_manager = Arc::new(StateManager::new()?);
-    let user_interaction = Arc::new(interaction::DefaultUserInteraction::new());
+
+    // Create user interaction with verbosity from command args
+    let verbosity = interaction::VerbosityLevel::from_args(cmd.verbosity, cmd.quiet);
+    let user_interaction = Arc::new(interaction::DefaultUserInteraction::with_verbosity(
+        verbosity,
+    ));
 
     // Create executors
     let command_executor = Arc::new(command_runner1);
@@ -290,12 +298,28 @@ pub async fn run_improvement_loop(
 #[cfg(test)]
 mod cook_tests {
     use super::*;
+    use std::path::PathBuf;
     use tempfile::TempDir;
 
     #[tokio::test]
     async fn test_create_orchestrator() {
         let temp_dir = TempDir::new().unwrap();
-        let orchestrator = create_orchestrator(temp_dir.path()).await.unwrap();
+        let cmd = CookCommand {
+            playbook: PathBuf::from("test.yml"),
+            path: None,
+            max_iterations: 1,
+            worktree: false,
+            map: vec![],
+            args: vec![],
+            fail_fast: false,
+            auto_accept: false,
+            metrics: false,
+            resume: None,
+            skip_analysis: false,
+            verbosity: 0,
+            quiet: false,
+        };
+        let orchestrator = create_orchestrator(temp_dir.path(), &cmd).await.unwrap();
 
         // Should create orchestrator successfully - just check it exists by trying to drop it
         drop(orchestrator);
@@ -328,6 +352,8 @@ mod cook_tests {
             auto_accept: false,
             resume: None,
             skip_analysis: false,
+            verbosity: 0,
+            quiet: false,
         };
 
         let config = crate::config::Config::default();
@@ -405,6 +431,8 @@ mod cook_tests {
             auto_accept: false,
             resume: None,
             skip_analysis: false,
+            verbosity: 0,
+            quiet: false,
         };
 
         // Create dummy session and worktree manager (not used in the function)
