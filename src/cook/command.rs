@@ -78,13 +78,6 @@ pub struct CookCommand {
     #[arg(long, value_name = "SESSION_ID", conflicts_with = "worktree")]
     pub resume: Option<String>,
 
-    /// Skip the initial project analysis phase
-    ///
-    /// Bypasses the comprehensive project analysis that normally runs before Claude commands.
-    /// Useful when you want to run Claude commands immediately without gathering context.
-    #[arg(long)]
-    pub skip_analysis: bool,
-
     /// Increase output verbosity (-v verbose, -vv debug, -vvv trace)
     #[arg(short = 'v', long = "verbose", action = clap::ArgAction::Count)]
     pub verbosity: u8,

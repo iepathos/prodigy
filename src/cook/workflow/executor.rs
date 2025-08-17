@@ -4,8 +4,6 @@
 //! and manages iteration logic for continuous improvement sessions.
 
 use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};
-use crate::config::command::AnalysisConfig;
-use crate::cook::analysis::AnalysisCoordinator;
 use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::metrics::MetricsCoordinator;
@@ -105,9 +103,6 @@ pub struct WorkflowStep {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub shell: Option<String>,
 
-    /// Analyze command configuration
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub analyze: Option<HashMap<String, serde_json::Value>>,
 
     /// Test command configuration
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -153,9 +148,6 @@ pub struct WorkflowStep {
     #[serde(default = "default_commit_required")]
     pub commit_required: bool,
 
-    /// Analysis configuration
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub analysis: Option<AnalysisConfig>,
 }
 
 fn default_commit_required() -> bool {
@@ -173,10 +165,6 @@ pub struct ExtendedWorkflowConfig {
     pub max_iterations: u32,
     /// Whether to iterate
     pub iterate: bool,
-    /// Analyze before workflow
-    pub analyze_before: bool,
-    /// Analyze between iterations
-    pub analyze_between: bool,
     /// Collect metrics
     pub collect_metrics: bool,
 }
@@ -185,7 +173,6 @@ pub struct ExtendedWorkflowConfig {
 pub struct WorkflowExecutor {
     claude_executor: Arc<dyn ClaudeExecutor>,
     session_manager: Arc<dyn SessionManager>,
-    analysis_coordinator: Arc<dyn AnalysisCoordinator>,
     metrics_coordinator: Arc<dyn MetricsCoordinator>,
     user_interaction: Arc<dyn UserInteraction>,
     timing_tracker: TimingTracker,
@@ -204,14 +191,12 @@ impl WorkflowExecutor {
     pub fn new(
         claude_executor: Arc<dyn ClaudeExecutor>,
         session_manager: Arc<dyn SessionManager>,
-        analysis_coordinator: Arc<dyn AnalysisCoordinator>,
         metrics_coordinator: Arc<dyn MetricsCoordinator>,
         user_interaction: Arc<dyn UserInteraction>,
     ) -> Self {
         Self {
             claude_executor,
             session_manager,
-            analysis_coordinator,
             metrics_coordinator,
             user_interaction,
             timing_tracker: TimingTracker::new(),
@@ -224,7 +209,6 @@ impl WorkflowExecutor {
     pub fn with_test_config(
         claude_executor: Arc<dyn ClaudeExecutor>,
         session_manager: Arc<dyn SessionManager>,
-        analysis_coordinator: Arc<dyn AnalysisCoordinator>,
         metrics_coordinator: Arc<dyn MetricsCoordinator>,
         user_interaction: Arc<dyn UserInteraction>,
         test_config: Arc<TestConfiguration>,
@@ -232,7 +216,6 @@ impl WorkflowExecutor {
         Self {
             claude_executor,
             session_manager,
-            analysis_coordinator,
             metrics_coordinator,
             user_interaction,
             timing_tracker: TimingTracker::new(),
@@ -285,9 +268,6 @@ impl WorkflowExecutor {
         if step.shell.is_some() {
             specified_count += 1;
         }
-        if step.analyze.is_some() {
-            specified_count += 1;
-        }
         if step.test.is_some() {
             specified_count += 1;
         }
@@ -301,13 +281,13 @@ impl WorkflowExecutor {
         // Ensure only one command type is specified
         if specified_count > 1 {
             return Err(anyhow!(
-                "Multiple command types specified. Use only one of: claude, shell, analyze, test, handler, or name/command"
+                "Multiple command types specified. Use only one of: claude, shell, test, handler, or name/command"
             ));
         }
 
         if specified_count == 0 {
             return Err(anyhow!(
-                "No command specified. Use one of: claude, shell, analyze, test, handler, or name/command"
+                "No command specified. Use one of: claude, shell, test, handler, or name/command"
             ));
         }
 
@@ -326,16 +306,6 @@ impl WorkflowExecutor {
             Ok(CommandType::Claude(claude_cmd.clone()))
         } else if let Some(shell_cmd) = &step.shell {
             Ok(CommandType::Shell(shell_cmd.clone()))
-        } else if let Some(analyze_attrs) = &step.analyze {
-            // Convert analyze attributes to handler command
-            let mut attributes = HashMap::new();
-            for (key, value) in analyze_attrs {
-                attributes.insert(key.clone(), self.json_to_attribute_value(value.clone()));
-            }
-            Ok(CommandType::Handler {
-                handler_name: "analyze".to_string(),
-                attributes,
-            })
         } else if let Some(test_cmd) = &step.test {
             Ok(CommandType::Test(test_cmd.clone()))
         } else if let Some(name) = &step.name {
@@ -359,8 +329,6 @@ impl WorkflowExecutor {
             format!("claude: {claude_cmd}")
         } else if let Some(shell_cmd) = &step.shell {
             format!("shell: {shell_cmd}")
-        } else if step.analyze.is_some() {
-            "analyze".to_string()
         } else if let Some(test_cmd) = &step.test {
             format!("test: {}", test_cmd.command)
         } else if let Some(handler_step) = &step.handler {

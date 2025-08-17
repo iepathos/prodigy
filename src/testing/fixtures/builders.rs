@@ -52,6 +52,7 @@ impl MetricsBuilder {
     }
 }
 
+/* REMOVED: Analysis-dependent builders
 /// Builder for creating test analysis results
 pub struct AnalysisResultBuilder {
     result: crate::context::summary::AnalysisSummary,
@@ -279,3 +280,4 @@ mod tests {
         assert_eq!(debt.tags.len(), 2);
     }
 }
+*/

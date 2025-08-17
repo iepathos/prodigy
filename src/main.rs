@@ -64,10 +64,6 @@ enum Commands {
         /// Resume an interrupted session
         #[arg(long, value_name = "SESSION_ID", conflicts_with = "worktree")]
         resume: Option<String>,
-
-        /// Skip the initial project analysis phase
-        #[arg(long)]
-        skip_analysis: bool,
     },
     /// Manage git worktrees for parallel MMM sessions
     Worktree {
@@ -87,28 +83,6 @@ enum Commands {
         /// Directory to initialize (defaults to current)
         #[arg(short, long)]
         path: Option<PathBuf>,
-    },
-    /// Analyze project structure and gather metrics
-    Analyze {
-        /// Output format (json, pretty, summary)
-        #[arg(short = 'o', long, default_value = "summary")]
-        output: String,
-
-        /// Save results to .mmm directory
-        #[arg(short = 's', long)]
-        save: bool,
-
-        /// Path to analyze (defaults to current directory)
-        #[arg(short = 'p', long)]
-        path: Option<PathBuf>,
-
-        /// Skip running cargo-tarpaulin for coverage analysis
-        #[arg(long)]
-        no_coverage: bool,
-
-        /// Skip automatic git commit after analysis
-        #[arg(long)]
-        no_commit: bool,
     },
 }
 
@@ -174,7 +148,6 @@ async fn main() {
             auto_accept,
             metrics,
             resume,
-            skip_analysis,
         }) => {
             // Check if user used the 'improve' alias (deprecated as of v0.3.0)
             // NOTE: Remove this deprecation warning in v1.0.0
@@ -195,7 +168,6 @@ async fn main() {
                 auto_accept,
                 metrics,
                 resume,
-                skip_analysis,
                 quiet: false,
                 verbosity: 0,
             };
@@ -213,23 +185,6 @@ async fn main() {
                 path,
             };
             mmm::init::run(init_cmd).await
-        }
-        Some(Commands::Analyze {
-            output,
-            save,
-            path,
-            no_coverage,
-            no_commit,
-        }) => {
-            let analyze_cmd = mmm::analyze::command::AnalyzeCommand {
-                output,
-                save,
-                verbose: cli.verbose > 0,
-                path,
-                run_coverage: !no_coverage, // Invert the flag
-                no_commit,
-            };
-            mmm::analyze::run(analyze_cmd).await
         }
         None => {
             // Display help when no command is provided (following CLI conventions)

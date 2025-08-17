@@ -3,7 +3,6 @@
 //! This module has been refactored to use a component-based architecture
 //! with dependency injection for improved testability and maintainability.
 
-pub mod analysis;
 pub mod command;
 pub mod coordinators;
 pub mod execution;
@@ -126,7 +125,6 @@ async fn create_orchestrator(
     // Create runners - use multiple instances since RealCommandRunner is not Clone
     let command_runner1 = execution::runner::RealCommandRunner::new();
     let command_runner2 = execution::runner::RealCommandRunner::new();
-    let command_runner3 = execution::runner::RealCommandRunner::new();
 
     // Create base components
     let config_loader = Arc::new(ConfigLoader::new().await?);
@@ -149,9 +147,6 @@ async fn create_orchestrator(
     // Create executors
     let command_executor = Arc::new(command_runner1);
     let claude_executor = Arc::new(execution::claude::ClaudeExecutorImpl::new(command_runner2));
-
-    // Create analysis coordinator
-    let analysis_coordinator = Arc::new(analysis::runner::AnalysisRunnerImpl::new(command_runner3));
 
     // Create environment coordinator
     let _environment_coordinator = Arc::new(coordinators::DefaultEnvironmentCoordinator::new(
@@ -178,7 +173,6 @@ async fn create_orchestrator(
         Arc::new(workflow::WorkflowExecutorImpl::new(
             claude_executor.clone(),
             session_manager.clone(),
-            analysis_coordinator.clone(),
             Arc::new(metrics::collector::MetricsCollectorImpl::new(
                 execution::runner::RealCommandRunner::new(),
             )),
@@ -201,7 +195,6 @@ async fn create_orchestrator(
         session_manager.clone(),
         command_executor.clone(),
         claude_executor.clone(),
-        analysis_coordinator,
         metrics_coordinator,
         user_interaction.clone(),
         git_operations,

@@ -3,7 +3,6 @@
 //! Coordinates all cook operations using the extracted components.
 
 use crate::abstractions::git::GitOperations;
-use crate::analysis::{run_analysis, AnalysisConfig, OutputFormat, ProgressReporter};
 use crate::config::{WorkflowCommand, WorkflowConfig};
 use crate::simple_state::StateManager;
 use crate::testing::config::TestConfiguration;
@@ -14,7 +13,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use super::analysis::AnalysisCoordinator;
 use super::command::CookCommand;
 use super::execution::{ClaudeExecutor, CommandExecutor};
 use super::interaction::UserInteraction;
@@ -76,8 +74,6 @@ pub struct DefaultCookOrchestrator {
     command_executor: Arc<dyn CommandExecutor>,
     /// Claude executor
     claude_executor: Arc<dyn ClaudeExecutor>,
-    /// Analysis coordinator
-    analysis_coordinator: Arc<dyn AnalysisCoordinator>,
     /// Metrics coordinator
     metrics_coordinator: Arc<dyn MetricsCoordinator>,
     /// User interaction
@@ -100,7 +96,6 @@ impl DefaultCookOrchestrator {
         session_manager: Arc<dyn SessionManager>,
         command_executor: Arc<dyn CommandExecutor>,
         claude_executor: Arc<dyn ClaudeExecutor>,
-        analysis_coordinator: Arc<dyn AnalysisCoordinator>,
         metrics_coordinator: Arc<dyn MetricsCoordinator>,
         user_interaction: Arc<dyn UserInteraction>,
         git_operations: Arc<dyn GitOperations>,
@@ -111,7 +106,6 @@ impl DefaultCookOrchestrator {
             session_manager,
             command_executor,
             claude_executor,
-            analysis_coordinator,
             metrics_coordinator,
             user_interaction,
             git_operations,
@@ -127,7 +121,6 @@ impl DefaultCookOrchestrator {
         session_manager: Arc<dyn SessionManager>,
         command_executor: Arc<dyn CommandExecutor>,
         claude_executor: Arc<dyn ClaudeExecutor>,
-        analysis_coordinator: Arc<dyn AnalysisCoordinator>,
         metrics_coordinator: Arc<dyn MetricsCoordinator>,
         user_interaction: Arc<dyn UserInteraction>,
         git_operations: Arc<dyn GitOperations>,
@@ -139,7 +132,6 @@ impl DefaultCookOrchestrator {
             session_manager,
             command_executor,
             claude_executor,
-            analysis_coordinator,
             metrics_coordinator,
             user_interaction,
             git_operations,
@@ -276,16 +268,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             return self.execute_workflow_with_args(env, config).await;
         }
 
-        // Check if any commands have analysis configuration
-        let has_analysis_config = config.workflow.commands.iter().any(|cmd| {
-            matches!(cmd, crate::config::command::WorkflowCommand::Structured(c)
-                if c.analysis.is_some() || c.metadata.analysis.is_some())
-        });
-
-        if has_analysis_config {
-            // Use the new direct command execution approach that supports per-step analysis
-            return self.execute_workflow_with_analysis(env, config).await;
-        }
+        // Analysis functionality has been removed in v0.3.0
 
         // Convert WorkflowConfig to ExtendedWorkflowConfig
         // For now, create a simple workflow with the commands
@@ -311,7 +294,6 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                                 // For non-shell commands, convert TestDebugConfig to WorkflowStep
                                 let on_failure = step.on_failure.as_ref().map(|debug_config| {
                                     Box::new(WorkflowStep {
-                                        analyze: None,
                                         name: None,
                                         command: None,
                                         claude: Some(debug_config.claude.clone()),
@@ -326,7 +308,6 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                                         on_success: None,
                                         on_exit_code: std::collections::HashMap::new(),
                                         commit_required: debug_config.commit_required,
-                                        analysis: None,
                                     })
                                 });
                                 (step.shell.clone(), step.test.clone(), on_failure)
@@ -335,7 +316,6 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                             };
 
                         WorkflowStep {
-                            analyze: None,
                             name: None,
                             command: None,
                             claude: step.claude.clone(),
@@ -351,7 +331,6 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                             on_exit_code: std::collections::HashMap::new(),
                             // Commands don't require commits by default unless explicitly set
                             commit_required: step.commit_required,
-                            analysis: step.analysis.clone(),
                         }
                     }
                     _ => {
@@ -394,16 +373,10 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                                 }
                             }
                         };
-                        let analysis_config = command.analysis.clone();
 
-                        // If analysis is configured, run it before this step
-                        if let Some(ref _analysis_cfg) = analysis_config {
-                            // Store the analysis config for later use
-                            // We'll need to run analysis before executing this step
-                        }
+                        // Analysis functionality has been removed in v0.3.0
 
                         WorkflowStep {
-                            analyze: None,
                             name: None,
                             command: Some(if command_str.starts_with('/') {
                                 command_str
@@ -422,65 +395,29 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                             on_success: None,
                             on_exit_code: std::collections::HashMap::new(),
                             commit_required,
-                            analysis: analysis_config,
                         }
                     }
                 }
             })
             .collect();
 
-        // Check if workflow explicitly requests analysis at the beginning
-        // Only run initial analysis if there IS an analyze step in the workflow
-        let has_analyze_step = config.workflow.commands.iter().any(
-            |cmd| matches!(cmd, WorkflowCommand::WorkflowStep(step) if step.analyze.is_some()),
-        );
+        // Analysis functionality has been removed in v0.3.0
+        let has_analyze_step = false;
 
         let extended_workflow = ExtendedWorkflowConfig {
             name: "default".to_string(),
             steps,
             max_iterations: config.command.max_iterations,
             iterate: config.command.max_iterations > 1,
-            analyze_before: has_analyze_step, // Only analyze before if there ARE explicit analyze steps
-            analyze_between: false,
             collect_metrics: config.command.metrics,
         };
 
-        // Run initial analysis if needed
-        if extended_workflow.analyze_before && !config.command.skip_analysis {
-            self.user_interaction
-                .display_progress("Running initial analysis...");
-
-            // Create progress reporter wrapper
-            let progress = Arc::new(OrchestrationProgressReporter {
-                interaction: self.user_interaction.clone(),
-            });
-
-            // Configure unified analysis
-            let analysis_config = AnalysisConfig::builder()
-                .output_format(OutputFormat::Summary)
-                .save_results(true)
-                .commit_changes(false)
-                .verbose(false)
-                .build();
-
-            // Run unified analysis
-            let _results = run_analysis(
-                &env.working_dir,
-                analysis_config,
-                self.subprocess.clone(),
-                progress,
-            )
-            .await?;
-        } else if config.command.skip_analysis {
-            self.user_interaction
-                .display_info("Skipping project analysis (--skip-analysis flag)");
-        }
+        // Analysis functionality has been removed in v0.3.0
 
         // Create workflow executor
         let mut executor = crate::cook::workflow::WorkflowExecutorImpl::new(
             self.claude_executor.clone(),
             self.session_manager.clone(),
-            self.analysis_coordinator.clone(),
             self.metrics_coordinator.clone(),
             self.user_interaction.clone(),
         );
@@ -553,28 +490,8 @@ impl CookOrchestrator for DefaultCookOrchestrator {
     }
 }
 
-/// Progress reporter wrapper for UserInteraction
-struct OrchestrationProgressReporter {
-    interaction: Arc<dyn UserInteraction>,
-}
-
-impl ProgressReporter for OrchestrationProgressReporter {
-    fn display_progress(&self, message: &str) {
-        self.interaction.display_progress(message);
-    }
-
-    fn display_info(&self, message: &str) {
-        self.interaction.display_info(message);
-    }
-
-    fn display_warning(&self, message: &str) {
-        self.interaction.display_warning(message);
-    }
-
-    fn display_success(&self, message: &str) {
-        self.interaction.display_success(message);
-    }
-}
+// Analysis functionality has been removed in v0.3.0
+// ProgressReporter trait was part of the analysis module
 
 impl DefaultCookOrchestrator {
     /// Execute a structured workflow with outputs
@@ -627,11 +544,7 @@ impl DefaultCookOrchestrator {
                     &step_description,
                 );
 
-                // Check if this command requires analysis
-                if let Some(ref analysis_config) = command.analysis {
-                    self.run_analysis_if_needed(env, analysis_config, Some(iteration as usize))
-                        .await?;
-                }
+                // Analysis functionality has been removed in v0.3.0
 
                 // Resolve variables from command outputs for use in variable expansion
                 let mut resolved_variables = HashMap::new();
@@ -825,6 +738,7 @@ impl DefaultCookOrchestrator {
         false
     }
 
+    /* REMOVED: Analysis functionality has been removed in v0.3.0
     /// Execute workflow with per-step analysis configuration
     async fn execute_workflow_with_analysis(
         &self,
@@ -875,11 +789,7 @@ impl DefaultCookOrchestrator {
                 // Start timing this command
                 timing_tracker.start_command(command.name.clone());
 
-                // Check if this command requires analysis
-                if let Some(ref analysis_config) = command.analysis {
-                    self.run_analysis_if_needed(env, analysis_config, Some(iteration as usize))
-                        .await?;
-                }
+                // Analysis functionality has been removed in v0.3.0
 
                 // Build command string
                 let mut cmd_parts = vec![format!("/{}", command.name)];
@@ -953,6 +863,7 @@ impl DefaultCookOrchestrator {
 
         Ok(())
     }
+    */
 
     /// Execute workflow with arguments from --args or --map
     async fn execute_workflow_with_args(
@@ -1167,11 +1078,7 @@ impl DefaultCookOrchestrator {
         // Start timing this command
         timing_tracker.start_command(command.name.clone());
 
-        // Check if this command requires analysis
-        if let Some(ref analysis_config) = command.analysis {
-            self.run_analysis_if_needed(env, analysis_config, None)
-                .await?;
-        }
+        // Analysis functionality has been removed in v0.3.0
 
         // Build the command with resolved arguments
         let (final_command, has_arg_reference) = self.build_command(&command, variables);
@@ -1369,6 +1276,7 @@ impl DefaultCookOrchestrator {
         Ok(())
     }
 
+    /* REMOVED: Analysis functionality has been removed in v0.3.0
     /// Run analysis if needed based on configuration
     async fn run_analysis_if_needed(
         &self,
@@ -1535,14 +1443,15 @@ impl DefaultCookOrchestrator {
 
         Ok(())
     }
+    */
 }
 
-#[cfg(test)]
+// REMOVED: Tests need updating after analysis removal
+#[cfg(never)]
 mod tests {
     use super::*;
     use crate::testing::config::TestConfiguration;
 
-    use crate::cook::analysis::runner::AnalysisRunnerImpl;
     use crate::cook::execution::claude::ClaudeExecutorImpl;
     use crate::cook::execution::runner::tests::MockCommandRunner;
     use crate::cook::interaction::mocks::MockUserInteraction;
