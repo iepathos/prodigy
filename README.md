@@ -1,4 +1,4 @@
-# MMM - Declarative LLM Orchestration
+# MMM - Memento Mori Management
 
 [![CI](https://github.com/iepathos/mmm/actions/workflows/ci.yml/badge.svg)](https://github.com/iepathos/mmm/actions/workflows/ci.yml)
 [![Security](https://github.com/iepathos/mmm/actions/workflows/security.yml/badge.svg)](https://github.com/iepathos/mmm/actions/workflows/security.yml)
@@ -11,15 +11,14 @@ Define declarative AI development workflows in YAML. Run bounded, testable impro
 MMM lets you declare LLM-powered development workflows in simple YAML files, similar to how you define CI/CD pipelines. Instead of copy-pasting between Claude and your terminal, you declare the workflow once and run it repeatedly.
 
 ```yaml
-# Example: Improve test coverage
-- claude: "/mmm-analyze-coverage"
-  id: coverage_analysis
+# Example: Simple workflow
+- claude: "/mmm-code-review"
   
-- claude: "/mmm-write-tests ${coverage_analysis.spec}"
+- claude: "/mmm-implement-spec $ARG"
   
-- shell: "cargo test"
+- shell: "just test"
   on_failure:
-    claude: "/mmm-fix-test --error ${shell.output}"
+    claude: "/mmm-debug-test-failure --spec $ARG --output ${shell.output}"
 ```
 
 ## Why Declarative?
@@ -109,7 +108,7 @@ Built for real development tasks:
 
 ## Quick Start
 
-Run `mmm cook <playbook.yml>` and MMM will:
+Run `mmm cook <workflow.yml>` and MMM will:
 
 1. **Execute** your declared workflow steps in order
 2. **Validate** changes with tests and linting
@@ -126,7 +125,7 @@ cd mmm
 cargo build --release
 
 # Add to PATH or use directly
-./target/release/mmm cook examples/default.yml
+./target/release/mmm cook workflows/implement.yml
 ```
 
 ## Usage
@@ -136,47 +135,56 @@ cargo build --release
 # First time setup - install MMM commands in your project
 mmm init
 
-# Then cook your code to improve it with default workflow
-mmm cook examples/default.yml
+# Then cook your code to improve it with available workflows
+mmm cook workflows/implement.yml
 ```
 
 ### Basic Usage
 ```bash
-# Cook your code in current directory with default workflow
-mmm cook examples/default.yml
+# Cook your code in current directory
+mmm cook workflows/implement.yml
 
 # Cook code in a specific directory
-mmm cook examples/default.yml --path /path/to/repo
-mmm cook examples/default.yml --path ./relative/path
-mmm cook examples/default.yml --path ~/projects/myapp
+mmm cook workflows/implement.yml --path /path/to/repo
+mmm cook workflows/implement.yml --path ./relative/path
+mmm cook workflows/implement.yml --path ~/projects/myapp
 
 # Cook with a security-focused workflow
-mmm cook examples/security.yml
+mmm cook workflows/security.yml
 
 # Run with more iterations
-mmm cook examples/default.yml --max-iterations 20
+mmm cook workflows/implement.yml --max-iterations 20
 
 # Run in an isolated git worktree for parallel execution
-mmm cook examples/performance.yml --worktree
+mmm cook workflows/performance-workflow.yml --worktree
 
 # Fully automated mode (auto-accept merge prompts)
-mmm cook examples/default.yml --worktree --yes
+mmm cook workflows/implement.yml --worktree --yes
 
 # Process multiple files with mapping
-mmm cook examples/implement.yml --map "specs/*.md"
+mmm cook workflows/implement.yml --map "specs/*.md"
+
+# Resume an interrupted session
+mmm cook workflows/implement.yml --resume session-abc123
 
 # See detailed progress
-mmm cook examples/default.yml --verbose
+mmm cook workflows/implement.yml --verbose
+
+# Track metrics during cooking
+mmm cook workflows/implement.yml --metrics
 ```
 
-### Workflow Types
+### Available Workflows
 
-Configure workflows for different improvement goals:
-- **security**: Security vulnerabilities, input validation, authentication
-- **performance**: Speed optimizations, memory usage, algorithmic improvements
-- **testing**: Test coverage, test quality, edge cases
-- **architecture**: Code structure, design patterns, modularity
-- **critical**: Only critical issues and bugs
+MMM includes several pre-built workflows in the `workflows/` directory:
+- **implement.yml**: General implementation workflow with testing
+- **security.yml**: Security-focused analysis and fixes
+- **performance-workflow.yml**: Performance optimization and profiling
+- **coverage.yml**: Test coverage improvement
+- **tech-debt.yml**: Technical debt cleanup
+- **code-review.yml**: Code review and quality improvements
+- **debug.yml**: Debug and fix test failures
+- **documentation-workflow.yml**: Documentation generation and updates
 - Create custom workflows for your project needs
 
 ### What Happens (Git-Native Flow)
@@ -197,15 +205,15 @@ Each step creates git commits for complete auditability.
 
 ```bash
 # Basic cooking run
-$ mmm cook examples/default.yml
+$ mmm cook workflows/implement.yml
 🔍 Starting improvement loop...
-📋 Workflow: General improvements
+📋 Workflow: Implementation workflow
 🔄 Iteration 1/10...
-🤖 Running /mmm-code-review...
-✅ Code review completed
-🔧 Running /mmm-implement-spec iteration-1708123456-improvements...
+🤖 Running /mmm-implement-spec...
 ✅ Implementation completed
-🧹 Running /mmm-lint...
+🧪 Running tests...
+✅ Tests passed
+🧹 Running linting...
 ✅ Linting completed
 
 ✅ Improvement session finished early:
@@ -214,19 +222,17 @@ $ mmm cook examples/default.yml
    Reason: No more issues found
 
 # Security-focused improvement workflow
-$ mmm cook examples/security.yml
-📝 Starting workflow with 5 commands
+$ mmm cook workflows/security.yml
+📝 Starting workflow with security analysis
 📋 Workflow: Security improvements
 🔄 Workflow iteration 1/8...
-📋 Step 1/5: mmm-security-audit
-📋 Step 2/5: mmm-implement-spec
-📋 Step 3/5: mmm-test-generate
-📋 Step 4/5: mmm-implement-spec
-📋 Step 5/5: mmm-lint
+📋 Step 1/3: mmm-security-audit
+📋 Step 2/3: mmm-implement-spec
+📋 Step 3/3: mmm-security-validate
 ✅ Improvement session completed
 
 # Parallel worktree sessions
-$ mmm cook examples/performance.yml --worktree
+$ mmm cook workflows/performance-workflow.yml --worktree
 🌳 Created worktree: mmm-performance-1708123456 at ~/.mmm/worktrees/myproject/mmm-performance-1708123456
 🔄 Iteration 1/10...
 [... improvements run ...]
@@ -324,86 +330,69 @@ The tool's core architecture is language-agnostic and relies on Claude's ability
 
 ### Simple Workflows
 
-Basic improvement workflow:
+Basic implementation workflow:
 ```yaml
-# improve.yml
-- claude: "/mmm-code-review"
-- claude: "/mmm-implement-spec"
+# Simple array format - each item is a command step
+- claude: "/mmm-implement-spec $ARG"
+- shell: "just test"
+  on_failure:
+    claude: "/mmm-debug-test-failure --spec $ARG --output ${shell.output}"
 - claude: "/mmm-lint"
 ```
 
 ### Advanced Workflows
 
-Test-driven development workflow:
-```yaml
-# tdd.yml
-- claude: "/mmm-analyze-coverage"
-  id: coverage
-  
-- claude: "/mmm-write-tests ${coverage.spec}"
-  
-- shell: "cargo test"
-  on_failure:
-    claude: "/mmm-fix-test --error ${shell.output}"
-    max_attempts: 3
-    
-- claude: "/mmm-lint"
-```
-
 Security audit workflow:
 ```yaml
-# security.yml
+# Security-focused workflow
 - claude: "/mmm-security-audit"
   id: audit
-  analysis:
-    force_refresh: true
-    
+  outputs:
+    spec:
+      file_pattern: "specs/temp/*-security.md"
 - claude: "/mmm-implement-spec ${audit.spec}"
-  commit_required: true
-  
-- shell: "cargo audit"
-  on_failure:
-    fail_workflow: true
+- claude: "/mmm-security-validate"
 ```
 
 Performance optimization:
 ```yaml
-# performance.yml  
-- shell: "cargo bench --bench main -- --save-baseline before"
+# Performance workflow with metrics
+- claude: "/mmm-performance"
+- claude: "/mmm-implement-spec $ARG"
+- shell: "cargo bench"
+  on_failure:
+    claude: "/mmm-debug-test-failure --output ${shell.output}"
+```
 
-- claude: "/mmm-performance-review"
-  id: perf
-  
-- claude: "/mmm-implement-spec ${perf.spec}"
-
-- shell: "cargo bench --bench main -- --baseline before"
-  capture_output: true
-  id: bench_results
-  
-- claude: "/mmm-analyze-results --data ${bench_results.output}"
+Test coverage workflow:
+```yaml
+# Coverage improvement workflow
+- claude: "/mmm-coverage"
+- claude: "/mmm-implement-spec $ARG"
+- shell: "cargo test"
+- claude: "/mmm-test-generate --coverage"
 ```
 
 #### Command Arguments
 
-You can specify arguments for commands using clean YAML syntax:
+You can specify arguments for commands and handle failures:
 
 ```yaml
-# Security workflow with targeted commands
-commands:
-  - name: mmm-security-audit
-  - mmm-implement-spec
-  - name: mmm-test-generate
-    args: ["--security"]
-  - mmm-implement-spec
-  - mmm-lint
-```
-
-Alternative string format also works:
-```yaml
-commands:
-  - mmm-security-audit
-  - mmm-implement-spec
-  - mmm-lint
+# Implementation workflow with error handling
+- claude: "/mmm-implement-spec $ARG"
+  commit_required: true
+  
+- shell: "just test"
+  on_failure:
+    claude: "/mmm-debug-test-failure --spec $ARG --output ${shell.output}"
+    max_attempts: 3
+    fail_workflow: false  # Continue even if tests can't be fixed
+    
+- shell: "just fmt-check && just lint"
+  on_failure:
+    claude: "/mmm-lint ${shell.output}"
+    max_attempts: 3
+    fail_workflow: false
 ```
 
 #### Commit Requirements
@@ -412,12 +401,10 @@ By default, MMM expects every command to create git commits. However, some comma
 
 ```yaml
 # Example: Linting may not always create commits
-commands:
-  - name: mmm-implement-spec
-    args: ["$ARG"]
+- claude: "/mmm-implement-spec $ARG"
   
-  - name: mmm-lint
-    commit_required: false  # Allow to proceed even if no changes made
+- claude: "/mmm-lint"
+  commit_required: false  # Allow to proceed even if no changes made
 ```
 
 This is especially useful for:
@@ -425,65 +412,20 @@ This is especially useful for:
 - Validation commands that only check code without modifying it
 - Optional cleanup steps that may have already been addressed
 
-#### Workflow Examples
-
-**Security Workflow:**
-```yaml
-commands:
-  - mmm-security-audit
-  - mmm-implement-spec
-  - name: mmm-test-generate
-    args: ["--security"]
-  - mmm-implement-spec
-  - mmm-lint
-```
-
-**Performance Workflow:**
-```yaml
-commands:
-  - mmm-performance
-  - mmm-implement-spec
-  - name: mmm-test-generate
-    args: ["--performance"]
-  - mmm-implement-spec
-  - mmm-lint
-```
-
-**Quick Fix Workflow:**
-```yaml
-commands:
-  - name: mmm-code-review
-    args: ["--critical"]
-  - mmm-implement-spec
-  - name: mmm-lint
-    commit_required: false  # Linting may not find issues after critical fixes
-```
-
-**Test Coverage Workflow:**
-```yaml
-commands:
-  - mmm-coverage
-  - mmm-implement-spec
-  - name: mmm-test-run
-    commit_required: false  # Test runs don't modify code
-  - name: mmm-lint
-    commit_required: false  # Code may already be clean
-```
-
 ### Parallel Sessions with Git Worktrees
 
 Run multiple cooking sessions concurrently without conflicts:
 
 ```bash
 # Enable worktree mode for this cooking session
-mmm cook examples/performance.yml --worktree
+mmm cook workflows/performance-workflow.yml --worktree
 
 # In another terminal, run a different workflow
-mmm cook examples/security.yml --worktree
+mmm cook workflows/security.yml --worktree
 
 # Fully automated parallel sessions
-mmm cook examples/test-driven.yml --worktree --yes &
-mmm cook examples/documentation.yml --worktree --yes &
+mmm cook workflows/tech-debt.yml --worktree --yes &
+mmm cook workflows/documentation-workflow.yml --worktree --yes &
 
 # List active worktree sessions
 mmm worktree ls
@@ -534,9 +476,14 @@ mmm/
 ├── src/
 │   ├── main.rs           # CLI entry point
 │   ├── cook/             # Core cooking logic
-│   ├── analyzer/         # Project analysis
+│   ├── config/           # Configuration management  
+│   ├── metrics/          # Metrics tracking and analysis
+│   ├── session/          # Session state management
 │   ├── simple_state/     # Minimal state management
+│   ├── subprocess/       # Subprocess abstraction layer
 │   └── worktree/         # Git worktree management
+├── workflows/            # Pre-built workflow definitions
+├── .claude/commands/     # MMM command definitions
 ├── .mmm/                 # Project context and state
 └── README.md            # This file
 
@@ -551,13 +498,17 @@ mmm/
 
 ```bash
 # Run tests
-just test
+cargo test
 
-# Lint with claude
-claude /mmm-lint
+# Build and run
+cargo build --release
+./target/release/mmm cook workflows/implement.yml --verbose
 
-# Run on sample project
-cargo run -- cook --verbose
+# Run with metrics tracking
+cargo run -- cook workflows/implement.yml --metrics
+
+# Test worktree functionality
+cargo run -- cook workflows/security.yml --worktree
 ```
 
 ## Philosophy
