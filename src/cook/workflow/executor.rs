@@ -477,6 +477,47 @@ impl WorkflowExecutor {
                     .await
                     .context(format!("Failed to execute step: {step_display}"))?;
 
+                // Display subprocess output when verbose logging is enabled
+                // Show summary at DEBUG level (-v), full output at TRACE level (-vv)
+                if tracing::enabled!(tracing::Level::DEBUG) {
+                    // At DEBUG level, show first/last few lines if output is large
+                    if !step_result.stdout.is_empty() {
+                        let stdout_lines: Vec<&str> = step_result.stdout.lines().collect();
+                        if stdout_lines.len() <= 20 || tracing::enabled!(tracing::Level::TRACE) {
+                            // Show full output if small or at TRACE level
+                            tracing::debug!("Command stdout:\n{}", step_result.stdout);
+                        } else {
+                            // Show abbreviated output at DEBUG level
+                            let preview: String = stdout_lines.iter()
+                                .take(10)
+                                .chain(std::iter::once(&"... [output truncated] ..."))
+                                .chain(stdout_lines.iter().rev().take(5).rev())
+                                .map(|s| *s)
+                                .collect::<Vec<_>>()
+                                .join("\n");
+                            tracing::debug!("Command stdout (abbreviated):\n{}", preview);
+                        }
+                    }
+                    
+                    if !step_result.stderr.is_empty() {
+                        let stderr_lines: Vec<&str> = step_result.stderr.lines().collect();
+                        if stderr_lines.len() <= 20 || tracing::enabled!(tracing::Level::TRACE) {
+                            // Show full output if small or at TRACE level
+                            tracing::debug!("Command stderr:\n{}", step_result.stderr);
+                        } else {
+                            // Show abbreviated output at DEBUG level
+                            let preview: String = stderr_lines.iter()
+                                .take(10)
+                                .chain(std::iter::once(&"... [output truncated] ..."))
+                                .chain(stderr_lines.iter().rev().take(5).rev())
+                                .map(|s| *s)
+                                .collect::<Vec<_>>()
+                                .join("\n");
+                            tracing::debug!("Command stderr (abbreviated):\n{}", preview);
+                        }
+                    }
+                }
+
                 // Complete command timing
                 let command_duration = command_start.elapsed();
                 if let Some((cmd_name, _)) = self.timing_tracker.complete_command() {
