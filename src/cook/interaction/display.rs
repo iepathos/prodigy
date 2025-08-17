@@ -346,14 +346,6 @@ mod tests {
             }
         }
 
-        #[cfg(test)]
-        pub fn with_verbosity(verbosity: VerbosityLevel) -> Self {
-            Self {
-                messages: Arc::new(Mutex::new(Vec::new())),
-                verbosity,
-            }
-        }
-
         pub fn get_messages(&self) -> Vec<String> {
             self.messages.lock().unwrap().clone()
         }
