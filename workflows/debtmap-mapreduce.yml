@@ -1,0 +1,84 @@
+name: debtmap-parallel-elimination
+mode: mapreduce
+
+# Setup phase: Analyze the codebase and generate debt items
+setup:
+  - shell: "cargo tarpaulin --config .tarpaulin.toml --out Lcov --output-dir target/coverage --timeout 120"
+    capture_output: false
+    
+  - claude: "/debtmap"
+    capture_output: true
+    commit_required: false
+
+# Map phase: Process each debt item in parallel
+map:
+  # Input configuration - assumes /debtmap generates a debt_items.json
+  input: .mmm/context/technical_debt.json
+  json_path: "$.debt_items[*]"
+  
+  # Commands to execute for each debt item
+  agent_template:
+    commands:
+      # Fix the specific debt item
+      - claude: "/fix-debt-item --file ${item.location} --issue '${item.description}' --impact ${item.impact}"
+        capture_output: true
+        timeout: 300
+      
+      # Run tests to verify the fix
+      - shell: "cargo test --lib"
+        on_failure:
+          claude: "/mmm-debug-test-failure --output '${shell.output}'"
+          max_attempts: 2
+          fail_workflow: false
+      
+      # Run linting
+      - shell: "cargo clippy --all-targets -- -D warnings"
+        on_failure:
+          claude: "/mmm-lint --fix '${shell.output}'"
+          max_attempts: 1
+          fail_workflow: false
+  
+  # Parallelization settings
+  max_parallel: 5  # Run up to 5 agents in parallel
+  timeout_per_agent: 600s  # 10 minutes per agent
+  retry_on_failure: 1  # Retry once if an agent fails
+  
+  # Process high-impact items first
+  filter: "impact >= 5"  # Only process items with impact >= 5
+  sort_by: "impact DESC"  # Process highest impact items first
+  max_items: 10  # Limit to 10 items per run
+
+# Reduce phase: Aggregate results and finalize
+reduce:
+  commands:
+    # Generate summary report
+    - claude: "/summarize-debt-fixes --results '${map.results}' --successful ${map.successful} --failed ${map.failed}"
+      capture_output: true
+    
+    # Run full test suite after all fixes
+    - shell: "just test"
+      on_failure:
+        claude: "/mmm-debug-test-failure --output '${shell.output}'"
+        max_attempts: 3
+        fail_workflow: true  # Fail if tests don't pass after merging
+    
+    # Run formatting and linting
+    - shell: "just fmt && just lint"
+      capture_output: false
+    
+    # Regenerate debt analysis to see improvement
+    - claude: "/debtmap --compare-before"
+      capture_output: true
+    
+    # Create final commit
+    - shell: "git add -A && git commit -m 'fix: eliminate ${map.successful} technical debt items via MapReduce
+
+Processed ${map.total} debt items in parallel:
+- Successfully fixed: ${map.successful} items
+- Failed to fix: ${map.failed} items
+
+This commit represents the aggregated work of multiple parallel agents.'"
+      commit_required: true
+
+# Collect metrics for performance analysis
+collect_metrics: true

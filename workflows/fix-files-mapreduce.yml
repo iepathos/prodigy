@@ -1,0 +1,80 @@
+name: fix-rust-files-parallel
+mode: mapreduce
+
+# MapReduce workflow to fix issues in Rust files using regex pattern matching
+
+# Setup phase: Generate file list with issues
+setup:
+  - shell: |
+      echo '{
+        "files": [
+          {"path": "src/main.rs", "has_issues": true, "complexity": 15},
+          {"path": "src/lib.rs", "has_issues": false, "complexity": 8},
+          {"path": "src/cook/execution/mapreduce.rs", "has_issues": true, "complexity": 25},
+          {"path": "src/cook/workflow/executor.rs", "has_issues": true, "complexity": 20},
+          {"path": "README.md", "has_issues": false, "complexity": 0},
+          {"path": "Cargo.toml", "has_issues": false, "complexity": 0},
+          {"path": "src/analyze/context.rs", "has_issues": true, "complexity": 12},
+          {"path": "src/config/mod.rs", "has_issues": false, "complexity": 5},
+          {"path": "tests/integration_test.rs", "has_issues": true, "complexity": 10}
+        ]
+      }' > file_issues.json
+    capture_output: false
+
+# Map phase: Process Rust files with issues
+map:
+  input: file_issues.json
+  json_path: "$.files[*]"
+  
+  agent_template:
+    commands:
+      # Analyze and fix the file
+      - claude: "/analyze-and-fix-file ${item.path} --complexity ${item.complexity}"
+        capture_output: true
+        timeout: 300
+      
+      # Run cargo check on the file
+      - shell: "cargo check --lib 2>&1 | grep -E '(error|warning)' | head -10 || echo 'No errors'"
+        capture_output: true
+  
+  # Use regex to filter only Rust source files with issues
+  # The Matches operator now supports regex patterns!
+  filter: "path matches '\\.rs$' && has_issues == true"
+  
+  # Sort by complexity to fix most complex files first
+  sort_by: "complexity DESC"
+  
+  # Parallel execution settings
+  max_parallel: 4
+  timeout_per_agent: 300s
+  retry_on_failure: 1
+
+# Reduce phase: Validate all fixes
+reduce:
+  commands:
+    # Summary of fixed files
+    - shell: |
+        echo "=== Fixed Rust Files Summary ==="
+        echo "Total files processed: ${map.total}"
+        echo "Successfully fixed: ${map.successful}"
+        echo "Failed to fix: ${map.failed}"
+        
+        # The regex filter should have excluded non-.rs files
+        echo ""
+        echo "Regex filter test: Only .rs files with issues should have been processed"
+        echo "================================"
+      capture_output: true
+    
+    # Run full build check
+    - shell: "cargo build --all-targets 2>&1 | tail -5"
+      capture_output: true
+    
+    # Run tests
+    - shell: "cargo test --lib 2>&1 | grep 'test result'"
+      capture_output: true
+    
+    # Clean up
+    - shell: "rm -f file_issues.json"
+      capture_output: false
+
+collect_metrics: true
