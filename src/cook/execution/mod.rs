@@ -3,9 +3,13 @@
 //! Provides abstractions for running commands and Claude CLI integration.
 
 pub mod claude;
+pub mod mapreduce;
 pub mod runner;
 
 pub use claude::{ClaudeExecutor, ClaudeExecutorImpl};
+pub use mapreduce::{
+    AgentResult, AgentStatus, MapPhase, MapReduceConfig, MapReduceExecutor, ReducePhase,
+};
 pub use runner::{CommandRunner, RealCommandRunner};
 
 use anyhow::Result;

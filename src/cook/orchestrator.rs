@@ -54,6 +54,7 @@ pub trait CookOrchestrator: Send + Sync {
 }
 
 /// Execution environment for cook operations
+#[derive(Clone)]
 pub struct ExecutionEnvironment {
     /// Working directory (may be worktree)
     pub working_dir: PathBuf,
@@ -406,7 +407,10 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 
         let extended_workflow = ExtendedWorkflowConfig {
             name: "default".to_string(),
+            mode: crate::cook::workflow::WorkflowMode::Sequential,
             steps,
+            map_phase: None,
+            reduce_phase: None,
             max_iterations: config.command.max_iterations,
             iterate: config.command.max_iterations > 1,
             collect_metrics: config.command.metrics,

@@ -9,6 +9,7 @@ pub mod command_parser;
 pub mod command_validator;
 pub mod dynamic_registry;
 pub mod loader;
+pub mod mapreduce;
 pub mod metadata_parser;
 pub mod workflow;
 
@@ -19,6 +20,7 @@ pub use command_parser::{expand_variables, parse_command_string};
 pub use command_validator::{apply_command_defaults, validate_command, CommandRegistry};
 pub use dynamic_registry::DynamicCommandRegistry;
 pub use loader::ConfigLoader;
+pub use mapreduce::{parse_mapreduce_workflow, MapReduceWorkflowConfig};
 pub use workflow::WorkflowConfig;
 
 /// Get the global MMM directory for storing configuration and data

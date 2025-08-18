@@ -152,13 +152,28 @@ fn default_commit_required() -> bool {
     true
 }
 
+/// Workflow execution mode
+#[derive(Debug, Clone, PartialEq)]
+pub enum WorkflowMode {
+    /// Sequential execution (default)
+    Sequential,
+    /// MapReduce parallel execution
+    MapReduce,
+}
+
 /// Extended workflow configuration
 #[derive(Debug, Clone)]
 pub struct ExtendedWorkflowConfig {
     /// Workflow name
     pub name: String,
-    /// Steps to execute
+    /// Execution mode
+    pub mode: WorkflowMode,
+    /// Steps to execute (for sequential mode)
     pub steps: Vec<WorkflowStep>,
+    /// Map phase configuration (for mapreduce mode)
+    pub map_phase: Option<crate::cook::execution::MapPhase>,
+    /// Reduce phase configuration (for mapreduce mode)
+    pub reduce_phase: Option<crate::cook::execution::ReducePhase>,
     /// Maximum iterations
     pub max_iterations: u32,
     /// Whether to iterate
@@ -176,6 +191,7 @@ pub struct WorkflowExecutor {
     timing_tracker: TimingTracker,
     test_config: Option<Arc<TestConfiguration>>,
     command_registry: Option<CommandRegistry>,
+    subprocess: crate::subprocess::SubprocessManager,
 }
 
 impl WorkflowExecutor {
@@ -200,6 +216,7 @@ impl WorkflowExecutor {
             timing_tracker: TimingTracker::new(),
             test_config: None,
             command_registry: None,
+            subprocess: crate::subprocess::SubprocessManager::production(),
         }
     }
 
@@ -219,6 +236,7 @@ impl WorkflowExecutor {
             timing_tracker: TimingTracker::new(),
             test_config: Some(test_config),
             command_registry: None,
+            subprocess: crate::subprocess::SubprocessManager::production(),
         }
     }
 
@@ -346,6 +364,11 @@ impl WorkflowExecutor {
         workflow: &ExtendedWorkflowConfig,
         env: &ExecutionEnvironment,
     ) -> Result<()> {
+        // Handle MapReduce mode
+        if workflow.mode == WorkflowMode::MapReduce {
+            return self.execute_mapreduce(workflow, env).await;
+        }
+
         let workflow_start = Instant::now();
 
         self.user_interaction.display_info(&format!(
@@ -1255,6 +1278,76 @@ impl WorkflowExecutor {
         );
 
         Err(anyhow!("No commits created by {}", step_display))
+    }
+
+    /// Execute a MapReduce workflow
+    async fn execute_mapreduce(
+        &mut self,
+        workflow: &ExtendedWorkflowConfig,
+        env: &ExecutionEnvironment,
+    ) -> Result<()> {
+        use crate::cook::execution::MapReduceExecutor;
+        use crate::worktree::WorktreeManager;
+
+        let workflow_start = Instant::now();
+
+        self.user_interaction
+            .display_info(&format!("Executing MapReduce workflow: {}", workflow.name));
+
+        // Ensure we have map phase configuration
+        let map_phase = workflow
+            .map_phase
+            .as_ref()
+            .ok_or_else(|| anyhow!("MapReduce workflow requires map phase configuration"))?;
+
+        // Create worktree manager
+        let worktree_manager = Arc::new(WorktreeManager::new(
+            env.project_dir.clone(),
+            self.subprocess.clone(),
+        )?);
+
+        // Create MapReduce executor
+        let mapreduce_executor = MapReduceExecutor::new(
+            self.claude_executor.clone(),
+            self.session_manager.clone(),
+            self.user_interaction.clone(),
+            worktree_manager,
+            env.project_dir.clone(),
+        );
+
+        // Start workflow timing in session
+        self.session_manager
+            .update_session(SessionUpdate::StartWorkflow)
+            .await?;
+
+        // Execute MapReduce workflow
+        let results = mapreduce_executor
+            .execute(map_phase, workflow.reduce_phase.as_ref(), env)
+            .await?;
+
+        // Update session with results
+        let successful_count = results
+            .iter()
+            .filter(|r| matches!(r.status, crate::cook::execution::AgentStatus::Success))
+            .count();
+
+        self.session_manager
+            .update_session(SessionUpdate::AddFilesChanged(successful_count))
+            .await?;
+
+        // Collect final metrics if enabled
+        if workflow.collect_metrics {
+            self.collect_and_report_metrics(env).await?;
+        }
+
+        // Display total workflow timing
+        let total_duration = workflow_start.elapsed();
+        self.user_interaction.display_info(&format!(
+            "\n📊 Total MapReduce workflow time: {}",
+            format_duration(total_duration),
+        ));
+
+        Ok(())
     }
 
     /// Check if we should continue iterations
