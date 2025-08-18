@@ -20,10 +20,10 @@ pub struct CookCommand {
     )]
     pub path: Option<PathBuf>,
 
-    /// Maximum number of iterations to run (default: 10)
+    /// Maximum number of iterations to run (default: 1)
     ///
     /// This limits how many improvement cycles will be executed.
-    #[arg(short = 'n', long, default_value = "10")]
+    #[arg(short = 'n', long, default_value = "1")]
     pub max_iterations: u32,
 
     /// Run in an isolated git worktree for parallel execution

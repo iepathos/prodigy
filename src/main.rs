@@ -34,8 +34,8 @@ enum Commands {
         )]
         path: Option<PathBuf>,
 
-        /// Maximum number of iterations to run (default: 10)
-        #[arg(short = 'n', long, default_value = "10")]
+        /// Maximum number of iterations to run (default: 1)
+        #[arg(short = 'n', long, default_value = "1")]
         max_iterations: u32,
 
         /// Run in an isolated git worktree for parallel execution
