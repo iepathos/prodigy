@@ -69,6 +69,14 @@ pub struct MapPhaseYaml {
     /// Optional sort field
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sort_by: Option<String>,
+
+    /// Maximum number of items to process (limit)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_items: Option<usize>,
+
+    /// Number of items to skip (offset)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset: Option<usize>,
 }
 
 fn default_max_parallel() -> usize {
@@ -136,6 +144,8 @@ impl MapReduceWorkflowConfig {
                 max_parallel: self.map.max_parallel,
                 timeout_per_agent: self.map.timeout_per_agent.unwrap_or(600),
                 retry_on_failure: self.map.retry_on_failure,
+                max_items: self.map.max_items,
+                offset: self.map.offset,
             },
             agent_template: self.map.agent_template.commands.clone(),
             filter: self.map.filter.clone(),

@@ -4,12 +4,13 @@
 //! using isolated git worktrees for fault isolation and parallelism.
 
 use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};
+use crate::cook::execution::data_pipeline::DataPipeline;
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
 use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::SessionManager;
-use crate::cook::workflow::{CommandType, HandlerStep, StepResult, WorkflowStep};
+use crate::cook::workflow::{CommandType, StepResult, WorkflowStep};
 use crate::subprocess::SubprocessManager;
 use crate::worktree::WorktreeManager;
 use anyhow::{anyhow, Context, Result};
@@ -43,6 +44,12 @@ pub struct MapReduceConfig {
     /// Number of retry attempts on failure
     #[serde(default = "default_retry")]
     pub retry_on_failure: u32,
+    /// Maximum number of items to process
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_items: Option<usize>,
+    /// Number of items to skip
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset: Option<usize>,
 }
 
 fn default_max_parallel() -> usize {
@@ -305,8 +312,10 @@ impl MapReduceExecutor {
     ) -> Result<Vec<AgentResult>> {
         let start_time = Instant::now();
 
-        // Load and parse work items
-        let work_items = self.load_work_items(&map_phase.config).await?;
+        // Load and parse work items with filtering and sorting
+        let work_items = self
+            .load_work_items_with_pipeline(&map_phase.config, &map_phase.filter, &map_phase.sort_by)
+            .await?;
 
         self.user_interaction.display_info(&format!(
             "Starting MapReduce execution with {} items, max {} parallel agents",
@@ -330,8 +339,13 @@ impl MapReduceExecutor {
         Ok(map_results)
     }
 
-    /// Load work items from JSON file
-    async fn load_work_items(&self, config: &MapReduceConfig) -> Result<Vec<Value>> {
+    /// Load work items from JSON file with pipeline processing
+    async fn load_work_items_with_pipeline(
+        &self,
+        config: &MapReduceConfig,
+        filter: &Option<String>,
+        sort_by: &Option<String>,
+    ) -> Result<Vec<Value>> {
         let input_path = if config.input.is_absolute() {
             config.input.clone()
         } else {
@@ -347,52 +361,34 @@ impl MapReduceExecutor {
 
         let json: Value = serde_json::from_str(&content).context("Failed to parse input JSON")?;
 
-        // Extract items using JSON path
-        let items = if config.json_path.is_empty() {
-            // If no JSON path specified, treat entire JSON as single item or array
-            match json {
-                Value::Array(arr) => arr,
-                other => vec![other],
-            }
+        // Use data pipeline for extraction, filtering, and sorting
+        let json_path = if config.json_path.is_empty() {
+            None
         } else {
-            self.extract_with_json_path(&json, &config.json_path)?
+            Some(config.json_path.clone())
         };
 
+        // Create pipeline with all configuration options
+        let mut pipeline = DataPipeline::from_config(
+            json_path,
+            filter.clone(),
+            sort_by.clone(),
+            config.max_items,
+        )?;
+
+        // Set offset if specified
+        if let Some(offset) = config.offset {
+            pipeline.offset = Some(offset);
+        }
+
+        let items = pipeline.process(&json)?;
+
+        debug!(
+            "Loaded {} work items after pipeline processing",
+            items.len()
+        );
+
         Ok(items)
-    }
-
-    /// Extract items using JSON path expression
-    fn extract_with_json_path(&self, json: &Value, path: &str) -> Result<Vec<Value>> {
-        // Simple JSON path implementation
-        // Supports basic paths like "$.items[*]" or "$.debt_items[*]"
-        let path = path.trim_start_matches("$.");
-        let parts: Vec<&str> = path.split('.').collect();
-
-        let mut current = json.clone();
-        for part in parts {
-            if part.ends_with("[*]") {
-                let field_name = &part[..part.len() - 3];
-                current = current
-                    .get(field_name)
-                    .ok_or_else(|| anyhow!("Field '{}' not found in JSON", field_name))?
-                    .clone();
-
-                return match current {
-                    Value::Array(arr) => Ok(arr),
-                    _ => Err(anyhow!("Expected array at path '{}'", path)),
-                };
-            } else {
-                current = current
-                    .get(part)
-                    .ok_or_else(|| anyhow!("Field '{}' not found in JSON", part))?
-                    .clone();
-            }
-        }
-
-        match current {
-            Value::Array(arr) => Ok(arr),
-            other => Ok(vec![other]),
-        }
     }
 
     /// Execute the map phase with parallel agents
