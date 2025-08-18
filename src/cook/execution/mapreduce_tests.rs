@@ -1,6 +1,8 @@
 //! Tests for MapReduce executor
 
 use super::*;
+use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
+use serde_json::json;
 use std::collections::HashMap;
 
 #[test]
@@ -153,3 +155,171 @@ fn test_reduce_phase_configuration() {
     assert!(reduce_phase.commands[0].claude.is_some());
     assert!(reduce_phase.commands[1].shell.is_some());
 }
+
+#[test]
+fn test_interpolation_with_work_item() {
+    let mut engine = InterpolationEngine::new(false);
+    let mut context = InterpolationContext::new();
+
+    // Add a work item to context
+    let item = json!({
+        "id": 123,
+        "description": "Fix memory leak in parser",
+        "priority": "high",
+        "location": {
+            "file": "src/parser.rs",
+            "line": 45
+        }
+    });
+
+    context.set("item", item);
+
+    // Test various interpolation patterns
+    let tests = vec![
+        ("Task ${item.id}", "Task 123"),
+        ("Fix: ${item.description}", "Fix: Fix memory leak in parser"),
+        ("Priority: ${item.priority}", "Priority: high"),
+        (
+            "File: ${item.location.file}:${item.location.line}",
+            "File: src/parser.rs:45",
+        ),
+    ];
+
+    for (template, expected) in tests {
+        let result = engine.interpolate(template, &context).unwrap();
+        assert_eq!(result, expected, "Failed for template: {}", template);
+    }
+}
+
+#[test]
+fn test_interpolation_with_map_results() {
+    let mut engine = InterpolationEngine::new(false);
+    let mut context = InterpolationContext::new();
+
+    // Add map results to context as a nested object
+    context.set(
+        "map",
+        json!({
+            "successful": 8,
+            "failed": 2,
+            "total": 10
+        }),
+    );
+
+    let template =
+        "Processed ${map.total} items: ${map.successful} successful, ${map.failed} failed";
+    let result = engine.interpolate(template, &context).unwrap();
+    assert_eq!(result, "Processed 10 items: 8 successful, 2 failed");
+}
+
+#[test]
+fn test_interpolation_with_shell_output() {
+    let mut engine = InterpolationEngine::new(false);
+    let mut context = InterpolationContext::new();
+
+    // Simulate shell output from previous step as a nested object
+    context.set(
+        "shell",
+        json!({
+            "output": "All tests passed",
+            "last_output": "Coverage: 85%"
+        }),
+    );
+
+    let template = "Previous output: ${shell.output}. ${shell.last_output}";
+    let result = engine.interpolate(template, &context).unwrap();
+    assert_eq!(result, "Previous output: All tests passed. Coverage: 85%");
+}
+
+#[test]
+fn test_interpolation_with_defaults() {
+    let mut engine = InterpolationEngine::new(false);
+    let context = InterpolationContext::new();
+
+    // Test default values for undefined variables
+    let tests = vec![
+        ("Timeout: ${timeout:-600}s", "Timeout: 600s"),
+        ("Workers: ${workers:-10}", "Workers: 10"),
+        ("Mode: ${mode:-parallel}", "Mode: parallel"),
+    ];
+
+    for (template, expected) in tests {
+        let result = engine.interpolate(template, &context).unwrap();
+        assert_eq!(result, expected, "Failed for template: {}", template);
+    }
+}
+
+#[test]
+fn test_interpolation_context_hierarchy() {
+    let mut engine = InterpolationEngine::new(false);
+
+    // Create parent context
+    let mut parent = InterpolationContext::new();
+    parent.set("global_setting", json!("production"));
+    parent.set("max_workers", json!(20));
+
+    // Create child context
+    let mut child = parent.child();
+    child.set("local_setting", json!("debug"));
+    child.set("max_workers", json!(5)); // Override parent value
+
+    // Test resolution
+    let tests = vec![
+        ("Mode: ${global_setting}", "Mode: production"),
+        ("Debug: ${local_setting}", "Debug: debug"),
+        ("Workers: ${max_workers}", "Workers: 5"), // Should use child's value
+    ];
+
+    for (template, expected) in tests {
+        let result = engine.interpolate(template, &child).unwrap();
+        assert_eq!(result, expected, "Failed for template: {}", template);
+    }
+}
+
+#[test]
+fn test_interpolation_with_arrays() {
+    let mut engine = InterpolationEngine::new(false);
+    let mut context = InterpolationContext::new();
+
+    // Add array data
+    let results = json!([
+        {"id": "item1", "status": "success"},
+        {"id": "item2", "status": "failed"},
+        {"id": "item3", "status": "success"}
+    ]);
+
+    context.set("results", results);
+
+    // Test array access
+    let tests = vec![
+        ("First: ${results[0].id}", "First: item1"),
+        (
+            "Second status: ${results[1].status}",
+            "Second status: failed",
+        ),
+        ("Third: ${results[2].id}", "Third: item3"),
+    ];
+
+    for (template, expected) in tests {
+        let result = engine.interpolate(template, &context).unwrap();
+        assert_eq!(result, expected, "Failed for template: {}", template);
+    }
+}
+
+#[test]
+fn test_interpolation_strict_mode() {
+    let mut engine = InterpolationEngine::new(true); // strict mode
+    let context = InterpolationContext::new();
+
+    // Should fail on undefined variable in strict mode
+    let result = engine.interpolate("Value: ${undefined}", &context);
+    assert!(result.is_err());
+
+    // Should work with default value even in strict mode
+    let result = engine.interpolate("Value: ${undefined:-default}", &context);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "Value: default");
+}
+
+// TODO: Add test for json_path_extraction once mock types are properly configured
+// The interpolation functionality is tested comprehensively in the tests above
