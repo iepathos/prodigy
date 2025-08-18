@@ -3,20 +3,22 @@
 //! Implements parallel execution of workflow steps across multiple agents
 //! using isolated git worktrees for fault isolation and parallelism.
 
+use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
 use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::SessionManager;
-use crate::cook::workflow::{WorkflowContext, WorkflowStep};
+use crate::cook::workflow::WorkflowStep;
 use crate::worktree::WorktreeManager;
 use anyhow::{anyhow, Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{mpsc, Mutex, RwLock};
 use tokio::task::JoinHandle;
 
 /// Configuration for MapReduce execution
@@ -175,6 +177,7 @@ pub struct MapReduceExecutor {
     user_interaction: Arc<dyn UserInteraction>,
     worktree_manager: Arc<WorktreeManager>,
     project_root: PathBuf,
+    interpolation_engine: Arc<Mutex<InterpolationEngine>>,
 }
 
 impl MapReduceExecutor {
@@ -192,6 +195,7 @@ impl MapReduceExecutor {
             user_interaction,
             worktree_manager,
             project_root,
+            interpolation_engine: Arc::new(Mutex::new(InterpolationEngine::new(false))),
         }
     }
 
@@ -451,21 +455,24 @@ impl MapReduceExecutor {
         let worktree_name = worktree_session.name.clone();
         let worktree_path = worktree_session.path.clone();
 
-        // Create workflow context with item data
-        let mut context = WorkflowContext::default();
+        // Create interpolation context with item data
+        let mut interp_context = InterpolationContext::new();
 
         // Add item data to context
+        interp_context.set("item", item.clone());
+
+        // Also add flattened item properties for backward compatibility
         if let Value::Object(obj) = item {
-            for (key, value) in obj {
-                let value_str = match value {
-                    Value::String(s) => s.clone(),
-                    Value::Number(n) => n.to_string(),
-                    Value::Bool(b) => b.to_string(),
-                    _ => serde_json::to_string(value)?,
-                };
-                context.variables.insert(format!("item.{}", key), value_str);
-            }
+            interp_context.add_json_object("item", obj);
         }
+
+        // Add environment variables
+        interp_context.set("worktree", Value::String(worktree_name.clone()));
+        interp_context.set("item_id", Value::String(item_id.to_string()));
+        interp_context.set(
+            "session_id",
+            Value::String(format!("{}-{}", env.session_id, item_id)),
+        );
 
         // Create agent-specific environment
         let _agent_env = ExecutionEnvironment {
@@ -475,20 +482,50 @@ impl MapReduceExecutor {
             session_id: format!("{}-{}", env.session_id, item_id),
         };
 
-        // Execute template steps
+        // Execute template steps with interpolation
         let mut output = String::new();
+        let mut shell_output = String::new();
 
-        for _step in template_steps {
-            // Note: This would use the WorkflowExecutor to execute the step
-            // For now, we'll just collect the command information
-            output.push_str(&format!("Executing step for {}\n", item_id));
+        for (step_index, step) in template_steps.iter().enumerate() {
+            // Update context with previous shell output
+            if !shell_output.is_empty() {
+                interp_context.set(
+                    "shell",
+                    json!({
+                        "output": shell_output.clone(),
+                        "last_output": shell_output.clone()
+                    }),
+                );
+            }
+
+            // Interpolate the workflow step
+            let _interpolated_step = self
+                .interpolate_workflow_step(step, &interp_context)
+                .await?;
+
+            // Execute the interpolated step
+            // Note: In a real implementation, this would use the WorkflowExecutor
+            output.push_str(&format!(
+                "Step {}: Executing interpolated command for {}\n",
+                step_index + 1,
+                item_id
+            ));
+
+            // Simulate capturing shell output (would come from actual execution)
+            shell_output = format!("Output from step {} for {}", step_index + 1, item_id);
+            interp_context.set(
+                format!("step{}.output", step_index + 1),
+                Value::String(shell_output.clone()),
+            );
         }
 
         // Get commits from worktree
         let commits = self.get_worktree_commits(&worktree_path).await?;
 
         // Clean up worktree (in real implementation, might keep for reduce phase)
-        self.worktree_manager.cleanup_session(&worktree_name, true).await?;
+        self.worktree_manager
+            .cleanup_session(&worktree_name, true)
+            .await?;
 
         Ok(AgentResult {
             item_id: item_id.to_string(),
@@ -499,6 +536,49 @@ impl MapReduceExecutor {
             error: None,
             worktree_path: Some(worktree_path),
         })
+    }
+
+    /// Interpolate variables in a workflow step
+    async fn interpolate_workflow_step(
+        &self,
+        step: &WorkflowStep,
+        context: &InterpolationContext,
+    ) -> Result<WorkflowStep> {
+        let mut engine = self.interpolation_engine.lock().await;
+
+        // Clone the step to avoid modifying the original
+        let mut interpolated = step.clone();
+
+        // Interpolate all string fields that might contain variables
+        if let Some(name) = &step.name {
+            interpolated.name = Some(engine.interpolate(name, context)?);
+        }
+
+        if let Some(claude) = &step.claude {
+            interpolated.claude = Some(engine.interpolate(claude, context)?);
+        }
+
+        if let Some(shell) = &step.shell {
+            interpolated.shell = Some(engine.interpolate(shell, context)?);
+        }
+
+        if let Some(command) = &step.command {
+            interpolated.command = Some(engine.interpolate(command, context)?);
+        }
+
+        // Interpolate environment variables
+        let mut interpolated_env = HashMap::new();
+        for (key, value) in &step.env {
+            let interpolated_key = engine.interpolate(key, context)?;
+            let interpolated_value = engine.interpolate(value, context)?;
+            interpolated_env.insert(interpolated_key, interpolated_value);
+        }
+        interpolated.env = interpolated_env;
+
+        // Note: Handler, on_failure, on_success would need recursive interpolation
+        // which we're not implementing for this initial version
+
+        Ok(interpolated)
     }
 
     /// Get commits from a worktree
@@ -533,8 +613,8 @@ impl MapReduceExecutor {
         self.user_interaction
             .display_progress("Starting reduce phase...");
 
-        // Create context with map results
-        let mut context = WorkflowContext::default();
+        // Create interpolation context with map results
+        let mut interp_context = InterpolationContext::new();
 
         // Add summary statistics
         let successful = map_results
@@ -546,27 +626,46 @@ impl MapReduceExecutor {
             .filter(|r| matches!(r.status, AgentStatus::Failed(_)))
             .count();
 
-        context
-            .variables
-            .insert("map.successful".to_string(), successful.to_string());
-        context
-            .variables
-            .insert("map.failed".to_string(), failed.to_string());
-        context
-            .variables
-            .insert("map.total".to_string(), map_results.len().to_string());
+        interp_context.set(
+            "map",
+            json!({
+                "successful": successful,
+                "failed": failed,
+                "total": map_results.len()
+            }),
+        );
 
-        // Add serialized results
-        let results_json = serde_json::to_string(map_results)?;
-        context
-            .variables
-            .insert("map.results".to_string(), results_json);
+        // Add complete results as JSON value
+        let results_value = serde_json::to_value(map_results)?;
+        interp_context.set("map.results", results_value);
 
-        // Execute reduce commands
-        for _step in &reduce_phase.commands {
+        // Also add individual result access
+        for (index, result) in map_results.iter().enumerate() {
+            let result_value = serde_json::to_value(result)?;
+            interp_context.set(format!("results[{}]", index), result_value);
+        }
+
+        // Execute reduce commands with interpolation
+        for (step_index, step) in reduce_phase.commands.iter().enumerate() {
             self.user_interaction
-                .display_progress("Executing reduce step...");
-            // Note: This would use the WorkflowExecutor to execute the step
+                .display_progress(&format!("Executing reduce step {}...", step_index + 1));
+
+            // Interpolate the step
+            let interpolated_step = self
+                .interpolate_workflow_step(step, &interp_context)
+                .await?;
+
+            // Note: In a real implementation, this would use the WorkflowExecutor to execute the interpolated step
+            let command_desc = interpolated_step
+                .command
+                .or(interpolated_step.claude)
+                .or(interpolated_step.shell)
+                .unwrap_or_else(|| "(no command)".to_string());
+            self.user_interaction.display_progress(&format!(
+                "Reduce step {}: {}",
+                step_index + 1,
+                command_desc
+            ));
         }
 
         self.user_interaction
@@ -622,6 +721,7 @@ impl MapReduceExecutor {
             user_interaction: self.user_interaction.clone(),
             worktree_manager: self.worktree_manager.clone(),
             project_root: self.project_root.clone(),
+            interpolation_engine: self.interpolation_engine.clone(),
         }
     }
 }

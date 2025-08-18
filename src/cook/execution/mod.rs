@@ -3,6 +3,7 @@
 //! Provides abstractions for running commands and Claude CLI integration.
 
 pub mod claude;
+pub mod interpolation;
 pub mod mapreduce;
 pub mod runner;
 
