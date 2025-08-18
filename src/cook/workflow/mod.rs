@@ -6,7 +6,7 @@ mod executor;
 mod traits;
 
 pub use executor::{
-    ExtendedWorkflowConfig, StepResult, WorkflowContext, WorkflowExecutor as WorkflowExecutorImpl,
-    WorkflowMode, WorkflowStep,
+    CommandType, ExtendedWorkflowConfig, HandlerStep, StepResult, WorkflowContext,
+    WorkflowExecutor as WorkflowExecutorImpl, WorkflowMode, WorkflowStep,
 };
 pub use traits::WorkflowExecutor;

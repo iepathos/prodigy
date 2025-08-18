@@ -3,12 +3,14 @@
 //! Implements parallel execution of workflow steps across multiple agents
 //! using isolated git worktrees for fault isolation and parallelism.
 
+use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
 use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::SessionManager;
-use crate::cook::workflow::WorkflowStep;
+use crate::cook::workflow::{CommandType, HandlerStep, StepResult, WorkflowStep};
+use crate::subprocess::SubprocessManager;
 use crate::worktree::WorktreeManager;
 use anyhow::{anyhow, Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -18,8 +20,11 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tokio::process::Command;
 use tokio::sync::{mpsc, Mutex, RwLock};
 use tokio::task::JoinHandle;
+use tokio::time::timeout as tokio_timeout;
+use tracing::{debug, error, info, warn};
 
 /// Configuration for MapReduce execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -170,6 +175,94 @@ impl ProgressTracker {
     }
 }
 
+/// Context for agent-specific command execution
+#[derive(Clone)]
+pub struct AgentContext {
+    /// Unique identifier for this agent
+    pub item_id: String,
+    /// Path to the agent's isolated worktree
+    pub worktree_path: PathBuf,
+    /// Name of the agent's worktree
+    pub worktree_name: String,
+    /// Variables available for interpolation
+    pub variables: HashMap<String, String>,
+    /// Last shell command output
+    pub shell_output: Option<String>,
+    /// Environment for command execution
+    pub environment: ExecutionEnvironment,
+    /// Current retry count for failed commands
+    pub retry_count: u32,
+    /// Captured outputs from previous steps
+    pub captured_outputs: HashMap<String, String>,
+    /// Iteration-specific variables
+    pub iteration_vars: HashMap<String, String>,
+}
+
+impl AgentContext {
+    /// Create a new agent context
+    pub fn new(
+        item_id: String,
+        worktree_path: PathBuf,
+        worktree_name: String,
+        environment: ExecutionEnvironment,
+    ) -> Self {
+        Self {
+            item_id,
+            worktree_path,
+            worktree_name,
+            variables: HashMap::new(),
+            shell_output: None,
+            environment,
+            retry_count: 0,
+            captured_outputs: HashMap::new(),
+            iteration_vars: HashMap::new(),
+        }
+    }
+
+    /// Update context with command output
+    pub fn update_with_output(&mut self, output: Option<String>) {
+        if let Some(out) = output {
+            self.shell_output = Some(out.clone());
+            self.variables
+                .insert("shell.output".to_string(), out.clone());
+            self.variables.insert("shell.last_output".to_string(), out);
+        }
+    }
+
+    /// Convert to InterpolationContext
+    pub fn to_interpolation_context(&self) -> InterpolationContext {
+        let mut context = InterpolationContext::new();
+
+        // Add all variables
+        for (key, value) in &self.variables {
+            context.set(key.clone(), Value::String(value.clone()));
+        }
+
+        // Add shell output
+        if let Some(ref output) = self.shell_output {
+            context.set(
+                "shell",
+                json!({
+                    "output": output,
+                    "last_output": output
+                }),
+            );
+        }
+
+        // Add captured outputs
+        for (key, value) in &self.captured_outputs {
+            context.set(key.clone(), Value::String(value.clone()));
+        }
+
+        // Add iteration variables
+        for (key, value) in &self.iteration_vars {
+            context.set(key.clone(), Value::String(value.clone()));
+        }
+
+        context
+    }
+}
+
 /// MapReduce executor for parallel workflow execution
 pub struct MapReduceExecutor {
     claude_executor: Arc<dyn ClaudeExecutor>,
@@ -178,11 +271,13 @@ pub struct MapReduceExecutor {
     worktree_manager: Arc<WorktreeManager>,
     project_root: PathBuf,
     interpolation_engine: Arc<Mutex<InterpolationEngine>>,
+    command_registry: Arc<CommandRegistry>,
+    subprocess: Arc<SubprocessManager>,
 }
 
 impl MapReduceExecutor {
     /// Create a new MapReduce executor
-    pub fn new(
+    pub async fn new(
         claude_executor: Arc<dyn ClaudeExecutor>,
         session_manager: Arc<dyn SessionManager>,
         user_interaction: Arc<dyn UserInteraction>,
@@ -196,6 +291,8 @@ impl MapReduceExecutor {
             worktree_manager,
             project_root,
             interpolation_engine: Arc::new(Mutex::new(InterpolationEngine::new(false))),
+            command_registry: Arc::new(CommandRegistry::with_defaults().await),
+            subprocess: Arc::new(SubprocessManager::production()),
         }
     }
 
@@ -455,82 +552,150 @@ impl MapReduceExecutor {
         let worktree_name = worktree_session.name.clone();
         let worktree_path = worktree_session.path.clone();
 
-        // Create interpolation context with item data
-        let mut interp_context = InterpolationContext::new();
-
-        // Add item data to context
-        interp_context.set("item", item.clone());
-
-        // Also add flattened item properties for backward compatibility
-        if let Value::Object(obj) = item {
-            interp_context.add_json_object("item", obj);
-        }
-
-        // Add environment variables
-        interp_context.set("worktree", Value::String(worktree_name.clone()));
-        interp_context.set("item_id", Value::String(item_id.to_string()));
-        interp_context.set(
-            "session_id",
-            Value::String(format!("{}-{}", env.session_id, item_id)),
-        );
-
         // Create agent-specific environment
-        let _agent_env = ExecutionEnvironment {
+        let agent_env = ExecutionEnvironment {
             working_dir: worktree_path.clone(),
             project_dir: env.project_dir.clone(),
             worktree_name: Some(worktree_name.clone()),
             session_id: format!("{}-{}", env.session_id, item_id),
         };
 
-        // Execute template steps with interpolation
-        let mut output = String::new();
-        let mut shell_output = String::new();
+        // Create agent context
+        let mut context = AgentContext::new(
+            item_id.to_string(),
+            worktree_path.clone(),
+            worktree_name.clone(),
+            agent_env,
+        );
+
+        // Add item data to context variables
+        if let Value::Object(obj) = item {
+            for (key, value) in obj {
+                if let Value::String(s) = value {
+                    context.variables.insert(key.clone(), s.clone());
+                } else {
+                    context.variables.insert(key.clone(), value.to_string());
+                }
+            }
+        }
+
+        // Add standard variables
+        context
+            .variables
+            .insert("worktree".to_string(), worktree_name.clone());
+        context
+            .variables
+            .insert("item_id".to_string(), item_id.to_string());
+        context.variables.insert(
+            "session_id".to_string(),
+            format!("{}-{}", env.session_id, item_id),
+        );
+
+        // Execute template steps with real command execution
+        let mut all_outputs = Vec::new();
+        let mut total_output = String::new();
+        let mut execution_error: Option<String> = None;
 
         for (step_index, step) in template_steps.iter().enumerate() {
-            // Update context with previous shell output
-            if !shell_output.is_empty() {
-                interp_context.set(
-                    "shell",
-                    json!({
-                        "output": shell_output.clone(),
-                        "last_output": shell_output.clone()
-                    }),
+            debug!(
+                "Executing step {} for agent {}: {:?}",
+                step_index + 1,
+                item_id,
+                step.name
+            );
+
+            // Execute the step
+            let step_result = match self.execute_single_step(step, &mut context).await {
+                Ok(result) => result,
+                Err(e) => {
+                    let error_msg = format!("Step {} failed: {}", step_index + 1, e);
+                    error!("Agent {} error: {}", item_id, error_msg);
+
+                    // Handle on_failure if specified
+                    if let Some(on_failure) = &step.on_failure {
+                        info!("Executing on_failure handler for agent {}", item_id);
+                        if let Err(handler_err) = self
+                            .handle_on_failure(on_failure, &mut context, error_msg.clone())
+                            .await
+                        {
+                            error!(
+                                "on_failure handler also failed for agent {}: {}",
+                                item_id, handler_err
+                            );
+                        }
+
+                        // For MapReduce, we continue on failure unless it's critical
+                        // TODO: Add a fail_workflow option to WorkflowStep if needed
+                    } else {
+                        execution_error = Some(error_msg);
+                        break;
+                    }
+
+                    // Create a failed result for this step
+                    StepResult {
+                        success: false,
+                        exit_code: Some(1),
+                        stdout: String::new(),
+                        stderr: e.to_string(),
+                    }
+                }
+            };
+
+            // Update context with step output
+            if !step_result.stdout.is_empty() {
+                context.update_with_output(Some(step_result.stdout.clone()));
+                context.variables.insert(
+                    format!("step{}.output", step_index + 1),
+                    step_result.stdout.clone(),
                 );
             }
 
-            // Interpolate the workflow step
-            let _interpolated_step = self
-                .interpolate_workflow_step(step, &interp_context)
-                .await?;
-
-            // Execute the interpolated step
-            // Note: In a real implementation, this would use the WorkflowExecutor
-            output.push_str(&format!(
-                "Step {}: Executing interpolated command for {}\n",
+            // Accumulate outputs
+            all_outputs.push(step_result.stdout.clone());
+            total_output.push_str(&format!(
+                "=== Step {} ({}) ===\n{}\n",
                 step_index + 1,
-                item_id
+                step.name.as_deref().unwrap_or("unnamed"),
+                step_result.stdout
             ));
 
-            // Simulate capturing shell output (would come from actual execution)
-            shell_output = format!("Output from step {} for {}", step_index + 1, item_id);
-            interp_context.set(
-                format!("step{}.output", step_index + 1),
-                Value::String(shell_output.clone()),
-            );
+            // Check for step failure
+            if !step_result.success {
+                // In MapReduce, we generally continue on failure
+                // unless the step has an on_failure handler that says otherwise
+                if step.on_failure.is_none() {
+                    execution_error = Some(format!(
+                        "Step {} failed with exit code {:?}",
+                        step_index + 1,
+                        step_result.exit_code
+                    ));
+                    break;
+                }
+            }
         }
 
         // Get commits from worktree
         let commits = self.get_worktree_commits(&worktree_path).await?;
 
-        // Clean up worktree (in real implementation, might keep for reduce phase)
-        self.worktree_manager
-            .cleanup_session(&worktree_name, true)
-            .await?;
+        // Determine final status
+        let status = if let Some(error) = execution_error {
+            AgentStatus::Failed(error)
+        } else {
+            AgentStatus::Success
+        };
+
+        // Clean up worktree if not needed for reduce phase
+        // Note: In production, we might keep worktrees for the reduce phase
+        if !template_steps.is_empty() {
+            self.worktree_manager
+                .cleanup_session(&worktree_name, true)
+                .await?;
+        }
 
         Ok(AgentResult {
             item_id: item_id.to_string(),
-            status: AgentStatus::Success,
-            output: Some(output),
+            status,
+            output: Some(total_output),
             commits,
             duration: start_time.elapsed(),
             error: None,
@@ -674,6 +839,304 @@ impl MapReduceExecutor {
         Ok(())
     }
 
+    /// Execute a single workflow step with agent context
+    async fn execute_single_step(
+        &self,
+        step: &WorkflowStep,
+        context: &mut AgentContext,
+    ) -> Result<StepResult> {
+        // Interpolate the step using the agent's context
+        let interp_context = context.to_interpolation_context();
+        let interpolated_step = self
+            .interpolate_workflow_step(step, &interp_context)
+            .await?;
+
+        // Determine command type
+        let command_type = self.determine_command_type(&interpolated_step)?;
+
+        // Execute the command based on its type
+        let result = match command_type {
+            CommandType::Claude(cmd) => self.execute_claude_command(&cmd, context).await?,
+            CommandType::Shell(cmd) => {
+                self.execute_shell_command(&cmd, context, step.timeout)
+                    .await?
+            }
+            CommandType::Handler {
+                handler_name,
+                attributes,
+            } => {
+                self.execute_handler_command(&handler_name, &attributes, context)
+                    .await?
+            }
+            CommandType::Legacy(cmd) => {
+                // Legacy commands use Claude executor
+                self.execute_claude_command(&cmd, context).await?
+            }
+            CommandType::Test(_) => {
+                // Test commands are converted to shell commands
+                if let Some(shell_cmd) = &interpolated_step.shell {
+                    self.execute_shell_command(shell_cmd, context, step.timeout)
+                        .await?
+                } else {
+                    return Err(anyhow!("Test command type not supported in MapReduce"));
+                }
+            }
+        };
+
+        // Capture output if requested
+        if step.capture_output && !result.stdout.is_empty() {
+            context
+                .captured_outputs
+                .insert("CAPTURED_OUTPUT".to_string(), result.stdout.clone());
+        }
+
+        Ok(result)
+    }
+
+    /// Determine command type from a workflow step
+    fn determine_command_type(&self, step: &WorkflowStep) -> Result<CommandType> {
+        // Count how many command fields are specified
+        let mut specified_count = 0;
+        if step.claude.is_some() {
+            specified_count += 1;
+        }
+        if step.shell.is_some() {
+            specified_count += 1;
+        }
+        if step.test.is_some() {
+            specified_count += 1;
+        }
+        if step.handler.is_some() {
+            specified_count += 1;
+        }
+        if step.name.is_some() || step.command.is_some() {
+            specified_count += 1;
+        }
+
+        // Ensure only one command type is specified
+        if specified_count > 1 {
+            return Err(anyhow!(
+                "Multiple command types specified. Use only one of: claude, shell, test, handler, or name/command"
+            ));
+        }
+
+        if specified_count == 0 {
+            return Err(anyhow!(
+                "No command specified. Use one of: claude, shell, test, handler, or name/command"
+            ));
+        }
+
+        // Return the appropriate command type
+        if let Some(handler_step) = &step.handler {
+            // Convert serde_json::Value to AttributeValue
+            let mut attributes = HashMap::new();
+            for (key, value) in &handler_step.attributes {
+                attributes.insert(key.clone(), Self::json_to_attribute_value(value.clone()));
+            }
+            Ok(CommandType::Handler {
+                handler_name: handler_step.name.clone(),
+                attributes,
+            })
+        } else if let Some(claude_cmd) = &step.claude {
+            Ok(CommandType::Claude(claude_cmd.clone()))
+        } else if let Some(shell_cmd) = &step.shell {
+            Ok(CommandType::Shell(shell_cmd.clone()))
+        } else if let Some(test_cmd) = &step.test {
+            Ok(CommandType::Test(test_cmd.clone()))
+        } else if let Some(name) = &step.name {
+            // Legacy support - prepend / if not present
+            let command = if name.starts_with('/') {
+                name.clone()
+            } else {
+                format!("/{name}")
+            };
+            Ok(CommandType::Legacy(command))
+        } else if let Some(command) = &step.command {
+            Ok(CommandType::Legacy(command.clone()))
+        } else {
+            Err(anyhow!("No valid command found in step"))
+        }
+    }
+
+    /// Convert serde_json::Value to AttributeValue
+    fn json_to_attribute_value(value: serde_json::Value) -> AttributeValue {
+        match value {
+            serde_json::Value::String(s) => AttributeValue::String(s),
+            serde_json::Value::Number(n) => {
+                if let Some(i) = n.as_i64() {
+                    AttributeValue::Number(i as f64)
+                } else if let Some(f) = n.as_f64() {
+                    AttributeValue::Number(f)
+                } else {
+                    AttributeValue::Number(0.0)
+                }
+            }
+            serde_json::Value::Bool(b) => AttributeValue::Boolean(b),
+            serde_json::Value::Array(arr) => {
+                AttributeValue::Array(arr.into_iter().map(Self::json_to_attribute_value).collect())
+            }
+            serde_json::Value::Object(obj) => {
+                let mut map = HashMap::new();
+                for (k, v) in obj {
+                    map.insert(k, Self::json_to_attribute_value(v));
+                }
+                AttributeValue::Object(map)
+            }
+            serde_json::Value::Null => AttributeValue::Null,
+        }
+    }
+
+    /// Execute a Claude command with agent context
+    async fn execute_claude_command(
+        &self,
+        command: &str,
+        context: &AgentContext,
+    ) -> Result<StepResult> {
+        // Set up environment variables for the command
+        let mut env_vars = HashMap::new();
+        env_vars.insert("MMM_CONTEXT_AVAILABLE".to_string(), "true".to_string());
+        env_vars.insert(
+            "MMM_CONTEXT_DIR".to_string(),
+            context
+                .worktree_path
+                .join(".mmm/context")
+                .to_string_lossy()
+                .to_string(),
+        );
+        env_vars.insert("MMM_AUTOMATION".to_string(), "true".to_string());
+        env_vars.insert("MMM_WORKTREE".to_string(), context.worktree_name.clone());
+
+        // Execute the Claude command
+        let result = self
+            .claude_executor
+            .execute_claude_command(command, &context.worktree_path, env_vars)
+            .await?;
+
+        Ok(StepResult {
+            success: result.success,
+            exit_code: result.exit_code,
+            stdout: result.stdout,
+            stderr: result.stderr,
+        })
+    }
+
+    /// Execute a shell command with agent context
+    async fn execute_shell_command(
+        &self,
+        command: &str,
+        context: &AgentContext,
+        timeout: Option<u64>,
+    ) -> Result<StepResult> {
+        use tokio::time::Duration;
+
+        // Create command
+        let mut cmd = Command::new("sh");
+        cmd.args(["-c", command]);
+
+        // Set working directory to the agent's worktree
+        cmd.current_dir(&context.worktree_path);
+
+        // Set environment variables
+        cmd.env("MMM_WORKTREE", &context.worktree_name);
+        cmd.env("MMM_ITEM_ID", &context.item_id);
+        cmd.env("MMM_AUTOMATION", "true");
+
+        // Execute with optional timeout
+        let output = if let Some(timeout_secs) = timeout {
+            let duration = Duration::from_secs(timeout_secs);
+            match tokio_timeout(duration, cmd.output()).await {
+                Ok(result) => result?,
+                Err(_) => {
+                    return Err(anyhow!("Command timed out after {} seconds", timeout_secs));
+                }
+            }
+        } else {
+            cmd.output().await?
+        };
+
+        Ok(StepResult {
+            success: output.status.success(),
+            exit_code: output.status.code(),
+            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+        })
+    }
+
+    /// Execute a handler command with agent context
+    async fn execute_handler_command(
+        &self,
+        handler_name: &str,
+        attributes: &HashMap<String, AttributeValue>,
+        context: &AgentContext,
+    ) -> Result<StepResult> {
+        // Create execution context for the handler
+        let mut exec_context = ExecutionContext::new(context.worktree_path.clone());
+
+        // Add environment variables
+        exec_context.add_env_var("MMM_WORKTREE".to_string(), context.worktree_name.clone());
+        exec_context.add_env_var("MMM_ITEM_ID".to_string(), context.item_id.clone());
+        exec_context.add_env_var("MMM_AUTOMATION".to_string(), "true".to_string());
+
+        // Execute the handler
+        let result = self
+            .command_registry
+            .execute(handler_name, &exec_context, attributes.clone())
+            .await;
+
+        // Convert CommandResult to StepResult
+        Ok(StepResult {
+            success: result.is_success(),
+            exit_code: result.exit_code,
+            stdout: result.stdout.unwrap_or_else(|| {
+                result
+                    .data
+                    .as_ref()
+                    .map(|d| serde_json::to_string_pretty(d).unwrap_or_default())
+                    .unwrap_or_default()
+            }),
+            stderr: result
+                .stderr
+                .unwrap_or_else(|| result.error.unwrap_or_default()),
+        })
+    }
+
+    /// Handle on_failure logic for a failed step
+    async fn handle_on_failure(
+        &self,
+        on_failure: &WorkflowStep,
+        context: &mut AgentContext,
+        error: String,
+    ) -> Result<()> {
+        // Add error to context for interpolation
+        context.variables.insert("error".to_string(), error.clone());
+        context.variables.insert("last_error".to_string(), error);
+
+        // Execute the on_failure step
+        let result = self.execute_single_step(on_failure, context).await;
+
+        // Log the result but don't fail the entire execution
+        match result {
+            Ok(step_result) => {
+                if step_result.success {
+                    info!("on_failure handler succeeded for agent {}", context.item_id);
+                } else {
+                    warn!(
+                        "on_failure handler failed for agent {}: {}",
+                        context.item_id, step_result.stderr
+                    );
+                }
+            }
+            Err(e) => {
+                error!(
+                    "Failed to execute on_failure handler for agent {}: {}",
+                    context.item_id, e
+                );
+            }
+        }
+
+        Ok(())
+    }
+
     /// Report execution summary
     fn report_summary(&self, results: &[AgentResult], duration: Duration) {
         let successful = results
@@ -722,6 +1185,8 @@ impl MapReduceExecutor {
             worktree_manager: self.worktree_manager.clone(),
             project_root: self.project_root.clone(),
             interpolation_engine: self.interpolation_engine.clone(),
+            command_registry: self.command_registry.clone(),
+            subprocess: self.subprocess.clone(),
         }
     }
 }

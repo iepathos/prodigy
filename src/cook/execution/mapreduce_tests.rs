@@ -49,6 +49,110 @@ fn test_mapreduce_config_defaults() {
 }
 
 #[test]
+fn test_agent_context_creation() {
+    let env = ExecutionEnvironment {
+        working_dir: PathBuf::from("/test/worktree"),
+        project_dir: PathBuf::from("/test/project"),
+        worktree_name: Some("test-worktree".to_string()),
+        session_id: "test-session".to_string(),
+    };
+
+    let context = AgentContext::new(
+        "item-1".to_string(),
+        PathBuf::from("/test/worktree"),
+        "test-worktree".to_string(),
+        env,
+    );
+
+    assert_eq!(context.item_id, "item-1");
+    assert_eq!(context.worktree_path, PathBuf::from("/test/worktree"));
+    assert_eq!(context.worktree_name, "test-worktree");
+    assert_eq!(context.retry_count, 0);
+    assert!(context.shell_output.is_none());
+    assert!(context.variables.is_empty());
+}
+
+#[test]
+fn test_agent_context_update_with_output() {
+    let env = ExecutionEnvironment {
+        working_dir: PathBuf::from("/test/worktree"),
+        project_dir: PathBuf::from("/test/project"),
+        worktree_name: Some("test-worktree".to_string()),
+        session_id: "test-session".to_string(),
+    };
+
+    let mut context = AgentContext::new(
+        "item-1".to_string(),
+        PathBuf::from("/test/worktree"),
+        "test-worktree".to_string(),
+        env,
+    );
+
+    // Update with output
+    context.update_with_output(Some("test output".to_string()));
+
+    assert_eq!(context.shell_output, Some("test output".to_string()));
+    assert_eq!(
+        context.variables.get("shell.output"),
+        Some(&"test output".to_string())
+    );
+    assert_eq!(
+        context.variables.get("shell.last_output"),
+        Some(&"test output".to_string())
+    );
+}
+
+#[test]
+fn test_agent_context_to_interpolation_context() {
+    let env = ExecutionEnvironment {
+        working_dir: PathBuf::from("/test/worktree"),
+        project_dir: PathBuf::from("/test/project"),
+        worktree_name: Some("test-worktree".to_string()),
+        session_id: "test-session".to_string(),
+    };
+
+    let mut context = AgentContext::new(
+        "item-1".to_string(),
+        PathBuf::from("/test/worktree"),
+        "test-worktree".to_string(),
+        env,
+    );
+
+    // Add some test data
+    context
+        .variables
+        .insert("key1".to_string(), "value1".to_string());
+    context.shell_output = Some("shell output".to_string());
+    context
+        .captured_outputs
+        .insert("capture1".to_string(), "captured".to_string());
+    context
+        .iteration_vars
+        .insert("iter1".to_string(), "iteration".to_string());
+
+    let interp_context = context.to_interpolation_context();
+
+    // Verify the interpolation context contains all the data by using interpolation
+    let mut engine = InterpolationEngine::new(false);
+    assert_eq!(
+        engine.interpolate("${key1}", &interp_context).unwrap(),
+        "value1"
+    );
+    assert_eq!(
+        engine.interpolate("${capture1}", &interp_context).unwrap(),
+        "captured"
+    );
+    assert_eq!(
+        engine.interpolate("${iter1}", &interp_context).unwrap(),
+        "iteration"
+    );
+    assert_eq!(
+        engine.interpolate("${shell.output}", &interp_context).unwrap(),
+        "shell output"
+    );
+}
+
+#[test]
 fn test_agent_result_serialization() {
     let result = AgentResult {
         item_id: "test_item".to_string(),
