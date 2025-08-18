@@ -17,12 +17,19 @@ created: 2025-08-18
 
 ## Context
 
-The current MapReduce implementation creates isolated git worktrees for each parallel agent but immediately cleans them up after task completion. This prevents the proper aggregation of work in the reduce phase. When using `--worktree` with MapReduce workflows, we need a hierarchical worktree structure where:
+The current MapReduce implementation creates isolated git worktrees for each parallel agent but immediately cleans them up after task completion. This prevents the proper aggregation of work. When using `--worktree` with MapReduce workflows, we need a two-phase merge strategy:
 
-1. A parent orchestrator worktree manages the overall workflow
-2. Child agent worktrees perform isolated parallel work
-3. The reduce phase merges all agent branches into the parent
-4. The `-y` flag auto-merges the parent back to main/master
+**Phase 1: Progressive Agent Merging**
+- Each agent completes work in its own worktree/branch
+- As agents complete successfully, immediately merge to parent worktree
+- Parent worktree accumulates all changes progressively
+- Agent worktrees are cleaned up after successful merge
+
+**Phase 2: Final Integration**
+- After all agents complete and merge to parent
+- Execute reduce phase commands in parent worktree
+- If `-y` flag is set, merge parent worktree to main/master
+- Single merge commit to main with all accumulated changes
 
 Currently, line 491-495 in `mapreduce.rs` shows premature cleanup:
 ```rust
@@ -34,13 +41,13 @@ This prevents the intended workflow where all parallel changes are aggregated in
 
 ## Objective
 
-Implement proper worktree lifecycle management for MapReduce workflows that:
-1. Maintains agent worktrees through the map phase
-2. Tracks agent branches for merging in reduce phase
-3. Implements intelligent merge strategies for combining parallel work
-4. Handles merge conflicts gracefully
-5. Integrates with the `-y` auto-merge flag for final integration
-6. Provides clear visibility into the merge process
+Implement a two-phase merge strategy for MapReduce workflows that:
+1. Progressively merges successful agents to parent worktree using `/mmm-merge-worktree`
+2. Cleans up agent worktrees immediately after successful merge
+3. Accumulates all changes in parent worktree branch
+4. Handles merge conflicts gracefully during agent merging
+5. Provides single integration point to main/master with `-y` flag
+6. Maintains clear git history and rollback capability
 
 ## Requirements
 
@@ -49,9 +56,10 @@ Implement proper worktree lifecycle management for MapReduce workflows that:
 1. **Worktree Lifecycle Management**
    - Create parent orchestrator worktree for MapReduce session
    - Create child worktrees for each parallel agent
-   - Maintain worktrees until reduce phase completion
-   - Track worktree metadata in AgentResult
-   - Clean up all worktrees after successful merge
+   - Maintain agent worktrees only until successful merge to parent
+   - Track worktree metadata in AgentResult for merge operation
+   - Clean up agent worktrees progressively as they complete
+   - Clean up parent worktree after final merge or on failure
 
 2. **Branch Management**
    - Create unique branches for each agent: `mmm-agent-{session_id}-{item_id}`
@@ -59,11 +67,13 @@ Implement proper worktree lifecycle management for MapReduce workflows that:
    - Preserve branch history for audit trail
    - Support branch naming customization
 
-3. **Merge Strategies**
-   - Sequential merge of all agent branches
-   - Octopus merge for combining multiple branches at once
-   - Support different merge strategies (--no-ff, --ff-only, --squash)
-   - Configurable conflict resolution strategies
+3. **Two-Phase Merge Strategy**
+   - **Phase 1**: Progressive merge of each agent to parent as they complete
+   - Use existing `/mmm-merge-worktree` command for agent→parent merges
+   - Validate parent state after each agent merge (run tests)
+   - **Phase 2**: Single merge from parent to main/master
+   - Always use --no-ff to preserve full history
+   - Support for PR creation when `-y` not specified
 
 4. **Conflict Resolution**
    - Detect merge conflicts early
@@ -106,18 +116,19 @@ Implement proper worktree lifecycle management for MapReduce workflows that:
 
 ## Acceptance Criteria
 
-- [ ] Agent worktrees persist through map phase execution
-- [ ] AgentResult includes branch name and worktree path
-- [ ] Reduce phase successfully merges all agent branches
-- [ ] Merge conflicts are detected and reported clearly
-- [ ] Conflict resolution strategies work as configured
-- [ ] Auto-merge (`-y`) integrates all changes to main/master
-- [ ] Clean merge with no conflicts completes in <5s for 10 agents
-- [ ] All worktrees are cleaned up after successful completion
-- [ ] Failed merges preserve agent branches for manual recovery
+- [ ] Agent worktrees persist only until merge to parent
+- [ ] AgentResult includes branch name for merge operation
+- [ ] Each successful agent merges to parent via `/mmm-merge-worktree`
+- [ ] Parent worktree accumulates all agent changes progressively
+- [ ] Agent worktrees cleaned up immediately after successful merge
+- [ ] Merge conflicts during agent→parent are handled by mmm-merge-worktree
+- [ ] Reduce phase runs in parent worktree with all accumulated changes
+- [ ] Auto-merge (`-y`) creates single merge commit to main/master
+- [ ] Without `-y`, parent branch ready for PR creation
+- [ ] Failed agent merges don't block other agents
 - [ ] Integration test with 20 parallel agents succeeds
-- [ ] Merge commit messages clearly indicate source branches
-- [ ] Documentation includes merge strategy examples
+- [ ] Final merge to main shows all agent commits in history
+- [ ] Documentation explains two-phase merge strategy
 
 ## Technical Details
 
@@ -193,28 +204,34 @@ impl WorktreeCoordinator {
 ```
 1. MAP PHASE:
    a. Create parent worktree with branch: mmm-session-{id}
-   b. For each agent:
+   b. For each agent (parallel):
       - Create child worktree: mmm-session-{id}-{item_id}
       - Create branch: mmm-agent-{session_id}-{item_id}
       - Execute commands and commit
-      - Store branch info in AgentResult
-      - Keep worktree alive
+      - On success:
+        * Switch to parent worktree
+        * Execute: /mmm-merge-worktree mmm-agent-{session_id}-{item_id}
+        * Validate merge (run tests in parent)
+        * Clean up agent worktree
+      - On failure:
+        * Mark agent as failed
+        * Keep worktree for debugging (optional)
 
 2. REDUCE PHASE:
-   a. Switch parent worktree to integration branch
-   b. For each successful agent:
-      - Fetch agent branch
-      - Attempt merge with configured strategy
-      - Handle conflicts if any
-   c. Create merge commit with summary
-   d. Execute reduce commands
-   e. Finalize integration branch
+   a. All successful agents already merged to parent
+   b. Execute reduce commands in parent worktree
+   c. Parent branch now contains all changes
+   d. Create summary commit if needed
 
-3. AUTO-MERGE (if -y):
-   a. Switch to main/master
-   b. Merge integration branch
-   c. Push if configured
-   d. Cleanup all worktrees
+3. FINAL MERGE:
+   a. If -y flag:
+      - Switch to main/master
+      - Execute: /mmm-merge-worktree mmm-session-{id}
+      - Clean up parent worktree
+   b. Without -y:
+      - Report parent branch ready for review
+      - Suggest PR creation command
+      - Keep parent worktree for manual inspection
 ```
 
 ### APIs and Interfaces
@@ -261,7 +278,7 @@ impl MapReduceExecutor {
         template_steps: &[WorkflowStep],
         env: &ExecutionEnvironment,
     ) -> Result<AgentResult> {
-        // Create worktree but don't cleanup
+        // Create worktree for agent
         let worktree_session = self.worktree_manager.create_session().await?;
         let branch_name = format!("mmm-agent-{}-{}", env.session_id, item_id);
         
@@ -269,14 +286,44 @@ impl MapReduceExecutor {
         self.create_agent_branch(&worktree_session, &branch_name).await?;
         
         // Execute commands...
+        let result = self.run_agent_commands(template_steps).await?;
         
-        // Return result with worktree info
+        // If successful, merge to parent immediately
+        if result.success {
+            self.merge_agent_to_parent(&branch_name, &env.parent_worktree).await?;
+            self.worktree_manager.cleanup_session(&worktree_session.id, true).await?;
+        }
+        
+        // Return result
         Ok(AgentResult {
-            worktree_path: Some(worktree_session.path),
             branch_name: Some(branch_name),
-            worktree_session_id: Some(worktree_session.id),
+            merged_to_parent: result.success,
             // ... other fields
         })
+    }
+    
+    async fn merge_agent_to_parent(
+        &self,
+        agent_branch: &str,
+        parent_worktree: &WorktreeSession,
+    ) -> Result<()> {
+        // Switch to parent worktree
+        self.switch_to_worktree(parent_worktree).await?;
+        
+        // Use mmm-merge-worktree command
+        let output = self.execute_command(
+            "/mmm-merge-worktree",
+            agent_branch,
+        ).await?;
+        
+        if !output.success {
+            return Err(anyhow!("Failed to merge agent: {}", output.error));
+        }
+        
+        // Validate parent state (optional)
+        self.validate_parent_state().await?;
+        
+        Ok(())
     }
     
     async fn execute_reduce_phase(
@@ -285,26 +332,60 @@ impl MapReduceExecutor {
         map_results: &[AgentResult],
         env: &ExecutionEnvironment,
     ) -> Result<()> {
-        // Create worktree coordinator
-        let coordinator = WorktreeCoordinator::new(
-            env.worktree_session.clone(),
-            map_results.iter().filter_map(|r| r.worktree_session_id.clone()).collect(),
-            self.merge_config.clone(),
-        );
+        // All agents already merged to parent progressively
+        let successful_count = map_results.iter()
+            .filter(|r| r.merged_to_parent)
+            .count();
         
-        // Merge all agent branches
-        let merge_result = coordinator.merge_agent_branches().await?;
+        self.user_interaction.display_info(&format!(
+            "All {} successful agents merged to parent worktree",
+            successful_count
+        ));
         
-        // Execute reduce commands with merge context
-        // ...
-        
-        // Auto-merge to main if requested
-        if env.auto_merge {
-            coordinator.merge_to_main(true).await?;
+        // Execute reduce commands in parent worktree
+        self.switch_to_worktree(&env.parent_worktree).await?;
+        for command in &reduce_phase.commands {
+            self.execute_command(command).await?;
         }
         
-        // Cleanup all worktrees
-        coordinator.cleanup_all(false).await?;
+        // Final merge to main if -y flag set
+        if env.auto_merge {
+            self.merge_parent_to_main(&env.parent_worktree).await?;
+            self.worktree_manager.cleanup_session(
+                &env.parent_worktree.id,
+                true
+            ).await?;
+        } else {
+            self.user_interaction.display_info(&format!(
+                "Parent worktree ready for review: {}\n",
+                "To create PR: git push origin {} && gh pr create",
+                env.parent_worktree.branch_name
+            ));
+        }
+        
+        Ok(())
+    }
+    
+    async fn merge_parent_to_main(
+        &self,
+        parent_worktree: &WorktreeSession,
+    ) -> Result<()> {
+        // Switch to main/master
+        self.switch_to_main_branch().await?;
+        
+        // Use mmm-merge-worktree for final merge
+        let output = self.execute_command(
+            "/mmm-merge-worktree",
+            &parent_worktree.branch_name,
+        ).await?;
+        
+        if !output.success {
+            return Err(anyhow!("Failed to merge to main: {}", output.error));
+        }
+        
+        self.user_interaction.display_success(
+            "Successfully merged all changes to main/master"
+        );
         
         Ok(())
     }
@@ -367,25 +448,25 @@ impl MapReduceExecutor {
 
 ## Implementation Notes
 
-### Phase 1: Worktree Persistence (Day 1-2)
-- Modify agent cleanup behavior
-- Add branch tracking to AgentResult
-- Implement worktree coordinator
+### Phase 1: Progressive Agent Merging (Day 1-2)
+- Implement merge_agent_to_parent using /mmm-merge-worktree
+- Add progressive cleanup of agent worktrees
+- Track merge status in AgentResult
 
-### Phase 2: Merge Implementation (Day 3-4)
-- Basic sequential merge
-- Conflict detection
-- Merge strategy support
+### Phase 2: Parent Worktree Management (Day 3)
+- Ensure parent worktree accumulates all changes
+- Validate parent state after each merge
+- Handle failed agent merges gracefully
 
-### Phase 3: Conflict Resolution (Day 5)
-- Resolution strategies
-- Claude integration for conflicts
-- Conflict reporting
+### Phase 3: Final Integration (Day 4)
+- Implement merge_parent_to_main for -y flag
+- Support PR creation workflow without -y
+- Clean up parent worktree after final merge
 
-### Phase 4: Auto-merge Integration (Day 6)
-- Integration with `-y` flag
-- Main branch merge
-- Final cleanup
+### Phase 4: Testing & Polish (Day 5)
+- Test with 20+ parallel agents
+- Verify git history preservation
+- Document two-phase merge strategy
 
 ### Key Considerations
 
