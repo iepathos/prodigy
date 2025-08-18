@@ -119,10 +119,20 @@ pub struct AgentResult {
     /// Worktree path used
     #[serde(skip_serializing_if = "Option::is_none")]
     pub worktree_path: Option<PathBuf>,
+    /// Branch name created for this agent
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch_name: Option<String>,
+    /// Worktree session ID for cleanup tracking
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub worktree_session_id: Option<String>,
+    /// Files modified by this agent
+    #[serde(default)]
+    pub files_modified: Vec<PathBuf>,
 }
 
 /// Progress tracking for parallel execution
 struct ProgressTracker {
+    #[allow(dead_code)]
     multi_progress: MultiProgress,
     overall_bar: ProgressBar,
     agent_bars: Vec<ProgressBar>,
@@ -511,6 +521,9 @@ impl MapReduceExecutor {
                             duration: Duration::from_secs(0),
                             error: Some(e.to_string()),
                             worktree_path: None,
+                            branch_name: None,
+                            worktree_session_id: None,
+                            files_modified: vec![],
                         };
                     }
                 }
@@ -547,6 +560,10 @@ impl MapReduceExecutor {
             .context("Failed to create agent worktree")?;
         let worktree_name = worktree_session.name.clone();
         let worktree_path = worktree_session.path.clone();
+        let worktree_session_id = worktree_name.clone(); // Use worktree name as session ID
+
+        // Create branch name for this agent
+        let branch_name = format!("mmm-agent-{}-{}", env.session_id, item_id);
 
         // Create agent-specific environment
         let agent_env = ExecutionEnvironment {
@@ -673,20 +690,47 @@ impl MapReduceExecutor {
         // Get commits from worktree
         let commits = self.get_worktree_commits(&worktree_path).await?;
 
+        // Get modified files
+        let files_modified = self.get_modified_files(&worktree_path).await?;
+
         // Determine final status
-        let status = if let Some(error) = execution_error {
+        let status = if let Some(error) = execution_error.clone() {
             AgentStatus::Failed(error)
         } else {
             AgentStatus::Success
         };
 
-        // Clean up worktree if not needed for reduce phase
-        // Note: In production, we might keep worktrees for the reduce phase
-        if !template_steps.is_empty() {
-            self.worktree_manager
-                .cleanup_session(&worktree_name, true)
+        // If successful and we have a parent worktree, merge immediately
+        let merge_successful = if execution_error.is_none() && env.worktree_name.is_some() {
+            // Create and checkout branch for this agent
+            self.create_agent_branch(&worktree_path, &branch_name)
                 .await?;
-        }
+
+            // Merge to parent worktree
+            match self.merge_agent_to_parent(&branch_name, env).await {
+                Ok(()) => {
+                    info!("Successfully merged agent {} to parent worktree", item_id);
+                    // Clean up agent worktree after successful merge
+                    self.worktree_manager
+                        .cleanup_session(&worktree_name, true)
+                        .await?;
+                    true
+                }
+                Err(e) => {
+                    warn!("Failed to merge agent {} to parent: {}", item_id, e);
+                    // Keep worktree for debugging on merge failure
+                    false
+                }
+            }
+        } else {
+            // No parent worktree or agent failed - clean up
+            if !template_steps.is_empty() {
+                self.worktree_manager
+                    .cleanup_session(&worktree_name, true)
+                    .await?;
+            }
+            false
+        };
 
         Ok(AgentResult {
             item_id: item_id.to_string(),
@@ -694,8 +738,19 @@ impl MapReduceExecutor {
             output: Some(total_output),
             commits,
             duration: start_time.elapsed(),
-            error: None,
-            worktree_path: Some(worktree_path),
+            error: execution_error,
+            worktree_path: if merge_successful {
+                None
+            } else {
+                Some(worktree_path)
+            },
+            branch_name: Some(branch_name),
+            worktree_session_id: if merge_successful {
+                None
+            } else {
+                Some(worktree_session_id)
+            },
+            files_modified,
         })
     }
 
@@ -764,34 +819,163 @@ impl MapReduceExecutor {
         Ok(commits)
     }
 
+    /// Get modified files in a worktree
+    async fn get_modified_files(&self, worktree_path: &Path) -> Result<Vec<PathBuf>> {
+        let output = Command::new("git")
+            .args(["diff", "--name-only", "HEAD~1..HEAD"])
+            .current_dir(worktree_path)
+            .output()
+            .await?;
+
+        if !output.status.success() {
+            return Ok(vec![]);
+        }
+
+        let files = String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .map(|s| PathBuf::from(s))
+            .collect();
+
+        Ok(files)
+    }
+
+    /// Create a branch for an agent
+    async fn create_agent_branch(&self, worktree_path: &Path, branch_name: &str) -> Result<()> {
+        // Create branch from current HEAD
+        let output = Command::new("git")
+            .args(["checkout", "-b", branch_name])
+            .current_dir(worktree_path)
+            .output()
+            .await?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(anyhow!(
+                "Failed to create branch {}: {}",
+                branch_name,
+                stderr
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Merge an agent's branch to the parent worktree
+    async fn merge_agent_to_parent(
+        &self,
+        agent_branch: &str,
+        env: &ExecutionEnvironment,
+    ) -> Result<()> {
+        // Get parent worktree path (use working_dir if we're in a parent worktree)
+        let parent_worktree_path = if env.worktree_name.is_some() {
+            &env.working_dir
+        } else {
+            // If no parent worktree, use main repository
+            &env.project_dir
+        };
+
+        // Use the /mmm-merge-worktree command to handle the merge
+        // This provides intelligent conflict resolution
+        let merge_command = format!("/mmm-merge-worktree {}", agent_branch);
+
+        // Set up environment variables for the merge command
+        let mut env_vars = HashMap::new();
+        env_vars.insert("MMM_AUTOMATION".to_string(), "true".to_string());
+
+        // Execute the merge command
+        let result = self
+            .claude_executor
+            .execute_claude_command(&merge_command, parent_worktree_path, env_vars)
+            .await?;
+
+        if !result.success {
+            return Err(anyhow!(
+                "Failed to merge agent branch {}: {}",
+                agent_branch,
+                result.stderr
+            ));
+        }
+
+        // Validate parent state after merge (run basic checks)
+        self.validate_parent_state(parent_worktree_path).await?;
+
+        Ok(())
+    }
+
+    /// Validate the parent worktree state after a merge
+    async fn validate_parent_state(&self, parent_path: &Path) -> Result<()> {
+        // Check that there are no merge conflicts
+        let output = Command::new("git")
+            .args(["status", "--porcelain"])
+            .current_dir(parent_path)
+            .output()
+            .await?;
+
+        let status = String::from_utf8_lossy(&output.stdout);
+        if status.contains("UU ") || status.contains("AA ") || status.contains("DD ") {
+            return Err(anyhow!(
+                "Unresolved merge conflicts detected in parent worktree"
+            ));
+        }
+
+        // Run basic syntax check if it's a Rust project
+        if parent_path.join("Cargo.toml").exists() {
+            let check_output = Command::new("cargo")
+                .args(["check", "--quiet"])
+                .current_dir(parent_path)
+                .output()
+                .await?;
+
+            if !check_output.status.success() {
+                warn!("Parent worktree fails cargo check after merge, but continuing");
+            }
+        }
+
+        Ok(())
+    }
+
     /// Execute the reduce phase
     async fn execute_reduce_phase(
         &self,
         reduce_phase: &ReducePhase,
         map_results: &[AgentResult],
-        _env: &ExecutionEnvironment,
+        env: &ExecutionEnvironment,
     ) -> Result<()> {
+        // All successful agents have already been merged to parent progressively
+        let successful_count = map_results
+            .iter()
+            .filter(|r| matches!(r.status, AgentStatus::Success))
+            .count();
+
+        let failed_count = map_results
+            .iter()
+            .filter(|r| matches!(r.status, AgentStatus::Failed(_)))
+            .count();
+
+        self.user_interaction.display_info(&format!(
+            "All {} successful agents merged to parent worktree",
+            successful_count
+        ));
+
+        if failed_count > 0 {
+            self.user_interaction.display_warning(&format!(
+                "{} agents failed and were not merged",
+                failed_count
+            ));
+        }
+
         self.user_interaction
-            .display_progress("Starting reduce phase...");
+            .display_progress("Starting reduce phase in parent worktree...");
 
         // Create interpolation context with map results
         let mut interp_context = InterpolationContext::new();
 
         // Add summary statistics
-        let successful = map_results
-            .iter()
-            .filter(|r| matches!(r.status, AgentStatus::Success))
-            .count();
-        let failed = map_results
-            .iter()
-            .filter(|r| matches!(r.status, AgentStatus::Failed(_)))
-            .count();
-
         interp_context.set(
             "map",
             json!({
-                "successful": successful,
-                "failed": failed,
+                "successful": successful_count,
+                "failed": failed_count,
                 "total": map_results.len()
             }),
         );
@@ -806,33 +990,137 @@ impl MapReduceExecutor {
             interp_context.set(format!("results[{}]", index), result_value);
         }
 
-        // Execute reduce commands with interpolation
+        // Create a context for reduce phase execution in parent worktree
+        let mut reduce_context = AgentContext::new(
+            "reduce".to_string(),
+            env.working_dir.clone(),
+            env.worktree_name
+                .clone()
+                .unwrap_or_else(|| "main".to_string()),
+            env.clone(),
+        );
+
+        // Execute reduce commands in parent worktree
         for (step_index, step) in reduce_phase.commands.iter().enumerate() {
             self.user_interaction
                 .display_progress(&format!("Executing reduce step {}...", step_index + 1));
 
-            // Interpolate the step
-            let interpolated_step = self
-                .interpolate_workflow_step(step, &interp_context)
-                .await?;
+            // Execute the step in parent worktree context
+            let step_result = self.execute_single_step(step, &mut reduce_context).await?;
 
-            // Note: In a real implementation, this would use the WorkflowExecutor to execute the interpolated step
-            let command_desc = interpolated_step
-                .command
-                .or(interpolated_step.claude)
-                .or(interpolated_step.shell)
-                .unwrap_or_else(|| "(no command)".to_string());
-            self.user_interaction.display_progress(&format!(
-                "Reduce step {}: {}",
-                step_index + 1,
-                command_desc
-            ));
+            if !step_result.success {
+                return Err(anyhow!(
+                    "Reduce step {} failed: {}",
+                    step_index + 1,
+                    step_result.stderr
+                ));
+            }
         }
 
         self.user_interaction
-            .display_success("Reduce phase completed");
+            .display_success("Reduce phase completed successfully");
+
+        // Handle final merge to main if auto-merge is enabled
+        if self.should_auto_merge(env) {
+            self.merge_parent_to_main(env).await?;
+        } else if env.worktree_name.is_some() {
+            // Provide instructions for manual PR creation
+            self.user_interaction.display_info(&format!(
+                "\nParent worktree ready for review: {}\n",
+                env.worktree_name.as_ref().unwrap()
+            ));
+            self.user_interaction
+                .display_info("To create a PR: git push origin <branch> && gh pr create");
+        }
 
         Ok(())
+    }
+
+    /// Check if auto-merge is enabled
+    fn should_auto_merge(&self, _env: &ExecutionEnvironment) -> bool {
+        // Check for -y flag via environment variable
+        std::env::var("MMM_AUTO_MERGE").unwrap_or_default() == "true"
+            || std::env::var("MMM_AUTO_CONFIRM").unwrap_or_default() == "true"
+    }
+
+    /// Merge parent worktree to main/master branch
+    async fn merge_parent_to_main(&self, env: &ExecutionEnvironment) -> Result<()> {
+        let parent_branch = env
+            .worktree_name
+            .as_ref()
+            .ok_or_else(|| anyhow!("No parent worktree branch available for merge"))?;
+
+        self.user_interaction
+            .display_progress("Merging parent worktree to main/master branch...");
+
+        // Determine the default branch (main or master)
+        let default_branch = self.get_default_branch(&env.project_dir).await?;
+
+        // Switch to main/master branch
+        let output = Command::new("git")
+            .args(["checkout", &default_branch])
+            .current_dir(&env.project_dir)
+            .output()
+            .await?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(anyhow!(
+                "Failed to switch to {}: {}",
+                default_branch,
+                stderr
+            ));
+        }
+
+        // Use /mmm-merge-worktree for the final merge
+        let merge_command = format!("/mmm-merge-worktree {}", parent_branch);
+
+        let mut env_vars = HashMap::new();
+        env_vars.insert("MMM_AUTOMATION".to_string(), "true".to_string());
+
+        let result = self
+            .claude_executor
+            .execute_claude_command(&merge_command, &env.project_dir, env_vars)
+            .await?;
+
+        if !result.success {
+            return Err(anyhow!(
+                "Failed to merge to {}: {}",
+                default_branch,
+                result.stderr
+            ));
+        }
+
+        // Clean up parent worktree after successful merge
+        if let Some(worktree_name) = &env.worktree_name {
+            self.worktree_manager
+                .cleanup_session(worktree_name, true)
+                .await?;
+        }
+
+        self.user_interaction.display_success(&format!(
+            "Successfully merged all changes to {}",
+            default_branch
+        ));
+
+        Ok(())
+    }
+
+    /// Get the default branch name (main or master)
+    async fn get_default_branch(&self, repo_path: &Path) -> Result<String> {
+        // Try 'main' first
+        let output = Command::new("git")
+            .args(["rev-parse", "--verify", "refs/heads/main"])
+            .current_dir(repo_path)
+            .output()
+            .await?;
+
+        if output.status.success() {
+            Ok("main".to_string())
+        } else {
+            // Fall back to 'master'
+            Ok("master".to_string())
+        }
     }
 
     /// Execute a single workflow step with agent context
