@@ -1,0 +1,51 @@
+name: parallel-debt-elimination
+mode: mapreduce
+
+# Optional setup phase to generate work items
+setup:
+  - shell: "debtmap analyze . --output debt_items.json"
+
+# Map phase: Process each debt item in parallel
+map:
+  input: debt_items.json
+  json_path: "$.debt_items[*]"
+  
+  # Commands to execute for each work item
+  agent_template:
+    commands:
+      - claude: "/fix-issue ${item.description}"
+        context:
+          file: "${item.location.file}"
+          line: "${item.location.line}"
+      
+      - shell: "cargo test"
+        on_failure:
+          claude: "/debug-test ${shell.output}"
+          max_attempts: 3
+          fail_workflow: false
+  
+  # Parallelization settings
+  max_parallel: 10
+  timeout_per_agent: 600s
+  retry_on_failure: 2
+  
+  # Optional filtering and sorting
+  filter: "severity == 'high' || severity == 'critical'"
+  sort_by: "priority"
+
+# Reduce phase: Aggregate results
+reduce:
+  commands:
+    - claude: "/summarize-fixes ${map.results}"
+      capture_output: true
+    
+    - shell: "git merge --no-ff mmm-agent-*"
+      commit_required: true
+    
+    - claude: "/generate-report"
+      env:
+        TOTAL_FIXED: "${map.successful}"
+        TOTAL_FAILED: "${map.failed}"
+
+# Metrics collection
+collect_metrics: true
