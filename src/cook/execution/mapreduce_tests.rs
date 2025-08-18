@@ -41,6 +41,8 @@ fn test_mapreduce_config_defaults() {
         max_parallel: 5,
         timeout_per_agent: 300,
         retry_on_failure: 1,
+        max_items: None,
+        offset: None,
     };
 
     assert_eq!(config.max_parallel, 5);
@@ -147,7 +149,9 @@ fn test_agent_context_to_interpolation_context() {
         "iteration"
     );
     assert_eq!(
-        engine.interpolate("${shell.output}", &interp_context).unwrap(),
+        engine
+            .interpolate("${shell.output}", &interp_context)
+            .unwrap(),
         "shell output"
     );
 }
@@ -186,6 +190,8 @@ fn test_map_phase_configuration() {
             max_parallel: 20,
             timeout_per_agent: 1200,
             retry_on_failure: 3,
+            max_items: None,
+            offset: None,
         },
         agent_template: vec![WorkflowStep {
             name: None,
