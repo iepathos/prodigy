@@ -1313,7 +1313,8 @@ impl WorkflowExecutor {
             self.user_interaction.clone(),
             worktree_manager,
             env.project_dir.clone(),
-        );
+        )
+        .await;
 
         // Start workflow timing in session
         self.session_manager
