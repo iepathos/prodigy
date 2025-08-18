@@ -4,6 +4,7 @@
 //! capabilities for processing work items in MapReduce workflows.
 
 use anyhow::{anyhow, Context, Result};
+use regex::Regex;
 use serde_json::Value;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -127,9 +128,10 @@ impl DataPipeline {
     }
 
     /// Process streaming JSON input
+    ///
+    /// Note: Streaming JSON processing for very large files is planned for a future release.
+    /// For now, use the regular process() method which handles reasonably sized files efficiently.
     pub fn process_streaming<R: Read>(&self, _reader: R) -> Result<Vec<Value>> {
-        // TODO: Implement streaming JSON processing for large files
-        // For now, we'll just return an error
         Err(anyhow!(
             "Streaming JSON processing not yet implemented. Use regular process() for now."
         ))
@@ -654,8 +656,18 @@ impl FilterExpression {
                 }
             }
             ComparisonOp::Matches => {
-                // TODO: Implement regex matching
-                false
+                if let (Some(Value::String(a)), Value::String(pattern)) = (actual, expected) {
+                    // Try to compile and match the regex
+                    match Regex::new(pattern) {
+                        Ok(re) => re.is_match(a),
+                        Err(e) => {
+                            warn!("Invalid regex pattern '{}': {}", pattern, e);
+                            false
+                        }
+                    }
+                } else {
+                    false
+                }
             }
         }
     }
@@ -1018,5 +1030,36 @@ mod tests {
         assert_eq!(results.len(), 2);
         assert_eq!(results[0]["priority"], 8);
         assert_eq!(results[1]["priority"], 5);
+    }
+
+    #[test]
+    fn test_filter_regex_matching() {
+        // Test the Matches operator with regex patterns
+        let filter = FilterExpression::Comparison {
+            field: "email".to_string(),
+            op: ComparisonOp::Matches,
+            value: json!(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"),
+        };
+
+        let valid_email = json!({"email": "user@example.com"});
+        let invalid_email = json!({"email": "not-an-email"});
+        let no_email = json!({"name": "John"});
+
+        assert!(filter.evaluate(&valid_email));
+        assert!(!filter.evaluate(&invalid_email));
+        assert!(!filter.evaluate(&no_email));
+
+        // Test pattern matching on file paths
+        let path_filter = FilterExpression::Comparison {
+            field: "path".to_string(),
+            op: ComparisonOp::Matches,
+            value: json!(r"\.rs$"),
+        };
+
+        let rust_file = json!({"path": "src/main.rs"});
+        let other_file = json!({"path": "README.md"});
+
+        assert!(path_filter.evaluate(&rust_file));
+        assert!(!path_filter.evaluate(&other_file));
     }
 }

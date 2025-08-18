@@ -189,6 +189,7 @@ impl ProgressTracker {
         for bar in &self.agent_bars {
             bar.finish_and_clear();
         }
+        // Note: multi_progress is used internally to manage the progress bars
     }
 }
 
@@ -637,8 +638,24 @@ impl MapReduceExecutor {
                             );
                         }
 
-                        // For MapReduce, we continue on failure unless it's critical
-                        // TODO: Add a fail_workflow option to WorkflowStep if needed
+                        // Check if we should fail the entire workflow based on test command configuration
+                        let should_fail_workflow = if let Some(test_cmd) = &step.test {
+                            if let Some(debug_config) = &test_cmd.on_failure {
+                                debug_config.fail_workflow
+                            } else {
+                                false
+                            }
+                        } else {
+                            false
+                        };
+
+                        if should_fail_workflow {
+                            execution_error = Some(format!(
+                                "Step failed with fail_workflow=true: {}",
+                                error_msg
+                            ));
+                            break;
+                        }
                     } else {
                         execution_error = Some(error_msg);
                         break;
