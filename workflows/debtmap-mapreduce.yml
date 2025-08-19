@@ -69,12 +69,13 @@ reduce:
       capture_output: true
     
     # Create final commit
-    - shell: "git add -A && git commit -m 'fix: eliminate ${map.successful} technical debt items via MapReduce
-
-Processed ${map.total} debt items in parallel:
-- Successfully fixed: ${map.successful} items
-- Failed to fix: ${map.failed} items
-
-This commit represents the aggregated work of multiple parallel agents.'"
+    - shell: |
+        git add -A && git commit -m "fix: eliminate ${map.successful} technical debt items via MapReduce
+        
+        Processed ${map.total} debt items in parallel:
+        - Successfully fixed: ${map.successful} items
+        - Failed to fix: ${map.failed} items
+        
+        This commit represents the aggregated work of multiple parallel agents."
       commit_required: true
 
