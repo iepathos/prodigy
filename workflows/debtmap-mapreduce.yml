@@ -49,10 +49,6 @@ map:
 # Reduce phase: Aggregate results and finalize
 reduce:
   commands:
-    # Generate summary report
-    - claude: "/summarize-debt-fixes --results '${map.results}' --successful ${map.successful} --failed ${map.failed}"
-      capture_output: true
-    
     # Run full test suite after all fixes
     - shell: "just test"
       on_failure:
@@ -64,17 +60,27 @@ reduce:
     - shell: "just fmt && just lint"
       capture_output: false
     
-    # Regenerate debt analysis to see improvement
-    - claude: "/debtmap --compare-before"
+    # Re-run debtmap to measure improvements
+    - shell: "just coverage-lcov"
+      capture_output: false
+    
+    - shell: "debtmap analyze . --lcov target/coverage/info.lcov --output debtmap-after.json --format json"
       capture_output: true
     
-    # Create final commit
+    # Compare before/after debt metrics and generate summary
+    - claude: "/mmm-compare-debt-results --before debtmap.json --after debtmap-after.json --map-results '${map.results}' --successful ${map.successful} --failed ${map.failed}"
+      capture_output: true
+    
+    # Create final commit with comparison results
     - shell: |
         git add -A && git commit -m "fix: eliminate ${map.successful} technical debt items via MapReduce
         
         Processed ${map.total} debt items in parallel:
         - Successfully fixed: ${map.successful} items
         - Failed to fix: ${map.failed} items
+        
+        Debt improvements measured by debtmap:
+        ${claude.output}
         
         This commit represents the aggregated work of multiple parallel agents."
       commit_required: true
