@@ -2,8 +2,8 @@
 //!
 //! Provides flexible error handling options for workflow commands.
 
-use serde::{Deserialize, Serialize};
 use super::WorkflowStep;
+use serde::{Deserialize, Serialize};
 
 /// Configuration for handling command failures
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11,39 +11,39 @@ use super::WorkflowStep;
 pub enum OnFailureConfig {
     /// Simple ignore errors flag
     IgnoreErrors(bool),
-    
+
     /// Advanced configuration with handler and control flags
     /// This must come before FailControl because it has more specific fields
     Advanced {
         /// Shell command to execute on failure
         #[serde(skip_serializing_if = "Option::is_none")]
         shell: Option<String>,
-        
+
         /// Claude command to execute on failure
         #[serde(skip_serializing_if = "Option::is_none")]
         claude: Option<String>,
-        
+
         /// Whether to fail the workflow after handling
         #[serde(default = "default_fail")]
         fail_workflow: bool,
-        
+
         /// Whether to retry the original command after handling
         #[serde(default)]
         retry_original: bool,
-        
+
         /// Maximum retry attempts
         #[serde(default = "default_retries")]
         max_retries: u32,
     },
-    
+
     /// Just control whether to fail the workflow
     FailControl {
         #[serde(default)]
         fail_workflow: bool,
     },
-    
+
     /// Execute a handler command
-    Handler(Box<WorkflowStep>)
+    Handler(Box<WorkflowStep>),
 }
 
 fn default_fail() -> bool {
@@ -65,7 +65,7 @@ impl OnFailureConfig {
             OnFailureConfig::Handler(_) => false, // If there's a handler, don't fail by default
         }
     }
-    
+
     /// Get the handler command if any
     pub fn handler(&self) -> Option<WorkflowStep> {
         match self {
@@ -90,12 +90,12 @@ impl OnFailureConfig {
                 } else {
                     None
                 }
-            },
+            }
             OnFailureConfig::Handler(step) => Some((**step).clone()),
             _ => None,
         }
     }
-    
+
     /// Check if the original command should be retried
     pub fn should_retry(&self) -> bool {
         match self {
@@ -103,7 +103,7 @@ impl OnFailureConfig {
             _ => false,
         }
     }
-    
+
     /// Get maximum retry attempts
     pub fn max_retries(&self) -> u32 {
         match self {
@@ -116,29 +116,29 @@ impl OnFailureConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_parse_ignore_errors() {
         let yaml = "true";
         let config: OnFailureConfig = serde_yaml::from_str(yaml).unwrap();
         assert!(!config.should_fail_workflow());
-        
+
         let yaml = "false";
         let config: OnFailureConfig = serde_yaml::from_str(yaml).unwrap();
         assert!(config.should_fail_workflow());
     }
-    
+
     #[test]
     fn test_parse_fail_control() {
         let yaml = "fail_workflow: true";
         let config: OnFailureConfig = serde_yaml::from_str(yaml).unwrap();
         assert!(config.should_fail_workflow());
-        
+
         let yaml = "fail_workflow: false";
         let config: OnFailureConfig = serde_yaml::from_str(yaml).unwrap();
         assert!(!config.should_fail_workflow());
     }
-    
+
     #[test]
     fn test_parse_handler() {
         // The Handler variant expects a full WorkflowStep, not just shell command
@@ -150,7 +150,7 @@ shell: "echo 'Handling error'"
         assert!(config.handler().is_some());
         assert!(!config.should_fail_workflow()); // Default: don't fail with handler
     }
-    
+
     #[test]
     fn test_parse_advanced() {
         let yaml = r#"
