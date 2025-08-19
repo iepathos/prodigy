@@ -3,39 +3,37 @@ mode: mapreduce
 
 # Setup phase: Analyze the codebase and generate debt items
 setup:
-  - shell: "cargo tarpaulin --config .tarpaulin.toml --out Lcov --output-dir target/coverage --timeout 120"
-    capture_output: false
+  - shell: "just coverage-lcov"
     
-  - claude: "/debtmap"
-    capture_output: true
-    commit_required: false
+  - shell: "debtmap analyze . --lcov target/coverage/info.lcov --output debtmap.json --format json && git add debtmap.json && git commit -m 'Add debtmap.json'"
+    commit_required: true
 
 # Map phase: Process each debt item in parallel
 map:
-  # Input configuration - assumes /debtmap generates a debt_items.json
-  input: .mmm/context/technical_debt.json
-  json_path: "$.debt_items[*]"
+  # Input configuration - debtmap.json contains items array
+  input: debtmap.json
+  json_path: "$.items[*]"
   
   # Commands to execute for each debt item
   agent_template:
     commands:
       # Fix the specific debt item
-      - claude: "/fix-debt-item --file ${item.location} --issue '${item.description}' --impact ${item.impact}"
+      - claude: "/fix-debt-item --file ${item.location.file} --function ${item.location.function} --line ${item.location.line} --score ${item.unified_score.final_score}"
         capture_output: true
         timeout: 300
       
       # Run tests to verify the fix
-      - shell: "cargo test --lib"
+      - shell: "just test"
         on_failure:
           claude: "/mmm-debug-test-failure --output '${shell.output}'"
           max_attempts: 2
           fail_workflow: false
       
       # Run linting
-      - shell: "cargo clippy --all-targets -- -D warnings"
+      - shell: "just fmt && just lint"
         on_failure:
-          claude: "/mmm-lint --fix '${shell.output}'"
-          max_attempts: 1
+          claude: "/mmm-lint '${shell.output}'"
+          max_attempts: 2
           fail_workflow: false
   
   # Parallelization settings
@@ -43,9 +41,9 @@ map:
   timeout_per_agent: 600s  # 10 minutes per agent
   retry_on_failure: 1  # Retry once if an agent fails
   
-  # Process high-impact items first
-  filter: "impact >= 5"  # Only process items with impact >= 5
-  sort_by: "impact DESC"  # Process highest impact items first
+  # Process high-score items first
+  filter: "unified_score.final_score >= 5"  # Only process items with score >= 5
+  sort_by: "unified_score.final_score DESC"  # Process highest score items first
   max_items: 10  # Limit to 10 items per run
 
 # Reduce phase: Aggregate results and finalize
@@ -80,5 +78,3 @@ Processed ${map.total} debt items in parallel:
 This commit represents the aggregated work of multiple parallel agents.'"
       commit_required: true
 
-# Collect metrics for performance analysis
-collect_metrics: true

@@ -77,6 +77,13 @@ coverage:
     cargo tarpaulin --skip-clean --engine llvm --out Html --out Json --output-dir target/coverage
     echo "Coverage report generated at target/coverage/tarpaulin-report.html"
 
+# Run tests with coverage (lcov format)
+coverage-lcov:
+    #!/usr/bin/env bash
+    echo "Generating code coverage report with cargo-tarpaulin (lcov format)..."
+    cargo tarpaulin --config .tarpaulin.toml --out Lcov --output-dir target/coverage
+    echo "Coverage report generated at target/coverage/lcov.info"
+
 # Run tests with coverage and check threshold
 coverage-check:
     #!/usr/bin/env bash
