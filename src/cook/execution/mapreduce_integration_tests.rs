@@ -8,7 +8,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::config::mapreduce::{parse_mapreduce_workflow, MapReduceWorkflowConfig};
+    use crate::config::mapreduce::parse_mapreduce_workflow;
     use crate::cook::workflow::{ExtendedWorkflowConfig, WorkflowMode};
     use tempfile::TempDir;
 
@@ -176,7 +176,7 @@ reduce:
     - shell: "echo 'should be skipped'"
 "#;
 
-        let config = parse_mapreduce_workflow(yaml).unwrap();
+        let _config = parse_mapreduce_workflow(yaml).unwrap();
 
         // The reduce phase should be skipped if all map agents fail
         // or if skip_reduce_on_empty is true (default behavior TBD)

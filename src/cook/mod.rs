@@ -396,7 +396,6 @@ pub async fn run_improvement_loop(
 #[cfg(test)]
 mod cook_tests {
     use super::*;
-    use crate::config::WorkflowCommand;
     use std::path::PathBuf;
     use tempfile::TempDir;
 

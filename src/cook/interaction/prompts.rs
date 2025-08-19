@@ -158,8 +158,12 @@ mod tests {
         async fn prompt_text(&self, _message: &str, default: Option<&str>) -> Result<String> {
             let mut responses = self.responses.lock().unwrap();
             if let Some(response) = responses.pop() {
-                if response.is_empty() && default.is_some() {
-                    Ok(default.unwrap().to_string())
+                if response.is_empty() {
+                    if let Some(def) = default {
+                        Ok(def.to_string())
+                    } else {
+                        Ok(response)
+                    }
                 } else {
                     Ok(response)
                 }
