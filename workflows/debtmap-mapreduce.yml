@@ -5,7 +5,7 @@ mode: mapreduce
 setup:
   - shell: "just coverage-lcov"
     
-  - shell: "debtmap analyze . --lcov target/coverage/info.lcov --output debtmap.json --format json"
+  - shell: "debtmap analyze . --lcov target/coverage/lcov.info --output debtmap.json --format json"
     commit_required: true
 
 # Map phase: Process each debt item in parallel
@@ -64,7 +64,7 @@ reduce:
     - shell: "just coverage-lcov"
       capture_output: false
     
-    - shell: "debtmap analyze . --lcov target/coverage/info.lcov --output debtmap-after.json --format json"
+    - shell: "debtmap analyze . --lcov target/coverage/lcov.info --output debtmap-after.json --format json"
       capture_output: true
     
     # Compare before/after debt metrics and generate summary
