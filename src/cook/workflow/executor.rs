@@ -791,11 +791,11 @@ impl WorkflowExecutor {
                 error_msg.push_str("\n\n=== Error Output (stderr) ===");
                 let stderr_lines: Vec<&str> = result.stderr.lines().collect();
                 if stderr_lines.len() <= 50 {
-                    error_msg.push_str("\n");
+                    error_msg.push('\n');
                     error_msg.push_str(&result.stderr);
                 } else {
                     // Show first 25 and last 25 lines for large outputs
-                    error_msg.push_str("\n");
+                    error_msg.push('\n');
                     for line in stderr_lines.iter().take(25) {
                         error_msg.push_str(line);
                         error_msg.push('\n');
@@ -813,11 +813,11 @@ impl WorkflowExecutor {
                 error_msg.push_str("\n\n=== Standard Output (stdout) ===");
                 let stdout_lines: Vec<&str> = result.stdout.lines().collect();
                 if stdout_lines.len() <= 50 {
-                    error_msg.push_str("\n");
+                    error_msg.push('\n');
                     error_msg.push_str(&result.stdout);
                 } else {
                     // Show first 25 and last 25 lines for large outputs
-                    error_msg.push_str("\n");
+                    error_msg.push('\n');
                     for line in stdout_lines.iter().take(25) {
                         error_msg.push_str(line);
                         error_msg.push('\n');

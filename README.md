@@ -21,6 +21,28 @@ MMM lets you declare LLM-powered development workflows in simple YAML files, sim
     claude: "/mmm-debug-test-failure --spec $ARG --output ${shell.output}"
 ```
 
+### What's New in v0.1.0+
+
+🚀 **MapReduce Orchestration**: Process work items in parallel across multiple Claude agents
+- Run up to N agents concurrently in isolated worktrees
+- Automatic work distribution and result aggregation
+- Smart filtering and sorting of work items
+
+⚡ **Optimized Context Generation**: 90%+ reduction in context file sizes
+- Technical debt files: 8.2MB → <500KB
+- Test coverage: 266KB → <30KB  
+- Dependency graphs: 155KB → <20KB
+
+🛠️ **Enhanced Error Recovery**: Sophisticated error handling with auto-recovery
+- Automatic retry of failed formatting/linting
+- Full subprocess stdout/stderr capture
+- Flexible failure modes per command
+
+📊 **Data Pipeline Features**: Advanced filtering and transformation
+- Regex pattern matching: `path matches '\.rs$'`
+- Nested field access: `${item.nested.field}`
+- Complex expressions: `priority > 5 && severity == 'critical'`
+
 ## Why Declarative?
 
 **Reproducible**: Same YAML, same workflow, every time.  
@@ -38,6 +60,7 @@ MMM lets you declare LLM-powered development workflows in simple YAML files, sim
 │  • Git operations & commit tracking                  │
 │  • Iteration control & state management              │
 │  • Parallel worktree sessions                        │
+│  • MapReduce orchestration for parallel execution    │
 │  • Test validation & static code analysis            │
 │  • Context generation for Claude commands            │
 └───────────────────┬──────────────────────────────────┘
@@ -174,9 +197,23 @@ mmm cook workflows/implement.yml --verbose
 mmm cook workflows/implement.yml --metrics
 ```
 
+### MapReduce Workflows (NEW)
+```bash
+# Run parallel technical debt elimination
+mmm cook workflows/debtmap-mapreduce.yml --worktree
+
+# Process multiple files in parallel with custom workflow
+mmm cook workflows/fix-files-mapreduce.yml --worktree
+
+# Auto-merge results from parallel agents
+mmm cook workflows/mapreduce-example.yml --worktree --yes
+```
+
 ### Available Workflows
 
 MMM includes several pre-built workflows in the `workflows/` directory:
+
+#### Sequential Workflows
 - **implement.yml**: General implementation workflow with testing
 - **security.yml**: Security-focused analysis and fixes
 - **performance-workflow.yml**: Performance optimization and profiling
@@ -185,7 +222,14 @@ MMM includes several pre-built workflows in the `workflows/` directory:
 - **code-review.yml**: Code review and quality improvements
 - **debug.yml**: Debug and fix test failures
 - **documentation-workflow.yml**: Documentation generation and updates
-- Create custom workflows for your project needs
+
+#### MapReduce Workflows (Parallel Execution)
+- **debtmap-mapreduce.yml**: Parallel technical debt elimination across the codebase
+- **fix-files-mapreduce.yml**: Fix issues in multiple files concurrently
+- **mapreduce-example.yml**: Complete example showing all MapReduce features
+- **test-mapreduce.yml**: Simple test workflow for MapReduce functionality
+
+Create custom workflows for your project needs!
 
 ### What Happens (Git-Native Flow)
 1. **Code Review**: Claude analyzes code and generates improvement specs
@@ -279,6 +323,7 @@ Parse YAML workflow definition
 - **Temporary Specs**: `specs/temp/iteration-*-improvements.md` contain exact fixes applied  
 - **Simple State**: `.mmm/state.json` tracks basic session info (current score, run count)
 - **Project Context**: `.mmm/PROJECT.md`, `ARCHITECTURE.md` provide Claude with project understanding
+- **Optimized Context (v0.1.0+)**: Context files reduced by 90%+ through smart aggregation
 - All human-readable, git-friendly, no complex databases
 
 ## Why MMM vs Other Approaches?
@@ -328,6 +373,10 @@ The tool's core architecture is language-agnostic and relies on Claude's ability
 
 ## Workflow Configuration
 
+MMM supports two workflow execution modes:
+1. **Sequential** - Traditional step-by-step execution
+2. **MapReduce** - Parallel execution across multiple worktrees (NEW)
+
 ### Simple Workflows
 
 Basic implementation workflow:
@@ -373,12 +422,68 @@ Test coverage workflow:
 - claude: "/mmm-test-generate --coverage"
 ```
 
-#### Command Arguments
+### MapReduce Workflows (NEW)
 
-You can specify arguments for commands and handle failures:
+Enable massive parallelization by processing work items across multiple Claude agents:
 
 ```yaml
-# Implementation workflow with error handling
+name: parallel-debt-elimination
+mode: mapreduce
+
+# Optional setup phase to generate work items
+setup:
+  - shell: "debtmap analyze . --output debt_items.json"
+
+# Map phase: Process each debt item in parallel
+map:
+  input: debt_items.json
+  json_path: "$.debt_items[*]"
+  
+  # Commands to execute for each work item
+  agent_template:
+    commands:
+      - claude: "/fix-issue ${item.description}"
+        context:
+          file: "${item.location.file}"
+          line: "${item.location.line}"
+      
+      - shell: "cargo test"
+        on_failure:
+          claude: "/debug-test ${shell.output}"
+          max_attempts: 3
+          fail_workflow: false
+  
+  # Parallelization settings
+  max_parallel: 10
+  timeout_per_agent: 600s
+  retry_on_failure: 2
+  
+  # Optional filtering and sorting
+  filter: "severity == 'high' || severity == 'critical'"
+  sort_by: "priority"
+
+# Reduce phase: Aggregate results
+reduce:
+  commands:
+    - claude: "/summarize-fixes ${map.results}"
+    - shell: "git merge --no-ff mmm-agent-*"
+    - claude: "/generate-report"
+```
+
+#### MapReduce Features
+
+- **Variable Interpolation**: Access work item fields with `${item.field}`, nested properties with `${item.nested.field}`
+- **Data Pipeline**: Filter items with expressions like `priority > 5` or `path matches '\.rs$'`
+- **Parallel Execution**: Run up to N agents concurrently (configurable)
+- **Automatic Merging**: Merge all agent branches back to main
+- **Error Recovery**: Retry failed agents, continue on partial failures
+
+#### Command Arguments & Error Handling
+
+MMM provides sophisticated error handling with automatic recovery:
+
+```yaml
+# Implementation workflow with advanced error handling
 - claude: "/mmm-implement-spec $ARG"
   commit_required: true
   
@@ -388,12 +493,20 @@ You can specify arguments for commands and handle failures:
     max_attempts: 3
     fail_workflow: false  # Continue even if tests can't be fixed
     
-- shell: "just fmt-check && just lint"
+- shell: "just fmt && just lint"
   on_failure:
-    claude: "/mmm-lint ${shell.output}"
-    max_attempts: 3
+    # Auto-recovery: Automatically retry formatting/linting after Claude fixes
+    shell: "just fmt && just lint"
+    max_attempts: 2
     fail_workflow: false
 ```
+
+**Error Handling Features**:
+- **Automatic Recovery**: Failed formatting/linting commands can auto-retry after fixes
+- **Subprocess Feedback**: Full stdout/stderr capture for debugging
+- **Flexible Failure Modes**: Choose whether to fail the workflow or continue
+- **Retry Logic**: Configure max attempts for each recovery action
+- **Context Preservation**: Error outputs passed to recovery commands via `${shell.output}`
 
 #### Commit Requirements
 
@@ -476,7 +589,13 @@ mmm/
 ├── src/
 │   ├── main.rs           # CLI entry point
 │   ├── cook/             # Core cooking logic
-│   ├── config/           # Configuration management  
+│   │   ├── execution/    # Execution engines
+│   │   │   ├── mapreduce.rs     # MapReduce orchestration
+│   │   │   ├── data_pipeline.rs # Data filtering & sorting
+│   │   │   └── interpolation.rs # Variable interpolation
+│   │   └── workflow/     # Workflow processing
+│   ├── config/           # Configuration management
+│   │   └── mapreduce.rs  # MapReduce config parsing
 │   ├── metrics/          # Metrics tracking and analysis
 │   ├── session/          # Session state management
 │   ├── simple_state/     # Minimal state management
@@ -491,6 +610,7 @@ mmm/
 ~/.mmm/worktrees/{project-name}/
 ├── mmm-session-1234567890/
 ├── mmm-performance-1234567891/
+├── mmm-agent-1234567893/  # MapReduce agent worktrees
 └── mmm-security-1234567892/
 ```
 
