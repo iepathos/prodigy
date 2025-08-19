@@ -748,12 +748,59 @@ impl WorkflowExecutor {
 
         if should_fail {
             let step_display = self.get_step_display_name(step);
-            anyhow::bail!(
-                "Step '{}' failed with exit code {:?}. Error: {}",
-                step_display,
-                result.exit_code,
-                result.stderr
-            );
+            
+            // Build a detailed error message
+            let mut error_msg = format!("Step '{}' failed", step_display);
+            
+            if let Some(exit_code) = result.exit_code {
+                error_msg.push_str(&format!(" with exit code {}", exit_code));
+            }
+            
+            // Add stderr if available
+            if !result.stderr.trim().is_empty() {
+                error_msg.push_str("\n\n=== Error Output (stderr) ===");
+                let stderr_lines: Vec<&str> = result.stderr.lines().collect();
+                if stderr_lines.len() <= 50 {
+                    error_msg.push_str("\n");
+                    error_msg.push_str(&result.stderr);
+                } else {
+                    // Show first 25 and last 25 lines for large outputs
+                    error_msg.push_str("\n");
+                    for line in stderr_lines.iter().take(25) {
+                        error_msg.push_str(line);
+                        error_msg.push('\n');
+                    }
+                    error_msg.push_str("\n... [output truncated] ...\n\n");
+                    for line in stderr_lines.iter().rev().take(25).rev() {
+                        error_msg.push_str(line);
+                        error_msg.push('\n');
+                    }
+                }
+            }
+            
+            // Add stdout if stderr was empty but stdout has content
+            if result.stderr.trim().is_empty() && !result.stdout.trim().is_empty() {
+                error_msg.push_str("\n\n=== Standard Output (stdout) ===");
+                let stdout_lines: Vec<&str> = result.stdout.lines().collect();
+                if stdout_lines.len() <= 50 {
+                    error_msg.push_str("\n");
+                    error_msg.push_str(&result.stdout);
+                } else {
+                    // Show first 25 and last 25 lines for large outputs
+                    error_msg.push_str("\n");
+                    for line in stdout_lines.iter().take(25) {
+                        error_msg.push_str(line);
+                        error_msg.push('\n');
+                    }
+                    error_msg.push_str("\n... [output truncated] ...\n\n");
+                    for line in stdout_lines.iter().rev().take(25).rev() {
+                        error_msg.push_str(line);
+                        error_msg.push('\n');
+                    }
+                }
+            }
+            
+            anyhow::bail!(error_msg);
         }
 
         // Count files changed
@@ -1285,12 +1332,12 @@ impl WorkflowExecutor {
         let workflow_start = Instant::now();
 
         // Don't duplicate the message - it's already shown by the orchestrator
-        
+
         // Execute setup phase if present
         if !workflow.steps.is_empty() {
             self.user_interaction
                 .display_progress("🔄 Running setup phase...");
-            
+
             // Execute setup steps in the main worktree
             let mut workflow_context = WorkflowContext::default();
             for (step_index, step) in workflow.steps.iter().enumerate() {
@@ -1301,23 +1348,83 @@ impl WorkflowExecutor {
                     workflow.steps.len(),
                     step_display
                 ));
-                
+
                 // Execute the setup step
-                let step_result = self
+                let step_result = match self
                     .execute_step(step, env, &mut workflow_context)
                     .await
-                    .context(format!("Failed to execute setup step: {step_display}"))?;
-                
+                {
+                    Ok(result) => result,
+                    Err(e) => {
+                        // Preserve the detailed error message from execute_step
+                        return Err(anyhow!(
+                            "Failed to execute setup step: {}\n\nDetails:\n{}",
+                            step_display,
+                            e
+                        ));
+                    }
+                };
+
                 if !step_result.success {
-                    return Err(anyhow!(
+                    // Build a detailed error message with command output
+                    let mut error_msg = format!(
                         "Setup phase failed at step {}/{}: {}",
                         step_index + 1,
                         workflow.steps.len(),
                         step_display
-                    ));
+                    );
+                    
+                    // Add exit code if available
+                    if let Some(exit_code) = step_result.exit_code {
+                        error_msg.push_str(&format!("\nExit code: {}", exit_code));
+                    }
+                    
+                    // Add stderr output if available
+                    if !step_result.stderr.trim().is_empty() {
+                        error_msg.push_str("\n\n=== Error Output (stderr) ===\n");
+                        // Limit stderr to reasonable size for display
+                        let stderr_lines: Vec<&str> = step_result.stderr.lines().collect();
+                        if stderr_lines.len() <= 50 {
+                            error_msg.push_str(&step_result.stderr);
+                        } else {
+                            // Show first 25 and last 25 lines
+                            for line in stderr_lines.iter().take(25) {
+                                error_msg.push_str(line);
+                                error_msg.push('\n');
+                            }
+                            error_msg.push_str("\n... [output truncated] ...\n\n");
+                            for line in stderr_lines.iter().rev().take(25).rev() {
+                                error_msg.push_str(line);
+                                error_msg.push('\n');
+                            }
+                        }
+                    }
+                    
+                    // Add stdout output if available and stderr was empty
+                    if step_result.stderr.trim().is_empty() && !step_result.stdout.trim().is_empty() {
+                        error_msg.push_str("\n\n=== Standard Output (stdout) ===\n");
+                        // Limit stdout to reasonable size for display
+                        let stdout_lines: Vec<&str> = step_result.stdout.lines().collect();
+                        if stdout_lines.len() <= 50 {
+                            error_msg.push_str(&step_result.stdout);
+                        } else {
+                            // Show first 25 and last 25 lines
+                            for line in stdout_lines.iter().take(25) {
+                                error_msg.push_str(line);
+                                error_msg.push('\n');
+                            }
+                            error_msg.push_str("\n... [output truncated] ...\n\n");
+                            for line in stdout_lines.iter().rev().take(25).rev() {
+                                error_msg.push_str(line);
+                                error_msg.push('\n');
+                            }
+                        }
+                    }
+                    
+                    return Err(anyhow!(error_msg));
                 }
             }
-            
+
             self.user_interaction
                 .display_success("✓ Setup phase completed");
         }

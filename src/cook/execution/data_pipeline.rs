@@ -87,10 +87,7 @@ impl DataPipeline {
 
         // Step 2: Apply filter
         if let Some(ref filter) = self.filter {
-            items = items
-                .into_iter()
-                .filter(|item| filter.evaluate(item))
-                .collect();
+            items.retain(|item| filter.evaluate(item));
             debug!("After filtering: {} items", items.len());
         }
 
@@ -258,9 +255,9 @@ impl JsonPath {
     /// Parse a field name from the path
     fn parse_field(current: &mut &str) -> Result<String> {
         let mut field = String::new();
-        let mut chars = current.chars();
+        let chars = current.chars();
 
-        while let Some(ch) = chars.next() {
+        for ch in chars {
             match ch {
                 '.' | '[' => break,
                 _ => field.push(ch),
@@ -381,7 +378,7 @@ impl JsonPath {
             ">" => {
                 if let Some(Value::Number(n)) = actual_value {
                     if let Ok(expected_num) = expected_value.parse::<f64>() {
-                        n.as_f64().map_or(false, |v| v > expected_num)
+                        n.as_f64().is_some_and(|v| v > expected_num)
                     } else {
                         false
                     }
@@ -392,7 +389,7 @@ impl JsonPath {
             "<" => {
                 if let Some(Value::Number(n)) = actual_value {
                     if let Ok(expected_num) = expected_value.parse::<f64>() {
-                        n.as_f64().map_or(false, |v| v < expected_num)
+                        n.as_f64().is_some_and(|v| v < expected_num)
                     } else {
                         false
                     }
@@ -403,7 +400,7 @@ impl JsonPath {
             ">=" => {
                 if let Some(Value::Number(n)) = actual_value {
                     if let Ok(expected_num) = expected_value.parse::<f64>() {
-                        n.as_f64().map_or(false, |v| v >= expected_num)
+                        n.as_f64().is_some_and(|v| v >= expected_num)
                     } else {
                         false
                     }
@@ -414,7 +411,7 @@ impl JsonPath {
             "<=" => {
                 if let Some(Value::Number(n)) = actual_value {
                     if let Ok(expected_num) = expected_value.parse::<f64>() {
-                        n.as_f64().map_or(false, |v| v <= expected_num)
+                        n.as_f64().is_some_and(|v| v <= expected_num)
                     } else {
                         false
                     }
@@ -588,7 +585,7 @@ impl FilterExpression {
             FilterExpression::Logical { op, operands } => match op {
                 LogicalOp::And => operands.iter().all(|expr| expr.evaluate(item)),
                 LogicalOp::Or => operands.iter().any(|expr| expr.evaluate(item)),
-                LogicalOp::Not => !operands.first().map_or(false, |expr| expr.evaluate(item)),
+                LogicalOp::Not => !operands.first().is_some_and(|expr| expr.evaluate(item)),
             },
             FilterExpression::Function { name, args } => Self::evaluate_function(item, name, args),
             FilterExpression::In { field, values } => {
@@ -788,6 +785,7 @@ impl Sorter {
     }
 
     /// Sort an array of JSON values
+    #[allow(clippy::ptr_arg)]
     pub fn sort(&self, items: &mut Vec<Value>) {
         items.sort_by(|a, b| self.compare_items(a, b));
     }

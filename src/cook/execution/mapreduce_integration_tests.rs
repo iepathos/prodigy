@@ -1,5 +1,5 @@
 //! Integration tests for MapReduce workflow execution
-//! 
+//!
 //! These tests verify the complete MapReduce workflow execution including:
 //! - Setup phase execution
 //! - Map phase with parallel agents
@@ -8,7 +8,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::config::mapreduce::{MapReduceWorkflowConfig, parse_mapreduce_workflow};
+    use crate::config::mapreduce::{parse_mapreduce_workflow, MapReduceWorkflowConfig};
     use crate::cook::workflow::{ExtendedWorkflowConfig, WorkflowMode};
     use tempfile::TempDir;
 
@@ -67,7 +67,7 @@ reduce:
 
         let config = parse_mapreduce_workflow(yaml).unwrap();
         assert!(config.setup.is_some());
-        
+
         // When there are 0 items, the map phase should return early
         // and the reduce phase should be skipped
     }
@@ -125,22 +125,28 @@ reduce:
 "#;
 
         let config = parse_mapreduce_workflow(yaml).unwrap();
-        
+
         // Verify setup phase
         assert!(config.setup.is_some());
         let setup = config.setup.as_ref().unwrap();
         assert_eq!(setup.len(), 2);
         assert_eq!(setup[0].shell, Some("just coverage-lcov".to_string()));
         assert!(setup[1].commit_required);
-        
+
         // Verify map phase
         assert_eq!(config.map.input, "debtmap.json");
         assert_eq!(config.map.json_path, "$.items[*]");
         assert_eq!(config.map.max_parallel, 5);
         assert_eq!(config.map.max_items, Some(10));
-        assert_eq!(config.map.filter, Some("unified_score.final_score >= 5".to_string()));
-        assert_eq!(config.map.sort_by, Some("unified_score.final_score DESC".to_string()));
-        
+        assert_eq!(
+            config.map.filter,
+            Some("unified_score.final_score >= 5".to_string())
+        );
+        assert_eq!(
+            config.map.sort_by,
+            Some("unified_score.final_score DESC".to_string())
+        );
+
         // Verify reduce phase
         assert!(config.reduce.is_some());
         let reduce = config.reduce.as_ref().unwrap();
@@ -171,7 +177,7 @@ reduce:
 "#;
 
         let config = parse_mapreduce_workflow(yaml).unwrap();
-        
+
         // The reduce phase should be skipped if all map agents fail
         // or if skip_reduce_on_empty is true (default behavior TBD)
     }
@@ -195,10 +201,14 @@ map:
 
         let config = parse_mapreduce_workflow(yaml).unwrap();
         let commands = &config.map.agent_template.commands;
-        
+
         // Verify interpolation placeholders are preserved
         assert!(commands[0].shell.as_ref().unwrap().contains("${item.id}"));
-        assert!(commands[1].claude.as_ref().unwrap().contains("${item.file}"));
+        assert!(commands[1]
+            .claude
+            .as_ref()
+            .unwrap()
+            .contains("${item.file}"));
     }
 
     /// Test timeout parsing
@@ -246,7 +256,7 @@ reduce:
 "#;
 
         let mapreduce_config = parse_mapreduce_workflow(yaml).unwrap();
-        
+
         // Convert to ExtendedWorkflowConfig (as done in orchestrator)
         let extended_workflow = ExtendedWorkflowConfig {
             name: mapreduce_config.name.clone(),
@@ -257,7 +267,7 @@ reduce:
             max_iterations: 1,
             iterate: false,
         };
-        
+
         assert_eq!(extended_workflow.name, "test-conversion");
         assert_eq!(extended_workflow.mode, WorkflowMode::MapReduce);
         assert_eq!(extended_workflow.steps.len(), 1); // Setup step
@@ -270,11 +280,12 @@ reduce:
     async fn test_setup_runs_in_main_worktree() {
         // Setup should run in the main worktree to prepare data
         // before individual agent worktrees are created for map phase
-        
+
         let temp_dir = TempDir::new().unwrap();
         let test_file = temp_dir.path().join("setup_marker.txt");
-        
-        let yaml = format!(r#"
+
+        let yaml = format!(
+            r#"
 name: test-setup-location
 mode: mapreduce
 
@@ -289,14 +300,16 @@ map:
   agent_template:
     commands:
       - shell: "echo 'map phase'"
-"#, test_file.display());
+"#,
+            test_file.display()
+        );
 
         let _config = parse_mapreduce_workflow(&yaml).unwrap();
-        
+
         // After setup phase, the marker file should exist in main worktree
         // This verifies setup runs before map agents are spawned
     }
-    
+
     /// Test error handling when input file doesn't exist
     #[tokio::test]
     async fn test_missing_input_file_error() {
@@ -316,7 +329,7 @@ map:
 "#;
 
         let _config = parse_mapreduce_workflow(yaml).unwrap();
-        
+
         // Should fail with clear error about missing input file
         // The error should happen after setup phase (if any) completes
     }
@@ -345,7 +358,7 @@ map:
 "#;
 
         let _config = parse_mapreduce_workflow(yaml).unwrap();
-        
+
         // on_failure handler should be triggered
         // max_attempts should allow retries
         // fail_workflow: false should allow continuation

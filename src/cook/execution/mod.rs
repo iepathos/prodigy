@@ -6,7 +6,9 @@ pub mod claude;
 pub mod data_pipeline;
 pub mod interpolation;
 pub mod mapreduce;
+#[cfg(test)]
 pub mod mapreduce_integration_tests;
+#[cfg(test)]
 pub mod mapreduce_tests;
 pub mod runner;
 

@@ -171,6 +171,7 @@ impl ProjectHealthScore {
 }
 
 /// Calculate code quality score based on lint warnings and duplication
+#[allow(dead_code)]
 fn calculate_code_quality_score(lint_warnings: u32, code_duplication: f32) -> Option<f64> {
     // Start with perfect score
     let mut score = 100.0;

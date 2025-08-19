@@ -1,7 +1,7 @@
 //! Tests for MapReduce executor
 
-use crate::cook::execution::mapreduce::*;
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
+use crate::cook::execution::mapreduce::*;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use serde_json::json;
 use std::collections::HashMap;

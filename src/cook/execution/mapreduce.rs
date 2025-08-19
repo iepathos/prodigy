@@ -342,18 +342,17 @@ impl MapReduceExecutor {
         if let Some(reduce_phase) = reduce_phase {
             if map_results.is_empty() {
                 self.user_interaction.display_warning(
-                    "⚠️ Skipping reduce phase: no items were processed in map phase"
+                    "⚠️ Skipping reduce phase: no items were processed in map phase",
                 );
             } else {
                 let successful_count = map_results
                     .iter()
                     .filter(|r| matches!(r.status, AgentStatus::Success))
                     .count();
-                
+
                 if successful_count == 0 {
-                    self.user_interaction.display_warning(
-                        "⚠️ Skipping reduce phase: all map agents failed"
-                    );
+                    self.user_interaction
+                        .display_warning("⚠️ Skipping reduce phase: all map agents failed");
                 } else {
                     self.execute_reduce_phase(reduce_phase, &map_results, env)
                         .await?;
@@ -428,14 +427,14 @@ impl MapReduceExecutor {
         env: &ExecutionEnvironment,
     ) -> Result<Vec<AgentResult>> {
         let total_items = work_items.len();
-        
+
         // If there are no items to process, return empty results
         if total_items == 0 {
             self.user_interaction
                 .display_warning("No items to process in map phase");
             return Ok(Vec::new());
         }
-        
+
         let max_parallel = map_phase.config.max_parallel.min(total_items);
 
         // Create progress tracker
@@ -876,7 +875,7 @@ impl MapReduceExecutor {
 
         let files = String::from_utf8_lossy(&output.stdout)
             .lines()
-            .map(|s| PathBuf::from(s))
+            .map(PathBuf::from)
             .collect();
 
         Ok(files)
