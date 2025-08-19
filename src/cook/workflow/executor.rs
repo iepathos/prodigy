@@ -1386,79 +1386,14 @@ impl WorkflowExecutor {
                 ));
 
                 // Execute the setup step
-                let step_result = match self
+                let _step_result = self
                     .execute_step(step, env, &mut workflow_context)
                     .await
-                {
-                    Ok(result) => result,
-                    Err(e) => {
-                        // Preserve the detailed error message from execute_step
-                        return Err(anyhow!(
-                            "Failed to execute setup step: {}\n\nDetails:\n{}",
-                            step_display,
-                            e
-                        ));
-                    }
-                };
+                    .with_context(|| format!("Setup step {}/{}: {}", step_index + 1, workflow.steps.len(), step_display))?;
 
-                if !step_result.success {
-                    // Build a detailed error message with command output
-                    let mut error_msg = format!(
-                        "Setup phase failed at step {}/{}: {}",
-                        step_index + 1,
-                        workflow.steps.len(),
-                        step_display
-                    );
-                    
-                    // Add exit code if available
-                    if let Some(exit_code) = step_result.exit_code {
-                        error_msg.push_str(&format!("\nExit code: {}", exit_code));
-                    }
-                    
-                    // Add stderr output if available
-                    if !step_result.stderr.trim().is_empty() {
-                        error_msg.push_str("\n\n=== Error Output (stderr) ===\n");
-                        // Limit stderr to reasonable size for display
-                        let stderr_lines: Vec<&str> = step_result.stderr.lines().collect();
-                        if stderr_lines.len() <= 50 {
-                            error_msg.push_str(&step_result.stderr);
-                        } else {
-                            // Show first 25 and last 25 lines
-                            for line in stderr_lines.iter().take(25) {
-                                error_msg.push_str(line);
-                                error_msg.push('\n');
-                            }
-                            error_msg.push_str("\n... [output truncated] ...\n\n");
-                            for line in stderr_lines.iter().rev().take(25).rev() {
-                                error_msg.push_str(line);
-                                error_msg.push('\n');
-                            }
-                        }
-                    }
-                    
-                    // Add stdout output if available and stderr was empty
-                    if step_result.stderr.trim().is_empty() && !step_result.stdout.trim().is_empty() {
-                        error_msg.push_str("\n\n=== Standard Output (stdout) ===\n");
-                        // Limit stdout to reasonable size for display
-                        let stdout_lines: Vec<&str> = step_result.stdout.lines().collect();
-                        if stdout_lines.len() <= 50 {
-                            error_msg.push_str(&step_result.stdout);
-                        } else {
-                            // Show first 25 and last 25 lines
-                            for line in stdout_lines.iter().take(25) {
-                                error_msg.push_str(line);
-                                error_msg.push('\n');
-                            }
-                            error_msg.push_str("\n... [output truncated] ...\n\n");
-                            for line in stdout_lines.iter().rev().take(25).rev() {
-                                error_msg.push_str(line);
-                                error_msg.push('\n');
-                            }
-                        }
-                    }
-                    
-                    return Err(anyhow!(error_msg));
-                }
+                // Note: execute_step will return an error if the step fails and should_fail is true
+                // It already includes detailed stdout/stderr in the error message
+                // We only get here if the step succeeded or if on_failure handling allowed continuation
             }
 
             self.user_interaction
