@@ -1431,7 +1431,7 @@ impl WorkflowExecutor {
             self.session_manager.clone(),
             self.user_interaction.clone(),
             worktree_manager,
-            env.project_dir.clone(),
+            env.working_dir.clone(), // Use working_dir instead of project_dir to handle worktrees correctly
         )
         .await;
 
