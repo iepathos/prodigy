@@ -29,8 +29,6 @@ Claude: "Let me see the new error..."
   on_failure:
     claude: "/mmm-debug-test-failure --output ${shell.output}"
     max_attempts: 3
-    
-- shell: "cargo test"  # Verify fix worked
 ```
 
 ### What's New in v0.1.0+
