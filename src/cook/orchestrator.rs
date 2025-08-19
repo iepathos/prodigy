@@ -244,12 +244,11 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         env: &ExecutionEnvironment,
         config: &CookConfig,
     ) -> Result<()> {
-        // Check if this is a MapReduce workflow
+        // Check if this is a MapReduce workflow FIRST, before any other processing
+        // This prevents the creation of synthetic workflow steps
         if let Some(ref mapreduce_config) = config.mapreduce_config {
-            self.user_interaction.display_info(&format!(
-                "Executing MapReduce workflow: {}",
-                mapreduce_config.name
-            ));
+            // Don't show "Executing workflow: default" for MapReduce workflows
+            // The MapReduce executor will show its own appropriate messages
             return self
                 .execute_mapreduce_workflow(env, config, mapreduce_config)
                 .await;
@@ -1068,6 +1067,12 @@ impl DefaultCookOrchestrator {
         _config: &CookConfig,
         mapreduce_config: &crate::config::MapReduceWorkflowConfig,
     ) -> Result<()> {
+        // Display MapReduce-specific message
+        self.user_interaction.display_info(&format!(
+            "🚀 Executing MapReduce workflow: {}",
+            mapreduce_config.name
+        ));
+
         // Convert MapReduce config to ExtendedWorkflowConfig
         let extended_workflow = ExtendedWorkflowConfig {
             name: mapreduce_config.name.clone(),

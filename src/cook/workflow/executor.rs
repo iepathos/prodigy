@@ -364,10 +364,13 @@ impl WorkflowExecutor {
 
         let workflow_start = Instant::now();
 
-        self.user_interaction.display_info(&format!(
-            "Executing workflow: {} (max {} iterations)",
-            workflow.name, workflow.max_iterations
-        ));
+        // Only show workflow info for non-empty workflows
+        if !workflow.steps.is_empty() {
+            self.user_interaction.display_info(&format!(
+                "Executing workflow: {} (max {} iterations)",
+                workflow.name, workflow.max_iterations
+            ));
+        }
 
         let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
         let skip_validation =
@@ -1281,8 +1284,7 @@ impl WorkflowExecutor {
 
         let workflow_start = Instant::now();
 
-        self.user_interaction
-            .display_info(&format!("Executing MapReduce workflow: {}", workflow.name));
+        // Don't duplicate the message - it's already shown by the orchestrator
 
         // Ensure we have map phase configuration
         let map_phase = workflow

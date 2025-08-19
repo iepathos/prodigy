@@ -410,13 +410,21 @@ impl MapReduceExecutor {
         env: &ExecutionEnvironment,
     ) -> Result<Vec<AgentResult>> {
         let total_items = work_items.len();
+        
+        // If there are no items to process, return empty results
+        if total_items == 0 {
+            self.user_interaction
+                .display_warning("No items to process in map phase");
+            return Ok(Vec::new());
+        }
+        
         let max_parallel = map_phase.config.max_parallel.min(total_items);
 
         // Create progress tracker
         let progress = Arc::new(ProgressTracker::new(total_items, max_parallel));
 
-        // Create channels for work distribution
-        let (work_tx, work_rx) = mpsc::channel::<(usize, Value)>(total_items);
+        // Create channels for work distribution (ensure buffer is at least 1)
+        let (work_tx, work_rx) = mpsc::channel::<(usize, Value)>(total_items.max(1));
         let work_rx = Arc::new(RwLock::new(work_rx));
 
         // Send all work items to the queue
