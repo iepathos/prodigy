@@ -4,7 +4,9 @@ mode: mapreduce
 # Setup phase: Analyze the codebase and generate debt items
 setup:
   - shell: "just coverage-lcov"
-    
+    on_failure:
+      fail_workflow: true
+      
   - shell: "debtmap analyze . --lcov target/coverage/info.lcov --output debtmap.json --format json && git add debtmap.json && git commit -m 'Add debtmap.json'"
     commit_required: true
 
