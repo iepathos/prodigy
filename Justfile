@@ -80,8 +80,9 @@ coverage:
 # Run tests with coverage (lcov format)
 coverage-lcov:
     #!/usr/bin/env bash
+    set -e  # Exit on any command failure
     echo "Generating code coverage report with cargo-tarpaulin (lcov format)..."
-    cargo tarpaulin --config .tarpaulin.toml --out Lcov --output-dir target/coverage
+    cargo tarpaulin --config .tarpaulin.toml --fail-immediately --out Lcov --output-dir target/coverage
     echo "Coverage report generated at target/coverage/lcov.info"
 
 # Run tests with coverage and check threshold

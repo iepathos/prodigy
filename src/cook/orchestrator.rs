@@ -299,26 +299,10 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                             } else if step.on_failure.is_some() {
                                 // For non-shell commands, convert TestDebugConfig to OnFailureConfig
                                 let on_failure = step.on_failure.as_ref().map(|debug_config| {
-                                    // Create a handler step with the claude command
-                                    let handler_step = Box::new(WorkflowStep {
-                                        name: None,
-                                        command: None,
-                                        claude: Some(debug_config.claude.clone()),
-                                        shell: None,
-                                        test: None,
-                                        handler: None,
-                                        capture_output: false,
-                                        timeout: None,
-                                        working_dir: None,
-                                        env: std::collections::HashMap::new(),
-                                        on_failure: None,
-                                        on_success: None,
-                                        on_exit_code: std::collections::HashMap::new(),
-                                        commit_required: debug_config.commit_required,
-                                    });
-                                    // Wrap in Advanced config to control fail_workflow
+                                    // Use Advanced config with claude command
                                     crate::cook::workflow::OnFailureConfig::Advanced {
-                                        handler: handler_step,
+                                        shell: None,
+                                        claude: Some(debug_config.claude.clone()),
                                         fail_workflow: debug_config.fail_workflow,
                                         retry_original: false,
                                         max_retries: debug_config.max_attempts - 1, // max_attempts includes first try

@@ -706,7 +706,7 @@ impl WorkflowExecutor {
                 if let Some(handler) = on_failure_config.handler() {
                     self.user_interaction
                         .display_info("Executing on_failure handler...");
-                    let failure_result = Box::pin(self.execute_step(handler, env, ctx)).await?;
+                    let failure_result = Box::pin(self.execute_step(&handler, env, ctx)).await?;
                     // Merge results
                     result.stdout.push_str("\n--- on_failure output ---\n");
                     result.stdout.push_str(&failure_result.stdout);

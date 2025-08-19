@@ -1440,7 +1440,7 @@ impl MapReduceExecutor {
         // Check if there's a handler to execute
         if let Some(handler_step) = on_failure.handler() {
             // Execute the on_failure handler step
-            let result = self.execute_single_step(handler_step, context).await;
+            let result = self.execute_single_step(&handler_step, context).await;
 
             // Log the result but don't fail the entire execution
             match result {

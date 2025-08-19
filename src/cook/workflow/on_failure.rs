@@ -12,20 +12,16 @@ pub enum OnFailureConfig {
     /// Simple ignore errors flag
     IgnoreErrors(bool),
     
-    /// Just control whether to fail the workflow
-    FailControl {
-        #[serde(default)]
-        fail_workflow: bool,
-    },
-    
-    /// Execute a handler command
-    Handler(Box<WorkflowStep>),
-    
     /// Advanced configuration with handler and control flags
+    /// This must come before FailControl because it has more specific fields
     Advanced {
-        /// Command to execute on failure
-        #[serde(flatten)]
-        handler: Box<WorkflowStep>,
+        /// Shell command to execute on failure
+        #[serde(skip_serializing_if = "Option::is_none")]
+        shell: Option<String>,
+        
+        /// Claude command to execute on failure
+        #[serde(skip_serializing_if = "Option::is_none")]
+        claude: Option<String>,
         
         /// Whether to fail the workflow after handling
         #[serde(default = "default_fail")]
@@ -38,7 +34,16 @@ pub enum OnFailureConfig {
         /// Maximum retry attempts
         #[serde(default = "default_retries")]
         max_retries: u32,
-    }
+    },
+    
+    /// Just control whether to fail the workflow
+    FailControl {
+        #[serde(default)]
+        fail_workflow: bool,
+    },
+    
+    /// Execute a handler command
+    Handler(Box<WorkflowStep>)
 }
 
 fn default_fail() -> bool {
@@ -55,17 +60,38 @@ impl OnFailureConfig {
         match self {
             OnFailureConfig::IgnoreErrors(false) => true,
             OnFailureConfig::IgnoreErrors(true) => false,
+            OnFailureConfig::Advanced { fail_workflow, .. } => *fail_workflow,
             OnFailureConfig::FailControl { fail_workflow } => *fail_workflow,
             OnFailureConfig::Handler(_) => false, // If there's a handler, don't fail by default
-            OnFailureConfig::Advanced { fail_workflow, .. } => *fail_workflow,
         }
     }
     
     /// Get the handler command if any
-    pub fn handler(&self) -> Option<&WorkflowStep> {
+    pub fn handler(&self) -> Option<WorkflowStep> {
         match self {
-            OnFailureConfig::Handler(step) => Some(step),
-            OnFailureConfig::Advanced { handler, .. } => Some(handler),
+            OnFailureConfig::Advanced { shell, claude, .. } => {
+                if shell.is_some() || claude.is_some() {
+                    Some(WorkflowStep {
+                        name: None,
+                        shell: shell.clone(),
+                        claude: claude.clone(),
+                        test: None,
+                        command: None,
+                        handler: None,
+                        timeout: None,
+                        capture_output: false,
+                        on_failure: None,
+                        on_success: None,
+                        on_exit_code: Default::default(),
+                        commit_required: false,
+                        working_dir: None,
+                        env: Default::default(),
+                    })
+                } else {
+                    None
+                }
+            },
+            OnFailureConfig::Handler(step) => Some((**step).clone()),
             _ => None,
         }
     }
@@ -115,6 +141,8 @@ mod tests {
     
     #[test]
     fn test_parse_handler() {
+        // The Handler variant expects a full WorkflowStep, not just shell command
+        // For simple shell commands, they get parsed as Advanced variant
         let yaml = r#"
 shell: "echo 'Handling error'"
 "#;
