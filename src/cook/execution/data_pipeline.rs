@@ -100,7 +100,11 @@ impl DataPipeline {
             debug!("Applying filter: {:?}", filter);
             let before_count = items.len();
             items.retain(|item| filter.evaluate(item));
-            debug!("After filtering: {} items (filtered out {})", items.len(), before_count - items.len());
+            debug!(
+                "After filtering: {} items (filtered out {})",
+                items.len(),
+                before_count - items.len()
+            );
         }
 
         // Step 3: Sort items
@@ -284,7 +288,7 @@ impl JsonPath {
     pub fn select(&self, data: &Value) -> Result<Vec<Value>> {
         debug!("Selecting with JSON path: {}", self.expression);
         debug!("Path components: {:?}", self.components);
-        
+
         let mut results = vec![data.clone()];
 
         for component in &self.components {
@@ -619,11 +623,11 @@ impl FilterExpression {
     fn get_nested_field(item: &Value, path: &str) -> Option<Value> {
         let parts: Vec<&str> = path.split('.').collect();
         let mut current = item.clone();
-        
+
         for part in parts {
             current = current.get(part)?.clone();
         }
-        
+
         Some(current)
     }
 
@@ -703,7 +707,8 @@ impl FilterExpression {
         match name {
             "contains" => {
                 if args.len() == 2 {
-                    if let Some(Value::String(s)) = Self::get_nested_field(item, &args[0]).as_ref() {
+                    if let Some(Value::String(s)) = Self::get_nested_field(item, &args[0]).as_ref()
+                    {
                         return s.contains(&args[1]);
                     }
                 }
@@ -711,7 +716,8 @@ impl FilterExpression {
             }
             "starts_with" => {
                 if args.len() == 2 {
-                    if let Some(Value::String(s)) = Self::get_nested_field(item, &args[0]).as_ref() {
+                    if let Some(Value::String(s)) = Self::get_nested_field(item, &args[0]).as_ref()
+                    {
                         return s.starts_with(&args[1]);
                     }
                 }
@@ -719,7 +725,8 @@ impl FilterExpression {
             }
             "ends_with" => {
                 if args.len() == 2 {
-                    if let Some(Value::String(s)) = Self::get_nested_field(item, &args[0]).as_ref() {
+                    if let Some(Value::String(s)) = Self::get_nested_field(item, &args[0]).as_ref()
+                    {
                         return s.ends_with(&args[1]);
                     }
                 }
@@ -846,11 +853,11 @@ impl Sorter {
     fn get_nested_field_value<'a>(item: &'a Value, path: &str) -> Option<&'a Value> {
         let parts: Vec<&str> = path.split('.').collect();
         let mut current = item;
-        
+
         for part in parts {
             current = current.get(part)?;
         }
-        
+
         Some(current)
     }
 
@@ -1108,29 +1115,29 @@ mod tests {
     fn test_nested_field_filtering() {
         // Test basic nested field access
         let filter = FilterExpression::parse("unified_score.final_score >= 5").unwrap();
-        
+
         let item1 = json!({
             "unified_score": {
                 "final_score": 7.5,
                 "complexity_factor": 3.0
             }
         });
-        
+
         let item2 = json!({
             "unified_score": {
                 "final_score": 3.2,
                 "complexity_factor": 2.0
             }
         });
-        
+
         let item3 = json!({
             "unified_score": {
                 "complexity_factor": 8.0
                 // missing final_score
             }
         });
-        
-        assert!(filter.evaluate(&item1));  // 7.5 >= 5
+
+        assert!(filter.evaluate(&item1)); // 7.5 >= 5
         assert!(!filter.evaluate(&item2)); // 3.2 < 5
         assert!(!filter.evaluate(&item3)); // missing field
     }
@@ -1139,7 +1146,7 @@ mod tests {
     fn test_deeply_nested_field_filtering() {
         // Test deeply nested field access (3+ levels)
         let filter = FilterExpression::parse("location.coordinates.lat > 40.0").unwrap();
-        
+
         let item1 = json!({
             "location": {
                 "coordinates": {
@@ -1148,7 +1155,7 @@ mod tests {
                 }
             }
         });
-        
+
         let item2 = json!({
             "location": {
                 "coordinates": {
@@ -1157,8 +1164,8 @@ mod tests {
                 }
             }
         });
-        
-        assert!(filter.evaluate(&item1));  // 45.5 > 40.0
+
+        assert!(filter.evaluate(&item1)); // 45.5 > 40.0
         assert!(!filter.evaluate(&item2)); // 35.0 < 40.0
     }
 
@@ -1166,9 +1173,10 @@ mod tests {
     fn test_nested_field_with_logical_operators() {
         // Test nested fields with AND/OR operators
         let filter = FilterExpression::parse(
-            "unified_score.final_score >= 5 && debt_type.category == 'complexity'"
-        ).unwrap();
-        
+            "unified_score.final_score >= 5 && debt_type.category == 'complexity'",
+        )
+        .unwrap();
+
         let item1 = json!({
             "unified_score": {
                 "final_score": 7.5
@@ -1177,7 +1185,7 @@ mod tests {
                 "category": "complexity"
             }
         });
-        
+
         let item2 = json!({
             "unified_score": {
                 "final_score": 7.5
@@ -1186,7 +1194,7 @@ mod tests {
                 "category": "performance"
             }
         });
-        
+
         let item3 = json!({
             "unified_score": {
                 "final_score": 3.0
@@ -1195,8 +1203,8 @@ mod tests {
                 "category": "complexity"
             }
         });
-        
-        assert!(filter.evaluate(&item1));  // Both conditions true
+
+        assert!(filter.evaluate(&item1)); // Both conditions true
         assert!(!filter.evaluate(&item2)); // Wrong category
         assert!(!filter.evaluate(&item3)); // Score too low
     }
@@ -1204,28 +1212,26 @@ mod tests {
     #[test]
     fn test_nested_field_in_operator() {
         // Test nested field with IN operator
-        let filter = FilterExpression::parse(
-            "debt_type.severity in ['high', 'critical']"
-        ).unwrap();
-        
+        let filter = FilterExpression::parse("debt_type.severity in ['high', 'critical']").unwrap();
+
         let item1 = json!({
             "debt_type": {
                 "severity": "high"
             }
         });
-        
+
         let item2 = json!({
             "debt_type": {
                 "severity": "critical"
             }
         });
-        
+
         let item3 = json!({
             "debt_type": {
                 "severity": "low"
             }
         });
-        
+
         assert!(filter.evaluate(&item1));
         assert!(filter.evaluate(&item2));
         assert!(!filter.evaluate(&item3));
@@ -1235,7 +1241,7 @@ mod tests {
     fn test_nested_field_sorting() {
         // Test sorting by nested fields
         let sorter = Sorter::parse("unified_score.final_score DESC").unwrap();
-        
+
         let mut items = vec![
             json!({
                 "id": 1,
@@ -1250,9 +1256,9 @@ mod tests {
                 "unified_score": {"final_score": 5.5}
             }),
         ];
-        
+
         sorter.sort(&mut items);
-        
+
         // Check order: should be 8.0, 5.5, 3.5
         assert_eq!(items[0]["id"], 2);
         assert_eq!(items[1]["id"], 3);
@@ -1267,8 +1273,9 @@ mod tests {
             Some("unified_score.final_score >= 5".to_string()),
             Some("unified_score.final_score DESC".to_string()),
             Some(3), // max_items
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         let data = json!({
             "items": [
                 {
@@ -1297,25 +1304,26 @@ mod tests {
                 },
             ]
         });
-        
+
         let results = pipeline.process(&data).unwrap();
-        
+
         // Should have 3 items (max_items limit)
         assert_eq!(results.len(), 3);
-        
+
         // Should be sorted by score descending: 9.2, 7.5, 6.0
         assert_eq!(results[0]["unified_score"]["final_score"], 9.2);
         assert_eq!(results[1]["unified_score"]["final_score"], 7.5);
         assert_eq!(results[2]["unified_score"]["final_score"], 6.0);
-        
+
         // Item with score 5.1 should be included if we had max_items=4
         let pipeline_4 = DataPipeline::from_config(
             Some("$.items[*]".to_string()),
             Some("unified_score.final_score >= 5".to_string()),
             Some("unified_score.final_score DESC".to_string()),
             Some(4),
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         let results_4 = pipeline_4.process(&data).unwrap();
         assert_eq!(results_4.len(), 4);
         assert_eq!(results_4[3]["unified_score"]["final_score"], 5.1);
@@ -1328,50 +1336,50 @@ mod tests {
             name: "contains".to_string(),
             args: vec!["location.file".to_string(), "main".to_string()],
         };
-        
+
         let item1 = json!({
             "location": {
                 "file": "src/main.rs"
             }
         });
-        
+
         let item2 = json!({
             "location": {
                 "file": "src/lib.rs"
             }
         });
-        
+
         assert!(contains_filter.evaluate(&item1));
         assert!(!contains_filter.evaluate(&item2));
-        
+
         // Test starts_with on nested field
         let starts_filter = FilterExpression::Function {
             name: "starts_with".to_string(),
             args: vec!["location.file".to_string(), "src/".to_string()],
         };
-        
+
         assert!(starts_filter.evaluate(&item1));
         assert!(starts_filter.evaluate(&item2));
-        
+
         // Test is_null on nested field
         let null_filter = FilterExpression::Function {
             name: "is_null".to_string(),
             args: vec!["location.line".to_string()],
         };
-        
+
         let item_with_null = json!({
             "location": {
                 "file": "src/main.rs",
                 "line": null
             }
         });
-        
+
         let item_without_field = json!({
             "location": {
                 "file": "src/main.rs"
             }
         });
-        
+
         assert!(null_filter.evaluate(&item_with_null));
         assert!(!null_filter.evaluate(&item_without_field)); // missing field != null
     }

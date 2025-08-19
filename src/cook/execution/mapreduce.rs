@@ -381,7 +381,7 @@ impl MapReduceExecutor {
         };
 
         debug!("Attempting to read input file: {}", input_path.display());
-        
+
         // Check if file exists first
         if !input_path.exists() {
             return Err(anyhow!(
@@ -389,10 +389,10 @@ impl MapReduceExecutor {
                 input_path.display()
             ));
         }
-        
+
         let file_size = std::fs::metadata(&input_path)?.len();
         debug!("Input file size: {} bytes", file_size);
-        
+
         let content = tokio::fs::read_to_string(&input_path)
             .await
             .context(format!(
@@ -403,7 +403,7 @@ impl MapReduceExecutor {
         debug!("Read {} bytes from input file", content.len());
 
         let json: Value = serde_json::from_str(&content).context("Failed to parse input JSON")?;
-        
+
         // Debug: Show the top-level structure
         if let Value::Object(ref map) = json {
             let keys: Vec<_> = map.keys().cloned().collect();

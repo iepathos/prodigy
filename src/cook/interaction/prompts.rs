@@ -97,8 +97,12 @@ impl UserPrompter for UserPrompterImpl {
 
         let input = Self::read_line()?;
 
-        if input.is_empty() && default.is_some() {
-            Ok(default.unwrap().to_string())
+        if input.is_empty() {
+            if let Some(def) = default {
+                Ok(def.to_string())
+            } else {
+                Ok(input)
+            }
         } else {
             Ok(input)
         }

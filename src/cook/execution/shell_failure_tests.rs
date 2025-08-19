@@ -7,8 +7,8 @@
 mod tests {
     use crate::config::mapreduce::{parse_mapreduce_workflow, MapReduceWorkflowConfig};
     use crate::cook::workflow::{ExtendedWorkflowConfig, WorkflowMode};
-    use tempfile::TempDir;
     use std::fs;
+    use tempfile::TempDir;
 
     /// Test parsing of on_failure configuration
     #[test]
@@ -36,16 +36,16 @@ map:
         assert!(config.setup.is_some());
         let setup = config.setup.unwrap();
         assert_eq!(setup.len(), 2);
-        
+
         // Check first step has on_failure configured
         let first_step = &setup[0];
         assert!(first_step.on_failure.is_some());
-        
+
         // The on_failure should indicate to fail the workflow
         let on_failure = first_step.on_failure.as_ref().unwrap();
         assert!(on_failure.should_fail_workflow());
     }
-    
+
     /// Test that setup phase fails when a shell command returns non-zero
     #[tokio::test]
     async fn test_setup_fails_on_shell_error() {
@@ -68,13 +68,13 @@ map:
 
         let config = parse_mapreduce_workflow(yaml).unwrap();
         assert_eq!(config.name, "test-shell-failure");
-        
+
         // TODO: Execute the workflow and verify it fails at the first setup step
         // The workflow should NOT continue to the second setup step or map phase
     }
 
     /// Test that on_failure with continue allows workflow to proceed
-    #[tokio::test] 
+    #[tokio::test]
     async fn test_on_failure_continue() {
         let yaml = r#"
 name: test-on-failure-continue
@@ -97,7 +97,7 @@ map:
 "#;
 
         let config = parse_mapreduce_workflow(yaml).unwrap();
-        
+
         // TODO: Execute and verify the second setup step runs
     }
 
@@ -125,7 +125,7 @@ map:
 "#;
 
         let config = parse_mapreduce_workflow(yaml).unwrap();
-        
+
         // TODO: Execute and verify workflow stops after on_failure handler
     }
 
@@ -223,8 +223,8 @@ map:
     /// Test the actual command execution to ensure errors are propagated
     #[tokio::test]
     async fn test_shell_command_error_propagation() {
-        use crate::cook::workflow::{WorkflowExecutorImpl, WorkflowStep};
         use crate::cook::orchestrator::ExecutionEnvironment;
+        use crate::cook::workflow::{WorkflowExecutorImpl, WorkflowStep};
         use std::path::PathBuf;
 
         let step = WorkflowStep {

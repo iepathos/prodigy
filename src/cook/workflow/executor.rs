@@ -710,7 +710,7 @@ impl WorkflowExecutor {
                     // Merge results
                     result.stdout.push_str("\n--- on_failure output ---\n");
                     result.stdout.push_str(&failure_result.stdout);
-                    
+
                     // Check if we should retry the original command
                     if on_failure_config.should_retry() {
                         let max_retries = on_failure_config.max_retries();
@@ -722,7 +722,8 @@ impl WorkflowExecutor {
                             // Create a copy of the step without on_failure to avoid recursion
                             let mut retry_step = step.clone();
                             retry_step.on_failure = None;
-                            let retry_result = Box::pin(self.execute_step(&retry_step, env, ctx)).await?;
+                            let retry_result =
+                                Box::pin(self.execute_step(&retry_step, env, ctx)).await?;
                             if retry_result.success {
                                 result = retry_result;
                                 break;
@@ -777,24 +778,24 @@ impl WorkflowExecutor {
 
         if should_fail {
             let step_display = self.get_step_display_name(step);
-            
+
             // Build a detailed error message
             let mut error_msg = format!("Step '{}' failed", step_display);
-            
+
             if let Some(exit_code) = result.exit_code {
                 error_msg.push_str(&format!(" with exit code {}", exit_code));
             }
-            
+
             // Add stderr if available
             if !result.stderr.trim().is_empty() {
                 error_msg.push_str("\n\n=== Error Output (stderr) ===");
                 let stderr_lines: Vec<&str> = result.stderr.lines().collect();
                 if stderr_lines.len() <= 50 {
-                    error_msg.push_str("\n");
+                    error_msg.push('\n');
                     error_msg.push_str(&result.stderr);
                 } else {
                     // Show first 25 and last 25 lines for large outputs
-                    error_msg.push_str("\n");
+                    error_msg.push('\n');
                     for line in stderr_lines.iter().take(25) {
                         error_msg.push_str(line);
                         error_msg.push('\n');
@@ -806,17 +807,17 @@ impl WorkflowExecutor {
                     }
                 }
             }
-            
+
             // Add stdout if stderr was empty but stdout has content
             if result.stderr.trim().is_empty() && !result.stdout.trim().is_empty() {
                 error_msg.push_str("\n\n=== Standard Output (stdout) ===");
                 let stdout_lines: Vec<&str> = result.stdout.lines().collect();
                 if stdout_lines.len() <= 50 {
-                    error_msg.push_str("\n");
+                    error_msg.push('\n');
                     error_msg.push_str(&result.stdout);
                 } else {
                     // Show first 25 and last 25 lines for large outputs
-                    error_msg.push_str("\n");
+                    error_msg.push('\n');
                     for line in stdout_lines.iter().take(25) {
                         error_msg.push_str(line);
                         error_msg.push('\n');
@@ -828,15 +829,17 @@ impl WorkflowExecutor {
                     }
                 }
             }
-            
+
             anyhow::bail!(error_msg);
         }
-        
+
         // If the command failed but we're not failing the workflow (should_fail is false),
         // we need to modify the result to indicate success so the workflow continues
         if !result.success && !should_fail {
             result.success = true;
-            result.stdout.push_str("\n[Note: Command failed but workflow continues due to on_failure configuration]");
+            result.stdout.push_str(
+                "\n[Note: Command failed but workflow continues due to on_failure configuration]",
+            );
         }
 
         // Count files changed
@@ -1386,10 +1389,7 @@ impl WorkflowExecutor {
                 ));
 
                 // Execute the setup step
-                let _step_result = match self
-                    .execute_step(step, env, &mut workflow_context)
-                    .await
-                {
+                let _step_result = match self.execute_step(step, env, &mut workflow_context).await {
                     Ok(result) => result,
                     Err(e) => {
                         // The execute_step error already contains detailed stdout/stderr
