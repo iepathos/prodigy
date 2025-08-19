@@ -6,7 +6,6 @@ setup:
   - shell: "just coverage-lcov"
     
   - shell: "debtmap analyze . --lcov target/coverage/lcov.info --output debtmap.json --format json"
-    commit_required: true
 
 # Map phase: Process each debt item in parallel
 map:
