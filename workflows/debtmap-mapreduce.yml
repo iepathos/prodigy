@@ -58,14 +58,11 @@ reduce:
     
     # Run formatting and linting
     - shell: "just fmt && just lint"
-      capture_output: false
     
     # Re-run debtmap to measure improvements
     - shell: "just coverage-lcov"
-      capture_output: false
     
     - shell: "debtmap analyze . --lcov target/coverage/info.lcov --output debtmap-after.json --format json"
-      capture_output: true
     
     # Compare before/after debt metrics and generate summary
     - claude: "/mmm-compare-debt-results --before debtmap.json --after debtmap-after.json --map-results '${map.results}' --successful ${map.successful} --failed ${map.failed}"
