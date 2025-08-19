@@ -4,21 +4,33 @@
 [![Security](https://github.com/iepathos/mmm/actions/workflows/security.yml/badge.svg)](https://github.com/iepathos/mmm/actions/workflows/security.yml)
 [![Release](https://github.com/iepathos/mmm/actions/workflows/release.yml/badge.svg)](https://github.com/iepathos/mmm/actions/workflows/release.yml)
 
-Define declarative AI development workflows in YAML. Run bounded, testable improvement loops. Ship better code.
+**AI pair programming orchestrator** - Run reproducible code improvement workflows with Claude. Fix bugs, improve coverage, eliminate tech debt - all through simple YAML workflows.
 
 ## What Is MMM?
 
-MMM lets you declare LLM-powered development workflows in simple YAML files, similar to how you define CI/CD pipelines. Instead of copy-pasting between Claude and your terminal, you declare the workflow once and run it repeatedly.
+MMM orchestrates AI-powered development workflows, turning ad-hoc Claude sessions into reproducible, bounded automation. Like CI/CD for your AI pair programmer - define the workflow once, run it repeatedly, ship better code.
 
+### Transform This:
+```
+You: "Fix the failing tests"
+Claude: "I'll help you fix those tests..."
+You: *copy-paste error*
+Claude: "Try this fix..."
+You: *copy-paste, run tests*
+You: "Still failing"
+Claude: "Let me see the new error..."
+[Repeat endlessly...]
+```
+
+### Into This:
 ```yaml
-# Example: Simple workflow
-- claude: "/mmm-code-review"
-  
-- claude: "/mmm-implement-spec $ARG"
-  
-- shell: "just test"
+# One command: mmm cook workflows/debug.yml
+- shell: "cargo test"
   on_failure:
-    claude: "/mmm-debug-test-failure --spec $ARG --output ${shell.output}"
+    claude: "/mmm-debug-test-failure --output ${shell.output}"
+    max_attempts: 3
+    
+- shell: "cargo test"  # Verify fix worked
 ```
 
 ### What's New in v0.1.0+
@@ -43,13 +55,26 @@ MMM lets you declare LLM-powered development workflows in simple YAML files, sim
 - Nested field access: `${item.nested.field}`
 - Complex expressions: `priority > 5 && severity == 'critical'`
 
-## Why Declarative?
+## Why Use MMM?
 
-**Reproducible**: Same YAML, same workflow, every time.  
-**Shareable**: Check workflows into git, share with your team.  
-**Testable**: Define success criteria, verify outcomes.  
-**Bounded**: Set iteration limits, prevent runaway costs.  
-**Observable**: Every decision is logged, every change tracked.
+### Real Impact
+- **10x faster fixes**: What takes hours of back-and-forth happens in minutes
+- **Parallel scale**: Fix 10 bugs simultaneously instead of one at a time  
+- **Knowledge capture**: Your best prompts become reusable workflows
+- **Team multiplier**: Share workflows that work, standardize AI usage
+- **Cost control**: Set limits, prevent runaway sessions, track usage
+
+### Developer Experience
+```bash
+# Monday: Discover a workflow that perfectly fixes test failures
+mmm cook workflows/debug.yml
+
+# Tuesday: Share it with your team
+git add workflows/debug.yml && git commit -m "Best debug workflow ever"
+
+# Wednesday: Everyone uses the same proven approach
+mmm cook workflows/debug.yml  # Same great results for everyone
+```
 
 ## Architecture: How MMM Orchestrates Claude Commands
 
@@ -85,29 +110,29 @@ MMM lets you declare LLM-powered development workflows in simple YAML files, sim
 
 ## The Problem We Solve
 
-Developers are increasingly using LLMs for code improvements, but managing these interactions is ad-hoc:
-- Copy-pasting between Claude and your editor
-- Manually running tests after AI suggestions  
-- No reproducibility across team members
-- No way to share successful improvement patterns
-- Runaway costs from uncontrolled AI loops
+Every developer using AI faces the same frustrations:
+- **Copy-paste hell** - Constantly moving code between Claude and your terminal
+- **No memory** - Explaining the same context over and over
+- **Unbounded costs** - AI sessions that run forever without clear outcomes
+- **Lost knowledge** - That perfect prompt that fixed everything? Gone forever
+- **No parallelism** - One conversation, one fix at a time
 
-MMM provides the orchestration layer that makes AI-assisted development **reproducible, shareable, and safe**.
+MMM is the orchestration layer that makes AI development **scalable, reproducible, and safe**.
 
 ## What MMM Is
 
-- **Bounded LLM Orchestration**: Run AI-assisted development tasks with iteration limits and clear success criteria
-- **Declarative Workflows**: Define complex AI workflows in simple YAML
-- **Test-Driven Validation**: Ensure AI changes actually work through integrated testing
-- **Git-Native Isolation**: All work happens in isolated worktrees, preserving your main branch
-- **Composable Commands**: Mix Claude commands, shell scripts, and custom handlers
+- **🎯 Bounded Execution**: Set limits, prevent runaway costs, always maintain control
+- **🔄 Reproducible Workflows**: Same YAML, same results - share what works with your team
+- **🚀 Parallel at Scale**: Run 10+ Claude agents simultaneously fixing different issues
+- **🔒 Git-Native Safety**: Every change tracked, every decision logged, easy rollback
+- **✅ Test-Driven**: Changes must pass tests or they don't ship
 
 ## What MMM Is NOT
 
-- ❌ Not an autonomous agent that runs forever
-- ❌ Not a replacement for human developers  
-- ❌ Not a general-purpose AI framework
-- ❌ Not another chatbot interface
+- ❌ Not an autonomous agent that runs forever without supervision
+- ❌ Not a replacement for developers - it's a force multiplier
+- ❌ Not another chat interface - it's workflow automation
+- ❌ Not magic - it's engineering discipline applied to AI
 
 ## Core Concepts
 
@@ -131,13 +156,21 @@ Built for real development tasks:
 
 ## Quick Start
 
-Run `mmm cook <workflow.yml>` and MMM will:
+```bash
+# Install MMM
+cargo install --git https://github.com/iepathos/mmm
 
-1. **Execute** your declared workflow steps in order
-2. **Validate** changes with tests and linting
-3. **Commit** each successful change to git
-4. **Iterate** within bounded limits
-5. **Stop** when success criteria are met or limits reached
+# Initialize in your project
+mmm init
+
+# Fix all your failing tests
+mmm cook workflows/debug.yml
+
+# Eliminate tech debt in parallel
+mmm cook workflows/debtmap-mapreduce.yml --worktree
+```
+
+**What happens**: MMM will spawn Claude agents that analyze, fix, test, and commit improvements to your code. All changes are tracked in git. Nothing ships without passing tests.
 
 ## Installation
 
@@ -245,54 +278,50 @@ Each step creates git commits for complete auditability.
 - Git repository (for commit tracking and worktree support)
 - A project with code files
 
-## Examples
+## Real-World Examples
 
+### Example 1: Fix All Clippy Warnings
 ```bash
-# Basic cooking run
-$ mmm cook workflows/implement.yml
-🔍 Starting improvement loop...
-📋 Workflow: Implementation workflow
-🔄 Iteration 1/10...
-🤖 Running /mmm-implement-spec...
-✅ Implementation completed
-🧪 Running tests...
-✅ Tests passed
-🧹 Running linting...
-✅ Linting completed
+$ mmm cook workflows/tech-debt.yml
+🔍 Found 47 clippy warnings across 12 files
+🤖 Claude is fixing them...
+✅ Fixed 47/47 warnings
+🧪 All tests still passing
+📝 Committed fixes to git
 
-✅ Improvement session finished early:
-   Iterations: 2/10
-   Files improved: 3
-   Reason: No more issues found
+Time saved: ~2 hours of manual fixes
+```
 
-# Security-focused improvement workflow
-$ mmm cook workflows/security.yml
-📝 Starting workflow with security analysis
-📋 Workflow: Security improvements
-🔄 Workflow iteration 1/8...
-📋 Step 1/3: mmm-security-audit
-📋 Step 2/3: mmm-implement-spec
-📋 Step 3/3: mmm-security-validate
-✅ Improvement session completed
+### Example 2: Parallel Bug Squashing
+```bash
+$ mmm cook workflows/debtmap-mapreduce.yml --worktree
+🔍 Analyzing codebase...
+📊 Found 23 high-priority issues
+🚀 Spawning 10 parallel Claude agents...
 
-# Parallel worktree sessions
-$ mmm cook workflows/performance-workflow.yml --worktree
-🌳 Created worktree: mmm-performance-1708123456 at ~/.mmm/worktrees/myproject/mmm-performance-1708123456
-🔄 Iteration 1/10...
-[... improvements run ...]
-✅ Improvements completed in worktree: mmm-performance-1708123456
+[Agent 1] Fixing: Memory leak in cache.rs
+[Agent 2] Fixing: SQL injection risk in query.rs
+[Agent 3] Fixing: Race condition in worker.rs
+...
+[Agent 10] Fixing: Unchecked array access in parser.rs
 
-Would you like to merge the completed worktree now? (y/N): y
-✅ Successfully merged worktree: mmm-performance-1708123456
+⏱️ All agents completed in 4 minutes
+🔀 Merging fixes from all agents...
+✅ Successfully fixed 22/23 issues
 
-# Check the git history to see what happened
-$ git log --oneline -10
-a1b2c3d style: apply automated formatting and lint fixes
-b2c3d4e fix: apply improvements from spec iteration-1708123789-improvements
-c3d4e5f review: generate improvement spec for iteration-1708123789-improvements
-d4e5f6g style: apply automated formatting and lint fixes  
-e5f6g7h fix: apply improvements from spec iteration-1708123456-improvements
-f6g7h8i review: generate improvement spec for iteration-1708123456-improvements
+What would have taken a day was done in minutes.
+```
+
+### Example 3: Test Coverage Sprint
+```bash
+$ mmm cook workflows/coverage.yml --metrics
+📊 Starting coverage: 43%
+🤖 Generating tests for uncovered code...
+✅ Added 67 new test cases
+📊 Final coverage: 78%
+📈 Coverage improved by 35%
+
+All tests passing. All changes committed.
 ```
 
 ## How It Works
@@ -652,14 +681,29 @@ cargo run -- cook workflows/security.yml --worktree
 
 MIT
 
+## Start Using MMM Today
+
+```bash
+# Install and start improving your code in under a minute
+cargo install --git https://github.com/iepathos/mmm
+cd your-project
+mmm init
+mmm cook workflows/implement.yml
+```
+
+Your AI pair programmer is waiting. Let's ship better code, faster.
+
 ## Contributing
 
-Help make the core `mmm cook` command more robust:
-- Better language support
-- Improved Claude context building
-- Enhanced error handling
-- Clearer progress feedback
+We're building the future of AI-assisted development. Join us:
 
-Keep it simple. Keep it working.
+- **More languages**: Extend beyond Rust to Python, TypeScript, Go
+- **More workflows**: Share your best patterns with the community
+- **More integrations**: VSCode, IntelliJ, CI/CD pipelines
+- **More safety**: Better bounds, smarter limits, clearer guardrails
 
-Built with ❤️ in Rust as open source with best intentions for the world.
+Keep it simple. Keep it working. Keep it bounded.
+
+---
+
+Built with ❤️ in Rust. Open source because AI-assisted development should be accessible to everyone.

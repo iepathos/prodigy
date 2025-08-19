@@ -3,7 +3,7 @@ name = "mmm"
 version = "0.1.0"
 edition = "2021"
 authors = ["Glen Baker <iepathos@gmail.com>"]
-description = "Memento Mori - A self-sufficient loop implementation for Claude CLI"
+description = "AI pair programming orchestrator - Run reproducible code improvement workflows with Claude"
 license = "MIT"
 
 [dependencies]
