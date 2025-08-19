@@ -57,8 +57,12 @@ reduce:
     
     # Run formatting and linting
     - shell: "just fmt && just lint"
-      capture_output: false
-    
+      on_failure:
+        claude: "/lint ${shell.output}"
+        max_attempts: 3
+        fail_workflow: false
+
+          
     # Re-run debtmap to measure improvements
     - shell: "just coverage-lcov"
       capture_output: false
