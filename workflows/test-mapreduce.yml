@@ -64,5 +64,3 @@ reduce:
     # Clean up test file
     - shell: "rm -f test_items.json"
       capture_output: false
-
-collect_metrics: true

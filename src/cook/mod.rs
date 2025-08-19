@@ -8,7 +8,6 @@ pub mod coordinators;
 pub mod execution;
 pub mod git_ops;
 pub mod interaction;
-pub mod metrics;
 pub mod orchestrator;
 pub mod retry;
 pub mod session;
@@ -173,9 +172,6 @@ async fn create_orchestrator(
         Arc::new(workflow::WorkflowExecutorImpl::new(
             claude_executor.clone(),
             session_manager.clone(),
-            Arc::new(metrics::collector::MetricsCollectorImpl::new(
-                execution::runner::RealCommandRunner::new(),
-            )),
             user_interaction.clone(),
         ));
 
@@ -185,17 +181,11 @@ async fn create_orchestrator(
         user_interaction.clone(),
     ));
 
-    // Create metrics coordinator
-    let metrics_coordinator = Arc::new(metrics::collector::MetricsCollectorImpl::new(
-        execution::runner::RealCommandRunner::new(),
-    ));
-
     // Create orchestrator with correct trait implementations
     Ok(Arc::new(DefaultCookOrchestrator::new(
         session_manager.clone(),
         command_executor.clone(),
         claude_executor.clone(),
-        metrics_coordinator,
         user_interaction.clone(),
         git_operations,
         StateManager::new()?,
