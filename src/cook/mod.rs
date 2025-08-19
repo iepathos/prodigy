@@ -21,7 +21,7 @@ mod tests;
 mod mod_tests;
 
 use crate::abstractions::git::RealGitOperations;
-use crate::config::{workflow::WorkflowConfig, ConfigLoader};
+use crate::config::{workflow::WorkflowConfig, ConfigLoader, WorkflowCommand};
 use crate::simple_state::StateManager;
 use anyhow::{anyhow, Context as _, Result};
 use std::path::Path;
@@ -212,42 +212,68 @@ async fn load_playbook(path: &Path) -> Result<WorkflowConfig> {
     if path.extension().and_then(|s| s.to_str()) == Some("yml")
         || path.extension().and_then(|s| s.to_str()) == Some("yaml")
     {
-        match serde_yaml::from_str::<WorkflowConfig>(&content) {
-            Ok(config) => Ok(config),
-            Err(e) => {
-                // Try to provide more helpful error messages
-                let mut error_msg = format!("Failed to parse YAML playbook: {}\n", path.display());
+        // First check if it's a MapReduce workflow by looking for mode: mapreduce
+        if content.contains("mode: mapreduce") || content.contains("mode: \"mapreduce\"") {
+            // Try to parse as MapReduce workflow
+            match crate::config::parse_mapreduce_workflow(&content) {
+                Ok(mapreduce_config) => {
+                    // Convert MapReduce config to regular WorkflowConfig
+                    // MapReduce workflows will be handled differently by the orchestrator
+                    // For now, return an empty WorkflowConfig as a placeholder
+                    // The actual MapReduce execution will be triggered by the orchestrator
+                    Ok(WorkflowConfig {
+                        commands: vec![WorkflowCommand::Simple(format!("mapreduce:{}", mapreduce_config.name))],
+                    })
+                }
+                Err(e) => {
+                    let mut error_msg = format!("Failed to parse MapReduce workflow: {}\n", path.display());
+                    error_msg.push_str(&format!("\nOriginal error: {e}"));
+                    error_msg.push_str("\n\nHint: Check that your MapReduce workflow follows the correct structure:");
+                    error_msg.push_str("\n  - name, mode, map (required)");
+                    error_msg.push_str("\n  - setup, reduce (optional)");
+                    error_msg.push_str("\n  - map.agent_template.commands should be a list of WorkflowSteps");
+                    Err(anyhow!(error_msg))
+                }
+            }
+        } else {
+            // Try to parse as regular workflow
+            match serde_yaml::from_str::<WorkflowConfig>(&content) {
+                Ok(config) => Ok(config),
+                Err(e) => {
+                    // Try to provide more helpful error messages
+                    let mut error_msg = format!("Failed to parse YAML playbook: {}\n", path.display());
 
-                // Extract line and column info if available
-                if let Some(location) = e.location() {
-                    error_msg.push_str(&format!(
-                        "Error at line {}, column {}\n",
-                        location.line(),
-                        location.column()
-                    ));
+                    // Extract line and column info if available
+                    if let Some(location) = e.location() {
+                        error_msg.push_str(&format!(
+                            "Error at line {}, column {}\n",
+                            location.line(),
+                            location.column()
+                        ));
 
-                    // Try to show the problematic line
-                    if let Some(line) = content.lines().nth(location.line().saturating_sub(1)) {
-                        error_msg.push_str(&format!("Problematic line: {line}\n"));
-                        if location.column() > 0 {
-                            error_msg.push_str(&format!(
-                                "{}^\n",
-                                " ".repeat(location.column().saturating_sub(1))
-                            ));
+                        // Try to show the problematic line
+                        if let Some(line) = content.lines().nth(location.line().saturating_sub(1)) {
+                            error_msg.push_str(&format!("Problematic line: {line}\n"));
+                            if location.column() > 0 {
+                                error_msg.push_str(&format!(
+                                    "{}^\n",
+                                    " ".repeat(location.column().saturating_sub(1))
+                                ));
+                            }
                         }
                     }
+
+                    error_msg.push_str(&format!("\nOriginal error: {e}"));
+
+                    // Add hints for common issues
+                    if content.contains("claude:") || content.contains("shell:") {
+                        error_msg.push_str("\n\nHint: This appears to use the new workflow syntax with 'claude:' or 'shell:' commands.");
+                        error_msg.push_str("\nThe workflow configuration expects 'commands:' as a list of command objects.");
+                        error_msg.push_str("\nEnsure your YAML structure matches the expected format.");
+                    }
+
+                    Err(anyhow!(error_msg))
                 }
-
-                error_msg.push_str(&format!("\nOriginal error: {e}"));
-
-                // Add hints for common issues
-                if content.contains("claude:") || content.contains("shell:") {
-                    error_msg.push_str("\n\nHint: This appears to use the new workflow syntax with 'claude:' or 'shell:' commands.");
-                    error_msg.push_str("\nThe workflow configuration expects 'commands:' as a list of command objects.");
-                    error_msg.push_str("\nEnsure your YAML structure matches the expected format.");
-                }
-
-                Err(anyhow!(error_msg))
             }
         }
     } else {
@@ -343,6 +369,169 @@ mod cook_tests {
         // Should load default workflow
         assert!(!workflow.commands.is_empty());
         assert_eq!(workflow.commands.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_load_mapreduce_workflow() {
+        let temp_dir = TempDir::new().unwrap();
+        let playbook_path = temp_dir.path().join("mapreduce.yml");
+
+        // Create a MapReduce workflow matching the debtmap-mapreduce.yml structure
+        let workflow_content = r#"name: test-mapreduce
+mode: mapreduce
+
+setup:
+  - shell: "echo setup"
+
+map:
+  input: test.json
+  json_path: "$.items[*]"
+  agent_template:
+    commands:
+      - claude: "/fix-item ${item.id}"
+      - shell: "echo test"
+  max_parallel: 5
+  timeout_per_agent: 600s
+
+reduce:
+  commands:
+    - claude: "/summarize ${map.results}"
+    - shell: "echo done"
+"#;
+        tokio::fs::write(&playbook_path, workflow_content)
+            .await
+            .unwrap();
+
+        // Try to load the MapReduce workflow
+        let result = load_playbook(&playbook_path).await;
+        
+        // Debug the error if it fails
+        match &result {
+            Ok(workflow) => {
+                println!("Successfully loaded MapReduce workflow with {} commands", workflow.commands.len());
+                // Should have one placeholder command with mapreduce: prefix
+                assert_eq!(workflow.commands.len(), 1);
+                if let WorkflowCommand::Simple(cmd) = &workflow.commands[0] {
+                    assert!(cmd.starts_with("mapreduce:"), "Command should have mapreduce: prefix, got: {}", cmd);
+                } else {
+                    panic!("Expected Simple command, got: {:?}", workflow.commands[0]);
+                }
+            }
+            Err(e) => {
+                panic!("Failed to load MapReduce workflow: {:#}", e);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_load_debtmap_mapreduce_workflow() {
+        let temp_dir = TempDir::new().unwrap();
+        let playbook_path = temp_dir.path().join("debtmap-mapreduce.yml");
+
+        // Use the exact content from the problematic file
+        let workflow_content = r#"name: debtmap-parallel-elimination
+mode: mapreduce
+
+# Setup phase: Analyze the codebase and generate debt items
+setup:
+  - shell: "just coverage-lcov"
+    
+  - shell: "debtmap analyze . --lcov target/coverage/info.lcov --output debtmap.json --format json && git add debtmap.json && git commit -m 'Add debtmap.json'"
+    commit_required: true
+
+# Map phase: Process each debt item in parallel
+map:
+  # Input configuration - debtmap.json contains items array
+  input: debtmap.json
+  json_path: "$.items[*]"
+  
+  # Commands to execute for each debt item
+  agent_template:
+    commands:
+      # Fix the specific debt item
+      - claude: "/fix-debt-item --file ${item.location.file} --function ${item.location.function} --line ${item.location.line} --score ${item.unified_score.final_score}"
+        capture_output: true
+        timeout: 300
+      
+      # Run tests to verify the fix
+      - shell: "just test"
+        on_failure:
+          claude: "/mmm-debug-test-failure --output '${shell.output}'"
+          max_attempts: 2
+          fail_workflow: false
+      
+      # Run linting
+      - shell: "just fmt && just lint"
+        on_failure:
+          claude: "/mmm-lint '${shell.output}'"
+          max_attempts: 2
+          fail_workflow: false
+  
+  # Parallelization settings
+  max_parallel: 5  # Run up to 5 agents in parallel
+  timeout_per_agent: 600s  # 10 minutes per agent
+  retry_on_failure: 1  # Retry once if an agent fails
+  
+  # Process high-score items first
+  filter: "unified_score.final_score >= 5"  # Only process items with score >= 5
+  sort_by: "unified_score.final_score DESC"  # Process highest score items first
+  max_items: 10  # Limit to 10 items per run
+
+# Reduce phase: Aggregate results and finalize
+reduce:
+  commands:
+    # Generate summary report
+    - claude: "/summarize-debt-fixes --results '${map.results}' --successful ${map.successful} --failed ${map.failed}"
+      capture_output: true
+    
+    # Run full test suite after all fixes
+    - shell: "just test"
+      on_failure:
+        claude: "/mmm-debug-test-failure --output '${shell.output}'"
+        max_attempts: 3
+        fail_workflow: true  # Fail if tests don't pass after merging
+    
+    # Run formatting and linting
+    - shell: "just fmt && just lint"
+      capture_output: false
+    
+    # Regenerate debt analysis to see improvement
+    - claude: "/debtmap --compare-before"
+      capture_output: true
+    
+    # Create final commit
+    - shell: |
+        git add -A && git commit -m "fix: eliminate ${map.successful} technical debt items via MapReduce
+        
+        Processed ${map.total} debt items in parallel:
+        - Successfully fixed: ${map.successful} items
+        - Failed to fix: ${map.failed} items
+        
+        This commit represents the aggregated work of multiple parallel agents."
+      commit_required: true
+"#;
+        tokio::fs::write(&playbook_path, workflow_content)
+            .await
+            .unwrap();
+
+        // Try to load the MapReduce workflow
+        let result = load_playbook(&playbook_path).await;
+        
+        // Debug the error if it fails
+        match &result {
+            Ok(workflow) => {
+                println!("Successfully loaded debtmap MapReduce workflow with {} commands", workflow.commands.len());
+                assert_eq!(workflow.commands.len(), 1);
+                if let WorkflowCommand::Simple(cmd) = &workflow.commands[0] {
+                    assert!(cmd.starts_with("mapreduce:"), "Command should have mapreduce: prefix, got: {}", cmd);
+                } else {
+                    panic!("Expected Simple command, got: {:?}", workflow.commands[0]);
+                }
+            }
+            Err(e) => {
+                panic!("Failed to load debtmap MapReduce workflow: {:#}", e);
+            }
+        }
     }
 
     #[tokio::test]
