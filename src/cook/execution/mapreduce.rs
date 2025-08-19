@@ -1429,7 +1429,7 @@ impl MapReduceExecutor {
     /// Handle on_failure logic for a failed step
     async fn handle_on_failure(
         &self,
-        on_failure: &WorkflowStep,
+        on_failure: &crate::cook::workflow::OnFailureConfig,
         context: &mut AgentContext,
         error: String,
     ) -> Result<()> {
@@ -1437,26 +1437,29 @@ impl MapReduceExecutor {
         context.variables.insert("error".to_string(), error.clone());
         context.variables.insert("last_error".to_string(), error);
 
-        // Execute the on_failure step
-        let result = self.execute_single_step(on_failure, context).await;
+        // Check if there's a handler to execute
+        if let Some(handler_step) = on_failure.handler() {
+            // Execute the on_failure handler step
+            let result = self.execute_single_step(handler_step, context).await;
 
-        // Log the result but don't fail the entire execution
-        match result {
-            Ok(step_result) => {
-                if step_result.success {
-                    info!("on_failure handler succeeded for agent {}", context.item_id);
-                } else {
-                    warn!(
-                        "on_failure handler failed for agent {}: {}",
-                        context.item_id, step_result.stderr
+            // Log the result but don't fail the entire execution
+            match result {
+                Ok(step_result) => {
+                    if step_result.success {
+                        info!("on_failure handler succeeded for agent {}", context.item_id);
+                    } else {
+                        warn!(
+                            "on_failure handler failed for agent {}: {}",
+                            context.item_id, step_result.stderr
+                        );
+                    }
+                }
+                Err(e) => {
+                    error!(
+                        "Failed to execute on_failure handler for agent {}: {}",
+                        context.item_id, e
                     );
                 }
-            }
-            Err(e) => {
-                error!(
-                    "Failed to execute on_failure handler for agent {}: {}",
-                    context.item_id, e
-                );
             }
         }
 

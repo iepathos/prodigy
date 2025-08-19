@@ -5,7 +5,7 @@ mode: mapreduce
 setup:
   - shell: "just coverage-lcov"
     on_failure:
-      fail_workflow: true
+      fail_workflow: true  # Stop the workflow if coverage fails
       
   - shell: "debtmap analyze . --lcov target/coverage/info.lcov --output debtmap.json --format json && git add debtmap.json && git commit -m 'Add debtmap.json'"
     commit_required: true

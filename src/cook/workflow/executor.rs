@@ -8,6 +8,7 @@ use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::{SessionManager, SessionUpdate};
+use crate::cook::workflow::on_failure::OnFailureConfig;
 use crate::session::{format_duration, TimingTracker};
 use crate::testing::config::TestConfiguration;
 use anyhow::{anyhow, Context, Result};
@@ -132,7 +133,7 @@ pub struct WorkflowStep {
 
     /// Conditional execution on failure
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub on_failure: Option<Box<WorkflowStep>>,
+    pub on_failure: Option<OnFailureConfig>,
 
     /// Conditional execution on success
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -700,13 +701,37 @@ impl WorkflowExecutor {
 
         // Handle conditional execution
         if !result.success {
-            if let Some(on_failure) = &step.on_failure {
-                self.user_interaction
-                    .display_info("Executing on_failure step...");
-                let failure_result = Box::pin(self.execute_step(on_failure, env, ctx)).await?;
-                // Merge results
-                result.stdout.push_str("\n--- on_failure output ---\n");
-                result.stdout.push_str(&failure_result.stdout);
+            if let Some(on_failure_config) = &step.on_failure {
+                // Check if there's a handler to execute
+                if let Some(handler) = on_failure_config.handler() {
+                    self.user_interaction
+                        .display_info("Executing on_failure handler...");
+                    let failure_result = Box::pin(self.execute_step(handler, env, ctx)).await?;
+                    // Merge results
+                    result.stdout.push_str("\n--- on_failure output ---\n");
+                    result.stdout.push_str(&failure_result.stdout);
+                    
+                    // Check if we should retry the original command
+                    if on_failure_config.should_retry() {
+                        let max_retries = on_failure_config.max_retries();
+                        for retry in 1..=max_retries {
+                            self.user_interaction.display_info(&format!(
+                                "Retrying original command (attempt {}/{})",
+                                retry, max_retries
+                            ));
+                            // Create a copy of the step without on_failure to avoid recursion
+                            let mut retry_step = step.clone();
+                            retry_step.on_failure = None;
+                            let retry_result = Box::pin(self.execute_step(&retry_step, env, ctx)).await?;
+                            if retry_result.success {
+                                result = retry_result;
+                                break;
+                            }
+                        }
+                    }
+                }
+                // Update whether we should fail based on config
+                // This will be checked below
             }
         } else if let Some(on_success) = &step.on_success {
             self.user_interaction
@@ -732,18 +757,22 @@ impl WorkflowExecutor {
         }
 
         // Check if we should fail the workflow based on the result
-        // For test commands with fail_workflow: false, we allow failures
-        let should_fail = if let Some(test_cmd) = &step.test {
-            if let Some(on_failure_cfg) = &test_cmd.on_failure {
-                // Only fail if fail_workflow is true and the command failed
-                !result.success && on_failure_cfg.fail_workflow
+        let should_fail = if !result.success {
+            // Command failed, check on_failure configuration
+            if let Some(on_failure_config) = &step.on_failure {
+                on_failure_config.should_fail_workflow()
+            } else if let Some(test_cmd) = &step.test {
+                // Legacy test command handling
+                if let Some(test_on_failure) = &test_cmd.on_failure {
+                    test_on_failure.fail_workflow
+                } else {
+                    true // No on_failure config, fail on error
+                }
             } else {
-                // No on_failure config, fail on any error
-                !result.success
+                true // No on_failure handler, fail on error
             }
         } else {
-            // Not a test command, fail on any error
-            !result.success
+            false // Command succeeded, don't fail
         };
 
         if should_fail {
@@ -801,6 +830,13 @@ impl WorkflowExecutor {
             }
             
             anyhow::bail!(error_msg);
+        }
+        
+        // If the command failed but we're not failing the workflow (should_fail is false),
+        // we need to modify the result to indicate success so the workflow continues
+        if !result.success && !should_fail {
+            result.success = true;
+            result.stdout.push_str("\n[Note: Command failed but workflow continues due to on_failure configuration]");
         }
 
         // Count files changed

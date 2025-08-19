@@ -21,7 +21,7 @@ mode: mapreduce
 
 setup:
   - shell: "echo 'setup1' > setup1.txt"
-  - shell: "echo '[{"id": 1}, {"id": 2}]' > items.json"
+  - shell: 'echo ''[{{"id": 1}}, {{"id": 2}}]'' > items.json'
 
 map:
   input: items.json
@@ -134,7 +134,7 @@ reduce:
         assert!(setup[1].commit_required);
 
         // Verify map phase
-        assert_eq!(config.map.input, "debtmap.json");
+        assert_eq!(config.map.input.to_string_lossy(), "debtmap.json");
         assert_eq!(config.map.json_path, "$.items[*]");
         assert_eq!(config.map.max_parallel, 5);
         assert_eq!(config.map.max_items, Some(10));
@@ -161,7 +161,7 @@ name: test-skip-reduce
 mode: mapreduce
 
 setup:
-  - shell: "echo '[{"id": 1}]' > items.json"
+  - shell: 'echo ''[{{"id": 1}}]'' > items.json'
 
 map:
   input: items.json
@@ -291,7 +291,7 @@ mode: mapreduce
 
 setup:
   - shell: "echo 'setup complete' > {}"
-  - shell: "echo '[{{"id": 1}}]' > items.json"
+  - shell: 'echo ''[{{"id": 1}}]'' > items.json'
 
 map:
   input: items.json
@@ -342,7 +342,7 @@ name: test-on-failure
 mode: mapreduce
 
 setup:
-  - shell: "echo '[{"id": 1}]' > items.json"
+  - shell: 'echo ''[{{"id": 1}}]'' > items.json'
 
 map:
   input: items.json
@@ -351,10 +351,10 @@ map:
   agent_template:
     commands:
       - shell: "exit 1"  # Fail intentionally
-        on_failure:
-          claude: "/fix-error --output '${shell.output}'"
-          max_attempts: 2
-          fail_workflow: false
+    on_failure:
+      claude: "/fix-error --output '${shell.output}'"
+      max_attempts: 2
+      fail_workflow: false
 "#;
 
         let _config = parse_mapreduce_workflow(yaml).unwrap();

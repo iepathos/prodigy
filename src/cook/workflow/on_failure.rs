@@ -1,0 +1,140 @@
+//! On-failure handling for workflow steps
+//!
+//! Provides flexible error handling options for workflow commands.
+
+use serde::{Deserialize, Serialize};
+use super::WorkflowStep;
+
+/// Configuration for handling command failures
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OnFailureConfig {
+    /// Simple ignore errors flag
+    IgnoreErrors(bool),
+    
+    /// Just control whether to fail the workflow
+    FailControl {
+        #[serde(default)]
+        fail_workflow: bool,
+    },
+    
+    /// Execute a handler command
+    Handler(Box<WorkflowStep>),
+    
+    /// Advanced configuration with handler and control flags
+    Advanced {
+        /// Command to execute on failure
+        #[serde(flatten)]
+        handler: Box<WorkflowStep>,
+        
+        /// Whether to fail the workflow after handling
+        #[serde(default = "default_fail")]
+        fail_workflow: bool,
+        
+        /// Whether to retry the original command after handling
+        #[serde(default)]
+        retry_original: bool,
+        
+        /// Maximum retry attempts
+        #[serde(default = "default_retries")]
+        max_retries: u32,
+    }
+}
+
+fn default_fail() -> bool {
+    false // By default, don't fail if there's a handler
+}
+
+fn default_retries() -> u32 {
+    1
+}
+
+impl OnFailureConfig {
+    /// Check if the workflow should fail after handling this error
+    pub fn should_fail_workflow(&self) -> bool {
+        match self {
+            OnFailureConfig::IgnoreErrors(false) => true,
+            OnFailureConfig::IgnoreErrors(true) => false,
+            OnFailureConfig::FailControl { fail_workflow } => *fail_workflow,
+            OnFailureConfig::Handler(_) => false, // If there's a handler, don't fail by default
+            OnFailureConfig::Advanced { fail_workflow, .. } => *fail_workflow,
+        }
+    }
+    
+    /// Get the handler command if any
+    pub fn handler(&self) -> Option<&WorkflowStep> {
+        match self {
+            OnFailureConfig::Handler(step) => Some(step),
+            OnFailureConfig::Advanced { handler, .. } => Some(handler),
+            _ => None,
+        }
+    }
+    
+    /// Check if the original command should be retried
+    pub fn should_retry(&self) -> bool {
+        match self {
+            OnFailureConfig::Advanced { retry_original, .. } => *retry_original,
+            _ => false,
+        }
+    }
+    
+    /// Get maximum retry attempts
+    pub fn max_retries(&self) -> u32 {
+        match self {
+            OnFailureConfig::Advanced { max_retries, .. } => *max_retries,
+            _ => 0,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_parse_ignore_errors() {
+        let yaml = "true";
+        let config: OnFailureConfig = serde_yaml::from_str(yaml).unwrap();
+        assert!(!config.should_fail_workflow());
+        
+        let yaml = "false";
+        let config: OnFailureConfig = serde_yaml::from_str(yaml).unwrap();
+        assert!(config.should_fail_workflow());
+    }
+    
+    #[test]
+    fn test_parse_fail_control() {
+        let yaml = "fail_workflow: true";
+        let config: OnFailureConfig = serde_yaml::from_str(yaml).unwrap();
+        assert!(config.should_fail_workflow());
+        
+        let yaml = "fail_workflow: false";
+        let config: OnFailureConfig = serde_yaml::from_str(yaml).unwrap();
+        assert!(!config.should_fail_workflow());
+    }
+    
+    #[test]
+    fn test_parse_handler() {
+        let yaml = r#"
+shell: "echo 'Handling error'"
+"#;
+        let config: OnFailureConfig = serde_yaml::from_str(yaml).unwrap();
+        assert!(config.handler().is_some());
+        assert!(!config.should_fail_workflow()); // Default: don't fail with handler
+    }
+    
+    #[test]
+    fn test_parse_advanced() {
+        let yaml = r#"
+shell: "fix-error"
+fail_workflow: true
+retry_original: true
+max_retries: 3
+"#;
+        let config: OnFailureConfig = serde_yaml::from_str(yaml).unwrap();
+        assert!(config.handler().is_some());
+        assert!(config.should_fail_workflow());
+        assert!(config.should_retry());
+        assert_eq!(config.max_retries(), 3);
+    }
+}

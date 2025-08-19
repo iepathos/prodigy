@@ -297,9 +297,10 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                                 // Clear shell field when converting to test
                                 (None, Some(test_cmd), None)
                             } else if step.on_failure.is_some() {
-                                // For non-shell commands, convert TestDebugConfig to WorkflowStep
+                                // For non-shell commands, convert TestDebugConfig to OnFailureConfig
                                 let on_failure = step.on_failure.as_ref().map(|debug_config| {
-                                    Box::new(WorkflowStep {
+                                    // Create a handler step with the claude command
+                                    let handler_step = Box::new(WorkflowStep {
                                         name: None,
                                         command: None,
                                         claude: Some(debug_config.claude.clone()),
@@ -314,7 +315,14 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                                         on_success: None,
                                         on_exit_code: std::collections::HashMap::new(),
                                         commit_required: debug_config.commit_required,
-                                    })
+                                    });
+                                    // Wrap in Advanced config to control fail_workflow
+                                    crate::cook::workflow::OnFailureConfig::Advanced {
+                                        handler: handler_step,
+                                        fail_workflow: debug_config.fail_workflow,
+                                        retry_original: false,
+                                        max_retries: debug_config.max_attempts - 1, // max_attempts includes first try
+                                    }
                                 });
                                 (step.shell.clone(), step.test.clone(), on_failure)
                             } else {
