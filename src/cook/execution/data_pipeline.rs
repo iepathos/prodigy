@@ -823,8 +823,9 @@ impl Sorter {
     /// Compare two items according to the sort fields
     fn compare_items(&self, a: &Value, b: &Value) -> Ordering {
         for field in &self.fields {
-            let a_value = a.get(&field.path);
-            let b_value = b.get(&field.path);
+            // Support nested field access for sorting
+            let a_value = Self::get_nested_field_value(a, &field.path);
+            let b_value = Self::get_nested_field_value(b, &field.path);
 
             let ordering = self.compare_values(a_value, b_value, &field.null_position);
 
@@ -839,6 +840,18 @@ impl Sorter {
         }
 
         Ordering::Equal
+    }
+
+    /// Get a nested field value from a JSON object for sorting
+    fn get_nested_field_value<'a>(item: &'a Value, path: &str) -> Option<&'a Value> {
+        let parts: Vec<&str> = path.split('.').collect();
+        let mut current = item;
+        
+        for part in parts {
+            current = current.get(part)?;
+        }
+        
+        Some(current)
     }
 
     /// Compare two JSON values for sorting
@@ -1089,5 +1102,277 @@ mod tests {
 
         assert!(path_filter.evaluate(&rust_file));
         assert!(!path_filter.evaluate(&other_file));
+    }
+
+    #[test]
+    fn test_nested_field_filtering() {
+        // Test basic nested field access
+        let filter = FilterExpression::parse("unified_score.final_score >= 5").unwrap();
+        
+        let item1 = json!({
+            "unified_score": {
+                "final_score": 7.5,
+                "complexity_factor": 3.0
+            }
+        });
+        
+        let item2 = json!({
+            "unified_score": {
+                "final_score": 3.2,
+                "complexity_factor": 2.0
+            }
+        });
+        
+        let item3 = json!({
+            "unified_score": {
+                "complexity_factor": 8.0
+                // missing final_score
+            }
+        });
+        
+        assert!(filter.evaluate(&item1));  // 7.5 >= 5
+        assert!(!filter.evaluate(&item2)); // 3.2 < 5
+        assert!(!filter.evaluate(&item3)); // missing field
+    }
+
+    #[test]
+    fn test_deeply_nested_field_filtering() {
+        // Test deeply nested field access (3+ levels)
+        let filter = FilterExpression::parse("location.coordinates.lat > 40.0").unwrap();
+        
+        let item1 = json!({
+            "location": {
+                "coordinates": {
+                    "lat": 45.5,
+                    "lng": -122.6
+                }
+            }
+        });
+        
+        let item2 = json!({
+            "location": {
+                "coordinates": {
+                    "lat": 35.0,
+                    "lng": -80.0
+                }
+            }
+        });
+        
+        assert!(filter.evaluate(&item1));  // 45.5 > 40.0
+        assert!(!filter.evaluate(&item2)); // 35.0 < 40.0
+    }
+
+    #[test]
+    fn test_nested_field_with_logical_operators() {
+        // Test nested fields with AND/OR operators
+        let filter = FilterExpression::parse(
+            "unified_score.final_score >= 5 && debt_type.category == 'complexity'"
+        ).unwrap();
+        
+        let item1 = json!({
+            "unified_score": {
+                "final_score": 7.5
+            },
+            "debt_type": {
+                "category": "complexity"
+            }
+        });
+        
+        let item2 = json!({
+            "unified_score": {
+                "final_score": 7.5
+            },
+            "debt_type": {
+                "category": "performance"
+            }
+        });
+        
+        let item3 = json!({
+            "unified_score": {
+                "final_score": 3.0
+            },
+            "debt_type": {
+                "category": "complexity"
+            }
+        });
+        
+        assert!(filter.evaluate(&item1));  // Both conditions true
+        assert!(!filter.evaluate(&item2)); // Wrong category
+        assert!(!filter.evaluate(&item3)); // Score too low
+    }
+
+    #[test]
+    fn test_nested_field_in_operator() {
+        // Test nested field with IN operator
+        let filter = FilterExpression::parse(
+            "debt_type.severity in ['high', 'critical']"
+        ).unwrap();
+        
+        let item1 = json!({
+            "debt_type": {
+                "severity": "high"
+            }
+        });
+        
+        let item2 = json!({
+            "debt_type": {
+                "severity": "critical"
+            }
+        });
+        
+        let item3 = json!({
+            "debt_type": {
+                "severity": "low"
+            }
+        });
+        
+        assert!(filter.evaluate(&item1));
+        assert!(filter.evaluate(&item2));
+        assert!(!filter.evaluate(&item3));
+    }
+
+    #[test]
+    fn test_nested_field_sorting() {
+        // Test sorting by nested fields
+        let sorter = Sorter::parse("unified_score.final_score DESC").unwrap();
+        
+        let mut items = vec![
+            json!({
+                "id": 1,
+                "unified_score": {"final_score": 3.5}
+            }),
+            json!({
+                "id": 2,
+                "unified_score": {"final_score": 8.0}
+            }),
+            json!({
+                "id": 3,
+                "unified_score": {"final_score": 5.5}
+            }),
+        ];
+        
+        sorter.sort(&mut items);
+        
+        // Check order: should be 8.0, 5.5, 3.5
+        assert_eq!(items[0]["id"], 2);
+        assert_eq!(items[1]["id"], 3);
+        assert_eq!(items[2]["id"], 1);
+    }
+
+    #[test]
+    fn test_mapreduce_debtmap_scenario() {
+        // Test the exact scenario from the debtmap MapReduce workflow
+        let pipeline = DataPipeline::from_config(
+            Some("$.items[*]".to_string()),
+            Some("unified_score.final_score >= 5".to_string()),
+            Some("unified_score.final_score DESC".to_string()),
+            Some(3), // max_items
+        ).unwrap();
+        
+        let data = json!({
+            "items": [
+                {
+                    "location": {"file": "src/main.rs"},
+                    "unified_score": {"final_score": 3.0}
+                },
+                {
+                    "location": {"file": "src/lib.rs"},
+                    "unified_score": {"final_score": 7.5}
+                },
+                {
+                    "location": {"file": "src/utils.rs"},
+                    "unified_score": {"final_score": 5.1}
+                },
+                {
+                    "location": {"file": "src/parser.rs"},
+                    "unified_score": {"final_score": 9.2}
+                },
+                {
+                    "location": {"file": "src/config.rs"},
+                    "unified_score": {"final_score": 4.8}
+                },
+                {
+                    "location": {"file": "src/test.rs"},
+                    "unified_score": {"final_score": 6.0}
+                },
+            ]
+        });
+        
+        let results = pipeline.process(&data).unwrap();
+        
+        // Should have 3 items (max_items limit)
+        assert_eq!(results.len(), 3);
+        
+        // Should be sorted by score descending: 9.2, 7.5, 6.0
+        assert_eq!(results[0]["unified_score"]["final_score"], 9.2);
+        assert_eq!(results[1]["unified_score"]["final_score"], 7.5);
+        assert_eq!(results[2]["unified_score"]["final_score"], 6.0);
+        
+        // Item with score 5.1 should be included if we had max_items=4
+        let pipeline_4 = DataPipeline::from_config(
+            Some("$.items[*]".to_string()),
+            Some("unified_score.final_score >= 5".to_string()),
+            Some("unified_score.final_score DESC".to_string()),
+            Some(4),
+        ).unwrap();
+        
+        let results_4 = pipeline_4.process(&data).unwrap();
+        assert_eq!(results_4.len(), 4);
+        assert_eq!(results_4[3]["unified_score"]["final_score"], 5.1);
+    }
+
+    #[test]
+    fn test_nested_field_functions() {
+        // Test function expressions with nested fields
+        let contains_filter = FilterExpression::Function {
+            name: "contains".to_string(),
+            args: vec!["location.file".to_string(), "main".to_string()],
+        };
+        
+        let item1 = json!({
+            "location": {
+                "file": "src/main.rs"
+            }
+        });
+        
+        let item2 = json!({
+            "location": {
+                "file": "src/lib.rs"
+            }
+        });
+        
+        assert!(contains_filter.evaluate(&item1));
+        assert!(!contains_filter.evaluate(&item2));
+        
+        // Test starts_with on nested field
+        let starts_filter = FilterExpression::Function {
+            name: "starts_with".to_string(),
+            args: vec!["location.file".to_string(), "src/".to_string()],
+        };
+        
+        assert!(starts_filter.evaluate(&item1));
+        assert!(starts_filter.evaluate(&item2));
+        
+        // Test is_null on nested field
+        let null_filter = FilterExpression::Function {
+            name: "is_null".to_string(),
+            args: vec!["location.line".to_string()],
+        };
+        
+        let item_with_null = json!({
+            "location": {
+                "file": "src/main.rs",
+                "line": null
+            }
+        });
+        
+        let item_without_field = json!({
+            "location": {
+                "file": "src/main.rs"
+            }
+        });
+        
+        assert!(null_filter.evaluate(&item_with_null));
+        assert!(!null_filter.evaluate(&item_without_field)); // missing field != null
     }
 }
