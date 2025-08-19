@@ -6,6 +6,8 @@ pub mod claude;
 pub mod data_pipeline;
 pub mod interpolation;
 pub mod mapreduce;
+pub mod mapreduce_integration_tests;
+pub mod mapreduce_tests;
 pub mod runner;
 
 pub use claude::{ClaudeExecutor, ClaudeExecutorImpl};

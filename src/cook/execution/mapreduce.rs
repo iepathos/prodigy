@@ -337,10 +337,28 @@ impl MapReduceExecutor {
         // Execute map phase
         let map_results = self.execute_map_phase(map_phase, work_items, env).await?;
 
-        // Execute reduce phase if specified
+        // Execute reduce phase if specified AND there were items to process
+        // Skip reduce if no items were processed or all failed
         if let Some(reduce_phase) = reduce_phase {
-            self.execute_reduce_phase(reduce_phase, &map_results, env)
-                .await?;
+            if map_results.is_empty() {
+                self.user_interaction.display_warning(
+                    "⚠️ Skipping reduce phase: no items were processed in map phase"
+                );
+            } else {
+                let successful_count = map_results
+                    .iter()
+                    .filter(|r| matches!(r.status, AgentStatus::Success))
+                    .count();
+                
+                if successful_count == 0 {
+                    self.user_interaction.display_warning(
+                        "⚠️ Skipping reduce phase: all map agents failed"
+                    );
+                } else {
+                    self.execute_reduce_phase(reduce_phase, &map_results, env)
+                        .await?;
+                }
+            }
         }
 
         // Report summary

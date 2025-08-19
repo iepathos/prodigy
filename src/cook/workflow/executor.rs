@@ -1285,6 +1285,42 @@ impl WorkflowExecutor {
         let workflow_start = Instant::now();
 
         // Don't duplicate the message - it's already shown by the orchestrator
+        
+        // Execute setup phase if present
+        if !workflow.steps.is_empty() {
+            self.user_interaction
+                .display_progress("🔄 Running setup phase...");
+            
+            // Execute setup steps in the main worktree
+            let mut workflow_context = WorkflowContext::default();
+            for (step_index, step) in workflow.steps.iter().enumerate() {
+                let step_display = self.get_step_display_name(step);
+                self.user_interaction.display_progress(&format!(
+                    "Setup step {}/{}: {}",
+                    step_index + 1,
+                    workflow.steps.len(),
+                    step_display
+                ));
+                
+                // Execute the setup step
+                let step_result = self
+                    .execute_step(step, env, &mut workflow_context)
+                    .await
+                    .context(format!("Failed to execute setup step: {step_display}"))?;
+                
+                if !step_result.success {
+                    return Err(anyhow!(
+                        "Setup phase failed at step {}/{}: {}",
+                        step_index + 1,
+                        workflow.steps.len(),
+                        step_display
+                    ));
+                }
+            }
+            
+            self.user_interaction
+                .display_success("✓ Setup phase completed");
+        }
 
         // Ensure we have map phase configuration
         let map_phase = workflow

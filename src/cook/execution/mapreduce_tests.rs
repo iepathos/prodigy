@@ -1,9 +1,12 @@
 //! Tests for MapReduce executor
 
-use super::*;
+use crate::cook::execution::mapreduce::*;
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
+use crate::cook::orchestrator::ExecutionEnvironment;
 use serde_json::json;
 use std::collections::HashMap;
+use std::path::PathBuf;
+use std::time::Duration;
 
 #[test]
 fn test_agent_status_serialization() {
