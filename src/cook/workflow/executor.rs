@@ -177,8 +177,7 @@ pub struct ExtendedWorkflowConfig {
     pub max_iterations: u32,
     /// Whether to iterate
     pub iterate: bool,
-    /// Collect metrics
-    pub collect_metrics: bool,
+    // collect_metrics removed - MMM focuses on orchestration, not metrics
 }
 
 /// Executes workflow steps with commit verification

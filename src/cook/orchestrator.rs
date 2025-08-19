@@ -30,6 +30,8 @@ pub struct CookConfig {
     pub project_path: PathBuf,
     /// Workflow configuration
     pub workflow: WorkflowConfig,
+    /// MapReduce configuration (if this is a MapReduce workflow)
+    pub mapreduce_config: Option<crate::config::MapReduceWorkflowConfig>,
 }
 
 /// Trait for orchestrating cook operations
@@ -242,6 +244,17 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         env: &ExecutionEnvironment,
         config: &CookConfig,
     ) -> Result<()> {
+        // Check if this is a MapReduce workflow
+        if let Some(ref mapreduce_config) = config.mapreduce_config {
+            self.user_interaction.display_info(&format!(
+                "Executing MapReduce workflow: {}",
+                mapreduce_config.name
+            ));
+            return self
+                .execute_mapreduce_workflow(env, config, mapreduce_config)
+                .await;
+        }
+
         // Check if this is a structured workflow with outputs
         let has_structured_commands = config.workflow.commands.iter().any(|cmd| {
             matches!(cmd, crate::config::command::WorkflowCommand::Structured(c)
@@ -406,7 +419,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             reduce_phase: None,
             max_iterations: config.command.max_iterations,
             iterate: config.command.max_iterations > 1,
-            collect_metrics: config.command.metrics,
+            // collect_metrics removed - MMM focuses on orchestration
         };
 
         // Analysis functionality has been removed in v0.3.0
@@ -1046,6 +1059,36 @@ impl DefaultCookOrchestrator {
         }
 
         Ok(())
+    }
+
+    /// Execute a MapReduce workflow
+    async fn execute_mapreduce_workflow(
+        &self,
+        env: &ExecutionEnvironment,
+        _config: &CookConfig,
+        mapreduce_config: &crate::config::MapReduceWorkflowConfig,
+    ) -> Result<()> {
+        // Convert MapReduce config to ExtendedWorkflowConfig
+        let extended_workflow = ExtendedWorkflowConfig {
+            name: mapreduce_config.name.clone(),
+            mode: crate::cook::workflow::WorkflowMode::MapReduce,
+            steps: mapreduce_config.setup.clone().unwrap_or_default(),
+            map_phase: Some(mapreduce_config.to_map_phase()),
+            reduce_phase: mapreduce_config.to_reduce_phase(),
+            max_iterations: 1, // MapReduce runs once
+            iterate: false,
+            // collect_metrics removed - MMM focuses on orchestration
+        };
+
+        // Create workflow executor
+        let mut executor = crate::cook::workflow::WorkflowExecutorImpl::new(
+            self.claude_executor.clone(),
+            self.session_manager.clone(),
+            self.user_interaction.clone(),
+        );
+
+        // Execute the MapReduce workflow
+        executor.execute(&extended_workflow, env).await
     }
 
     /// Execute a single workflow command

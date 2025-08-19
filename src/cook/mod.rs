@@ -21,7 +21,7 @@ mod tests;
 mod mod_tests;
 
 use crate::abstractions::git::RealGitOperations;
-use crate::config::{workflow::WorkflowConfig, ConfigLoader, WorkflowCommand};
+use crate::config::{workflow::WorkflowConfig, ConfigLoader};
 use crate::simple_state::StateManager;
 use anyhow::{anyhow, Context as _, Result};
 use std::path::Path;
@@ -93,20 +93,27 @@ pub async fn cook(mut cmd: CookCommand) -> Result<()> {
     config_loader
         .load_with_explicit_path(&project_path, None)
         .await?;
-    let config = config_loader.get_config();
+    let _config = config_loader.get_config();
 
-    // Load workflow
-    let workflow = load_workflow(&cmd, &config).await?;
+    // Load workflow - this handles both regular and MapReduce workflows
+    let (workflow, mapreduce_config) = load_workflow_with_mapreduce(&cmd).await?;
 
     // Create orchestrator with all dependencies
     let orchestrator = create_orchestrator(&project_path, &cmd).await?;
 
     // Create cook configuration
-    let cook_config = CookConfig {
+    let mut cook_config = CookConfig {
         command: cmd,
         project_path,
         workflow,
+        mapreduce_config: None,
     };
+
+    // If this is a MapReduce workflow, we need special handling
+    if let Some(mr_config) = mapreduce_config {
+        // Store the MapReduce config for the orchestrator to use
+        cook_config.mapreduce_config = Some(mr_config);
+    }
 
     // Run the orchestrator
     orchestrator.run(cook_config).await
@@ -193,7 +200,19 @@ async fn create_orchestrator(
     )))
 }
 
-/// Load workflow configuration
+/// Load workflow configuration with MapReduce support
+async fn load_workflow_with_mapreduce(
+    cmd: &CookCommand,
+) -> Result<(
+    WorkflowConfig,
+    Option<crate::config::MapReduceWorkflowConfig>,
+)> {
+    // Always load from playbook since it's required
+    load_playbook_with_mapreduce(&cmd.playbook).await
+}
+
+/// Load workflow configuration (backward compatibility)
+#[allow(dead_code)]
 async fn load_workflow(
     cmd: &CookCommand,
     _config: &crate::config::Config,
@@ -202,8 +221,13 @@ async fn load_workflow(
     load_playbook(&cmd.playbook).await
 }
 
-/// Load workflow configuration from a playbook file
-async fn load_playbook(path: &Path) -> Result<WorkflowConfig> {
+/// Load workflow configuration from a playbook file with MapReduce support
+async fn load_playbook_with_mapreduce(
+    path: &Path,
+) -> Result<(
+    WorkflowConfig,
+    Option<crate::config::MapReduceWorkflowConfig>,
+)> {
     let content = tokio::fs::read_to_string(path)
         .await
         .context(format!("Failed to read playbook file: {}", path.display()))?;
@@ -217,31 +241,30 @@ async fn load_playbook(path: &Path) -> Result<WorkflowConfig> {
             // Try to parse as MapReduce workflow
             match crate::config::parse_mapreduce_workflow(&content) {
                 Ok(mapreduce_config) => {
-                    // Convert MapReduce config to regular WorkflowConfig
-                    // MapReduce workflows will be handled differently by the orchestrator
-                    // For now, return an empty WorkflowConfig as a placeholder
-                    // The actual MapReduce execution will be triggered by the orchestrator
-                    Ok(WorkflowConfig {
-                        commands: vec![WorkflowCommand::Simple(format!("mapreduce:{}", mapreduce_config.name))],
-                    })
+                    // Return empty workflow config with the MapReduce config
+                    Ok((WorkflowConfig { commands: vec![] }, Some(mapreduce_config)))
                 }
                 Err(e) => {
-                    let mut error_msg = format!("Failed to parse MapReduce workflow: {}\n", path.display());
+                    let mut error_msg =
+                        format!("Failed to parse MapReduce workflow: {}\n", path.display());
                     error_msg.push_str(&format!("\nOriginal error: {e}"));
                     error_msg.push_str("\n\nHint: Check that your MapReduce workflow follows the correct structure:");
                     error_msg.push_str("\n  - name, mode, map (required)");
                     error_msg.push_str("\n  - setup, reduce (optional)");
-                    error_msg.push_str("\n  - map.agent_template.commands should be a list of WorkflowSteps");
+                    error_msg.push_str(
+                        "\n  - map.agent_template.commands should be a list of WorkflowSteps",
+                    );
                     Err(anyhow!(error_msg))
                 }
             }
         } else {
             // Try to parse as regular workflow
             match serde_yaml::from_str::<WorkflowConfig>(&content) {
-                Ok(config) => Ok(config),
+                Ok(config) => Ok((config, None)),
                 Err(e) => {
                     // Try to provide more helpful error messages
-                    let mut error_msg = format!("Failed to parse YAML playbook: {}\n", path.display());
+                    let mut error_msg =
+                        format!("Failed to parse YAML playbook: {}\n", path.display());
 
                     // Extract line and column info if available
                     if let Some(location) = e.location() {
@@ -269,11 +292,77 @@ async fn load_playbook(path: &Path) -> Result<WorkflowConfig> {
                     if content.contains("claude:") || content.contains("shell:") {
                         error_msg.push_str("\n\nHint: This appears to use the new workflow syntax with 'claude:' or 'shell:' commands.");
                         error_msg.push_str("\nThe workflow configuration expects 'commands:' as a list of command objects.");
-                        error_msg.push_str("\nEnsure your YAML structure matches the expected format.");
+                        error_msg
+                            .push_str("\nEnsure your YAML structure matches the expected format.");
                     }
 
                     Err(anyhow!(error_msg))
                 }
+            }
+        }
+    } else {
+        // Default to JSON parsing
+        match serde_json::from_str::<WorkflowConfig>(&content) {
+            Ok(config) => Ok((config, None)),
+            Err(e) => {
+                let mut error_msg = format!("Failed to parse JSON playbook: {}\n", path.display());
+
+                // JSON errors usually include line/column info
+                error_msg.push_str(&format!("Error: {e}"));
+
+                Err(anyhow!(error_msg))
+            }
+        }
+    }
+}
+
+/// Load workflow configuration from a playbook file  
+async fn load_playbook(path: &Path) -> Result<WorkflowConfig> {
+    let content = tokio::fs::read_to_string(path)
+        .await
+        .context(format!("Failed to read playbook file: {}", path.display()))?;
+
+    // Try to parse as YAML first, then fall back to JSON
+    if path.extension().and_then(|s| s.to_str()) == Some("yml")
+        || path.extension().and_then(|s| s.to_str()) == Some("yaml")
+    {
+        // Try to parse as regular workflow first
+        match serde_yaml::from_str::<WorkflowConfig>(&content) {
+            Ok(config) => Ok(config),
+            Err(e) => {
+                // Try to provide more helpful error messages
+                let mut error_msg = format!("Failed to parse YAML playbook: {}\n", path.display());
+
+                // Extract line and column info if available
+                if let Some(location) = e.location() {
+                    error_msg.push_str(&format!(
+                        "Error at line {}, column {}\n",
+                        location.line(),
+                        location.column()
+                    ));
+
+                    // Try to show the problematic line
+                    if let Some(line) = content.lines().nth(location.line().saturating_sub(1)) {
+                        error_msg.push_str(&format!("Problematic line: {line}\n"));
+                        if location.column() > 0 {
+                            error_msg.push_str(&format!(
+                                "{}^\n",
+                                " ".repeat(location.column().saturating_sub(1))
+                            ));
+                        }
+                    }
+                }
+
+                error_msg.push_str(&format!("\nOriginal error: {e}"));
+
+                // Add hints for common issues
+                if content.contains("claude:") || content.contains("shell:") {
+                    error_msg.push_str("\n\nHint: This appears to use the new workflow syntax with 'claude:' or 'shell:' commands.");
+                    error_msg.push_str("\nThe workflow configuration expects 'commands:' as a list of command objects.");
+                    error_msg.push_str("\nEnsure your YAML structure matches the expected format.");
+                }
+
+                Err(anyhow!(error_msg))
             }
         }
     } else {
@@ -307,6 +396,7 @@ pub async fn run_improvement_loop(
 #[cfg(test)]
 mod cook_tests {
     use super::*;
+    use crate::config::WorkflowCommand;
     use std::path::PathBuf;
     use tempfile::TempDir;
 
@@ -403,19 +493,18 @@ reduce:
             .unwrap();
 
         // Try to load the MapReduce workflow
-        let result = load_playbook(&playbook_path).await;
-        
+        let result = load_playbook_with_mapreduce(&playbook_path).await;
+
         // Debug the error if it fails
         match &result {
-            Ok(workflow) => {
-                println!("Successfully loaded MapReduce workflow with {} commands", workflow.commands.len());
-                // Should have one placeholder command with mapreduce: prefix
-                assert_eq!(workflow.commands.len(), 1);
-                if let WorkflowCommand::Simple(cmd) = &workflow.commands[0] {
-                    assert!(cmd.starts_with("mapreduce:"), "Command should have mapreduce: prefix, got: {}", cmd);
-                } else {
-                    panic!("Expected Simple command, got: {:?}", workflow.commands[0]);
-                }
+            Ok((workflow, mapreduce_config)) => {
+                println!("Successfully loaded MapReduce workflow");
+                // Should have empty workflow commands and a MapReduce config
+                assert_eq!(workflow.commands.len(), 0);
+                assert!(mapreduce_config.is_some(), "Should have MapReduce config");
+                let mr_config = mapreduce_config.as_ref().unwrap();
+                assert_eq!(mr_config.name, "test-mapreduce");
+                assert_eq!(mr_config.mode, "mapreduce");
             }
             Err(e) => {
                 panic!("Failed to load MapReduce workflow: {:#}", e);
@@ -515,18 +604,17 @@ reduce:
             .unwrap();
 
         // Try to load the MapReduce workflow
-        let result = load_playbook(&playbook_path).await;
-        
+        let result = load_playbook_with_mapreduce(&playbook_path).await;
+
         // Debug the error if it fails
         match &result {
-            Ok(workflow) => {
-                println!("Successfully loaded debtmap MapReduce workflow with {} commands", workflow.commands.len());
-                assert_eq!(workflow.commands.len(), 1);
-                if let WorkflowCommand::Simple(cmd) = &workflow.commands[0] {
-                    assert!(cmd.starts_with("mapreduce:"), "Command should have mapreduce: prefix, got: {}", cmd);
-                } else {
-                    panic!("Expected Simple command, got: {:?}", workflow.commands[0]);
-                }
+            Ok((workflow, mapreduce_config)) => {
+                println!("Successfully loaded debtmap MapReduce workflow");
+                assert_eq!(workflow.commands.len(), 0);
+                assert!(mapreduce_config.is_some(), "Should have MapReduce config");
+                let mr_config = mapreduce_config.as_ref().unwrap();
+                assert_eq!(mr_config.name, "debtmap-parallel-elimination");
+                assert_eq!(mr_config.mode, "mapreduce");
             }
             Err(e) => {
                 panic!("Failed to load debtmap MapReduce workflow: {:#}", e);

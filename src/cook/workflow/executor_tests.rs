@@ -1093,7 +1093,7 @@ mod disabled_tests {
             }],
             max_iterations: 1,
             iterate: false,
-            collect_metrics: false,
+            // collect_metrics removed - MMM focuses on orchestration
         };
 
         // Execute workflow
