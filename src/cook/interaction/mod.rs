@@ -288,7 +288,7 @@ pub mod tests {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("Iteration end: {current} {:?} {success}", duration));
+                .push(format!("Iteration end: {current} {duration:?} {success}"));
         }
 
         fn step_start(&self, step: u32, total: u32, description: &str) {
@@ -570,7 +570,7 @@ pub mod mocks {
             self.messages
                 .lock()
                 .unwrap()
-                .push(format!("ITERATION_END: {current} {:?} {success}", duration));
+                .push(format!("ITERATION_END: {current} {duration:?} {success}"));
         }
 
         fn step_start(&self, step: u32, total: u32, description: &str) {

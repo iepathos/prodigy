@@ -490,7 +490,7 @@ impl ClaudeClient for RealClaudeClient {
     }
 
     async fn implement_spec(&self, spec_id: &str, verbose: bool) -> Result<bool> {
-        println!("🔧 Running /mmm-implement-spec {}...", spec_id);
+        println!("🔧 Running /mmm-implement-spec {spec_id}...");
 
         let mut env_vars = HashMap::new();
         if std::env::var("MMM_AUTOMATION").unwrap_or_default() == "true" {

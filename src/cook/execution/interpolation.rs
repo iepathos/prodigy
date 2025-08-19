@@ -318,7 +318,7 @@ impl InterpolationContext {
             let full_key = if prefix.is_empty() {
                 key.clone()
             } else {
-                format!("{}.{}", prefix, key)
+                format!("{prefix}.{key}")
             };
             self.variables.insert(full_key, value.clone());
         }

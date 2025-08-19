@@ -506,7 +506,7 @@ reduce:
                 assert_eq!(mr_config.mode, "mapreduce");
             }
             Err(e) => {
-                panic!("Failed to load MapReduce workflow: {:#}", e);
+                panic!("Failed to load MapReduce workflow: {e:#}");
             }
         }
     }
@@ -616,7 +616,7 @@ reduce:
                 assert_eq!(mr_config.mode, "mapreduce");
             }
             Err(e) => {
-                panic!("Failed to load debtmap MapReduce workflow: {:#}", e);
+                panic!("Failed to load debtmap MapReduce workflow: {e:#}");
             }
         }
     }
