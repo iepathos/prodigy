@@ -74,12 +74,22 @@ impl DataPipeline {
 
         // Step 1: Extract items using JSON path
         let mut items = if let Some(ref json_path) = self.json_path {
-            json_path.select(input)?
+            debug!("Applying JSON path: {}", json_path.expression);
+            let selected = json_path.select(input)?;
+            debug!("JSON path selected {} items", selected.len());
+            selected
         } else {
             // No JSON path specified, treat input as array or single item
+            debug!("No JSON path, treating input as array or single item");
             match input {
-                Value::Array(arr) => arr.clone(),
-                other => vec![other.clone()],
+                Value::Array(arr) => {
+                    debug!("Input is array with {} items", arr.len());
+                    arr.clone()
+                }
+                other => {
+                    debug!("Input is single item");
+                    vec![other.clone()]
+                }
             }
         };
 
@@ -87,8 +97,10 @@ impl DataPipeline {
 
         // Step 2: Apply filter
         if let Some(ref filter) = self.filter {
+            debug!("Applying filter: {:?}", filter);
+            let before_count = items.len();
             items.retain(|item| filter.evaluate(item));
-            debug!("After filtering: {} items", items.len());
+            debug!("After filtering: {} items (filtered out {})", items.len(), before_count - items.len());
         }
 
         // Step 3: Sort items
@@ -270,6 +282,9 @@ impl JsonPath {
 
     /// Select values from JSON using the path
     pub fn select(&self, data: &Value) -> Result<Vec<Value>> {
+        debug!("Selecting with JSON path: {}", self.expression);
+        debug!("Path components: {:?}", self.components);
+        
         let mut results = vec![data.clone()];
 
         for component in &self.components {
@@ -579,8 +594,9 @@ impl FilterExpression {
     pub fn evaluate(&self, item: &Value) -> bool {
         match self {
             FilterExpression::Comparison { field, op, value } => {
-                let actual = item.get(field);
-                Self::compare(actual, op, value)
+                // Support nested field access like "unified_score.final_score"
+                let actual = Self::get_nested_field(item, field);
+                Self::compare(actual.as_ref(), op, value)
             }
             FilterExpression::Logical { op, operands } => match op {
                 LogicalOp::And => operands.iter().all(|expr| expr.evaluate(item)),
@@ -589,13 +605,26 @@ impl FilterExpression {
             },
             FilterExpression::Function { name, args } => Self::evaluate_function(item, name, args),
             FilterExpression::In { field, values } => {
-                if let Some(actual) = item.get(field) {
-                    values.iter().any(|v| actual == v)
+                // Support nested field access
+                if let Some(actual) = Self::get_nested_field(item, field) {
+                    values.iter().any(|v| &actual == v)
                 } else {
                     false
                 }
             }
         }
+    }
+
+    /// Get a nested field value from a JSON object
+    fn get_nested_field(item: &Value, path: &str) -> Option<Value> {
+        let parts: Vec<&str> = path.split('.').collect();
+        let mut current = item.clone();
+        
+        for part in parts {
+            current = current.get(part)?.clone();
+        }
+        
+        Some(current)
     }
 
     /// Compare two values using the given operator
@@ -674,7 +703,7 @@ impl FilterExpression {
         match name {
             "contains" => {
                 if args.len() == 2 {
-                    if let Some(Value::String(s)) = item.get(&args[0]) {
+                    if let Some(Value::String(s)) = Self::get_nested_field(item, &args[0]).as_ref() {
                         return s.contains(&args[1]);
                     }
                 }
@@ -682,7 +711,7 @@ impl FilterExpression {
             }
             "starts_with" => {
                 if args.len() == 2 {
-                    if let Some(Value::String(s)) = item.get(&args[0]) {
+                    if let Some(Value::String(s)) = Self::get_nested_field(item, &args[0]).as_ref() {
                         return s.starts_with(&args[1]);
                     }
                 }
@@ -690,7 +719,7 @@ impl FilterExpression {
             }
             "ends_with" => {
                 if args.len() == 2 {
-                    if let Some(Value::String(s)) = item.get(&args[0]) {
+                    if let Some(Value::String(s)) = Self::get_nested_field(item, &args[0]).as_ref() {
                         return s.ends_with(&args[1]);
                     }
                 }
@@ -698,13 +727,14 @@ impl FilterExpression {
             }
             "is_null" => {
                 if args.len() == 1 {
-                    return item.get(&args[0]) == Some(&Value::Null);
+                    return Self::get_nested_field(item, &args[0]) == Some(Value::Null);
                 }
                 false
             }
             "is_not_null" => {
                 if args.len() == 1 {
-                    return item.get(&args[0]) != Some(&Value::Null);
+                    let val = Self::get_nested_field(item, &args[0]);
+                    return val.is_some() && val != Some(Value::Null);
                 }
                 false
             }

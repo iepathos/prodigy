@@ -380,6 +380,19 @@ impl MapReduceExecutor {
             self.project_root.join(&config.input)
         };
 
+        debug!("Attempting to read input file: {}", input_path.display());
+        
+        // Check if file exists first
+        if !input_path.exists() {
+            return Err(anyhow!(
+                "Input file does not exist: {}",
+                input_path.display()
+            ));
+        }
+        
+        let file_size = std::fs::metadata(&input_path)?.len();
+        debug!("Input file size: {} bytes", file_size);
+        
         let content = tokio::fs::read_to_string(&input_path)
             .await
             .context(format!(
@@ -387,7 +400,21 @@ impl MapReduceExecutor {
                 input_path.display()
             ))?;
 
+        debug!("Read {} bytes from input file", content.len());
+
         let json: Value = serde_json::from_str(&content).context("Failed to parse input JSON")?;
+        
+        // Debug: Show the top-level structure
+        if let Value::Object(ref map) = json {
+            let keys: Vec<_> = map.keys().cloned().collect();
+            debug!("JSON top-level keys: {:?}", keys);
+        }
+
+        // Debug: Log the JSON path configuration
+        debug!(
+            "Loading work items with JSON path: '{}', filter: {:?}, sort: {:?}",
+            config.json_path, filter, sort_by
+        );
 
         // Use data pipeline for extraction, filtering, and sorting
         let json_path = if config.json_path.is_empty() {
@@ -398,7 +425,7 @@ impl MapReduceExecutor {
 
         // Create pipeline with all configuration options
         let mut pipeline = DataPipeline::from_config(
-            json_path,
+            json_path.clone(),
             filter.clone(),
             sort_by.clone(),
             config.max_items,
@@ -407,6 +434,13 @@ impl MapReduceExecutor {
         // Set offset if specified
         if let Some(offset) = config.offset {
             pipeline.offset = Some(offset);
+        }
+
+        // Debug: Show what JSON path will be used
+        if let Some(ref path) = json_path {
+            debug!("Using JSON path expression: {}", path);
+        } else {
+            debug!("No JSON path specified, treating input as array or single item");
         }
 
         let items = pipeline.process(&json)?;
