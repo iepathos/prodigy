@@ -1386,10 +1386,23 @@ impl WorkflowExecutor {
                 ));
 
                 // Execute the setup step
-                let _step_result = self
+                let _step_result = match self
                     .execute_step(step, env, &mut workflow_context)
                     .await
-                    .with_context(|| format!("Setup step {}/{}: {}", step_index + 1, workflow.steps.len(), step_display))?;
+                {
+                    Ok(result) => result,
+                    Err(e) => {
+                        // The execute_step error already contains detailed stdout/stderr
+                        // We want to preserve the full error message, not just add context
+                        return Err(anyhow!(
+                            "Setup step {}/{}: {}\n\n{}",
+                            step_index + 1,
+                            workflow.steps.len(),
+                            step_display,
+                            e
+                        ));
+                    }
+                };
 
                 // Note: execute_step will return an error if the step fails and should_fail is true
                 // It already includes detailed stdout/stderr in the error message
