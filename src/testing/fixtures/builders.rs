@@ -1,5 +1,6 @@
 //! Test data builders for complex test scenarios
 
+/* REMOVED: Metrics builders no longer needed after metrics removal
 use crate::metrics::ImprovementMetrics;
 
 /// Builder for creating test metrics
@@ -49,6 +50,7 @@ impl MetricsBuilder {
         self.metrics
     }
 }
+*/
 
 /* REMOVED: Analysis-dependent builders
 /// Builder for creating test analysis results

@@ -76,5 +76,3 @@ reduce:
     # Clean up
     - shell: "rm -f file_issues.json"
       capture_output: false
-
-collect_metrics: true

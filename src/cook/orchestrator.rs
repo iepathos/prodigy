@@ -16,7 +16,6 @@ use std::sync::Arc;
 use super::command::CookCommand;
 use super::execution::{ClaudeExecutor, CommandExecutor};
 use super::interaction::UserInteraction;
-use super::metrics::MetricsCoordinator;
 use super::session::{SessionManager, SessionStatus, SessionUpdate};
 use super::workflow::{ExtendedWorkflowConfig, WorkflowStep};
 use crate::session::{format_duration, TimingTracker};
@@ -75,8 +74,6 @@ pub struct DefaultCookOrchestrator {
     command_executor: Arc<dyn CommandExecutor>,
     /// Claude executor
     claude_executor: Arc<dyn ClaudeExecutor>,
-    /// Metrics coordinator
-    metrics_coordinator: Arc<dyn MetricsCoordinator>,
     /// User interaction
     user_interaction: Arc<dyn UserInteraction>,
     /// Git operations
@@ -97,7 +94,6 @@ impl DefaultCookOrchestrator {
         session_manager: Arc<dyn SessionManager>,
         command_executor: Arc<dyn CommandExecutor>,
         claude_executor: Arc<dyn ClaudeExecutor>,
-        metrics_coordinator: Arc<dyn MetricsCoordinator>,
         user_interaction: Arc<dyn UserInteraction>,
         git_operations: Arc<dyn GitOperations>,
         state_manager: StateManager,
@@ -107,7 +103,6 @@ impl DefaultCookOrchestrator {
             session_manager,
             command_executor,
             claude_executor,
-            metrics_coordinator,
             user_interaction,
             git_operations,
             state_manager,
@@ -122,7 +117,6 @@ impl DefaultCookOrchestrator {
         session_manager: Arc<dyn SessionManager>,
         command_executor: Arc<dyn CommandExecutor>,
         claude_executor: Arc<dyn ClaudeExecutor>,
-        metrics_coordinator: Arc<dyn MetricsCoordinator>,
         user_interaction: Arc<dyn UserInteraction>,
         git_operations: Arc<dyn GitOperations>,
         state_manager: StateManager,
@@ -133,7 +127,6 @@ impl DefaultCookOrchestrator {
             session_manager,
             command_executor,
             claude_executor,
-            metrics_coordinator,
             user_interaction,
             git_operations,
             state_manager,
@@ -422,7 +415,6 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         let mut executor = crate::cook::workflow::WorkflowExecutorImpl::new(
             self.claude_executor.clone(),
             self.session_manager.clone(),
-            self.metrics_coordinator.clone(),
             self.user_interaction.clone(),
         );
 
@@ -1459,7 +1451,6 @@ mod tests {
     use crate::cook::execution::claude::ClaudeExecutorImpl;
     use crate::cook::execution::runner::tests::MockCommandRunner;
     use crate::cook::interaction::mocks::MockUserInteraction;
-    use crate::cook::metrics::collector::MetricsCollectorImpl;
     use crate::cook::session::tracker::SessionTrackerImpl;
     use std::collections::HashMap;
     use std::os::unix::process::ExitStatusExt;
@@ -1548,8 +1539,6 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let _mock_runner1 = MockCommandRunner::new();
         let mock_runner2 = MockCommandRunner::new();
-        let mock_runner3 = MockCommandRunner::new();
-        let mock_runner4 = MockCommandRunner::new();
         let mock_interaction = Arc::new(MockUserInteraction::new());
         let mock_git = Arc::new(TestMockGitOperations::new());
 
@@ -1560,8 +1549,6 @@ mod tests {
 
         let command_executor = Arc::new(crate::cook::execution::runner::RealCommandRunner::new());
         let claude_executor = Arc::new(ClaudeExecutorImpl::new(mock_runner2));
-        let analysis_coordinator = Arc::new(AnalysisRunnerImpl::new(mock_runner3));
-        let metrics_coordinator = Arc::new(MetricsCollectorImpl::new(mock_runner4));
         let state_manager = StateManager::with_root(temp_dir.path().join(".mmm")).unwrap();
         let subprocess = crate::subprocess::SubprocessManager::production();
 
@@ -1569,8 +1556,6 @@ mod tests {
             session_manager,
             command_executor,
             claude_executor,
-            analysis_coordinator,
-            metrics_coordinator,
             mock_interaction.clone(),
             mock_git.clone(),
             state_manager,
@@ -1591,8 +1576,6 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let _mock_runner1 = MockCommandRunner::new();
         let mock_runner2 = MockCommandRunner::new();
-        let mock_runner3 = MockCommandRunner::new();
-        let mock_runner4 = MockCommandRunner::new();
         let mock_interaction = Arc::new(MockUserInteraction::new());
         let mock_git = Arc::new(TestMockGitOperations::new());
 
@@ -1609,8 +1592,6 @@ mod tests {
             test_config_arc.clone(),
         ));
 
-        let analysis_coordinator = Arc::new(AnalysisRunnerImpl::new(mock_runner3));
-        let metrics_coordinator = Arc::new(MetricsCollectorImpl::new(mock_runner4));
         let state_manager = StateManager::with_root(temp_dir.path().join(".mmm")).unwrap();
         let subprocess = crate::subprocess::SubprocessManager::production();
 
@@ -1618,8 +1599,6 @@ mod tests {
             session_manager,
             command_executor,
             claude_executor,
-            analysis_coordinator,
-            metrics_coordinator,
             mock_interaction.clone() as Arc<dyn UserInteraction>,
             mock_git.clone() as Arc<dyn GitOperations>,
             state_manager,
@@ -1637,8 +1616,6 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let _mock_runner1 = MockCommandRunner::new();
         let mock_runner2 = MockCommandRunner::new();
-        let mock_runner3 = MockCommandRunner::new();
-        let mock_runner4 = MockCommandRunner::new();
         let mock_interaction = Arc::new(MockUserInteraction::new());
         let mock_git = Arc::new(TestMockGitOperations::new());
 
@@ -1657,8 +1634,6 @@ mod tests {
 
         let command_executor = Arc::new(crate::cook::execution::runner::RealCommandRunner::new());
         let claude_executor = Arc::new(ClaudeExecutorImpl::new(mock_runner2));
-        let analysis_coordinator = Arc::new(AnalysisRunnerImpl::new(mock_runner3));
-        let metrics_coordinator = Arc::new(MetricsCollectorImpl::new(mock_runner4));
         let state_manager = StateManager::with_root(temp_dir.path().join(".mmm")).unwrap();
         let subprocess = crate::subprocess::SubprocessManager::production();
 
@@ -1666,8 +1641,6 @@ mod tests {
             session_manager,
             command_executor,
             claude_executor,
-            analysis_coordinator,
-            metrics_coordinator,
             mock_interaction.clone(),
             mock_git.clone(),
             state_manager,
@@ -1691,8 +1664,6 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let _mock_runner1 = MockCommandRunner::new();
         let mock_runner2 = MockCommandRunner::new();
-        let mock_runner3 = MockCommandRunner::new();
-        let mock_runner4 = MockCommandRunner::new();
         let mock_interaction = Arc::new(MockUserInteraction::new());
         let mock_git = Arc::new(TestMockGitOperations::new());
 
@@ -1711,8 +1682,6 @@ mod tests {
 
         let command_executor = Arc::new(crate::cook::execution::runner::RealCommandRunner::new());
         let claude_executor = Arc::new(ClaudeExecutorImpl::new(mock_runner2));
-        let analysis_coordinator = Arc::new(AnalysisRunnerImpl::new(mock_runner3));
-        let metrics_coordinator = Arc::new(MetricsCollectorImpl::new(mock_runner4));
         let state_manager = StateManager::with_root(temp_dir.path().join(".mmm")).unwrap();
         let subprocess = crate::subprocess::SubprocessManager::production();
 
@@ -1720,8 +1689,6 @@ mod tests {
             session_manager,
             command_executor,
             claude_executor,
-            analysis_coordinator,
-            metrics_coordinator,
             mock_interaction,
             mock_git,
             state_manager,
@@ -2090,8 +2057,6 @@ mod tests {
             session_manager,
             command_executor,
             claude_executor,
-            analysis_coordinator,
-            metrics_coordinator,
             mock_interaction.clone(),
             mock_git.clone(),
             state_manager,

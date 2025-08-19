@@ -27,10 +27,6 @@ pub struct MapReduceWorkflowConfig {
     /// Optional reduce phase
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reduce: Option<ReducePhaseYaml>,
-
-    /// Whether to collect metrics
-    #[serde(default)]
-    pub collect_metrics: bool,
 }
 
 fn default_mode() -> String {

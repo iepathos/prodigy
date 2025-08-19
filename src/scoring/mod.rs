@@ -6,8 +6,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::metrics::ImprovementMetrics;
-
 /// Unified project health score with component breakdown
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectHealthScore {
@@ -35,68 +33,6 @@ pub struct ScoreComponents {
 }
 
 impl ProjectHealthScore {
-    /// Calculate unified health score from metrics
-    pub fn from_metrics(metrics: &ImprovementMetrics) -> Self {
-        let mut total_score = 0.0;
-        let mut total_weight = 0.0;
-
-        let mut components = ScoreComponents {
-            test_coverage: None,
-            code_quality: None,
-            documentation: None,
-            maintainability: None,
-            type_safety: None,
-        };
-
-        // Test coverage (35% weight)
-        if metrics.test_coverage > 0.0 {
-            components.test_coverage = Some(metrics.test_coverage as f64);
-            total_score += metrics.test_coverage as f64 * 0.35;
-            total_weight += 0.35;
-        }
-
-        // Code quality (25% weight) - based on lint warnings and duplication
-        let quality_score =
-            calculate_code_quality_score(metrics.lint_warnings, metrics.code_duplication);
-        if let Some(score) = quality_score {
-            components.code_quality = Some(score);
-            total_score += score * 0.25;
-            total_weight += 0.25;
-        }
-
-        // Maintainability (25% weight) - based on lint warnings and complexity
-        let maintainability = calculate_maintainability_from_metrics(metrics);
-        components.maintainability = Some(maintainability);
-        total_score += maintainability * 0.25;
-        total_weight += 0.25;
-
-        // Documentation (10% weight)
-        if metrics.doc_coverage > 0.0 {
-            components.documentation = Some(metrics.doc_coverage as f64);
-            total_score += metrics.doc_coverage as f64 * 0.10;
-            total_weight += 0.10;
-        }
-
-        // Type safety (5% weight)
-        if metrics.type_coverage > 0.0 {
-            components.type_safety = Some(metrics.type_coverage as f64);
-            total_score += metrics.type_coverage as f64 * 0.05;
-            total_weight += 0.05;
-        }
-
-        let overall = if total_weight > 0.0 {
-            total_score / total_weight
-        } else {
-            50.0 // Neutral score when no data
-        };
-
-        Self {
-            overall,
-            components,
-            timestamp: Utc::now(),
-        }
-    }
-
     /* REMOVED: Analysis-dependent method
     /// Calculate unified health score from context analysis
     pub fn from_context(analysis: &AnalysisResult) -> Self {
@@ -265,7 +201,7 @@ fn calculate_quality_from_patterns(pattern_count: usize, idiom_count: usize) -> 
     score.min(100.0)
 }
 
-/// Calculate maintainability from metrics
+/* Removed: metrics-dependent function
 fn calculate_maintainability_from_metrics(metrics: &ImprovementMetrics) -> f64 {
     let mut score = 100.0;
 
@@ -305,7 +241,7 @@ fn calculate_maintainability_from_metrics(metrics: &ImprovementMetrics) -> f64 {
     score -= coverage_penalty;
 
     score.max(0.0)
-}
+} */
 
 /* REMOVED: Analysis-dependent functions
 /// Calculate maintainability score from technical debt items
@@ -443,6 +379,7 @@ fn load_type_coverage_from_metrics(_metadata: &AnalysisMetadata) -> Result<f64, 
 }
 */
 
+/* REMOVED: Tests that depend on ImprovementMetrics
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -494,3 +431,4 @@ mod tests {
         assert!(suggestions.iter().any(|s| s.contains("documentation")));
     }
 }
+*/

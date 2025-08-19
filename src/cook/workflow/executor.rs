@@ -6,7 +6,6 @@
 use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};
 use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
-use crate::cook::metrics::MetricsCoordinator;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::{SessionManager, SessionUpdate};
 use crate::session::{format_duration, TimingTracker};
@@ -186,7 +185,6 @@ pub struct ExtendedWorkflowConfig {
 pub struct WorkflowExecutor {
     claude_executor: Arc<dyn ClaudeExecutor>,
     session_manager: Arc<dyn SessionManager>,
-    metrics_coordinator: Arc<dyn MetricsCoordinator>,
     user_interaction: Arc<dyn UserInteraction>,
     timing_tracker: TimingTracker,
     test_config: Option<Arc<TestConfiguration>>,
@@ -205,13 +203,11 @@ impl WorkflowExecutor {
     pub fn new(
         claude_executor: Arc<dyn ClaudeExecutor>,
         session_manager: Arc<dyn SessionManager>,
-        metrics_coordinator: Arc<dyn MetricsCoordinator>,
         user_interaction: Arc<dyn UserInteraction>,
     ) -> Self {
         Self {
             claude_executor,
             session_manager,
-            metrics_coordinator,
             user_interaction,
             timing_tracker: TimingTracker::new(),
             test_config: None,
@@ -224,14 +220,12 @@ impl WorkflowExecutor {
     pub fn with_test_config(
         claude_executor: Arc<dyn ClaudeExecutor>,
         session_manager: Arc<dyn SessionManager>,
-        metrics_coordinator: Arc<dyn MetricsCoordinator>,
         user_interaction: Arc<dyn UserInteraction>,
         test_config: Arc<TestConfiguration>,
     ) -> Self {
         Self {
             claude_executor,
             session_manager,
-            metrics_coordinator,
             user_interaction,
             timing_tracker: TimingTracker::new(),
             test_config: Some(test_config),
@@ -591,10 +585,7 @@ impl WorkflowExecutor {
             // }
         }
 
-        // Collect final metrics if enabled
-        if workflow.collect_metrics {
-            self.collect_and_report_metrics(env).await?;
-        }
+        // Metrics collection removed in v0.3.0
 
         // Display total workflow timing
         let total_duration = workflow_start.elapsed();
@@ -1336,10 +1327,7 @@ impl WorkflowExecutor {
             .update_session(SessionUpdate::AddFilesChanged(successful_count))
             .await?;
 
-        // Collect final metrics if enabled
-        if workflow.collect_metrics {
-            self.collect_and_report_metrics(env).await?;
-        }
+        // Metrics collection removed in v0.3.0
 
         // Display total workflow timing
         let total_duration = workflow_start.elapsed();
@@ -1356,32 +1344,6 @@ impl WorkflowExecutor {
         // Always continue iterations until max_iterations is reached
         // The iteration loop already handles the max_iterations check
         Ok(true)
-    }
-
-    /// Collect and report final metrics
-    async fn collect_and_report_metrics(&self, env: &ExecutionEnvironment) -> Result<()> {
-        self.user_interaction
-            .display_progress("Collecting final metrics...");
-        let metrics = self
-            .metrics_coordinator
-            .collect_all(&env.working_dir)
-            .await?;
-        self.metrics_coordinator
-            .store_metrics(&env.working_dir, &metrics)
-            .await?;
-
-        // Generate report
-        let history = self
-            .metrics_coordinator
-            .load_history(&env.working_dir)
-            .await?;
-        let report = self
-            .metrics_coordinator
-            .generate_report(&metrics, &history)
-            .await?;
-        self.user_interaction.display_info(&report);
-
-        Ok(())
     }
 
     /// Check if we should stop early in test mode

@@ -46,6 +46,3 @@ reduce:
       env:
         TOTAL_FIXED: "${map.successful}"
         TOTAL_FAILED: "${map.failed}"
-
-# Metrics collection
-collect_metrics: true

@@ -55,17 +55,15 @@ impl ExecutionMode {
 pub struct SessionOptions {
     pub fail_fast: bool,
     pub auto_merge: bool,
-    pub collect_metrics: bool,
     pub verbose: bool,
 }
 
 impl SessionOptions {
     /// Create options from command flags
-    pub fn from_flags(fail_fast: bool, auto_accept: bool, metrics: bool, verbose: bool) -> Self {
+    pub fn from_flags(fail_fast: bool, auto_accept: bool, _metrics: bool, verbose: bool) -> Self {
         Self {
             fail_fast,
             auto_merge: auto_accept,
-            collect_metrics: metrics,
             verbose,
         }
     }
@@ -93,7 +91,6 @@ mod tests {
         let options = SessionOptions::from_flags(true, false, true, false);
         assert!(options.fail_fast);
         assert!(!options.auto_merge);
-        assert!(options.collect_metrics);
         assert!(!options.verbose);
     }
 }
