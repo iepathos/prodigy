@@ -21,7 +21,7 @@ walkdir = "2.5"
 regex = "1.11"
 chrono = { version = "0.4", features = ["serde"] }
 toml = "0.9"
-directories = "5.0"
+directories = "6.0"
 notify = "8.2"
 tempfile = "3.10"
 gray_matter = "0.3"
