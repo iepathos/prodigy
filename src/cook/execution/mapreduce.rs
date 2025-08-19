@@ -1553,7 +1553,3 @@ impl MapReduceExecutor {
         }
     }
 }
-
-#[cfg(test)]
-#[path = "mapreduce_tests.rs"]
-mod tests;

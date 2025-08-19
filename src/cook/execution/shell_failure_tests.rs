@@ -5,9 +5,8 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::config::mapreduce::{parse_mapreduce_workflow, MapReduceWorkflowConfig};
-    use crate::cook::workflow::{ExtendedWorkflowConfig, WorkflowMode};
-    use std::fs;
+    use crate::config::mapreduce::parse_mapreduce_workflow;
+    #[allow(unused_imports)]
     use tempfile::TempDir;
 
     /// Test parsing of on_failure configuration
@@ -96,7 +95,7 @@ map:
       - shell: "echo 'map phase'"
 "#;
 
-        let config = parse_mapreduce_workflow(yaml).unwrap();
+        let _config = parse_mapreduce_workflow(yaml).unwrap();
 
         // TODO: Execute and verify the second setup step runs
     }
@@ -124,7 +123,7 @@ map:
       - shell: "echo 'should not reach map phase'"
 "#;
 
-        let config = parse_mapreduce_workflow(yaml).unwrap();
+        let _config = parse_mapreduce_workflow(yaml).unwrap();
 
         // TODO: Execute and verify workflow stops after on_failure handler
     }
@@ -132,7 +131,7 @@ map:
     /// Test ignore_errors flag (alternative to on_failure)
     #[tokio::test]
     async fn test_ignore_errors_flag() {
-        let yaml = r#"
+        let _yaml = r#"
 name: test-ignore-errors
 mode: mapreduce
 
@@ -157,7 +156,7 @@ map:
     /// Test on_failure with retry logic
     #[tokio::test]
     async fn test_on_failure_with_retry() {
-        let yaml = r#"
+        let _yaml = r#"
 name: test-retry-on-failure
 mode: mapreduce
 
@@ -184,7 +183,7 @@ map:
     /// Test mixed success and failure handling
     #[tokio::test]
     async fn test_mixed_commands() {
-        let yaml = r#"
+        let _yaml = r#"
 name: test-mixed
 mode: mapreduce
 
@@ -211,7 +210,7 @@ map:
     /// Test that regular workflows (non-mapreduce) also handle failures correctly
     #[tokio::test]
     async fn test_regular_workflow_shell_failure() {
-        let yaml = r#"
+        let _yaml = r#"
 - shell: "echo 'Starting workflow'"
 - shell: "exit 1"  # Should fail here
 - shell: "echo 'Should not execute'"
@@ -224,10 +223,9 @@ map:
     #[tokio::test]
     async fn test_shell_command_error_propagation() {
         use crate::cook::orchestrator::ExecutionEnvironment;
-        use crate::cook::workflow::{WorkflowExecutorImpl, WorkflowStep};
-        use std::path::PathBuf;
+        use crate::cook::workflow::WorkflowStep;
 
-        let step = WorkflowStep {
+        let _step = WorkflowStep {
             name: Some("failing-command".to_string()),
             shell: Some("exit 42".to_string()),
             claude: None,
@@ -246,7 +244,7 @@ map:
 
         // Create a minimal execution environment
         let temp_dir = TempDir::new().unwrap();
-        let env = ExecutionEnvironment {
+        let _env = ExecutionEnvironment {
             working_dir: temp_dir.path().to_path_buf(),
             project_dir: temp_dir.path().to_path_buf(),
             worktree_name: None,
