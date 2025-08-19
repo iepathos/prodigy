@@ -170,50 +170,71 @@ pub fn parse_diff_output(output: &str) -> Result<GitDiff> {
 
 /// Parse git worktree list --porcelain output
 pub fn parse_worktree_list(output: &str) -> Result<Vec<WorktreeInfo>> {
-    let mut worktrees = Vec::new();
-    let mut current_worktree: Option<WorktreeInfo> = None;
+    // Split output into blocks separated by empty lines
+    let blocks = split_into_worktree_blocks(output);
 
-    for line in output.lines() {
-        if line.is_empty() {
-            finalize_worktree(&mut worktrees, &mut current_worktree);
-            continue;
-        }
+    // Parse each block into a WorktreeInfo using functional transformation
+    let worktrees: Vec<WorktreeInfo> = blocks
+        .into_iter()
+        .filter_map(|block| parse_single_worktree_block(block))
+        .collect();
 
-        if line.starts_with("worktree ") {
-            finalize_worktree(&mut worktrees, &mut current_worktree);
-            current_worktree = Some(create_worktree_from_line(line));
-        } else if let Some(ref mut worktree) = current_worktree {
-            update_worktree_info(worktree, line);
-        }
-    }
-
-    // Don't forget the last worktree
-    finalize_worktree(&mut worktrees, &mut current_worktree);
     Ok(worktrees)
 }
 
-fn finalize_worktree(worktrees: &mut Vec<WorktreeInfo>, current: &mut Option<WorktreeInfo>) {
-    if let Some(worktree) = current.take() {
-        worktrees.push(worktree);
+/// Split the output into individual worktree blocks
+fn split_into_worktree_blocks(output: &str) -> Vec<Vec<&str>> {
+    let mut blocks = Vec::new();
+    let mut current_block = Vec::new();
+
+    for line in output.lines() {
+        if line.is_empty() {
+            if !current_block.is_empty() {
+                blocks.push(current_block);
+                current_block = Vec::new();
+            }
+        } else {
+            current_block.push(line);
+        }
     }
+
+    // Don't forget the last block
+    if !current_block.is_empty() {
+        blocks.push(current_block);
+    }
+
+    blocks
 }
 
-fn create_worktree_from_line(line: &str) -> WorktreeInfo {
-    let path = line.strip_prefix("worktree ").unwrap_or("");
-    let path_buf = PathBuf::from(path);
-    let name = extract_worktree_name(&path_buf);
+/// Parse a single worktree block into WorktreeInfo
+fn parse_single_worktree_block(lines: Vec<&str>) -> Option<WorktreeInfo> {
+    // Find the worktree line which starts the block
+    let worktree_line = lines.iter().find(|line| line.starts_with("worktree "))?;
 
-    WorktreeInfo {
-        name,
+    // Extract path from the worktree line
+    let path = worktree_line.strip_prefix("worktree ").unwrap_or("");
+    let path_buf = PathBuf::from(path);
+
+    // Build initial WorktreeInfo
+    let mut info = WorktreeInfo {
+        name: extract_worktree_name(&path_buf),
         path: path_buf,
         branch: String::new(),
         commit: CommitId::new(String::new()),
         is_bare: false,
         is_detached: false,
         is_locked: false,
+    };
+
+    // Apply all property updates from the remaining lines
+    for line in lines.iter() {
+        apply_worktree_property(&mut info, line);
     }
+
+    Some(info)
 }
 
+/// Extract the worktree name from its path
 fn extract_worktree_name(path: &Path) -> String {
     path.file_name()
         .and_then(|n| n.to_str())
@@ -221,19 +242,45 @@ fn extract_worktree_name(path: &Path) -> String {
         .to_string()
 }
 
-fn update_worktree_info(worktree: &mut WorktreeInfo, line: &str) {
-    if let Some(commit_hash) = line.strip_prefix("HEAD ") {
-        worktree.commit = CommitId::new(commit_hash.to_string());
+/// Represents a parsed worktree property
+enum WorktreeProperty {
+    Head(String),
+    Branch(String),
+    Detached,
+    Bare,
+    Locked,
+    Unknown,
+}
+
+/// Parse a line into a WorktreeProperty
+fn parse_worktree_property(line: &str) -> WorktreeProperty {
+    if let Some(commit) = line.strip_prefix("HEAD ") {
+        WorktreeProperty::Head(commit.to_string())
     } else if let Some(branch) = line.strip_prefix("branch ") {
         if !branch.is_empty() {
-            worktree.branch = branch.to_string();
+            WorktreeProperty::Branch(branch.to_string())
+        } else {
+            WorktreeProperty::Unknown
         }
-    } else if line == "detached" {
-        worktree.is_detached = true;
-    } else if line == "bare" {
-        worktree.is_bare = true;
-    } else if line.starts_with("locked") {
-        worktree.is_locked = true;
+    } else {
+        match line {
+            "detached" => WorktreeProperty::Detached,
+            "bare" => WorktreeProperty::Bare,
+            line if line.starts_with("locked") => WorktreeProperty::Locked,
+            _ => WorktreeProperty::Unknown,
+        }
+    }
+}
+
+/// Apply a single property line to the WorktreeInfo
+fn apply_worktree_property(info: &mut WorktreeInfo, line: &str) {
+    match parse_worktree_property(line) {
+        WorktreeProperty::Head(commit) => info.commit = CommitId::new(commit),
+        WorktreeProperty::Branch(branch) => info.branch = branch,
+        WorktreeProperty::Detached => info.is_detached = true,
+        WorktreeProperty::Bare => info.is_bare = true,
+        WorktreeProperty::Locked => info.is_locked = true,
+        WorktreeProperty::Unknown => {}
     }
 }
 
@@ -352,6 +399,142 @@ mod tests {
         assert_eq!(worktrees[2].name, "detached");
         assert!(worktrees[2].is_detached);
         assert_eq!(worktrees[2].branch, "");
+    }
+
+    #[test]
+    fn test_parse_worktree_list_with_bare_and_locked() {
+        let output = concat!(
+            "worktree /path/to/bare\n",
+            "HEAD abc1234567890\n",
+            "bare\n",
+            "\n",
+            "worktree /path/to/locked\n",
+            "HEAD def4567890123\n",
+            "branch feature\n",
+            "locked reason for lock\n",
+            "\n"
+        );
+
+        let worktrees = parse_worktree_list(output).unwrap();
+
+        assert_eq!(worktrees.len(), 2);
+
+        assert_eq!(worktrees[0].name, "bare");
+        assert!(worktrees[0].is_bare);
+        assert!(!worktrees[0].is_locked);
+
+        assert_eq!(worktrees[1].name, "locked");
+        assert!(worktrees[1].is_locked);
+        assert!(!worktrees[1].is_bare);
+        assert_eq!(worktrees[1].branch, "feature");
+    }
+
+    #[test]
+    fn test_parse_worktree_list_empty() {
+        let output = "";
+        let worktrees = parse_worktree_list(output).unwrap();
+        assert_eq!(worktrees.len(), 0);
+    }
+
+    #[test]
+    fn test_parse_worktree_list_no_trailing_newline() {
+        let output = concat!(
+            "worktree /path/to/main\n",
+            "HEAD abc1234567890\n",
+            "branch main"
+        );
+
+        let worktrees = parse_worktree_list(output).unwrap();
+        assert_eq!(worktrees.len(), 1);
+        assert_eq!(worktrees[0].name, "main");
+        assert_eq!(worktrees[0].branch, "main");
+    }
+
+    #[test]
+    fn test_parse_worktree_list_with_empty_branch() {
+        let output = concat!(
+            "worktree /path/to/main\n",
+            "HEAD abc1234567890\n",
+            "branch \n",
+            "\n"
+        );
+
+        let worktrees = parse_worktree_list(output).unwrap();
+        assert_eq!(worktrees.len(), 1);
+        assert_eq!(worktrees[0].branch, "");
+    }
+
+    #[test]
+    fn test_parse_worktree_property() {
+        assert!(matches!(
+            parse_worktree_property("HEAD abc123"),
+            WorktreeProperty::Head(_)
+        ));
+        assert!(matches!(
+            parse_worktree_property("branch main"),
+            WorktreeProperty::Branch(_)
+        ));
+        assert!(matches!(
+            parse_worktree_property("detached"),
+            WorktreeProperty::Detached
+        ));
+        assert!(matches!(
+            parse_worktree_property("bare"),
+            WorktreeProperty::Bare
+        ));
+        assert!(matches!(
+            parse_worktree_property("locked"),
+            WorktreeProperty::Locked
+        ));
+        assert!(matches!(
+            parse_worktree_property("locked with reason"),
+            WorktreeProperty::Locked
+        ));
+        assert!(matches!(
+            parse_worktree_property("unknown"),
+            WorktreeProperty::Unknown
+        ));
+    }
+
+    #[test]
+    fn test_split_into_worktree_blocks() {
+        let output = concat!(
+            "worktree /path1\n",
+            "HEAD abc\n",
+            "\n",
+            "worktree /path2\n",
+            "HEAD def\n"
+        );
+
+        let blocks = split_into_worktree_blocks(output);
+        assert_eq!(blocks.len(), 2);
+        assert_eq!(blocks[0].len(), 2);
+        assert_eq!(blocks[1].len(), 2);
+    }
+
+    #[test]
+    fn test_parse_single_worktree_block() {
+        let block = vec![
+            "worktree /path/to/repo",
+            "HEAD abc1234567890",
+            "branch main",
+        ];
+
+        let info = parse_single_worktree_block(block).unwrap();
+        assert_eq!(info.name, "repo");
+        assert_eq!(info.branch, "main");
+        assert_eq!(info.commit.hash(), "abc1234567890");
+        assert!(!info.is_detached);
+        assert!(!info.is_bare);
+        assert!(!info.is_locked);
+    }
+
+    #[test]
+    fn test_parse_single_worktree_block_no_worktree_line() {
+        let block = vec!["HEAD abc1234567890", "branch main"];
+
+        let info = parse_single_worktree_block(block);
+        assert!(info.is_none());
     }
 
     #[test]
