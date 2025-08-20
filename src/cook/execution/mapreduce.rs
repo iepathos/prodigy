@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::process::Command;
@@ -130,12 +131,30 @@ pub struct AgentResult {
     pub files_modified: Vec<PathBuf>,
 }
 
+/// Agent operation types for detailed status display
+#[derive(Debug, Clone)]
+enum AgentOperation {
+    Idle,
+    Setup(String),
+    Claude(String),
+    Shell(String),
+    Test(String),
+    Handler(String),
+    Retrying(String, u32),
+    Complete,
+}
+
 /// Progress tracking for parallel execution
 struct ProgressTracker {
     #[allow(dead_code)]
     multi_progress: MultiProgress,
     overall_bar: ProgressBar,
     agent_bars: Vec<ProgressBar>,
+    tick_handle: Option<JoinHandle<()>>,
+    is_finished: Arc<AtomicBool>,
+    #[allow(dead_code)]
+    start_time: Instant,
+    agent_operations: Arc<RwLock<Vec<AgentOperation>>>,
 }
 
 impl ProgressTracker {
@@ -154,8 +173,12 @@ impl ProgressTracker {
         );
         overall_bar.set_message("Processing items...");
 
+        // Enable steady tick for timer updates
+        overall_bar.enable_steady_tick(Duration::from_millis(100));
+
         // Individual agent progress bars
         let mut agent_bars = Vec::new();
+        let mut agent_operations = Vec::new();
         for i in 0..max_parallel.min(total_items) {
             let bar = multi_progress.add(ProgressBar::new(100));
             bar.set_style(
@@ -165,12 +188,17 @@ impl ProgressTracker {
             );
             bar.set_message("Idle");
             agent_bars.push(bar);
+            agent_operations.push(AgentOperation::Idle);
         }
 
         Self {
             multi_progress,
             overall_bar,
             agent_bars,
+            tick_handle: None,
+            is_finished: Arc::new(AtomicBool::new(false)),
+            start_time: Instant::now(),
+            agent_operations: Arc::new(RwLock::new(agent_operations)),
         }
     }
 
@@ -180,16 +208,72 @@ impl ProgressTracker {
         }
     }
 
+    async fn update_agent_operation(&self, agent_index: usize, operation: AgentOperation) {
+        let mut ops = self.agent_operations.write().await;
+        if agent_index < ops.len() {
+            ops[agent_index] = operation.clone();
+
+            // Format the operation for display
+            let message = match operation {
+                AgentOperation::Idle => "Idle".to_string(),
+                AgentOperation::Setup(cmd) => {
+                    format!("[setup] {}", Self::truncate_command(&cmd, 40))
+                }
+                AgentOperation::Claude(cmd) => {
+                    format!("[claude] {}", Self::truncate_command(&cmd, 40))
+                }
+                AgentOperation::Shell(cmd) => {
+                    format!("[shell] {}", Self::truncate_command(&cmd, 40))
+                }
+                AgentOperation::Test(cmd) => format!("[test] {}", Self::truncate_command(&cmd, 40)),
+                AgentOperation::Handler(name) => format!("[handler] {}", name),
+                AgentOperation::Retrying(item, attempt) => {
+                    format!("Retrying {} (attempt {})", item, attempt)
+                }
+                AgentOperation::Complete => "Complete".to_string(),
+            };
+
+            self.update_agent(agent_index, &message);
+        }
+    }
+
+    fn truncate_command(cmd: &str, max_len: usize) -> String {
+        if cmd.len() <= max_len {
+            cmd.to_string()
+        } else {
+            format!("{}...", &cmd[..max_len - 3])
+        }
+    }
+
     fn complete_item(&self) {
         self.overall_bar.inc(1);
     }
 
     fn finish(&self, message: &str) {
+        self.is_finished.store(true, Ordering::Relaxed);
         self.overall_bar.finish_with_message(message.to_string());
         for bar in &self.agent_bars {
             bar.finish_and_clear();
         }
-        // Note: multi_progress is used internally to manage the progress bars
+    }
+
+    fn start_timer(&mut self) {
+        let is_finished = self.is_finished.clone();
+        let overall_bar = self.overall_bar.clone();
+
+        // Spawn timer update task
+        let handle = tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_millis(100));
+            loop {
+                interval.tick().await;
+                if is_finished.load(Ordering::Relaxed) {
+                    break;
+                }
+                overall_bar.tick();
+            }
+        });
+
+        self.tick_handle = Some(handle);
     }
 }
 
@@ -471,8 +555,10 @@ impl MapReduceExecutor {
 
         let max_parallel = map_phase.config.max_parallel.min(total_items);
 
-        // Create progress tracker
-        let progress = Arc::new(ProgressTracker::new(total_items, max_parallel));
+        // Create progress tracker and start timer
+        let mut progress_tracker = ProgressTracker::new(total_items, max_parallel);
+        progress_tracker.start_timer();
+        let progress = Arc::new(progress_tracker);
 
         // Create channels for work distribution (ensure buffer is at least 1)
         let (work_tx, work_rx) = mpsc::channel::<(usize, Value)>(total_items.max(1));
@@ -541,12 +627,14 @@ impl MapReduceExecutor {
 
             let Some((item_index, item)) = work_item else {
                 // No more work
-                progress.update_agent(agent_index, "Completed");
+                progress
+                    .update_agent_operation(agent_index, AgentOperation::Complete)
+                    .await;
                 break;
             };
 
-            let item_id = format!("item_{}", item_index);
-            progress.update_agent(agent_index, &format!("Processing {}", item_id));
+            let item_id = Self::extract_item_identifier(&item, item_index);
+            progress.update_agent(agent_index, &format!("Processing {}", &item_id));
 
             // Execute work item with retries
             let mut attempt = 0;
@@ -554,14 +642,23 @@ impl MapReduceExecutor {
                 attempt += 1;
 
                 if attempt > 1 {
-                    progress.update_agent(
-                        agent_index,
-                        &format!("Retrying {} (attempt {})", item_id, attempt),
-                    );
+                    progress
+                        .update_agent_operation(
+                            agent_index,
+                            AgentOperation::Retrying(item_id.clone(), attempt),
+                        )
+                        .await;
                 }
 
                 let result = self
-                    .execute_agent_commands(&item_id, &item, &map_phase.agent_template, &env)
+                    .execute_agent_commands(
+                        &item_id,
+                        &item,
+                        &map_phase.agent_template,
+                        &env,
+                        agent_index,
+                        progress.clone(),
+                    )
                     .await;
 
                 match result {
@@ -609,6 +706,8 @@ impl MapReduceExecutor {
         item: &Value,
         template_steps: &[WorkflowStep],
         env: &ExecutionEnvironment,
+        agent_index: usize,
+        progress: Arc<ProgressTracker>,
     ) -> Result<AgentResult> {
         let start_time = Instant::now();
 
@@ -676,6 +775,23 @@ impl MapReduceExecutor {
                 item_id,
                 step.name
             );
+
+            // Update agent operation based on step type
+            let operation = if let Some(claude_cmd) = &step.claude {
+                AgentOperation::Claude(claude_cmd.clone())
+            } else if let Some(shell_cmd) = &step.shell {
+                AgentOperation::Shell(shell_cmd.clone())
+            } else if let Some(test_cmd) = &step.test {
+                AgentOperation::Test(test_cmd.command.clone())
+            } else if let Some(handler) = &step.handler {
+                AgentOperation::Handler(handler.name.clone())
+            } else {
+                AgentOperation::Setup(step.name.clone().unwrap_or_else(|| "step".to_string()))
+            };
+
+            progress
+                .update_agent_operation(agent_index, operation)
+                .await;
 
             // Execute the step
             let step_result = match self.execute_single_step(step, &mut context).await {
@@ -1574,6 +1690,48 @@ impl MapReduceExecutor {
             interpolation_engine: self.interpolation_engine.clone(),
             command_registry: self.command_registry.clone(),
             subprocess: self.subprocess.clone(),
+        }
+    }
+
+    /// Extract a meaningful identifier from a JSON work item
+    fn extract_item_identifier(item: &Value, index: usize) -> String {
+        // Priority order for identifier fields
+        let id_fields = [
+            "id",
+            "name",
+            "title",
+            "path",
+            "file",
+            "key",
+            "label",
+            "identifier",
+        ];
+
+        if let Value::Object(obj) = item {
+            for field in &id_fields {
+                if let Some(value) = obj.get(*field) {
+                    match value {
+                        Value::String(s) => {
+                            return Self::truncate_identifier(s, 30);
+                        }
+                        Value::Number(n) => {
+                            return n.to_string();
+                        }
+                        _ => continue,
+                    }
+                }
+            }
+        }
+
+        // Fallback to index
+        format!("item_{}", index)
+    }
+
+    fn truncate_identifier(s: &str, max_len: usize) -> String {
+        if s.len() <= max_len {
+            s.to_string()
+        } else {
+            format!("{}...", &s[..max_len - 3])
         }
     }
 }
