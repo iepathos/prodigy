@@ -1010,6 +1010,25 @@ impl MapReduceExecutor {
         Ok(())
     }
 
+    /// Get display name for a step
+    fn get_step_display_name(&self, step: &WorkflowStep) -> String {
+        if let Some(claude_cmd) = &step.claude {
+            format!("claude: {claude_cmd}")
+        } else if let Some(shell_cmd) = &step.shell {
+            format!("shell: {shell_cmd}")
+        } else if let Some(test_cmd) = &step.test {
+            format!("test: {}", test_cmd.command)
+        } else if let Some(handler_step) = &step.handler {
+            format!("handler: {}", handler_step.name)
+        } else if let Some(name) = &step.name {
+            name.clone()
+        } else if let Some(command) = &step.command {
+            command.clone()
+        } else {
+            "unnamed step".to_string()
+        }
+    }
+
     /// Execute the reduce phase
     async fn execute_reduce_phase(
         &self,
@@ -1078,8 +1097,13 @@ impl MapReduceExecutor {
 
         // Execute reduce commands in parent worktree
         for (step_index, step) in reduce_phase.commands.iter().enumerate() {
-            self.user_interaction
-                .display_progress(&format!("Executing reduce step {}...", step_index + 1));
+            let step_display = self.get_step_display_name(step);
+            self.user_interaction.display_progress(&format!(
+                "Reduce step {}/{}: {}",
+                step_index + 1,
+                reduce_phase.commands.len(),
+                step_display
+            ));
 
             // Execute the step in parent worktree context
             let step_result = self.execute_single_step(step, &mut reduce_context).await?;
