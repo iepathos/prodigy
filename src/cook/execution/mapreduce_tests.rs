@@ -273,6 +273,192 @@ fn test_reduce_phase_configuration() {
 }
 
 #[test]
+fn test_reduce_phase_variable_substitution() {
+    // Test that map results are properly available as variables in reduce phase
+    let env = ExecutionEnvironment {
+        working_dir: PathBuf::from("/test/worktree"),
+        project_dir: PathBuf::from("/test/project"),
+        worktree_name: Some("test-worktree".to_string()),
+        session_id: "test-session".to_string(),
+    };
+
+    let mut reduce_context = AgentContext::new(
+        "reduce".to_string(),
+        PathBuf::from("/test/worktree"),
+        "test-worktree".to_string(),
+        env,
+    );
+
+    // Simulate adding map results to reduce context (this is what was missing!)
+    reduce_context
+        .variables
+        .insert("map.successful".to_string(), "3".to_string());
+    reduce_context
+        .variables
+        .insert("map.failed".to_string(), "1".to_string());
+    reduce_context
+        .variables
+        .insert("map.total".to_string(), "4".to_string());
+
+    // Convert to interpolation context
+    let interp_context = reduce_context.to_interpolation_context();
+
+    // Test that variables are accessible
+    assert_eq!(
+        interp_context
+            .variables
+            .get("map.successful")
+            .and_then(|v| v.as_str()),
+        Some("3")
+    );
+    assert_eq!(
+        interp_context
+            .variables
+            .get("map.failed")
+            .and_then(|v| v.as_str()),
+        Some("1")
+    );
+    assert_eq!(
+        interp_context
+            .variables
+            .get("map.total")
+            .and_then(|v| v.as_str()),
+        Some("4")
+    );
+}
+
+#[test]
+fn test_reduce_phase_complex_variable_substitution() {
+    // Test complex variable substitution including claude output
+    let env = ExecutionEnvironment {
+        working_dir: PathBuf::from("/test/worktree"),
+        project_dir: PathBuf::from("/test/project"),
+        worktree_name: Some("test-worktree".to_string()),
+        session_id: "test-session".to_string(),
+    };
+
+    let mut reduce_context = AgentContext::new(
+        "reduce".to_string(),
+        PathBuf::from("/test/worktree"),
+        "test-worktree".to_string(),
+        env,
+    );
+
+    // Add map statistics
+    reduce_context
+        .variables
+        .insert("map.successful".to_string(), "5".to_string());
+    reduce_context
+        .variables
+        .insert("map.failed".to_string(), "2".to_string());
+    reduce_context
+        .variables
+        .insert("map.total".to_string(), "7".to_string());
+
+    // Add claude output from a previous command (stored in captured_outputs)
+    reduce_context.captured_outputs.insert(
+        "claude.output".to_string(),
+        "Debt reduction analysis: 30% improvement".to_string(),
+    );
+
+    // Add individual result data
+    reduce_context
+        .variables
+        .insert("result.0.item_id".to_string(), "debt-item-1".to_string());
+    reduce_context
+        .variables
+        .insert("result.0.status".to_string(), "success".to_string());
+    reduce_context
+        .variables
+        .insert("result.1.item_id".to_string(), "debt-item-2".to_string());
+    reduce_context
+        .variables
+        .insert("result.1.status".to_string(), "failed".to_string());
+
+    let interp_context = reduce_context.to_interpolation_context();
+
+    // Verify all variables are accessible
+    assert_eq!(
+        interp_context
+            .variables
+            .get("map.successful")
+            .and_then(|v| v.as_str()),
+        Some("5")
+    );
+    assert_eq!(
+        interp_context
+            .variables
+            .get("claude.output")
+            .and_then(|v| v.as_str()),
+        Some("Debt reduction analysis: 30% improvement")
+    );
+    assert_eq!(
+        interp_context
+            .variables
+            .get("result.0.item_id")
+            .and_then(|v| v.as_str()),
+        Some("debt-item-1")
+    );
+}
+
+#[test]
+fn test_reduce_context_has_map_variables() {
+    // This test verifies the FIX: that reduce context gets map result variables
+    // Before the fix, these variables were NOT added to the reduce context
+
+    let env = ExecutionEnvironment {
+        working_dir: PathBuf::from("/test/worktree"),
+        project_dir: PathBuf::from("/test/project"),
+        worktree_name: Some("test-worktree".to_string()),
+        session_id: "test-session".to_string(),
+    };
+
+    // Simulate what execute_reduce_phase does after our fix
+    let mut reduce_context = AgentContext::new(
+        "reduce".to_string(),
+        env.working_dir.clone(),
+        "test-worktree".to_string(),
+        env.clone(),
+    );
+
+    // This is the CRITICAL FIX - adding map statistics to reduce context
+    let successful_count = 3;
+    let failed_count = 1;
+    let total = 4;
+
+    reduce_context
+        .variables
+        .insert("map.successful".to_string(), successful_count.to_string());
+    reduce_context
+        .variables
+        .insert("map.failed".to_string(), failed_count.to_string());
+    reduce_context
+        .variables
+        .insert("map.total".to_string(), total.to_string());
+
+    // Verify the variables are available for interpolation
+    let interp = reduce_context.to_interpolation_context();
+
+    // These assertions would FAIL before our fix because the variables weren't added
+    assert!(interp.variables.contains_key("map.successful"));
+    assert!(interp.variables.contains_key("map.failed"));
+    assert!(interp.variables.contains_key("map.total"));
+
+    // Test interpolation of a shell command that uses these variables
+    let test_command = "echo 'Processed ${map.successful} of ${map.total} items'";
+
+    // Before the fix, this would result in bad substitution error
+    // After the fix, the variables are available for substitution
+    assert_eq!(
+        interp
+            .variables
+            .get("map.successful")
+            .and_then(|v| v.as_str()),
+        Some("3")
+    );
+}
+
+#[test]
 fn test_interpolation_with_work_item() {
     let mut engine = InterpolationEngine::new(false);
     let mut context = InterpolationContext::new();

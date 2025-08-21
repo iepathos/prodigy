@@ -72,6 +72,54 @@ reduce:
         // and the reduce phase should be skipped
     }
 
+    /// Test reduce phase variable substitution in actual workflow
+    #[tokio::test]
+    async fn test_reduce_phase_variable_substitution() {
+        let yaml = r#"
+name: test-variable-substitution
+mode: mapreduce
+
+map:
+  input: test-items.json
+  json_path: "$[*]"
+  max_parallel: 2
+  agent_template:
+    commands:
+      - shell: "echo 'Processing ${item.id}'"
+
+reduce:
+  commands:
+    - shell: "echo 'Total: ${map.total}, Success: ${map.successful}, Failed: ${map.failed}'"
+    - shell: |
+        git commit -m "Processed ${map.successful} items
+        
+        Total items: ${map.total}
+        Failed items: ${map.failed}"
+"#;
+
+        let config = parse_mapreduce_workflow(yaml).unwrap();
+
+        // Verify reduce phase has commands with variables
+        assert!(config.reduce.is_some());
+        let reduce = config.reduce.as_ref().unwrap();
+        assert_eq!(reduce.commands.len(), 2);
+
+        // Check that the commands contain the expected variables
+        let first_cmd = &reduce.commands[0];
+        assert!(first_cmd.shell.is_some());
+        let shell_cmd = first_cmd.shell.as_ref().unwrap();
+        assert!(shell_cmd.contains("${map.total}"));
+        assert!(shell_cmd.contains("${map.successful}"));
+        assert!(shell_cmd.contains("${map.failed}"));
+
+        let second_cmd = &reduce.commands[1];
+        assert!(second_cmd.shell.is_some());
+        let commit_cmd = second_cmd.shell.as_ref().unwrap();
+        assert!(commit_cmd.contains("${map.successful}"));
+        assert!(commit_cmd.contains("${map.total}"));
+        assert!(commit_cmd.contains("${map.failed}"));
+    }
+
     /// Test complete debtmap workflow parsing
     #[tokio::test]
     async fn test_debtmap_workflow_parsing() {

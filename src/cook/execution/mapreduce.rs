@@ -1211,6 +1211,64 @@ impl MapReduceExecutor {
             env.clone(),
         );
 
+        // Transfer map results to reduce context variables for shell command substitution
+        reduce_context
+            .variables
+            .insert("map.successful".to_string(), successful_count.to_string());
+        reduce_context
+            .variables
+            .insert("map.failed".to_string(), failed_count.to_string());
+        reduce_context
+            .variables
+            .insert("map.total".to_string(), map_results.len().to_string());
+
+        // Add complete results as JSON string for complex access patterns
+        let results_json = serde_json::to_string(map_results)
+            .context("Failed to serialize map results to JSON")?;
+        reduce_context
+            .variables
+            .insert("map.results_json".to_string(), results_json);
+
+        // Add individual result summaries for easier access in shell commands
+        for (index, result) in map_results.iter().enumerate() {
+            // Add basic result info
+            reduce_context
+                .variables
+                .insert(format!("result.{}.item_id", index), result.item_id.clone());
+            reduce_context.variables.insert(
+                format!("result.{}.status", index),
+                match &result.status {
+                    AgentStatus::Success => "success".to_string(),
+                    AgentStatus::Failed(err) => format!("failed: {}", err),
+                    AgentStatus::Timeout => "timeout".to_string(),
+                    AgentStatus::Pending => "pending".to_string(),
+                    AgentStatus::Running => "running".to_string(),
+                    AgentStatus::Retrying(attempt) => format!("retrying: {}", attempt),
+                },
+            );
+
+            // Add output if available (truncated for safety)
+            if let Some(ref output) = result.output {
+                let truncated_output = if output.len() > 500 {
+                    format!("{}...[truncated]", &output[..500])
+                } else {
+                    output.clone()
+                };
+                reduce_context
+                    .variables
+                    .insert(format!("result.{}.output", index), truncated_output);
+            }
+
+            // Add commit count
+            reduce_context.variables.insert(
+                format!("result.{}.commits", index),
+                result.commits.len().to_string(),
+            );
+        }
+
+        // Validate that required variables are available for reduce phase
+        self.validate_reduce_variables(&reduce_phase.commands, &reduce_context)?;
+
         // Execute reduce commands in parent worktree
         for (step_index, step) in reduce_phase.commands.iter().enumerate() {
             let step_display = self.get_step_display_name(step);
@@ -1554,12 +1612,94 @@ impl MapReduceExecutor {
             cmd.output().await?
         };
 
-        Ok(StepResult {
+        let result = StepResult {
             success: output.status.success(),
             exit_code: output.status.code(),
             stdout: String::from_utf8_lossy(&output.stdout).to_string(),
             stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        })
+        };
+
+        // Enhanced error logging for variable substitution failures
+        if !result.success && result.stderr.contains("bad substitution") {
+            // Log detailed information about the substitution failure
+            error!(
+                "Shell command failed with variable substitution error:\n  \
+                Original command: {}\n  \
+                Available variables: {:?}\n  \
+                Error: {}",
+                command,
+                context.variables.keys().collect::<Vec<_>>(),
+                result.stderr
+            );
+
+            // Try to identify which variables were referenced but not available
+            let missing_vars = self.find_missing_variables(command, &context.variables);
+            if !missing_vars.is_empty() {
+                error!("Potentially missing variables: {:?}", missing_vars);
+            }
+        }
+
+        Ok(result)
+    }
+
+    /// Find variables referenced in a command that are not available in the context
+    fn find_missing_variables(
+        &self,
+        command: &str,
+        available_vars: &HashMap<String, String>,
+    ) -> Vec<String> {
+        use std::collections::HashSet;
+
+        let mut missing = Vec::new();
+        let mut found_vars = HashSet::new();
+
+        // Simple regex-like pattern matching for ${variable} and $variable patterns
+        // This is a basic implementation - for production use, consider using a proper regex library
+        let chars: Vec<char> = command.chars().collect();
+        let mut i = 0;
+
+        while i < chars.len() {
+            if chars[i] == '$' {
+                if i + 1 < chars.len() && chars[i + 1] == '{' {
+                    // Handle ${variable} pattern
+                    i += 2; // Skip ${
+                    let start = i;
+                    while i < chars.len() && chars[i] != '}' {
+                        i += 1;
+                    }
+                    if i < chars.len() && start < i {
+                        let var_name: String = chars[start..i].iter().collect();
+                        found_vars.insert(var_name);
+                    }
+                } else if i + 1 < chars.len()
+                    && (chars[i + 1].is_alphabetic() || chars[i + 1] == '_')
+                {
+                    // Handle $variable pattern
+                    i += 1;
+                    let start = i;
+                    while i < chars.len()
+                        && (chars[i].is_alphanumeric() || chars[i] == '_' || chars[i] == '.')
+                    {
+                        i += 1;
+                    }
+                    if start < i {
+                        let var_name: String = chars[start..i].iter().collect();
+                        found_vars.insert(var_name);
+                    }
+                    continue; // Don't increment i again
+                }
+            }
+            i += 1;
+        }
+
+        // Check which variables are referenced but not available
+        for var in found_vars {
+            if !available_vars.contains_key(&var) {
+                missing.push(var);
+            }
+        }
+
+        missing
     }
 
     /// Execute a handler command with agent context
@@ -1733,5 +1873,88 @@ impl MapReduceExecutor {
         } else {
             format!("{}...", &s[..max_len - 3])
         }
+    }
+
+    /// Validate that all required variables are available for reduce commands
+    fn validate_reduce_variables(
+        &self,
+        commands: &[WorkflowStep],
+        context: &AgentContext,
+    ) -> Result<()> {
+        let mut all_missing_vars = Vec::new();
+
+        for (step_index, step) in commands.iter().enumerate() {
+            let step_name = step.name.as_deref().unwrap_or("unnamed");
+
+            // Check shell commands for variable references
+            if let Some(shell_cmd) = &step.shell {
+                let missing_vars = self.find_missing_variables(shell_cmd, &context.variables);
+                if !missing_vars.is_empty() {
+                    warn!(
+                        "Reduce step {} ('{}') references missing variables: {:?}\n  Command: {}",
+                        step_index + 1,
+                        step_name,
+                        missing_vars,
+                        shell_cmd
+                    );
+                    all_missing_vars.extend(missing_vars);
+                }
+            }
+
+            // Check Claude commands for variable references (these get interpolated)
+            if let Some(claude_cmd) = &step.claude {
+                let missing_vars = self.find_missing_variables(claude_cmd, &context.variables);
+                if !missing_vars.is_empty() {
+                    warn!(
+                        "Reduce step {} ('{}') references missing variables: {:?}\n  Command: {}",
+                        step_index + 1,
+                        step_name,
+                        missing_vars,
+                        claude_cmd
+                    );
+                    all_missing_vars.extend(missing_vars);
+                }
+            }
+
+            // Check legacy commands
+            if let Some(command) = &step.command {
+                let missing_vars = self.find_missing_variables(command, &context.variables);
+                if !missing_vars.is_empty() {
+                    warn!(
+                        "Reduce step {} ('{}') references missing variables: {:?}\n  Command: {}",
+                        step_index + 1,
+                        step_name,
+                        missing_vars,
+                        command
+                    );
+                    all_missing_vars.extend(missing_vars);
+                }
+            }
+        }
+
+        // Log available variables for debugging
+        debug!(
+            "Available variables for reduce phase: {:?}",
+            context.variables.keys().collect::<Vec<_>>()
+        );
+
+        // For now, just warn about missing variables rather than failing
+        // This allows workflows to continue even if some variables might be missing
+        // In the future, we could make this configurable via workflow settings
+        if !all_missing_vars.is_empty() {
+            // Remove duplicates
+            all_missing_vars.sort();
+            all_missing_vars.dedup();
+
+            warn!(
+                "⚠️  Reduce phase validation found potentially missing variables: {:?}\n  \
+                Available variables: {:?}\n  \
+                Commands will still execute but may fail at runtime.",
+                all_missing_vars,
+                context.variables.keys().collect::<Vec<_>>()
+            );
+        }
+
+        Ok(())
     }
 }
