@@ -876,6 +876,48 @@ impl MapReduceExecutor {
                     ));
                     break;
                 }
+            } else {
+                // Step succeeded - check if there's an on_success handler
+                if let Some(on_success) = &step.on_success {
+                    debug!(
+                        "Executing on_success handler for agent {} step {}",
+                        item_id,
+                        step_index + 1
+                    );
+                    
+                    // Store the successful output in context for the handler to use
+                    context.captured_outputs.insert(
+                        "shell.output".to_string(),
+                        step_result.stdout.clone(),
+                    );
+                    context.variables.insert(
+                        "shell.output".to_string(), 
+                        step_result.stdout.clone(),
+                    );
+                    
+                    // Execute the on_success handler
+                    match self.execute_single_step(on_success, &mut context).await {
+                        Ok(success_result) => {
+                            if !success_result.success {
+                                warn!(
+                                    "on_success handler failed for agent {} step {}: {}",
+                                    item_id,
+                                    step_index + 1,
+                                    success_result.stderr
+                                );
+                                // Note: We don't fail the agent when on_success handler fails
+                            }
+                        }
+                        Err(e) => {
+                            warn!(
+                                "Failed to execute on_success handler for agent {} step {}: {}",
+                                item_id,
+                                step_index + 1,
+                                e
+                            );
+                        }
+                    }
+                }
             }
         }
 
@@ -1343,6 +1385,37 @@ impl MapReduceExecutor {
                         step_index + 1,
                         step_result.stderr
                     ));
+                }
+            } else {
+                // Step succeeded - check if there's an on_success handler
+                if let Some(on_success) = &step.on_success {
+                    self.user_interaction.display_info(&format!(
+                        "Step {} succeeded, executing on_success handler...",
+                        step_index + 1
+                    ));
+                    
+                    // Store the successful output in context for the handler to use
+                    reduce_context.captured_outputs.insert(
+                        "shell.output".to_string(),
+                        step_result.stdout.clone(),
+                    );
+                    reduce_context.variables.insert(
+                        "shell.output".to_string(), 
+                        step_result.stdout.clone(),
+                    );
+                    
+                    // Execute the on_success handler
+                    let success_result = self.execute_single_step(on_success, &mut reduce_context).await?;
+                    
+                    if !success_result.success {
+                        self.user_interaction.display_warning(&format!(
+                            "on_success handler failed for step {}: {}",
+                            step_index + 1,
+                            success_result.stderr
+                        ));
+                        // Note: We don't fail the workflow when on_success handler fails
+                        // This is consistent with typical behavior - on_success is a bonus action
+                    }
                 }
             }
 
