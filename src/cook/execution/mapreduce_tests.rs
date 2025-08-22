@@ -446,7 +446,7 @@ fn test_reduce_context_has_map_variables() {
     assert!(interp.variables.contains_key("map.total"));
 
     // Test interpolation of a shell command that uses these variables
-    let test_command = "echo 'Processed ${map.successful} of ${map.total} items'";
+    let _test_command = "echo 'Processed ${map.successful} of ${map.total} items'";
 
     // Before the fix, this would result in bad substitution error
     // After the fix, the variables are available for substitution

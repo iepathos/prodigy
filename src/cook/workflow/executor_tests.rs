@@ -1335,3 +1335,48 @@ mod disabled_tests {
             .contains("Test command failed after 1 attempts and fail_workflow is true"));
     }
 } // end disabled_tests module
+
+#[cfg(test)]
+mod capture_output_tests {
+    use crate::cook::workflow::{CaptureOutput, WorkflowContext, WorkflowStep};
+    
+
+    #[test]
+    fn test_capture_output_deserialization() {
+        // Test boolean true deserializes to Default
+        let yaml = "capture_output: true";
+        let step: WorkflowStep = serde_yaml::from_str(&format!("shell: echo test\n{}", yaml)).unwrap();
+        assert_eq!(step.capture_output, CaptureOutput::Default);
+
+        // Test boolean false deserializes to Disabled
+        let yaml = "capture_output: false";
+        let step: WorkflowStep = serde_yaml::from_str(&format!("shell: echo test\n{}", yaml)).unwrap();
+        assert_eq!(step.capture_output, CaptureOutput::Disabled);
+
+        // Test string deserializes to Variable
+        let yaml = "capture_output: my_custom_var";
+        let step: WorkflowStep = serde_yaml::from_str(&format!("shell: echo test\n{}", yaml)).unwrap();
+        assert_eq!(step.capture_output, CaptureOutput::Variable("my_custom_var".to_string()));
+
+        // Test dotted variable name
+        let yaml = "capture_output: analysis.result";
+        let step: WorkflowStep = serde_yaml::from_str(&format!("shell: echo test\n{}", yaml)).unwrap();
+        assert_eq!(step.capture_output, CaptureOutput::Variable("analysis.result".to_string()));
+    }
+
+
+    #[test]
+    fn test_capture_output_variable_interpolation() {
+        let mut context = WorkflowContext::default();
+        
+        // Add some captured outputs with custom names
+        context.captured_outputs.insert("analysis_result".to_string(), "High complexity detected".to_string());
+        context.captured_outputs.insert("todo_count".to_string(), "42".to_string());
+        
+        // Test interpolation
+        let template = "Analysis: ${analysis_result}, TODOs: ${todo_count}";
+        let result = context.interpolate(template);
+        
+        assert_eq!(result, "Analysis: High complexity detected, TODOs: 42");
+    }
+}

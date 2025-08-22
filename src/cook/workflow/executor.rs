@@ -700,8 +700,8 @@ impl WorkflowExecutor {
             return self.handle_test_mode_execution(step, &command_type);
         }
 
-        // Execute the command based on its type
-        let mut result = match command_type {
+        // Execute the command based on its type (clone to avoid move)
+        let mut result = match command_type.clone() {
             CommandType::Claude(cmd) => {
                 let interpolated_cmd = ctx.interpolate(&cmd);
                 self.execute_claude_command(&interpolated_cmd, env, env_vars)
@@ -756,6 +756,14 @@ impl WorkflowExecutor {
 
         // Capture output if requested
         if step.capture_output.is_enabled() {
+            // Get the variable name for this output (custom or default)
+            if let Some(var_name) = step.capture_output.get_variable_name(&command_type) {
+                // Store with the specified variable name
+                ctx.captured_outputs
+                    .insert(var_name, result.stdout.clone());
+            }
+            
+            // Also store as generic CAPTURED_OUTPUT for backward compatibility
             ctx.captured_outputs
                 .insert("CAPTURED_OUTPUT".to_string(), result.stdout.clone());
         }
