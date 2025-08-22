@@ -1456,7 +1456,7 @@ impl MapReduceExecutor {
                     .captured_outputs
                     .insert(var_name, result.stdout.clone());
             }
-            
+
             // Also store as generic CAPTURED_OUTPUT for backward compatibility
             context
                 .captured_outputs

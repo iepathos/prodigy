@@ -21,8 +21,10 @@ use std::time::Instant;
 /// Capture output configuration - either a boolean or a variable name
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(untagged)]
+#[derive(Default)]
 pub enum CaptureOutput {
     /// Don't capture output
+    #[default]
     Disabled,
     /// Capture to default variable names (claude.output, shell.output, etc.)
     Default,
@@ -30,18 +32,12 @@ pub enum CaptureOutput {
     Variable(String),
 }
 
-impl Default for CaptureOutput {
-    fn default() -> Self {
-        CaptureOutput::Disabled
-    }
-}
-
 impl CaptureOutput {
     /// Check if output should be captured
     pub fn is_enabled(&self) -> bool {
         !matches!(self, CaptureOutput::Disabled)
     }
-    
+
     /// Get the variable name to use for captured output
     pub fn get_variable_name(&self, command_type: &CommandType) -> Option<String> {
         match self {
@@ -71,7 +67,7 @@ where
         Bool(bool),
         String(String),
     }
-    
+
     match CaptureOutputHelper::deserialize(deserializer)? {
         CaptureOutputHelper::Bool(false) => Ok(CaptureOutput::Disabled),
         CaptureOutputHelper::Bool(true) => Ok(CaptureOutput::Default),
@@ -759,10 +755,9 @@ impl WorkflowExecutor {
             // Get the variable name for this output (custom or default)
             if let Some(var_name) = step.capture_output.get_variable_name(&command_type) {
                 // Store with the specified variable name
-                ctx.captured_outputs
-                    .insert(var_name, result.stdout.clone());
+                ctx.captured_outputs.insert(var_name, result.stdout.clone());
             }
-            
+
             // Also store as generic CAPTURED_OUTPUT for backward compatibility
             ctx.captured_outputs
                 .insert("CAPTURED_OUTPUT".to_string(), result.stdout.clone());
