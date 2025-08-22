@@ -825,10 +825,8 @@ impl MapReduceExecutor {
                                 );
                                 // Handler itself failed - check if we should fail workflow
                                 if on_failure.should_fail_workflow() {
-                                    execution_error = Some(format!(
-                                        "on_failure handler failed: {}",
-                                        handler_err
-                                    ));
+                                    execution_error =
+                                        Some(format!("on_failure handler failed: {}", handler_err));
                                     break;
                                 }
                             }
@@ -886,17 +884,15 @@ impl MapReduceExecutor {
                         item_id,
                         step_index + 1
                     );
-                    
+
                     // Store the successful output in context for the handler to use
-                    context.captured_outputs.insert(
-                        "shell.output".to_string(),
-                        step_result.stdout.clone(),
-                    );
-                    context.variables.insert(
-                        "shell.output".to_string(), 
-                        step_result.stdout.clone(),
-                    );
-                    
+                    context
+                        .captured_outputs
+                        .insert("shell.output".to_string(), step_result.stdout.clone());
+                    context
+                        .variables
+                        .insert("shell.output".to_string(), step_result.stdout.clone());
+
                     // Execute the on_success handler
                     match self.execute_single_step(on_success, &mut context).await {
                         Ok(success_result) => {
@@ -1333,7 +1329,7 @@ impl MapReduceExecutor {
                         "Step {} failed, executing on_failure handler...",
                         step_index + 1
                     ));
-                    
+
                     // Handle the on_failure configuration
                     // Store the shell output in context for the handler to use
                     reduce_context.captured_outputs.insert(
@@ -1341,16 +1337,16 @@ impl MapReduceExecutor {
                         format!("{}\n{}", step_result.stdout, step_result.stderr),
                     );
                     reduce_context.variables.insert(
-                        "shell.output".to_string(), 
+                        "shell.output".to_string(),
                         format!("{}\n{}", step_result.stdout, step_result.stderr),
                     );
-                    
+
                     let error_msg = format!(
                         "Step failed with exit code {}: {}",
                         step_result.exit_code.unwrap_or(-1),
                         step_result.stderr
                     );
-                    
+
                     // Try to handle the failure
                     match self
                         .handle_on_failure(on_failure, step, &mut reduce_context, error_msg)
@@ -1397,20 +1393,20 @@ impl MapReduceExecutor {
                         "Step {} succeeded, executing on_success handler...",
                         step_index + 1
                     ));
-                    
+
                     // Store the successful output in context for the handler to use
-                    reduce_context.captured_outputs.insert(
-                        "shell.output".to_string(),
-                        step_result.stdout.clone(),
-                    );
-                    reduce_context.variables.insert(
-                        "shell.output".to_string(), 
-                        step_result.stdout.clone(),
-                    );
-                    
+                    reduce_context
+                        .captured_outputs
+                        .insert("shell.output".to_string(), step_result.stdout.clone());
+                    reduce_context
+                        .variables
+                        .insert("shell.output".to_string(), step_result.stdout.clone());
+
                     // Execute the on_success handler
-                    let success_result = self.execute_single_step(on_success, &mut reduce_context).await?;
-                    
+                    let success_result = self
+                        .execute_single_step(on_success, &mut reduce_context)
+                        .await?;
+
                     if !success_result.success {
                         self.user_interaction.display_warning(&format!(
                             "on_success handler failed for step {}: {}",
@@ -1905,10 +1901,10 @@ impl MapReduceExecutor {
         // Check if there's a handler to execute
         if let Some(handler_step) = on_failure.handler() {
             info!("Executing on_failure handler for agent {}", context.item_id);
-            
+
             // Execute the on_failure handler step
             let handler_result = self.execute_single_step(&handler_step, context).await?;
-            
+
             if !handler_result.success {
                 warn!(
                     "on_failure handler failed for agent {}: {}",
@@ -1919,7 +1915,7 @@ impl MapReduceExecutor {
                     return Ok(false);
                 }
             }
-            
+
             // Check if we should retry the original command
             if on_failure.should_retry() {
                 let max_retries = on_failure.max_retries();
@@ -1928,11 +1924,11 @@ impl MapReduceExecutor {
                         "Retrying original command for agent {} (attempt {}/{})",
                         context.item_id, retry, max_retries
                     );
-                    
+
                     // Create a copy of the step without on_failure to avoid recursion
                     let mut retry_step = original_step.clone();
                     retry_step.on_failure = None;
-                    
+
                     let retry_result = self.execute_single_step(&retry_step, context).await?;
                     if retry_result.success {
                         info!("Retry succeeded for agent {}", context.item_id);
