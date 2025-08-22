@@ -1289,6 +1289,12 @@ impl MapReduceExecutor {
                     step_result.stderr
                 ));
             }
+
+            // After successful execution, make captured outputs available as variables
+            // for subsequent commands in the reduce phase
+            for (key, value) in reduce_context.captured_outputs.clone() {
+                reduce_context.variables.insert(key, value);
+            }
         }
 
         self.user_interaction
@@ -1412,6 +1418,14 @@ impl MapReduceExecutor {
         // Determine command type
         let command_type = self.determine_command_type(&interpolated_step)?;
 
+        // Determine output key based on command type (before moving command_type)
+        let output_key = match &command_type {
+            CommandType::Claude(_) | CommandType::Legacy(_) => "claude.output".to_string(),
+            CommandType::Shell(_) => "shell.output".to_string(),
+            CommandType::Handler { .. } => "handler.output".to_string(),
+            CommandType::Test(_) => "test.output".to_string(),
+        };
+
         // Execute the command based on its type
         let result = match command_type {
             CommandType::Claude(cmd) => self.execute_claude_command(&cmd, context).await?,
@@ -1443,6 +1457,12 @@ impl MapReduceExecutor {
 
         // Capture output if requested
         if step.capture_output && !result.stdout.is_empty() {
+            // Store with the command-specific key
+            context
+                .captured_outputs
+                .insert(output_key, result.stdout.clone());
+            
+            // Also store as generic CAPTURED_OUTPUT for backward compatibility
             context
                 .captured_outputs
                 .insert("CAPTURED_OUTPUT".to_string(), result.stdout.clone());
