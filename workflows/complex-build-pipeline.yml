@@ -10,20 +10,20 @@
     on_success:
       shell: "cargo test --release"
       on_failure:
-        claude: "/mmm-debug-and-fix '$CAPTURED_OUTPUT'"
+        claude: "/mmm-debug-and-fix '${shell.output}'"
         
 # Run clippy and fix any issues
 - shell: "cargo clippy -- -D warnings"
-  capture_output: true
+  capture_output: "clippy_warnings"
   on_failure:
-    claude: "/mmm-fix-clippy-warnings '$CAPTURED_OUTPUT'"
+    claude: "/mmm-fix-clippy-warnings '${clippy_warnings}'"
     
 # Run benchmarks if all tests pass
 - shell: "cargo bench"
   timeout: 600  # 10 minutes
-  capture_output: true
+  capture_output: "benchmark_results"
   on_exit_code:
     0:
       shell: "echo 'Benchmarks completed successfully!'"
     101:
-      claude: "/mmm-fix-compilation-errors '$CAPTURED_OUTPUT'"
+      claude: "/mmm-fix-compilation-errors '${benchmark_results}'"

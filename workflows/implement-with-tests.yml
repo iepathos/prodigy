@@ -23,11 +23,11 @@
 
 # Step 2: Run tests to verify implementation  
 - shell: "cargo test"
-  capture_output: true
+  capture_output: "test_output"
   commit_required: false
   on_failure:
     # If tests fail, debug and fix them
-    claude: "/mmm-debug-test-failures '$CAPTURED_OUTPUT'"
+    claude: "/mmm-debug-test-failures '${test_output}'"
     commit_required: true
     on_success:
       # After fixing, verify tests pass
@@ -35,7 +35,7 @@
       commit_required: false
       on_failure:
         # If still failing, try a more thorough fix
-        claude: "/mmm-fix-test-failures '$CAPTURED_OUTPUT' --deep-analysis"
+        claude: "/mmm-fix-test-failures '${shell.output}' --deep-analysis"
         commit_required: true
 
 # Step 3: Run linting after tests pass
@@ -52,11 +52,11 @@
 
 # Step 5: Final verification
 - shell: "cargo test --release"
-  capture_output: true
+  capture_output: "final_test_results"
   commit_required: false
   on_failure:
     # Report persistent failures for manual intervention
-    claude: "/mmm-report-test-status failed '$CAPTURED_OUTPUT' --notify"
+    claude: "/mmm-report-test-status failed '${final_test_results}' --notify"
     commit_required: false
   on_success:
     shell: "echo '✅ All tests passing! Implementation complete.'"
