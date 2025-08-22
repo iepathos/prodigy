@@ -803,33 +803,35 @@ impl MapReduceExecutor {
                     // Handle on_failure if specified
                     if let Some(on_failure) = &step.on_failure {
                         info!("Executing on_failure handler for agent {}", item_id);
-                        if let Err(handler_err) = self
-                            .handle_on_failure(on_failure, &mut context, error_msg.clone())
+                        match self
+                            .handle_on_failure(on_failure, step, &mut context, error_msg.clone())
                             .await
                         {
-                            error!(
-                                "on_failure handler also failed for agent {}: {}",
-                                item_id, handler_err
-                            );
-                        }
-
-                        // Check if we should fail the entire workflow based on test command configuration
-                        let should_fail_workflow = if let Some(test_cmd) = &step.test {
-                            if let Some(debug_config) = &test_cmd.on_failure {
-                                debug_config.fail_workflow
-                            } else {
-                                false
+                            Ok(handled) => {
+                                if !handled {
+                                    // on_failure handler says we should fail
+                                    execution_error = Some(format!(
+                                        "Step failed and on_failure.fail_workflow is true: {}",
+                                        error_msg
+                                    ));
+                                    break;
+                                }
+                                // Otherwise, continue to next step
                             }
-                        } else {
-                            false
-                        };
-
-                        if should_fail_workflow {
-                            execution_error = Some(format!(
-                                "Step failed with fail_workflow=true: {}",
-                                error_msg
-                            ));
-                            break;
+                            Err(handler_err) => {
+                                error!(
+                                    "on_failure handler failed for agent {}: {}",
+                                    item_id, handler_err
+                                );
+                                // Handler itself failed - check if we should fail workflow
+                                if on_failure.should_fail_workflow() {
+                                    execution_error = Some(format!(
+                                        "on_failure handler failed: {}",
+                                        handler_err
+                                    ));
+                                    break;
+                                }
+                            }
                         }
                     } else {
                         execution_error = Some(error_msg);
@@ -1350,34 +1352,36 @@ impl MapReduceExecutor {
                     );
                     
                     // Try to handle the failure
-                    if let Err(handler_err) = self
-                        .handle_on_failure(on_failure, &mut reduce_context, error_msg)
+                    match self
+                        .handle_on_failure(on_failure, step, &mut reduce_context, error_msg)
                         .await
                     {
-                        // Check if fail_workflow is set
-                        if on_failure.should_fail_workflow() {
-                            return Err(anyhow!(
-                                "Reduce step {} failed and fail_workflow is true: {}",
-                                step_index + 1,
+                        Ok(handled) => {
+                            if !handled {
+                                // on_failure says we should fail
+                                return Err(anyhow!(
+                                    "Reduce step {} failed and fail_workflow is true",
+                                    step_index + 1
+                                ));
+                            }
+                            // Otherwise continue to next step
+                        }
+                        Err(handler_err) => {
+                            // Handler itself failed
+                            if on_failure.should_fail_workflow() {
+                                return Err(anyhow!(
+                                    "Reduce step {} on_failure handler failed: {}",
+                                    step_index + 1,
+                                    handler_err
+                                ));
+                            }
+                            // Otherwise, log the error but continue
+                            self.user_interaction.display_warning(&format!(
+                                "on_failure handler failed but continuing: {}",
                                 handler_err
                             ));
                         }
-                        // Otherwise, log the error but continue
-                        self.user_interaction.display_warning(&format!(
-                            "on_failure handler failed but continuing: {}",
-                            handler_err
-                        ));
                     }
-                    
-                    // If we get here and fail_workflow is true, still fail
-                    if on_failure.should_fail_workflow() {
-                        return Err(anyhow!(
-                            "Reduce step {} failed after on_failure handling: {}",
-                            step_index + 1,
-                            step_result.stderr
-                        ));
-                    }
-                    // If handled successfully, continue to next step
                 } else {
                     // No on_failure handler, fail immediately
                     return Err(anyhow!(
@@ -1885,43 +1889,62 @@ impl MapReduceExecutor {
     }
 
     /// Handle on_failure logic for a failed step
+    /// Returns Ok(true) if the failure was handled and execution should continue,
+    /// Ok(false) if the workflow should fail, or an error if the handler itself failed
     async fn handle_on_failure(
         &self,
         on_failure: &crate::cook::workflow::OnFailureConfig,
+        original_step: &WorkflowStep,
         context: &mut AgentContext,
         error: String,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         // Add error to context for interpolation
         context.variables.insert("error".to_string(), error.clone());
         context.variables.insert("last_error".to_string(), error);
 
         // Check if there's a handler to execute
         if let Some(handler_step) = on_failure.handler() {
+            info!("Executing on_failure handler for agent {}", context.item_id);
+            
             // Execute the on_failure handler step
-            let result = self.execute_single_step(&handler_step, context).await;
-
-            // Log the result but don't fail the entire execution
-            match result {
-                Ok(step_result) => {
-                    if step_result.success {
-                        info!("on_failure handler succeeded for agent {}", context.item_id);
-                    } else {
-                        warn!(
-                            "on_failure handler failed for agent {}: {}",
-                            context.item_id, step_result.stderr
-                        );
+            let handler_result = self.execute_single_step(&handler_step, context).await?;
+            
+            if !handler_result.success {
+                warn!(
+                    "on_failure handler failed for agent {}: {}",
+                    context.item_id, handler_result.stderr
+                );
+                // If handler fails and fail_workflow is true, propagate failure
+                if on_failure.should_fail_workflow() {
+                    return Ok(false);
+                }
+            }
+            
+            // Check if we should retry the original command
+            if on_failure.should_retry() {
+                let max_retries = on_failure.max_retries();
+                for retry in 1..=max_retries {
+                    info!(
+                        "Retrying original command for agent {} (attempt {}/{})",
+                        context.item_id, retry, max_retries
+                    );
+                    
+                    // Create a copy of the step without on_failure to avoid recursion
+                    let mut retry_step = original_step.clone();
+                    retry_step.on_failure = None;
+                    
+                    let retry_result = self.execute_single_step(&retry_step, context).await?;
+                    if retry_result.success {
+                        info!("Retry succeeded for agent {}", context.item_id);
+                        return Ok(true); // Successfully handled
                     }
                 }
-                Err(e) => {
-                    error!(
-                        "Failed to execute on_failure handler for agent {}: {}",
-                        context.item_id, e
-                    );
-                }
+                warn!("All retries failed for agent {}", context.item_id);
             }
         }
 
-        Ok(())
+        // Return whether we should continue based on fail_workflow setting
+        Ok(!on_failure.should_fail_workflow())
     }
 
     /// Report execution summary
