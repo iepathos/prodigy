@@ -1283,11 +1283,67 @@ impl MapReduceExecutor {
             let step_result = self.execute_single_step(step, &mut reduce_context).await?;
 
             if !step_result.success {
-                return Err(anyhow!(
-                    "Reduce step {} failed: {}",
-                    step_index + 1,
-                    step_result.stderr
-                ));
+                // Check if there's an on_failure handler
+                if let Some(on_failure) = &step.on_failure {
+                    self.user_interaction.display_warning(&format!(
+                        "Step {} failed, executing on_failure handler...",
+                        step_index + 1
+                    ));
+                    
+                    // Handle the on_failure configuration
+                    // Store the shell output in context for the handler to use
+                    reduce_context.captured_outputs.insert(
+                        "shell.output".to_string(),
+                        format!("{}\n{}", step_result.stdout, step_result.stderr),
+                    );
+                    reduce_context.variables.insert(
+                        "shell.output".to_string(), 
+                        format!("{}\n{}", step_result.stdout, step_result.stderr),
+                    );
+                    
+                    let error_msg = format!(
+                        "Step failed with exit code {}: {}",
+                        step_result.exit_code.unwrap_or(-1),
+                        step_result.stderr
+                    );
+                    
+                    // Try to handle the failure
+                    if let Err(handler_err) = self
+                        .handle_on_failure(on_failure, &mut reduce_context, error_msg)
+                        .await
+                    {
+                        // Check if fail_workflow is set
+                        if on_failure.should_fail_workflow() {
+                            return Err(anyhow!(
+                                "Reduce step {} failed and fail_workflow is true: {}",
+                                step_index + 1,
+                                handler_err
+                            ));
+                        }
+                        // Otherwise, log the error but continue
+                        self.user_interaction.display_warning(&format!(
+                            "on_failure handler failed but continuing: {}",
+                            handler_err
+                        ));
+                    }
+                    
+                    // If we get here and fail_workflow is true, still fail
+                    if on_failure.should_fail_workflow() {
+                        return Err(anyhow!(
+                            "Reduce step {} failed after on_failure handling: {}",
+                            step_index + 1,
+                            step_result.stderr
+                        ));
+                    }
+                    // If handled successfully, continue to next step
+                } else {
+                    // No on_failure handler, fail immediately
+                    return Err(anyhow!(
+                        "Reduce step {} failed: {}",
+                        step_index + 1,
+                        step_result.stderr
+                    ));
+                }
             }
 
             // After successful execution, make captured outputs available as variables
