@@ -3,6 +3,7 @@
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
 use crate::cook::execution::mapreduce::*;
 use crate::cook::orchestrator::ExecutionEnvironment;
+use crate::cook::workflow::{CaptureOutput, CommandType};
 use serde_json::json;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -206,7 +207,7 @@ fn test_map_phase_configuration() {
             test: None,
             command: None,
             handler: None,
-            capture_output: false,
+            capture_output: CaptureOutput::Disabled,
             timeout: None,
             working_dir: None,
             env: HashMap::new(),
@@ -239,7 +240,7 @@ fn test_reduce_phase_configuration() {
                 test: None,
                 command: None,
                 handler: None,
-                capture_output: false,
+                capture_output: CaptureOutput::Disabled,
                 timeout: None,
                 working_dir: None,
                 env: HashMap::new(),
@@ -255,7 +256,7 @@ fn test_reduce_phase_configuration() {
                 test: None,
                 command: None,
                 handler: None,
-                capture_output: false,
+                capture_output: CaptureOutput::Disabled,
                 timeout: None,
                 working_dir: None,
                 env: HashMap::new(),
@@ -455,6 +456,45 @@ fn test_reduce_context_has_map_variables() {
             .get("map.successful")
             .and_then(|v| v.as_str()),
         Some("3")
+    );
+}
+
+#[test]
+fn test_custom_capture_output_variables() {
+    use crate::cook::workflow::CaptureOutput;
+    
+    // Test CaptureOutput enum functionality
+    assert!(!CaptureOutput::Disabled.is_enabled());
+    assert!(CaptureOutput::Default.is_enabled());
+    assert!(CaptureOutput::Variable("my_output".to_string()).is_enabled());
+    
+    // Test variable name generation
+    let claude_cmd = CommandType::Claude("test".to_string());
+    let shell_cmd = CommandType::Shell("echo test".to_string());
+    
+    assert_eq!(
+        CaptureOutput::Disabled.get_variable_name(&claude_cmd),
+        None
+    );
+    
+    assert_eq!(
+        CaptureOutput::Default.get_variable_name(&claude_cmd),
+        Some("claude.output".to_string())
+    );
+    
+    assert_eq!(
+        CaptureOutput::Default.get_variable_name(&shell_cmd),
+        Some("shell.output".to_string())
+    );
+    
+    assert_eq!(
+        CaptureOutput::Variable("custom_var".to_string()).get_variable_name(&claude_cmd),
+        Some("custom_var".to_string())
+    );
+    
+    assert_eq!(
+        CaptureOutput::Variable("my.special.output".to_string()).get_variable_name(&shell_cmd),
+        Some("my.special.output".to_string())
     );
 }
 

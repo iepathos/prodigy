@@ -7,7 +7,7 @@ mod on_failure;
 mod traits;
 
 pub use executor::{
-    CommandType, ExtendedWorkflowConfig, HandlerStep, StepResult, WorkflowContext,
+    CaptureOutput, CommandType, ExtendedWorkflowConfig, HandlerStep, StepResult, WorkflowContext,
     WorkflowExecutor as WorkflowExecutorImpl, WorkflowMode, WorkflowStep,
 };
 pub use on_failure::OnFailureConfig;

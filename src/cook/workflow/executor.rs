@@ -12,11 +12,72 @@ use crate::cook::workflow::on_failure::OnFailureConfig;
 use crate::session::{format_duration, TimingTracker};
 use crate::testing::config::TestConfiguration;
 use anyhow::{anyhow, Context, Result};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
+
+/// Capture output configuration - either a boolean or a variable name
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum CaptureOutput {
+    /// Don't capture output
+    Disabled,
+    /// Capture to default variable names (claude.output, shell.output, etc.)
+    Default,
+    /// Capture to a custom variable name
+    Variable(String),
+}
+
+impl Default for CaptureOutput {
+    fn default() -> Self {
+        CaptureOutput::Disabled
+    }
+}
+
+impl CaptureOutput {
+    /// Check if output should be captured
+    pub fn is_enabled(&self) -> bool {
+        !matches!(self, CaptureOutput::Disabled)
+    }
+    
+    /// Get the variable name to use for captured output
+    pub fn get_variable_name(&self, command_type: &CommandType) -> Option<String> {
+        match self {
+            CaptureOutput::Disabled => None,
+            CaptureOutput::Default => {
+                // Use command-type specific default names
+                Some(match command_type {
+                    CommandType::Claude(_) | CommandType::Legacy(_) => "claude.output".to_string(),
+                    CommandType::Shell(_) => "shell.output".to_string(),
+                    CommandType::Handler { .. } => "handler.output".to_string(),
+                    CommandType::Test(_) => "test.output".to_string(),
+                })
+            }
+            CaptureOutput::Variable(name) => Some(name.clone()),
+        }
+    }
+}
+
+/// Custom deserializer for CaptureOutput that accepts bool or string
+fn deserialize_capture_output<'de, D>(deserializer: D) -> Result<CaptureOutput, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum CaptureOutputHelper {
+        Bool(bool),
+        String(String),
+    }
+    
+    match CaptureOutputHelper::deserialize(deserializer)? {
+        CaptureOutputHelper::Bool(false) => Ok(CaptureOutput::Disabled),
+        CaptureOutputHelper::Bool(true) => Ok(CaptureOutput::Default),
+        CaptureOutputHelper::String(s) => Ok(CaptureOutput::Variable(s)),
+    }
+}
 
 /// Command type for workflow steps
 #[derive(Debug, Clone, PartialEq)]
@@ -115,9 +176,9 @@ pub struct WorkflowStep {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handler: Option<HandlerStep>,
 
-    /// Whether to capture command output
-    #[serde(default)]
-    pub capture_output: bool,
+    /// Whether to capture command output (bool or variable name string)
+    #[serde(default, deserialize_with = "deserialize_capture_output")]
+    pub capture_output: CaptureOutput,
 
     /// Timeout in seconds
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -694,7 +755,7 @@ impl WorkflowExecutor {
         };
 
         // Capture output if requested
-        if step.capture_output {
+        if step.capture_output.is_enabled() {
             ctx.captured_outputs
                 .insert("CAPTURED_OUTPUT".to_string(), result.stdout.clone());
         }

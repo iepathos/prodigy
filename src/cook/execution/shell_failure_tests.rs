@@ -223,7 +223,7 @@ map:
     #[tokio::test]
     async fn test_shell_command_error_propagation() {
         use crate::cook::orchestrator::ExecutionEnvironment;
-        use crate::cook::workflow::WorkflowStep;
+        use crate::cook::workflow::{CaptureOutput, WorkflowStep};
 
         let _step = WorkflowStep {
             name: Some("failing-command".to_string()),
@@ -233,7 +233,7 @@ map:
             command: None,
             handler: None,
             timeout: None,
-            capture_output: false,
+            capture_output: CaptureOutput::Disabled,
             on_failure: None,
             on_success: None,
             on_exit_code: Default::default(),

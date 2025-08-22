@@ -2,7 +2,7 @@
 //!
 //! Provides flexible error handling options for workflow commands.
 
-use super::WorkflowStep;
+use super::{CaptureOutput, WorkflowStep};
 use serde::{Deserialize, Serialize};
 
 /// Configuration for handling command failures
@@ -79,7 +79,7 @@ impl OnFailureConfig {
                         command: None,
                         handler: None,
                         timeout: None,
-                        capture_output: false,
+                        capture_output: CaptureOutput::Disabled,
                         on_failure: None,
                         on_success: None,
                         on_exit_code: Default::default(),

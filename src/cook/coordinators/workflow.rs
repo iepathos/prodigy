@@ -3,7 +3,7 @@
 use crate::config::command::WorkflowStepCommand;
 use crate::config::WorkflowCommand;
 use crate::cook::interaction::UserInteraction;
-use crate::cook::workflow::WorkflowStep;
+use crate::cook::workflow::{CaptureOutput, WorkflowStep};
 use anyhow::Result;
 use async_trait::async_trait;
 use std::collections::HashMap;
@@ -105,7 +105,7 @@ impl DefaultWorkflowCoordinator {
             shell: None,
             test: None,
             handler: None,
-            capture_output: false,
+            capture_output: CaptureOutput::Disabled,
             timeout: None,
             working_dir: None,
             env: HashMap::new(),
@@ -423,7 +423,7 @@ mod tests {
         assert!(step.shell.is_none());
         assert!(step.test.is_none());
         assert!(step.handler.is_none());
-        assert!(!step.capture_output);
+        assert!(!step.capture_output.is_enabled());
         assert!(step.timeout.is_none());
         assert!(step.working_dir.is_none());
         assert!(step.on_failure.is_none());

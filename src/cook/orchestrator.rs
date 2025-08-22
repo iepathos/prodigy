@@ -17,7 +17,7 @@ use super::command::CookCommand;
 use super::execution::{ClaudeExecutor, CommandExecutor};
 use super::interaction::UserInteraction;
 use super::session::{SessionManager, SessionStatus, SessionUpdate};
-use super::workflow::{ExtendedWorkflowConfig, WorkflowStep};
+use super::workflow::{CaptureOutput, ExtendedWorkflowConfig, WorkflowStep};
 use crate::session::{format_duration, TimingTracker};
 use std::time::Instant;
 
@@ -320,7 +320,11 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                             shell,
                             test, // Contains retry logic for shell commands
                             handler: None,
-                            capture_output: step.capture_output,
+                            capture_output: if step.capture_output {
+                                CaptureOutput::Default
+                            } else {
+                                CaptureOutput::Disabled
+                            },
                             timeout: None,
                             working_dir: None,
                             env: std::collections::HashMap::new(),
@@ -385,7 +389,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                             shell: None,
                             test: None,
                             handler: None,
-                            capture_output: false,
+                            capture_output: CaptureOutput::Disabled,
                             timeout: None,
                             working_dir: None,
                             env: std::collections::HashMap::new(),
