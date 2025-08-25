@@ -1267,7 +1267,13 @@ impl MapReduceExecutor {
             .context("Failed to serialize map results to JSON")?;
         reduce_context
             .variables
-            .insert("map.results_json".to_string(), results_json);
+            .insert("map.results_json".to_string(), results_json.clone());
+        
+        // Also add map.results for Claude command interpolation
+        // This will be available when to_interpolation_context is called
+        reduce_context
+            .variables
+            .insert("map.results".to_string(), results_json);
 
         // Add individual result summaries for easier access in shell commands
         for (index, result) in map_results.iter().enumerate() {
