@@ -30,7 +30,7 @@ async-trait = "0.1"
 reqwest = { version = "0.12", features = ["json", "multipart"] }
 tera = "1.19"
 sha2 = "0.10"
-petgraph = "0.6"
+petgraph = "0.8"
 uuid = { version = "1.10", features = ["v4", "serde"] }
 futures = "0.3"
 pest = "2.7"
