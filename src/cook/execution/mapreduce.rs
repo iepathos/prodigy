@@ -1268,7 +1268,7 @@ impl MapReduceExecutor {
         reduce_context
             .variables
             .insert("map.results_json".to_string(), results_json.clone());
-        
+
         // Also add map.results for Claude command interpolation
         // This will be available when to_interpolation_context is called
         reduce_context
