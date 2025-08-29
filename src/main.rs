@@ -102,12 +102,12 @@ enum WorktreeCommands {
     /// Clean up completed or abandoned worktrees
     Clean {
         /// Clean up all MMM worktrees
-        #[arg(long)]
+        #[arg(short = 'a', long)]
         all: bool,
         /// Name of specific worktree to clean
         name: Option<String>,
         /// Force removal even if there are untracked or modified files
-        #[arg(long)]
+        #[arg(short = 'f', long)]
         force: bool,
         /// Only clean up sessions that have been merged
         #[arg(long)]
