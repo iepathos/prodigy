@@ -1060,7 +1060,7 @@ impl DefaultCookOrchestrator {
     async fn execute_mapreduce_workflow(
         &self,
         env: &ExecutionEnvironment,
-        _config: &CookConfig,
+        config: &CookConfig,
         mapreduce_config: &crate::config::MapReduceWorkflowConfig,
     ) -> Result<()> {
         // Display MapReduce-specific message
@@ -1068,6 +1068,13 @@ impl DefaultCookOrchestrator {
             "🚀 Executing MapReduce workflow: {}",
             mapreduce_config.name
         ));
+
+        // Set environment variables for MapReduce execution
+        // This ensures auto-merge works when -y flag is provided
+        if config.command.auto_accept {
+            std::env::set_var("MMM_AUTO_MERGE", "true");
+            std::env::set_var("MMM_AUTO_CONFIRM", "true");
+        }
 
         // Convert MapReduce config to ExtendedWorkflowConfig
         let extended_workflow = ExtendedWorkflowConfig {
@@ -1089,7 +1096,15 @@ impl DefaultCookOrchestrator {
         );
 
         // Execute the MapReduce workflow
-        executor.execute(&extended_workflow, env).await
+        let result = executor.execute(&extended_workflow, env).await;
+
+        // Clean up environment variables
+        if config.command.auto_accept {
+            std::env::remove_var("MMM_AUTO_MERGE");
+            std::env::remove_var("MMM_AUTO_CONFIRM");
+        }
+
+        result
     }
 
     /// Execute a single workflow command

@@ -257,6 +257,30 @@ impl WorktreeManager {
     /// # Errors
     /// Returns error if unable to read worktree information
     pub async fn list_sessions(&self) -> Result<Vec<WorktreeSession>> {
+        // First, get sessions from Git worktrees
+        let mut sessions = self.list_git_worktree_sessions().await?;
+
+        // Then, supplement with sessions from metadata that might not be in Git
+        // (e.g., sessions with non-standard branch names or in transitional states)
+        let metadata_sessions = self.list_metadata_sessions()?;
+
+        // Merge the two lists, preferring Git state but using metadata for missing info
+        for meta_session in metadata_sessions {
+            if !sessions.iter().any(|s| s.name == meta_session.name) {
+                // This session exists in metadata but not in Git worktrees
+                // Check if the worktree directory actually exists
+                let worktree_path = self.base_dir.join(&meta_session.name);
+                if worktree_path.exists() {
+                    sessions.push(meta_session);
+                }
+            }
+        }
+
+        Ok(sessions)
+    }
+
+    /// List sessions from Git worktrees
+    async fn list_git_worktree_sessions(&self) -> Result<Vec<WorktreeSession>> {
         let command = ProcessCommandBuilder::new("git")
             .current_dir(&self.repo_path)
             .args(["worktree", "list", "--porcelain"])
@@ -284,7 +308,9 @@ impl WorktreeManager {
                 if let (Some(path), Some(branch)) = (current_path.take(), current_branch.take()) {
                     // Canonicalize the path to handle symlinks
                     let canonical_path = path.canonicalize().unwrap_or(path.clone());
-                    if canonical_path.starts_with(&self.base_dir) && branch.starts_with("mmm-") {
+                    // Include all worktrees in our base directory, regardless of branch name
+                    // This includes MapReduce branches like "merge-mmm-*" and "mmm-agent-*"
+                    if canonical_path.starts_with(&self.base_dir) {
                         let name = path
                             .file_name()
                             .and_then(|n| n.to_str())
@@ -303,7 +329,8 @@ impl WorktreeManager {
         // Handle the last entry
         if let (Some(path), Some(branch)) = (current_path, current_branch) {
             let canonical_path = path.canonicalize().unwrap_or(path.clone());
-            if canonical_path.starts_with(&self.base_dir) && branch.starts_with("mmm-") {
+            // Include all worktrees in our base directory
+            if canonical_path.starts_with(&self.base_dir) {
                 let name = path
                     .file_name()
                     .and_then(|n| n.to_str())
@@ -311,6 +338,45 @@ impl WorktreeManager {
                     .to_string();
 
                 sessions.push(WorktreeSession::new(name, branch, canonical_path));
+            }
+        }
+
+        Ok(sessions)
+    }
+
+    /// List sessions from metadata files
+    fn list_metadata_sessions(&self) -> Result<Vec<WorktreeSession>> {
+        let metadata_dir = self.base_dir.join(".metadata");
+        if !metadata_dir.exists() {
+            return Ok(Vec::new());
+        }
+
+        let mut sessions = Vec::new();
+        for entry in fs::read_dir(&metadata_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+
+            // Skip non-JSON files and special files
+            if path.extension().and_then(|s| s.to_str()) != Some("json") {
+                continue;
+            }
+
+            // Skip cleanup.log and other non-session files
+            let filename = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+            if !filename.starts_with("session-") {
+                continue;
+            }
+
+            if let Some(state) = Self::load_state_from_file(&path) {
+                // Only include sessions that are not cleaned up
+                if state.status != WorktreeStatus::CleanedUp {
+                    let worktree_path = self.base_dir.join(&state.worktree_name);
+                    sessions.push(WorktreeSession::new(
+                        state.worktree_name,
+                        state.branch,
+                        worktree_path,
+                    ));
+                }
             }
         }
 

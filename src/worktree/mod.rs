@@ -69,6 +69,8 @@ pub mod state;
 mod test_state;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tracking_tests;
 
 pub use manager::{CleanupConfig, CleanupPolicy, WorktreeManager};
 pub use state::{
