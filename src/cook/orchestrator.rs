@@ -457,36 +457,18 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             if should_merge {
                 let worktree_manager =
                     WorktreeManager::new(env.project_dir.clone(), self.subprocess.clone())?;
+                
+                // merge_session already handles auto-cleanup internally based on MMM_AUTO_CLEANUP env var
+                // We should not duplicate cleanup here to avoid race conditions
                 worktree_manager.merge_session(worktree_name).await?;
                 self.user_interaction
                     .display_success("Worktree changes merged successfully!");
-
-                // After successful merge, handle cleanup
-                if config.command.auto_accept {
-                    // Auto cleanup when -y flag is provided
-                    if let Err(e) = worktree_manager.cleanup_session(worktree_name, true).await {
-                        eprintln!("⚠️ Warning: Failed to clean up worktree '{worktree_name}': {e}");
-                    } else {
-                        self.user_interaction.display_success("Worktree cleaned up");
-                    }
-                } else {
-                    // Prompt for cleanup
-                    let should_cleanup = self
-                        .user_interaction
-                        .prompt_yes_no("Would you like to clean up the worktree?")
-                        .await?;
-
-                    if should_cleanup {
-                        if let Err(e) = worktree_manager.cleanup_session(worktree_name, true).await
-                        {
-                            eprintln!(
-                                "⚠️ Warning: Failed to clean up worktree '{worktree_name}': {e}"
-                            );
-                        } else {
-                            self.user_interaction.display_success("Worktree cleaned up");
-                        }
-                    }
-                }
+                
+                // Note: merge_session already handles cleanup based on auto_cleanup config
+                // It will either:
+                // 1. Auto-cleanup if MMM_AUTO_CLEANUP is true (default)
+                // 2. Display cleanup instructions if auto-cleanup is disabled
+                // We should not duplicate that logic here
             }
         }
 
