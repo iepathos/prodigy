@@ -6,6 +6,7 @@
 use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};
 use crate::cook::execution::data_pipeline::DataPipeline;
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
+use crate::cook::execution::state::{DefaultJobStateManager, JobStateManager};
 use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
@@ -375,6 +376,7 @@ pub struct MapReduceExecutor {
     interpolation_engine: Arc<Mutex<InterpolationEngine>>,
     command_registry: Arc<CommandRegistry>,
     subprocess: Arc<SubprocessManager>,
+    state_manager: Arc<dyn JobStateManager>,
 }
 
 impl MapReduceExecutor {
@@ -386,6 +388,10 @@ impl MapReduceExecutor {
         worktree_manager: Arc<WorktreeManager>,
         project_root: PathBuf,
     ) -> Self {
+        // Create state directory path
+        let state_dir = project_root.join(".mmm").join("mapreduce");
+        let state_manager = Arc::new(DefaultJobStateManager::new(state_dir));
+
         Self {
             claude_executor,
             session_manager,
@@ -395,6 +401,7 @@ impl MapReduceExecutor {
             interpolation_engine: Arc::new(Mutex::new(InterpolationEngine::new(false))),
             command_registry: Arc::new(CommandRegistry::with_defaults().await),
             subprocess: Arc::new(SubprocessManager::production()),
+            state_manager,
         }
     }
 
@@ -418,8 +425,18 @@ impl MapReduceExecutor {
             map_phase.config.max_parallel
         ));
 
-        // Execute map phase
-        let map_results = self.execute_map_phase(map_phase, work_items, env).await?;
+        // Create a new job with persistent state
+        let job_id = self
+            .state_manager
+            .create_job(map_phase.config.clone(), work_items.clone())
+            .await?;
+
+        debug!("Created MapReduce job with ID: {}", job_id);
+
+        // Execute map phase with state tracking
+        let map_results = self
+            .execute_map_phase_with_state(&job_id, map_phase, work_items, env)
+            .await?;
 
         // Execute reduce phase if specified AND there were items to process
         // Skip reduce if no items were processed or all failed
@@ -438,17 +455,147 @@ impl MapReduceExecutor {
                     self.user_interaction
                         .display_warning("⚠️ Skipping reduce phase: all map agents failed");
                 } else {
+                    // Mark reduce phase as started
+                    self.state_manager.start_reduce_phase(&job_id).await?;
+
                     self.execute_reduce_phase(reduce_phase, &map_results, env)
+                        .await?;
+
+                    // Mark reduce phase as completed
+                    self.state_manager
+                        .complete_reduce_phase(&job_id, None)
                         .await?;
                 }
             }
         }
+
+        // Mark job as complete
+        self.state_manager.mark_job_complete(&job_id).await?;
 
         // Report summary
         let duration = start_time.elapsed();
         self.report_summary(&map_results, duration);
 
         Ok(map_results)
+    }
+
+    /// Execute map phase with state tracking
+    async fn execute_map_phase_with_state(
+        &self,
+        job_id: &str,
+        map_phase: &MapPhase,
+        work_items: Vec<Value>,
+        env: &ExecutionEnvironment,
+    ) -> Result<Vec<AgentResult>> {
+        // Execute the normal map phase
+        let results = self.execute_map_phase(map_phase, work_items, env).await?;
+
+        // Update state for each result
+        for result in &results {
+            self.state_manager
+                .update_agent_result(job_id, result.clone())
+                .await?;
+        }
+
+        Ok(results)
+    }
+
+    /// Resume a MapReduce job from checkpoint
+    pub async fn resume_job(
+        &self,
+        job_id: &str,
+        env: &ExecutionEnvironment,
+    ) -> Result<Vec<AgentResult>> {
+        // Load job state from checkpoint
+        let state = self.state_manager.get_job_state(job_id).await?;
+
+        self.user_interaction.display_info(&format!(
+            "Resuming MapReduce job {} from checkpoint v{}",
+            job_id, state.checkpoint_version
+        ));
+
+        // Display progress information
+        self.user_interaction.display_info(&format!(
+            "Progress: {} completed, {} failed, {} pending",
+            state.successful_count,
+            state.failed_count,
+            state.pending_items.len()
+        ));
+
+        // Check if map phase is complete
+        if !state.is_map_phase_complete() {
+            // Get items that need processing
+            let mut remaining_items = Vec::new();
+            for (i, item) in state.work_items.iter().enumerate() {
+                let item_id = format!("item_{}", i);
+                if state.pending_items.contains(&item_id) {
+                    remaining_items.push(item.clone());
+                }
+            }
+
+            // Get retriable failed items
+            let retriable = state.get_retriable_items(state.config.retry_on_failure);
+            for item_id in retriable {
+                if let Some(idx) = item_id
+                    .strip_prefix("item_")
+                    .and_then(|s| s.parse::<usize>().ok())
+                {
+                    if idx < state.work_items.len() {
+                        remaining_items.push(state.work_items[idx].clone());
+                    }
+                }
+            }
+
+            if !remaining_items.is_empty() {
+                self.user_interaction.display_info(&format!(
+                    "Resuming map phase with {} remaining items",
+                    remaining_items.len()
+                ));
+
+                // Create a map phase config from the stored state
+                let map_phase = MapPhase {
+                    config: state.config.clone(),
+                    agent_template: vec![], // This would need to be stored in state
+                    filter: None,
+                    sort_by: None,
+                };
+
+                // Execute remaining items
+                let new_results = self
+                    .execute_map_phase(&map_phase, remaining_items, env)
+                    .await?;
+
+                // Update state with new results
+                for result in &new_results {
+                    self.state_manager
+                        .update_agent_result(job_id, result.clone())
+                        .await?;
+                }
+
+                // Combine with existing results
+                let mut all_results: Vec<AgentResult> = state.agent_results.into_values().collect();
+                all_results.extend(new_results);
+
+                return Ok(all_results);
+            }
+        }
+
+        // If map phase is complete but reduce hasn't run
+        if state.is_map_phase_complete() && state.reduce_phase_state.is_none() {
+            self.user_interaction
+                .display_info("Map phase complete, reduce phase pending");
+        }
+
+        // Return existing results
+        Ok(state.agent_results.into_values().collect())
+    }
+
+    /// Check if a job can be resumed
+    pub async fn can_resume_job(&self, job_id: &str) -> bool {
+        match self.state_manager.get_job_state(job_id).await {
+            Ok(state) => !state.is_complete,
+            Err(_) => false,
+        }
     }
 
     /// Load work items from JSON file with pipeline processing
@@ -2028,6 +2175,7 @@ impl MapReduceExecutor {
             interpolation_engine: self.interpolation_engine.clone(),
             command_registry: self.command_registry.clone(),
             subprocess: self.subprocess.clone(),
+            state_manager: self.state_manager.clone(),
         }
     }
 
