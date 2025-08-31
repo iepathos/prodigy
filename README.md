@@ -4,6 +4,8 @@
 [![Security](https://github.com/iepathos/mmm/actions/workflows/security.yml/badge.svg)](https://github.com/iepathos/mmm/actions/workflows/security.yml)
 [![Release](https://github.com/iepathos/mmm/actions/workflows/release.yml/badge.svg)](https://github.com/iepathos/mmm/actions/workflows/release.yml)
 
+> 🚧 **Early Prototype** - This project is under active development and APIs may change
+
 **AI pair programming orchestrator** - Run reproducible code improvement workflows with Claude. Fix bugs, improve coverage, eliminate tech debt - all through simple YAML workflows.
 
 ## What Is MMM?
@@ -37,6 +39,9 @@ Claude: "Let me see the new error..."
 - Run up to N agents concurrently in isolated worktrees
 - Automatic work distribution and result aggregation
 - Smart filtering and sorting of work items
+- Persistent state and checkpointing for job recovery
+- Automatic retry logic with configurable attempts
+- Custom variable capture and interpolation
 
 ⚡ **Optimized Context Generation**: 90%+ reduction in context file sizes
 - Technical debt files: 8.2MB → <500KB
@@ -47,6 +52,8 @@ Claude: "Let me see the new error..."
 - Automatic retry of failed formatting/linting
 - Full subprocess stdout/stderr capture
 - Flexible failure modes per command
+- MapReduce job resumption from checkpoints
+- on_success handlers for conditional execution
 
 📊 **Data Pipeline Features**: Advanced filtering and transformation
 - Regex pattern matching: `path matches '\.rs$'`
@@ -238,6 +245,12 @@ mmm cook workflows/fix-files-mapreduce.yml --worktree
 
 # Auto-merge results from parallel agents
 mmm cook workflows/mapreduce-example.yml --worktree --yes
+
+# Resume an interrupted MapReduce job from checkpoint
+mmm cook workflows/debtmap-mapreduce.yml --worktree --resume
+
+# Run with custom parallelism limit
+mmm cook workflows/mapreduce-example.yml --worktree --max-parallel 20
 ```
 
 ### Available Workflows
@@ -493,8 +506,15 @@ map:
 reduce:
   commands:
     - claude: "/summarize-fixes ${map.results}"
+      capture_output: true
+    
     - shell: "git merge --no-ff mmm-agent-*"
+      commit_required: true
+    
     - claude: "/generate-report"
+      env:
+        TOTAL_FIXED: "${map.successful}"
+        TOTAL_FAILED: "${map.failed}"
 ```
 
 #### MapReduce Features
@@ -504,6 +524,11 @@ reduce:
 - **Parallel Execution**: Run up to N agents concurrently (configurable)
 - **Automatic Merging**: Merge all agent branches back to main
 - **Error Recovery**: Retry failed agents, continue on partial failures
+- **Persistent State**: Checkpoint-based recovery for interrupted jobs
+- **Custom Variables**: Capture command output with custom variable names via `capture_output`
+- **Conditional Execution**: on_success and on_failure handlers for both map and reduce phases
+- **Progress Tracking**: Real-time progress bars for parallel agent execution
+- **Job Resumption**: Resume failed MapReduce jobs from last checkpoint with `--resume`
 
 #### Command Arguments & Error Handling
 
@@ -576,10 +601,13 @@ mmm worktree merge mmm-performance-1234567890
 # Merge all completed worktrees
 mmm worktree merge --all
 
-# Clean up completed worktrees
+# Clean up completed worktrees (shorthand: -f)
 mmm worktree clean mmm-performance-1234567890
-# Or clean all worktrees
+mmm worktree clean -f  # Clean specific worktree
+
+# Clean all worktrees (shorthand: -a)
 mmm worktree clean --all
+mmm worktree clean -a  # Clean all worktrees
 ```
 
 Each session runs in its own git worktree with an isolated branch, allowing multiple cooking efforts to proceed without interfering with each other. Worktrees are stored in `~/.mmm/worktrees/{project-name}/` and are preserved on failure for debugging and automatically suggested for cleanup on success.
@@ -618,6 +646,7 @@ mmm/
 │   ├── cook/             # Core cooking logic
 │   │   ├── execution/    # Execution engines
 │   │   │   ├── mapreduce.rs     # MapReduce orchestration
+│   │   │   ├── state.rs         # Persistent state & checkpointing
 │   │   │   ├── data_pipeline.rs # Data filtering & sorting
 │   │   │   └── interpolation.rs # Variable interpolation
 │   │   └── workflow/     # Workflow processing
@@ -670,10 +699,12 @@ cargo run -- cook workflows/security.yml --worktree
 
 ## Limitations
 
-- Requires Claude CLI to be installed and configured
+- Requires Claude CLI to be installed and configured (v0.6.0+)
 - Improvements are limited by Claude's capabilities and context window
-- Each iteration runs independently (no memory between sessions beyond git history)
+- Each iteration runs independently (no memory between sessions beyond git history and checkpoints)
 - Workflow configuration is intentionally simple (no complex conditionals or plugins)
+- MapReduce jobs require sufficient disk space for multiple worktrees
+- Some features are experimental and may change in future releases
 
 ## License
 
