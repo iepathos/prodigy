@@ -13,6 +13,9 @@ pub mod mapreduce_tests;
 pub mod runner;
 #[cfg(test)]
 pub mod shell_failure_tests;
+pub mod state;
+#[cfg(test)]
+pub mod state_tests;
 
 pub use claude::{ClaudeExecutor, ClaudeExecutorImpl};
 pub use mapreduce::{
