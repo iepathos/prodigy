@@ -298,27 +298,25 @@ impl WorktreeManager {
         }
 
         let stdout = &output.stdout;
-        let mut sessions = Vec::new();
+        let worktree_entries = Self::parse_worktree_output(stdout);
+
+        Ok(worktree_entries
+            .into_iter()
+            .filter_map(|(path, branch)| self.create_worktree_session(path, branch))
+            .collect())
+    }
+
+    /// Parse git worktree list output into path/branch pairs
+    fn parse_worktree_output(output: &str) -> Vec<(PathBuf, String)> {
+        let mut entries = Vec::new();
         let mut current_path: Option<PathBuf> = None;
         let mut current_branch: Option<String> = None;
 
-        for line in stdout.lines() {
+        for line in output.lines() {
             if line.starts_with("worktree ") {
                 // Process any pending worktree before starting a new one
                 if let (Some(path), Some(branch)) = (current_path.take(), current_branch.take()) {
-                    // Canonicalize the path to handle symlinks
-                    let canonical_path = path.canonicalize().unwrap_or(path.clone());
-                    // Include all worktrees in our base directory, regardless of branch name
-                    // This includes MapReduce branches like "merge-mmm-*" and "mmm-agent-*"
-                    if canonical_path.starts_with(&self.base_dir) {
-                        let name = path
-                            .file_name()
-                            .and_then(|n| n.to_str())
-                            .unwrap_or(&branch)
-                            .to_string();
-
-                        sessions.push(WorktreeSession::new(name, branch, canonical_path));
-                    }
+                    entries.push((path, branch));
                 }
                 current_path = Some(PathBuf::from(line.trim_start_matches("worktree ")));
             } else if line.starts_with("branch ") {
@@ -328,20 +326,29 @@ impl WorktreeManager {
 
         // Handle the last entry
         if let (Some(path), Some(branch)) = (current_path, current_branch) {
-            let canonical_path = path.canonicalize().unwrap_or(path.clone());
-            // Include all worktrees in our base directory
-            if canonical_path.starts_with(&self.base_dir) {
-                let name = path
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or(&branch)
-                    .to_string();
-
-                sessions.push(WorktreeSession::new(name, branch, canonical_path));
-            }
+            entries.push((path, branch));
         }
 
-        Ok(sessions)
+        entries
+    }
+
+    /// Create a WorktreeSession if the path is within our base directory
+    fn create_worktree_session(&self, path: PathBuf, branch: String) -> Option<WorktreeSession> {
+        let canonical_path = path.canonicalize().unwrap_or(path.clone());
+
+        // Include all worktrees in our base directory, regardless of branch name
+        // This includes MapReduce branches like "merge-mmm-*" and "mmm-agent-*"
+        if !canonical_path.starts_with(&self.base_dir) {
+            return None;
+        }
+
+        let name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or(&branch)
+            .to_string();
+
+        Some(WorktreeSession::new(name, branch, canonical_path))
     }
 
     /// List sessions from metadata files
@@ -914,6 +921,69 @@ impl WorktreeManager {
 mod tests {
     use super::*;
     use tempfile::TempDir;
+
+    #[test]
+    fn test_parse_worktree_output() {
+        // Test parsing of git worktree list --porcelain output
+        let output = r#"worktree /home/user/project/.mmm/worktrees/test-session
+HEAD abc123def456
+branch refs/heads/test-branch
+
+worktree /home/user/project/.mmm/worktrees/another-session
+HEAD 789012ghi345
+branch refs/heads/another-branch
+
+worktree /home/user/project
+HEAD xyz789mno123
+branch refs/heads/main"#;
+
+        let entries = WorktreeManager::parse_worktree_output(output);
+
+        assert_eq!(entries.len(), 3);
+        assert_eq!(
+            entries[0].0,
+            PathBuf::from("/home/user/project/.mmm/worktrees/test-session")
+        );
+        assert_eq!(entries[0].1, "test-branch");
+        assert_eq!(
+            entries[1].0,
+            PathBuf::from("/home/user/project/.mmm/worktrees/another-session")
+        );
+        assert_eq!(entries[1].1, "another-branch");
+        assert_eq!(entries[2].0, PathBuf::from("/home/user/project"));
+        assert_eq!(entries[2].1, "main");
+    }
+
+    #[test]
+    fn test_parse_worktree_output_empty() {
+        // Test with empty output
+        let output = "";
+        let entries = WorktreeManager::parse_worktree_output(output);
+        assert_eq!(entries.len(), 0);
+    }
+
+    #[test]
+    fn test_parse_worktree_output_single_entry() {
+        // Test with single worktree
+        let output = r#"worktree /path/to/worktree
+HEAD abc123
+branch refs/heads/feature"#;
+
+        let entries = WorktreeManager::parse_worktree_output(output);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].0, PathBuf::from("/path/to/worktree"));
+        assert_eq!(entries[0].1, "feature");
+    }
+
+    #[test]
+    fn test_parse_worktree_output_missing_branch() {
+        // Test with missing branch info (should not include incomplete entries)
+        let output = r#"worktree /path/to/worktree
+HEAD abc123"#;
+
+        let entries = WorktreeManager::parse_worktree_output(output);
+        assert_eq!(entries.len(), 0);
+    }
 
     #[test]
     fn test_claude_merge_command_construction() {
