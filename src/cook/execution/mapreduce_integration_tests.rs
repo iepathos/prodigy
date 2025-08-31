@@ -411,4 +411,133 @@ map:
         // max_attempts should allow retries
         // fail_workflow: false should allow continuation
     }
+
+    /// Test reduce phase on_failure with retry logic
+    #[tokio::test]
+    async fn test_reduce_phase_on_failure_with_retries() {
+        let yaml = r#"
+name: test-reduce-retry
+mode: mapreduce
+
+setup:
+  - shell: 'echo ''[{"id": 1}, {"id": 2}]'' > items.json'
+
+map:
+  input: items.json
+  json_path: "$[*]"
+  agent_template:
+    commands:
+      - shell: "echo 'Processing item ${item.id}'"
+
+reduce:
+  commands:
+    - shell: "exit 1"  # Fail intentionally to trigger retry
+      on_failure:
+        claude: "/fix-error"
+        max_attempts: 3  # Should retry up to 3 times
+        fail_workflow: false
+"#;
+
+        let config = parse_mapreduce_workflow(yaml).unwrap();
+
+        // Verify reduce phase configuration
+        assert!(config.reduce.is_some());
+        let reduce = config.reduce.unwrap();
+        assert_eq!(reduce.commands.len(), 1);
+
+        // Verify on_failure configuration
+        let step = &reduce.commands[0];
+        assert!(step.on_failure.is_some());
+
+        let on_failure = step.on_failure.as_ref().unwrap();
+        // Verify max_retries is parsed correctly from max_attempts
+        assert_eq!(on_failure.max_retries(), 3);
+        // Verify should_retry returns true when max_retries > 0
+        assert!(on_failure.should_retry());
+        // Verify fail_workflow is false
+        assert!(!on_failure.should_fail_workflow());
+    }
+
+    /// Test reduce phase retry behavior without explicit retry_original
+    #[tokio::test]
+    async fn test_reduce_phase_implicit_retry() {
+        use crate::cook::workflow::OnFailureConfig;
+
+        // Test that max_attempts > 0 implies retry without retry_original
+        let yaml_config = r#"
+claude: "/debug-test"
+max_attempts: 2
+fail_workflow: true
+"#;
+
+        let on_failure: OnFailureConfig = serde_yaml::from_str(yaml_config).unwrap();
+
+        // Should retry because max_retries (from max_attempts) is 2
+        assert!(on_failure.should_retry());
+        assert_eq!(on_failure.max_retries(), 2);
+        assert!(on_failure.should_fail_workflow());
+        assert!(on_failure.handler().is_some());
+    }
+
+    /// Test reduce phase behavior when retries are exhausted
+    #[tokio::test]
+    async fn test_reduce_phase_retry_exhaustion() {
+        let yaml = r#"
+name: test-reduce-exhaustion
+mode: mapreduce
+
+map:
+  input: items.json
+  json_path: "$[*]"
+  agent_template:
+    commands:
+      - shell: "echo 'ok'"
+
+reduce:
+  commands:
+    - shell: "false"  # Always fails
+      on_failure:
+        shell: "echo 'Attempting recovery'"
+        max_attempts: 2
+        fail_workflow: true  # Should fail workflow after retries exhausted
+"#;
+
+        let config = parse_mapreduce_workflow(yaml).unwrap();
+        let reduce = config.reduce.unwrap();
+        let step = &reduce.commands[0];
+        let on_failure = step.on_failure.as_ref().unwrap();
+
+        // Verify configuration
+        assert_eq!(on_failure.max_retries(), 2);
+        assert!(on_failure.should_retry());
+        assert!(on_failure.should_fail_workflow());
+
+        // In actual execution:
+        // 1. Command fails
+        // 2. on_failure handler runs
+        // 3. Original command retried (attempt 1/2)
+        // 4. Command fails again
+        // 5. Original command retried (attempt 2/2)
+        // 6. Command fails again
+        // 7. Workflow fails because fail_workflow=true and retries exhausted
+    }
+
+    /// Test that max_attempts=0 means no retries
+    #[tokio::test]
+    async fn test_reduce_phase_no_retry() {
+        use crate::cook::workflow::OnFailureConfig;
+
+        let yaml_config = r#"
+claude: "/debug-test"
+max_attempts: 0
+fail_workflow: false
+"#;
+
+        let on_failure: OnFailureConfig = serde_yaml::from_str(yaml_config).unwrap();
+
+        // Should NOT retry because max_retries is 0
+        assert!(!on_failure.should_retry());
+        assert_eq!(on_failure.max_retries(), 0);
+        assert!(!on_failure.should_fail_workflow());
+    }
 }

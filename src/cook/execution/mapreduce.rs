@@ -1923,13 +1923,19 @@ impl MapReduceExecutor {
             }
 
             // Check if we should retry the original command
+            // Retry is determined by max_retries > 0 (consistent with regular workflows)
             if on_failure.should_retry() {
                 let max_retries = on_failure.max_retries();
+                info!(
+                    "🔄 Will retry original command for agent {} (max_retries/max_attempts: {})",
+                    context.item_id, max_retries
+                );
+
                 for retry in 1..=max_retries {
-                    info!(
-                        "Retrying original command for agent {} (attempt {}/{})",
-                        context.item_id, retry, max_retries
-                    );
+                    self.user_interaction.display_info(&format!(
+                        "🔄 Retry attempt {}/{} for agent {}",
+                        retry, max_retries, context.item_id
+                    ));
 
                     // Create a copy of the step without on_failure to avoid recursion
                     let mut retry_step = original_step.clone();
@@ -1937,11 +1943,34 @@ impl MapReduceExecutor {
 
                     let retry_result = self.execute_single_step(&retry_step, context).await?;
                     if retry_result.success {
-                        info!("Retry succeeded for agent {}", context.item_id);
+                        self.user_interaction.display_success(&format!(
+                            "✅ Retry succeeded for agent {} on attempt {}/{}",
+                            context.item_id, retry, max_retries
+                        ));
                         return Ok(true); // Successfully handled
+                    } else {
+                        self.user_interaction.display_warning(&format!(
+                            "❌ Retry attempt {}/{} failed for agent {}: {}",
+                            retry,
+                            max_retries,
+                            context.item_id,
+                            retry_result
+                                .stderr
+                                .lines()
+                                .next()
+                                .unwrap_or("unknown error")
+                        ));
                     }
                 }
-                warn!("All retries failed for agent {}", context.item_id);
+                self.user_interaction.display_error(&format!(
+                    "All {} retry attempts failed for agent {}",
+                    max_retries, context.item_id
+                ));
+            } else {
+                debug!(
+                    "Not retrying original command (max_retries: {})",
+                    on_failure.max_retries()
+                );
             }
         }
 

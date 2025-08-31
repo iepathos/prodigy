@@ -28,11 +28,11 @@ pub enum OnFailureConfig {
         fail_workflow: bool,
 
         /// Whether to retry the original command after handling
-        #[serde(default)]
+        #[serde(default = "default_retry_original")]
         retry_original: bool,
 
-        /// Maximum retry attempts
-        #[serde(default = "default_retries")]
+        /// Maximum retry attempts (supports both max_retries and max_attempts)
+        #[serde(default = "default_retries", alias = "max_attempts")]
         max_retries: u32,
     },
 
@@ -52,6 +52,10 @@ fn default_fail() -> bool {
 
 fn default_retries() -> u32 {
     1
+}
+
+fn default_retry_original() -> bool {
+    false // This field is now deprecated - we use max_retries > 0 to determine retry behavior
 }
 
 impl OnFailureConfig {
@@ -97,11 +101,11 @@ impl OnFailureConfig {
     }
 
     /// Check if the original command should be retried
+    /// If max_retries > 0, we should retry (consistent with regular workflow behavior)
     pub fn should_retry(&self) -> bool {
-        match self {
-            OnFailureConfig::Advanced { retry_original, .. } => *retry_original,
-            _ => false,
-        }
+        // If max_retries > 0, we should retry regardless of retry_original
+        // This matches the behavior of regular workflows where max_attempts implies retry
+        self.max_retries() > 0
     }
 
     /// Get maximum retry attempts
@@ -162,6 +166,22 @@ max_retries: 3
         let config: OnFailureConfig = serde_yaml::from_str(yaml).unwrap();
         assert!(config.handler().is_some());
         assert!(config.should_fail_workflow());
+        assert!(config.should_retry());
+        assert_eq!(config.max_retries(), 3);
+    }
+
+    #[test]
+    fn test_max_attempts_implies_retry() {
+        // Test that max_attempts > 0 implies retry without retry_original
+        let yaml = r#"
+claude: "/fix-error"
+max_attempts: 3
+fail_workflow: false
+"#;
+        let config: OnFailureConfig = serde_yaml::from_str(yaml).unwrap();
+        assert!(config.handler().is_some());
+        assert!(!config.should_fail_workflow());
+        // should_retry() should be true because max_retries (from max_attempts) is 3
         assert!(config.should_retry());
         assert_eq!(config.max_retries(), 3);
     }
