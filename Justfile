@@ -51,38 +51,40 @@ clean:
 
 # === TESTING ===
 
-# Run all tests
+# Run all tests with nextest for faster execution
 test:
     cargo build
-    cargo test
+    @echo "Running tests with cargo nextest..."
+    cargo nextest run
 
 # Run tests with output
 test-verbose:
-    cargo test -- --nocapture
+    cargo nextest run --nocapture
 
 # Run tests with specific pattern
 test-pattern PATTERN:
-    cargo test {{PATTERN}}
+    cargo nextest run {{PATTERN}}
 
 # Run tests and watch for changes
 test-watch:
-    cargo watch -x test
+    cargo watch -x 'nextest run'
 
-# Run tests with coverage using cargo-tarpaulin
+# Run tests with coverage using optimized tarpaulin with LLVM engine and nextest
 coverage:
     #!/usr/bin/env bash
     echo "Building mmm binary for integration tests..."
     cargo build --bin mmm
-    echo "Generating code coverage report with cargo-tarpaulin..."
-    cargo tarpaulin --skip-clean --engine llvm --out Html --out Json --output-dir target/coverage
+    echo "Generating code coverage report with tarpaulin (LLVM engine + nextest)..."
+    cargo tarpaulin --config .tarpaulin.toml
     echo "Coverage report generated at target/coverage/tarpaulin-report.html"
 
 # Run tests with coverage (lcov format)
 coverage-lcov:
     #!/usr/bin/env bash
-    set -e  # Exit on any command failure
-    echo "Generating code coverage report with cargo-tarpaulin (lcov format)..."
-    cargo tarpaulin --config .tarpaulin.toml --fail-immediately --out Lcov --output-dir target/coverage
+    echo "Building mmm binary for integration tests..."
+    cargo build --bin mmm
+    echo "Generating code coverage report with tarpaulin (lcov format)..."
+    cargo tarpaulin --config .tarpaulin.toml --out Lcov
     echo "Coverage report generated at target/coverage/lcov.info"
 
 # Run tests with coverage and check threshold
@@ -91,7 +93,8 @@ coverage-check:
     echo "Building mmm binary for integration tests..."
     cargo build --bin mmm
     echo "Checking code coverage threshold..."
-    COVERAGE=$(cargo tarpaulin --skip-clean --engine llvm --out Json --output-dir target/coverage --quiet | jq -r '.files | to_entries | map(.value.coverage) | add / length')
+    cargo tarpaulin --config .tarpaulin.toml --out Json --quiet
+    COVERAGE=$(cat target/coverage/tarpaulin-report.json | jq -r '.files | to_entries | map(.value.coverage) | add / length')
     echo "Current coverage: ${COVERAGE}%"
     if (( $(echo "$COVERAGE < 80" | bc -l) )); then
         echo "⚠️  Coverage is below 80%: $COVERAGE%"
@@ -107,19 +110,21 @@ coverage-open: coverage
 # Analyze the current repository with debtmap using coverage data
 analyze-self:
     #!/usr/bin/env bash
+    echo "Building mmm in release mode..."
+    cargo build --release --bin mmm
     echo "Generating code coverage (lcov format)..."
-    cargo tarpaulin --config .tarpaulin.toml --out Lcov --output-dir target/coverage
+    cargo tarpaulin --config .tarpaulin.toml --out Lcov
     echo "Analyzing current repository with debtmap..."
-    debtmap analyze . --lcov target/coverage/lcov.info
+    debtmap analyze . --lcov target/coverage/lcov.info -vv
     echo "Analysis complete!"
 
 # Run property-based tests only (if using proptest)
 test-prop:
-    cargo test prop
+    cargo nextest run prop
 
 # Run integration tests only
 test-integration:
-    cargo test --test '*'
+    cargo nextest run --test '*'
 
 # Run benchmarks
 bench:
@@ -127,15 +132,15 @@ bench:
 
 # Run ignored tests (including performance tests)
 test-ignored:
-    cargo test -- --ignored
+    cargo nextest run --run-ignored ignored-only
 
 # Run performance tests only
 test-perf:
-    cargo test -- --ignored perf
+    cargo nextest run --run-ignored ignored-only perf
 
 # Run all tests including ignored ones
 test-all:
-    cargo test -- --include-ignored
+    cargo nextest run --run-ignored all
 
 # === CODE QUALITY ===
 
@@ -242,7 +247,7 @@ ci:
      export RUSTFLAGS="-Dwarnings" && \
      export RUST_BACKTRACE=1 && \
      echo "Running tests..." && \
-     cargo test --all-features && \
+     cargo nextest run --all-features && \
      echo "Running clippy..." && \
      cargo clippy --all-targets --all-features -- -D warnings && \
      echo "Checking formatting..." && \
@@ -253,11 +258,11 @@ ci:
 
 # Run compatibility tests only
 test-compatibility:
-    cargo test --test compatibility -- --test-threads=1
+    cargo nextest run --test compatibility -j 1
 
 # Run performance tests only  
 test-performance:
-    cargo test --test performance
+    cargo nextest run --test performance
 
 # Full CI build pipeline (equivalent to scripts/ci-build.sh)
 ci-build:
@@ -269,7 +274,7 @@ ci-build:
     @echo "Building project..."
     cargo build --release
     @echo "Running tests..."
-    cargo test --all
+    cargo nextest run --all
     @echo "Building benchmarks..."
     cargo bench --no-run
     @echo "Build successful!"
@@ -287,7 +292,7 @@ full-check: clean build test lint doc audit
 # Install development tools
 install-tools:
     rustup component add rustfmt clippy
-    cargo install cargo-watch cargo-tarpaulin cargo-audit cargo-outdated
+    cargo install cargo-watch cargo-tarpaulin cargo-audit cargo-outdated cargo-nextest
 
 # Install additional development tools
 install-extras:
