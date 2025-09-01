@@ -441,36 +441,49 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 
         // Clean up worktree if needed
         if let Some(ref worktree_name) = env.worktree_name {
-            // Skip user prompt in test mode
-            let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
-            let should_merge = if test_mode {
-                // Default to not merging in test mode to avoid complications
-                false
-            } else if config.command.auto_accept {
-                // Auto-accept when -y flag is provided
-                true
+            let worktree_manager =
+                WorktreeManager::new(env.project_dir.clone(), self.subprocess.clone())?;
+            
+            // Check if worktree is already merged
+            let is_already_merged = worktree_manager
+                .get_session_state(worktree_name)
+                .map(|state| state.merged)
+                .unwrap_or(false);
+            
+            if is_already_merged {
+                // Worktree was already merged (e.g., by MapReduce workflow)
+                // Just proceed with cleanup if auto-cleanup is enabled
+                self.user_interaction
+                    .display_info("Worktree changes were already merged");
             } else {
-                // Ask user if they want to merge
-                self.user_interaction
-                    .prompt_yes_no("Would you like to merge the worktree changes?")
-                    .await?
-            };
+                // Skip user prompt in test mode
+                let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
+                let should_merge = if test_mode {
+                    // Default to not merging in test mode to avoid complications
+                    false
+                } else if config.command.auto_accept {
+                    // Auto-accept when -y flag is provided
+                    true
+                } else {
+                    // Ask user if they want to merge
+                    self.user_interaction
+                        .prompt_yes_no("Would you like to merge the worktree changes?")
+                        .await?
+                };
 
-            if should_merge {
-                let worktree_manager =
-                    WorktreeManager::new(env.project_dir.clone(), self.subprocess.clone())?;
+                if should_merge {
+                    // merge_session already handles auto-cleanup internally based on MMM_AUTO_CLEANUP env var
+                    // We should not duplicate cleanup here to avoid race conditions
+                    worktree_manager.merge_session(worktree_name).await?;
+                    self.user_interaction
+                        .display_success("Worktree changes merged successfully!");
 
-                // merge_session already handles auto-cleanup internally based on MMM_AUTO_CLEANUP env var
-                // We should not duplicate cleanup here to avoid race conditions
-                worktree_manager.merge_session(worktree_name).await?;
-                self.user_interaction
-                    .display_success("Worktree changes merged successfully!");
-
-                // Note: merge_session already handles cleanup based on auto_cleanup config
-                // It will either:
-                // 1. Auto-cleanup if MMM_AUTO_CLEANUP is true (default)
-                // 2. Display cleanup instructions if auto-cleanup is disabled
-                // We should not duplicate that logic here
+                    // Note: merge_session already handles cleanup based on auto_cleanup config
+                    // It will either:
+                    // 1. Auto-cleanup if MMM_AUTO_CLEANUP is true (default)
+                    // 2. Display cleanup instructions if auto-cleanup is disabled
+                    // We should not duplicate that logic here
+                }
             }
         }
 
