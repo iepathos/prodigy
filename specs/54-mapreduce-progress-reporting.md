@@ -52,7 +52,7 @@ Implement comprehensive progress reporting for MapReduce jobs that provides real
 - [ ] Throughput metrics (items/sec, commits/sec)
 - [ ] Agent state visualization
 - [ ] Progress persistence to disk
-- [ ] CLI command `mmm progress <job-id>`
+- [ ] CLI command `prodigy progress <job-id>`
 - [ ] Progress history viewable after completion
 - [ ] Export progress data to JSON/CSV
 

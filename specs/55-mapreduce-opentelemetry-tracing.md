@@ -142,14 +142,14 @@ impl MapReduceExecutor {
         span.set_attribute(KeyValue::new("job.config", serde_json::to_string(&map_phase.config)?));
         
         // Create child span for map phase
-        let map_span = global::tracer("mmm.mapreduce")
+        let map_span = global::tracer("prodigy.mapreduce")
             .span_builder("mapreduce.phase.map")
             .with_kind(SpanKind::Internal)
             .with_attributes(vec![
                 KeyValue::new("phase.type", "map"),
                 KeyValue::new("phase.parallelism", map_phase.config.max_parallel as i64),
             ])
-            .start(&global::tracer("mmm.mapreduce"));
+            .start(&global::tracer("prodigy.mapreduce"));
         
         let map_results = self.execute_map_phase_traced(map_phase, work_items, env)
             .instrument(map_span.clone())
@@ -161,10 +161,10 @@ impl MapReduceExecutor {
         
         // Create child span for reduce phase
         if let Some(reduce) = reduce_phase {
-            let reduce_span = global::tracer("mmm.mapreduce")
+            let reduce_span = global::tracer("prodigy.mapreduce")
                 .span_builder("mapreduce.phase.reduce")
                 .with_kind(SpanKind::Internal)
-                .start(&global::tracer("mmm.mapreduce"));
+                .start(&global::tracer("prodigy.mapreduce"));
             
             self.execute_reduce_phase_traced(reduce, &map_results, env)
                 .instrument(reduce_span.clone())
@@ -245,7 +245,7 @@ pub struct MapReduceMetrics {
 
 impl MapReduceMetrics {
     pub fn new() -> Self {
-        let meter = global::meter("mmm.mapreduce");
+        let meter = global::meter("prodigy.mapreduce");
         
         Self {
             jobs_started: meter

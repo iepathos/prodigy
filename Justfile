@@ -72,8 +72,8 @@ test-watch:
 # Run tests with coverage using optimized tarpaulin with LLVM engine and nextest
 coverage:
     #!/usr/bin/env bash
-    echo "Building mmm binary for integration tests..."
-    cargo build --bin mmm
+    echo "Building prodigy binary for integration tests..."
+    cargo build --bin prodigy
     echo "Generating code coverage report with tarpaulin (LLVM engine + nextest)..."
     cargo tarpaulin --config .tarpaulin.toml
     echo "Coverage report generated at target/coverage/tarpaulin-report.html"
@@ -81,8 +81,8 @@ coverage:
 # Run tests with coverage (lcov format)
 coverage-lcov:
     #!/usr/bin/env bash
-    echo "Building mmm binary for integration tests..."
-    cargo build --bin mmm
+    echo "Building prodigy binary for integration tests..."
+    cargo build --bin prodigy
     echo "Generating code coverage report with tarpaulin (lcov format)..."
     cargo tarpaulin --config .tarpaulin.toml --out Lcov
     echo "Coverage report generated at target/coverage/lcov.info"
@@ -90,8 +90,8 @@ coverage-lcov:
 # Run tests with coverage and check threshold
 coverage-check:
     #!/usr/bin/env bash
-    echo "Building mmm binary for integration tests..."
-    cargo build --bin mmm
+    echo "Building prodigy binary for integration tests..."
+    cargo build --bin prodigy
     echo "Checking code coverage threshold..."
     cargo tarpaulin --config .tarpaulin.toml --out Json --quiet
     COVERAGE=$(cat target/coverage/tarpaulin-report.json | jq -r '.files | to_entries | map(.value.coverage) | add / length')
@@ -110,8 +110,8 @@ coverage-open: coverage
 # Analyze the current repository with debtmap using coverage data
 analyze-self:
     #!/usr/bin/env bash
-    echo "Building mmm in release mode..."
-    cargo build --release --bin mmm
+    echo "Building prodigy in release mode..."
+    cargo build --release --bin prodigy
     echo "Generating code coverage (lcov format)..."
     cargo tarpaulin --config .tarpaulin.toml --out Lcov
     echo "Analyzing current repository with debtmap..."
@@ -266,7 +266,7 @@ test-performance:
 
 # Full CI build pipeline (equivalent to scripts/ci-build.sh)
 ci-build:
-    @echo "Building mmm..."
+    @echo "Building prodigy..."
     @echo "Checking code formatting..."
     cargo fmt --all -- --check
     @echo "Running clippy..."

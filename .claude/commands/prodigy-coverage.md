@@ -5,15 +5,15 @@ Analyze test coverage gaps using MMM context data and generate a targeted specif
 ## Variables
 
 SCOPE: $ARGUMENTS (optional - specify scope like "src/core", "src/context", or "all")
-MMM_CONTEXT_AVAILABLE: Environment variable indicating .mmm context availability
-MMM_CONTEXT_DIR: Path to .prodigy/context/ directory with analysis data
-MMM_FOCUS: Optional focus directive (e.g., "security", "api", "core")
+PRODIGY_CONTEXT_AVAILABLE: Environment variable indicating .prodigy context availability
+PRODIGY_CONTEXT_DIR: Path to .prodigy/context/ directory with analysis data
+PRODIGY_FOCUS: Optional focus directive (e.g., "security", "api", "core")
 
 ## Execute
 
 ### Phase 1: Load and Analyze MMM Context Data
 
-**REQUIRED**: Check `MMM_CONTEXT_AVAILABLE=true` and load context files:
+**REQUIRED**: Check `PRODIGY_CONTEXT_AVAILABLE=true` and load context files:
 
 1. **Primary Context Sources**
    - `.prodigy/context/test_coverage.json` → `untested_functions`, `critical_paths`, `file_coverage`
@@ -341,7 +341,7 @@ MMM_FOCUS: Optional focus directive (e.g., "security", "api", "core")
 
 ## Command Integration
 
-**Workflow Chain**: `mmm-coverage` → generates spec → `mmm-implement-spec` → `mmm-lint`
+**Workflow Chain**: `prodigy-coverage` → generates spec → `prodigy-implement-spec` → `prodigy-lint`
 
 **Context Dependencies**: 
 - Requires `.prodigy/context/test_coverage.json` with `untested_functions` array

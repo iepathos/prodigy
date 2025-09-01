@@ -1,7 +1,7 @@
 //! Testing utilities and fixtures
 //!
 //! This module provides test helpers, fixtures, and utilities for
-//! comprehensive testing of the mmm codebase.
+//! comprehensive testing of the prodigy codebase.
 
 pub mod config;
 pub mod fixtures;

@@ -44,13 +44,13 @@ Implement comprehensive job resumption capabilities that allow MapReduce jobs to
 
 ## Acceptance Criteria
 
-- [ ] `mmm resume-job <job-id>` command implemented
+- [ ] `prodigy resume-job <job-id>` command implemented
 - [ ] Automatic resume on crash recovery implemented
 - [ ] Completed agents skipped on resume
 - [ ] Failed agents retried with updated retry count
 - [ ] Execution continues from exact interruption point
 - [ ] Parent worktree state restored correctly
-- [ ] Resume works across different MMM versions
+- [ ] Resume works across different Prodigy versions
 - [ ] Progress bar shows resumed state accurately
 - [ ] Event log tracks resume operations
 - [ ] Resume validates checkpoint integrity
@@ -249,7 +249,7 @@ pub trait Resumable {
 
 ## Migration and Compatibility
 
-- Support resuming jobs from previous MMM versions
+- Support resuming jobs from previous Prodigy versions
 - Graceful handling of missing checkpoint data
 - Automatic checkpoint format migration
 - Backward compatible CLI interface

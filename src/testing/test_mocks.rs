@@ -11,32 +11,32 @@ pub struct CargoMocks;
 impl CargoMocks {
     /// Cargo check successful output with no warnings
     pub fn check_success() -> String {
-        r#"{"reason":"compiler-message","message":{"$message_type":"diagnostic","message":"2 warnings emitted","code":null,"level":"warning","spans":[],"children":[],"rendered":"warning: 2 warnings emitted\n"},"target":{"name":"mmm"}}
+        r#"{"reason":"compiler-message","message":{"$message_type":"diagnostic","message":"2 warnings emitted","code":null,"level":"warning","spans":[],"children":[],"rendered":"warning: 2 warnings emitted\n"},"target":{"name":"prodigy"}}
 {"reason":"build-finished","success":true}"#.to_string()
     }
 
     /// Cargo check output with warnings
     pub fn check_with_warnings() -> String {
-        r#"{"reason":"compiler-message","message":{"$message_type":"diagnostic","message":"unused variable: `x`","code":{"code":"unused_variables","explanation":null},"level":"warning","spans":[{"file_name":"src/main.rs","byte_start":123,"byte_end":124,"line_start":10,"line_end":10,"column_start":9,"column_end":10,"is_primary":true,"text":[{"text":"    let x = 5;","highlight_start":9,"highlight_end":10}],"label":"help: if this is intentional, prefix it with an underscore: `_x`","suggested_replacement":null,"suggestion_applicability":null,"expansion":null}],"children":[],"rendered":"warning: unused variable: `x`\n  --> src/main.rs:10:9\n   |\n10 |     let x = 5;\n   |         ^ help: if this is intentional, prefix it with an underscore: `_x`\n"},"target":{"name":"mmm"}}
+        r#"{"reason":"compiler-message","message":{"$message_type":"diagnostic","message":"unused variable: `x`","code":{"code":"unused_variables","explanation":null},"level":"warning","spans":[{"file_name":"src/main.rs","byte_start":123,"byte_end":124,"line_start":10,"line_end":10,"column_start":9,"column_end":10,"is_primary":true,"text":[{"text":"    let x = 5;","highlight_start":9,"highlight_end":10}],"label":"help: if this is intentional, prefix it with an underscore: `_x`","suggested_replacement":null,"suggestion_applicability":null,"expansion":null}],"children":[],"rendered":"warning: unused variable: `x`\n  --> src/main.rs:10:9\n   |\n10 |     let x = 5;\n   |         ^ help: if this is intentional, prefix it with an underscore: `_x`\n"},"target":{"name":"prodigy"}}
 {"reason":"build-finished","success":true}"#.to_string()
     }
 
     /// Cargo clippy output with various lint warnings
     pub fn clippy_output() -> String {
-        r#"{"reason":"compiler-message","message":{"$message_type":"diagnostic","message":"you should consider adding a `Default` implementation for `Config`","code":{"code":"clippy::new_without_default","explanation":null},"level":"warning","spans":[{"file_name":"src/config.rs","byte_start":234,"byte_end":260,"line_start":15,"line_end":15,"column_start":5,"column_end":31,"is_primary":true,"text":[{"text":"    pub fn new() -> Self {","highlight_start":5,"highlight_end":31}],"label":null,"suggested_replacement":null,"suggestion_applicability":null,"expansion":null}],"children":[],"rendered":"warning: you should consider adding a `Default` implementation for `Config`\n  --> src/config.rs:15:5\n   |\n15 |     pub fn new() -> Self {\n   |     ^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#new_without_default\n"},"target":{"name":"mmm"}}
+        r#"{"reason":"compiler-message","message":{"$message_type":"diagnostic","message":"you should consider adding a `Default` implementation for `Config`","code":{"code":"clippy::new_without_default","explanation":null},"level":"warning","spans":[{"file_name":"src/config.rs","byte_start":234,"byte_end":260,"line_start":15,"line_end":15,"column_start":5,"column_end":31,"is_primary":true,"text":[{"text":"    pub fn new() -> Self {","highlight_start":5,"highlight_end":31}],"label":null,"suggested_replacement":null,"suggestion_applicability":null,"expansion":null}],"children":[],"rendered":"warning: you should consider adding a `Default` implementation for `Config`\n  --> src/config.rs:15:5\n   |\n15 |     pub fn new() -> Self {\n   |     ^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#new_without_default\n"},"target":{"name":"prodigy"}}
 {"reason":"build-finished","success":true}"#.to_string()
     }
 
     /// Cargo build successful output
     pub fn build_success() -> String {
-        r#"   Compiling mmm v0.1.0 (/path/to/project)
+        r#"   Compiling prodigy v0.1.0 (/path/to/project)
     Finished release [optimized] target(s) in 12.5s"#
             .to_string()
     }
 
     /// Cargo test output with all tests passing
     pub fn test_success() -> String {
-        r#"   Compiling mmm v0.1.0 (/path/to/project)
+        r#"   Compiling prodigy v0.1.0 (/path/to/project)
     Finished test [unoptimized + debuginfo] target(s) in 2.3s
      Running unittests (target/debug/deps/prodigy-abc123)
 
@@ -92,7 +92,7 @@ impl TarpaulinMocks {
     pub fn coverage_xml() -> String {
         r#"<coverage>
   <packages>
-    <package name="mmm">
+    <package name="prodigy">
       <classes>
         <class name="src/main.rs" filename="src/main.rs" line-rate="0.85">
           <lines>

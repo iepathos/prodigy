@@ -40,7 +40,7 @@ impl ConfigLoader {
             }
             None => {
                 // Check for .prodigy/workflow.yml
-                let default_path = project_path.join(".mmm").join("workflow.yml");
+                let default_path = project_path.join(".prodigy").join("workflow.yml");
                 if default_path.exists() {
                     self.load_from_path(&default_path).await?;
                 }
@@ -113,7 +113,7 @@ impl ConfigLoader {
     }
 
     pub async fn load_project(&self, project_path: &Path) -> Result<()> {
-        let config_path = project_path.join(".mmm").join("config.yml");
+        let config_path = project_path.join(".prodigy").join("config.yml");
 
         if config_path.exists() {
             let content = fs::read_to_string(&config_path).await?;
@@ -214,9 +214,9 @@ workflow:
     #[tokio::test]
     async fn test_load_with_default_path() -> Result<()> {
         let temp_dir = TempDir::new()?;
-        let mmm_dir = temp_dir.path().join(".mmm");
-        fs::create_dir(&mmm_dir).await?;
-        let workflow_path = mmm_dir.join("workflow.yml");
+        let prodigy_dir = temp_dir.path().join(".prodigy");
+        fs::create_dir(&prodigy_dir).await?;
+        let workflow_path = prodigy_dir.join("workflow.yml");
 
         // Create default workflow config
         let workflow_content = r#"
@@ -256,9 +256,9 @@ commands:
     #[tokio::test]
     async fn test_load_project_config() -> Result<()> {
         let temp_dir = TempDir::new()?;
-        let mmm_dir = temp_dir.path().join(".mmm");
-        fs::create_dir(&mmm_dir).await?;
-        let config_path = mmm_dir.join("config.yml");
+        let prodigy_dir = temp_dir.path().join(".prodigy");
+        fs::create_dir(&prodigy_dir).await?;
+        let config_path = prodigy_dir.join("config.yml");
 
         // Create project config
         let project_content = r#"

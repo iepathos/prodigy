@@ -11,8 +11,8 @@ Arguments: $ARGUMENTS
 ```
 
 Examples:
-- `/prodigy-merge-worktree mmm-performance-1234567890`
-- `/prodigy-merge-worktree mmm-security-1234567891`
+- `/prodigy-merge-worktree prodigy-performance-1234567890`
+- `/prodigy-merge-worktree prodigy-security-1234567891`
 
 ## Execute
 
@@ -122,13 +122,13 @@ Original commits from worktree:
 
 ```bash
 # Check what needs merging
-$ mmm worktree ls
+$ prodigy worktree ls
 Active MMM worktrees:
-  mmm-performance-1234567890 - /path/to/.prodigy/worktrees/... (focus: performance)
-  mmm-security-1234567891 - /path/to/.prodigy/worktrees/... (focus: security)
+  prodigy-performance-1234567890 - /path/to/.prodigy/worktrees/... (focus: performance)
+  prodigy-security-1234567891 - /path/to/.prodigy/worktrees/... (focus: security)
 
 # Merge first worktree
-$ claude /prodigy-merge-worktree mmm-performance-1234567890
+$ claude /prodigy-merge-worktree prodigy-performance-1234567890
 Attempting merge...
 Found 2 conflicts in:
   - src/main.rs
@@ -137,14 +137,14 @@ Resolving conflicts...
 ✓ src/main.rs: Combined performance optimization with existing structure
 ✓ src/lib.rs: Merged both import additions
 Creating merge commit...
-✓ Successfully merged 'mmm-performance-1234567890' into master
+✓ Successfully merged 'prodigy-performance-1234567890' into master
 
 # Merge second worktree (may have conflicts with first merge)
-$ claude /prodigy-merge-worktree mmm-security-1234567891
+$ claude /prodigy-merge-worktree prodigy-security-1234567891
 Attempting merge...
 Found 3 conflicts...
 <resolution details>
-✓ Successfully merged 'mmm-security-1234567891' into master
+✓ Successfully merged 'prodigy-security-1234567891' into master
 ```
 
 ## Automation Support

@@ -3,26 +3,26 @@
   # Advanced workflow with conditional logic and 
   feedback loops
   commands:
-    - name: mmm-analyze-health
+    - name: prodigy-analyze-health
       outputs:
         health_score:
           capture: json
           path: "$.health_score"
 
-    - name: mmm-code-review
+    - name: prodigy-code-review
       condition: "${health_score} < 80"
       outputs:
         issues_found:
           capture: count
           pattern: "## Issues to Address"
 
-    - name: mmm-implement-spec
+    - name: prodigy-implement-spec
       condition: "${issues_found} > 0"
       retry:
         max_attempts: 3
         backoff: exponential
 
-    - name: mmm-verify-improvements
+    - name: prodigy-verify-improvements
       validation:
         - tests_pass: true
         - performance_regression: false
@@ -78,12 +78,12 @@
   4. Progressive Enhancement Strategy
 
 ⏺ Update Todos
-  ⎿  ☒ Analyze current MMM self-sufficient loop       
+  ⎿  ☒ Analyze current Prodigy self-sufficient loop       
        implementation
      ☒ Identify gaps and limitations in current system
      ☐ Design improvements for the perfect 
        self-sufficient Claude loop
-     ☐ Suggest specific enhancements to make MMM even
+     ☐ Suggest specific enhancements to make Prodigy even
        better
 
 ⏺ Implement a staged approach where the system gets
@@ -149,7 +149,7 @@
 
   7. Collaboration Protocol
 
-  Enable multiple MMM instances to collaborate:
+  Enable multiple Prodigy instances to collaborate:
   # Distributed improvement protocol
   collaboration:
     mode: distributed
@@ -166,15 +166,15 @@
       sync_interval: 30s
 
 ⏺ Update Todos
-  ⎿  ☒ Analyze current MMM self-sufficient loop       
+  ⎿  ☒ Analyze current Prodigy self-sufficient loop       
        implementation
      ☒ Identify gaps and limitations in current system
      ☒ Design improvements for the perfect 
        self-sufficient Claude loop
-     ☐ Suggest specific enhancements to make MMM even 
+     ☐ Suggest specific enhancements to make Prodigy even 
        better
 
-⏺ Practical Next Steps for MMM
+⏺ Practical Next Steps for Prodigy
 
   Here are concrete enhancements you could implement:
 
@@ -244,16 +244,16 @@
   5. Progressive Automation Levels
 
   # Level 1: Current behavior
-  mmm cook workflow.yml
+  prodigy cook workflow.yml
 
   # Level 2: Adaptive workflows
-  mmm cook --adaptive workflow.yml
+  prodigy cook --adaptive workflow.yml
 
   # Level 3: Goal-driven automation
-  mmm cook --goal "improve-performance-by-20%"
+  prodigy cook --goal "improve-performance-by-20%"
 
   # Level 4: Continuous improvement daemon
-  mmm daemon --continuous-improvement
+  prodigy daemon --continuous-improvement
 
   6. Integration Points
 
@@ -267,7 +267,7 @@
   Claude loop isn't just about automation—it's about
   creating an intelligent system that learns, adapts,
   and improves its own improvement process over time.
-  Your MMM tool already has a solid foundation; these
+  Your Prodigy tool already has a solid foundation; these
   enhancements would transform it from a powerful
   automation tool into a truly intelligent development
    partner.

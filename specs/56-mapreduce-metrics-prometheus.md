@@ -108,33 +108,33 @@ impl MapReduceMetricsRegistry {
         let registry = Registry::new();
         
         let jobs_total = register_counter_vec!(
-            "mmm_mapreduce_jobs_total",
+            "prodigy_mapreduce_jobs_total",
             "Total number of MapReduce jobs",
             &["status", "workflow"]
         )?;
         
         let jobs_duration_seconds = register_histogram_vec!(
-            "mmm_mapreduce_job_duration_seconds",
+            "prodigy_mapreduce_job_duration_seconds",
             "Job execution duration in seconds",
             &["workflow"],
             vec![30.0, 60.0, 120.0, 300.0, 600.0, 1800.0, 3600.0]
         )?;
         
         let agents_duration_seconds = register_histogram_vec!(
-            "mmm_mapreduce_agent_duration_seconds",
+            "prodigy_mapreduce_agent_duration_seconds",
             "Agent execution duration in seconds",
             &["job_id", "status"],
             vec![1.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0]
         )?;
         
         let throughput_items_per_second = register_gauge_vec!(
-            "mmm_mapreduce_throughput_items_per_second",
+            "prodigy_mapreduce_throughput_items_per_second",
             "Current throughput in items per second",
             &["job_id"]
         )?;
         
         let errors_total = register_counter_vec!(
-            "mmm_mapreduce_errors_total",
+            "prodigy_mapreduce_errors_total",
             "Total number of errors",
             &["job_id", "error_type", "recoverable"]
         )?;
@@ -149,29 +149,29 @@ impl MapReduceMetricsRegistry {
             registry,
             jobs_total,
             jobs_duration_seconds,
-            jobs_active: register_gauge_vec!("mmm_mapreduce_jobs_active", "Currently active jobs", &["workflow"])?,
-            agents_total: register_counter_vec!("mmm_mapreduce_agents_total", "Total agents", &["job_id", "status"])?,
+            jobs_active: register_gauge_vec!("prodigy_mapreduce_jobs_active", "Currently active jobs", &["workflow"])?,
+            agents_total: register_counter_vec!("prodigy_mapreduce_agents_total", "Total agents", &["job_id", "status"])?,
             agents_duration_seconds,
-            agents_active: register_gauge!("mmm_mapreduce_agents_active", "Currently active agents")?,
-            agents_queued: register_gauge!("mmm_mapreduce_agents_queued", "Agents waiting in queue")?,
+            agents_active: register_gauge!("prodigy_mapreduce_agents_active", "Currently active agents")?,
+            agents_queued: register_gauge!("prodigy_mapreduce_agents_queued", "Agents waiting in queue")?,
             throughput_items_per_second,
-            queue_depth: register_gauge_vec!("mmm_mapreduce_queue_depth", "Current queue depth", &["job_id", "priority"])?,
+            queue_depth: register_gauge_vec!("prodigy_mapreduce_queue_depth", "Current queue depth", &["job_id", "priority"])?,
             processing_latency_seconds: register_histogram_vec!(
-                "mmm_mapreduce_processing_latency_seconds",
+                "prodigy_mapreduce_processing_latency_seconds",
                 "Time from queue to processing",
                 &["job_id"],
                 prometheus::exponential_buckets(0.001, 2.0, 15)?
             )?,
-            memory_usage_bytes: register_gauge_vec!("mmm_mapreduce_memory_bytes", "Memory usage", &["job_id"])?,
-            cpu_usage_percent: register_gauge_vec!("mmm_mapreduce_cpu_percent", "CPU usage", &["job_id"])?,
-            worktrees_active: register_gauge!("mmm_mapreduce_worktrees_active", "Active git worktrees")?,
-            disk_usage_bytes: register_gauge_vec!("mmm_mapreduce_disk_bytes", "Disk usage", &["path"])?,
+            memory_usage_bytes: register_gauge_vec!("prodigy_mapreduce_memory_bytes", "Memory usage", &["job_id"])?,
+            cpu_usage_percent: register_gauge_vec!("prodigy_mapreduce_cpu_percent", "CPU usage", &["job_id"])?,
+            worktrees_active: register_gauge!("prodigy_mapreduce_worktrees_active", "Active git worktrees")?,
+            disk_usage_bytes: register_gauge_vec!("prodigy_mapreduce_disk_bytes", "Disk usage", &["path"])?,
             errors_total,
-            retries_total: register_counter_vec!("mmm_mapreduce_retries_total", "Total retries", &["job_id", "reason"])?,
-            dlq_items: register_gauge_vec!("mmm_mapreduce_dlq_items", "Items in dead letter queue", &["job_id"])?,
-            items_processed_total: register_counter_vec!("mmm_mapreduce_items_total", "Items processed", &["job_id", "status"])?,
-            commits_created_total: register_counter_vec!("mmm_mapreduce_commits_total", "Git commits created", &["job_id"])?,
-            files_modified_total: register_counter_vec!("mmm_mapreduce_files_modified_total", "Files modified", &["job_id"])?,
+            retries_total: register_counter_vec!("prodigy_mapreduce_retries_total", "Total retries", &["job_id", "reason"])?,
+            dlq_items: register_gauge_vec!("prodigy_mapreduce_dlq_items", "Items in dead letter queue", &["job_id"])?,
+            items_processed_total: register_counter_vec!("prodigy_mapreduce_items_total", "Items processed", &["job_id", "status"])?,
+            commits_created_total: register_counter_vec!("prodigy_mapreduce_commits_total", "Git commits created", &["job_id"])?,
+            files_modified_total: register_counter_vec!("prodigy_mapreduce_files_modified_total", "Files modified", &["job_id"])?,
         })
     }
     
@@ -281,13 +281,13 @@ impl MapReduceExecutor {
 ```json
 {
   "dashboard": {
-    "title": "MMM MapReduce Metrics",
+    "title": "Prodigy MapReduce Metrics",
     "panels": [
       {
         "title": "Active Jobs",
         "targets": [
           {
-            "expr": "sum(mmm_mapreduce_jobs_active)"
+            "expr": "sum(prodigy_mapreduce_jobs_active)"
           }
         ]
       },
@@ -295,7 +295,7 @@ impl MapReduceExecutor {
         "title": "Agent Throughput",
         "targets": [
           {
-            "expr": "rate(mmm_mapreduce_agents_total[5m])"
+            "expr": "rate(prodigy_mapreduce_agents_total[5m])"
           }
         ]
       },
@@ -303,7 +303,7 @@ impl MapReduceExecutor {
         "title": "Error Rate",
         "targets": [
           {
-            "expr": "rate(mmm_mapreduce_errors_total[5m])"
+            "expr": "rate(prodigy_mapreduce_errors_total[5m])"
           }
         ]
       },
@@ -311,7 +311,7 @@ impl MapReduceExecutor {
         "title": "P95 Agent Duration",
         "targets": [
           {
-            "expr": "histogram_quantile(0.95, rate(mmm_mapreduce_agent_duration_seconds_bucket[5m]))"
+            "expr": "histogram_quantile(0.95, rate(prodigy_mapreduce_agent_duration_seconds_bucket[5m]))"
           }
         ]
       }

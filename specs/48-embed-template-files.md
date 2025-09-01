@@ -17,19 +17,19 @@ created: 2025-08-04
 
 ## Context
 
-The MMM init command currently uses `include_str!` macro to embed command template markdown files at compile time. While this approach already embeds the files into the binary, there's a concern about ensuring this works correctly when the MMM binary is distributed to client servers without the source code repository. The current implementation in `src/init/templates.rs` uses relative paths like `include_str!("../../.claude/commands/mmm-code-review.md")` which are resolved at compile time, but we need to ensure this pattern is robust and properly handles all edge cases for binary distribution.
+The Prodigy init command currently uses `include_str!` macro to embed command template markdown files at compile time. While this approach already embeds the files into the binary, there's a concern about ensuring this works correctly when the Prodigy binary is distributed to client servers without the source code repository. The current implementation in `src/init/templates.rs` uses relative paths like `include_str!("../../.claude/commands/prodigy-code-review.md")` which are resolved at compile time, but we need to ensure this pattern is robust and properly handles all edge cases for binary distribution.
 
-Currently, the init system installs these embedded templates to the user's `.claude/commands/` directory when they run `mmm init`. This allows users to have a standalone MMM binary that can bootstrap Claude Code integration without needing access to the original source repository.
+Currently, the init system installs these embedded templates to the user's `.claude/commands/` directory when they run `prodigy init`. This allows users to have a standalone Prodigy binary that can bootstrap Claude Code integration without needing access to the original source repository.
 
 ## Objective
 
-Ensure that all template files required by the `mmm init` command are properly embedded in the binary at compile time, allowing the MMM tool to function correctly when distributed as a standalone binary without requiring access to the source code repository or external template files.
+Ensure that all template files required by the `prodigy init` command are properly embedded in the binary at compile time, allowing the Prodigy tool to function correctly when distributed as a standalone binary without requiring access to the source code repository or external template files.
 
 ## Requirements
 
 ### Functional Requirements
 - All command template markdown files must be embedded in the binary at compile time
-- The embedded templates must be accessible when running `mmm init` on any system
+- The embedded templates must be accessible when running `prodigy init` on any system
 - No external file dependencies should be required for the init command to function
 - The binary size increase from embedded templates should be reasonable (templates are text files)
 - Support adding new templates without changing the embedding pattern
@@ -43,7 +43,7 @@ Ensure that all template files required by the `mmm init` command are properly e
 ## Acceptance Criteria
 
 - [ ] All template files in `.claude/commands/` are embedded using `include_str!` macro
-- [ ] The `mmm init` command works correctly when the binary is run from any location
+- [ ] The `prodigy init` command works correctly when the binary is run from any location
 - [ ] The binary can be distributed standalone without the source repository
 - [ ] No runtime errors occur when accessing embedded templates
 - [ ] Adding a new template follows the same simple pattern
@@ -58,7 +58,7 @@ The current implementation already uses the correct approach with `include_str!`
 
 1. **Current Embedding Pattern** (Already Implemented)
    ```rust
-   pub const MMM_CODE_REVIEW: &str = include_str!("../../.claude/commands/mmm-code-review.md");
+   pub const PRODIGY_CODE_REVIEW: &str = include_str!("../../.claude/commands/prodigy-code-review.md");
    ```
    This pattern is correct and ensures compile-time embedding.
 
@@ -106,7 +106,7 @@ No API changes required. The current interface remains:
   - Test that `include_str!` constants are properly initialized
   - Ensure template count matches expected number
 - **Integration Tests**: 
-  - Run `mmm init` from different working directories
+  - Run `prodigy init` from different working directories
   - Test with binary moved to different locations
   - Verify templates install correctly without source repo
 - **Distribution Tests**: 
@@ -124,10 +124,10 @@ No API changes required. The current interface remains:
   - Explain the `include_str!` pattern for future templates
   - Note that relative paths are resolved during compilation
 - **User Documentation**: 
-  - Update README to clarify that MMM can be distributed as a standalone binary
+  - Update README to clarify that Prodigy can be distributed as a standalone binary
   - Note that no external files are required for init command
 - **Distribution Guide**:
-  - Document how to build and distribute the MMM binary
+  - Document how to build and distribute the Prodigy binary
   - Explain that templates are self-contained in the binary
 
 ## Implementation Notes

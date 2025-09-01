@@ -1,11 +1,11 @@
-//! # Memento Mori (mmm)
+//! # Prodigy
 //!
 //! A dead simple Rust CLI tool that makes your code better through Claude CLI integration.
 //!
 //! ## Usage
 //!
 //! ```bash
-//! mmm cook [--focus "area"] [-n iterations] [--map "pattern"] [--args "value"]
+//! prodigy cook [--focus "area"] [-n iterations] [--map "pattern"] [--args "value"]
 //! ```
 //!
 //! ## Modules

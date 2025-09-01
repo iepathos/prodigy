@@ -47,9 +47,9 @@ Implement a Dead Letter Queue system for MapReduce jobs that captures items that
 - [ ] Items moved to DLQ after max retries exceeded
 - [ ] DLQ persisted to `.prodigy/mapreduce/dlq/` directory
 - [ ] Failed items include complete error history
-- [ ] `mmm dlq list` command shows dead-lettered items
-- [ ] `mmm dlq inspect <item-id>` shows failure details
-- [ ] `mmm dlq reprocess` moves items back to queue
+- [ ] `prodigy dlq list` command shows dead-lettered items
+- [ ] `prodigy dlq inspect <item-id>` shows failure details
+- [ ] `prodigy dlq reprocess` moves items back to queue
 - [ ] Similar failures grouped automatically
 - [ ] DLQ metrics included in job summary
 - [ ] DLQ size limits enforced with FIFO eviction

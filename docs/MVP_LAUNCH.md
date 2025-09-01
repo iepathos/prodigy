@@ -1,4 +1,4 @@
-# MMM MVP Launch Checklist
+# Prodigy MVP Launch Checklist
 
 ## Launch Goal
 Enable developers to successfully run AI-assisted development workflows in Python, JavaScript, and Rust projects within 5 minutes of installation.
@@ -13,7 +13,7 @@ Enable developers to successfully run AI-assisted development workflows in Pytho
 ---
 
 ## Phase 1: Multi-Language Support (Week 1)
-**Goal**: MMM works reliably with Python, JavaScript, and Rust projects
+**Goal**: Prodigy works reliably with Python, JavaScript, and Rust projects
 
 ### Python Support
 - [ ] Detect Python projects (presence of `setup.py`, `pyproject.toml`, or `requirements.txt`)
@@ -55,16 +55,16 @@ Enable developers to successfully run AI-assisted development workflows in Pytho
 ### Installation
 - [ ] Create installation script for Unix/Mac: `install.sh`
 - [ ] Create installation script for Windows: `install.ps1`
-- [ ] Host installation scripts (GitHub releases or mmm.dev)
+- [ ] Host installation scripts (GitHub releases or prodigy.dev)
 - [ ] Test one-liner installation:
   ```bash
   curl -sSL https://raw.githubusercontent.com/iepathos/mmm/main/install.sh | sh
   ```
-- [ ] Add MMM to PATH automatically
+- [ ] Add Prodigy to PATH automatically
 - [ ] Verify Claude CLI is installed and configured
 
 ### Init Command
-- [ ] Fix `mmm init` to actually work
+- [ ] Fix `prodigy init` to actually work
 - [ ] Auto-detect project language and tools
 - [ ] Install appropriate Claude commands based on language
 - [ ] Create default `improve.yml` workflow for detected language
@@ -73,10 +73,10 @@ Enable developers to successfully run AI-assisted development workflows in Pytho
 
 ### Quick Start Flow
 - [ ] Test complete flow takes < 5 minutes:
-  1. [ ] Install MMM
-  2. [ ] Run `mmm init` 
-  3. [ ] Run `mmm cook improve.yml --dry-run`
-  4. [ ] Run `mmm cook improve.yml`
+  1. [ ] Install Prodigy
+  2. [ ] Run `prodigy init` 
+  3. [ ] Run `prodigy cook improve.yml --dry-run`
+  4. [ ] Run `prodigy cook improve.yml`
   5. [ ] See meaningful improvements
 
 ### Example Workflows
@@ -88,7 +88,7 @@ Enable developers to successfully run AI-assisted development workflows in Pytho
 ---
 
 ## Phase 3: Safety & Predictability (Week 2)
-**Goal**: Users trust MMM won't run forever or break their code
+**Goal**: Users trust Prodigy won't run forever or break their code
 
 ### Usage Tracking & Reporting
 - [ ] Track number of Claude commands executed
@@ -125,7 +125,7 @@ Enable developers to successfully run AI-assisted development workflows in Pytho
 - [ ] Add Ctrl+C handler for graceful shutdown
 
 ### Rollback Capability
-- [ ] Implement `mmm rollback` command
+- [ ] Implement `prodigy rollback` command
 - [ ] Rollback to state before last cook session
 - [ ] Show what will be rolled back before confirming
 - [ ] Work with both regular and worktree sessions
@@ -146,7 +146,7 @@ Enable developers to successfully run AI-assisted development workflows in Pytho
 ---
 
 ## Phase 4: Error Handling & Recovery (Week 2-3)
-**Goal**: MMM handles failures gracefully
+**Goal**: Prodigy handles failures gracefully
 
 ### Error Messages
 - [ ] Replace cryptic Rust errors with helpful messages
@@ -216,7 +216,7 @@ Enable developers to successfully run AI-assisted development workflows in Pytho
 - [ ] FAQ section
 
 ### Command Reference
-- [ ] Document all MMM CLI commands
+- [ ] Document all Prodigy CLI commands
 - [ ] Document all Claude commands
 - [ ] Document all flags and options
 - [ ] Environment variables
@@ -327,7 +327,7 @@ The MVP is complete when:
 
 1. **A Python developer** can go from zero to improved test coverage in < 5 minutes
 2. **A JavaScript developer** can run a code improvement workflow successfully
-3. **A Rust developer** can use MMM to improve their existing project
+3. **A Rust developer** can use Prodigy to improve their existing project
 4. **All workflows** complete within iteration limits without errors
 5. **Beta users** report successful experiences
 6. **Documentation** is sufficient for self-service

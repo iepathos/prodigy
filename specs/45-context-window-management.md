@@ -17,7 +17,7 @@ created: 2024-01-15
 
 ## Context
 
-Currently, MMM provides the same static context to Claude for every iteration - typically PROJECT.md, ARCHITECTURE.md, and some basic project information. This one-size-fits-all approach is inefficient and limits Claude's effectiveness, especially in longer improvement sessions. As iterations progress, Claude needs different context: the files currently being worked on, related test files, recent changes, and learned patterns.
+Currently, Prodigy provides the same static context to Claude for every iteration - typically PROJECT.md, ARCHITECTURE.md, and some basic project information. This one-size-fits-all approach is inefficient and limits Claude's effectiveness, especially in longer improvement sessions. As iterations progress, Claude needs different context: the files currently being worked on, related test files, recent changes, and learned patterns.
 
 Effective context window management is crucial for maximizing Claude's capabilities within token limits while ensuring relevant information is always available. This becomes even more critical as projects grow and improvement sessions run for many iterations.
 

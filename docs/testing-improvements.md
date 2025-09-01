@@ -110,7 +110,7 @@ let mock_claude = MockClaudeExecutor::builder()
 // After test execution
 assert_eq!(mock.get_call_count(), 3);
 let calls = mock.get_recorded_calls();
-assert_eq!(calls[0].command, "/mmm-code-review");
+assert_eq!(calls[0].command, "/prodigy-code-review");
 ```
 
 ### 3. Use Type-Safe Mock Responses
