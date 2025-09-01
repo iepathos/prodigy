@@ -135,19 +135,25 @@ fn is_interactive_session() -> bool {
     std::io::stdin().is_terminal() && !is_test_environment()
 }
 
-/// Find existing command templates in the commands directory
+/// Check if a command template already exists
+fn check_command_exists(commands_dir: &Path, template_name: &str) -> bool {
+    commands_dir.join(format!("{}.md", template_name)).exists()
+}
+
+/// Find which templates already exist as installed commands
 fn find_existing_commands<'a>(
     commands_dir: &Path,
     templates: &'a [templates::CommandTemplate],
 ) -> Vec<&'a str> {
     templates
         .iter()
-        .filter(|t| commands_dir.join(format!("{}.md", t.name)).exists())
+<<<<<<< HEAD
+        .filter(|t| check_command_exists(commands_dir, t.name))
         .map(|t| t.name)
         .collect()
 }
 
-/// Display existing commands warning to the user
+/// Display warning message about existing commands
 fn display_existing_commands_warning(existing: &[&str]) {
     println!("\n⚠️  The following commands already exist:");
     for name in existing {
@@ -159,15 +165,14 @@ fn display_existing_commands_warning(existing: &[&str]) {
     println!("Example: prodigy init --commands prodigy-lint,prodigy-product-enhance");
 }
 
-/// Get user confirmation for continuing with existing commands
-fn get_user_confirmation() -> Result<bool> {
+/// Prompt user for confirmation in interactive mode
+fn prompt_user_confirmation() -> Result<bool> {
     print!("\nDo you want to continue and skip existing commands? (y/N): ");
     use std::io::{self, Write};
     io::stdout().flush()?;
 
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;
-
     Ok(input.trim().to_lowercase() == "y")
 }
 
@@ -187,7 +192,7 @@ fn handle_existing_commands(
 
         // Ask for confirmation in interactive mode
         if is_interactive_session() {
-            if !get_user_confirmation()? {
+            if !prompt_user_confirmation()? {
                 println!("❌ Installation cancelled.");
                 return Ok(false);
             }
@@ -334,6 +339,7 @@ pub async fn run(cmd: InitCommand) -> Result<()> {
 mod tests {
     use super::*;
     use crate::init::command::InitCommand;
+    use std::fs;
     use tempfile::TempDir;
 
     #[tokio::test]
@@ -546,9 +552,28 @@ mod tests {
     }
 
     #[test]
+<<<<<<< HEAD
     fn test_is_test_environment() {
         // In test environment, this should return true
         assert!(is_test_environment());
+=======
+    fn test_check_command_exists() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir_all(&commands_dir).unwrap();
+
+        // Test non-existing command
+        assert!(!check_command_exists(&commands_dir, "nonexistent"));
+
+        // Create a command file
+        fs::write(commands_dir.join("existing.md"), "content").unwrap();
+
+        // Test existing command
+        assert!(check_command_exists(&commands_dir, "existing"));
+
+        // Test with different extension
+        assert!(!check_command_exists(&commands_dir, "existing.txt"));
+>>>>>>> prodigy-agent-cook-1756766583-item_5
     }
 
     #[test]
@@ -557,6 +582,7 @@ mod tests {
         let commands_dir = temp_dir.path().join("commands");
         fs::create_dir_all(&commands_dir).unwrap();
 
+<<<<<<< HEAD
         // Create some existing command files
         fs::write(commands_dir.join("command1.md"), "content1").unwrap();
         fs::write(commands_dir.join("command2.md"), "content2").unwrap();
@@ -575,15 +601,41 @@ mod tests {
             templates::CommandTemplate {
                 name: "command3",
                 content: "new content3",
+=======
+        // Create some command files
+        fs::write(commands_dir.join("cmd1.md"), "content").unwrap();
+        fs::write(commands_dir.join("cmd3.md"), "content").unwrap();
+
+        let templates = vec![
+            templates::CommandTemplate {
+                name: "cmd1",
+                content: "content1",
+                description: "Command 1",
+            },
+            templates::CommandTemplate {
+                name: "cmd2",
+                content: "content2",
+                description: "Command 2",
+            },
+            templates::CommandTemplate {
+                name: "cmd3",
+                content: "content3",
+>>>>>>> prodigy-agent-cook-1756766583-item_5
                 description: "Command 3",
             },
         ];
 
         let existing = find_existing_commands(&commands_dir, &templates);
         assert_eq!(existing.len(), 2);
+<<<<<<< HEAD
         assert!(existing.contains(&"command1"));
         assert!(existing.contains(&"command2"));
         assert!(!existing.contains(&"command3"));
+=======
+        assert!(existing.contains(&"cmd1"));
+        assert!(existing.contains(&"cmd3"));
+        assert!(!existing.contains(&"cmd2"));
+>>>>>>> prodigy-agent-cook-1756766583-item_5
     }
 
     #[test]
@@ -593,17 +645,44 @@ mod tests {
         fs::create_dir_all(&commands_dir).unwrap();
 
         let templates = vec![templates::CommandTemplate {
+<<<<<<< HEAD
             name: "command1",
             content: "content1",
             description: "Command 1",
             },
         ];
+=======
+            name: "cmd1",
+            content: "content1",
+            description: "Command 1",
+        }];
+>>>>>>> prodigy-agent-cook-1756766583-item_5
 
         let existing = find_existing_commands(&commands_dir, &templates);
         assert_eq!(existing.len(), 0);
     }
 
     #[test]
+<<<<<<< HEAD
+=======
+    fn test_is_test_environment() {
+        // In test context, this should return true
+        assert!(is_test_environment());
+    }
+
+    #[test]
+    fn test_display_existing_commands_warning() {
+        // This is a pure display function, we just ensure it doesn't panic
+        let existing = vec!["cmd1", "cmd2", "cmd3"];
+        display_existing_commands_warning(&existing);
+
+        // Test with empty list
+        let empty: Vec<&str> = vec![];
+        display_existing_commands_warning(&empty);
+    }
+
+    #[test]
+>>>>>>> prodigy-agent-cook-1756766583-item_5
     fn test_handle_existing_commands_no_tty() {
         let temp_dir = TempDir::new().unwrap();
         let commands_dir = temp_dir.path().join("commands");
