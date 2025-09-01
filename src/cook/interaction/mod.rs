@@ -20,6 +20,11 @@ pub trait UserInteraction: Send + Sync {
     /// Prompt user for yes/no confirmation
     async fn prompt_yes_no(&self, message: &str) -> Result<bool>;
 
+    /// Prompt user for confirmation (alias for prompt_yes_no)
+    async fn prompt_confirmation(&self, message: &str) -> Result<bool> {
+        self.prompt_yes_no(message).await
+    }
+
     /// Prompt user for text input
     async fn prompt_text(&self, message: &str, default: Option<&str>) -> Result<String>;
 
@@ -107,6 +112,10 @@ impl DefaultUserInteraction {
 impl UserInteraction for DefaultUserInteraction {
     async fn prompt_yes_no(&self, message: &str) -> Result<bool> {
         self.prompter.prompt_yes_no(message).await
+    }
+
+    async fn prompt_confirmation(&self, message: &str) -> Result<bool> {
+        self.prompt_yes_no(message).await
     }
 
     async fn prompt_text(&self, message: &str, default: Option<&str>) -> Result<String> {
@@ -218,6 +227,10 @@ pub mod tests {
                 .unwrap()
                 .pop()
                 .ok_or_else(|| anyhow::anyhow!("No yes/no response configured"))
+        }
+
+        async fn prompt_confirmation(&self, message: &str) -> Result<bool> {
+            self.prompt_yes_no(message).await
         }
 
         async fn prompt_text(&self, message: &str, default: Option<&str>) -> Result<String> {
@@ -502,6 +515,10 @@ pub mod mocks {
                 .unwrap()
                 .pop()
                 .ok_or_else(|| anyhow::anyhow!("No mock response configured"))
+        }
+
+        async fn prompt_confirmation(&self, message: &str) -> Result<bool> {
+            self.prompt_yes_no(message).await
         }
 
         async fn prompt_text(&self, message: &str, _default: Option<&str>) -> Result<String> {

@@ -1,0 +1,490 @@
+//! Spec implementation validation system
+//!
+//! Provides mechanisms to validate that specifications have been fully implemented
+//! by checking for missing requirements and enabling automatic retry or gap-filling operations.
+
+use anyhow::{anyhow, Result};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+/// Configuration for spec validation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidationConfig {
+    /// Type of validation to perform
+    #[serde(rename = "type")]
+    pub validation_type: ValidationType,
+
+    /// Command to run for validation
+    pub command: String,
+
+    /// Expected JSON schema for validation output
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected_schema: Option<serde_json::Value>,
+
+    /// Completion threshold percentage (default: 100)
+    #[serde(default = "default_threshold")]
+    pub threshold: f64,
+
+    /// Timeout in seconds for validation command
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timeout: Option<u64>,
+
+    /// Configuration for handling incomplete implementations
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_incomplete: Option<OnIncompleteConfig>,
+}
+
+/// Types of validation available
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum ValidationType {
+    /// Validate spec coverage
+    SpecCoverage,
+    /// Validate test coverage
+    TestCoverage,
+    /// Self-assessment by the implementation agent
+    SelfAssessment,
+    /// Custom validation type
+    Custom(String),
+}
+
+/// Configuration for handling incomplete implementations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OnIncompleteConfig {
+    /// Strategy for completing the implementation
+    pub strategy: CompletionStrategy,
+
+    /// Claude command to execute for gap filling
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub claude: Option<String>,
+
+    /// Shell command to execute for gap filling
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shell: Option<String>,
+
+    /// Interactive prompt for user guidance
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt: Option<String>,
+
+    /// Maximum number of attempts to complete
+    #[serde(default = "default_max_attempts")]
+    pub max_attempts: u32,
+
+    /// Whether to fail the workflow if completion fails
+    #[serde(default = "default_fail_workflow")]
+    pub fail_workflow: bool,
+}
+
+/// Strategies for completing incomplete implementations
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum CompletionStrategy {
+    /// Try to fill only the missing pieces
+    PatchGaps,
+    /// Re-run the full implementation
+    RetryFull,
+    /// Ask user for guidance
+    Interactive,
+}
+
+/// Result of validation execution
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidationResult {
+    /// Percentage of spec completed (0-100)
+    pub completion_percentage: f64,
+
+    /// Overall validation status
+    pub status: ValidationStatus,
+
+    /// List of implemented requirements
+    #[serde(default)]
+    pub implemented: Vec<String>,
+
+    /// List of missing requirements
+    #[serde(default)]
+    pub missing: Vec<String>,
+
+    /// Detailed gap information
+    #[serde(default)]
+    pub gaps: HashMap<String, GapDetail>,
+
+    /// Raw output from validation command
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub raw_output: Option<String>,
+}
+
+/// Detailed information about a gap in implementation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GapDetail {
+    /// Description of what's missing
+    pub description: String,
+
+    /// Location in code where gap exists
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub location: Option<String>,
+
+    /// Severity of the gap
+    pub severity: Severity,
+
+    /// Suggested fix for the gap
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub suggested_fix: Option<String>,
+}
+
+/// Severity levels for gaps
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum Severity {
+    Critical,
+    High,
+    Medium,
+    Low,
+}
+
+/// Status of validation
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ValidationStatus {
+    Complete,
+    Incomplete,
+    Failed,
+    Skipped,
+}
+
+// Default functions for serde
+fn default_threshold() -> f64 {
+    100.0
+}
+
+fn default_max_attempts() -> u32 {
+    2
+}
+
+fn default_fail_workflow() -> bool {
+    true
+}
+
+impl ValidationConfig {
+    /// Check if validation passed based on threshold
+    pub fn is_complete(&self, result: &ValidationResult) -> bool {
+        result.completion_percentage >= self.threshold
+    }
+
+    /// Validate that the configuration is properly formed
+    pub fn validate(&self) -> Result<()> {
+        if self.command.is_empty() {
+            return Err(anyhow!("Validation command cannot be empty"));
+        }
+
+        if self.threshold < 0.0 || self.threshold > 100.0 {
+            return Err(anyhow!("Threshold must be between 0 and 100"));
+        }
+
+        if let Some(on_incomplete) = &self.on_incomplete {
+            on_incomplete.validate()?;
+        }
+
+        Ok(())
+    }
+}
+
+impl OnIncompleteConfig {
+    /// Validate that the configuration has required fields
+    pub fn validate(&self) -> Result<()> {
+        match self.strategy {
+            CompletionStrategy::PatchGaps | CompletionStrategy::RetryFull => {
+                if self.claude.is_none() && self.shell.is_none() {
+                    return Err(anyhow!(
+                        "Strategy {:?} requires either claude or shell command",
+                        self.strategy
+                    ));
+                }
+            }
+            CompletionStrategy::Interactive => {
+                if self.prompt.is_none() {
+                    return Err(anyhow!("Interactive strategy requires a prompt"));
+                }
+            }
+        }
+
+        if self.max_attempts == 0 {
+            return Err(anyhow!("max_attempts must be greater than 0"));
+        }
+
+        Ok(())
+    }
+
+    /// Check if there's a command to execute
+    pub fn has_command(&self) -> bool {
+        self.claude.is_some() || self.shell.is_some()
+    }
+}
+
+impl ValidationResult {
+    /// Create a complete validation result
+    pub fn complete() -> Self {
+        Self {
+            completion_percentage: 100.0,
+            status: ValidationStatus::Complete,
+            implemented: Vec::new(),
+            missing: Vec::new(),
+            gaps: HashMap::new(),
+            raw_output: None,
+        }
+    }
+
+    /// Create an incomplete validation result
+    pub fn incomplete(
+        percentage: f64,
+        missing: Vec<String>,
+        gaps: HashMap<String, GapDetail>,
+    ) -> Self {
+        Self {
+            completion_percentage: percentage,
+            status: ValidationStatus::Incomplete,
+            implemented: Vec::new(),
+            missing,
+            gaps,
+            raw_output: None,
+        }
+    }
+
+    /// Create a failed validation result
+    pub fn failed(error: String) -> Self {
+        Self {
+            completion_percentage: 0.0,
+            status: ValidationStatus::Failed,
+            implemented: Vec::new(),
+            missing: vec![error],
+            gaps: HashMap::new(),
+            raw_output: None,
+        }
+    }
+
+    /// Parse validation result from JSON string
+    pub fn from_json(json_str: &str) -> Result<Self> {
+        serde_json::from_str(json_str)
+            .map_err(|e| anyhow!("Failed to parse validation result: {}", e))
+    }
+
+    /// Convert to JSON for context variables
+    pub fn to_json(&self) -> Result<String> {
+        serde_json::to_string(self)
+            .map_err(|e| anyhow!("Failed to serialize validation result: {}", e))
+    }
+
+    /// Get a summary of gaps for context interpolation
+    pub fn gaps_summary(&self) -> String {
+        if self.gaps.is_empty() {
+            return String::new();
+        }
+
+        let gap_list: Vec<String> = self
+            .gaps
+            .iter()
+            .map(|(key, detail)| {
+                format!(
+                    "{}: {} ({})",
+                    key,
+                    detail.description,
+                    format!("{:?}", detail.severity).to_lowercase()
+                )
+            })
+            .collect();
+
+        gap_list.join(", ")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validation_config_defaults() {
+        let yaml = r#"
+type: spec_coverage
+command: "/mmm-validate-spec 01"
+"#;
+        let config: ValidationConfig = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(config.validation_type, ValidationType::SpecCoverage);
+        assert_eq!(config.command, "/mmm-validate-spec 01");
+        assert_eq!(config.threshold, 100.0);
+        assert!(config.on_incomplete.is_none());
+    }
+
+    #[test]
+    fn test_validation_config_with_on_incomplete() {
+        let yaml = r#"
+type: test_coverage
+command: "cargo test"
+threshold: 90
+on_incomplete:
+  strategy: patch_gaps
+  claude: "/mmm-fix-tests ${validation.gaps}"
+  max_attempts: 3
+  fail_workflow: false
+"#;
+        let config: ValidationConfig = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(config.validation_type, ValidationType::TestCoverage);
+        assert_eq!(config.threshold, 90.0);
+
+        let on_incomplete = config.on_incomplete.unwrap();
+        assert_eq!(on_incomplete.strategy, CompletionStrategy::PatchGaps);
+        assert_eq!(
+            on_incomplete.claude,
+            Some("/mmm-fix-tests ${validation.gaps}".to_string())
+        );
+        assert_eq!(on_incomplete.max_attempts, 3);
+        assert!(!on_incomplete.fail_workflow);
+    }
+
+    #[test]
+    fn test_validation_result_serialization() {
+        let mut gaps = HashMap::new();
+        gaps.insert(
+            "auth".to_string(),
+            GapDetail {
+                description: "Authentication not implemented".to_string(),
+                location: Some("src/auth.rs".to_string()),
+                severity: Severity::Critical,
+                suggested_fix: Some("Implement JWT validation".to_string()),
+            },
+        );
+
+        let result = ValidationResult {
+            completion_percentage: 75.0,
+            status: ValidationStatus::Incomplete,
+            implemented: vec!["Database schema".to_string()],
+            missing: vec!["Authentication".to_string()],
+            gaps,
+            raw_output: None,
+        };
+
+        let json = result.to_json().unwrap();
+        let parsed: ValidationResult = ValidationResult::from_json(&json).unwrap();
+
+        assert_eq!(parsed.completion_percentage, 75.0);
+        assert_eq!(parsed.status, ValidationStatus::Incomplete);
+        assert_eq!(parsed.implemented.len(), 1);
+        assert_eq!(parsed.missing.len(), 1);
+        assert_eq!(parsed.gaps.len(), 1);
+    }
+
+    #[test]
+    fn test_validation_config_validation() {
+        let mut config = ValidationConfig {
+            validation_type: ValidationType::SpecCoverage,
+            command: "".to_string(),
+            expected_schema: None,
+            threshold: 100.0,
+            timeout: None,
+            on_incomplete: None,
+        };
+
+        // Empty command should fail
+        assert!(config.validate().is_err());
+
+        // Fix command
+        config.command = "/mmm-validate".to_string();
+        assert!(config.validate().is_ok());
+
+        // Invalid threshold
+        config.threshold = 150.0;
+        assert!(config.validate().is_err());
+
+        // Valid threshold
+        config.threshold = 95.0;
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_on_incomplete_validation() {
+        let mut config = OnIncompleteConfig {
+            strategy: CompletionStrategy::PatchGaps,
+            claude: None,
+            shell: None,
+            prompt: None,
+            max_attempts: 2,
+            fail_workflow: true,
+        };
+
+        // PatchGaps without command should fail
+        assert!(config.validate().is_err());
+
+        // Add claude command
+        config.claude = Some("/mmm-fix".to_string());
+        assert!(config.validate().is_ok());
+
+        // Interactive without prompt should fail
+        config.strategy = CompletionStrategy::Interactive;
+        config.claude = None;
+        assert!(config.validate().is_err());
+
+        // Add prompt
+        config.prompt = Some("Continue?".to_string());
+        assert!(config.validate().is_ok());
+
+        // Zero max_attempts should fail
+        config.max_attempts = 0;
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_validation_result_helpers() {
+        let result = ValidationResult::complete();
+        assert_eq!(result.completion_percentage, 100.0);
+        assert_eq!(result.status, ValidationStatus::Complete);
+
+        let mut gaps = HashMap::new();
+        gaps.insert(
+            "tests".to_string(),
+            GapDetail {
+                description: "Missing unit tests".to_string(),
+                location: None,
+                severity: Severity::High,
+                suggested_fix: None,
+            },
+        );
+
+        let incomplete = ValidationResult::incomplete(60.0, vec!["Unit tests".to_string()], gaps);
+        assert_eq!(incomplete.completion_percentage, 60.0);
+        assert_eq!(incomplete.status, ValidationStatus::Incomplete);
+
+        let failed = ValidationResult::failed("Command not found".to_string());
+        assert_eq!(failed.completion_percentage, 0.0);
+        assert_eq!(failed.status, ValidationStatus::Failed);
+    }
+
+    #[test]
+    fn test_gaps_summary() {
+        let mut gaps = HashMap::new();
+        gaps.insert(
+            "auth".to_string(),
+            GapDetail {
+                description: "Missing authentication".to_string(),
+                location: None,
+                severity: Severity::Critical,
+                suggested_fix: None,
+            },
+        );
+        gaps.insert(
+            "tests".to_string(),
+            GapDetail {
+                description: "No test coverage".to_string(),
+                location: None,
+                severity: Severity::High,
+                suggested_fix: None,
+            },
+        );
+
+        let result = ValidationResult::incomplete(50.0, vec![], gaps);
+        let summary = result.gaps_summary();
+
+        // Should contain both gaps
+        assert!(summary.contains("Missing authentication"));
+        assert!(summary.contains("No test coverage"));
+        assert!(summary.contains("critical"));
+        assert!(summary.contains("high"));
+    }
+}

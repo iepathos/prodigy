@@ -113,6 +113,7 @@ impl DefaultWorkflowCoordinator {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: true,
+            validate: None,
         }
     }
 

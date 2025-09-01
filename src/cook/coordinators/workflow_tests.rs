@@ -162,6 +162,7 @@ mod tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            validate: None,
             handler: None,
         };
 
