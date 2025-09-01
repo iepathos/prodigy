@@ -345,6 +345,102 @@ async fn handle_merge_command(
     Ok(())
 }
 
+/// Determine the cleanup action type based on command arguments
+fn determine_cleanup_action(name: Option<&String>, all: bool, merged_only: bool) -> CleanupAction {
+    match () {
+        _ if merged_only => CleanupAction::MergedOnly,
+        _ if all => CleanupAction::All,
+        _ if name.is_some() => CleanupAction::Single,
+        _ => CleanupAction::ShowMergeable,
+    }
+}
+
+/// Represents the type of cleanup action to perform
+enum CleanupAction {
+    MergedOnly,
+    All,
+    Single,
+    ShowMergeable,
+}
+
+/// Handle cleanup of merged sessions only
+async fn handle_merged_only_cleanup(
+    worktree_manager: &mmm::worktree::WorktreeManager,
+    cleanup_config: &mmm::worktree::CleanupConfig,
+) -> anyhow::Result<()> {
+    println!("🔍 Cleaning up merged sessions only...");
+    let cleaned_sessions = worktree_manager
+        .cleanup_merged_sessions(cleanup_config)
+        .await?;
+    if cleaned_sessions.is_empty() {
+        println!("ℹ️  No merged sessions found for cleanup");
+    } else {
+        println!(
+            "✅ Cleaned up {} merged session(s): {}",
+            cleaned_sessions.len(),
+            cleaned_sessions.join(", ")
+        );
+    }
+    Ok(())
+}
+
+/// Handle cleanup of all sessions
+async fn handle_all_cleanup(
+    worktree_manager: &mmm::worktree::WorktreeManager,
+    force: bool,
+) -> anyhow::Result<()> {
+    println!("Cleaning up all MMM worktrees...");
+    worktree_manager.cleanup_all_sessions(force).await?;
+    println!("✅ All worktrees cleaned up");
+    Ok(())
+}
+
+/// Handle cleanup of a single named session
+async fn handle_single_cleanup(
+    worktree_manager: &mmm::worktree::WorktreeManager,
+    name: &str,
+    force: bool,
+) -> anyhow::Result<()> {
+    // Check if the session is marked as merged and use appropriate cleanup method
+    if let Ok(state) = worktree_manager.get_session_state(name) {
+        if state.merged {
+            println!("🔍 Session '{name}' is merged, using safe cleanup...");
+            worktree_manager.cleanup_session_after_merge(name).await?;
+        } else {
+            println!("Cleaning up worktree '{name}'...");
+            worktree_manager.cleanup_session(name, force).await?;
+        }
+    } else {
+        println!("Cleaning up worktree '{name}'...");
+        worktree_manager.cleanup_session(name, force).await?;
+    }
+    println!("✅ Worktree '{name}' cleaned up");
+    Ok(())
+}
+
+/// Show mergeable sessions for potential cleanup
+async fn handle_show_mergeable(
+    worktree_manager: &mmm::worktree::WorktreeManager,
+) -> anyhow::Result<()> {
+    println!("🔍 Checking for sessions that can be cleaned up...");
+    let mergeable = worktree_manager.detect_mergeable_sessions().await?;
+    if mergeable.is_empty() {
+        println!("ℹ️  No merged sessions found for cleanup");
+        println!("💡 Use --all to clean up all sessions, or specify a session name");
+    } else {
+        println!(
+            "📋 Found {} merged session(s) ready for cleanup:",
+            mergeable.len()
+        );
+        for session in &mergeable {
+            println!("  • {session}");
+        }
+        println!();
+        println!("💡 Run with --merged-only to clean up all merged sessions");
+    }
+    Ok(())
+}
+
 /// Handle the clean command for worktrees
 async fn handle_clean_command(
     worktree_manager: &mmm::worktree::WorktreeManager,
@@ -362,59 +458,19 @@ async fn handle_clean_command(
         dry_run: false,
     };
 
-    if merged_only {
-        println!("🔍 Cleaning up merged sessions only...");
-        let cleaned_sessions = worktree_manager
-            .cleanup_merged_sessions(&cleanup_config)
-            .await?;
-        if cleaned_sessions.is_empty() {
-            println!("ℹ️  No merged sessions found for cleanup");
-        } else {
-            println!(
-                "✅ Cleaned up {} merged session(s): {}",
-                cleaned_sessions.len(),
-                cleaned_sessions.join(", ")
-            );
+    let action = determine_cleanup_action(name.as_ref(), all, merged_only);
+
+    match action {
+        CleanupAction::MergedOnly => {
+            handle_merged_only_cleanup(worktree_manager, &cleanup_config).await
         }
-    } else if all {
-        println!("Cleaning up all MMM worktrees...");
-        worktree_manager.cleanup_all_sessions(force).await?;
-        println!("✅ All worktrees cleaned up");
-    } else if let Some(name) = name {
-        // Check if the session is marked as merged and use appropriate cleanup method
-        if let Ok(state) = worktree_manager.get_session_state(&name) {
-            if state.merged {
-                println!("🔍 Session '{name}' is merged, using safe cleanup...");
-                worktree_manager.cleanup_session_after_merge(&name).await?;
-            } else {
-                println!("Cleaning up worktree '{name}'...");
-                worktree_manager.cleanup_session(&name, force).await?;
-            }
-        } else {
-            println!("Cleaning up worktree '{name}'...");
-            worktree_manager.cleanup_session(&name, force).await?;
+        CleanupAction::All => handle_all_cleanup(worktree_manager, force).await,
+        CleanupAction::Single => {
+            let name = name.unwrap(); // Safe because determine_cleanup_action ensures this
+            handle_single_cleanup(worktree_manager, &name, force).await
         }
-        println!("✅ Worktree '{name}' cleaned up");
-    } else {
-        // Default to showing mergeable sessions if no specific action requested
-        println!("🔍 Checking for sessions that can be cleaned up...");
-        let mergeable = worktree_manager.detect_mergeable_sessions().await?;
-        if mergeable.is_empty() {
-            println!("ℹ️  No merged sessions found for cleanup");
-            println!("💡 Use --all to clean up all sessions, or specify a session name");
-        } else {
-            println!(
-                "📋 Found {} merged session(s) ready for cleanup:",
-                mergeable.len()
-            );
-            for session in &mergeable {
-                println!("  • {session}");
-            }
-            println!();
-            println!("💡 Run with --merged-only to clean up all merged sessions");
-        }
+        CleanupAction::ShowMergeable => handle_show_mergeable(worktree_manager).await,
     }
-    Ok(())
 }
 
 async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
@@ -435,5 +491,68 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
             force,
             merged_only,
         } => handle_clean_command(&worktree_manager, name, all, force, merged_only).await,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_determine_cleanup_action() {
+        // Test merged_only takes precedence
+        assert!(matches!(
+            determine_cleanup_action(Some(&"test".to_string()), true, true),
+            CleanupAction::MergedOnly
+        ));
+
+        // Test all flag without merged_only
+        assert!(matches!(
+            determine_cleanup_action(None, true, false),
+            CleanupAction::All
+        ));
+
+        // Test single name cleanup
+        assert!(matches!(
+            determine_cleanup_action(Some(&"test-session".to_string()), false, false),
+            CleanupAction::Single
+        ));
+
+        // Test default shows mergeable
+        assert!(matches!(
+            determine_cleanup_action(None, false, false),
+            CleanupAction::ShowMergeable
+        ));
+    }
+
+    #[test]
+    fn test_get_log_level() {
+        assert_eq!(get_log_level(0), "info");
+        assert_eq!(get_log_level(1), "debug");
+        assert_eq!(get_log_level(2), "trace");
+        assert_eq!(get_log_level(3), "trace,hyper=debug,tower=debug");
+        assert_eq!(get_log_level(10), "trace,hyper=debug,tower=debug");
+    }
+
+    #[test]
+    fn test_cleanup_action_priority() {
+        // Verify that merged_only has highest priority
+        let name = Some("worktree-123".to_string());
+        assert!(matches!(
+            determine_cleanup_action(name.as_ref(), true, true),
+            CleanupAction::MergedOnly
+        ));
+
+        // Verify all has second priority
+        assert!(matches!(
+            determine_cleanup_action(name.as_ref(), true, false),
+            CleanupAction::All
+        ));
+
+        // Verify single name has third priority
+        assert!(matches!(
+            determine_cleanup_action(name.as_ref(), false, false),
+            CleanupAction::Single
+        ));
     }
 }

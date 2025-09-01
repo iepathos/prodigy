@@ -25,7 +25,7 @@ fn test_cleanup_after_merge_documentation() {
     // worktree are irrelevant because the important changes have already been
     // merged to the main branch. We can safely force cleanup.
 
-    assert!(true, "Documentation test passes");
+    // Test passes by documenting the cleanup behavior
 }
 
 #[tokio::test]
