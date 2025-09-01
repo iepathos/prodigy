@@ -11,7 +11,7 @@
 - COMPLEXITY: cyclomatic=9 (adj:9), branches=9, cognitive=25, nesting=3, entropy=0.60
 - DEPENDENCIES: 3 upstream, 4 downstream
    - CALLERS: tests::test_handle_existing_commands_no_tty, tests::test_handle_existing_commands_with_conflicts, run
-   - CALLS: GitDiff::is_empty, SessionState::is_terminal, UserPrompterImpl::read_line, MockFileSystem::exists, ... (1 more)
+   - CALLS: UserPrompterImpl::read_line, MockFileSystem::exists, GitDiff::is_empty, SessionState::is_terminal, SessionEvent::is_terminal
 - WHY: Cyclomatic complexity of 9 indicates 9 independent paths requiring 9 test cases minimum - extraction will reduce this to 3-5 tests per function. Function has 3 extractable patterns that can be isolated. These 3 extractions will decompose the function into smaller, focused units that are easier to test and understand. Target complexity per function is 5 or less for optimal maintainability.
 
 #2 SCORE: 10.00 [CRITICAL]
@@ -20,7 +20,7 @@
 - IMPACT: -3 complexity, -3.5 risk
 - COMPLEXITY: cyclomatic=7 (adj:7), branches=7, cognitive=15, nesting=4, entropy=0.53
 - DEPENDENCIES: 4 upstream, 1 downstream
-   - CALLERS: tests::test_extract_description_multiline, MetadataParser::parse_sections, MetadataParser::convert_frontmatter_to_definition, MetadataParser::create_minimal_definition, ... (1 more)
+   - CALLERS: tests::test_extract_description_multiline, MetadataParser::parse_sections, MetadataParser::convert_frontmatter_to_definition, MetadataParser::create_minimal_definition
    - CALLS: GitDiff::is_empty
 - WHY: Complex function (cyclo=7, cog=15, nesting=4) with 2 suggested extraction patterns. Predicted complexity reduction: 71%
 
@@ -39,8 +39,13 @@
 - IMPACT: -5 complexity, -3.5 risk
 - COMPLEXITY: cyclomatic=10 (adj:10), branches=10, cognitive=13, nesting=4, entropy=0.60
 - DEPENDENCIES: 11 upstream, 3 downstream
+<<<<<<< HEAD
    - CALLERS: tests::test_parse_complex_command, tests::test_parse_command_with_options, tests::test_parse_command_string_simple, tests::test_parse_command_string_with_variables, tests::test_parse_command_with_variable, Command::from_string, ... (8 more)
    - CALLS: GitDiff::is_empty, CommandArg::parse, Command::new
+=======
+   - CALLERS: tests::test_parse_command_string_with_variables, tests::test_parse_command_string_empty, Command::from_string, ... (8 more)
+   - CALLS: CommandArg::parse, Command::new, GitDiff::is_empty
+>>>>>>> prodigy-agent-cook-1756766583-item_9
 - WHY: Cyclomatic complexity of 10 indicates 10 independent paths requiring 10 test cases minimum - extraction will reduce this to 3-5 tests per function. Function has 1 extractable patterns that can be isolated. This extraction will create a focused, testable unit. Target complexity per function is 5 or less for optimal maintainability.
 
 #5 SCORE: 10.00 [CRITICAL]
@@ -49,13 +54,18 @@
 - IMPACT: -6 complexity, -3.5 risk
 - COMPLEXITY: cyclomatic=12 (adj:12), branches=12, cognitive=43, nesting=3, entropy=0.46
 - DEPENDENCIES: 5 upstream, 1 downstream
+<<<<<<< HEAD
    - CALLERS: DynamicCommandRegistry::refresh, tests::test_cache_behavior, tests::test_scan_empty_directory, tests::test_needs_refresh, ... (2 more)
+=======
+   - CALLERS: tests::test_needs_refresh, DynamicCommandRegistry::refresh, tests::test_scan_commands_filters_correctly, ... (2 more)
+>>>>>>> prodigy-agent-cook-1756766583-item_9
    - CALLS: CommandRegistry::clone
 - WHY: Complex function (cyclo=12, cog=43, nesting=3) with 2 suggested extraction patterns. Predicted complexity reduction: 91%
 
 #6 SCORE: 10.00 [CRITICAL]
 - LOCATION: ./src/config/command_validator.rs:226 CommandRegistry::validate_command()
 - ACTION: Extract validation logic, nested processing, complex calculations to reduce complexity 13 → ~2
+<<<<<<< HEAD
 - IMPACT: -6 complexity, -3.5 risk
 - COMPLEXITY: cyclomatic=13 (adj:13), branches=13, cognitive=30, nesting=4, entropy=0.55
 - DEPENDENCIES: 1 upstream, 4 downstream
@@ -74,11 +84,21 @@
 - WHY: Complex function (cyclo=8, cog=17, nesting=4) with 3 suggested extraction patterns. Predicted complexity reduction: 87%
 
 #8 SCORE: 10.00 [CRITICAL]
+=======
+- IMPACT: -6 complexity, -3.4 risk
+- COMPLEXITY: cyclomatic=13 (adj:13), branches=13, cognitive=30, nesting=4, entropy=0.55
+- DEPENDENCIES: 0 upstream, 4 downstream
+   - CALLS: CommandArg::is_variable, CommandRegistry::validate_argument_type, CommandRegistry::validate_option_value, ... (1 more)
+- WHY: Complex function (cyclo=13, cog=30, nesting=4) with 3 suggested extraction patterns. Predicted complexity reduction: 84%
+
+#7 SCORE: 10.00 [CRITICAL]
+>>>>>>> prodigy-agent-cook-1756766583-item_9
 - LOCATION: ./src/config/loader.rs:54 ConfigLoader::load_from_path()
 - ACTION: Extract validation logic, complex calculations to reduce complexity 13 → ~0
 - IMPACT: -6 complexity, -3.5 risk
 - COMPLEXITY: cyclomatic=13 (adj:13), branches=13, cognitive=52, nesting=3, entropy=0.38
 - DEPENDENCIES: 4 upstream, 2 downstream
+<<<<<<< HEAD
    - CALLERS: tests::test_load_from_path_unsupported_format, tests::test_load_from_path_invalid_yaml, tests::test_load_from_path_nonexistent_file, ... (1 more)
    - CALLS: CommandRegistry::clone, DynamicCommandRegistry::get, CacheManager::get
 - WHY: Complex function (cyclo=13, cog=52, nesting=3) with 2 suggested extraction patterns. Predicted complexity reduction: 100%
@@ -94,23 +114,56 @@
 - WHY: Complex function (cyclo=12, cog=27, nesting=4) with 3 suggested extraction patterns. Predicted complexity reduction: 83%
 
 #9 SCORE: 10.00 [CRITICAL]
+=======
+   - CALLERS: tests::test_load_from_path_unsupported_format, tests::test_load_from_path_invalid_yaml, ConfigLoader::load_with_explicit_path, ... (1 more)
+   - CALLS: CommandRegistry::clone, CommandRegistry::get
+- WHY: Complex function (cyclo=13, cog=52, nesting=3) with 2 suggested extraction patterns. Predicted complexity reduction: 100%
+
+#8 SCORE: 10.00 [CRITICAL]
+>>>>>>> prodigy-agent-cook-1756766583-item_9
 - LOCATION: ./src/worktree/manager.rs:102 WorktreeManager::new()
 - ACTION: Extract validation logic, complex calculations to reduce complexity 8 → ~3
 - IMPACT: -4 complexity, -3.5 risk
 - COMPLEXITY: cyclomatic=8 (adj:8), branches=8, cognitive=17, nesting=1, entropy=0.39
 - DEPENDENCIES: 35 upstream, 1 downstream
+<<<<<<< HEAD
    - CALLERS: run_worktree_command, tests::test_update_checkpoint_success, tests::test_update_checkpoint_increments_iteration, test_worktree_manager_creation, test_list_interrupted_sessions_none_interrupted, test_merge_updates_state, ... (32 more)
    - CALLS: MockFileSystem::exists
 - WHY: Complex function (cyclo=8, cog=17, nesting=1) with 2 suggested extraction patterns. Predicted complexity reduction: 62%
 
 #10 SCORE: 10.00 [CRITICAL]
+=======
+   - CALLERS: tests::test_verify_git_repository_success, tests::test_cleanup_session_after_merge_not_merged, test_cleanup_session, ... (32 more)
+   - CALLS: MockFileSystem::exists
+- WHY: Complex function (cyclo=8, cog=17, nesting=1) with 2 suggested extraction patterns. Predicted complexity reduction: 62%
+
+#9 SCORE: 10.00 [CRITICAL]
+>>>>>>> prodigy-agent-cook-1756766583-item_9
 - LOCATION: ./src/worktree/manager.rs:403 WorktreeManager::merge_session()
 - ACTION: Extract validation logic, nested processing, complex calculations to reduce complexity 23 → ~2
 - IMPACT: -11 complexity, -3.5 risk
 - COMPLEXITY: cyclomatic=23 (adj:23), branches=23, cognitive=74, nesting=5, entropy=0.38
 - DEPENDENCIES: 4 upstream, 15 downstream
+<<<<<<< HEAD
    - CALLERS: tests::test_merge_session_claude_cli_failure, handle_merge_command, DefaultCookOrchestrator::cleanup, tests::test_merge_session_success, ... (1 more)
    - CALLS: ProcessCommandBuilder::env, SubprocessManager::runner, MockFileSystem::exists, WorktreeManager::list_sessions, WorktreeManager::get_cleanup_config, WorktreeManager::cleanup_session_after_merge, ... (12 more)
 - WHY: Complex function (cyclo=23, cog=74, nesting=5) with 3 suggested extraction patterns. Predicted complexity reduction: 91%
 
 [STATS] TOTAL DEBT SCORE: 686
+=======
+   - CALLERS: handle_merge_command, tests::test_merge_session_claude_cli_failure, DefaultCookOrchestrator::cleanup, ... (1 more)
+   - CALLS: WorktreeManager::cleanup_session_after_merge, SubprocessManager::runner, ProcessCommandBuilder::env, ... (12 more)
+- WHY: Complex function (cyclo=23, cog=74, nesting=5) with 3 suggested extraction patterns. Predicted complexity reduction: 91%
+
+#10 SCORE: 10.00 [CRITICAL]
+- LOCATION: ./src/worktree/manager.rs:602 WorktreeManager::cleanup_session()
+- ACTION: Extract validation logic, complex calculations to reduce complexity 8 → ~2
+- IMPACT: -4 complexity, -3.5 risk
+- COMPLEXITY: cyclomatic=8 (adj:8), branches=8, cognitive=22, nesting=2, entropy=0.41
+- DEPENDENCIES: 19 upstream, 7 downstream
+   - CALLERS: test_list_sessions, test_cleanup_session, test_list_sessions_with_metadata_fallback, ... (16 more)
+   - CALLS: MockSubprocessManagerBuilder::build, TokioProcessRunner::run, ProcessCommandBuilder::current_dir, ... (4 more)
+- WHY: Complex function (cyclo=8, cog=22, nesting=2) with 2 suggested extraction patterns. Predicted complexity reduction: 75%
+
+[STATS] TOTAL DEBT SCORE: 693
+>>>>>>> prodigy-agent-cook-1756766583-item_9
