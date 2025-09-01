@@ -631,6 +631,129 @@ mod tests {
         assert!(!commands_dir.join("prodigy-implement-spec.md").exists());
     }
 
+    #[test]
+    fn test_is_test_environment() {
+        // In test context, should return true
+        assert!(is_test_environment());
+    }
+
+    #[test]
+    fn test_find_existing_commands_none_exist() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir_all(&commands_dir).unwrap();
+
+        let templates = vec![
+            templates::CommandTemplate {
+                name: "test-command-1",
+                content: "content1",
+                description: "Test command 1",
+            },
+            templates::CommandTemplate {
+                name: "test-command-2",
+                content: "content2",
+                description: "Test command 2",
+            },
+        ];
+
+        let existing = find_existing_commands(&commands_dir, &templates);
+        assert_eq!(existing.len(), 0);
+    }
+
+    #[test]
+    fn test_find_existing_commands_some_exist() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir_all(&commands_dir).unwrap();
+
+        // Create one existing command file
+        fs::write(commands_dir.join("test-command-1.md"), "existing").unwrap();
+
+        let templates = vec![
+            templates::CommandTemplate {
+                name: "test-command-1",
+                content: "content1",
+                description: "Test command 1",
+            },
+            templates::CommandTemplate {
+                name: "test-command-2",
+                content: "content2",
+                description: "Test command 2",
+            },
+        ];
+
+        let existing = find_existing_commands(&commands_dir, &templates);
+        assert_eq!(existing.len(), 1);
+        assert_eq!(existing[0], "test-command-1");
+    }
+
+    #[test]
+    fn test_find_existing_commands_all_exist() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir_all(&commands_dir).unwrap();
+
+        // Create both existing command files
+        fs::write(commands_dir.join("test-command-1.md"), "existing1").unwrap();
+        fs::write(commands_dir.join("test-command-2.md"), "existing2").unwrap();
+
+        let templates = vec![
+            templates::CommandTemplate {
+                name: "test-command-1",
+                content: "content1",
+                description: "Test command 1",
+            },
+            templates::CommandTemplate {
+                name: "test-command-2",
+                content: "content2",
+                description: "Test command 2",
+            },
+        ];
+
+        let existing = find_existing_commands(&commands_dir, &templates);
+        assert_eq!(existing.len(), 2);
+        assert!(existing.contains(&"test-command-1"));
+        assert!(existing.contains(&"test-command-2"));
+    }
+
+    #[test]
+    fn test_handle_existing_commands_no_tty() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir_all(&commands_dir).unwrap();
+
+        let templates = vec![templates::CommandTemplate {
+            name: "test-command",
+            content: "#!/bin/bash\necho test",
+            description: "Test command",
+        }];
+
+        // Should return Ok(true) when no TTY is available
+        let result = handle_existing_commands(&commands_dir, &templates).unwrap();
+        assert!(result);
+    }
+
+    #[test]
+    fn test_handle_existing_commands_with_conflicts() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir_all(&commands_dir).unwrap();
+
+        // Create existing command
+        fs::write(commands_dir.join("test-command.md"), "existing content").unwrap();
+
+        let templates = vec![templates::CommandTemplate {
+            name: "test-command",
+            content: "new content",
+            description: "Test command",
+        }];
+
+        // Should handle conflicts appropriately
+        let result = handle_existing_commands(&commands_dir, &templates);
+        assert!(result.is_ok());
+    }
+
+
     #[tokio::test]
     async fn test_validate_project_structure_not_git_repo() {
         let temp_dir = TempDir::new().unwrap();
