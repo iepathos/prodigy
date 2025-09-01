@@ -1605,7 +1605,6 @@ impl MapReduceExecutor {
             || std::env::var("MMM_AUTO_CONFIRM").unwrap_or_default() == "true"
     }
 
-
     /// Execute a single workflow step with agent context
     async fn execute_single_step(
         &self,

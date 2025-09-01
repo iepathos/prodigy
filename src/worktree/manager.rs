@@ -1038,7 +1038,6 @@ HEAD abc123"#;
         assert_eq!(parent.file_name().unwrap(), "worktrees");
     }
 
-
     #[tokio::test]
     async fn test_merge_session_success() {
         // Note: This test is limited because we can't mock the external Claude CLI

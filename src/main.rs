@@ -115,28 +115,45 @@ enum WorktreeCommands {
     },
 }
 
-#[tokio::main]
-async fn main() {
-    let cli = Cli::parse();
-
-    let log_level = match cli.verbose {
+/// Determine the log level based on verbosity count
+fn get_log_level(verbose: u8) -> &'static str {
+    match verbose {
         0 => "info",
         1 => "debug",
         2 => "trace",
         _ => "trace,hyper=debug,tower=debug", // -vvv shows everything including dependencies
-    };
+    }
+}
+
+/// Initialize the tracing subscriber with the appropriate settings
+fn init_tracing(verbose: u8) {
+    let log_level = get_log_level(verbose);
 
     tracing_subscriber::fmt()
         .with_env_filter(log_level)
-        .with_target(cli.verbose >= 2) // Show target module for -vv and above
-        .with_thread_ids(cli.verbose >= 3) // Show thread IDs for -vvv
-        .with_line_number(cli.verbose >= 3) // Show line numbers for -vvv
+        .with_target(verbose >= 2) // Show target module for -vv and above
+        .with_thread_ids(verbose >= 3) // Show thread IDs for -vvv
+        .with_line_number(verbose >= 3) // Show line numbers for -vvv
         .init();
 
-    debug!("MMM started with verbosity level: {}", cli.verbose);
+    debug!("MMM started with verbosity level: {}", verbose);
     trace!("Full CLI args: {:?}", std::env::args().collect::<Vec<_>>());
+}
 
-    let result = match cli.command {
+/// Check if the deprecated 'improve' alias was used and emit a warning
+fn check_deprecated_alias() {
+    let cli_args: Vec<String> = std::env::args().collect();
+    if cli_args.len() > 1 && cli_args[1] == "improve" {
+        eprintln!(
+            "Note: 'improve' has been renamed to 'cook'. Please use 'mmm cook' in the future."
+        );
+        eprintln!("The 'improve' alias will be removed in a future version.\n");
+    }
+}
+
+/// Execute the appropriate command based on CLI input
+async fn execute_command(command: Option<Commands>) -> anyhow::Result<()> {
+    match command {
         Some(Commands::Cook {
             playbook,
             path,
@@ -149,13 +166,7 @@ async fn main() {
             metrics,
             resume,
         }) => {
-            // Check if user used the 'improve' alias (deprecated as of v0.3.0)
-            // NOTE: Remove this deprecation warning in v1.0.0
-            let cli_args: Vec<String> = std::env::args().collect();
-            if cli_args.len() > 1 && cli_args[1] == "improve" {
-                eprintln!("Note: 'improve' has been renamed to 'cook'. Please use 'mmm cook' in the future.");
-                eprintln!("The 'improve' alias will be removed in a future version.\n");
-            }
+            check_deprecated_alias();
 
             let cook_cmd = mmm::cook::command::CookCommand {
                 playbook,
@@ -191,14 +202,28 @@ async fn main() {
             let mut cmd = Cli::command();
             let _ = cmd.print_help();
             println!(); // Add blank line for better formatting
-            return;
+            Ok(())
         }
-    };
+    }
+}
+
+/// Handle fatal errors and exit with appropriate status code
+fn handle_fatal_error(error: anyhow::Error) -> ! {
+    error!("Fatal error: {}", error);
+    eprintln!("Error: {error}");
+    std::process::exit(1)
+}
+
+#[tokio::main]
+async fn main() {
+    let cli = Cli::parse();
+
+    init_tracing(cli.verbose);
+
+    let result = execute_command(cli.command).await;
 
     if let Err(e) = result {
-        error!("Fatal error: {}", e);
-        eprintln!("Error: {e}");
-        std::process::exit(1);
+        handle_fatal_error(e);
     }
 }
 
