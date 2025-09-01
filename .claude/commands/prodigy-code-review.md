@@ -5,15 +5,15 @@ Conduct a comprehensive code review of the current project or specified componen
 ## Variables
 
 SCOPE: $ARGUMENTS (optional - specify scope like "src/parser", "tests", specific files, or omit for entire codebase)
-MMM_CONTEXT_AVAILABLE: Environment variable indicating .mmm context availability
-MMM_CONTEXT_DIR: Path to .prodigy/context/ directory with analysis data
+PRODIGY_CONTEXT_AVAILABLE: Environment variable indicating .prodigy context availability
+PRODIGY_CONTEXT_DIR: Path to .prodigy/context/ directory with analysis data
 
 ## Execute
 
 ### Phase 1: Context-Driven Project Analysis
 
-1. **Load MMM Analysis Context (Priority)**
-   - Check if `MMM_CONTEXT_AVAILABLE=true` and load context data
+1. **Load Prodigy Analysis Context (Priority)**
+   - Check if `PRODIGY_CONTEXT_AVAILABLE=true` and load context data
    - Read `.prodigy/context/technical_debt.json` for known issues and hotspots
    - Load `.prodigy/context/architecture.json` for violations and patterns
    - Parse `.prodigy/context/conventions.json` for style violations
@@ -22,7 +22,7 @@ MMM_CONTEXT_DIR: Path to .prodigy/context/ directory with analysis data
    - Use `.prodigy/context/dependency_graph.json` for coupling analysis
 
 2. **Fallback to Traditional Context**
-   - If context unavailable, read .mmm files (PROJECT.md, ARCHITECTURE.md, etc.)
+   - If context unavailable, read .prodigy files (PROJECT.md, ARCHITECTURE.md, etc.)
    - Understand project goals, architecture patterns, and coding standards
    - Identify recently completed specifications from ROADMAP.md
 
@@ -261,8 +261,8 @@ MMM_CONTEXT_DIR: Path to .prodigy/context/ directory with analysis data
 ## Automation Mode Behavior
 
 **Automation Detection**: The command detects automation mode when:
-- Environment variable `MMM_AUTOMATION=true` is set
-- Called from within an MMM workflow context
+- Environment variable `PRODIGY_AUTOMATION=true` is set
+- Called from within a Prodigy workflow context
 
 **Git-Native Automation Flow**:
 1. Analyze code and identify issues
@@ -308,9 +308,9 @@ MMM_CONTEXT_DIR: Path to .prodigy/context/ directory with analysis data
    - Performance benchmark results
    - Lint and warning counts
 
-4. **Integration with mmm improve**
+4. **Integration with prodigy improve**
    - In automation mode: Creates and commits temporary spec files
-   - `mmm improve` will extract spec from git commits and apply fixes
+   - `prodigy improve` will extract spec from git commits and apply fixes
    - Creates a complete audit trail through git history
 
 ## Integration with Development Workflow

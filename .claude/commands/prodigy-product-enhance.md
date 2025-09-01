@@ -5,14 +5,14 @@ Analyze the codebase from a product management perspective, focusing on user val
 ## Variables
 
 SCOPE: $ARGUMENTS (optional - specify scope like "cli", "api", specific features, or omit for entire product)
-FOCUS: $MMM_FOCUS (optional - focus directive from mmm CLI, e.g., "onboarding", "api", "cli-ux")
+FOCUS: $PRODIGY_FOCUS (optional - focus directive from prodigy CLI, e.g., "onboarding", "api", "cli-ux")
 
 ## Execute
 
 ### Phase 1: Product Context and User Understanding
 
 1. **Read Project Context**
-   - Read .mmm context files (PROJECT.md, ARCHITECTURE.md, ROADMAP.md)
+   - Read .prodigy context files (PROJECT.md, ARCHITECTURE.md, ROADMAP.md)
    - Understand product goals, user personas, and value proposition
    - Identify core features and their intended use cases
    - Review completed and planned features from ROADMAP.md
@@ -233,8 +233,8 @@ FOCUS: $MMM_FOCUS (optional - focus directive from mmm CLI, e.g., "onboarding", 
 ## Automation Mode Behavior
 
 **Automation Detection**: The command detects automation mode when:
-- Environment variable `MMM_AUTOMATION=true` is set
-- Called from within an MMM workflow context
+- Environment variable `PRODIGY_AUTOMATION=true` is set
+- Called from within a Prodigy workflow context
 
 **Git-Native Automation Flow**:
 1. Analyze product from user perspective

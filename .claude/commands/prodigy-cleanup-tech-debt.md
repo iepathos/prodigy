@@ -5,16 +5,16 @@ Analyze the Rust codebase for technical debt and perform comprehensive cleanup i
 ## Variables
 
 SCOPE: $ARGUMENTS (optional - specify scope like "src/agents", "src/mcp", "tests", or "all" for entire codebase)
-MMM_CONTEXT_AVAILABLE: Environment variable indicating .mmm context availability
-MMM_CONTEXT_DIR: Path to .prodigy/context/ directory with analysis data
-MMM_FOCUS: Optional focus directive to prioritize specific debt categories
+PRODIGY_CONTEXT_AVAILABLE: Environment variable indicating .prodigy context availability
+PRODIGY_CONTEXT_DIR: Path to .prodigy/context/ directory with analysis data
+PRODIGY_FOCUS: Optional focus directive to prioritize specific debt categories
 
 ## Execute
 
 ### Phase 1: Context-Driven Technical Debt Analysis
 
-1. **Load MMM Context Data (Priority)**
-   - Check if `MMM_CONTEXT_AVAILABLE=true` and context directory exists
+1. **Load Prodigy Context Data (Priority)**
+   - Check if `PRODIGY_CONTEXT_AVAILABLE=true` and context directory exists
    - Read `.prodigy/context/technical_debt.json` for existing debt analysis
    - Load `.prodigy/context/dependency_graph.json` for circular dependencies
    - Parse `.prodigy/context/architecture.json` for architectural violations
@@ -23,7 +23,7 @@ MMM_FOCUS: Optional focus directive to prioritize specific debt categories
 
 2. **Prioritize Using Context Data**
    - **High Priority**: Items from technical_debt.json with impact >= 7
-   - **Focus-Driven**: If MMM_FOCUS set, prioritize matching debt categories
+   - **Focus-Driven**: If PRODIGY_FOCUS set, prioritize matching debt categories
    - **Hotspots**: Use complexity_score and change_frequency from hotspots
    - **Critical Coverage**: Address untested_functions from test_coverage.json
    - **Security First**: Prioritize any security-related debt items
@@ -72,7 +72,7 @@ MMM_FOCUS: Optional focus directive to prioritize specific debt categories
 1. **Context-Driven Prioritization**
    - **Critical (from context)**: debt_items with impact >= 8 or effort <= 2
    - **High Priority**: Hotspots with risk_level="High" from technical_debt.json
-   - **Focus Alignment**: If MMM_FOCUS set, boost priority of matching categories
+   - **Focus Alignment**: If PRODIGY_FOCUS set, boost priority of matching categories
    - **Architectural**: violations with severity="High" from architecture.json
    - **Coverage Critical**: untested functions in critical_gaps from test_coverage.json
    - **Dependency Issues**: circular dependencies from dependency_graph.json
@@ -194,7 +194,7 @@ MMM_FOCUS: Optional focus directive to prioritize specific debt categories
    # Iteration {N}: Technical Debt Cleanup
    
    ## Overview
-   Temporary specification for technical debt cleanup identified from MMM context analysis.
+   Temporary specification for technical debt cleanup identified from Prodigy context analysis.
    {IF FOCUS: "Focus directive: {FOCUS}"}
    
    ## Debt Items to Address
@@ -282,11 +282,11 @@ MMM_FOCUS: Optional focus directive to prioritize specific debt categories
 ## Automation Mode Behavior
 
 **Automation Detection**: The command detects automation mode when:
-- Environment variable `MMM_AUTOMATION=true` is set
-- Called from within an MMM workflow context
+- Environment variable `PRODIGY_AUTOMATION=true` is set
+- Called from within a Prodigy workflow context
 
 **Git-Native Automation Flow**:
-1. Analyze technical debt using MMM context
+1. Analyze technical debt using Prodigy context
 2. If significant debt found: Create temporary spec file and commit it
 3. If no significant debt found: Report "No significant debt found" and exit without creating commits
 4. Always provide a brief summary of actions taken
