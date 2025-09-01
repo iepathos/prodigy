@@ -58,7 +58,7 @@ Enable developers to successfully run AI-assisted development workflows in Pytho
 - [ ] Host installation scripts (GitHub releases or prodigy.dev)
 - [ ] Test one-liner installation:
   ```bash
-  curl -sSL https://raw.githubusercontent.com/iepathos/mmm/main/install.sh | sh
+  curl -sSL https://raw.githubusercontent.com/iepathos/prodigy/main/install.sh | sh
   ```
 - [ ] Add Prodigy to PATH automatically
 - [ ] Verify Claude CLI is installed and configured
