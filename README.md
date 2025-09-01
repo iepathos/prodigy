@@ -139,6 +139,22 @@ MMM is the orchestration layer that makes AI development **scalable, reproducibl
 - ❌ Not another chat interface - it's workflow automation
 - ❌ Not magic - it's engineering discipline applied to AI
 
+## Core Features
+
+### Context Management
+MMM maintains comprehensive project context in `.mmm/` directory:
+- **Analysis Data**: Code structure, dependencies, architecture patterns
+- **Technical Debt**: Complexity hotspots, duplication, code issues
+- **Test Coverage**: Coverage gaps, untested critical functions
+- **Metrics History**: Performance trends, quality improvements
+
+Context is automatically provided to Claude commands via environment variables:
+- `MMM_CONTEXT_AVAILABLE="true"` - Indicates context is ready
+- `MMM_CONTEXT_DIR="/path/to/.mmm/context"` - Path to analysis data
+- `MMM_AUTOMATION="true"` - Signals automated execution mode
+
+For detailed context documentation, see `CLAUDE.md`.
+
 ## Core Concepts
 
 ### Bounded Autonomy
@@ -238,7 +254,7 @@ mmm cook workflows/implement.yml --metrics
 ### MapReduce Workflows (NEW)
 ```bash
 # Run parallel technical debt elimination
-mmm cook workflows/debtmap-mapreduce.yml --worktree
+mmm cook workflows/debtmap-reduce.yml --worktree
 
 # Process multiple files in parallel with custom workflow
 mmm cook workflows/fix-files-mapreduce.yml --worktree
@@ -247,7 +263,7 @@ mmm cook workflows/fix-files-mapreduce.yml --worktree
 mmm cook workflows/mapreduce-example.yml --worktree --yes
 
 # Resume an interrupted MapReduce job from checkpoint
-mmm cook workflows/debtmap-mapreduce.yml --worktree --resume
+mmm cook workflows/debtmap-reduce.yml --worktree --resume
 
 # Run with custom parallelism limit
 mmm cook workflows/mapreduce-example.yml --worktree --max-parallel 20
@@ -258,17 +274,26 @@ mmm cook workflows/mapreduce-example.yml --worktree --max-parallel 20
 MMM includes several pre-built workflows in the `workflows/` directory:
 
 #### Sequential Workflows
-- **implement.yml**: General implementation workflow with testing
-- **security.yml**: Security-focused analysis and fixes
-- **performance-workflow.yml**: Performance optimization and profiling
-- **coverage.yml**: Test coverage improvement
-- **tech-debt.yml**: Technical debt cleanup
+- **analysis-workflow.yml**: Code analysis and metrics generation
 - **code-review.yml**: Code review and quality improvements
+- **complex-build-pipeline.yml**: Complex build pipeline with multiple stages
+- **coverage.yml**: Test coverage improvement
+- **coverage-simplified.yml**: Simplified coverage workflow
+- **coverage-with-test-debug.yml**: Coverage with integrated test debugging
+- **custom-analyzer.yml**: Custom code analysis workflow
+- **debtmap.yml**: Technical debt analysis using debtmap tool
 - **debug.yml**: Debug and fix test failures
+- **debug-with-spec.yml**: Debug with spec generation
 - **documentation-workflow.yml**: Documentation generation and updates
+- **implement.yml**: General implementation workflow with testing
+- **implement-with-tests.yml**: Implementation with test generation
+- **performance-workflow.yml**: Performance optimization and profiling
+- **product-enhancement-workflow.yml**: Product enhancement workflow
+- **security.yml**: Security-focused analysis and fixes
+- **tech-debt.yml**: Technical debt cleanup
 
 #### MapReduce Workflows (Parallel Execution)
-- **debtmap-mapreduce.yml**: Parallel technical debt elimination across the codebase
+- **debtmap-reduce.yml**: Parallel technical debt elimination using debtmap integration
 - **fix-files-mapreduce.yml**: Fix issues in multiple files concurrently
 - **mapreduce-example.yml**: Complete example showing all MapReduce features
 - **test-mapreduce.yml**: Simple test workflow for MapReduce functionality
@@ -285,7 +310,7 @@ Create custom workflows for your project needs!
 Each step creates git commits for complete auditability.
 
 ### Requirements
-- [Claude CLI](https://claude.ai/cli) installed and configured (v0.6.0 or later)
+- [Claude Code CLI](https://claude.ai/code) installed and configured (v0.6.0 or later)
 - Git repository (for commit tracking and worktree support)
 - A project with code files
 
@@ -305,7 +330,7 @@ Time saved: ~2 hours of manual fixes
 
 ### Example 2: Parallel Bug Squashing
 ```bash
-$ mmm cook workflows/debtmap-mapreduce.yml --worktree
+$ mmm cook workflows/debtmap-reduce.yml --worktree
 🔍 Analyzing codebase...
 📊 Found 23 high-priority issues
 🚀 Spawning 10 parallel Claude agents...
@@ -363,7 +388,7 @@ Parse YAML workflow definition
 - **Temporary Specs**: `specs/temp/iteration-*-improvements.md` contain exact fixes applied  
 - **Simple State**: `.mmm/state.json` tracks basic session info (current score, run count)
 - **Project Context**: `.mmm/PROJECT.md`, `ARCHITECTURE.md` provide Claude with project understanding
-- **Optimized Context (v0.1.0+)**: Context files reduced by 90%+ through smart aggregation
+- **Optimized Context (v0.1.0+)**: Context files reduced by 90%+ through smart aggregation (see CLAUDE.md for details)
 - All human-readable, git-friendly, no complex databases
 
 ## Why MMM vs Other Approaches?
@@ -687,6 +712,27 @@ cargo run -- cook workflows/implement.yml --metrics
 cargo run -- cook workflows/security.yml --worktree
 ```
 
+## Command Discovery
+
+MMM commands in `.claude/commands/` follow a discovery pattern:
+
+```bash
+# Commands are automatically discovered by Claude Code
+.claude/commands/
+├── mmm-code-review.md         # Analyzes code and generates specs
+├── mmm-implement-spec.md      # Implements improvements from specs
+├── mmm-lint.md                # Formats and validates code
+├── mmm-debug-test-failure.md  # Debugs failing tests
+├── debtmap.md                 # Technical debt analysis
+├── fix-debt-item.md          # Fixes individual debt items
+└── [your-custom-commands].md  # Add your own commands
+```
+
+Each command receives:
+- Project context via environment variables
+- Command arguments from workflow
+- Current iteration state
+
 ## Philosophy
 
 1. **Self-Sufficient Development Loops**: Fully autonomous Claude-driven development cycles that run without manual intervention
@@ -699,7 +745,7 @@ cargo run -- cook workflows/security.yml --worktree
 
 ## Limitations
 
-- Requires Claude CLI to be installed and configured (v0.6.0+)
+- Requires Claude Code CLI to be installed and configured (v0.6.0+)
 - Improvements are limited by Claude's capabilities and context window
 - Each iteration runs independently (no memory between sessions beyond git history and checkpoints)
 - Workflow configuration is intentionally simple (no complex conditionals or plugins)
