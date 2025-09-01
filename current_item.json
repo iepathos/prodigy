@@ -1,0 +1,67 @@
+{
+  "location": {
+    "file": "./src/init/mod.rs",
+    "function": "handle_existing_commands",
+    "line": 126
+  },
+  "debt_type": {
+    "ComplexityHotspot": {
+      "cyclomatic": 9,
+      "cognitive": 25
+    }
+  },
+  "unified_score": {
+    "complexity_factor": 7.4,
+    "coverage_factor": 10.0,
+    "dependency_factor": 3.0,
+    "role_multiplier": 1.5,
+    "final_score": 10.0
+  },
+  "function_role": "EntryPoint",
+  "recommendation": {
+    "primary_action": "Extract validate_2_preconditions (confidence: 63%), process_input_pipeline (confidence: 53%), process_input_pipeline (confidence: 54%) to reduce complexity from 9 to ~0",
+    "rationale": "Cyclomatic complexity of 9 indicates 9 independent paths requiring 9 test cases minimum - extraction will reduce this to 3-5 tests per function. Function has 3 extractable patterns that can be isolated. These 3 extractions will decompose the function into smaller, focused units that are easier to test and understand. Target complexity per function is 5 or less for optimal maintainability.",
+    "implementation_steps": [
+      "1. Extract guard chain pattern at lines 1-4 as 'validate_2_preconditions' (complexity 9 → 7)",
+      "2. Extract transformation pipeline pattern at lines 1-6 as 'process_input_pipeline' (complexity 9 → 3)",
+      "3. Extract transformation pipeline pattern at lines 1-5 as 'process_input_pipeline' (complexity 9 → 5)",
+      "5. Write unit tests for each extracted pure function",
+      "6. Add property-based tests for complex transformations",
+      "Expected complexity reduction: 133%"
+    ],
+    "related_items": []
+  },
+  "expected_impact": {
+    "coverage_improvement": 0.0,
+    "lines_reduction": 0,
+    "complexity_reduction": 4.5,
+    "risk_reduction": 3.5
+  },
+  "transitive_coverage": null,
+  "upstream_dependencies": 3,
+  "downstream_dependencies": 4,
+  "upstream_callers": [
+    "tests::test_handle_existing_commands_no_tty",
+    "run",
+    "tests::test_handle_existing_commands_with_conflicts"
+  ],
+  "downstream_callees": [
+    "GitDiff::is_empty",
+    "SessionEvent::is_terminal",
+    "CacheManager::exists",
+    "UserPrompterImpl::read_line"
+  ],
+  "nesting_depth": 3,
+  "function_length": 51,
+  "cyclomatic_complexity": 9,
+  "cognitive_complexity": 25,
+  "entropy_details": {
+    "entropy_score": 0.6037848602976024,
+    "pattern_repetition": 0.647887323943662,
+    "original_complexity": 9,
+    "adjusted_complexity": 9,
+    "dampening_factor": 1.0
+  },
+  "is_pure": false,
+  "purity_confidence": 0.8
+}

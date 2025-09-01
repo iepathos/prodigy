@@ -122,6 +122,54 @@ fn select_templates(cmd: &InitCommand) -> Result<Vec<templates::CommandTemplate>
     }
 }
 
+/// Find command templates that already exist in the commands directory
+fn find_existing_commands<'a>(
+    commands_dir: &Path,
+    templates: &'a [templates::CommandTemplate],
+) -> Vec<&'a str> {
+    templates
+        .iter()
+        .filter(|t| commands_dir.join(format!("{}.md", t.name)).exists())
+        .map(|t| t.name)
+        .collect()
+}
+
+/// Display existing commands warning to the user
+fn display_existing_commands_warning(existing: &[&str]) {
+    println!("\n⚠️  The following commands already exist:");
+    for name in existing {
+        println!("   - {name}");
+    }
+    println!(
+        "\nUse --force to overwrite existing commands, or --commands to select specific ones."
+    );
+    println!("Example: prodigy init --commands prodigy-lint,prodigy-product-enhance");
+}
+
+/// Check if running in test environment
+fn is_test_environment() -> bool {
+    std::env::var("CARGO_TARGET_TMPDIR").is_ok()
+        || std::env::var("RUST_TEST_THREADS").is_ok()
+        || cfg!(test)
+}
+
+/// Check if should use interactive mode
+fn should_use_interactive_mode() -> bool {
+    use std::io::IsTerminal;
+    std::io::stdin().is_terminal() && !is_test_environment()
+}
+
+/// Get user confirmation for continuing with existing commands
+fn get_user_confirmation() -> Result<bool> {
+    print!("\nDo you want to continue and skip existing commands? (y/N): ");
+    use std::io::{self, Write};
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    Ok(input.trim().to_lowercase() == "y")
+}
+
 /// Handle checking for existing commands and get user confirmation
 fn handle_existing_commands(
     commands_dir: &Path,
@@ -131,37 +179,13 @@ fn handle_existing_commands(
         return Ok(true);
     }
 
-    let existing: Vec<_> = templates
-        .iter()
-        .filter(|t| commands_dir.join(format!("{}.md", t.name)).exists())
-        .map(|t| t.name)
-        .collect();
+    let existing = find_existing_commands(commands_dir, templates);
 
     if !existing.is_empty() {
-        println!("\n⚠️  The following commands already exist:");
-        for name in &existing {
-            println!("   - {name}");
-        }
-        println!(
-            "\nUse --force to overwrite existing commands, or --commands to select specific ones."
-        );
-        println!("Example: prodigy init --commands prodigy-lint,prodigy-product-enhance");
+        display_existing_commands_warning(&existing);
 
-        // Ask for confirmation in interactive mode
-        // Skip interactive prompt in test environments
-        let is_test = std::env::var("CARGO_TARGET_TMPDIR").is_ok()
-            || std::env::var("RUST_TEST_THREADS").is_ok()
-            || cfg!(test);
-
-        use std::io::IsTerminal;
-        if std::io::stdin().is_terminal() && !is_test {
-            print!("\nDo you want to continue and skip existing commands? (y/N): ");
-            use std::io::{self, Write};
-            io::stdout().flush()?;
-
-            let mut input = String::new();
-            io::stdin().read_line(&mut input)?;
-            if input.trim().to_lowercase() != "y" {
+        if should_use_interactive_mode() {
+            if !get_user_confirmation()? {
                 println!("❌ Installation cancelled.");
                 return Ok(false);
             }
@@ -670,5 +694,95 @@ mod tests {
 
         let result = run(args).await;
         assert!(result.is_ok()); // This should succeed but skip existing commands
+    }
+
+    #[test]
+    fn test_find_existing_commands_empty_templates() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path();
+        let templates = vec![];
+
+        let existing = find_existing_commands(commands_dir, &templates);
+        assert_eq!(existing.len(), 0);
+    }
+
+    #[test]
+    fn test_find_existing_commands_no_conflicts() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path();
+
+        let templates = vec![
+            templates::CommandTemplate {
+                name: "command1",
+                content: "content1",
+                description: "desc1",
+            },
+            templates::CommandTemplate {
+                name: "command2",
+                content: "content2",
+                description: "desc2",
+            },
+        ];
+
+        let existing = find_existing_commands(commands_dir, &templates);
+        assert_eq!(existing.len(), 0);
+    }
+
+    #[test]
+    fn test_find_existing_commands_with_conflicts() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path();
+        fs::create_dir_all(commands_dir).unwrap();
+
+        // Create existing command files
+        fs::write(commands_dir.join("command1.md"), "existing").unwrap();
+        fs::write(commands_dir.join("command3.md"), "existing").unwrap();
+
+        let templates = vec![
+            templates::CommandTemplate {
+                name: "command1",
+                content: "new",
+                description: "desc1",
+            },
+            templates::CommandTemplate {
+                name: "command2",
+                content: "new",
+                description: "desc2",
+            },
+            templates::CommandTemplate {
+                name: "command3",
+                content: "new",
+                description: "desc3",
+            },
+        ];
+
+        let existing = find_existing_commands(commands_dir, &templates);
+        assert_eq!(existing.len(), 2);
+        assert!(existing.contains(&"command1"));
+        assert!(existing.contains(&"command3"));
+        assert!(!existing.contains(&"command2"));
+    }
+
+    #[test]
+    fn test_is_test_environment() {
+        // This test runs in test environment, so should return true
+        assert!(is_test_environment());
+    }
+
+    #[test]
+    fn test_should_use_interactive_mode() {
+        // In test environment, should always return false
+        assert!(!should_use_interactive_mode());
+    }
+
+    #[test]
+    fn test_display_existing_commands_warning() {
+        // This is a pure display function, just ensure it doesn't panic
+        let existing = vec!["command1", "command2", "command3"];
+        display_existing_commands_warning(&existing);
+
+        // Empty list should also work
+        let empty: Vec<&str> = vec![];
+        display_existing_commands_warning(&empty);
     }
 }
