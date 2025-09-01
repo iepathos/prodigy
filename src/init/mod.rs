@@ -129,6 +129,12 @@ fn is_test_environment() -> bool {
         || cfg!(test)
 }
 
+/// Check if we're in an interactive terminal session
+fn is_interactive_session() -> bool {
+    use std::io::IsTerminal;
+    std::io::stdin().is_terminal() && !is_test_environment()
+}
+
 /// Find existing command templates in the commands directory
 fn find_existing_commands<'a>(
     commands_dir: &Path,
@@ -139,12 +145,6 @@ fn find_existing_commands<'a>(
         .filter(|t| commands_dir.join(format!("{}.md", t.name)).exists())
         .map(|t| t.name)
         .collect()
-}
-
-/// Check if we're in an interactive terminal session
-fn is_interactive_session() -> bool {
-    use std::io::IsTerminal;
-    std::io::stdin().is_terminal() && !is_test_environment()
 }
 
 /// Display existing commands warning to the user
@@ -167,7 +167,6 @@ fn get_user_confirmation() -> Result<bool> {
 
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;
-
     Ok(input.trim().to_lowercase() == "y")
 }
 
@@ -766,5 +765,116 @@ mod tests {
 
         let result = run(args).await;
         assert!(result.is_ok()); // This should succeed but skip existing commands
+    }
+
+    #[test]
+    fn test_is_test_environment() {
+        // In test context, this should return true
+        assert!(is_test_environment());
+    }
+
+    #[test]
+    fn test_find_existing_commands() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join(".claude").join("commands");
+        std::fs::create_dir_all(&commands_dir).unwrap();
+
+        // Create some test command files
+        std::fs::write(commands_dir.join("prodigy-lint.md"), "test content").unwrap();
+
+        std::fs::write(commands_dir.join("prodigy-code-review.md"), "test content").unwrap();
+
+        let templates = templates::get_all_templates();
+        let existing = find_existing_commands(&commands_dir, &templates);
+
+        // Should find the two existing commands
+        assert_eq!(existing.len(), 2);
+        assert!(existing.contains(&"prodigy-lint"));
+        assert!(existing.contains(&"prodigy-code-review"));
+    }
+
+    #[test]
+    fn test_find_existing_commands_empty() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join(".claude").join("commands");
+        std::fs::create_dir_all(&commands_dir).unwrap();
+
+        let templates = templates::get_all_templates();
+        let existing = find_existing_commands(&commands_dir, &templates);
+
+        // Should find no existing commands
+        assert_eq!(existing.len(), 0);
+    }
+
+    #[test]
+    fn test_find_existing_commands_partial() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join(".claude").join("commands");
+        std::fs::create_dir_all(&commands_dir).unwrap();
+
+        // Create only one test command file
+        std::fs::write(commands_dir.join("prodigy-lint.md"), "test content").unwrap();
+
+        let templates = templates::get_all_templates();
+        let existing = find_existing_commands(&commands_dir, &templates);
+
+        // Should find only one existing command
+        assert_eq!(existing.len(), 1);
+        assert!(existing.contains(&"prodigy-lint"));
+        assert!(!existing.contains(&"prodigy-code-review"));
+    }
+
+    #[test]
+    fn test_is_interactive_session() {
+        // In test context, is_interactive_session should return false
+        // because is_test_environment() returns true
+        assert!(!is_interactive_session());
+    }
+
+    #[test]
+    fn test_handle_existing_commands_no_tty_new() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join(".claude").join("commands");
+        std::fs::create_dir_all(&commands_dir).unwrap();
+
+        // Create existing command
+        std::fs::write(commands_dir.join("prodigy-lint.md"), "existing content").unwrap();
+
+        let templates = templates::get_all_templates();
+
+        // Should succeed in non-TTY mode (test environment)
+        let result = handle_existing_commands(&commands_dir, &templates);
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+
+    #[test]
+    fn test_handle_existing_commands_with_conflicts_new() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join(".claude").join("commands");
+        std::fs::create_dir_all(&commands_dir).unwrap();
+
+        // Create existing commands
+        std::fs::write(commands_dir.join("prodigy-lint.md"), "existing").unwrap();
+        std::fs::write(commands_dir.join("prodigy-code-review.md"), "existing").unwrap();
+
+        let templates = templates::get_all_templates();
+
+        // Should succeed and skip existing in test mode
+        let result = handle_existing_commands(&commands_dir, &templates);
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+
+    #[test]
+    fn test_handle_existing_commands_empty_templates() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join(".claude").join("commands");
+
+        // With empty templates, should always return true
+        let templates = vec![];
+        let result = handle_existing_commands(&commands_dir, &templates);
+        assert!(result.is_ok());
+        assert!(result.unwrap());
     }
 }
