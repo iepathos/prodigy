@@ -1,0 +1,9 @@
+Total debt score: 927.0 → 926.5 (-0.0%)
+Total items: 123 → 123 (+0)
+Items resolved: 3
+Items improved: 1
+Items regressed: 3
+
+By category:
+- Complexity: +2.3%
+- Other: -1.7%
