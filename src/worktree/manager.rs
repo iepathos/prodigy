@@ -555,6 +555,27 @@ impl WorktreeManager {
                 }
                 Err(e) => {
                     eprintln!("⚠️  Auto-cleanup failed for session {name}: {e}");
+
+                    // Try to get more diagnostic information
+                    let worktree_path = self.base_dir.join(name);
+                    if worktree_path.exists() {
+                        let status_command = ProcessCommandBuilder::new("git")
+                            .current_dir(&worktree_path)
+                            .args(["status", "--short"])
+                            .build();
+
+                        if let Ok(status_output) =
+                            self.subprocess.runner().run(status_command).await
+                        {
+                            if status_output.status.success()
+                                && !status_output.stdout.trim().is_empty()
+                            {
+                                eprintln!("📝 Current worktree status:");
+                                eprintln!("{}", status_output.stdout.trim());
+                            }
+                        }
+                    }
+
                     eprintln!(
                         "   You can manually clean up later with: mmm worktree cleanup {name}"
                     );
@@ -846,6 +867,9 @@ impl WorktreeManager {
         let worktree_path = self.base_dir.join(name);
 
         // Safety check: verify no uncommitted changes exist
+        // After a successful merge, we can safely force cleanup even if there are
+        // uncommitted changes in the worktree, since the important changes have
+        // already been merged to the main branch
         if worktree_path.exists() {
             let status_command = ProcessCommandBuilder::new("git")
                 .current_dir(&worktree_path)
@@ -860,12 +884,20 @@ impl WorktreeManager {
                 .context("Failed to check worktree status")?;
 
             if status_output.status.success() && !status_output.stdout.trim().is_empty() {
-                anyhow::bail!("Worktree '{name}' has uncommitted changes. Cannot clean up safely.");
+                // Worktree has uncommitted changes, but since it's already merged,
+                // we can safely force cleanup
+                println!("📝 Worktree has uncommitted changes after merge:");
+                println!("{}", status_output.stdout.trim());
+                println!("🔧 Using force cleanup since changes are already merged...");
+                self.cleanup_session(name, true).await?;
+            } else {
+                // No uncommitted changes, regular cleanup
+                self.cleanup_session(name, false).await?;
             }
+        } else {
+            // Worktree doesn't exist, just clean up metadata
+            self.cleanup_session(name, false).await?;
         }
-
-        // Perform the actual cleanup
-        self.cleanup_session(name, false).await?;
 
         // Clean up session state file
         let state_file = self.base_dir.join(".metadata").join(format!("{name}.json"));

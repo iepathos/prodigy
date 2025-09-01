@@ -457,13 +457,13 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             if should_merge {
                 let worktree_manager =
                     WorktreeManager::new(env.project_dir.clone(), self.subprocess.clone())?;
-                
+
                 // merge_session already handles auto-cleanup internally based on MMM_AUTO_CLEANUP env var
                 // We should not duplicate cleanup here to avoid race conditions
                 worktree_manager.merge_session(worktree_name).await?;
                 self.user_interaction
                     .display_success("Worktree changes merged successfully!");
-                
+
                 // Note: merge_session already handles cleanup based on auto_cleanup config
                 // It will either:
                 // 1. Auto-cleanup if MMM_AUTO_CLEANUP is true (default)
