@@ -1,5 +1,6 @@
 debtmap.json
 debtmap-after.json
+.debtmap_cache/
 .metadata/
 
 # Rust build artifacts
