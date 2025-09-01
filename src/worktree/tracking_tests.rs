@@ -41,7 +41,7 @@ fn setup_test_repo() -> Result<TempDir> {
 }
 
 #[tokio::test]
-async fn test_list_sessions_includes_all_mmm_branches() -> Result<()> {
+async fn test_list_sessions_includes_all_prodigy_branches() -> Result<()> {
     let temp_dir = setup_test_repo()?;
     let subprocess = SubprocessManager::production();
     let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;

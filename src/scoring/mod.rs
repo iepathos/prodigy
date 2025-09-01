@@ -360,7 +360,7 @@ fn load_type_coverage_from_metrics(_metadata: &AnalysisMetadata) -> Result<f64, 
     // Get the project path from the current directory
     let project_path = std::env::current_dir().map_err(|_| ())?;
     let metrics_file = project_path
-        .join(".mmm")
+        .join(".prodigy")
         .join("metrics")
         .join("current.json");
 

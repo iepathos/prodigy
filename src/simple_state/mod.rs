@@ -83,7 +83,7 @@ use std::path::PathBuf;
 
 /// Initialize the state management system for a project
 pub fn init() -> Result<()> {
-    let root = PathBuf::from(".mmm");
+    let root = PathBuf::from(".prodigy");
     std::fs::create_dir_all(&root)?;
     std::fs::create_dir_all(root.join("history"))?;
     std::fs::create_dir_all(root.join("cache"))?;

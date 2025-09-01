@@ -1,7 +1,7 @@
 # complex-build-pipeline.yml - Example complex build pipeline
 # This demonstrates conditional execution and output capture
 #
-# Usage: mmm cook examples/complex-build-pipeline.yml
+# Usage: prodigy cook examples/complex-build-pipeline.yml
 
 # Check compilation first
 - shell: "cargo check"

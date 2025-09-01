@@ -145,7 +145,7 @@ fn handle_existing_commands(
         println!(
             "\nUse --force to overwrite existing commands, or --commands to select specific ones."
         );
-        println!("Example: mmm init --commands prodigy-lint,prodigy-product-enhance");
+        println!("Example: prodigy init --commands prodigy-lint,prodigy-product-enhance");
 
         // Ask for confirmation in interactive mode
         // Skip interactive prompt in test environments

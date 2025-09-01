@@ -1,7 +1,7 @@
 # Product Enhancement Workflow
 # Target user value and feature improvements rather than code quality
 
-# This workflow uses the new mmm-product-enhance command
+# This workflow uses the new prodigy-product-enhance command
 # to identify and implement product improvements
 
 # Step 1: Analyze from product management perspective
@@ -22,9 +22,9 @@
     continue_on_error: true
 
 # Example usage:
-# mmm improve --config examples/product-enhancement-workflow.yml
+# prodigy improve --config examples/product-enhancement-workflow.yml
 
-# Target areas for mmm-product-enhance:
+# Target areas for prodigy-product-enhance:
 # - "onboarding": First-run experience, tutorials
 # - "api": Developer experience, API design
 # - "cli-ux": Command ergonomics, help text

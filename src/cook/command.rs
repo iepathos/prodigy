@@ -4,7 +4,7 @@ use std::path::PathBuf;
 /// Command-line arguments for the cook command
 ///
 /// This struct represents the configuration options available when running
-/// `mmm cook` to automatically enhance code quality through Claude CLI integration.
+/// `prodigy cook` to automatically enhance code quality through Claude CLI integration.
 #[derive(Debug, Args, Clone)]
 pub struct CookCommand {
     /// Playbook file to execute (required)

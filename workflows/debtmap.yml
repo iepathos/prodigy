@@ -27,5 +27,5 @@ mode: sequential  # Process items one at a time
 
 # Note: This workflow processes debt items sequentially.
 # For parallel processing of multiple debt items, use:
-#   mmm cook workflows/debtmap-mapreduce.yml --worktree
+#   prodigy cook workflows/debtmap-mapreduce.yml --worktree
 # This will process debt items in parallel using MapReduce mode.

@@ -147,7 +147,7 @@ impl MockResponses {
         // Add warning messages
         for i in 0..warnings {
             output.push_str(&format!(
-                r#"{{"reason":"compiler-message","message":{{"$message_type":"diagnostic","message":"warning {}: test warning","code":null,"level":"warning","spans":[],"children":[],"rendered":"warning: test warning {}\n"}},"target":{{"name":"mmm"}}}}"#,
+                r#"{{"reason":"compiler-message","message":{{"$message_type":"diagnostic","message":"warning {}: test warning","code":null,"level":"warning","spans":[],"children":[],"rendered":"warning: test warning {}\n"}},"target":{{"name":"prodigy"}}}}"#,
                 i + 1, i + 1
             ));
             output.push('\n');
@@ -156,7 +156,7 @@ impl MockResponses {
         // Add error messages
         for i in 0..errors {
             output.push_str(&format!(
-                r#"{{"reason":"compiler-message","message":{{"$message_type":"diagnostic","message":"error {}: test error","code":null,"level":"error","spans":[],"children":[],"rendered":"error: test error {}\n"}},"target":{{"name":"mmm"}}}}"#,
+                r#"{{"reason":"compiler-message","message":{{"$message_type":"diagnostic","message":"error {}: test error","code":null,"level":"error","spans":[],"children":[],"rendered":"error: test error {}\n"}},"target":{{"name":"prodigy"}}}}"#,
                 i + 1, i + 1
             ));
             output.push('\n');

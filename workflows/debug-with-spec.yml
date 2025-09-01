@@ -1,6 +1,6 @@
 # Test debugging workflow with spec context
 # Useful when implementing from a spec - provides the spec to the debug command
-# Usage: mmm cook examples/debug-with-spec.yml --args spec-file.md
+# Usage: prodigy cook examples/debug-with-spec.yml --args spec-file.md
 - shell: "just test"
   on_failure:
     claude: "/prodigy-debug-test-failure --spec $ARG --output ${shell.output}"

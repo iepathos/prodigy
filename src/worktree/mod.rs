@@ -100,7 +100,7 @@ pub use state::{
 ///
 /// let session = WorktreeSession::new(
 ///     "performance-improvements".to_string(),
-///     "mmm/performance-123".to_string(),
+///     "prodigy/performance-123".to_string(),
 ///     PathBuf::from("/tmp/prodigy-worktrees/performance-improvements")
 /// );
 ///
@@ -138,7 +138,7 @@ impl WorktreeSession {
     ///
     /// let session = WorktreeSession::new(
     ///     "feature-xyz".to_string(),
-    ///     "mmm/feature-xyz-123".to_string(),
+    ///     "prodigy/feature-xyz-123".to_string(),
     ///     PathBuf::from("/tmp/worktrees/feature-xyz")
     /// );
     /// ```

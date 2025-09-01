@@ -44,7 +44,7 @@ fn test_worktree_manager_creation() -> anyhow::Result<()> {
     let home_dir = dirs::home_dir().unwrap();
     assert!(manager
         .base_dir
-        .starts_with(home_dir.join(".mmm").join("worktrees")));
+        .starts_with(home_dir.join(".prodigy").join("worktrees")));
 
     // Clean up
     cleanup_worktree_dir(&manager);

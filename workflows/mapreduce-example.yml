@@ -39,7 +39,7 @@ reduce:
     - claude: "/summarize-fixes ${map.results}"
       capture_output: true
     
-    - shell: "git merge --no-ff mmm-agent-*"
+    - shell: "git merge --no-ff prodigy-agent-*"
       commit_required: true
     
     - claude: "/generate-report"

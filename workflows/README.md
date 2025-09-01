@@ -1,6 +1,6 @@
-# MMM Workflow Examples
+# Prodigy Workflow Examples
 
-This directory contains example workflows for the MMM (Memento Mori Management) tool, demonstrating both sequential and MapReduce execution modes.
+This directory contains example workflows for the Prodigy tool, demonstrating both sequential and MapReduce execution modes.
 
 ## Sequential Workflows
 
@@ -20,7 +20,7 @@ MapReduce workflows enable parallel processing across multiple isolated worktree
   - Analyzes codebase and generates debt items
   - Processes high-impact items in parallel (up to 5 agents)
   - Merges all fixes and generates summary report
-  - Example: `mmm cook workflows/debtmap-mapreduce.yml --worktree`
+  - Example: `prodigy cook workflows/debtmap-mapreduce.yml --worktree`
 
 - **fix-files-mapreduce.yml** - Fix issues in multiple files concurrently
   - Uses regex pattern matching to filter Rust files
@@ -71,25 +71,25 @@ MapReduce workflows enable parallel processing across multiple isolated worktree
 ### Sequential Execution
 ```bash
 # Run sequential debtmap workflow
-mmm cook workflows/debtmap.yml
+prodigy cook workflows/debtmap.yml
 
 # Run in a worktree for isolation
-mmm cook workflows/debtmap.yml --worktree
+prodigy cook workflows/debtmap.yml --worktree
 ```
 
 ### MapReduce Execution
 ```bash
 # Run parallel debt elimination
-mmm cook workflows/debtmap-mapreduce.yml --worktree
+prodigy cook workflows/debtmap-mapreduce.yml --worktree
 
 # Test MapReduce with simple workflow
-mmm cook workflows/test-mapreduce.yml
+prodigy cook workflows/test-mapreduce.yml
 
 # Fix Rust files in parallel with regex filtering
-mmm cook workflows/fix-files-mapreduce.yml --worktree
+prodigy cook workflows/fix-files-mapreduce.yml --worktree
 
 # Auto-merge results to main branch
-mmm cook workflows/debtmap-mapreduce.yml --worktree -y
+prodigy cook workflows/debtmap-mapreduce.yml --worktree -y
 ```
 
 ## Workflow Modes

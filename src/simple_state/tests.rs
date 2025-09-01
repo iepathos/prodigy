@@ -246,7 +246,7 @@ mod test {
     #[test]
     fn test_invalid_root_directory() {
         // Test with non-existent parent directory
-        let result = StateManager::with_root("/non/existent/path/mmm".into());
+        let result = StateManager::with_root("/non/existent/path/prodigy".into());
         assert!(result.is_err());
     }
 

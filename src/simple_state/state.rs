@@ -16,10 +16,10 @@ pub struct StateManager {
 impl StateManager {
     /// Create a new state manager
     pub fn new() -> Result<Self> {
-        let root = PathBuf::from(".mmm");
+        let root = PathBuf::from(".prodigy");
 
         // Create directory if needed
-        fs::create_dir_all(&root).context("Failed to create .mmm directory")?;
+        fs::create_dir_all(&root).context("Failed to create .prodigy directory")?;
 
         // Load or create state
         let state = Self::load_or_create(&root)?;

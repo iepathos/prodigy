@@ -59,9 +59,9 @@ mod core_tests {
         args.to_vec()
     }
 
-    async fn ensure_mmm_directory(project_path: &Path) -> Result<()> {
-        let mmm_dir = project_path.join(".mmm");
-        tokio::fs::create_dir_all(mmm_dir).await?;
+    async fn ensure_prodigy_directory(project_path: &Path) -> Result<()> {
+        let prodigy_dir = project_path.join(".prodigy");
+        tokio::fs::create_dir_all(prodigy_dir).await?;
         Ok(())
     }
 
@@ -327,7 +327,7 @@ version = "0.1.0"
 
     #[tokio::test]
     async fn test_git_command_exists() {
-        // This should always pass since git is required for mmm to work
+        // This should always pass since git is required for prodigy to work
         assert!(git_command_exists().await);
     }
 
@@ -367,22 +367,22 @@ version = "0.1.0"
     }
 
     #[tokio::test]
-    async fn test_ensure_mmm_directory() {
+    async fn test_ensure_prodigy_directory() {
         let temp_dir = TempDir::new().unwrap();
         let project_path = temp_dir.path();
 
         // Directory shouldn't exist yet
-        assert!(!project_path.join(".mmm").exists());
+        assert!(!project_path.join(".prodigy").exists());
 
-        // Call ensure_mmm_directory
-        ensure_mmm_directory(project_path).await.unwrap();
+        // Call ensure_prodigy_directory
+        ensure_prodigy_directory(project_path).await.unwrap();
 
         // Now it should exist
-        assert!(project_path.join(".mmm").exists());
+        assert!(project_path.join(".prodigy").exists());
 
         // Calling again should be idempotent
-        ensure_mmm_directory(project_path).await.unwrap();
-        assert!(project_path.join(".mmm").exists());
+        ensure_prodigy_directory(project_path).await.unwrap();
+        assert!(project_path.join(".prodigy").exists());
     }
 
     #[tokio::test]
@@ -445,8 +445,8 @@ version = "0.1.0"
         let temp_dir = TempDir::new().unwrap();
         let project_path = temp_dir.path();
 
-        // Create .mmm directory
-        std::fs::create_dir_all(project_path.join(".mmm")).unwrap();
+        // Create .prodigy directory
+        std::fs::create_dir_all(project_path.join(".prodigy")).unwrap();
 
         let mut state = create_session_state("test", None, 5, false);
         state.iterations_completed = 2;

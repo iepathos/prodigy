@@ -23,14 +23,14 @@ pub use loader::ConfigLoader;
 pub use mapreduce::{parse_mapreduce_workflow, MapReduceWorkflowConfig};
 pub use workflow::WorkflowConfig;
 
-/// Get the global MMM directory for storing configuration and data
-pub fn get_global_mmm_dir() -> Result<PathBuf> {
-    ProjectDirs::from("com", "mmm", "mmm")
+/// Get the global Prodigy directory for storing configuration and data
+pub fn get_global_prodigy_dir() -> Result<PathBuf> {
+    ProjectDirs::from("com", "prodigy", "prodigy")
         .map(|dirs| dirs.data_dir().to_path_buf())
         .ok_or_else(|| anyhow!("Could not determine home directory"))
 }
 
-/// Root configuration structure for MMM
+/// Root configuration structure for Prodigy
 ///
 /// Contains global settings, project-specific configuration,
 /// and workflow definitions. Supports hierarchical configuration
@@ -49,7 +49,7 @@ pub struct Config {
 /// directory under ~/.prodigy/config.toml.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GlobalConfig {
-    pub mmm_home: PathBuf,
+    pub prodigy_home: PathBuf,
     pub default_editor: Option<String>,
     pub log_level: Option<String>,
     pub claude_api_key: Option<String>,
@@ -88,7 +88,7 @@ pub struct PluginConfig {
 impl Default for GlobalConfig {
     fn default() -> Self {
         Self {
-            mmm_home: get_global_mmm_dir().unwrap_or_else(|_| PathBuf::from("~/.prodigy")),
+            prodigy_home: get_global_prodigy_dir().unwrap_or_else(|_| PathBuf::from("~/.prodigy")),
             default_editor: None,
             log_level: Some("info".to_string()),
             claude_api_key: None,
@@ -604,7 +604,7 @@ commands:
 
         // Save original env values
         let original_editor = std::env::var("EDITOR").ok();
-        let original_mmm_editor = std::env::var("PRODIGY_EDITOR").ok();
+        let original_prodigy_editor = std::env::var("PRODIGY_EDITOR").ok();
 
         // Test 1: EDITOR fallback when PRODIGY_EDITOR is not set
         // TODO: Audit that the environment access only happens in single-threaded code.
@@ -649,7 +649,7 @@ commands:
             // TODO: Audit that the environment access only happens in single-threaded code.
             unsafe { std::env::set_var("EDITOR", val) };
         }
-        if let Some(val) = original_mmm_editor {
+        if let Some(val) = original_prodigy_editor {
             // TODO: Audit that the environment access only happens in single-threaded code.
             unsafe { std::env::set_var("PRODIGY_EDITOR", val) };
         }
@@ -660,7 +660,7 @@ commands:
         let global = GlobalConfig::default();
 
         // The home directory should be set to something
-        assert!(!global.mmm_home.as_os_str().is_empty());
+        assert!(!global.prodigy_home.as_os_str().is_empty());
         assert_eq!(global.log_level, Some("info".to_string()));
         assert_eq!(global.max_concurrent_specs, Some(1));
         assert_eq!(global.auto_commit, Some(true));
@@ -670,26 +670,26 @@ commands:
     }
 
     #[test]
-    fn test_get_global_mmm_dir_success() {
+    fn test_get_global_prodigy_dir_success() {
         // Test normal operation
-        let result = get_global_mmm_dir();
+        let result = get_global_prodigy_dir();
         assert!(result.is_ok());
 
         let path = result.unwrap();
         assert!(path.is_absolute());
-        assert!(path.to_string_lossy().contains("mmm"));
+        assert!(path.to_string_lossy().contains("prodigy"));
     }
 
     #[test]
-    fn test_get_global_mmm_dir_path_structure() {
+    fn test_get_global_prodigy_dir_path_structure() {
         // Test path structure is correct
-        let path = get_global_mmm_dir().unwrap();
+        let path = get_global_prodigy_dir().unwrap();
 
-        // The path ends with the full app identifier "com.mmm.mmm" on most platforms
+        // The path ends with the full app identifier "com.prodigy.prodigy" on most platforms
         let file_name = path.file_name().unwrap().to_string_lossy();
         assert!(
-            file_name == "com.mmm.mmm" || file_name == "mmm",
-            "Expected directory name to be 'com.mmm.mmm' or 'mmm', got '{file_name}'"
+            file_name == "com.prodigy.prodigy" || file_name == "prodigy",
+            "Expected directory name to be 'com.prodigy.prodigy' or 'prodigy', got '{file_name}'"
         );
 
         // Should be an absolute path

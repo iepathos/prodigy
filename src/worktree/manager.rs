@@ -115,7 +115,7 @@ impl WorktreeManager {
         let home_dir =
             dirs::home_dir().ok_or_else(|| anyhow!("Could not determine home directory"))?;
 
-        let base_dir = home_dir.join(".mmm").join("worktrees").join(repo_name);
+        let base_dir = home_dir.join(".prodigy").join("worktrees").join(repo_name);
 
         std::fs::create_dir_all(&base_dir).context("Failed to create worktree base directory")?;
 
@@ -577,12 +577,12 @@ impl WorktreeManager {
                     }
 
                     eprintln!(
-                        "   You can manually clean up later with: mmm worktree cleanup {name}"
+                        "   You can manually clean up later with: prodigy worktree cleanup {name}"
                     );
                 }
             }
         } else {
-            println!("ℹ️  Session '{name}' has been merged. You can clean it up with: mmm worktree cleanup {name}");
+            println!("ℹ️  Session '{name}' has been merged. You can clean it up with: prodigy worktree cleanup {name}");
         }
 
         Ok(())

@@ -389,7 +389,7 @@ impl MapReduceExecutor {
         project_root: PathBuf,
     ) -> Self {
         // Create state directory path
-        let state_dir = project_root.join(".mmm").join("mapreduce");
+        let state_dir = project_root.join(".prodigy").join("mapreduce");
         let state_manager = Arc::new(DefaultJobStateManager::new(state_dir));
 
         Self {
