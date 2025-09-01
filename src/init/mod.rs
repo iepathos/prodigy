@@ -146,12 +146,6 @@ fn is_test_environment() -> bool {
         || cfg!(test)
 }
 
-/// Check if the current process should run interactively
-fn should_run_interactively() -> bool {
-    use std::io::IsTerminal;
-    std::io::stdin().is_terminal() && !is_test_environment()
-}
-
 /// Display warning about existing commands
 fn display_existing_commands_warning(existing: &[&str]) {
     println!("\n⚠️  The following commands already exist:");
