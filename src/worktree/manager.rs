@@ -1039,6 +1039,102 @@ HEAD abc123"#;
     }
 
     #[tokio::test]
+    async fn test_merge_session_already_merged() {
+        // Test that merge_session properly rejects double-merge attempts
+        let temp_dir = TempDir::new().unwrap();
+        
+        // Initialize git repo (required for git commands)
+        std::process::Command::new("git")
+            .args(["init"])
+            .current_dir(temp_dir.path())
+            .output()
+            .expect("Failed to init git repo");
+        
+        // Create initial commit on main branch
+        std::process::Command::new("git")
+            .args(["commit", "--allow-empty", "-m", "Initial commit"])
+            .current_dir(temp_dir.path())
+            .output()
+            .expect("Failed to create initial commit");
+        
+        let subprocess = SubprocessManager::production();
+        let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess).unwrap();
+
+        // Create a worktree branch that's already merged
+        let branch_name = "test-worktree-branch";
+        std::process::Command::new("git")
+            .args(["checkout", "-b", branch_name])
+            .current_dir(temp_dir.path())
+            .output()
+            .expect("Failed to create branch");
+        
+        // Make a commit on the branch
+        std::process::Command::new("git")
+            .args(["commit", "--allow-empty", "-m", "Test commit"])
+            .current_dir(temp_dir.path())
+            .output()
+            .expect("Failed to create test commit");
+        
+        // Merge it back to main
+        std::process::Command::new("git")
+            .args(["checkout", "main"])
+            .current_dir(temp_dir.path())
+            .output()
+            .expect("Failed to checkout main");
+        
+        std::process::Command::new("git")
+            .args(["merge", branch_name])
+            .current_dir(temp_dir.path())
+            .output()
+            .expect("Failed to merge branch");
+
+        // Create session state for an already-merged worktree
+        let metadata_dir = manager.base_dir.join(".metadata");
+        std::fs::create_dir_all(&metadata_dir).unwrap();
+
+        let state = WorktreeState {
+            session_id: "test-session".to_string(),
+            worktree_name: "test-session".to_string(),
+            branch: branch_name.to_string(),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            status: WorktreeStatus::InProgress,
+            iterations: super::IterationInfo {
+                completed: 1,
+                max: 1,
+            },
+            stats: super::WorktreeStats {
+                files_changed: 1,
+                commits: 1,
+                last_commit_sha: None,
+            },
+            merged: false,  // Even though git shows it's merged, state says it's not
+            merged_at: None,
+            error: None,
+            merge_prompt_shown: false,
+            merge_prompt_response: None,
+            interrupted_at: None,
+            interruption_type: None,
+            last_checkpoint: None,
+            resumable: false,
+        };
+
+        let state_path = metadata_dir.join("test-session.json");
+        std::fs::write(&state_path, serde_json::to_string_pretty(&state).unwrap()).unwrap();
+
+        // Attempt to merge should fail with "already in sync" error
+        let result = manager.merge_session("test-session").await;
+        assert!(result.is_err());
+        
+        let error_msg = result.unwrap_err().to_string();
+        assert!(
+            error_msg.contains("No new commits") || error_msg.contains("already in sync"),
+            "Expected 'No new commits' or 'already in sync' error, got: {}",
+            error_msg
+        );
+    }
+
+    #[tokio::test]
     async fn test_merge_session_success() {
         // Note: This test is limited because we can't mock the external Claude CLI
         // In a real test environment, we would use dependency injection for the command execution
