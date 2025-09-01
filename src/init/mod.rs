@@ -122,6 +122,54 @@ fn select_templates(cmd: &InitCommand) -> Result<Vec<templates::CommandTemplate>
     }
 }
 
+/// Check which commands already exist in the target directory
+fn find_existing_commands<'a>(
+    commands_dir: &Path,
+    templates: &'a [templates::CommandTemplate],
+) -> Vec<&'a str> {
+    templates
+        .iter()
+        .filter(|t| commands_dir.join(format!("{}.md", t.name)).exists())
+        .map(|t| t.name)
+        .collect()
+}
+
+/// Determine if we're running in a test environment
+fn is_test_environment() -> bool {
+    std::env::var("CARGO_TARGET_TMPDIR").is_ok()
+        || std::env::var("RUST_TEST_THREADS").is_ok()
+        || cfg!(test)
+}
+
+/// Check if we're in an interactive terminal session
+fn is_interactive_session() -> bool {
+    use std::io::IsTerminal;
+    std::io::stdin().is_terminal() && !is_test_environment()
+}
+
+/// Get user confirmation for overwriting existing commands
+fn get_user_confirmation() -> Result<bool> {
+    print!("\nDo you want to continue and skip existing commands? (y/N): ");
+    use std::io::{self, Write};
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    Ok(input.trim().to_lowercase() == "y")
+}
+
+/// Display warnings about existing commands
+fn display_existing_commands_warning(existing: &[&str]) {
+    println!("\n⚠️  The following commands already exist:");
+    for name in existing {
+        println!("   - {name}");
+    }
+    println!(
+        "\nUse --force to overwrite existing commands, or --commands to select specific ones."
+    );
+    println!("Example: prodigy init --commands prodigy-lint,prodigy-product-enhance");
+}
+
 /// Handle checking for existing commands and get user confirmation
 fn handle_existing_commands(
     commands_dir: &Path,
@@ -131,37 +179,14 @@ fn handle_existing_commands(
         return Ok(true);
     }
 
-    let existing: Vec<_> = templates
-        .iter()
-        .filter(|t| commands_dir.join(format!("{}.md", t.name)).exists())
-        .map(|t| t.name)
-        .collect();
+    let existing = find_existing_commands(commands_dir, templates);
 
     if !existing.is_empty() {
-        println!("\n⚠️  The following commands already exist:");
-        for name in &existing {
-            println!("   - {name}");
-        }
-        println!(
-            "\nUse --force to overwrite existing commands, or --commands to select specific ones."
-        );
-        println!("Example: prodigy init --commands prodigy-lint,prodigy-product-enhance");
+        display_existing_commands_warning(&existing);
 
         // Ask for confirmation in interactive mode
-        // Skip interactive prompt in test environments
-        let is_test = std::env::var("CARGO_TARGET_TMPDIR").is_ok()
-            || std::env::var("RUST_TEST_THREADS").is_ok()
-            || cfg!(test);
-
-        use std::io::IsTerminal;
-        if std::io::stdin().is_terminal() && !is_test {
-            print!("\nDo you want to continue and skip existing commands? (y/N): ");
-            use std::io::{self, Write};
-            io::stdout().flush()?;
-
-            let mut input = String::new();
-            io::stdin().read_line(&mut input)?;
-            if input.trim().to_lowercase() != "y" {
+        if is_interactive_session() {
+            if !get_user_confirmation()? {
                 println!("❌ Installation cancelled.");
                 return Ok(false);
             }
