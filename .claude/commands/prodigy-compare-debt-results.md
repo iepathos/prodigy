@@ -1,5 +1,5 @@
 ---
-name: mmm-compare-debt-results
+name: prodigy-compare-debt-results
 description: Compare before/after debtmap results and create a commit documenting improvements
 args:
   - name: before
