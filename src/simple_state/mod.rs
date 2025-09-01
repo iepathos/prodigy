@@ -25,7 +25,7 @@
 //! ## Basic Usage
 //!
 //! ```rust
-//! use mmm::simple_state::StateManager;
+//! use prodigy::simple_state::StateManager;
 //! use std::path::PathBuf;
 //!
 //! # fn example() -> anyhow::Result<()> {
@@ -47,7 +47,7 @@
 //! ## Session Tracking
 //!
 //! ```rust
-//! # use mmm::simple_state::{StateManager, SessionRecord};
+//! # use prodigy::simple_state::{StateManager, SessionRecord};
 //! # use std::path::PathBuf;
 //! # fn example() -> anyhow::Result<()> {
 //! let mut state_manager = StateManager::new()?;

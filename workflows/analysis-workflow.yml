@@ -4,13 +4,13 @@
 
 # First command: Implement a spec
 # This uses the initial analysis from workflow start
-- claude: "/mmm-implement-spec $ARG"
+- claude: "/prodigy-implement-spec $ARG"
   commit_required: true
   # No analysis configuration - uses initial context
 
 # Second command: Run linting
 # Linting typically doesn't need metrics data
-- claude: "/mmm-lint"
+- claude: "/prodigy-lint"
   commit_required: false
   # No analysis needed - works with existing code structure
 
@@ -22,7 +22,7 @@
     save: true
     format: "summary"
 
-- claude: "/mmm-code-review"
+- claude: "/prodigy-code-review"
 
 # Fourth command: Clean up technical debt
 # This needs fresh analysis to prioritize cleanup
@@ -31,7 +31,7 @@
     save: true
     format: "summary"
 
-- claude: "/mmm-cleanup-tech-debt"
+- claude: "/prodigy-cleanup-tech-debt"
 
 # Fifth command: Generate documentation
 # This needs updated analysis after all changes
@@ -41,7 +41,7 @@
     save: true
     format: "summary"
 
-- claude: "/mmm-generate-docs"
+- claude: "/prodigy-generate-docs"
 
 # Usage examples:
 # 

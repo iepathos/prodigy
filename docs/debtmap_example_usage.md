@@ -1,5 +1,5 @@
 mmm cook workflows/debtmap.yml -wyn 10
-ℹ️  Created worktree at: /Users/glen/.mmm/worktrees/debtmap/session-b1949530-fbf9-4cf2-906f-824c55290d5c
+ℹ️  Created worktree at: /Users/glen/.prodigy/worktrees/debtmap/session-b1949530-fbf9-4cf2-906f-824c55290d5c
 ℹ️  Executing workflow: default (max 10 iterations)
 🔄 Starting improvement loop
 🔄 Starting iteration 1/10

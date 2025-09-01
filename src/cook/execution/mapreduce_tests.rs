@@ -170,8 +170,8 @@ fn test_agent_result_serialization() {
         duration: Duration::from_secs(10),
         error: None,
         worktree_path: Some(PathBuf::from("/tmp/worktree")),
-        branch_name: Some("mmm-agent-123-test_item".to_string()),
-        worktree_session_id: Some("mmm-session-123".to_string()),
+        branch_name: Some("prodigy-agent-123-test_item".to_string()),
+        worktree_session_id: Some("prodigy-session-123".to_string()),
         files_modified: vec![PathBuf::from("src/main.rs")],
     };
 

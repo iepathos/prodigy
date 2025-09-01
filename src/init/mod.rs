@@ -15,19 +15,19 @@
 //! # Command Templates
 //!
 //! The init system provides several built-in command templates:
-//! - `mmm-code-review` - Automated code quality analysis and review
-//! - `mmm-implement-spec` - Implementation of specifications and features
-//! - `mmm-lint` - Code linting and style enforcement
-//! - `mmm-product-enhance` - Product-focused enhancements
-//! - `mmm-merge-worktree` - Git worktree management
-//! - `mmm-cleanup-tech-debt` - Technical debt reduction
+//! - `prodigy-code-review` - Automated code quality analysis and review
+//! - `prodigy-implement-spec` - Implementation of specifications and features
+//! - `prodigy-lint` - Code linting and style enforcement
+//! - `prodigy-product-enhance` - Product-focused enhancements
+//! - `prodigy-merge-worktree` - Git worktree management
+//! - `prodigy-cleanup-tech-debt` - Technical debt reduction
 //!
 //! # Examples
 //!
 //! ## Initialize All Commands
 //!
 //! ```rust
-//! use mmm::init::{run, command::InitCommand};
+//! use prodigy::init::{run, command::InitCommand};
 //! use std::path::PathBuf;
 //!
 //! # async fn example() -> anyhow::Result<()> {
@@ -45,14 +45,14 @@
 //! ## Install Specific Commands
 //!
 //! ```rust
-//! # use mmm::init::{run, command::InitCommand};
+//! # use prodigy::init::{run, command::InitCommand};
 //! # use std::path::PathBuf;
 //! # async fn example() -> anyhow::Result<()> {
 //! let cmd = InitCommand {
 //!     force: false,
 //!     commands: Some(vec![
-//!         "mmm-code-review".to_string(),
-//!         "mmm-lint".to_string()
+//!         "prodigy-code-review".to_string(),
+//!         "prodigy-lint".to_string()
 //!     ]),
 //!     path: None, // Use current directory
 //! };
@@ -113,7 +113,7 @@ fn select_templates(cmd: &InitCommand) -> Result<Vec<templates::CommandTemplate>
         let selected = templates::get_templates_by_names(command_names);
         if selected.is_empty() {
             println!("❌ No matching commands found for: {command_names:?}");
-            println!("   Available commands: mmm-code-review, mmm-implement-spec, mmm-lint, mmm-product-enhance, mmm-merge-worktree, mmm-cleanup-tech-debt");
+            println!("   Available commands: prodigy-code-review, prodigy-implement-spec, prodigy-lint, prodigy-product-enhance, prodigy-merge-worktree, prodigy-cleanup-tech-debt");
             return Ok(vec![]);
         }
         Ok(selected)
@@ -145,7 +145,7 @@ fn handle_existing_commands(
         println!(
             "\nUse --force to overwrite existing commands, or --commands to select specific ones."
         );
-        println!("Example: mmm init --commands mmm-lint,mmm-product-enhance");
+        println!("Example: mmm init --commands prodigy-lint,prodigy-product-enhance");
 
         // Ask for confirmation in interactive mode
         // Skip interactive prompt in test environments
@@ -213,8 +213,8 @@ fn display_installation_summary(installed: usize, skipped: usize, commands_dir: 
             commands_dir.display()
         );
         println!("   2. Customize commands as needed for your project");
-        println!("   3. Run 'mmm cook' to start improving your code");
-        println!("\n💡 Tip: You can always reinstall default commands with 'mmm init --force'");
+        println!("   3. Run 'prodigy cook' to start improving your code");
+        println!("\n💡 Tip: You can always reinstall default commands with 'prodigy init --force'");
     }
 }
 
@@ -342,7 +342,10 @@ mod tests {
         assert_eq!(all_templates.len(), 6);
 
         // Test filtering by names
-        let names = vec!["mmm-lint".to_string(), "mmm-code-review".to_string()];
+        let names = vec![
+            "prodigy-lint".to_string(),
+            "prodigy-code-review".to_string(),
+        ];
         let filtered = templates::get_templates_by_names(&names);
         assert_eq!(filtered.len(), 2);
     }
@@ -394,8 +397,8 @@ mod tests {
         // Check commands were created
         let commands_dir = temp_dir.path().join(".claude").join("commands");
         assert!(commands_dir.exists());
-        assert!(commands_dir.join("mmm-code-review.md").exists());
-        assert!(commands_dir.join("mmm-lint.md").exists());
+        assert!(commands_dir.join("prodigy-code-review.md").exists());
+        assert!(commands_dir.join("prodigy-lint.md").exists());
     }
 
     #[tokio::test]
@@ -419,7 +422,11 @@ mod tests {
         // Create existing command
         let commands_dir = temp_dir.path().join(".claude").join("commands");
         std::fs::create_dir_all(&commands_dir).unwrap();
-        std::fs::write(commands_dir.join("mmm-code-review.md"), "existing content").unwrap();
+        std::fs::write(
+            commands_dir.join("prodigy-code-review.md"),
+            "existing content",
+        )
+        .unwrap();
 
         let cmd = InitCommand {
             force: false,
@@ -432,7 +439,7 @@ mod tests {
         assert!(result.is_ok());
 
         // Check existing file wasn't overwritten
-        let content = std::fs::read_to_string(commands_dir.join("mmm-code-review.md")).unwrap();
+        let content = std::fs::read_to_string(commands_dir.join("prodigy-code-review.md")).unwrap();
         assert_eq!(content, "existing content");
     }
 
@@ -457,7 +464,7 @@ mod tests {
         // Create existing command
         let commands_dir = temp_dir.path().join(".claude").join("commands");
         std::fs::create_dir_all(&commands_dir).unwrap();
-        std::fs::write(commands_dir.join("mmm-code-review.md"), "old content").unwrap();
+        std::fs::write(commands_dir.join("prodigy-code-review.md"), "old content").unwrap();
 
         let cmd = InitCommand {
             force: true,
@@ -469,7 +476,7 @@ mod tests {
         assert!(result.is_ok());
 
         // Check file was overwritten
-        let content = std::fs::read_to_string(commands_dir.join("mmm-code-review.md")).unwrap();
+        let content = std::fs::read_to_string(commands_dir.join("prodigy-code-review.md")).unwrap();
         assert!(content.contains("Analyze code"));
         assert!(!content.contains("old content"));
     }
@@ -494,7 +501,10 @@ mod tests {
 
         let cmd = InitCommand {
             force: false,
-            commands: Some(vec!["mmm-code-review".to_string(), "mmm-lint".to_string()]),
+            commands: Some(vec![
+                "prodigy-code-review".to_string(),
+                "prodigy-lint".to_string(),
+            ]),
             path: Some(temp_dir.path().to_path_buf()),
         };
 
@@ -504,9 +514,9 @@ mod tests {
         let commands_dir = temp_dir.path().join(".claude").join("commands");
 
         // Should only install specified commands
-        assert!(commands_dir.join("mmm-code-review.md").exists());
-        assert!(commands_dir.join("mmm-lint.md").exists());
-        assert!(!commands_dir.join("mmm-implement-spec.md").exists());
+        assert!(commands_dir.join("prodigy-code-review.md").exists());
+        assert!(commands_dir.join("prodigy-lint.md").exists());
+        assert!(!commands_dir.join("prodigy-implement-spec.md").exists());
     }
 
     #[test]

@@ -25,8 +25,8 @@
 //! ## Creating a Worktree Session
 //!
 //! ```rust
-//! use mmm::worktree::WorktreeManager;
-//! use mmm::subprocess::SubprocessManager;
+//! use prodigy::worktree::WorktreeManager;
+//! use prodigy::subprocess::SubprocessManager;
 //! use std::path::PathBuf;
 //!
 //! # async fn example() -> anyhow::Result<()> {
@@ -42,8 +42,8 @@
 //! ## Managing Session Lifecycle
 //!
 //! ```rust
-//! # use mmm::worktree::WorktreeManager;
-//! # use mmm::subprocess::SubprocessManager;
+//! # use prodigy::worktree::WorktreeManager;
+//! # use prodigy::subprocess::SubprocessManager;
 //! # use std::path::PathBuf;
 //! # async fn example() -> anyhow::Result<()> {
 //! # let subprocess = SubprocessManager::production();
@@ -95,13 +95,13 @@ pub use state::{
 /// # Examples
 ///
 /// ```rust
-/// use mmm::worktree::WorktreeSession;
+/// use prodigy::worktree::WorktreeSession;
 /// use std::path::PathBuf;
 ///
 /// let session = WorktreeSession::new(
 ///     "performance-improvements".to_string(),
 ///     "mmm/performance-123".to_string(),
-///     PathBuf::from("/tmp/mmm-worktrees/performance-improvements")
+///     PathBuf::from("/tmp/prodigy-worktrees/performance-improvements")
 /// );
 ///
 /// println!("Session {} created at {}", session.name, session.created_at);
@@ -133,7 +133,7 @@ impl WorktreeSession {
     /// # Examples
     ///
     /// ```rust
-    /// use mmm::worktree::WorktreeSession;
+    /// use prodigy::worktree::WorktreeSession;
     /// use std::path::PathBuf;
     ///
     /// let session = WorktreeSession::new(

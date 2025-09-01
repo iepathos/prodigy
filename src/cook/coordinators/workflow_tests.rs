@@ -437,7 +437,7 @@ mod tests {
         let commands = vec![
             WorkflowCommand::WorkflowStep(Box::new(WorkflowStepCommand {
                 analyze: None,
-                claude: Some("/mmm-analyze".to_string()),
+                claude: Some("/prodigy-analyze".to_string()),
                 shell: None,
                 test: None,
                 id: Some("claude-analysis".to_string()),

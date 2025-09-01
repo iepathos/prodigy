@@ -7,10 +7,10 @@ static VAR_REGEX: Lazy<regex::Regex> =
 
 /// Parse a command string into a structured Command
 /// Supports formats like:
-/// - "mmm-code-review"
-/// - "/mmm-code-review"
-/// - `"mmm-implement-spec ${SPEC_ID}"`
-/// - "mmm-code-review --focus security"
+/// - "prodigy-code-review"
+/// - "/prodigy-code-review"
+/// - `"prodigy-implement-spec ${SPEC_ID}"`
+/// - "prodigy-code-review --focus security"
 pub fn parse_command_string(s: &str) -> Result<Command> {
     let s = s.trim();
     if s.is_empty() {
@@ -114,22 +114,22 @@ mod tests {
 
     #[test]
     fn test_parse_simple_command() {
-        let cmd = parse_command_string("mmm-code-review").unwrap();
-        assert_eq!(cmd.name, "mmm-code-review");
+        let cmd = parse_command_string("prodigy-code-review").unwrap();
+        assert_eq!(cmd.name, "prodigy-code-review");
         assert!(cmd.args.is_empty());
         assert!(cmd.options.is_empty());
     }
 
     #[test]
     fn test_parse_command_with_slash() {
-        let cmd = parse_command_string("/mmm-lint").unwrap();
-        assert_eq!(cmd.name, "mmm-lint");
+        let cmd = parse_command_string("/prodigy-lint").unwrap();
+        assert_eq!(cmd.name, "prodigy-lint");
     }
 
     #[test]
     fn test_parse_command_with_args() {
-        let cmd = parse_command_string("mmm-implement-spec iteration-123").unwrap();
-        assert_eq!(cmd.name, "mmm-implement-spec");
+        let cmd = parse_command_string("prodigy-implement-spec iteration-123").unwrap();
+        assert_eq!(cmd.name, "prodigy-implement-spec");
         assert_eq!(cmd.args.len(), 1);
         assert_eq!(
             cmd.args[0],
@@ -139,8 +139,8 @@ mod tests {
 
     #[test]
     fn test_parse_command_with_options() {
-        let cmd = parse_command_string("mmm-code-review --focus security --verbose").unwrap();
-        assert_eq!(cmd.name, "mmm-code-review");
+        let cmd = parse_command_string("prodigy-code-review --focus security --verbose").unwrap();
+        assert_eq!(cmd.name, "prodigy-code-review");
         assert_eq!(
             cmd.options.get("focus"),
             Some(&serde_json::json!("security"))
@@ -150,14 +150,14 @@ mod tests {
 
     #[test]
     fn test_parse_command_with_variable() {
-        let cmd = parse_command_string("mmm-implement-spec ${SPEC_ID}").unwrap();
-        assert_eq!(cmd.name, "mmm-implement-spec");
+        let cmd = parse_command_string("prodigy-implement-spec ${SPEC_ID}").unwrap();
+        assert_eq!(cmd.name, "prodigy-implement-spec");
         assert_eq!(cmd.args[0], CommandArg::Variable("SPEC_ID".to_string()));
     }
 
     #[test]
     fn test_expand_variables() {
-        let mut cmd = Command::new("mmm-implement-spec")
+        let mut cmd = Command::new("prodigy-implement-spec")
             .with_arg("${SPEC_ID}")
             .with_option("focus", serde_json::json!("${FOCUS_AREA}"));
 
@@ -184,11 +184,11 @@ mod tests {
     #[test]
     fn test_parse_complex_command() {
         let cmd = parse_command_string(
-            "mmm-code-review --focus security --max-issues 10 --verbose file1.rs file2.rs",
+            "prodigy-code-review --focus security --max-issues 10 --verbose file1.rs file2.rs",
         )
         .unwrap();
 
-        assert_eq!(cmd.name, "mmm-code-review");
+        assert_eq!(cmd.name, "prodigy-code-review");
         assert_eq!(cmd.args.len(), 2);
         assert_eq!(cmd.args[0], CommandArg::Literal("file1.rs".to_string()));
         assert_eq!(cmd.args[1], CommandArg::Literal("file2.rs".to_string()));

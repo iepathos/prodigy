@@ -5,14 +5,14 @@ Performs comprehensive security analysis and generates remediation specs.
 ## Usage
 
 ```
-/mmm-security-audit [focus]
+/prodigy-security-audit [focus]
 ```
 
 Examples:
-- `/mmm-security-audit` - Full security audit
-- `/mmm-security-audit input-validation` - Focus on input sanitization
-- `/mmm-security-audit dependencies` - Audit third-party dependencies
-- `/mmm-security-audit secrets` - Check for exposed secrets
+- `/prodigy-security-audit` - Full security audit
+- `/prodigy-security-audit input-validation` - Focus on input sanitization
+- `/prodigy-security-audit dependencies` - Audit third-party dependencies
+- `/prodigy-security-audit secrets` - Check for exposed secrets
 
 ## What This Command Does
 

@@ -176,7 +176,7 @@ mod cook_tests {
         // Verify the command was called
         let commands = claude_mock.get_called_commands().await;
         assert_eq!(commands.len(), 1);
-        assert_eq!(commands[0].0, "/mmm-code-review");
+        assert_eq!(commands[0].0, "/prodigy-code-review");
     }
 
     /// Test invalid spec ID validation
@@ -212,25 +212,25 @@ mod cook_tests {
     async fn test_workflow_configuration() {
         let context = TestContext::new().unwrap();
 
-        // Create .mmm directory first
-        let mmm_dir = context.temp_path().join(".mmm");
-        std::fs::create_dir_all(&mmm_dir).unwrap();
+        // Create .prodigy directory first
+        let prodigy_dir = context.temp_path().join(".prodigy");
+        std::fs::create_dir_all(&prodigy_dir).unwrap();
 
         // Create test workflow config
         let workflow_content = r#"
 [[commands]]
-command = "/mmm-code-review"
+command = "/prodigy-code-review"
 
 [[commands]]
-command = "/mmm-implement-spec"
+command = "/prodigy-implement-spec"
 "#;
 
         context
-            .create_test_file(".mmm/workflow.toml", workflow_content)
+            .create_test_file(".prodigy/workflow.toml", workflow_content)
             .unwrap();
 
         // Verify file was created
-        let path = context.temp_path().join(".mmm/workflow.toml");
+        let path = context.temp_path().join(".prodigy/workflow.toml");
         assert!(path.exists());
     }
 }
@@ -244,16 +244,16 @@ mod workflow_parsing_tests {
     fn test_parse_simple_workflow_yaml() {
         let yaml = r#"
 commands:
-  - mmm-code-review
-  - mmm-implement-spec
-  - mmm-lint
+  - prodigy-code-review
+  - prodigy-implement-spec
+  - prodigy-lint
 "#;
         let config: WorkflowConfig =
             serde_yaml::from_str(yaml).expect("Failed to parse simple workflow");
         assert_eq!(config.commands.len(), 3);
 
         match &config.commands[0] {
-            WorkflowCommand::Simple(s) => assert_eq!(s, "mmm-code-review"),
+            WorkflowCommand::Simple(s) => assert_eq!(s, "prodigy-code-review"),
             _ => panic!("Expected Simple command"),
         }
     }
@@ -262,7 +262,7 @@ commands:
     fn test_parse_structured_workflow_with_outputs() {
         let yaml = r#"
 commands:
-  - name: mmm-code-review
+  - name: prodigy-code-review
     id: review
     outputs:
       spec:
@@ -274,7 +274,7 @@ commands:
 
         match &config.commands[0] {
             WorkflowCommand::Structured(cmd) => {
-                assert_eq!(cmd.name, "mmm-code-review");
+                assert_eq!(cmd.name, "prodigy-code-review");
                 assert_eq!(cmd.id, Some("review".to_string()));
                 assert!(cmd.outputs.is_some());
 
@@ -292,15 +292,15 @@ commands:
     fn test_parse_full_default_workflow() {
         let yaml = r#"
 commands:
-  - name: mmm-code-review
+  - name: prodigy-code-review
     id: review
     outputs:
       spec:
         file_pattern: "specs/temp/*.md"
   
-  - name: mmm-implement-spec
+  - name: prodigy-implement-spec
   
-  - name: mmm-lint
+  - name: prodigy-lint
 "#;
 
         let config: WorkflowConfig =
@@ -311,31 +311,31 @@ commands:
         // Verify first command
         match &config.commands[0] {
             WorkflowCommand::Structured(cmd) => {
-                assert_eq!(cmd.name, "mmm-code-review");
+                assert_eq!(cmd.name, "prodigy-code-review");
                 assert_eq!(cmd.id.as_ref().unwrap(), "review");
                 assert!(cmd.outputs.is_some());
             }
-            _ => panic!("Expected Structured command for mmm-code-review"),
+            _ => panic!("Expected Structured command for prodigy-code-review"),
         }
 
         // Verify second command
         match &config.commands[1] {
             WorkflowCommand::Structured(cmd) => {
-                assert_eq!(cmd.name, "mmm-implement-spec");
+                assert_eq!(cmd.name, "prodigy-implement-spec");
                 // inputs removed - arguments now passed directly in command string
             }
-            _ => panic!("Expected Structured command for mmm-implement-spec"),
+            _ => panic!("Expected Structured command for prodigy-implement-spec"),
         }
 
         // Verify third command - it's parsed as Structured because it has a "name" field
         match &config.commands[2] {
             WorkflowCommand::Structured(cmd) => {
-                assert_eq!(cmd.name, "mmm-lint");
+                assert_eq!(cmd.name, "prodigy-lint");
                 assert!(cmd.id.is_none());
                 // inputs removed - arguments now passed directly in command string
                 assert!(cmd.outputs.is_none());
             }
-            _ => panic!("Expected Structured command for mmm-lint"),
+            _ => panic!("Expected Structured command for prodigy-lint"),
         }
     }
 
@@ -370,10 +370,10 @@ commands:
     fn test_parse_workflow_with_commit_required() {
         let yaml = r#"
 commands:
-  - name: mmm-implement-spec
+  - name: prodigy-implement-spec
     args: ["$ARG"]
   
-  - name: mmm-lint
+  - name: prodigy-lint
     commit_required: false
 "#;
         let config: WorkflowConfig =
@@ -386,12 +386,12 @@ commands:
 
         // Check first command (should default to commit_required = false)
         let cmd1 = config.commands[0].to_command();
-        assert_eq!(cmd1.name, "mmm-implement-spec");
+        assert_eq!(cmd1.name, "prodigy-implement-spec");
         assert!(!cmd1.metadata.commit_required);
 
         // Check second command (should have commit_required = false)
         let cmd2 = config.commands[1].to_command();
-        assert_eq!(cmd2.name, "mmm-lint");
+        assert_eq!(cmd2.name, "prodigy-lint");
         assert!(!cmd2.metadata.commit_required);
     }
 
@@ -400,7 +400,7 @@ commands:
         // Test that the simplified syntax with just file_pattern works
         let yaml = r#"
 commands:
-  - name: mmm-code-review
+  - name: prodigy-code-review
     id: review
     outputs:
       spec:
@@ -425,15 +425,15 @@ commands:
         let yaml = r#"# Default MMM playbook - the original hardcoded workflow
 # This is what was previously built into MMM
 commands:
-  - name: mmm-code-review
+  - name: prodigy-code-review
     id: review
     outputs:
       spec: 
         file_pattern: "specs/temp/*.md"
   
-  - name: mmm-implement-spec
+  - name: prodigy-implement-spec
   
-  - name: mmm-lint
+  - name: prodigy-lint
 "#;
 
         // First, test if it parses as a generic YAML value

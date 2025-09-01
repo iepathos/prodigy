@@ -6,45 +6,48 @@ pub struct CommandTemplate {
     pub description: &'static str,
 }
 
-pub const MMM_CODE_REVIEW: &str = include_str!("../../.claude/commands/mmm-code-review.md");
-pub const MMM_IMPLEMENT_SPEC: &str = include_str!("../../.claude/commands/mmm-implement-spec.md");
-pub const MMM_LINT: &str = include_str!("../../.claude/commands/mmm-lint.md");
-pub const MMM_PRODUCT_ENHANCE: &str = include_str!("../../.claude/commands/mmm-product-enhance.md");
-pub const MMM_MERGE_WORKTREE: &str = include_str!("../../.claude/commands/mmm-merge-worktree.md");
-pub const MMM_CLEANUP_TECH_DEBT: &str =
-    include_str!("../../.claude/commands/mmm-cleanup-tech-debt.md");
+pub const PRODIGY_CODE_REVIEW: &str = include_str!("../../.claude/commands/prodigy-code-review.md");
+pub const PRODIGY_IMPLEMENT_SPEC: &str =
+    include_str!("../../.claude/commands/prodigy-implement-spec.md");
+pub const PRODIGY_LINT: &str = include_str!("../../.claude/commands/prodigy-lint.md");
+pub const PRODIGY_PRODUCT_ENHANCE: &str =
+    include_str!("../../.claude/commands/prodigy-product-enhance.md");
+pub const PRODIGY_MERGE_WORKTREE: &str =
+    include_str!("../../.claude/commands/prodigy-merge-worktree.md");
+pub const PRODIGY_CLEANUP_TECH_DEBT: &str =
+    include_str!("../../.claude/commands/prodigy-cleanup-tech-debt.md");
 
 pub fn get_all_templates() -> Vec<CommandTemplate> {
     vec![
         CommandTemplate {
-            name: "mmm-code-review",
+            name: "prodigy-code-review",
             description: "Analyzes code quality and creates improvement specs",
-            content: MMM_CODE_REVIEW,
+            content: PRODIGY_CODE_REVIEW,
         },
         CommandTemplate {
-            name: "mmm-implement-spec",
+            name: "prodigy-implement-spec",
             description: "Implements Git Good specifications",
-            content: MMM_IMPLEMENT_SPEC,
+            content: PRODIGY_IMPLEMENT_SPEC,
         },
         CommandTemplate {
-            name: "mmm-lint",
+            name: "prodigy-lint",
             description: "Runs formatters, linters, and tests",
-            content: MMM_LINT,
+            content: PRODIGY_LINT,
         },
         CommandTemplate {
-            name: "mmm-product-enhance",
+            name: "prodigy-product-enhance",
             description: "Product-focused improvements for user value",
-            content: MMM_PRODUCT_ENHANCE,
+            content: PRODIGY_PRODUCT_ENHANCE,
         },
         CommandTemplate {
-            name: "mmm-merge-worktree",
+            name: "prodigy-merge-worktree",
             description: "Claude-assisted worktree merging with conflict resolution",
-            content: MMM_MERGE_WORKTREE,
+            content: PRODIGY_MERGE_WORKTREE,
         },
         CommandTemplate {
-            name: "mmm-cleanup-tech-debt",
+            name: "prodigy-cleanup-tech-debt",
             description: "Analyzes technical debt and generates cleanup specifications",
-            content: MMM_CLEANUP_TECH_DEBT,
+            content: PRODIGY_CLEANUP_TECH_DEBT,
         },
     ]
 }
@@ -72,10 +75,10 @@ mod tests {
         assert!(templates.len() >= 4); // At least the core templates
 
         let template_names: Vec<&str> = templates.iter().map(|t| t.name).collect();
-        assert!(template_names.contains(&"mmm-code-review"));
-        assert!(template_names.contains(&"mmm-implement-spec"));
-        assert!(template_names.contains(&"mmm-lint"));
-        assert!(template_names.contains(&"mmm-cleanup-tech-debt"));
+        assert!(template_names.contains(&"prodigy-code-review"));
+        assert!(template_names.contains(&"prodigy-implement-spec"));
+        assert!(template_names.contains(&"prodigy-lint"));
+        assert!(template_names.contains(&"prodigy-cleanup-tech-debt"));
 
         // Verify each template has required fields
         for template in &templates {
@@ -88,12 +91,15 @@ mod tests {
     #[test]
     fn test_get_templates_by_names() {
         // Test filtering templates by name
-        let names = vec!["mmm-code-review".to_string(), "mmm-lint".to_string()];
+        let names = vec![
+            "prodigy-code-review".to_string(),
+            "prodigy-lint".to_string(),
+        ];
         let templates = get_templates_by_names(&names);
 
         assert_eq!(templates.len(), 2);
-        assert_eq!(templates[0].name, "mmm-code-review");
-        assert_eq!(templates[1].name, "mmm-lint");
+        assert_eq!(templates[0].name, "prodigy-code-review");
+        assert_eq!(templates[1].name, "prodigy-lint");
 
         // Test with non-existent template
         let names = vec!["non-existent".to_string()];

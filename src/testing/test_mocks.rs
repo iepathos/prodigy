@@ -38,7 +38,7 @@ impl CargoMocks {
     pub fn test_success() -> String {
         r#"   Compiling mmm v0.1.0 (/path/to/project)
     Finished test [unoptimized + debuginfo] target(s) in 2.3s
-     Running unittests (target/debug/deps/mmm-abc123)
+     Running unittests (target/debug/deps/prodigy-abc123)
 
 running 42 tests
 test context::tests::test_analyze ... ok

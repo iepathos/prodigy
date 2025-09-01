@@ -8,8 +8,8 @@ use tokio::fs;
 ///
 /// This loader supports both TOML and YAML formats and implements a search hierarchy:
 /// 1. Explicit path provided by user
-/// 2. `.mmm/config.toml` in the project directory
-/// 3. Legacy `.mmm/workflow.toml` for backward compatibility
+/// 2. `.prodigy/config.toml` in the project directory
+/// 3. Legacy `.prodigy/workflow.toml` for backward compatibility
 /// 4. Default configuration when no file is found
 pub struct ConfigLoader {
     config: Arc<RwLock<Config>>,
@@ -26,7 +26,7 @@ impl ConfigLoader {
 
     /// Load configuration with precedence rules:
     /// 1. If explicit_path is provided, use that file (error if not found)
-    /// 2. Otherwise, check for .mmm/workflow.yml in project_path
+    /// 2. Otherwise, check for .prodigy/workflow.yml in project_path
     /// 3. Otherwise, return default configuration
     pub async fn load_with_explicit_path(
         &self,
@@ -39,7 +39,7 @@ impl ConfigLoader {
                 self.load_from_path(path).await?;
             }
             None => {
-                // Check for .mmm/workflow.yml
+                // Check for .prodigy/workflow.yml
                 let default_path = project_path.join(".mmm").join("workflow.yml");
                 if default_path.exists() {
                     self.load_from_path(&default_path).await?;
@@ -165,9 +165,9 @@ mod tests {
         // Create a test workflow config
         let workflow_content = r#"
 commands:
-  - mmm-code-review
-  - mmm-implement-spec
-  - mmm-lint
+  - prodigy-code-review
+  - prodigy-implement-spec
+  - prodigy-lint
 "#;
         fs::write(&workflow_path, workflow_content).await?;
 
@@ -192,10 +192,10 @@ commands:
         let config_content = r#"
 workflow:
   commands:
-    - name: mmm-code-review
+    - name: prodigy-code-review
       options:
         focus: performance
-    - mmm-lint
+    - prodigy-lint
 "#;
         fs::write(&config_path, config_content).await.unwrap();
 
@@ -221,12 +221,12 @@ workflow:
         // Create default workflow config
         let workflow_content = r#"
 commands:
-  - mmm-test
+  - prodigy-test
 "#;
         fs::write(&workflow_path, workflow_content).await?;
 
         let loader = ConfigLoader::new().await?;
-        // No explicit path, should find .mmm/workflow.yml
+        // No explicit path, should find .prodigy/workflow.yml
         loader
             .load_with_explicit_path(temp_dir.path(), None)
             .await?;

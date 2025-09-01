@@ -869,7 +869,7 @@ impl MapReduceExecutor {
         let worktree_session_id = worktree_name.clone(); // Use worktree name as session ID
 
         // Create branch name for this agent
-        let branch_name = format!("mmm-agent-{}-{}", env.session_id, item_id);
+        let branch_name = format!("prodigy-agent-{}-{}", env.session_id, item_id);
 
         // Create agent-specific environment
         let agent_env = ExecutionEnvironment {
@@ -1253,13 +1253,13 @@ impl MapReduceExecutor {
             &env.project_dir
         };
 
-        // Use the /mmm-merge-worktree command to handle the merge
+        // Use the /prodigy-merge-worktree command to handle the merge
         // This provides intelligent conflict resolution
-        let merge_command = format!("/mmm-merge-worktree {}", agent_branch);
+        let merge_command = format!("/prodigy-merge-worktree {}", agent_branch);
 
         // Set up environment variables for the merge command
         let mut env_vars = HashMap::new();
-        env_vars.insert("MMM_AUTOMATION".to_string(), "true".to_string());
+        env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
 
         // Execute the merge command
         let result = self
@@ -1601,8 +1601,8 @@ impl MapReduceExecutor {
     /// Check if auto-merge is enabled
     fn should_auto_merge(&self, _env: &ExecutionEnvironment) -> bool {
         // Check for -y flag via environment variable
-        std::env::var("MMM_AUTO_MERGE").unwrap_or_default() == "true"
-            || std::env::var("MMM_AUTO_CONFIRM").unwrap_or_default() == "true"
+        std::env::var("PRODIGY_AUTO_MERGE").unwrap_or_default() == "true"
+            || std::env::var("PRODIGY_AUTO_CONFIRM").unwrap_or_default() == "true"
     }
 
     /// Execute a single workflow step with agent context
@@ -1769,17 +1769,20 @@ impl MapReduceExecutor {
     ) -> Result<StepResult> {
         // Set up environment variables for the command
         let mut env_vars = HashMap::new();
-        env_vars.insert("MMM_CONTEXT_AVAILABLE".to_string(), "true".to_string());
+        env_vars.insert("PRODIGY_CONTEXT_AVAILABLE".to_string(), "true".to_string());
         env_vars.insert(
-            "MMM_CONTEXT_DIR".to_string(),
+            "PRODIGY_CONTEXT_DIR".to_string(),
             context
                 .worktree_path
-                .join(".mmm/context")
+                .join(".prodigy/context")
                 .to_string_lossy()
                 .to_string(),
         );
-        env_vars.insert("MMM_AUTOMATION".to_string(), "true".to_string());
-        env_vars.insert("MMM_WORKTREE".to_string(), context.worktree_name.clone());
+        env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
+        env_vars.insert(
+            "PRODIGY_WORKTREE".to_string(),
+            context.worktree_name.clone(),
+        );
 
         // Execute the Claude command
         let result = self
@@ -1812,9 +1815,9 @@ impl MapReduceExecutor {
         cmd.current_dir(&context.worktree_path);
 
         // Set environment variables
-        cmd.env("MMM_WORKTREE", &context.worktree_name);
-        cmd.env("MMM_ITEM_ID", &context.item_id);
-        cmd.env("MMM_AUTOMATION", "true");
+        cmd.env("PRODIGY_WORKTREE", &context.worktree_name);
+        cmd.env("PRODIGY_ITEM_ID", &context.item_id);
+        cmd.env("PRODIGY_AUTOMATION", "true");
 
         // Execute with optional timeout
         let output = if let Some(timeout_secs) = timeout {
@@ -1930,9 +1933,12 @@ impl MapReduceExecutor {
         let mut exec_context = ExecutionContext::new(context.worktree_path.clone());
 
         // Add environment variables
-        exec_context.add_env_var("MMM_WORKTREE".to_string(), context.worktree_name.clone());
-        exec_context.add_env_var("MMM_ITEM_ID".to_string(), context.item_id.clone());
-        exec_context.add_env_var("MMM_AUTOMATION".to_string(), "true".to_string());
+        exec_context.add_env_var(
+            "PRODIGY_WORKTREE".to_string(),
+            context.worktree_name.clone(),
+        );
+        exec_context.add_env_var("PRODIGY_ITEM_ID".to_string(), context.item_id.clone());
+        exec_context.add_env_var("PRODIGY_AUTOMATION".to_string(), "true".to_string());
 
         // Execute the handler
         let result = self

@@ -304,11 +304,11 @@ mod tests {
     fn test_validation_config_defaults() {
         let yaml = r#"
 type: spec_coverage
-command: "/mmm-validate-spec 01"
+command: "/prodigy-validate-spec 01"
 "#;
         let config: ValidationConfig = serde_yaml::from_str(yaml).unwrap();
         assert_eq!(config.validation_type, ValidationType::SpecCoverage);
-        assert_eq!(config.command, "/mmm-validate-spec 01");
+        assert_eq!(config.command, "/prodigy-validate-spec 01");
         assert_eq!(config.threshold, 100.0);
         assert!(config.on_incomplete.is_none());
     }
@@ -321,7 +321,7 @@ command: "cargo test"
 threshold: 90
 on_incomplete:
   strategy: patch_gaps
-  claude: "/mmm-fix-tests ${validation.gaps}"
+  claude: "/prodigy-fix-tests ${validation.gaps}"
   max_attempts: 3
   fail_workflow: false
 "#;
@@ -333,7 +333,7 @@ on_incomplete:
         assert_eq!(on_incomplete.strategy, CompletionStrategy::PatchGaps);
         assert_eq!(
             on_incomplete.claude,
-            Some("/mmm-fix-tests ${validation.gaps}".to_string())
+            Some("/prodigy-fix-tests ${validation.gaps}".to_string())
         );
         assert_eq!(on_incomplete.max_attempts, 3);
         assert!(!on_incomplete.fail_workflow);
@@ -386,7 +386,7 @@ on_incomplete:
         assert!(config.validate().is_err());
 
         // Fix command
-        config.command = "/mmm-validate".to_string();
+        config.command = "/prodigy-validate".to_string();
         assert!(config.validate().is_ok());
 
         // Invalid threshold
@@ -413,7 +413,7 @@ on_incomplete:
         assert!(config.validate().is_err());
 
         // Add claude command
-        config.claude = Some("/mmm-fix".to_string());
+        config.claude = Some("/prodigy-fix".to_string());
         assert!(config.validate().is_ok());
 
         // Interactive without prompt should fail

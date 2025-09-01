@@ -33,7 +33,7 @@ pub async fn create_full_featured_manager(
 /// Example of migrating cook orchestrator to use new session management
 pub async fn example_migration() -> anyhow::Result<()> {
     // Create session manager
-    let storage_path = PathBuf::from(".mmm/sessions");
+    let storage_path = PathBuf::from(".prodigy/sessions");
     let manager = create_full_featured_manager(storage_path, true).await;
 
     // Create session configuration

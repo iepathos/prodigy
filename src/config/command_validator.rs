@@ -76,9 +76,9 @@ impl CommandRegistry {
     }
 
     fn register_built_in_commands(&mut self) {
-        // Register mmm-code-review
+        // Register prodigy-code-review
         self.register(CommandDefinition {
-            name: "mmm-code-review".to_string(),
+            name: "prodigy-code-review".to_string(),
             description: "Analyze code and generate improvement specs".to_string(),
             required_args: vec![],
             optional_args: vec![],
@@ -107,9 +107,9 @@ impl CommandRegistry {
             },
         });
 
-        // Register mmm-implement-spec
+        // Register prodigy-implement-spec
         self.register(CommandDefinition {
-            name: "mmm-implement-spec".to_string(),
+            name: "prodigy-implement-spec".to_string(),
             description: "Implement a specification file".to_string(),
             required_args: vec![ArgumentDef {
                 name: "spec-id".to_string(),
@@ -128,9 +128,9 @@ impl CommandRegistry {
             },
         });
 
-        // Register mmm-lint
+        // Register prodigy-lint
         self.register(CommandDefinition {
-            name: "mmm-lint".to_string(),
+            name: "prodigy-lint".to_string(),
             description: "Run linting and formatting tools".to_string(),
             required_args: vec![],
             optional_args: vec![],
@@ -150,9 +150,9 @@ impl CommandRegistry {
             },
         });
 
-        // Register mmm-product-enhance
+        // Register prodigy-product-enhance
         self.register(CommandDefinition {
-            name: "mmm-product-enhance".to_string(),
+            name: "prodigy-product-enhance".to_string(),
             description: "Analyze code from product management perspective".to_string(),
             required_args: vec![],
             optional_args: vec![],
@@ -181,9 +181,9 @@ impl CommandRegistry {
             },
         });
 
-        // Register mmm-cleanup-tech-debt
+        // Register prodigy-cleanup-tech-debt
         self.register(CommandDefinition {
-            name: "mmm-cleanup-tech-debt".to_string(),
+            name: "prodigy-cleanup-tech-debt".to_string(),
             description: "Analyze technical debt and generate cleanup specifications".to_string(),
             required_args: vec![],
             optional_args: vec![],
@@ -419,11 +419,11 @@ mod tests {
     #[test]
     fn test_registry_initialization() {
         let registry = CommandRegistry::new();
-        assert!(registry.get("mmm-code-review").is_some());
-        assert!(registry.get("mmm-implement-spec").is_some());
-        assert!(registry.get("mmm-lint").is_some());
-        assert!(registry.get("mmm-product-enhance").is_some());
-        assert!(registry.get("mmm-cleanup-tech-debt").is_some());
+        assert!(registry.get("prodigy-code-review").is_some());
+        assert!(registry.get("prodigy-implement-spec").is_some());
+        assert!(registry.get("prodigy-lint").is_some());
+        assert!(registry.get("prodigy-product-enhance").is_some());
+        assert!(registry.get("prodigy-cleanup-tech-debt").is_some());
         assert!(registry.get("unknown-command").is_none());
     }
 
@@ -431,10 +431,10 @@ mod tests {
     fn test_validate_valid_command() {
         let registry = CommandRegistry::new();
 
-        let cmd = Command::new("mmm-code-review");
+        let cmd = Command::new("prodigy-code-review");
         assert!(registry.validate_command(&cmd).is_ok());
 
-        let mut cmd = Command::new("mmm-implement-spec");
+        let mut cmd = Command::new("prodigy-implement-spec");
         cmd.args.push(crate::config::CommandArg::Literal(
             "iteration-123".to_string(),
         ));
@@ -445,7 +445,7 @@ mod tests {
     fn test_validate_missing_required_args() {
         let registry = CommandRegistry::new();
 
-        let cmd = Command::new("mmm-implement-spec");
+        let cmd = Command::new("prodigy-implement-spec");
         assert!(registry.validate_command(&cmd).is_err());
     }
 
@@ -461,7 +461,7 @@ mod tests {
     fn test_apply_defaults() {
         let registry = CommandRegistry::new();
 
-        let mut cmd = Command::new("mmm-code-review");
+        let mut cmd = Command::new("prodigy-code-review");
         registry.apply_defaults(&mut cmd);
 
         assert_eq!(cmd.metadata.retries, Some(2));
@@ -473,7 +473,7 @@ mod tests {
     fn test_validate_option_types() {
         let registry = CommandRegistry::new();
 
-        let mut cmd = Command::new("mmm-code-review");
+        let mut cmd = Command::new("prodigy-code-review");
         cmd.options
             .insert("focus".to_string(), serde_json::json!("security"));
         cmd.options
@@ -491,7 +491,7 @@ mod tests {
     fn test_validate_command_valid() {
         // Test validating a valid command
         let command = Command {
-            name: "mmm-code-review".to_string(),
+            name: "prodigy-code-review".to_string(),
             args: vec![],
             options: HashMap::new(),
             metadata: CommandMetadata::default(),

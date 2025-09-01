@@ -1,10 +1,10 @@
-# MMM Context Documentation for Claude
+# Prodigy Context Documentation for Claude
 
-This document explains how MMM (memento-mori-management) stores and provides context information to Claude during development iterations. Understanding this structure helps Claude locate and utilize relevant project information effectively.
+This document explains how Prodigy stores and provides context information to Claude during development iterations. Understanding this structure helps Claude locate and utilize relevant project information effectively.
 
 ## Important: Context Optimization (v0.1.0+)
 
-As of version 0.1.0, MMM's context generation has been optimized to reduce file sizes by over 90%:
+As of version 0.1.0, Prodigy's context generation has been optimized to reduce file sizes by over 90%:
 - Technical debt files reduced from 8.2MB to under 500KB
 - Analysis files reduced from 8.9MB to under 500KB  
 - Metrics files reduced from 100KB+ to under 10KB through complexity aggregation
@@ -17,12 +17,12 @@ As of version 0.1.0, MMM's context generation has been optimized to reduce file 
 
 ## Overview
 
-MMM maintains rich project context in the `.mmm/` directory, providing structured data about code quality, architecture, metrics, and development history. This context is automatically made available to Claude during `mmm cook` operations.
+Prodigy maintains rich project context in the `.prodigy/` directory, providing structured data about code quality, architecture, metrics, and development history. This context is automatically made available to Claude during `prodigy cook` operations.
 
 ## Directory Structure
 
 ```
-.mmm/
+.prodigy/
 ├── context/                    # Project analysis data
 │   ├── analysis.json          # Complete analysis results
 │   ├── dependency_graph.json  # Module dependencies & cycles
@@ -48,18 +48,18 @@ MMM maintains rich project context in the `.mmm/` directory, providing structure
 
 ### Environment Variables
 
-When Claude commands are executed, MMM sets these environment variables:
+When Claude commands are executed, Prodigy sets these environment variables:
 
-- `MMM_CONTEXT_AVAILABLE="true"` - Indicates context data is ready
-- `MMM_CONTEXT_DIR="/path/to/.mmm/context"` - Path to analysis data
-- `MMM_AUTOMATION="true"` - Signals automated execution mode
+- `PRODIGY_CONTEXT_AVAILABLE="true"` - Indicates context data is ready
+- `PRODIGY_CONTEXT_DIR="/path/to/.prodigy/context"` - Path to analysis data
+- `PRODIGY_AUTOMATION="true"` - Signals automated execution mode
 
 ### Command Integration Points
 
 Context is provided to Claude during these commands:
-- `/mmm-code-review` - Uses full project analysis for issue identification
-- `/mmm-implement-spec` - Uses architecture & conventions for implementation
-- `/mmm-lint` - Uses conventions & quality metrics for cleanup
+- `/prodigy-code-review` - Uses full project analysis for issue identification
+- `/prodigy-implement-spec` - Uses architecture & conventions for implementation
+- `/prodigy-lint` - Uses conventions & quality metrics for cleanup
 
 ## File Formats & Contents
 
@@ -404,7 +404,7 @@ Current project state:
 ```json
 {
   "version": "1.0",
-  "project_id": "mmm-abc123",
+  "project_id": "prodigy-abc123",
   "last_run": "2024-01-01T12:00:00Z",
   "total_runs": 15
 }
@@ -429,15 +429,15 @@ Worktree sessions maintain additional state for isolation:
 ```json
 {
   "session_id": "wt-abc123",
-  "worktree_name": "mmm-performance-1704110400",
-  "branch": "mmm/performance-improvements",
+  "worktree_name": "prodigy-performance-1704110400",
+  "branch": "prodigy/performance-improvements",
   "created_at": "2024-01-01T12:00:00Z",
   "status": "in_progress",
   "iterations": {"completed": 2, "max": 5},
   "stats": {"files_changed": 4, "commits": 6},
   "last_checkpoint": {
     "iteration": 2,
-    "last_command": "/mmm-implement-spec",
+    "last_command": "/prodigy-implement-spec",
     "last_spec_id": "iteration-1704110400-improvements",
     "files_modified": ["src/main.rs", "src/utils.rs"]
   },
@@ -449,13 +449,13 @@ Worktree sessions maintain additional state for isolation:
 
 ### 1. Accessing Context Data
 
-When executing MMM commands, Claude can read context via environment variables:
+When executing Prodigy commands, Claude can read context via environment variables:
 
 ```bash
 # Check if context is available
-if [ "$MMM_CONTEXT_AVAILABLE" = "true" ]; then
+if [ "$PRODIGY_CONTEXT_AVAILABLE" = "true" ]; then
   # Read analysis data
-  CONTEXT_DIR="$MMM_CONTEXT_DIR"
+  CONTEXT_DIR="$PRODIGY_CONTEXT_DIR"
   analysis=$(cat "$CONTEXT_DIR/analysis.json")
   
   # Parse specific components
@@ -496,7 +496,7 @@ Use context to make informed decisions:
 ## Context Refresh
 
 Context is automatically refreshed:
-- Before each `mmm cook` session starts
+- Before each `prodigy cook` session starts
 - When files change (incremental updates)
 - After each iteration completes (metrics only)
 
@@ -506,19 +506,19 @@ Context age can be checked via `analysis_metadata.json` timestamp. Context older
 
 ### Custom Workflows
 
-Place workflow configuration in `.mmm/workflow.yml`:
+Place workflow configuration in `.prodigy/workflow.yml`:
 ```yaml
 name: "Custom Analysis Workflow"
 steps:
   - name: "Security Review"
-    command: "/mmm-security-audit"
+    command: "/prodigy-security-audit"
   - name: "Performance Check" 
-    command: "/mmm-performance"
+    command: "/prodigy-performance"
 ```
 
 ### Cache Management
 
-MMM uses `.mmm/cache/` for expensive computations:
+Prodigy uses `.prodigy/cache/` for expensive computations:
 - Dependency analysis results
 - Complexity calculations  
 - Coverage report parsing
@@ -527,7 +527,7 @@ Cache is invalidated when source files change.
 
 ## Best Practices
 
-1. **Always Check Context**: Verify `MMM_CONTEXT_AVAILABLE` before assuming context exists
+1. **Always Check Context**: Verify `PRODIGY_CONTEXT_AVAILABLE` before assuming context exists
 2. **Use Specific Files**: Read targeted context files rather than the complete analysis
 3. **Use Context**: Leverage the context data when prioritizing issues
 4. **Track Progress**: Use metrics history to validate improvements
@@ -536,17 +536,17 @@ Cache is invalidated when source files change.
 ## Troubleshooting
 
 ### Context Not Available
-- Check if `.mmm/context/` directory exists
+- Check if `.prodigy/context/` directory exists
 - Verify `analysis_metadata.json` has recent timestamp
-- Run `mmm analyze context` to regenerate
+- Run `prodigy analyze context` to regenerate
 
 ### Stale Context  
 - Context older than 1 hour is automatically refreshed
-- Force refresh with `mmm analyze context --save`
+- Force refresh with `prodigy analyze context --save`
 
 ### Missing Metrics
 - Requires Rust project with Cargo.toml
 - Some metrics need external tools (cargo-tarpaulin, cargo-bench)
-- Enable metrics with `mmm cook --metrics`
+- Enable metrics with `prodigy cook --metrics`
 
 This context system enables Claude to make informed, project-specific improvements rather than generic suggestions, leading to more effective code enhancement iterations.

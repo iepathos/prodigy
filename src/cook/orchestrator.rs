@@ -195,7 +195,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 
     async fn check_prerequisites(&self) -> Result<()> {
         // Skip checks in test mode
-        let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
+        let test_mode = std::env::var("PRODIGY_TEST_MODE").unwrap_or_default() == "true";
         if test_mode {
             return Ok(());
         }
@@ -436,13 +436,13 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 
     async fn cleanup(&self, env: &ExecutionEnvironment, config: &CookConfig) -> Result<()> {
         // Save session state to a separate file to avoid conflicts with StateManager
-        let session_state_path = env.project_dir.join(".mmm/session_state.json");
+        let session_state_path = env.project_dir.join(".prodigy/session_state.json");
         self.session_manager.save_state(&session_state_path).await?;
 
         // Clean up worktree if needed
         if let Some(ref worktree_name) = env.worktree_name {
             // Skip user prompt in test mode
-            let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
+            let test_mode = std::env::var("PRODIGY_TEST_MODE").unwrap_or_default() == "true";
             let should_merge = if test_mode {
                 // Default to not merging in test mode to avoid complications
                 false
@@ -460,7 +460,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                 let worktree_manager =
                     WorktreeManager::new(env.project_dir.clone(), self.subprocess.clone())?;
 
-                // merge_session already handles auto-cleanup internally based on MMM_AUTO_CLEANUP env var
+                // merge_session already handles auto-cleanup internally based on PRODIGY_AUTO_CLEANUP env var
                 // We should not duplicate cleanup here to avoid race conditions
                 worktree_manager.merge_session(worktree_name).await?;
                 self.user_interaction
@@ -468,7 +468,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 
                 // Note: merge_session already handles cleanup based on auto_cleanup config
                 // It will either:
-                // 1. Auto-cleanup if MMM_AUTO_CLEANUP is true (default)
+                // 1. Auto-cleanup if PRODIGY_AUTO_CLEANUP is true (default)
                 // 2. Display cleanup instructions if auto-cleanup is disabled
                 // We should not duplicate that logic here
             }
@@ -564,15 +564,15 @@ impl DefaultCookOrchestrator {
 
                 // Execute the command
                 let mut env_vars = HashMap::new();
-                env_vars.insert("MMM_CONTEXT_AVAILABLE".to_string(), "true".to_string());
+                env_vars.insert("PRODIGY_CONTEXT_AVAILABLE".to_string(), "true".to_string());
                 env_vars.insert(
-                    "MMM_CONTEXT_DIR".to_string(),
+                    "PRODIGY_CONTEXT_DIR".to_string(),
                     env.working_dir
-                        .join(".mmm/context")
+                        .join(".prodigy/context")
                         .to_string_lossy()
                         .to_string(),
                 );
-                env_vars.insert("MMM_AUTOMATION".to_string(), "true".to_string());
+                env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
 
                 let result = self
                     .claude_executor
@@ -794,15 +794,15 @@ impl DefaultCookOrchestrator {
 
                 // Execute the command
                 let mut env_vars = HashMap::new();
-                env_vars.insert("MMM_CONTEXT_AVAILABLE".to_string(), "true".to_string());
+                env_vars.insert("PRODIGY_CONTEXT_AVAILABLE".to_string(), "true".to_string());
                 env_vars.insert(
-                    "MMM_CONTEXT_DIR".to_string(),
+                    "PRODIGY_CONTEXT_DIR".to_string(),
                     env.working_dir
-                        .join(".mmm/context")
+                        .join(".prodigy/context")
                         .to_string_lossy()
                         .to_string(),
                 );
-                env_vars.insert("MMM_AUTOMATION".to_string(), "true".to_string());
+                env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
 
                 let result = self
                     .claude_executor
@@ -1056,8 +1056,8 @@ impl DefaultCookOrchestrator {
         // Set environment variables for MapReduce execution
         // This ensures auto-merge works when -y flag is provided
         if config.command.auto_accept {
-            std::env::set_var("MMM_AUTO_MERGE", "true");
-            std::env::set_var("MMM_AUTO_CONFIRM", "true");
+            std::env::set_var("PRODIGY_AUTO_MERGE", "true");
+            std::env::set_var("PRODIGY_AUTO_CONFIRM", "true");
         }
 
         // Convert MapReduce config to ExtendedWorkflowConfig
@@ -1084,8 +1084,8 @@ impl DefaultCookOrchestrator {
 
         // Clean up environment variables
         if config.command.auto_accept {
-            std::env::remove_var("MMM_AUTO_MERGE");
-            std::env::remove_var("MMM_AUTO_CONFIRM");
+            std::env::remove_var("PRODIGY_AUTO_MERGE");
+            std::env::remove_var("PRODIGY_AUTO_CONFIRM");
         }
 
         result
@@ -1209,19 +1209,19 @@ impl DefaultCookOrchestrator {
         variables: &HashMap<String, String>,
     ) -> HashMap<String, String> {
         let mut env_vars = HashMap::new();
-        env_vars.insert("MMM_CONTEXT_AVAILABLE".to_string(), "true".to_string());
+        env_vars.insert("PRODIGY_CONTEXT_AVAILABLE".to_string(), "true".to_string());
         env_vars.insert(
-            "MMM_CONTEXT_DIR".to_string(),
+            "PRODIGY_CONTEXT_DIR".to_string(),
             env.working_dir
-                .join(".mmm/context")
+                .join(".prodigy/context")
                 .to_string_lossy()
                 .to_string(),
         );
-        env_vars.insert("MMM_AUTOMATION".to_string(), "true".to_string());
+        env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
 
         // Add variables as environment variables too
         for (key, value) in variables {
-            env_vars.insert(format!("MMM_VAR_{key}"), value.clone());
+            env_vars.insert(format!("PRODIGY_VAR_{key}"), value.clone());
         }
 
         env_vars
@@ -1335,9 +1335,9 @@ impl DefaultCookOrchestrator {
             let cache_paths = [
                 (
                     "context",
-                    env.working_dir.join(".mmm/context/analysis_metadata.json"),
+                    env.working_dir.join(".prodigy/context/analysis_metadata.json"),
                 ),
-                ("metrics", env.working_dir.join(".mmm/metrics/current.json")),
+                ("metrics", env.working_dir.join(".prodigy/metrics/current.json")),
             ];
 
             for (_analysis_type, cache_path) in &cache_paths {
@@ -1449,7 +1449,7 @@ impl DefaultCookOrchestrator {
                     .runner()
                     .run(crate::subprocess::runner::ProcessCommand {
                         program: "git".to_string(),
-                        args: vec!["add".to_string(), ".mmm/".to_string()],
+                        args: vec!["add".to_string(), ".prodigy/".to_string()],
                         env: HashMap::new(),
                         working_dir: Some(env.working_dir.clone()),
                         timeout: None,

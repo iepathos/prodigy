@@ -28,7 +28,7 @@ impl CommandDiscovery {
     ///
     /// This method:
     /// - Reads all .md files from the commands directory
-    /// - Filters for files starting with "mmm-"
+    /// - Filters for files starting with "prodigy-"
     /// - Caches file contents based on modification time
     /// - Returns a list of discovered command files
     pub async fn scan_commands(&mut self) -> Result<Vec<CommandFile>> {
@@ -59,7 +59,7 @@ impl CommandDiscovery {
                 .and_then(|name| name.to_str())
                 .unwrap_or("");
 
-            if !file_name.starts_with("mmm-") {
+            if !file_name.starts_with("prodigy-") {
                 continue;
             }
 
@@ -141,7 +141,7 @@ mod tests {
         fs::create_dir(&commands_dir).await.unwrap();
 
         // Create various test files
-        fs::write(commands_dir.join("mmm-test.md"), "# Test Command")
+        fs::write(commands_dir.join("prodigy-test.md"), "# Test Command")
             .await
             .unwrap();
         fs::write(commands_dir.join("README.md"), "# Readme")
@@ -158,7 +158,7 @@ mod tests {
         let commands = discovery.scan_commands().await.unwrap();
 
         assert_eq!(commands.len(), 1);
-        assert_eq!(commands[0].name, "mmm-test");
+        assert_eq!(commands[0].name, "prodigy-test");
     }
 
     #[tokio::test]
@@ -167,7 +167,7 @@ mod tests {
         let commands_dir = temp_dir.path().join("commands");
         fs::create_dir(&commands_dir).await.unwrap();
 
-        let test_file = commands_dir.join("mmm-test.md");
+        let test_file = commands_dir.join("prodigy-test.md");
         fs::write(&test_file, "# Original Content").await.unwrap();
 
         let mut discovery = CommandDiscovery::new(commands_dir.clone());

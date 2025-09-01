@@ -4,8 +4,8 @@ use tracing::{debug, error, trace};
 
 /// Cook your code to perfection with zero configuration
 #[derive(Parser)]
-#[command(name = "mmm")]
-#[command(about = "mmm - Cook your code to perfection automatically", long_about = None)]
+#[command(name = "prodigy")]
+#[command(about = "prodigy - Cook your code to perfection automatically", long_about = None)]
 #[command(version)]
 struct Cli {
     /// Enable verbose output (-v for debug, -vv for trace, -vvv for all)
@@ -65,12 +65,12 @@ enum Commands {
         #[arg(long, value_name = "SESSION_ID", conflicts_with = "worktree")]
         resume: Option<String>,
     },
-    /// Manage git worktrees for parallel MMM sessions
+    /// Manage git worktrees for parallel Prodigy sessions
     Worktree {
         #[command(subcommand)]
         command: WorktreeCommands,
     },
-    /// Initialize MMM commands in your project
+    /// Initialize Prodigy commands in your project
     Init {
         /// Force overwrite existing commands
         #[arg(short, long)]
@@ -88,20 +88,20 @@ enum Commands {
 
 #[derive(Subcommand)]
 enum WorktreeCommands {
-    /// List active MMM worktrees
+    /// List active Prodigy worktrees
     #[command(alias = "list")]
     Ls,
     /// Merge a worktree's changes to the default branch (main or master)
     Merge {
         /// Name of the worktree to merge
         name: Option<String>,
-        /// Merge all MMM worktrees
+        /// Merge all Prodigy worktrees
         #[arg(long)]
         all: bool,
     },
     /// Clean up completed or abandoned worktrees
     Clean {
-        /// Clean up all MMM worktrees
+        /// Clean up all Prodigy worktrees
         #[arg(short = 'a', long)]
         all: bool,
         /// Name of specific worktree to clean
@@ -136,7 +136,7 @@ fn init_tracing(verbose: u8) {
         .with_line_number(verbose >= 3) // Show line numbers for -vvv
         .init();
 
-    debug!("MMM started with verbosity level: {}", verbose);
+    debug!("Prodigy started with verbosity level: {}", verbose);
     trace!("Full CLI args: {:?}", std::env::args().collect::<Vec<_>>());
 }
 
@@ -145,7 +145,7 @@ fn check_deprecated_alias() {
     let cli_args: Vec<String> = std::env::args().collect();
     if cli_args.len() > 1 && cli_args[1] == "improve" {
         eprintln!(
-            "Note: 'improve' has been renamed to 'cook'. Please use 'mmm cook' in the future."
+            "Note: 'improve' has been renamed to 'cook'. Please use 'prodigy cook' in the future."
         );
         eprintln!("The 'improve' alias will be removed in a future version.\n");
     }
@@ -168,7 +168,7 @@ async fn execute_command(command: Option<Commands>) -> anyhow::Result<()> {
         }) => {
             check_deprecated_alias();
 
-            let cook_cmd = mmm::cook::command::CookCommand {
+            let cook_cmd = prodigy::cook::command::CookCommand {
                 playbook,
                 path,
                 max_iterations,
@@ -182,7 +182,7 @@ async fn execute_command(command: Option<Commands>) -> anyhow::Result<()> {
                 quiet: false,
                 verbosity: 0,
             };
-            mmm::cook::cook(cook_cmd).await
+            prodigy::cook::cook(cook_cmd).await
         }
         Some(Commands::Worktree { command }) => run_worktree_command(command).await,
         Some(Commands::Init {
@@ -190,12 +190,12 @@ async fn execute_command(command: Option<Commands>) -> anyhow::Result<()> {
             commands,
             path,
         }) => {
-            let init_cmd = mmm::init::command::InitCommand {
+            let init_cmd = prodigy::init::command::InitCommand {
                 force,
                 commands,
                 path,
             };
-            mmm::init::run(init_cmd).await
+            prodigy::init::run(init_cmd).await
         }
         None => {
             // Display help when no command is provided (following CLI conventions)
@@ -229,8 +229,8 @@ async fn main() {
 
 /// Display a single worktree session with its state and metadata
 fn display_worktree_session(
-    session: &mmm::worktree::WorktreeSession,
-    worktree_manager: &mmm::worktree::WorktreeManager,
+    session: &prodigy::worktree::WorktreeSession,
+    worktree_manager: &prodigy::worktree::WorktreeManager,
 ) -> anyhow::Result<()> {
     let state_file = worktree_manager
         .base_dir
@@ -238,15 +238,15 @@ fn display_worktree_session(
         .join(format!("{}.json", session.name));
 
     if let Ok(state_json) = std::fs::read_to_string(&state_file) {
-        if let Ok(state) = serde_json::from_str::<mmm::worktree::WorktreeState>(&state_json) {
+        if let Ok(state) = serde_json::from_str::<prodigy::worktree::WorktreeState>(&state_json) {
             let status_emoji = match state.status {
-                mmm::worktree::WorktreeStatus::InProgress => "🔄",
-                mmm::worktree::WorktreeStatus::Completed => "✅",
-                mmm::worktree::WorktreeStatus::Merged => "🔀",
-                mmm::worktree::WorktreeStatus::CleanedUp => "🧹",
-                mmm::worktree::WorktreeStatus::Failed => "❌",
-                mmm::worktree::WorktreeStatus::Abandoned => "⚠️",
-                mmm::worktree::WorktreeStatus::Interrupted => "⏸️",
+                prodigy::worktree::WorktreeStatus::InProgress => "🔄",
+                prodigy::worktree::WorktreeStatus::Completed => "✅",
+                prodigy::worktree::WorktreeStatus::Merged => "🔀",
+                prodigy::worktree::WorktreeStatus::CleanedUp => "🧹",
+                prodigy::worktree::WorktreeStatus::Failed => "❌",
+                prodigy::worktree::WorktreeStatus::Abandoned => "⚠️",
+                prodigy::worktree::WorktreeStatus::Interrupted => "⏸️",
             };
 
             println!(
@@ -270,19 +270,19 @@ fn display_worktree_session(
 }
 
 /// Display a worktree session using legacy format
-fn display_worktree_session_legacy(session: &mmm::worktree::WorktreeSession) {
+fn display_worktree_session_legacy(session: &prodigy::worktree::WorktreeSession) {
     println!("  {} - {}", session.name, session.path.display());
 }
 
 /// Handle the list command for worktrees
 async fn handle_list_command(
-    worktree_manager: &mmm::worktree::WorktreeManager,
+    worktree_manager: &prodigy::worktree::WorktreeManager,
 ) -> anyhow::Result<()> {
     let sessions = worktree_manager.list_sessions().await?;
     if sessions.is_empty() {
-        println!("No active MMM worktrees found.");
+        println!("No active Prodigy worktrees found.");
     } else {
-        println!("Active MMM worktrees:");
+        println!("Active Prodigy worktrees:");
         for session in sessions {
             display_worktree_session(&session, worktree_manager)?;
         }
@@ -292,7 +292,7 @@ async fn handle_list_command(
 
 /// Handle the merge command for worktrees
 async fn handle_merge_command(
-    worktree_manager: &mmm::worktree::WorktreeManager,
+    worktree_manager: &prodigy::worktree::WorktreeManager,
     name: Option<String>,
     all: bool,
 ) -> anyhow::Result<()> {
@@ -300,7 +300,7 @@ async fn handle_merge_command(
         // Merge all worktrees
         let sessions = worktree_manager.list_sessions().await?;
         if sessions.is_empty() {
-            println!("No active MMM worktrees found to merge.");
+            println!("No active Prodigy worktrees found to merge.");
         } else {
             println!("Found {} worktree(s) to merge", sessions.len());
             for session in sessions {
@@ -365,8 +365,8 @@ enum CleanupAction {
 
 /// Handle cleanup of merged sessions only
 async fn handle_merged_only_cleanup(
-    worktree_manager: &mmm::worktree::WorktreeManager,
-    cleanup_config: &mmm::worktree::CleanupConfig,
+    worktree_manager: &prodigy::worktree::WorktreeManager,
+    cleanup_config: &prodigy::worktree::CleanupConfig,
 ) -> anyhow::Result<()> {
     println!("🔍 Cleaning up merged sessions only...");
     let cleaned_sessions = worktree_manager
@@ -386,10 +386,10 @@ async fn handle_merged_only_cleanup(
 
 /// Handle cleanup of all sessions
 async fn handle_all_cleanup(
-    worktree_manager: &mmm::worktree::WorktreeManager,
+    worktree_manager: &prodigy::worktree::WorktreeManager,
     force: bool,
 ) -> anyhow::Result<()> {
-    println!("Cleaning up all MMM worktrees...");
+    println!("Cleaning up all Prodigy worktrees...");
     worktree_manager.cleanup_all_sessions(force).await?;
     println!("✅ All worktrees cleaned up");
     Ok(())
@@ -397,7 +397,7 @@ async fn handle_all_cleanup(
 
 /// Handle cleanup of a single named session
 async fn handle_single_cleanup(
-    worktree_manager: &mmm::worktree::WorktreeManager,
+    worktree_manager: &prodigy::worktree::WorktreeManager,
     name: &str,
     force: bool,
 ) -> anyhow::Result<()> {
@@ -420,7 +420,7 @@ async fn handle_single_cleanup(
 
 /// Show mergeable sessions for potential cleanup
 async fn handle_show_mergeable(
-    worktree_manager: &mmm::worktree::WorktreeManager,
+    worktree_manager: &prodigy::worktree::WorktreeManager,
 ) -> anyhow::Result<()> {
     println!("🔍 Checking for sessions that can be cleaned up...");
     let mergeable = worktree_manager.detect_mergeable_sessions().await?;
@@ -443,17 +443,17 @@ async fn handle_show_mergeable(
 
 /// Handle the clean command for worktrees
 async fn handle_clean_command(
-    worktree_manager: &mmm::worktree::WorktreeManager,
+    worktree_manager: &prodigy::worktree::WorktreeManager,
     name: Option<String>,
     all: bool,
     force: bool,
     merged_only: bool,
 ) -> anyhow::Result<()> {
-    use mmm::worktree::CleanupConfig;
+    use prodigy::worktree::CleanupConfig;
 
     let cleanup_config = CleanupConfig {
         auto_cleanup: false, // Manual cleanup via CLI
-        confirm_before_cleanup: std::env::var("MMM_AUTOMATION").is_err(),
+        confirm_before_cleanup: std::env::var("PRODIGY_AUTOMATION").is_err(),
         retention_days: 7,
         dry_run: false,
     };
@@ -474,8 +474,8 @@ async fn handle_clean_command(
 }
 
 async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
-    use mmm::subprocess::SubprocessManager;
-    use mmm::worktree::WorktreeManager;
+    use prodigy::subprocess::SubprocessManager;
+    use prodigy::worktree::WorktreeManager;
 
     let subprocess = SubprocessManager::production();
     let worktree_manager = WorktreeManager::new(std::env::current_dir()?, subprocess)?;

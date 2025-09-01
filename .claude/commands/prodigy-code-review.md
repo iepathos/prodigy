@@ -1,4 +1,4 @@
-# /mmm-code-review
+# /prodigy-code-review
 
 Conduct a comprehensive code review of the current project or specified components. This command performs static analysis, identifies potential issues, ensures code quality standards are met, and provides detailed feedback on implementation patterns.
 
@@ -6,7 +6,7 @@ Conduct a comprehensive code review of the current project or specified componen
 
 SCOPE: $ARGUMENTS (optional - specify scope like "src/parser", "tests", specific files, or omit for entire codebase)
 MMM_CONTEXT_AVAILABLE: Environment variable indicating .mmm context availability
-MMM_CONTEXT_DIR: Path to .mmm/context/ directory with analysis data
+MMM_CONTEXT_DIR: Path to .prodigy/context/ directory with analysis data
 
 ## Execute
 
@@ -14,12 +14,12 @@ MMM_CONTEXT_DIR: Path to .mmm/context/ directory with analysis data
 
 1. **Load MMM Analysis Context (Priority)**
    - Check if `MMM_CONTEXT_AVAILABLE=true` and load context data
-   - Read `.mmm/context/technical_debt.json` for known issues and hotspots
-   - Load `.mmm/context/architecture.json` for violations and patterns
-   - Parse `.mmm/context/conventions.json` for style violations
-   - Review `.mmm/context/test_coverage.json` for coverage gaps
-   - Check `.mmm/metrics/current.json` for quality baselines
-   - Use `.mmm/context/dependency_graph.json` for coupling analysis
+   - Read `.prodigy/context/technical_debt.json` for known issues and hotspots
+   - Load `.prodigy/context/architecture.json` for violations and patterns
+   - Parse `.prodigy/context/conventions.json` for style violations
+   - Review `.prodigy/context/test_coverage.json` for coverage gaps
+   - Check `.prodigy/metrics/current.json` for quality baselines
+   - Use `.prodigy/context/dependency_graph.json` for coupling analysis
 
 2. **Fallback to Traditional Context**
    - If context unavailable, read .mmm files (PROJECT.md, ARCHITECTURE.md, etc.)
@@ -336,10 +336,10 @@ MMM_CONTEXT_DIR: Path to .mmm/context/ directory with analysis data
 ## Example Usage
 
 ```
-/mmm-code-review
-/mmm-code-review "src/parser"
-/mmm-code-review "src/parser/inventory.rs src/parser/manifest.rs"
-/mmm-code-review "tests"
+/prodigy-code-review
+/prodigy-code-review "src/parser"
+/prodigy-code-review "src/parser/inventory.rs src/parser/manifest.rs"
+/prodigy-code-review "tests"
 ```
 
 ## Advanced Features

@@ -47,10 +47,10 @@ async fn test_list_sessions_includes_all_mmm_branches() -> Result<()> {
     let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)?;
 
     // Create sessions with different branch patterns
-    let session1 = manager.create_session().await?; // Creates mmm-session-* branch
+    let session1 = manager.create_session().await?; // Creates prodigy-session-* branch
 
     // Create a MapReduce-style worktree with merge branch
-    let merge_branch = "merge-mmm-agent-test";
+    let merge_branch = "merge-prodigy-agent-test";
     let worktree_dir = manager.base_dir.join("mapreduce-session");
     std::process::Command::new("git")
         .current_dir(&manager.repo_path)
@@ -68,8 +68,10 @@ async fn test_list_sessions_includes_all_mmm_branches() -> Result<()> {
     assert!(sessions.len() >= 2, "Should find at least 2 sessions");
 
     // Verify we found both types of branches
-    let has_regular = sessions.iter().any(|s| s.branch.starts_with("mmm-"));
-    let has_merge = sessions.iter().any(|s| s.branch.starts_with("merge-mmm-"));
+    let has_regular = sessions.iter().any(|s| s.branch.starts_with("prodigy-"));
+    let has_merge = sessions
+        .iter()
+        .any(|s| s.branch.starts_with("merge-prodigy-"));
 
     assert!(has_regular, "Should find regular MMM session");
     assert!(has_merge, "Should find MapReduce merge session");
@@ -103,7 +105,7 @@ async fn test_list_sessions_with_metadata_fallback() -> Result<()> {
     let orphaned_state = WorktreeState {
         session_id: "orphaned-session".to_string(),
         worktree_name: "orphaned-session".to_string(),
-        branch: "mmm-orphaned-branch".to_string(),
+        branch: "prodigy-orphaned-branch".to_string(),
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
         status: WorktreeStatus::InProgress,
@@ -167,7 +169,7 @@ async fn test_metadata_sessions_exclude_cleaned_up() -> Result<()> {
     let cleaned_state = WorktreeState {
         session_id: "cleaned-session".to_string(),
         worktree_name: "cleaned-session".to_string(),
-        branch: "mmm-cleaned-branch".to_string(),
+        branch: "prodigy-cleaned-branch".to_string(),
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
         status: WorktreeStatus::CleanedUp, // This session is cleaned up
@@ -212,22 +214,25 @@ async fn test_auto_merge_environment_variable() -> Result<()> {
     // Test that auto-merge detection works with environment variables
 
     // Set the environment variable
-    std::env::set_var("MMM_AUTO_MERGE", "true");
+    std::env::set_var("PRODIGY_AUTO_MERGE", "true");
 
     // The should_auto_merge function should return true when environment variable is set
     // For now, just verify the environment variable is set correctly
-    assert_eq!(std::env::var("MMM_AUTO_MERGE").unwrap_or_default(), "true");
+    assert_eq!(
+        std::env::var("PRODIGY_AUTO_MERGE").unwrap_or_default(),
+        "true"
+    );
 
     // Also test the alternative variable
-    std::env::set_var("MMM_AUTO_CONFIRM", "true");
+    std::env::set_var("PRODIGY_AUTO_CONFIRM", "true");
     assert_eq!(
-        std::env::var("MMM_AUTO_CONFIRM").unwrap_or_default(),
+        std::env::var("PRODIGY_AUTO_CONFIRM").unwrap_or_default(),
         "true"
     );
 
     // Clean up
-    std::env::remove_var("MMM_AUTO_MERGE");
-    std::env::remove_var("MMM_AUTO_CONFIRM");
+    std::env::remove_var("PRODIGY_AUTO_MERGE");
+    std::env::remove_var("PRODIGY_AUTO_CONFIRM");
 
     Ok(())
 }
@@ -236,17 +241,17 @@ async fn test_auto_merge_environment_variable() -> Result<()> {
 async fn test_mapreduce_branch_patterns() -> Result<()> {
     // Test that various MapReduce branch patterns are recognized
     let patterns = vec![
-        "mmm-session-abc123",        // Regular session
-        "merge-mmm-agent-cook-123",  // MapReduce merge branch
-        "mmm-agent-cook-123-item_0", // MapReduce agent branch
-        "temp-master",               // Temporary master branch
+        "prodigy-session-abc123",        // Regular session
+        "merge-prodigy-agent-cook-123",  // MapReduce merge branch
+        "prodigy-agent-cook-123-item_0", // MapReduce agent branch
+        "temp-master",                   // Temporary master branch
     ];
 
     for pattern in patterns {
         // All branches should be considered valid MMM branches
-        // when they're in the .mmm/worktrees directory
+        // when they're in the .prodigy/worktrees directory
         assert!(
-            pattern.contains("mmm") || pattern == "temp-master",
+            pattern.contains("prodigy") || pattern == "temp-master",
             "Branch {} should be recognized",
             pattern
         );

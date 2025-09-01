@@ -7,18 +7,18 @@ Arguments: $ARGUMENTS
 ## Usage
 
 ```
-/mmm-merge-worktree <branch-name>
+/prodigy-merge-worktree <branch-name>
 ```
 
 Examples:
-- `/mmm-merge-worktree mmm-performance-1234567890`
-- `/mmm-merge-worktree mmm-security-1234567891`
+- `/prodigy-merge-worktree mmm-performance-1234567890`
+- `/prodigy-merge-worktree mmm-security-1234567891`
 
 ## Execute
 
 1. **Get Branch Name**
    - The branch name is provided as: $ARGUMENTS
-   - If no branch name provided (empty $ARGUMENTS), fail with: "Error: Branch name is required. Usage: /mmm-merge-worktree <branch-name>"
+   - If no branch name provided (empty $ARGUMENTS), fail with: "Error: Branch name is required. Usage: /prodigy-merge-worktree <branch-name>"
 
 2. **Determine Default Branch**
    - Check if 'main' branch exists using `git rev-parse --verify refs/heads/main`
@@ -124,11 +124,11 @@ Original commits from worktree:
 # Check what needs merging
 $ mmm worktree ls
 Active MMM worktrees:
-  mmm-performance-1234567890 - /path/to/.mmm/worktrees/... (focus: performance)
-  mmm-security-1234567891 - /path/to/.mmm/worktrees/... (focus: security)
+  mmm-performance-1234567890 - /path/to/.prodigy/worktrees/... (focus: performance)
+  mmm-security-1234567891 - /path/to/.prodigy/worktrees/... (focus: security)
 
 # Merge first worktree
-$ claude /mmm-merge-worktree mmm-performance-1234567890
+$ claude /prodigy-merge-worktree mmm-performance-1234567890
 Attempting merge...
 Found 2 conflicts in:
   - src/main.rs
@@ -140,7 +140,7 @@ Creating merge commit...
 ✓ Successfully merged 'mmm-performance-1234567890' into master
 
 # Merge second worktree (may have conflicts with first merge)
-$ claude /mmm-merge-worktree mmm-security-1234567891
+$ claude /prodigy-merge-worktree mmm-security-1234567891
 Attempting merge...
 Found 3 conflicts...
 <resolution details>

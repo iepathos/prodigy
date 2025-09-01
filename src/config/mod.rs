@@ -46,7 +46,7 @@ pub struct Config {
 ///
 /// These settings apply across all projects and can be overridden
 /// by project-specific configuration. Stored in the user's home
-/// directory under ~/.mmm/config.toml.
+/// directory under ~/.prodigy/config.toml.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GlobalConfig {
     pub mmm_home: PathBuf,
@@ -61,7 +61,7 @@ pub struct GlobalConfig {
 /// Project-specific configuration settings
 ///
 /// These settings override global configuration for a specific
-/// project. Stored in the project's .mmm/config.toml file.
+/// project. Stored in the project's .prodigy/config.toml file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectConfig {
     pub name: String,
@@ -88,7 +88,7 @@ pub struct PluginConfig {
 impl Default for GlobalConfig {
     fn default() -> Self {
         Self {
-            mmm_home: get_global_mmm_dir().unwrap_or_else(|_| PathBuf::from("~/.mmm")),
+            mmm_home: get_global_mmm_dir().unwrap_or_else(|_| PathBuf::from("~/.prodigy")),
             default_editor: None,
             log_level: Some("info".to_string()),
             claude_api_key: None,
@@ -109,21 +109,21 @@ impl Config {
     }
 
     pub fn merge_env_vars(&mut self) {
-        if let Ok(api_key) = std::env::var("MMM_CLAUDE_API_KEY") {
+        if let Ok(api_key) = std::env::var("PRODIGY_CLAUDE_API_KEY") {
             self.global.claude_api_key = Some(api_key);
         }
 
-        if let Ok(log_level) = std::env::var("MMM_LOG_LEVEL") {
+        if let Ok(log_level) = std::env::var("PRODIGY_LOG_LEVEL") {
             self.global.log_level = Some(log_level);
         }
 
-        if let Ok(editor) = std::env::var("MMM_EDITOR") {
+        if let Ok(editor) = std::env::var("PRODIGY_EDITOR") {
             self.global.default_editor = Some(editor);
         } else if let Ok(editor) = std::env::var("EDITOR") {
             self.global.default_editor = Some(editor);
         }
 
-        if let Ok(auto_commit) = std::env::var("MMM_AUTO_COMMIT") {
+        if let Ok(auto_commit) = std::env::var("PRODIGY_AUTO_COMMIT") {
             if let Ok(value) = auto_commit.parse::<bool>() {
                 self.global.auto_commit = Some(value);
             }
@@ -168,9 +168,9 @@ mod tests {
         // Test simple string format
         let yaml_str = r#"
 commands:
-  - mmm-code-review
-  - mmm-implement-spec
-  - mmm-lint
+  - prodigy-code-review
+  - prodigy-implement-spec
+  - prodigy-lint
 "#;
 
         let config: WorkflowConfig = serde_yaml::from_str(yaml_str).unwrap();
@@ -178,7 +178,7 @@ commands:
 
         // Verify commands are parsed as Simple variants
         match &config.commands[0] {
-            WorkflowCommand::Simple(s) => assert_eq!(s, "mmm-code-review"),
+            WorkflowCommand::Simple(s) => assert_eq!(s, "prodigy-code-review"),
             _ => unreachable!("Expected Simple command"),
         }
     }
@@ -188,12 +188,12 @@ commands:
         // Test structured format with focus
         let yaml_str = r#"
 commands:
-  - name: mmm-code-review
+  - name: prodigy-code-review
     options:
       focus: security
-  - name: mmm-implement-spec
+  - name: prodigy-implement-spec
     args: ["${SPEC_ID}"]
-  - mmm-lint
+  - prodigy-lint
 "#;
 
         let config: WorkflowConfig = serde_yaml::from_str(yaml_str).unwrap();
@@ -201,7 +201,7 @@ commands:
 
         // Verify first command (Structured with focus in options)
         let cmd = config.commands[0].to_command();
-        assert_eq!(cmd.name, "mmm-code-review");
+        assert_eq!(cmd.name, "prodigy-code-review");
         assert_eq!(
             cmd.options.get("focus"),
             Some(&serde_json::json!("security"))
@@ -209,7 +209,7 @@ commands:
 
         // Verify second command (Structured with args)
         let cmd = config.commands[1].to_command();
-        assert_eq!(cmd.name, "mmm-implement-spec");
+        assert_eq!(cmd.name, "prodigy-implement-spec");
         assert_eq!(cmd.args, vec![CommandArg::parse("${SPEC_ID}")]);
     }
 
@@ -219,10 +219,10 @@ commands:
         let yaml_str = r#"
 max_iterations: 5
 commands:
-  - "mmm-code-review"
-  - name: "mmm-implement-spec"
+  - "prodigy-code-review"
+  - name: "prodigy-implement-spec"
     args: ["iteration-123"]
-  - "mmm-lint"
+  - "prodigy-lint"
 "#;
 
         let config: WorkflowConfig = serde_yaml::from_str(yaml_str).unwrap();
@@ -233,7 +233,7 @@ commands:
 
         // Second command should be Structured
         let cmd = config.commands[1].to_command();
-        assert_eq!(cmd.name, "mmm-implement-spec");
+        assert_eq!(cmd.name, "prodigy-implement-spec");
         assert_eq!(cmd.args, vec![CommandArg::parse("iteration-123")]);
 
         // Third command should be Simple
@@ -244,23 +244,23 @@ commands:
     fn test_command_string_parsing() {
         // Test various command string formats
         let test_cases = vec![
-            ("mmm-code-review", "mmm-code-review", vec![], vec![]),
-            ("/mmm-lint", "mmm-lint", vec![], vec![]),
+            ("prodigy-code-review", "prodigy-code-review", vec![], vec![]),
+            ("/prodigy-lint", "prodigy-lint", vec![], vec![]),
             (
-                "mmm-implement-spec iteration-123",
-                "mmm-implement-spec",
+                "prodigy-implement-spec iteration-123",
+                "prodigy-implement-spec",
                 vec!["iteration-123"],
                 vec![],
             ),
             (
-                "mmm-code-review --focus security",
-                "mmm-code-review",
+                "prodigy-code-review --focus security",
+                "prodigy-code-review",
                 vec![],
                 vec![("focus", "security")],
             ),
             (
-                "mmm-test arg1 arg2 --flag",
-                "mmm-test",
+                "prodigy-test arg1 arg2 --flag",
+                "prodigy-test",
                 vec!["arg1", "arg2"],
                 vec![("flag", "true")],
             ),
@@ -296,9 +296,9 @@ commands:
 
         // Valid commands
         let valid_commands = vec![
-            Command::new("mmm-code-review"),
-            Command::new("mmm-implement-spec").with_arg("spec-123"),
-            Command::new("mmm-lint"),
+            Command::new("prodigy-code-review"),
+            Command::new("prodigy-implement-spec").with_arg("spec-123"),
+            Command::new("prodigy-lint"),
         ];
 
         for cmd in valid_commands {
@@ -308,7 +308,7 @@ commands:
         // Invalid commands
         let invalid_commands = vec![
             Command::new("unknown-command"),
-            Command::new("mmm-implement-spec"), // Missing required arg
+            Command::new("prodigy-implement-spec"), // Missing required arg
         ];
 
         for cmd in invalid_commands {
@@ -321,7 +321,7 @@ commands:
         use crate::config::command_parser::expand_variables;
         use std::collections::HashMap;
 
-        let mut cmd = Command::new("mmm-implement-spec")
+        let mut cmd = Command::new("prodigy-implement-spec")
             .with_arg("${SPEC_ID}")
             .with_option("path", serde_json::json!("${PROJECT_ROOT}/src"))
             .with_env("CUSTOM_VAR", "${USER_NAME}");
@@ -350,7 +350,7 @@ commands:
     fn test_command_metadata_defaults() {
         use crate::config::command_validator::apply_command_defaults;
 
-        let mut cmd = Command::new("mmm-code-review");
+        let mut cmd = Command::new("prodigy-code-review");
 
         // Before applying defaults
         assert!(cmd.metadata.retries.is_none());
@@ -367,7 +367,7 @@ commands:
 
     #[test]
     fn test_command_serialization_roundtrip() {
-        let original = Command::new("mmm-code-review")
+        let original = Command::new("prodigy-code-review")
             .with_arg("file.rs")
             .with_option("focus", serde_json::json!("performance"))
             .with_retries(3)
@@ -442,9 +442,9 @@ commands:
         let _guard = ENV_TEST_MUTEX.lock().unwrap();
 
         // Save original env value
-        let original = std::env::var("MMM_CLAUDE_API_KEY").ok();
+        let original = std::env::var("PRODIGY_CLAUDE_API_KEY").ok();
 
-        unsafe { std::env::set_var("MMM_CLAUDE_API_KEY", "env-key-456") };
+        unsafe { std::env::set_var("PRODIGY_CLAUDE_API_KEY", "env-key-456") };
         let mut config = Config::default();
         config.merge_env_vars();
 
@@ -452,9 +452,9 @@ commands:
         assert_eq!(result, Some("env-key-456"));
 
         // Restore original
-        unsafe { std::env::remove_var("MMM_CLAUDE_API_KEY") };
+        unsafe { std::env::remove_var("PRODIGY_CLAUDE_API_KEY") };
         if let Some(val) = original {
-            unsafe { std::env::set_var("MMM_CLAUDE_API_KEY", val) };
+            unsafe { std::env::set_var("PRODIGY_CLAUDE_API_KEY", val) };
         }
     }
 
@@ -463,9 +463,9 @@ commands:
         let _guard = ENV_TEST_MUTEX.lock().unwrap();
 
         // Save original env value
-        let original = std::env::var("MMM_CLAUDE_API_KEY").ok();
+        let original = std::env::var("PRODIGY_CLAUDE_API_KEY").ok();
 
-        unsafe { std::env::set_var("MMM_CLAUDE_API_KEY", "env-key") };
+        unsafe { std::env::set_var("PRODIGY_CLAUDE_API_KEY", "env-key") };
         let mut config = Config::default();
         config.merge_env_vars();
 
@@ -485,9 +485,9 @@ commands:
         assert_eq!(result, Some("config-key"));
 
         // Restore original
-        unsafe { std::env::remove_var("MMM_CLAUDE_API_KEY") };
+        unsafe { std::env::remove_var("PRODIGY_CLAUDE_API_KEY") };
         if let Some(val) = original {
-            unsafe { std::env::set_var("MMM_CLAUDE_API_KEY", val) };
+            unsafe { std::env::set_var("PRODIGY_CLAUDE_API_KEY", val) };
         }
     }
 
@@ -541,22 +541,22 @@ commands:
         let _guard = ENV_TEST_MUTEX.lock().unwrap();
 
         // Save original env values
-        let original_api_key = std::env::var("MMM_CLAUDE_API_KEY").ok();
-        let original_log_level = std::env::var("MMM_LOG_LEVEL").ok();
-        let original_editor = std::env::var("MMM_EDITOR").ok();
-        let original_auto_commit = std::env::var("MMM_AUTO_COMMIT").ok();
+        let original_api_key = std::env::var("PRODIGY_CLAUDE_API_KEY").ok();
+        let original_log_level = std::env::var("PRODIGY_LOG_LEVEL").ok();
+        let original_editor = std::env::var("PRODIGY_EDITOR").ok();
+        let original_auto_commit = std::env::var("PRODIGY_AUTO_COMMIT").ok();
 
         let mut config = Config::new();
 
         // Test environment variables override defaults
         // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var("MMM_CLAUDE_API_KEY", "env-api-key") };
+        unsafe { std::env::set_var("PRODIGY_CLAUDE_API_KEY", "env-api-key") };
         // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var("MMM_LOG_LEVEL", "debug") };
+        unsafe { std::env::set_var("PRODIGY_LOG_LEVEL", "debug") };
         // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var("MMM_EDITOR", "vim") };
+        unsafe { std::env::set_var("PRODIGY_EDITOR", "vim") };
         // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var("MMM_AUTO_COMMIT", "false") };
+        unsafe { std::env::set_var("PRODIGY_AUTO_COMMIT", "false") };
 
         config.merge_env_vars();
 
@@ -570,30 +570,30 @@ commands:
 
         // Clean up
         // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::remove_var("MMM_CLAUDE_API_KEY") };
+        unsafe { std::env::remove_var("PRODIGY_CLAUDE_API_KEY") };
         // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::remove_var("MMM_LOG_LEVEL") };
+        unsafe { std::env::remove_var("PRODIGY_LOG_LEVEL") };
         // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::remove_var("MMM_EDITOR") };
+        unsafe { std::env::remove_var("PRODIGY_EDITOR") };
         // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::remove_var("MMM_AUTO_COMMIT") };
+        unsafe { std::env::remove_var("PRODIGY_AUTO_COMMIT") };
 
         // Restore original values if they existed
         if let Some(val) = original_api_key {
             // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("MMM_CLAUDE_API_KEY", val) };
+            unsafe { std::env::set_var("PRODIGY_CLAUDE_API_KEY", val) };
         }
         if let Some(val) = original_log_level {
             // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("MMM_LOG_LEVEL", val) };
+            unsafe { std::env::set_var("PRODIGY_LOG_LEVEL", val) };
         }
         if let Some(val) = original_editor {
             // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("MMM_EDITOR", val) };
+            unsafe { std::env::set_var("PRODIGY_EDITOR", val) };
         }
         if let Some(val) = original_auto_commit {
             // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("MMM_AUTO_COMMIT", val) };
+            unsafe { std::env::set_var("PRODIGY_AUTO_COMMIT", val) };
         }
     }
 
@@ -604,13 +604,13 @@ commands:
 
         // Save original env values
         let original_editor = std::env::var("EDITOR").ok();
-        let original_mmm_editor = std::env::var("MMM_EDITOR").ok();
+        let original_mmm_editor = std::env::var("PRODIGY_EDITOR").ok();
 
-        // Test 1: EDITOR fallback when MMM_EDITOR is not set
+        // Test 1: EDITOR fallback when PRODIGY_EDITOR is not set
         // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var("EDITOR") };
         // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::remove_var("MMM_EDITOR") };
+        unsafe { std::env::remove_var("PRODIGY_EDITOR") };
         // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::set_var("EDITOR", "nano") };
 
@@ -619,30 +619,30 @@ commands:
         assert_eq!(
             config.global.default_editor,
             Some("nano".to_string()),
-            "EDITOR fallback should work when MMM_EDITOR is not set"
+            "EDITOR fallback should work when PRODIGY_EDITOR is not set"
         );
 
-        // Test 2: MMM_EDITOR takes precedence over EDITOR
+        // Test 2: PRODIGY_EDITOR takes precedence over EDITOR
         // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::remove_var("MMM_EDITOR") };
+        unsafe { std::env::remove_var("PRODIGY_EDITOR") };
         // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::set_var("EDITOR", "nano") };
         // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var("MMM_EDITOR", "emacs") };
+        unsafe { std::env::set_var("PRODIGY_EDITOR", "emacs") };
 
         let mut config2 = Config::new();
         config2.merge_env_vars();
         assert_eq!(
             config2.global.default_editor,
             Some("emacs".to_string()),
-            "MMM_EDITOR should take precedence over EDITOR"
+            "PRODIGY_EDITOR should take precedence over EDITOR"
         );
 
         // Clean up - remove our test env vars
         // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var("EDITOR") };
         // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::remove_var("MMM_EDITOR") };
+        unsafe { std::env::remove_var("PRODIGY_EDITOR") };
 
         // Restore original values if they existed
         if let Some(val) = original_editor {
@@ -651,7 +651,7 @@ commands:
         }
         if let Some(val) = original_mmm_editor {
             // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("MMM_EDITOR", val) };
+            unsafe { std::env::set_var("PRODIGY_EDITOR", val) };
         }
     }
 

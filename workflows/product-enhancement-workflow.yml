@@ -5,17 +5,17 @@
 # to identify and implement product improvements
 
 # Step 1: Analyze from product management perspective
-- claude: "/mmm-product-enhance --area cli-ux --max-enhancements 8"
+- claude: "/prodigy-product-enhance --area cli-ux --max-enhancements 8"
   options:
     area: "cli-ux"  # Optional: target specific area
     max-enhancements: 8
     
 # Step 2: Implement the enhancements
-- claude: "/mmm-implement-spec $SPEC_ID"
+- claude: "/prodigy-implement-spec $SPEC_ID"
   args: ["$SPEC_ID"]  # Auto-extracted from previous command
     
 # Step 3: Clean up and ensure quality
-- claude: "/mmm-lint --fix"
+- claude: "/prodigy-lint --fix"
   options:
     fix: true
   metadata:

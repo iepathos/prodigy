@@ -343,8 +343,8 @@ mod tests {
             .unwrap();
 
         // Should have built-in commands from fallback registry
-        assert!(registry.get("mmm-code-review").is_some());
-        assert!(registry.get("mmm-implement-spec").is_some());
+        assert!(registry.get("prodigy-code-review").is_some());
+        assert!(registry.get("prodigy-implement-spec").is_some());
     }
 
     #[tokio::test]
@@ -354,7 +354,7 @@ mod tests {
         fs::create_dir(&commands_dir).await.unwrap();
 
         // Create a test command file
-        let command_content = r#"# /mmm-custom-test
+        let command_content = r#"# /prodigy-custom-test
 
 Custom test command.
 
@@ -367,7 +367,7 @@ TARGET: $ARGUMENTS (required - target to test)
 - `--verbose`: Enable verbose output
 "#;
 
-        fs::write(commands_dir.join("mmm-custom-test.md"), command_content)
+        fs::write(commands_dir.join("prodigy-custom-test.md"), command_content)
             .await
             .unwrap();
 
@@ -376,10 +376,10 @@ TARGET: $ARGUMENTS (required - target to test)
             .unwrap();
 
         // Should discover the custom command
-        assert!(registry.get("mmm-custom-test").is_some());
+        assert!(registry.get("prodigy-custom-test").is_some());
 
         // Test validation
-        let mut cmd = Command::new("mmm-custom-test");
+        let mut cmd = Command::new("prodigy-custom-test");
         cmd.args.push(CommandArg::Literal("target.rs".to_string()));
 
         assert!(registry.validate_command(&cmd).is_ok());
@@ -392,12 +392,12 @@ TARGET: $ARGUMENTS (required - target to test)
         fs::create_dir(&commands_dir).await.unwrap();
 
         // Create a minimal command file
-        let command_content = r#"# /mmm-minimal
+        let command_content = r#"# /prodigy-minimal
 
 A minimal command without metadata.
 "#;
 
-        fs::write(commands_dir.join("mmm-minimal.md"), command_content)
+        fs::write(commands_dir.join("prodigy-minimal.md"), command_content)
             .await
             .unwrap();
 
@@ -406,7 +406,7 @@ A minimal command without metadata.
             .unwrap();
 
         // Should allow any arguments/options for minimal commands
-        let mut cmd = Command::new("mmm-minimal");
+        let mut cmd = Command::new("prodigy-minimal");
         cmd.args.push(CommandArg::Literal("arg1".to_string()));
         cmd.args.push(CommandArg::Literal("arg2".to_string()));
         cmd.options
@@ -423,8 +423,8 @@ A minimal command without metadata.
 
         // Create a custom command
         fs::write(
-            commands_dir.join("mmm-custom.md"),
-            "# /mmm-custom\n\nCustom command.",
+            commands_dir.join("prodigy-custom.md"),
+            "# /prodigy-custom\n\nCustom command.",
         )
         .await
         .unwrap();
@@ -435,9 +435,9 @@ A minimal command without metadata.
         let commands = registry.list_commands();
 
         // Should include both discovered and built-in commands
-        assert!(commands.contains(&"mmm-custom".to_string()));
-        assert!(commands.contains(&"mmm-code-review".to_string()));
-        assert!(commands.contains(&"mmm-implement-spec".to_string()));
+        assert!(commands.contains(&"prodigy-custom".to_string()));
+        assert!(commands.contains(&"prodigy-code-review".to_string()));
+        assert!(commands.contains(&"prodigy-implement-spec".to_string()));
     }
 
     #[test]

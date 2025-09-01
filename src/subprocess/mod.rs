@@ -17,7 +17,7 @@
 //! ## Production Usage
 //!
 //! ```rust
-//! use mmm::subprocess::SubprocessManager;
+//! use prodigy::subprocess::SubprocessManager;
 //!
 //! // Create production subprocess manager
 //! let subprocess = SubprocessManager::production();
@@ -28,7 +28,7 @@
 //! ## Testing with Mocks
 //!
 //! ```rust,no_run
-//! # use mmm::subprocess::SubprocessManager;
+//! # use prodigy::subprocess::SubprocessManager;
 //! # #[cfg(test)]
 //! # {
 //! let (subprocess, mock) = SubprocessManager::mock();
@@ -83,7 +83,7 @@ use std::sync::Arc;
 /// # Examples
 ///
 /// ```rust
-/// use mmm::subprocess::SubprocessManager;
+/// use prodigy::subprocess::SubprocessManager;
 ///
 /// // Production usage
 /// let subprocess = SubprocessManager::production();
@@ -111,7 +111,7 @@ impl SubprocessManager {
     /// # Examples
     ///
     /// ```rust
-    /// use mmm::subprocess::SubprocessManager;
+    /// use prodigy::subprocess::SubprocessManager;
     ///
     /// let subprocess = SubprocessManager::production();
     /// let git = subprocess.git();
@@ -128,7 +128,7 @@ impl SubprocessManager {
     /// # Examples
     ///
     /// ```rust
-    /// # use mmm::subprocess::SubprocessManager;
+    /// # use prodigy::subprocess::SubprocessManager;
     /// let (subprocess, mock) = SubprocessManager::mock();
     /// mock.expect_success("git", &["status", "--porcelain"], "");
     ///
@@ -158,7 +158,7 @@ impl SubprocessManager {
     /// # Examples
     ///
     /// ```rust
-    /// # use mmm::subprocess::SubprocessManager;
+    /// # use prodigy::subprocess::SubprocessManager;
     /// let subprocess = SubprocessManager::production();
     /// let git = subprocess.git();
     /// // Use git operations
@@ -175,7 +175,7 @@ impl SubprocessManager {
     /// # Examples
     ///
     /// ```rust
-    /// # use mmm::subprocess::SubprocessManager;
+    /// # use prodigy::subprocess::SubprocessManager;
     /// let subprocess = SubprocessManager::production();
     /// let claude = subprocess.claude();
     /// // Use Claude CLI operations

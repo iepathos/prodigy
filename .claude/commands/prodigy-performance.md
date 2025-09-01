@@ -5,14 +5,14 @@ Analyzes code for performance bottlenecks and generates optimization specs.
 ## Usage
 
 ```
-/mmm-performance [focus]
+/prodigy-performance [focus]
 ```
 
 Examples:
-- `/mmm-performance` - General performance analysis
-- `/mmm-performance memory` - Focus on memory usage
-- `/mmm-performance startup` - Optimize startup time
-- `/mmm-performance hot-paths` - Focus on frequently executed code
+- `/prodigy-performance` - General performance analysis
+- `/prodigy-performance memory` - Focus on memory usage
+- `/prodigy-performance startup` - Optimize startup time
+- `/prodigy-performance hot-paths` - Focus on frequently executed code
 
 ## What This Command Does
 

@@ -68,7 +68,7 @@ Enable developers to successfully run AI-assisted development workflows in Pytho
 - [ ] Auto-detect project language and tools
 - [ ] Install appropriate Claude commands based on language
 - [ ] Create default `improve.yml` workflow for detected language
-- [ ] Generate `.mmm/PROJECT.md` with project context
+- [ ] Generate `.prodigy/PROJECT.md` with project context
 - [ ] Show clear next steps after init
 
 ### Quick Start Flow

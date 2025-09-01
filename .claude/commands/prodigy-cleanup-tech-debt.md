@@ -1,4 +1,4 @@
-# /mmm-cleanup-tech-debt
+# /prodigy-cleanup-tech-debt
 
 Analyze the Rust codebase for technical debt and perform comprehensive cleanup including code organization improvements, dead code removal, dependency optimization, and structural refactoring. This command systematically identifies and resolves technical debt to improve maintainability, performance, and code quality in Rust projects.
 
@@ -6,7 +6,7 @@ Analyze the Rust codebase for technical debt and perform comprehensive cleanup i
 
 SCOPE: $ARGUMENTS (optional - specify scope like "src/agents", "src/mcp", "tests", or "all" for entire codebase)
 MMM_CONTEXT_AVAILABLE: Environment variable indicating .mmm context availability
-MMM_CONTEXT_DIR: Path to .mmm/context/ directory with analysis data
+MMM_CONTEXT_DIR: Path to .prodigy/context/ directory with analysis data
 MMM_FOCUS: Optional focus directive to prioritize specific debt categories
 
 ## Execute
@@ -15,11 +15,11 @@ MMM_FOCUS: Optional focus directive to prioritize specific debt categories
 
 1. **Load MMM Context Data (Priority)**
    - Check if `MMM_CONTEXT_AVAILABLE=true` and context directory exists
-   - Read `.mmm/context/technical_debt.json` for existing debt analysis
-   - Load `.mmm/context/dependency_graph.json` for circular dependencies
-   - Parse `.mmm/context/architecture.json` for architectural violations
-   - Review `.mmm/context/conventions.json` for style inconsistencies
-   - Check `.mmm/metrics/current.json` for quality metrics
+   - Read `.prodigy/context/technical_debt.json` for existing debt analysis
+   - Load `.prodigy/context/dependency_graph.json` for circular dependencies
+   - Parse `.prodigy/context/architecture.json` for architectural violations
+   - Review `.prodigy/context/conventions.json` for style inconsistencies
+   - Check `.prodigy/metrics/current.json` for quality metrics
 
 2. **Prioritize Using Context Data**
    - **High Priority**: Items from technical_debt.json with impact >= 7
@@ -332,11 +332,11 @@ MMM_FOCUS: Optional focus directive to prioritize specific debt categories
 ## Example Usage
 
 ```
-/mmm-cleanup-tech-debt
-/mmm-cleanup-tech-debt "src/agents"
-/mmm-cleanup-tech-debt "src/mcp"
-/mmm-cleanup-tech-debt "tests"
-/mmm-cleanup-tech-debt "all"
+/prodigy-cleanup-tech-debt
+/prodigy-cleanup-tech-debt "src/agents"
+/prodigy-cleanup-tech-debt "src/mcp"
+/prodigy-cleanup-tech-debt "tests"
+/prodigy-cleanup-tech-debt "all"
 ```
 
 ## Cleanup Categories
@@ -397,9 +397,9 @@ MMM_FOCUS: Optional focus directive to prioritize specific debt categories
 
 ## Integration with Existing Commands
 
-- Use `/mmm-commit-changes` for individual cleanup commits
+- Use `/prodigy-commit-changes` for individual cleanup commits
 - Create specs with `/create-spec` for major refactoring
-- Run `/mmm-debug` if issues arise during cleanup
+- Run `/prodigy-debug` if issues arise during cleanup
 - Use project's Makefile or justfile for validation
 - Run `/test` to verify changes don't break functionality
 

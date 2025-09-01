@@ -1,16 +1,16 @@
-# MMM - Memento Mori
+# Prodigy
 
-[![CI](https://github.com/iepathos/mmm/actions/workflows/ci.yml/badge.svg)](https://github.com/iepathos/mmm/actions/workflows/ci.yml)
-[![Security](https://github.com/iepathos/mmm/actions/workflows/security.yml/badge.svg)](https://github.com/iepathos/mmm/actions/workflows/security.yml)
-[![Release](https://github.com/iepathos/mmm/actions/workflows/release.yml/badge.svg)](https://github.com/iepathos/mmm/actions/workflows/release.yml)
+[![CI](https://github.com/iepathos/prodigy/actions/workflows/ci.yml/badge.svg)](https://github.com/iepathos/prodigy/actions/workflows/ci.yml)
+[![Security](https://github.com/iepathos/prodigy/actions/workflows/security.yml/badge.svg)](https://github.com/iepathos/prodigy/actions/workflows/security.yml)
+[![Release](https://github.com/iepathos/prodigy/actions/workflows/release.yml/badge.svg)](https://github.com/iepathos/prodigy/actions/workflows/release.yml)
 
 > 🚧 **Early Prototype** - This project is under active development and APIs may change
 
 **AI pair programming orchestrator** - Run reproducible code improvement workflows with Claude. Fix bugs, improve coverage, eliminate tech debt - all through simple YAML workflows.
 
-## What Is MMM?
+## What Is Prodigy?
 
-MMM orchestrates AI-powered development workflows, turning ad-hoc Claude sessions into reproducible, bounded automation. Like CI/CD for your AI pair programmer - define the workflow once, run it repeatedly, ship better code.
+Prodigy orchestrates AI-powered development workflows, turning ad-hoc Claude sessions into reproducible, bounded automation. Like CI/CD for your AI pair programmer - define the workflow once, run it repeatedly, ship better code.
 
 ### Transform This:
 ```
@@ -26,10 +26,10 @@ Claude: "Let me see the new error..."
 
 ### Into This:
 ```yaml
-# One command: mmm cook workflows/debug.yml
+# One command: prodigy cook workflows/debug.yml
 - shell: "cargo test"
   on_failure:
-    claude: "/mmm-debug-test-failure --output ${shell.output}"
+    claude: "/prodigy-debug-test-failure --output ${shell.output}"
     max_attempts: 3
 ```
 
@@ -60,7 +60,7 @@ Claude: "Let me see the new error..."
 - Nested field access: `${item.nested.field}`
 - Complex expressions: `priority > 5 && severity == 'critical'`
 
-## Why Use MMM?
+## Why Use Prodigy?
 
 ### Real Impact
 - **10x faster fixes**: What takes hours of back-and-forth happens in minutes
@@ -72,20 +72,20 @@ Claude: "Let me see the new error..."
 ### Developer Experience
 ```bash
 # Monday: Discover a workflow that perfectly fixes test failures
-mmm cook workflows/debug.yml
+prodigy cook workflows/debug.yml
 
 # Tuesday: Share it with your team
 git add workflows/debug.yml && git commit -m "Best debug workflow ever"
 
 # Wednesday: Everyone uses the same proven approach
-mmm cook workflows/debug.yml  # Same great results for everyone
+prodigy cook workflows/debug.yml  # Same great results for everyone
 ```
 
-## Architecture: How MMM Orchestrates Claude Commands
+## Architecture: How Prodigy Orchestrates Claude Commands
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│                   MMM Orchestration                  │
+│                   Prodigy Orchestration                  │
 │  • Workflow management (YAML configs)                │
 │  • Git operations & commit tracking                  │
 │  • Iteration control & state management              │
@@ -97,11 +97,11 @@ mmm cook workflows/debug.yml  # Same great results for everyone
                     │ Orchestrates & provides context to
 ┌───────────────────▼──────────────────────────────────┐
 │              Claude Commands Layer                   │
-│  • /mmm-code-review - Analyzes & generates specs     │
-│  • /mmm-implement-spec - Applies improvements        │
-│  • /mmm-lint - Formats & validates code              │
-│  • /mmm-security-audit - Security analysis           │
-│  • /mmm-performance - Performance optimization       │
+│  • /prodigy-code-review - Analyzes & generates specs     │
+│  • /prodigy-implement-spec - Applies improvements        │
+│  • /prodigy-lint - Formats & validates code              │
+│  • /prodigy-security-audit - Security analysis           │
+│  • /prodigy-performance - Performance optimization       │
 │  • [Custom commands for your workflow]               │
 └───────────────────┬──────────────────────────────────┘
                     │ Executed by
@@ -122,9 +122,9 @@ Every developer using AI faces the same frustrations:
 - **Lost knowledge** - That perfect prompt that fixed everything? Gone forever
 - **No parallelism** - One conversation, one fix at a time
 
-MMM is the orchestration layer that makes AI development **scalable, reproducible, and safe**.
+Prodigy is the orchestration layer that makes AI development **scalable, reproducible, and safe**.
 
-## What MMM Is
+## What Prodigy Is
 
 - **🎯 Bounded Execution**: Set limits, prevent runaway costs, always maintain control
 - **🔄 Reproducible Workflows**: Same YAML, same results - share what works with your team
@@ -132,7 +132,7 @@ MMM is the orchestration layer that makes AI development **scalable, reproducibl
 - **🔒 Git-Native Safety**: Every change tracked, every decision logged, easy rollback
 - **✅ Test-Driven**: Changes must pass tests or they don't ship
 
-## What MMM Is NOT
+## What Prodigy Is NOT
 
 - ❌ Not an autonomous agent that runs forever without supervision
 - ❌ Not a replacement for developers - it's a force multiplier
@@ -142,23 +142,23 @@ MMM is the orchestration layer that makes AI development **scalable, reproducibl
 ## Core Features
 
 ### Context Management
-MMM maintains comprehensive project context in `.mmm/` directory:
+Prodigy maintains comprehensive project context in `.prodigy/` directory:
 - **Analysis Data**: Code structure, dependencies, architecture patterns
 - **Technical Debt**: Complexity hotspots, duplication, code issues
 - **Test Coverage**: Coverage gaps, untested critical functions
 - **Metrics History**: Performance trends, quality improvements
 
 Context is automatically provided to Claude commands via environment variables:
-- `MMM_CONTEXT_AVAILABLE="true"` - Indicates context is ready
-- `MMM_CONTEXT_DIR="/path/to/.mmm/context"` - Path to analysis data
-- `MMM_AUTOMATION="true"` - Signals automated execution mode
+- `Prodigy_CONTEXT_AVAILABLE="true"` - Indicates context is ready
+- `Prodigy_CONTEXT_DIR="/path/to/.prodigy/context"` - Path to analysis data
+- `Prodigy_AUTOMATION="true"` - Signals automated execution mode
 
 For detailed context documentation, see `CLAUDE.md`.
 
 ## Core Concepts
 
 ### Bounded Autonomy
-Unlike AutoGPT-style agents, MMM workflows have:
+Unlike AutoGPT-style agents, Prodigy workflows have:
 - Maximum iteration limits
 - Required success criteria (tests must pass)
 - Isolated execution environments (git worktrees)
@@ -178,100 +178,100 @@ Built for real development tasks:
 ## Quick Start
 
 ```bash
-# Install MMM
-cargo install --git https://github.com/iepathos/mmm
+# Install Prodigy
+cargo install --git https://github.com/iepathos/prodigy
 
 # Initialize in your project
-mmm init
+prodigy init
 
 # Fix all your failing tests
-mmm cook workflows/debug.yml
+prodigy cook workflows/debug.yml
 
 # Eliminate tech debt in parallel
-mmm cook workflows/debtmap-mapreduce.yml --worktree
+prodigy cook workflows/debtmap-mapreduce.yml --worktree
 ```
 
-**What happens**: MMM will spawn Claude agents that analyze, fix, test, and commit improvements to your code. All changes are tracked in git. Nothing ships without passing tests.
+**What happens**: Prodigy will spawn Claude agents that analyze, fix, test, and commit improvements to your code. All changes are tracked in git. Nothing ships without passing tests.
 
 ## Installation
 
 ```bash
 # Clone and build
-git clone https://github.com/iepathos/mmm
-cd mmm
+git clone https://github.com/iepathos/prodigy
+cd prodigy
 cargo build --release
 
 # Add to PATH or use directly
-./target/release/mmm cook workflows/implement.yml
+./target/release/prodigy cook workflows/implement.yml
 ```
 
 ## Usage
 
 ### Getting Started
 ```bash
-# First time setup - install MMM commands in your project
-mmm init
+# First time setup - install Prodigy commands in your project
+prodigy init
 
 # Then cook your code to improve it with available workflows
-mmm cook workflows/implement.yml
+prodigy cook workflows/implement.yml
 ```
 
 ### Basic Usage
 ```bash
 # Cook your code in current directory
-mmm cook workflows/implement.yml
+prodigy cook workflows/implement.yml
 
 # Cook code in a specific directory
-mmm cook workflows/implement.yml --path /path/to/repo
-mmm cook workflows/implement.yml --path ./relative/path
-mmm cook workflows/implement.yml --path ~/projects/myapp
+prodigy cook workflows/implement.yml --path /path/to/repo
+prodigy cook workflows/implement.yml --path ./relative/path
+prodigy cook workflows/implement.yml --path ~/projects/myapp
 
 # Cook with a security-focused workflow
-mmm cook workflows/security.yml
+prodigy cook workflows/security.yml
 
 # Run with more iterations
-mmm cook workflows/implement.yml --max-iterations 20
+prodigy cook workflows/implement.yml --max-iterations 20
 
 # Run in an isolated git worktree for parallel execution
-mmm cook workflows/performance-workflow.yml --worktree
+prodigy cook workflows/performance-workflow.yml --worktree
 
 # Fully automated mode (auto-accept merge prompts)
-mmm cook workflows/implement.yml --worktree --yes
+prodigy cook workflows/implement.yml --worktree --yes
 
 # Process multiple files with mapping
-mmm cook workflows/implement.yml --map "specs/*.md"
+prodigy cook workflows/implement.yml --map "specs/*.md"
 
 # Resume an interrupted session
-mmm cook workflows/implement.yml --resume session-abc123
+prodigy cook workflows/implement.yml --resume session-abc123
 
 # See detailed progress
-mmm cook workflows/implement.yml --verbose
+prodigy cook workflows/implement.yml --verbose
 
 # Track metrics during cooking
-mmm cook workflows/implement.yml --metrics
+prodigy cook workflows/implement.yml --metrics
 ```
 
 ### MapReduce Workflows (NEW)
 ```bash
 # Run parallel technical debt elimination
-mmm cook workflows/debtmap-reduce.yml --worktree
+prodigy cook workflows/debtmap-reduce.yml --worktree
 
 # Process multiple files in parallel with custom workflow
-mmm cook workflows/fix-files-mapreduce.yml --worktree
+prodigy cook workflows/fix-files-mapreduce.yml --worktree
 
 # Auto-merge results from parallel agents
-mmm cook workflows/mapreduce-example.yml --worktree --yes
+prodigy cook workflows/mapreduce-example.yml --worktree --yes
 
 # Resume an interrupted MapReduce job from checkpoint
-mmm cook workflows/debtmap-reduce.yml --worktree --resume
+prodigy cook workflows/debtmap-reduce.yml --worktree --resume
 
 # Run with custom parallelism limit
-mmm cook workflows/mapreduce-example.yml --worktree --max-parallel 20
+prodigy cook workflows/mapreduce-example.yml --worktree --max-parallel 20
 ```
 
 ### Available Workflows
 
-MMM includes several pre-built workflows in the `workflows/` directory:
+Prodigy includes several pre-built workflows in the `workflows/` directory:
 
 #### Sequential Workflows
 - **analysis-workflow.yml**: Code analysis and metrics generation
@@ -318,7 +318,7 @@ Each step creates git commits for complete auditability.
 
 ### Example 1: Fix All Clippy Warnings
 ```bash
-$ mmm cook workflows/tech-debt.yml
+$ prodigy cook workflows/tech-debt.yml
 🔍 Found 47 clippy warnings across 12 files
 🤖 Claude is fixing them...
 ✅ Fixed 47/47 warnings
@@ -330,7 +330,7 @@ Time saved: ~2 hours of manual fixes
 
 ### Example 2: Parallel Bug Squashing
 ```bash
-$ mmm cook workflows/debtmap-reduce.yml --worktree
+$ prodigy cook workflows/debtmap-reduce.yml --worktree
 🔍 Analyzing codebase...
 📊 Found 23 high-priority issues
 🚀 Spawning 10 parallel Claude agents...
@@ -350,7 +350,7 @@ What would have taken a day was done in minutes.
 
 ### Example 3: Test Coverage Sprint
 ```bash
-$ mmm cook workflows/coverage.yml --metrics
+$ prodigy cook workflows/coverage.yml --metrics
 📊 Starting coverage: 43%
 🤖 Generating tests for uncovered code...
 ✅ Added 67 new test cases
@@ -364,7 +364,7 @@ All tests passing. All changes committed.
 
 ### Declarative Workflow Execution
 ```
-mmm cook <playbook.yml>
+prodigy cook <playbook.yml>
     ↓
 Parse YAML workflow definition
     ↓
@@ -386,12 +386,12 @@ Parse YAML workflow definition
 ### State Management
 - **Git History**: Complete audit trail of all changes through commits
 - **Temporary Specs**: `specs/temp/iteration-*-improvements.md` contain exact fixes applied  
-- **Simple State**: `.mmm/state.json` tracks basic session info (current score, run count)
-- **Project Context**: `.mmm/PROJECT.md`, `ARCHITECTURE.md` provide Claude with project understanding
+- **Simple State**: `.prodigy/state.json` tracks basic session info (current score, run count)
+- **Project Context**: `.prodigy/PROJECT.md`, `ARCHITECTURE.md` provide Claude with project understanding
 - **Optimized Context (v0.1.0+)**: Context files reduced by 90%+ through smart aggregation (see CLAUDE.md for details)
 - All human-readable, git-friendly, no complex databases
 
-## Why MMM vs Other Approaches?
+## Why Prodigy vs Other Approaches?
 
 ### vs AutoGPT/Agent Frameworks
 - **Bounded**: Limited iterations prevent runaway costs
@@ -414,7 +414,7 @@ Parse YAML workflow definition
 - **Auditable**: Complete history of all changes
 
 ### Supported Languages
-MMM is currently **Rust-first** during early development as we refine the tool by using it to build itself. While the architecture is designed to be language-agnostic (our end goal), we're prioritizing Rust to ensure a solid foundation.
+Prodigy is currently **Rust-first** during early development as we refine the tool by using it to build itself. While the architecture is designed to be language-agnostic (our end goal), we're prioritizing Rust to ensure a solid foundation.
 
 **Current Support:**
 - **Rust**: Full support with cargo fmt, clippy, cargo test
@@ -438,7 +438,7 @@ The tool's core architecture is language-agnostic and relies on Claude's ability
 
 ## Workflow Configuration
 
-MMM supports two workflow execution modes:
+Prodigy supports two workflow execution modes:
 1. **Sequential** - Traditional step-by-step execution
 2. **MapReduce** - Parallel execution across multiple worktrees (NEW)
 
@@ -447,11 +447,11 @@ MMM supports two workflow execution modes:
 Basic implementation workflow:
 ```yaml
 # Simple array format - each item is a command step
-- claude: "/mmm-implement-spec $ARG"
+- claude: "/prodigy-implement-spec $ARG"
 - shell: "just test"
   on_failure:
-    claude: "/mmm-debug-test-failure --spec $ARG --output ${shell.output}"
-- claude: "/mmm-lint"
+    claude: "/prodigy-debug-test-failure --spec $ARG --output ${shell.output}"
+- claude: "/prodigy-lint"
 ```
 
 ### Advanced Workflows
@@ -459,32 +459,32 @@ Basic implementation workflow:
 Security audit workflow:
 ```yaml
 # Security-focused workflow
-- claude: "/mmm-security-audit"
+- claude: "/prodigy-security-audit"
   id: audit
   outputs:
     spec:
       file_pattern: "specs/temp/*-security.md"
-- claude: "/mmm-implement-spec ${audit.spec}"
-- claude: "/mmm-security-validate"
+- claude: "/prodigy-implement-spec ${audit.spec}"
+- claude: "/prodigy-security-validate"
 ```
 
 Performance optimization:
 ```yaml
 # Performance workflow with metrics
-- claude: "/mmm-performance"
-- claude: "/mmm-implement-spec $ARG"
+- claude: "/prodigy-performance"
+- claude: "/prodigy-implement-spec $ARG"
 - shell: "cargo bench"
   on_failure:
-    claude: "/mmm-debug-test-failure --output ${shell.output}"
+    claude: "/prodigy-debug-test-failure --output ${shell.output}"
 ```
 
 Test coverage workflow:
 ```yaml
 # Coverage improvement workflow
-- claude: "/mmm-coverage"
-- claude: "/mmm-implement-spec $ARG"
+- claude: "/prodigy-coverage"
+- claude: "/prodigy-implement-spec $ARG"
 - shell: "cargo test"
-- claude: "/mmm-test-generate --coverage"
+- claude: "/prodigy-test-generate --coverage"
 ```
 
 ### MapReduce Workflows (NEW)
@@ -533,7 +533,7 @@ reduce:
     - claude: "/summarize-fixes ${map.results}"
       capture_output: true
     
-    - shell: "git merge --no-ff mmm-agent-*"
+    - shell: "git merge --no-ff prodigy-agent-*"
       commit_required: true
     
     - claude: "/generate-report"
@@ -557,16 +557,16 @@ reduce:
 
 #### Command Arguments & Error Handling
 
-MMM provides sophisticated error handling with automatic recovery:
+Prodigy provides sophisticated error handling with automatic recovery:
 
 ```yaml
 # Implementation workflow with advanced error handling
-- claude: "/mmm-implement-spec $ARG"
+- claude: "/prodigy-implement-spec $ARG"
   commit_required: true
   
 - shell: "just test"
   on_failure:
-    claude: "/mmm-debug-test-failure --spec $ARG --output ${shell.output}"
+    claude: "/prodigy-debug-test-failure --spec $ARG --output ${shell.output}"
     max_attempts: 3
     fail_workflow: false  # Continue even if tests can't be fixed
     
@@ -587,13 +587,13 @@ MMM provides sophisticated error handling with automatic recovery:
 
 #### Commit Requirements
 
-By default, MMM expects every command to create git commits. However, some commands like linting may not always make changes. Use `commit_required: false` to allow these commands to succeed without creating commits:
+By default, Prodigy expects every command to create git commits. However, some commands like linting may not always make changes. Use `commit_required: false` to allow these commands to succeed without creating commits:
 
 ```yaml
 # Example: Linting may not always create commits
-- claude: "/mmm-implement-spec $ARG"
+- claude: "/prodigy-implement-spec $ARG"
   
-- claude: "/mmm-lint"
+- claude: "/prodigy-lint"
   commit_required: false  # Allow to proceed even if no changes made
 ```
 
@@ -608,64 +608,64 @@ Run multiple cooking sessions concurrently without conflicts:
 
 ```bash
 # Enable worktree mode for this cooking session
-mmm cook workflows/performance-workflow.yml --worktree
+prodigy cook workflows/performance-workflow.yml --worktree
 
 # In another terminal, run a different workflow
-mmm cook workflows/security.yml --worktree
+prodigy cook workflows/security.yml --worktree
 
 # Fully automated parallel sessions
-mmm cook workflows/tech-debt.yml --worktree --yes &
-mmm cook workflows/documentation-workflow.yml --worktree --yes &
+prodigy cook workflows/tech-debt.yml --worktree --yes &
+prodigy cook workflows/documentation-workflow.yml --worktree --yes &
 
 # List active worktree sessions
-mmm worktree ls
+prodigy worktree ls
 
 # Merge improvements back to main branch
-mmm worktree merge mmm-performance-1234567890
+prodigy worktree merge prodigy-performance-1234567890
 
 # Merge all completed worktrees
-mmm worktree merge --all
+prodigy worktree merge --all
 
 # Clean up completed worktrees (shorthand: -f)
-mmm worktree clean mmm-performance-1234567890
-mmm worktree clean -f  # Clean specific worktree
+prodigy worktree clean prodigy-performance-1234567890
+prodigy worktree clean -f  # Clean specific worktree
 
 # Clean all worktrees (shorthand: -a)
-mmm worktree clean --all
-mmm worktree clean -a  # Clean all worktrees
+prodigy worktree clean --all
+prodigy worktree clean -a  # Clean all worktrees
 ```
 
-Each session runs in its own git worktree with an isolated branch, allowing multiple cooking efforts to proceed without interfering with each other. Worktrees are stored in `~/.mmm/worktrees/{project-name}/` and are preserved on failure for debugging and automatically suggested for cleanup on success.
+Each session runs in its own git worktree with an isolated branch, allowing multiple cooking efforts to proceed without interfering with each other. Worktrees are stored in `~/.prodigy/worktrees/{project-name}/` and are preserved on failure for debugging and automatically suggested for cleanup on success.
 
 ### Initialize Commands
 
-MMM requires Claude commands to be installed in your project. Use `mmm init` to set them up:
+Prodigy requires Claude commands to be installed in your project. Use `prodigy init` to set them up:
 
 ```bash
-# Initialize all MMM commands in current project
-mmm init
+# Initialize all Prodigy commands in current project
+prodigy init
 
 # Force overwrite existing commands
-mmm init --force
+prodigy init --force
 
 # Install specific commands only
-mmm init --commands mmm-code-review,mmm-lint
+prodigy init --commands prodigy-code-review,prodigy-lint
 
 # Initialize in a different directory
-mmm init --path /path/to/project
+prodigy init --path /path/to/project
 ```
 
 The init command will:
 - Verify the directory is a git repository
 - Create `.claude/commands/` directory structure
-- Install the core MMM commands
+- Install the core Prodigy commands
 - Handle existing commands gracefully (skip or overwrite with `--force`)
 - Provide clear feedback on what was installed
 
 ## Project Structure
 
 ```
-mmm/
+prodigy/
 ├── src/
 │   ├── main.rs           # CLI entry point
 │   ├── cook/             # Core cooking logic
@@ -683,16 +683,16 @@ mmm/
 │   ├── subprocess/       # Subprocess abstraction layer
 │   └── worktree/         # Git worktree management
 ├── workflows/            # Pre-built workflow definitions
-├── .claude/commands/     # MMM command definitions
-├── .mmm/                 # Project context and state
+├── .claude/commands/     # Prodigy command definitions
+├── .prodigy/                 # Project context and state
 └── README.md            # This file
 
 # Worktrees are stored outside the project:
-~/.mmm/worktrees/{project-name}/
-├── mmm-session-1234567890/
-├── mmm-performance-1234567891/
-├── mmm-agent-1234567893/  # MapReduce agent worktrees
-└── mmm-security-1234567892/
+~/.prodigy/worktrees/{project-name}/
+├── prodigy-session-1234567890/
+├── prodigy-performance-1234567891/
+├── prodigy-agent-1234567893/  # MapReduce agent worktrees
+└── prodigy-security-1234567892/
 ```
 
 ## Development
@@ -703,7 +703,7 @@ cargo test
 
 # Build and run
 cargo build --release
-./target/release/mmm cook workflows/implement.yml --verbose
+./target/release/prodigy cook workflows/implement.yml --verbose
 
 # Run with metrics tracking
 cargo run -- cook workflows/implement.yml --metrics
@@ -714,15 +714,15 @@ cargo run -- cook workflows/security.yml --worktree
 
 ## Command Discovery
 
-MMM commands in `.claude/commands/` follow a discovery pattern:
+Prodigy commands in `.claude/commands/` follow a discovery pattern:
 
 ```bash
 # Commands are automatically discovered by Claude Code
 .claude/commands/
-├── mmm-code-review.md         # Analyzes code and generates specs
-├── mmm-implement-spec.md      # Implements improvements from specs
-├── mmm-lint.md                # Formats and validates code
-├── mmm-debug-test-failure.md  # Debugs failing tests
+├── prodigy-code-review.md         # Analyzes code and generates specs
+├── prodigy-implement-spec.md      # Implements improvements from specs
+├── prodigy-lint.md                # Formats and validates code
+├── prodigy-debug-test-failure.md  # Debugs failing tests
 ├── debtmap.md                 # Technical debt analysis
 ├── fix-debt-item.md          # Fixes individual debt items
 └── [your-custom-commands].md  # Add your own commands
@@ -756,14 +756,14 @@ Each command receives:
 
 MIT
 
-## Start Using MMM Today
+## Start Using Prodigy Today
 
 ```bash
 # Install and start improving your code in under a minute
-cargo install --git https://github.com/iepathos/mmm
+cargo install --git https://github.com/iepathos/prodigy
 cd your-project
-mmm init
-mmm cook workflows/implement.yml
+prodigy init
+prodigy cook workflows/implement.yml
 ```
 
 Your AI pair programmer is waiting. Let's ship better code, faster.

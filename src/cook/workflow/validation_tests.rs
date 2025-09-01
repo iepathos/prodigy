@@ -57,13 +57,13 @@ mod tests {
     fn test_validation_config_creation() {
         let config = ValidationConfig {
             validation_type: ValidationType::SpecCoverage,
-            command: "/mmm-validate-spec 01".to_string(),
+            command: "/prodigy-validate-spec 01".to_string(),
             expected_schema: None,
             threshold: 95.0,
             timeout: Some(30),
             on_incomplete: Some(OnIncompleteConfig {
                 strategy: CompletionStrategy::PatchGaps,
-                claude: Some("/mmm-fix-gaps".to_string()),
+                claude: Some("/prodigy-fix-gaps".to_string()),
                 shell: None,
                 prompt: None,
                 max_attempts: 2,
@@ -185,7 +185,7 @@ mod tests {
         // Valid config with claude command
         let valid = OnIncompleteConfig {
             strategy: CompletionStrategy::PatchGaps,
-            claude: Some("/mmm-fix".to_string()),
+            claude: Some("/prodigy-fix".to_string()),
             shell: None,
             prompt: None,
             max_attempts: 3,
@@ -220,7 +220,7 @@ mod tests {
         // Invalid - zero max_attempts
         let zero_attempts = OnIncompleteConfig {
             strategy: CompletionStrategy::RetryFull,
-            claude: Some("/mmm-retry".to_string()),
+            claude: Some("/prodigy-retry".to_string()),
             shell: None,
             prompt: None,
             max_attempts: 0,
@@ -233,7 +233,7 @@ mod tests {
     fn test_validation_workflow_step() {
         let step = WorkflowStep {
             name: None,
-            claude: Some("/mmm-implement-spec 01".to_string()),
+            claude: Some("/prodigy-implement-spec 01".to_string()),
             shell: None,
             test: None,
             command: None,
@@ -248,13 +248,13 @@ mod tests {
             env: Default::default(),
             validate: Some(ValidationConfig {
                 validation_type: ValidationType::SpecCoverage,
-                command: "/mmm-validate-spec 01".to_string(),
+                command: "/prodigy-validate-spec 01".to_string(),
                 expected_schema: None,
                 threshold: 100.0,
                 timeout: None,
                 on_incomplete: Some(OnIncompleteConfig {
                     strategy: CompletionStrategy::PatchGaps,
-                    claude: Some("/mmm-complete-spec 01".to_string()),
+                    claude: Some("/prodigy-complete-spec 01".to_string()),
                     shell: None,
                     prompt: None,
                     max_attempts: 2,

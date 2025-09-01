@@ -1,4 +1,4 @@
-# /mmm-coverage
+# /prodigy-coverage
 
 Analyze test coverage gaps using MMM context data and generate a targeted specification for implementing comprehensive test coverage improvements with proper unit tests and mocking.
 
@@ -6,7 +6,7 @@ Analyze test coverage gaps using MMM context data and generate a targeted specif
 
 SCOPE: $ARGUMENTS (optional - specify scope like "src/core", "src/context", or "all")
 MMM_CONTEXT_AVAILABLE: Environment variable indicating .mmm context availability
-MMM_CONTEXT_DIR: Path to .mmm/context/ directory with analysis data
+MMM_CONTEXT_DIR: Path to .prodigy/context/ directory with analysis data
 MMM_FOCUS: Optional focus directive (e.g., "security", "api", "core")
 
 ## Execute
@@ -16,11 +16,11 @@ MMM_FOCUS: Optional focus directive (e.g., "security", "api", "core")
 **REQUIRED**: Check `MMM_CONTEXT_AVAILABLE=true` and load context files:
 
 1. **Primary Context Sources**
-   - `.mmm/context/test_coverage.json` → `untested_functions`, `critical_paths`, `file_coverage`
-   - `.mmm/context/technical_debt.json` → high-impact functions needing tests
-   - `.mmm/context/architecture.json` → public interfaces requiring coverage
-   - `.mmm/metrics/current.json` → current coverage percentage and targets
-   - `.mmm/context/hybrid_coverage.json` → quality metrics and priority gaps
+   - `.prodigy/context/test_coverage.json` → `untested_functions`, `critical_paths`, `file_coverage`
+   - `.prodigy/context/technical_debt.json` → high-impact functions needing tests
+   - `.prodigy/context/architecture.json` → public interfaces requiring coverage
+   - `.prodigy/metrics/current.json` → current coverage percentage and targets
+   - `.prodigy/context/hybrid_coverage.json` → quality metrics and priority gaps
 
 2. **Deep Coverage Analysis**
    - **Verify Untested Status**: Cross-check `untested_functions` with actual codebase
@@ -271,7 +271,7 @@ MMM_FOCUS: Optional focus directive (e.g., "security", "api", "core")
    - [ ] Verify tests pass without external dependencies: `cargo test --lib`
    - [ ] Check coverage improves: `cargo tarpaulin --lib`
    - [ ] Ensure all high-criticality functions have unit tests
-   - [ ] Follow project conventions from .mmm/context/conventions.json
+   - [ ] Follow project conventions from .prodigy/context/conventions.json
    ```
 
 2. **Context Data Integration**
@@ -344,9 +344,9 @@ MMM_FOCUS: Optional focus directive (e.g., "security", "api", "core")
 **Workflow Chain**: `mmm-coverage` → generates spec → `mmm-implement-spec` → `mmm-lint`
 
 **Context Dependencies**: 
-- Requires `.mmm/context/test_coverage.json` with `untested_functions` array
-- Uses `.mmm/context/architecture.json` for component interfaces
-- Follows patterns from `.mmm/context/conventions.json`
-- References current metrics from `.mmm/metrics/current.json`
+- Requires `.prodigy/context/test_coverage.json` with `untested_functions` array
+- Uses `.prodigy/context/architecture.json` for component interfaces
+- Follows patterns from `.prodigy/context/conventions.json`
+- References current metrics from `.prodigy/metrics/current.json`
 
 **Output Contract**: Spec file matching `*-coverage-improvements.md` pattern for workflow consumption

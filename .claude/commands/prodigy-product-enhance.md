@@ -1,4 +1,4 @@
-# /mmm-product-enhance
+# /prodigy-product-enhance
 
 Analyze the codebase from a product management perspective, focusing on user value, feature opportunities, and user experience enhancements rather than code quality metrics. This command identifies improvements that would enhance the product's value proposition and user satisfaction.
 
@@ -307,10 +307,10 @@ FOCUS: $MMM_FOCUS (optional - focus directive from mmm CLI, e.g., "onboarding", 
 ## Example Usage
 
 ```
-/mmm-product-enhance
-/mmm-product-enhance "cli"
-/mmm-product-enhance "api documentation"
-/mmm-product-enhance "onboarding"
+/prodigy-product-enhance
+/prodigy-product-enhance "cli"
+/prodigy-product-enhance "api documentation"
+/prodigy-product-enhance "onboarding"
 ```
 
 ## Advanced Features

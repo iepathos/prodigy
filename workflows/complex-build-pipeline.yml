@@ -10,13 +10,13 @@
     on_success:
       shell: "cargo test --release"
       on_failure:
-        claude: "/mmm-debug-and-fix '${shell.output}'"
+        claude: "/prodigy-debug-and-fix '${shell.output}'"
         
 # Run clippy and fix any issues
 - shell: "cargo clippy -- -D warnings"
   capture_output: "clippy_warnings"
   on_failure:
-    claude: "/mmm-fix-clippy-warnings '${clippy_warnings}'"
+    claude: "/prodigy-fix-clippy-warnings '${clippy_warnings}'"
     
 # Run benchmarks if all tests pass
 - shell: "cargo bench"
@@ -26,4 +26,4 @@
     0:
       shell: "echo 'Benchmarks completed successfully!'"
     101:
-      claude: "/mmm-fix-compilation-errors '${benchmark_results}'"
+      claude: "/prodigy-fix-compilation-errors '${benchmark_results}'"

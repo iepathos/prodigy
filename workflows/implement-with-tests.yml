@@ -17,7 +17,7 @@
 # Until implemented, use the current name-based syntax.
 
 # Step 1: Implement the specification
-- claude: "/mmm-implement-spec $ARG"
+- claude: "/prodigy-implement-spec $ARG"
   analysis:
     max_cache_age: 300
 
@@ -27,7 +27,7 @@
   commit_required: false
   on_failure:
     # If tests fail, debug and fix them
-    claude: "/mmm-debug-test-failures '${test_output}'"
+    claude: "/prodigy-debug-test-failures '${test_output}'"
     commit_required: true
     on_success:
       # After fixing, verify tests pass
@@ -35,11 +35,11 @@
       commit_required: false
       on_failure:
         # If still failing, try a more thorough fix
-        claude: "/mmm-fix-test-failures '${shell.output}' --deep-analysis"
+        claude: "/prodigy-fix-test-failures '${shell.output}' --deep-analysis"
         commit_required: true
 
 # Step 3: Run linting after tests pass
-- claude: "/mmm-lint"
+- claude: "/prodigy-lint"
   commit_required: false
   
 # Step 4: Run benchmarks if available
@@ -56,7 +56,7 @@
   commit_required: false
   on_failure:
     # Report persistent failures for manual intervention
-    claude: "/mmm-report-test-status failed '${final_test_results}' --notify"
+    claude: "/prodigy-report-test-status failed '${final_test_results}' --notify"
     commit_required: false
   on_success:
     shell: "echo '✅ All tests passing! Implementation complete.'"

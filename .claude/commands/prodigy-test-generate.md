@@ -5,14 +5,14 @@ Generates comprehensive test suites for untested or poorly tested code.
 ## Usage
 
 ```
-/mmm-test-generate [target]
+/prodigy-test-generate [target]
 ```
 
 Examples:
-- `/mmm-test-generate` - Generate tests for all untested code
-- `/mmm-test-generate src/analyzer/` - Focus on analyzer module
-- `/mmm-test-generate --integration` - Generate integration tests
-- `/mmm-test-generate --edge-cases` - Focus on edge case testing
+- `/prodigy-test-generate` - Generate tests for all untested code
+- `/prodigy-test-generate src/analyzer/` - Focus on analyzer module
+- `/prodigy-test-generate --integration` - Generate integration tests
+- `/prodigy-test-generate --edge-cases` - Focus on edge case testing
 
 ## What This Command Does
 

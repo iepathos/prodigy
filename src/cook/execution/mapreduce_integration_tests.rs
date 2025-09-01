@@ -147,7 +147,7 @@ map:
       
       - shell: "just test"
         on_failure:
-          claude: "/mmm-debug-test-failure --output '${shell.output}'"
+          claude: "/prodigy-debug-test-failure --output '${shell.output}'"
           max_attempts: 2
           fail_workflow: false
   
@@ -164,7 +164,7 @@ reduce:
   commands:
     - shell: "just test"
       on_failure:
-        claude: "/mmm-debug-test-failure --output '${shell.output}'"
+        claude: "/prodigy-debug-test-failure --output '${shell.output}'"
         max_attempts: 3
         fail_workflow: true
     

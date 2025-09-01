@@ -45,7 +45,7 @@ Implement a structured event logging system for MapReduce jobs that provides com
 ## Acceptance Criteria
 
 - [ ] MapReduceEvent enum covers all execution events
-- [ ] Events written to `.mmm/mapreduce/events/` directory
+- [ ] Events written to `.prodigy/mapreduce/events/` directory
 - [ ] Each event includes job_id, timestamp, and correlation_id
 - [ ] JSONL format for efficient streaming
 - [ ] Event viewer tool implemented
@@ -218,7 +218,7 @@ impl EventLogger {
 
 3. **File Layout**
 ```
-.mmm/mapreduce/events/
+.prodigy/mapreduce/events/
 ├── {job_id}/
 │   ├── events-{timestamp}.jsonl     # Primary event log
 │   ├── events-{timestamp}.jsonl.gz  # Compressed archives

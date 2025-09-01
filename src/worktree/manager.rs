@@ -151,7 +151,7 @@ impl WorktreeManager {
         let session_id = Uuid::new_v4();
         // Simple name using UUID
         let name = format!("session-{session_id}");
-        let branch = format!("mmm-{name}");
+        let branch = format!("prodigy-{name}");
         let worktree_path = self.base_dir.join(&name);
 
         // Create worktree
@@ -337,7 +337,7 @@ impl WorktreeManager {
         let canonical_path = path.canonicalize().unwrap_or(path.clone());
 
         // Include all worktrees in our base directory, regardless of branch name
-        // This includes MapReduce branches like "merge-mmm-*" and "mmm-agent-*"
+        // This includes MapReduce branches like "merge-prodigy-*" and "prodigy-agent-*"
         if !canonical_path.starts_with(&self.base_dir) {
             return None;
         }
@@ -465,19 +465,19 @@ impl WorktreeManager {
             .current_dir(&self.repo_path)
             .arg("--dangerously-skip-permissions") // Skip interactive permission prompts
             .arg("--print") // Output response to stdout for capture
-            .arg(&format!("/mmm-merge-worktree {worktree_branch}")) // Include branch name in the command
-            .env("MMM_AUTOMATION", "true") // Enable automation mode
+            .arg(&format!("/prodigy-merge-worktree {worktree_branch}")) // Include branch name in the command
+            .env("PRODIGY_AUTOMATION", "true") // Enable automation mode
             .build();
 
         // Print what we're about to execute
-        eprintln!("Running claude /mmm-merge-worktree with branch: {worktree_branch}");
+        eprintln!("Running claude /prodigy-merge-worktree with branch: {worktree_branch}");
 
         let output = self
             .subprocess
             .runner()
             .run(claude_command)
             .await
-            .context("Failed to execute claude /mmm-merge-worktree")?;
+            .context("Failed to execute claude /prodigy-merge-worktree")?;
 
         if !output.status.success() {
             let stderr = &output.stderr;
@@ -833,7 +833,7 @@ impl WorktreeManager {
                 println!("Session '{session_name}' has been merged. Clean up? (y/N): ");
                 // In a real implementation, we'd read from stdin here
                 // For now, we'll skip confirmation in automated contexts
-                if std::env::var("MMM_AUTOMATION").is_ok() {
+                if std::env::var("PRODIGY_AUTOMATION").is_ok() {
                     // Auto-confirm in automation mode
                 } else {
                     // Skip cleanup if not in automation mode and confirmation is required
@@ -932,17 +932,17 @@ impl WorktreeManager {
     /// Get cleanup configuration from environment or defaults
     pub fn get_cleanup_config() -> CleanupConfig {
         CleanupConfig {
-            auto_cleanup: std::env::var("MMM_AUTO_CLEANUP")
+            auto_cleanup: std::env::var("PRODIGY_AUTO_CLEANUP")
                 .map(|v| v.to_lowercase() == "true")
                 .unwrap_or(true),
-            confirm_before_cleanup: std::env::var("MMM_CONFIRM_CLEANUP")
+            confirm_before_cleanup: std::env::var("PRODIGY_CONFIRM_CLEANUP")
                 .map(|v| v.to_lowercase() == "true")
-                .unwrap_or(std::env::var("MMM_AUTOMATION").is_err()),
-            retention_days: std::env::var("MMM_RETENTION_DAYS")
+                .unwrap_or(std::env::var("PRODIGY_AUTOMATION").is_err()),
+            retention_days: std::env::var("PRODIGY_RETENTION_DAYS")
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(7),
-            dry_run: std::env::var("MMM_DRY_RUN")
+            dry_run: std::env::var("PRODIGY_DRY_RUN")
                 .map(|v| v.to_lowercase() == "true")
                 .unwrap_or(false),
         }
@@ -957,11 +957,11 @@ mod tests {
     #[test]
     fn test_parse_worktree_output() {
         // Test parsing of git worktree list --porcelain output
-        let output = r#"worktree /home/user/project/.mmm/worktrees/test-session
+        let output = r#"worktree /home/user/project/.prodigy/worktrees/test-session
 HEAD abc123def456
 branch refs/heads/test-branch
 
-worktree /home/user/project/.mmm/worktrees/another-session
+worktree /home/user/project/.prodigy/worktrees/another-session
 HEAD 789012ghi345
 branch refs/heads/another-branch
 
@@ -974,12 +974,12 @@ branch refs/heads/main"#;
         assert_eq!(entries.len(), 3);
         assert_eq!(
             entries[0].0,
-            PathBuf::from("/home/user/project/.mmm/worktrees/test-session")
+            PathBuf::from("/home/user/project/.prodigy/worktrees/test-session")
         );
         assert_eq!(entries[0].1, "test-branch");
         assert_eq!(
             entries[1].0,
-            PathBuf::from("/home/user/project/.mmm/worktrees/another-session")
+            PathBuf::from("/home/user/project/.prodigy/worktrees/another-session")
         );
         assert_eq!(entries[1].1, "another-branch");
         assert_eq!(entries[2].0, PathBuf::from("/home/user/project"));
@@ -1033,7 +1033,7 @@ HEAD abc123"#;
             manager.base_dir.file_name().unwrap().to_str().unwrap(),
             repo_name
         );
-        // And it should be under ~/.mmm/worktrees/
+        // And it should be under ~/.prodigy/worktrees/
         let parent = manager.base_dir.parent().unwrap();
         assert_eq!(parent.file_name().unwrap(), "worktrees");
     }
@@ -1118,9 +1118,9 @@ HEAD abc123"#;
     #[tokio::test]
     async fn test_get_cleanup_config_from_env() {
         // Test environment variable override
-        std::env::set_var("MMM_AUTO_CLEANUP", "false");
-        std::env::set_var("MMM_DRY_RUN", "true");
-        std::env::set_var("MMM_RETENTION_DAYS", "14");
+        std::env::set_var("PRODIGY_AUTO_CLEANUP", "false");
+        std::env::set_var("PRODIGY_DRY_RUN", "true");
+        std::env::set_var("PRODIGY_RETENTION_DAYS", "14");
 
         let config = WorktreeManager::get_cleanup_config();
         assert!(!config.auto_cleanup);
@@ -1128,9 +1128,9 @@ HEAD abc123"#;
         assert_eq!(config.retention_days, 14);
 
         // Clean up environment variables
-        std::env::remove_var("MMM_AUTO_CLEANUP");
-        std::env::remove_var("MMM_DRY_RUN");
-        std::env::remove_var("MMM_RETENTION_DAYS");
+        std::env::remove_var("PRODIGY_AUTO_CLEANUP");
+        std::env::remove_var("PRODIGY_DRY_RUN");
+        std::env::remove_var("PRODIGY_RETENTION_DAYS");
     }
 
     #[tokio::test]
@@ -1244,7 +1244,7 @@ HEAD abc123"#;
             last_checkpoint: Some(Checkpoint {
                 iteration: 1,
                 timestamp: chrono::Utc::now(),
-                last_command: "/mmm-test".to_string(),
+                last_command: "/prodigy-test".to_string(),
                 last_command_type: crate::worktree::CommandType::CodeReview,
                 last_spec_id: Some("spec-123".to_string()),
                 files_modified: vec!["src/main.rs".to_string()],
@@ -1262,14 +1262,14 @@ HEAD abc123"#;
         // Update the checkpoint
         manager.update_checkpoint("test-session", |checkpoint| {
             checkpoint.iteration = 2;
-            checkpoint.last_command = "/mmm-updated".to_string();
+            checkpoint.last_command = "/prodigy-updated".to_string();
         })?;
 
         // Verify checkpoint was updated
         let updated_state = manager.get_session_state("test-session")?;
         let checkpoint = updated_state.last_checkpoint.unwrap();
         assert_eq!(checkpoint.iteration, 2);
-        assert_eq!(checkpoint.last_command, "/mmm-updated");
+        assert_eq!(checkpoint.last_command, "/prodigy-updated");
         Ok(())
     }
 
@@ -1307,7 +1307,7 @@ HEAD abc123"#;
             last_checkpoint: Some(Checkpoint {
                 iteration: 1,
                 timestamp: chrono::Utc::now(),
-                last_command: "/mmm-test1".to_string(),
+                last_command: "/prodigy-test1".to_string(),
                 last_command_type: crate::worktree::CommandType::CodeReview,
                 last_spec_id: None,
                 files_modified: vec![],
@@ -1325,7 +1325,7 @@ HEAD abc123"#;
         // Update checkpoint with new iteration
         manager.update_checkpoint("test-session", |checkpoint| {
             checkpoint.iteration = 2;
-            checkpoint.last_command = "/mmm-test2".to_string();
+            checkpoint.last_command = "/prodigy-test2".to_string();
         })?;
 
         let state = manager.get_session_state("test-session")?;

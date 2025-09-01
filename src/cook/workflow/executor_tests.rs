@@ -604,7 +604,7 @@ mod disabled_tests {
 
         let step = WorkflowStep {
             name: None,
-            claude: Some("/mmm-code-review".to_string()),
+            claude: Some("/prodigy-code-review".to_string()),
             shell: None,
             test: None,
             command: None,
@@ -621,7 +621,7 @@ mod disabled_tests {
         };
 
         let result = executor.determine_command_type(&step).unwrap();
-        assert!(matches!(result, CommandType::Claude(cmd) if cmd == "/mmm-code-review"));
+        assert!(matches!(result, CommandType::Claude(cmd) if cmd == "/prodigy-code-review"));
     }
 
     #[test]
@@ -686,7 +686,7 @@ mod disabled_tests {
         let (executor, _, _, _, _, _) = create_test_executor();
 
         let step = WorkflowStep {
-            name: Some("mmm-code-review".to_string()),
+            name: Some("prodigy-code-review".to_string()),
             claude: None,
             shell: None,
             test: None,
@@ -704,7 +704,7 @@ mod disabled_tests {
         };
 
         let result = executor.determine_command_type(&step).unwrap();
-        assert!(matches!(result, CommandType::Legacy(cmd) if cmd == "/mmm-code-review"));
+        assert!(matches!(result, CommandType::Legacy(cmd) if cmd == "/prodigy-code-review"));
     }
 
     #[test]
@@ -713,7 +713,7 @@ mod disabled_tests {
 
         let step = WorkflowStep {
             name: None,
-            claude: Some("/mmm-code-review".to_string()),
+            claude: Some("/prodigy-code-review".to_string()),
             shell: Some("cargo test".to_string()),
             test: None,
             command: None,
@@ -773,7 +773,7 @@ mod disabled_tests {
 
         let step = WorkflowStep {
             name: None,
-            claude: Some("/mmm-code-review --strict".to_string()),
+            claude: Some("/prodigy-code-review --strict".to_string()),
             shell: None,
             test: None,
             command: None,
@@ -790,7 +790,7 @@ mod disabled_tests {
         };
 
         let display = executor.get_step_display_name(&step);
-        assert_eq!(display, "claude: /mmm-code-review --strict");
+        assert_eq!(display, "claude: /prodigy-code-review --strict");
     }
 
     #[test]
@@ -883,7 +883,7 @@ mod disabled_tests {
 
         let step = WorkflowStep {
             name: None,
-            claude: Some("/mmm-code-review".to_string()),
+            claude: Some("/prodigy-code-review".to_string()),
             shell: None,
             test: None,
             command: None,
@@ -899,7 +899,7 @@ mod disabled_tests {
             handler: None,
         };
 
-        let command_type = CommandType::Claude("/mmm-code-review".to_string());
+        let command_type = CommandType::Claude("/prodigy-code-review".to_string());
         let result = executor
             .handle_test_mode_execution(&step, &command_type)
             .unwrap();
@@ -908,7 +908,7 @@ mod disabled_tests {
         assert_eq!(result.exit_code, Some(0));
         assert!(result.stdout.contains("[TEST MODE]"));
 
-        std::env::remove_var("MMM_TEST_MODE");
+        std::env::remove_var("PRODIGY_TEST_MODE");
     }
 
     #[test]
@@ -917,18 +917,21 @@ mod disabled_tests {
 
         let config = TestConfiguration::builder()
             .test_mode(true)
-            .no_changes_commands(vec!["mmm-code-review".to_string(), "mmm-lint".to_string()])
+            .no_changes_commands(vec![
+                "prodigy-code-review".to_string(),
+                "prodigy-lint".to_string(),
+            ])
             .build();
 
         let (executor, _, _, _, _, _) = create_test_executor_with_config(config);
 
-        assert!(executor.is_test_mode_no_changes_command("/mmm-code-review"));
-        assert!(executor.is_test_mode_no_changes_command("mmm-lint"));
-        assert!(!executor.is_test_mode_no_changes_command("/mmm-implement-spec"));
+        assert!(executor.is_test_mode_no_changes_command("/prodigy-code-review"));
+        assert!(executor.is_test_mode_no_changes_command("prodigy-lint"));
+        assert!(!executor.is_test_mode_no_changes_command("/prodigy-implement-spec"));
 
         // Test with arguments
-        assert!(executor.is_test_mode_no_changes_command("/mmm-code-review --strict"));
-        assert!(executor.is_test_mode_no_changes_command("mmm-lint --fix"));
+        assert!(executor.is_test_mode_no_changes_command("/prodigy-code-review --strict"));
+        assert!(executor.is_test_mode_no_changes_command("prodigy-lint --fix"));
     }
 
     #[test]
@@ -940,18 +943,21 @@ mod disabled_tests {
         let (executor, _, _, _, _, _) = create_test_executor_with_config(config);
         assert!(!executor.should_stop_early_in_test_mode());
 
-        // Test with mmm-code-review and mmm-lint
+        // Test with prodigy-code-review and prodigy-lint
         let config = TestConfiguration::builder()
             .test_mode(true)
-            .no_changes_commands(vec!["mmm-code-review".to_string(), "mmm-lint".to_string()])
+            .no_changes_commands(vec![
+                "prodigy-code-review".to_string(),
+                "prodigy-lint".to_string(),
+            ])
             .build();
         let (executor, _, _, _, _, _) = create_test_executor_with_config(config);
         assert!(executor.should_stop_early_in_test_mode());
 
-        // Test with mmm-implement-spec only
+        // Test with prodigy-implement-spec only
         let config = TestConfiguration::builder()
             .test_mode(true)
-            .no_changes_commands(vec!["mmm-implement-spec".to_string()])
+            .no_changes_commands(vec!["prodigy-implement-spec".to_string()])
             .build();
         let (executor, _, _, _, _, _) = create_test_executor_with_config(config);
         assert!(!executor.should_stop_early_in_test_mode());
@@ -981,7 +987,7 @@ mod disabled_tests {
 
         let step = WorkflowStep {
             name: None,
-            claude: Some("/mmm-implement-spec".to_string()),
+            claude: Some("/prodigy-implement-spec".to_string()),
             shell: None,
             test: None,
             command: None,
@@ -1007,7 +1013,7 @@ mod disabled_tests {
     async fn test_execute_claude_command() {
         let (executor, claude_mock, _, _, _, _) = create_test_executor();
 
-        let command = "/mmm-code-review";
+        let command = "/prodigy-code-review";
         let temp_dir = TempDir::new().unwrap();
         let working_dir = temp_dir.path();
         let env = ExecutionEnvironment {
@@ -1018,7 +1024,7 @@ mod disabled_tests {
         };
 
         let mut env_vars = HashMap::new();
-        env_vars.insert("MMM_CONTEXT_AVAILABLE".to_string(), "true".to_string());
+        env_vars.insert("PRODIGY_CONTEXT_AVAILABLE".to_string(), "true".to_string());
 
         // Set up mock response
         claude_mock.add_response(ExecutionResult {
@@ -1041,7 +1047,7 @@ mod disabled_tests {
         let calls = claude_mock.get_calls();
         assert_eq!(calls.len(), 1);
         assert_eq!(calls[0].0, command);
-        assert!(calls[0].2.contains_key("MMM_CONTEXT_AVAILABLE"));
+        assert!(calls[0].2.contains_key("PRODIGY_CONTEXT_AVAILABLE"));
     }
 
     #[tokio::test]
@@ -1082,14 +1088,14 @@ mod disabled_tests {
         };
 
         // Set up test mode to avoid actual command execution
-        std::env::set_var("MMM_TEST_MODE", "true");
+        std::env::set_var("PRODIGY_TEST_MODE", "true");
 
         // Set up workflow
         let workflow = ExtendedWorkflowConfig {
             name: "Test Workflow".to_string(),
             steps: vec![WorkflowStep {
                 name: None,
-                claude: Some("/mmm-code-review".to_string()),
+                claude: Some("/prodigy-code-review".to_string()),
                 shell: None,
                 test: None,
                 command: None,
@@ -1128,7 +1134,7 @@ mod disabled_tests {
             .iter()
             .any(|(t, m)| t == "info" && m.contains("Test Workflow")));
 
-        std::env::remove_var("MMM_TEST_MODE");
+        std::env::remove_var("PRODIGY_TEST_MODE");
     }
 
     #[tokio::test]
@@ -1252,7 +1258,7 @@ mod disabled_tests {
             test: Some(TestCommand {
                 command: "false".to_string(),
                 on_failure: Some(crate::config::command::TestDebugConfig {
-                    claude: "/mmm-debug-test-failure".to_string(),
+                    claude: "/prodigy-debug-test-failure".to_string(),
                     max_attempts: 2,
                     fail_workflow: false,
                     commit_required: true,
@@ -1288,7 +1294,7 @@ mod disabled_tests {
         // Verify that the claude command was called for debugging
         let calls = claude_mock.get_calls();
         assert!(!calls.is_empty());
-        assert!(calls[0].0.contains("/mmm-debug-test-failure"));
+        assert!(calls[0].0.contains("/prodigy-debug-test-failure"));
     }
 
     #[tokio::test]
@@ -1321,7 +1327,7 @@ mod disabled_tests {
             test: Some(TestCommand {
                 command: "false".to_string(),
                 on_failure: Some(crate::config::command::TestDebugConfig {
-                    claude: "/mmm-debug-test-failure".to_string(),
+                    claude: "/prodigy-debug-test-failure".to_string(),
                     max_attempts: 1,
                     fail_workflow: true,
                     commit_required: true,

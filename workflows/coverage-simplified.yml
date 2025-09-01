@@ -1,6 +1,6 @@
 # Test coverage improvement workflow with automatic test debugging (simplified format)
 # Identifies coverage gaps, implements tests, and automatically fixes failing tests
-- claude: "/mmm-coverage"
+- claude: "/prodigy-coverage"
   id: coverage
   commit_required: true
   outputs:
@@ -9,13 +9,13 @@
   analysis:
     max_cache_age: 300
 
-- claude: "/mmm-implement-spec ${coverage.spec}"
+- claude: "/prodigy-implement-spec ${coverage.spec}"
   commit_required: true
 
 - shell: "just test"
   on_failure:
-    claude: "/mmm-debug-test-failure --spec ${coverage.spec} --output ${shell.output}"
+    claude: "/prodigy-debug-test-failure --spec ${coverage.spec} --output ${shell.output}"
     max_attempts: 3
     fail_workflow: false  # Continue workflow even if tests can't be fixed
 
-- claude: "/mmm-lint"  # Defaults to commit_required: false
+- claude: "/prodigy-lint"  # Defaults to commit_required: false

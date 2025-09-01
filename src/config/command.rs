@@ -85,7 +85,7 @@ impl CommandArg {
 /// for complex workflows with data flow between commands.
 #[derive(Debug, Clone, Serialize)]
 pub struct Command {
-    /// The command name (e.g., "mmm-code-review")
+    /// The command name (e.g., "prodigy-code-review")
     pub name: String,
 
     /// Positional arguments for the command
@@ -525,13 +525,13 @@ mod tests {
 
     #[test]
     fn test_command_creation() {
-        let cmd = Command::new("mmm-code-review")
+        let cmd = Command::new("prodigy-code-review")
             .with_arg("test")
             .with_option("focus", serde_json::json!("security"))
             .with_retries(3)
             .with_timeout(300);
 
-        assert_eq!(cmd.name, "mmm-code-review");
+        assert_eq!(cmd.name, "prodigy-code-review");
         assert_eq!(cmd.args.len(), 1);
         assert_eq!(cmd.args[0], CommandArg::Literal("test".to_string()));
         assert_eq!(
@@ -544,16 +544,16 @@ mod tests {
 
     #[test]
     fn test_command_from_string() {
-        let cmd1 = Command::from_string("mmm-code-review");
-        assert_eq!(cmd1.name, "mmm-code-review");
+        let cmd1 = Command::from_string("prodigy-code-review");
+        assert_eq!(cmd1.name, "prodigy-code-review");
         assert!(cmd1.args.is_empty());
 
-        let cmd2 = Command::from_string("/mmm-lint");
-        assert_eq!(cmd2.name, "mmm-lint");
+        let cmd2 = Command::from_string("/prodigy-lint");
+        assert_eq!(cmd2.name, "prodigy-lint");
 
         // Test parsing commands with arguments
-        let cmd3 = Command::from_string("mmm-implement-spec iteration-123");
-        assert_eq!(cmd3.name, "mmm-implement-spec");
+        let cmd3 = Command::from_string("prodigy-implement-spec iteration-123");
+        assert_eq!(cmd3.name, "prodigy-implement-spec");
         assert_eq!(cmd3.args.len(), 1);
         assert_eq!(
             cmd3.args[0],
@@ -561,8 +561,8 @@ mod tests {
         );
 
         // Test parsing commands with options
-        let cmd4 = Command::from_string("mmm-code-review --focus security");
-        assert_eq!(cmd4.name, "mmm-code-review");
+        let cmd4 = Command::from_string("prodigy-code-review --focus security");
+        assert_eq!(cmd4.name, "prodigy-code-review");
         assert_eq!(
             cmd4.options.get("focus"),
             Some(&serde_json::json!("security"))
@@ -571,28 +571,28 @@ mod tests {
 
     #[test]
     fn test_workflow_command_conversion() {
-        let simple = WorkflowCommand::Simple("mmm-code-review".to_string());
+        let simple = WorkflowCommand::Simple("prodigy-code-review".to_string());
         let cmd = simple.to_command();
-        assert_eq!(cmd.name, "mmm-code-review");
+        assert_eq!(cmd.name, "prodigy-code-review");
 
         let simple_obj = WorkflowCommand::SimpleObject(SimpleCommand {
-            name: "mmm-code-review".to_string(),
+            name: "prodigy-code-review".to_string(),
             commit_required: None,
             args: None,
             analysis: None,
         });
         let cmd = simple_obj.to_command();
-        assert_eq!(cmd.name, "mmm-code-review");
+        assert_eq!(cmd.name, "prodigy-code-review");
 
-        let structured = WorkflowCommand::Structured(Box::new(Command::new("mmm-lint")));
+        let structured = WorkflowCommand::Structured(Box::new(Command::new("prodigy-lint")));
         let cmd = structured.to_command();
-        assert_eq!(cmd.name, "mmm-lint");
+        assert_eq!(cmd.name, "prodigy-lint");
     }
 
     #[test]
     fn test_command_serialization() {
-        let cmd =
-            Command::new("mmm-code-review").with_option("focus", serde_json::json!("performance"));
+        let cmd = Command::new("prodigy-code-review")
+            .with_option("focus", serde_json::json!("performance"));
 
         let json = serde_json::to_string(&cmd).unwrap();
         let deserialized: Command = serde_json::from_str(&json).unwrap();
@@ -604,40 +604,40 @@ mod tests {
     #[test]
     fn test_commit_required_field() {
         // Test default value
-        let cmd = Command::new("mmm-implement-spec");
+        let cmd = Command::new("prodigy-implement-spec");
         assert!(!cmd.metadata.commit_required);
 
         // Test SimpleCommand with commit_required set to false
         let simple_obj = WorkflowCommand::SimpleObject(SimpleCommand {
-            name: "mmm-lint".to_string(),
+            name: "prodigy-lint".to_string(),
             commit_required: Some(false),
             args: None,
             analysis: None,
         });
         let cmd = simple_obj.to_command();
-        assert_eq!(cmd.name, "mmm-lint");
+        assert_eq!(cmd.name, "prodigy-lint");
         assert!(!cmd.metadata.commit_required);
 
         // Test SimpleCommand with commit_required set to true
         let simple_obj = WorkflowCommand::SimpleObject(SimpleCommand {
-            name: "mmm-fix".to_string(),
+            name: "prodigy-fix".to_string(),
             commit_required: Some(true),
             args: None,
             analysis: None,
         });
         let cmd = simple_obj.to_command();
-        assert_eq!(cmd.name, "mmm-fix");
+        assert_eq!(cmd.name, "prodigy-fix");
         assert!(cmd.metadata.commit_required);
 
         // Test SimpleCommand with commit_required not set (should default to false)
         let simple_obj = WorkflowCommand::SimpleObject(SimpleCommand {
-            name: "mmm-refactor".to_string(),
+            name: "prodigy-refactor".to_string(),
             commit_required: None,
             args: None,
             analysis: None,
         });
         let cmd = simple_obj.to_command();
-        assert_eq!(cmd.name, "mmm-refactor");
+        assert_eq!(cmd.name, "prodigy-refactor");
         assert!(!cmd.metadata.commit_required);
     }
 
@@ -645,7 +645,7 @@ mod tests {
     fn test_commit_required_serialization() {
         // Test serialization and deserialization of SimpleCommand with commit_required
         let simple_cmd = SimpleCommand {
-            name: "mmm-lint".to_string(),
+            name: "prodigy-lint".to_string(),
             commit_required: Some(false),
             args: None,
             analysis: None,
@@ -655,12 +655,12 @@ mod tests {
         assert!(json.contains("\"commit_required\":false"));
 
         let deserialized: SimpleCommand = serde_json::from_str(&json).unwrap();
-        assert_eq!(deserialized.name, "mmm-lint");
+        assert_eq!(deserialized.name, "prodigy-lint");
         assert_eq!(deserialized.commit_required, Some(false));
 
         // Test that commit_required is omitted when None
         let simple_cmd_none = SimpleCommand {
-            name: "mmm-test".to_string(),
+            name: "prodigy-test".to_string(),
             commit_required: None,
             args: None,
             analysis: None,
@@ -696,7 +696,7 @@ mod tests {
 
     #[test]
     fn test_command_with_analysis_config() {
-        let mut cmd = Command::new("mmm-code-review");
+        let mut cmd = Command::new("prodigy-code-review");
         cmd.metadata.analysis = Some(AnalysisConfig {
             force_refresh: false,
             max_cache_age: 300,
@@ -732,7 +732,7 @@ mod tests {
     fn test_workflow_step_command_parsing() {
         // Test parsing of new workflow step format
         let yaml = r#"
-claude: "/mmm-coverage"
+claude: "/prodigy-coverage"
 id: coverage
 commit_required: false
 outputs:
@@ -743,7 +743,7 @@ analysis:
 "#;
 
         let step: WorkflowStepCommand = serde_yaml::from_str(yaml).unwrap();
-        assert_eq!(step.claude, Some("/mmm-coverage".to_string()));
+        assert_eq!(step.claude, Some("/prodigy-coverage".to_string()));
         assert_eq!(step.id, Some("coverage".to_string()));
         assert!(!step.commit_required);
         assert!(step.outputs.is_some());
@@ -754,7 +754,7 @@ analysis:
     fn test_workflow_command_with_workflow_step() {
         // Test the full workflow command enum with new step format
         let yaml = r#"
-- claude: "/mmm-coverage"
+- claude: "/prodigy-coverage"
   id: coverage
   commit_required: false
 "#;
@@ -764,7 +764,7 @@ analysis:
 
         match &commands[0] {
             WorkflowCommand::WorkflowStep(step) => {
-                assert_eq!(step.claude, Some("/mmm-coverage".to_string()));
+                assert_eq!(step.claude, Some("/prodigy-coverage".to_string()));
                 assert_eq!(step.id, Some("coverage".to_string()));
                 assert!(!step.commit_required);
             }
@@ -775,13 +775,13 @@ analysis:
     #[test]
     fn test_untagged_enum_debug() {
         // Debug why untagged enum doesn't work
-        let yaml_simple = r#"mmm-code-review"#;
+        let yaml_simple = r#"prodigy-code-review"#;
         let cmd_simple: WorkflowCommand = serde_yaml::from_str(yaml_simple).unwrap();
         assert!(matches!(cmd_simple, WorkflowCommand::Simple(_)));
 
         // Now test our new format FIRST since it's before SimpleObject in the enum
         let yaml_new = r#"
-claude: "/mmm-coverage"
+claude: "/prodigy-coverage"
 id: coverage
 "#;
         match serde_yaml::from_str::<WorkflowCommand>(yaml_new) {
@@ -792,7 +792,7 @@ id: coverage
         }
 
         let yaml_simple_obj = r#"
-name: mmm-code-review
+name: prodigy-code-review
 commit_required: false
 "#;
         let cmd_simple_obj: WorkflowCommand = serde_yaml::from_str(yaml_simple_obj).unwrap();
@@ -813,7 +813,7 @@ commit_required: false
     fn parse_test_workflow_config() -> WorkflowConfig {
         let yaml = r#"
 commands:
-    - claude: "/mmm-coverage"
+    - claude: "/prodigy-coverage"
       id: coverage
       commit_required: false
       outputs:
@@ -822,9 +822,9 @@ commands:
       analysis:
         max_cache_age: 300
     
-    - claude: "/mmm-implement-spec ${coverage.spec}"
+    - claude: "/prodigy-implement-spec ${coverage.spec}"
     
-    - claude: "/mmm-lint"
+    - claude: "/prodigy-lint"
       commit_required: false
 "#;
 
@@ -865,7 +865,7 @@ commands:
     fn verify_coverage_command(command: &WorkflowCommand) {
         match command {
             WorkflowCommand::WorkflowStep(step) => {
-                assert_eq!(step.claude, Some("/mmm-coverage".to_string()));
+                assert_eq!(step.claude, Some("/prodigy-coverage".to_string()));
                 assert_eq!(step.id, Some("coverage".to_string()));
                 assert!(!step.commit_required);
                 assert!(step.outputs.is_some());
@@ -880,7 +880,7 @@ commands:
             WorkflowCommand::WorkflowStep(step) => {
                 assert_eq!(
                     step.claude,
-                    Some("/mmm-implement-spec ${coverage.spec}".to_string())
+                    Some("/prodigy-implement-spec ${coverage.spec}".to_string())
                 );
             }
             _ => panic!("Expected WorkflowStep variant for implement-spec command"),
@@ -890,7 +890,7 @@ commands:
     fn verify_lint_command(command: &WorkflowCommand) {
         match command {
             WorkflowCommand::WorkflowStep(step) => {
-                assert_eq!(step.claude, Some("/mmm-lint".to_string()));
+                assert_eq!(step.claude, Some("/prodigy-lint".to_string()));
                 assert!(!step.commit_required);
             }
             _ => panic!("Expected WorkflowStep variant for lint command"),

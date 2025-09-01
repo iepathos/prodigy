@@ -1,6 +1,6 @@
 /// Integration test to verify auto-cleanup after merge works correctly
 /// This test simulates the actual workflow where a worktree is merged and then cleaned up
-use mmm::subprocess::SubprocessManager;
+use prodigy::subprocess::SubprocessManager;
 
 #[test]
 fn test_cleanup_after_merge_documentation() {

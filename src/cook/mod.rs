@@ -429,8 +429,8 @@ mod cook_tests {
 
         // Create a simple test workflow
         let workflow_content = r#"commands:
-  - "mmm-code-review"
-  - name: "mmm-lint"
+  - "prodigy-code-review"
+  - name: "prodigy-lint"
     focus: "performance"
 "#;
         tokio::fs::write(&playbook_path, workflow_content)
@@ -544,14 +544,14 @@ map:
       # Run tests to verify the fix
       - shell: "just test"
         on_failure:
-          claude: "/mmm-debug-test-failure --output '${shell.output}'"
+          claude: "/prodigy-debug-test-failure --output '${shell.output}'"
           max_attempts: 2
           fail_workflow: false
       
       # Run linting
       - shell: "just fmt && just lint"
         on_failure:
-          claude: "/mmm-lint '${shell.output}'"
+          claude: "/prodigy-lint '${shell.output}'"
           max_attempts: 2
           fail_workflow: false
   
@@ -575,7 +575,7 @@ reduce:
     # Run full test suite after all fixes
     - shell: "just test"
       on_failure:
-        claude: "/mmm-debug-test-failure --output '${shell.output}'"
+        claude: "/prodigy-debug-test-failure --output '${shell.output}'"
         max_attempts: 3
         fail_workflow: true  # Fail if tests don't pass after merging
     
@@ -628,7 +628,7 @@ reduce:
         // Test case 1: Invalid YAML syntax
         let playbook_path = temp_dir.path().join("invalid.yml");
         let invalid_content = r#"commands:
-  - claude: "/mmm-coverage"
+  - claude: "/prodigy-coverage"
     id: coverage
       commit_required: false  # Wrong indentation
 "#;
@@ -645,7 +645,7 @@ reduce:
         // Test case 2: Wrong structure that triggers new syntax hint
         let playbook_path2 = temp_dir.path().join("new_syntax.yml");
         let new_syntax_content = r#"commands:
-  - claude: "/mmm-coverage"
+  - claude: "/prodigy-coverage"
     outputs:
       spec:
         file_pattern: "*.md"
@@ -669,7 +669,7 @@ reduce:
 
         // Create a minimal workflow
         let workflow_content = r#"commands:
-  - "mmm-lint"
+  - "prodigy-lint"
 "#;
         tokio::fs::write(&playbook_path, workflow_content)
             .await

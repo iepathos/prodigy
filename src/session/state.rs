@@ -26,7 +26,7 @@
 //! ## State Transitions
 //!
 //! ```rust
-//! use mmm::session::{SessionState, SessionSummary, WorkflowTiming};
+//! use prodigy::session::{SessionState, SessionSummary, WorkflowTiming};
 //! use std::time::Duration;
 //!
 //! let mut state = SessionState::Created;
@@ -54,7 +54,7 @@
 //! ## Progress Tracking
 //!
 //! ```rust
-//! use mmm::session::SessionProgress;
+//! use prodigy::session::SessionProgress;
 //! use std::time::Duration;
 //!
 //! let mut progress = SessionProgress::new(5); // 5 max iterations
@@ -88,7 +88,7 @@ use std::time::{Duration, Instant};
 /// # Examples
 ///
 /// ```rust
-/// use mmm::session::{SessionState, SessionSummary};
+/// use prodigy::session::{SessionState, SessionSummary};
 ///
 /// let state = SessionState::Running { iteration: 3 };
 /// assert!(state.is_active());
@@ -151,7 +151,7 @@ impl SessionState {
 /// # Examples
 ///
 /// ```rust
-/// use mmm::session::{SessionSummary, WorkflowTiming};
+/// use prodigy::session::{SessionSummary, WorkflowTiming};
 /// use std::time::Duration;
 ///
 /// let summary = SessionSummary {
@@ -194,12 +194,12 @@ pub struct SessionSummary {
 /// # Examples
 ///
 /// ```rust
-/// use mmm::session::IterationTiming;
+/// use prodigy::session::IterationTiming;
 /// use std::time::Duration;
 ///
 /// let mut timing = IterationTiming::new(1);
-/// timing.add_command_timing("mmm-code-review".to_string(), Duration::from_secs(30));
-/// timing.add_command_timing("mmm-lint".to_string(), Duration::from_secs(10));
+/// timing.add_command_timing("prodigy-code-review".to_string(), Duration::from_secs(30));
+/// timing.add_command_timing("prodigy-lint".to_string(), Duration::from_secs(10));
 /// timing.complete();
 ///
 /// assert!(timing.total_duration.is_some());

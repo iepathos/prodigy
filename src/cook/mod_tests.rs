@@ -155,9 +155,9 @@ mod core_tests {
 
         let yaml_content = r#"
 commands:
-  - mmm-code-review
-  - mmm-implement-spec
-  - mmm-lint
+  - prodigy-code-review
+  - prodigy-implement-spec
+  - prodigy-lint
 "#;
 
         tokio::fs::write(&playbook_path, yaml_content)
@@ -177,7 +177,7 @@ commands:
         let playbook_path = temp_dir.path().join("test.json");
 
         let json_content = r#"{
-            "commands": ["mmm-code-review", "mmm-implement-spec"]
+            "commands": ["prodigy-code-review", "prodigy-implement-spec"]
         }"#;
 
         tokio::fs::write(&playbook_path, json_content)
@@ -220,13 +220,13 @@ commands:
 
         // New format: direct array of commands
         let yaml_content = r#"
-- name: mmm-code-review
+- name: prodigy-code-review
   id: review
   commit_required: false
-- claude: /mmm-implement-spec ${review.spec}
+- claude: /prodigy-implement-spec ${review.spec}
   name: implement
   commit_required: true
-- name: mmm-lint
+- name: prodigy-lint
   commit_required: false
 "#;
 
@@ -239,8 +239,11 @@ commands:
 
         let workflow = result.unwrap();
         assert_eq!(workflow.commands.len(), 3);
-        assert_eq!(workflow.commands[0].to_command().name, "mmm-code-review");
-        assert_eq!(workflow.commands[2].to_command().name, "mmm-lint");
+        assert_eq!(
+            workflow.commands[0].to_command().name,
+            "prodigy-code-review"
+        );
+        assert_eq!(workflow.commands[2].to_command().name, "prodigy-lint");
     }
 
     #[tokio::test]
@@ -523,7 +526,7 @@ version = "0.1.0"
     async fn test_save_checkpoint() {
         let temp_dir = TempDir::new().unwrap();
         let project_path = temp_dir.path();
-        std::fs::create_dir_all(project_path.join(".mmm/state")).unwrap();
+        std::fs::create_dir_all(project_path.join(".prodigy/state")).unwrap();
 
         let state = create_session_state("test", None, 5, false);
 
@@ -531,7 +534,7 @@ version = "0.1.0"
         save_checkpoint(project_path, &state, Some("test-spec")).await;
 
         // Verify checkpoint file exists
-        let _checkpoint_path = project_path.join(".mmm/state/checkpoint.json");
+        let _checkpoint_path = project_path.join(".prodigy/state/checkpoint.json");
         // Note: actual implementation might not create this file
     }
 

@@ -45,7 +45,7 @@ Implement a Dead Letter Queue system for MapReduce jobs that captures items that
 ## Acceptance Criteria
 
 - [ ] Items moved to DLQ after max retries exceeded
-- [ ] DLQ persisted to `.mmm/mapreduce/dlq/` directory
+- [ ] DLQ persisted to `.prodigy/mapreduce/dlq/` directory
 - [ ] Failed items include complete error history
 - [ ] `mmm dlq list` command shows dead-lettered items
 - [ ] `mmm dlq inspect <item-id>` shows failure details
@@ -173,7 +173,7 @@ impl DeadLetterQueue {
 
 3. **Storage Layout**
 ```
-.mmm/mapreduce/dlq/
+.prodigy/mapreduce/dlq/
 ├── {job_id}/
 │   ├── items/
 │   │   ├── {item_id}.json          # Individual item details

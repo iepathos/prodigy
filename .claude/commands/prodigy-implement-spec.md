@@ -7,12 +7,12 @@ Arguments: $ARGUMENTS
 ## Usage
 
 ```
-/mmm-implement-spec <spec-identifier>
+/prodigy-implement-spec <spec-identifier>
 ```
 
 Examples: 
-- `/mmm-implement-spec 01` to implement the project structure specification
-- `/mmm-implement-spec iteration-1234567890-improvements` to implement a temporary improvement spec
+- `/prodigy-implement-spec 01` to implement the project structure specification
+- `/prodigy-implement-spec iteration-1234567890-improvements` to implement a temporary improvement spec
 
 ## What This Command Does
 
@@ -59,7 +59,7 @@ Examples:
 
 The command will:
 - First check if a spec identifier was provided ($ARGUMENTS)
-- If no identifier provided, fail with: "Error: Spec identifier is required. Usage: /mmm-implement-spec <spec-identifier>"
+- If no identifier provided, fail with: "Error: Spec identifier is required. Usage: /prodigy-implement-spec <spec-identifier>"
 - Read all .mmm context files in order (PROJECT.md, ARCHITECTURE.md, CONVENTIONS.md, ROADMAP.md, DECISIONS.md)
 - Build comprehensive understanding of project state and conventions
 - Locate specification file using $ARGUMENTS:
@@ -172,7 +172,7 @@ The command will:
 ## Example Workflow
 
 ```
-/mmm-implement-spec 67
+/prodigy-implement-spec 67
 ```
 
 This would:

@@ -30,7 +30,7 @@
 
   2. Contextual Learning System
 
-  Add a .mmm/learning/ directory that tracks:
+  Add a .prodigy/learning/ directory that tracks:
   - Success patterns: What types of changes
   consistently improve the codebase
   - Failure patterns: What approaches tend to fail or

@@ -14,14 +14,14 @@ mode: sequential  # Process items one at a time
 # Run tests after debt fixes
 - shell: "just test"
   on_failure:
-    claude: "/mmm-debug-test-failure --output ${shell.output}"
+    claude: "/prodigy-debug-test-failure --output ${shell.output}"
     max_attempts: 3
     fail_workflow: false  # Continue workflow even if tests can't be fixed
 
 # Run linting and formatting after implementation
 - shell: "just fmt-check && just lint"
   on_failure:
-    claude: "/mmm-lint ${shell.output}"
+    claude: "/prodigy-lint ${shell.output}"
     max_attempts: 3
     fail_workflow: false
 

@@ -188,7 +188,7 @@ impl ClaudeClient for MockClaudeClient {
         }
 
         let responses = self.responses.lock().unwrap();
-        if let Some(response) = responses.get("/mmm-code-review") {
+        if let Some(response) = responses.get("/prodigy-code-review") {
             match response {
                 Ok(msg) => Ok(!msg.contains("No issues")),
                 Err(e) => Err(anyhow::anyhow!(e.to_string())),
@@ -204,11 +204,11 @@ impl ClaudeClient for MockClaudeClient {
         }
 
         let responses = self.responses.lock().unwrap();
-        let key = format!("/mmm-implement-spec {spec_id}");
+        let key = format!("/prodigy-implement-spec {spec_id}");
 
         if let Some(response) = responses
             .get(&key)
-            .or_else(|| responses.get("/mmm-implement-spec"))
+            .or_else(|| responses.get("/prodigy-implement-spec"))
         {
             match response {
                 Ok(_) => Ok(true),
@@ -230,7 +230,7 @@ impl ClaudeClient for MockClaudeClient {
         drop(count);
 
         let responses = self.responses.lock().unwrap();
-        if let Some(response) = responses.get("/mmm-lint") {
+        if let Some(response) = responses.get("/prodigy-lint") {
             match response {
                 Ok(_) => Ok(true),
                 Err(e) => Err(anyhow::anyhow!(e.to_string())),
@@ -248,8 +248,8 @@ mod tests {
     #[tokio::test]
     async fn test_mock_claude_builder() {
         let mock = MockClaudeClientBuilder::new()
-            .with_success("/mmm-code-review", "No issues found")
-            .with_error("/mmm-implement-spec", "Spec not found")
+            .with_success("/prodigy-code-review", "No issues found")
+            .with_error("/prodigy-implement-spec", "Spec not found")
             .build();
 
         assert!(mock.check_availability().await.is_ok());
@@ -274,7 +274,7 @@ mod tests {
     #[tokio::test]
     async fn test_mock_claude_fail_after() {
         let mock = MockClaudeClientBuilder::new()
-            .with_success("/mmm-code-review", "Found issues")
+            .with_success("/prodigy-code-review", "Found issues")
             .fail_after(2)
             .build();
 
@@ -290,7 +290,7 @@ mod tests {
     #[tokio::test]
     async fn test_call_counting() {
         let mock = MockClaudeClientBuilder::new()
-            .with_success("/mmm-lint", "Success")
+            .with_success("/prodigy-lint", "Success")
             .build();
 
         assert_eq!(mock.get_call_count(), 0);

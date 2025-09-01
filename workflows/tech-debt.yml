@@ -4,13 +4,13 @@
     max_cache_age: 300
     save: true
 
-- claude: "/mmm-cleanup-tech-debt"
+- claude: "/prodigy-cleanup-tech-debt"
   id: cleanup
   outputs:
     spec:
       file_pattern: "*-tech-debt-cleanup.md"
 
-- claude: "/mmm-implement-spec ${cleanup.spec}"
+- claude: "/prodigy-implement-spec ${cleanup.spec}"
 
-- claude: "/mmm-lint"
+- claude: "/prodigy-lint"
   commit_required: false

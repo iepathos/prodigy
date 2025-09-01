@@ -91,7 +91,7 @@ mod tests {
         let state = WorktreeState {
             session_id: session_name.to_string(),
             worktree_name: session_name.to_string(),
-            branch: format!("mmm-{session_name}"),
+            branch: format!("prodigy-{session_name}"),
             created_at: Utc::now(),
             updated_at: Utc::now(),
             status: crate::worktree::WorktreeStatus::InProgress,

@@ -36,18 +36,18 @@ impl Fixtures {
     /// Create a successful Claude client fixture
     pub fn successful_claude() -> MockClaudeClientBuilder {
         MockClaudeClientBuilder::new()
-            .with_success("/mmm-code-review", "No issues found. Code looks good!")
+            .with_success("/prodigy-code-review", "No issues found. Code looks good!")
             .with_success(
-                "/mmm-implement-spec",
+                "/prodigy-implement-spec",
                 "Specification implemented successfully",
             )
-            .with_success("/mmm-lint", "Linting completed. No issues found.")
+            .with_success("/prodigy-lint", "Linting completed. No issues found.")
     }
 
     /// Create a Claude client that simulates rate limiting
     pub fn rate_limited_claude() -> MockClaudeClientBuilder {
         MockClaudeClientBuilder::new().with_error(
-            "/mmm-code-review",
+            "/prodigy-code-review",
             "Error: Rate limit exceeded. Please try again later.",
         )
     }

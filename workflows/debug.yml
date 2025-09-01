@@ -2,9 +2,9 @@
 # Runs tests and automatically attempts to fix failures before proceeding to linting
 - shell: "just test"
   on_failure:
-    claude: "/mmm-debug-test-failure --output ${shell.output}"
+    claude: "/prodigy-debug-test-failure --output ${shell.output}"
     max_attempts: 3
     fail_workflow: true  # Fail if tests can't be fixed after 3 attempts
     commit_required: true  # Create commits when fixing tests
 
-- claude: "/mmm-lint"  # Clean up code after tests pass
+- claude: "/prodigy-lint"  # Clean up code after tests pass

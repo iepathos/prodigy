@@ -133,7 +133,7 @@ Enable MMM to automatically detect, diagnose, and recover from analysis tool fai
    ```
    
    ## Working Directory
-   /Users/glen/memento-mori/mmm
+   /Users/glen/prodigy
    
    ## Recent Changes
    - Merged branch 'mmm-session-xyz'

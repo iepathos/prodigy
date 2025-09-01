@@ -61,7 +61,7 @@ async fn test_create_session_with_generated_name() -> anyhow::Result<()> {
 
     assert!(session.name.starts_with("session-"));
     assert!(session.path.exists());
-    assert_eq!(session.branch, format!("mmm-{}", session.name));
+    assert_eq!(session.branch, format!("prodigy-{}", session.name));
 
     // Verify worktree was created
     let worktrees_output = Command::new("git")

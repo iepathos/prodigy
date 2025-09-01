@@ -66,7 +66,7 @@ pub struct CookCommand {
     /// Enable metrics tracking
     ///
     /// Collect and track metrics for code quality, performance, complexity, and progress
-    /// throughout improvement iterations. Metrics are stored in .mmm/metrics/ for
+    /// throughout improvement iterations. Metrics are stored in .prodigy/metrics/ for
     /// historical analysis and trend tracking.
     #[arg(long)]
     pub metrics: bool,

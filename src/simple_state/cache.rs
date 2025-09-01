@@ -15,7 +15,7 @@ pub struct CacheManager {
 impl CacheManager {
     /// Create a new cache manager with default TTL of 1 hour
     pub fn new() -> Result<Self> {
-        let root = PathBuf::from(".mmm/cache");
+        let root = PathBuf::from(".prodigy/cache");
         fs::create_dir_all(&root).context("Failed to create cache directory")?;
         Ok(Self {
             root,

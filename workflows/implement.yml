@@ -11,18 +11,18 @@
 # - The spec ID extracted from filename when using --map
 # - The direct argument value when using --args
 
-- claude: "/mmm-implement-spec $ARG"
+- claude: "/prodigy-implement-spec $ARG"
   commit_required: true
 
 - shell: "just test"
   on_failure:
-    claude: "/mmm-debug-test-failure --spec $ARG --output ${shell.output}"
+    claude: "/prodigy-debug-test-failure --spec $ARG --output ${shell.output}"
     max_attempts: 3
     fail_workflow: false  # Continue workflow even if tests can't be fixed
 
 # Run linting and formatting after implementation
 - shell: "just fmt-check && just lint"
   on_failure:
-    claude: "/mmm-lint ${shell.output}"
+    claude: "/prodigy-lint ${shell.output}"
     max_attempts: 3
     fail_workflow: false

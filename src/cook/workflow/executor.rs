@@ -459,9 +459,9 @@ impl WorkflowExecutor {
             ));
         }
 
-        let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
+        let test_mode = std::env::var("PRODIGY_TEST_MODE").unwrap_or_default() == "true";
         let skip_validation =
-            std::env::var("MMM_NO_COMMIT_VALIDATION").unwrap_or_default() == "true";
+            std::env::var("PRODIGY_NO_COMMIT_VALIDATION").unwrap_or_default() == "true";
 
         if workflow.iterate {
             self.user_interaction
@@ -475,7 +475,7 @@ impl WorkflowExecutor {
         let mut workflow_context = WorkflowContext::default();
 
         // Add any command-line arguments or environment variables
-        if let Ok(arg) = std::env::var("MMM_ARG") {
+        if let Ok(arg) = std::env::var("PRODIGY_ARG") {
             workflow_context.variables.insert("ARG".to_string(), arg);
         }
 
@@ -486,7 +486,7 @@ impl WorkflowExecutor {
         );
 
         // Add worktree name if available
-        if let Ok(worktree) = std::env::var("MMM_WORKTREE") {
+        if let Ok(worktree) = std::env::var("PRODIGY_WORKTREE") {
             workflow_context
                 .variables
                 .insert("WORKTREE".to_string(), worktree);
@@ -702,16 +702,16 @@ impl WorkflowExecutor {
         let mut env_vars = HashMap::new();
 
         // Add MMM context variables
-        env_vars.insert("MMM_CONTEXT_AVAILABLE".to_string(), "true".to_string());
+        env_vars.insert("PRODIGY_CONTEXT_AVAILABLE".to_string(), "true".to_string());
         env_vars.insert(
-            "MMM_CONTEXT_DIR".to_string(),
+            "PRODIGY_CONTEXT_DIR".to_string(),
             env.working_dir
-                .join(".mmm/context")
+                .join(".prodigy/context")
                 .to_string_lossy()
                 .to_string(),
         );
 
-        env_vars.insert("MMM_AUTOMATION".to_string(), "true".to_string());
+        env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
 
         // Add step-specific environment variables with interpolation
         for (key, value) in &step.env {
@@ -720,7 +720,7 @@ impl WorkflowExecutor {
         }
 
         // Handle test mode
-        let test_mode = std::env::var("MMM_TEST_MODE").unwrap_or_default() == "true";
+        let test_mode = std::env::var("PRODIGY_TEST_MODE").unwrap_or_default() == "true";
         if test_mode {
             return self.handle_test_mode_execution(step, &command_type);
         }
@@ -1447,7 +1447,7 @@ impl WorkflowExecutor {
             // If this command requires commits but simulates no changes,
             // it should fail UNLESS commit validation is explicitly skipped
             let skip_validation =
-                std::env::var("MMM_NO_COMMIT_VALIDATION").unwrap_or_default() == "true";
+                std::env::var("PRODIGY_NO_COMMIT_VALIDATION").unwrap_or_default() == "true";
             if step.commit_required && !skip_validation {
                 return Err(anyhow::anyhow!(
                     "No changes were committed by {}",
@@ -1508,12 +1508,15 @@ impl WorkflowExecutor {
         eprintln!("\nThe command executed successfully but did not create any git commits.");
 
         // Check if this is a command that might legitimately not create commits
-        if matches!(command_name, "mmm-lint" | "mmm-code-review" | "mmm-analyze") {
+        if matches!(
+            command_name,
+            "prodigy-lint" | "prodigy-code-review" | "prodigy-analyze"
+        ) {
             eprintln!(
                 "This may be expected if there were no {} to fix.",
-                if command_name == "mmm-lint" {
+                if command_name == "prodigy-lint" {
                     "linting issues"
-                } else if command_name == "mmm-code-review" {
+                } else if command_name == "prodigy-code-review" {
                     "issues found"
                 } else {
                     "changes needed"
@@ -1532,7 +1535,7 @@ impl WorkflowExecutor {
         }
 
         eprintln!(
-            "\nAlternatively, run with MMM_NO_COMMIT_VALIDATION=true to skip all validation."
+            "\nAlternatively, run with PRODIGY_NO_COMMIT_VALIDATION=true to skip all validation."
         );
 
         Err(anyhow!("No commits created by {}", step_display))
@@ -1659,7 +1662,7 @@ impl WorkflowExecutor {
         self.test_config.as_ref().is_some_and(|c| {
             c.no_changes_commands
                 .iter()
-                .any(|cmd| cmd.trim() == "mmm-code-review" || cmd.trim() == "mmm-lint")
+                .any(|cmd| cmd.trim() == "prodigy-code-review" || cmd.trim() == "prodigy-lint")
         })
     }
 
@@ -1702,7 +1705,7 @@ impl WorkflowExecutor {
 
         // Execute the validation command as a shell command
         let mut env_vars = HashMap::new();
-        env_vars.insert("MMM_VALIDATION".to_string(), "true".to_string());
+        env_vars.insert("PRODIGY_VALIDATION".to_string(), "true".to_string());
 
         let result = self
             .execute_shell_command(&command, env, env_vars, validation_config.timeout)

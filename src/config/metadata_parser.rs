@@ -171,7 +171,7 @@ impl MetadataParser {
                 let spec = captures.get(2).unwrap().as_str();
 
                 // Skip environment variables and optional arguments
-                if spec.contains("$MMM_")
+                if spec.contains("$PRODIGY_")
                     || spec.contains("Environment variable")
                     || spec.contains("optional")
                 {
@@ -350,7 +350,7 @@ mod tests {
     #[test]
     fn test_parse_frontmatter() {
         let content = r#"---
-name: mmm-test-command
+name: prodigy-test-command
 description: "Test command for unit tests"
 arguments:
   - name: target
@@ -367,16 +367,16 @@ metadata:
   timeout: 300
 ---
 
-# /mmm-test-command
+# /prodigy-test-command
 
 This is the command documentation.
 "#;
 
-        let file = create_test_file("mmm-test-command", content);
+        let file = create_test_file("prodigy-test-command", content);
         let parser = MetadataParser::new();
         let definition = parser.parse_command_file(&file).unwrap();
 
-        assert_eq!(definition.name, "mmm-test-command");
+        assert_eq!(definition.name, "prodigy-test-command");
         assert_eq!(definition.description, "Test command for unit tests");
         assert_eq!(definition.required_args.len(), 1);
         assert_eq!(definition.required_args[0].name, "target");
@@ -388,14 +388,14 @@ This is the command documentation.
 
     #[test]
     fn test_parse_sections() {
-        let content = r#"# /mmm-code-review
+        let content = r#"# /prodigy-code-review
 
 Analyze code and generate improvement specs.
 
 ## Variables
 
 SCOPE: $ARGUMENTS (optional - specify scope)
-FOCUS: $MMM_FOCUS (optional - focus directive)
+FOCUS: $PRODIGY_FOCUS (optional - focus directive)
 
 ## Options
 
@@ -407,11 +407,11 @@ FOCUS: $MMM_FOCUS (optional - focus directive)
 Command implementation details...
 "#;
 
-        let file = create_test_file("mmm-code-review", content);
+        let file = create_test_file("prodigy-code-review", content);
         let parser = MetadataParser::new();
         let definition = parser.parse_command_file(&file).unwrap();
 
-        assert_eq!(definition.name, "mmm-code-review");
+        assert_eq!(definition.name, "prodigy-code-review");
         assert_eq!(
             definition.description,
             "Analyze code and generate improvement specs."
@@ -424,18 +424,18 @@ Command implementation details...
 
     #[test]
     fn test_minimal_definition() {
-        let content = r#"# /mmm-simple
+        let content = r#"# /prodigy-simple
 
 A simple command without metadata sections.
 
 Just some documentation here.
 "#;
 
-        let file = create_test_file("mmm-simple", content);
+        let file = create_test_file("prodigy-simple", content);
         let parser = MetadataParser::new();
         let definition = parser.parse_command_file(&file).unwrap();
 
-        assert_eq!(definition.name, "mmm-simple");
+        assert_eq!(definition.name, "prodigy-simple");
         assert_eq!(
             definition.description,
             "A simple command without metadata sections."
@@ -446,7 +446,7 @@ Just some documentation here.
 
     #[test]
     fn test_extract_description_multiline() {
-        let content = r#"# /mmm-test
+        let content = r#"# /prodigy-test
 
 This is a longer description
 that spans multiple lines
