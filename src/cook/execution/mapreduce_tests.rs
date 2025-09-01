@@ -215,6 +215,7 @@ fn test_map_phase_configuration() {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: true,
+            validate: None,
         }],
         filter: Some("severity == 'high'".to_string()),
         sort_by: Some("priority".to_string()),
@@ -248,6 +249,7 @@ fn test_reduce_phase_configuration() {
                 on_success: None,
                 on_exit_code: HashMap::new(),
                 commit_required: false,
+                validate: None,
             },
             WorkflowStep {
                 name: None,
@@ -264,6 +266,7 @@ fn test_reduce_phase_configuration() {
                 on_success: None,
                 on_exit_code: HashMap::new(),
                 commit_required: true,
+                validate: None,
             },
         ],
     };

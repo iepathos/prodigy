@@ -616,6 +616,7 @@ mod disabled_tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: true,
+            validate: None,
             handler: None,
         };
 
@@ -641,6 +642,7 @@ mod disabled_tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            validate: None,
             handler: None,
         };
 
@@ -671,6 +673,7 @@ mod disabled_tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            validate: None,
             handler: None,
         };
 
@@ -696,6 +699,7 @@ mod disabled_tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: true,
+            validate: None,
             handler: None,
         };
 
@@ -721,6 +725,7 @@ mod disabled_tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            validate: None,
             handler: None,
         };
 
@@ -750,6 +755,7 @@ mod disabled_tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            validate: None,
             handler: None,
         };
 
@@ -779,6 +785,7 @@ mod disabled_tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: true,
+            validate: None,
             handler: None,
         };
 
@@ -804,6 +811,7 @@ mod disabled_tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            validate: None,
             handler: None,
         };
 
@@ -834,6 +842,7 @@ mod disabled_tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            validate: None,
             handler: None,
         };
 
@@ -859,6 +868,7 @@ mod disabled_tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            validate: None,
             handler: None,
         };
 
@@ -885,6 +895,7 @@ mod disabled_tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            validate: None,
             handler: None,
         };
 
@@ -982,6 +993,7 @@ mod disabled_tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: true,
+            validate: None,
             handler: None,
         };
 
@@ -1089,6 +1101,7 @@ mod disabled_tests {
                 on_success: None,
                 on_exit_code: HashMap::new(),
                 commit_required: false,
+                validate: None,
                 handler: None,
             }],
             max_iterations: 1,
@@ -1146,6 +1159,7 @@ mod disabled_tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            validate: None,
             handler: None,
         };
 
@@ -1193,6 +1207,7 @@ mod disabled_tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            validate: None,
             handler: None,
         };
 
@@ -1241,6 +1256,7 @@ mod disabled_tests {
                     max_attempts: 2,
                     fail_workflow: false,
                     commit_required: true,
+                    validate: None,
                 }),
             }),
             command: None,
@@ -1252,6 +1268,7 @@ mod disabled_tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            validate: None,
             handler: None,
         };
 
@@ -1308,6 +1325,7 @@ mod disabled_tests {
                     max_attempts: 1,
                     fail_workflow: true,
                     commit_required: true,
+                    validate: None,
                 }),
             }),
             command: None,
@@ -1319,6 +1337,7 @@ mod disabled_tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            validate: None,
             handler: None,
         };
 

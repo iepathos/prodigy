@@ -9,6 +9,7 @@ use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::{SessionManager, SessionUpdate};
 use crate::cook::workflow::on_failure::OnFailureConfig;
+use crate::cook::workflow::validation::{ValidationConfig, ValidationResult};
 use crate::session::{format_duration, TimingTracker};
 use crate::testing::config::TestConfiguration;
 use anyhow::{anyhow, Context, Result};
@@ -108,6 +109,7 @@ pub struct WorkflowContext {
     pub variables: HashMap<String, String>,
     pub captured_outputs: HashMap<String, String>,
     pub iteration_vars: HashMap<String, String>,
+    pub validation_results: HashMap<String, ValidationResult>,
 }
 
 impl WorkflowContext {
@@ -129,6 +131,29 @@ impl WorkflowContext {
         for (key, value) in &self.iteration_vars {
             result = result.replace(&format!("${{{key}}}"), value);
             result = result.replace(&format!("${key}"), value);
+        }
+
+        // Add validation context variables
+        for (key, validation_result) in &self.validation_results {
+            // Add completion percentage
+            result = result.replace(
+                &format!("${{{key}.completion}}"),
+                &validation_result.completion_percentage.to_string(),
+            );
+            result = result.replace(
+                &format!("${key}.completion"),
+                &validation_result.completion_percentage.to_string(),
+            );
+
+            // Add gaps summary
+            let gaps_summary = validation_result.gaps_summary();
+            result = result.replace(&format!("${{{key}.gaps}}"), &gaps_summary);
+            result = result.replace(&format!("${key}.gaps"), &gaps_summary);
+
+            // Add missing items as comma-separated list
+            let missing = validation_result.missing.join(", ");
+            result = result.replace(&format!("${{{key}.missing}}"), &missing);
+            result = result.replace(&format!("${key}.missing"), &missing);
         }
 
         result
@@ -203,6 +228,10 @@ pub struct WorkflowStep {
     /// Whether this command is expected to create commits
     #[serde(default = "default_commit_required")]
     pub commit_required: bool,
+
+    /// Validation configuration for checking implementation completeness
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub validate: Option<ValidationConfig>,
 }
 
 fn default_commit_required() -> bool {
@@ -761,6 +790,92 @@ impl WorkflowExecutor {
             // Also store as generic CAPTURED_OUTPUT for backward compatibility
             ctx.captured_outputs
                 .insert("CAPTURED_OUTPUT".to_string(), result.stdout.clone());
+        }
+
+        // Handle validation if configured and command succeeded
+        if result.success {
+            if let Some(validation_config) = &step.validate {
+                // Execute validation
+                let validation_result =
+                    self.execute_validation(validation_config, env, ctx).await?;
+
+                // Store validation result in context
+                ctx.validation_results
+                    .insert("validation".to_string(), validation_result.clone());
+
+                // Check if validation passed
+                if !validation_config.is_complete(&validation_result) {
+                    self.user_interaction.display_warning(&format!(
+                        "Validation incomplete: {:.1}% complete",
+                        validation_result.completion_percentage
+                    ));
+
+                    // Handle incomplete validation
+                    if let Some(on_incomplete) = &validation_config.on_incomplete {
+                        let mut attempts = 0;
+                        let mut current_result = validation_result;
+
+                        while attempts < on_incomplete.max_attempts
+                            && !validation_config.is_complete(&current_result)
+                        {
+                            attempts += 1;
+
+                            self.user_interaction.display_info(&format!(
+                                "Attempting to complete implementation (attempt {}/{})",
+                                attempts, on_incomplete.max_attempts
+                            ));
+
+                            // Execute the completion handler
+                            if let Some(handler_step) =
+                                self.create_validation_handler(on_incomplete, ctx)
+                            {
+                                let handler_result =
+                                    Box::pin(self.execute_step(&handler_step, env, ctx)).await?;
+
+                                if !handler_result.success {
+                                    self.user_interaction
+                                        .display_error("Completion handler failed");
+                                    break;
+                                }
+
+                                // Re-run validation
+                                current_result =
+                                    self.execute_validation(validation_config, env, ctx).await?;
+
+                                // Update context
+                                ctx.validation_results
+                                    .insert("validation".to_string(), current_result.clone());
+                            } else {
+                                // Interactive mode or no handler
+                                if on_incomplete.strategy == crate::cook::workflow::validation::CompletionStrategy::Interactive {
+                                    let prompt = on_incomplete.prompt.as_deref()
+                                        .unwrap_or("Implementation incomplete. Continue?");
+
+                                    let should_continue = self.user_interaction
+                                        .prompt_confirmation(prompt)
+                                        .await?;
+
+                                    if !should_continue {
+                                        break;
+                                    }
+                                }
+                                break;
+                            }
+                        }
+
+                        // Check if we should fail the workflow
+                        if !validation_config.is_complete(&current_result)
+                            && on_incomplete.fail_workflow
+                        {
+                            return Err(anyhow!(
+                                "Validation failed after {} attempts. Completion: {:.1}%",
+                                attempts,
+                                current_result.completion_percentage
+                            ));
+                        }
+                    }
+                }
+            }
         }
 
         // Handle conditional execution
@@ -1568,6 +1683,94 @@ impl WorkflowExecutor {
                 .any(|cmd| cmd.trim() == command_name);
         }
         false
+    }
+
+    /// Execute validation command and parse results
+    async fn execute_validation(
+        &self,
+        validation_config: &crate::cook::workflow::validation::ValidationConfig,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<crate::cook::workflow::validation::ValidationResult> {
+        use crate::cook::workflow::validation::ValidationResult;
+
+        // Interpolate the validation command
+        let command = ctx.interpolate(&validation_config.command);
+
+        self.user_interaction
+            .display_progress(&format!("Running validation: {}", command));
+
+        // Execute the validation command as a shell command
+        let mut env_vars = HashMap::new();
+        env_vars.insert("MMM_VALIDATION".to_string(), "true".to_string());
+
+        let result = self
+            .execute_shell_command(&command, env, env_vars, validation_config.timeout)
+            .await?;
+
+        if !result.success {
+            // Validation command failed
+            return Ok(ValidationResult::failed(format!(
+                "Validation command failed with exit code: {}",
+                result.exit_code.unwrap_or(-1)
+            )));
+        }
+
+        // Try to parse the output as JSON
+        match ValidationResult::from_json(&result.stdout) {
+            Ok(mut validation) => {
+                // Store raw output
+                validation.raw_output = Some(result.stdout);
+                Ok(validation)
+            }
+            Err(_) => {
+                // If not JSON, treat as simple pass/fail based on exit code
+                if result.success {
+                    Ok(ValidationResult::complete())
+                } else {
+                    Ok(ValidationResult::failed(
+                        "Validation failed (non-JSON output)".to_string(),
+                    ))
+                }
+            }
+        }
+    }
+
+    /// Create a workflow step for validation handler
+    fn create_validation_handler(
+        &self,
+        on_incomplete: &crate::cook::workflow::validation::OnIncompleteConfig,
+        _ctx: &WorkflowContext,
+    ) -> Option<WorkflowStep> {
+        use crate::cook::workflow::validation::CompletionStrategy;
+
+        // Only create handler for non-interactive strategies
+        if on_incomplete.strategy == CompletionStrategy::Interactive {
+            return None;
+        }
+
+        // Create a step based on the handler configuration
+        if on_incomplete.claude.is_some() || on_incomplete.shell.is_some() {
+            Some(WorkflowStep {
+                name: None,
+                claude: on_incomplete.claude.clone(),
+                shell: on_incomplete.shell.clone(),
+                test: None,
+                command: None,
+                handler: None,
+                timeout: None,
+                capture_output: CaptureOutput::Disabled,
+                on_failure: None,
+                on_success: None,
+                on_exit_code: Default::default(),
+                commit_required: on_incomplete.strategy == CompletionStrategy::RetryFull,
+                working_dir: None,
+                env: Default::default(),
+                validate: None,
+            })
+        } else {
+            None
+        }
     }
 }
 

@@ -333,6 +333,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                             on_exit_code: std::collections::HashMap::new(),
                             // Commands don't require commits by default unless explicitly set
                             commit_required: step.commit_required,
+                            validate: None,
                         }
                     }
                     _ => {
@@ -397,6 +398,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                             on_success: None,
                             on_exit_code: std::collections::HashMap::new(),
                             commit_required,
+                            validate: None,
                         }
                     }
                 }
@@ -2113,6 +2115,7 @@ mod tests {
                     crate::config::command::SimpleCommand {
                         name: "mmm-implement-spec".to_string(),
                         commit_required: Some(false),
+                        validate: None,
                         args: Some(vec!["$ARG".to_string()]),
                     },
                 ),
@@ -2121,6 +2124,7 @@ mod tests {
                     crate::config::command::SimpleCommand {
                         name: "mmm-lint".to_string(),
                         commit_required: Some(false),
+                        validate: None,
                         args: None,
                     },
                 ),
@@ -2129,6 +2133,7 @@ mod tests {
                     crate::config::command::SimpleCommand {
                         name: "mmm-check".to_string(),
                         commit_required: Some(false),
+                        validate: None,
                         args: Some(vec!["--strict".to_string()]),
                     },
                 ),

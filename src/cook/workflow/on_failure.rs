@@ -90,6 +90,7 @@ impl OnFailureConfig {
                         commit_required: false,
                         working_dir: None,
                         env: Default::default(),
+                        validate: None,
                     })
                 } else {
                     None
