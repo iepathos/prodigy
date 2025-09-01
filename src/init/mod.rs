@@ -122,7 +122,24 @@ fn select_templates(cmd: &InitCommand) -> Result<Vec<templates::CommandTemplate>
     }
 }
 
-/// Check if we're running in a test environment
+/// Check if a command file exists
+fn command_exists(commands_dir: &Path, template_name: &str) -> bool {
+    commands_dir.join(format!("{}.md", template_name)).exists()
+}
+
+/// Find all existing command templates
+fn find_existing_commands<'a>(
+    commands_dir: &Path,
+    templates: &'a [templates::CommandTemplate],
+) -> Vec<&'a str> {
+    templates
+        .iter()
+        .filter(|t| command_exists(commands_dir, t.name))
+        .map(|t| t.name)
+        .collect()
+}
+
+/// Check if running in test environment
 fn is_test_environment() -> bool {
     std::env::var("CARGO_TARGET_TMPDIR").is_ok()
         || std::env::var("RUST_TEST_THREADS").is_ok()
@@ -135,19 +152,7 @@ fn should_run_interactively() -> bool {
     std::io::stdin().is_terminal() && !is_test_environment()
 }
 
-/// Find command templates that already exist in the commands directory
-fn find_existing_commands<'a>(
-    commands_dir: &Path,
-    templates: &'a [templates::CommandTemplate],
-) -> Vec<&'a str> {
-    templates
-        .iter()
-        .filter(|t| commands_dir.join(format!("{}.md", t.name)).exists())
-        .map(|t| t.name)
-        .collect()
-}
-
-/// Display existing commands warning to the user
+/// Display warning about existing commands
 fn display_existing_commands_warning(existing: &[&str]) {
     println!("\n⚠️  The following commands already exist:");
     for name in existing {
@@ -159,15 +164,27 @@ fn display_existing_commands_warning(existing: &[&str]) {
     println!("Example: prodigy init --commands prodigy-lint,prodigy-product-enhance");
 }
 
-/// Get user confirmation for continuing with existing commands
+/// Get user confirmation in interactive mode
 fn get_user_confirmation() -> Result<bool> {
-    print!("\nDo you want to continue and skip existing commands? (y/N): ");
-    use std::io::{self, Write};
-    io::stdout().flush()?;
+    use std::io::{self, IsTerminal, Write};
 
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
-    Ok(input.trim().to_lowercase() == "y")
+    if std::io::stdin().is_terminal() && !is_test_environment() {
+        print!("\nDo you want to continue and skip existing commands? (y/N): ");
+        io::stdout().flush()?;
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+
+        if input.trim().to_lowercase() != "y" {
+            println!("❌ Installation cancelled.");
+            return Ok(false);
+        }
+    } else {
+        // Non-interactive mode - skip existing by default
+        println!("ℹ️  Skipping existing commands (non-interactive mode).");
+    }
+
+    Ok(true)
 }
 
 /// Handle checking for existing commands and get user confirmation
@@ -181,21 +198,12 @@ fn handle_existing_commands(
 
     let existing = find_existing_commands(commands_dir, templates);
 
-    if !existing.is_empty() {
-        display_existing_commands_warning(&existing);
-
-        if should_run_interactively() {
-            if !get_user_confirmation()? {
-                println!("❌ Installation cancelled.");
-                return Ok(false);
-            }
-        } else {
-            // Non-interactive mode - skip existing by default
-            println!("ℹ️  Skipping existing commands (non-interactive mode).");
-        }
+    if existing.is_empty() {
+        return Ok(true);
     }
-    
-    Ok(true)
+
+    display_existing_commands_warning(&existing);
+    get_user_confirmation()
 }
 
 /// Install all selected templates
@@ -332,7 +340,6 @@ pub async fn run(cmd: InitCommand) -> Result<()> {
 mod tests {
     use super::*;
     use crate::init::command::InitCommand;
-    use std::fs;
     use tempfile::TempDir;
 
     #[tokio::test]
@@ -373,93 +380,6 @@ mod tests {
         ];
         let filtered = templates::get_templates_by_names(&names);
         assert_eq!(filtered.len(), 2);
-    }
-
-    #[test]
-    fn test_is_test_environment() {
-        // In test environment, this should return true
-        assert!(is_test_environment());
-    }
-
-    #[test]
-    fn test_should_run_interactively() {
-        // In test environment, this should always return false
-        assert!(!should_run_interactively());
-    }
-
-    #[test]
-    fn test_find_existing_commands() {
-        let temp_dir = TempDir::new().unwrap();
-        let commands_dir = temp_dir.path().join("commands");
-        std::fs::create_dir_all(&commands_dir).unwrap();
-
-        // Create some existing command files
-        std::fs::write(commands_dir.join("prodigy-lint.md"), "content").unwrap();
-        std::fs::write(commands_dir.join("prodigy-code-review.md"), "content").unwrap();
-
-        let templates = templates::get_all_templates();
-        let existing = find_existing_commands(&commands_dir, &templates);
-
-        // Should find the two existing commands
-        assert!(existing.contains(&"prodigy-lint"));
-        assert!(existing.contains(&"prodigy-code-review"));
-        assert_eq!(existing.len(), 2);
-    }
-
-    #[test]
-    fn test_find_existing_commands_none_exist() {
-        let temp_dir = TempDir::new().unwrap();
-        let commands_dir = temp_dir.path().join("commands");
-        std::fs::create_dir_all(&commands_dir).unwrap();
-
-        let templates = templates::get_all_templates();
-        let existing = find_existing_commands(&commands_dir, &templates);
-
-        // Should find no existing commands
-        assert_eq!(existing.len(), 0);
-    }
-
-    #[test]
-    fn test_find_existing_commands_empty_templates() {
-        let temp_dir = TempDir::new().unwrap();
-        let commands_dir = temp_dir.path().join("commands");
-
-        let empty_templates: Vec<templates::CommandTemplate> = vec![];
-        let existing = find_existing_commands(&commands_dir, &empty_templates);
-
-        // Should return empty for empty templates
-        assert_eq!(existing.len(), 0);
-    }
-
-    #[test]
-    fn test_handle_existing_commands_empty() {
-        let temp_dir = TempDir::new().unwrap();
-        let commands_dir = temp_dir.path().join("commands");
-        std::fs::create_dir_all(&commands_dir).unwrap();
-
-        // Test with empty templates
-        let empty_templates: Vec<templates::CommandTemplate> = vec![];
-        let result = handle_existing_commands(&commands_dir, &empty_templates);
-        assert!(result.is_ok());
-        assert!(result.unwrap());
-    }
-
-    #[test]
-    fn test_handle_existing_commands_with_existing() {
-        let temp_dir = TempDir::new().unwrap();
-        let commands_dir = temp_dir.path().join("commands");
-        std::fs::create_dir_all(&commands_dir).unwrap();
-
-        // Create some existing commands
-        std::fs::write(commands_dir.join("prodigy-lint.md"), "content").unwrap();
-        std::fs::write(commands_dir.join("prodigy-code-review.md"), "content").unwrap();
-
-        let templates = templates::get_all_templates();
-
-        // Should handle conflicts gracefully in non-interactive mode
-        let result = handle_existing_commands(&commands_dir, &templates);
-        assert!(result.is_ok());
-        assert!(result.unwrap());
     }
 
     #[tokio::test]
@@ -632,88 +552,73 @@ mod tests {
     }
 
     #[test]
-    fn test_is_test_environment() {
-        // In test context, should return true
-        assert!(is_test_environment());
-    }
-
-    #[test]
-    fn test_find_existing_commands_none_exist() {
+    fn test_command_exists() {
         let temp_dir = TempDir::new().unwrap();
         let commands_dir = temp_dir.path().join("commands");
         fs::create_dir_all(&commands_dir).unwrap();
 
+        // Create an existing command file
+        fs::write(commands_dir.join("existing.md"), "content").unwrap();
+
+        assert!(command_exists(&commands_dir, "existing"));
+        assert!(!command_exists(&commands_dir, "non-existing"));
+    }
+
+    #[test]
+    fn test_find_existing_commands() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir_all(&commands_dir).unwrap();
+
+        // Create some existing command files
+        fs::write(commands_dir.join("command1.md"), "content").unwrap();
+        fs::write(commands_dir.join("command3.md"), "content").unwrap();
+
         let templates = vec![
             templates::CommandTemplate {
-                name: "test-command-1",
+                name: "command1",
                 content: "content1",
-                description: "Test command 1",
+                description: "Command 1",
             },
             templates::CommandTemplate {
-                name: "test-command-2",
+                name: "command2",
                 content: "content2",
-                description: "Test command 2",
+                description: "Command 2",
+            },
+            templates::CommandTemplate {
+                name: "command3",
+                content: "content3",
+                description: "Command 3",
             },
         ];
+
+        let existing = find_existing_commands(&commands_dir, &templates);
+        assert_eq!(existing.len(), 2);
+        assert!(existing.contains(&"command1"));
+        assert!(existing.contains(&"command3"));
+        assert!(!existing.contains(&"command2"));
+    }
+
+    #[test]
+    fn test_find_existing_commands_empty() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir_all(&commands_dir).unwrap();
+
+        let templates = vec![templates::CommandTemplate {
+            name: "command1",
+            content: "content1",
+            description: "Command 1",
+        }];
 
         let existing = find_existing_commands(&commands_dir, &templates);
         assert_eq!(existing.len(), 0);
     }
 
     #[test]
-    fn test_find_existing_commands_some_exist() {
-        let temp_dir = TempDir::new().unwrap();
-        let commands_dir = temp_dir.path().join("commands");
-        fs::create_dir_all(&commands_dir).unwrap();
-
-        // Create one existing command file
-        fs::write(commands_dir.join("test-command-1.md"), "existing").unwrap();
-
-        let templates = vec![
-            templates::CommandTemplate {
-                name: "test-command-1",
-                content: "content1",
-                description: "Test command 1",
-            },
-            templates::CommandTemplate {
-                name: "test-command-2",
-                content: "content2",
-                description: "Test command 2",
-            },
-        ];
-
-        let existing = find_existing_commands(&commands_dir, &templates);
-        assert_eq!(existing.len(), 1);
-        assert_eq!(existing[0], "test-command-1");
-    }
-
-    #[test]
-    fn test_find_existing_commands_all_exist() {
-        let temp_dir = TempDir::new().unwrap();
-        let commands_dir = temp_dir.path().join("commands");
-        fs::create_dir_all(&commands_dir).unwrap();
-
-        // Create both existing command files
-        fs::write(commands_dir.join("test-command-1.md"), "existing1").unwrap();
-        fs::write(commands_dir.join("test-command-2.md"), "existing2").unwrap();
-
-        let templates = vec![
-            templates::CommandTemplate {
-                name: "test-command-1",
-                content: "content1",
-                description: "Test command 1",
-            },
-            templates::CommandTemplate {
-                name: "test-command-2",
-                content: "content2",
-                description: "Test command 2",
-            },
-        ];
-
-        let existing = find_existing_commands(&commands_dir, &templates);
-        assert_eq!(existing.len(), 2);
-        assert!(existing.contains(&"test-command-1"));
-        assert!(existing.contains(&"test-command-2"));
+    fn test_is_test_environment() {
+        // This test runs in a test environment, so it should return true
+        assert!(is_test_environment());
     }
 
     #[test]
@@ -729,6 +634,36 @@ mod tests {
         }];
 
         // Should return Ok(true) when no TTY is available
+        let result = handle_existing_commands(&commands_dir, &templates).unwrap();
+        assert!(result);
+    }
+
+    #[test]
+    fn test_handle_existing_commands_empty_templates() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir_all(&commands_dir).unwrap();
+
+        let templates = vec![];
+
+        // Should return Ok(true) for empty templates
+        let result = handle_existing_commands(&commands_dir, &templates).unwrap();
+        assert!(result);
+    }
+
+    #[test]
+    fn test_handle_existing_commands_no_conflicts() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir_all(&commands_dir).unwrap();
+
+        let templates = vec![templates::CommandTemplate {
+            name: "new-command",
+            content: "content",
+            description: "New command",
+        }];
+
+        // Should return Ok(true) when no conflicts
         let result = handle_existing_commands(&commands_dir, &templates).unwrap();
         assert!(result);
     }
@@ -752,7 +687,6 @@ mod tests {
         let result = handle_existing_commands(&commands_dir, &templates);
         assert!(result.is_ok());
     }
-
 
     #[tokio::test]
     async fn test_validate_project_structure_not_git_repo() {
@@ -869,112 +803,4 @@ mod tests {
         let result = run(args).await;
         assert!(result.is_ok()); // This should succeed but skip existing commands
     }
-
-    #[test]
-<<<<<<< HEAD
-    fn test_should_run_interactively() {
-        // In test context, should_run_interactively should return false
-        // because is_test_environment() returns true
-        assert!(!should_run_interactively());
-    }
-
-    #[test]
-    fn test_get_user_confirmation_in_test() {
-        // In test environment, should behave based on implementation
-        // The current implementation will still prompt even in test mode
-        // but we can't actually test the interactive part
-        // This test just ensures the function compiles
-        assert!(true);
-    }
 }
-=======
-    fn test_find_existing_commands_empty_templates() {
-        let temp_dir = TempDir::new().unwrap();
-        let commands_dir = temp_dir.path();
-        let templates = vec![];
-
-        let existing = find_existing_commands(commands_dir, &templates);
-        assert_eq!(existing.len(), 0);
-    }
-
-    #[test]
-    fn test_find_existing_commands_no_conflicts() {
-        let temp_dir = TempDir::new().unwrap();
-        let commands_dir = temp_dir.path();
-
-        let templates = vec![
-            templates::CommandTemplate {
-                name: "command1",
-                content: "content1",
-                description: "desc1",
-            },
-            templates::CommandTemplate {
-                name: "command2",
-                content: "content2",
-                description: "desc2",
-            },
-        ];
-
-        let existing = find_existing_commands(commands_dir, &templates);
-        assert_eq!(existing.len(), 0);
-    }
-
-    #[test]
-    fn test_find_existing_commands_with_conflicts() {
-        let temp_dir = TempDir::new().unwrap();
-        let commands_dir = temp_dir.path();
-        fs::create_dir_all(commands_dir).unwrap();
-
-        // Create existing command files
-        fs::write(commands_dir.join("command1.md"), "existing").unwrap();
-        fs::write(commands_dir.join("command3.md"), "existing").unwrap();
-
-        let templates = vec![
-            templates::CommandTemplate {
-                name: "command1",
-                content: "new",
-                description: "desc1",
-            },
-            templates::CommandTemplate {
-                name: "command2",
-                content: "new",
-                description: "desc2",
-            },
-            templates::CommandTemplate {
-                name: "command3",
-                content: "new",
-                description: "desc3",
-            },
-        ];
-
-        let existing = find_existing_commands(commands_dir, &templates);
-        assert_eq!(existing.len(), 2);
-        assert!(existing.contains(&"command1"));
-        assert!(existing.contains(&"command3"));
-        assert!(!existing.contains(&"command2"));
-    }
-
-    #[test]
-    fn test_is_test_environment() {
-        // This test runs in test environment, so should return true
-        assert!(is_test_environment());
-    }
-
-    #[test]
-    fn test_should_use_interactive_mode() {
-        // In test environment, should always return false
-        assert!(!should_use_interactive_mode());
-    }
-
-    #[test]
-    fn test_display_existing_commands_warning() {
-        // This is a pure display function, just ensure it doesn't panic
-        let existing = vec!["command1", "command2", "command3"];
-        display_existing_commands_warning(&existing);
-
-        // Empty list should also work
-        let empty: Vec<&str> = vec![];
-        display_existing_commands_warning(&empty);
-    }
-}
->>>>>>> prodigy-agent-cook-1756766583-item_9
