@@ -1582,11 +1582,11 @@ impl MapReduceExecutor {
         self.user_interaction
             .display_success("Reduce phase completed successfully");
 
-        // Handle final merge to main if auto-merge is enabled
-        if self.should_auto_merge(env) {
-            self.merge_parent_to_main(env).await?;
-        } else if env.worktree_name.is_some() {
-            // Provide instructions for manual PR creation
+        // Don't merge here - let the orchestrator's cleanup handle it
+        // This prevents double-merge attempts
+        if env.worktree_name.is_some() && !self.should_auto_merge(env) {
+            // Only show manual instructions if NOT auto-merging
+            // (If auto-merging, orchestrator cleanup will handle it)
             self.user_interaction.display_info(&format!(
                 "\nParent worktree ready for review: {}\n",
                 env.worktree_name.as_ref().unwrap()
@@ -1605,85 +1605,6 @@ impl MapReduceExecutor {
             || std::env::var("MMM_AUTO_CONFIRM").unwrap_or_default() == "true"
     }
 
-    /// Merge parent worktree to main/master branch
-    async fn merge_parent_to_main(&self, env: &ExecutionEnvironment) -> Result<()> {
-        let parent_branch = env
-            .worktree_name
-            .as_ref()
-            .ok_or_else(|| anyhow!("No parent worktree branch available for merge"))?;
-
-        self.user_interaction
-            .display_progress("Merging parent worktree to main/master branch...");
-
-        // Determine the default branch (main or master)
-        let default_branch = self.get_default_branch(&env.project_dir).await?;
-
-        // Switch to main/master branch
-        let output = Command::new("git")
-            .args(["checkout", &default_branch])
-            .current_dir(&env.project_dir)
-            .output()
-            .await?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow!(
-                "Failed to switch to {}: {}",
-                default_branch,
-                stderr
-            ));
-        }
-
-        // Use /mmm-merge-worktree for the final merge
-        let merge_command = format!("/mmm-merge-worktree {}", parent_branch);
-
-        let mut env_vars = HashMap::new();
-        env_vars.insert("MMM_AUTOMATION".to_string(), "true".to_string());
-
-        let result = self
-            .claude_executor
-            .execute_claude_command(&merge_command, &env.project_dir, env_vars)
-            .await?;
-
-        if !result.success {
-            return Err(anyhow!(
-                "Failed to merge to {}: {}",
-                default_branch,
-                result.stderr
-            ));
-        }
-
-        // Clean up parent worktree after successful merge
-        if let Some(worktree_name) = &env.worktree_name {
-            self.worktree_manager
-                .cleanup_session(worktree_name, true)
-                .await?;
-        }
-
-        self.user_interaction.display_success(&format!(
-            "Successfully merged all changes to {}",
-            default_branch
-        ));
-
-        Ok(())
-    }
-
-    /// Get the default branch name (main or master)
-    async fn get_default_branch(&self, repo_path: &Path) -> Result<String> {
-        // Try 'main' first
-        let output = Command::new("git")
-            .args(["rev-parse", "--verify", "refs/heads/main"])
-            .current_dir(repo_path)
-            .output()
-            .await?;
-
-        if output.status.success() {
-            Ok("main".to_string())
-        } else {
-            // Fall back to 'master'
-            Ok("master".to_string())
-        }
-    }
 
     /// Execute a single workflow step with agent context
     async fn execute_single_step(
