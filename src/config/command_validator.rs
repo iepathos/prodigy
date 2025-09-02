@@ -362,34 +362,42 @@ impl CommandRegistry {
         }
     }
 
+    /// Apply metadata defaults to a command from definition
+    fn apply_metadata_defaults(metadata: &mut CommandMetadata, defaults: &CommandMetadata) {
+        if metadata.retries.is_none() {
+            metadata.retries = defaults.retries;
+        }
+        if metadata.timeout.is_none() {
+            metadata.timeout = defaults.timeout;
+        }
+        if metadata.continue_on_error.is_none() {
+            metadata.continue_on_error = defaults.continue_on_error;
+        }
+        // Apply commit_required default from registry
+        // Always apply the registry default - if the test needs different behavior,
+        // it should use a different approach (like environment variables)
+        metadata.commit_required = defaults.commit_required;
+    }
+
+    /// Apply option defaults to a command from definition
+    fn apply_option_defaults(
+        options: &mut HashMap<String, serde_json::Value>,
+        option_definitions: &[OptionDef],
+    ) {
+        for opt_def in option_definitions {
+            if !options.contains_key(&opt_def.name) {
+                if let Some(default_value) = &opt_def.default {
+                    options.insert(opt_def.name.clone(), default_value.clone());
+                }
+            }
+        }
+    }
+
     /// Apply defaults from command definition to a command
     pub fn apply_defaults(&self, command: &mut Command) {
         if let Some(definition) = self.commands.get(&command.name) {
-            // Apply default metadata values if not set
-            if command.metadata.retries.is_none() {
-                command.metadata.retries = definition.defaults.retries;
-            }
-            if command.metadata.timeout.is_none() {
-                command.metadata.timeout = definition.defaults.timeout;
-            }
-            if command.metadata.continue_on_error.is_none() {
-                command.metadata.continue_on_error = definition.defaults.continue_on_error;
-            }
-            // Apply commit_required default from registry
-            // Always apply the registry default - if the test needs different behavior,
-            // it should use a different approach (like environment variables)
-            command.metadata.commit_required = definition.defaults.commit_required;
-
-            // Apply default option values if not set
-            for opt_def in &definition.options {
-                if !command.options.contains_key(&opt_def.name) {
-                    if let Some(default_value) = &opt_def.default {
-                        command
-                            .options
-                            .insert(opt_def.name.clone(), default_value.clone());
-                    }
-                }
-            }
+            Self::apply_metadata_defaults(&mut command.metadata, &definition.defaults);
+            Self::apply_option_defaults(&mut command.options, &definition.options);
         }
     }
 
