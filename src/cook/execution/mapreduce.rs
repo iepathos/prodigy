@@ -847,6 +847,70 @@ impl MapReduceExecutor {
     }
 
     /// Execute commands for a single agent
+    /// Extract variables from item data for context
+    fn extract_item_variables(item: &Value) -> HashMap<String, String> {
+        let mut variables = HashMap::new();
+        if let Value::Object(obj) = item {
+            for (key, value) in obj {
+                let str_value = match value {
+                    Value::String(s) => s.clone(),
+                    _ => value.to_string(),
+                };
+                variables.insert(key.clone(), str_value);
+            }
+        }
+        variables
+    }
+
+    /// Create standard variables for agent context
+    fn create_standard_variables(
+        worktree_name: &str,
+        item_id: &str,
+        session_id: &str,
+    ) -> HashMap<String, String> {
+        let mut variables = HashMap::new();
+        variables.insert("worktree".to_string(), worktree_name.to_string());
+        variables.insert("item_id".to_string(), item_id.to_string());
+        variables.insert(
+            "session_id".to_string(),
+            format!("{}-{}", session_id, item_id),
+        );
+        variables
+    }
+
+    /// Initialize agent context with all necessary variables
+    fn initialize_agent_context(
+        item_id: &str,
+        item: &Value,
+        worktree_path: PathBuf,
+        worktree_name: String,
+        env: &ExecutionEnvironment,
+    ) -> AgentContext {
+        let agent_env = ExecutionEnvironment {
+            working_dir: worktree_path.clone(),
+            project_dir: env.project_dir.clone(),
+            worktree_name: Some(worktree_name.clone()),
+            session_id: format!("{}-{}", env.session_id, item_id),
+        };
+
+        let mut context = AgentContext::new(
+            item_id.to_string(),
+            worktree_path,
+            worktree_name.clone(),
+            agent_env,
+        );
+
+        // Add item variables
+        let item_vars = Self::extract_item_variables(item);
+        context.variables.extend(item_vars);
+
+        // Add standard variables
+        let std_vars = Self::create_standard_variables(&worktree_name, item_id, &env.session_id);
+        context.variables.extend(std_vars);
+
+        context
+    }
+
     async fn execute_agent_commands(
         &self,
         item_id: &str,
@@ -866,52 +930,73 @@ impl MapReduceExecutor {
             .context("Failed to create agent worktree")?;
         let worktree_name = worktree_session.name.clone();
         let worktree_path = worktree_session.path.clone();
-        let worktree_session_id = worktree_name.clone(); // Use worktree name as session ID
+        let worktree_session_id = worktree_name.clone();
 
         // Create branch name for this agent
         let branch_name = format!("prodigy-agent-{}-{}", env.session_id, item_id);
 
-        // Create agent-specific environment
-        let agent_env = ExecutionEnvironment {
-            working_dir: worktree_path.clone(),
-            project_dir: env.project_dir.clone(),
-            worktree_name: Some(worktree_name.clone()),
-            session_id: format!("{}-{}", env.session_id, item_id),
-        };
-
-        // Create agent context
-        let mut context = AgentContext::new(
-            item_id.to_string(),
+        // Initialize agent context with all variables
+        let mut context = Self::initialize_agent_context(
+            item_id,
+            item,
             worktree_path.clone(),
             worktree_name.clone(),
-            agent_env,
-        );
-
-        // Add item data to context variables
-        if let Value::Object(obj) = item {
-            for (key, value) in obj {
-                if let Value::String(s) = value {
-                    context.variables.insert(key.clone(), s.clone());
-                } else {
-                    context.variables.insert(key.clone(), value.to_string());
-                }
-            }
-        }
-
-        // Add standard variables
-        context
-            .variables
-            .insert("worktree".to_string(), worktree_name.clone());
-        context
-            .variables
-            .insert("item_id".to_string(), item_id.to_string());
-        context.variables.insert(
-            "session_id".to_string(),
-            format!("{}-{}", env.session_id, item_id),
+            env,
         );
 
         // Execute template steps with real command execution
-        let mut all_outputs = Vec::new();
+        let execution_result = self
+            .execute_all_steps(
+                template_steps,
+                &mut context,
+                item_id,
+                agent_index,
+                progress.clone(),
+            )
+            .await;
+
+        let (total_output, execution_error) = execution_result;
+
+        // Finalize and create result
+        self.finalize_agent_result(
+            item_id,
+            &worktree_path,
+            &worktree_name,
+            &branch_name,
+            worktree_session_id,
+            env,
+            template_steps,
+            execution_error,
+            total_output,
+            start_time,
+        )
+        .await
+    }
+
+    /// Classify the operation type of a step for progress tracking
+    fn classify_step_operation(step: &WorkflowStep) -> AgentOperation {
+        match () {
+            _ if step.claude.is_some() => AgentOperation::Claude(step.claude.clone().unwrap()),
+            _ if step.shell.is_some() => AgentOperation::Shell(step.shell.clone().unwrap()),
+            _ if step.test.is_some() => {
+                AgentOperation::Test(step.test.as_ref().unwrap().command.clone())
+            }
+            _ if step.handler.is_some() => {
+                AgentOperation::Handler(step.handler.as_ref().unwrap().name.clone())
+            }
+            _ => AgentOperation::Setup(step.name.clone().unwrap_or_else(|| "step".to_string())),
+        }
+    }
+
+    /// Execute all steps for an agent
+    async fn execute_all_steps(
+        &self,
+        template_steps: &[WorkflowStep],
+        context: &mut AgentContext,
+        item_id: &str,
+        agent_index: usize,
+        progress: Arc<ProgressTracker>,
+    ) -> (String, Option<String>) {
         let mut total_output = String::new();
         let mut execution_error: Option<String> = None;
 
@@ -923,193 +1008,195 @@ impl MapReduceExecutor {
                 step.name
             );
 
-            // Update agent operation based on step type
-            let operation = if let Some(claude_cmd) = &step.claude {
-                AgentOperation::Claude(claude_cmd.clone())
-            } else if let Some(shell_cmd) = &step.shell {
-                AgentOperation::Shell(shell_cmd.clone())
-            } else if let Some(test_cmd) = &step.test {
-                AgentOperation::Test(test_cmd.command.clone())
-            } else if let Some(handler) = &step.handler {
-                AgentOperation::Handler(handler.name.clone())
-            } else {
-                AgentOperation::Setup(step.name.clone().unwrap_or_else(|| "step".to_string()))
-            };
-
+            // Update agent operation
+            let operation = Self::classify_step_operation(step);
             progress
                 .update_agent_operation(agent_index, operation)
                 .await;
 
-            // Execute the step
-            let step_result = match self.execute_single_step(step, &mut context).await {
-                Ok(result) => result,
-                Err(e) => {
-                    let error_msg = format!("Step {} failed: {}", step_index + 1, e);
-                    error!("Agent {} error: {}", item_id, error_msg);
+            // Execute the step and handle result
+            let step_result = self
+                .execute_step_with_handlers(step, context, item_id, step_index)
+                .await;
 
-                    // Handle on_failure if specified
-                    if let Some(on_failure) = &step.on_failure {
-                        info!("Executing on_failure handler for agent {}", item_id);
-                        match self
-                            .handle_on_failure(on_failure, step, &mut context, error_msg.clone())
-                            .await
-                        {
-                            Ok(handled) => {
-                                if !handled {
-                                    // on_failure handler says we should fail
-                                    execution_error = Some(format!(
-                                        "Step failed and on_failure.fail_workflow is true: {}",
-                                        error_msg
-                                    ));
-                                    break;
-                                }
-                                // Otherwise, continue to next step
-                            }
-                            Err(handler_err) => {
-                                error!(
-                                    "on_failure handler failed for agent {}: {}",
-                                    item_id, handler_err
-                                );
-                                // Handler itself failed - check if we should fail workflow
-                                if on_failure.should_fail_workflow() {
-                                    execution_error =
-                                        Some(format!("on_failure handler failed: {}", handler_err));
-                                    break;
-                                }
-                            }
+            match step_result {
+                Ok((result, should_continue)) => {
+                    // Update context and accumulate output
+                    self.update_context_from_step(context, &result, step_index);
+                    total_output.push_str(&self.format_step_output(&result, step, step_index));
+
+                    // Handle success case
+                    if result.success {
+                        if let Some(on_success) = &step.on_success {
+                            self.execute_success_handler(on_success, context, item_id, step_index)
+                                .await;
                         }
-                    } else {
-                        execution_error = Some(error_msg);
+                    }
+
+                    if !should_continue {
+                        execution_error = Some(format!(
+                            "Step {} failed and workflow should stop",
+                            step_index + 1
+                        ));
                         break;
                     }
-
-                    // Create a failed result for this step
-                    StepResult {
-                        success: false,
-                        exit_code: Some(1),
-                        stdout: String::new(),
-                        stderr: e.to_string(),
-                    }
                 }
-            };
-
-            // Update context with step output
-            if !step_result.stdout.is_empty() {
-                context.update_with_output(Some(step_result.stdout.clone()));
-                context.variables.insert(
-                    format!("step{}.output", step_index + 1),
-                    step_result.stdout.clone(),
-                );
-            }
-
-            // Accumulate outputs
-            all_outputs.push(step_result.stdout.clone());
-            total_output.push_str(&format!(
-                "=== Step {} ({}) ===\n{}\n",
-                step_index + 1,
-                step.name.as_deref().unwrap_or("unnamed"),
-                step_result.stdout
-            ));
-
-            // Check for step failure
-            if !step_result.success {
-                // In MapReduce, we generally continue on failure
-                // unless the step has an on_failure handler that says otherwise
-                if step.on_failure.is_none() {
-                    execution_error = Some(format!(
-                        "Step {} failed with exit code {:?}",
-                        step_index + 1,
-                        step_result.exit_code
-                    ));
+                Err(error) => {
+                    execution_error = Some(error.to_string());
                     break;
-                }
-            } else {
-                // Step succeeded - check if there's an on_success handler
-                if let Some(on_success) = &step.on_success {
-                    debug!(
-                        "Executing on_success handler for agent {} step {}",
-                        item_id,
-                        step_index + 1
-                    );
-
-                    // Store the successful output in context for the handler to use
-                    context
-                        .captured_outputs
-                        .insert("shell.output".to_string(), step_result.stdout.clone());
-                    context
-                        .variables
-                        .insert("shell.output".to_string(), step_result.stdout.clone());
-
-                    // Execute the on_success handler
-                    match self.execute_single_step(on_success, &mut context).await {
-                        Ok(success_result) => {
-                            if !success_result.success {
-                                warn!(
-                                    "on_success handler failed for agent {} step {}: {}",
-                                    item_id,
-                                    step_index + 1,
-                                    success_result.stderr
-                                );
-                                // Note: We don't fail the agent when on_success handler fails
-                            }
-                        }
-                        Err(e) => {
-                            warn!(
-                                "Failed to execute on_success handler for agent {} step {}: {}",
-                                item_id,
-                                step_index + 1,
-                                e
-                            );
-                        }
-                    }
                 }
             }
         }
 
-        // Get commits from worktree
-        let commits = self.get_worktree_commits(&worktree_path).await?;
+        (total_output, execution_error)
+    }
 
-        // Get modified files
-        let files_modified = self.get_modified_files(&worktree_path).await?;
+    /// Execute a single step with error handlers
+    async fn execute_step_with_handlers(
+        &self,
+        step: &WorkflowStep,
+        context: &mut AgentContext,
+        item_id: &str,
+        step_index: usize,
+    ) -> Result<(StepResult, bool)> {
+        match self.execute_single_step(step, context).await {
+            Ok(result) => Ok((result, true)),
+            Err(e) => {
+                let error_msg = format!("Step {} failed: {}", step_index + 1, e);
+                error!("Agent {} error: {}", item_id, error_msg);
 
-        // Determine final status
-        let status = if let Some(error) = execution_error.clone() {
-            AgentStatus::Failed(error)
-        } else {
-            AgentStatus::Success
-        };
-
-        // If successful and we have a parent worktree, merge immediately
-        let merge_successful = if execution_error.is_none() && env.worktree_name.is_some() {
-            // Create and checkout branch for this agent
-            self.create_agent_branch(&worktree_path, &branch_name)
-                .await?;
-
-            // Merge to parent worktree
-            match self.merge_agent_to_parent(&branch_name, env).await {
-                Ok(()) => {
-                    info!("Successfully merged agent {} to parent worktree", item_id);
-                    // Clean up agent worktree after successful merge
-                    self.worktree_manager
-                        .cleanup_session(&worktree_name, true)
+                if let Some(on_failure) = &step.on_failure {
+                    info!("Executing on_failure handler for agent {}", item_id);
+                    let handled = self
+                        .handle_on_failure(on_failure, step, context, error_msg.clone())
                         .await?;
-                    true
-                }
-                Err(e) => {
-                    warn!("Failed to merge agent {} to parent: {}", item_id, e);
-                    // Keep worktree for debugging on merge failure
-                    false
+
+                    let failed_result = StepResult {
+                        success: false,
+                        exit_code: Some(1),
+                        stdout: String::new(),
+                        stderr: e.to_string(),
+                    };
+
+                    Ok((failed_result, handled))
+                } else {
+                    Err(anyhow!(error_msg))
                 }
             }
-        } else {
-            // No parent worktree or agent failed - clean up
-            if !template_steps.is_empty() {
-                self.worktree_manager
-                    .cleanup_session(&worktree_name, true)
-                    .await?;
+        }
+    }
+
+    /// Update context from step result
+    fn update_context_from_step(
+        &self,
+        context: &mut AgentContext,
+        result: &StepResult,
+        step_index: usize,
+    ) {
+        if !result.stdout.is_empty() {
+            context.update_with_output(Some(result.stdout.clone()));
+            context.variables.insert(
+                format!("step{}.output", step_index + 1),
+                result.stdout.clone(),
+            );
+        }
+    }
+
+    /// Format step output for display
+    fn format_step_output(
+        &self,
+        result: &StepResult,
+        step: &WorkflowStep,
+        step_index: usize,
+    ) -> String {
+        format!(
+            "=== Step {} ({}) ===\n{}\n",
+            step_index + 1,
+            step.name.as_deref().unwrap_or("unnamed"),
+            result.stdout
+        )
+    }
+
+    /// Execute success handler for a step
+    async fn execute_success_handler(
+        &self,
+        on_success: &WorkflowStep,
+        context: &mut AgentContext,
+        item_id: &str,
+        step_index: usize,
+    ) {
+        debug!(
+            "Executing on_success handler for agent {} step {}",
+            item_id,
+            step_index + 1
+        );
+
+        // Store output for handler
+        if let Some(output) = context.shell_output.clone() {
+            context
+                .captured_outputs
+                .insert("shell.output".to_string(), output.clone());
+            context.variables.insert("shell.output".to_string(), output);
+        }
+
+        match self.execute_single_step(on_success, context).await {
+            Ok(result) if !result.success => {
+                warn!(
+                    "on_success handler failed for agent {} step {}: {}",
+                    item_id,
+                    step_index + 1,
+                    result.stderr
+                );
             }
-            false
-        };
+            Err(e) => {
+                warn!(
+                    "Failed to execute on_success handler for agent {} step {}: {}",
+                    item_id,
+                    step_index + 1,
+                    e
+                );
+            }
+            _ => {}
+        }
+    }
+
+    /// Finalize agent result and handle merging/cleanup
+    #[allow(clippy::too_many_arguments)]
+    async fn finalize_agent_result(
+        &self,
+        item_id: &str,
+        worktree_path: &Path,
+        worktree_name: &str,
+        branch_name: &str,
+        worktree_session_id: String,
+        env: &ExecutionEnvironment,
+        template_steps: &[WorkflowStep],
+        execution_error: Option<String>,
+        total_output: String,
+        start_time: Instant,
+    ) -> Result<AgentResult> {
+        // Get commits and modified files
+        let commits = self.get_worktree_commits(worktree_path).await?;
+        let files_modified = self.get_modified_files(worktree_path).await?;
+
+        // Determine status
+        let status = execution_error
+            .clone()
+            .map(AgentStatus::Failed)
+            .unwrap_or(AgentStatus::Success);
+
+        // Handle merge and cleanup
+        let merge_result = self
+            .handle_merge_and_cleanup(
+                execution_error.is_none(),
+                env,
+                worktree_path,
+                worktree_name,
+                branch_name,
+                template_steps,
+                item_id,
+            )
+            .await?;
 
         Ok(AgentResult {
             item_id: item_id.to_string(),
@@ -1118,19 +1205,60 @@ impl MapReduceExecutor {
             commits,
             duration: start_time.elapsed(),
             error: execution_error,
-            worktree_path: if merge_successful {
+            worktree_path: if merge_result {
                 None
             } else {
-                Some(worktree_path)
+                Some(worktree_path.to_path_buf())
             },
-            branch_name: Some(branch_name),
-            worktree_session_id: if merge_successful {
+            branch_name: Some(branch_name.to_string()),
+            worktree_session_id: if merge_result {
                 None
             } else {
                 Some(worktree_session_id)
             },
             files_modified,
         })
+    }
+
+    /// Handle merging to parent and cleanup
+    #[allow(clippy::too_many_arguments)]
+    async fn handle_merge_and_cleanup(
+        &self,
+        is_successful: bool,
+        env: &ExecutionEnvironment,
+        worktree_path: &Path,
+        worktree_name: &str,
+        branch_name: &str,
+        template_steps: &[WorkflowStep],
+        item_id: &str,
+    ) -> Result<bool> {
+        if is_successful && env.worktree_name.is_some() {
+            // Create and checkout branch
+            self.create_agent_branch(worktree_path, branch_name).await?;
+
+            // Try to merge
+            match self.merge_agent_to_parent(branch_name, env).await {
+                Ok(()) => {
+                    info!("Successfully merged agent {} to parent worktree", item_id);
+                    self.worktree_manager
+                        .cleanup_session(worktree_name, true)
+                        .await?;
+                    Ok(true)
+                }
+                Err(e) => {
+                    warn!("Failed to merge agent {} to parent: {}", item_id, e);
+                    Ok(false)
+                }
+            }
+        } else {
+            // Cleanup if no parent or failed
+            if !template_steps.is_empty() {
+                self.worktree_manager
+                    .cleanup_session(worktree_name, true)
+                    .await?;
+            }
+            Ok(false)
+        }
     }
 
     /// Interpolate variables in a workflow step
@@ -1670,66 +1798,78 @@ impl MapReduceExecutor {
 
     /// Determine command type from a workflow step
     fn determine_command_type(&self, step: &WorkflowStep) -> Result<CommandType> {
-        // Count how many command fields are specified
-        let mut specified_count = 0;
-        if step.claude.is_some() {
-            specified_count += 1;
-        }
-        if step.shell.is_some() {
-            specified_count += 1;
-        }
-        if step.test.is_some() {
-            specified_count += 1;
-        }
-        if step.handler.is_some() {
-            specified_count += 1;
-        }
-        if step.name.is_some() || step.command.is_some() {
-            specified_count += 1;
-        }
+        // Collect all specified command types
+        let commands = Self::collect_command_types(step);
 
-        // Ensure only one command type is specified
-        if specified_count > 1 {
-            return Err(anyhow!(
-                "Multiple command types specified. Use only one of: claude, shell, test, handler, or name/command"
-            ));
-        }
+        // Validate exactly one command is specified
+        Self::validate_command_count(&commands)?;
 
-        if specified_count == 0 {
-            return Err(anyhow!(
-                "No command specified. Use one of: claude, shell, test, handler, or name/command"
-            ));
-        }
+        // Extract and return the single command type
+        commands
+            .into_iter()
+            .next()
+            .ok_or_else(|| anyhow!("No valid command found in step"))
+    }
 
-        // Return the appropriate command type
+    /// Collect all command types from a workflow step
+    pub(crate) fn collect_command_types(step: &WorkflowStep) -> Vec<CommandType> {
+        let mut commands = Vec::new();
+
         if let Some(handler_step) = &step.handler {
-            // Convert serde_json::Value to AttributeValue
-            let mut attributes = HashMap::new();
-            for (key, value) in &handler_step.attributes {
-                attributes.insert(key.clone(), Self::json_to_attribute_value(value.clone()));
-            }
-            Ok(CommandType::Handler {
+            let attributes = handler_step
+                .attributes
+                .iter()
+                .map(|(k, v)| (k.clone(), Self::json_to_attribute_value(v.clone())))
+                .collect();
+            commands.push(CommandType::Handler {
                 handler_name: handler_step.name.clone(),
                 attributes,
-            })
-        } else if let Some(claude_cmd) = &step.claude {
-            Ok(CommandType::Claude(claude_cmd.clone()))
-        } else if let Some(shell_cmd) = &step.shell {
-            Ok(CommandType::Shell(shell_cmd.clone()))
-        } else if let Some(test_cmd) = &step.test {
-            Ok(CommandType::Test(test_cmd.clone()))
-        } else if let Some(name) = &step.name {
-            // Legacy support - prepend / if not present
-            let command = if name.starts_with('/') {
-                name.clone()
-            } else {
-                format!("/{name}")
-            };
-            Ok(CommandType::Legacy(command))
-        } else if let Some(command) = &step.command {
-            Ok(CommandType::Legacy(command.clone()))
+            });
+        }
+
+        if let Some(claude_cmd) = &step.claude {
+            commands.push(CommandType::Claude(claude_cmd.clone()));
+        }
+
+        if let Some(shell_cmd) = &step.shell {
+            commands.push(CommandType::Shell(shell_cmd.clone()));
+        }
+
+        if let Some(test_cmd) = &step.test {
+            commands.push(CommandType::Test(test_cmd.clone()));
+        }
+
+        if let Some(name) = &step.name {
+            let command = Self::format_legacy_command(name);
+            commands.push(CommandType::Legacy(command));
+        }
+
+        if let Some(command) = &step.command {
+            commands.push(CommandType::Legacy(command.clone()));
+        }
+
+        commands
+    }
+
+    /// Validate that exactly one command type is specified
+    pub(crate) fn validate_command_count(commands: &[CommandType]) -> Result<()> {
+        match commands.len() {
+            0 => Err(anyhow!(
+                "No command specified. Use one of: claude, shell, test, handler, or name/command"
+            )),
+            1 => Ok(()),
+            _ => Err(anyhow!(
+                "Multiple command types specified. Use only one of: claude, shell, test, handler, or name/command"
+            )),
+        }
+    }
+
+    /// Format a legacy command name with leading slash if needed
+    pub(crate) fn format_legacy_command(name: &str) -> String {
+        if name.starts_with('/') {
+            name.to_string()
         } else {
-            Err(anyhow!("No valid command found in step"))
+            format!("/{name}")
         }
     }
 
@@ -2228,5 +2368,257 @@ impl MapReduceExecutor {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::command::TestCommand;
+    use crate::cook::workflow::{CaptureOutput, HandlerStep};
+
+    #[test]
+    fn test_collect_command_types_claude() {
+        let step = WorkflowStep {
+            claude: Some("test command".to_string()),
+            shell: None,
+            test: None,
+            handler: None,
+            name: None,
+            command: None,
+            capture_output: CaptureOutput::Disabled,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_failure: None,
+            on_success: None,
+            on_exit_code: HashMap::new(),
+            commit_required: false,
+            validate: None,
+        };
+
+        let commands = MapReduceExecutor::collect_command_types(&step);
+
+        assert_eq!(commands.len(), 1);
+        matches!(&commands[0], CommandType::Claude(cmd) if cmd == "test command");
+    }
+
+    #[test]
+    fn test_collect_command_types_shell() {
+        let step = WorkflowStep {
+            claude: None,
+            shell: Some("echo test".to_string()),
+            test: None,
+            handler: None,
+            name: None,
+            command: None,
+            capture_output: CaptureOutput::Disabled,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_failure: None,
+            on_success: None,
+            on_exit_code: HashMap::new(),
+            commit_required: false,
+            validate: None,
+        };
+
+        let commands = MapReduceExecutor::collect_command_types(&step);
+
+        assert_eq!(commands.len(), 1);
+        matches!(&commands[0], CommandType::Shell(cmd) if cmd == "echo test");
+    }
+
+    #[test]
+    fn test_collect_command_types_test() {
+        let step = WorkflowStep {
+            claude: None,
+            shell: None,
+            test: Some(TestCommand {
+                command: "cargo test".to_string(),
+                on_failure: None,
+            }),
+            handler: None,
+            name: None,
+            command: None,
+            capture_output: CaptureOutput::Disabled,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_failure: None,
+            on_success: None,
+            on_exit_code: HashMap::new(),
+            commit_required: false,
+            validate: None,
+        };
+
+        let commands = MapReduceExecutor::collect_command_types(&step);
+
+        assert_eq!(commands.len(), 1);
+        matches!(&commands[0], CommandType::Test(cmd) if cmd.command == "cargo test");
+    }
+
+    #[test]
+    fn test_collect_command_types_handler() {
+        let step = WorkflowStep {
+            claude: None,
+            shell: None,
+            test: None,
+            handler: Some(HandlerStep {
+                name: "test_handler".to_string(),
+                attributes: HashMap::new(),
+            }),
+            name: None,
+            command: None,
+            capture_output: CaptureOutput::Disabled,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_failure: None,
+            on_success: None,
+            on_exit_code: HashMap::new(),
+            commit_required: false,
+            validate: None,
+        };
+
+        let commands = MapReduceExecutor::collect_command_types(&step);
+
+        assert_eq!(commands.len(), 1);
+        matches!(&commands[0], CommandType::Handler { handler_name, .. } if handler_name == "test_handler");
+    }
+
+    #[test]
+    fn test_collect_command_types_legacy_name() {
+        let step = WorkflowStep {
+            claude: None,
+            shell: None,
+            test: None,
+            handler: None,
+            name: Some("test_command".to_string()),
+            command: None,
+            capture_output: CaptureOutput::Disabled,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_failure: None,
+            on_success: None,
+            on_exit_code: HashMap::new(),
+            commit_required: false,
+            validate: None,
+        };
+
+        let commands = MapReduceExecutor::collect_command_types(&step);
+
+        assert_eq!(commands.len(), 1);
+        matches!(&commands[0], CommandType::Legacy(cmd) if cmd == "/test_command");
+    }
+
+    #[test]
+    fn test_collect_command_types_legacy_name_with_slash() {
+        let step = WorkflowStep {
+            claude: None,
+            shell: None,
+            test: None,
+            handler: None,
+            name: Some("/test_command".to_string()),
+            command: None,
+            capture_output: CaptureOutput::Disabled,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_failure: None,
+            on_success: None,
+            on_exit_code: HashMap::new(),
+            commit_required: false,
+            validate: None,
+        };
+
+        let commands = MapReduceExecutor::collect_command_types(&step);
+
+        assert_eq!(commands.len(), 1);
+        if let CommandType::Legacy(cmd) = &commands[0] {
+            assert_eq!(cmd, "/test_command");
+        } else {
+            panic!("Expected Legacy command type");
+        }
+    }
+
+    #[test]
+    fn test_collect_command_types_empty() {
+        let step = WorkflowStep {
+            claude: None,
+            shell: None,
+            test: None,
+            handler: None,
+            name: None,
+            command: None,
+            capture_output: CaptureOutput::Disabled,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_failure: None,
+            on_success: None,
+            on_exit_code: HashMap::new(),
+            commit_required: false,
+            validate: None,
+        };
+
+        let commands = MapReduceExecutor::collect_command_types(&step);
+
+        assert_eq!(commands.len(), 0);
+    }
+
+    #[test]
+    fn test_collect_command_types_multiple() {
+        // This tests that the collection function returns all specified commands
+        // The validation happens in validate_command_count
+        let step = WorkflowStep {
+            claude: Some("claude cmd".to_string()),
+            shell: Some("shell cmd".to_string()),
+            test: None,
+            handler: None,
+            name: None,
+            command: None,
+            capture_output: CaptureOutput::Disabled,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_failure: None,
+            on_success: None,
+            on_exit_code: HashMap::new(),
+            commit_required: false,
+            validate: None,
+        };
+
+        let commands = MapReduceExecutor::collect_command_types(&step);
+
+        assert_eq!(commands.len(), 2);
+    }
+
+    #[test]
+    fn test_format_legacy_command() {
+        assert_eq!(MapReduceExecutor::format_legacy_command("test"), "/test");
+        assert_eq!(MapReduceExecutor::format_legacy_command("/test"), "/test");
+        assert_eq!(
+            MapReduceExecutor::format_legacy_command("/already/slash"),
+            "/already/slash"
+        );
+    }
+
+    #[test]
+    fn test_truncate_identifier() {
+        assert_eq!(MapReduceExecutor::truncate_identifier("short", 10), "short");
+        assert_eq!(
+            MapReduceExecutor::truncate_identifier("this is a very long identifier", 10),
+            "this is..."
+        );
+        assert_eq!(
+            MapReduceExecutor::truncate_identifier("exactly_ten", 11),
+            "exactly_ten"
+        );
+        assert_eq!(
+            MapReduceExecutor::truncate_identifier("exactly_eleven_", 11),
+            "exactly_..."
+        );
     }
 }

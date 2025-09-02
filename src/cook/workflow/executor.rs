@@ -285,6 +285,326 @@ impl WorkflowExecutor {
         self
     }
 
+    /// Handle validation for a successful command
+    async fn handle_validation(
+        &mut self,
+        validation_config: &crate::cook::workflow::validation::ValidationConfig,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<()> {
+        // Execute validation
+        let validation_result = self.execute_validation(validation_config, env, ctx).await?;
+
+        // Store validation result in context
+        ctx.validation_results
+            .insert("validation".to_string(), validation_result.clone());
+
+        // Check if validation passed
+        if !validation_config.is_complete(&validation_result) {
+            self.user_interaction.display_warning(&format!(
+                "Validation incomplete: {:.1}% complete",
+                validation_result.completion_percentage
+            ));
+
+            // Handle incomplete validation
+            if let Some(on_incomplete) = &validation_config.on_incomplete {
+                self.handle_incomplete_validation(
+                    validation_config,
+                    on_incomplete,
+                    validation_result,
+                    env,
+                    ctx,
+                )
+                .await?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Handle incomplete validation with retry logic
+    async fn handle_incomplete_validation(
+        &mut self,
+        validation_config: &crate::cook::workflow::validation::ValidationConfig,
+        on_incomplete: &crate::cook::workflow::validation::OnIncompleteConfig,
+        initial_result: crate::cook::workflow::validation::ValidationResult,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<()> {
+        let mut attempts = 0;
+        let mut current_result = initial_result;
+
+        while attempts < on_incomplete.max_attempts
+            && !validation_config.is_complete(&current_result)
+        {
+            attempts += 1;
+
+            self.user_interaction.display_info(&format!(
+                "Attempting to complete implementation (attempt {}/{})",
+                attempts, on_incomplete.max_attempts
+            ));
+
+            // Execute the completion handler
+            if let Some(handler_step) = self.create_validation_handler(on_incomplete, ctx) {
+                let handler_result = Box::pin(self.execute_step(&handler_step, env, ctx)).await?;
+
+                if !handler_result.success {
+                    self.user_interaction
+                        .display_error("Completion handler failed");
+                    break;
+                }
+
+                // Re-run validation
+                current_result = self.execute_validation(validation_config, env, ctx).await?;
+
+                // Update context
+                ctx.validation_results
+                    .insert("validation".to_string(), current_result.clone());
+            } else {
+                // Interactive mode or no handler
+                if on_incomplete.strategy == crate::cook::workflow::CompletionStrategy::Interactive
+                {
+                    let prompt = on_incomplete
+                        .prompt
+                        .as_deref()
+                        .unwrap_or("Implementation incomplete. Continue?");
+
+                    let should_continue = self.user_interaction.prompt_confirmation(prompt).await?;
+
+                    if !should_continue {
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+
+        // Check if we should fail the workflow
+        if !validation_config.is_complete(&current_result) && on_incomplete.fail_workflow {
+            return Err(anyhow!(
+                "Validation failed after {} attempts. Completion: {:.1}%",
+                attempts,
+                current_result.completion_percentage
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Determine if workflow should fail based on command result
+    fn should_fail_workflow(&self, result: &StepResult, step: &WorkflowStep) -> bool {
+        if !result.success {
+            // Command failed, check on_failure configuration
+            if let Some(on_failure_config) = &step.on_failure {
+                on_failure_config.should_fail_workflow()
+            } else if let Some(test_cmd) = &step.test {
+                // Legacy test command handling
+                if let Some(test_on_failure) = &test_cmd.on_failure {
+                    test_on_failure.fail_workflow
+                } else {
+                    true // No on_failure config, fail on error
+                }
+            } else {
+                true // No on_failure handler, fail on error
+            }
+        } else {
+            false // Command succeeded, don't fail
+        }
+    }
+
+    /// Build a detailed error message for a failed step
+    fn build_error_message(&self, step: &WorkflowStep, result: &StepResult) -> String {
+        let step_display = self.get_step_display_name(step);
+        let mut error_msg = format!("Step '{}' failed", step_display);
+
+        if let Some(exit_code) = result.exit_code {
+            error_msg.push_str(&format!(" with exit code {}", exit_code));
+        }
+
+        // Add stderr if available
+        if !result.stderr.trim().is_empty() {
+            error_msg.push_str("\n\n=== Error Output (stderr) ===");
+            self.append_truncated_output(&mut error_msg, &result.stderr);
+        }
+
+        // Add stdout if stderr was empty but stdout has content
+        if result.stderr.trim().is_empty() && !result.stdout.trim().is_empty() {
+            error_msg.push_str("\n\n=== Standard Output (stdout) ===");
+            self.append_truncated_output(&mut error_msg, &result.stdout);
+        }
+
+        error_msg
+    }
+
+    /// Append output to error message, truncating if necessary
+    fn append_truncated_output(&self, error_msg: &mut String, output: &str) {
+        let lines: Vec<&str> = output.lines().collect();
+        if lines.len() <= 50 {
+            error_msg.push('\n');
+            error_msg.push_str(output);
+        } else {
+            // Show first 25 and last 25 lines for large outputs
+            error_msg.push('\n');
+            for line in lines.iter().take(25) {
+                error_msg.push_str(line);
+                error_msg.push('\n');
+            }
+            error_msg.push_str("\n... [output truncated] ...\n\n");
+            for line in lines.iter().rev().take(25).rev() {
+                error_msg.push_str(line);
+                error_msg.push('\n');
+            }
+        }
+    }
+
+    /// Execute command based on its type
+    async fn execute_command_by_type(
+        &mut self,
+        command_type: &CommandType,
+        step: &WorkflowStep,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+        env_vars: HashMap<String, String>,
+    ) -> Result<StepResult> {
+        match command_type.clone() {
+            CommandType::Claude(cmd) => {
+                let interpolated_cmd = ctx.interpolate(&cmd);
+                self.execute_claude_command(&interpolated_cmd, env, env_vars)
+                    .await
+            }
+            CommandType::Shell(cmd) => {
+                let interpolated_cmd = ctx.interpolate(&cmd);
+                self.execute_shell_for_step(&interpolated_cmd, step, env, ctx, env_vars)
+                    .await
+            }
+            CommandType::Test(test_cmd) => {
+                self.execute_test_command(test_cmd, env, ctx, env_vars)
+                    .await
+            }
+            CommandType::Legacy(cmd) => {
+                let interpolated_cmd = ctx.interpolate(&cmd);
+                self.execute_claude_command(&interpolated_cmd, env, env_vars)
+                    .await
+            }
+            CommandType::Handler {
+                handler_name,
+                attributes,
+            } => {
+                self.execute_handler_command(handler_name, attributes, env, ctx, env_vars)
+                    .await
+            }
+        }
+    }
+
+    /// Execute shell command for a step with appropriate retry logic
+    async fn execute_shell_for_step(
+        &self,
+        interpolated_cmd: &str,
+        step: &WorkflowStep,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+        env_vars: HashMap<String, String>,
+    ) -> Result<StepResult> {
+        // Check if this shell command has test-style retry logic
+        // For backward compatibility with converted test commands
+        if let Some(test_cmd) = &step.test {
+            if test_cmd.on_failure.is_some() {
+                return self
+                    .execute_shell_with_retry(
+                        interpolated_cmd,
+                        test_cmd.on_failure.as_ref(),
+                        env,
+                        ctx,
+                        env_vars,
+                        step.timeout,
+                    )
+                    .await;
+            }
+        }
+
+        // Regular shell command without retry logic
+        self.execute_shell_command(interpolated_cmd, env, env_vars, step.timeout)
+            .await
+    }
+
+    /// Handle conditional execution (on_failure, on_success, on_exit_code)
+    async fn handle_conditional_execution(
+        &mut self,
+        step: &WorkflowStep,
+        mut result: StepResult,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<StepResult> {
+        // Handle failure
+        if !result.success {
+            if let Some(on_failure_config) = &step.on_failure {
+                result = self
+                    .handle_on_failure(step, result, on_failure_config, env, ctx)
+                    .await?;
+            }
+        } else if let Some(on_success) = &step.on_success {
+            // Handle success
+            self.user_interaction
+                .display_info("Executing on_success step...");
+            let success_result = Box::pin(self.execute_step(on_success, env, ctx)).await?;
+            result.stdout.push_str("\n--- on_success output ---\n");
+            result.stdout.push_str(&success_result.stdout);
+        }
+
+        // Handle exit code specific steps
+        if let Some(exit_code) = result.exit_code {
+            if let Some(exit_step) = step.on_exit_code.get(&exit_code) {
+                self.user_interaction
+                    .display_info(&format!("Executing on_exit_code[{exit_code}] step..."));
+                let exit_result = Box::pin(self.execute_step(exit_step, env, ctx)).await?;
+                result
+                    .stdout
+                    .push_str(&format!("\n--- on_exit_code[{exit_code}] output ---\n"));
+                result.stdout.push_str(&exit_result.stdout);
+            }
+        }
+
+        Ok(result)
+    }
+
+    /// Handle on_failure configuration with retry logic
+    async fn handle_on_failure(
+        &mut self,
+        step: &WorkflowStep,
+        mut result: StepResult,
+        on_failure_config: &OnFailureConfig,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<StepResult> {
+        // Check if there's a handler to execute
+        if let Some(handler) = on_failure_config.handler() {
+            self.user_interaction
+                .display_info("Executing on_failure handler...");
+            let failure_result = Box::pin(self.execute_step(&handler, env, ctx)).await?;
+            result.stdout.push_str("\n--- on_failure output ---\n");
+            result.stdout.push_str(&failure_result.stdout);
+
+            // Check if we should retry the original command
+            if on_failure_config.should_retry() {
+                let max_retries = on_failure_config.max_retries();
+                for retry in 1..=max_retries {
+                    self.user_interaction.display_info(&format!(
+                        "Retrying original command (attempt {}/{})",
+                        retry, max_retries
+                    ));
+                    // Create a copy of the step without on_failure to avoid recursion
+                    let mut retry_step = step.clone();
+                    retry_step.on_failure = None;
+                    let retry_result = Box::pin(self.execute_step(&retry_step, env, ctx)).await?;
+                    if retry_result.success {
+                        result = retry_result;
+                        break;
+                    }
+                }
+            }
+        }
+        Ok(result)
+    }
+
     /// Create a new workflow executor
     pub fn new(
         claude_executor: Arc<dyn ClaudeExecutor>,
@@ -688,17 +1008,13 @@ impl WorkflowExecutor {
         Ok(())
     }
 
-    /// Execute a single workflow step
-    async fn execute_step(
-        &mut self,
+    /// Prepare environment variables for step execution
+    fn prepare_env_vars(
+        &self,
         step: &WorkflowStep,
         env: &ExecutionEnvironment,
         ctx: &mut WorkflowContext,
-    ) -> Result<StepResult> {
-        // Determine command type
-        let command_type = self.determine_command_type(step)?;
-
-        // Prepare environment variables
+    ) -> HashMap<String, String> {
         let mut env_vars = HashMap::new();
 
         // Add MMM context variables
@@ -710,7 +1026,6 @@ impl WorkflowExecutor {
                 .to_string_lossy()
                 .to_string(),
         );
-
         env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
 
         // Add step-specific environment variables with interpolation
@@ -719,65 +1034,32 @@ impl WorkflowExecutor {
             env_vars.insert(key.clone(), interpolated_value);
         }
 
+        env_vars
+    }
+
+    /// Execute a single workflow step
+    async fn execute_step(
+        &mut self,
+        step: &WorkflowStep,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+    ) -> Result<StepResult> {
+        // Determine command type
+        let command_type = self.determine_command_type(step)?;
+
+        // Prepare environment variables
+        let env_vars = self.prepare_env_vars(step, env, ctx);
+
         // Handle test mode
         let test_mode = std::env::var("PRODIGY_TEST_MODE").unwrap_or_default() == "true";
         if test_mode {
             return self.handle_test_mode_execution(step, &command_type);
         }
 
-        // Execute the command based on its type (clone to avoid move)
-        let mut result = match command_type.clone() {
-            CommandType::Claude(cmd) => {
-                let interpolated_cmd = ctx.interpolate(&cmd);
-                self.execute_claude_command(&interpolated_cmd, env, env_vars)
-                    .await?
-            }
-            CommandType::Shell(cmd) => {
-                let interpolated_cmd = ctx.interpolate(&cmd);
-                // Check if this shell command has test-style retry logic
-                // For backward compatibility with converted test commands
-                if step.test.is_some() {
-                    // This is a deprecated test command that was converted to shell
-                    // Use the test command's on_failure configuration
-                    if let Some(test_cmd) = &step.test {
-                        self.execute_shell_with_retry(
-                            &interpolated_cmd,
-                            test_cmd.on_failure.as_ref(),
-                            env,
-                            ctx,
-                            env_vars,
-                            step.timeout,
-                        )
-                        .await?
-                    } else {
-                        self.execute_shell_command(&interpolated_cmd, env, env_vars, step.timeout)
-                            .await?
-                    }
-                } else {
-                    // Regular shell command without retry logic
-                    self.execute_shell_command(&interpolated_cmd, env, env_vars, step.timeout)
-                        .await?
-                }
-            }
-            CommandType::Test(test_cmd) => {
-                self.execute_test_command(test_cmd, env, ctx, env_vars)
-                    .await?
-            }
-            CommandType::Legacy(cmd) => {
-                // Legacy commands still use Claude executor
-                let interpolated_cmd = ctx.interpolate(&cmd);
-                self.execute_claude_command(&interpolated_cmd, env, env_vars)
-                    .await?
-            }
-            CommandType::Handler {
-                handler_name,
-                attributes,
-            } => {
-                // Execute using the modular command handler
-                self.execute_handler_command(handler_name, attributes, env, ctx, env_vars)
-                    .await?
-            }
-        };
+        // Execute the command based on its type
+        let mut result = self
+            .execute_command_by_type(&command_type, step, env, ctx, env_vars)
+            .await?;
 
         // Capture output if requested
         if step.capture_output.is_enabled() {
@@ -795,220 +1077,20 @@ impl WorkflowExecutor {
         // Handle validation if configured and command succeeded
         if result.success {
             if let Some(validation_config) = &step.validate {
-                // Execute validation
-                let validation_result =
-                    self.execute_validation(validation_config, env, ctx).await?;
-
-                // Store validation result in context
-                ctx.validation_results
-                    .insert("validation".to_string(), validation_result.clone());
-
-                // Check if validation passed
-                if !validation_config.is_complete(&validation_result) {
-                    self.user_interaction.display_warning(&format!(
-                        "Validation incomplete: {:.1}% complete",
-                        validation_result.completion_percentage
-                    ));
-
-                    // Handle incomplete validation
-                    if let Some(on_incomplete) = &validation_config.on_incomplete {
-                        let mut attempts = 0;
-                        let mut current_result = validation_result;
-
-                        while attempts < on_incomplete.max_attempts
-                            && !validation_config.is_complete(&current_result)
-                        {
-                            attempts += 1;
-
-                            self.user_interaction.display_info(&format!(
-                                "Attempting to complete implementation (attempt {}/{})",
-                                attempts, on_incomplete.max_attempts
-                            ));
-
-                            // Execute the completion handler
-                            if let Some(handler_step) =
-                                self.create_validation_handler(on_incomplete, ctx)
-                            {
-                                let handler_result =
-                                    Box::pin(self.execute_step(&handler_step, env, ctx)).await?;
-
-                                if !handler_result.success {
-                                    self.user_interaction
-                                        .display_error("Completion handler failed");
-                                    break;
-                                }
-
-                                // Re-run validation
-                                current_result =
-                                    self.execute_validation(validation_config, env, ctx).await?;
-
-                                // Update context
-                                ctx.validation_results
-                                    .insert("validation".to_string(), current_result.clone());
-                            } else {
-                                // Interactive mode or no handler
-                                if on_incomplete.strategy == crate::cook::workflow::validation::CompletionStrategy::Interactive {
-                                    let prompt = on_incomplete.prompt.as_deref()
-                                        .unwrap_or("Implementation incomplete. Continue?");
-
-                                    let should_continue = self.user_interaction
-                                        .prompt_confirmation(prompt)
-                                        .await?;
-
-                                    if !should_continue {
-                                        break;
-                                    }
-                                }
-                                break;
-                            }
-                        }
-
-                        // Check if we should fail the workflow
-                        if !validation_config.is_complete(&current_result)
-                            && on_incomplete.fail_workflow
-                        {
-                            return Err(anyhow!(
-                                "Validation failed after {} attempts. Completion: {:.1}%",
-                                attempts,
-                                current_result.completion_percentage
-                            ));
-                        }
-                    }
-                }
+                self.handle_validation(validation_config, env, ctx).await?;
             }
         }
 
-        // Handle conditional execution
-        if !result.success {
-            if let Some(on_failure_config) = &step.on_failure {
-                // Check if there's a handler to execute
-                if let Some(handler) = on_failure_config.handler() {
-                    self.user_interaction
-                        .display_info("Executing on_failure handler...");
-                    let failure_result = Box::pin(self.execute_step(&handler, env, ctx)).await?;
-                    // Merge results
-                    result.stdout.push_str("\n--- on_failure output ---\n");
-                    result.stdout.push_str(&failure_result.stdout);
-
-                    // Check if we should retry the original command
-                    if on_failure_config.should_retry() {
-                        let max_retries = on_failure_config.max_retries();
-                        for retry in 1..=max_retries {
-                            self.user_interaction.display_info(&format!(
-                                "Retrying original command (attempt {}/{})",
-                                retry, max_retries
-                            ));
-                            // Create a copy of the step without on_failure to avoid recursion
-                            let mut retry_step = step.clone();
-                            retry_step.on_failure = None;
-                            let retry_result =
-                                Box::pin(self.execute_step(&retry_step, env, ctx)).await?;
-                            if retry_result.success {
-                                result = retry_result;
-                                break;
-                            }
-                        }
-                    }
-                }
-                // Update whether we should fail based on config
-                // This will be checked below
-            }
-        } else if let Some(on_success) = &step.on_success {
-            self.user_interaction
-                .display_info("Executing on_success step...");
-            let success_result = Box::pin(self.execute_step(on_success, env, ctx)).await?;
-            // Merge results
-            result.stdout.push_str("\n--- on_success output ---\n");
-            result.stdout.push_str(&success_result.stdout);
-        }
-
-        // Handle exit code specific steps
-        if let Some(exit_code) = result.exit_code {
-            if let Some(exit_step) = step.on_exit_code.get(&exit_code) {
-                self.user_interaction
-                    .display_info(&format!("Executing on_exit_code[{exit_code}] step..."));
-                let exit_result = Box::pin(self.execute_step(exit_step, env, ctx)).await?;
-                // Merge results
-                result
-                    .stdout
-                    .push_str(&format!("\n--- on_exit_code[{exit_code}] output ---\n"));
-                result.stdout.push_str(&exit_result.stdout);
-            }
-        }
+        // Handle conditional execution (failure, success, exit codes)
+        result = self
+            .handle_conditional_execution(step, result, env, ctx)
+            .await?;
 
         // Check if we should fail the workflow based on the result
-        let should_fail = if !result.success {
-            // Command failed, check on_failure configuration
-            if let Some(on_failure_config) = &step.on_failure {
-                on_failure_config.should_fail_workflow()
-            } else if let Some(test_cmd) = &step.test {
-                // Legacy test command handling
-                if let Some(test_on_failure) = &test_cmd.on_failure {
-                    test_on_failure.fail_workflow
-                } else {
-                    true // No on_failure config, fail on error
-                }
-            } else {
-                true // No on_failure handler, fail on error
-            }
-        } else {
-            false // Command succeeded, don't fail
-        };
+        let should_fail = self.should_fail_workflow(&result, step);
 
         if should_fail {
-            let step_display = self.get_step_display_name(step);
-
-            // Build a detailed error message
-            let mut error_msg = format!("Step '{}' failed", step_display);
-
-            if let Some(exit_code) = result.exit_code {
-                error_msg.push_str(&format!(" with exit code {}", exit_code));
-            }
-
-            // Add stderr if available
-            if !result.stderr.trim().is_empty() {
-                error_msg.push_str("\n\n=== Error Output (stderr) ===");
-                let stderr_lines: Vec<&str> = result.stderr.lines().collect();
-                if stderr_lines.len() <= 50 {
-                    error_msg.push('\n');
-                    error_msg.push_str(&result.stderr);
-                } else {
-                    // Show first 25 and last 25 lines for large outputs
-                    error_msg.push('\n');
-                    for line in stderr_lines.iter().take(25) {
-                        error_msg.push_str(line);
-                        error_msg.push('\n');
-                    }
-                    error_msg.push_str("\n... [output truncated] ...\n\n");
-                    for line in stderr_lines.iter().rev().take(25).rev() {
-                        error_msg.push_str(line);
-                        error_msg.push('\n');
-                    }
-                }
-            }
-
-            // Add stdout if stderr was empty but stdout has content
-            if result.stderr.trim().is_empty() && !result.stdout.trim().is_empty() {
-                error_msg.push_str("\n\n=== Standard Output (stdout) ===");
-                let stdout_lines: Vec<&str> = result.stdout.lines().collect();
-                if stdout_lines.len() <= 50 {
-                    error_msg.push('\n');
-                    error_msg.push_str(&result.stdout);
-                } else {
-                    // Show first 25 and last 25 lines for large outputs
-                    error_msg.push('\n');
-                    for line in stdout_lines.iter().take(25) {
-                        error_msg.push_str(line);
-                        error_msg.push('\n');
-                    }
-                    error_msg.push_str("\n... [output truncated] ...\n\n");
-                    for line in stdout_lines.iter().rev().take(25).rev() {
-                        error_msg.push_str(line);
-                        error_msg.push('\n');
-                    }
-                }
-            }
-
+            let error_msg = self.build_error_message(step, &result);
             anyhow::bail!(error_msg);
         }
 
