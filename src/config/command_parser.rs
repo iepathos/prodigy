@@ -5,13 +5,8 @@ use once_cell::sync::Lazy;
 static VAR_REGEX: Lazy<regex::Regex> =
     Lazy::new(|| regex::Regex::new(r"\$\{([^}]+)\}").expect("Invalid regex pattern"));
 
-/// Parse a command string into a structured Command
-/// Supports formats like:
-/// - "prodigy-code-review"
-/// - "/prodigy-code-review"
-/// - `"prodigy-implement-spec ${SPEC_ID}"`
-/// - "prodigy-code-review --focus security"
-pub fn parse_command_string(s: &str) -> Result<Command> {
+/// Validate command string preconditions
+fn validate_preconditions(s: &str) -> Result<Vec<&str>> {
     let s = s.trim();
     if s.is_empty() {
         return Err(anyhow!("Empty command string"));
@@ -26,6 +21,43 @@ pub fn parse_command_string(s: &str) -> Result<Command> {
         return Err(anyhow!("Invalid command format"));
     }
 
+    Ok(parts)
+}
+
+/// Check if a command option is a boolean flag
+fn is_boolean_flag(key: &str) -> bool {
+    const BOOLEAN_FLAGS: &[&str] = &[
+        "verbose", "help", "version", "debug", "quiet", "force", "dry-run",
+    ];
+    BOOLEAN_FLAGS.contains(&key)
+}
+
+/// Parse a single command-line option
+fn parse_option(cmd: &mut Command, parts: &[&str], i: usize) -> usize {
+    let part = parts[i];
+    let key = part.trim_start_matches("--");
+
+    // Check if next part exists and doesn't start with --
+    if i + 1 < parts.len() && !parts[i + 1].starts_with("--") && !is_boolean_flag(key) {
+        // Option with value
+        cmd.options
+            .insert(key.to_string(), serde_json::json!(parts[i + 1]));
+        i + 2
+    } else {
+        // Boolean flag (no next part or next part is another option or it's a known boolean flag)
+        cmd.options.insert(key.to_string(), serde_json::json!(true));
+        i + 1
+    }
+}
+
+/// Parse a command string into a structured Command
+/// Supports formats like:
+/// - "prodigy-code-review"
+/// - "/prodigy-code-review"
+/// - `"prodigy-implement-spec ${SPEC_ID}"`
+/// - "prodigy-code-review --focus security"
+pub fn parse_command_string(s: &str) -> Result<Command> {
+    let parts = validate_preconditions(s)?;
     let mut cmd = Command::new(parts[0]);
 
     // Parse remaining parts as arguments or options
@@ -34,34 +66,7 @@ pub fn parse_command_string(s: &str) -> Result<Command> {
         let part = parts[i];
 
         if part.starts_with("--") {
-            // This is an option
-            let key = part.trim_start_matches("--");
-
-            // Check if next part exists and doesn't start with --
-            if i + 1 < parts.len() && !parts[i + 1].starts_with("--") {
-                let next_part = parts[i + 1];
-
-                // Heuristic: if the key suggests it's a boolean flag, treat it as one
-                // Common boolean flags that don't take values
-                let boolean_flags = [
-                    "verbose", "help", "version", "debug", "quiet", "force", "dry-run",
-                ];
-
-                if boolean_flags.contains(&key) {
-                    // Boolean flag - don't consume next part
-                    cmd.options.insert(key.to_string(), serde_json::json!(true));
-                    i += 1;
-                } else {
-                    // Option with value
-                    cmd.options
-                        .insert(key.to_string(), serde_json::json!(next_part));
-                    i += 2;
-                }
-            } else {
-                // Boolean flag (no next part or next part is another option)
-                cmd.options.insert(key.to_string(), serde_json::json!(true));
-                i += 1;
-            }
+            i = parse_option(&mut cmd, &parts, i);
         } else {
             // This is a positional argument
             cmd.args.push(CommandArg::parse(part));
@@ -111,6 +116,78 @@ fn expand_string(s: &str, variables: &std::collections::HashMap<String, String>)
 mod tests {
     use super::*;
     use std::collections::HashMap;
+
+    #[test]
+    fn test_validate_preconditions_empty() {
+        assert!(validate_preconditions("").is_err());
+        assert!(validate_preconditions("  ").is_err());
+        assert!(validate_preconditions("\t\n").is_err());
+    }
+
+    #[test]
+    fn test_validate_preconditions_with_slash() {
+        let parts = validate_preconditions("/command").unwrap();
+        assert_eq!(parts, vec!["command"]);
+    }
+
+    #[test]
+    fn test_validate_preconditions_multiple_parts() {
+        let parts = validate_preconditions("cmd arg1 arg2 --opt").unwrap();
+        assert_eq!(parts, vec!["cmd", "arg1", "arg2", "--opt"]);
+    }
+
+    #[test]
+    fn test_is_boolean_flag() {
+        assert!(is_boolean_flag("verbose"));
+        assert!(is_boolean_flag("help"));
+        assert!(is_boolean_flag("version"));
+        assert!(is_boolean_flag("debug"));
+        assert!(is_boolean_flag("quiet"));
+        assert!(is_boolean_flag("force"));
+        assert!(is_boolean_flag("dry-run"));
+        assert!(!is_boolean_flag("focus"));
+        assert!(!is_boolean_flag("max-issues"));
+        assert!(!is_boolean_flag("unknown"));
+    }
+
+    #[test]
+    fn test_parse_option_boolean_flag() {
+        let mut cmd = Command::new("test");
+        let parts = vec!["cmd", "--verbose", "next"];
+        let next_i = parse_option(&mut cmd, &parts, 1);
+        assert_eq!(next_i, 2);
+        assert_eq!(cmd.options.get("verbose"), Some(&serde_json::json!(true)));
+    }
+
+    #[test]
+    fn test_parse_option_with_value() {
+        let mut cmd = Command::new("test");
+        let parts = vec!["cmd", "--focus", "security", "--verbose"];
+        let next_i = parse_option(&mut cmd, &parts, 1);
+        assert_eq!(next_i, 3);
+        assert_eq!(
+            cmd.options.get("focus"),
+            Some(&serde_json::json!("security"))
+        );
+    }
+
+    #[test]
+    fn test_parse_option_at_end() {
+        let mut cmd = Command::new("test");
+        let parts = vec!["cmd", "--verbose"];
+        let next_i = parse_option(&mut cmd, &parts, 1);
+        assert_eq!(next_i, 2);
+        assert_eq!(cmd.options.get("verbose"), Some(&serde_json::json!(true)));
+    }
+
+    #[test]
+    fn test_parse_option_before_another_option() {
+        let mut cmd = Command::new("test");
+        let parts = vec!["cmd", "--focus", "--verbose"];
+        let next_i = parse_option(&mut cmd, &parts, 1);
+        assert_eq!(next_i, 2);
+        assert_eq!(cmd.options.get("focus"), Some(&serde_json::json!(true)));
+    }
 
     #[test]
     fn test_parse_simple_command() {
