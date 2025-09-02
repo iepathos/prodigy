@@ -1669,67 +1669,67 @@ impl MapReduceExecutor {
     }
 
     /// Determine command type from a workflow step
+    /// Extract pure classification of command type from workflow step  
+    fn classify_step_command(step: &WorkflowStep) -> Vec<(&str, Option<CommandType>)> {
+        vec![
+            ("handler", step.handler.as_ref().map(|_| CommandType::Handler {
+                handler_name: String::new(),
+                attributes: HashMap::new(),
+            })),
+            ("claude", step.claude.as_ref().map(|cmd| CommandType::Claude(cmd.clone()))),
+            ("shell", step.shell.as_ref().map(|cmd| CommandType::Shell(cmd.clone()))),
+            ("test", step.test.as_ref().map(|cmd| CommandType::Test(cmd.clone()))),
+            ("name", step.name.as_ref().map(|name| {
+                let command = if name.starts_with('/') {
+                    name.clone()
+                } else {
+                    format!("/{name}")
+                };
+                CommandType::Legacy(command)
+            })),
+            ("command", step.command.as_ref().map(|cmd| CommandType::Legacy(cmd.clone()))),
+        ]
+    }
+
     fn determine_command_type(&self, step: &WorkflowStep) -> Result<CommandType> {
-        // Count how many command fields are specified
-        let mut specified_count = 0;
-        if step.claude.is_some() {
-            specified_count += 1;
-        }
-        if step.shell.is_some() {
-            specified_count += 1;
-        }
-        if step.test.is_some() {
-            specified_count += 1;
-        }
-        if step.handler.is_some() {
-            specified_count += 1;
-        }
-        if step.name.is_some() || step.command.is_some() {
-            specified_count += 1;
-        }
+        // Use pure classification function
+        let commands: Vec<_> = Self::classify_step_command(step)
+            .into_iter()
+            .filter(|(_, cmd)| cmd.is_some())
+            .collect();
 
-        // Ensure only one command type is specified
-        if specified_count > 1 {
-            return Err(anyhow!(
-                "Multiple command types specified. Use only one of: claude, shell, test, handler, or name/command"
-            ));
-        }
-
-        if specified_count == 0 {
-            return Err(anyhow!(
+        // Validate exactly one command type
+        match commands.len() {
+            0 => Err(anyhow!(
                 "No command specified. Use one of: claude, shell, test, handler, or name/command"
-            ));
+            )),
+            1 => {
+                // Special handling for handler type to convert attributes
+                if step.handler.is_some() {
+                    let handler_step = step.handler.as_ref().unwrap();
+                    let attributes = handler_step.attributes
+                        .iter()
+                        .map(|(key, value)| (key.clone(), Self::json_to_attribute_value(value.clone())))
+                        .collect();
+                    Ok(CommandType::Handler {
+                        handler_name: handler_step.name.clone(),
+                        attributes,
+                    })
+                } else {
+                    Ok(commands[0].1.clone().unwrap())
+                }
+            },
+            _ => Err(anyhow!(
+                "Multiple command types specified. Use only one of: claude, shell, test, handler, or name/command"
+            )),
         }
+    }
 
-        // Return the appropriate command type
-        if let Some(handler_step) = &step.handler {
-            // Convert serde_json::Value to AttributeValue
-            let mut attributes = HashMap::new();
-            for (key, value) in &handler_step.attributes {
-                attributes.insert(key.clone(), Self::json_to_attribute_value(value.clone()));
-            }
-            Ok(CommandType::Handler {
-                handler_name: handler_step.name.clone(),
-                attributes,
-            })
-        } else if let Some(claude_cmd) = &step.claude {
-            Ok(CommandType::Claude(claude_cmd.clone()))
-        } else if let Some(shell_cmd) = &step.shell {
-            Ok(CommandType::Shell(shell_cmd.clone()))
-        } else if let Some(test_cmd) = &step.test {
-            Ok(CommandType::Test(test_cmd.clone()))
-        } else if let Some(name) = &step.name {
-            // Legacy support - prepend / if not present
-            let command = if name.starts_with('/') {
-                name.clone()
-            } else {
-                format!("/{name}")
-            };
-            Ok(CommandType::Legacy(command))
-        } else if let Some(command) = &step.command {
-            Ok(CommandType::Legacy(command.clone()))
+    fn legacy_command_from_name(name: &str) -> String {
+        if name.starts_with('/') {
+            name.to_string()
         } else {
-            Err(anyhow!("No valid command found in step"))
+            format!("/{name}")
         }
     }
 
@@ -2228,5 +2228,270 @@ impl MapReduceExecutor {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cook::workflow::{HandlerStep, CaptureOutput};
+    use crate::config::command::TestCommand;
+
+    #[test]
+    fn test_classify_step_command_claude() {
+        let step = WorkflowStep {
+            claude: Some("test command".to_string()),
+            shell: None,
+            test: None,
+            handler: None,
+            name: None,
+            command: None,
+            capture_output: CaptureOutput::Disabled,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_failure: None,
+            on_success: None,
+            on_exit_code: HashMap::new(),
+            commit_required: false,
+            validate: None,
+        };
+        
+        let commands = MapReduceExecutor::classify_step_command(&step);
+        let filtered: Vec<_> = commands.into_iter()
+            .filter(|(_, cmd)| cmd.is_some())
+            .collect();
+        
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].0, "claude");
+    }
+
+    #[test]
+    fn test_classify_step_command_shell() {
+        let step = WorkflowStep {
+            claude: None,
+            shell: Some("echo test".to_string()),
+            test: None,
+            handler: None,
+            name: None,
+            command: None,
+            capture_output: CaptureOutput::Disabled,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_failure: None,
+            on_success: None,
+            on_exit_code: HashMap::new(),
+            commit_required: false,
+            validate: None,
+        };
+        
+        let commands = MapReduceExecutor::classify_step_command(&step);
+        let filtered: Vec<_> = commands.into_iter()
+            .filter(|(_, cmd)| cmd.is_some())
+            .collect();
+        
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].0, "shell");
+    }
+
+    #[test]
+    fn test_classify_step_command_test() {
+        let step = WorkflowStep {
+            claude: None,
+            shell: None,
+            test: Some(TestCommand {
+                command: "cargo test".to_string(),
+                on_failure: None,
+            }),
+            handler: None,
+            name: None,
+            command: None,
+            capture_output: CaptureOutput::Disabled,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_failure: None,
+            on_success: None,
+            on_exit_code: HashMap::new(),
+            commit_required: false,
+            validate: None,
+        };
+        
+        let commands = MapReduceExecutor::classify_step_command(&step);
+        let filtered: Vec<_> = commands.into_iter()
+            .filter(|(_, cmd)| cmd.is_some())
+            .collect();
+        
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].0, "test");
+    }
+
+    #[test]
+    fn test_classify_step_command_handler() {
+        let step = WorkflowStep {
+            claude: None,
+            shell: None,
+            test: None,
+            handler: Some(HandlerStep {
+                name: "test_handler".to_string(),
+                attributes: HashMap::new(),
+            }),
+            name: None,
+            command: None,
+            capture_output: CaptureOutput::Disabled,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_failure: None,
+            on_success: None,
+            on_exit_code: HashMap::new(),
+            commit_required: false,
+            validate: None,
+        };
+        
+        let commands = MapReduceExecutor::classify_step_command(&step);
+        let filtered: Vec<_> = commands.into_iter()
+            .filter(|(_, cmd)| cmd.is_some())
+            .collect();
+        
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].0, "handler");
+    }
+
+    #[test]
+    fn test_classify_step_command_legacy_name() {
+        let step = WorkflowStep {
+            claude: None,
+            shell: None,
+            test: None,
+            handler: None,
+            name: Some("test_command".to_string()),
+            command: None,
+            capture_output: CaptureOutput::Disabled,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_failure: None,
+            on_success: None,
+            on_exit_code: HashMap::new(),
+            commit_required: false,
+            validate: None,
+        };
+        
+        let commands = MapReduceExecutor::classify_step_command(&step);
+        let filtered: Vec<_> = commands.into_iter()
+            .filter(|(_, cmd)| cmd.is_some())
+            .collect();
+        
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].0, "name");
+    }
+
+    #[test]
+    fn test_classify_step_command_legacy_name_with_slash() {
+        let step = WorkflowStep {
+            claude: None,
+            shell: None,
+            test: None,
+            handler: None,
+            name: Some("/test_command".to_string()),
+            command: None,
+            capture_output: CaptureOutput::Disabled,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_failure: None,
+            on_success: None,
+            on_exit_code: HashMap::new(),
+            commit_required: false,
+            validate: None,
+        };
+        
+        let commands = MapReduceExecutor::classify_step_command(&step);
+        let filtered: Vec<_> = commands.into_iter()
+            .filter(|(_, cmd)| cmd.is_some())
+            .collect();
+        
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].0, "name");
+        if let Some(CommandType::Legacy(cmd)) = &filtered[0].1 {
+            assert_eq!(cmd, "/test_command");
+        } else {
+            panic!("Expected Legacy command type");
+        }
+    }
+
+    #[test]
+    fn test_classify_step_command_empty() {
+        let step = WorkflowStep {
+            claude: None,
+            shell: None,
+            test: None,
+            handler: None,
+            name: None,
+            command: None,
+            capture_output: CaptureOutput::Disabled,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_failure: None,
+            on_success: None,
+            on_exit_code: HashMap::new(),
+            commit_required: false,
+            validate: None,
+        };
+        
+        let commands = MapReduceExecutor::classify_step_command(&step);
+        let filtered: Vec<_> = commands.into_iter()
+            .filter(|(_, cmd)| cmd.is_some())
+            .collect();
+        
+        assert_eq!(filtered.len(), 0);
+    }
+
+    #[test]
+    fn test_classify_step_command_multiple() {
+        // This tests that the classification function returns all specified commands
+        // The validation happens in determine_command_type
+        let step = WorkflowStep {
+            claude: Some("claude cmd".to_string()),
+            shell: Some("shell cmd".to_string()),
+            test: None,
+            handler: None,
+            name: None,
+            command: None,
+            capture_output: CaptureOutput::Disabled,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_failure: None,
+            on_success: None,
+            on_exit_code: HashMap::new(),
+            commit_required: false,
+            validate: None,
+        };
+        
+        let commands = MapReduceExecutor::classify_step_command(&step);
+        let filtered: Vec<_> = commands.into_iter()
+            .filter(|(_, cmd)| cmd.is_some())
+            .collect();
+        
+        assert_eq!(filtered.len(), 2);
+    }
+
+    #[test]
+    fn test_legacy_command_from_name() {
+        assert_eq!(MapReduceExecutor::legacy_command_from_name("test"), "/test");
+        assert_eq!(MapReduceExecutor::legacy_command_from_name("/test"), "/test");
+        assert_eq!(MapReduceExecutor::legacy_command_from_name("/already/slash"), "/already/slash");
+    }
+
+    #[test]
+    fn test_truncate_identifier() {
+        assert_eq!(MapReduceExecutor::truncate_identifier("short", 10), "short");
+        assert_eq!(MapReduceExecutor::truncate_identifier("this is a very long identifier", 10), "this is...");
+        assert_eq!(MapReduceExecutor::truncate_identifier("exactly_ten", 11), "exactly_ten");
+        assert_eq!(MapReduceExecutor::truncate_identifier("exactly_eleven_", 11), "exactly_...");
     }
 }
