@@ -182,50 +182,47 @@ fn get_user_confirmation() -> Result<bool> {
 }
 
 /// Check if templates list requires processing
+#[cfg(test)]
 fn should_process_templates(templates: &[templates::CommandTemplate]) -> bool {
     !templates.is_empty()
 }
 
 /// Check if existing commands need user confirmation
+#[cfg(test)]
 fn needs_user_confirmation(existing_commands: &[&str]) -> bool {
     !existing_commands.is_empty()
 }
 
 /// Check if we should proceed with installation based on existing commands
 #[allow(dead_code)]
-fn should_proceed_with_installation(
-    existing_commands: &[&str],
-) -> bool {
+fn should_proceed_with_installation(existing_commands: &[&str]) -> bool {
     existing_commands.is_empty()
 }
 
 /// Validate preconditions for command installation
-fn validate_installation_preconditions(
-    templates: &[templates::CommandTemplate],
-) -> bool {
+#[cfg(test)]
+fn validate_installation_preconditions(templates: &[templates::CommandTemplate]) -> bool {
     !templates.is_empty()
 }
 
 /// Process existing commands check and confirmation flow
-fn process_existing_commands_check(
-    existing: Vec<&str>,
-) -> Result<bool> {
+#[cfg(test)]
+fn process_existing_commands_check(existing: Vec<&str>) -> Result<bool> {
     if !needs_user_confirmation(&existing) {
         return Ok(true);
     }
-    
+
     display_existing_commands_warning(&existing);
     get_user_confirmation()
 }
 
 /// Process existing commands and get user confirmation if needed
-fn process_existing_commands_pipeline(
-    existing: &[&str],
-) -> Result<bool> {
+#[cfg(test)]
+fn process_existing_commands_pipeline(existing: &[&str]) -> Result<bool> {
     if existing.is_empty() {
         return Ok(true);
     }
-    
+
     display_existing_commands_warning(existing);
     get_user_confirmation()
 }
@@ -486,23 +483,23 @@ mod tests {
         // Test empty templates
         let templates: Vec<templates::CommandTemplate> = vec![];
         assert!(!should_process_templates(&templates));
-        
+
         // Test with templates
         let templates = templates::get_all_templates();
         assert!(should_process_templates(&templates));
     }
-    
+
     #[test]
     fn test_needs_user_confirmation() {
         // Test empty existing commands
         let existing: Vec<&str> = vec![];
         assert!(!needs_user_confirmation(&existing));
-        
+
         // Test with existing commands
         let existing = vec!["prodigy-lint", "prodigy-code-review"];
         assert!(needs_user_confirmation(&existing));
     }
-    
+
     #[test]
     fn test_process_existing_commands_check_no_existing() {
         // When no existing commands, should return Ok(true)
@@ -511,7 +508,7 @@ mod tests {
         assert!(result.is_ok());
         assert!(result.unwrap());
     }
-    
+
     #[test]
     fn test_process_existing_commands_check_with_existing() {
         // When existing commands present, it will display warning and attempt to get confirmation
@@ -522,7 +519,7 @@ mod tests {
         // In non-interactive mode (test), it returns true (skip existing)
         assert!(result.unwrap());
     }
-    
+
     #[test]
     fn test_refactored_handle_existing_commands_empty() {
         let temp_dir = TempDir::new().unwrap();
@@ -531,7 +528,7 @@ mod tests {
         assert!(result.is_ok());
         assert!(result.unwrap());
     }
-    
+
     #[test]
     fn test_refactored_handle_existing_commands_no_conflicts() {
         let temp_dir = TempDir::new().unwrap();
@@ -541,7 +538,7 @@ mod tests {
         assert!(result.is_ok());
         assert!(result.unwrap());
     }
-    
+
     #[tokio::test]
     async fn test_run_init_with_existing_commands() {
         let temp_dir = TempDir::new().unwrap();
@@ -912,7 +909,7 @@ mod tests {
     #[test]
     fn test_should_proceed_with_existing_empty() {
         let existing: Vec<&str> = vec![];
-        
+
         // Should return true when no existing commands
         let result = should_proceed_with_existing(&existing).unwrap();
         assert!(result);
@@ -921,7 +918,7 @@ mod tests {
     #[test]
     fn test_should_proceed_with_existing_non_empty() {
         let existing = vec!["command1", "command2"];
-        
+
         // In test environment, should handle existing commands
         // This will skip the interactive prompt and return true
         let result = should_proceed_with_existing(&existing);
@@ -1070,7 +1067,7 @@ mod tests {
         // Test with empty existing commands - should proceed
         let empty_existing: Vec<&str> = vec![];
         assert!(should_proceed_with_installation(&empty_existing));
-        
+
         // Test with existing commands - should not proceed without confirmation
         let existing = vec!["prodigy-lint", "prodigy-review"];
         assert!(!should_proceed_with_installation(&existing));
@@ -1079,19 +1076,17 @@ mod tests {
     #[test]
     fn test_validate_installation_preconditions() {
         use crate::init::templates::CommandTemplate;
-        
+
         // Test with empty templates - should not proceed
         let empty_templates: Vec<CommandTemplate> = vec![];
         assert!(!validate_installation_preconditions(&empty_templates));
-        
+
         // Test with templates - should proceed
-        let templates = vec![
-            CommandTemplate {
-                name: "test-command",
-                description: "Test command",
-                content: "test content",
-            }
-        ];
+        let templates = vec![CommandTemplate {
+            name: "test-command",
+            description: "Test command",
+            content: "test content",
+        }];
         assert!(validate_installation_preconditions(&templates));
     }
 
@@ -1109,7 +1104,7 @@ mod tests {
         // Test with existing commands - in test environment should still return Ok
         let existing = vec!["cmd1", "cmd2"];
         let result = process_existing_commands_pipeline(&existing);
-        // In test environment (is_test_environment() returns true), 
+        // In test environment (is_test_environment() returns true),
         // this should return Ok(true) after displaying warning
         assert!(result.is_ok());
     }
