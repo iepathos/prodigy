@@ -91,36 +91,16 @@ impl MetadataParser {
 
     /// Extract command description from markdown content
     fn extract_description(&self, content: &str) -> String {
-        // Extract first paragraph after the title
-        let lines: Vec<&str> = content.lines().collect();
-        let mut found_title = false;
-        let mut description_lines = Vec::new();
-
-        for line in lines {
-            let trimmed = line.trim();
-
-            if trimmed.starts_with("# /") {
-                found_title = true;
-                continue;
-            }
-
-            if found_title {
-                if trimmed.is_empty() {
-                    if !description_lines.is_empty() {
-                        break;
-                    }
-                    continue;
-                }
-
-                if trimmed.starts_with('#') {
-                    break;
-                }
-
-                description_lines.push(trimmed);
-            }
-        }
-
-        description_lines.join(" ")
+        // Find lines after title until first empty line or next section
+        content
+            .lines()
+            .map(str::trim)
+            .skip_while(|line| !line.starts_with("# /"))
+            .skip(1) // Skip the title line itself
+            .skip_while(|line| line.is_empty()) // Skip empty lines after title
+            .take_while(|line| !line.is_empty() && !line.starts_with('#'))
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 
     /// Extract Variables section from markdown
@@ -192,40 +172,54 @@ impl MetadataParser {
         Ok(args)
     }
 
-    /// Parse option lines into option definitions
-    fn parse_options(&self, options: &[String]) -> Result<Vec<OptionDef>> {
-        let mut opts = Vec::new();
-
-        for opt_line in options {
-            if opt_line.starts_with("- `--") {
-                let parts: Vec<&str> = opt_line.split(':').collect();
-                if parts.len() >= 2 {
-                    let name_part = parts[0].trim_start_matches("- `--").trim_end_matches('`');
-                    let desc = parts[1..].join(":").trim().to_string();
-
-                    // Determine option type from description
-                    let option_type = if desc.contains("number") || desc.contains("Maximum") {
-                        ArgumentType::Integer
-                    } else if desc.contains("boolean")
-                        || desc.contains("Enable")
-                        || desc.contains("Disable")
-                    {
-                        ArgumentType::Boolean
-                    } else {
-                        ArgumentType::String
-                    };
-
-                    opts.push(OptionDef {
-                        name: name_part.to_string(),
-                        description: desc,
-                        option_type,
-                        default: None,
-                    });
-                }
+    /// Classify argument type based on description keywords
+    fn classify_option_type(description: &str) -> ArgumentType {
+        match () {
+            _ if description.contains("number") || description.contains("Maximum") => {
+                ArgumentType::Integer
             }
+            _ if description.contains("boolean")
+                || description.contains("Enable")
+                || description.contains("Disable") =>
+            {
+                ArgumentType::Boolean
+            }
+            _ => ArgumentType::String,
+        }
+    }
+
+    /// Parse a single option line into an OptionDef
+    fn parse_option_line(line: &str) -> Option<OptionDef> {
+        if !line.starts_with("- `--") {
+            return None;
         }
 
-        Ok(opts)
+        let parts: Vec<&str> = line.split(':').collect();
+        if parts.len() < 2 {
+            return None;
+        }
+
+        let name = parts[0]
+            .trim_start_matches("- `--")
+            .trim_end_matches('`')
+            .to_string();
+        let description = parts[1..].join(":").trim().to_string();
+        let option_type = Self::classify_option_type(&description);
+
+        Some(OptionDef {
+            name,
+            description,
+            option_type,
+            default: None,
+        })
+    }
+
+    /// Parse option lines into option definitions
+    fn parse_options(&self, options: &[String]) -> Result<Vec<OptionDef>> {
+        Ok(options
+            .iter()
+            .filter_map(|line| Self::parse_option_line(line))
+            .collect())
     }
 
     /// Convert frontmatter metadata to command definition
@@ -462,5 +456,140 @@ and should be joined together.
             desc,
             "This is a longer description that spans multiple lines and should be joined together."
         );
+    }
+
+    #[test]
+    fn test_extract_description_with_empty_lines() {
+        let content = r#"# /test-command
+
+
+Description after empty lines
+should still be captured.
+
+## Variables
+"#;
+        let parser = MetadataParser::new();
+        let desc = parser.extract_description(content);
+        assert_eq!(
+            desc,
+            "Description after empty lines should still be captured."
+        );
+    }
+
+    #[test]
+    fn test_extract_description_no_title() {
+        let content = "Some content without a title";
+        let parser = MetadataParser::new();
+        let desc = parser.extract_description(content);
+        assert_eq!(desc, "");
+    }
+
+    #[test]
+    fn test_extract_description_stops_at_section() {
+        let content = r#"# /command
+First paragraph.
+## Options
+Should not be included"#;
+        let parser = MetadataParser::new();
+        let desc = parser.extract_description(content);
+        assert_eq!(desc, "First paragraph.");
+    }
+
+    #[test]
+    fn test_classify_option_type_integer() {
+        assert_eq!(
+            MetadataParser::classify_option_type("Maximum number of items"),
+            ArgumentType::Integer
+        );
+        assert_eq!(
+            MetadataParser::classify_option_type("The number to process"),
+            ArgumentType::Integer
+        );
+    }
+
+    #[test]
+    fn test_classify_option_type_boolean() {
+        assert_eq!(
+            MetadataParser::classify_option_type("Enable debug mode"),
+            ArgumentType::Boolean
+        );
+        assert_eq!(
+            MetadataParser::classify_option_type("Disable caching"),
+            ArgumentType::Boolean
+        );
+        assert_eq!(
+            MetadataParser::classify_option_type("A boolean flag"),
+            ArgumentType::Boolean
+        );
+    }
+
+    #[test]
+    fn test_classify_option_type_string() {
+        assert_eq!(
+            MetadataParser::classify_option_type("The output file path"),
+            ArgumentType::String
+        );
+        assert_eq!(
+            MetadataParser::classify_option_type("Name of the resource"),
+            ArgumentType::String
+        );
+    }
+
+    #[test]
+    fn test_parse_option_line_valid() {
+        let line = "- `--output`: The output file path";
+        let option = MetadataParser::parse_option_line(line).unwrap();
+        assert_eq!(option.name, "output");
+        assert_eq!(option.description, "The output file path");
+        assert_eq!(option.option_type, ArgumentType::String);
+    }
+
+    #[test]
+    fn test_parse_option_line_with_colon_in_description() {
+        let line = "- `--url`: The URL to fetch (e.g., https://example.com)";
+        let option = MetadataParser::parse_option_line(line).unwrap();
+        assert_eq!(option.name, "url");
+        assert_eq!(
+            option.description,
+            "The URL to fetch (e.g., https://example.com)"
+        );
+    }
+
+    #[test]
+    fn test_parse_option_line_invalid_format() {
+        assert!(MetadataParser::parse_option_line("Not an option line").is_none());
+        assert!(MetadataParser::parse_option_line("- `--missing-colon`").is_none());
+        assert!(MetadataParser::parse_option_line("- --no-backticks: Description").is_none());
+    }
+
+    #[test]
+    fn test_parse_options_multiple() {
+        let parser = MetadataParser::new();
+        let options = vec![
+            "- `--verbose`: Enable verbose output".to_string(),
+            "- `--max-items`: Maximum number of items".to_string(),
+            "Not a valid option line".to_string(),
+            "- `--file`: Input file path".to_string(),
+        ];
+
+        let parsed = parser.parse_options(&options).unwrap();
+        assert_eq!(parsed.len(), 3);
+
+        assert_eq!(parsed[0].name, "verbose");
+        assert_eq!(parsed[0].option_type, ArgumentType::Boolean);
+
+        assert_eq!(parsed[1].name, "max-items");
+        assert_eq!(parsed[1].option_type, ArgumentType::Integer);
+
+        assert_eq!(parsed[2].name, "file");
+        assert_eq!(parsed[2].option_type, ArgumentType::String);
+    }
+
+    #[test]
+    fn test_parse_options_empty() {
+        let parser = MetadataParser::new();
+        let options = vec![];
+        let parsed = parser.parse_options(&options).unwrap();
+        assert!(parsed.is_empty());
     }
 }

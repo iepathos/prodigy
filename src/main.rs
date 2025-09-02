@@ -290,59 +290,108 @@ async fn handle_list_command(
     Ok(())
 }
 
+/// Classify the merge operation type based on parameters
+fn classify_merge_type(name: &Option<String>, all: bool) -> MergeType {
+    match () {
+        _ if all => MergeType::All,
+        _ if name.is_some() => MergeType::Single(name.clone().unwrap()),
+        _ => MergeType::Invalid,
+    }
+}
+
+/// Type of merge operation to perform
+enum MergeType {
+    All,
+    Single(String),
+    Invalid,
+}
+
+/// Merge a single worktree session with cleanup handling
+async fn merge_single_session(
+    worktree_manager: &prodigy::worktree::WorktreeManager,
+    session_name: &str,
+    auto_cleanup: bool,
+) -> anyhow::Result<()> {
+    println!("\n📝 Merging worktree '{}'...", session_name);
+
+    match worktree_manager.merge_session(session_name).await {
+        Ok(_) => {
+            println!("✅ Successfully merged worktree '{}'", session_name);
+            if auto_cleanup {
+                if let Err(e) = worktree_manager.cleanup_session(session_name, true).await {
+                    eprintln!(
+                        "⚠️ Warning: Failed to clean up worktree '{}': {}",
+                        session_name, e
+                    );
+                }
+            }
+            Ok(())
+        }
+        Err(e) => {
+            eprintln!("❌ Failed to merge worktree '{}': {}", session_name, e);
+            eprintln!("   Skipping cleanup for failed merge.");
+            Err(e)
+        }
+    }
+}
+
+/// Ask user for cleanup confirmation
+fn should_cleanup_worktree() -> anyhow::Result<bool> {
+    println!("Would you like to clean up the worktree? (y/N)");
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+    Ok(input.trim().to_lowercase() == "y")
+}
+
+/// Handle merging all worktree sessions
+async fn handle_merge_all(
+    worktree_manager: &prodigy::worktree::WorktreeManager,
+) -> anyhow::Result<()> {
+    let sessions = worktree_manager.list_sessions().await?;
+
+    if sessions.is_empty() {
+        println!("No active Prodigy worktrees found to merge.");
+        return Ok(());
+    }
+
+    println!("Found {} worktree(s) to merge", sessions.len());
+
+    for session in sessions {
+        let _ = merge_single_session(worktree_manager, &session.name, true).await;
+    }
+
+    println!("\n✅ Bulk merge operation completed");
+    Ok(())
+}
+
+/// Handle merging a single named worktree
+async fn handle_merge_single(
+    worktree_manager: &prodigy::worktree::WorktreeManager,
+    name: String,
+) -> anyhow::Result<()> {
+    println!("Merging worktree '{name}'...");
+    worktree_manager.merge_session(&name).await?;
+    println!("✅ Successfully merged worktree '{name}'");
+
+    if should_cleanup_worktree()? {
+        worktree_manager.cleanup_session(&name, true).await?;
+        println!("✅ Worktree cleaned up");
+    }
+
+    Ok(())
+}
+
 /// Handle the merge command for worktrees
 async fn handle_merge_command(
     worktree_manager: &prodigy::worktree::WorktreeManager,
     name: Option<String>,
     all: bool,
 ) -> anyhow::Result<()> {
-    if all {
-        // Merge all worktrees
-        let sessions = worktree_manager.list_sessions().await?;
-        if sessions.is_empty() {
-            println!("No active Prodigy worktrees found to merge.");
-        } else {
-            println!("Found {} worktree(s) to merge", sessions.len());
-            for session in sessions {
-                println!("\n📝 Merging worktree '{}'...", session.name);
-                match worktree_manager.merge_session(&session.name).await {
-                    Ok(_) => {
-                        println!("✅ Successfully merged worktree '{}'", session.name);
-                        // Automatically clean up successfully merged worktrees when using --all
-                        if let Err(e) = worktree_manager.cleanup_session(&session.name, true).await
-                        {
-                            eprintln!(
-                                "⚠️ Warning: Failed to clean up worktree '{}': {}",
-                                session.name, e
-                            );
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("❌ Failed to merge worktree '{}': {}", session.name, e);
-                        eprintln!("   Skipping cleanup for failed merge.");
-                    }
-                }
-            }
-            println!("\n✅ Bulk merge operation completed");
-        }
-    } else if let Some(name) = name {
-        // Single worktree merge
-        println!("Merging worktree '{name}'...");
-        worktree_manager.merge_session(&name).await?;
-        println!("✅ Successfully merged worktree '{name}'");
-
-        // Ask if user wants to clean up the worktree
-        println!("Would you like to clean up the worktree? (y/N)");
-        let mut input = String::new();
-        std::io::stdin().read_line(&mut input)?;
-        if input.trim().to_lowercase() == "y" {
-            worktree_manager.cleanup_session(&name, true).await?;
-            println!("✅ Worktree cleaned up");
-        }
-    } else {
-        anyhow::bail!("Either --all or a worktree name must be specified");
+    match classify_merge_type(&name, all) {
+        MergeType::All => handle_merge_all(worktree_manager).await,
+        MergeType::Single(name) => handle_merge_single(worktree_manager, name).await,
+        MergeType::Invalid => anyhow::bail!("Either --all or a worktree name must be specified"),
     }
-    Ok(())
 }
 
 /// Determine the cleanup action type based on command arguments
@@ -499,6 +548,46 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_classify_merge_type() {
+        // Test all flag takes precedence
+        assert!(matches!(
+            classify_merge_type(&Some("test".to_string()), true),
+            MergeType::All
+        ));
+
+        // Test single name without all flag
+        assert!(matches!(
+            classify_merge_type(&Some("worktree-123".to_string()), false),
+            MergeType::Single(name) if name == "worktree-123"
+        ));
+
+        // Test invalid when neither all nor name is provided
+        assert!(matches!(
+            classify_merge_type(&None, false),
+            MergeType::Invalid
+        ));
+
+        // Test all flag without name
+        assert!(matches!(classify_merge_type(&None, true), MergeType::All));
+    }
+
+    #[test]
+    fn test_merge_type_classification_edge_cases() {
+        // Empty string name should still be classified as Single
+        let empty_name = Some(String::new());
+        assert!(matches!(
+            classify_merge_type(&empty_name, false),
+            MergeType::Single(name) if name.is_empty()
+        ));
+
+        // All flag should override name even with empty string
+        assert!(matches!(
+            classify_merge_type(&empty_name, true),
+            MergeType::All
+        ));
+    }
+
+    #[test]
     fn test_determine_cleanup_action() {
         // Test merged_only takes precedence
         assert!(matches!(
@@ -553,6 +642,25 @@ mod tests {
         assert!(matches!(
             determine_cleanup_action(name.as_ref(), false, false),
             CleanupAction::Single
+        ));
+    }
+
+    #[test]
+    fn test_merge_type_priority() {
+        // All flag should have highest priority
+        let name = Some("session-name".to_string());
+        assert!(matches!(classify_merge_type(&name, true), MergeType::All));
+
+        // Name without all flag should result in Single
+        assert!(matches!(
+            classify_merge_type(&name, false),
+            MergeType::Single(n) if n == "session-name"
+        ));
+
+        // No parameters should be Invalid
+        assert!(matches!(
+            classify_merge_type(&None, false),
+            MergeType::Invalid
         ));
     }
 }
