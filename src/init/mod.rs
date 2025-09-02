@@ -682,6 +682,118 @@ mod tests {
         assert!(result.is_ok());
     }
 
+    #[test]
+    fn test_handle_existing_commands_multiple_conflicts() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir_all(&commands_dir).unwrap();
+
+        // Create multiple existing commands
+        fs::write(commands_dir.join("test-command1.md"), "existing content 1").unwrap();
+        fs::write(commands_dir.join("test-command2.md"), "existing content 2").unwrap();
+        fs::write(commands_dir.join("test-command3.md"), "existing content 3").unwrap();
+
+        let templates = vec![
+            templates::CommandTemplate {
+                name: "test-command1",
+                content: "new content 1",
+                description: "Test command 1",
+            },
+            templates::CommandTemplate {
+                name: "test-command2",
+                content: "new content 2",
+                description: "Test command 2",
+            },
+            templates::CommandTemplate {
+                name: "test-command3",
+                content: "new content 3",
+                description: "Test command 3",
+            },
+            templates::CommandTemplate {
+                name: "test-command4",
+                content: "new content 4",
+                description: "Test command 4",
+            },
+        ];
+
+        // Should handle multiple conflicts
+        let result = handle_existing_commands(&commands_dir, &templates);
+        assert!(result.is_ok());
+        assert!(result.unwrap()); // In non-interactive mode, should return true
+    }
+
+    #[test]
+    fn test_display_existing_commands_warning() {
+        // This test verifies the display function is callable
+        // Output is to stdout, so we just verify it doesn't panic
+        let existing = vec!["cmd1", "cmd2", "cmd3"];
+        display_existing_commands_warning(&existing);
+        // Function should complete without panic
+    }
+
+    #[test]
+    fn test_display_existing_commands_warning_empty() {
+        // Test with empty list
+        let existing: Vec<&str> = vec![];
+        display_existing_commands_warning(&existing);
+        // Function should complete without panic even with empty list
+    }
+
+    #[test]
+    fn test_display_existing_commands_warning_single() {
+        // Test with single item
+        let existing = vec!["single-command"];
+        display_existing_commands_warning(&existing);
+        // Function should complete without panic
+    }
+
+    #[test]
+    fn test_get_user_confirmation_non_tty() {
+        // In test environment, should return Ok(true)
+        let result = get_user_confirmation();
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+
+    #[test]
+    fn test_get_user_confirmation_test_env() {
+        // Verify behavior in test environment
+        // Should skip interactive prompt and return true
+        std::env::set_var("RUST_TEST_THREADS", "1");
+        let result = get_user_confirmation();
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        std::env::remove_var("RUST_TEST_THREADS");
+    }
+
+    #[test]
+    fn test_handle_existing_commands_partial_conflicts() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir_all(&commands_dir).unwrap();
+
+        // Create some existing commands
+        fs::write(commands_dir.join("existing-cmd.md"), "existing").unwrap();
+
+        let templates = vec![
+            templates::CommandTemplate {
+                name: "existing-cmd",
+                content: "new content",
+                description: "Existing command",
+            },
+            templates::CommandTemplate {
+                name: "new-cmd",
+                content: "new content",
+                description: "New command",
+            },
+        ];
+
+        // Should handle partial conflicts (some exist, some don't)
+        let result = handle_existing_commands(&commands_dir, &templates);
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+
     #[tokio::test]
     async fn test_validate_project_structure_not_git_repo() {
         let temp_dir = TempDir::new().unwrap();
