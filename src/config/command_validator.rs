@@ -229,42 +229,68 @@ impl CommandRegistry {
             .get(&command.name)
             .ok_or_else(|| anyhow!("Unknown command: {}", command.name))?;
 
-        // Validate required arguments
-        if command.args.len() < definition.required_args.len() {
-            return Err(anyhow!(
+        Self::validate_argument_counts(command, definition)?;
+        self.validate_required_arguments(command, definition)?;
+        self.validate_command_options(command, definition)?;
+
+        Ok(())
+    }
+
+    /// Validate that the argument count is within expected bounds
+    fn validate_argument_counts(command: &Command, definition: &CommandDefinition) -> Result<()> {
+        let required_count = definition.required_args.len();
+        let max_count = required_count + definition.optional_args.len();
+        let provided_count = command.args.len();
+
+        match () {
+            _ if provided_count < required_count => Err(anyhow!(
                 "Command '{}' requires {} arguments, but {} provided",
                 command.name,
-                definition.required_args.len(),
-                command.args.len()
-            ));
-        }
-
-        // Validate argument types
-        for (i, arg_def) in definition.required_args.iter().enumerate() {
-            if i < command.args.len() {
-                // Skip validation for variables - they will be resolved at runtime
-                if !command.args[i].is_variable() {
-                    let arg_str = match &command.args[i] {
-                        crate::config::CommandArg::Literal(s) => s,
-                        crate::config::CommandArg::Variable(_) => continue,
-                    };
-                    self.validate_argument_type(arg_str, &arg_def.arg_type)?;
-                }
-            }
-        }
-
-        // Validate optional arguments
-        let total_expected_args = definition.required_args.len() + definition.optional_args.len();
-        if command.args.len() > total_expected_args {
-            return Err(anyhow!(
+                required_count,
+                provided_count
+            )),
+            _ if provided_count > max_count => Err(anyhow!(
                 "Command '{}' expects at most {} arguments, but {} provided",
                 command.name,
-                total_expected_args,
-                command.args.len()
-            ));
+                max_count,
+                provided_count
+            )),
+            _ => Ok(()),
         }
+    }
 
-        // Validate options
+    /// Validate required argument types
+    fn validate_required_arguments(
+        &self,
+        command: &Command,
+        definition: &CommandDefinition,
+    ) -> Result<()> {
+        for (i, arg_def) in definition.required_args.iter().enumerate() {
+            if i >= command.args.len() {
+                break;
+            }
+
+            // Skip validation for variables - they will be resolved at runtime
+            if command.args[i].is_variable() {
+                continue;
+            }
+
+            let arg_str = match &command.args[i] {
+                crate::config::CommandArg::Literal(s) => s,
+                crate::config::CommandArg::Variable(_) => continue,
+            };
+
+            self.validate_argument_type(arg_str, &arg_def.arg_type)?;
+        }
+        Ok(())
+    }
+
+    /// Validate command options
+    fn validate_command_options(
+        &self,
+        command: &Command,
+        definition: &CommandDefinition,
+    ) -> Result<()> {
         for (opt_name, opt_value) in &command.options {
             if let Some(opt_def) = definition.options.iter().find(|o| &o.name == opt_name) {
                 self.validate_option_value(opt_value, &opt_def.option_type)?;
@@ -276,7 +302,6 @@ impl CommandRegistry {
                 );
             }
         }
-
         Ok(())
     }
 
@@ -539,5 +564,264 @@ mod tests {
         let result = validate_command(&command);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Unknown command"));
+    }
+
+    #[test]
+    fn test_validate_argument_counts_exact_required() {
+        let command = Command {
+            name: "test".to_string(),
+            args: vec![crate::config::CommandArg::Literal("arg1".to_string())],
+            options: HashMap::new(),
+            metadata: CommandMetadata::default(),
+            id: None,
+            outputs: None,
+            analysis: None,
+        };
+
+        let definition = CommandDefinition {
+            name: "test".to_string(),
+            description: "Test command".to_string(),
+            required_args: vec![ArgumentDef {
+                name: "arg1".to_string(),
+                arg_type: ArgumentType::String,
+                description: "test arg".to_string(),
+            }],
+            optional_args: vec![],
+            options: vec![],
+            defaults: CommandMetadata {
+                retries: None,
+                timeout: None,
+                continue_on_error: None,
+                env: HashMap::new(),
+                commit_required: false,
+                analysis: None,
+            },
+        };
+
+        assert!(CommandRegistry::validate_argument_counts(&command, &definition).is_ok());
+    }
+
+    #[test]
+    fn test_validate_argument_counts_too_few() {
+        let command = Command {
+            name: "test".to_string(),
+            args: vec![],
+            options: HashMap::new(),
+            metadata: CommandMetadata::default(),
+            id: None,
+            outputs: None,
+            analysis: None,
+        };
+
+        let definition = CommandDefinition {
+            name: "test".to_string(),
+            description: "Test command".to_string(),
+            required_args: vec![ArgumentDef {
+                name: "arg1".to_string(),
+                arg_type: ArgumentType::String,
+                description: "test arg".to_string(),
+            }],
+            optional_args: vec![],
+            options: vec![],
+            defaults: CommandMetadata {
+                retries: None,
+                timeout: None,
+                continue_on_error: None,
+                env: HashMap::new(),
+                commit_required: false,
+                analysis: None,
+            },
+        };
+
+        let result = CommandRegistry::validate_argument_counts(&command, &definition);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("requires 1 arguments, but 0 provided"));
+    }
+
+    #[test]
+    fn test_validate_argument_counts_too_many() {
+        let command = Command {
+            name: "test".to_string(),
+            args: vec![
+                crate::config::CommandArg::Literal("arg1".to_string()),
+                crate::config::CommandArg::Literal("arg2".to_string()),
+                crate::config::CommandArg::Literal("arg3".to_string()),
+            ],
+            options: HashMap::new(),
+            metadata: CommandMetadata::default(),
+            id: None,
+            outputs: None,
+            analysis: None,
+        };
+
+        let definition = CommandDefinition {
+            name: "test".to_string(),
+            description: "Test command".to_string(),
+            required_args: vec![ArgumentDef {
+                name: "arg1".to_string(),
+                arg_type: ArgumentType::String,
+                description: "test arg".to_string(),
+            }],
+            optional_args: vec![ArgumentDef {
+                name: "opt1".to_string(),
+                arg_type: ArgumentType::String,
+                description: "optional arg".to_string(),
+            }],
+            options: vec![],
+            defaults: CommandMetadata {
+                retries: None,
+                timeout: None,
+                continue_on_error: None,
+                env: HashMap::new(),
+                commit_required: false,
+                analysis: None,
+            },
+        };
+
+        let result = CommandRegistry::validate_argument_counts(&command, &definition);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("expects at most 2 arguments, but 3 provided"));
+    }
+
+    #[test]
+    fn test_validate_required_arguments_with_variables() {
+        let registry = CommandRegistry::new();
+        let command = Command {
+            name: "test".to_string(),
+            args: vec![
+                crate::config::CommandArg::Variable("var1".to_string()),
+                crate::config::CommandArg::Literal("literal".to_string()),
+            ],
+            options: HashMap::new(),
+            metadata: CommandMetadata::default(),
+            id: None,
+            outputs: None,
+            analysis: None,
+        };
+
+        let definition = CommandDefinition {
+            name: "test".to_string(),
+            description: "Test command".to_string(),
+            required_args: vec![
+                ArgumentDef {
+                    name: "arg1".to_string(),
+                    arg_type: ArgumentType::Integer,
+                    description: "test arg".to_string(),
+                },
+                ArgumentDef {
+                    name: "arg2".to_string(),
+                    arg_type: ArgumentType::String,
+                    description: "test arg 2".to_string(),
+                },
+            ],
+            optional_args: vec![],
+            options: vec![],
+            defaults: CommandMetadata {
+                retries: None,
+                timeout: None,
+                continue_on_error: None,
+                env: HashMap::new(),
+                commit_required: false,
+                analysis: None,
+            },
+        };
+
+        // Should succeed because variables are skipped during validation
+        assert!(registry
+            .validate_required_arguments(&command, &definition)
+            .is_ok());
+    }
+
+    #[test]
+    fn test_validate_command_options_valid() {
+        let registry = CommandRegistry::new();
+        let mut command = Command {
+            name: "test".to_string(),
+            args: vec![],
+            options: HashMap::new(),
+            metadata: CommandMetadata::default(),
+            id: None,
+            outputs: None,
+            analysis: None,
+        };
+        command
+            .options
+            .insert("test-option".to_string(), serde_json::json!("value"));
+
+        let definition = CommandDefinition {
+            name: "test".to_string(),
+            description: "Test command".to_string(),
+            required_args: vec![],
+            optional_args: vec![],
+            options: vec![OptionDef {
+                name: "test-option".to_string(),
+                option_type: ArgumentType::String,
+                description: "test option".to_string(),
+                default: None,
+            }],
+            defaults: CommandMetadata {
+                retries: None,
+                timeout: None,
+                continue_on_error: None,
+                env: HashMap::new(),
+                commit_required: false,
+                analysis: None,
+            },
+        };
+
+        assert!(registry
+            .validate_command_options(&command, &definition)
+            .is_ok());
+    }
+
+    #[test]
+    fn test_validate_command_options_invalid_type() {
+        let registry = CommandRegistry::new();
+        let mut command = Command {
+            name: "test".to_string(),
+            args: vec![],
+            options: HashMap::new(),
+            metadata: CommandMetadata::default(),
+            id: None,
+            outputs: None,
+            analysis: None,
+        };
+        command
+            .options
+            .insert("test-option".to_string(), serde_json::json!("not-a-number"));
+
+        let definition = CommandDefinition {
+            name: "test".to_string(),
+            description: "Test command".to_string(),
+            required_args: vec![],
+            optional_args: vec![],
+            options: vec![OptionDef {
+                name: "test-option".to_string(),
+                option_type: ArgumentType::Integer,
+                description: "test option".to_string(),
+                default: None,
+            }],
+            defaults: CommandMetadata {
+                retries: None,
+                timeout: None,
+                continue_on_error: None,
+                env: HashMap::new(),
+                commit_required: false,
+                analysis: None,
+            },
+        };
+
+        let result = registry.validate_command_options(&command, &definition);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Expected integer value"));
     }
 }
