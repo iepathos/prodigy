@@ -181,23 +181,39 @@ fn get_user_confirmation() -> Result<bool> {
     Ok(true)
 }
 
+/// Check if templates list requires processing
+fn should_process_templates(templates: &[templates::CommandTemplate]) -> bool {
+    !templates.is_empty()
+}
+
+/// Check if existing commands need user confirmation
+fn needs_user_confirmation(existing_commands: &[&str]) -> bool {
+    !existing_commands.is_empty()
+}
+
+/// Process existing commands check and confirmation flow
+fn process_existing_commands_check(
+    existing: Vec<&str>,
+) -> Result<bool> {
+    if !needs_user_confirmation(&existing) {
+        return Ok(true);
+    }
+    
+    display_existing_commands_warning(&existing);
+    get_user_confirmation()
+}
+
 /// Handle checking for existing commands and get user confirmation
 fn handle_existing_commands(
     commands_dir: &Path,
     templates: &[templates::CommandTemplate],
 ) -> Result<bool> {
-    if templates.is_empty() {
+    if !should_process_templates(templates) {
         return Ok(true);
     }
 
     let existing = find_existing_commands(commands_dir, templates);
-
-    if existing.is_empty() {
-        return Ok(true);
-    }
-
-    display_existing_commands_warning(&existing);
-    get_user_confirmation()
+    process_existing_commands_check(existing)
 }
 
 /// Install all selected templates
@@ -427,6 +443,67 @@ mod tests {
         assert!(commands_dir.join("prodigy-lint.md").exists());
     }
 
+    #[test]
+    fn test_should_process_templates() {
+        // Test empty templates
+        let templates: Vec<templates::CommandTemplate> = vec![];
+        assert!(!should_process_templates(&templates));
+        
+        // Test with templates
+        let templates = templates::get_all_templates();
+        assert!(should_process_templates(&templates));
+    }
+    
+    #[test]
+    fn test_needs_user_confirmation() {
+        // Test empty existing commands
+        let existing: Vec<&str> = vec![];
+        assert!(!needs_user_confirmation(&existing));
+        
+        // Test with existing commands
+        let existing = vec!["prodigy-lint", "prodigy-code-review"];
+        assert!(needs_user_confirmation(&existing));
+    }
+    
+    #[test]
+    fn test_process_existing_commands_check_no_existing() {
+        // When no existing commands, should return Ok(true)
+        let existing: Vec<&str> = vec![];
+        let result = process_existing_commands_check(existing);
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+    
+    #[test]
+    fn test_process_existing_commands_check_with_existing() {
+        // When existing commands present, it will display warning and attempt to get confirmation
+        // In test environment, it should handle non-interactive mode
+        let existing = vec!["prodigy-lint", "prodigy-code-review"];
+        let result = process_existing_commands_check(existing);
+        assert!(result.is_ok());
+        // In non-interactive mode (test), it returns true (skip existing)
+        assert!(result.unwrap());
+    }
+    
+    #[test]
+    fn test_refactored_handle_existing_commands_empty() {
+        let temp_dir = TempDir::new().unwrap();
+        let templates: Vec<templates::CommandTemplate> = vec![];
+        let result = handle_existing_commands(temp_dir.path(), &templates);
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+    
+    #[test]
+    fn test_refactored_handle_existing_commands_no_conflicts() {
+        let temp_dir = TempDir::new().unwrap();
+        let templates = templates::get_all_templates();
+        // No commands exist yet, so no conflicts
+        let result = handle_existing_commands(temp_dir.path(), &templates);
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+    
     #[tokio::test]
     async fn test_run_init_with_existing_commands() {
         let temp_dir = TempDir::new().unwrap();
