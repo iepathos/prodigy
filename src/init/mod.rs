@@ -181,23 +181,48 @@ fn get_user_confirmation() -> Result<bool> {
     Ok(true)
 }
 
+/// Check if we should proceed with installation based on existing commands
+#[allow(dead_code)]
+fn should_proceed_with_installation(
+    existing_commands: &[&str],
+) -> bool {
+    existing_commands.is_empty()
+}
+
+/// Validate preconditions for command installation
+fn validate_installation_preconditions(
+    templates: &[templates::CommandTemplate],
+) -> bool {
+    !templates.is_empty()
+}
+
+/// Process existing commands and get user confirmation if needed
+fn process_existing_commands_pipeline(
+    existing: &[&str],
+) -> Result<bool> {
+    if existing.is_empty() {
+        return Ok(true);
+    }
+    
+    display_existing_commands_warning(existing);
+    get_user_confirmation()
+}
+
 /// Handle checking for existing commands and get user confirmation
 fn handle_existing_commands(
     commands_dir: &Path,
     templates: &[templates::CommandTemplate],
 ) -> Result<bool> {
-    if templates.is_empty() {
+    // Early return if no templates to process
+    if !validate_installation_preconditions(templates) {
         return Ok(true);
     }
 
+    // Find existing commands
     let existing = find_existing_commands(commands_dir, templates);
 
-    if existing.is_empty() {
-        return Ok(true);
-    }
-
-    display_existing_commands_warning(&existing);
-    get_user_confirmation()
+    // Process the pipeline for existing commands
+    process_existing_commands_pipeline(&existing)
 }
 
 /// Install all selected templates
@@ -796,5 +821,54 @@ mod tests {
 
         let result = run(args).await;
         assert!(result.is_ok()); // This should succeed but skip existing commands
+    }
+
+    #[test]
+    fn test_should_proceed_with_installation() {
+        // Test with empty existing commands - should proceed
+        let empty_existing: Vec<&str> = vec![];
+        assert!(should_proceed_with_installation(&empty_existing));
+        
+        // Test with existing commands - should not proceed without confirmation
+        let existing = vec!["prodigy-lint", "prodigy-review"];
+        assert!(!should_proceed_with_installation(&existing));
+    }
+
+    #[test]
+    fn test_validate_installation_preconditions() {
+        use crate::init::templates::CommandTemplate;
+        
+        // Test with empty templates - should not proceed
+        let empty_templates: Vec<CommandTemplate> = vec![];
+        assert!(!validate_installation_preconditions(&empty_templates));
+        
+        // Test with templates - should proceed
+        let templates = vec![
+            CommandTemplate {
+                name: "test-command",
+                description: "Test command",
+                content: "test content",
+            }
+        ];
+        assert!(validate_installation_preconditions(&templates));
+    }
+
+    #[test]
+    fn test_process_existing_commands_pipeline_empty() {
+        // Test with empty existing commands - should return Ok(true)
+        let empty_existing: Vec<&str> = vec![];
+        let result = process_existing_commands_pipeline(&empty_existing);
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+
+    #[test]
+    fn test_process_existing_commands_pipeline_with_items() {
+        // Test with existing commands - in test environment should still return Ok
+        let existing = vec!["cmd1", "cmd2"];
+        let result = process_existing_commands_pipeline(&existing);
+        // In test environment (is_test_environment() returns true), 
+        // this should return Ok(true) after displaying warning
+        assert!(result.is_ok());
     }
 }
