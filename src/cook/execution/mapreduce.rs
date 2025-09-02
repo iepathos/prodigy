@@ -2374,8 +2374,8 @@ impl MapReduceExecutor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cook::workflow::{HandlerStep, CaptureOutput};
     use crate::config::command::TestCommand;
+    use crate::cook::workflow::{CaptureOutput, HandlerStep};
 
     #[test]
     fn test_collect_command_types_claude() {
@@ -2396,9 +2396,9 @@ mod tests {
             commit_required: false,
             validate: None,
         };
-        
+
         let commands = MapReduceExecutor::collect_command_types(&step);
-        
+
         assert_eq!(commands.len(), 1);
         matches!(&commands[0], CommandType::Claude(cmd) if cmd == "test command");
     }
@@ -2422,9 +2422,9 @@ mod tests {
             commit_required: false,
             validate: None,
         };
-        
+
         let commands = MapReduceExecutor::collect_command_types(&step);
-        
+
         assert_eq!(commands.len(), 1);
         matches!(&commands[0], CommandType::Shell(cmd) if cmd == "echo test");
     }
@@ -2451,9 +2451,9 @@ mod tests {
             commit_required: false,
             validate: None,
         };
-        
+
         let commands = MapReduceExecutor::collect_command_types(&step);
-        
+
         assert_eq!(commands.len(), 1);
         matches!(&commands[0], CommandType::Test(cmd) if cmd.command == "cargo test");
     }
@@ -2480,9 +2480,9 @@ mod tests {
             commit_required: false,
             validate: None,
         };
-        
+
         let commands = MapReduceExecutor::collect_command_types(&step);
-        
+
         assert_eq!(commands.len(), 1);
         matches!(&commands[0], CommandType::Handler { handler_name, .. } if handler_name == "test_handler");
     }
@@ -2506,9 +2506,9 @@ mod tests {
             commit_required: false,
             validate: None,
         };
-        
+
         let commands = MapReduceExecutor::collect_command_types(&step);
-        
+
         assert_eq!(commands.len(), 1);
         matches!(&commands[0], CommandType::Legacy(cmd) if cmd == "/test_command");
     }
@@ -2532,9 +2532,9 @@ mod tests {
             commit_required: false,
             validate: None,
         };
-        
+
         let commands = MapReduceExecutor::collect_command_types(&step);
-        
+
         assert_eq!(commands.len(), 1);
         if let CommandType::Legacy(cmd) = &commands[0] {
             assert_eq!(cmd, "/test_command");
@@ -2562,9 +2562,9 @@ mod tests {
             commit_required: false,
             validate: None,
         };
-        
+
         let commands = MapReduceExecutor::collect_command_types(&step);
-        
+
         assert_eq!(commands.len(), 0);
     }
 
@@ -2589,9 +2589,9 @@ mod tests {
             commit_required: false,
             validate: None,
         };
-        
+
         let commands = MapReduceExecutor::collect_command_types(&step);
-        
+
         assert_eq!(commands.len(), 2);
     }
 
@@ -2599,14 +2599,26 @@ mod tests {
     fn test_format_legacy_command() {
         assert_eq!(MapReduceExecutor::format_legacy_command("test"), "/test");
         assert_eq!(MapReduceExecutor::format_legacy_command("/test"), "/test");
-        assert_eq!(MapReduceExecutor::format_legacy_command("/already/slash"), "/already/slash");
+        assert_eq!(
+            MapReduceExecutor::format_legacy_command("/already/slash"),
+            "/already/slash"
+        );
     }
 
     #[test]
     fn test_truncate_identifier() {
         assert_eq!(MapReduceExecutor::truncate_identifier("short", 10), "short");
-        assert_eq!(MapReduceExecutor::truncate_identifier("this is a very long identifier", 10), "this is...");
-        assert_eq!(MapReduceExecutor::truncate_identifier("exactly_ten", 11), "exactly_ten");
-        assert_eq!(MapReduceExecutor::truncate_identifier("exactly_eleven_", 11), "exactly_...");
+        assert_eq!(
+            MapReduceExecutor::truncate_identifier("this is a very long identifier", 10),
+            "this is..."
+        );
+        assert_eq!(
+            MapReduceExecutor::truncate_identifier("exactly_ten", 11),
+            "exactly_ten"
+        );
+        assert_eq!(
+            MapReduceExecutor::truncate_identifier("exactly_eleven_", 11),
+            "exactly_..."
+        );
     }
 }

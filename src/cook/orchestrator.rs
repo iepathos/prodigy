@@ -218,7 +218,11 @@ impl DefaultCookOrchestrator {
     /// Process step failure configuration
     fn process_step_failure_config(
         step: &crate::config::command::WorkflowStepCommand,
-    ) -> (Option<String>, Option<crate::config::command::TestCommand>, Option<crate::cook::workflow::OnFailureConfig>) {
+    ) -> (
+        Option<String>,
+        Option<crate::config::command::TestCommand>,
+        Option<crate::cook::workflow::OnFailureConfig>,
+    ) {
         if step.shell.is_some() && step.on_failure.is_some() {
             // Convert shell command with on_failure to test command for retry logic
             let test_cmd = crate::config::command::TestCommand {
@@ -290,22 +294,22 @@ impl DefaultCookOrchestrator {
         if config.mapreduce_config.is_some() {
             return WorkflowType::MapReduce;
         }
-        
+
         // Check for structured commands with outputs
         let has_structured_outputs = config.workflow.commands.iter().any(|cmd| {
             matches!(cmd, crate::config::command::WorkflowCommand::Structured(c)
                 if c.outputs.is_some())
         });
-        
+
         if has_structured_outputs {
             return WorkflowType::StructuredWithOutputs;
         }
-        
+
         // Check for args or map parameters
         if !config.command.args.is_empty() || !config.command.map.is_empty() {
             return WorkflowType::WithArguments;
         }
-        
+
         WorkflowType::Standard
     }
 }
@@ -417,7 +421,11 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                 // Don't show "Executing workflow: default" for MapReduce workflows
                 // The MapReduce executor will show its own appropriate messages
                 return self
-                    .execute_mapreduce_workflow(env, config, config.mapreduce_config.as_ref().unwrap())
+                    .execute_mapreduce_workflow(
+                        env,
+                        config,
+                        config.mapreduce_config.as_ref().unwrap(),
+                    )
                     .await;
             }
             WorkflowType::StructuredWithOutputs => {
@@ -1564,11 +1572,17 @@ mod tests {
         // Add a structured command with outputs
         let mut structured = crate::config::command::Command::new("test");
         let mut outputs = HashMap::new();
-        outputs.insert("output1".to_string(), crate::config::command::OutputDeclaration {
-            file_pattern: "*.md".to_string(),
-        });
+        outputs.insert(
+            "output1".to_string(),
+            crate::config::command::OutputDeclaration {
+                file_pattern: "*.md".to_string(),
+            },
+        );
         structured.outputs = Some(outputs);
-        config.workflow.commands.push(WorkflowCommand::Structured(Box::new(structured)));
+        config
+            .workflow
+            .commands
+            .push(WorkflowCommand::Structured(Box::new(structured)));
 
         assert_eq!(
             DefaultCookOrchestrator::classify_workflow_type(&config),
@@ -1580,7 +1594,7 @@ mod tests {
     fn test_classify_workflow_type_with_arguments() {
         let mut command = create_test_cook_command();
         command.args = vec!["arg1".to_string()];
-        
+
         let config = CookConfig {
             command,
             project_path: PathBuf::from("/test"),
@@ -1598,7 +1612,7 @@ mod tests {
     fn test_classify_workflow_type_with_map_patterns() {
         let mut command = create_test_cook_command();
         command.map = vec!["*.rs".to_string()];
-        
+
         let config = CookConfig {
             command,
             project_path: PathBuf::from("/test"),
@@ -1679,13 +1693,12 @@ mod tests {
             on_success: None,
         };
 
-        let (shell, test, on_failure) = 
-            DefaultCookOrchestrator::process_step_failure_config(&step);
+        let (shell, test, on_failure) = DefaultCookOrchestrator::process_step_failure_config(&step);
 
         assert!(shell.is_none());
         assert!(test.is_some());
         assert!(on_failure.is_none());
-        
+
         let test_cmd = test.unwrap();
         assert_eq!(test_cmd.command, "echo test");
         assert!(test_cmd.on_failure.is_some());
@@ -1712,19 +1725,19 @@ mod tests {
             on_success: None,
         };
 
-        let (shell, test, on_failure) = 
-            DefaultCookOrchestrator::process_step_failure_config(&step);
+        let (shell, test, on_failure) = DefaultCookOrchestrator::process_step_failure_config(&step);
 
         assert!(shell.is_none());
         assert!(test.is_none());
         assert!(on_failure.is_some());
-        
-        if let Some(crate::cook::workflow::OnFailureConfig::Advanced { 
-            claude, 
-            fail_workflow, 
-            max_retries, 
-            .. 
-        }) = on_failure {
+
+        if let Some(crate::cook::workflow::OnFailureConfig::Advanced {
+            claude,
+            fail_workflow,
+            max_retries,
+            ..
+        }) = on_failure
+        {
             assert_eq!(claude, Some("/fix-error".to_string()));
             assert_eq!(fail_workflow, true);
             assert_eq!(max_retries, 1); // max_attempts - 1
@@ -1749,8 +1762,7 @@ mod tests {
             on_success: None,
         };
 
-        let (shell, test, on_failure) = 
-            DefaultCookOrchestrator::process_step_failure_config(&step);
+        let (shell, test, on_failure) = DefaultCookOrchestrator::process_step_failure_config(&step);
 
         assert_eq!(shell, Some("echo test".to_string()));
         assert!(test.is_none());
@@ -1797,7 +1809,7 @@ mod tests {
         assert_eq!(result.commit_required, true);
     }
 
-    // TODO: Fix test after understanding MapReduceWorkflowConfig structure  
+    // TODO: Fix test after understanding MapReduceWorkflowConfig structure
     // #[test]
     // fn test_mapreduce_takes_precedence() {
 }
