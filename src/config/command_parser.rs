@@ -5,8 +5,8 @@ use once_cell::sync::Lazy;
 static VAR_REGEX: Lazy<regex::Regex> =
     Lazy::new(|| regex::Regex::new(r"\$\{([^}]+)\}").expect("Invalid regex pattern"));
 
-/// Validate command string preconditions
-fn validate_preconditions(s: &str) -> Result<Vec<&str>> {
+/// Validate and split the command string into parts
+fn validate_and_split_command(s: &str) -> Result<Vec<&str>> {
     let s = s.trim();
     if s.is_empty() {
         return Err(anyhow!("Empty command string"));
@@ -24,7 +24,7 @@ fn validate_preconditions(s: &str) -> Result<Vec<&str>> {
     Ok(parts)
 }
 
-/// Check if a command option is a boolean flag
+/// Check if the given key is a known boolean flag
 fn is_boolean_flag(key: &str) -> bool {
     const BOOLEAN_FLAGS: &[&str] = &[
         "verbose", "help", "version", "debug", "quiet", "force", "dry-run",
@@ -32,21 +32,21 @@ fn is_boolean_flag(key: &str) -> bool {
     BOOLEAN_FLAGS.contains(&key)
 }
 
-/// Parse a single command-line option
-fn parse_option(cmd: &mut Command, parts: &[&str], i: usize) -> usize {
-    let part = parts[i];
-    let key = part.trim_start_matches("--");
+/// Parse a single option and return the next index
+fn parse_option(cmd: &mut Command, parts: &[&str], index: usize) -> usize {
+    let key = parts[index].trim_start_matches("--");
+    let has_next = index + 1 < parts.len();
+    let next_is_value = has_next && !parts[index + 1].starts_with("--");
 
-    // Check if next part exists and doesn't start with --
-    if i + 1 < parts.len() && !parts[i + 1].starts_with("--") && !is_boolean_flag(key) {
+    if next_is_value && !is_boolean_flag(key) {
         // Option with value
         cmd.options
-            .insert(key.to_string(), serde_json::json!(parts[i + 1]));
-        i + 2
+            .insert(key.to_string(), serde_json::json!(parts[index + 1]));
+        index + 2
     } else {
-        // Boolean flag (no next part or next part is another option or it's a known boolean flag)
+        // Boolean flag
         cmd.options.insert(key.to_string(), serde_json::json!(true));
-        i + 1
+        index + 1
     }
 }
 
@@ -57,24 +57,25 @@ fn parse_option(cmd: &mut Command, parts: &[&str], i: usize) -> usize {
 /// - `"prodigy-implement-spec ${SPEC_ID}"`
 /// - "prodigy-code-review --focus security"
 pub fn parse_command_string(s: &str) -> Result<Command> {
-    let parts = validate_preconditions(s)?;
+    let parts = validate_and_split_command(s)?;
     let mut cmd = Command::new(parts[0]);
+    parse_command_arguments(&mut cmd, &parts[1..]);
+    Ok(cmd)
+}
 
-    // Parse remaining parts as arguments or options
-    let mut i = 1;
+/// Parse command arguments and options from parts
+fn parse_command_arguments(cmd: &mut Command, parts: &[&str]) {
+    let mut i = 0;
     while i < parts.len() {
         let part = parts[i];
 
         if part.starts_with("--") {
-            i = parse_option(&mut cmd, &parts, i);
+            i = parse_option(cmd, parts, i);
         } else {
-            // This is a positional argument
             cmd.args.push(CommandArg::parse(part));
             i += 1;
         }
     }
-
-    Ok(cmd)
 }
 
 /// Expand variables in command arguments
@@ -118,21 +119,18 @@ mod tests {
     use std::collections::HashMap;
 
     #[test]
-    fn test_validate_preconditions_empty() {
-        assert!(validate_preconditions("").is_err());
-        assert!(validate_preconditions("  ").is_err());
-        assert!(validate_preconditions("\t\n").is_err());
-    }
+    fn test_validate_and_split_command() {
+        // Test empty command
+        assert!(validate_and_split_command("").is_err());
+        assert!(validate_and_split_command("  ").is_err());
+        assert!(validate_and_split_command("\t\n").is_err());
 
-    #[test]
-    fn test_validate_preconditions_with_slash() {
-        let parts = validate_preconditions("/command").unwrap();
+        // Test with leading slash
+        let parts = validate_and_split_command("/command").unwrap();
         assert_eq!(parts, vec!["command"]);
-    }
 
-    #[test]
-    fn test_validate_preconditions_multiple_parts() {
-        let parts = validate_preconditions("cmd arg1 arg2 --opt").unwrap();
+        // Test multiple parts
+        let parts = validate_and_split_command("cmd arg1 arg2 --opt").unwrap();
         assert_eq!(parts, vec!["cmd", "arg1", "arg2", "--opt"]);
     }
 
@@ -303,5 +301,4 @@ mod tests {
         assert_eq!(command.args.len(), 1);
         assert_eq!(command.args[0], CommandArg::Variable("USER".to_string()));
     }
-
 }
