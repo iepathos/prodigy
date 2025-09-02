@@ -133,17 +133,25 @@ impl InterpolationEngine {
         Ok((path, default))
     }
 
+    /// Classify a character in the context of path parsing
+    fn classify_path_char(ch: char, in_brackets: bool) -> PathCharType {
+        match ch {
+            '[' => PathCharType::BracketOpen,
+            ']' => PathCharType::BracketClose,
+            '.' if !in_brackets => PathCharType::Separator,
+            _ => PathCharType::Regular,
+        }
+    }
+
     /// Parse a variable path into segments
     fn parse_path(&self, path_str: &str) -> Result<Vec<String>> {
         let mut segments = Vec::new();
-
-        // Split by dots, but handle array indexing
         let mut current = String::new();
         let mut in_brackets = false;
 
         for ch in path_str.chars() {
-            match ch {
-                '[' => {
+            match Self::classify_path_char(ch, in_brackets) {
+                PathCharType::BracketOpen => {
                     if !current.is_empty() {
                         segments.push(current.clone());
                         current.clear();
@@ -151,17 +159,17 @@ impl InterpolationEngine {
                     in_brackets = true;
                     current.push(ch);
                 }
-                ']' => {
+                PathCharType::BracketClose => {
                     current.push(ch);
                     in_brackets = false;
                 }
-                '.' if !in_brackets => {
+                PathCharType::Separator => {
                     if !current.is_empty() {
                         segments.push(current.clone());
                         current.clear();
                     }
                 }
-                _ => current.push(ch),
+                PathCharType::Regular => current.push(ch),
             }
         }
 
@@ -189,6 +197,15 @@ pub struct Template {
     pub raw: String,
     /// Parsed segments
     pub segments: Vec<Segment>,
+}
+
+/// Character type classification for path parsing
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum PathCharType {
+    BracketOpen,
+    BracketClose,
+    Separator,
+    Regular,
 }
 
 /// Template segment
@@ -514,5 +531,72 @@ mod tests {
             .unwrap();
         // Should have 5 segments: "Hello ", ${name}, ", you have ", ${count}, " messages"
         assert_eq!(template.segments.len(), 5);
+    }
+
+    #[test]
+    fn test_parse_path_simple() {
+        let engine = InterpolationEngine::new(false);
+        let result = engine.parse_path("simple").unwrap();
+        assert_eq!(result, vec!["simple"]);
+    }
+
+    #[test]
+    fn test_parse_path_dotted() {
+        let engine = InterpolationEngine::new(false);
+        let result = engine.parse_path("user.address.city").unwrap();
+        assert_eq!(result, vec!["user", "address", "city"]);
+    }
+
+    #[test]
+    fn test_parse_path_with_brackets() {
+        let engine = InterpolationEngine::new(false);
+        let result = engine.parse_path("items[0]").unwrap();
+        assert_eq!(result, vec!["items", "[0]"]);
+    }
+
+    #[test]
+    fn test_parse_path_complex() {
+        let engine = InterpolationEngine::new(false);
+        let result = engine.parse_path("data.items[0].name").unwrap();
+        assert_eq!(result, vec!["data", "items", "[0]", "name"]);
+    }
+
+    #[test]
+    fn test_parse_path_dot_in_brackets() {
+        let engine = InterpolationEngine::new(false);
+        let result = engine.parse_path("map[key.with.dots]").unwrap();
+        assert_eq!(result, vec!["map", "[key.with.dots]"]);
+    }
+
+    #[test]
+    fn test_parse_path_empty_error() {
+        let engine = InterpolationEngine::new(false);
+        let result = engine.parse_path("");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_classify_path_char() {
+        // Test classification of various characters
+        assert_eq!(
+            InterpolationEngine::classify_path_char('[', false),
+            PathCharType::BracketOpen
+        );
+        assert_eq!(
+            InterpolationEngine::classify_path_char(']', false),
+            PathCharType::BracketClose
+        );
+        assert_eq!(
+            InterpolationEngine::classify_path_char('.', false),
+            PathCharType::Separator
+        );
+        assert_eq!(
+            InterpolationEngine::classify_path_char('.', true),
+            PathCharType::Regular
+        );
+        assert_eq!(
+            InterpolationEngine::classify_path_char('a', false),
+            PathCharType::Regular
+        );
     }
 }
