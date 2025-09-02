@@ -229,10 +229,19 @@ impl CommandRegistry {
             .get(&command.name)
             .ok_or_else(|| anyhow!("Unknown command: {}", command.name))?;
 
-        Self::validate_argument_counts(command, definition)?;
-        self.validate_required_arguments(command, definition)?;
-        self.validate_command_options(command, definition)?;
+        // Delegate all validation to pure functions
+        self.validate_arguments(command, definition)?;
+        self.validate_options(command, definition)?;
 
+        Ok(())
+    }
+
+    // Function for argument validation - orchestrates all argument checks
+    fn validate_arguments(&self, command: &Command, definition: &CommandDefinition) -> Result<()> {
+        Self::validate_argument_counts(command, definition)?;
+        Self::validate_required_arguments(command, definition)?;
+        Self::validate_optional_arguments(command, definition)?;
+        self.validate_argument_types(command, definition)?;
         Ok(())
     }
 
@@ -259,8 +268,55 @@ impl CommandRegistry {
         }
     }
 
-    /// Validate required argument types
+    // Pure function for required arguments validation
     fn validate_required_arguments(
+        command: &Command,
+        definition: &CommandDefinition,
+    ) -> Result<()> {
+        if command.args.len() < definition.required_args.len() {
+            return Err(anyhow!(
+                "Command '{}' requires {} arguments, but {} provided",
+                command.name,
+                definition.required_args.len(),
+                command.args.len()
+            ));
+        }
+        Ok(())
+    }
+
+    // Pure function for optional arguments validation
+    fn validate_optional_arguments(
+        command: &Command,
+        definition: &CommandDefinition,
+    ) -> Result<()> {
+        let total_expected_args = definition.required_args.len() + definition.optional_args.len();
+        if command.args.len() > total_expected_args {
+            return Err(anyhow!(
+                "Command '{}' expects at most {} arguments, but {} provided",
+                command.name,
+                total_expected_args,
+                command.args.len()
+            ));
+        }
+        Ok(())
+    }
+
+    // Function for options validation with extracted logic
+    fn validate_options(&self, command: &Command, definition: &CommandDefinition) -> Result<()> {
+        for (opt_name, opt_value) in &command.options {
+            match definition.options.iter().find(|o| &o.name == opt_name) {
+                Some(opt_def) => self.validate_option_value(opt_value, &opt_def.option_type)?,
+                None => eprintln!(
+                    "Warning: Unknown option '{}' for command '{}'",
+                    opt_name, command.name
+                ),
+            }
+        }
+        Ok(())
+    }
+
+    // Function for argument type validation - now handles the looping logic
+    fn validate_argument_types(
         &self,
         command: &Command,
         definition: &CommandDefinition,
@@ -281,26 +337,6 @@ impl CommandRegistry {
             };
 
             self.validate_argument_type(arg_str, &arg_def.arg_type)?;
-        }
-        Ok(())
-    }
-
-    /// Validate command options
-    fn validate_command_options(
-        &self,
-        command: &Command,
-        definition: &CommandDefinition,
-    ) -> Result<()> {
-        for (opt_name, opt_value) in &command.options {
-            if let Some(opt_def) = definition.options.iter().find(|o| &o.name == opt_name) {
-                self.validate_option_value(opt_value, &opt_def.option_type)?;
-            } else {
-                // Warning: unknown option (but don't fail)
-                eprintln!(
-                    "Warning: Unknown option '{}' for command '{}'",
-                    opt_name, command.name
-                );
-            }
         }
         Ok(())
     }
@@ -458,6 +494,235 @@ mod tests {
         assert!(registry.get("prodigy-product-enhance").is_some());
         assert!(registry.get("prodigy-cleanup-tech-debt").is_some());
         assert!(registry.get("unknown-command").is_none());
+    }
+
+    #[test]
+    fn test_validate_required_arguments_success() {
+        let mut cmd = Command::new("test-cmd");
+        cmd.args = vec![
+            crate::config::CommandArg::Literal("arg1".to_string()),
+            crate::config::CommandArg::Literal("arg2".to_string()),
+        ];
+
+        let definition = CommandDefinition {
+            name: "test-cmd".to_string(),
+            description: "Test".to_string(),
+            required_args: vec![
+                ArgumentDef {
+                    name: "arg1".to_string(),
+                    description: "First arg".to_string(),
+                    arg_type: ArgumentType::String,
+                },
+                ArgumentDef {
+                    name: "arg2".to_string(),
+                    description: "Second arg".to_string(),
+                    arg_type: ArgumentType::String,
+                },
+            ],
+            optional_args: vec![],
+            options: vec![],
+            defaults: CommandMetadata::default(),
+        };
+
+        assert!(CommandRegistry::validate_required_arguments(&cmd, &definition).is_ok());
+    }
+
+    #[test]
+    fn test_validate_required_arguments_failure() {
+        let cmd = Command::new("test-cmd");
+
+        let definition = CommandDefinition {
+            name: "test-cmd".to_string(),
+            description: "Test".to_string(),
+            required_args: vec![ArgumentDef {
+                name: "arg1".to_string(),
+                description: "First arg".to_string(),
+                arg_type: ArgumentType::String,
+            }],
+            optional_args: vec![],
+            options: vec![],
+            defaults: CommandMetadata::default(),
+        };
+
+        let result = CommandRegistry::validate_required_arguments(&cmd, &definition);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("requires 1 arguments"));
+    }
+
+    #[test]
+    fn test_validate_optional_arguments_within_limit() {
+        let mut cmd = Command::new("test-cmd");
+        cmd.args = vec![
+            crate::config::CommandArg::Literal("arg1".to_string()),
+            crate::config::CommandArg::Literal("opt1".to_string()),
+        ];
+
+        let definition = CommandDefinition {
+            name: "test-cmd".to_string(),
+            description: "Test".to_string(),
+            required_args: vec![ArgumentDef {
+                name: "arg1".to_string(),
+                description: "Required arg".to_string(),
+                arg_type: ArgumentType::String,
+            }],
+            optional_args: vec![ArgumentDef {
+                name: "opt1".to_string(),
+                description: "Optional arg".to_string(),
+                arg_type: ArgumentType::String,
+            }],
+            options: vec![],
+            defaults: CommandMetadata::default(),
+        };
+
+        assert!(CommandRegistry::validate_optional_arguments(&cmd, &definition).is_ok());
+    }
+
+    #[test]
+    fn test_validate_optional_arguments_exceeds_limit() {
+        let mut cmd = Command::new("test-cmd");
+        cmd.args = vec![
+            crate::config::CommandArg::Literal("arg1".to_string()),
+            crate::config::CommandArg::Literal("arg2".to_string()),
+            crate::config::CommandArg::Literal("arg3".to_string()),
+        ];
+
+        let definition = CommandDefinition {
+            name: "test-cmd".to_string(),
+            description: "Test".to_string(),
+            required_args: vec![ArgumentDef {
+                name: "arg1".to_string(),
+                description: "Required arg".to_string(),
+                arg_type: ArgumentType::String,
+            }],
+            optional_args: vec![ArgumentDef {
+                name: "opt1".to_string(),
+                description: "Optional arg".to_string(),
+                arg_type: ArgumentType::String,
+            }],
+            options: vec![],
+            defaults: CommandMetadata::default(),
+        };
+
+        let result = CommandRegistry::validate_optional_arguments(&cmd, &definition);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("expects at most 2 arguments"));
+    }
+
+    #[test]
+    fn test_validate_argument_types_with_variables() {
+        let registry = CommandRegistry::new();
+        let mut cmd = Command::new("test-cmd");
+        cmd.args = vec![
+            crate::config::CommandArg::Variable("var1".to_string()),
+            crate::config::CommandArg::Literal("123".to_string()),
+        ];
+
+        let definition = CommandDefinition {
+            name: "test-cmd".to_string(),
+            description: "Test".to_string(),
+            required_args: vec![
+                ArgumentDef {
+                    name: "arg1".to_string(),
+                    description: "String arg".to_string(),
+                    arg_type: ArgumentType::String,
+                },
+                ArgumentDef {
+                    name: "arg2".to_string(),
+                    description: "Integer arg".to_string(),
+                    arg_type: ArgumentType::Integer,
+                },
+            ],
+            optional_args: vec![],
+            options: vec![],
+            defaults: CommandMetadata::default(),
+        };
+
+        // Variables should be skipped for validation
+        assert!(registry.validate_argument_types(&cmd, &definition).is_ok());
+    }
+
+    #[test]
+    fn test_validate_argument_types_integer_validation() {
+        let registry = CommandRegistry::new();
+        let mut cmd = Command::new("test-cmd");
+        cmd.args = vec![crate::config::CommandArg::Literal(
+            "not-a-number".to_string(),
+        )];
+
+        let definition = CommandDefinition {
+            name: "test-cmd".to_string(),
+            description: "Test".to_string(),
+            required_args: vec![ArgumentDef {
+                name: "arg1".to_string(),
+                description: "Integer arg".to_string(),
+                arg_type: ArgumentType::Integer,
+            }],
+            optional_args: vec![],
+            options: vec![],
+            defaults: CommandMetadata::default(),
+        };
+
+        let result = registry.validate_argument_types(&cmd, &definition);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Expected integer value"));
+    }
+
+    #[test]
+    fn test_validate_options_with_unknown_option() {
+        let registry = CommandRegistry::new();
+        let mut cmd = Command::new("test-cmd");
+        cmd.options
+            .insert("unknown".to_string(), serde_json::json!("value"));
+
+        let definition = CommandDefinition {
+            name: "test-cmd".to_string(),
+            description: "Test".to_string(),
+            required_args: vec![],
+            optional_args: vec![],
+            options: vec![],
+            defaults: CommandMetadata::default(),
+        };
+
+        // Unknown options should generate warning but not fail
+        assert!(registry.validate_options(&cmd, &definition).is_ok());
+    }
+
+    #[test]
+    fn test_validate_options_type_mismatch() {
+        let registry = CommandRegistry::new();
+        let mut cmd = Command::new("test-cmd");
+        cmd.options
+            .insert("count".to_string(), serde_json::json!("not-a-number"));
+
+        let definition = CommandDefinition {
+            name: "test-cmd".to_string(),
+            description: "Test".to_string(),
+            required_args: vec![],
+            optional_args: vec![],
+            options: vec![OptionDef {
+                name: "count".to_string(),
+                description: "Count option".to_string(),
+                option_type: ArgumentType::Integer,
+                default: None,
+            }],
+            defaults: CommandMetadata::default(),
+        };
+
+        let result = registry.validate_options(&cmd, &definition);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Expected integer value"));
     }
 
     #[test]
@@ -740,10 +1005,9 @@ mod tests {
             },
         };
 
-        // Should succeed because variables are skipped during validation
-        assert!(registry
-            .validate_required_arguments(&command, &definition)
-            .is_ok());
+        // Should succeed because we have the right number of arguments
+        // Variables are validated in validate_argument_types, not validate_required_arguments
+        assert!(CommandRegistry::validate_required_arguments(&command, &definition).is_ok());
     }
 
     #[test]
@@ -783,9 +1047,7 @@ mod tests {
             },
         };
 
-        assert!(registry
-            .validate_command_options(&command, &definition)
-            .is_ok());
+        assert!(registry.validate_options(&command, &definition).is_ok());
     }
 
     #[test]
@@ -825,7 +1087,7 @@ mod tests {
             },
         };
 
-        let result = registry.validate_command_options(&command, &definition);
+        let result = registry.validate_options(&command, &definition);
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
