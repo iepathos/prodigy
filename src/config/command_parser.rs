@@ -301,5 +301,4 @@ mod tests {
         assert_eq!(command.args.len(), 1);
         assert_eq!(command.args[0], CommandArg::Variable("USER".to_string()));
     }
-
 }

@@ -24,48 +24,38 @@ impl CommandDiscovery {
         }
     }
 
-    /// Check if a file is a valid command file
+    /// Check if a file is a valid command file (markdown file starting with "prodigy-")
     fn is_command_file(path: &std::path::Path) -> bool {
-        match path.extension() {
-            Some(ext) if ext == "md" => path
-                .file_stem()
-                .and_then(|name| name.to_str())
-                .map(|name| name.starts_with("prodigy-"))
-                .unwrap_or(false),
-            _ => false,
-        }
+        let is_md = path.extension().is_some_and(|ext| ext == "md");
+        let has_prefix = path
+            .file_stem()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.starts_with("prodigy-"));
+        is_md && has_prefix
     }
 
-    /// Get or load command file from cache
-    async fn get_or_load_command(
-        &mut self,
-        path: PathBuf,
-        file_name: &str,
-        modified: SystemTime,
-    ) -> Result<CommandFile> {
-        // Check if cached version is still valid
-        if let Some(cached) = self.cache.get(file_name) {
-            if cached.modified >= modified {
-                return Ok(cached.clone());
-            }
-        }
+    /// Check if a cached command file is still valid
+    fn is_cache_valid(cached: &CommandFile, modified: SystemTime) -> bool {
+        cached.modified >= modified
+    }
 
-        // Load and cache the file
+    /// Create a CommandFile from a path and content
+    async fn create_command_file(path: PathBuf, modified: SystemTime) -> Result<CommandFile> {
+        let name = path
+            .file_stem()
+            .and_then(|name| name.to_str())
+            .unwrap_or("")
+            .to_string();
         let content = fs::read_to_string(&path)
             .await
             .with_context(|| format!("Failed to read command file: {}", path.display()))?;
 
-        let command_file = CommandFile {
-            path: path.clone(),
-            name: file_name.to_string(),
+        Ok(CommandFile {
+            path,
+            name,
             content,
             modified,
-        };
-
-        self.cache
-            .insert(file_name.to_string(), command_file.clone());
-
-        Ok(command_file)
+        })
     }
 
     /// Scan the commands directory for .md files and return `CommandFile` objects
@@ -96,16 +86,26 @@ impl CommandDiscovery {
                 continue;
             }
 
-            let file_name = path
-                .file_stem()
-                .and_then(|name| name.to_str())
-                .unwrap_or("")
-                .to_string();
-
             let metadata = entry.metadata().await?;
             let modified = metadata.modified()?;
 
-            let command_file = self.get_or_load_command(path, &file_name, modified).await?;
+            let file_name = path
+                .file_stem()
+                .and_then(|name| name.to_str())
+                .unwrap_or("");
+
+            // Check cache and use if valid
+            if let Some(cached) = self.cache.get(file_name) {
+                if Self::is_cache_valid(cached, modified) {
+                    commands.push(cached.clone());
+                    continue;
+                }
+            }
+
+            // Create and cache new command file
+            let command_file = Self::create_command_file(path, modified).await?;
+            self.cache
+                .insert(command_file.name.clone(), command_file.clone());
             commands.push(command_file);
         }
 
@@ -137,7 +137,6 @@ pub struct CommandFile {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
     use tempfile::TempDir;
     use tokio::fs;
 
@@ -230,6 +229,8 @@ mod tests {
 
     #[test]
     fn test_is_command_file() {
+        use std::path::Path;
+
         // Valid command files
         assert!(CommandDiscovery::is_command_file(Path::new(
             "prodigy-test.md"
@@ -238,88 +239,81 @@ mod tests {
             "prodigy-another-command.md"
         )));
         assert!(CommandDiscovery::is_command_file(Path::new(
-            "/path/to/prodigy-command.md"
+            "/path/to/prodigy-cmd.md"
         )));
 
-        // Invalid command files
-        assert!(!CommandDiscovery::is_command_file(Path::new("README.md")));
-        assert!(!CommandDiscovery::is_command_file(Path::new(
-            "test-prodigy.md"
-        )));
+        // Invalid: wrong extension
         assert!(!CommandDiscovery::is_command_file(Path::new(
             "prodigy-test.txt"
         )));
-        assert!(!CommandDiscovery::is_command_file(Path::new("test.md")));
         assert!(!CommandDiscovery::is_command_file(Path::new(
             "prodigy-test"
         )));
+
+        // Invalid: wrong prefix
+        assert!(!CommandDiscovery::is_command_file(Path::new("test.md")));
+        assert!(!CommandDiscovery::is_command_file(Path::new("README.md")));
+        assert!(!CommandDiscovery::is_command_file(Path::new(
+            "other-command.md"
+        )));
+
+        // Edge cases
         assert!(!CommandDiscovery::is_command_file(Path::new("")));
+        assert!(!CommandDiscovery::is_command_file(Path::new(".")));
+    }
+
+    #[test]
+    fn test_is_cache_valid() {
+        use std::time::Duration;
+
+        let now = SystemTime::now();
+        let earlier = now - Duration::from_secs(10);
+        let later = now + Duration::from_secs(10);
+
+        let cached = CommandFile {
+            path: PathBuf::from("test.md"),
+            name: "test".to_string(),
+            content: "content".to_string(),
+            modified: now,
+        };
+
+        // Cache is valid when cached time >= file modified time
+        assert!(CommandDiscovery::is_cache_valid(&cached, now));
+        assert!(CommandDiscovery::is_cache_valid(&cached, earlier));
+
+        // Cache is invalid when cached time < file modified time
+        assert!(!CommandDiscovery::is_cache_valid(&cached, later));
     }
 
     #[tokio::test]
-    async fn test_get_or_load_command_uses_cache() {
+    async fn test_create_command_file() {
         let temp_dir = TempDir::new().unwrap();
-        let commands_dir = temp_dir.path().join("commands");
-        fs::create_dir(&commands_dir).await.unwrap();
+        let test_file = temp_dir.path().join("prodigy-test.md");
+        fs::write(&test_file, "# Test Content").await.unwrap();
 
-        let test_file = commands_dir.join("prodigy-test.md");
-        fs::write(&test_file, "# Original Content").await.unwrap();
-
-        let mut discovery = CommandDiscovery::new(commands_dir.clone());
         let metadata = fs::metadata(&test_file).await.unwrap();
         let modified = metadata.modified().unwrap();
 
-        // First load should read from disk
-        let command1 = discovery
-            .get_or_load_command(test_file.clone(), "prodigy-test", modified)
+        let command_file = CommandDiscovery::create_command_file(test_file.clone(), modified)
             .await
             .unwrap();
-        assert_eq!(command1.content, "# Original Content");
-        assert_eq!(discovery.cache.len(), 1);
 
-        // Second load should use cache
-        let command2 = discovery
-            .get_or_load_command(test_file.clone(), "prodigy-test", modified)
-            .await
-            .unwrap();
-        assert_eq!(command2.content, "# Original Content");
-        assert_eq!(discovery.cache.len(), 1);
-
-        // Verify both are the same cached instance
-        assert_eq!(command1.content, command2.content);
+        assert_eq!(command_file.path, test_file);
+        assert_eq!(command_file.name, "prodigy-test");
+        assert_eq!(command_file.content, "# Test Content");
+        assert_eq!(command_file.modified, modified);
     }
 
     #[tokio::test]
-    async fn test_get_or_load_command_invalidates_stale_cache() {
-        let temp_dir = TempDir::new().unwrap();
-        let commands_dir = temp_dir.path().join("commands");
-        fs::create_dir(&commands_dir).await.unwrap();
+    async fn test_create_command_file_nonexistent() {
+        let path = PathBuf::from("/nonexistent/prodigy-test.md");
+        let modified = SystemTime::now();
 
-        let test_file = commands_dir.join("prodigy-test.md");
-        fs::write(&test_file, "# Original Content").await.unwrap();
-
-        let mut discovery = CommandDiscovery::new(commands_dir.clone());
-        let metadata = fs::metadata(&test_file).await.unwrap();
-        let modified = metadata.modified().unwrap();
-
-        // First load
-        let command1 = discovery
-            .get_or_load_command(test_file.clone(), "prodigy-test", modified)
-            .await
-            .unwrap();
-        assert_eq!(command1.content, "# Original Content");
-
-        // Update file with new content
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-        fs::write(&test_file, "# Updated Content").await.unwrap();
-        let new_metadata = fs::metadata(&test_file).await.unwrap();
-        let new_modified = new_metadata.modified().unwrap();
-
-        // Load with new timestamp should reload from disk
-        let command2 = discovery
-            .get_or_load_command(test_file.clone(), "prodigy-test", new_modified)
-            .await
-            .unwrap();
-        assert_eq!(command2.content, "# Updated Content");
+        let result = CommandDiscovery::create_command_file(path, modified).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Failed to read command file"));
     }
 }
