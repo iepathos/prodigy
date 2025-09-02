@@ -54,6 +54,15 @@ pub trait CookOrchestrator: Send + Sync {
     async fn cleanup(&self, env: &ExecutionEnvironment, config: &CookConfig) -> Result<()>;
 }
 
+/// Classification of workflow types
+#[derive(Debug, Clone, PartialEq)]
+enum WorkflowType {
+    MapReduce,
+    StructuredWithOutputs,
+    WithArguments,
+    Standard,
+}
+
 /// Execution environment for cook operations
 #[derive(Clone)]
 pub struct ExecutionEnvironment {
@@ -140,6 +149,164 @@ impl DefaultCookOrchestrator {
     /// Generate session ID
     fn generate_session_id(&self) -> String {
         format!("cook-{}", chrono::Utc::now().timestamp())
+    }
+
+    /// Convert a workflow command to a workflow step
+    fn convert_command_to_step(cmd: &WorkflowCommand) -> WorkflowStep {
+        match cmd {
+            WorkflowCommand::WorkflowStep(step) => {
+                // Handle new workflow step format directly
+                // For shell commands with on_failure (retry logic), convert to test format
+                let (shell, test, on_failure) = Self::process_step_failure_config(step);
+
+                WorkflowStep {
+                    name: None,
+                    command: None,
+                    claude: step.claude.clone(),
+                    shell,
+                    test, // Contains retry logic for shell commands
+                    handler: None,
+                    capture_output: if step.capture_output {
+                        CaptureOutput::Default
+                    } else {
+                        CaptureOutput::Disabled
+                    },
+                    timeout: None,
+                    working_dir: None,
+                    env: std::collections::HashMap::new(),
+                    on_failure,
+                    on_success: None,
+                    on_exit_code: std::collections::HashMap::new(),
+                    // Commands don't require commits by default unless explicitly set
+                    commit_required: step.commit_required,
+                    validate: None,
+                }
+            }
+            _ => {
+                // Convert to command and apply defaults to get proper commit_required
+                let mut command = cmd.to_command();
+                crate::config::apply_command_defaults(&mut command);
+
+                let command_str = command.name.clone();
+                let commit_required = Self::determine_commit_required(cmd, &command);
+
+                WorkflowStep {
+                    name: None,
+                    command: Some(if command_str.starts_with('/') {
+                        command_str
+                    } else {
+                        format!("/{command_str}")
+                    }),
+                    claude: None,
+                    shell: None,
+                    test: None,
+                    handler: None,
+                    capture_output: CaptureOutput::Disabled,
+                    timeout: None,
+                    working_dir: None,
+                    env: std::collections::HashMap::new(),
+                    on_failure: None,
+                    on_success: None,
+                    on_exit_code: std::collections::HashMap::new(),
+                    commit_required,
+                    validate: None,
+                }
+            }
+        }
+    }
+
+    /// Process step failure configuration
+    fn process_step_failure_config(
+        step: &crate::config::command::WorkflowStepCommand,
+    ) -> (Option<String>, Option<crate::config::command::TestCommand>, Option<crate::cook::workflow::OnFailureConfig>) {
+        if step.shell.is_some() && step.on_failure.is_some() {
+            // Convert shell command with on_failure to test command for retry logic
+            let test_cmd = crate::config::command::TestCommand {
+                command: step.shell.clone().unwrap(),
+                on_failure: step.on_failure.clone(),
+            };
+            // Clear shell field when converting to test
+            (None, Some(test_cmd), None)
+        } else if step.on_failure.is_some() {
+            // For non-shell commands, convert TestDebugConfig to OnFailureConfig
+            let on_failure = step.on_failure.as_ref().map(|debug_config| {
+                // Use Advanced config with claude command
+                crate::cook::workflow::OnFailureConfig::Advanced {
+                    shell: None,
+                    claude: Some(debug_config.claude.clone()),
+                    fail_workflow: debug_config.fail_workflow,
+                    retry_original: false,
+                    max_retries: debug_config.max_attempts - 1, // max_attempts includes first try
+                }
+            });
+            (step.shell.clone(), step.test.clone(), on_failure)
+        } else {
+            (step.shell.clone(), step.test.clone(), None)
+        }
+    }
+
+    /// Determine if a command requires a commit
+    fn determine_commit_required(
+        cmd: &WorkflowCommand,
+        command: &crate::config::command::Command,
+    ) -> bool {
+        match cmd {
+            WorkflowCommand::SimpleObject(simple) => {
+                // If explicitly set in YAML, use that value
+                if let Some(cr) = simple.commit_required {
+                    cr
+                } else if crate::config::command_validator::COMMAND_REGISTRY
+                    .get(&command.name)
+                    .is_some()
+                {
+                    // Command is in registry, use its configured default
+                    command.metadata.commit_required
+                } else {
+                    // Command not in registry, use WorkflowStep's default
+                    true
+                }
+            }
+            WorkflowCommand::Structured(_) => {
+                // Structured commands already have metadata
+                command.metadata.commit_required
+            }
+            _ => {
+                // For string commands, check registry or use WorkflowStep default
+                if crate::config::command_validator::COMMAND_REGISTRY
+                    .get(&command.name)
+                    .is_some()
+                {
+                    command.metadata.commit_required
+                } else {
+                    true
+                }
+            }
+        }
+    }
+
+    /// Classify the workflow type based on configuration
+    fn classify_workflow_type(config: &CookConfig) -> WorkflowType {
+        // MapReduce takes precedence
+        if config.mapreduce_config.is_some() {
+            return WorkflowType::MapReduce;
+        }
+        
+        // Check for structured commands with outputs
+        let has_structured_outputs = config.workflow.commands.iter().any(|cmd| {
+            matches!(cmd, crate::config::command::WorkflowCommand::Structured(c)
+                if c.outputs.is_some())
+        });
+        
+        if has_structured_outputs {
+            return WorkflowType::StructuredWithOutputs;
+        }
+        
+        // Check for args or map parameters
+        if !config.command.args.is_empty() || !config.command.map.is_empty() {
+            return WorkflowType::WithArguments;
+        }
+        
+        WorkflowType::Standard
     }
 }
 
@@ -244,165 +411,38 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         env: &ExecutionEnvironment,
         config: &CookConfig,
     ) -> Result<()> {
-        // Check if this is a MapReduce workflow FIRST, before any other processing
-        // This prevents the creation of synthetic workflow steps
-        if let Some(ref mapreduce_config) = config.mapreduce_config {
-            // Don't show "Executing workflow: default" for MapReduce workflows
-            // The MapReduce executor will show its own appropriate messages
-            return self
-                .execute_mapreduce_workflow(env, config, mapreduce_config)
-                .await;
-        }
-
-        // Check if this is a structured workflow with outputs
-        let has_structured_commands = config.workflow.commands.iter().any(|cmd| {
-            matches!(cmd, crate::config::command::WorkflowCommand::Structured(c)
-                if c.outputs.is_some())
-        });
-
-        if has_structured_commands {
-            self.user_interaction
-                .display_info("Executing structured workflow with outputs");
-            return self.execute_structured_workflow(env, config).await;
-        }
-
-        // Check if we're processing with --args or --map
-        let has_args_or_map = !config.command.args.is_empty() || !config.command.map.is_empty();
-        if has_args_or_map {
-            self.user_interaction
-                .display_info("Processing workflow with arguments or file patterns");
-            return self.execute_workflow_with_args(env, config).await;
+        // Use pure function to classify workflow type
+        match Self::classify_workflow_type(config) {
+            WorkflowType::MapReduce => {
+                // Don't show "Executing workflow: default" for MapReduce workflows
+                // The MapReduce executor will show its own appropriate messages
+                return self
+                    .execute_mapreduce_workflow(env, config, config.mapreduce_config.as_ref().unwrap())
+                    .await;
+            }
+            WorkflowType::StructuredWithOutputs => {
+                self.user_interaction
+                    .display_info("Executing structured workflow with outputs");
+                return self.execute_structured_workflow(env, config).await;
+            }
+            WorkflowType::WithArguments => {
+                self.user_interaction
+                    .display_info("Processing workflow with arguments or file patterns");
+                return self.execute_workflow_with_args(env, config).await;
+            }
+            WorkflowType::Standard => {
+                // Continue with standard workflow processing below
+            }
         }
 
         // Analysis functionality has been removed in v0.3.0
 
-        // Convert WorkflowConfig to ExtendedWorkflowConfig
-        // For now, create a simple workflow with the commands
+        // Convert WorkflowConfig to ExtendedWorkflowConfig using pure function
         let steps: Vec<WorkflowStep> = config
             .workflow
             .commands
             .iter()
-            .map(|cmd| {
-                match cmd {
-                    WorkflowCommand::WorkflowStep(step) => {
-                        // Handle new workflow step format directly
-                        // For shell commands with on_failure (retry logic), convert to test format
-                        let (shell, test, on_failure) =
-                            if step.shell.is_some() && step.on_failure.is_some() {
-                                // Convert shell command with on_failure to test command for retry logic
-                                let test_cmd = crate::config::command::TestCommand {
-                                    command: step.shell.clone().unwrap(),
-                                    on_failure: step.on_failure.clone(),
-                                };
-                                // Clear shell field when converting to test
-                                (None, Some(test_cmd), None)
-                            } else if step.on_failure.is_some() {
-                                // For non-shell commands, convert TestDebugConfig to OnFailureConfig
-                                let on_failure = step.on_failure.as_ref().map(|debug_config| {
-                                    // Use Advanced config with claude command
-                                    crate::cook::workflow::OnFailureConfig::Advanced {
-                                        shell: None,
-                                        claude: Some(debug_config.claude.clone()),
-                                        fail_workflow: debug_config.fail_workflow,
-                                        retry_original: false,
-                                        max_retries: debug_config.max_attempts - 1, // max_attempts includes first try
-                                    }
-                                });
-                                (step.shell.clone(), step.test.clone(), on_failure)
-                            } else {
-                                (step.shell.clone(), step.test.clone(), None)
-                            };
-
-                        WorkflowStep {
-                            name: None,
-                            command: None,
-                            claude: step.claude.clone(),
-                            shell,
-                            test, // Contains retry logic for shell commands
-                            handler: None,
-                            capture_output: if step.capture_output {
-                                CaptureOutput::Default
-                            } else {
-                                CaptureOutput::Disabled
-                            },
-                            timeout: None,
-                            working_dir: None,
-                            env: std::collections::HashMap::new(),
-                            on_failure,
-                            on_success: None,
-                            on_exit_code: std::collections::HashMap::new(),
-                            // Commands don't require commits by default unless explicitly set
-                            commit_required: step.commit_required,
-                            validate: None,
-                        }
-                    }
-                    _ => {
-                        // Convert to command and apply defaults to get proper commit_required
-                        let mut command = cmd.to_command();
-                        crate::config::apply_command_defaults(&mut command);
-
-                        let command_str = command.name.clone();
-
-                        // Determine commit_required based on command type and defaults
-                        let commit_required = match cmd {
-                            WorkflowCommand::SimpleObject(simple) => {
-                                // If explicitly set in YAML, use that value
-                                if let Some(cr) = simple.commit_required {
-                                    cr
-                                } else if crate::config::command_validator::COMMAND_REGISTRY
-                                    .get(&command.name)
-                                    .is_some()
-                                {
-                                    // Command is in registry, use its configured default
-                                    command.metadata.commit_required
-                                } else {
-                                    // Command not in registry, use WorkflowStep's default
-                                    true
-                                }
-                            }
-                            WorkflowCommand::Structured(_) => {
-                                // Structured commands already have metadata
-                                command.metadata.commit_required
-                            }
-                            _ => {
-                                // For string commands, check registry or use WorkflowStep default
-                                if crate::config::command_validator::COMMAND_REGISTRY
-                                    .get(&command.name)
-                                    .is_some()
-                                {
-                                    command.metadata.commit_required
-                                } else {
-                                    true
-                                }
-                            }
-                        };
-
-                        // Analysis functionality has been removed in v0.3.0
-
-                        WorkflowStep {
-                            name: None,
-                            command: Some(if command_str.starts_with('/') {
-                                command_str
-                            } else {
-                                format!("/{command_str}")
-                            }),
-                            claude: None,
-                            shell: None,
-                            test: None,
-                            handler: None,
-                            capture_output: CaptureOutput::Disabled,
-                            timeout: None,
-                            working_dir: None,
-                            env: std::collections::HashMap::new(),
-                            on_failure: None,
-                            on_success: None,
-                            on_exit_code: std::collections::HashMap::new(),
-                            commit_required,
-                            validate: None,
-                        }
-                    }
-                }
-            })
+            .map(Self::convert_command_to_step)
             .collect();
 
         // Analysis functionality has been removed in v0.3.0
@@ -1483,4 +1523,246 @@ impl DefaultCookOrchestrator {
         Ok(())
     }
     */
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{WorkflowCommand, WorkflowConfig};
+
+    // TODO: Fix test after understanding MapReduceWorkflowConfig structure
+    // #[test]
+    // fn test_classify_workflow_type_mapreduce() {
+
+    #[test]
+    fn test_classify_workflow_type_structured_with_outputs() {
+        let mut config = CookConfig {
+            command: CookCommand::default(),
+            project_path: PathBuf::from("/test"),
+            workflow: WorkflowConfig::default(),
+            mapreduce_config: None,
+        };
+
+        // Add a structured command with outputs
+        let structured = crate::config::command::StructuredCommand {
+            name: "test".to_string(),
+            outputs: Some(vec!["output1".to_string()]),
+            args: vec![],
+            options: Default::default(),
+            metadata: Default::default(),
+        };
+        config.workflow.commands.push(WorkflowCommand::Structured(structured));
+
+        assert_eq!(
+            DefaultCookOrchestrator::classify_workflow_type(&config),
+            WorkflowType::StructuredWithOutputs
+        );
+    }
+
+    #[test]
+    fn test_classify_workflow_type_with_arguments() {
+        let mut command = CookCommand::default();
+        command.args = vec!["arg1".to_string()];
+        
+        let config = CookConfig {
+            command,
+            project_path: PathBuf::from("/test"),
+            workflow: WorkflowConfig::default(),
+            mapreduce_config: None,
+        };
+
+        assert_eq!(
+            DefaultCookOrchestrator::classify_workflow_type(&config),
+            WorkflowType::WithArguments
+        );
+    }
+
+    #[test]
+    fn test_classify_workflow_type_with_map_patterns() {
+        let mut command = CookCommand::default();
+        command.map = vec!["*.rs".to_string()];
+        
+        let config = CookConfig {
+            command,
+            project_path: PathBuf::from("/test"),
+            workflow: WorkflowConfig::default(),
+            mapreduce_config: None,
+        };
+
+        assert_eq!(
+            DefaultCookOrchestrator::classify_workflow_type(&config),
+            WorkflowType::WithArguments
+        );
+    }
+
+    #[test]
+    fn test_classify_workflow_type_standard() {
+        let config = CookConfig {
+            command: CookCommand::default(),
+            project_path: PathBuf::from("/test"),
+            workflow: WorkflowConfig::default(),
+            mapreduce_config: None,
+        };
+
+        assert_eq!(
+            DefaultCookOrchestrator::classify_workflow_type(&config),
+            WorkflowType::Standard
+        );
+    }
+
+    #[test]
+    fn test_determine_commit_required_simple_explicit() {
+        let simple = crate::config::command::SimpleCommand {
+            name: "test".to_string(),
+            commit_required: Some(false),
+        };
+        let cmd = WorkflowCommand::SimpleObject(simple);
+        let command = crate::config::command::Command::new("test");
+
+        assert_eq!(
+            DefaultCookOrchestrator::determine_commit_required(&cmd, &command),
+            false
+        );
+    }
+
+    #[test]
+    fn test_determine_commit_required_structured() {
+        let structured = crate::config::command::StructuredCommand {
+            name: "test".to_string(),
+            outputs: None,
+            args: vec![],
+            options: Default::default(),
+            metadata: crate::config::command::CommandMetadata {
+                commit_required: false,
+                ..Default::default()
+            },
+        };
+        let cmd = WorkflowCommand::Structured(structured);
+        let mut command = crate::config::command::Command::new("test");
+        command.metadata.commit_required = false;
+
+        assert_eq!(
+            DefaultCookOrchestrator::determine_commit_required(&cmd, &command),
+            false
+        );
+    }
+
+    #[test]
+    fn test_process_step_failure_config_shell_with_failure() {
+        let step = crate::config::command::WorkflowStepCommand {
+            shell: Some("echo test".to_string()),
+            on_failure: Some(crate::config::command::TestDebugConfig {
+                claude: "/fix-error".to_string(),
+                max_attempts: 3,
+                fail_workflow: false,
+            }),
+            claude: None,
+            test: None,
+            capture_output: false,
+            commit_required: false,
+        };
+
+        let (shell, test, on_failure) = 
+            DefaultCookOrchestrator::process_step_failure_config(&step);
+
+        assert!(shell.is_none());
+        assert!(test.is_some());
+        assert!(on_failure.is_none());
+        
+        let test_cmd = test.unwrap();
+        assert_eq!(test_cmd.command, "echo test");
+        assert!(test_cmd.on_failure.is_some());
+    }
+
+    #[test]
+    fn test_process_step_failure_config_non_shell_with_failure() {
+        let step = crate::config::command::WorkflowStepCommand {
+            shell: None,
+            claude: Some("/prodigy-test".to_string()),
+            on_failure: Some(crate::config::command::TestDebugConfig {
+                claude: "/fix-error".to_string(),
+                max_attempts: 2,
+                fail_workflow: true,
+            }),
+            test: None,
+            capture_output: false,
+            commit_required: false,
+        };
+
+        let (shell, test, on_failure) = 
+            DefaultCookOrchestrator::process_step_failure_config(&step);
+
+        assert!(shell.is_none());
+        assert!(test.is_none());
+        assert!(on_failure.is_some());
+        
+        if let Some(crate::cook::workflow::OnFailureConfig::Advanced { 
+            claude, 
+            fail_workflow, 
+            max_retries, 
+            .. 
+        }) = on_failure {
+            assert_eq!(claude, Some("/fix-error".to_string()));
+            assert_eq!(fail_workflow, true);
+            assert_eq!(max_retries, 1); // max_attempts - 1
+        } else {
+            panic!("Expected Advanced OnFailureConfig");
+        }
+    }
+
+    #[test]
+    fn test_process_step_failure_config_no_failure() {
+        let step = crate::config::command::WorkflowStepCommand {
+            shell: Some("echo test".to_string()),
+            claude: None,
+            on_failure: None,
+            test: None,
+            capture_output: false,
+            commit_required: false,
+        };
+
+        let (shell, test, on_failure) = 
+            DefaultCookOrchestrator::process_step_failure_config(&step);
+
+        assert_eq!(shell, Some("echo test".to_string()));
+        assert!(test.is_none());
+        assert!(on_failure.is_none());
+    }
+
+    #[test]
+    fn test_convert_command_to_step_workflow_step() {
+        let step = crate::config::command::WorkflowStepCommand {
+            shell: Some("echo test".to_string()),
+            claude: None,
+            on_failure: None,
+            test: None,
+            capture_output: true,
+            commit_required: false,
+        };
+        let cmd = WorkflowCommand::WorkflowStep(step);
+
+        let result = DefaultCookOrchestrator::convert_command_to_step(&cmd);
+
+        assert_eq!(result.shell, Some("echo test".to_string()));
+        assert_eq!(result.capture_output, CaptureOutput::Default);
+        assert_eq!(result.commit_required, false);
+    }
+
+    #[test]
+    fn test_convert_command_to_step_simple_command() {
+        let simple = crate::config::command::SimpleCommand {
+            name: "prodigy-test".to_string(),
+            commit_required: Some(true),
+        };
+        let cmd = WorkflowCommand::SimpleObject(simple);
+
+        let result = DefaultCookOrchestrator::convert_command_to_step(&cmd);
+
+        assert_eq!(result.command, Some("/prodigy-test".to_string()));
+        assert_eq!(result.commit_required, true);
+    }
+
+    // TODO: Fix test after understanding MapReduceWorkflowConfig structure  
+    // #[test]
+    // fn test_mapreduce_takes_precedence() {
 }
