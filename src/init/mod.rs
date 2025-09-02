@@ -181,23 +181,28 @@ fn get_user_confirmation() -> Result<bool> {
     Ok(true)
 }
 
+/// Determine if we should proceed based on existing commands
+fn should_proceed_with_existing(existing: &[&str]) -> Result<bool> {
+    if existing.is_empty() {
+        Ok(true)
+    } else {
+        display_existing_commands_warning(existing);
+        get_user_confirmation()
+    }
+}
+
 /// Handle checking for existing commands and get user confirmation
 fn handle_existing_commands(
     commands_dir: &Path,
     templates: &[templates::CommandTemplate],
 ) -> Result<bool> {
-    if templates.is_empty() {
-        return Ok(true);
+    match templates.is_empty() {
+        true => Ok(true),
+        false => {
+            let existing = find_existing_commands(commands_dir, templates);
+            should_proceed_with_existing(&existing)
+        }
     }
-
-    let existing = find_existing_commands(commands_dir, templates);
-
-    if existing.is_empty() {
-        return Ok(true);
-    }
-
-    display_existing_commands_warning(&existing);
-    get_user_confirmation()
 }
 
 /// Install all selected templates
@@ -680,6 +685,46 @@ mod tests {
         // Should handle conflicts appropriately
         let result = handle_existing_commands(&commands_dir, &templates);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_should_proceed_with_existing_empty() {
+        let existing: Vec<&str> = vec![];
+        
+        // Should return true when no existing commands
+        let result = should_proceed_with_existing(&existing).unwrap();
+        assert!(result);
+    }
+
+    #[test]
+    fn test_should_proceed_with_existing_non_empty() {
+        let existing = vec!["command1", "command2"];
+        
+        // In test environment, should handle existing commands
+        // This will skip the interactive prompt and return true
+        let result = should_proceed_with_existing(&existing);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_handle_existing_commands_pattern_matching() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir_all(&commands_dir).unwrap();
+
+        // Test with empty templates - should use match arm for true
+        let empty_templates = vec![];
+        let result = handle_existing_commands(&commands_dir, &empty_templates).unwrap();
+        assert!(result);
+
+        // Test with non-empty templates - should use match arm for false
+        let templates = vec![templates::CommandTemplate {
+            name: "test-cmd",
+            content: "content",
+            description: "desc",
+        }];
+        let result = handle_existing_commands(&commands_dir, &templates).unwrap();
+        assert!(result);
     }
 
     #[tokio::test]
