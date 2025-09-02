@@ -1530,6 +1530,24 @@ mod tests {
     use super::*;
     use crate::config::{WorkflowCommand, WorkflowConfig};
 
+    // Helper function to create a test CookCommand
+    fn create_test_cook_command() -> CookCommand {
+        CookCommand {
+            playbook: PathBuf::from("test.yaml"),
+            path: None,
+            max_iterations: 1,
+            worktree: false,
+            map: vec![],
+            args: vec![],
+            fail_fast: false,
+            auto_accept: false,
+            metrics: false,
+            resume: None,
+            verbosity: 0,
+            quiet: false,
+        }
+    }
+
     // TODO: Fix test after understanding MapReduceWorkflowConfig structure
     // #[test]
     // fn test_classify_workflow_type_mapreduce() {
@@ -1537,21 +1555,20 @@ mod tests {
     #[test]
     fn test_classify_workflow_type_structured_with_outputs() {
         let mut config = CookConfig {
-            command: CookCommand::default(),
+            command: create_test_cook_command(),
             project_path: PathBuf::from("/test"),
-            workflow: WorkflowConfig::default(),
+            workflow: WorkflowConfig { commands: vec![] },
             mapreduce_config: None,
         };
 
         // Add a structured command with outputs
-        let structured = crate::config::command::StructuredCommand {
-            name: "test".to_string(),
-            outputs: Some(vec!["output1".to_string()]),
-            args: vec![],
-            options: Default::default(),
-            metadata: Default::default(),
-        };
-        config.workflow.commands.push(WorkflowCommand::Structured(structured));
+        let mut structured = crate::config::command::Command::new("test");
+        let mut outputs = HashMap::new();
+        outputs.insert("output1".to_string(), crate::config::command::OutputDeclaration {
+            file_pattern: "*.md".to_string(),
+        });
+        structured.outputs = Some(outputs);
+        config.workflow.commands.push(WorkflowCommand::Structured(Box::new(structured)));
 
         assert_eq!(
             DefaultCookOrchestrator::classify_workflow_type(&config),
@@ -1561,13 +1578,13 @@ mod tests {
 
     #[test]
     fn test_classify_workflow_type_with_arguments() {
-        let mut command = CookCommand::default();
+        let mut command = create_test_cook_command();
         command.args = vec!["arg1".to_string()];
         
         let config = CookConfig {
             command,
             project_path: PathBuf::from("/test"),
-            workflow: WorkflowConfig::default(),
+            workflow: WorkflowConfig { commands: vec![] },
             mapreduce_config: None,
         };
 
@@ -1579,13 +1596,13 @@ mod tests {
 
     #[test]
     fn test_classify_workflow_type_with_map_patterns() {
-        let mut command = CookCommand::default();
+        let mut command = create_test_cook_command();
         command.map = vec!["*.rs".to_string()];
         
         let config = CookConfig {
             command,
             project_path: PathBuf::from("/test"),
-            workflow: WorkflowConfig::default(),
+            workflow: WorkflowConfig { commands: vec![] },
             mapreduce_config: None,
         };
 
@@ -1598,9 +1615,9 @@ mod tests {
     #[test]
     fn test_classify_workflow_type_standard() {
         let config = CookConfig {
-            command: CookCommand::default(),
+            command: create_test_cook_command(),
             project_path: PathBuf::from("/test"),
-            workflow: WorkflowConfig::default(),
+            workflow: WorkflowConfig { commands: vec![] },
             mapreduce_config: None,
         };
 
@@ -1615,6 +1632,8 @@ mod tests {
         let simple = crate::config::command::SimpleCommand {
             name: "test".to_string(),
             commit_required: Some(false),
+            args: None,
+            analysis: None,
         };
         let cmd = WorkflowCommand::SimpleObject(simple);
         let command = crate::config::command::Command::new("test");
@@ -1627,17 +1646,9 @@ mod tests {
 
     #[test]
     fn test_determine_commit_required_structured() {
-        let structured = crate::config::command::StructuredCommand {
-            name: "test".to_string(),
-            outputs: None,
-            args: vec![],
-            options: Default::default(),
-            metadata: crate::config::command::CommandMetadata {
-                commit_required: false,
-                ..Default::default()
-            },
-        };
-        let cmd = WorkflowCommand::Structured(structured);
+        let mut structured = crate::config::command::Command::new("test");
+        structured.metadata.commit_required = false;
+        let cmd = WorkflowCommand::Structured(Box::new(structured));
         let mut command = crate::config::command::Command::new("test");
         command.metadata.commit_required = false;
 
@@ -1655,11 +1666,17 @@ mod tests {
                 claude: "/fix-error".to_string(),
                 max_attempts: 3,
                 fail_workflow: false,
+                commit_required: true,
             }),
             claude: None,
             test: None,
             capture_output: false,
             commit_required: false,
+            analyze: None,
+            id: None,
+            analysis: None,
+            outputs: None,
+            on_success: None,
         };
 
         let (shell, test, on_failure) = 
@@ -1683,10 +1700,16 @@ mod tests {
                 claude: "/fix-error".to_string(),
                 max_attempts: 2,
                 fail_workflow: true,
+                commit_required: true,
             }),
             test: None,
             capture_output: false,
             commit_required: false,
+            analyze: None,
+            id: None,
+            analysis: None,
+            outputs: None,
+            on_success: None,
         };
 
         let (shell, test, on_failure) = 
@@ -1719,6 +1742,11 @@ mod tests {
             test: None,
             capture_output: false,
             commit_required: false,
+            analyze: None,
+            id: None,
+            analysis: None,
+            outputs: None,
+            on_success: None,
         };
 
         let (shell, test, on_failure) = 
@@ -1738,8 +1766,13 @@ mod tests {
             test: None,
             capture_output: true,
             commit_required: false,
+            analyze: None,
+            id: None,
+            analysis: None,
+            outputs: None,
+            on_success: None,
         };
-        let cmd = WorkflowCommand::WorkflowStep(step);
+        let cmd = WorkflowCommand::WorkflowStep(Box::new(step));
 
         let result = DefaultCookOrchestrator::convert_command_to_step(&cmd);
 
@@ -1753,6 +1786,8 @@ mod tests {
         let simple = crate::config::command::SimpleCommand {
             name: "prodigy-test".to_string(),
             commit_required: Some(true),
+            args: None,
+            analysis: None,
         };
         let cmd = WorkflowCommand::SimpleObject(simple);
 
