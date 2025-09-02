@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use tokio::fs;
 
@@ -45,54 +45,88 @@ impl CommandDiscovery {
         })?;
 
         while let Some(entry) = entries.next_entry().await? {
-            let path = entry.path();
-
-            // Only process .md files
-            match path.extension() {
-                Some(ext) if ext == "md" => {}
-                _ => continue,
+            if let Some(command_file) = self.process_entry(entry).await? {
+                commands.push(command_file);
             }
-
-            // Skip non-command files
-            let file_name = path
-                .file_stem()
-                .and_then(|name| name.to_str())
-                .unwrap_or("");
-
-            if !file_name.starts_with("prodigy-") {
-                continue;
-            }
-
-            let metadata = entry.metadata().await?;
-            let modified = metadata.modified()?;
-
-            // Check cache first
-            if let Some(cached) = self.cache.get(file_name) {
-                if cached.modified >= modified {
-                    commands.push(cached.clone());
-                    continue;
-                }
-            }
-
-            // Read and cache the file
-            let content = fs::read_to_string(&path)
-                .await
-                .with_context(|| format!("Failed to read command file: {}", path.display()))?;
-
-            let command_file = CommandFile {
-                path: path.clone(),
-                name: file_name.to_string(),
-                content,
-                modified,
-            };
-
-            self.cache
-                .insert(file_name.to_string(), command_file.clone());
-            commands.push(command_file);
         }
 
         self.last_scan = Some(SystemTime::now());
         Ok(commands)
+    }
+
+    /// Process a single directory entry
+    async fn process_entry(&mut self, entry: fs::DirEntry) -> Result<Option<CommandFile>> {
+        let path = entry.path();
+
+        if !Self::is_command_file(&path) {
+            return Ok(None);
+        }
+
+        let file_name = Self::extract_file_name(&path);
+        let metadata = entry.metadata().await?;
+        let modified = metadata.modified()?;
+
+        // Check cache first
+        if let Some(cached) = self.get_cached_if_fresh(file_name, modified) {
+            return Ok(Some(cached));
+        }
+
+        // Read and cache the file
+        let command_file = self.read_and_cache_file(&path, file_name, modified).await?;
+        Ok(Some(command_file))
+    }
+
+    /// Check if a path represents a valid command file
+    fn is_command_file(path: &Path) -> bool {
+        let is_markdown = path.extension().is_some_and(|ext| ext == "md");
+        let is_prodigy_command = path
+            .file_stem()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.starts_with("prodigy-"));
+
+        is_markdown && is_prodigy_command
+    }
+
+    /// Extract the file name from a path
+    fn extract_file_name(path: &Path) -> &str {
+        path.file_stem()
+            .and_then(|name| name.to_str())
+            .unwrap_or("")
+    }
+
+    /// Get cached file if it's still fresh
+    fn get_cached_if_fresh(&self, file_name: &str, modified: SystemTime) -> Option<CommandFile> {
+        self.cache.get(file_name).and_then(|cached| {
+            if cached.modified >= modified {
+                Some(cached.clone())
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Read file from disk and update cache
+    async fn read_and_cache_file(
+        &mut self,
+        path: &Path,
+        file_name: &str,
+        modified: SystemTime,
+    ) -> Result<CommandFile> {
+        let content = fs::read_to_string(path)
+            .await
+            .with_context(|| format!("Failed to read command file: {}", path.display()))?;
+
+        let command_file = CommandFile {
+            path: path.to_path_buf(),
+            name: file_name.to_string(),
+            content,
+            modified,
+        };
+
+        self.cache
+            .insert(file_name.to_string(), command_file.clone());
+
+        Ok(command_file)
     }
 
     /// Check if the discovery cache needs refreshing
@@ -207,5 +241,140 @@ mod tests {
 
         discovery.clear_cache();
         assert!(discovery.needs_refresh());
+    }
+
+    #[tokio::test]
+    async fn test_is_command_file() {
+        use std::path::Path;
+
+        // Valid command file
+        assert!(CommandDiscovery::is_command_file(Path::new(
+            "prodigy-test.md"
+        )));
+
+        // Invalid: not markdown
+        assert!(!CommandDiscovery::is_command_file(Path::new(
+            "prodigy-test.txt"
+        )));
+
+        // Invalid: not prodigy- prefix
+        assert!(!CommandDiscovery::is_command_file(Path::new("test.md")));
+
+        // Invalid: README.md
+        assert!(!CommandDiscovery::is_command_file(Path::new("README.md")));
+
+        // Valid with path
+        assert!(CommandDiscovery::is_command_file(Path::new(
+            "/path/to/prodigy-cmd.md"
+        )));
+    }
+
+    #[tokio::test]
+    async fn test_extract_file_name() {
+        use std::path::Path;
+
+        assert_eq!(
+            CommandDiscovery::extract_file_name(Path::new("prodigy-test.md")),
+            "prodigy-test"
+        );
+        assert_eq!(
+            CommandDiscovery::extract_file_name(Path::new("/path/to/cmd.md")),
+            "cmd"
+        );
+        assert_eq!(
+            CommandDiscovery::extract_file_name(Path::new("no_extension")),
+            "no_extension"
+        );
+        assert_eq!(CommandDiscovery::extract_file_name(Path::new("")), "");
+    }
+
+    #[tokio::test]
+    async fn test_cache_invalidation_on_file_update() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir(&commands_dir).await.unwrap();
+
+        let test_file = commands_dir.join("prodigy-test.md");
+        fs::write(&test_file, "# Original").await.unwrap();
+
+        let mut discovery = CommandDiscovery::new(commands_dir.clone());
+
+        // First scan
+        let commands1 = discovery.scan_commands().await.unwrap();
+        assert_eq!(commands1[0].content, "# Original");
+
+        // Update file with a small delay to ensure modified time changes
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+        fs::write(&test_file, "# Updated").await.unwrap();
+
+        // Scan again - should detect the change
+        let commands2 = discovery.scan_commands().await.unwrap();
+        assert_eq!(commands2[0].content, "# Updated");
+    }
+
+    #[tokio::test]
+    async fn test_scan_nonexistent_directory() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("nonexistent");
+
+        let mut discovery = CommandDiscovery::new(commands_dir);
+        let commands = discovery.scan_commands().await.unwrap();
+
+        assert_eq!(commands.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_multiple_valid_command_files() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir(&commands_dir).await.unwrap();
+
+        // Create multiple valid command files
+        for i in 1..=5 {
+            let filename = format!("prodigy-cmd{}.md", i);
+            let content = format!("# Command {}", i);
+            fs::write(commands_dir.join(&filename), &content)
+                .await
+                .unwrap();
+        }
+
+        let mut discovery = CommandDiscovery::new(commands_dir);
+        let commands = discovery.scan_commands().await.unwrap();
+
+        assert_eq!(commands.len(), 5);
+
+        // Verify all commands were found
+        let names: Vec<String> = commands.iter().map(|c| c.name.clone()).collect();
+        for i in 1..=5 {
+            assert!(names.contains(&format!("prodigy-cmd{}", i)));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_process_entry_with_cache() {
+        let temp_dir = TempDir::new().unwrap();
+        let commands_dir = temp_dir.path().join("commands");
+        fs::create_dir(&commands_dir).await.unwrap();
+
+        let test_file = commands_dir.join("prodigy-test.md");
+        fs::write(&test_file, "# Test Content").await.unwrap();
+
+        let mut discovery = CommandDiscovery::new(commands_dir.clone());
+
+        // First scan - should read from disk
+        let commands1 = discovery.scan_commands().await.unwrap();
+        assert_eq!(commands1.len(), 1);
+        assert_eq!(commands1[0].content, "# Test Content");
+
+        // Second scan - should use cache (file not modified)
+        let commands2 = discovery.scan_commands().await.unwrap();
+        assert_eq!(commands2.len(), 1);
+        assert_eq!(commands2[0].content, "# Test Content");
+
+        // Clear cache and scan again
+        discovery.clear_cache();
+        let commands3 = discovery.scan_commands().await.unwrap();
+        assert_eq!(commands3.len(), 1);
+        assert_eq!(commands3[0].content, "# Test Content");
     }
 }
