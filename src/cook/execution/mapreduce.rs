@@ -1670,66 +1670,78 @@ impl MapReduceExecutor {
 
     /// Determine command type from a workflow step
     fn determine_command_type(&self, step: &WorkflowStep) -> Result<CommandType> {
-        // Count how many command fields are specified
-        let mut specified_count = 0;
-        if step.claude.is_some() {
-            specified_count += 1;
-        }
-        if step.shell.is_some() {
-            specified_count += 1;
-        }
-        if step.test.is_some() {
-            specified_count += 1;
-        }
-        if step.handler.is_some() {
-            specified_count += 1;
-        }
-        if step.name.is_some() || step.command.is_some() {
-            specified_count += 1;
-        }
+        // Collect all specified command types
+        let commands = Self::collect_command_types(step);
 
-        // Ensure only one command type is specified
-        if specified_count > 1 {
-            return Err(anyhow!(
-                "Multiple command types specified. Use only one of: claude, shell, test, handler, or name/command"
-            ));
-        }
+        // Validate exactly one command is specified
+        Self::validate_command_count(&commands)?;
 
-        if specified_count == 0 {
-            return Err(anyhow!(
-                "No command specified. Use one of: claude, shell, test, handler, or name/command"
-            ));
-        }
+        // Extract and return the single command type
+        commands
+            .into_iter()
+            .next()
+            .ok_or_else(|| anyhow!("No valid command found in step"))
+    }
 
-        // Return the appropriate command type
+    /// Collect all command types from a workflow step
+    pub(crate) fn collect_command_types(step: &WorkflowStep) -> Vec<CommandType> {
+        let mut commands = Vec::new();
+
         if let Some(handler_step) = &step.handler {
-            // Convert serde_json::Value to AttributeValue
-            let mut attributes = HashMap::new();
-            for (key, value) in &handler_step.attributes {
-                attributes.insert(key.clone(), Self::json_to_attribute_value(value.clone()));
-            }
-            Ok(CommandType::Handler {
+            let attributes = handler_step
+                .attributes
+                .iter()
+                .map(|(k, v)| (k.clone(), Self::json_to_attribute_value(v.clone())))
+                .collect();
+            commands.push(CommandType::Handler {
                 handler_name: handler_step.name.clone(),
                 attributes,
-            })
-        } else if let Some(claude_cmd) = &step.claude {
-            Ok(CommandType::Claude(claude_cmd.clone()))
-        } else if let Some(shell_cmd) = &step.shell {
-            Ok(CommandType::Shell(shell_cmd.clone()))
-        } else if let Some(test_cmd) = &step.test {
-            Ok(CommandType::Test(test_cmd.clone()))
-        } else if let Some(name) = &step.name {
-            // Legacy support - prepend / if not present
-            let command = if name.starts_with('/') {
-                name.clone()
-            } else {
-                format!("/{name}")
-            };
-            Ok(CommandType::Legacy(command))
-        } else if let Some(command) = &step.command {
-            Ok(CommandType::Legacy(command.clone()))
+            });
+        }
+
+        if let Some(claude_cmd) = &step.claude {
+            commands.push(CommandType::Claude(claude_cmd.clone()));
+        }
+
+        if let Some(shell_cmd) = &step.shell {
+            commands.push(CommandType::Shell(shell_cmd.clone()));
+        }
+
+        if let Some(test_cmd) = &step.test {
+            commands.push(CommandType::Test(test_cmd.clone()));
+        }
+
+        if let Some(name) = &step.name {
+            let command = Self::format_legacy_command(name);
+            commands.push(CommandType::Legacy(command));
+        }
+
+        if let Some(command) = &step.command {
+            commands.push(CommandType::Legacy(command.clone()));
+        }
+
+        commands
+    }
+
+    /// Validate that exactly one command type is specified
+    pub(crate) fn validate_command_count(commands: &[CommandType]) -> Result<()> {
+        match commands.len() {
+            0 => Err(anyhow!(
+                "No command specified. Use one of: claude, shell, test, handler, or name/command"
+            )),
+            1 => Ok(()),
+            _ => Err(anyhow!(
+                "Multiple command types specified. Use only one of: claude, shell, test, handler, or name/command"
+            )),
+        }
+    }
+
+    /// Format a legacy command name with leading slash if needed
+    pub(crate) fn format_legacy_command(name: &str) -> String {
+        if name.starts_with('/') {
+            name.to_string()
         } else {
-            Err(anyhow!("No valid command found in step"))
+            format!("/{name}")
         }
     }
 

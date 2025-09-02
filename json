@@ -5,37 +5,47 @@
 [TARGET] TOP 10 RECOMMENDATIONS
 
 #1 SCORE: 10.00 [CRITICAL]
-- LOCATION: src/config/command_discovery.rs:34 CommandDiscovery::scan_commands()
-- ACTION: Extract validation logic, complex calculations to reduce complexity 12 → ~1
-- IMPACT: -6 complexity, -3.5 risk
-- COMPLEXITY: cyclomatic=12 (adj:12), branches=12, cognitive=43, nesting=3, entropy=0.46
-- DEPENDENCIES: 5 upstream, 1 downstream
-   - CALLERS: tests::test_scan_empty_directory, tests::test_needs_refresh, DynamicCommandRegistry::refresh, ... (2 more)
-   - CALLS: CommandRegistry::clone
-- WHY: Complex function (cyclo=12, cog=43, nesting=3) with 2 suggested extraction patterns. Predicted complexity reduction: 91%
+- LOCATION: ./src/config/command_discovery.rs:68 CommandDiscovery::scan_commands()
+- ACTION: Extract complex calculations to reduce complexity 7 → ~3
+- IMPACT: -3 complexity, -3.5 risk
+- COMPLEXITY: cyclomatic=7 (adj:7), branches=7, cognitive=21, nesting=2, entropy=0.56
+- DEPENDENCIES: 9 upstream, 1 downstream
+   - CALLERS: tests::test_process_entry_with_cache, tests::test_scan_commands_filters_correctly, tests::test_scan_nonexistent_directory, ... (6 more)
+   - CALLS: CommandDiscovery::process_entry
+- WHY: Complex function (cyclo=7, cog=21, nesting=2) with 1 suggested extraction patterns. Predicted complexity reduction: 57%
 
 #2 SCORE: 10.00 [CRITICAL]
-- LOCATION: src/config/command_validator.rs:226 CommandRegistry::validate_command()
+- LOCATION: ./src/config/command_validator.rs:226 CommandRegistry::validate_command()
 - ACTION: Extract validation logic, nested processing, complex calculations to reduce complexity 13 → ~2
 - IMPACT: -6 complexity, -3.5 risk
 - COMPLEXITY: cyclomatic=13 (adj:13), branches=13, cognitive=30, nesting=4, entropy=0.55
 - DEPENDENCIES: 1 upstream, 4 downstream
    - CALLERS: validate_command
-   - CALLS: CommandRegistry::get, CommandRegistry::validate_argument_type, CommandRegistry::validate_option_value, ... (1 more)
+   - CALLS: DynamicCommandRegistry::get, CommandRegistry::validate_option_value, CommandArg::is_variable, ... (1 more)
 - WHY: Complex function (cyclo=13, cog=30, nesting=4) with 3 suggested extraction patterns. Predicted complexity reduction: 84%
 
 #3 SCORE: 10.00 [CRITICAL]
-- LOCATION: src/config/loader.rs:54 ConfigLoader::load_from_path()
+- LOCATION: ./src/config/loader.rs:31 ConfigLoader::load_with_explicit_path()
+- ACTION: Extract complex calculations to reduce complexity 5 → ~2
+- IMPACT: -2 complexity, -3.5 risk
+- COMPLEXITY: cyclomatic=5 (adj:5), branches=5, cognitive=16, nesting=2, entropy=0.60
+- DEPENDENCIES: 5 upstream, 2 downstream
+   - CALLERS: cook, tests::test_load_with_default_path, tests::test_load_with_no_config_uses_defaults, ... (2 more)
+   - CALLS: CacheManager::exists, ConfigLoader::load_from_path
+- WHY: Complex function (cyclo=5, cog=16, nesting=2) with 1 suggested extraction patterns. Predicted complexity reduction: 60%
+
+#4 SCORE: 10.00 [CRITICAL]
+- LOCATION: ./src/config/loader.rs:54 ConfigLoader::load_from_path()
 - ACTION: Extract validation logic, complex calculations to reduce complexity 13 → ~0
 - IMPACT: -6 complexity, -3.5 risk
 - COMPLEXITY: cyclomatic=13 (adj:13), branches=13, cognitive=52, nesting=3, entropy=0.38
 - DEPENDENCIES: 4 upstream, 2 downstream
-   - CALLERS: ConfigLoader::load_with_explicit_path, tests::test_load_from_path_nonexistent_file, tests::test_load_from_path_invalid_yaml, ... (1 more)
-   - CALLS: CommandRegistry::clone, CommandRegistry::get
+   - CALLERS: tests::test_load_from_path_unsupported_format, tests::test_load_from_path_nonexistent_file, ConfigLoader::load_with_explicit_path, ... (1 more)
+   - CALLS: CommandRegistry::clone, DynamicCommandRegistry::get
 - WHY: Complex function (cyclo=13, cog=52, nesting=3) with 2 suggested extraction patterns. Predicted complexity reduction: 100%
 
-#4 SCORE: 10.00 [CRITICAL]
-- LOCATION: src/config/dynamic_registry.rs:118 DynamicCommandRegistry::validate_strict()
+#5 SCORE: 10.00 [CRITICAL]
+- LOCATION: ./src/config/dynamic_registry.rs:118 DynamicCommandRegistry::validate_strict()
 - ACTION: Extract validation logic, nested processing, complex calculations to reduce complexity 12 → ~2
 - IMPACT: -6 complexity, -3.5 risk
 - COMPLEXITY: cyclomatic=12 (adj:12), branches=12, cognitive=27, nesting=4, entropy=0.57
@@ -44,64 +54,54 @@
    - CALLS: DynamicCommandRegistry::validate_option_value, DynamicCommandRegistry::validate_argument_type, CommandArg::is_variable
 - WHY: Complex function (cyclo=12, cog=27, nesting=4) with 3 suggested extraction patterns. Predicted complexity reduction: 83%
 
-#5 SCORE: 10.00 [CRITICAL]
-- LOCATION: src/worktree/manager.rs:102 WorktreeManager::new()
+#6 SCORE: 10.00 [CRITICAL]
+- LOCATION: ./src/worktree/manager.rs:102 WorktreeManager::new()
 - ACTION: Extract validation logic, complex calculations to reduce complexity 8 → ~3
 - IMPACT: -4 complexity, -3.5 risk
 - COMPLEXITY: cyclomatic=8 (adj:8), branches=8, cognitive=17, nesting=1, entropy=0.39
 - DEPENDENCIES: 35 upstream, 1 downstream
-   - CALLERS: WorkflowExecutor::execute_mapreduce, test_list_interrupted_sessions_empty, run_worktree_command, ... (32 more)
+   - CALLERS: test_create_session_with_uuid_name, tests::test_update_checkpoint_success, tests::test_detect_mergeable_sessions_empty, ... (32 more)
    - CALLS: CacheManager::exists
 - WHY: Complex function (cyclo=8, cog=17, nesting=1) with 2 suggested extraction patterns. Predicted complexity reduction: 62%
 
-#6 SCORE: 10.00 [CRITICAL]
-- LOCATION: src/worktree/manager.rs:403 WorktreeManager::merge_session()
+#7 SCORE: 10.00 [CRITICAL]
+- LOCATION: ./src/worktree/manager.rs:403 WorktreeManager::merge_session()
 - ACTION: Extract validation logic, nested processing, complex calculations to reduce complexity 23 → ~2
 - IMPACT: -11 complexity, -3.5 risk
 - COMPLEXITY: cyclomatic=23 (adj:23), branches=23, cognitive=74, nesting=5, entropy=0.38
 - DEPENDENCIES: 5 upstream, 15 downstream
-   - CALLERS: merge_single_session, handle_merge_single, tests::test_merge_session_claude_cli_failure, ... (2 more)
-   - CALLS: MockGitBuilder::build, GitDiff::is_empty, WorktreeManager::get_cleanup_config, ... (12 more)
+   - CALLERS: handle_merge_single, tests::test_merge_session_success, tests::test_merge_session_claude_cli_failure, ... (2 more)
+   - CALLS: GitDiff::is_empty, WorktreeManager::cleanup_session_after_merge, WorktreeManager::list_sessions, ... (12 more)
 - WHY: Complex function (cyclo=23, cog=74, nesting=5) with 3 suggested extraction patterns. Predicted complexity reduction: 91%
 
-#7 SCORE: 10.00 [CRITICAL]
-- LOCATION: src/worktree/manager.rs:602 WorktreeManager::cleanup_session()
-- ACTION: Extract validation logic, complex calculations to reduce complexity 8 → ~2
-- IMPACT: -4 complexity, -3.5 risk
-- COMPLEXITY: cyclomatic=8 (adj:8), branches=8, cognitive=22, nesting=2, entropy=0.41
-- DEPENDENCIES: 20 upstream, 7 downstream
-   - CALLERS: test_list_interrupted_sessions_none_interrupted, test_cleanup_session, merge_single_session, ... (17 more)
-   - CALLS: ProcessCommandBuilder::new, MockGitBuilder::build, TokioProcessRunner::run, ... (4 more)
-- WHY: Complex function (cyclo=8, cog=22, nesting=2) with 2 suggested extraction patterns. Predicted complexity reduction: 75%
-
 #8 SCORE: 10.00 [CRITICAL]
-- LOCATION: src/worktree/manager.rs:784 WorktreeManager::detect_mergeable_sessions()
+- LOCATION: ./src/worktree/manager.rs:784 WorktreeManager::detect_mergeable_sessions()
 - ACTION: Extract validation logic, complex calculations to reduce complexity 8 → ~1
 - IMPACT: -4 complexity, -3.5 risk
 - COMPLEXITY: cyclomatic=8 (adj:8), branches=8, cognitive=25, nesting=3, entropy=0.53
 - DEPENDENCIES: 3 upstream, 10 downstream
-   - CALLERS: handle_show_mergeable, WorktreeManager::cleanup_merged_sessions, tests::test_detect_mergeable_sessions_empty
-   - CALLS: WorktreeManager::list_sessions, MockGitBuilder::build, ProcessCommandBuilder::new, ... (7 more)
+   - CALLERS: tests::test_detect_mergeable_sessions_empty, handle_show_mergeable, WorktreeManager::cleanup_merged_sessions
+   - CALLS: WorktreeManager::list_sessions, WorktreeManager::get_session_state, ProcessCommandBuilder::current_dir, ... (7 more)
 - WHY: Complex function (cyclo=8, cog=25, nesting=3) with 2 suggested extraction patterns. Predicted complexity reduction: 87%
 
 #9 SCORE: 10.00 [CRITICAL]
-- LOCATION: src/worktree/manager.rs:860 WorktreeManager::cleanup_session_after_merge()
+- LOCATION: ./src/worktree/manager.rs:860 WorktreeManager::cleanup_session_after_merge()
 - ACTION: Extract validation logic, complex calculations to reduce complexity 17 → ~6
 - IMPACT: -8 complexity, -3.5 risk
 - COMPLEXITY: cyclomatic=17 (adj:17), branches=17, cognitive=36, nesting=2, entropy=0.40
 - DEPENDENCIES: 4 upstream, 11 downstream
-   - CALLERS: WorktreeManager::merge_session, WorktreeManager::cleanup_merged_sessions, tests::test_cleanup_session_after_merge_not_merged, ... (1 more)
-   - CALLS: MockSpinnerHandle::success, GitDiff::is_empty, ProcessCommandBuilder::current_dir, ... (8 more)
+   - CALLERS: WorktreeManager::cleanup_merged_sessions, tests::test_cleanup_session_after_merge_not_merged, WorktreeManager::merge_session, ... (1 more)
+   - CALLS: GitDiff::is_empty, ProcessCommandBuilder::current_dir, ProcessCommandBuilder::new, ... (8 more)
 - WHY: Complex function (cyclo=17, cog=36, nesting=2) with 2 suggested extraction patterns. Predicted complexity reduction: 64%
 
 #10 SCORE: 10.00 [CRITICAL]
-- LOCATION: src/subprocess/runner.rs:85 TokioProcessRunner::run()
+- LOCATION: ./src/subprocess/runner.rs:85 TokioProcessRunner::run()
 - ACTION: Extract validation logic to reduce complexity 33 → ~25
 - IMPACT: -16 complexity, -3.5 risk
 - COMPLEXITY: cyclomatic=33 (adj:33), branches=33, cognitive=61, nesting=3, entropy=0.41
 - DEPENDENCIES: 32 upstream, 4 downstream
-   - CALLERS: subprocess_tests::test_subprocess_manager, RealClaudeClient::execute_command, tests::test_run_init_with_existing_commands, ... (29 more)
-   - CALLS: GitDiff::is_empty, MockSpinnerHandle::success, CommandRegistry::clone, ... (1 more)
+   - CALLERS: subprocess_tests::test_production_runner_timeout, tests::test_run_init_with_existing_commands, RealClaudeClient::execute_command, ... (29 more)
+   - CALLS: ExitStatusHelper::success, CommandRegistry::clone, GitDiff::is_empty, ... (1 more)
 - WHY: Complex function (cyclo=33, cog=61, nesting=3) with 1 suggested extraction patterns. Predicted complexity reduction: 24%
 
-[STATS] TOTAL DEBT SCORE: 642
+[STATS] TOTAL DEBT SCORE: 639

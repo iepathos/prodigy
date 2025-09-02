@@ -665,3 +665,191 @@ fn test_interpolation_strict_mode() {
 
 // TODO: Add test for json_path_extraction once mock types are properly configured
 // The interpolation functionality is tested comprehensively in the tests above
+
+#[cfg(test)]
+mod command_type_tests {
+    use super::*;
+    use crate::cook::workflow::{CaptureOutput, WorkflowStep};
+
+    #[test]
+    fn test_collect_command_types_single_claude() {
+        let step = WorkflowStep {
+            claude: Some("/test-command".to_string()),
+            name: None,
+            shell: None,
+            test: None,
+            command: None,
+            handler: None,
+            capture_output: CaptureOutput::Disabled,
+            on_failure: None,
+            on_success: None,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_exit_code: HashMap::new(),
+            commit_required: true,
+            validate: None,
+        };
+
+        let commands = MapReduceExecutor::collect_command_types(&step);
+        assert_eq!(commands.len(), 1);
+        matches!(commands[0], CommandType::Claude(_));
+    }
+
+    #[test]
+    fn test_collect_command_types_single_shell() {
+        let step = WorkflowStep {
+            shell: Some("echo test".to_string()),
+            name: None,
+            claude: None,
+            test: None,
+            command: None,
+            handler: None,
+            capture_output: CaptureOutput::Disabled,
+            on_failure: None,
+            on_success: None,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_exit_code: HashMap::new(),
+            commit_required: true,
+            validate: None,
+        };
+
+        let commands = MapReduceExecutor::collect_command_types(&step);
+        assert_eq!(commands.len(), 1);
+        matches!(commands[0], CommandType::Shell(_));
+    }
+
+    #[test]
+    fn test_collect_command_types_multiple() {
+        let step = WorkflowStep {
+            claude: Some("/test-command".to_string()),
+            shell: Some("echo test".to_string()),
+            name: None,
+            test: None,
+            command: None,
+            handler: None,
+            capture_output: CaptureOutput::Disabled,
+            on_failure: None,
+            on_success: None,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_exit_code: HashMap::new(),
+            commit_required: true,
+            validate: None,
+        };
+
+        let commands = MapReduceExecutor::collect_command_types(&step);
+        assert_eq!(commands.len(), 2);
+    }
+
+    #[test]
+    fn test_collect_command_types_legacy_with_slash() {
+        let step = WorkflowStep {
+            name: Some("/legacy-command".to_string()),
+            claude: None,
+            shell: None,
+            test: None,
+            command: None,
+            handler: None,
+            capture_output: CaptureOutput::Disabled,
+            on_failure: None,
+            on_success: None,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_exit_code: HashMap::new(),
+            commit_required: true,
+            validate: None,
+        };
+
+        let commands = MapReduceExecutor::collect_command_types(&step);
+        assert_eq!(commands.len(), 1);
+        if let CommandType::Legacy(cmd) = &commands[0] {
+            assert_eq!(cmd, "/legacy-command");
+        } else {
+            panic!("Expected Legacy command type");
+        }
+    }
+
+    #[test]
+    fn test_collect_command_types_legacy_without_slash() {
+        let step = WorkflowStep {
+            name: Some("legacy-command".to_string()),
+            claude: None,
+            shell: None,
+            test: None,
+            command: None,
+            handler: None,
+            capture_output: CaptureOutput::Disabled,
+            on_failure: None,
+            on_success: None,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_exit_code: HashMap::new(),
+            commit_required: true,
+            validate: None,
+        };
+
+        let commands = MapReduceExecutor::collect_command_types(&step);
+        assert_eq!(commands.len(), 1);
+        if let CommandType::Legacy(cmd) = &commands[0] {
+            assert_eq!(cmd, "/legacy-command");
+        } else {
+            panic!("Expected Legacy command type");
+        }
+    }
+
+    #[test]
+    fn test_validate_command_count_empty() {
+        let commands = vec![];
+        let result = MapReduceExecutor::validate_command_count(&commands);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("No command specified"));
+    }
+
+    #[test]
+    fn test_validate_command_count_single() {
+        let commands = vec![CommandType::Shell("echo test".to_string())];
+        let result = MapReduceExecutor::validate_command_count(&commands);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_command_count_multiple() {
+        let commands = vec![
+            CommandType::Shell("echo test".to_string()),
+            CommandType::Claude("/test".to_string()),
+        ];
+        let result = MapReduceExecutor::validate_command_count(&commands);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Multiple command types specified"));
+    }
+
+    #[test]
+    fn test_format_legacy_command_with_slash() {
+        let formatted = MapReduceExecutor::format_legacy_command("/command");
+        assert_eq!(formatted, "/command");
+    }
+
+    #[test]
+    fn test_format_legacy_command_without_slash() {
+        let formatted = MapReduceExecutor::format_legacy_command("command");
+        assert_eq!(formatted, "/command");
+    }
+
+    #[test]
+    fn test_format_legacy_command_empty() {
+        let formatted = MapReduceExecutor::format_legacy_command("");
+        assert_eq!(formatted, "/");
+    }
+}
