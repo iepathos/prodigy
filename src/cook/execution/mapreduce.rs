@@ -6,7 +6,7 @@
 use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};
 use crate::cook::execution::data_pipeline::DataPipeline;
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
-use crate::cook::execution::state::{DefaultJobStateManager, JobStateManager};
+use crate::cook::execution::state::{DefaultJobStateManager, JobStateManager, MapReduceJobState};
 use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
@@ -130,6 +130,44 @@ pub struct AgentResult {
     /// Files modified by this agent
     #[serde(default)]
     pub files_modified: Vec<PathBuf>,
+}
+
+/// Options for resuming a MapReduce job
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResumeOptions {
+    /// Force resume even if job appears complete
+    pub force: bool,
+    /// Maximum additional retries for failed items
+    pub max_additional_retries: u32,
+    /// Skip validation of checkpoint integrity
+    pub skip_validation: bool,
+}
+
+impl Default for ResumeOptions {
+    fn default() -> Self {
+        Self {
+            force: false,
+            max_additional_retries: 2,
+            skip_validation: false,
+        }
+    }
+}
+
+/// Result of resuming a MapReduce job
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResumeResult {
+    /// Job ID that was resumed
+    pub job_id: String,
+    /// Checkpoint version resumed from
+    pub resumed_from_version: u32,
+    /// Total number of work items
+    pub total_items: usize,
+    /// Number of already completed items
+    pub already_completed: usize,
+    /// Number of remaining items to process
+    pub remaining_items: usize,
+    /// Final results after resumption
+    pub final_results: Vec<AgentResult>,
 }
 
 /// Agent operation types for detailed status display
@@ -500,14 +538,32 @@ impl MapReduceExecutor {
         Ok(results)
     }
 
-    /// Resume a MapReduce job from checkpoint
-    pub async fn resume_job(
+    /// Resume a MapReduce job from checkpoint with options
+    pub async fn resume_job_with_options(
         &self,
         job_id: &str,
+        options: ResumeOptions,
         env: &ExecutionEnvironment,
-    ) -> Result<Vec<AgentResult>> {
+    ) -> Result<ResumeResult> {
         // Load job state from checkpoint
         let state = self.state_manager.get_job_state(job_id).await?;
+
+        // Validate checkpoint integrity unless skipped
+        if !options.skip_validation {
+            self.validate_checkpoint(&state)?;
+        }
+
+        // Check if job is already complete and not forcing
+        if state.is_complete && !options.force {
+            return Ok(ResumeResult {
+                job_id: job_id.to_string(),
+                resumed_from_version: state.checkpoint_version,
+                total_items: state.total_items,
+                already_completed: state.completed_agents.len(),
+                remaining_items: 0,
+                final_results: state.agent_results.into_values().collect(),
+            });
+        }
 
         self.user_interaction.display_info(&format!(
             "Resuming MapReduce job {} from checkpoint v{}",
@@ -522,34 +578,21 @@ impl MapReduceExecutor {
             state.pending_items.len()
         ));
 
+        let already_completed = state.completed_agents.len();
+        let mut final_results: Vec<AgentResult>;
+        let mut remaining_count = 0;
+
         // Check if map phase is complete
         if !state.is_map_phase_complete() {
-            // Get items that need processing
-            let mut remaining_items = Vec::new();
-            for (i, item) in state.work_items.iter().enumerate() {
-                let item_id = format!("item_{}", i);
-                if state.pending_items.contains(&item_id) {
-                    remaining_items.push(item.clone());
-                }
-            }
+            // Calculate pending items
+            let pending_items =
+                self.calculate_pending_items(&state, options.max_additional_retries)?;
+            remaining_count = pending_items.len();
 
-            // Get retriable failed items
-            let retriable = state.get_retriable_items(state.config.retry_on_failure);
-            for item_id in retriable {
-                if let Some(idx) = item_id
-                    .strip_prefix("item_")
-                    .and_then(|s| s.parse::<usize>().ok())
-                {
-                    if idx < state.work_items.len() {
-                        remaining_items.push(state.work_items[idx].clone());
-                    }
-                }
-            }
-
-            if !remaining_items.is_empty() {
+            if !pending_items.is_empty() {
                 self.user_interaction.display_info(&format!(
                     "Resuming map phase with {} remaining items",
-                    remaining_items.len()
+                    pending_items.len()
                 ));
 
                 // Create a map phase config from the stored state
@@ -562,7 +605,7 @@ impl MapReduceExecutor {
 
                 // Execute remaining items
                 let new_results = self
-                    .execute_map_phase(&map_phase, remaining_items, env)
+                    .execute_map_phase(&map_phase, pending_items, env)
                     .await?;
 
                 // Update state with new results
@@ -573,21 +616,112 @@ impl MapReduceExecutor {
                 }
 
                 // Combine with existing results
-                let mut all_results: Vec<AgentResult> = state.agent_results.into_values().collect();
-                all_results.extend(new_results);
+                final_results = state.agent_results.into_values().collect();
+                final_results.extend(new_results);
+            } else {
+                final_results = state.agent_results.into_values().collect();
+            }
+        } else {
+            // Map phase is complete
+            final_results = state.agent_results.into_values().collect();
 
-                return Ok(all_results);
+            if state.reduce_phase_state.is_none() {
+                self.user_interaction
+                    .display_info("Map phase complete, reduce phase pending");
             }
         }
 
-        // If map phase is complete but reduce hasn't run
-        if state.is_map_phase_complete() && state.reduce_phase_state.is_none() {
-            self.user_interaction
-                .display_info("Map phase complete, reduce phase pending");
+        Ok(ResumeResult {
+            job_id: job_id.to_string(),
+            resumed_from_version: state.checkpoint_version,
+            total_items: state.total_items,
+            already_completed,
+            remaining_items: remaining_count,
+            final_results,
+        })
+    }
+
+    /// Resume a MapReduce job from checkpoint (backward compatibility)
+    pub async fn resume_job(
+        &self,
+        job_id: &str,
+        env: &ExecutionEnvironment,
+    ) -> Result<Vec<AgentResult>> {
+        // Use the new method with default options for backward compatibility
+        let result = self
+            .resume_job_with_options(job_id, ResumeOptions::default(), env)
+            .await?;
+        Ok(result.final_results)
+    }
+
+    /// Validate checkpoint integrity
+    fn validate_checkpoint(&self, state: &MapReduceJobState) -> Result<()> {
+        // Basic validation checks
+        if state.job_id.is_empty() {
+            return Err(anyhow!("Invalid checkpoint: empty job ID"));
         }
 
-        // Return existing results
-        Ok(state.agent_results.into_values().collect())
+        if state.work_items.is_empty() {
+            return Err(anyhow!("Invalid checkpoint: no work items"));
+        }
+
+        // Verify counts are consistent
+        let total_processed = state.completed_agents.len();
+        if total_processed > state.total_items {
+            return Err(anyhow!(
+                "Invalid checkpoint: processed count ({}) exceeds total items ({})",
+                total_processed,
+                state.total_items
+            ));
+        }
+
+        // Verify all completed agents have results
+        for agent_id in &state.completed_agents {
+            if !state.agent_results.contains_key(agent_id) {
+                return Err(anyhow!(
+                    "Invalid checkpoint: completed agent {} has no result",
+                    agent_id
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Calculate pending items for resumption
+    fn calculate_pending_items(
+        &self,
+        state: &MapReduceJobState,
+        max_additional_retries: u32,
+    ) -> Result<Vec<Value>> {
+        let mut pending_items = Vec::new();
+
+        // Add never-attempted items
+        for (i, item) in state.work_items.iter().enumerate() {
+            let item_id = format!("item_{}", i);
+            if !state.completed_agents.contains(&item_id)
+                && !state.failed_agents.contains_key(&item_id)
+            {
+                pending_items.push(item.clone());
+            }
+        }
+
+        // Add retriable failed items
+        let max_retries = state.config.retry_on_failure + max_additional_retries;
+        for (item_id, failure) in &state.failed_agents {
+            if failure.attempts < max_retries {
+                if let Some(idx) = item_id
+                    .strip_prefix("item_")
+                    .and_then(|s| s.parse::<usize>().ok())
+                {
+                    if idx < state.work_items.len() {
+                        pending_items.push(state.work_items[idx].clone());
+                    }
+                }
+            }
+        }
+
+        Ok(pending_items)
     }
 
     /// Check if a job can be resumed
@@ -596,6 +730,13 @@ impl MapReduceExecutor {
             Ok(state) => !state.is_complete,
             Err(_) => false,
         }
+    }
+
+    /// List resumable jobs
+    pub async fn list_resumable_jobs(&self) -> Result<Vec<String>> {
+        // This would need implementation in the state manager
+        // For now, return empty list
+        Ok(Vec::new())
     }
 
     /// Load work items from JSON file with pipeline processing

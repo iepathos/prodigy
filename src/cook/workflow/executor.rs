@@ -1778,7 +1778,7 @@ impl WorkflowExecutor {
             let command = ctx.interpolate(claude_cmd);
             self.user_interaction
                 .display_progress(&format!("Running validation (Claude): {}", command));
-            
+
             // Execute Claude command for validation
             let env_vars = HashMap::new();
             self.execute_claude_command(&command, env, env_vars).await?
@@ -1786,15 +1786,17 @@ impl WorkflowExecutor {
             let command = ctx.interpolate(shell_cmd);
             self.user_interaction
                 .display_progress(&format!("Running validation: {}", command));
-            
+
             // Execute shell command
             let mut env_vars = HashMap::new();
             env_vars.insert("PRODIGY_VALIDATION".to_string(), "true".to_string());
-            
+
             self.execute_shell_command(&command, env, env_vars, validation_config.timeout)
                 .await?
         } else {
-            return Ok(ValidationResult::failed("No validation command specified".to_string()));
+            return Ok(ValidationResult::failed(
+                "No validation command specified".to_string(),
+            ));
         };
 
         if !result.success {
@@ -1809,7 +1811,7 @@ impl WorkflowExecutor {
         let json_content = if let Some(result_file) = &validation_config.result_file {
             let interpolated_file = ctx.interpolate(result_file);
             let file_path = env.working_dir.join(&interpolated_file);
-            
+
             // Read the validation result from the file
             match tokio::fs::read_to_string(&file_path).await {
                 Ok(content) => content,

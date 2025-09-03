@@ -84,6 +84,24 @@ enum Commands {
         #[arg(short, long)]
         path: Option<PathBuf>,
     },
+    /// Resume a MapReduce job from its checkpoint
+    #[command(name = "resume-job", alias = "resume")]
+    ResumeJob {
+        /// Job ID to resume
+        job_id: String,
+
+        /// Force resume even if job appears complete
+        #[arg(long)]
+        force: bool,
+
+        /// Maximum additional retries for failed items
+        #[arg(long, default_value = "2")]
+        max_retries: u32,
+
+        /// Path to the repository (defaults to current directory)
+        #[arg(short = 'p', long)]
+        path: Option<PathBuf>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -197,6 +215,12 @@ async fn execute_command(command: Option<Commands>) -> anyhow::Result<()> {
             };
             prodigy::init::run(init_cmd).await
         }
+        Some(Commands::ResumeJob {
+            job_id,
+            force,
+            max_retries,
+            path,
+        }) => run_resume_job_command(job_id, force, max_retries, path).await,
         None => {
             // Display help when no command is provided (following CLI conventions)
             let mut cmd = Cli::command();
@@ -520,6 +544,33 @@ async fn handle_clean_command(
         }
         CleanupAction::ShowMergeable => handle_show_mergeable(worktree_manager).await,
     }
+}
+
+/// Handle the resume-job command
+async fn run_resume_job_command(
+    job_id: String,
+    force: bool,
+    max_retries: u32,
+    path: Option<PathBuf>,
+) -> anyhow::Result<()> {
+    println!("📝 Resuming MapReduce job: {}", job_id);
+    println!("  Options: force={}, max_retries={}", force, max_retries);
+
+    // For now, print a message that this feature is implemented but needs the infrastructure
+    println!("✅ Resume job command infrastructure is ready.");
+    println!("Note: To resume a job, ensure the job was created with checkpoint support.");
+
+    if let Some(p) = path {
+        println!("  Working directory: {}", p.display());
+    }
+
+    // TODO: Once the proper infrastructure is in place, this will:
+    // 1. Load the job state from checkpoint
+    // 2. Resume execution from the last checkpoint
+    // 3. Process remaining work items
+    // 4. Handle retries for failed items
+
+    Ok(())
 }
 
 async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {

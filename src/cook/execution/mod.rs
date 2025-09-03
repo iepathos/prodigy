@@ -20,6 +20,7 @@ pub mod state_tests;
 pub use claude::{ClaudeExecutor, ClaudeExecutorImpl};
 pub use mapreduce::{
     AgentResult, AgentStatus, MapPhase, MapReduceConfig, MapReduceExecutor, ReducePhase,
+    ResumeOptions, ResumeResult,
 };
 pub use runner::{CommandRunner, RealCommandRunner};
 
