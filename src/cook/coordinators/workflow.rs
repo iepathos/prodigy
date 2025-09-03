@@ -333,6 +333,7 @@ mod tests {
             commit_required: true,
             analysis: None,
             outputs: None,
+            validate: None,
         };
         let result = DefaultWorkflowCoordinator::extract_workflow_step_command(&step);
         assert_eq!(result, "claude-command");
@@ -352,6 +353,7 @@ mod tests {
             commit_required: true,
             analysis: None,
             outputs: None,
+            validate: None,
         };
         let result = DefaultWorkflowCoordinator::extract_workflow_step_command(&step);
         assert_eq!(result, "shell ls -la");
@@ -375,6 +377,7 @@ mod tests {
             commit_required: true,
             analysis: None,
             outputs: None,
+            validate: None,
         };
         let result = DefaultWorkflowCoordinator::extract_workflow_step_command(&step);
         assert_eq!(result, "test cargo test");
@@ -394,6 +397,7 @@ mod tests {
             commit_required: true,
             analysis: None,
             outputs: None,
+            validate: None,
         };
         let result = DefaultWorkflowCoordinator::extract_workflow_step_command(&step);
         assert_eq!(result, "");
@@ -462,6 +466,7 @@ mod tests {
             commit_required: true,
             analysis: None,
             outputs: None,
+            validate: None,
         };
         let result = DefaultWorkflowCoordinator::extract_workflow_step_command(&step);
         assert_eq!(

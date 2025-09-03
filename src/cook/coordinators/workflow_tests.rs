@@ -447,6 +447,7 @@ mod tests {
                 capture_output: false,
                 on_failure: None,
                 on_success: None,
+                validate: None,
             })),
             WorkflowCommand::WorkflowStep(Box::new(WorkflowStepCommand {
                 analyze: None,
@@ -460,6 +461,7 @@ mod tests {
                 capture_output: false,
                 on_failure: None,
                 on_success: None,
+                validate: None,
             })),
             WorkflowCommand::WorkflowStep(Box::new(WorkflowStepCommand {
                 analyze: None,
@@ -476,6 +478,7 @@ mod tests {
                 capture_output: false,
                 on_failure: None,
                 on_success: None,
+                validate: None,
             })),
         ];
 

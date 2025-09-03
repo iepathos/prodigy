@@ -179,7 +179,7 @@ impl DefaultCookOrchestrator {
                     on_exit_code: std::collections::HashMap::new(),
                     // Commands don't require commits by default unless explicitly set
                     commit_required: step.commit_required,
-                    validate: None,
+                    validate: step.validate.clone(),
                 }
             }
             _ => {
@@ -1051,7 +1051,7 @@ impl DefaultCookOrchestrator {
         input: &str,
         index: usize,
         total: usize,
-        timing_tracker: &mut TimingTracker,
+        _timing_tracker: &mut TimingTracker,
     ) -> Result<()> {
         self.user_interaction.display_info(&format!(
             "\n🔄 Processing input {}/{}: {}",
@@ -1071,19 +1071,57 @@ impl DefaultCookOrchestrator {
         variables.insert("INDEX".to_string(), (index + 1).to_string());
         variables.insert("TOTAL".to_string(), total.to_string());
 
-        // Execute each command in the workflow
-        for (step_index, cmd) in config.workflow.commands.iter().enumerate() {
-            self.execute_workflow_command(
-                env,
-                config,
-                cmd,
-                step_index,
-                input,
-                &mut variables,
-                timing_tracker,
-            )
-            .await?;
+        // Convert WorkflowCommands to WorkflowSteps to preserve validation config
+        let steps: Vec<WorkflowStep> = config
+            .workflow
+            .commands
+            .iter()
+            .map(Self::convert_command_to_step)
+            .collect();
+
+        // Create extended workflow config with the converted steps
+        let extended_workflow = ExtendedWorkflowConfig {
+            name: "args-workflow".to_string(),
+            mode: crate::cook::workflow::WorkflowMode::Sequential,
+            steps,
+            map_phase: None,
+            reduce_phase: None,
+            max_iterations: 1,
+            iterate: false,
+        };
+
+        // Create workflow context with variables  
+        // Note: The context is managed internally by the executor, we just need to ensure
+        // variables are set via the environment for command substitution
+        let _workflow_context = crate::cook::workflow::WorkflowContext {
+            variables: variables.clone(),
+            captured_outputs: HashMap::new(),
+            iteration_vars: HashMap::new(),
+            validation_results: HashMap::new(),
+        };
+
+        // Set the ARG environment variable so the executor can pick it up
+        std::env::set_var("PRODIGY_ARG", input);
+        
+        // Create workflow executor
+        let mut executor = crate::cook::workflow::WorkflowExecutorImpl::new(
+            self.claude_executor.clone(),
+            self.session_manager.clone(),
+            self.user_interaction.clone(),
+        );
+
+        // Set test config if available
+        if let Some(test_config) = &self.test_config {
+            executor = crate::cook::workflow::WorkflowExecutorImpl::with_test_config(
+                self.claude_executor.clone(),
+                self.session_manager.clone(),
+                self.user_interaction.clone(),
+                test_config.clone(),
+            );
         }
+
+        // Execute the workflow through the executor to ensure validation is handled
+        executor.execute(&extended_workflow, env).await?;
 
         Ok(())
     }
@@ -1691,6 +1729,7 @@ mod tests {
             analysis: None,
             outputs: None,
             on_success: None,
+            validate: None,
         };
 
         let (shell, test, on_failure) = DefaultCookOrchestrator::process_step_failure_config(&step);
@@ -1723,6 +1762,7 @@ mod tests {
             analysis: None,
             outputs: None,
             on_success: None,
+            validate: None,
         };
 
         let (shell, test, on_failure) = DefaultCookOrchestrator::process_step_failure_config(&step);
@@ -1760,6 +1800,7 @@ mod tests {
             analysis: None,
             outputs: None,
             on_success: None,
+            validate: None,
         };
 
         let (shell, test, on_failure) = DefaultCookOrchestrator::process_step_failure_config(&step);
@@ -1783,6 +1824,7 @@ mod tests {
             analysis: None,
             outputs: None,
             on_success: None,
+            validate: None,
         };
         let cmd = WorkflowCommand::WorkflowStep(Box::new(step));
 
