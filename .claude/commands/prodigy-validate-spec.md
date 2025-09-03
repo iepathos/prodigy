@@ -38,12 +38,11 @@ Examples:
 ### Step 1: Determine Output Location and Read Specification
 
 The command will:
-- Check if spec identifier was provided ($ARGUMENTS)
-- If no identifier, fail with error message
-- Check for output file location:
-  - If environment variable `PRODIGY_VALIDATION_OUTPUT` is set, use that path
-  - Otherwise if `--output` parameter provided in arguments, use that
-  - Otherwise default to `.prodigy/validation-result.json`
+- Parse $ARGUMENTS to extract:
+  - The spec identifier (required)
+  - The `--output` parameter with filepath (required when called from workflow)
+- If no spec identifier, fail with error message
+- If no `--output` parameter, default to `.prodigy/validation-result.json`
 - Try to locate spec file in standard locations:
   - Numeric IDs: `specs/{number}-*.md`
   - Iteration IDs: `specs/temp/{id}.md`
@@ -79,12 +78,11 @@ Create detailed validation result:
 
 ### Step 5: Output JSON Result
 
-**CRITICAL**: Write validation results to the determined output file:
+**CRITICAL**: Write validation results to the output file:
 
-1. **Determine output location** (in order of priority):
-   - Environment variable `PRODIGY_VALIDATION_OUTPUT` if set
-   - `--output` parameter from command arguments if provided  
-   - Default to `.prodigy/validation-result.json`
+1. **Use output location from `--output` parameter**:
+   - This should have been parsed from $ARGUMENTS
+   - If not provided, use default `.prodigy/validation-result.json`
 
 2. **Write JSON to file**:
    - Create parent directories if needed
@@ -236,10 +234,9 @@ This command is designed to work with Prodigy workflows:
 
 ## Important Implementation Notes
 
-1. **Check for `PRODIGY_VALIDATION_OUTPUT` environment variable** - This takes priority over command arguments
-2. **Parse arguments correctly** - Extract spec ID and check for optional `--output` parameter
-3. **Write JSON to file**:
-   - Use path from env var, `--output` param, or default `.prodigy/validation-result.json`
+1. **Parse arguments correctly** - Extract spec ID and the `--output` parameter from $ARGUMENTS
+2. **Write JSON to file**:
+   - Use path from `--output` parameter, or default `.prodigy/validation-result.json`
    - Create parent directories if they don't exist
    - Write complete JSON validation result to the file
 4. **Always write valid JSON** to the file, even if validation fails

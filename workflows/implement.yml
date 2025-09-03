@@ -10,8 +10,8 @@
   commit_required: true
   validate:
     type: spec_coverage
-    command: "claude '/prodigy-validate-spec $ARG'"  # Claude command to validate the spec
-    result_file: ".prodigy/validation-result.json"  # Where validation results will be written
+    command: "claude '/prodigy-validate-spec $ARG --output .prodigy/validation-result.json'"
+    result_file: ".prodigy/validation-result.json"  # Where Prodigy reads validation results from
     threshold: 100  # Spec must be 100% implemented (default)
     on_incomplete:
       strategy: patch_gaps

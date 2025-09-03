@@ -1788,12 +1788,6 @@ impl WorkflowExecutor {
         // Execute the validation command as a shell command
         let mut env_vars = HashMap::new();
         env_vars.insert("PRODIGY_VALIDATION".to_string(), "true".to_string());
-        
-        // If result_file is specified, pass it as an environment variable
-        if let Some(result_file) = &validation_config.result_file {
-            let interpolated_file = ctx.interpolate(result_file);
-            env_vars.insert("PRODIGY_VALIDATION_OUTPUT".to_string(), interpolated_file.clone());
-        }
 
         let result = self
             .execute_shell_command(&command, env, env_vars, validation_config.timeout)
