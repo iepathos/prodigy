@@ -416,7 +416,8 @@ mod tests {
     #[test]
     fn test_get_templates() {
         let all_templates = templates::get_all_templates();
-        assert_eq!(all_templates.len(), 6);
+        // We now dynamically discover all prodigy-* commands
+        assert!(all_templates.len() >= 6); // At least the original 6 commands
 
         // Test filtering by names
         let names = vec![

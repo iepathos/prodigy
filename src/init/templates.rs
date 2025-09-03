@@ -6,50 +6,13 @@ pub struct CommandTemplate {
     pub description: &'static str,
 }
 
-pub const PRODIGY_CODE_REVIEW: &str = include_str!("../../.claude/commands/prodigy-code-review.md");
-pub const PRODIGY_IMPLEMENT_SPEC: &str =
-    include_str!("../../.claude/commands/prodigy-implement-spec.md");
-pub const PRODIGY_LINT: &str = include_str!("../../.claude/commands/prodigy-lint.md");
-pub const PRODIGY_PRODUCT_ENHANCE: &str =
-    include_str!("../../.claude/commands/prodigy-product-enhance.md");
-pub const PRODIGY_MERGE_WORKTREE: &str =
-    include_str!("../../.claude/commands/prodigy-merge-worktree.md");
-pub const PRODIGY_CLEANUP_TECH_DEBT: &str =
-    include_str!("../../.claude/commands/prodigy-cleanup-tech-debt.md");
+// Include all prodigy-* commands from .claude/commands/ directory
+// This macro is generated at compile time to include all matching files
+include!(concat!(env!("OUT_DIR"), "/command_includes.rs"));
 
 pub fn get_all_templates() -> Vec<CommandTemplate> {
-    vec![
-        CommandTemplate {
-            name: "prodigy-code-review",
-            description: "Analyzes code quality and creates improvement specs",
-            content: PRODIGY_CODE_REVIEW,
-        },
-        CommandTemplate {
-            name: "prodigy-implement-spec",
-            description: "Implements Git Good specifications",
-            content: PRODIGY_IMPLEMENT_SPEC,
-        },
-        CommandTemplate {
-            name: "prodigy-lint",
-            description: "Runs formatters, linters, and tests",
-            content: PRODIGY_LINT,
-        },
-        CommandTemplate {
-            name: "prodigy-product-enhance",
-            description: "Product-focused improvements for user value",
-            content: PRODIGY_PRODUCT_ENHANCE,
-        },
-        CommandTemplate {
-            name: "prodigy-merge-worktree",
-            description: "Claude-assisted worktree merging with conflict resolution",
-            content: PRODIGY_MERGE_WORKTREE,
-        },
-        CommandTemplate {
-            name: "prodigy-cleanup-tech-debt",
-            description: "Analyzes technical debt and generates cleanup specifications",
-            content: PRODIGY_CLEANUP_TECH_DEBT,
-        },
-    ]
+    // This function is generated at compile time to include all prodigy-* commands
+    get_all_command_templates()
 }
 
 pub fn get_templates_by_names(names: &[String]) -> Vec<CommandTemplate> {
@@ -71,14 +34,17 @@ mod tests {
         // Test normal operation
         let templates = get_all_templates();
 
-        // Verify expected templates are present
-        assert!(templates.len() >= 4); // At least the core templates
+        // Verify we have templates (dynamically discovered)
+        assert!(templates.len() >= 6); // At least the original 6 core templates
 
         let template_names: Vec<&str> = templates.iter().map(|t| t.name).collect();
+        // Verify core templates are still included
         assert!(template_names.contains(&"prodigy-code-review"));
         assert!(template_names.contains(&"prodigy-implement-spec"));
         assert!(template_names.contains(&"prodigy-lint"));
         assert!(template_names.contains(&"prodigy-cleanup-tech-debt"));
+        assert!(template_names.contains(&"prodigy-merge-worktree"));
+        assert!(template_names.contains(&"prodigy-product-enhance"));
 
         // Verify each template has required fields
         for template in &templates {
@@ -98,8 +64,10 @@ mod tests {
         let templates = get_templates_by_names(&names);
 
         assert_eq!(templates.len(), 2);
-        assert_eq!(templates[0].name, "prodigy-code-review");
-        assert_eq!(templates[1].name, "prodigy-lint");
+        // Templates might be in different order after dynamic discovery
+        let template_names: Vec<&str> = templates.iter().map(|t| t.name).collect();
+        assert!(template_names.contains(&"prodigy-code-review"));
+        assert!(template_names.contains(&"prodigy-lint"));
 
         // Test with non-existent template
         let names = vec!["non-existent".to_string()];
