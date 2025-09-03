@@ -14,8 +14,13 @@ pub struct ValidationConfig {
     #[serde(rename = "type")]
     pub validation_type: ValidationType,
 
-    /// Command to run for validation
-    pub command: String,
+    /// Shell command to run for validation
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub command: Option<String>,
+    
+    /// Claude command to run for validation
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub claude: Option<String>,
 
     /// Expected JSON schema for validation output
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -167,8 +172,14 @@ impl ValidationConfig {
 
     /// Validate that the configuration is properly formed
     pub fn validate(&self) -> Result<()> {
-        if self.command.is_empty() {
-            return Err(anyhow!("Validation command cannot be empty"));
+        // Must have either command or claude
+        if self.command.is_none() && self.claude.is_none() {
+            return Err(anyhow!("Validation requires either command or claude to be specified"));
+        }
+        
+        // Can't have both
+        if self.command.is_some() && self.claude.is_some() {
+            return Err(anyhow!("Cannot specify both command and claude for validation"));
         }
 
         if self.threshold < 0.0 || self.threshold > 100.0 {
@@ -290,11 +301,11 @@ mod tests {
     fn test_validation_config_defaults() {
         let yaml = r#"
 type: spec_coverage
-command: "/prodigy-validate-spec 01"
+claude: "/prodigy-validate-spec 01"
 "#;
         let config: ValidationConfig = serde_yaml::from_str(yaml).unwrap();
         assert_eq!(config.validation_type, ValidationType::SpecCoverage);
-        assert_eq!(config.command, "/prodigy-validate-spec 01");
+        assert_eq!(config.claude, Some("/prodigy-validate-spec 01".to_string()));
         assert_eq!(config.threshold, 100.0);
         assert!(config.on_incomplete.is_none());
     }
@@ -360,7 +371,8 @@ on_incomplete:
     fn test_validation_config_validation() {
         let mut config = ValidationConfig {
             validation_type: ValidationType::SpecCoverage,
-            command: "".to_string(),
+            command: None,
+            claude: None,
             expected_schema: None,
             threshold: 100.0,
             timeout: None,
@@ -368,11 +380,11 @@ on_incomplete:
             result_file: None,
         };
 
-        // Empty command should fail
+        // No command or claude should fail
         assert!(config.validate().is_err());
 
         // Fix command
-        config.command = "/prodigy-validate".to_string();
+        config.command = Some("/prodigy-validate".to_string());
         assert!(config.validate().is_ok());
 
         // Invalid threshold

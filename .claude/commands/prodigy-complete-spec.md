@@ -89,7 +89,15 @@ After completing gaps:
 - Check that no new issues introduced
 - Ensure all tests still pass
 
-### Step 5: Output Result
+### Step 5: Commit Fixes
+
+**CRITICAL**: Commit all fixes to git:
+- Stage all modified files with `git add`
+- Create a commit with message: `fix: complete spec $ARG implementation gaps`
+- Include list of gaps fixed in commit body
+- This commit is REQUIRED - Prodigy uses it to verify fixes were made
+
+### Step 6: Output Result
 
 Output JSON result indicating completion:
 
@@ -174,8 +182,8 @@ fn cleanup_worktree(name: &str) -> Result<()> {
 - Parse gaps from environment or arguments
 - Fix all gaps without prompts
 - Output progress for each fix
+- **ALWAYS commit fixes** (required for Prodigy validation)
 - Return JSON result at end
-- Commit fixes automatically
 
 ## Error Handling
 
@@ -226,6 +234,7 @@ The command succeeds when:
 2. At least 95% of medium severity gaps addressed
 3. Tests pass after fixes
 4. No new issues introduced
+5. **All fixes are committed to git** (REQUIRED for validation)
 
 ## Output Examples
 
@@ -270,4 +279,5 @@ The command succeeds when:
 2. **Follow project conventions** from CONVENTIONS.md
 3. **Run tests** after each significant fix
 4. **Output valid JSON** for workflow parsing
-5. **Commit atomically** - all fixes in one commit
+5. **MUST create git commit** - Prodigy requires this to verify fixes were made
+6. **Commit atomically** - all fixes in one commit with clear message

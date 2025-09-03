@@ -1773,19 +1773,29 @@ impl WorkflowExecutor {
     ) -> Result<crate::cook::workflow::validation::ValidationResult> {
         use crate::cook::workflow::validation::ValidationResult;
 
-        // Interpolate the validation command
-        let command = ctx.interpolate(&validation_config.command);
-
-        self.user_interaction
-            .display_progress(&format!("Running validation: {}", command));
-
-        // Execute the validation command as a shell command
-        let mut env_vars = HashMap::new();
-        env_vars.insert("PRODIGY_VALIDATION".to_string(), "true".to_string());
-
-        let result = self
-            .execute_shell_command(&command, env, env_vars, validation_config.timeout)
-            .await?;
+        // Execute either claude or shell command
+        let result = if let Some(claude_cmd) = &validation_config.claude {
+            let command = ctx.interpolate(claude_cmd);
+            self.user_interaction
+                .display_progress(&format!("Running validation (Claude): {}", command));
+            
+            // Execute Claude command for validation
+            let env_vars = HashMap::new();
+            self.execute_claude_command(&command, env, env_vars).await?
+        } else if let Some(shell_cmd) = &validation_config.command {
+            let command = ctx.interpolate(shell_cmd);
+            self.user_interaction
+                .display_progress(&format!("Running validation: {}", command));
+            
+            // Execute shell command
+            let mut env_vars = HashMap::new();
+            env_vars.insert("PRODIGY_VALIDATION".to_string(), "true".to_string());
+            
+            self.execute_shell_command(&command, env, env_vars, validation_config.timeout)
+                .await?
+        } else {
+            return Ok(ValidationResult::failed("No validation command specified".to_string()));
+        };
 
         if !result.success {
             // Validation command failed
