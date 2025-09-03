@@ -32,6 +32,11 @@ pub struct ValidationConfig {
     /// Configuration for handling incomplete implementations
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_incomplete: Option<OnIncompleteConfig>,
+
+    /// Optional file path to read validation results from (instead of stdout)
+    /// If specified, the command should write JSON results to this file
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result_file: Option<String>,
 }
 
 /// Types of validation available

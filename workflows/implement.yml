@@ -1,20 +1,32 @@
-# implement.yml - Example configuration for implementing specifications
+# implement.yml - Configuration for implementing specifications with validation
 
 # Commands to execute for each specification
 # Implement the spec using the $ARG variable which contains:
 # - The spec ID extracted from filename when using --map
 # - The direct argument value when using --args
 
+# Step 1: Implement the specification
 - claude: "/prodigy-implement-spec $ARG"
   commit_required: true
+  validate:
+    type: spec_coverage
+    command: "claude '/prodigy-validate-spec $ARG'"  # Claude command to validate the spec
+    result_file: ".prodigy/validation-result.json"  # Where validation results will be written
+    threshold: 100  # Spec must be 100% implemented (default)
+    on_incomplete:
+      strategy: patch_gaps
+      claude: "/prodigy-complete-spec $ARG --gaps ${validation.gaps}"
+      max_attempts: 3
+      fail_workflow: false  # Continue even if we can't reach 100%
 
+# Step 2: Run tests to verify implementation
 - shell: "just test"
   on_failure:
     claude: "/prodigy-debug-test-failure --spec $ARG --output ${shell.output}"
     max_attempts: 3
     fail_workflow: false  # Continue workflow even if tests can't be fixed
 
-# Run linting and formatting after implementation
+# Step 3: Run linting and formatting after implementation
 - shell: "just fmt-check && just lint"
   on_failure:
     claude: "/prodigy-lint ${shell.output}"

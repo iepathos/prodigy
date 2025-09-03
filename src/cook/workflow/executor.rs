@@ -1788,6 +1788,12 @@ impl WorkflowExecutor {
         // Execute the validation command as a shell command
         let mut env_vars = HashMap::new();
         env_vars.insert("PRODIGY_VALIDATION".to_string(), "true".to_string());
+        
+        // If result_file is specified, pass it as an environment variable
+        if let Some(result_file) = &validation_config.result_file {
+            let interpolated_file = ctx.interpolate(result_file);
+            env_vars.insert("PRODIGY_VALIDATION_OUTPUT".to_string(), interpolated_file.clone());
+        }
 
         let result = self
             .execute_shell_command(&command, env, env_vars, validation_config.timeout)
@@ -1801,8 +1807,28 @@ impl WorkflowExecutor {
             )));
         }
 
-        // Try to parse the output as JSON
-        match ValidationResult::from_json(&result.stdout) {
+        // If result_file is specified, read from file instead of stdout
+        let json_content = if let Some(result_file) = &validation_config.result_file {
+            let interpolated_file = ctx.interpolate(result_file);
+            let file_path = env.working_dir.join(&interpolated_file);
+            
+            // Read the validation result from the file
+            match tokio::fs::read_to_string(&file_path).await {
+                Ok(content) => content,
+                Err(e) => {
+                    return Ok(ValidationResult::failed(format!(
+                        "Failed to read validation result from {}: {}",
+                        interpolated_file, e
+                    )));
+                }
+            }
+        } else {
+            // Use stdout as before
+            result.stdout.clone()
+        };
+
+        // Try to parse the JSON content
+        match ValidationResult::from_json(&json_content) {
             Ok(mut validation) => {
                 // Store raw output
                 validation.raw_output = Some(result.stdout);
