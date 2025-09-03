@@ -964,7 +964,7 @@ mod tests {
 
     #[test]
     fn test_validate_required_arguments_with_variables() {
-        let registry = CommandRegistry::new();
+        let _registry = CommandRegistry::new();
         let command = Command {
             name: "test".to_string(),
             args: vec![

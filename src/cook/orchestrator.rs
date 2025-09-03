@@ -960,6 +960,7 @@ impl DefaultCookOrchestrator {
     }
 
     /// Get current git HEAD
+    #[allow(dead_code)]
     async fn get_current_head(&self, working_dir: &std::path::Path) -> Result<String> {
         let output = self
             .git_operations
@@ -1090,7 +1091,7 @@ impl DefaultCookOrchestrator {
             iterate: false,
         };
 
-        // Create workflow context with variables  
+        // Create workflow context with variables
         // Note: The context is managed internally by the executor, we just need to ensure
         // variables are set via the environment for command substitution
         let _workflow_context = crate::cook::workflow::WorkflowContext {
@@ -1102,7 +1103,7 @@ impl DefaultCookOrchestrator {
 
         // Set the ARG environment variable so the executor can pick it up
         std::env::set_var("PRODIGY_ARG", input);
-        
+
         // Create workflow executor
         let mut executor = crate::cook::workflow::WorkflowExecutorImpl::new(
             self.claude_executor.clone(),
@@ -1179,6 +1180,7 @@ impl DefaultCookOrchestrator {
 
     /// Execute a single workflow command
     #[allow(clippy::too_many_arguments)]
+    #[allow(dead_code)]
     async fn execute_workflow_command(
         &self,
         env: &ExecutionEnvironment,
@@ -1244,6 +1246,7 @@ impl DefaultCookOrchestrator {
     }
 
     /// Build command string with resolved arguments
+    #[allow(dead_code)]
     fn build_command(
         &self,
         command: &crate::config::command::Command,
@@ -1289,6 +1292,7 @@ impl DefaultCookOrchestrator {
     }
 
     /// Prepare environment variables for command execution
+    #[allow(dead_code)]
     fn prepare_environment_variables(
         &self,
         env: &ExecutionEnvironment,
@@ -1314,6 +1318,7 @@ impl DefaultCookOrchestrator {
     }
 
     /// Execute command and validate results
+    #[allow(dead_code)]
     async fn execute_and_validate_command(
         &self,
         env: &ExecutionEnvironment,
@@ -1690,10 +1695,9 @@ mod tests {
         let cmd = WorkflowCommand::SimpleObject(simple);
         let command = crate::config::command::Command::new("test");
 
-        assert_eq!(
-            DefaultCookOrchestrator::determine_commit_required(&cmd, &command),
-            false
-        );
+        assert!(!DefaultCookOrchestrator::determine_commit_required(
+            &cmd, &command
+        ));
     }
 
     #[test]
@@ -1704,10 +1708,9 @@ mod tests {
         let mut command = crate::config::command::Command::new("test");
         command.metadata.commit_required = false;
 
-        assert_eq!(
-            DefaultCookOrchestrator::determine_commit_required(&cmd, &command),
-            false
-        );
+        assert!(!DefaultCookOrchestrator::determine_commit_required(
+            &cmd, &command
+        ));
     }
 
     #[test]
@@ -1779,7 +1782,7 @@ mod tests {
         }) = on_failure
         {
             assert_eq!(claude, Some("/fix-error".to_string()));
-            assert_eq!(fail_workflow, true);
+            assert!(fail_workflow);
             assert_eq!(max_retries, 1); // max_attempts - 1
         } else {
             panic!("Expected Advanced OnFailureConfig");
@@ -1832,7 +1835,7 @@ mod tests {
 
         assert_eq!(result.shell, Some("echo test".to_string()));
         assert_eq!(result.capture_output, CaptureOutput::Default);
-        assert_eq!(result.commit_required, false);
+        assert!(!result.commit_required);
     }
 
     #[test]
@@ -1848,7 +1851,7 @@ mod tests {
         let result = DefaultCookOrchestrator::convert_command_to_step(&cmd);
 
         assert_eq!(result.command, Some("/prodigy-test".to_string()));
-        assert_eq!(result.commit_required, true);
+        assert!(result.commit_required);
     }
 
     // TODO: Fix test after understanding MapReduceWorkflowConfig structure

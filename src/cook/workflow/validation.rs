@@ -159,7 +159,7 @@ impl ValidationConfig {
     pub fn validate(&self) -> Result<()> {
         // Handle backward compatibility: prefer 'shell' over deprecated 'command'
         let has_shell_cmd = self.shell.is_some() || self.command.is_some();
-        
+
         // Must have either shell/command or claude
         if !has_shell_cmd && self.claude.is_none() {
             return Err(anyhow!(
@@ -173,7 +173,7 @@ impl ValidationConfig {
                 "Cannot specify both shell/command and claude for validation"
             ));
         }
-        
+
         // Can't have both shell and command (deprecated)
         if self.shell.is_some() && self.command.is_some() {
             return Err(anyhow!(
@@ -391,7 +391,7 @@ on_incomplete:
         config.threshold = 95.0;
         assert!(config.validate().is_ok());
     }
-    
+
     #[test]
     fn test_validation_config_shell_field() {
         // Test the new shell field and backward compatibility with command
@@ -405,19 +405,19 @@ on_incomplete:
             on_incomplete: None,
             result_file: None,
         };
-        
+
         // Shell field should work
         config.shell = Some("bash -c 'echo test'".to_string());
         assert!(config.validate().is_ok());
-        
+
         // Can't have both shell and command
         config.command = Some("echo old".to_string());
         assert!(config.validate().is_err());
-        
+
         // Command alone (backward compat)
         config.shell = None;
         assert!(config.validate().is_ok());
-        
+
         // Can't have shell/command with claude
         config.shell = Some("echo test".to_string());
         config.command = None;

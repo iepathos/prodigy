@@ -4,8 +4,7 @@
 mod tests {
     use crate::cook::execution::mapreduce::{AgentResult, AgentStatus, MapReduceConfig};
     use crate::cook::execution::state::{
-        CheckpointManager, DefaultJobStateManager, FailureRecord, JobStateManager,
-        MapReduceJobState,
+        CheckpointManager, DefaultJobStateManager, JobStateManager, MapReduceJobState,
     };
     use serde_json::json;
     use std::path::PathBuf;

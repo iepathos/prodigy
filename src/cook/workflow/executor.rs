@@ -1782,7 +1782,11 @@ impl WorkflowExecutor {
             // Execute Claude command for validation
             let env_vars = HashMap::new();
             self.execute_claude_command(&command, env, env_vars).await?
-        } else if let Some(shell_cmd) = validation_config.shell.as_ref().or(validation_config.command.as_ref()) {
+        } else if let Some(shell_cmd) = validation_config
+            .shell
+            .as_ref()
+            .or(validation_config.command.as_ref())
+        {
             // Prefer 'shell' field, fall back to 'command' for backward compatibility
             let command = ctx.interpolate(shell_cmd);
             self.user_interaction
