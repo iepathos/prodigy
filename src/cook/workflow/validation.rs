@@ -10,9 +10,13 @@ use std::collections::HashMap;
 /// Configuration for spec validation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValidationConfig {
-    /// Shell command to run for validation
+    /// Shell command to run for validation (deprecated, use 'shell' instead)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub command: Option<String>,
+
+    /// Shell command to run for validation
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shell: Option<String>,
 
     /// Claude command to run for validation
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -153,17 +157,27 @@ impl ValidationConfig {
 
     /// Validate that the configuration is properly formed
     pub fn validate(&self) -> Result<()> {
-        // Must have either command or claude
-        if self.command.is_none() && self.claude.is_none() {
+        // Handle backward compatibility: prefer 'shell' over deprecated 'command'
+        let has_shell_cmd = self.shell.is_some() || self.command.is_some();
+        
+        // Must have either shell/command or claude
+        if !has_shell_cmd && self.claude.is_none() {
             return Err(anyhow!(
-                "Validation requires either command or claude to be specified"
+                "Validation requires either shell/command or claude to be specified"
             ));
         }
 
-        // Can't have both
-        if self.command.is_some() && self.claude.is_some() {
+        // Can't have both shell-type and claude commands
+        if has_shell_cmd && self.claude.is_some() {
             return Err(anyhow!(
-                "Cannot specify both command and claude for validation"
+                "Cannot specify both shell/command and claude for validation"
+            ));
+        }
+        
+        // Can't have both shell and command (deprecated)
+        if self.shell.is_some() && self.command.is_some() {
+            return Err(anyhow!(
+                "Cannot specify both 'shell' and 'command' (command is deprecated, use shell)"
             ));
         }
 
@@ -353,6 +367,7 @@ on_incomplete:
     fn test_validation_config_validation() {
         let mut config = ValidationConfig {
             command: None,
+            shell: None,
             claude: None,
             expected_schema: None,
             threshold: 100.0,
@@ -375,6 +390,39 @@ on_incomplete:
         // Valid threshold
         config.threshold = 95.0;
         assert!(config.validate().is_ok());
+    }
+    
+    #[test]
+    fn test_validation_config_shell_field() {
+        // Test the new shell field and backward compatibility with command
+        let mut config = ValidationConfig {
+            command: None,
+            shell: None,
+            claude: None,
+            expected_schema: None,
+            threshold: 95.0,
+            timeout: None,
+            on_incomplete: None,
+            result_file: None,
+        };
+        
+        // Shell field should work
+        config.shell = Some("bash -c 'echo test'".to_string());
+        assert!(config.validate().is_ok());
+        
+        // Can't have both shell and command
+        config.command = Some("echo old".to_string());
+        assert!(config.validate().is_err());
+        
+        // Command alone (backward compat)
+        config.shell = None;
+        assert!(config.validate().is_ok());
+        
+        // Can't have shell/command with claude
+        config.shell = Some("echo test".to_string());
+        config.command = None;
+        config.claude = Some("/claude-cmd".to_string());
+        assert!(config.validate().is_err());
     }
 
     #[test]

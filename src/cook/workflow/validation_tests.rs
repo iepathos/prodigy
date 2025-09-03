@@ -57,6 +57,7 @@ mod tests {
     fn test_validation_config_creation() {
         let config = ValidationConfig {
             command: Some("/prodigy-validate-spec 01".to_string()),
+            shell: None,
             claude: None,
             expected_schema: None,
             threshold: 95.0,
