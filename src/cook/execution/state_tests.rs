@@ -4,7 +4,8 @@
 mod tests {
     use crate::cook::execution::mapreduce::{AgentResult, AgentStatus, MapReduceConfig};
     use crate::cook::execution::state::{
-        CheckpointManager, DefaultJobStateManager, JobStateManager, MapReduceJobState,
+        CheckpointManager, DefaultJobStateManager, FailureRecord, JobStateManager,
+        MapReduceJobState,
     };
     use serde_json::json;
     use std::path::PathBuf;
@@ -44,6 +45,126 @@ mod tests {
         assert!(state.pending_items.contains(&"item_0".to_string()));
         assert!(state.pending_items.contains(&"item_1".to_string()));
         assert!(state.pending_items.contains(&"item_2".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_find_work_item() {
+        let config = MapReduceConfig {
+            input: PathBuf::from("test.json"),
+            json_path: String::new(),
+            max_parallel: 5,
+            timeout_per_agent: 60,
+            retry_on_failure: 2,
+            max_items: None,
+            offset: None,
+        };
+
+        let work_items = vec![
+            json!({"id": 1, "data": "test1"}),
+            json!({"id": 2, "data": "test2"}),
+            json!({"id": 3, "data": "test3"}),
+        ];
+
+        let state = MapReduceJobState::new("test-job".to_string(), config, work_items);
+
+        // Test finding existing items
+        let item = state.find_work_item("item_0");
+        assert!(item.is_some());
+        assert_eq!(item.unwrap()["id"], 1);
+
+        let item = state.find_work_item("item_2");
+        assert!(item.is_some());
+        assert_eq!(item.unwrap()["id"], 3);
+
+        // Test finding non-existent item
+        let item = state.find_work_item("item_10");
+        assert!(item.is_none());
+
+        // Test invalid format
+        let item = state.find_work_item("invalid");
+        assert!(item.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_resume_with_partial_completion() {
+        let temp_dir = TempDir::new().unwrap();
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        let config = MapReduceConfig {
+            input: PathBuf::from("test.json"),
+            json_path: String::new(),
+            max_parallel: 5,
+            timeout_per_agent: 60,
+            retry_on_failure: 2,
+            max_items: None,
+            offset: None,
+        };
+
+        let work_items = vec![
+            json!({"id": 1}),
+            json!({"id": 2}),
+            json!({"id": 3}),
+            json!({"id": 4}),
+        ];
+
+        // Create job
+        let job_id = manager
+            .create_job(config.clone(), work_items)
+            .await
+            .unwrap();
+
+        // Simulate partial completion
+        manager
+            .update_agent_result(
+                &job_id,
+                AgentResult {
+                    item_id: "item_0".to_string(),
+                    status: AgentStatus::Success,
+                    output: Some("Success".to_string()),
+                    commits: vec![],
+                    duration: Duration::from_secs(1),
+                    error: None,
+                    worktree_path: None,
+                    branch_name: None,
+                    worktree_session_id: None,
+                    files_modified: vec![],
+                },
+            )
+            .await
+            .unwrap();
+
+        manager
+            .update_agent_result(
+                &job_id,
+                AgentResult {
+                    item_id: "item_1".to_string(),
+                    status: AgentStatus::Failed("Error".to_string()),
+                    output: None,
+                    commits: vec![],
+                    duration: Duration::from_secs(1),
+                    error: Some("Error".to_string()),
+                    worktree_path: None,
+                    branch_name: None,
+                    worktree_session_id: None,
+                    files_modified: vec![],
+                },
+            )
+            .await
+            .unwrap();
+
+        // Get state to check resume conditions
+        let state = manager.get_job_state(&job_id).await.unwrap();
+
+        assert_eq!(state.successful_count, 1);
+        assert_eq!(state.failed_count, 1);
+        assert_eq!(state.completed_agents.len(), 2);
+        assert_eq!(state.pending_items.len(), 2); // item_2 and item_3 still pending
+        assert!(!state.is_complete);
+
+        // Verify retriable items
+        let retriable = state.get_retriable_items(2);
+        assert_eq!(retriable.len(), 1); // item_1 should be retriable
+        assert!(retriable.contains(&"item_1".to_string()));
     }
 
     #[tokio::test]

@@ -240,6 +240,20 @@ impl MapReduceJobState {
         self.updated_at = Utc::now();
         self.checkpoint_version += 1;
     }
+
+    /// Find a work item by ID
+    pub fn find_work_item(&self, item_id: &str) -> Option<Value> {
+        // Extract index from item_id (format: "item_0", "item_1", etc.)
+        if let Some(idx) = item_id
+            .strip_prefix("item_")
+            .and_then(|s| s.parse::<usize>().ok())
+        {
+            if idx < self.work_items.len() {
+                return Some(self.work_items[idx].clone());
+            }
+        }
+        None
+    }
 }
 
 /// Information about a checkpoint file
@@ -473,6 +487,37 @@ impl CheckpointManager {
     pub async fn has_checkpoint(&self, job_id: &str) -> bool {
         self.metadata_path(job_id).exists()
     }
+}
+
+/// Information about a resumable job
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResumableJob {
+    /// Job ID
+    pub job_id: String,
+    /// When the job started
+    pub started_at: DateTime<Utc>,
+    /// Last update timestamp
+    pub updated_at: DateTime<Utc>,
+    /// Total number of work items
+    pub total_items: usize,
+    /// Number of completed items
+    pub completed_items: usize,
+    /// Number of failed items
+    pub failed_items: usize,
+    /// Whether the job is complete
+    pub is_complete: bool,
+    /// Checkpoint version
+    pub checkpoint_version: u32,
+}
+
+/// Trait for resumable operations
+#[async_trait::async_trait]
+pub trait Resumable: Send + Sync {
+    /// Check if a job can be resumed
+    async fn can_resume(&self, job_id: &str) -> Result<bool>;
+
+    /// List all resumable jobs
+    async fn list_resumable_jobs(&self) -> Result<Vec<ResumableJob>>;
 }
 
 /// Trait for managing MapReduce job state

@@ -38,6 +38,50 @@ fn test_agent_status_serialization() {
 }
 
 #[test]
+fn test_resume_options_defaults() {
+    let options = ResumeOptions::default();
+    assert!(!options.force);
+    assert_eq!(options.max_additional_retries, 2);
+    assert!(!options.skip_validation);
+}
+
+#[test]
+fn test_resume_result_serialization() {
+    let result = ResumeResult {
+        job_id: "test-job-123".to_string(),
+        resumed_from_version: 5,
+        total_items: 100,
+        already_completed: 75,
+        remaining_items: 25,
+        final_results: vec![AgentResult {
+            item_id: "item_0".to_string(),
+            status: AgentStatus::Success,
+            output: Some("output".to_string()),
+            commits: vec!["abc123".to_string()],
+            duration: Duration::from_secs(10),
+            error: None,
+            worktree_path: None,
+            branch_name: None,
+            worktree_session_id: None,
+            files_modified: vec![],
+        }],
+    };
+
+    let json = serde_json::to_string(&result).unwrap();
+    let deserialized: ResumeResult = serde_json::from_str(&json).unwrap();
+
+    assert_eq!(deserialized.job_id, result.job_id);
+    assert_eq!(
+        deserialized.resumed_from_version,
+        result.resumed_from_version
+    );
+    assert_eq!(deserialized.total_items, result.total_items);
+    assert_eq!(deserialized.already_completed, result.already_completed);
+    assert_eq!(deserialized.remaining_items, result.remaining_items);
+    assert_eq!(deserialized.final_results.len(), result.final_results.len());
+}
+
+#[test]
 fn test_mapreduce_config_defaults() {
     let config = MapReduceConfig {
         input: PathBuf::from("test.json"),

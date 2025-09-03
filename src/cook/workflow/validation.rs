@@ -13,7 +13,7 @@ pub struct ValidationConfig {
     /// Shell command to run for validation
     #[serde(skip_serializing_if = "Option::is_none")]
     pub command: Option<String>,
-    
+
     /// Claude command to run for validation
     #[serde(skip_serializing_if = "Option::is_none")]
     pub claude: Option<String>,
@@ -62,12 +62,11 @@ pub struct OnIncompleteConfig {
     /// Whether to fail the workflow if completion fails
     #[serde(default = "default_fail_workflow")]
     pub fail_workflow: bool,
-    
+
     /// Whether the completion command should create a commit
     #[serde(default)]
     pub commit_required: bool,
 }
-
 
 /// Result of validation execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -156,12 +155,16 @@ impl ValidationConfig {
     pub fn validate(&self) -> Result<()> {
         // Must have either command or claude
         if self.command.is_none() && self.claude.is_none() {
-            return Err(anyhow!("Validation requires either command or claude to be specified"));
+            return Err(anyhow!(
+                "Validation requires either command or claude to be specified"
+            ));
         }
-        
+
         // Can't have both
         if self.command.is_some() && self.claude.is_some() {
-            return Err(anyhow!("Cannot specify both command and claude for validation"));
+            return Err(anyhow!(
+                "Cannot specify both command and claude for validation"
+            ));
         }
 
         if self.threshold < 0.0 || self.threshold > 100.0 {
