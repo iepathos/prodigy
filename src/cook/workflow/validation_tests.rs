@@ -56,24 +56,24 @@ mod tests {
     #[test]
     fn test_validation_config_creation() {
         let config = ValidationConfig {
-            validation_type: ValidationType::SpecCoverage,
-            command: "/prodigy-validate-spec 01".to_string(),
+            command: Some("/prodigy-validate-spec 01".to_string()),
+            claude: None,
             expected_schema: None,
             threshold: 95.0,
             timeout: Some(30),
+            result_file: None,
             on_incomplete: Some(OnIncompleteConfig {
-                strategy: CompletionStrategy::PatchGaps,
                 claude: Some("/prodigy-fix-gaps".to_string()),
                 shell: None,
                 prompt: None,
                 max_attempts: 2,
                 fail_workflow: true,
+                commit_required: false,
             }),
         };
         
         assert!(config.validate().is_ok());
         assert_eq!(config.threshold, 95.0);
-        assert_eq!(config.validation_type, ValidationType::SpecCoverage);
     }
     
     #[test]
@@ -113,12 +113,13 @@ mod tests {
     #[test]
     fn test_validation_config_is_complete() {
         let config = ValidationConfig {
-            validation_type: ValidationType::TestCoverage,
-            command: "cargo test".to_string(),
+            command: Some("cargo test".to_string()),
+            claude: None,
             expected_schema: None,
             threshold: 80.0,
             timeout: None,
             on_incomplete: None,
+            result_file: None,
         };
         
         let passing_result = ValidationResult {
@@ -247,25 +248,25 @@ mod tests {
             working_dir: None,
             env: Default::default(),
             validate: Some(ValidationConfig {
-                validation_type: ValidationType::SpecCoverage,
-                command: "/prodigy-validate-spec 01".to_string(),
+                command: Some("/prodigy-validate-spec 01".to_string()),
+                claude: None,
                 expected_schema: None,
                 threshold: 100.0,
                 timeout: None,
+                result_file: None,
                 on_incomplete: Some(OnIncompleteConfig {
-                    strategy: CompletionStrategy::PatchGaps,
                     claude: Some("/prodigy-complete-spec 01".to_string()),
                     shell: None,
                     prompt: None,
                     max_attempts: 2,
                     fail_workflow: true,
+                    commit_required: false,
                 }),
             }),
         };
         
         assert!(step.validate.is_some());
         let validation = step.validate.unwrap();
-        assert_eq!(validation.validation_type, ValidationType::SpecCoverage);
         assert_eq!(validation.threshold, 100.0);
     }
     
@@ -298,12 +299,13 @@ mod tests {
             working_dir: None,
             env: Default::default(),
             validate: Some(ValidationConfig {
-                validation_type: ValidationType::SelfAssessment,
-                command: "echo '{\"completion_percentage\": 100, \"status\": \"complete\"}'".to_string(),
+                command: Some("echo '{\"completion_percentage\": 100, \"status\": \"complete\"}'".to_string()),
+                claude: None,
                 expected_schema: None,
                 threshold: 100.0,
                 timeout: None,
                 on_incomplete: None,
+                result_file: None,
             }),
         };
         

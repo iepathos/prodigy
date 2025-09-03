@@ -10,10 +10,6 @@ use std::collections::HashMap;
 /// Configuration for spec validation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValidationConfig {
-    /// Type of validation to perform
-    #[serde(rename = "type")]
-    pub validation_type: ValidationType,
-
     /// Shell command to run for validation
     #[serde(skip_serializing_if = "Option::is_none")]
     pub command: Option<String>,
@@ -42,20 +38,6 @@ pub struct ValidationConfig {
     /// If specified, the command should write JSON results to this file
     #[serde(skip_serializing_if = "Option::is_none")]
     pub result_file: Option<String>,
-}
-
-/// Types of validation available
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum ValidationType {
-    /// Validate spec coverage
-    SpecCoverage,
-    /// Validate test coverage
-    TestCoverage,
-    /// Self-assessment by the implementation agent
-    SelfAssessment,
-    /// Custom validation type
-    Custom(String),
 }
 
 /// Configuration for handling incomplete implementations
@@ -300,11 +282,9 @@ mod tests {
     #[test]
     fn test_validation_config_defaults() {
         let yaml = r#"
-type: spec_coverage
 claude: "/prodigy-validate-spec 01"
 "#;
         let config: ValidationConfig = serde_yaml::from_str(yaml).unwrap();
-        assert_eq!(config.validation_type, ValidationType::SpecCoverage);
         assert_eq!(config.claude, Some("/prodigy-validate-spec 01".to_string()));
         assert_eq!(config.threshold, 100.0);
         assert!(config.on_incomplete.is_none());
@@ -313,7 +293,6 @@ claude: "/prodigy-validate-spec 01"
     #[test]
     fn test_validation_config_with_on_incomplete() {
         let yaml = r#"
-type: test_coverage
 command: "cargo test"
 threshold: 90
 on_incomplete:
@@ -323,7 +302,7 @@ on_incomplete:
   commit_required: false
 "#;
         let config: ValidationConfig = serde_yaml::from_str(yaml).unwrap();
-        assert_eq!(config.validation_type, ValidationType::TestCoverage);
+        assert_eq!(config.command, Some("cargo test".to_string()));
         assert_eq!(config.threshold, 90.0);
 
         let on_incomplete = config.on_incomplete.unwrap();
@@ -370,7 +349,6 @@ on_incomplete:
     #[test]
     fn test_validation_config_validation() {
         let mut config = ValidationConfig {
-            validation_type: ValidationType::SpecCoverage,
             command: None,
             claude: None,
             expected_schema: None,
