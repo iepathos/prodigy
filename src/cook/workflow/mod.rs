@@ -14,6 +14,6 @@ pub use executor::{
 pub use on_failure::OnFailureConfig;
 pub use traits::WorkflowExecutor;
 pub use validation::{
-    CompletionStrategy, GapDetail, OnIncompleteConfig, Severity, ValidationConfig,
+    GapDetail, OnIncompleteConfig, Severity, ValidationConfig,
     ValidationResult, ValidationStatus, ValidationType,
 };

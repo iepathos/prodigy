@@ -56,9 +56,6 @@ pub enum ValidationType {
 /// Configuration for handling incomplete implementations
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OnIncompleteConfig {
-    /// Strategy for completing the implementation
-    pub strategy: CompletionStrategy,
-
     /// Claude command to execute for gap filling
     #[serde(skip_serializing_if = "Option::is_none")]
     pub claude: Option<String>,
@@ -78,19 +75,12 @@ pub struct OnIncompleteConfig {
     /// Whether to fail the workflow if completion fails
     #[serde(default = "default_fail_workflow")]
     pub fail_workflow: bool,
+    
+    /// Whether the completion command should create a commit
+    #[serde(default)]
+    pub commit_required: bool,
 }
 
-/// Strategies for completing incomplete implementations
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum CompletionStrategy {
-    /// Try to fill only the missing pieces
-    PatchGaps,
-    /// Re-run the full implementation
-    RetryFull,
-    /// Ask user for guidance
-    Interactive,
-}
 
 /// Result of validation execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -196,20 +186,11 @@ impl ValidationConfig {
 impl OnIncompleteConfig {
     /// Validate that the configuration has required fields
     pub fn validate(&self) -> Result<()> {
-        match self.strategy {
-            CompletionStrategy::PatchGaps | CompletionStrategy::RetryFull => {
-                if self.claude.is_none() && self.shell.is_none() {
-                    return Err(anyhow!(
-                        "Strategy {:?} requires either claude or shell command",
-                        self.strategy
-                    ));
-                }
-            }
-            CompletionStrategy::Interactive => {
-                if self.prompt.is_none() {
-                    return Err(anyhow!("Interactive strategy requires a prompt"));
-                }
-            }
+        // Must have either a command or interactive prompt
+        if self.claude.is_none() && self.shell.is_none() && self.prompt.is_none() {
+            return Err(anyhow!(
+                "OnIncomplete requires either claude, shell, or prompt to be specified"
+            ));
         }
 
         if self.max_attempts == 0 {
@@ -325,17 +306,16 @@ type: test_coverage
 command: "cargo test"
 threshold: 90
 on_incomplete:
-  strategy: patch_gaps
   claude: "/prodigy-fix-tests ${validation.gaps}"
   max_attempts: 3
   fail_workflow: false
+  commit_required: false
 "#;
         let config: ValidationConfig = serde_yaml::from_str(yaml).unwrap();
         assert_eq!(config.validation_type, ValidationType::TestCoverage);
         assert_eq!(config.threshold, 90.0);
 
         let on_incomplete = config.on_incomplete.unwrap();
-        assert_eq!(on_incomplete.strategy, CompletionStrategy::PatchGaps);
         assert_eq!(
             on_incomplete.claude,
             Some("/prodigy-fix-tests ${validation.gaps}".to_string())
@@ -385,6 +365,7 @@ on_incomplete:
             threshold: 100.0,
             timeout: None,
             on_incomplete: None,
+            result_file: None,
         };
 
         // Empty command should fail
@@ -406,27 +387,28 @@ on_incomplete:
     #[test]
     fn test_on_incomplete_validation() {
         let mut config = OnIncompleteConfig {
-            strategy: CompletionStrategy::PatchGaps,
             claude: None,
             shell: None,
             prompt: None,
             max_attempts: 2,
             fail_workflow: true,
+            commit_required: false,
         };
 
-        // PatchGaps without command should fail
+        // No command or prompt should fail
         assert!(config.validate().is_err());
 
         // Add claude command
         config.claude = Some("/prodigy-fix".to_string());
         assert!(config.validate().is_ok());
 
-        // Interactive without prompt should fail
-        config.strategy = CompletionStrategy::Interactive;
+        // Test with shell command
         config.claude = None;
-        assert!(config.validate().is_err());
+        config.shell = Some("echo test".to_string());
+        assert!(config.validate().is_ok());
 
-        // Add prompt
+        // Test with prompt
+        config.shell = None;
         config.prompt = Some("Continue?".to_string());
         assert!(config.validate().is_ok());
 

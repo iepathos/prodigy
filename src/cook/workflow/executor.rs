@@ -360,14 +360,8 @@ impl WorkflowExecutor {
                 ctx.validation_results
                     .insert("validation".to_string(), current_result.clone());
             } else {
-                // Interactive mode or no handler
-                if on_incomplete.strategy == crate::cook::workflow::CompletionStrategy::Interactive
-                {
-                    let prompt = on_incomplete
-                        .prompt
-                        .as_deref()
-                        .unwrap_or("Implementation incomplete. Continue?");
-
+                // Interactive mode
+                if let Some(ref prompt) = on_incomplete.prompt {
                     let should_continue = self.user_interaction.prompt_confirmation(prompt).await?;
 
                     if !should_continue {
@@ -1847,13 +1841,6 @@ impl WorkflowExecutor {
         on_incomplete: &crate::cook::workflow::validation::OnIncompleteConfig,
         _ctx: &WorkflowContext,
     ) -> Option<WorkflowStep> {
-        use crate::cook::workflow::validation::CompletionStrategy;
-
-        // Only create handler for non-interactive strategies
-        if on_incomplete.strategy == CompletionStrategy::Interactive {
-            return None;
-        }
-
         // Create a step based on the handler configuration
         if on_incomplete.claude.is_some() || on_incomplete.shell.is_some() {
             Some(WorkflowStep {
@@ -1868,7 +1855,7 @@ impl WorkflowExecutor {
                 on_failure: None,
                 on_success: None,
                 on_exit_code: Default::default(),
-                commit_required: on_incomplete.strategy == CompletionStrategy::RetryFull,
+                commit_required: on_incomplete.commit_required,
                 working_dir: None,
                 env: Default::default(),
                 validate: None,
