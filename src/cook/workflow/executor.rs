@@ -302,7 +302,7 @@ impl WorkflowExecutor {
         // Always display validation percentage
         let percentage = validation_result.completion_percentage;
         let threshold = validation_config.threshold;
-        
+
         // Check if validation passed
         if validation_config.is_complete(&validation_result) {
             self.user_interaction.display_success(&format!(
@@ -354,6 +354,10 @@ impl WorkflowExecutor {
 
             // Execute the completion handler
             if let Some(handler_step) = self.create_validation_handler(on_incomplete, ctx) {
+                let step_display = self.get_step_display_name(&handler_step);
+                self.user_interaction
+                    .display_progress(&format!("Running recovery step: {}", step_display));
+
                 let handler_result = Box::pin(self.execute_step(&handler_step, env, ctx)).await?;
 
                 if !handler_result.success {
