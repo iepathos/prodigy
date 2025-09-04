@@ -442,6 +442,7 @@ impl NormalizedWorkflow {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::command::{Command, CommandArg, CommandMetadata};
 
     #[test]
     fn test_normalize_simple_workflow() {
