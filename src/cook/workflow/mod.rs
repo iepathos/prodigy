@@ -6,6 +6,7 @@ mod executor;
 mod on_failure;
 mod traits;
 pub mod validation;
+pub mod variables;
 
 pub use executor::{
     CaptureOutput, CommandType, ExtendedWorkflowConfig, HandlerStep, StepResult, WorkflowContext,
@@ -16,3 +17,4 @@ pub use traits::WorkflowExecutor;
 pub use validation::{
     GapDetail, OnIncompleteConfig, Severity, ValidationConfig, ValidationResult, ValidationStatus,
 };
+pub use variables::{ExecutionInput, ExecutionMode, StandardVariables, VariableContext};
