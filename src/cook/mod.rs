@@ -7,6 +7,7 @@ pub mod command;
 pub mod coordinators;
 pub mod execution;
 pub mod git_ops;
+pub mod input;
 pub mod interaction;
 pub mod orchestrator;
 pub mod retry;
