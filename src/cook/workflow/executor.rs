@@ -302,7 +302,7 @@ impl WorkflowExecutor {
         // Always display validation percentage
         let percentage = validation_result.completion_percentage;
         let threshold = validation_config.threshold;
-        
+
         // Check if validation passed
         if validation_config.is_complete(&validation_result) {
             self.user_interaction.display_success(&format!(
