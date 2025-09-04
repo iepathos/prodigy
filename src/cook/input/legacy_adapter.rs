@@ -52,11 +52,13 @@ impl LegacyInputAdapter {
 
     /// Check if the configuration supports MapReduce
     pub fn supports_mapreduce(config: &InputConfig) -> bool {
-        config.sources.iter().any(|source| match source {
-            super::config::InputSource::FilePattern { .. } => true,
-            super::config::InputSource::StructuredData { .. } => true,
-            super::config::InputSource::Composite { .. } => true,
-            _ => false,
+        config.sources.iter().any(|source| {
+            matches!(
+                source,
+                super::config::InputSource::FilePattern { .. }
+                    | super::config::InputSource::StructuredData { .. }
+                    | super::config::InputSource::Composite { .. }
+            )
         })
     }
 

@@ -21,14 +21,14 @@ impl InputProvider for StandardInputProvider {
         let mut issues = Vec::new();
 
         // Check if stdin is available (not in automation mode)
-        if std::env::var("PRODIGY_AUTOMATION").unwrap_or_default() == "true" {
-            if !config.get_bool("allow_in_automation").unwrap_or(false) {
-                issues.push(ValidationIssue {
-                    field: "stdin".to_string(),
-                    message: "Standard input not available in automation mode".to_string(),
-                    severity: ValidationSeverity::Error,
-                });
-            }
+        if std::env::var("PRODIGY_AUTOMATION").unwrap_or_default() == "true"
+            && !config.get_bool("allow_in_automation").unwrap_or(false)
+        {
+            issues.push(ValidationIssue {
+                field: "stdin".to_string(),
+                message: "Standard input not available in automation mode".to_string(),
+                severity: ValidationSeverity::Error,
+            });
         }
 
         // Validate format if specified
@@ -47,7 +47,7 @@ impl InputProvider for StandardInputProvider {
 
     async fn generate_inputs(&self, config: &InputConfig) -> Result<Vec<ExecutionInput>> {
         let format = self.detect_format(config)?;
-        let mut inputs: Vec<ExecutionInput> = Vec::new();
+        let _inputs: Vec<ExecutionInput> = Vec::new();
 
         // Check for simulated input in test/automation mode
         if let Ok(simulated_input) = config.get_string("simulated_input") {
@@ -71,16 +71,14 @@ impl InputProvider for StandardInputProvider {
     fn available_variables(&self, config: &InputConfig) -> Result<Vec<VariableDefinition>> {
         let format = self.detect_format(config)?;
 
-        let mut vars = vec![
-            VariableDefinition {
-                name: "stdin_format".to_string(),
-                var_type: VariableType::String,
-                description: "Format of the standard input data".to_string(),
-                required: true,
-                default_value: None,
-                validation_rules: vec![],
-            },
-        ];
+        let mut vars = vec![VariableDefinition {
+            name: "stdin_format".to_string(),
+            var_type: VariableType::String,
+            description: "Format of the standard input data".to_string(),
+            required: true,
+            default_value: None,
+            validation_rules: vec![],
+        }];
 
         match format {
             DataFormat::Json | DataFormat::Yaml | DataFormat::Toml => {
@@ -128,7 +126,10 @@ impl InputProvider for StandardInputProvider {
 
     fn supports(&self, config: &InputConfig) -> bool {
         config.get_bool("use_stdin").unwrap_or(false)
-            || config.get_string("input_type").map(|t| t == "stdin").unwrap_or(false)
+            || config
+                .get_string("input_type")
+                .map(|t| t == "stdin")
+                .unwrap_or(false)
             || config.get_string("simulated_input").is_ok()
     }
 }
@@ -153,7 +154,7 @@ impl StandardInputProvider {
         let stdin = tokio::io::stdin();
         let mut reader = BufReader::new(stdin);
         let mut buffer = String::new();
-        
+
         // Set a timeout for reading
         let timeout_duration = std::time::Duration::from_secs(5);
         let read_future = reader.read_to_string(&mut buffer);
@@ -169,10 +170,11 @@ impl StandardInputProvider {
         let mut buffer = String::new();
         let stdin = io::stdin();
         let mut handle = stdin.lock();
-        
-        handle.read_to_string(&mut buffer)
+
+        handle
+            .read_to_string(&mut buffer)
             .map_err(|e| anyhow!("Failed to read from stdin: {}", e))?;
-        
+
         Ok(buffer)
     }
 
@@ -209,9 +211,18 @@ impl StandardInputProvider {
                             },
                         );
 
-                        input.add_variable("stdin_line".to_string(), VariableValue::String(line.to_string()));
-                        input.add_variable("line_number".to_string(), VariableValue::Number(index as i64 + 1));
-                        input.add_variable("stdin_format".to_string(), VariableValue::String("lines".to_string()));
+                        input.add_variable(
+                            "stdin_line".to_string(),
+                            VariableValue::String(line.to_string()),
+                        );
+                        input.add_variable(
+                            "line_number".to_string(),
+                            VariableValue::Number(index as i64 + 1),
+                        );
+                        input.add_variable(
+                            "stdin_format".to_string(),
+                            VariableValue::String("lines".to_string()),
+                        );
 
                         inputs.push(input);
                     }
@@ -224,14 +235,20 @@ impl StandardInputProvider {
                         },
                     );
 
-                    input.add_variable("stdin_text".to_string(), VariableValue::String(content.to_string()));
-                    
+                    input.add_variable(
+                        "stdin_text".to_string(),
+                        VariableValue::String(content.to_string()),
+                    );
+
                     let lines: Vec<VariableValue> = content
                         .lines()
                         .map(|l| VariableValue::String(l.to_string()))
                         .collect();
                     input.add_variable("stdin_lines".to_string(), VariableValue::Array(lines));
-                    input.add_variable("stdin_format".to_string(), VariableValue::String("text".to_string()));
+                    input.add_variable(
+                        "stdin_format".to_string(),
+                        VariableValue::String("text".to_string()),
+                    );
 
                     inputs.push(input);
                 }
@@ -242,10 +259,10 @@ impl StandardInputProvider {
                 if trimmed.starts_with('{') || trimmed.starts_with('[') {
                     // Looks like JSON
                     if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(content) {
-                        return Ok(self.process_json(parsed)?);
+                        return self.process_json(parsed);
                     }
                 }
-                
+
                 // Default to plain text - inline the logic to avoid recursion
                 if config.get_bool("process_lines").unwrap_or(false) {
                     // Process each line as a separate input
@@ -261,9 +278,18 @@ impl StandardInputProvider {
                             },
                         );
 
-                        input.add_variable("stdin_line".to_string(), VariableValue::String(line.to_string()));
-                        input.add_variable("line_number".to_string(), VariableValue::Number(index as i64 + 1));
-                        input.add_variable("stdin_format".to_string(), VariableValue::String("lines".to_string()));
+                        input.add_variable(
+                            "stdin_line".to_string(),
+                            VariableValue::String(line.to_string()),
+                        );
+                        input.add_variable(
+                            "line_number".to_string(),
+                            VariableValue::Number(index as i64 + 1),
+                        );
+                        input.add_variable(
+                            "stdin_format".to_string(),
+                            VariableValue::String("lines".to_string()),
+                        );
 
                         inputs.push(input);
                     }
@@ -276,14 +302,20 @@ impl StandardInputProvider {
                         },
                     );
 
-                    input.add_variable("stdin_text".to_string(), VariableValue::String(content.to_string()));
-                    
+                    input.add_variable(
+                        "stdin_text".to_string(),
+                        VariableValue::String(content.to_string()),
+                    );
+
                     let lines: Vec<VariableValue> = content
                         .lines()
                         .map(|l| VariableValue::String(l.to_string()))
                         .collect();
                     input.add_variable("stdin_lines".to_string(), VariableValue::Array(lines));
-                    input.add_variable("stdin_format".to_string(), VariableValue::String("text".to_string()));
+                    input.add_variable(
+                        "stdin_format".to_string(),
+                        VariableValue::String("text".to_string()),
+                    );
 
                     inputs.push(input);
                 }
@@ -297,8 +329,14 @@ impl StandardInputProvider {
                     },
                 );
 
-                input.add_variable("stdin_content".to_string(), VariableValue::String(content.to_string()));
-                input.add_variable("stdin_format".to_string(), VariableValue::String(format!("{:?}", format)));
+                input.add_variable(
+                    "stdin_content".to_string(),
+                    VariableValue::String(content.to_string()),
+                );
+                input.add_variable(
+                    "stdin_format".to_string(),
+                    VariableValue::String(format!("{:?}", format)),
+                );
 
                 inputs.push(input);
             }
@@ -320,9 +358,16 @@ impl StandardInputProvider {
                         },
                     );
 
-                    input.add_variable("stdin_data".to_string(), self.json_to_variable_value(item)?);
-                    input.add_variable("item_index".to_string(), VariableValue::Number(index as i64));
-                    input.add_variable("stdin_format".to_string(), VariableValue::String("json".to_string()));
+                    input
+                        .add_variable("stdin_data".to_string(), self.json_to_variable_value(item)?);
+                    input.add_variable(
+                        "item_index".to_string(),
+                        VariableValue::Number(index as i64),
+                    );
+                    input.add_variable(
+                        "stdin_format".to_string(),
+                        VariableValue::String("json".to_string()),
+                    );
 
                     inputs.push(input);
                 }
@@ -335,8 +380,14 @@ impl StandardInputProvider {
                     },
                 );
 
-                input.add_variable("stdin_data".to_string(), self.json_to_variable_value(&value)?);
-                input.add_variable("stdin_format".to_string(), VariableValue::String("json".to_string()));
+                input.add_variable(
+                    "stdin_data".to_string(),
+                    self.json_to_variable_value(&value)?,
+                );
+                input.add_variable(
+                    "stdin_format".to_string(),
+                    VariableValue::String("json".to_string()),
+                );
 
                 inputs.push(input);
             }
@@ -345,6 +396,7 @@ impl StandardInputProvider {
         Ok(inputs)
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn json_to_variable_value(&self, value: &serde_json::Value) -> Result<VariableValue> {
         match value {
             serde_json::Value::Null => Ok(VariableValue::Null),
@@ -360,7 +412,8 @@ impl StandardInputProvider {
             }
             serde_json::Value::String(s) => Ok(VariableValue::String(s.clone())),
             serde_json::Value::Array(arr) => {
-                let values: Result<Vec<_>> = arr.iter().map(|v| self.json_to_variable_value(v)).collect();
+                let values: Result<Vec<_>> =
+                    arr.iter().map(|v| self.json_to_variable_value(v)).collect();
                 Ok(VariableValue::Array(values?))
             }
             serde_json::Value::Object(obj) => {

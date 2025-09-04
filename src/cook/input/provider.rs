@@ -22,6 +22,12 @@ pub struct InputConfig {
     values: HashMap<String, Value>,
 }
 
+impl Default for InputConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl InputConfig {
     pub fn new() -> Self {
         Self {

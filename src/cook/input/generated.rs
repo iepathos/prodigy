@@ -3,7 +3,7 @@ use super::types::{ExecutionInput, InputType, VariableDefinition, VariableType, 
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Utc;
-use rand::{Rng, thread_rng};
+use rand::Rng;
 
 pub struct GeneratedInputProvider;
 
@@ -20,16 +20,29 @@ impl InputProvider for GeneratedInputProvider {
         let mut issues = Vec::new();
 
         // Check generator type is specified
-        let generator = config.get_string("generator").unwrap_or_else(|_| "default".to_string());
-        
+        let generator = config
+            .get_string("generator")
+            .unwrap_or_else(|_| "default".to_string());
+
         let supported_generators = vec![
-            "sequence", "random", "uuid", "timestamp", "range", "grid", "fibonacci", "factorial", "prime"
+            "sequence",
+            "random",
+            "uuid",
+            "timestamp",
+            "range",
+            "grid",
+            "fibonacci",
+            "factorial",
+            "prime",
         ];
 
         if !supported_generators.contains(&generator.as_str()) {
             issues.push(ValidationIssue {
                 field: "generator".to_string(),
-                message: format!("Unsupported generator type: {}. Supported: {:?}", generator, supported_generators),
+                message: format!(
+                    "Unsupported generator type: {}. Supported: {:?}",
+                    generator, supported_generators
+                ),
                 severity: ValidationSeverity::Error,
             });
         }
@@ -40,7 +53,8 @@ impl InputProvider for GeneratedInputProvider {
                 if config.get_string("start").is_err() && config.get_string("end").is_err() {
                     issues.push(ValidationIssue {
                         field: "config".to_string(),
-                        message: "Range generator requires 'start' and/or 'end' parameters".to_string(),
+                        message: "Range generator requires 'start' and/or 'end' parameters"
+                            .to_string(),
                         severity: ValidationSeverity::Warning,
                     });
                 }
@@ -61,7 +75,9 @@ impl InputProvider for GeneratedInputProvider {
     }
 
     async fn generate_inputs(&self, config: &InputConfig) -> Result<Vec<ExecutionInput>> {
-        let generator = config.get_string("generator").unwrap_or_else(|_| "sequence".to_string());
+        let generator = config
+            .get_string("generator")
+            .unwrap_or_else(|_| "sequence".to_string());
 
         match generator.as_str() {
             "sequence" => self.generate_sequence(config),
@@ -78,7 +94,9 @@ impl InputProvider for GeneratedInputProvider {
     }
 
     fn available_variables(&self, config: &InputConfig) -> Result<Vec<VariableDefinition>> {
-        let generator = config.get_string("generator").unwrap_or_else(|_| "sequence".to_string());
+        let generator = config
+            .get_string("generator")
+            .unwrap_or_else(|_| "sequence".to_string());
 
         let mut vars = vec![
             VariableDefinition {
@@ -183,21 +201,27 @@ impl InputProvider for GeneratedInputProvider {
 
     fn supports(&self, config: &InputConfig) -> bool {
         config.get_string("generator").is_ok()
-            || config.get_string("input_type").map(|t| t == "generated").unwrap_or(false)
+            || config
+                .get_string("input_type")
+                .map(|t| t == "generated")
+                .unwrap_or(false)
     }
 }
 
 impl GeneratedInputProvider {
     fn generate_sequence(&self, config: &InputConfig) -> Result<Vec<ExecutionInput>> {
-        let start = config.get_string("start")
+        let start = config
+            .get_string("start")
             .ok()
             .and_then(|s| s.parse::<i64>().ok())
             .unwrap_or(0);
-        let end = config.get_string("end")
+        let end = config
+            .get_string("end")
             .ok()
             .and_then(|s| s.parse::<i64>().ok())
             .unwrap_or(start + 10);
-        let step = config.get_string("step")
+        let step = config
+            .get_string("step")
             .ok()
             .and_then(|s| s.parse::<i64>().ok())
             .unwrap_or(1);
@@ -221,7 +245,10 @@ impl GeneratedInputProvider {
 
             input.add_variable("value".to_string(), VariableValue::Number(current));
             input.add_variable("index".to_string(), VariableValue::Number(index));
-            input.add_variable("generated_type".to_string(), VariableValue::String("sequence".to_string()));
+            input.add_variable(
+                "generated_type".to_string(),
+                VariableValue::String("sequence".to_string()),
+            );
 
             inputs.push(input);
             current += step;
@@ -232,25 +259,28 @@ impl GeneratedInputProvider {
     }
 
     fn generate_random(&self, config: &InputConfig) -> Result<Vec<ExecutionInput>> {
-        let count = config.get_string("count")
+        let count = config
+            .get_string("count")
             .ok()
             .and_then(|s| s.parse::<usize>().ok())
             .unwrap_or(10);
-        let min = config.get_string("min")
+        let min = config
+            .get_string("min")
             .ok()
             .and_then(|s| s.parse::<i64>().ok())
             .unwrap_or(0);
-        let max = config.get_string("max")
+        let max = config
+            .get_string("max")
             .ok()
             .and_then(|s| s.parse::<i64>().ok())
             .unwrap_or(100);
 
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let mut inputs = Vec::new();
 
         for i in 0..count {
-            let value = rng.gen_range(min..=max);
-            
+            let value = rng.random_range(min..=max);
+
             let mut input = ExecutionInput::new(
                 format!("random_{}", i),
                 InputType::Generated {
@@ -264,7 +294,10 @@ impl GeneratedInputProvider {
 
             input.add_variable("random_value".to_string(), VariableValue::Number(value));
             input.add_variable("index".to_string(), VariableValue::Number(i as i64));
-            input.add_variable("generated_type".to_string(), VariableValue::String("random".to_string()));
+            input.add_variable(
+                "generated_type".to_string(),
+                VariableValue::String("random".to_string()),
+            );
 
             inputs.push(input);
         }
@@ -273,7 +306,8 @@ impl GeneratedInputProvider {
     }
 
     fn generate_uuids(&self, config: &InputConfig) -> Result<Vec<ExecutionInput>> {
-        let count = config.get_string("count")
+        let count = config
+            .get_string("count")
             .ok()
             .and_then(|s| s.parse::<usize>().ok())
             .unwrap_or(5);
@@ -282,7 +316,7 @@ impl GeneratedInputProvider {
 
         for i in 0..count {
             let uuid = uuid::Uuid::new_v4();
-            
+
             let mut input = ExecutionInput::new(
                 format!("uuid_{}", i),
                 InputType::Generated {
@@ -293,7 +327,10 @@ impl GeneratedInputProvider {
 
             input.add_variable("uuid".to_string(), VariableValue::String(uuid.to_string()));
             input.add_variable("index".to_string(), VariableValue::Number(i as i64));
-            input.add_variable("generated_type".to_string(), VariableValue::String("uuid".to_string()));
+            input.add_variable(
+                "generated_type".to_string(),
+                VariableValue::String("uuid".to_string()),
+            );
 
             inputs.push(input);
         }
@@ -302,11 +339,13 @@ impl GeneratedInputProvider {
     }
 
     fn generate_timestamps(&self, config: &InputConfig) -> Result<Vec<ExecutionInput>> {
-        let count = config.get_string("count")
+        let count = config
+            .get_string("count")
             .ok()
             .and_then(|s| s.parse::<usize>().ok())
             .unwrap_or(5);
-        let interval_seconds = config.get_string("interval")
+        let interval_seconds = config
+            .get_string("interval")
             .ok()
             .and_then(|s| s.parse::<i64>().ok())
             .unwrap_or(3600); // Default 1 hour intervals
@@ -316,7 +355,7 @@ impl GeneratedInputProvider {
 
         for i in 0..count {
             let timestamp = base_time + chrono::Duration::seconds(i as i64 * interval_seconds);
-            
+
             let mut input = ExecutionInput::new(
                 format!("timestamp_{}", i),
                 InputType::Generated {
@@ -327,10 +366,19 @@ impl GeneratedInputProvider {
                 },
             );
 
-            input.add_variable("timestamp".to_string(), VariableValue::Number(timestamp.timestamp()));
-            input.add_variable("datetime".to_string(), VariableValue::String(timestamp.to_rfc3339()));
+            input.add_variable(
+                "timestamp".to_string(),
+                VariableValue::Number(timestamp.timestamp()),
+            );
+            input.add_variable(
+                "datetime".to_string(),
+                VariableValue::String(timestamp.to_rfc3339()),
+            );
             input.add_variable("index".to_string(), VariableValue::Number(i as i64));
-            input.add_variable("generated_type".to_string(), VariableValue::String("timestamp".to_string()));
+            input.add_variable(
+                "generated_type".to_string(),
+                VariableValue::String("timestamp".to_string()),
+            );
 
             inputs.push(input);
         }
@@ -340,15 +388,18 @@ impl GeneratedInputProvider {
 
     fn generate_range(&self, config: &InputConfig) -> Result<Vec<ExecutionInput>> {
         // Similar to sequence but with float support
-        let start = config.get_string("start")
+        let start = config
+            .get_string("start")
             .ok()
             .and_then(|s| s.parse::<f64>().ok())
             .unwrap_or(0.0);
-        let end = config.get_string("end")
+        let end = config
+            .get_string("end")
             .ok()
             .and_then(|s| s.parse::<f64>().ok())
             .unwrap_or(1.0);
-        let steps = config.get_string("steps")
+        let steps = config
+            .get_string("steps")
             .ok()
             .and_then(|s| s.parse::<usize>().ok())
             .unwrap_or(10);
@@ -358,7 +409,7 @@ impl GeneratedInputProvider {
 
         for i in 0..steps {
             let value = start + (i as f64 * step_size);
-            
+
             let mut input = ExecutionInput::new(
                 format!("range_{}", i),
                 InputType::Generated {
@@ -373,7 +424,10 @@ impl GeneratedInputProvider {
 
             input.add_variable("value".to_string(), VariableValue::Float(value));
             input.add_variable("index".to_string(), VariableValue::Number(i as i64));
-            input.add_variable("generated_type".to_string(), VariableValue::String("range".to_string()));
+            input.add_variable(
+                "generated_type".to_string(),
+                VariableValue::String("range".to_string()),
+            );
 
             inputs.push(input);
         }
@@ -382,11 +436,13 @@ impl GeneratedInputProvider {
     }
 
     fn generate_grid(&self, config: &InputConfig) -> Result<Vec<ExecutionInput>> {
-        let width = config.get_string("width")
+        let width = config
+            .get_string("width")
             .ok()
             .and_then(|s| s.parse::<usize>().ok())
             .unwrap_or(3);
-        let height = config.get_string("height")
+        let height = config
+            .get_string("height")
             .ok()
             .and_then(|s| s.parse::<usize>().ok())
             .unwrap_or(3);
@@ -410,7 +466,10 @@ impl GeneratedInputProvider {
                 input.add_variable("x".to_string(), VariableValue::Number(x as i64));
                 input.add_variable("y".to_string(), VariableValue::Number(y as i64));
                 input.add_variable("index".to_string(), VariableValue::Number(index));
-                input.add_variable("generated_type".to_string(), VariableValue::String("grid".to_string()));
+                input.add_variable(
+                    "generated_type".to_string(),
+                    VariableValue::String("grid".to_string()),
+                );
 
                 inputs.push(input);
                 index += 1;
@@ -421,7 +480,8 @@ impl GeneratedInputProvider {
     }
 
     fn generate_fibonacci(&self, config: &InputConfig) -> Result<Vec<ExecutionInput>> {
-        let count = config.get_string("count")
+        let count = config
+            .get_string("count")
             .ok()
             .and_then(|s| s.parse::<usize>().ok())
             .unwrap_or(10);
@@ -431,7 +491,11 @@ impl GeneratedInputProvider {
         let mut b: i64 = 1;
 
         for i in 0..count {
-            let value = if i == 0 { a } else if i == 1 { b } else {
+            let value = if i == 0 {
+                a
+            } else if i == 1 {
+                b
+            } else {
                 let next = a + b;
                 a = b;
                 b = next;
@@ -450,7 +514,10 @@ impl GeneratedInputProvider {
 
             input.add_variable("value".to_string(), VariableValue::Number(value));
             input.add_variable("index".to_string(), VariableValue::Number(i as i64));
-            input.add_variable("generated_type".to_string(), VariableValue::String("fibonacci".to_string()));
+            input.add_variable(
+                "generated_type".to_string(),
+                VariableValue::String("fibonacci".to_string()),
+            );
 
             inputs.push(input);
         }
@@ -459,7 +526,8 @@ impl GeneratedInputProvider {
     }
 
     fn generate_factorial(&self, config: &InputConfig) -> Result<Vec<ExecutionInput>> {
-        let count = config.get_string("count")
+        let count = config
+            .get_string("count")
             .ok()
             .and_then(|s| s.parse::<usize>().ok())
             .unwrap_or(10);
@@ -468,7 +536,7 @@ impl GeneratedInputProvider {
 
         for i in 0..count {
             let value = (1..=i as i64).product::<i64>().max(1);
-            
+
             let mut input = ExecutionInput::new(
                 format!("factorial_{}", i),
                 InputType::Generated {
@@ -482,7 +550,10 @@ impl GeneratedInputProvider {
             input.add_variable("value".to_string(), VariableValue::Number(value));
             input.add_variable("n".to_string(), VariableValue::Number(i as i64));
             input.add_variable("index".to_string(), VariableValue::Number(i as i64));
-            input.add_variable("generated_type".to_string(), VariableValue::String("factorial".to_string()));
+            input.add_variable(
+                "generated_type".to_string(),
+                VariableValue::String("factorial".to_string()),
+            );
 
             inputs.push(input);
         }
@@ -491,7 +562,8 @@ impl GeneratedInputProvider {
     }
 
     fn generate_primes(&self, config: &InputConfig) -> Result<Vec<ExecutionInput>> {
-        let count = config.get_string("count")
+        let count = config
+            .get_string("count")
             .ok()
             .and_then(|s| s.parse::<usize>().ok())
             .unwrap_or(10);
@@ -520,7 +592,10 @@ impl GeneratedInputProvider {
 
             input.add_variable("value".to_string(), VariableValue::Number(*prime));
             input.add_variable("index".to_string(), VariableValue::Number(i as i64));
-            input.add_variable("generated_type".to_string(), VariableValue::String("prime".to_string()));
+            input.add_variable(
+                "generated_type".to_string(),
+                VariableValue::String("prime".to_string()),
+            );
 
             inputs.push(input);
         }

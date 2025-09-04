@@ -15,6 +15,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct CachedInput {
     inputs: Vec<ExecutionInput>,
     created_at: DateTime<Utc>,
@@ -23,7 +24,14 @@ struct CachedInput {
 
 pub struct InputProcessor {
     providers: HashMap<String, Box<dyn InputProvider>>,
+    #[allow(dead_code)]
     cache: Arc<RwLock<HashMap<String, CachedInput>>>,
+}
+
+impl Default for InputProcessor {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl InputProcessor {
@@ -279,7 +287,7 @@ impl InputProcessor {
         inputs: &[ExecutionInput],
         config: &super::config::ValidationConfig,
     ) -> Result<()> {
-        let mut all_issues: Vec<ValidationIssue> = Vec::new();
+        let all_issues: Vec<ValidationIssue> = Vec::new();
 
         for _input in inputs {
             // Basic validation - check required variables exist
@@ -303,6 +311,7 @@ impl InputProcessor {
         Ok(())
     }
 
+    #[allow(dead_code)]
     async fn check_cache(
         &self,
         config: &super::provider::InputConfig,
@@ -326,6 +335,7 @@ impl InputProcessor {
         Ok(None)
     }
 
+    #[allow(dead_code)]
     async fn store_in_cache(
         &self,
         config: &super::provider::InputConfig,
@@ -353,6 +363,7 @@ impl InputProcessor {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn generate_cache_key(
         &self,
         _config: &super::provider::InputConfig,

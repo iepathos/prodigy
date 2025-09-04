@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -201,27 +202,34 @@ impl ExecutionInput {
     }
 }
 
-impl VariableValue {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for VariableValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            VariableValue::String(s) => s.clone(),
-            VariableValue::Number(n) => n.to_string(),
-            VariableValue::Float(f) => f.to_string(),
-            VariableValue::Boolean(b) => b.to_string(),
-            VariableValue::Path(p) => p.to_string_lossy().to_string(),
-            VariableValue::Url(u) => u.to_string(),
-            VariableValue::Array(arr) => format!(
-                "[{}]",
-                arr.iter()
-                    .map(|v| v.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
-            VariableValue::Object(obj) => serde_json::to_string(obj).unwrap_or_default(),
-            VariableValue::Null => "null".to_string(),
+            VariableValue::String(s) => write!(f, "{}", s),
+            VariableValue::Number(n) => write!(f, "{}", n),
+            VariableValue::Float(fl) => write!(f, "{}", fl),
+            VariableValue::Boolean(b) => write!(f, "{}", b),
+            VariableValue::Path(p) => write!(f, "{}", p.to_string_lossy()),
+            VariableValue::Url(u) => write!(f, "{}", u),
+            VariableValue::Array(arr) => {
+                write!(
+                    f,
+                    "[{}]",
+                    arr.iter()
+                        .map(|v| v.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
+            VariableValue::Object(obj) => {
+                write!(f, "{}", serde_json::to_string(obj).unwrap_or_default())
+            }
+            VariableValue::Null => write!(f, "null"),
         }
     }
+}
 
+impl VariableValue {
     pub fn as_path(&self) -> Result<PathBuf> {
         match self {
             VariableValue::Path(p) => Ok(p.clone()),

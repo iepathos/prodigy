@@ -1,7 +1,6 @@
 use super::provider::{InputConfig, InputProvider, ValidationIssue, ValidationSeverity};
 use super::types::{
-    DataFormat, ExecutionInput, InputType, VariableDefinition, VariableType,
-    VariableValue,
+    DataFormat, ExecutionInput, InputType, VariableDefinition, VariableType, VariableValue,
 };
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -24,19 +23,19 @@ impl InputProvider for StructuredDataInputProvider {
         let mut issues = Vec::new();
 
         // Check if data source is provided
-        if let Err(_) = config.get_string("file_path") {
-            if let Err(_) = config.get_string("data") {
-                issues.push(ValidationIssue {
-                    field: "source".to_string(),
-                    message: "Either 'file_path' or 'data' must be provided".to_string(),
-                    severity: ValidationSeverity::Error,
-                });
-            }
+        if config.get_string("file_path").is_err() && config.get_string("data").is_err() {
+            issues.push(ValidationIssue {
+                field: "source".to_string(),
+                message: "Either 'file_path' or 'data' must be provided".to_string(),
+                severity: ValidationSeverity::Error,
+            });
         }
 
         // Validate format if specified
         if let Ok(format_str) = config.get_string("format") {
-            if !["json", "yaml", "toml", "csv", "xml", "text", "auto"].contains(&format_str.as_str()) {
+            if !["json", "yaml", "toml", "csv", "xml", "text", "auto"]
+                .contains(&format_str.as_str())
+            {
                 issues.push(ValidationIssue {
                     field: "format".to_string(),
                     message: format!("Unsupported format: {}", format_str),
@@ -89,16 +88,14 @@ impl InputProvider for StructuredDataInputProvider {
     fn available_variables(&self, config: &InputConfig) -> Result<Vec<VariableDefinition>> {
         let format = self.detect_format(config)?;
 
-        let mut vars = vec![
-            VariableDefinition {
-                name: "data_format".to_string(),
-                var_type: VariableType::String,
-                description: "The format of the structured data".to_string(),
-                required: true,
-                default_value: None,
-                validation_rules: vec![],
-            },
-        ];
+        let mut vars = vec![VariableDefinition {
+            name: "data_format".to_string(),
+            var_type: VariableType::String,
+            description: "The format of the structured data".to_string(),
+            required: true,
+            default_value: None,
+            validation_rules: vec![],
+        }];
 
         match format {
             DataFormat::Json | DataFormat::Yaml | DataFormat::Toml | DataFormat::Xml => {
@@ -241,8 +238,14 @@ impl StructuredDataInputProvider {
                     );
 
                     input.add_variable("data".to_string(), self.json_to_variable_value(item)?);
-                    input.add_variable("data_format".to_string(), VariableValue::String("json".to_string()));
-                    input.add_variable("item_index".to_string(), VariableValue::Number(index as i64));
+                    input.add_variable(
+                        "data_format".to_string(),
+                        VariableValue::String("json".to_string()),
+                    );
+                    input.add_variable(
+                        "item_index".to_string(),
+                        VariableValue::Number(index as i64),
+                    );
 
                     inputs.push(input);
                 }
@@ -257,7 +260,10 @@ impl StructuredDataInputProvider {
                 );
 
                 input.add_variable("data".to_string(), self.json_to_variable_value(&value)?);
-                input.add_variable("data_format".to_string(), VariableValue::String("json".to_string()));
+                input.add_variable(
+                    "data_format".to_string(),
+                    VariableValue::String("json".to_string()),
+                );
 
                 inputs.push(input);
             }
@@ -266,6 +272,7 @@ impl StructuredDataInputProvider {
         Ok(inputs)
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn json_to_variable_value(&self, value: &serde_json::Value) -> Result<VariableValue> {
         match value {
             serde_json::Value::Null => Ok(VariableValue::Null),
@@ -281,7 +288,8 @@ impl StructuredDataInputProvider {
             }
             serde_json::Value::String(s) => Ok(VariableValue::String(s.clone())),
             serde_json::Value::Array(arr) => {
-                let values: Result<Vec<_>> = arr.iter().map(|v| self.json_to_variable_value(v)).collect();
+                let values: Result<Vec<_>> =
+                    arr.iter().map(|v| self.json_to_variable_value(v)).collect();
                 Ok(VariableValue::Array(values?))
             }
             serde_json::Value::Object(obj) => {
@@ -297,9 +305,9 @@ impl StructuredDataInputProvider {
     fn process_csv_data(&self, data: &str) -> Result<Vec<ExecutionInput>> {
         let mut inputs = Vec::new();
         let mut reader = csv::Reader::from_reader(data.as_bytes());
-        
+
         let headers = reader.headers()?.clone();
-        
+
         for (index, result) in reader.records().enumerate() {
             let record = result?;
             let mut input = ExecutionInput::new(
@@ -319,7 +327,10 @@ impl StructuredDataInputProvider {
 
             input.add_variable("row".to_string(), VariableValue::Object(row_data));
             input.add_variable("row_index".to_string(), VariableValue::Number(index as i64));
-            input.add_variable("data_format".to_string(), VariableValue::String("csv".to_string()));
+            input.add_variable(
+                "data_format".to_string(),
+                VariableValue::String("csv".to_string()),
+            );
 
             inputs.push(input);
         }
@@ -339,7 +350,10 @@ impl StructuredDataInputProvider {
         );
 
         input.add_variable("data".to_string(), VariableValue::String(data.to_string()));
-        input.add_variable("data_format".to_string(), VariableValue::String("xml".to_string()));
+        input.add_variable(
+            "data_format".to_string(),
+            VariableValue::String("xml".to_string()),
+        );
 
         Ok(vec![input])
     }
@@ -356,8 +370,14 @@ impl StructuredDataInputProvider {
         let line_count = data.lines().count();
 
         input.add_variable("text".to_string(), VariableValue::String(data.to_string()));
-        input.add_variable("line_count".to_string(), VariableValue::Number(line_count as i64));
-        input.add_variable("data_format".to_string(), VariableValue::String("text".to_string()));
+        input.add_variable(
+            "line_count".to_string(),
+            VariableValue::Number(line_count as i64),
+        );
+        input.add_variable(
+            "data_format".to_string(),
+            VariableValue::String("text".to_string()),
+        );
 
         Ok(input)
     }

@@ -9,9 +9,7 @@ pub struct EnvironmentInputProvider;
 #[async_trait]
 impl InputProvider for EnvironmentInputProvider {
     fn input_type(&self) -> InputType {
-        InputType::Environment {
-            prefix: None,
-        }
+        InputType::Environment { prefix: None }
     }
 
     async fn validate(&self, _config: &InputConfig) -> Result<Vec<ValidationIssue>> {
@@ -24,7 +22,7 @@ impl InputProvider for EnvironmentInputProvider {
         let filter_empty = config.get_bool("filter_empty").unwrap_or(true);
 
         let mut inputs = Vec::new();
-        
+
         // Check if we should create a single input with all vars, or one per var
         let single_input = config.get_bool("single_input").unwrap_or(false);
 
@@ -60,7 +58,10 @@ impl InputProvider for EnvironmentInputProvider {
             }
 
             input.add_variable("env".to_string(), VariableValue::Object(env_object));
-            input.add_variable("env_count".to_string(), VariableValue::Number(env_vars.len() as i64));
+            input.add_variable(
+                "env_count".to_string(),
+                VariableValue::Number(env_vars.len() as i64),
+            );
 
             if let Some(ref p) = prefix {
                 input.add_variable("env_prefix".to_string(), VariableValue::String(p.clone()));
@@ -95,26 +96,38 @@ impl InputProvider for EnvironmentInputProvider {
 
                 // Add the environment variable
                 input.add_variable("env_key".to_string(), VariableValue::String(key.clone()));
-                input.add_variable("env_value".to_string(), VariableValue::String(value.clone()));
-                
+                input.add_variable(
+                    "env_value".to_string(),
+                    VariableValue::String(value.clone()),
+                );
+
                 // Strip prefix from key if specified
                 if let Some(ref p) = prefix {
                     let stripped_key = key.strip_prefix(p).unwrap_or(&key);
-                    input.add_variable("env_key_stripped".to_string(), VariableValue::String(stripped_key.to_string()));
+                    input.add_variable(
+                        "env_key_stripped".to_string(),
+                        VariableValue::String(stripped_key.to_string()),
+                    );
                 }
 
                 // Try to parse common types
                 if let Ok(num) = value.parse::<i64>() {
                     input.add_variable("env_value_number".to_string(), VariableValue::Number(num));
                 }
-                
+
                 if let Ok(bool_val) = value.to_lowercase().parse::<bool>() {
-                    input.add_variable("env_value_bool".to_string(), VariableValue::Boolean(bool_val));
+                    input.add_variable(
+                        "env_value_bool".to_string(),
+                        VariableValue::Boolean(bool_val),
+                    );
                 }
 
                 // Parse path-like variables
                 if key.contains("PATH") || key.contains("DIR") || key.contains("HOME") {
-                    input.add_variable("env_value_path".to_string(), VariableValue::Path(value.into()));
+                    input.add_variable(
+                        "env_value_path".to_string(),
+                        VariableValue::Path(value.into()),
+                    );
                 }
 
                 inputs.push(input);
@@ -199,7 +212,8 @@ impl InputProvider for EnvironmentInputProvider {
                 VariableDefinition {
                     name: "env_value_path".to_string(),
                     var_type: VariableType::Path,
-                    description: "Environment variable value as path (for PATH-like variables)".to_string(),
+                    description: "Environment variable value as path (for PATH-like variables)"
+                        .to_string(),
                     required: false,
                     default_value: None,
                     validation_rules: vec![],
@@ -210,7 +224,10 @@ impl InputProvider for EnvironmentInputProvider {
 
     fn supports(&self, config: &InputConfig) -> bool {
         // Environment provider can always run, but check for configuration hints
-        config.get_string("input_type").map(|t| t == "environment").unwrap_or(false)
+        config
+            .get_string("input_type")
+            .map(|t| t == "environment")
+            .unwrap_or(false)
             || config.get_string("env_prefix").is_ok()
             || config.get_bool("use_environment").unwrap_or(false)
     }

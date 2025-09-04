@@ -12,6 +12,12 @@ use std::path::Path;
 
 pub struct FilePatternInputProvider;
 
+impl Default for FilePatternInputProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FilePatternInputProvider {
     pub fn new() -> Self {
         Self
@@ -31,7 +37,7 @@ impl InputProvider for FilePatternInputProvider {
         let mut issues = Vec::new();
 
         // Check if patterns are provided
-        if let Err(_) = config.get_array("patterns") {
+        if config.get_array("patterns").is_err() {
             issues.push(ValidationIssue {
                 field: "patterns".to_string(),
                 message: "No file patterns provided".to_string(),
