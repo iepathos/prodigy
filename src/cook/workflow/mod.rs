@@ -22,4 +22,4 @@ pub use traits::WorkflowExecutor;
 pub use validation::{
     GapDetail, OnIncompleteConfig, Severity, ValidationConfig, ValidationResult, ValidationStatus,
 };
-pub use variables::{ExecutionInput, ExecutionMode, StandardVariables, VariableContext};
+pub use variables::{ExecutionInput, StandardVariables, VariableContext};

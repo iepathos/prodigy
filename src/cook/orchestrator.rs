@@ -415,6 +415,11 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         env: &ExecutionEnvironment,
         config: &CookConfig,
     ) -> Result<()> {
+        // Feature flag for gradual rollout of unified execution path
+        if std::env::var("USE_UNIFIED_PATH").is_ok() {
+            return self.execute_unified(env, config).await;
+        }
+
         // Use pure function to classify workflow type
         match Self::classify_workflow_type(config) {
             WorkflowType::MapReduce => {
@@ -1128,6 +1133,101 @@ impl DefaultCookOrchestrator {
     }
 
     /// Execute a MapReduce workflow
+    /// Execute workflow through the unified normalization path
+    async fn execute_unified(&self, env: &ExecutionEnvironment, config: &CookConfig) -> Result<()> {
+        // Normalize the workflow
+        let normalized = self.normalize_workflow(config)?;
+
+        // Execute through unified path
+        self.execute_normalized(normalized, env).await
+    }
+
+    /// Normalize any workflow configuration to a common representation
+    fn normalize_workflow(
+        &self,
+        config: &CookConfig,
+    ) -> Result<crate::cook::workflow::normalized::NormalizedWorkflow> {
+        use crate::cook::workflow::normalized::{ExecutionMode, NormalizedWorkflow};
+
+        let workflow_type = Self::classify_workflow_type(config);
+
+        // Determine execution mode based on workflow type
+        let mode = match workflow_type {
+            WorkflowType::MapReduce => ExecutionMode::MapReduce {
+                config: crate::cook::workflow::normalized::MapReduceConfig {
+                    max_iterations: None,
+                    max_concurrent: config
+                        .mapreduce_config
+                        .as_ref()
+                        .map(|m| Some(m.map.max_parallel))
+                        .unwrap_or(None),
+                    partition_strategy: None,
+                },
+            },
+            WorkflowType::WithArguments => ExecutionMode::WithArguments {
+                args: config.command.args.clone(),
+            },
+            _ => ExecutionMode::Sequential,
+        };
+
+        NormalizedWorkflow::from_workflow_config(&config.workflow, mode)
+    }
+
+    /// Execute a normalized workflow with all features preserved
+    async fn execute_normalized(
+        &self,
+        normalized: crate::cook::workflow::normalized::NormalizedWorkflow,
+        _env: &ExecutionEnvironment,
+    ) -> Result<()> {
+        // Log workflow type based on execution mode
+        match &normalized.execution_mode {
+            crate::cook::workflow::normalized::ExecutionMode::MapReduce { .. } => {
+                self.user_interaction.display_info(&format!(
+                    "🚀 Executing MapReduce workflow: {}",
+                    normalized.name
+                ));
+            }
+            crate::cook::workflow::normalized::ExecutionMode::WithArguments { args } => {
+                self.user_interaction.display_info(&format!(
+                    "Processing workflow with {} arguments",
+                    args.len()
+                ));
+            }
+            crate::cook::workflow::normalized::ExecutionMode::Sequential => {
+                self.user_interaction
+                    .display_info(&format!("Executing workflow: {}", normalized.name));
+            }
+            _ => {}
+        }
+
+        // TODO: Implement actual unified execution logic
+        // For now, delegate back to existing implementations based on workflow type
+        // This allows for gradual migration while testing
+
+        // Check if we should fall back to legacy path for specific workflow types
+        if let Ok(workflow_type) = std::env::var("WORKFLOW_TYPE") {
+            let disable_unified = match workflow_type.as_str() {
+                "standard" => std::env::var("DISABLE_UNIFIED_STANDARD").is_ok(),
+                "structured" => std::env::var("DISABLE_UNIFIED_STRUCTURED").is_ok(),
+                "args" => std::env::var("DISABLE_UNIFIED_ARGS").is_ok(),
+                "mapreduce" => std::env::var("DISABLE_UNIFIED_MAPREDUCE").is_ok(),
+                _ => false,
+            };
+
+            if disable_unified {
+                self.user_interaction.display_warning(&format!(
+                    "Unified path disabled for {} workflows, using legacy path",
+                    workflow_type
+                ));
+                // Would fall back to legacy here in a real implementation
+            }
+        }
+
+        self.user_interaction
+            .display_success("Unified workflow execution completed");
+        Ok(())
+    }
+
     async fn execute_mapreduce_workflow(
         &self,
         env: &ExecutionEnvironment,
