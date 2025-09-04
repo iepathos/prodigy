@@ -299,11 +299,20 @@ impl WorkflowExecutor {
         ctx.validation_results
             .insert("validation".to_string(), validation_result.clone());
 
+        // Always display validation percentage
+        let percentage = validation_result.completion_percentage;
+        let threshold = validation_config.threshold;
+        
         // Check if validation passed
-        if !validation_config.is_complete(&validation_result) {
+        if validation_config.is_complete(&validation_result) {
+            self.user_interaction.display_success(&format!(
+                "✓ Validation passed: {:.1}% complete (threshold: {:.1}%)",
+                percentage, threshold
+            ));
+        } else {
             self.user_interaction.display_warning(&format!(
-                "Validation incomplete: {:.1}% complete",
-                validation_result.completion_percentage
+                "Validation incomplete: {:.1}% complete (threshold: {:.1}%)",
+                percentage, threshold
             ));
 
             // Handle incomplete validation
@@ -355,6 +364,21 @@ impl WorkflowExecutor {
 
                 // Re-run validation
                 current_result = self.execute_validation(validation_config, env, ctx).await?;
+
+                // Display validation percentage after each attempt
+                let percentage = current_result.completion_percentage;
+                let threshold = validation_config.threshold;
+                if validation_config.is_complete(&current_result) {
+                    self.user_interaction.display_success(&format!(
+                        "✓ Validation passed: {:.1}% complete (threshold: {:.1}%)",
+                        percentage, threshold
+                    ));
+                } else {
+                    self.user_interaction.display_info(&format!(
+                        "Validation still incomplete: {:.1}% complete (threshold: {:.1}%)",
+                        percentage, threshold
+                    ));
+                }
 
                 // Update context
                 ctx.validation_results
