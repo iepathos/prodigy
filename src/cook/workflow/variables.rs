@@ -355,4 +355,3 @@ mod tests {
         assert_eq!(ctx.get("last.exit_code"), Some(&json!(0)));
     }
 }
-
