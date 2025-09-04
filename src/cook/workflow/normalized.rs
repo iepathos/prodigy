@@ -5,7 +5,7 @@
 //! handlers, and outputs are never lost during workflow transformations.
 
 use crate::config::command::{
-    Command, OutputDeclaration, TestDebugConfig, WorkflowCommand, WorkflowStepCommand,
+    OutputDeclaration, TestDebugConfig, WorkflowCommand, WorkflowStepCommand,
 };
 use crate::config::workflow::WorkflowConfig;
 use crate::cook::workflow::{OnFailureConfig, ValidationConfig, WorkflowStep};
