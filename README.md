@@ -6,7 +6,7 @@
 
 > 🚧 **Early Prototype** - This project is under active development and APIs may change
 
-**AI pair programming orchestrator** - Run reproducible code improvement workflows with Claude. Fix bugs, improve coverage, eliminate tech debt - all through simple YAML workflows.
+**Prodigy turns ad-hoc Claude sessions into reproducible development pipelines.** Define workflows in YAML, run parallel agents, ship improvements automatically.
 
 ## What Is Prodigy?
 
