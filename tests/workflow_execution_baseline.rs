@@ -5,11 +5,9 @@
 //! correct behavior and existing bugs to ensure the migration preserves or fixes
 //! the current state appropriately.
 
-use anyhow::Result;
-use prodigy::config::{MapReduceWorkflowConfig, WorkflowCommand, WorkflowConfig};
+use prodigy::config::{WorkflowCommand, WorkflowConfig};
 use prodigy::cook::command::CookCommand;
 use prodigy::cook::orchestrator::CookConfig;
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// Helper to create a basic cook config for testing
@@ -32,32 +30,6 @@ fn create_test_config(workflow: WorkflowConfig) -> CookConfig {
         project_path: PathBuf::from("/tmp/test"),
         workflow,
         mapreduce_config: None,
-    }
-}
-
-/// Helper to create a MapReduce cook config for testing
-fn create_mapreduce_config(
-    workflow: WorkflowConfig,
-    mapreduce: MapReduceWorkflowConfig,
-) -> CookConfig {
-    CookConfig {
-        command: CookCommand {
-            playbook: PathBuf::from("test.yaml"),
-            path: None,
-            max_iterations: 1,
-            worktree: false,
-            map: vec![],
-            args: vec![],
-            fail_fast: false,
-            auto_accept: false,
-            metrics: false,
-            resume: None,
-            verbosity: 0,
-            quiet: false,
-        },
-        project_path: PathBuf::from("/tmp/test"),
-        workflow,
-        mapreduce_config: Some(mapreduce),
     }
 }
 
@@ -195,7 +167,7 @@ mod feature_matrix {
         // | Outputs | ❌ | ✅ | ❌ | ❌ |
         // | Variables | ✅ | ✅ | ✅ | ✅ |
 
-        assert!(true, "Feature matrix documented in comments");
+        // Feature matrix documented in comments above
     }
 
     #[test]
