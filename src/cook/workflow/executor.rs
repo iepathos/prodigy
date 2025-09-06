@@ -1664,7 +1664,7 @@ impl WorkflowExecutor {
         // Execute setup phase if present
         if !workflow.steps.is_empty() {
             self.user_interaction
-                .display_progress("🔄 Running setup phase...");
+                .display_progress("Running setup phase...");
 
             // Execute setup steps in the main worktree
             let mut workflow_context = WorkflowContext::default();
@@ -1748,10 +1748,10 @@ impl WorkflowExecutor {
 
         // Display total workflow timing
         let total_duration = workflow_start.elapsed();
-        self.user_interaction.display_info(&format!(
-            "\n📊 Total MapReduce workflow time: {}",
-            format_duration(total_duration),
-        ));
+        self.user_interaction.display_metric(
+            "Total MapReduce workflow time",
+            &format_duration(total_duration),
+        );
 
         Ok(())
     }

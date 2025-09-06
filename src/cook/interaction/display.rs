@@ -1,4 +1,36 @@
 //! Progress and message display implementation
+//!
+//! ## Formatting Guidelines
+//!
+//! This module provides centralized message formatting for consistent CLI output.
+//! All display operations should use the semantic message types rather than
+//! embedding icons directly in format strings.
+//!
+//! ### Message Type Usage
+//! - `info()`: General information messages
+//! - `warning()`: Non-critical issues or cautions
+//! - `error()`: Critical errors (always shown, even in quiet mode)
+//! - `progress()`: Ongoing operations or status updates
+//! - `success()`: Successful completion of operations
+//! - `action()`: User-initiated actions or commands
+//! - `metric()`: Quantitative data (timings, counts, measurements)
+//! - `status()`: State changes or current status
+//!
+//! ### Icon Management
+//! Icons are centrally configured in `IconConfig` and automatically applied
+//! based on the message type. Never embed icons directly in message strings.
+//!
+//! ### Examples
+//! ```rust
+//! // Good: Use semantic methods
+//! display.metric("Total time", "15.2s");
+//! display.progress("Processing items...");
+//! display.status("Ready to continue");
+//!
+//! // Bad: Don't embed icons in strings
+//! display.info("📊 Total time: 15.2s");  // Wrong!
+//! display.info("🔄 Processing...");      // Wrong!
+//! ```
 
 use super::SpinnerHandle;
 use std::sync::{Arc, Mutex};

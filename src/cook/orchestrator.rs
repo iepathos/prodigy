@@ -895,12 +895,15 @@ impl DefaultCookOrchestrator {
 
         // Display total workflow timing
         let total_duration = workflow_start.elapsed();
-        self.user_interaction.display_info(&format!(
-            "\n📊 Total workflow time: {} across {} iteration{}",
-            format_duration(total_duration),
-            max_iterations,
-            if max_iterations == 1 { "" } else { "s" }
-        ));
+        self.user_interaction.display_metric(
+            "Total workflow time",
+            &format!(
+                "{} across {} iteration{}",
+                format_duration(total_duration),
+                max_iterations,
+                if max_iterations == 1 { "" } else { "s" }
+            ),
+        );
 
         Ok(())
     }
@@ -923,7 +926,7 @@ impl DefaultCookOrchestrator {
         }
 
         self.user_interaction
-            .display_info(&format!("📋 Total inputs to process: {}", all_inputs.len()));
+            .display_status(&format!("Total inputs to process: {}", all_inputs.len()));
 
         // Process each input
         for (index, input) in all_inputs.iter().enumerate() {
@@ -955,11 +958,10 @@ impl DefaultCookOrchestrator {
 
         // Display total workflow timing
         let total_duration = workflow_start.elapsed();
-        self.user_interaction.display_info(&format!(
-            "\n📊 Total workflow time: {} for {} inputs",
-            format_duration(total_duration),
-            all_inputs.len()
-        ));
+        self.user_interaction.display_metric(
+            "Total workflow time",
+            &format!("{} for {} inputs", format_duration(total_duration), all_inputs.len()),
+        );
 
         Ok(())
     }
@@ -990,8 +992,8 @@ impl DefaultCookOrchestrator {
 
         // Add direct arguments from --args
         if !config.command.args.is_empty() {
-            self.user_interaction.display_info(&format!(
-                "📝 Adding {} direct arguments from --args",
+            self.user_interaction.display_action(&format!(
+                "Adding {} direct arguments from --args",
                 config.command.args.len()
             ));
             all_inputs.extend(config.command.args.clone());
@@ -1059,8 +1061,8 @@ impl DefaultCookOrchestrator {
         total: usize,
         _timing_tracker: &mut TimingTracker,
     ) -> Result<()> {
-        self.user_interaction.display_info(&format!(
-            "\n🔄 Processing input {}/{}: {}",
+        self.user_interaction.display_progress(&format!(
+            "Processing input {}/{}: {}",
             index + 1,
             total,
             input
