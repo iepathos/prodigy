@@ -613,7 +613,7 @@ impl DefaultCookOrchestrator {
                 let final_command = cmd_parts.join(" ");
 
                 self.user_interaction
-                    .display_info(&format!("🚀 Executing command: {final_command}"));
+                    .display_action(&format!("Executing command: {final_command}"));
 
                 // Execute the command
                 let mut env_vars = HashMap::new();
@@ -672,7 +672,7 @@ impl DefaultCookOrchestrator {
                             }
                             Err(e) => {
                                 self.user_interaction.display_warning(&format!(
-                                    "❌ Failed to find output '{output_name}': {e}"
+                                    "Failed to find output '{output_name}': {e}"
                                 ));
                                 return Err(e);
                             }
@@ -843,7 +843,7 @@ impl DefaultCookOrchestrator {
                 let final_command = cmd_parts.join(" ");
 
                 self.user_interaction
-                    .display_info(&format!("🚀 Executing command: {final_command}"));
+                    .display_action(&format!("Executing command: {final_command}"));
 
                 // Execute the command
                 let mut env_vars = HashMap::new();
@@ -949,7 +949,7 @@ impl DefaultCookOrchestrator {
         }
 
         self.user_interaction.display_success(&format!(
-            "🎉 Processed all {} inputs successfully!",
+            "Processed all {} inputs successfully!",
             all_inputs.len()
         ));
 
@@ -1018,7 +1018,7 @@ impl DefaultCookOrchestrator {
 
                 if pattern_matches == 0 {
                     self.user_interaction
-                        .display_warning(&format!("⚠️ No files matched pattern: {pattern}"));
+                        .display_warning(&format!("No files matched pattern: {pattern}"));
                 } else {
                     self.user_interaction.display_success(&format!(
                         "📁 Found {pattern_matches} files matching pattern: {pattern}"
@@ -1027,7 +1027,7 @@ impl DefaultCookOrchestrator {
             }
             Err(e) => {
                 self.user_interaction
-                    .display_error(&format!("❌ Error processing pattern '{pattern}': {e}"));
+                    .display_error(&format!("Error processing pattern '{pattern}': {e}"));
             }
         }
 
@@ -1183,7 +1183,7 @@ impl DefaultCookOrchestrator {
         match &normalized.execution_mode {
             crate::cook::workflow::normalized::ExecutionMode::MapReduce { .. } => {
                 self.user_interaction.display_info(&format!(
-                    "🚀 Executing MapReduce workflow: {}",
+                    "Executing MapReduce workflow: {}",
                     normalized.name
                 ));
             }
@@ -1236,7 +1236,7 @@ impl DefaultCookOrchestrator {
     ) -> Result<()> {
         // Display MapReduce-specific message
         self.user_interaction.display_info(&format!(
-            "🚀 Executing MapReduce workflow: {}",
+            "Executing MapReduce workflow: {}",
             mapreduce_config.name
         ));
 
@@ -1313,11 +1313,11 @@ impl DefaultCookOrchestrator {
         // Only show ARG in log if the command actually uses it
         if has_arg_reference {
             self.user_interaction.display_info(&format!(
-                "🚀 Executing command: {final_command} (ARG={input})"
+                "Executing command: {final_command} (ARG={input})"
             ));
         } else {
             self.user_interaction
-                .display_info(&format!("🚀 Executing command: {final_command}"));
+                .display_action(&format!("Executing command: {final_command}"));
         }
 
         // Prepare environment variables
@@ -1459,7 +1459,7 @@ impl DefaultCookOrchestrator {
                 ));
             } else {
                 self.user_interaction.display_warning(&format!(
-                    "⚠️ Command '{}' failed for input '{}', continuing...",
+                    "Command '{}' failed for input '{}', continuing...",
                     command.name, input
                 ));
                 return Ok(());

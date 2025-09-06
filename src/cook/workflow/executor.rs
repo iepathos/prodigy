@@ -1304,7 +1304,7 @@ impl WorkflowExecutor {
             if let Some(debug_config) = on_failure {
                 if attempt >= debug_config.max_attempts {
                     self.user_interaction.display_error(&format!(
-                        "❌ Shell command failed after {} attempts",
+                        "Shell command failed after {} attempts",
                         debug_config.max_attempts
                     ));
 
@@ -1431,7 +1431,7 @@ impl WorkflowExecutor {
             if let Some(debug_config) = &test_cmd.on_failure {
                 if attempt >= debug_config.max_attempts {
                     self.user_interaction.display_error(&format!(
-                        "❌ Tests failed after {} attempts",
+                        "Tests failed after {} attempts",
                         debug_config.max_attempts
                     ));
 
@@ -1611,7 +1611,7 @@ impl WorkflowExecutor {
             CommandType::Handler { handler_name, .. } => handler_name,
         };
 
-        eprintln!("\n❌ Workflow stopped: No changes were committed by {step_display}");
+        eprintln!("\nWorkflow stopped: No changes were committed by {step_display}");
         eprintln!("\nThe command executed successfully but did not create any git commits.");
 
         // Check if this is a command that might legitimately not create commits
