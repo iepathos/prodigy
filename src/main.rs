@@ -110,9 +110,9 @@ enum Commands {
     },
     /// Manage Dead Letter Queue for failed MapReduce items
     #[command(name = "dlq")]
-    DLQ {
+    Dlq {
         #[command(subcommand)]
-        command: DLQCommands,
+        command: DlqCommands,
     },
 }
 
@@ -198,7 +198,7 @@ enum EventCommands {
 }
 
 #[derive(Subcommand)]
-enum DLQCommands {
+enum DlqCommands {
     /// List items in the Dead Letter Queue
     List {
         /// Job ID to filter by
@@ -397,7 +397,7 @@ async fn execute_command(command: Option<Commands>) -> anyhow::Result<()> {
             path,
         }) => run_resume_job_command(job_id, force, max_retries, path).await,
         Some(Commands::Events { command }) => run_events_command(command).await,
-        Some(Commands::DLQ { command }) => run_dlq_command(command).await,
+        Some(Commands::Dlq { command }) => run_dlq_command(command).await,
         None => {
             // Display help when no command is provided (following CLI conventions)
             let mut cmd = Cli::command();
@@ -750,7 +750,7 @@ async fn run_resume_job_command(
     Ok(())
 }
 
-async fn run_dlq_command(command: DLQCommands) -> anyhow::Result<()> {
+async fn run_dlq_command(command: DlqCommands) -> anyhow::Result<()> {
     use chrono::{Duration, Utc};
     use prodigy::cook::execution::dlq::{DLQFilter, DeadLetterQueue};
 
@@ -759,7 +759,7 @@ async fn run_dlq_command(command: DLQCommands) -> anyhow::Result<()> {
     let dlq_path = project_root.join(".prodigy");
 
     match command {
-        DLQCommands::List {
+        DlqCommands::List {
             job_id,
             eligible,
             limit,
@@ -797,7 +797,7 @@ async fn run_dlq_command(command: DLQCommands) -> anyhow::Result<()> {
                 }
             }
         }
-        DLQCommands::Inspect { item_id, job_id } => {
+        DlqCommands::Inspect { item_id, job_id } => {
             let job_id = job_id.ok_or_else(|| anyhow::anyhow!("Job ID is required for inspect"))?;
 
             let dlq = DeadLetterQueue::new(job_id.clone(), dlq_path, 10000, 30, None).await?;
@@ -809,7 +809,7 @@ async fn run_dlq_command(command: DLQCommands) -> anyhow::Result<()> {
                 println!("Item {} not found in DLQ", item_id);
             }
         }
-        DLQCommands::Analyze { job_id, export } => {
+        DlqCommands::Analyze { job_id, export } => {
             let job_id =
                 job_id.ok_or_else(|| anyhow::anyhow!("Job ID is required for analysis"))?;
 
@@ -834,7 +834,7 @@ async fn run_dlq_command(command: DLQCommands) -> anyhow::Result<()> {
                 }
             }
         }
-        DLQCommands::Export {
+        DlqCommands::Export {
             output,
             job_id,
             format,
@@ -846,7 +846,7 @@ async fn run_dlq_command(command: DLQCommands) -> anyhow::Result<()> {
             dlq.export_items(&output).await?;
             println!("DLQ items exported to {:?} in {} format", output, format);
         }
-        DLQCommands::Reprocess {
+        DlqCommands::Reprocess {
             item_ids: _,
             job_id: _,
             max_retries: _,
@@ -854,7 +854,7 @@ async fn run_dlq_command(command: DLQCommands) -> anyhow::Result<()> {
         } => {
             anyhow::bail!("DLQ reprocessing is not yet implemented. Items must be manually reviewed and resubmitted.");
         }
-        DLQCommands::Purge {
+        DlqCommands::Purge {
             older_than_days,
             job_id,
             yes,

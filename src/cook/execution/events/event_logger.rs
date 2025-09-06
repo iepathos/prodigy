@@ -187,8 +187,8 @@ impl EventLogger {
         let mapreduce_event = match event {
             DLQEvent::ItemAdded { item } => DLQItemAdded {
                 job_id,
-                item_id: item.item_id,
-                error_signature: item.error_signature,
+                item_id: item.item_id.clone(),
+                error_signature: item.error_signature.clone(),
                 failure_count: item.failure_count,
             },
             DLQEvent::ItemRemoved { item_id } => DLQItemRemoved { job_id, item_id },

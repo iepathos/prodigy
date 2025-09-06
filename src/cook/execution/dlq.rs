@@ -124,7 +124,7 @@ pub struct DLQFilter {
 /// DLQ event types for logging
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum DLQEvent {
-    ItemAdded { item: DeadLetteredItem },
+    ItemAdded { item: Box<DeadLetteredItem> },
     ItemRemoved { item_id: String },
     ItemsReprocessed { count: usize },
     ItemsEvicted { count: usize },
@@ -178,7 +178,12 @@ impl DeadLetterQueue {
         // Log event
         if let Some(logger) = &self.event_logger {
             logger
-                .log_dlq_event_with_job(self.job_id.clone(), DLQEvent::ItemAdded { item })
+                .log_dlq_event_with_job(
+                    self.job_id.clone(),
+                    DLQEvent::ItemAdded {
+                        item: Box::new(item),
+                    },
+                )
                 .await?;
         }
 
