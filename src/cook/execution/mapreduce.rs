@@ -2484,13 +2484,15 @@ impl MapReduceExecutor {
             match tokio_timeout(duration, cmd.output()).await {
                 Ok(result) => result?,
                 Err(_) => {
-                    return Err(MapReduceError::AgentTimeout {
-                        job_id: "<unknown>".to_string(),
-                        agent_id: "<unknown>".to_string(),
-                        item_id: "<unknown>".to_string(),
-                        duration_secs: timeout_secs,
-                        last_operation: "shell command execution".to_string(),
-                    });
+                    return Err(MapReduceError::AgentTimeout(Box::new(
+                        crate::cook::execution::errors::AgentTimeoutError {
+                            job_id: "<unknown>".to_string(),
+                            agent_id: "<unknown>".to_string(),
+                            item_id: "<unknown>".to_string(),
+                            duration_secs: timeout_secs,
+                            last_operation: "shell command execution".to_string(),
+                        },
+                    )));
                 }
             }
         } else {

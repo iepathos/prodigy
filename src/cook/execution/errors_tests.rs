@@ -15,34 +15,34 @@ mod tests {
             "Job job123 initialization failed: config invalid"
         );
 
-        let error = MapReduceError::AgentTimeout {
+        let error = MapReduceError::AgentTimeout(Box::new(AgentTimeoutError {
             job_id: "job456".to_string(),
             agent_id: "agent1".to_string(),
             item_id: "item1".to_string(),
             duration_secs: 30,
             last_operation: "processing".to_string(),
-        };
+        }));
         assert_eq!(error.to_string(), "Agent agent1 timeout after 30s");
     }
 
     #[test]
     fn test_retryable_errors() {
-        let timeout = MapReduceError::AgentTimeout {
+        let timeout = MapReduceError::AgentTimeout(Box::new(AgentTimeoutError {
             job_id: "job1".to_string(),
             agent_id: "agent1".to_string(),
             item_id: "item1".to_string(),
             duration_secs: 60,
             last_operation: "processing".to_string(),
-        };
+        }));
         assert!(timeout.is_retryable());
 
-        let resource = MapReduceError::ResourceExhausted {
+        let resource = MapReduceError::ResourceExhausted(Box::new(ResourceExhaustedError {
             job_id: "job1".to_string(),
             agent_id: "agent1".to_string(),
             resource: ResourceType::Memory,
             limit: "1GB".to_string(),
             usage: "1.2GB".to_string(),
-        };
+        }));
         assert!(resource.is_retryable());
 
         let worktree = MapReduceError::WorktreeCreationFailed {
@@ -74,13 +74,13 @@ mod tests {
 
     #[test]
     fn test_recovery_hints() {
-        let resource = MapReduceError::ResourceExhausted {
+        let resource = MapReduceError::ResourceExhausted(Box::new(ResourceExhaustedError {
             job_id: "job1".to_string(),
             agent_id: "agent1".to_string(),
             resource: ResourceType::Memory,
             limit: "1GB".to_string(),
             usage: "1.2GB".to_string(),
-        };
+        }));
         let hint = resource.recovery_hint();
         assert!(hint.is_some());
         assert!(hint.unwrap().contains("Memory"));
@@ -105,13 +105,13 @@ mod tests {
         assert!(hint.is_some());
         assert!(hint.unwrap().contains("VAR1"));
 
-        let timeout = MapReduceError::AgentTimeout {
+        let timeout = MapReduceError::AgentTimeout(Box::new(AgentTimeoutError {
             job_id: "job1".to_string(),
             agent_id: "agent1".to_string(),
             item_id: "item1".to_string(),
             duration_secs: 60,
             last_operation: "processing".to_string(),
-        };
+        }));
         let hint = timeout.recovery_hint();
         assert!(hint.is_some());
         assert!(hint.unwrap().contains("timeout"));
@@ -149,7 +149,7 @@ mod tests {
                 "CheckpointCorrupted",
             ),
             (
-                MapReduceError::AgentFailed {
+                MapReduceError::AgentFailed(Box::new(AgentFailedError {
                     job_id: "test".to_string(),
                     agent_id: "test".to_string(),
                     item_id: "test".to_string(),
@@ -157,17 +157,17 @@ mod tests {
                     worktree: None,
                     duration_ms: 0,
                     source: None,
-                },
+                })),
                 "AgentFailed",
             ),
             (
-                MapReduceError::AgentTimeout {
+                MapReduceError::AgentTimeout(Box::new(AgentTimeoutError {
                     job_id: "test".to_string(),
                     agent_id: "test".to_string(),
                     item_id: "test".to_string(),
                     duration_secs: 0,
                     last_operation: "test".to_string(),
-                },
+                })),
                 "AgentTimeout",
             ),
         ];
@@ -180,27 +180,27 @@ mod tests {
     #[test]
     fn test_aggregated_error() {
         let errors = vec![
-            MapReduceError::AgentTimeout {
+            MapReduceError::AgentTimeout(Box::new(AgentTimeoutError {
                 job_id: "job1".to_string(),
                 agent_id: "agent1".to_string(),
                 item_id: "item1".to_string(),
                 duration_secs: 60,
                 last_operation: "processing".to_string(),
-            },
-            MapReduceError::AgentTimeout {
+            })),
+            MapReduceError::AgentTimeout(Box::new(AgentTimeoutError {
                 job_id: "job1".to_string(),
                 agent_id: "agent2".to_string(),
                 item_id: "item2".to_string(),
                 duration_secs: 60,
                 last_operation: "processing".to_string(),
-            },
-            MapReduceError::AgentTimeout {
+            })),
+            MapReduceError::AgentTimeout(Box::new(AgentTimeoutError {
                 job_id: "job1".to_string(),
                 agent_id: "agent3".to_string(),
                 item_id: "item3".to_string(),
                 duration_secs: 60,
                 last_operation: "processing".to_string(),
-            },
+            })),
             MapReduceError::JobNotFound {
                 job_id: "job2".to_string(),
             },
@@ -222,13 +222,13 @@ mod tests {
     fn test_error_handler_trait() {
         let handler = DefaultErrorHandler;
 
-        let timeout = MapReduceError::AgentTimeout {
+        let timeout = MapReduceError::AgentTimeout(Box::new(AgentTimeoutError {
             job_id: "job1".to_string(),
             agent_id: "agent1".to_string(),
             item_id: "item1".to_string(),
             duration_secs: 60,
             last_operation: "processing".to_string(),
-        };
+        }));
         assert!(handler.should_retry(&timeout));
 
         let action = handler.handle_error(&timeout);

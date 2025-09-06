@@ -36,35 +36,14 @@ pub enum MapReduceError {
     },
 
     // Agent-level errors
-    #[error("Agent {agent_id} failed processing item {item_id}: {reason}")]
-    AgentFailed {
-        job_id: String,
-        agent_id: String,
-        item_id: String,
-        reason: String,
-        worktree: Option<String>,
-        duration_ms: u64,
-        #[source]
-        source: Option<Box<dyn std::error::Error + Send + Sync>>,
-    },
+    #[error("Agent failed processing item: {0}")]
+    AgentFailed(Box<AgentFailedError>),
 
-    #[error("Agent {agent_id} timeout after {duration_secs}s")]
-    AgentTimeout {
-        job_id: String,
-        agent_id: String,
-        item_id: String,
-        duration_secs: u64,
-        last_operation: String,
-    },
+    #[error("Agent timeout: {0}")]
+    AgentTimeout(Box<AgentTimeoutError>),
 
-    #[error("Agent {agent_id} resource exhaustion: {resource:?}")]
-    ResourceExhausted {
-        job_id: String,
-        agent_id: String,
-        resource: ResourceType,
-        limit: String,
-        usage: String,
-    },
+    #[error("Resource exhausted: {0}")]
+    ResourceExhausted(Box<ResourceExhaustedError>),
 
     // Worktree errors
     #[error("Worktree creation failed for agent {agent_id}: {reason}")]
@@ -83,14 +62,8 @@ pub enum MapReduceError {
     },
 
     // Command execution errors
-    #[error("Command execution failed: {command}")]
-    CommandFailed {
-        command: String,
-        exit_code: Option<i32>,
-        stdout: String,
-        stderr: String,
-        working_dir: PathBuf,
-    },
+    #[error("Command execution failed: {0}")]
+    CommandFailed(Box<CommandFailedError>),
 
     #[error("Shell substitution failed: missing variable {variable}")]
     ShellSubstitutionFailed {
@@ -160,6 +133,84 @@ pub enum ResourceType {
     NetworkConnections,
 }
 
+/// Boxed error data for AgentFailed variant
+#[derive(Debug)]
+pub struct AgentFailedError {
+    pub job_id: String,
+    pub agent_id: String,
+    pub item_id: String,
+    pub reason: String,
+    pub worktree: Option<String>,
+    pub duration_ms: u64,
+    pub source: Option<Box<dyn std::error::Error + Send + Sync>>,
+}
+
+impl fmt::Display for AgentFailedError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Agent {} failed processing item {}: {}",
+            self.agent_id, self.item_id, self.reason
+        )
+    }
+}
+
+/// Boxed error data for AgentTimeout variant
+#[derive(Debug)]
+pub struct AgentTimeoutError {
+    pub job_id: String,
+    pub agent_id: String,
+    pub item_id: String,
+    pub duration_secs: u64,
+    pub last_operation: String,
+}
+
+impl fmt::Display for AgentTimeoutError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Agent {} timeout after {}s",
+            self.agent_id, self.duration_secs
+        )
+    }
+}
+
+/// Boxed error data for ResourceExhausted variant
+#[derive(Debug)]
+pub struct ResourceExhaustedError {
+    pub job_id: String,
+    pub agent_id: String,
+    pub resource: ResourceType,
+    pub limit: String,
+    pub usage: String,
+}
+
+impl fmt::Display for ResourceExhaustedError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Agent {} resource exhaustion: {:?}",
+            self.agent_id, self.resource
+        )
+    }
+}
+
+/// Boxed error data for CommandFailed variant
+#[derive(Debug)]
+pub struct CommandFailedError {
+    pub command: String,
+    pub exit_code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
+    pub working_dir: PathBuf,
+}
+
+impl fmt::Display for CommandFailedError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Command execution failed: {}", self.command)
+    }
+}
+
 /// Error context with metadata for debugging
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ErrorContext {
@@ -210,8 +261,8 @@ impl MapReduceError {
     pub fn is_retryable(&self) -> bool {
         matches!(
             self,
-            Self::AgentTimeout { .. }
-                | Self::ResourceExhausted { .. }
+            Self::AgentTimeout(_)
+                | Self::ResourceExhausted(_)
                 | Self::WorktreeCreationFailed { .. }
                 | Self::CheckpointPersistFailed { .. }
         )
@@ -220,9 +271,9 @@ impl MapReduceError {
     /// Get recovery hint for the error
     pub fn recovery_hint(&self) -> Option<String> {
         match self {
-            Self::ResourceExhausted { resource, .. } => Some(format!(
+            Self::ResourceExhausted(e) => Some(format!(
                 "Increase {:?} limit or reduce parallelism",
-                resource
+                e.resource
             )),
             Self::WorktreeMergeConflict { .. } => {
                 Some("Manual conflict resolution required".to_string())
@@ -238,7 +289,7 @@ impl MapReduceError {
             Self::InvalidConfiguration { field, .. } => {
                 Some(format!("Check configuration field '{}'", field))
             }
-            Self::AgentTimeout { .. } => {
+            Self::AgentTimeout(_) => {
                 Some("Consider increasing timeout or optimizing agent commands".to_string())
             }
             _ => None,
@@ -252,12 +303,12 @@ impl MapReduceError {
             Self::JobAlreadyExists { .. } => "JobAlreadyExists",
             Self::JobNotFound { .. } => "JobNotFound",
             Self::CheckpointCorrupted { .. } => "CheckpointCorrupted",
-            Self::AgentFailed { .. } => "AgentFailed",
-            Self::AgentTimeout { .. } => "AgentTimeout",
-            Self::ResourceExhausted { .. } => "ResourceExhausted",
+            Self::AgentFailed(_) => "AgentFailed",
+            Self::AgentTimeout(_) => "AgentTimeout",
+            Self::ResourceExhausted(_) => "ResourceExhausted",
             Self::WorktreeCreationFailed { .. } => "WorktreeCreationFailed",
             Self::WorktreeMergeConflict { .. } => "WorktreeMergeConflict",
-            Self::CommandFailed { .. } => "CommandFailed",
+            Self::CommandFailed(_) => "CommandFailed",
             Self::ShellSubstitutionFailed { .. } => "ShellSubstitutionFailed",
             Self::CheckpointPersistFailed { .. } => "CheckpointPersistFailed",
             Self::WorkItemLoadFailed { .. } => "WorkItemLoadFailed",
