@@ -36,6 +36,7 @@ pub enum EventCategory {
     Checkpoint,
     Worktree,
     Performance,
+    DeadLetterQueue,
 }
 
 impl MapReduceEvent {
@@ -44,8 +45,11 @@ impl MapReduceEvent {
         use MapReduceEvent::*;
         match self {
             JobFailed { .. } | AgentFailed { .. } | CheckpointFailed { .. } => EventSeverity::Error,
-            MemoryPressure { .. } => EventSeverity::Warning,
-            JobStarted { .. } | JobCompleted { .. } | AgentCompleted { .. } => EventSeverity::Info,
+            MemoryPressure { .. } | DLQItemsEvicted { .. } => EventSeverity::Warning,
+            JobStarted { .. }
+            | JobCompleted { .. }
+            | AgentCompleted { .. }
+            | DLQItemAdded { .. } => EventSeverity::Info,
             _ => EventSeverity::Debug,
         }
     }
@@ -71,6 +75,11 @@ impl MapReduceEvent {
                 EventCategory::Worktree
             }
             QueueDepthChanged { .. } | MemoryPressure { .. } => EventCategory::Performance,
+            DLQItemAdded { .. }
+            | DLQItemRemoved { .. }
+            | DLQItemsReprocessed { .. }
+            | DLQItemsEvicted { .. }
+            | DLQAnalysisGenerated { .. } => EventCategory::DeadLetterQueue,
         }
     }
 }
