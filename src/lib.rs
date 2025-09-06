@@ -23,6 +23,7 @@
 //! - `session` - Session state management with event-driven architecture
 //! - `testing` - Testing utilities and fixtures for comprehensive testing
 pub mod abstractions;
+pub mod cli;
 pub mod commands;
 pub mod config;
 pub mod cook;

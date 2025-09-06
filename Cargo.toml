@@ -56,6 +56,8 @@ md5 = "0.8"
 syn = { version = "2.0", features = ["full", "visit"] }
 signal-hook = "0.3"
 indicatif = "0.18"
+flate2 = "1.0"
+tokio-tungstenite = "0.27"
 
 [dev-dependencies]
 assert_cmd = "2.0"

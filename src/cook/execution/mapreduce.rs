@@ -639,6 +639,16 @@ impl MapReduceExecutor {
         let mut final_results: Vec<AgentResult>;
         let mut remaining_count = 0;
 
+        // Log job resumed event
+        self.event_logger
+            .log(MapReduceEvent::JobResumed {
+                job_id: job_id.to_string(),
+                checkpoint_version: state.checkpoint_version,
+                pending_items: state.pending_items.len(),
+            })
+            .await
+            .unwrap_or_else(|e| log::warn!("Failed to log job resumed event: {}", e));
+
         // Check if map phase is complete
         if !state.is_map_phase_complete() {
             // Calculate pending items
@@ -1119,6 +1129,7 @@ impl MapReduceExecutor {
         progress: Arc<ProgressTracker>,
     ) -> Result<AgentResult> {
         let start_time = Instant::now();
+        let agent_id = format!("agent-{}-{}", agent_index, item_id);
 
         // Create isolated worktree session for this agent
         let worktree_session = self
@@ -1129,6 +1140,18 @@ impl MapReduceExecutor {
         let worktree_name = worktree_session.name.clone();
         let worktree_path = worktree_session.path.clone();
         let worktree_session_id = worktree_name.clone();
+
+        // Log agent started event
+        self.event_logger
+            .log(MapReduceEvent::AgentStarted {
+                job_id: env.session_id.clone(),
+                agent_id: agent_id.clone(),
+                item_id: item_id.to_string(),
+                worktree: worktree_name.clone(),
+                attempt: 1,
+            })
+            .await
+            .unwrap_or_else(|e| log::warn!("Failed to log agent started event: {}", e));
 
         // Create branch name for this agent
         let branch_name = format!("prodigy-agent-{}-{}", env.session_id, item_id);
@@ -1150,13 +1173,15 @@ impl MapReduceExecutor {
                 item_id,
                 agent_index,
                 progress.clone(),
+                &agent_id,
+                env,
             )
             .await;
 
         let (total_output, execution_error) = execution_result;
 
         // Finalize and create result
-        self.finalize_agent_result(
+        let result = self.finalize_agent_result(
             item_id,
             &worktree_path,
             &worktree_name,
@@ -1168,7 +1193,40 @@ impl MapReduceExecutor {
             total_output,
             start_time,
         )
-        .await
+        .await?;
+
+        // Log agent completed or failed event
+        match &result.status {
+            AgentStatus::Success { .. } => {
+                self.event_logger
+                    .log(MapReduceEvent::AgentCompleted {
+                        job_id: env.session_id.clone(),
+                        agent_id: agent_id.clone(),
+                        duration: chrono::Duration::from_std(start_time.elapsed())
+                            .unwrap_or(chrono::Duration::seconds(0)),
+                        commits: vec![],
+                    })
+                    .await
+                    .unwrap_or_else(|e| log::warn!("Failed to log agent completed event: {}", e));
+            }
+            AgentStatus::Failed(error) => {
+                self.event_logger
+                    .log(MapReduceEvent::AgentFailed {
+                        job_id: env.session_id.clone(),
+                        agent_id: agent_id.clone(),
+                        error: error.clone(),
+                        retry_eligible: true,
+                    })
+                    .await
+                    .unwrap_or_else(|e| log::warn!("Failed to log agent failed event: {}", e));
+            }
+            _ => {
+                // For other statuses (Pending, Running, Timeout, Retrying), no specific event needed
+                log::debug!("Agent {} status: {:?}", agent_id, result.status);
+            }
+        }
+
+        Ok(result)
     }
 
     /// Classify the operation type of a step for progress tracking
@@ -1194,6 +1252,8 @@ impl MapReduceExecutor {
         item_id: &str,
         agent_index: usize,
         progress: Arc<ProgressTracker>,
+        agent_id: &str,
+        env: &ExecutionEnvironment,
     ) -> (String, Option<String>) {
         let mut total_output = String::new();
         let mut execution_error: Option<String> = None;
@@ -1211,6 +1271,19 @@ impl MapReduceExecutor {
             progress
                 .update_agent_operation(agent_index, operation)
                 .await;
+
+            // Log agent progress event
+            let step_name = step.name.clone().unwrap_or_else(|| format!("step_{}", step_index + 1));
+            let progress_pct = ((step_index as f32 + 0.5) / template_steps.len() as f32) * 100.0;
+            self.event_logger
+                .log(MapReduceEvent::AgentProgress {
+                    job_id: env.session_id.clone(),
+                    agent_id: agent_id.to_string(),
+                    step: step_name.clone(),
+                    progress_pct,
+                })
+                .await
+                .unwrap_or_else(|e| log::warn!("Failed to log agent progress event: {}", e));
 
             // Execute the step and handle result
             let step_result = self

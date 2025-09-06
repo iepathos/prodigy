@@ -6,6 +6,8 @@ mod event_store;
 mod event_tests;
 mod event_types;
 mod event_writer;
+pub mod retention;
+pub mod streaming;
 
 pub use event_logger::{EventLogger, EventRecord};
 pub use event_store::{EventFilter, EventIndex, EventStats, EventStore, FileOffset};

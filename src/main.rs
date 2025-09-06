@@ -102,6 +102,93 @@ enum Commands {
         #[arg(short = 'p', long)]
         path: Option<PathBuf>,
     },
+    /// View and search MapReduce events
+    #[command(name = "events")]
+    Events {
+        #[command(subcommand)]
+        command: EventCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum EventCommands {
+    /// List all events
+    List {
+        /// Filter by job ID
+        #[arg(long)]
+        job_id: Option<String>,
+
+        /// Filter by event type
+        #[arg(long)]
+        event_type: Option<String>,
+
+        /// Filter by agent ID
+        #[arg(long)]
+        agent_id: Option<String>,
+
+        /// Show only events from the last N minutes
+        #[arg(long)]
+        since: Option<u64>,
+
+        /// Limit number of events shown
+        #[arg(long, default_value = "100")]
+        limit: usize,
+
+        /// Path to events file
+        #[arg(long, default_value = ".prodigy/events/mapreduce_events.jsonl")]
+        file: PathBuf,
+    },
+    /// Show event statistics
+    Stats {
+        /// Path to events file
+        #[arg(long, default_value = ".prodigy/events/mapreduce_events.jsonl")]
+        file: PathBuf,
+
+        /// Group statistics by field (job_id, event_type, agent_id)
+        #[arg(long, default_value = "event_type")]
+        group_by: String,
+    },
+    /// Search events by pattern
+    Search {
+        /// Search pattern (regex supported)
+        pattern: String,
+
+        /// Path to events file
+        #[arg(long, default_value = ".prodigy/events/mapreduce_events.jsonl")]
+        file: PathBuf,
+
+        /// Search in specific fields only
+        #[arg(long)]
+        fields: Option<Vec<String>>,
+    },
+    /// Follow events in real-time (tail -f style)
+    Follow {
+        /// Path to events file
+        #[arg(long, default_value = ".prodigy/events/mapreduce_events.jsonl")]
+        file: PathBuf,
+
+        /// Filter by job ID
+        #[arg(long)]
+        job_id: Option<String>,
+
+        /// Filter by event type
+        #[arg(long)]
+        event_type: Option<String>,
+    },
+    /// Export events to different format
+    Export {
+        /// Path to events file
+        #[arg(long, default_value = ".prodigy/events/mapreduce_events.jsonl")]
+        file: PathBuf,
+
+        /// Output format (json, csv, markdown)
+        #[arg(long, default_value = "json")]
+        format: String,
+
+        /// Output file (stdout if not specified)
+        #[arg(long)]
+        output: Option<PathBuf>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -221,6 +308,7 @@ async fn execute_command(command: Option<Commands>) -> anyhow::Result<()> {
             max_retries,
             path,
         }) => run_resume_job_command(job_id, force, max_retries, path).await,
+        Some(Commands::Events { command }) => run_events_command(command).await,
         None => {
             // Display help when no command is provided (following CLI conventions)
             let mut cmd = Cli::command();
@@ -571,6 +659,40 @@ async fn run_resume_job_command(
     // 4. Handle retries for failed items
 
     Ok(())
+}
+
+async fn run_events_command(command: EventCommands) -> anyhow::Result<()> {
+    use prodigy::cli::events::{self, EventsArgs, EventsCommand};
+    
+    let events_args = match command {
+        EventCommands::List { job_id, event_type, agent_id, since, limit, file } => {
+            EventsArgs {
+                command: EventsCommand::List { job_id, event_type, agent_id, since, limit, file }
+            }
+        }
+        EventCommands::Stats { file, group_by } => {
+            EventsArgs {
+                command: EventsCommand::Stats { file, group_by }
+            }
+        }
+        EventCommands::Search { pattern, file, fields } => {
+            EventsArgs {
+                command: EventsCommand::Search { pattern, file, fields }
+            }
+        }
+        EventCommands::Follow { file, job_id, event_type } => {
+            EventsArgs {
+                command: EventsCommand::Follow { file, job_id, event_type }
+            }
+        }
+        EventCommands::Export { file, format, output } => {
+            EventsArgs {
+                command: EventsCommand::Export { file, format, output }
+            }
+        }
+    };
+
+    events::execute(events_args).await
 }
 
 async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
