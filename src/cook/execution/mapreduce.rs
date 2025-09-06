@@ -6,7 +6,7 @@
 use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};
 use crate::cook::execution::data_pipeline::DataPipeline;
 use crate::cook::execution::dlq::{DeadLetterQueue, DeadLetteredItem, ErrorType, FailureDetail};
-use crate::cook::execution::errors::{MapReduceError, MapReduceResult};
+use crate::cook::execution::errors::{ErrorContext, MapReduceError, MapReduceResult, SpanInfo};
 use crate::cook::execution::events::{EventLogger, EventWriter, JsonlEventWriter, MapReduceEvent};
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
 use crate::cook::execution::state::{DefaultJobStateManager, JobStateManager, MapReduceJobState};
@@ -32,6 +32,7 @@ use tokio::sync::{mpsc, Mutex, RwLock};
 use tokio::task::JoinHandle;
 use tokio::time::timeout as tokio_timeout;
 use tracing::{debug, error, info, warn};
+use uuid::Uuid;
 
 /// Configuration for MapReduce execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -421,9 +422,26 @@ pub struct MapReduceExecutor {
     state_manager: Arc<dyn JobStateManager>,
     event_logger: Arc<EventLogger>,
     dlq: Option<Arc<DeadLetterQueue>>,
+    correlation_id: String,
 }
 
 impl MapReduceExecutor {
+    /// Create error context with correlation ID
+    fn create_error_context(&self, span_name: &str) -> ErrorContext {
+        ErrorContext {
+            correlation_id: self.correlation_id.clone(),
+            timestamp: Utc::now(),
+            hostname: std::env::var("HOSTNAME")
+                .unwrap_or_else(|_| "localhost".to_string()),
+            thread_id: format!("{:?}", std::thread::current().id()),
+            span_trace: vec![SpanInfo {
+                name: span_name.to_string(),
+                start: Utc::now(),
+                attributes: HashMap::new(),
+            }],
+        }
+    }
+
     /// Create a new MapReduce executor
     pub async fn new(
         claude_executor: Arc<dyn ClaudeExecutor>,
@@ -469,6 +487,7 @@ impl MapReduceExecutor {
             state_manager,
             event_logger,
             dlq: None, // Will be initialized per job
+            correlation_id: Uuid::new_v4().to_string(),
         }
     }
 
@@ -1100,6 +1119,19 @@ impl MapReduceExecutor {
                             files_modified: vec![],
                         };
 
+                        // Log error event with correlation ID
+                        self.event_logger
+                            .log(MapReduceEvent::AgentFailed {
+                                job_id: env.session_id.clone(),
+                                agent_id: format!("agent_{}", agent_index),
+                                error: e.to_string(),
+                                retry_eligible: false,
+                            })
+                            .await
+                            .unwrap_or_else(|log_err| {
+                                log::warn!("Failed to log agent error event: {}", log_err);
+                            });
+
                         // Add to Dead Letter Queue
                         if let Some(dlq) = &self.dlq {
                             let failure_detail = FailureDetail {
@@ -1233,11 +1265,30 @@ impl MapReduceExecutor {
 
         // Create isolated worktree session for this agent
         let worktree_session = self.worktree_manager.create_session().await.map_err(|e| {
-            MapReduceError::WorktreeCreationFailed {
+            let error = MapReduceError::WorktreeCreationFailed {
                 agent_id: agent_id.clone(),
                 reason: e.to_string(),
                 source: std::io::Error::new(std::io::ErrorKind::Other, e.to_string()),
-            }
+            };
+            
+            // Log error event with correlation ID
+            let event_logger = self.event_logger.clone();
+            let job_id = env.session_id.clone();
+            let agent_id_clone = agent_id.clone();
+            let error_msg = error.to_string();
+            tokio::spawn(async move {
+                event_logger
+                    .log(MapReduceEvent::AgentFailed {
+                        job_id,
+                        agent_id: agent_id_clone,
+                        error: error_msg,
+                        retry_eligible: true,
+                    })
+                    .await
+                    .unwrap_or_else(|e| log::warn!("Failed to log error event: {}", e));
+            });
+            
+            error
         })?;
         let worktree_name = worktree_session.name.clone();
         let worktree_path = worktree_session.path.clone();
@@ -2659,6 +2710,7 @@ impl MapReduceExecutor {
             state_manager: self.state_manager.clone(),
             event_logger: self.event_logger.clone(),
             dlq: self.dlq.clone(),
+            correlation_id: self.correlation_id.clone(),
         }
     }
 
