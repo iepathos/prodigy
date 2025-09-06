@@ -667,7 +667,7 @@ impl DefaultCookOrchestrator {
                         match pattern_result {
                             Ok(file_path) => {
                                 self.user_interaction
-                                    .display_success(&format!("✓ Found output file: {file_path}"));
+                                    .display_success(&format!("Found output file: {file_path}"));
                                 cmd_output_map.insert(output_name.clone(), file_path);
                             }
                             Err(e) => {
@@ -878,7 +878,7 @@ impl DefaultCookOrchestrator {
                     // Complete command timing
                     if let Some((cmd_name, duration)) = timing_tracker.complete_command() {
                         self.user_interaction.display_success(&format!(
-                            "✓ Command '{}' completed in {}",
+                            "Command '{}' completed in {}",
                             cmd_name,
                             format_duration(duration)
                         ));
@@ -943,8 +943,8 @@ impl DefaultCookOrchestrator {
             .await?;
 
             if let Some(iteration_duration) = timing_tracker.complete_iteration() {
-                self.user_interaction.display_info(&format!(
-                    "✓ Input {} completed in {}",
+                self.user_interaction.display_success(&format!(
+                    "Input {} completed in {}",
                     index + 1,
                     format_duration(iteration_duration)
                 ));
@@ -1011,7 +1011,7 @@ impl DefaultCookOrchestrator {
                 let mut pattern_matches = 0;
                 for path in entries.flatten() {
                     self.user_interaction
-                        .display_info(&format!("✓ Found file: {}", path.display()));
+                        .display_success(&format!("Found file: {}", path.display()));
 
                     let input = self.extract_input_from_path(&path);
                     inputs.push(input);

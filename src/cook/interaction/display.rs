@@ -355,7 +355,11 @@ impl ProgressDisplay for ProgressDisplayImpl {
     fn iteration_end(&self, current: u32, duration: Duration, success: bool) {
         if self.verbosity >= VerbosityLevel::Normal {
             let duration_str = Self::format_duration(duration);
-            let status = if success { "✅ Success" } else { "❌ Failed" };
+            let status = if success { 
+                format!("{} Success", self.icons.success)
+            } else { 
+                format!("{} Failed", self.icons.error)
+            };
 
             println!();
             println!("┌─ Iteration {current} Summary ──────────────────────────────────────┐");
@@ -374,7 +378,11 @@ impl ProgressDisplay for ProgressDisplayImpl {
 
     fn step_end(&self, step: u32, success: bool) {
         if self.verbosity >= VerbosityLevel::Verbose {
-            let status = if success { "✓" } else { "✗" };
+            let status = if success { 
+                self.icons.success 
+            } else { 
+                self.icons.error 
+            };
             println!("[Step {step}] {status}");
         }
     }

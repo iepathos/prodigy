@@ -306,7 +306,7 @@ impl WorkflowExecutor {
         // Check if validation passed
         if validation_config.is_complete(&validation_result) {
             self.user_interaction.display_success(&format!(
-                "✓ Validation passed: {:.1}% complete (threshold: {:.1}%)",
+                "Validation passed: {:.1}% complete (threshold: {:.1}%)",
                 percentage, threshold
             ));
         } else {
@@ -374,7 +374,7 @@ impl WorkflowExecutor {
                 let threshold = validation_config.threshold;
                 if validation_config.is_complete(&current_result) {
                     self.user_interaction.display_success(&format!(
-                        "✓ Validation passed: {:.1}% complete (threshold: {:.1}%)",
+                        "Validation passed: {:.1}% complete (threshold: {:.1}%)",
                         percentage, threshold
                     ));
                 } else {
@@ -954,7 +954,7 @@ impl WorkflowExecutor {
                     } else {
                         any_changes = true;
                         self.user_interaction
-                            .display_success(&format!("✓ {step_display} created commits"));
+                            .display_success(&format!("{step_display} created commits"));
                     }
                 } else {
                     // In test mode or when commit_required is false
@@ -995,8 +995,8 @@ impl WorkflowExecutor {
                     .await?;
 
                 // Display iteration timing
-                self.user_interaction.display_info(&format!(
-                    "✓ Iteration {} completed in {}",
+                self.user_interaction.display_success(&format!(
+                    "Iteration {} completed in {}",
                     iteration,
                     format_duration(iteration_duration)
                 ));
@@ -1296,7 +1296,7 @@ impl WorkflowExecutor {
             // Check if command succeeded
             if shell_result.success {
                 self.user_interaction
-                    .display_success(&format!("✓ Shell command succeeded on attempt {attempt}"));
+                    .display_success(&format!("Shell command succeeded on attempt {attempt}"));
                 return Ok(shell_result);
             }
 
@@ -1423,7 +1423,7 @@ impl WorkflowExecutor {
             // Check if tests passed
             if test_result.success {
                 self.user_interaction
-                    .display_success(&format!("✓ Tests passed on attempt {attempt}"));
+                    .display_success(&format!("Tests passed on attempt {attempt}"));
                 return Ok(test_result);
             }
 
@@ -1699,7 +1699,7 @@ impl WorkflowExecutor {
             }
 
             self.user_interaction
-                .display_success("✓ Setup phase completed");
+                .display_success("Setup phase completed");
         }
 
         // Ensure we have map phase configuration
