@@ -108,6 +108,12 @@ enum Commands {
         #[command(subcommand)]
         command: EventCommands,
     },
+    /// Manage Dead Letter Queue for failed MapReduce items
+    #[command(name = "dlq")]
+    Dlq {
+        #[command(subcommand)]
+        command: DlqCommands,
+    },
 }
 
 #[derive(Subcommand)]
@@ -188,6 +194,88 @@ enum EventCommands {
         /// Output file (stdout if not specified)
         #[arg(long)]
         output: Option<PathBuf>,
+    },
+}
+
+#[derive(Subcommand)]
+enum DlqCommands {
+    /// List items in the Dead Letter Queue
+    List {
+        /// Job ID to filter by
+        #[arg(long)]
+        job_id: Option<String>,
+
+        /// Only show reprocess-eligible items
+        #[arg(long)]
+        eligible: bool,
+
+        /// Limit number of items to display
+        #[arg(long, default_value = "50")]
+        limit: usize,
+    },
+    /// Inspect a specific DLQ item
+    Inspect {
+        /// Item ID to inspect
+        item_id: String,
+
+        /// Job ID containing the item
+        #[arg(long)]
+        job_id: Option<String>,
+    },
+    /// Reprocess items from the DLQ
+    Reprocess {
+        /// Item IDs to reprocess (comma-separated)
+        #[arg(value_delimiter = ',')]
+        item_ids: Vec<String>,
+
+        /// Job ID to reprocess from
+        #[arg(long)]
+        job_id: Option<String>,
+
+        /// Maximum retries for reprocessing
+        #[arg(long, default_value = "2")]
+        max_retries: u32,
+
+        /// Force reprocessing even if not eligible
+        #[arg(long)]
+        force: bool,
+    },
+    /// Analyze failure patterns in the DLQ
+    Analyze {
+        /// Job ID to analyze
+        #[arg(long)]
+        job_id: Option<String>,
+
+        /// Export analysis to file
+        #[arg(long)]
+        export: Option<PathBuf>,
+    },
+    /// Export DLQ items to a file
+    Export {
+        /// Output file path
+        output: PathBuf,
+
+        /// Job ID to export from
+        #[arg(long)]
+        job_id: Option<String>,
+
+        /// Export format (json, csv)
+        #[arg(long, default_value = "json")]
+        format: String,
+    },
+    /// Purge old items from the DLQ
+    Purge {
+        /// Delete items older than N days
+        #[arg(long)]
+        older_than_days: u32,
+
+        /// Job ID to purge from
+        #[arg(long)]
+        job_id: Option<String>,
+
+        /// Confirm purge without prompting
+        #[arg(long)]
+        yes: bool,
     },
 }
 
@@ -309,6 +397,7 @@ async fn execute_command(command: Option<Commands>) -> anyhow::Result<()> {
             path,
         }) => run_resume_job_command(job_id, force, max_retries, path).await,
         Some(Commands::Events { command }) => run_events_command(command).await,
+        Some(Commands::Dlq { command }) => run_dlq_command(command).await,
         None => {
             // Display help when no command is provided (following CLI conventions)
             let mut cmd = Cli::command();
@@ -657,6 +746,142 @@ async fn run_resume_job_command(
     // 2. Resume execution from the last checkpoint
     // 3. Process remaining work items
     // 4. Handle retries for failed items
+
+    Ok(())
+}
+
+async fn run_dlq_command(command: DlqCommands) -> anyhow::Result<()> {
+    use chrono::{Duration, Utc};
+    use prodigy::cook::execution::dlq::{DLQFilter, DeadLetterQueue};
+
+    // Get project root
+    let project_root = std::env::current_dir()?;
+    let dlq_path = project_root.join(".prodigy");
+
+    match command {
+        DlqCommands::List {
+            job_id,
+            eligible,
+            limit,
+        } => {
+            // Find the most recent job ID if not specified
+            let job_id = if let Some(id) = job_id {
+                id
+            } else {
+                // Try to find the most recent job
+                anyhow::bail!("Job ID is required. Use --job-id to specify.");
+            };
+
+            let dlq = DeadLetterQueue::new(job_id.clone(), dlq_path, 10000, 30, None).await?;
+
+            let filter = DLQFilter {
+                reprocess_eligible: if eligible { Some(true) } else { None },
+                ..Default::default()
+            };
+
+            let items = dlq.list_items(filter).await?;
+            let display_items: Vec<_> = items.into_iter().take(limit).collect();
+
+            if display_items.is_empty() {
+                println!("No items in Dead Letter Queue for job {}", job_id);
+            } else {
+                println!("Dead Letter Queue items for job {}:", job_id);
+                println!("{:─<80}", "");
+                for item in display_items {
+                    println!("ID: {}", item.item_id);
+                    println!("  Last Attempt: {}", item.last_attempt);
+                    println!("  Failure Count: {}", item.failure_count);
+                    println!("  Error: {}", item.error_signature);
+                    println!("  Reprocess Eligible: {}", item.reprocess_eligible);
+                    println!("{:─<80}", "");
+                }
+            }
+        }
+        DlqCommands::Inspect { item_id, job_id } => {
+            let job_id = job_id.ok_or_else(|| anyhow::anyhow!("Job ID is required for inspect"))?;
+
+            let dlq = DeadLetterQueue::new(job_id.clone(), dlq_path, 10000, 30, None).await?;
+
+            if let Some(item) = dlq.get_item(&item_id).await? {
+                println!("Dead Letter Queue Item Details:");
+                println!("{}", serde_json::to_string_pretty(&item)?);
+            } else {
+                println!("Item {} not found in DLQ", item_id);
+            }
+        }
+        DlqCommands::Analyze { job_id, export } => {
+            let job_id =
+                job_id.ok_or_else(|| anyhow::anyhow!("Job ID is required for analysis"))?;
+
+            let dlq = DeadLetterQueue::new(job_id.clone(), dlq_path, 10000, 30, None).await?;
+
+            let analysis = dlq.analyze_patterns().await?;
+
+            if let Some(export_path) = export {
+                let json = serde_json::to_string_pretty(&analysis)?;
+                std::fs::write(&export_path, json)?;
+                println!("Analysis exported to {:?}", export_path);
+            } else {
+                println!("Dead Letter Queue Analysis for job {}:", job_id);
+                println!("Total Items: {}", analysis.total_items);
+                println!("\nFailure Patterns:");
+                for pattern in analysis.pattern_groups {
+                    println!("  {}: {} occurrences", pattern.signature, pattern.count);
+                }
+                println!("\nError Distribution:");
+                for (error_type, count) in analysis.error_distribution {
+                    println!("  {:?}: {}", error_type, count);
+                }
+            }
+        }
+        DlqCommands::Export {
+            output,
+            job_id,
+            format,
+        } => {
+            let job_id = job_id.ok_or_else(|| anyhow::anyhow!("Job ID is required for export"))?;
+
+            let dlq = DeadLetterQueue::new(job_id.clone(), dlq_path, 10000, 30, None).await?;
+
+            dlq.export_items(&output).await?;
+            println!("DLQ items exported to {:?} in {} format", output, format);
+        }
+        DlqCommands::Reprocess {
+            item_ids: _,
+            job_id: _,
+            max_retries: _,
+            force: _,
+        } => {
+            anyhow::bail!("DLQ reprocessing is not yet implemented. Items must be manually reviewed and resubmitted.");
+        }
+        DlqCommands::Purge {
+            older_than_days,
+            job_id,
+            yes,
+        } => {
+            let job_id = job_id.ok_or_else(|| anyhow::anyhow!("Job ID is required for purge"))?;
+
+            if !yes {
+                println!(
+                    "This will permanently delete DLQ items older than {} days.",
+                    older_than_days
+                );
+                println!("Continue? (y/N)");
+                let mut input = String::new();
+                std::io::stdin().read_line(&mut input)?;
+                if !input.trim().eq_ignore_ascii_case("y") {
+                    println!("Purge cancelled.");
+                    return Ok(());
+                }
+            }
+
+            let dlq = DeadLetterQueue::new(job_id.clone(), dlq_path, 10000, 30, None).await?;
+
+            let cutoff = Utc::now() - Duration::days(older_than_days as i64);
+            let count = dlq.purge_old_items(cutoff).await?;
+            println!("Purged {} items from DLQ", count);
+        }
+    }
 
     Ok(())
 }

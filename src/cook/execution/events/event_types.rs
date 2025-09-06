@@ -114,6 +114,30 @@ pub enum MapReduceEvent {
         used_mb: usize,
         limit_mb: usize,
     },
+
+    // Dead Letter Queue events
+    DLQItemAdded {
+        job_id: String,
+        item_id: String,
+        error_signature: String,
+        failure_count: u32,
+    },
+    DLQItemRemoved {
+        job_id: String,
+        item_id: String,
+    },
+    DLQItemsReprocessed {
+        job_id: String,
+        count: usize,
+    },
+    DLQItemsEvicted {
+        job_id: String,
+        count: usize,
+    },
+    DLQAnalysisGenerated {
+        job_id: String,
+        patterns: usize,
+    },
 }
 
 impl MapReduceEvent {
@@ -138,7 +162,12 @@ impl MapReduceEvent {
             | WorktreeMerged { job_id, .. }
             | WorktreeCleaned { job_id, .. }
             | QueueDepthChanged { job_id, .. }
-            | MemoryPressure { job_id, .. } => job_id,
+            | MemoryPressure { job_id, .. }
+            | DLQItemAdded { job_id, .. }
+            | DLQItemRemoved { job_id, .. }
+            | DLQItemsReprocessed { job_id, .. }
+            | DLQItemsEvicted { job_id, .. }
+            | DLQAnalysisGenerated { job_id, .. } => job_id,
         }
     }
 
@@ -180,6 +209,11 @@ impl MapReduceEvent {
             WorktreeCleaned { .. } => "worktree_cleaned",
             QueueDepthChanged { .. } => "queue_depth_changed",
             MemoryPressure { .. } => "memory_pressure",
+            DLQItemAdded { .. } => "dlq_item_added",
+            DLQItemRemoved { .. } => "dlq_item_removed",
+            DLQItemsReprocessed { .. } => "dlq_items_reprocessed",
+            DLQItemsEvicted { .. } => "dlq_items_evicted",
+            DLQAnalysisGenerated { .. } => "dlq_analysis_generated",
         }
     }
 }

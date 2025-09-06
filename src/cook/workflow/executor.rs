@@ -1712,7 +1712,7 @@ impl WorkflowExecutor {
         )?);
 
         // Create MapReduce executor
-        let mapreduce_executor = MapReduceExecutor::new(
+        let mut mapreduce_executor = MapReduceExecutor::new(
             self.claude_executor.clone(),
             self.session_manager.clone(),
             self.user_interaction.clone(),

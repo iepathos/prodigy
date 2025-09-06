@@ -175,6 +175,31 @@ impl EventLogger {
         Ok(())
     }
 
+    /// Log a DLQ event with the appropriate job ID
+    pub async fn log_dlq_event_with_job(
+        &self,
+        job_id: String,
+        event: crate::cook::execution::dlq::DLQEvent,
+    ) -> Result<()> {
+        use crate::cook::execution::dlq::DLQEvent;
+        use MapReduceEvent::*;
+
+        let mapreduce_event = match event {
+            DLQEvent::ItemAdded { item } => DLQItemAdded {
+                job_id,
+                item_id: item.item_id.clone(),
+                error_signature: item.error_signature.clone(),
+                failure_count: item.failure_count,
+            },
+            DLQEvent::ItemRemoved { item_id } => DLQItemRemoved { job_id, item_id },
+            DLQEvent::ItemsReprocessed { count } => DLQItemsReprocessed { job_id, count },
+            DLQEvent::ItemsEvicted { count } => DLQItemsEvicted { job_id, count },
+            DLQEvent::AnalysisGenerated { patterns } => DLQAnalysisGenerated { job_id, patterns },
+        };
+
+        self.log(mapreduce_event).await
+    }
+
     /// Start background flush task
     pub fn start_background_flush(self: Arc<Self>) -> tokio::task::JoinHandle<()> {
         tokio::spawn(async move {

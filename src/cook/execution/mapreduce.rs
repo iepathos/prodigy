@@ -5,6 +5,7 @@
 
 use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};
 use crate::cook::execution::data_pipeline::DataPipeline;
+use crate::cook::execution::dlq::{DeadLetterQueue, DeadLetteredItem, ErrorType, FailureDetail};
 use crate::cook::execution::events::{EventLogger, EventWriter, JsonlEventWriter, MapReduceEvent};
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
 use crate::cook::execution::state::{DefaultJobStateManager, JobStateManager, MapReduceJobState};
@@ -418,6 +419,7 @@ pub struct MapReduceExecutor {
     subprocess: Arc<SubprocessManager>,
     state_manager: Arc<dyn JobStateManager>,
     event_logger: Arc<EventLogger>,
+    dlq: Option<Arc<DeadLetterQueue>>,
 }
 
 impl MapReduceExecutor {
@@ -465,12 +467,13 @@ impl MapReduceExecutor {
             subprocess: Arc::new(SubprocessManager::production()),
             state_manager,
             event_logger,
+            dlq: None, // Will be initialized per job
         }
     }
 
     /// Execute a MapReduce workflow
     pub async fn execute(
-        &self,
+        &mut self,
         map_phase: &MapPhase,
         reduce_phase: Option<&ReducePhase>,
         env: &ExecutionEnvironment,
@@ -495,6 +498,19 @@ impl MapReduceExecutor {
             .await?;
 
         debug!("Created MapReduce job with ID: {}", job_id);
+
+        // Initialize Dead Letter Queue for this job
+        let dlq_path = self.project_root.join(".prodigy");
+        self.dlq = Some(Arc::new(
+            DeadLetterQueue::new(
+                job_id.clone(),
+                dlq_path,
+                1000, // Max 1000 items in DLQ
+                30,   // 30 days retention
+                Some(self.event_logger.clone()),
+            )
+            .await?,
+        ));
 
         // Log job started event
         self.event_logger
@@ -570,6 +586,18 @@ impl MapReduceExecutor {
             })
             .await
             .unwrap_or_else(|e| warn!("Failed to log job completed event: {}", e));
+
+        // Report DLQ statistics if any items were added
+        if let Some(dlq) = &self.dlq {
+            if let Ok(stats) = dlq.get_stats().await {
+                if stats.total_items > 0 {
+                    self.user_interaction.display_warning(&format!(
+                        "Dead Letter Queue: {} items failed permanently (run 'prodigy dlq list' to view)",
+                        stats.total_items
+                    ));
+                }
+            }
+        }
 
         Ok(map_results)
     }
@@ -1018,14 +1046,14 @@ impl MapReduceExecutor {
 
                 match result {
                     Ok(res) => break res,
-                    Err(_e) if attempt < map_phase.config.retry_on_failure => {
+                    Err(_e) if attempt <= map_phase.config.retry_on_failure => {
                         // Retry on failure
                         tokio::time::sleep(Duration::from_secs(2)).await;
                         continue;
                     }
                     Err(e) => {
-                        // Final failure
-                        break AgentResult {
+                        // Final failure - add to DLQ
+                        let agent_result = AgentResult {
                             item_id: item_id.clone(),
                             status: AgentStatus::Failed(e.to_string()),
                             output: None,
@@ -1037,6 +1065,44 @@ impl MapReduceExecutor {
                             worktree_session_id: None,
                             files_modified: vec![],
                         };
+
+                        // Add to Dead Letter Queue
+                        if let Some(dlq) = &self.dlq {
+                            let failure_detail = FailureDetail {
+                                attempt_number: attempt,
+                                timestamp: Utc::now(),
+                                error_type: ErrorType::Unknown,
+                                error_message: e.to_string(),
+                                stack_trace: None,
+                                agent_id: format!("agent_{}", agent_index),
+                                step_failed: "execute_agent_commands".to_string(),
+                                duration_ms: 0,
+                            };
+
+                            let dlq_item = DeadLetteredItem {
+                                item_id: item_id.clone(),
+                                item_data: item.clone(),
+                                first_attempt: Utc::now(),
+                                last_attempt: Utc::now(),
+                                failure_count: attempt,
+                                failure_history: vec![failure_detail],
+                                error_signature: DeadLetterQueue::create_error_signature(
+                                    &ErrorType::Unknown,
+                                    &e.to_string(),
+                                ),
+                                worktree_artifacts: None,
+                                reprocess_eligible: true,
+                                manual_review_required: false,
+                            };
+
+                            if let Err(dlq_err) = dlq.add(dlq_item).await {
+                                error!("Failed to add item to DLQ: {}", dlq_err);
+                            } else {
+                                info!("Added failed item {} to Dead Letter Queue", item_id);
+                            }
+                        }
+
+                        break agent_result;
                     }
                 }
             };
@@ -2519,6 +2585,7 @@ impl MapReduceExecutor {
             subprocess: self.subprocess.clone(),
             state_manager: self.state_manager.clone(),
             event_logger: self.event_logger.clone(),
+            dlq: self.dlq.clone(),
         }
     }
 
