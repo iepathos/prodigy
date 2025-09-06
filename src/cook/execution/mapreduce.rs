@@ -6,6 +6,7 @@
 use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};
 use crate::cook::execution::data_pipeline::DataPipeline;
 use crate::cook::execution::dlq::{DeadLetterQueue, DeadLetteredItem, ErrorType, FailureDetail};
+use crate::cook::execution::errors::{MapReduceError, MapReduceResult};
 use crate::cook::execution::events::{EventLogger, EventWriter, JsonlEventWriter, MapReduceEvent};
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
 use crate::cook::execution::state::{DefaultJobStateManager, JobStateManager, MapReduceJobState};
@@ -16,7 +17,7 @@ use crate::cook::session::SessionManager;
 use crate::cook::workflow::{CommandType, StepResult, WorkflowStep};
 use crate::subprocess::SubprocessManager;
 use crate::worktree::WorktreeManager;
-use anyhow::{anyhow, Context, Result};
+// Keep anyhow imports for backwards compatibility with state.rs which still uses anyhow::Result
 use chrono::Utc;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
@@ -477,7 +478,7 @@ impl MapReduceExecutor {
         map_phase: &MapPhase,
         reduce_phase: Option<&ReducePhase>,
         env: &ExecutionEnvironment,
-    ) -> Result<Vec<AgentResult>> {
+    ) -> MapReduceResult<Vec<AgentResult>> {
         let start_time = Instant::now();
 
         // Load and parse work items with filtering and sorting
@@ -609,7 +610,7 @@ impl MapReduceExecutor {
         map_phase: &MapPhase,
         work_items: Vec<Value>,
         env: &ExecutionEnvironment,
-    ) -> Result<Vec<AgentResult>> {
+    ) -> MapReduceResult<Vec<AgentResult>> {
         // Execute the normal map phase
         let results = self.execute_map_phase(map_phase, work_items, env).await?;
 
@@ -629,7 +630,7 @@ impl MapReduceExecutor {
         job_id: &str,
         options: ResumeOptions,
         env: &ExecutionEnvironment,
-    ) -> Result<ResumeResult> {
+    ) -> MapReduceResult<ResumeResult> {
         // Load job state from checkpoint
         let state = self.state_manager.get_job_state(job_id).await?;
 
@@ -741,7 +742,7 @@ impl MapReduceExecutor {
         &self,
         job_id: &str,
         env: &ExecutionEnvironment,
-    ) -> Result<Vec<AgentResult>> {
+    ) -> MapReduceResult<Vec<AgentResult>> {
         // Use the new method with default options for backward compatibility
         let result = self
             .resume_job_with_options(job_id, ResumeOptions::default(), env)
@@ -750,33 +751,45 @@ impl MapReduceExecutor {
     }
 
     /// Validate checkpoint integrity
-    fn validate_checkpoint(&self, state: &MapReduceJobState) -> Result<()> {
+    fn validate_checkpoint(&self, state: &MapReduceJobState) -> MapReduceResult<()> {
         // Basic validation checks
         if state.job_id.is_empty() {
-            return Err(anyhow!("Invalid checkpoint: empty job ID"));
+            return Err(MapReduceError::CheckpointCorrupted {
+                job_id: "<empty>".to_string(),
+                version: state.checkpoint_version,
+                details: "Empty job ID in checkpoint".to_string(),
+            });
         }
 
         if state.work_items.is_empty() {
-            return Err(anyhow!("Invalid checkpoint: no work items"));
+            return Err(MapReduceError::CheckpointCorrupted {
+                job_id: state.job_id.clone(),
+                version: state.checkpoint_version,
+                details: "No work items in checkpoint".to_string(),
+            });
         }
 
         // Verify counts are consistent
         let total_processed = state.completed_agents.len();
         if total_processed > state.total_items {
-            return Err(anyhow!(
-                "Invalid checkpoint: processed count ({}) exceeds total items ({})",
-                total_processed,
-                state.total_items
-            ));
+            return Err(MapReduceError::CheckpointCorrupted {
+                job_id: state.job_id.clone(),
+                version: state.checkpoint_version,
+                details: format!(
+                    "Processed count ({}) exceeds total items ({})",
+                    total_processed, state.total_items
+                ),
+            });
         }
 
         // Verify all completed agents have results
         for agent_id in &state.completed_agents {
             if !state.agent_results.contains_key(agent_id) {
-                return Err(anyhow!(
-                    "Invalid checkpoint: completed agent {} has no result",
-                    agent_id
-                ));
+                return Err(MapReduceError::CheckpointCorrupted {
+                    job_id: state.job_id.clone(),
+                    version: state.checkpoint_version,
+                    details: format!("Completed agent {} has no result", agent_id),
+                });
             }
         }
 
@@ -788,7 +801,7 @@ impl MapReduceExecutor {
         &self,
         state: &MapReduceJobState,
         max_additional_retries: u32,
-    ) -> Result<Vec<Value>> {
+    ) -> MapReduceResult<Vec<Value>> {
         let mut pending_items = Vec::new();
 
         // Add never-attempted items
@@ -828,7 +841,7 @@ impl MapReduceExecutor {
     }
 
     /// List resumable jobs
-    pub async fn list_resumable_jobs(&self) -> Result<Vec<String>> {
+    pub async fn list_resumable_jobs(&self) -> MapReduceResult<Vec<String>> {
         // This would need implementation in the state manager
         // For now, return empty list
         Ok(Vec::new())
@@ -840,7 +853,7 @@ impl MapReduceExecutor {
         config: &MapReduceConfig,
         filter: &Option<String>,
         sort_by: &Option<String>,
-    ) -> Result<Vec<Value>> {
+    ) -> MapReduceResult<Vec<Value>> {
         let input_path = if config.input.is_absolute() {
             config.input.clone()
         } else {
@@ -851,25 +864,32 @@ impl MapReduceExecutor {
 
         // Check if file exists first
         if !input_path.exists() {
-            return Err(anyhow!(
-                "Input file does not exist: {}",
-                input_path.display()
-            ));
+            return Err(MapReduceError::WorkItemLoadFailed {
+                path: input_path.clone(),
+                reason: "File does not exist".to_string(),
+                source: None,
+            });
         }
 
         let file_size = std::fs::metadata(&input_path)?.len();
         debug!("Input file size: {} bytes", file_size);
 
-        let content = tokio::fs::read_to_string(&input_path)
-            .await
-            .context(format!(
-                "Failed to read input file: {}",
-                input_path.display()
-            ))?;
+        let content = tokio::fs::read_to_string(&input_path).await.map_err(|e| {
+            MapReduceError::WorkItemLoadFailed {
+                path: input_path.clone(),
+                reason: format!("Failed to read file: {}", e),
+                source: Some(Box::new(e)),
+            }
+        })?;
 
         debug!("Read {} bytes from input file", content.len());
 
-        let json: Value = serde_json::from_str(&content).context("Failed to parse input JSON")?;
+        let json: Value =
+            serde_json::from_str(&content).map_err(|e| MapReduceError::WorkItemLoadFailed {
+                path: input_path.clone(),
+                reason: "Failed to parse JSON".to_string(),
+                source: Some(Box::new(e)),
+            })?;
 
         // Debug: Show the top-level structure
         if let Value::Object(ref map) = json {
@@ -926,7 +946,7 @@ impl MapReduceExecutor {
         map_phase: &MapPhase,
         work_items: Vec<Value>,
         env: &ExecutionEnvironment,
-    ) -> Result<Vec<AgentResult>> {
+    ) -> MapReduceResult<Vec<AgentResult>> {
         let total_items = work_items.len();
 
         // If there are no items to process, return empty results
@@ -949,7 +969,12 @@ impl MapReduceExecutor {
 
         // Send all work items to the queue
         for (index, item) in work_items.into_iter().enumerate() {
-            work_tx.send((index, item)).await?;
+            work_tx.send((index, item)).await.map_err(|e| {
+                MapReduceError::General {
+                    message: format!("Failed to send work item to queue: {}", e),
+                    source: None,
+                }
+            })?;
         }
         drop(work_tx); // Close the sender
 
@@ -966,7 +991,7 @@ impl MapReduceExecutor {
             let env = env.clone();
             let executor = self.clone_executor();
 
-            let handle: JoinHandle<Result<()>> = tokio::spawn(async move {
+            let handle: JoinHandle<MapReduceResult<()>> = tokio::spawn(async move {
                 executor
                     .run_agent(agent_index, work_rx, results, progress, map_phase, env)
                     .await
@@ -977,9 +1002,18 @@ impl MapReduceExecutor {
 
         // Wait for all workers to complete
         for worker in workers {
-            if let Err(e) = worker.await? {
-                self.user_interaction
-                    .display_warning(&format!("Worker error: {}", e));
+            match worker.await {
+                Ok(Ok(())) => {},
+                Ok(Err(e)) => {
+                    self.user_interaction
+                        .display_warning(&format!("Worker error: {}", e));
+                },
+                Err(join_err) => {
+                    return Err(MapReduceError::General {
+                        message: format!("Worker task panicked: {}", join_err),
+                        source: None,
+                    });
+                }
             }
         }
 
@@ -1000,7 +1034,7 @@ impl MapReduceExecutor {
         progress: Arc<ProgressTracker>,
         map_phase: MapPhase,
         env: ExecutionEnvironment,
-    ) -> Result<()> {
+    ) -> MapReduceResult<()> {
         loop {
             // Get next work item
             let work_item = {
@@ -1193,16 +1227,18 @@ impl MapReduceExecutor {
         env: &ExecutionEnvironment,
         agent_index: usize,
         progress: Arc<ProgressTracker>,
-    ) -> Result<AgentResult> {
+    ) -> MapReduceResult<AgentResult> {
         let start_time = Instant::now();
         let agent_id = format!("agent-{}-{}", agent_index, item_id);
 
         // Create isolated worktree session for this agent
-        let worktree_session = self
-            .worktree_manager
-            .create_session()
-            .await
-            .context("Failed to create agent worktree")?;
+        let worktree_session = self.worktree_manager.create_session().await.map_err(|e| {
+            MapReduceError::WorktreeCreationFailed {
+                agent_id: agent_id.clone(),
+                reason: e.to_string(),
+                source: std::io::Error::new(std::io::ErrorKind::Other, e.to_string()),
+            }
+        })?;
         let worktree_name = worktree_session.name.clone();
         let worktree_path = worktree_session.path.clone();
         let worktree_session_id = worktree_name.clone();
@@ -1400,7 +1436,7 @@ impl MapReduceExecutor {
         context: &mut AgentContext,
         item_id: &str,
         step_index: usize,
-    ) -> Result<(StepResult, bool)> {
+    ) -> MapReduceResult<(StepResult, bool)> {
         match self.execute_single_step(step, context).await {
             Ok(result) => Ok((result, true)),
             Err(e) => {
@@ -1422,7 +1458,10 @@ impl MapReduceExecutor {
 
                     Ok((failed_result, handled))
                 } else {
-                    Err(anyhow!(error_msg))
+                    Err(MapReduceError::General {
+                        message: error_msg,
+                        source: None,
+                    })
                 }
             }
         }
@@ -1516,7 +1555,7 @@ impl MapReduceExecutor {
         execution_error: Option<String>,
         total_output: String,
         start_time: Instant,
-    ) -> Result<AgentResult> {
+    ) -> MapReduceResult<AgentResult> {
         // Get commits and modified files
         let commits = self.get_worktree_commits(worktree_path).await?;
         let files_modified = self.get_modified_files(worktree_path).await?;
@@ -1573,7 +1612,7 @@ impl MapReduceExecutor {
         branch_name: &str,
         template_steps: &[WorkflowStep],
         item_id: &str,
-    ) -> Result<bool> {
+    ) -> MapReduceResult<bool> {
         if is_successful && env.worktree_name.is_some() {
             // Create and checkout branch
             self.create_agent_branch(worktree_path, branch_name).await?;
@@ -1608,7 +1647,7 @@ impl MapReduceExecutor {
         &self,
         step: &WorkflowStep,
         context: &InterpolationContext,
-    ) -> Result<WorkflowStep> {
+    ) -> MapReduceResult<WorkflowStep> {
         let mut engine = self.interpolation_engine.lock().await;
 
         // Clone the step to avoid modifying the original
@@ -1647,7 +1686,7 @@ impl MapReduceExecutor {
     }
 
     /// Get commits from a worktree
-    async fn get_worktree_commits(&self, worktree_path: &Path) -> Result<Vec<String>> {
+    async fn get_worktree_commits(&self, worktree_path: &Path) -> MapReduceResult<Vec<String>> {
         use tokio::process::Command;
 
         let output = Command::new("git")
@@ -1669,7 +1708,7 @@ impl MapReduceExecutor {
     }
 
     /// Get modified files in a worktree
-    async fn get_modified_files(&self, worktree_path: &Path) -> Result<Vec<PathBuf>> {
+    async fn get_modified_files(&self, worktree_path: &Path) -> MapReduceResult<Vec<PathBuf>> {
         let output = Command::new("git")
             .args(["diff", "--name-only", "HEAD~1..HEAD"])
             .current_dir(worktree_path)
@@ -1689,7 +1728,11 @@ impl MapReduceExecutor {
     }
 
     /// Create a branch for an agent
-    async fn create_agent_branch(&self, worktree_path: &Path, branch_name: &str) -> Result<()> {
+    async fn create_agent_branch(
+        &self,
+        worktree_path: &Path,
+        branch_name: &str,
+    ) -> MapReduceResult<()> {
         // Create branch from current HEAD
         let output = Command::new("git")
             .args(["checkout", "-b", branch_name])
@@ -1699,11 +1742,10 @@ impl MapReduceExecutor {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow!(
-                "Failed to create branch {}: {}",
-                branch_name,
-                stderr
-            ));
+            return Err(MapReduceError::General {
+                message: format!("Failed to create branch {}: {}", branch_name, stderr),
+                source: None,
+            });
         }
 
         Ok(())
@@ -1714,7 +1756,7 @@ impl MapReduceExecutor {
         &self,
         agent_branch: &str,
         env: &ExecutionEnvironment,
-    ) -> Result<()> {
+    ) -> MapReduceResult<()> {
         // Get parent worktree path (use working_dir if we're in a parent worktree)
         let parent_worktree_path = if env.worktree_name.is_some() {
             &env.working_dir
@@ -1738,11 +1780,11 @@ impl MapReduceExecutor {
             .await?;
 
         if !result.success {
-            return Err(anyhow!(
-                "Failed to merge agent branch {}: {}",
-                agent_branch,
-                result.stderr
-            ));
+            return Err(MapReduceError::WorktreeMergeConflict {
+                agent_id: agent_branch.to_string(), // Use branch name as agent identifier
+                branch: agent_branch.to_string(),
+                conflicts: vec![result.stderr.clone()],
+            });
         }
 
         // Validate parent state after merge (run basic checks)
@@ -1752,7 +1794,7 @@ impl MapReduceExecutor {
     }
 
     /// Validate the parent worktree state after a merge
-    async fn validate_parent_state(&self, parent_path: &Path) -> Result<()> {
+    async fn validate_parent_state(&self, parent_path: &Path) -> MapReduceResult<()> {
         // Check that there are no merge conflicts
         let output = Command::new("git")
             .args(["status", "--porcelain"])
@@ -1762,9 +1804,10 @@ impl MapReduceExecutor {
 
         let status = String::from_utf8_lossy(&output.stdout);
         if status.contains("UU ") || status.contains("AA ") || status.contains("DD ") {
-            return Err(anyhow!(
-                "Unresolved merge conflicts detected in parent worktree"
-            ));
+            return Err(MapReduceError::General {
+                message: "Unresolved merge conflicts detected in parent worktree".to_string(),
+                source: None,
+            });
         }
 
         // Run basic syntax check if it's a Rust project
@@ -1808,7 +1851,7 @@ impl MapReduceExecutor {
         reduce_phase: &ReducePhase,
         map_results: &[AgentResult],
         env: &ExecutionEnvironment,
-    ) -> Result<()> {
+    ) -> MapReduceResult<()> {
         // All successful agents have already been merged to parent progressively
         let successful_count = map_results
             .iter()
@@ -1880,8 +1923,11 @@ impl MapReduceExecutor {
             .insert("map.total".to_string(), map_results.len().to_string());
 
         // Add complete results as JSON string for complex access patterns
-        let results_json = serde_json::to_string(map_results)
-            .context("Failed to serialize map results to JSON")?;
+        let results_json =
+            serde_json::to_string(map_results).map_err(|e| MapReduceError::General {
+                message: "Failed to serialize map results to JSON".to_string(),
+                source: Some(Box::new(e)),
+            })?;
         reduce_context
             .variables
             .insert("map.results_json".to_string(), results_json.clone());
@@ -1978,21 +2024,27 @@ impl MapReduceExecutor {
                         Ok(handled) => {
                             if !handled {
                                 // on_failure says we should fail
-                                return Err(anyhow!(
-                                    "Reduce step {} failed and fail_workflow is true",
-                                    step_index + 1
-                                ));
+                                return Err(MapReduceError::General {
+                                    message: format!(
+                                        "Reduce step {} failed and fail_workflow is true",
+                                        step_index + 1
+                                    ),
+                                    source: None,
+                                });
                             }
                             // Otherwise continue to next step
                         }
                         Err(handler_err) => {
                             // Handler itself failed
                             if on_failure.should_fail_workflow() {
-                                return Err(anyhow!(
-                                    "Reduce step {} on_failure handler failed: {}",
-                                    step_index + 1,
-                                    handler_err
-                                ));
+                                return Err(MapReduceError::General {
+                                    message: format!(
+                                        "Reduce step {} on_failure handler failed: {}",
+                                        step_index + 1,
+                                        handler_err
+                                    ),
+                                    source: None,
+                                });
                             }
                             // Otherwise, log the error but continue
                             self.user_interaction.display_warning(&format!(
@@ -2003,11 +2055,14 @@ impl MapReduceExecutor {
                     }
                 } else {
                     // No on_failure handler, fail immediately
-                    return Err(anyhow!(
-                        "Reduce step {} failed: {}",
-                        step_index + 1,
-                        step_result.stderr
-                    ));
+                    return Err(MapReduceError::General {
+                        message: format!(
+                            "Reduce step {} failed: {}",
+                            step_index + 1,
+                            step_result.stderr
+                        ),
+                        source: None,
+                    });
                 }
             } else {
                 // Step succeeded - check if there's an on_success handler
@@ -2080,7 +2135,7 @@ impl MapReduceExecutor {
         &self,
         step: &WorkflowStep,
         context: &mut AgentContext,
-    ) -> Result<StepResult> {
+    ) -> MapReduceResult<StepResult> {
         // Interpolate the step using the agent's context
         let interp_context = context.to_interpolation_context();
         let interpolated_step = self
@@ -2114,7 +2169,11 @@ impl MapReduceExecutor {
                     self.execute_shell_command(shell_cmd, context, step.timeout)
                         .await?
                 } else {
-                    return Err(anyhow!("Test command type not supported in MapReduce"));
+                    return Err(MapReduceError::InvalidConfiguration {
+                        reason: "Test commands are not supported in MapReduce".to_string(),
+                        field: "command_type".to_string(),
+                        value: "test".to_string(),
+                    });
                 }
             }
         };
@@ -2139,7 +2198,7 @@ impl MapReduceExecutor {
     }
 
     /// Determine command type from a workflow step
-    fn determine_command_type(&self, step: &WorkflowStep) -> Result<CommandType> {
+    fn determine_command_type(&self, step: &WorkflowStep) -> MapReduceResult<CommandType> {
         // Collect all specified command types
         let commands = Self::collect_command_types(step);
 
@@ -2150,7 +2209,11 @@ impl MapReduceExecutor {
         commands
             .into_iter()
             .next()
-            .ok_or_else(|| anyhow!("No valid command found in step"))
+            .ok_or_else(|| MapReduceError::InvalidConfiguration {
+                reason: "No valid command found in step".to_string(),
+                field: "command".to_string(),
+                value: "<none>".to_string(),
+            })
     }
 
     /// Collect all command types from a workflow step
@@ -2194,15 +2257,19 @@ impl MapReduceExecutor {
     }
 
     /// Validate that exactly one command type is specified
-    pub(crate) fn validate_command_count(commands: &[CommandType]) -> Result<()> {
+    pub(crate) fn validate_command_count(commands: &[CommandType]) -> MapReduceResult<()> {
         match commands.len() {
-            0 => Err(anyhow!(
-                "No command specified. Use one of: claude, shell, test, handler, or name/command"
-            )),
+            0 => Err(MapReduceError::InvalidConfiguration {
+                reason: "No command specified".to_string(),
+                field: "command".to_string(),
+                value: "Use one of: claude, shell, test, handler, or name/command".to_string(),
+            }),
             1 => Ok(()),
-            _ => Err(anyhow!(
-                "Multiple command types specified. Use only one of: claude, shell, test, handler, or name/command"
-            )),
+            _ => Err(MapReduceError::InvalidConfiguration {
+                reason: "Multiple command types specified".to_string(),
+                field: "command".to_string(),
+                value: "Use only one of: claude, shell, test, handler, or name/command".to_string(),
+            }),
         }
     }
 
@@ -2248,7 +2315,7 @@ impl MapReduceExecutor {
         &self,
         command: &str,
         context: &AgentContext,
-    ) -> Result<StepResult> {
+    ) -> MapReduceResult<StepResult> {
         // Set up environment variables for the command
         let mut env_vars = HashMap::new();
         env_vars.insert("PRODIGY_CONTEXT_AVAILABLE".to_string(), "true".to_string());
@@ -2286,7 +2353,7 @@ impl MapReduceExecutor {
         command: &str,
         context: &AgentContext,
         timeout: Option<u64>,
-    ) -> Result<StepResult> {
+    ) -> MapReduceResult<StepResult> {
         use tokio::time::Duration;
 
         // Create command
@@ -2307,7 +2374,13 @@ impl MapReduceExecutor {
             match tokio_timeout(duration, cmd.output()).await {
                 Ok(result) => result?,
                 Err(_) => {
-                    return Err(anyhow!("Command timed out after {} seconds", timeout_secs));
+                    return Err(MapReduceError::AgentTimeout {
+                        job_id: "<unknown>".to_string(),
+                        agent_id: "<unknown>".to_string(),
+                        item_id: "<unknown>".to_string(),
+                        duration_secs: timeout_secs,
+                        last_operation: "shell command execution".to_string(),
+                    });
                 }
             }
         } else {
@@ -2410,7 +2483,7 @@ impl MapReduceExecutor {
         handler_name: &str,
         attributes: &HashMap<String, AttributeValue>,
         context: &AgentContext,
-    ) -> Result<StepResult> {
+    ) -> MapReduceResult<StepResult> {
         // Create execution context for the handler
         let mut exec_context = ExecutionContext::new(context.worktree_path.clone());
 
@@ -2454,7 +2527,7 @@ impl MapReduceExecutor {
         original_step: &WorkflowStep,
         context: &mut AgentContext,
         error: String,
-    ) -> Result<bool> {
+    ) -> MapReduceResult<bool> {
         // Add error to context for interpolation
         context.variables.insert("error".to_string(), error.clone());
         context.variables.insert("last_error".to_string(), error);
@@ -2636,7 +2709,7 @@ impl MapReduceExecutor {
         &self,
         commands: &[WorkflowStep],
         context: &AgentContext,
-    ) -> Result<()> {
+    ) -> MapReduceResult<()> {
         let mut all_missing_vars = Vec::new();
 
         for (step_index, step) in commands.iter().enumerate() {
