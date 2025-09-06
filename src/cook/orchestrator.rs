@@ -1330,14 +1330,14 @@ impl DefaultCookOrchestrator {
         // Complete command timing
         if let Some((cmd_name, duration)) = timing_tracker.complete_command() {
             self.user_interaction.display_success(&format!(
-                "✓ Command '{}' succeeded for input '{}' in {}",
+                "Command '{}' succeeded for input '{}' in {}",
                 cmd_name,
                 input,
                 format_duration(duration)
             ));
         } else {
             self.user_interaction.display_success(&format!(
-                "✓ Command '{}' succeeded for input '{}'",
+                "Command '{}' succeeded for input '{}'",
                 command.name, input
             ));
         }

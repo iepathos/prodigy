@@ -1020,12 +1020,15 @@ impl WorkflowExecutor {
 
         // Display total workflow timing
         let total_duration = workflow_start.elapsed();
-        self.user_interaction.display_info(&format!(
-            "\n📊 Total workflow time: {} across {} iteration{}",
-            format_duration(total_duration),
-            iteration,
-            if iteration == 1 { "" } else { "s" }
-        ));
+        self.user_interaction.display_metric(
+            "Total workflow time",
+            &format!(
+                "{} across {} iteration{}",
+                format_duration(total_duration),
+                iteration,
+                if iteration == 1 { "" } else { "s" }
+            ),
+        );
 
         Ok(())
     }

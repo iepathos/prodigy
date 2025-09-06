@@ -4,6 +4,49 @@ use super::SpinnerHandle;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+/// Semantic message types for consistent formatting
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DisplayMessageType {
+    Info,
+    Warning,
+    Error,
+    Progress,
+    Success,
+    Action, // User-initiated actions
+    Metric, // Quantitative information
+    Status, // State changes
+}
+
+/// Centralized icon configuration
+#[derive(Clone, Copy)]
+pub struct IconConfig {
+    info: &'static str,
+    warning: &'static str,
+    error: &'static str,
+    progress: &'static str,
+    success: &'static str,
+    action: &'static str,
+    metric: &'static str,
+    status: &'static str,
+    debug: &'static str,
+}
+
+impl Default for IconConfig {
+    fn default() -> Self {
+        Self {
+            info: "ℹ️",
+            warning: "⚠️",
+            error: "❌",
+            progress: "🔄",
+            success: "✅",
+            action: "📝",
+            metric: "📊",
+            status: "📋",
+            debug: "🔍",
+        }
+    }
+}
+
 /// Verbosity level for output control
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum VerbosityLevel {
@@ -47,6 +90,15 @@ pub trait ProgressDisplay: Send + Sync {
     /// Display success message
     fn success(&self, message: &str);
 
+    /// Display action message (user-initiated actions)
+    fn action(&self, message: &str);
+
+    /// Display metric message (quantitative information)
+    fn metric(&self, label: &str, value: &str);
+
+    /// Display status message (state changes)
+    fn status(&self, message: &str);
+
     /// Start a spinner
     fn start_spinner(&self, message: &str) -> Box<dyn SpinnerHandle>;
 
@@ -76,6 +128,7 @@ pub trait ProgressDisplay: Send + Sync {
 pub struct ProgressDisplayImpl {
     verbosity: VerbosityLevel,
     use_unicode: bool,
+    icons: IconConfig,
 }
 
 impl Default for ProgressDisplayImpl {
@@ -92,6 +145,7 @@ impl ProgressDisplayImpl {
         Self {
             verbosity,
             use_unicode,
+            icons: IconConfig::default(),
         }
     }
 
@@ -181,30 +235,48 @@ impl BoxChars {
 impl ProgressDisplay for ProgressDisplayImpl {
     fn info(&self, message: &str) {
         if self.verbosity >= VerbosityLevel::Normal {
-            println!("ℹ️  {message}");
+            println!("{} {message}", self.icons.info);
         }
     }
 
     fn warning(&self, message: &str) {
         if self.verbosity >= VerbosityLevel::Normal {
-            eprintln!("⚠️  {message}");
+            eprintln!("{} {message}", self.icons.warning);
         }
     }
 
     fn error(&self, message: &str) {
         // Always show errors, even in quiet mode
-        eprintln!("❌ {message}");
+        eprintln!("{} {message}", self.icons.error);
     }
 
     fn progress(&self, message: &str) {
         if self.verbosity >= VerbosityLevel::Normal {
-            println!("🔄 {message}");
+            println!("{} {message}", self.icons.progress);
         }
     }
 
     fn success(&self, message: &str) {
         if self.verbosity >= VerbosityLevel::Normal {
-            println!("✅ {message}");
+            println!("{} {message}", self.icons.success);
+        }
+    }
+
+    fn action(&self, message: &str) {
+        if self.verbosity >= VerbosityLevel::Normal {
+            println!("{} {message}", self.icons.action);
+        }
+    }
+
+    fn metric(&self, label: &str, value: &str) {
+        if self.verbosity >= VerbosityLevel::Normal {
+            println!("{} {label}: {value}", self.icons.metric);
+        }
+    }
+
+    fn status(&self, message: &str) {
+        if self.verbosity >= VerbosityLevel::Normal {
+            println!("{} {message}", self.icons.status);
         }
     }
 
@@ -212,7 +284,7 @@ impl ProgressDisplay for ProgressDisplayImpl {
         if self.verbosity >= VerbosityLevel::Normal {
             println!("⏳ {message}");
         }
-        Box::new(SimpleSpinnerHandle::new(self.verbosity))
+        Box::new(SimpleSpinnerHandle::new(self.verbosity, self.icons))
     }
 
     fn iteration_start(&self, current: u32, total: u32) {
@@ -283,7 +355,7 @@ impl ProgressDisplay for ProgressDisplayImpl {
 
     fn debug_output(&self, message: &str, min_verbosity: VerbosityLevel) {
         if self.verbosity >= min_verbosity {
-            println!("🔍 {message}");
+            println!("{} {message}", self.icons.debug);
         }
     }
 
@@ -296,13 +368,15 @@ impl ProgressDisplay for ProgressDisplayImpl {
 struct SimpleSpinnerHandle {
     active: Arc<Mutex<bool>>,
     verbosity: VerbosityLevel,
+    icons: IconConfig,
 }
 
 impl SimpleSpinnerHandle {
-    fn new(verbosity: VerbosityLevel) -> Self {
+    fn new(verbosity: VerbosityLevel, icons: IconConfig) -> Self {
         Self {
             active: Arc::new(Mutex::new(true)),
             verbosity,
+            icons,
         }
     }
 }
@@ -317,14 +391,14 @@ impl SpinnerHandle for SimpleSpinnerHandle {
     fn success(&mut self, message: &str) {
         *self.active.lock().unwrap() = false;
         if self.verbosity >= VerbosityLevel::Normal {
-            println!("✅ {message}");
+            println!("{} {message}", self.icons.success);
         }
     }
 
     fn fail(&mut self, message: &str) {
         *self.active.lock().unwrap() = false;
         if self.verbosity >= VerbosityLevel::Normal {
-            println!("❌ {message}");
+            println!("{} {message}", self.icons.error);
         }
     }
 }
@@ -385,6 +459,27 @@ mod tests {
                 .lock()
                 .unwrap()
                 .push(format!("SUCCESS: {message}"));
+        }
+
+        fn action(&self, message: &str) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("ACTION: {message}"));
+        }
+
+        fn metric(&self, label: &str, value: &str) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("METRIC: {label}: {value}"));
+        }
+
+        fn status(&self, message: &str) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("STATUS: {message}"));
         }
 
         fn start_spinner(&self, message: &str) -> Box<dyn SpinnerHandle> {
