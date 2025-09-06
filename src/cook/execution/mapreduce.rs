@@ -5,6 +5,7 @@
 
 use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};
 use crate::cook::execution::data_pipeline::DataPipeline;
+use crate::cook::execution::events::{EventLogger, EventWriter, JsonlEventWriter, MapReduceEvent};
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
 use crate::cook::execution::state::{DefaultJobStateManager, JobStateManager, MapReduceJobState};
 use crate::cook::execution::ClaudeExecutor;
@@ -15,6 +16,7 @@ use crate::cook::workflow::{CommandType, StepResult, WorkflowStep};
 use crate::subprocess::SubprocessManager;
 use crate::worktree::WorktreeManager;
 use anyhow::{anyhow, Context, Result};
+use chrono::Utc;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -415,6 +417,7 @@ pub struct MapReduceExecutor {
     command_registry: Arc<CommandRegistry>,
     subprocess: Arc<SubprocessManager>,
     state_manager: Arc<dyn JobStateManager>,
+    event_logger: Arc<EventLogger>,
 }
 
 impl MapReduceExecutor {
@@ -428,7 +431,28 @@ impl MapReduceExecutor {
     ) -> Self {
         // Create state directory path
         let state_dir = project_root.join(".prodigy").join("mapreduce");
-        let state_manager = Arc::new(DefaultJobStateManager::new(state_dir));
+        let state_manager = Arc::new(DefaultJobStateManager::new(state_dir.clone()));
+
+        // Create event logger with file-based writer
+        let events_dir = state_dir.join("events");
+        let event_writers: Vec<Box<dyn EventWriter>> = vec![
+            // Primary JSONL writer for persistence
+            Box::new(
+                JsonlEventWriter::new(events_dir.join("global").join("events.jsonl"))
+                    .await
+                    .unwrap_or_else(|_| {
+                        // Fallback to temp directory if creation fails
+                        let temp_path = std::env::temp_dir().join("prodigy_events.jsonl");
+                        warn!(
+                            "Failed to create event logger in project dir, using temp: {:?}",
+                            temp_path
+                        );
+                        futures::executor::block_on(JsonlEventWriter::new(temp_path))
+                            .expect("Failed to create fallback event logger")
+                    }),
+            ),
+        ];
+        let event_logger = Arc::new(EventLogger::new(event_writers));
 
         Self {
             claude_executor,
@@ -440,6 +464,7 @@ impl MapReduceExecutor {
             command_registry: Arc::new(CommandRegistry::with_defaults().await),
             subprocess: Arc::new(SubprocessManager::production()),
             state_manager,
+            event_logger,
         }
     }
 
@@ -470,6 +495,17 @@ impl MapReduceExecutor {
             .await?;
 
         debug!("Created MapReduce job with ID: {}", job_id);
+
+        // Log job started event
+        self.event_logger
+            .log(MapReduceEvent::JobStarted {
+                job_id: job_id.clone(),
+                config: map_phase.config.clone(),
+                total_items: work_items.len(),
+                timestamp: Utc::now(),
+            })
+            .await
+            .unwrap_or_else(|e| warn!("Failed to log job started event: {}", e));
 
         // Execute map phase with state tracking
         let map_results = self
@@ -513,6 +549,27 @@ impl MapReduceExecutor {
         // Report summary
         let duration = start_time.elapsed();
         self.report_summary(&map_results, duration);
+
+        // Log job completion event
+        let success_count = map_results
+            .iter()
+            .filter(|r| matches!(r.status, AgentStatus::Success))
+            .count();
+        let failure_count = map_results
+            .iter()
+            .filter(|r| matches!(r.status, AgentStatus::Failed(_)))
+            .count();
+
+        self.event_logger
+            .log(MapReduceEvent::JobCompleted {
+                job_id: job_id.clone(),
+                duration: chrono::Duration::from_std(duration)
+                    .unwrap_or(chrono::Duration::seconds(0)),
+                success_count,
+                failure_count,
+            })
+            .await
+            .unwrap_or_else(|e| warn!("Failed to log job completed event: {}", e));
 
         Ok(map_results)
     }
@@ -2383,6 +2440,7 @@ impl MapReduceExecutor {
             command_registry: self.command_registry.clone(),
             subprocess: self.subprocess.clone(),
             state_manager: self.state_manager.clone(),
+            event_logger: self.event_logger.clone(),
         }
     }
 
