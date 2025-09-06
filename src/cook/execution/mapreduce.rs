@@ -431,8 +431,7 @@ impl MapReduceExecutor {
         ErrorContext {
             correlation_id: self.correlation_id.clone(),
             timestamp: Utc::now(),
-            hostname: std::env::var("HOSTNAME")
-                .unwrap_or_else(|_| "localhost".to_string()),
+            hostname: std::env::var("HOSTNAME").unwrap_or_else(|_| "localhost".to_string()),
             thread_id: format!("{:?}", std::thread::current().id()),
             span_trace: vec![SpanInfo {
                 name: span_name.to_string(),
@@ -921,17 +920,16 @@ impl MapReduceExecutor {
 
         debug!("Read {} bytes from input file", content.len());
 
-        let json: Value =
-            serde_json::from_str(&content).map_err(|e| {
-                let context = self.create_error_context("load_work_items");
-                MapReduceError::WorkItemLoadFailed {
-                    path: input_path.clone(),
-                    reason: "Failed to parse JSON".to_string(),
-                    source: Some(Box::new(e)),
-                }
-                .with_context(context)
-                .error
-            })?;
+        let json: Value = serde_json::from_str(&content).map_err(|e| {
+            let context = self.create_error_context("load_work_items");
+            MapReduceError::WorkItemLoadFailed {
+                path: input_path.clone(),
+                reason: "Failed to parse JSON".to_string(),
+                source: Some(Box::new(e)),
+            }
+            .with_context(context)
+            .error
+        })?;
 
         // Debug: Show the top-level structure
         if let Value::Object(ref map) = json {
@@ -1048,11 +1046,11 @@ impl MapReduceExecutor {
         // Wait for all workers to complete
         for worker in workers {
             match worker.await {
-                Ok(Ok(())) => {},
+                Ok(Ok(())) => {}
                 Ok(Err(e)) => {
                     self.user_interaction
                         .display_warning(&format!("Worker error: {}", e));
-                },
+                }
                 Err(join_err) => {
                     let context = self.create_error_context("map_phase_execution");
                     return Err(MapReduceError::General {
@@ -1298,10 +1296,10 @@ impl MapReduceExecutor {
             let error = MapReduceError::WorktreeCreationFailed {
                 agent_id: agent_id.clone(),
                 reason: e.to_string(),
-                source: std::io::Error::new(std::io::ErrorKind::Other, e.to_string()),
+                source: std::io::Error::other(e.to_string()),
             }
             .with_context(context);
-            
+
             // Log error event with correlation ID
             let event_logger = self.event_logger.clone();
             let job_id = env.session_id.clone();
@@ -1318,7 +1316,7 @@ impl MapReduceExecutor {
                     .await
                     .unwrap_or_else(|e| log::warn!("Failed to log error event: {}", e));
             });
-            
+
             error.error
         })?;
         let worktree_name = worktree_session.name.clone();
@@ -2017,16 +2015,15 @@ impl MapReduceExecutor {
             .insert("map.total".to_string(), map_results.len().to_string());
 
         // Add complete results as JSON string for complex access patterns
-        let results_json =
-            serde_json::to_string(map_results).map_err(|e| {
-                let context = self.create_error_context("reduce_phase_execution");
-                MapReduceError::General {
-                    message: "Failed to serialize map results to JSON".to_string(),
-                    source: Some(Box::new(e)),
-                }
-                .with_context(context)
-                .error
-            })?;
+        let results_json = serde_json::to_string(map_results).map_err(|e| {
+            let context = self.create_error_context("reduce_phase_execution");
+            MapReduceError::General {
+                message: "Failed to serialize map results to JSON".to_string(),
+                source: Some(Box::new(e)),
+            }
+            .with_context(context)
+            .error
+        })?;
         reduce_context
             .variables
             .insert("map.results_json".to_string(), results_json.clone());
@@ -2317,19 +2314,16 @@ impl MapReduceExecutor {
         Self::validate_command_count(&commands)?;
 
         // Extract and return the single command type
-        commands
-            .into_iter()
-            .next()
-            .ok_or_else(|| {
-                let context = self.create_error_context("determine_command_type");
-                MapReduceError::InvalidConfiguration {
-                    reason: "No valid command found in step".to_string(),
-                    field: "command".to_string(),
-                    value: "<none>".to_string(),
-                }
-                .with_context(context)
-                .error
-            })
+        commands.into_iter().next().ok_or_else(|| {
+            let context = self.create_error_context("determine_command_type");
+            MapReduceError::InvalidConfiguration {
+                reason: "No valid command found in step".to_string(),
+                field: "command".to_string(),
+                value: "<none>".to_string(),
+            }
+            .with_context(context)
+            .error
+        })
     }
 
     /// Collect all command types from a workflow step

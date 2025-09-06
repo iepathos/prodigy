@@ -91,7 +91,10 @@ mod tests {
             conflicts: vec!["file1.txt".to_string()],
         };
         let hint = merge.recovery_hint();
-        assert_eq!(hint, Some("Manual conflict resolution required".to_string()));
+        assert_eq!(
+            hint,
+            Some("Manual conflict resolution required".to_string())
+        );
 
         let subst = MapReduceError::ShellSubstitutionFailed {
             variable: "VAR1".to_string(),
