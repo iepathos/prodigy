@@ -960,7 +960,11 @@ impl DefaultCookOrchestrator {
         let total_duration = workflow_start.elapsed();
         self.user_interaction.display_metric(
             "Total workflow time",
-            &format!("{} for {} inputs", format_duration(total_duration), all_inputs.len()),
+            &format!(
+                "{} for {} inputs",
+                format_duration(total_duration),
+                all_inputs.len()
+            ),
         );
 
         Ok(())
@@ -1314,9 +1318,8 @@ impl DefaultCookOrchestrator {
 
         // Only show ARG in log if the command actually uses it
         if has_arg_reference {
-            self.user_interaction.display_info(&format!(
-                "Executing command: {final_command} (ARG={input})"
-            ));
+            self.user_interaction
+                .display_info(&format!("Executing command: {final_command} (ARG={input})"));
         } else {
             self.user_interaction
                 .display_action(&format!("Executing command: {final_command}"));
