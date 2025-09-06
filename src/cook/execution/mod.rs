@@ -4,6 +4,7 @@
 
 pub mod claude;
 pub mod data_pipeline;
+pub mod events;
 pub mod interpolation;
 pub mod mapreduce;
 #[cfg(test)]

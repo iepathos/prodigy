@@ -5,6 +5,7 @@
 
 use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};
 use crate::cook::execution::data_pipeline::DataPipeline;
+use crate::cook::execution::events::{EventLogger, EventWriter, JsonlEventWriter, MapReduceEvent};
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
 use crate::cook::execution::state::{DefaultJobStateManager, JobStateManager, MapReduceJobState};
 use crate::cook::execution::ClaudeExecutor;
@@ -15,6 +16,7 @@ use crate::cook::workflow::{CommandType, StepResult, WorkflowStep};
 use crate::subprocess::SubprocessManager;
 use crate::worktree::WorktreeManager;
 use anyhow::{anyhow, Context, Result};
+use chrono::Utc;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -415,6 +417,7 @@ pub struct MapReduceExecutor {
     command_registry: Arc<CommandRegistry>,
     subprocess: Arc<SubprocessManager>,
     state_manager: Arc<dyn JobStateManager>,
+    event_logger: Arc<EventLogger>,
 }
 
 impl MapReduceExecutor {
@@ -428,7 +431,28 @@ impl MapReduceExecutor {
     ) -> Self {
         // Create state directory path
         let state_dir = project_root.join(".prodigy").join("mapreduce");
-        let state_manager = Arc::new(DefaultJobStateManager::new(state_dir));
+        let state_manager = Arc::new(DefaultJobStateManager::new(state_dir.clone()));
+
+        // Create event logger with file-based writer
+        let events_dir = state_dir.join("events");
+        let event_writers: Vec<Box<dyn EventWriter>> = vec![
+            // Primary JSONL writer for persistence
+            Box::new(
+                JsonlEventWriter::new(events_dir.join("global").join("events.jsonl"))
+                    .await
+                    .unwrap_or_else(|_| {
+                        // Fallback to temp directory if creation fails
+                        let temp_path = std::env::temp_dir().join("prodigy_events.jsonl");
+                        warn!(
+                            "Failed to create event logger in project dir, using temp: {:?}",
+                            temp_path
+                        );
+                        futures::executor::block_on(JsonlEventWriter::new(temp_path))
+                            .expect("Failed to create fallback event logger")
+                    }),
+            ),
+        ];
+        let event_logger = Arc::new(EventLogger::new(event_writers));
 
         Self {
             claude_executor,
@@ -440,6 +464,7 @@ impl MapReduceExecutor {
             command_registry: Arc::new(CommandRegistry::with_defaults().await),
             subprocess: Arc::new(SubprocessManager::production()),
             state_manager,
+            event_logger,
         }
     }
 
@@ -470,6 +495,17 @@ impl MapReduceExecutor {
             .await?;
 
         debug!("Created MapReduce job with ID: {}", job_id);
+
+        // Log job started event
+        self.event_logger
+            .log(MapReduceEvent::JobStarted {
+                job_id: job_id.clone(),
+                config: map_phase.config.clone(),
+                total_items: work_items.len(),
+                timestamp: Utc::now(),
+            })
+            .await
+            .unwrap_or_else(|e| warn!("Failed to log job started event: {}", e));
 
         // Execute map phase with state tracking
         let map_results = self
@@ -513,6 +549,27 @@ impl MapReduceExecutor {
         // Report summary
         let duration = start_time.elapsed();
         self.report_summary(&map_results, duration);
+
+        // Log job completion event
+        let success_count = map_results
+            .iter()
+            .filter(|r| matches!(r.status, AgentStatus::Success))
+            .count();
+        let failure_count = map_results
+            .iter()
+            .filter(|r| matches!(r.status, AgentStatus::Failed(_)))
+            .count();
+
+        self.event_logger
+            .log(MapReduceEvent::JobCompleted {
+                job_id: job_id.clone(),
+                duration: chrono::Duration::from_std(duration)
+                    .unwrap_or(chrono::Duration::seconds(0)),
+                success_count,
+                failure_count,
+            })
+            .await
+            .unwrap_or_else(|e| warn!("Failed to log job completed event: {}", e));
 
         Ok(map_results)
     }
@@ -581,6 +638,16 @@ impl MapReduceExecutor {
         let already_completed = state.completed_agents.len();
         let mut final_results: Vec<AgentResult>;
         let mut remaining_count = 0;
+
+        // Log job resumed event
+        self.event_logger
+            .log(MapReduceEvent::JobResumed {
+                job_id: job_id.to_string(),
+                checkpoint_version: state.checkpoint_version,
+                pending_items: state.pending_items.len(),
+            })
+            .await
+            .unwrap_or_else(|e| log::warn!("Failed to log job resumed event: {}", e));
 
         // Check if map phase is complete
         if !state.is_map_phase_complete() {
@@ -1062,6 +1129,7 @@ impl MapReduceExecutor {
         progress: Arc<ProgressTracker>,
     ) -> Result<AgentResult> {
         let start_time = Instant::now();
+        let agent_id = format!("agent-{}-{}", agent_index, item_id);
 
         // Create isolated worktree session for this agent
         let worktree_session = self
@@ -1072,6 +1140,18 @@ impl MapReduceExecutor {
         let worktree_name = worktree_session.name.clone();
         let worktree_path = worktree_session.path.clone();
         let worktree_session_id = worktree_name.clone();
+
+        // Log agent started event
+        self.event_logger
+            .log(MapReduceEvent::AgentStarted {
+                job_id: env.session_id.clone(),
+                agent_id: agent_id.clone(),
+                item_id: item_id.to_string(),
+                worktree: worktree_name.clone(),
+                attempt: 1,
+            })
+            .await
+            .unwrap_or_else(|e| log::warn!("Failed to log agent started event: {}", e));
 
         // Create branch name for this agent
         let branch_name = format!("prodigy-agent-{}-{}", env.session_id, item_id);
@@ -1093,25 +1173,61 @@ impl MapReduceExecutor {
                 item_id,
                 agent_index,
                 progress.clone(),
+                &agent_id,
+                env,
             )
             .await;
 
         let (total_output, execution_error) = execution_result;
 
         // Finalize and create result
-        self.finalize_agent_result(
-            item_id,
-            &worktree_path,
-            &worktree_name,
-            &branch_name,
-            worktree_session_id,
-            env,
-            template_steps,
-            execution_error,
-            total_output,
-            start_time,
-        )
-        .await
+        let result = self
+            .finalize_agent_result(
+                item_id,
+                &worktree_path,
+                &worktree_name,
+                &branch_name,
+                worktree_session_id,
+                env,
+                template_steps,
+                execution_error,
+                total_output,
+                start_time,
+            )
+            .await?;
+
+        // Log agent completed or failed event
+        match &result.status {
+            AgentStatus::Success => {
+                self.event_logger
+                    .log(MapReduceEvent::AgentCompleted {
+                        job_id: env.session_id.clone(),
+                        agent_id: agent_id.clone(),
+                        duration: chrono::Duration::from_std(start_time.elapsed())
+                            .unwrap_or(chrono::Duration::seconds(0)),
+                        commits: vec![],
+                    })
+                    .await
+                    .unwrap_or_else(|e| log::warn!("Failed to log agent completed event: {}", e));
+            }
+            AgentStatus::Failed(error) => {
+                self.event_logger
+                    .log(MapReduceEvent::AgentFailed {
+                        job_id: env.session_id.clone(),
+                        agent_id: agent_id.clone(),
+                        error: error.clone(),
+                        retry_eligible: true,
+                    })
+                    .await
+                    .unwrap_or_else(|e| log::warn!("Failed to log agent failed event: {}", e));
+            }
+            _ => {
+                // For other statuses (Pending, Running, Timeout, Retrying), no specific event needed
+                log::debug!("Agent {} status: {:?}", agent_id, result.status);
+            }
+        }
+
+        Ok(result)
     }
 
     /// Classify the operation type of a step for progress tracking
@@ -1130,6 +1246,7 @@ impl MapReduceExecutor {
     }
 
     /// Execute all steps for an agent
+    #[allow(clippy::too_many_arguments)]
     async fn execute_all_steps(
         &self,
         template_steps: &[WorkflowStep],
@@ -1137,6 +1254,8 @@ impl MapReduceExecutor {
         item_id: &str,
         agent_index: usize,
         progress: Arc<ProgressTracker>,
+        agent_id: &str,
+        env: &ExecutionEnvironment,
     ) -> (String, Option<String>) {
         let mut total_output = String::new();
         let mut execution_error: Option<String> = None;
@@ -1154,6 +1273,22 @@ impl MapReduceExecutor {
             progress
                 .update_agent_operation(agent_index, operation)
                 .await;
+
+            // Log agent progress event
+            let step_name = step
+                .name
+                .clone()
+                .unwrap_or_else(|| format!("step_{}", step_index + 1));
+            let progress_pct = ((step_index as f32 + 0.5) / template_steps.len() as f32) * 100.0;
+            self.event_logger
+                .log(MapReduceEvent::AgentProgress {
+                    job_id: env.session_id.clone(),
+                    agent_id: agent_id.to_string(),
+                    step: step_name.clone(),
+                    progress_pct,
+                })
+                .await
+                .unwrap_or_else(|e| log::warn!("Failed to log agent progress event: {}", e));
 
             // Execute the step and handle result
             let step_result = self
@@ -2383,6 +2518,7 @@ impl MapReduceExecutor {
             command_registry: self.command_registry.clone(),
             subprocess: self.subprocess.clone(),
             state_manager: self.state_manager.clone(),
+            event_logger: self.event_logger.clone(),
         }
     }
 
