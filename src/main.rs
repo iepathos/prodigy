@@ -663,33 +663,61 @@ async fn run_resume_job_command(
 
 async fn run_events_command(command: EventCommands) -> anyhow::Result<()> {
     use prodigy::cli::events::{self, EventsArgs, EventsCommand};
-    
+
     let events_args = match command {
-        EventCommands::List { job_id, event_type, agent_id, since, limit, file } => {
-            EventsArgs {
-                command: EventsCommand::List { job_id, event_type, agent_id, since, limit, file }
-            }
-        }
-        EventCommands::Stats { file, group_by } => {
-            EventsArgs {
-                command: EventsCommand::Stats { file, group_by }
-            }
-        }
-        EventCommands::Search { pattern, file, fields } => {
-            EventsArgs {
-                command: EventsCommand::Search { pattern, file, fields }
-            }
-        }
-        EventCommands::Follow { file, job_id, event_type } => {
-            EventsArgs {
-                command: EventsCommand::Follow { file, job_id, event_type }
-            }
-        }
-        EventCommands::Export { file, format, output } => {
-            EventsArgs {
-                command: EventsCommand::Export { file, format, output }
-            }
-        }
+        EventCommands::List {
+            job_id,
+            event_type,
+            agent_id,
+            since,
+            limit,
+            file,
+        } => EventsArgs {
+            command: EventsCommand::List {
+                job_id,
+                event_type,
+                agent_id,
+                since,
+                limit,
+                file,
+            },
+        },
+        EventCommands::Stats { file, group_by } => EventsArgs {
+            command: EventsCommand::Stats { file, group_by },
+        },
+        EventCommands::Search {
+            pattern,
+            file,
+            fields,
+        } => EventsArgs {
+            command: EventsCommand::Search {
+                pattern,
+                file,
+                fields,
+            },
+        },
+        EventCommands::Follow {
+            file,
+            job_id,
+            event_type,
+        } => EventsArgs {
+            command: EventsCommand::Follow {
+                file,
+                job_id,
+                event_type,
+            },
+        },
+        EventCommands::Export {
+            file,
+            format,
+            output,
+        } => EventsArgs {
+            command: EventsCommand::Export {
+                file,
+                format,
+                output,
+            },
+        },
     };
 
     events::execute(events_args).await

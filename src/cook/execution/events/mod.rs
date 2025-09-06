@@ -14,12 +14,7 @@ pub use event_store::{EventFilter, EventIndex, EventStats, EventStore, FileOffse
 pub use event_types::MapReduceEvent;
 pub use event_writer::{EventWriter, FileEventWriter, JsonlEventWriter};
 
-use anyhow::Result;
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::path::PathBuf;
-use uuid::Uuid;
 
 /// Event severity levels
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]

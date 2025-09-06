@@ -12,19 +12,19 @@ use std::path::{Path, PathBuf};
 pub struct RetentionPolicy {
     /// Maximum age of events to retain (in days)
     pub max_age_days: Option<u32>,
-    
+
     /// Maximum number of events to retain
     pub max_events: Option<usize>,
-    
+
     /// Maximum file size in bytes
     pub max_file_size_bytes: Option<u64>,
-    
+
     /// Archive old events instead of deleting
     pub archive_old_events: bool,
-    
+
     /// Path to archive directory
     pub archive_path: Option<PathBuf>,
-    
+
     /// Compress archived events
     pub compress_archives: bool,
 }
@@ -32,7 +32,7 @@ pub struct RetentionPolicy {
 impl Default for RetentionPolicy {
     fn default() -> Self {
         Self {
-            max_age_days: Some(30),  // Keep events for 30 days by default
+            max_age_days: Some(30),   // Keep events for 30 days by default
             max_events: Some(100000), // Keep max 100k events
             max_file_size_bytes: Some(100 * 1024 * 1024), // 100MB max file size
             archive_old_events: true,
@@ -84,7 +84,7 @@ impl RetentionManager {
 
         // Determine if cleanup is needed
         let needs_cleanup = self.needs_cleanup(file_size)?;
-        
+
         if !needs_cleanup {
             stats.events_retained = self.count_events()?;
             stats.final_size_bytes = file_size;
@@ -128,7 +128,11 @@ impl RetentionManager {
     fn count_events(&self) -> Result<usize> {
         let file = fs::File::open(&self.events_path)?;
         let reader = BufReader::new(file);
-        let count = reader.lines().filter_map(|l| l.ok()).filter(|l| !l.trim().is_empty()).count();
+        let count = reader
+            .lines()
+            .map_while(Result::ok)
+            .filter(|l| !l.trim().is_empty())
+            .count();
         Ok(count)
     }
 
@@ -187,9 +191,9 @@ impl RetentionManager {
 
     /// Calculate the cutoff time for event retention
     fn calculate_cutoff_time(&self) -> Option<DateTime<Utc>> {
-        self.policy.max_age_days.map(|days| {
-            Utc::now() - Duration::days(days as i64)
-        })
+        self.policy
+            .max_age_days
+            .map(|days| Utc::now() - Duration::days(days as i64))
     }
 
     /// Check if an event should be retained
@@ -220,7 +224,10 @@ impl RetentionManager {
 
     /// Archive events to the configured archive directory
     async fn archive_events(&self, events: &[String], stats: &mut RetentionStats) -> Result<()> {
-        let archive_dir = self.policy.archive_path.as_ref()
+        let archive_dir = self
+            .policy
+            .archive_path
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Archive path not configured"))?;
 
         // Create archive directory if it doesn't exist
@@ -230,7 +237,11 @@ impl RetentionManager {
         let archive_filename = format!(
             "events_archive_{}.jsonl{}",
             Utc::now().format("%Y%m%d_%H%M%S"),
-            if self.policy.compress_archives { ".gz" } else { "" }
+            if self.policy.compress_archives {
+                ".gz"
+            } else {
+                ""
+            }
         );
         let archive_path = archive_dir.join(archive_filename);
 
@@ -264,11 +275,11 @@ impl RetentionManager {
 
         let file = fs::File::create(path)?;
         let mut encoder = GzEncoder::new(file, Compression::default());
-        
+
         for event in events {
             writeln!(encoder, "{}", event)?;
         }
-        
+
         encoder.finish()?;
         Ok(())
     }
@@ -296,22 +307,22 @@ impl RetentionManager {
 pub struct RetentionStats {
     /// Number of events processed
     pub events_processed: usize,
-    
+
     /// Number of events retained
     pub events_retained: usize,
-    
+
     /// Number of events removed
     pub events_removed: usize,
-    
+
     /// Number of events archived
     pub events_archived: usize,
-    
+
     /// Original file size in bytes
     pub original_size_bytes: u64,
-    
+
     /// Final file size after cleanup
     pub final_size_bytes: u64,
-    
+
     /// Path to archive file if created
     pub archive_path: Option<PathBuf>,
 }
@@ -319,11 +330,8 @@ pub struct RetentionStats {
 impl RetentionStats {
     /// Calculate the space saved in bytes
     pub fn space_saved(&self) -> u64 {
-        if self.original_size_bytes > self.final_size_bytes {
-            self.original_size_bytes - self.final_size_bytes
-        } else {
-            0
-        }
+        self.original_size_bytes
+            .saturating_sub(self.final_size_bytes)
     }
 
     /// Calculate the space saved percentage
@@ -341,31 +349,39 @@ impl RetentionStats {
         println!("  Events processed: {}", self.events_processed);
         println!("  Events retained: {}", self.events_retained);
         println!("  Events removed: {}", self.events_removed);
-        
+
         if self.events_archived > 0 {
             println!("  Events archived: {}", self.events_archived);
             if let Some(ref path) = self.archive_path {
                 println!("  Archive location: {}", path.display());
             }
         }
-        
+
         println!("  Original size: {} bytes", self.original_size_bytes);
         println!("  Final size: {} bytes", self.final_size_bytes);
-        println!("  Space saved: {} bytes ({:.1}%)", 
-                 self.space_saved(), 
-                 self.space_saved_percentage());
+        println!(
+            "  Space saved: {} bytes ({:.1}%)",
+            self.space_saved(),
+            self.space_saved_percentage()
+        );
     }
 }
 
 /// Extract timestamp from an event
 fn extract_event_timestamp(event: &serde_json::Value) -> Option<DateTime<Utc>> {
     // Try various common timestamp field locations
-    let timestamp_str = event.get("timestamp")
+    let timestamp_str = event
+        .get("timestamp")
         .or_else(|| event.get("time"))
         .or_else(|| event.get("created_at"))
         .or_else(|| {
             // Look in nested event structures
-            for key in ["JobStarted", "JobCompleted", "AgentStarted", "AgentCompleted"] {
+            for key in [
+                "JobStarted",
+                "JobCompleted",
+                "AgentStarted",
+                "AgentCompleted",
+            ] {
                 if let Some(nested) = event.get(key) {
                     if let Some(ts) = nested.get("timestamp") {
                         return Some(ts);
@@ -376,7 +392,8 @@ fn extract_event_timestamp(event: &serde_json::Value) -> Option<DateTime<Utc>> {
         })
         .and_then(|v| v.as_str());
 
-    timestamp_str.and_then(|ts| DateTime::parse_from_rfc3339(ts).ok())
+    timestamp_str
+        .and_then(|ts| DateTime::parse_from_rfc3339(ts).ok())
         .map(|dt| dt.with_timezone(&Utc))
 }
 
@@ -396,24 +413,27 @@ impl RetentionTask {
     pub async fn run_once(&self) -> Result<RetentionStats> {
         log::info!("Running event retention cleanup...");
         let stats = self.manager.apply_retention().await?;
-        
+
         if stats.events_removed > 0 {
-            log::info!("Retention cleanup completed: {} events removed, {:.1}% space saved",
-                      stats.events_removed, stats.space_saved_percentage());
+            log::info!(
+                "Retention cleanup completed: {} events removed, {:.1}% space saved",
+                stats.events_removed,
+                stats.space_saved_percentage()
+            );
         } else {
             log::debug!("Retention cleanup completed: no events removed");
         }
-        
+
         Ok(stats)
     }
 
     /// Start the retention task to run periodically
     pub async fn start(self) {
         let mut interval = tokio::time::interval(self.interval);
-        
+
         loop {
             interval.tick().await;
-            
+
             if let Err(e) = self.run_once().await {
                 log::error!("Retention task failed: {}", e);
             }
@@ -441,14 +461,14 @@ mod tests {
     async fn test_retention_manager_no_cleanup_needed() {
         let temp_dir = TempDir::new().unwrap();
         let events_file = temp_dir.path().join("events.jsonl");
-        
+
         // Create a small events file
         let content = r#"{"timestamp":"2024-01-01T00:00:00Z","event":"test"}"#;
         fs::write(&events_file, content).unwrap();
-        
+
         let manager = RetentionManager::with_default_policy(events_file);
         let stats = manager.apply_retention().await.unwrap();
-        
+
         // The small file doesn't trigger cleanup, so it should just count events
         assert_eq!(stats.events_retained, 1);
         assert_eq!(stats.events_removed, 0);
@@ -460,10 +480,10 @@ mod tests {
             "timestamp": "2024-01-01T12:00:00Z",
             "event_type": "JobStarted"
         }"#;
-        
+
         let event: serde_json::Value = serde_json::from_str(event_json).unwrap();
         let timestamp = extract_event_timestamp(&event);
-        
+
         assert!(timestamp.is_some());
         use chrono::Datelike;
         let ts = timestamp.unwrap();
@@ -477,7 +497,7 @@ mod tests {
         let mut stats = RetentionStats::default();
         stats.original_size_bytes = 1000;
         stats.final_size_bytes = 250;
-        
+
         assert_eq!(stats.space_saved(), 750);
         assert_eq!(stats.space_saved_percentage(), 75.0);
     }

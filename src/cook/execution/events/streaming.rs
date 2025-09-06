@@ -1,7 +1,7 @@
 //! Simplified real-time event streaming support
 
 use anyhow::Result;
-use notify::{Watcher, RecursiveMode};
+use notify::{RecursiveMode, Watcher};
 use std::path::PathBuf;
 use std::sync::mpsc::channel;
 use tokio::fs;
@@ -24,10 +24,10 @@ impl SimpleEventStreamer {
         F: Fn(String) + Send + 'static,
     {
         let events_file = self.events_file.clone();
-        
+
         // Track last position in file
         let mut last_pos = 0u64;
-        
+
         // Set up file watcher
         let (tx, rx) = channel();
         let mut watcher = notify::recommended_watcher(move |res: Result<notify::Event, _>| {
@@ -35,18 +35,19 @@ impl SimpleEventStreamer {
                 let _ = tx.send(event);
             }
         })?;
-        
+
         // Watch the events file or its parent directory
         let watch_path = if events_file.exists() {
             events_file.clone()
         } else {
-            events_file.parent()
+            events_file
+                .parent()
                 .ok_or_else(|| anyhow::anyhow!("Invalid events file path"))?
                 .to_path_buf()
         };
-        
+
         watcher.watch(&watch_path, RecursiveMode::NonRecursive)?;
-        
+
         // Process file changes
         loop {
             match rx.recv() {
@@ -70,14 +71,14 @@ impl SimpleEventStreamer {
         F: Fn(String),
     {
         use tokio::io::AsyncSeekExt;
-        
+
         let mut file = fs::File::open(&self.events_file).await?;
         file.seek(tokio::io::SeekFrom::Start(last_pos)).await?;
-        
+
         let mut reader = BufReader::new(file);
         let mut line = String::new();
         let mut new_pos = last_pos;
-        
+
         while reader.read_line(&mut line).await? > 0 {
             if !line.trim().is_empty() {
                 callback(line.trim().to_string());
@@ -85,7 +86,7 @@ impl SimpleEventStreamer {
             new_pos += line.len() as u64;
             line.clear();
         }
-        
+
         Ok(new_pos)
     }
 }

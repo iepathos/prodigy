@@ -1181,23 +1181,24 @@ impl MapReduceExecutor {
         let (total_output, execution_error) = execution_result;
 
         // Finalize and create result
-        let result = self.finalize_agent_result(
-            item_id,
-            &worktree_path,
-            &worktree_name,
-            &branch_name,
-            worktree_session_id,
-            env,
-            template_steps,
-            execution_error,
-            total_output,
-            start_time,
-        )
-        .await?;
+        let result = self
+            .finalize_agent_result(
+                item_id,
+                &worktree_path,
+                &worktree_name,
+                &branch_name,
+                worktree_session_id,
+                env,
+                template_steps,
+                execution_error,
+                total_output,
+                start_time,
+            )
+            .await?;
 
         // Log agent completed or failed event
         match &result.status {
-            AgentStatus::Success { .. } => {
+            AgentStatus::Success => {
                 self.event_logger
                     .log(MapReduceEvent::AgentCompleted {
                         job_id: env.session_id.clone(),
@@ -1245,6 +1246,7 @@ impl MapReduceExecutor {
     }
 
     /// Execute all steps for an agent
+    #[allow(clippy::too_many_arguments)]
     async fn execute_all_steps(
         &self,
         template_steps: &[WorkflowStep],
@@ -1273,7 +1275,10 @@ impl MapReduceExecutor {
                 .await;
 
             // Log agent progress event
-            let step_name = step.name.clone().unwrap_or_else(|| format!("step_{}", step_index + 1));
+            let step_name = step
+                .name
+                .clone()
+                .unwrap_or_else(|| format!("step_{}", step_index + 1));
             let progress_pct = ((step_index as f32 + 0.5) / template_steps.len() as f32) * 100.0;
             self.event_logger
                 .log(MapReduceEvent::AgentProgress {

@@ -3,7 +3,6 @@
 use crate::cook::execution::mapreduce::MapReduceConfig;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// All possible events during MapReduce execution
 #[derive(Debug, Clone, Serialize, Deserialize)]

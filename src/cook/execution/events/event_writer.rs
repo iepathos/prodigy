@@ -9,7 +9,7 @@ use std::sync::Arc;
 use tokio::fs::{self, File, OpenOptions};
 use tokio::io::{AsyncWriteExt, BufWriter};
 use tokio::sync::Mutex;
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
 /// Trait for writing events to various destinations
 #[async_trait]
@@ -237,6 +237,7 @@ impl EventWriter for FileEventWriter {
 }
 
 /// Stdout event writer for debugging
+#[allow(dead_code)]
 pub struct StdoutEventWriter;
 
 #[async_trait]

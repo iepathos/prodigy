@@ -148,9 +148,7 @@ async fn list_events(
         return Ok(());
     }
 
-    let since_time = since.map(|minutes| {
-        Utc::now() - chrono::Duration::minutes(minutes as i64)
-    });
+    let since_time = since.map(|minutes| Utc::now() - chrono::Duration::minutes(minutes as i64));
 
     let file = fs::File::open(file)?;
     let reader = BufReader::new(file);
@@ -228,11 +226,13 @@ async fn show_stats(file: PathBuf, group_by: String) -> Result<()> {
         // Group by specified field
         let key = match group_by.as_str() {
             "event_type" => get_event_type(&event),
-            "job_id" => event.get("job_id")
+            "job_id" => event
+                .get("job_id")
                 .and_then(|v| v.as_str())
                 .unwrap_or("unknown")
                 .to_string(),
-            "agent_id" => event.get("agent_id")
+            "agent_id" => event
+                .get("agent_id")
                 .and_then(|v| v.as_str())
                 .unwrap_or("n/a")
                 .to_string(),
@@ -245,7 +245,7 @@ async fn show_stats(file: PathBuf, group_by: String) -> Result<()> {
     // Display statistics
     println!("Event Statistics (grouped by {})", group_by);
     println!("{}", "=".repeat(50));
-    
+
     let mut sorted_stats: Vec<_> = stats.iter().collect();
     sorted_stats.sort_by(|a, b| b.1.cmp(a.1));
 
@@ -261,11 +261,7 @@ async fn show_stats(file: PathBuf, group_by: String) -> Result<()> {
 }
 
 /// Search events by pattern
-async fn search_events(
-    file: PathBuf,
-    pattern: String,
-    fields: Option<Vec<String>>,
-) -> Result<()> {
+async fn search_events(file: PathBuf, pattern: String, fields: Option<Vec<String>>) -> Result<()> {
     if !file.exists() {
         println!("No events found. Events file does not exist: {:?}", file);
         return Ok(());
@@ -289,7 +285,8 @@ async fn search_events(
         // Search in specified fields or all fields
         let matches = if let Some(ref fields) = fields {
             fields.iter().any(|field| {
-                event.get(field)
+                event
+                    .get(field)
                     .and_then(|v| v.as_str())
                     .map(|s| re.is_match(s))
                     .unwrap_or(false)
@@ -315,7 +312,7 @@ async fn follow_events(
     job_id: Option<String>,
     event_type: Option<String>,
 ) -> Result<()> {
-    use notify::{Watcher, RecursiveMode};
+    use notify::{RecursiveMode, Watcher};
     use std::sync::mpsc::channel;
     use std::time::Duration;
 
@@ -348,7 +345,7 @@ async fn follow_events(
     // Read existing content first
     if file.exists() {
         let mut last_pos = display_existing_events(&file, &job_id, &event_type)?;
-        
+
         // Watch for new events
         loop {
             match rx.recv_timeout(Duration::from_secs(1)) {
@@ -381,11 +378,7 @@ async fn follow_events(
 }
 
 /// Export events to different format
-async fn export_events(
-    file: PathBuf,
-    format: String,
-    output: Option<PathBuf>,
-) -> Result<()> {
+async fn export_events(file: PathBuf, format: String, output: Option<PathBuf>) -> Result<()> {
     if !file.exists() {
         println!("No events found. Events file does not exist: {:?}", file);
         return Ok(());
@@ -424,7 +417,8 @@ async fn export_events(
 // Helper functions
 
 fn event_matches_field(event: &Value, field: &str, value: &str) -> bool {
-    event.get(field)
+    event
+        .get(field)
         .and_then(|v| v.as_str())
         .map(|s| s == value)
         .unwrap_or(false)
@@ -469,7 +463,8 @@ fn get_event_type(event: &Value) -> String {
 
 fn event_is_recent(event: &Value, since_time: DateTime<Utc>) -> bool {
     // Look for timestamp in various possible locations
-    let timestamp_str = event.get("timestamp")
+    let timestamp_str = event
+        .get("timestamp")
         .or_else(|| event.get("JobStarted").and_then(|v| v.get("timestamp")))
         .or_else(|| event.get("time"))
         .and_then(|v| v.as_str());
@@ -486,14 +481,17 @@ fn event_is_recent(event: &Value, since_time: DateTime<Utc>) -> bool {
 fn display_event(event: &Value) {
     let event_type = get_event_type(event);
     let timestamp = extract_timestamp(event);
-    let job_id = event.get("job_id")
+    let job_id = event
+        .get("job_id")
         .or_else(|| extract_nested_field(event, "job_id"))
         .and_then(|v| v.as_str())
         .unwrap_or("n/a");
 
     // Format timestamp for display
     let time_str = if let Some(ts) = timestamp {
-        ts.with_timezone(&Local).format("%Y-%m-%d %H:%M:%S").to_string()
+        ts.with_timezone(&Local)
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
     } else {
         "n/a".to_string()
     };
@@ -502,51 +500,85 @@ fn display_event(event: &Value) {
     match event_type.as_str() {
         "JobStarted" => {
             if let Some(data) = event.get("JobStarted") {
-                let total_items = data.get("total_items").and_then(|v| v.as_u64()).unwrap_or(0);
-                println!("[{}] {} - Job: {} - Started with {} items", 
-                         time_str, event_type, job_id, total_items);
+                let total_items = data
+                    .get("total_items")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0);
+                println!(
+                    "[{}] {} - Job: {} - Started with {} items",
+                    time_str, event_type, job_id, total_items
+                );
             }
         }
         "JobCompleted" => {
             if let Some(data) = event.get("JobCompleted") {
-                let success = data.get("success_count").and_then(|v| v.as_u64()).unwrap_or(0);
-                let failure = data.get("failure_count").and_then(|v| v.as_u64()).unwrap_or(0);
-                println!("[{}] {} - Job: {} - Success: {}, Failures: {}", 
-                         time_str, event_type, job_id, success, failure);
+                let success = data
+                    .get("success_count")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0);
+                let failure = data
+                    .get("failure_count")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0);
+                println!(
+                    "[{}] {} - Job: {} - Success: {}, Failures: {}",
+                    time_str, event_type, job_id, success, failure
+                );
             }
         }
         "AgentProgress" => {
             if let Some(data) = event.get("AgentProgress") {
-                let agent_id = data.get("agent_id").and_then(|v| v.as_str()).unwrap_or("n/a");
+                let agent_id = data
+                    .get("agent_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("n/a");
                 let step = data.get("step").and_then(|v| v.as_str()).unwrap_or("n/a");
-                let progress = data.get("progress_pct").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                println!("[{}] {} - Job: {} - Agent: {} - Step: {} ({:.1}%)", 
-                         time_str, event_type, job_id, agent_id, step, progress);
+                let progress = data
+                    .get("progress_pct")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0);
+                println!(
+                    "[{}] {} - Job: {} - Agent: {} - Step: {} ({:.1}%)",
+                    time_str, event_type, job_id, agent_id, step, progress
+                );
             }
         }
         _ => {
             // Generic display for other event types
-            println!("[{}] {} - Job: {} - {}", 
-                     time_str, event_type, job_id, 
-                     serde_json::to_string(event).unwrap_or_default());
+            println!(
+                "[{}] {} - Job: {} - {}",
+                time_str,
+                event_type,
+                job_id,
+                serde_json::to_string(event).unwrap_or_default()
+            );
         }
     }
 }
 
 fn extract_timestamp(event: &Value) -> Option<DateTime<Utc>> {
-    let timestamp_str = event.get("timestamp")
+    let timestamp_str = event
+        .get("timestamp")
         .or_else(|| extract_nested_field(event, "timestamp"))
         .or_else(|| event.get("time"))
         .and_then(|v| v.as_str());
 
-    timestamp_str.and_then(|ts| DateTime::parse_from_rfc3339(ts).ok())
+    timestamp_str
+        .and_then(|ts| DateTime::parse_from_rfc3339(ts).ok())
         .map(|dt| dt.with_timezone(&Utc))
 }
 
 fn extract_nested_field<'a>(event: &'a Value, field: &str) -> Option<&'a Value> {
     // Look for field in nested event structures
-    for key in ["JobStarted", "JobCompleted", "JobFailed", "AgentStarted", 
-                "AgentProgress", "AgentCompleted", "AgentFailed"] {
+    for key in [
+        "JobStarted",
+        "JobCompleted",
+        "JobFailed",
+        "AgentStarted",
+        "AgentProgress",
+        "AgentCompleted",
+        "AgentFailed",
+    ] {
         if let Some(nested) = event.get(key) {
             if let Some(value) = nested.get(field) {
                 return Some(value);
@@ -572,7 +604,6 @@ fn display_existing_events(
 ) -> Result<u64> {
     let file = fs::File::open(file)?;
     let mut reader = BufReader::new(file);
-    let mut last_pos = 0;
 
     for line in reader.by_ref().lines() {
         let line = line?;
@@ -599,18 +630,17 @@ fn display_existing_events(
     }
 
     // Get current position
-    last_pos = reader.into_inner().seek(SeekFrom::Current(0))?;
+    let last_pos = reader.into_inner().stream_position()?;
 
     Ok(last_pos)
 }
 
 fn display_new_events(
     file: &Path,
-    mut last_pos: u64,
+    last_pos: u64,
     job_id: &Option<String>,
     event_type: &Option<String>,
 ) -> Result<u64> {
-
     let mut file = fs::File::open(file)?;
     file.seek(SeekFrom::Start(last_pos))?;
     let mut reader = BufReader::new(file);
@@ -640,9 +670,9 @@ fn display_new_events(
     }
 
     // Update position
-    last_pos = reader.into_inner().seek(SeekFrom::Current(0))?;
+    let new_pos = reader.into_inner().stream_position()?;
 
-    Ok(last_pos)
+    Ok(new_pos)
 }
 
 fn export_as_json(events: &[Value]) -> Result<String> {
@@ -651,76 +681,99 @@ fn export_as_json(events: &[Value]) -> Result<String> {
 
 fn export_as_csv(events: &[Value]) -> Result<String> {
     use std::fmt::Write;
-    
+
     let mut csv = String::new();
-    
+
     // Write header
     writeln!(&mut csv, "timestamp,event_type,job_id,agent_id,details")?;
-    
+
     // Write rows
     for event in events {
         let timestamp = extract_timestamp(event)
             .map(|ts| ts.to_rfc3339())
-            .unwrap_or_else(|| "".to_string());
+            .unwrap_or_default();
         let event_type = get_event_type(event);
-        let job_id = event.get("job_id")
+        let job_id = event
+            .get("job_id")
             .or_else(|| extract_nested_field(event, "job_id"))
             .and_then(|v| v.as_str())
             .unwrap_or("");
-        let agent_id = event.get("agent_id")
+        let agent_id = event
+            .get("agent_id")
             .or_else(|| extract_nested_field(event, "agent_id"))
             .and_then(|v| v.as_str())
             .unwrap_or("");
         let details = serde_json::to_string(event)?
             .replace('"', "\"\"")
             .replace('\n', " ");
-        
-        writeln!(&mut csv, "\"{}\",\"{}\",\"{}\",\"{}\",\"{}\"",
-                 timestamp, event_type, job_id, agent_id, details)?;
+
+        writeln!(
+            &mut csv,
+            "\"{}\",\"{}\",\"{}\",\"{}\",\"{}\"",
+            timestamp, event_type, job_id, agent_id, details
+        )?;
     }
-    
+
     Ok(csv)
 }
 
 fn export_as_markdown(events: &[Value]) -> Result<String> {
     use std::fmt::Write;
-    
+
     let mut md = String::new();
-    
+
     writeln!(&mut md, "# MapReduce Events\n")?;
-    writeln!(&mut md, "| Timestamp | Event Type | Job ID | Agent ID | Details |")?;
-    writeln!(&mut md, "|-----------|------------|--------|----------|---------|")?;
-    
+    writeln!(
+        &mut md,
+        "| Timestamp | Event Type | Job ID | Agent ID | Details |"
+    )?;
+    writeln!(
+        &mut md,
+        "|-----------|------------|--------|----------|---------|"
+    )?;
+
     for event in events {
         let timestamp = extract_timestamp(event)
-            .map(|ts| ts.with_timezone(&Local).format("%Y-%m-%d %H:%M:%S").to_string())
+            .map(|ts| {
+                ts.with_timezone(&Local)
+                    .format("%Y-%m-%d %H:%M:%S")
+                    .to_string()
+            })
             .unwrap_or_else(|| "n/a".to_string());
         let event_type = get_event_type(event);
-        let job_id = event.get("job_id")
+        let job_id = event
+            .get("job_id")
             .or_else(|| extract_nested_field(event, "job_id"))
             .and_then(|v| v.as_str())
             .unwrap_or("n/a");
-        let agent_id = event.get("agent_id")
+        let agent_id = event
+            .get("agent_id")
             .or_else(|| extract_nested_field(event, "agent_id"))
             .and_then(|v| v.as_str())
             .unwrap_or("n/a");
-        
+
         let details = format_event_details(event);
-        
-        writeln!(&mut md, "| {} | {} | {} | {} | {} |",
-                 timestamp, event_type, job_id, agent_id, details)?;
+
+        writeln!(
+            &mut md,
+            "| {} | {} | {} | {} | {} |",
+            timestamp, event_type, job_id, agent_id, details
+        )?;
     }
-    
+
     Ok(md)
 }
 
 fn format_event_details(event: &Value) -> String {
     let event_type = get_event_type(event);
-    
+
     match event_type.as_str() {
         "JobStarted" => {
             if let Some(data) = event.get("JobStarted") {
-                let total = data.get("total_items").and_then(|v| v.as_u64()).unwrap_or(0);
+                let total = data
+                    .get("total_items")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0);
                 format!("{} items", total)
             } else {
                 "".to_string()
@@ -728,8 +781,14 @@ fn format_event_details(event: &Value) -> String {
         }
         "JobCompleted" => {
             if let Some(data) = event.get("JobCompleted") {
-                let success = data.get("success_count").and_then(|v| v.as_u64()).unwrap_or(0);
-                let failure = data.get("failure_count").and_then(|v| v.as_u64()).unwrap_or(0);
+                let success = data
+                    .get("success_count")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0);
+                let failure = data
+                    .get("failure_count")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0);
                 format!("✓ {} / ✗ {}", success, failure)
             } else {
                 "".to_string()
@@ -738,7 +797,10 @@ fn format_event_details(event: &Value) -> String {
         "AgentProgress" => {
             if let Some(data) = event.get("AgentProgress") {
                 let step = data.get("step").and_then(|v| v.as_str()).unwrap_or("n/a");
-                let progress = data.get("progress_pct").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                let progress = data
+                    .get("progress_pct")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0);
                 format!("{} ({:.1}%)", step, progress)
             } else {
                 "".to_string()

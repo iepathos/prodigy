@@ -1,7 +1,7 @@
 //! Event storage and retrieval functionality
 
 use super::{EventRecord, MapReduceEvent};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::fs::{self, File};
 use tokio::io::{AsyncBufReadExt, BufReader};
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 use uuid::Uuid;
 
 /// Event filter for querying events
@@ -79,10 +79,12 @@ pub trait EventStore: Send + Sync {
 }
 
 /// File-based event store implementation
+#[allow(dead_code)]
 pub struct FileEventStore {
     base_path: PathBuf,
 }
 
+#[allow(dead_code)]
 impl FileEventStore {
     /// Create a new file event store
     pub fn new(base_path: PathBuf) -> Self {
@@ -152,13 +154,12 @@ impl FileEventStore {
         }
 
         // Check event types
-        if !filter.event_types.is_empty() {
-            if !filter
+        if !filter.event_types.is_empty()
+            && !filter
                 .event_types
                 .contains(&event.event.event_name().to_string())
-            {
-                return false;
-            }
+        {
+            return false;
         }
 
         // Check time range

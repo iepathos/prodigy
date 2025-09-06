@@ -2,7 +2,6 @@
 
 use super::{EventWriter, MapReduceEvent};
 use anyhow::Result;
-use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
