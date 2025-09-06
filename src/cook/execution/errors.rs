@@ -474,13 +474,13 @@ mod tests {
 
     #[test]
     fn test_error_is_retryable() {
-        let timeout_error = MapReduceError::AgentTimeout {
+        let timeout_error = MapReduceError::AgentTimeout(Box::new(AgentTimeoutError {
             job_id: "job1".to_string(),
             agent_id: "agent1".to_string(),
             item_id: "item1".to_string(),
             duration_secs: 60,
             last_operation: "processing".to_string(),
-        };
+        }));
         assert!(timeout_error.is_retryable());
 
         let config_error = MapReduceError::InvalidConfiguration {
@@ -493,33 +493,33 @@ mod tests {
 
     #[test]
     fn test_recovery_hints() {
-        let resource_error = MapReduceError::ResourceExhausted {
+        let resource_error = MapReduceError::ResourceExhausted(Box::new(ResourceExhaustedError {
             job_id: "job1".to_string(),
             agent_id: "agent1".to_string(),
             resource: ResourceType::Memory,
             limit: "1GB".to_string(),
             usage: "1.2GB".to_string(),
-        };
+        }));
         assert!(resource_error.recovery_hint().is_some());
     }
 
     #[test]
     fn test_aggregated_error() {
         let errors = vec![
-            MapReduceError::AgentTimeout {
+            MapReduceError::AgentTimeout(Box::new(AgentTimeoutError {
                 job_id: "job1".to_string(),
                 agent_id: "agent1".to_string(),
                 item_id: "item1".to_string(),
                 duration_secs: 60,
                 last_operation: "processing".to_string(),
-            },
-            MapReduceError::AgentTimeout {
+            })),
+            MapReduceError::AgentTimeout(Box::new(AgentTimeoutError {
                 job_id: "job1".to_string(),
                 agent_id: "agent2".to_string(),
                 item_id: "item2".to_string(),
                 duration_secs: 60,
                 last_operation: "processing".to_string(),
-            },
+            })),
             MapReduceError::JobNotFound {
                 job_id: "job2".to_string(),
             },

@@ -22,7 +22,10 @@ mod tests {
             duration_secs: 30,
             last_operation: "processing".to_string(),
         }));
-        assert_eq!(error.to_string(), "Agent agent1 timeout after 30s");
+        assert_eq!(
+            error.to_string(),
+            "Agent timeout: Agent agent1 timeout after 30s"
+        );
     }
 
     #[test]
@@ -48,7 +51,7 @@ mod tests {
         let worktree = MapReduceError::WorktreeCreationFailed {
             agent_id: "agent1".to_string(),
             reason: "disk full".to_string(),
-            source: std::io::Error::new(std::io::ErrorKind::Other, "disk full"),
+            source: std::io::Error::other("disk full"),
         };
         assert!(worktree.is_retryable());
 
@@ -270,7 +273,6 @@ mod tests {
     #[test]
     fn test_contextual_error() {
         use chrono::Utc;
-        use std::collections::HashMap;
 
         let error = MapReduceError::JobNotFound {
             job_id: "test".to_string(),
