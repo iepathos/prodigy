@@ -70,6 +70,21 @@ mod tests {
             self.messages.lock().unwrap().push(message.to_string());
         }
 
+        fn display_action(&self, message: &str) {
+            self.messages.lock().unwrap().push(message.to_string());
+        }
+
+        fn display_metric(&self, label: &str, value: &str) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("{}: {}", label, value));
+        }
+
+        fn display_status(&self, message: &str) {
+            self.messages.lock().unwrap().push(message.to_string());
+        }
+
         fn start_spinner(
             &self,
             _message: &str,

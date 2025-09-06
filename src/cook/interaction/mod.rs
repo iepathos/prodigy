@@ -5,7 +5,7 @@
 pub mod display;
 pub mod prompts;
 
-pub use display::{ProgressDisplay, ProgressDisplayImpl, VerbosityLevel};
+pub use display::{DisplayMessageType, ProgressDisplay, ProgressDisplayImpl, VerbosityLevel};
 pub use prompts::{UserPrompter, UserPrompterImpl};
 #[cfg(test)]
 pub use tests::MockUserInteraction;
@@ -45,6 +45,15 @@ pub trait UserInteraction: Send + Sync {
 
     /// Display success message
     fn display_success(&self, message: &str);
+
+    /// Display action message (user-initiated actions)
+    fn display_action(&self, message: &str);
+
+    /// Display metric message (quantitative information)
+    fn display_metric(&self, label: &str, value: &str);
+
+    /// Display status message (state changes)
+    fn display_status(&self, message: &str);
 
     /// Display iteration start boundary
     fn iteration_start(&self, current: u32, total: u32);
@@ -144,6 +153,18 @@ impl UserInteraction for DefaultUserInteraction {
 
     fn display_success(&self, message: &str) {
         self.display.success(message);
+    }
+
+    fn display_action(&self, message: &str) {
+        self.display.action(message);
+    }
+
+    fn display_metric(&self, label: &str, value: &str) {
+        self.display.metric(label, value);
+    }
+
+    fn display_status(&self, message: &str) {
+        self.display.status(message);
     }
 
     fn iteration_start(&self, current: u32, total: u32) {
@@ -288,6 +309,27 @@ pub mod tests {
                 .lock()
                 .unwrap()
                 .push(format!("Success: {message}"));
+        }
+
+        fn display_action(&self, message: &str) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("Action: {message}"));
+        }
+
+        fn display_metric(&self, label: &str, value: &str) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("Metric: {label}: {value}"));
+        }
+
+        fn display_status(&self, message: &str) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("Status: {message}"));
         }
 
         fn iteration_start(&self, current: u32, total: u32) {
@@ -574,6 +616,27 @@ pub mod mocks {
                 .lock()
                 .unwrap()
                 .push(format!("SUCCESS: {message}"));
+        }
+
+        fn display_action(&self, message: &str) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("ACTION: {message}"));
+        }
+
+        fn display_metric(&self, label: &str, value: &str) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("METRIC: {label}: {value}"));
+        }
+
+        fn display_status(&self, message: &str) {
+            self.messages
+                .lock()
+                .unwrap()
+                .push(format!("STATUS: {message}"));
         }
 
         fn iteration_start(&self, current: u32, total: u32) {

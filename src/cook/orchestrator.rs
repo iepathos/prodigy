@@ -613,7 +613,7 @@ impl DefaultCookOrchestrator {
                 let final_command = cmd_parts.join(" ");
 
                 self.user_interaction
-                    .display_info(&format!("🚀 Executing command: {final_command}"));
+                    .display_action(&format!("Executing command: {final_command}"));
 
                 // Execute the command
                 let mut env_vars = HashMap::new();
@@ -667,12 +667,12 @@ impl DefaultCookOrchestrator {
                         match pattern_result {
                             Ok(file_path) => {
                                 self.user_interaction
-                                    .display_success(&format!("✓ Found output file: {file_path}"));
+                                    .display_success(&format!("Found output file: {file_path}"));
                                 cmd_output_map.insert(output_name.clone(), file_path);
                             }
                             Err(e) => {
                                 self.user_interaction.display_warning(&format!(
-                                    "❌ Failed to find output '{output_name}': {e}"
+                                    "Failed to find output '{output_name}': {e}"
                                 ));
                                 return Err(e);
                             }
@@ -843,7 +843,7 @@ impl DefaultCookOrchestrator {
                 let final_command = cmd_parts.join(" ");
 
                 self.user_interaction
-                    .display_info(&format!("🚀 Executing command: {final_command}"));
+                    .display_action(&format!("Executing command: {final_command}"));
 
                 // Execute the command
                 let mut env_vars = HashMap::new();
@@ -878,7 +878,7 @@ impl DefaultCookOrchestrator {
                     // Complete command timing
                     if let Some((cmd_name, duration)) = timing_tracker.complete_command() {
                         self.user_interaction.display_success(&format!(
-                            "✓ Command '{}' completed in {}",
+                            "Command '{}' completed in {}",
                             cmd_name,
                             format_duration(duration)
                         ));
@@ -895,12 +895,15 @@ impl DefaultCookOrchestrator {
 
         // Display total workflow timing
         let total_duration = workflow_start.elapsed();
-        self.user_interaction.display_info(&format!(
-            "\n📊 Total workflow time: {} across {} iteration{}",
-            format_duration(total_duration),
-            max_iterations,
-            if max_iterations == 1 { "" } else { "s" }
-        ));
+        self.user_interaction.display_metric(
+            "Total workflow time",
+            &format!(
+                "{} across {} iteration{}",
+                format_duration(total_duration),
+                max_iterations,
+                if max_iterations == 1 { "" } else { "s" }
+            ),
+        );
 
         Ok(())
     }
@@ -923,7 +926,7 @@ impl DefaultCookOrchestrator {
         }
 
         self.user_interaction
-            .display_info(&format!("📋 Total inputs to process: {}", all_inputs.len()));
+            .display_status(&format!("Total inputs to process: {}", all_inputs.len()));
 
         // Process each input
         for (index, input) in all_inputs.iter().enumerate() {
@@ -940,8 +943,8 @@ impl DefaultCookOrchestrator {
             .await?;
 
             if let Some(iteration_duration) = timing_tracker.complete_iteration() {
-                self.user_interaction.display_info(&format!(
-                    "✓ Input {} completed in {}",
+                self.user_interaction.display_success(&format!(
+                    "Input {} completed in {}",
                     index + 1,
                     format_duration(iteration_duration)
                 ));
@@ -949,17 +952,20 @@ impl DefaultCookOrchestrator {
         }
 
         self.user_interaction.display_success(&format!(
-            "🎉 Processed all {} inputs successfully!",
+            "Processed all {} inputs successfully!",
             all_inputs.len()
         ));
 
         // Display total workflow timing
         let total_duration = workflow_start.elapsed();
-        self.user_interaction.display_info(&format!(
-            "\n📊 Total workflow time: {} for {} inputs",
-            format_duration(total_duration),
-            all_inputs.len()
-        ));
+        self.user_interaction.display_metric(
+            "Total workflow time",
+            &format!(
+                "{} for {} inputs",
+                format_duration(total_duration),
+                all_inputs.len()
+            ),
+        );
 
         Ok(())
     }
@@ -990,8 +996,8 @@ impl DefaultCookOrchestrator {
 
         // Add direct arguments from --args
         if !config.command.args.is_empty() {
-            self.user_interaction.display_info(&format!(
-                "📝 Adding {} direct arguments from --args",
+            self.user_interaction.display_action(&format!(
+                "Adding {} direct arguments from --args",
                 config.command.args.len()
             ));
             all_inputs.extend(config.command.args.clone());
@@ -1009,7 +1015,7 @@ impl DefaultCookOrchestrator {
                 let mut pattern_matches = 0;
                 for path in entries.flatten() {
                     self.user_interaction
-                        .display_info(&format!("✓ Found file: {}", path.display()));
+                        .display_success(&format!("Found file: {}", path.display()));
 
                     let input = self.extract_input_from_path(&path);
                     inputs.push(input);
@@ -1018,7 +1024,7 @@ impl DefaultCookOrchestrator {
 
                 if pattern_matches == 0 {
                     self.user_interaction
-                        .display_warning(&format!("⚠️ No files matched pattern: {pattern}"));
+                        .display_warning(&format!("No files matched pattern: {pattern}"));
                 } else {
                     self.user_interaction.display_success(&format!(
                         "📁 Found {pattern_matches} files matching pattern: {pattern}"
@@ -1027,7 +1033,7 @@ impl DefaultCookOrchestrator {
             }
             Err(e) => {
                 self.user_interaction
-                    .display_error(&format!("❌ Error processing pattern '{pattern}': {e}"));
+                    .display_error(&format!("Error processing pattern '{pattern}': {e}"));
             }
         }
 
@@ -1059,8 +1065,8 @@ impl DefaultCookOrchestrator {
         total: usize,
         _timing_tracker: &mut TimingTracker,
     ) -> Result<()> {
-        self.user_interaction.display_info(&format!(
-            "\n🔄 Processing input {}/{}: {}",
+        self.user_interaction.display_progress(&format!(
+            "Processing input {}/{}: {}",
             index + 1,
             total,
             input
@@ -1183,7 +1189,7 @@ impl DefaultCookOrchestrator {
         match &normalized.execution_mode {
             crate::cook::workflow::normalized::ExecutionMode::MapReduce { .. } => {
                 self.user_interaction.display_info(&format!(
-                    "🚀 Executing MapReduce workflow: {}",
+                    "Executing MapReduce workflow: {}",
                     normalized.name
                 ));
             }
@@ -1236,7 +1242,7 @@ impl DefaultCookOrchestrator {
     ) -> Result<()> {
         // Display MapReduce-specific message
         self.user_interaction.display_info(&format!(
-            "🚀 Executing MapReduce workflow: {}",
+            "Executing MapReduce workflow: {}",
             mapreduce_config.name
         ));
 
@@ -1312,12 +1318,11 @@ impl DefaultCookOrchestrator {
 
         // Only show ARG in log if the command actually uses it
         if has_arg_reference {
-            self.user_interaction.display_info(&format!(
-                "🚀 Executing command: {final_command} (ARG={input})"
-            ));
+            self.user_interaction
+                .display_info(&format!("Executing command: {final_command} (ARG={input})"));
         } else {
             self.user_interaction
-                .display_info(&format!("🚀 Executing command: {final_command}"));
+                .display_action(&format!("Executing command: {final_command}"));
         }
 
         // Prepare environment variables
@@ -1330,14 +1335,14 @@ impl DefaultCookOrchestrator {
         // Complete command timing
         if let Some((cmd_name, duration)) = timing_tracker.complete_command() {
             self.user_interaction.display_success(&format!(
-                "✓ Command '{}' succeeded for input '{}' in {}",
+                "Command '{}' succeeded for input '{}' in {}",
                 cmd_name,
                 input,
                 format_duration(duration)
             ));
         } else {
             self.user_interaction.display_success(&format!(
-                "✓ Command '{}' succeeded for input '{}'",
+                "Command '{}' succeeded for input '{}'",
                 command.name, input
             ));
         }
@@ -1459,7 +1464,7 @@ impl DefaultCookOrchestrator {
                 ));
             } else {
                 self.user_interaction.display_warning(&format!(
-                    "⚠️ Command '{}' failed for input '{}', continuing...",
+                    "Command '{}' failed for input '{}', continuing...",
                     command.name, input
                 ));
                 return Ok(());

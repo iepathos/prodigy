@@ -306,7 +306,7 @@ impl WorkflowExecutor {
         // Check if validation passed
         if validation_config.is_complete(&validation_result) {
             self.user_interaction.display_success(&format!(
-                "✓ Validation passed: {:.1}% complete (threshold: {:.1}%)",
+                "Validation passed: {:.1}% complete (threshold: {:.1}%)",
                 percentage, threshold
             ));
         } else {
@@ -374,7 +374,7 @@ impl WorkflowExecutor {
                 let threshold = validation_config.threshold;
                 if validation_config.is_complete(&current_result) {
                     self.user_interaction.display_success(&format!(
-                        "✓ Validation passed: {:.1}% complete (threshold: {:.1}%)",
+                        "Validation passed: {:.1}% complete (threshold: {:.1}%)",
                         percentage, threshold
                     ));
                 } else {
@@ -954,7 +954,7 @@ impl WorkflowExecutor {
                     } else {
                         any_changes = true;
                         self.user_interaction
-                            .display_success(&format!("✓ {step_display} created commits"));
+                            .display_success(&format!("{step_display} created commits"));
                     }
                 } else {
                     // In test mode or when commit_required is false
@@ -995,8 +995,8 @@ impl WorkflowExecutor {
                     .await?;
 
                 // Display iteration timing
-                self.user_interaction.display_info(&format!(
-                    "✓ Iteration {} completed in {}",
+                self.user_interaction.display_success(&format!(
+                    "Iteration {} completed in {}",
                     iteration,
                     format_duration(iteration_duration)
                 ));
@@ -1020,12 +1020,15 @@ impl WorkflowExecutor {
 
         // Display total workflow timing
         let total_duration = workflow_start.elapsed();
-        self.user_interaction.display_info(&format!(
-            "\n📊 Total workflow time: {} across {} iteration{}",
-            format_duration(total_duration),
-            iteration,
-            if iteration == 1 { "" } else { "s" }
-        ));
+        self.user_interaction.display_metric(
+            "Total workflow time",
+            &format!(
+                "{} across {} iteration{}",
+                format_duration(total_duration),
+                iteration,
+                if iteration == 1 { "" } else { "s" }
+            ),
+        );
 
         Ok(())
     }
@@ -1293,7 +1296,7 @@ impl WorkflowExecutor {
             // Check if command succeeded
             if shell_result.success {
                 self.user_interaction
-                    .display_success(&format!("✓ Shell command succeeded on attempt {attempt}"));
+                    .display_success(&format!("Shell command succeeded on attempt {attempt}"));
                 return Ok(shell_result);
             }
 
@@ -1301,7 +1304,7 @@ impl WorkflowExecutor {
             if let Some(debug_config) = on_failure {
                 if attempt >= debug_config.max_attempts {
                     self.user_interaction.display_error(&format!(
-                        "❌ Shell command failed after {} attempts",
+                        "Shell command failed after {} attempts",
                         debug_config.max_attempts
                     ));
 
@@ -1420,7 +1423,7 @@ impl WorkflowExecutor {
             // Check if tests passed
             if test_result.success {
                 self.user_interaction
-                    .display_success(&format!("✓ Tests passed on attempt {attempt}"));
+                    .display_success(&format!("Tests passed on attempt {attempt}"));
                 return Ok(test_result);
             }
 
@@ -1428,7 +1431,7 @@ impl WorkflowExecutor {
             if let Some(debug_config) = &test_cmd.on_failure {
                 if attempt >= debug_config.max_attempts {
                     self.user_interaction.display_error(&format!(
-                        "❌ Tests failed after {} attempts",
+                        "Tests failed after {} attempts",
                         debug_config.max_attempts
                     ));
 
@@ -1608,7 +1611,7 @@ impl WorkflowExecutor {
             CommandType::Handler { handler_name, .. } => handler_name,
         };
 
-        eprintln!("\n❌ Workflow stopped: No changes were committed by {step_display}");
+        eprintln!("\nWorkflow stopped: No changes were committed by {step_display}");
         eprintln!("\nThe command executed successfully but did not create any git commits.");
 
         // Check if this is a command that might legitimately not create commits
@@ -1661,7 +1664,7 @@ impl WorkflowExecutor {
         // Execute setup phase if present
         if !workflow.steps.is_empty() {
             self.user_interaction
-                .display_progress("🔄 Running setup phase...");
+                .display_progress("Running setup phase...");
 
             // Execute setup steps in the main worktree
             let mut workflow_context = WorkflowContext::default();
@@ -1696,7 +1699,7 @@ impl WorkflowExecutor {
             }
 
             self.user_interaction
-                .display_success("✓ Setup phase completed");
+                .display_success("Setup phase completed");
         }
 
         // Ensure we have map phase configuration
@@ -1745,10 +1748,10 @@ impl WorkflowExecutor {
 
         // Display total workflow timing
         let total_duration = workflow_start.elapsed();
-        self.user_interaction.display_info(&format!(
-            "\n📊 Total MapReduce workflow time: {}",
-            format_duration(total_duration),
-        ));
+        self.user_interaction.display_metric(
+            "Total MapReduce workflow time",
+            &format_duration(total_duration),
+        );
 
         Ok(())
     }
