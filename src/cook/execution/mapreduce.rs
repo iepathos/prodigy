@@ -771,26 +771,33 @@ impl MapReduceExecutor {
 
     /// Validate checkpoint integrity
     fn validate_checkpoint(&self, state: &MapReduceJobState) -> MapReduceResult<()> {
+        let context = self.create_error_context("checkpoint_validation");
         // Basic validation checks
         if state.job_id.is_empty() {
             return Err(MapReduceError::CheckpointCorrupted {
                 job_id: "<empty>".to_string(),
                 version: state.checkpoint_version,
                 details: "Empty job ID in checkpoint".to_string(),
-            });
+            }
+            .with_context(context)
+            .error);
         }
 
         if state.work_items.is_empty() {
+            let context = self.create_error_context("checkpoint_validation");
             return Err(MapReduceError::CheckpointCorrupted {
                 job_id: state.job_id.clone(),
                 version: state.checkpoint_version,
                 details: "No work items in checkpoint".to_string(),
-            });
+            }
+            .with_context(context)
+            .error);
         }
 
         // Verify counts are consistent
         let total_processed = state.completed_agents.len();
         if total_processed > state.total_items {
+            let context = self.create_error_context("checkpoint_validation");
             return Err(MapReduceError::CheckpointCorrupted {
                 job_id: state.job_id.clone(),
                 version: state.checkpoint_version,
@@ -798,17 +805,22 @@ impl MapReduceExecutor {
                     "Processed count ({}) exceeds total items ({})",
                     total_processed, state.total_items
                 ),
-            });
+            }
+            .with_context(context)
+            .error);
         }
 
         // Verify all completed agents have results
         for agent_id in &state.completed_agents {
             if !state.agent_results.contains_key(agent_id) {
+                let context = self.create_error_context("checkpoint_validation");
                 return Err(MapReduceError::CheckpointCorrupted {
                     job_id: state.job_id.clone(),
                     version: state.checkpoint_version,
                     details: format!("Completed agent {} has no result", agent_id),
-                });
+                }
+                .with_context(context)
+                .error);
             }
         }
 
@@ -883,31 +895,42 @@ impl MapReduceExecutor {
 
         // Check if file exists first
         if !input_path.exists() {
+            let context = self.create_error_context("load_work_items");
             return Err(MapReduceError::WorkItemLoadFailed {
                 path: input_path.clone(),
                 reason: "File does not exist".to_string(),
                 source: None,
-            });
+            }
+            .with_context(context)
+            .error);
         }
 
         let file_size = std::fs::metadata(&input_path)?.len();
         debug!("Input file size: {} bytes", file_size);
 
         let content = tokio::fs::read_to_string(&input_path).await.map_err(|e| {
+            let context = self.create_error_context("load_work_items");
             MapReduceError::WorkItemLoadFailed {
                 path: input_path.clone(),
                 reason: format!("Failed to read file: {}", e),
                 source: Some(Box::new(e)),
             }
+            .with_context(context)
+            .error
         })?;
 
         debug!("Read {} bytes from input file", content.len());
 
         let json: Value =
-            serde_json::from_str(&content).map_err(|e| MapReduceError::WorkItemLoadFailed {
-                path: input_path.clone(),
-                reason: "Failed to parse JSON".to_string(),
-                source: Some(Box::new(e)),
+            serde_json::from_str(&content).map_err(|e| {
+                let context = self.create_error_context("load_work_items");
+                MapReduceError::WorkItemLoadFailed {
+                    path: input_path.clone(),
+                    reason: "Failed to parse JSON".to_string(),
+                    source: Some(Box::new(e)),
+                }
+                .with_context(context)
+                .error
             })?;
 
         // Debug: Show the top-level structure
@@ -989,10 +1012,13 @@ impl MapReduceExecutor {
         // Send all work items to the queue
         for (index, item) in work_items.into_iter().enumerate() {
             work_tx.send((index, item)).await.map_err(|e| {
+                let context = self.create_error_context("map_phase_execution");
                 MapReduceError::General {
                     message: format!("Failed to send work item to queue: {}", e),
                     source: None,
                 }
+                .with_context(context)
+                .error
             })?;
         }
         drop(work_tx); // Close the sender
@@ -1028,10 +1054,13 @@ impl MapReduceExecutor {
                         .display_warning(&format!("Worker error: {}", e));
                 },
                 Err(join_err) => {
+                    let context = self.create_error_context("map_phase_execution");
                     return Err(MapReduceError::General {
                         message: format!("Worker task panicked: {}", join_err),
                         source: None,
-                    });
+                    }
+                    .with_context(context)
+                    .error);
                 }
             }
         }
@@ -1265,11 +1294,13 @@ impl MapReduceExecutor {
 
         // Create isolated worktree session for this agent
         let worktree_session = self.worktree_manager.create_session().await.map_err(|e| {
+            let context = self.create_error_context("worktree_creation");
             let error = MapReduceError::WorktreeCreationFailed {
                 agent_id: agent_id.clone(),
                 reason: e.to_string(),
                 source: std::io::Error::new(std::io::ErrorKind::Other, e.to_string()),
-            };
+            }
+            .with_context(context);
             
             // Log error event with correlation ID
             let event_logger = self.event_logger.clone();
@@ -1288,7 +1319,7 @@ impl MapReduceExecutor {
                     .unwrap_or_else(|e| log::warn!("Failed to log error event: {}", e));
             });
             
-            error
+            error.error
         })?;
         let worktree_name = worktree_session.name.clone();
         let worktree_path = worktree_session.path.clone();
@@ -1509,10 +1540,13 @@ impl MapReduceExecutor {
 
                     Ok((failed_result, handled))
                 } else {
+                    let context = self.create_error_context("execute_all_steps");
                     Err(MapReduceError::General {
                         message: error_msg,
                         source: None,
-                    })
+                    }
+                    .with_context(context)
+                    .error)
                 }
             }
         }
@@ -1793,10 +1827,13 @@ impl MapReduceExecutor {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
+            let context = self.create_error_context("create_agent_branch");
             return Err(MapReduceError::General {
                 message: format!("Failed to create branch {}: {}", branch_name, stderr),
                 source: None,
-            });
+            }
+            .with_context(context)
+            .error);
         }
 
         Ok(())
@@ -1831,11 +1868,14 @@ impl MapReduceExecutor {
             .await?;
 
         if !result.success {
+            let context = self.create_error_context("merge_to_parent");
             return Err(MapReduceError::WorktreeMergeConflict {
                 agent_id: agent_branch.to_string(), // Use branch name as agent identifier
                 branch: agent_branch.to_string(),
                 conflicts: vec![result.stderr.clone()],
-            });
+            }
+            .with_context(context)
+            .error);
         }
 
         // Validate parent state after merge (run basic checks)
@@ -1855,10 +1895,13 @@ impl MapReduceExecutor {
 
         let status = String::from_utf8_lossy(&output.stdout);
         if status.contains("UU ") || status.contains("AA ") || status.contains("DD ") {
+            let context = self.create_error_context("validate_parent_state");
             return Err(MapReduceError::General {
                 message: "Unresolved merge conflicts detected in parent worktree".to_string(),
                 source: None,
-            });
+            }
+            .with_context(context)
+            .error);
         }
 
         // Run basic syntax check if it's a Rust project
@@ -1975,9 +2018,14 @@ impl MapReduceExecutor {
 
         // Add complete results as JSON string for complex access patterns
         let results_json =
-            serde_json::to_string(map_results).map_err(|e| MapReduceError::General {
-                message: "Failed to serialize map results to JSON".to_string(),
-                source: Some(Box::new(e)),
+            serde_json::to_string(map_results).map_err(|e| {
+                let context = self.create_error_context("reduce_phase_execution");
+                MapReduceError::General {
+                    message: "Failed to serialize map results to JSON".to_string(),
+                    source: Some(Box::new(e)),
+                }
+                .with_context(context)
+                .error
             })?;
         reduce_context
             .variables
@@ -2075,19 +2123,23 @@ impl MapReduceExecutor {
                         Ok(handled) => {
                             if !handled {
                                 // on_failure says we should fail
+                                let context = self.create_error_context("reduce_phase_execution");
                                 return Err(MapReduceError::General {
                                     message: format!(
                                         "Reduce step {} failed and fail_workflow is true",
                                         step_index + 1
                                     ),
                                     source: None,
-                                });
+                                }
+                                .with_context(context)
+                                .error);
                             }
                             // Otherwise continue to next step
                         }
                         Err(handler_err) => {
                             // Handler itself failed
                             if on_failure.should_fail_workflow() {
+                                let context = self.create_error_context("reduce_phase_execution");
                                 return Err(MapReduceError::General {
                                     message: format!(
                                         "Reduce step {} on_failure handler failed: {}",
@@ -2095,7 +2147,9 @@ impl MapReduceExecutor {
                                         handler_err
                                     ),
                                     source: None,
-                                });
+                                }
+                                .with_context(context)
+                                .error);
                             }
                             // Otherwise, log the error but continue
                             self.user_interaction.display_warning(&format!(
@@ -2106,6 +2160,7 @@ impl MapReduceExecutor {
                     }
                 } else {
                     // No on_failure handler, fail immediately
+                    let context = self.create_error_context("reduce_phase_execution");
                     return Err(MapReduceError::General {
                         message: format!(
                             "Reduce step {} failed: {}",
@@ -2113,7 +2168,9 @@ impl MapReduceExecutor {
                             step_result.stderr
                         ),
                         source: None,
-                    });
+                    }
+                    .with_context(context)
+                    .error);
                 }
             } else {
                 // Step succeeded - check if there's an on_success handler
@@ -2220,11 +2277,14 @@ impl MapReduceExecutor {
                     self.execute_shell_command(shell_cmd, context, step.timeout)
                         .await?
                 } else {
+                    let context = self.create_error_context("execute_single_step");
                     return Err(MapReduceError::InvalidConfiguration {
                         reason: "Test commands are not supported in MapReduce".to_string(),
                         field: "command_type".to_string(),
                         value: "test".to_string(),
-                    });
+                    }
+                    .with_context(context)
+                    .error);
                 }
             }
         };
@@ -2260,10 +2320,15 @@ impl MapReduceExecutor {
         commands
             .into_iter()
             .next()
-            .ok_or_else(|| MapReduceError::InvalidConfiguration {
-                reason: "No valid command found in step".to_string(),
-                field: "command".to_string(),
-                value: "<none>".to_string(),
+            .ok_or_else(|| {
+                let context = self.create_error_context("determine_command_type");
+                MapReduceError::InvalidConfiguration {
+                    reason: "No valid command found in step".to_string(),
+                    field: "command".to_string(),
+                    value: "<none>".to_string(),
+                }
+                .with_context(context)
+                .error
             })
     }
 
