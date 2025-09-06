@@ -24,6 +24,7 @@ mod tests {
             }
         }
 
+        #[allow(dead_code)]
         async fn get_events(&self) -> Vec<EventRecord> {
             self.events.lock().await.clone()
         }

@@ -494,9 +494,11 @@ mod tests {
 
     #[test]
     fn test_retention_stats_calculations() {
-        let mut stats = RetentionStats::default();
-        stats.original_size_bytes = 1000;
-        stats.final_size_bytes = 250;
+        let stats = RetentionStats {
+            original_size_bytes: 1000,
+            final_size_bytes: 250,
+            ..Default::default()
+        };
 
         assert_eq!(stats.space_saved(), 750);
         assert_eq!(stats.space_saved_percentage(), 75.0);
