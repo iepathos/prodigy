@@ -87,7 +87,7 @@ prodigy cook workflows/debug.yml  # Same great results for everyone
 │  • Parallel worktree sessions                        │
 │  • MapReduce orchestration for parallel execution    │
 │  • Test validation & static code analysis            │
-│  • Context generation for Claude commands            │
+│  • Command orchestration & environment management    │
 └───────────────────┬──────────────────────────────────┘
                     │ Orchestrates & provides context to
 ┌───────────────────▼──────────────────────────────────┐
@@ -144,8 +144,6 @@ Prodigy maintains session state in `.prodigy/` directory:
 - **Validation Results**: Workflow validation outcomes
 
 Environment variables passed to Claude commands:
-- `PRODIGY_CONTEXT_AVAILABLE="true"` - Standard flag for Prodigy execution
-- `PRODIGY_CONTEXT_DIR="/path/to/.prodigy/context"` - Reserved for future use
 - `PRODIGY_AUTOMATION="true"` - Signals automated execution mode
 
 ## Core Concepts

@@ -1037,20 +1037,12 @@ impl WorkflowExecutor {
     fn prepare_env_vars(
         &self,
         step: &WorkflowStep,
-        env: &ExecutionEnvironment,
+        _env: &ExecutionEnvironment,
         ctx: &mut WorkflowContext,
     ) -> HashMap<String, String> {
         let mut env_vars = HashMap::new();
 
-        // Add MMM context variables
-        env_vars.insert("PRODIGY_CONTEXT_AVAILABLE".to_string(), "true".to_string());
-        env_vars.insert(
-            "PRODIGY_CONTEXT_DIR".to_string(),
-            env.working_dir
-                .join(".prodigy/context")
-                .to_string_lossy()
-                .to_string(),
-        );
+        // Add automation flag
         env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
 
         // Add step-specific environment variables with interpolation

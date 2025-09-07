@@ -5,28 +5,22 @@ Analyze test coverage gaps using MMM context data and generate a targeted specif
 ## Variables
 
 SCOPE: $ARGUMENTS (optional - specify scope like "src/core", "src/context", or "all")
-PRODIGY_CONTEXT_AVAILABLE: Environment variable indicating .prodigy context availability
-PRODIGY_CONTEXT_DIR: Path to .prodigy/context/ directory with analysis data
-PRODIGY_FOCUS: Optional focus directive (e.g., "security", "api", "core")
 
 ## Execute
 
-### Phase 1: Load and Analyze MMM Context Data
+### Phase 1: Test Coverage Analysis
 
-**REQUIRED**: Check `PRODIGY_CONTEXT_AVAILABLE=true` and load context files:
+1. **Run Coverage Analysis**
+   - Execute `cargo tarpaulin --out Json` to generate coverage data
+   - Identify files with low coverage percentages
+   - Find untested functions and critical code paths
+   - Analyze test quality and effectiveness
 
-1. **Primary Context Sources**
-   - `.prodigy/context/test_coverage.json` → `untested_functions`, `critical_paths`, `file_coverage`
-   - `.prodigy/context/technical_debt.json` → high-impact functions needing tests
-   - `.prodigy/context/architecture.json` → public interfaces requiring coverage
-   - `.prodigy/metrics/current.json` → current coverage percentage and targets
-   - `.prodigy/context/hybrid_coverage.json` → quality metrics and priority gaps
-
-2. **Deep Coverage Analysis**
-   - **Verify Untested Status**: Cross-check `untested_functions` with actual codebase
-   - **Check Existing Tests**: Search for `test_{function_name}` patterns in the same file
-   - **Analyze Test Quality**: Identify tests that expect failures without testing logic
-   - **Coverage Blockers**: Identify why existing tests don't generate coverage
+2. **Identify Coverage Gaps**
+   - List functions without any test coverage
+   - Find critical paths that lack tests
+   - Identify edge cases not covered by existing tests
+   - Check for missing error handling tests
 
 3. **Coverage Gap Prioritization**
    - **Critical**: `untested_functions` with `criticality: "High"` that truly lack tests

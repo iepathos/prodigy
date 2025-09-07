@@ -5,52 +5,29 @@ Conduct a comprehensive code review of the current project or specified componen
 ## Variables
 
 SCOPE: $ARGUMENTS (optional - specify scope like "src/parser", "tests", specific files, or omit for entire codebase)
-PRODIGY_CONTEXT_AVAILABLE: Environment variable indicating .prodigy context availability
-PRODIGY_CONTEXT_DIR: Path to .prodigy/context/ directory with analysis data
 
 ## Execute
 
-### Phase 1: Context-Driven Project Analysis
+### Phase 1: Project Analysis
 
-1. **Load Prodigy Analysis Context (Priority)**
-   - Check if `PRODIGY_CONTEXT_AVAILABLE=true` and load context data
-   - Read `.prodigy/context/technical_debt.json` for known issues and hotspots
-   - Load `.prodigy/context/architecture.json` for violations and patterns
-   - Parse `.prodigy/context/conventions.json` for style violations
-   - Review `.prodigy/context/test_coverage.json` for coverage gaps
-   - Check `.prodigy/metrics/current.json` for quality baselines
-   - Use `.prodigy/context/dependency_graph.json` for coupling analysis
-
-2. **Fallback to Traditional Context**
-   - If context unavailable, read .prodigy files (PROJECT.md, ARCHITECTURE.md, etc.)
+1. **Read Project Context**
+   - Read .prodigy files (PROJECT.md, ARCHITECTURE.md, etc.)
    - Understand project goals, architecture patterns, and coding standards
    - Identify recently completed specifications from ROADMAP.md
 
-3. **Context-Aware Priority Processing**
-   - **Use context data to prioritize review areas**:
-     - API violations from architecture.json + error handling debt
-     - Hotspots with high complexity_score + benchmark regressions
-     - Security-tagged debt_items + unsafe code patterns
-     - Critical_gaps and untested_functions from context
-     - Low doc_coverage areas from metrics
-   - **Context amplification**: Use debt_items tags to identify critical issues
-
-3. **Determine Review Scope**
+2. **Determine Review Scope**
    - If SCOPE specified: Focus on specific files/directories
    - If no SCOPE: Review recent changes since last major commit
    - Prioritize areas with recent modifications or new implementations
    - Check git status for uncommitted changes
 
-### Phase 2: Context-Enhanced Static Analysis
+### Phase 2: Static Analysis
 
-1. **Context-Guided Quality Checks**
-   - **Pre-analyze with context**: Skip areas already identified as clean in technical_debt.json
-   - **Target hotspots**: Focus clippy analysis on files with high complexity_score
-   - **Convention-driven**: Use conventions.json violations to guide formatting checks
-   - Run `cargo check` and compare warnings against known debt_items
+1. **Code Quality Checks**
+   - Run `cargo check` for compiler warnings
    - Execute `cargo clippy` with extra attention to architecture violation locations
 
-2. **Context-Aware Structure Review**
+2. **Structure Review**
    - **Dependency analysis**: Compare actual dependencies against dependency_graph.json
    - **Coupling review**: Focus on modules with high coupling_scores
    - **Circular dependencies**: Validate cycles identified in dependency_graph.json
@@ -107,14 +84,14 @@ PRODIGY_CONTEXT_DIR: Path to .prodigy/context/ directory with analysis data
    - Analyze database/storage interaction patterns
    - Review configuration and environment handling
 
-### Phase 5: Context-Driven Testing and Documentation Review
+### Phase 5: Testing and Documentation Review
 
-1. **Context-Enhanced Test Quality Assessment**
-   - **Coverage targeting**: Focus on untested_functions from test_coverage.json
-   - **Critical gaps**: Prioritize critical_gaps with high risk assessment
-   - **Hotspot testing**: Ensure hotspots with high change_frequency have adequate tests
-   - **Metrics-driven**: Compare actual coverage against file_coverage percentages
-   - **Benchmark validation**: Cross-reference with benchmark_results from metrics
+1. **Test Quality Assessment**
+   - Review test coverage using `cargo tarpaulin`
+   - Identify untested critical functions
+   - Check for adequate test assertions
+   - Validate test naming and organization
+   - Ensure edge cases are covered
 
 2. **Documentation Review**
    - Check inline documentation (rustdoc) completeness
@@ -137,33 +114,22 @@ PRODIGY_CONTEXT_DIR: Path to .prodigy/context/ directory with analysis data
    - Review naming conventions and structure
    - Validate commit message format and git practices
 
-### Phase 7: Context-Driven Recommendations and Action Items
+### Phase 7: Recommendations and Action Items
 
-1. **Context-Enhanced Issue Categorization**
-   **Base severity from context data**:
-   - **Critical**: debt_items with impact >= 8, security-tagged items, hotspots with risk_level="High"
-   - **High**: debt_items with impact >= 6, architecture violations severity="High", critical_gaps
-   - **Medium**: debt_items with impact >= 4, convention violations, moderate complexity hotspots
-   - **Low**: debt_items with impact < 4, style issues, documentation gaps
-   
-   **Priority amplification**:
-   - Issues with matching debt_items tags get priority boost
-   - Context provides specific locations and impact scores for precise prioritization
-   - Example: Hotspots with complexity_score > 15 = Critical
-   - Example: Debt_items tagged "security" = Critical
+1. **Issue Categorization**
+   **Severity levels**:
+   - **Critical**: Security vulnerabilities, data corruption risks, crashes
+   - **High**: Significant bugs, performance issues, architecture violations
+   - **Medium**: Code quality issues, missing tests, documentation gaps
+   - **Low**: Style issues, minor improvements, refactoring opportunities
 
-2. **Context-Informed Improvement Suggestions**
-   - **Debt-specific**: Use exact debt_items descriptions and locations for targeted fixes
-   - **Hotspot-driven**: Target complexity hotspots with specific refactoring approaches
-   - **Duplication elimination**: Address similarity mappings from duplication_map
-   - **Convention alignment**: Fix specific violations from conventions.json
-   - **Coverage improvements**: Target untested_functions and critical_gaps precisely
-   - **Architecture compliance**: Address specific violations with suggested patterns
-   
-   **Context-enhanced handling**:
-   - Use debt_items tags to identify critical issues automatically
-   - Leverage metrics trends to show performance/quality impacts
-   - Provide specific file:line references from context data
+2. **Improvement Suggestions**
+   - Specific code refactoring recommendations
+   - Architecture improvements
+   - Test coverage enhancements
+   - Documentation updates
+   - Performance optimizations
+   - Security hardening
 
 3. **Action Plan**
    - Prioritized list of issues to address

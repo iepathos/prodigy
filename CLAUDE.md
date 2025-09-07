@@ -39,12 +39,8 @@ Tracks the current cooking session:
 
 ### Environment Variables
 
-When executing Claude commands, Prodigy sets these environment variables:
-- `PRODIGY_CONTEXT_AVAILABLE="true"` - Standard flag indicating Prodigy execution
-- `PRODIGY_CONTEXT_DIR="/path/to/.prodigy/context"` - Reserved for future context features
+When executing Claude commands, Prodigy sets this environment variable:
 - `PRODIGY_AUTOMATION="true"` - Signals automated execution mode
-
-Note: While these variables are set, the context directory feature is not yet implemented. Commands should not rely on finding actual context files at the specified path.
 
 ## MapReduce Features
 

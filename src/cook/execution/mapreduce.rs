@@ -2428,15 +2428,6 @@ impl MapReduceExecutor {
     ) -> MapReduceResult<StepResult> {
         // Set up environment variables for the command
         let mut env_vars = HashMap::new();
-        env_vars.insert("PRODIGY_CONTEXT_AVAILABLE".to_string(), "true".to_string());
-        env_vars.insert(
-            "PRODIGY_CONTEXT_DIR".to_string(),
-            context
-                .worktree_path
-                .join(".prodigy/context")
-                .to_string_lossy()
-                .to_string(),
-        );
         env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
         env_vars.insert(
             "PRODIGY_WORKTREE".to_string(),
