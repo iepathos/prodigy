@@ -229,8 +229,7 @@ mod tests {
         });
 
         let executor = ClaudeExecutorImpl::new(mock_runner);
-        let mut env_vars = HashMap::new();
-        env_vars.insert("PRODIGY_CONTEXT_AVAILABLE".to_string(), "true".to_string());
+        let env_vars = HashMap::new();
 
         let result = executor
             .execute_claude_command("/test-command", Path::new("/tmp"), env_vars)

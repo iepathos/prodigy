@@ -5,30 +5,10 @@ Analyze the Rust codebase for technical debt and perform comprehensive cleanup i
 ## Variables
 
 SCOPE: $ARGUMENTS (optional - specify scope like "src/agents", "src/mcp", "tests", or "all" for entire codebase)
-PRODIGY_CONTEXT_AVAILABLE: Environment variable indicating .prodigy context availability
-PRODIGY_CONTEXT_DIR: Path to .prodigy/context/ directory with analysis data
-PRODIGY_FOCUS: Optional focus directive to prioritize specific debt categories
 
 ## Execute
 
-### Phase 1: Context-Driven Technical Debt Analysis
-
-1. **Load Prodigy Context Data (Priority)**
-   - Check if `PRODIGY_CONTEXT_AVAILABLE=true` and context directory exists
-   - Read `.prodigy/context/technical_debt.json` for existing debt analysis
-   - Load `.prodigy/context/dependency_graph.json` for circular dependencies
-   - Parse `.prodigy/context/architecture.json` for architectural violations
-   - Review `.prodigy/context/conventions.json` for style inconsistencies
-   - Check `.prodigy/metrics/current.json` for quality metrics
-
-2. **Prioritize Using Context Data**
-   - **High Priority**: Items from technical_debt.json with impact >= 7
-   - **Focus-Driven**: If PRODIGY_FOCUS set, prioritize matching debt categories
-   - **Hotspots**: Use complexity_score and change_frequency from hotspots
-   - **Critical Coverage**: Address untested_functions from test_coverage.json
-   - **Security First**: Prioritize any security-related debt items
-
-### Phase 1b: Supplemental Analysis (if context unavailable)
+### Phase 1: Technical Debt Analysis
 
 1. **Code Organization Analysis**
    - Scan for misplaced modules and inconsistent module structure

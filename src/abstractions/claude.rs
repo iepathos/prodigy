@@ -35,8 +35,7 @@ use tokio::sync::Mutex;
 /// use std::collections::HashMap;
 ///
 /// # async fn example(client: &dyn ClaudeClient) -> anyhow::Result<()> {
-/// let mut env_vars = HashMap::new();
-/// env_vars.insert("PRODIGY_CONTEXT_AVAILABLE".to_string(), "true".to_string());
+/// let env_vars = HashMap::new();
 ///
 /// let output = client.execute_command(
 ///     "claude",

@@ -1023,8 +1023,7 @@ mod disabled_tests {
             session_id: "test".to_string(),
         };
 
-        let mut env_vars = HashMap::new();
-        env_vars.insert("PRODIGY_CONTEXT_AVAILABLE".to_string(), "true".to_string());
+        let env_vars = HashMap::new();
 
         // Set up mock response
         claude_mock.add_response(ExecutionResult {
@@ -1047,7 +1046,7 @@ mod disabled_tests {
         let calls = claude_mock.get_calls();
         assert_eq!(calls.len(), 1);
         assert_eq!(calls[0].0, command);
-        assert!(calls[0].2.contains_key("PRODIGY_CONTEXT_AVAILABLE"));
+        assert!(calls[0].2.contains_key("PRODIGY_AUTOMATION"));
     }
 
     #[tokio::test]
