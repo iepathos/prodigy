@@ -100,11 +100,11 @@ jobs:
     - name: Add Rust target
       run: rustup target add ${{ matrix.target }}
     
-    - name: Install musl tools
+    - name: Install musl tools and dependencies
       if: matrix.target == 'x86_64-unknown-linux-musl'
       run: |
         sudo apt-get update
-        sudo apt-get install -y musl-tools pkg-config
+        sudo apt-get install -y musl-tools pkg-config libssl-dev perl make
     
     - name: Cache dependencies
       uses: actions/cache@v4
@@ -116,9 +116,13 @@ jobs:
         key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
     
     - name: Build release binary
-      run: cargo build --release --target ${{ matrix.target }}
-      env:
-        OPENSSL_STATIC: ${{ matrix.target == 'x86_64-unknown-linux-musl' && '1' || '' }}
+      run: |
+        if [[ "${{ matrix.target }}" == "x86_64-unknown-linux-musl" ]]; then
+          cargo build --release --target ${{ matrix.target }} --features vendored-openssl
+        else
+          cargo build --release --target ${{ matrix.target }}
+        fi
+      shell: bash
     
     - name: Create archive (Unix)
       if: matrix.archive == 'tar.gz'
