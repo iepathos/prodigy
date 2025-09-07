@@ -43,11 +43,6 @@ Claude: "Let me see the new error..."
 - Automatic retry logic with configurable attempts
 - Custom variable capture and interpolation
 
-⚡ **Optimized Context Generation**: 90%+ reduction in context file sizes
-- Technical debt files: 8.2MB → <500KB
-- Test coverage: 266KB → <30KB  
-- Dependency graphs: 155KB → <20KB
-
 🛠️ **Enhanced Error Recovery**: Sophisticated error handling with auto-recovery
 - Automatic retry of failed formatting/linting
 - Full subprocess stdout/stderr capture
@@ -141,19 +136,17 @@ Prodigy is the orchestration layer that makes AI development **scalable, reprodu
 
 ## Core Features
 
-### Context Management
-Prodigy maintains comprehensive project context in `.prodigy/` directory:
-- **Analysis Data**: Code structure, dependencies, architecture patterns
-- **Technical Debt**: Complexity hotspots, duplication, code issues
-- **Test Coverage**: Coverage gaps, untested critical functions
-- **Metrics History**: Performance trends, quality improvements
+### Session Management
+Prodigy maintains session state in `.prodigy/` directory:
+- **Session State**: Tracks current session, iterations, and timing
+- **MapReduce Events**: Event logs for parallel job execution
+- **DLQ (Dead Letter Queue)**: Failed work items for retry
+- **Validation Results**: Workflow validation outcomes
 
-Context is automatically provided to Claude commands via environment variables:
-- `Prodigy_CONTEXT_AVAILABLE="true"` - Indicates context is ready
-- `Prodigy_CONTEXT_DIR="/path/to/.prodigy/context"` - Path to analysis data
-- `Prodigy_AUTOMATION="true"` - Signals automated execution mode
-
-For detailed context documentation, see `CLAUDE.md`.
+Environment variables passed to Claude commands:
+- `PRODIGY_CONTEXT_AVAILABLE="true"` - Standard flag for Prodigy execution
+- `PRODIGY_CONTEXT_DIR="/path/to/.prodigy/context"` - Reserved for future use
+- `PRODIGY_AUTOMATION="true"` - Signals automated execution mode
 
 ## Core Concepts
 
@@ -386,9 +379,9 @@ Parse YAML workflow definition
 ### State Management
 - **Git History**: Complete audit trail of all changes through commits
 - **Temporary Specs**: `specs/temp/iteration-*-improvements.md` contain exact fixes applied  
-- **Simple State**: `.prodigy/state.json` tracks basic session info (current score, run count)
-- **Project Context**: `.prodigy/PROJECT.md`, `ARCHITECTURE.md` provide Claude with project understanding
-- **Optimized Context (v0.1.0+)**: Context files reduced by 90%+ through smart aggregation (see CLAUDE.md for details)
+- **Session State**: `.prodigy/session_state.json` tracks session info, iterations, and timing
+- **MapReduce State**: Checkpoint files for resumable parallel jobs
+- **Event Logs**: `.prodigy/events/` contains detailed execution logs for debugging
 - All human-readable, git-friendly, no complex databases
 
 ## Why Prodigy vs Other Approaches?
@@ -677,14 +670,13 @@ prodigy/
 │   │   └── workflow/     # Workflow processing
 │   ├── config/           # Configuration management
 │   │   └── mapreduce.rs  # MapReduce config parsing
-│   ├── metrics/          # Metrics tracking and analysis
 │   ├── session/          # Session state management
 │   ├── simple_state/     # Minimal state management
 │   ├── subprocess/       # Subprocess abstraction layer
 │   └── worktree/         # Git worktree management
 ├── workflows/            # Pre-built workflow definitions
 ├── .claude/commands/     # Prodigy command definitions
-├── .prodigy/                 # Project context and state
+├── .prodigy/             # Session state and logs
 └── README.md            # This file
 
 # Worktrees are stored outside the project:

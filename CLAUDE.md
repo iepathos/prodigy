@@ -1,552 +1,148 @@
-# Prodigy Context Documentation for Claude
+# Prodigy Session Documentation for Claude
 
-This document explains how Prodigy stores and provides context information to Claude during development iterations. Understanding this structure helps Claude locate and utilize relevant project information effectively.
-
-## Important: Context Optimization (v0.1.0+)
-
-As of version 0.1.0, Prodigy's context generation has been optimized to reduce file sizes by over 90%:
-- Technical debt files reduced from 8.2MB to under 500KB
-- Analysis files reduced from 8.9MB to under 500KB  
-- Metrics files reduced from 100KB+ to under 10KB through complexity aggregation
-- Test coverage files reduced from 266KB+ to under 30KB through smart filtering
-- Dependency graph files reduced from 155KB+ to under 20KB by filtering external dependencies
-- Total context size kept under 1MB for typical projects
-- Maximal duplicate detection replaces inefficient sliding windows
-- Smart aggregation limits items per category while preserving high-impact issues
-- Hybrid coverage tracking combines test coverage with quality metrics for better prioritization
+This document explains how Prodigy manages sessions and provides information to Claude during development iterations.
 
 ## Overview
 
-Prodigy maintains rich project context in the `.prodigy/` directory, providing structured data about code quality, architecture, metrics, and development history. This context is automatically made available to Claude during `prodigy cook` operations.
+Prodigy is a workflow orchestration tool that executes Claude commands through structured YAML workflows. It manages session state, tracks execution progress, and supports parallel execution through MapReduce patterns.
 
 ## Directory Structure
 
 ```
 .prodigy/
-├── context/                    # Project analysis data
-│   ├── analysis.json          # Complete analysis results
-│   ├── dependency_graph.json  # Module dependencies & cycles
-│   ├── architecture.json      # Architecture patterns & violations
-│   ├── conventions.json       # Code conventions & naming patterns
-│   ├── technical_debt.json    # Debt items & complexity hotspots (optimized)
-│   ├── test_coverage.json     # Test coverage data (optimized)
-│   ├── hybrid_coverage.json   # Hybrid coverage with quality metrics
-│   └── analysis_metadata.json # Analysis timestamps & stats
-├── metrics/                    # Performance & quality metrics
-│   ├── current.json           # Latest metrics snapshot
-│   ├── history.json           # Historical metrics data
-│   └── reports/               # Generated metric reports
-│       └── report-{id}.txt    # Individual iteration reports
-├── state.json                 # Current session state
-├── history/                   # Session history
-│   └── {timestamp}_{id}.json  # Individual session records
-├── cache/                     # Cached computations
-└── workflow.yml               # Custom workflow configuration (optional)
+├── session_state.json         # Current session state and timing
+├── validation-result.json     # Workflow validation results
+├── events/                    # MapReduce event logs
+│   └── {job_id}/             # Job-specific events
+│       ├── {timestamp}.json  # Individual event records
+│       └── checkpoint.json   # Job checkpoint for resumption
+└── dlq/                      # Dead Letter Queue for failed items
+    └── {job_id}.json         # Failed work items for retry
 ```
 
-## Context Integration
+## Session Management
+
+### Session State (`session_state.json`)
+Tracks the current cooking session:
+```json
+{
+  "session_id": "cook-1234567890",
+  "status": "InProgress|Completed|Failed",
+  "started_at": "2024-01-01T12:00:00Z",
+  "iterations_completed": 2,
+  "files_changed": 5,
+  "worktree_name": "prodigy-session-123",
+  "iteration_timings": [[1, {"secs": 120, "nanos": 0}]],
+  "command_timings": [["claude: /prodigy-lint", {"secs": 60, "nanos": 0}]]
+}
+```
 
 ### Environment Variables
 
-When Claude commands are executed, Prodigy sets these environment variables:
-
-- `PRODIGY_CONTEXT_AVAILABLE="true"` - Indicates context data is ready
-- `PRODIGY_CONTEXT_DIR="/path/to/.prodigy/context"` - Path to analysis data
+When executing Claude commands, Prodigy sets these environment variables:
+- `PRODIGY_CONTEXT_AVAILABLE="true"` - Standard flag indicating Prodigy execution
+- `PRODIGY_CONTEXT_DIR="/path/to/.prodigy/context"` - Reserved for future context features
 - `PRODIGY_AUTOMATION="true"` - Signals automated execution mode
 
-### Command Integration Points
+Note: While these variables are set, the context directory feature is not yet implemented. Commands should not rely on finding actual context files at the specified path.
 
-Context is provided to Claude during these commands:
-- `/prodigy-code-review` - Uses full project analysis for issue identification
-- `/prodigy-implement-spec` - Uses architecture & conventions for implementation
-- `/prodigy-lint` - Uses conventions & quality metrics for cleanup
+## MapReduce Features
 
-## File Formats & Contents
+### Parallel Execution
+Prodigy supports parallel execution of work items across multiple Claude agents:
+- Each agent runs in an isolated git worktree
+- Work items are distributed automatically
+- Results are aggregated in the reduce phase
+- Failed items can be retried via the DLQ
 
-### 1. Context Analysis Files
+### Event Tracking
+Events are logged to `.prodigy/events/{job_id}/` for debugging:
+- Agent lifecycle events (started, completed, failed)
+- Work item processing status
+- Checkpoint saves for resumption
+- Error details with correlation IDs
 
-#### `context/analysis.json`
-Complete project analysis combining all components:
-```json
-{
-  "dependency_graph": { /* Module relationships */ },
-  "architecture": { /* Patterns & violations */ },
-  "conventions": { /* Code standards */ },
-  "technical_debt": { /* Debt items */ },
-  "test_coverage": { /* Coverage data */ },
-  "metadata": {
-    "timestamp": "2024-01-01T12:00:00Z",
-    "duration_ms": 1500,
-    "files_analyzed": 127,
-    "incremental": false,
-    "version": "0.1.0"
-  }
-}
-```
+### Dead Letter Queue (DLQ)
+Failed work items are stored in `.prodigy/dlq/` for manual review and retry:
+- Contains the original work item data
+- Includes failure reason and timestamp
+- Can be reprocessed with `prodigy dlq retry`
 
-#### `context/dependency_graph.json`
-Module dependency analysis (optimized):
-```json
-{
-  "nodes": {
-    "src/main.rs": {
-      "module_type": "Binary", 
-      "coupling_score": 3
-    },
-    "src/lib.rs": {
-      "module_type": "Library",
-      "import_count": 5,        // Only shown if > 0
-      "export_count": 12,       // Only shown if > 0
-      "coupling_score": 8
-    }
-  },
-  "edges": [
-    // Only internal project dependencies (excludes std, external crates)
-    {"from": "src/main.rs", "to": "src/lib.rs", "dep_type": "Import"}
-  ],
-  "cycles": [
-    ["module_a", "module_b", "module_a"]  // Circular dependencies
-  ],
-  "layers": [/* architectural layers */],
-  "coupling_analysis": {
-    "high_coupling_modules": [["src/lib.rs", 8]],  // Top 10 only
-    "avg_coupling": 3.5,
-    "max_coupling": 8
-  }
-}
-```
+## Workflow Execution
 
-**Optimization Details (v0.1.0+)**:
-- External dependencies filtered out (std, crates)
-- Only project-internal edges preserved
-- Node data compressed (zero values omitted)
-- Coupling analysis aggregated to top 10 modules
-- Reduces file size from ~155KB to ~20KB (87% reduction)
+### Command Types
+Prodigy supports several command types in workflows:
+- `claude:` - Execute Claude commands via Claude Code CLI
+- `shell:` - Run shell commands
+- `test:` - Run tests with special handling
 
-#### `context/architecture.json`
-Architectural patterns and violations:
-```json
-{
-  "patterns": ["MVC", "Repository", "Builder"],
-  "layers": [
-    {
-      "name": "presentation",
-      "modules": ["src/ui/", "src/handlers/"],
-      "dependencies": ["business"]
-    }
-  ],
-  "components": {
-    "UserService": {
-      "responsibility": "User management operations",
-      "interfaces": ["UserRepository", "AuthService"],
-      "dependencies": ["Database", "Cache"]
-    }
-  },
-  "violations": [
-    {
-      "rule": "Layered Architecture",
-      "location": "src/ui/mod.rs:45",
-      "severity": "High",
-      "description": "UI layer directly accessing database"
-    }
-  ]
-}
-```
+### Variable Interpolation
+Workflows support variable interpolation:
+- `${item.field}` - Access work item fields in MapReduce
+- `${shell.output}` - Capture command output
+- `${map.results}` - Access map phase results in reduce
+- `$ARG` - Pass arguments from command line
 
-#### `context/conventions.json`
-Code conventions and style patterns:
-```json
-{
-  "naming_patterns": {
-    "file_naming": "snake_case",
-    "function_naming": "snake_case",
-    "type_naming": "PascalCase",
-    "constant_naming": "SCREAMING_SNAKE_CASE"
-  },
-  "code_patterns": [
-    "Result<T, Error> for error handling",
-    "Builder pattern for complex constructors",
-    "newtype pattern for type safety"
-  ],
-  "project_idioms": [
-    "Use ? operator for error propagation",
-    "Prefer &str over String in function parameters",
-    "Use #[derive] for common traits"
-  ],
-  "violations": {
-    "src/models.rs": [
-      "Function 'getData' should be 'get_data'",
-      "Type 'userInfo' should be 'UserInfo'"
-    ]
-  }
-}
-```
+### Error Handling
+Commands can specify error handling behavior:
+- `on_failure:` - Commands to run on failure
+- `max_attempts:` - Retry count
+- `fail_workflow:` - Whether to fail entire workflow
+- `commit_required:` - Whether a git commit is expected
 
-#### `context/technical_debt.json`
-Technical debt analysis:
-```json
-{
-  "debt_items": [
-    {
-      "title": "High cyclomatic complexity in main.rs",
-      "description": "parse_args function has complexity of 15, should be < 10",
-      "debt_type": "Complexity",
-      "location": "src/main.rs",
-      "impact": 7,
-      "effort": 4,
-      "tags": ["complexity", "refactoring"]
-    }
-  ],
-  "hotspots": [
-    {
-      "file": "src/parser.rs",
-      "complexity_score": 23,
-      "change_frequency": 12,
-      "risk_level": "High"
-    }
-  ],
-  "duplication_map": {
-    "hash_1234abcd": [
-      {
-        "file": "src/utils.rs", 
-        "start_line": 45,
-        "end_line": 60,
-        "content_hash": "hash_1234abcd"
-      },
-      {
-        "file": "src/helpers.rs",
-        "start_line": 23, 
-        "end_line": 38,
-        "content_hash": "hash_1234abcd"
-      }
-    ]
-  }
-}
-```
+## Git Integration
 
-#### `context/test_coverage.json`
-Test coverage information (optimized for Claude consumption):
-```json
-{
-  "overall_coverage": 0.73,
-  "file_coverage": {
-    "src/auth.rs": {  // Only files with < 50% coverage or no tests
-      "path": "",     // Path field cleared to save space
-      "coverage_percentage": 0.15,
-      "tested_lines": 20,
-      "total_lines": 133,
-      "tested_functions": 2,
-      "total_functions": 10,
-      "has_tests": true
-    }
-  },
-  "untested_functions": [
-    // ALL High criticality functions (typically 0-5)
-    {
-      "file": "src/auth.rs",
-      "name": "validate_token",
-      "line_number": 45,
-      "criticality": "High"
-    },
-    // Top 30 Medium criticality functions
-    {
-      "file": "src/payment.rs",
-      "name": "process_payment",
-      "line_number": 123,
-      "criticality": "Medium"
-    },
-    // Top 10 Low criticality functions as examples
-    {
-      "file": "src/utils.rs",
-      "name": "format_string",
-      "line_number": 67,
-      "criticality": "Low"
-    }
-  ],
-  "critical_paths": [
-    {
-      "description": "Authentication and authorization",
-      "files": ["src/auth"],
-      "risk_level": "Critical"
-    }
-  ]
-}
-```
+### Worktree Management
+Prodigy uses git worktrees for isolation:
+- Each session gets its own worktree
+- Located in `~/.prodigy/worktrees/{project-name}/`
+- Automatic branch creation and management
+- Clean merge back to parent branch
 
-**Optimization Details (v0.1.0+)**:
-- File coverage: Only includes files with < 50% coverage or no tests
-- Untested functions: Prioritized by criticality
-  - ALL High criticality functions (preserves critical security/payment functions)
-  - Top 30 Medium criticality functions (most important business logic)
-  - Top 10 Low criticality functions (examples for pattern recognition)
-- Reduces file size from ~266KB to ~26KB (90% reduction)
-- Redundant "path" field cleared in file_coverage entries
+### Commit Tracking
+All changes are tracked via git commits:
+- Each successful command creates a commit
+- Commit messages include command details
+- Full audit trail of all modifications
 
-#### `context/hybrid_coverage.json`
-Hybrid coverage information combining test coverage with quality metrics:
-```json
-{
-  "coverage_map": { /* Standard test coverage data */ },
-  "priority_gaps": [
-    {
-      "gap": {
-        "file": "src/critical.rs",
-        "functions": ["process_payment"],
-        "coverage_percentage": 20.0,
-        "risk": "High"
-      },
-      "quality_metrics": {
-        "file": "src/critical.rs",
-        "complexity_trend": "Degrading",
-        "lint_warnings_trend": "Stable",
-        "duplication_trend": "Improving",
-        "recent_changes": 15,
-        "bug_frequency": 0.8
-      },
-      "priority_score": 25.0,
-      "priority_reason": "Low coverage with increasing complexity, frequent changes"
-    }
-  ],
-  "quality_correlation": {
-    "positive_correlations": [],
-    "negative_correlations": [],
-    "correlation_coefficient": 0.65
-  },
-  "critical_files": [
-    {
-      "file": "src/payment.rs",
-      "coverage_percentage": 15.0,
-      "complexity": 20,
-      "lint_warnings": 8,
-      "recent_bugs": 5,
-      "risk_score": 8.5
-    }
-  ],
-  "hybrid_score": 65.0
-}
-```
+## Available Commands
 
-### 2. Metrics Files
-
-#### `metrics/current.json`
-Latest performance and quality metrics (optimized format as of v0.1.0):
-```json
-{
-  "test_coverage": 73.5,
-  "type_coverage": 89.2,
-  "lint_warnings": 12,
-  "code_duplication": 8.3,
-  "doc_coverage": 67.1,
-  "benchmark_results": {
-    "parse_file": "15.2ms",
-    "process_data": "43.1ms"
-  },
-  "compile_time": "12.5s",
-  "binary_size": 4194304,
-  "complexity_summary": {
-    "by_file": {
-      "src/main.rs": {
-        "avg_cyclomatic": 8.5,
-        "max_cyclomatic": 15,
-        "avg_cognitive": 10.2,
-        "max_cognitive": 18,
-        "functions_count": 12,
-        "high_complexity_count": 2
-      }
-    },
-    "total_functions": 597,
-    "filtered_functions": 485
-  },
-  "complexity_hotspots": [
-    {
-      "file": "src/parser.rs",
-      "function": "parse_args",
-      "cyclomatic": 15,
-      "cognitive": 22
-    }
-  ],
-  "max_nesting_depth": 4,
-  "total_lines": 2847,
-  "tech_debt_score": 7.2,
-  "improvement_velocity": 1.3,
-  "timestamp": "2024-01-01T12:00:00Z",
-  "iteration_id": "iteration-1704110400"
-}
-```
-
-**Note**: The complexity metrics format was optimized in v0.1.0 to reduce file size by 90%+. The old format with individual function entries (`cyclomatic_complexity` and `cognitive_complexity` maps) is still supported for backward compatibility but new files use the compressed format shown above.
-
-#### `metrics/history.json`
-Historical metrics for trend analysis:
-```json
-{
-  "snapshots": [
-    {
-      "metrics": { /* metrics object */ },
-      "iteration": 1,
-      "commit_sha": "abc123",
-      "timestamp": "2024-01-01T12:00:00Z"
-    }
-  ],
-  "trends": {
-    "coverage_trend": "Improving(5.2)",
-    "complexity_trend": "Stable", 
-    "performance_trend": "Degrading(2.1)",
-    "quality_trend": "Improving(8.7)"
-  }
-}
-```
-
-### 3. State Management Files
-
-#### `state.json`
-Current project state:
-```json
-{
-  "version": "1.0",
-  "project_id": "prodigy-abc123",
-  "last_run": "2024-01-01T12:00:00Z",
-  "total_runs": 15
-}
-```
-
-#### `history/{timestamp}_{id}.json`
-Individual session records:
-```json
-{
-  "session_id": "session-abc123",
-  "started_at": "2024-01-01T12:00:00Z",
-  "completed_at": "2024-01-01T12:30:00Z",
-  "iterations": 3,
-  "files_changed": 7,
-  "summary": "Fixed 5 clippy warnings, improved test coverage to 75%"
-}
-```
-
-### 4. Worktree State (when using --worktree)
-
-Worktree sessions maintain additional state for isolation:
-```json
-{
-  "session_id": "wt-abc123",
-  "worktree_name": "prodigy-performance-1704110400",
-  "branch": "prodigy/performance-improvements",
-  "created_at": "2024-01-01T12:00:00Z",
-  "status": "in_progress",
-  "iterations": {"completed": 2, "max": 5},
-  "stats": {"files_changed": 4, "commits": 6},
-  "last_checkpoint": {
-    "iteration": 2,
-    "last_command": "/prodigy-implement-spec",
-    "last_spec_id": "iteration-1704110400-improvements",
-    "files_modified": ["src/main.rs", "src/utils.rs"]
-  },
-  "resumable": true
-}
-```
-
-## Usage Patterns for Claude
-
-### 1. Accessing Context Data
-
-When executing Prodigy commands, Claude can read context via environment variables:
-
-```bash
-# Check if context is available
-if [ "$PRODIGY_CONTEXT_AVAILABLE" = "true" ]; then
-  # Read analysis data
-  CONTEXT_DIR="$PRODIGY_CONTEXT_DIR"
-  analysis=$(cat "$CONTEXT_DIR/analysis.json")
-  
-  # Parse specific components
-  debt=$(cat "$CONTEXT_DIR/technical_debt.json")
-  coverage=$(cat "$CONTEXT_DIR/test_coverage.json")
-fi
-```
-
-### 2. Context-Driven Analysis
-
-Use the context data to prioritize analysis:
-
-```python
-# Prioritize based on impact scores and risk levels
-# Use debt_items tags for categorization
-# Target hotspots with high complexity scores
-# Address critical gaps in test coverage
-```
-
-### 3. Incremental Context Understanding
-
-Context files are updated after each analysis, so Claude can:
-
-1. **Compare States**: Check `analysis_metadata.json` timestamp to determine if context is stale
-2. **Track Progress**: Use metrics history to understand improvement trends  
-3. **Resume Work**: Check for interrupted sessions via worktree state
-4. **Avoid Rework**: Review recent changes in session history
-
-### 4. Targeted Improvements
-
-Use context to make informed decisions:
-
-- **High-Impact Issues**: Target debt items with high impact scores
-- **Coverage Gaps**: Prioritize untested critical functions
-- **Architecture Violations**: Address high-severity architectural issues
-- **Performance Regressions**: Track metrics trends to identify degradation
-
-## Context Refresh
-
-Context is automatically refreshed:
-- Before each `prodigy cook` session starts
-- When files change (incremental updates)
-- After each iteration completes (metrics only)
-
-Context age can be checked via `analysis_metadata.json` timestamp. Context older than 1 hour is automatically regenerated.
-
-## Configuration
-
-### Custom Workflows
-
-Place workflow configuration in `.prodigy/workflow.yml`:
-```yaml
-name: "Custom Analysis Workflow"
-steps:
-  - name: "Security Review"
-    command: "/prodigy-security-audit"
-  - name: "Performance Check" 
-    command: "/prodigy-performance"
-```
-
-### Cache Management
-
-Prodigy uses `.prodigy/cache/` for expensive computations:
-- Dependency analysis results
-- Complexity calculations  
-- Coverage report parsing
-
-Cache is invalidated when source files change.
+Prodigy CLI commands:
+- `prodigy cook` - Execute a workflow
+- `prodigy worktree` - Manage git worktrees
+- `prodigy init` - Initialize Claude commands
+- `prodigy resume-job` - Resume MapReduce jobs
+- `prodigy events` - View execution events
+- `prodigy dlq` - Manage failed work items
 
 ## Best Practices
 
-1. **Always Check Context**: Verify `PRODIGY_CONTEXT_AVAILABLE` before assuming context exists
-2. **Use Specific Files**: Read targeted context files rather than the complete analysis
-3. **Use Context**: Leverage the context data when prioritizing issues
-4. **Track Progress**: Use metrics history to validate improvements
-5. **Handle Missing Data**: Gracefully handle missing or incomplete context files
+1. **Session Hygiene**: Clean up completed worktrees with `prodigy worktree clean`
+2. **Error Recovery**: Check DLQ for failed items after MapReduce jobs
+3. **Workflow Design**: Keep workflows simple and focused
+4. **Testing**: Always include test steps in workflows
+5. **Monitoring**: Use `--verbose` flag for detailed execution logs
+
+## Limitations
+
+- No automatic context analysis or generation
+- Each iteration runs independently (no memory between sessions)
+- Context directory feature is planned but not implemented
+- Limited to Claude commands available in `.claude/commands/`
 
 ## Troubleshooting
 
-### Context Not Available
-- Check if `.prodigy/context/` directory exists
-- Verify `analysis_metadata.json` has recent timestamp
-- Run `prodigy analyze context` to regenerate
+### Session Issues
+- Check `.prodigy/session_state.json` for session status
+- View events in `.prodigy/events/` for detailed logs
+- Use `--verbose` flag for more output
 
-### Stale Context  
-- Context older than 1 hour is automatically refreshed
-- Force refresh with `prodigy analyze context --save`
+### MapReduce Failures
+- Check `.prodigy/dlq/` for failed items
+- Resume with `prodigy resume-job`
+- Review checkpoint in `.prodigy/events/{job_id}/checkpoint.json`
 
-### Missing Metrics
-- Requires Rust project with Cargo.toml
-- Some metrics need external tools (cargo-tarpaulin, cargo-bench)
-- Enable metrics with `prodigy cook --metrics`
-
-This context system enables Claude to make informed, project-specific improvements rather than generic suggestions, leading to more effective code enhancement iterations.
+### Worktree Problems
+- List worktrees with `prodigy worktree ls`
+- Clean stuck worktrees with `prodigy worktree clean -f`
+- Check `~/.prodigy/worktrees/` for orphaned directories
