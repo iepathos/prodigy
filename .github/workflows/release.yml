@@ -86,10 +86,6 @@ jobs:
             target: aarch64-apple-darwin
             binary: prodigy
             archive: tar.gz
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            binary: prodigy.exe
-            archive: zip
     
     steps:
     - uses: actions/checkout@v5
@@ -127,31 +123,13 @@ jobs:
         cd release
         tar -czf ../prodigy-${{ matrix.target }}.tar.gz .
     
-    - name: Create archive (Windows)
-      if: matrix.archive == 'zip'
-      run: |
-        mkdir release
-        cp target/${{ matrix.target }}/release/${{ matrix.binary }} release/
-        cp README.md release/
-        cp LICENSE release/
-        cd release
-        7z a ../prodigy-${{ matrix.target }}.zip .
-    
     - name: Generate checksums
       shell: bash
       run: |
-        if [[ "${{ matrix.archive }}" == "tar.gz" ]]; then
-          if [[ "${{ runner.os }}" == "macOS" ]]; then
-            shasum -a 256 prodigy-${{ matrix.target }}.tar.gz > prodigy-${{ matrix.target }}.tar.gz.sha256
-          else
-            sha256sum prodigy-${{ matrix.target }}.tar.gz > prodigy-${{ matrix.target }}.tar.gz.sha256
-          fi
+        if [[ "${{ runner.os }}" == "macOS" ]]; then
+          shasum -a 256 prodigy-${{ matrix.target }}.tar.gz > prodigy-${{ matrix.target }}.tar.gz.sha256
         else
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            powershell -Command "Get-FileHash -Algorithm SHA256 prodigy-${{ matrix.target }}.zip | ForEach-Object { \$_.Hash.ToLower() + '  ' + \$_.Path.Split('\')[-1] }" > prodigy-${{ matrix.target }}.zip.sha256
-          else
-            sha256sum prodigy-${{ matrix.target }}.zip > prodigy-${{ matrix.target }}.zip.sha256
-          fi
+          sha256sum prodigy-${{ matrix.target }}.tar.gz > prodigy-${{ matrix.target }}.tar.gz.sha256
         fi
     
     - name: Upload Release Assets
@@ -159,12 +137,6 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        if [[ "${{ matrix.archive }}" == "tar.gz" ]]; then
-          gh release upload "${{ needs.create-release.outputs.version }}" \
-            "prodigy-${{ matrix.target }}.tar.gz" \
-            "prodigy-${{ matrix.target }}.tar.gz.sha256"
-        else
-          gh release upload "${{ needs.create-release.outputs.version }}" \
-            "prodigy-${{ matrix.target }}.zip" \
-            "prodigy-${{ matrix.target }}.zip.sha256"
-        fi
+        gh release upload "${{ needs.create-release.outputs.version }}" \
+          "prodigy-${{ matrix.target }}.tar.gz" \
+          "prodigy-${{ matrix.target }}.tar.gz.sha256"
