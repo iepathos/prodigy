@@ -246,8 +246,10 @@ ci:
      export CARGO_INCREMENTAL=0 && \
      export RUSTFLAGS="-Dwarnings" && \
      export RUST_BACKTRACE=1 && \
-     echo "Running tests..." && \
+     echo "Running tests with nextest..." && \
      cargo nextest run --all-features && \
+     echo "Running doctests..." && \
+     cargo test --doc --all-features && \
      echo "Running clippy..." && \
      cargo clippy --all-targets --all-features -- -D warnings && \
      echo "Checking formatting..." && \

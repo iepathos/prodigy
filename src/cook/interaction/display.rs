@@ -21,7 +21,7 @@
 //! based on the message type. Never embed icons directly in message strings.
 //!
 //! ### Examples
-//! ```rust
+//! ```rust,ignore
 //! // Good: Use semantic methods
 //! display.metric("Total time", "15.2s");
 //! display.progress("Processing items...");
