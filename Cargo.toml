@@ -32,7 +32,6 @@ gray_matter = "0.3"
 shell-words = "1.1"
 async-trait = "0.1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "native-tls"] }
-openssl = { version = "0.10", optional = true }
 tera = "1.19"
 sha2 = "0.10"
 petgraph = "0.8"
@@ -63,7 +62,7 @@ tokio-tungstenite = "0.27"
 [features]
 default = []
 # Enable vendored OpenSSL for static linking (useful for musl builds)
-vendored-openssl = ["openssl/vendored", "reqwest/native-tls-vendored"]
+vendored-openssl = ["reqwest/native-tls-vendored"]
 
 [dev-dependencies]
 assert_cmd = "2.0"
