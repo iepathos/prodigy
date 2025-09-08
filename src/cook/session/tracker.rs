@@ -179,13 +179,20 @@ impl SessionManager for SessionTrackerImpl {
     }
 
     async fn save_checkpoint(&self, state: &SessionState) -> Result<()> {
+        // Create a copy with status set to Interrupted for checkpoint
+        let mut checkpoint_state = state.clone();
+        checkpoint_state.status = SessionStatus::Interrupted;
+        
+        // Update the internal state with Interrupted status
+        *self.state.lock().unwrap() = checkpoint_state.clone();
+        
         // Save to both standard location and session-specific file
         let session_file = self.base_path.join("session_state.json");
         self.save_state(&session_file).await?;
 
-        // Also save a session-specific backup
-        let specific_file = self.get_session_file_path(&state.session_id);
-        let json = serde_json::to_string_pretty(state)?;
+        // Also save a session-specific backup with Interrupted status
+        let specific_file = self.get_session_file_path(&checkpoint_state.session_id);
+        let json = serde_json::to_string_pretty(&checkpoint_state)?;
 
         // Ensure directory exists
         if let Some(parent) = specific_file.parent() {
