@@ -169,8 +169,8 @@ Built for real development tasks:
 ## Quick Start
 
 ```bash
-# Install Prodigy
-cargo install --git https://github.com/iepathos/prodigy
+# Install Prodigy (Linux/macOS)
+curl -sSL https://raw.githubusercontent.com/iepathos/prodigy/master/install.sh | bash
 
 # Initialize in your project
 prodigy init
@@ -186,6 +186,26 @@ prodigy cook workflows/debtmap-mapreduce.yml --worktree
 
 ## Installation
 
+### Quick Install (Recommended)
+
+```bash
+# Auto-install latest release (Linux/macOS)
+curl -sSL https://raw.githubusercontent.com/iepathos/prodigy/master/install.sh | bash
+
+# Or download and run manually
+wget https://raw.githubusercontent.com/iepathos/prodigy/master/install.sh
+chmod +x install.sh
+./install.sh
+```
+
+The installer will:
+- Auto-detect your OS and architecture  
+- Download the latest release from GitHub
+- Install to `~/.cargo/bin` or `~/.local/bin`
+- Optionally add to your PATH
+
+### From Source
+
 ```bash
 # Clone and build
 git clone https://github.com/iepathos/prodigy
@@ -194,6 +214,13 @@ cargo build --release
 
 # Add to PATH or use directly
 ./target/release/prodigy cook workflows/implement.yml
+```
+
+### From Cargo
+
+```bash
+# Install directly from Git
+cargo install --git https://github.com/iepathos/prodigy
 ```
 
 ## Usage
@@ -750,7 +777,7 @@ MIT
 
 ```bash
 # Install and start improving your code in under a minute
-cargo install --git https://github.com/iepathos/prodigy
+curl -sSL https://raw.githubusercontent.com/iepathos/prodigy/master/install.sh | bash
 cd your-project
 prodigy init
 prodigy cook workflows/implement.yml
