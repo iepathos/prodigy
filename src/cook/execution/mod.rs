@@ -2,7 +2,9 @@
 //!
 //! Provides abstractions for running commands and Claude CLI integration.
 
+pub mod bridge;
 pub mod claude;
+pub mod command;
 pub mod data_pipeline;
 pub mod dlq;
 #[cfg(test)]
@@ -11,12 +13,15 @@ pub mod errors;
 #[cfg(test)]
 pub mod errors_tests;
 pub mod events;
+pub mod executor;
 pub mod interpolation;
 pub mod mapreduce;
 #[cfg(test)]
 pub mod mapreduce_integration_tests;
 #[cfg(test)]
 pub mod mapreduce_tests;
+pub mod output;
+pub mod process;
 pub mod runner;
 #[cfg(test)]
 pub mod shell_failure_tests;
@@ -24,7 +29,10 @@ pub mod state;
 #[cfg(test)]
 pub mod state_tests;
 
+pub use bridge::{create_legacy_executor, LegacyExecutorBridge};
 pub use claude::{ClaudeExecutor, ClaudeExecutorImpl};
+pub use command::{CommandRequest, CommandSpec, CommandType, ExecutionConfig, OutputFormat};
+pub use executor::{CommandExecutor as UnifiedExecutor, UnifiedCommandExecutor};
 pub use mapreduce::{
     AgentResult, AgentStatus, MapPhase, MapReduceConfig, MapReduceExecutor, ReducePhase,
     ResumeOptions, ResumeResult,
