@@ -457,14 +457,18 @@ impl WorkflowExecutor {
     /// Format variable value with sensitive data masking
     fn format_variable_value_with_masking(&self, name: &str, value: &str) -> String {
         // Check if this variable should be masked based on name patterns
-        let should_mask_by_name = self.sensitive_config.name_patterns.iter().any(|pattern| {
-            pattern.is_match(name)
-        });
+        let should_mask_by_name = self
+            .sensitive_config
+            .name_patterns
+            .iter()
+            .any(|pattern| pattern.is_match(name));
 
         // Check if this value should be masked based on value patterns
-        let should_mask_by_value = self.sensitive_config.value_patterns.iter().any(|pattern| {
-            pattern.is_match(value)
-        });
+        let should_mask_by_value = self
+            .sensitive_config
+            .value_patterns
+            .iter()
+            .any(|pattern| pattern.is_match(value));
 
         if should_mask_by_name || should_mask_by_value {
             // Return masked value
@@ -484,7 +488,7 @@ impl WorkflowExecutor {
     /// Static helper for formatting variable values
     fn format_variable_value_static(value: &str) -> String {
         const MAX_LENGTH: usize = 200;
-        
+
         // Try to parse as JSON for pretty printing
         if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(value) {
             // Handle arrays and objects specially
@@ -494,7 +498,8 @@ impl WorkflowExecutor {
                         return "[]".to_string();
                     }
                     // For arrays, show as JSON if small, otherwise show count
-                    let json_str = serde_json::to_string(&json_val).unwrap_or_else(|_| value.to_string());
+                    let json_str =
+                        serde_json::to_string(&json_val).unwrap_or_else(|_| value.to_string());
                     if json_str.len() <= MAX_LENGTH {
                         return json_str;
                     } else {
@@ -513,7 +518,11 @@ impl WorkflowExecutor {
                             // Show abbreviated version
                             let keys: Vec<_> = obj.keys().take(3).cloned().collect();
                             let preview = if obj.len() > 3 {
-                                format!("{{ {}, ... ({} total fields) }}", keys.join(", "), obj.len())
+                                format!(
+                                    "{{ {}, ... ({} total fields) }}",
+                                    keys.join(", "),
+                                    obj.len()
+                                )
                             } else {
                                 format!("{{ {} }}", keys.join(", "))
                             };
@@ -527,14 +536,18 @@ impl WorkflowExecutor {
                 }
             }
         }
-        
+
         // Not JSON, handle as plain string
         if value.len() <= MAX_LENGTH {
             // Quote strings to make them clear
-            format!("\"{}\"" , value)
+            format!("\"{}\"", value)
         } else {
             // Truncate long values
-            format!("\"{}...\" (showing first {} chars)", &value[..MAX_LENGTH], MAX_LENGTH)
+            format!(
+                "\"{}...\" (showing first {} chars)",
+                &value[..MAX_LENGTH],
+                MAX_LENGTH
+            )
         }
     }
 
@@ -2332,21 +2345,23 @@ mod tests {
     mod test_mocks {
         use super::*;
         use crate::cook::execution::{ClaudeExecutor, ExecutionResult};
-        use crate::cook::interaction::{UserInteraction, SpinnerHandle};
-        use crate::cook::session::{SessionManager, SessionSummary, SessionUpdate, SessionState, SessionInfo};
         use crate::cook::interaction::VerbosityLevel;
+        use crate::cook::interaction::{SpinnerHandle, UserInteraction};
+        use crate::cook::session::{
+            SessionInfo, SessionManager, SessionState, SessionSummary, SessionUpdate,
+        };
         use async_trait::async_trait;
-        use std::path::Path;
         use std::collections::HashMap;
+        use std::path::Path;
 
         pub struct MockClaudeExecutor;
-        
+
         impl MockClaudeExecutor {
             pub fn new() -> Self {
                 Self
             }
         }
-        
+
         #[async_trait]
         impl ClaudeExecutor for MockClaudeExecutor {
             async fn execute_claude_command(
@@ -2357,85 +2372,85 @@ mod tests {
             ) -> Result<ExecutionResult> {
                 unreachable!("Not used in format_variable_value tests")
             }
-            
+
             async fn check_claude_cli(&self) -> Result<bool> {
                 unreachable!("Not used in format_variable_value tests")
             }
-            
+
             async fn get_claude_version(&self) -> Result<String> {
                 unreachable!("Not used in format_variable_value tests")
             }
         }
 
         pub struct MockSessionManager;
-        
+
         impl MockSessionManager {
             pub fn new() -> Self {
                 Self
             }
         }
-        
+
         #[async_trait]
         impl SessionManager for MockSessionManager {
             async fn start_session(&self, _session_id: &str) -> Result<()> {
                 unreachable!("Not used in format_variable_value tests")
             }
-            
+
             async fn update_session(&self, _update: SessionUpdate) -> Result<()> {
                 unreachable!("Not used in format_variable_value tests")
             }
-            
+
             async fn complete_session(&self) -> Result<SessionSummary> {
                 unreachable!("Not used in format_variable_value tests")
             }
-            
+
             fn get_state(&self) -> SessionState {
                 unreachable!("Not used in format_variable_value tests")
             }
-            
+
             async fn save_state(&self, _path: &Path) -> Result<()> {
                 unreachable!("Not used in format_variable_value tests")
             }
-            
+
             async fn load_state(&self, _path: &Path) -> Result<()> {
                 unreachable!("Not used in format_variable_value tests")
             }
-            
+
             async fn load_session(&self, _session_id: &str) -> Result<SessionState> {
                 unreachable!("Not used in format_variable_value tests")
             }
-            
+
             async fn save_checkpoint(&self, _state: &SessionState) -> Result<()> {
                 unreachable!("Not used in format_variable_value tests")
             }
-            
+
             async fn list_resumable(&self) -> Result<Vec<SessionInfo>> {
                 unreachable!("Not used in format_variable_value tests")
             }
-            
+
             async fn get_last_interrupted(&self) -> Result<Option<String>> {
                 unreachable!("Not used in format_variable_value tests")
             }
         }
 
         pub struct MockUserInteraction;
-        
+
         impl MockUserInteraction {
             pub fn new() -> Self {
                 Self
             }
         }
-        
+
         #[async_trait]
         impl UserInteraction for MockUserInteraction {
             async fn prompt_yes_no(&self, _message: &str) -> Result<bool> {
                 unreachable!("Not used in format_variable_value tests")
             }
-            
+
             async fn prompt_text(&self, _message: &str, _default: Option<&str>) -> Result<String> {
                 unreachable!("Not used in format_variable_value tests")
             }
-            
+
             fn display_info(&self, _message: &str) {}
             fn display_warning(&self, _message: &str) {}
             fn display_error(&self, _message: &str) {}
@@ -2454,7 +2469,8 @@ mod tests {
             fn display_metric(&self, _label: &str, _value: &str) {}
             fn display_status(&self, _message: &str) {}
             fn iteration_start(&self, _current: u32, _total: u32) {}
-            fn iteration_end(&self, _current: u32, _duration: std::time::Duration, _success: bool) {}
+            fn iteration_end(&self, _current: u32, _duration: std::time::Duration, _success: bool) {
+            }
             fn step_start(&self, _step: u32, _total: u32, _description: &str) {}
             fn step_end(&self, _step: u32, _success: bool) {}
             fn command_output(&self, _output: &str, _verbosity: VerbosityLevel) {}
@@ -2467,7 +2483,7 @@ mod tests {
 
     #[test]
     fn test_format_variable_value_short_string() {
-        use self::test_mocks::{MockClaudeExecutor, MockUserInteraction, MockSessionManager};
+        use self::test_mocks::{MockClaudeExecutor, MockSessionManager, MockUserInteraction};
         use std::sync::Arc;
 
         let executor = WorkflowExecutor::new(
@@ -2483,7 +2499,7 @@ mod tests {
 
     #[test]
     fn test_format_variable_value_json_array() {
-        use self::test_mocks::{MockClaudeExecutor, MockUserInteraction, MockSessionManager};
+        use self::test_mocks::{MockClaudeExecutor, MockSessionManager, MockUserInteraction};
         use std::sync::Arc;
 
         let executor = WorkflowExecutor::new(
@@ -2499,7 +2515,7 @@ mod tests {
 
     #[test]
     fn test_format_variable_value_large_array() {
-        use self::test_mocks::{MockClaudeExecutor, MockUserInteraction, MockSessionManager};
+        use self::test_mocks::{MockClaudeExecutor, MockSessionManager, MockUserInteraction};
         use std::sync::Arc;
 
         let executor = WorkflowExecutor::new(
@@ -2517,7 +2533,7 @@ mod tests {
 
     #[test]
     fn test_format_variable_value_json_object() {
-        use self::test_mocks::{MockClaudeExecutor, MockUserInteraction, MockSessionManager};
+        use self::test_mocks::{MockClaudeExecutor, MockSessionManager, MockUserInteraction};
         use std::sync::Arc;
 
         let executor = WorkflowExecutor::new(
@@ -2537,7 +2553,7 @@ mod tests {
 
     #[test]
     fn test_format_variable_value_truncated() {
-        use self::test_mocks::{MockClaudeExecutor, MockUserInteraction, MockSessionManager};
+        use self::test_mocks::{MockClaudeExecutor, MockSessionManager, MockUserInteraction};
         use std::sync::Arc;
 
         let executor = WorkflowExecutor::new(
