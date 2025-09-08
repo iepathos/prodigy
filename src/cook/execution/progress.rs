@@ -407,8 +407,8 @@ impl EnhancedProgressTracker {
         Ok(())
     }
 
-    /// Update agent progress
-    pub async fn update_agent_progress(
+    /// Internal update agent progress implementation
+    async fn update_agent_progress_impl(
         &self,
         agent_id: &str,
         progress: AgentProgress,
@@ -430,6 +430,15 @@ impl EnhancedProgressTracker {
         self.recalculate_metrics().await?;
 
         Ok(())
+    }
+
+    /// Update agent progress
+    pub async fn update_agent_progress(
+        &self,
+        agent_id: &str,
+        progress: AgentProgress,
+    ) -> MapReduceResult<()> {
+        self.update_agent_progress_impl(agent_id, progress).await
     }
 
     /// Update agent state
@@ -1113,18 +1122,19 @@ impl ProgressReporter for EnhancedProgressTracker {
         agent_id: &str,
         progress: AgentProgress,
     ) -> MapReduceResult<()> {
-        self.update_agent_progress(agent_id, progress).await
+        // Call the internal implementation directly
+        self.update_agent_progress_impl(agent_id, progress).await
     }
 
     async fn get_overall_progress(&self) -> MapReduceResult<f32> {
-        Ok(self.get_overall_progress().await)
+        Ok(EnhancedProgressTracker::get_overall_progress(self).await)
     }
 
     async fn get_estimated_completion(&self) -> MapReduceResult<Option<DateTime<Utc>>> {
-        Ok(self.get_estimated_completion().await)
+        Ok(EnhancedProgressTracker::get_estimated_completion(self).await)
     }
 
     async fn export_progress(&self, format: ExportFormat) -> MapReduceResult<Vec<u8>> {
-        self.export_progress(format).await
+        EnhancedProgressTracker::export_progress(self, format).await
     }
 }

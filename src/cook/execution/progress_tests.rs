@@ -378,7 +378,7 @@ mod cli_progress_viewer_tests {
     #[tokio::test]
     async fn test_cli_viewer_initialization() {
         let tracker = Arc::new(EnhancedProgressTracker::new("test-job".to_string(), 10));
-        let viewer = CLIProgressViewer::new(tracker.clone());
+        let _viewer = CLIProgressViewer::new(tracker.clone());
         
         // Viewer initialized correctly with expected interval
     }
@@ -412,7 +412,6 @@ mod cli_progress_viewer_tests {
 #[cfg(test)]
 mod progress_web_server_tests {
     use super::*;
-    use std::sync::Arc;
 
     #[tokio::test]
     async fn test_web_server_initialization() {
