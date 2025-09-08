@@ -304,6 +304,11 @@ impl OldSessionManager for SessionManagerAdapter {
                     workflow_state: None,
                     execution_environment: None,
                     last_checkpoint: None,
+                    workflow_hash: None,
+                    workflow_type: None,
+                    execution_context: None,
+                    checkpoint_version: 1,
+                    last_validated_at: None,
                 };
             }
         }

@@ -466,6 +466,10 @@ impl DefaultCookOrchestrator {
                     success: true,
                     output: None,
                     duration: std::time::Duration::from_secs(0),
+                    error: None,
+                    started_at: chrono::Utc::now(),
+                    completed_at: chrono::Utc::now(),
+                    exit_code: Some(0),
                 });
 
             // Save checkpoint after successful execution
