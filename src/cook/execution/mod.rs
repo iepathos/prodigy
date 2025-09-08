@@ -32,6 +32,7 @@ pub mod output_tests;
 pub mod process;
 #[cfg(test)]
 pub mod process_tests;
+pub mod progress;
 pub mod runner;
 #[cfg(test)]
 pub mod shell_failure_tests;

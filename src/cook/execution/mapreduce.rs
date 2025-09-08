@@ -9,6 +9,9 @@ use crate::cook::execution::dlq::{DeadLetterQueue, DeadLetteredItem, ErrorType, 
 use crate::cook::execution::errors::{ErrorContext, MapReduceError, MapReduceResult, SpanInfo};
 use crate::cook::execution::events::{EventLogger, EventWriter, JsonlEventWriter, MapReduceEvent};
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
+use crate::cook::execution::progress::{
+    AgentProgress, AgentState, CLIProgressViewer, EnhancedProgressTracker, ExportFormat,
+};
 use crate::cook::execution::state::{DefaultJobStateManager, JobStateManager, MapReduceJobState};
 use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
@@ -423,6 +426,8 @@ pub struct MapReduceExecutor {
     event_logger: Arc<EventLogger>,
     dlq: Option<Arc<DeadLetterQueue>>,
     correlation_id: String,
+    enhanced_progress_tracker: Option<Arc<EnhancedProgressTracker>>,
+    enable_web_dashboard: bool,
 }
 
 impl MapReduceExecutor {
@@ -487,6 +492,10 @@ impl MapReduceExecutor {
             event_logger,
             dlq: None, // Will be initialized per job
             correlation_id: Uuid::new_v4().to_string(),
+            enhanced_progress_tracker: None,
+            enable_web_dashboard: std::env::var("PRODIGY_WEB_DASHBOARD")
+                .unwrap_or_else(|_| "false".to_string())
+                .eq_ignore_ascii_case("true"),
         }
     }
 
@@ -541,6 +550,18 @@ impl MapReduceExecutor {
             })
             .await
             .unwrap_or_else(|e| warn!("Failed to log job started event: {}", e));
+
+        // Initialize enhanced progress tracker if enabled
+        if self.enable_web_dashboard {
+            let mut tracker = EnhancedProgressTracker::new(job_id.clone(), work_items.len());
+
+            // Start web dashboard on port 8080
+            if let Err(e) = tracker.start_web_server(8080).await {
+                warn!("Failed to start progress web server: {}", e);
+            }
+
+            self.enhanced_progress_tracker = Some(Arc::new(tracker));
+        }
 
         // Execute map phase with state tracking
         let map_results = self
@@ -629,8 +650,18 @@ impl MapReduceExecutor {
         work_items: Vec<Value>,
         env: &ExecutionEnvironment,
     ) -> MapReduceResult<Vec<AgentResult>> {
-        // Execute the normal map phase
-        let results = self.execute_map_phase(map_phase, work_items, env).await?;
+        // Execute the normal map phase with enhanced progress tracking
+        let results = if let Some(ref tracker) = self.enhanced_progress_tracker {
+            self.execute_map_phase_with_enhanced_progress(
+                map_phase,
+                work_items,
+                env,
+                tracker.clone(),
+            )
+            .await?
+        } else {
+            self.execute_map_phase(map_phase, work_items, env).await?
+        };
 
         // Update state for each result
         for result in &results {
@@ -1071,6 +1102,115 @@ impl MapReduceExecutor {
         Ok(results.clone())
     }
 
+    /// Execute map phase with enhanced progress tracking
+    async fn execute_map_phase_with_enhanced_progress(
+        &self,
+        map_phase: &MapPhase,
+        work_items: Vec<Value>,
+        env: &ExecutionEnvironment,
+        tracker: Arc<EnhancedProgressTracker>,
+    ) -> MapReduceResult<Vec<AgentResult>> {
+        let total_items = work_items.len();
+
+        // If there are no items to process, return empty results
+        if total_items == 0 {
+            self.user_interaction
+                .display_warning("No items to process in map phase");
+            return Ok(Vec::new());
+        }
+
+        let max_parallel = map_phase.config.max_parallel.min(total_items);
+
+        // Create channels for work distribution (ensure buffer is at least 1)
+        let (work_tx, work_rx) = mpsc::channel::<(usize, Value)>(total_items.max(1));
+        let work_rx = Arc::new(RwLock::new(work_rx));
+
+        // Send all work items to the queue
+        for (index, item) in work_items.into_iter().enumerate() {
+            work_tx.send((index, item)).await.map_err(|e| {
+                let context = self.create_error_context("map_phase_execution");
+                MapReduceError::General {
+                    message: format!("Failed to send work item to queue: {}", e),
+                    source: None,
+                }
+                .with_context(context)
+                .error
+            })?;
+        }
+        drop(work_tx); // Close the sender
+
+        // Results collection
+        let results = Arc::new(RwLock::new(Vec::new()));
+
+        // Spawn worker tasks with enhanced progress tracking
+        let mut workers = Vec::new();
+        for agent_index in 0..max_parallel {
+            let work_rx = work_rx.clone();
+            let results = results.clone();
+            let tracker = tracker.clone();
+            let map_phase = map_phase.clone();
+            let env = env.clone();
+            let executor = self.clone_executor();
+
+            let handle: JoinHandle<MapReduceResult<()>> = tokio::spawn(async move {
+                executor
+                    .run_agent_with_enhanced_progress(
+                        agent_index,
+                        work_rx,
+                        results,
+                        tracker,
+                        map_phase,
+                        env,
+                    )
+                    .await
+            });
+
+            workers.push(handle);
+        }
+
+        // Optional: Start CLI progress viewer in separate task
+        if !self.enable_web_dashboard {
+            let tracker_clone = tracker.clone();
+            tokio::spawn(async move {
+                let viewer = CLIProgressViewer::new(tracker_clone);
+                let _ = viewer.display().await;
+            });
+        }
+
+        // Wait for all workers to complete
+        for worker in workers {
+            match worker.await {
+                Ok(Ok(())) => {}
+                Ok(Err(e)) => {
+                    self.user_interaction
+                        .display_warning(&format!("Worker error: {}", e));
+                }
+                Err(join_err) => {
+                    let context = self.create_error_context("map_phase_execution");
+                    return Err(MapReduceError::General {
+                        message: format!("Worker task panicked: {}", join_err),
+                        source: None,
+                    }
+                    .with_context(context)
+                    .error);
+                }
+            }
+        }
+
+        // Mark job as complete in tracker
+        let _ = tracker
+            .event_sender
+            .send(crate::cook::execution::progress::ProgressUpdate {
+                update_type: crate::cook::execution::progress::UpdateType::JobCompleted,
+                timestamp: Utc::now(),
+                data: json!({"job_id": tracker.job_id}),
+            });
+
+        // Return collected results
+        let results = results.read().await;
+        Ok(results.clone())
+    }
+
     /// Run a single agent worker
     async fn run_agent(
         &self,
@@ -1208,6 +1348,154 @@ impl MapReduceExecutor {
 
             // Update progress
             progress.complete_item();
+        }
+
+        Ok(())
+    }
+
+    /// Run a single agent worker with enhanced progress tracking
+    async fn run_agent_with_enhanced_progress(
+        &self,
+        agent_index: usize,
+        work_rx: Arc<RwLock<mpsc::Receiver<(usize, Value)>>>,
+        results: Arc<RwLock<Vec<AgentResult>>>,
+        tracker: Arc<EnhancedProgressTracker>,
+        map_phase: MapPhase,
+        env: ExecutionEnvironment,
+    ) -> MapReduceResult<()> {
+        loop {
+            // Get next work item
+            let work_item = {
+                let mut rx = work_rx.write().await;
+                rx.recv().await
+            };
+
+            let Some((item_index, item)) = work_item else {
+                // No more work
+                let agent_id = format!("agent_{}", agent_index);
+                tracker
+                    .update_agent_state(&agent_id, AgentState::Completed)
+                    .await?;
+                break;
+            };
+
+            let item_id = Self::extract_item_identifier(&item, item_index);
+            let agent_id = format!("agent_{}", agent_index);
+
+            // Initialize agent progress
+            let agent_progress = AgentProgress {
+                agent_id: agent_id.clone(),
+                item_id: item_id.clone(),
+                state: AgentState::Initializing,
+                current_step: "Starting".to_string(),
+                steps_completed: 0,
+                total_steps: map_phase.agent_template.len(),
+                progress_percentage: 0.0,
+                started_at: Utc::now(),
+                last_update: Utc::now(),
+                estimated_completion: None,
+                error_count: 0,
+                retry_count: 0,
+            };
+            tracker
+                .update_agent_progress(&agent_id, agent_progress)
+                .await?;
+
+            // Execute work item with retries
+            let mut attempt = 0;
+            let agent_result = loop {
+                attempt += 1;
+
+                if attempt > 1 {
+                    tracker
+                        .update_agent_state(&agent_id, AgentState::Retrying { attempt })
+                        .await?;
+                }
+
+                let start_time = Instant::now();
+                let result = self
+                    .execute_agent_commands_with_progress(
+                        &item_id,
+                        &item,
+                        &map_phase.agent_template,
+                        &env,
+                        agent_index,
+                        tracker.clone(),
+                    )
+                    .await;
+
+                match result {
+                    Ok(mut res) => {
+                        res.duration = start_time.elapsed();
+                        tracker.mark_item_completed(&agent_id).await?;
+                        break res;
+                    }
+                    Err(_e) if attempt <= map_phase.config.retry_on_failure => {
+                        // Retry on failure
+                        tokio::time::sleep(Duration::from_secs(2)).await;
+                        continue;
+                    }
+                    Err(e) => {
+                        // Final failure
+                        tracker.mark_item_failed(&agent_id, e.to_string()).await?;
+
+                        let agent_result = AgentResult {
+                            item_id: item_id.clone(),
+                            status: AgentStatus::Failed(e.to_string()),
+                            output: None,
+                            commits: vec![],
+                            duration: start_time.elapsed(),
+                            error: Some(e.to_string()),
+                            worktree_path: None,
+                            branch_name: None,
+                            worktree_session_id: None,
+                            files_modified: vec![],
+                        };
+
+                        // Add to Dead Letter Queue
+                        if let Some(dlq) = &self.dlq {
+                            let failure_detail = FailureDetail {
+                                attempt_number: attempt,
+                                timestamp: Utc::now(),
+                                error_type: ErrorType::Unknown,
+                                error_message: e.to_string(),
+                                stack_trace: None,
+                                agent_id: agent_id.clone(),
+                                step_failed: "execute_agent_commands".to_string(),
+                                duration_ms: start_time.elapsed().as_millis() as u64,
+                            };
+
+                            let dlq_item = DeadLetteredItem {
+                                item_id: item_id.clone(),
+                                item_data: item.clone(),
+                                first_attempt: Utc::now(),
+                                last_attempt: Utc::now(),
+                                failure_count: attempt,
+                                failure_history: vec![failure_detail],
+                                error_signature: DeadLetterQueue::create_error_signature(
+                                    &ErrorType::Unknown,
+                                    &e.to_string(),
+                                ),
+                                worktree_artifacts: None,
+                                reprocess_eligible: true,
+                                manual_review_required: false,
+                            };
+
+                            if let Err(dlq_err) = dlq.add(dlq_item).await {
+                                error!("Failed to add item to DLQ: {}", dlq_err);
+                            }
+                        }
+
+                        break agent_result;
+                    }
+                }
+            };
+
+            // Store result
+            {
+                let mut res = results.write().await;
+                res.push(agent_result);
+            }
         }
 
         Ok(())
@@ -1408,6 +1696,119 @@ impl MapReduceExecutor {
                 log::debug!("Agent {} status: {:?}", agent_id, result.status);
             }
         }
+
+        Ok(result)
+    }
+
+    /// Execute agent commands with enhanced progress tracking
+    async fn execute_agent_commands_with_progress(
+        &self,
+        item_id: &str,
+        item: &Value,
+        template_steps: &[WorkflowStep],
+        env: &ExecutionEnvironment,
+        agent_index: usize,
+        tracker: Arc<EnhancedProgressTracker>,
+    ) -> MapReduceResult<AgentResult> {
+        let start_time = Instant::now();
+        let agent_id = format!("agent_{}", agent_index);
+
+        // Create isolated worktree session for this agent
+        let worktree_session = self.worktree_manager.create_session().await.map_err(|e| {
+            let context = self.create_error_context("worktree_creation");
+            MapReduceError::WorktreeCreationFailed {
+                agent_id: agent_id.clone(),
+                reason: e.to_string(),
+                source: std::io::Error::other(e.to_string()),
+            }
+            .with_context(context)
+            .error
+        })?;
+
+        let worktree_name = worktree_session.name.clone();
+        let worktree_path = worktree_session.path.clone();
+        let worktree_session_id = worktree_name.clone();
+
+        // Create branch name for this agent
+        let branch_name = format!("prodigy-agent-{}-{}", env.session_id, item_id);
+
+        // Initialize agent context with all variables
+        let mut context = Self::initialize_agent_context(
+            item_id,
+            item,
+            worktree_path.clone(),
+            worktree_name.clone(),
+            env,
+        );
+
+        // Execute template steps with enhanced progress tracking
+        let mut total_output = String::new();
+        let mut execution_error = None;
+
+        for (step_index, step) in template_steps.iter().enumerate() {
+            // Update progress for current step
+            let progress_percentage =
+                ((step_index as f32 + 1.0) / template_steps.len() as f32) * 100.0;
+            let step_name = step
+                .name
+                .clone()
+                .unwrap_or_else(|| format!("Step {}", step_index + 1));
+
+            let agent_progress = AgentProgress {
+                agent_id: agent_id.clone(),
+                item_id: item_id.to_string(),
+                state: AgentState::Running {
+                    step: step_name.clone(),
+                    progress: progress_percentage,
+                },
+                current_step: step_name.clone(),
+                steps_completed: step_index,
+                total_steps: template_steps.len(),
+                progress_percentage,
+                started_at: Utc::now(),
+                last_update: Utc::now(),
+                estimated_completion: None,
+                error_count: 0,
+                retry_count: 0,
+            };
+
+            tracker
+                .update_agent_progress(&agent_id, agent_progress)
+                .await?;
+
+            // Execute the step
+            let result = self.execute_single_step(step, &mut context).await;
+
+            match result {
+                Ok(step_result) => {
+                    if !step_result.stdout.is_empty() {
+                        total_output.push_str(&step_result.stdout);
+                        total_output.push('\n');
+                    }
+                    context.update_with_output(Some(step_result.stdout));
+                }
+                Err(e) => {
+                    execution_error = Some(e.to_string());
+                    break;
+                }
+            }
+        }
+
+        // Finalize and create result
+        let result = self
+            .finalize_agent_result(
+                item_id,
+                &worktree_path,
+                &worktree_name,
+                &branch_name,
+                worktree_session_id,
+                env,
+                template_steps,
+                execution_error,
+                total_output,
+                start_time,
+            )
+            .await?;
 
         Ok(result)
     }
@@ -2763,6 +3164,8 @@ impl MapReduceExecutor {
             event_logger: self.event_logger.clone(),
             dlq: self.dlq.clone(),
             correlation_id: self.correlation_id.clone(),
+            enhanced_progress_tracker: self.enhanced_progress_tracker.clone(),
+            enable_web_dashboard: self.enable_web_dashboard,
         }
     }
 
