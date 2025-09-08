@@ -10,13 +10,7 @@ DESCRIPTION: $ARGUMENTS (required - natural language description of the feature 
 
 ### Phase 1: Project Context Analysis
 
-1. **Read Project Context**
-   - Read .prodigy context files to understand current project state
-   - Files read in order: .prodigy/PROJECT.md, .prodigy/ARCHITECTURE.md, .prodigy/CONVENTIONS.md, .prodigy/ROADMAP.md, .prodigy/DECISIONS.md
-   - Understand existing capabilities and architectural patterns
-   - Identify current technology stack and dependencies
-
-2. **Analyze Existing Specifications**
+1. **Analyze Existing Specifications**
    - Scan specs/ directory to find existing specification files
    - Parse frontmatter from each spec file to extract metadata
    - Determine next specification number by finding highest existing number + 1
@@ -25,7 +19,7 @@ DESCRIPTION: $ARGUMENTS (required - natural language description of the feature 
    - Identify related specifications and potential dependencies
    - Determine appropriate specification category (foundation, parallel, storage, etc.)
 
-3. **Feature Analysis**
+2. **Feature Analysis**
    - Parse the provided DESCRIPTION to extract core requirements
    - Identify functional and non-functional requirements
    - Determine integration points with existing system
@@ -96,15 +90,7 @@ DESCRIPTION: $ARGUMENTS (required - natural language description of the feature 
    - Check for clarity and unambiguous language
    - Validate technical accuracy
 
-### Phase 5: Context Updates
-
-1. **Update PROJECT.md (if needed)**
-   - Add new planned capability to "What Will Exist" section if major feature
-   - Update feature list with new specification if significant
-   - Adjust project scope if significantly changed
-   - Update complexity assessment if needed
-
-### Phase 6: File Organization
+### Phase 5: File Organization
 
 1. **Create Specification File**
    - Write specification to specs/{number}-{kebab-case-title}.md
@@ -112,11 +98,10 @@ DESCRIPTION: $ARGUMENTS (required - natural language description of the feature 
    - Validate file structure and content
    - Include YAML frontmatter with metadata at the very beginning of the file
 
-### Phase 7: Commit Changes
+### Phase 6: Commit Changes
 
 1. **Stage All Changes**
    - Stage the new specification file
-   - Stage any updated context files (PROJECT.md if modified)
 
 2. **Create Commit**
    - Use descriptive commit message format: "add: spec {NUMBER} - {title}"
