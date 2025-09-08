@@ -58,6 +58,8 @@ signal-hook = "0.3"
 indicatif = "0.18"
 flate2 = "1.0"
 tokio-tungstenite = "0.27"
+hostname = "0.4"
+nix = { version = "0.29", features = ["signal", "process"] }
 
 [features]
 default = []
