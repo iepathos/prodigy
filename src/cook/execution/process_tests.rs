@@ -2,9 +2,9 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::process::*;
     use super::super::command::*;
     use super::super::executor::{ExecutionContextInternal, ResourceMonitor};
+    use super::super::process::*;
     use std::collections::HashMap;
     use std::path::PathBuf;
     use std::process::Stdio;
@@ -58,10 +58,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_cleanup_handler_creation() {
-        let handler = CleanupHandler::new(
-            ProcessId(123),
-            CleanupRequirements::default(),
-        );
+        let handler = CleanupHandler::new(ProcessId(123), CleanupRequirements::default());
 
         assert_eq!(handler.process_id, ProcessId(123));
         assert_eq!(handler.requirements.kill_timeout, Duration::from_secs(5));
@@ -72,9 +69,7 @@ mod tests {
     #[tokio::test]
     async fn test_security_context_validate_safe_command() {
         let context = SecurityContext;
-        let executable = create_test_executable("echo")
-            .arg("hello")
-            .arg("world");
+        let executable = create_test_executable("echo").arg("hello").arg("world");
 
         let result = context.validate_command(&executable).await;
         assert!(result.is_ok());
@@ -152,8 +147,7 @@ mod tests {
     #[tokio::test]
     async fn test_process_manager_spawn_simple() {
         let manager = create_test_process_manager();
-        let executable = create_test_executable("echo")
-            .arg("test");
+        let executable = create_test_executable("echo").arg("test");
         let context = create_test_context();
 
         let result = manager.spawn(executable, &context).await;
@@ -161,7 +155,7 @@ mod tests {
 
         let mut process = result.unwrap();
         assert_eq!(process.command_type(), CommandType::Shell);
-        
+
         // Wait for process to complete
         let exit_status = process.wait().await;
         assert!(exit_status.is_ok());
@@ -170,7 +164,7 @@ mod tests {
     #[tokio::test]
     async fn test_unified_process_creation() {
         use tokio::process::Command;
-        
+
         let mut command = Command::new("echo");
         command.arg("test");
         command.stdout(Stdio::piped());
@@ -186,7 +180,7 @@ mod tests {
     #[tokio::test]
     async fn test_unified_process_wait() {
         use tokio::process::Command;
-        
+
         let mut command = Command::new("echo");
         command.arg("test");
         command.stdout(Stdio::piped());
@@ -202,7 +196,7 @@ mod tests {
     #[tokio::test]
     async fn test_unified_process_kill() {
         use tokio::process::Command;
-        
+
         // Use a long-running command
         let mut command = Command::new("sleep");
         command.arg("60");
@@ -218,7 +212,7 @@ mod tests {
     #[tokio::test]
     async fn test_unified_process_stdout_stderr() {
         use tokio::process::Command;
-        
+
         let mut command = Command::new("echo");
         command.arg("test");
         command.stdout(Stdio::piped());
@@ -251,11 +245,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_executable_command_with_env() {
-        let executable = create_test_executable("echo")
-            .with_env(HashMap::from([
-                ("VAR1".to_string(), "value1".to_string()),
-                ("VAR2".to_string(), "value2".to_string()),
-            ]));
+        let executable = create_test_executable("echo").with_env(HashMap::from([
+            ("VAR1".to_string(), "value1".to_string()),
+            ("VAR2".to_string(), "value2".to_string()),
+        ]));
 
         assert_eq!(executable.env.len(), 2);
         assert_eq!(executable.env.get("VAR1"), Some(&"value1".to_string()));
@@ -263,16 +256,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_executable_command_with_working_dir() {
-        let executable = create_test_executable("ls")
-            .with_working_dir(Some(PathBuf::from("/tmp")));
+        let executable = create_test_executable("ls").with_working_dir(Some(PathBuf::from("/tmp")));
 
         assert_eq!(executable.working_dir, Some(PathBuf::from("/tmp")));
     }
 
     #[tokio::test]
     async fn test_executable_command_expected_exit_code() {
-        let executable = create_test_executable("test")
-            .with_expected_exit_code(Some(1));
+        let executable = create_test_executable("test").with_expected_exit_code(Some(1));
 
         assert_eq!(executable.expected_exit_code, Some(1));
     }
@@ -298,13 +289,11 @@ mod tests {
 
         for cmd in dangerous_commands {
             // Should fail for non-shell types
-            let executable = create_test_executable(cmd)
-                .with_type(CommandType::Claude);
+            let executable = create_test_executable(cmd).with_type(CommandType::Claude);
             assert!(context.validate_command(&executable).await.is_err());
 
             // Should pass for shell types
-            let executable = create_test_executable(cmd)
-                .with_type(CommandType::Shell);
+            let executable = create_test_executable(cmd).with_type(CommandType::Shell);
             assert!(context.validate_command(&executable).await.is_ok());
         }
     }
@@ -315,23 +304,22 @@ mod tests {
         let context = create_test_context();
 
         // Test Claude type - should have stdin
-        let executable = create_test_executable("echo")
-            .with_type(CommandType::Claude);
-        
+        let executable = create_test_executable("echo").with_type(CommandType::Claude);
+
         // Test Shell type - no stdin
-        let executable_shell = create_test_executable("echo")
-            .with_type(CommandType::Shell);
+        let executable_shell = create_test_executable("echo").with_type(CommandType::Shell);
 
         // Test Test type - no stdin
-        let executable_test = create_test_executable("echo")
-            .with_type(CommandType::Test);
+        let executable_test = create_test_executable("echo").with_type(CommandType::Test);
 
         // All should have stdout/stderr piped
         for exec in [executable, executable_shell, executable_test] {
             // Would spawn and check stdio configuration in real test
-            assert!(exec.command_type == CommandType::Claude 
-                || exec.command_type == CommandType::Shell 
-                || exec.command_type == CommandType::Test);
+            assert!(
+                exec.command_type == CommandType::Claude
+                    || exec.command_type == CommandType::Shell
+                    || exec.command_type == CommandType::Test
+            );
         }
     }
 }

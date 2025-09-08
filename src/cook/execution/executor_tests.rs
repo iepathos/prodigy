@@ -2,8 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::executor::*;
     use super::super::command::*;
+    use super::super::executor::*;
     use super::super::output::{OutputProcessor, ProcessOutput, ProcessedOutput};
     use super::super::process::ProcessManager;
     use anyhow::Result;
@@ -181,10 +181,18 @@ mod tests {
         let capabilities = executor.capabilities();
 
         assert_eq!(capabilities.supported_command_types.len(), 4);
-        assert!(capabilities.supported_command_types.contains(&CommandType::Claude));
-        assert!(capabilities.supported_command_types.contains(&CommandType::Shell));
-        assert!(capabilities.supported_command_types.contains(&CommandType::Test));
-        assert!(capabilities.supported_command_types.contains(&CommandType::Handler));
+        assert!(capabilities
+            .supported_command_types
+            .contains(&CommandType::Claude));
+        assert!(capabilities
+            .supported_command_types
+            .contains(&CommandType::Shell));
+        assert!(capabilities
+            .supported_command_types
+            .contains(&CommandType::Test));
+        assert!(capabilities
+            .supported_command_types
+            .contains(&CommandType::Handler));
 
         assert_eq!(capabilities.max_concurrent_executions, Some(10));
         assert!(capabilities.timeout_support);

@@ -5,8 +5,8 @@ mod tests {
     use super::super::bridge::*;
     use super::super::command::*;
     use super::super::executor::{
-        CommandExecutor as UnifiedExecutorTrait, CommandResult, CommandStatus, ExecutorCapabilities,
-        ResourceEstimate, UnifiedCommandExecutor, ValidationIssue,
+        CommandExecutor as UnifiedExecutorTrait, CommandResult, CommandStatus,
+        ExecutorCapabilities, ResourceEstimate, UnifiedCommandExecutor, ValidationIssue,
     };
     use super::super::output::{OutputProcessor, ProcessOutput, ProcessedOutput};
     use super::super::process::ProcessManager;
@@ -51,7 +51,11 @@ mod tests {
                 },
                 execution_time: Duration::from_secs(1),
                 resource_usage: super::super::executor::ResourceUsage::default(),
-                exit_code: if self.should_succeed { Some(0) } else { Some(1) },
+                exit_code: if self.should_succeed {
+                    Some(0)
+                } else {
+                    Some(1)
+                },
                 error: None,
                 validation_result: None,
                 metadata: super::super::executor::ExecutionMetadata::new(),
@@ -118,7 +122,10 @@ mod tests {
         let unified_context = LegacyExecutorBridge::to_unified_context(&legacy_context);
 
         assert_eq!(unified_context.working_dir, PathBuf::from("/test"));
-        assert_eq!(unified_context.env_vars.get("KEY"), Some(&"VALUE".to_string()));
+        assert_eq!(
+            unified_context.env_vars.get("KEY"),
+            Some(&"VALUE".to_string())
+        );
         assert!(unified_context.capture_output);
         assert_eq!(unified_context.timeout, Some(Duration::from_secs(30)));
         assert_eq!(unified_context.stdin, Some("input".to_string()));
@@ -200,16 +207,17 @@ mod tests {
     fn test_no_op_observability() {
         // Just ensure NoOpObservability can be created and used
         let observability = super::super::bridge::NoOpObservability;
-        
+
         // The trait methods are async, so we'd need tokio to test them
         // This test just ensures the struct exists and compiles
-        assert!(std::mem::size_of::<super::super::bridge::NoOpObservability>() == 0); // Zero-sized type
+        assert!(std::mem::size_of::<super::super::bridge::NoOpObservability>() == 0);
+        // Zero-sized type
     }
 
     #[tokio::test]
     async fn test_no_op_observability_methods() {
         let observability = super::super::bridge::NoOpObservability;
-        
+
         // These should be no-ops and not panic
         let context = super::super::executor::ExecutionContextInternal {
             id: uuid::Uuid::new_v4(),
@@ -226,10 +234,10 @@ mod tests {
             },
             resource_limits: None,
         };
-        
+
         use super::super::executor::ObservabilityCollector;
         observability.record_command_start(&context).await;
-        
+
         let result: Result<CommandResult> = Ok(CommandResult {
             command_id: "test".to_string(),
             command_spec: CommandSpec::Shell {
@@ -252,7 +260,7 @@ mod tests {
             validation_result: None,
             metadata: super::super::executor::ExecutionMetadata::new(),
         });
-        
+
         observability.record_command_complete(&result).await;
     }
 
@@ -260,16 +268,20 @@ mod tests {
     fn test_create_legacy_executor() {
         // Create a mock command runner
         struct MockRunner;
-        
+
         #[async_trait]
         impl super::super::runner::CommandRunner for MockRunner {
-            async fn run_command(&self, _cmd: &str, _args: &[String]) -> Result<std::process::Output> {
+            async fn run_command(
+                &self,
+                _cmd: &str,
+                _args: &[String],
+            ) -> Result<std::process::Output> {
                 Ok(std::process::Command::new("echo")
                     .arg("test")
                     .output()
                     .unwrap())
             }
-            
+
             async fn run_with_context(
                 &self,
                 _cmd: &str,
@@ -284,17 +296,17 @@ mod tests {
                 })
             }
         }
-        
+
         let runner = MockRunner;
         let _executor = create_legacy_executor(runner);
-        
+
         // The test passes if it compiles and creates the executor
     }
 
     #[tokio::test]
     async fn test_command_request_creation_for_claude() {
         let bridge = create_test_bridge(true, "test output");
-        
+
         // Test data
         let command = "test command";
         let project_path = Path::new("/test/project");
@@ -302,7 +314,7 @@ mod tests {
             ("KEY1".to_string(), "VALUE1".to_string()),
             ("KEY2".to_string(), "VALUE2".to_string()),
         ]);
-        
+
         // We can't directly test execute_claude_command without a real executor,
         // but we can verify the request would be created correctly
         // by checking the types compile and the bridge is created
@@ -319,11 +331,11 @@ mod tests {
             timeout_seconds: None,
             stdin: None,
         };
-        
+
         // This test verifies the command type detection logic compiles
         let is_claude = "claude" == "claude";
         assert!(is_claude);
-        
+
         let is_not_claude = "echo" == "claude";
         assert!(!is_not_claude);
     }
@@ -337,7 +349,7 @@ mod tests {
             CaptureOutputMode::None
         };
         assert!(matches!(capture_true, CaptureOutputMode::Both));
-        
+
         let capture_false = if false {
             CaptureOutputMode::Both
         } else {

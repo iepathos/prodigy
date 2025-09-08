@@ -154,7 +154,7 @@ impl CommandExecutor for LegacyExecutorBridge {
         // Determine command type
         let spec = if command == "claude" {
             CommandSpec::Claude {
-                command: args.get(0).cloned().unwrap_or_default(),
+                command: args.first().cloned().unwrap_or_default(),
                 context: None,
                 tools: None,
                 output_format: None,
@@ -200,7 +200,7 @@ impl CommandExecutor for LegacyExecutorBridge {
 }
 
 /// Create a legacy-compatible executor from a command runner
-pub fn create_legacy_executor<R: CommandRunner + 'static>(runner: R) -> impl ClaudeExecutor {
+pub fn create_legacy_executor<R: CommandRunner + 'static>(_runner: R) -> impl ClaudeExecutor {
     // Create unified executor components
     let resource_monitor = Arc::new(super::executor::ResourceMonitor);
     let security_context = Arc::new(super::process::SecurityContext);

@@ -21,6 +21,12 @@ pub struct ProcessManager {
     cleanup_registry: Arc<Mutex<HashMap<ProcessId, CleanupHandler>>>,
 }
 
+impl Default for ProcessManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ProcessManager {
     pub fn new() -> Self {
         Self {
@@ -29,7 +35,7 @@ impl ProcessManager {
             cleanup_registry: Arc::new(Mutex::new(HashMap::new())),
         }
     }
-    
+
     pub fn with_monitors(
         resource_monitor: Arc<super::executor::ResourceMonitor>,
         security_context: Arc<SecurityContext>,

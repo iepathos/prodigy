@@ -306,21 +306,11 @@ impl ExecutableCommand {
 }
 
 /// Resource requirements for command execution
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ResourceRequirements {
     pub estimated_memory_mb: Option<u64>,
     pub estimated_cpu_cores: Option<f32>,
     pub estimated_duration: Option<Duration>,
-}
-
-impl Default for ResourceRequirements {
-    fn default() -> Self {
-        Self {
-            estimated_memory_mb: None,
-            estimated_cpu_cores: None,
-            estimated_duration: None,
-        }
-    }
 }
 
 /// Cleanup requirements for process termination

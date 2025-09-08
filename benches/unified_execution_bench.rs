@@ -196,7 +196,9 @@ fn bench_command_conversion(c: &mut Criterion) {
 fn bench_variable_substitution(c: &mut Criterion) {
     c.bench_function("variable_substitution_simple", |b| {
         let mut context = ExecutionContext::default();
-        context.variables.insert("name".to_string(), "world".to_string());
+        context
+            .variables
+            .insert("name".to_string(), "world".to_string());
         let input = "Hello ${name}!";
 
         b.iter(|| {
@@ -223,11 +225,12 @@ fn bench_variable_substitution(c: &mut Criterion) {
 
 fn create_test_executor() -> UnifiedCommandExecutor {
     struct MockObservability;
-    
+
     #[async_trait::async_trait]
     impl executor::ObservabilityCollector for MockObservability {
         async fn record_command_start(&self, _context: &executor::ExecutionContextInternal) {}
-        async fn record_command_complete(&self, _result: &anyhow::Result<executor::CommandResult>) {}
+        async fn record_command_complete(&self, _result: &anyhow::Result<executor::CommandResult>) {
+        }
     }
 
     UnifiedCommandExecutor::new(

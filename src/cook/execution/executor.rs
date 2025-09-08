@@ -5,17 +5,15 @@ use super::output::{OutputProcessor, ProcessOutput, ProcessedOutput};
 use super::process::{ProcessManager, UnifiedProcess};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::Mutex;
 use uuid::Uuid;
 
 /// Unified command executor that handles all command types
 pub struct UnifiedCommandExecutor {
     process_manager: Arc<ProcessManager>,
-    output_processor: Arc<OutputProcessor>,
+    _output_processor: Arc<OutputProcessor>,
     observability: Arc<dyn ObservabilityCollector>,
     resource_monitor: Arc<ResourceMonitor>,
 }
@@ -23,13 +21,13 @@ pub struct UnifiedCommandExecutor {
 impl UnifiedCommandExecutor {
     pub fn new(
         process_manager: Arc<ProcessManager>,
-        output_processor: Arc<OutputProcessor>,
+        _output_processor: Arc<OutputProcessor>,
         observability: Arc<dyn ObservabilityCollector>,
         resource_monitor: Arc<ResourceMonitor>,
     ) -> Self {
         Self {
             process_manager,
-            output_processor,
+            _output_processor,
             observability,
             resource_monitor,
         }
@@ -206,11 +204,7 @@ impl UnifiedCommandExecutor {
         let stdout = self.read_stream(process.stdout()).await?;
 
         // Try to parse as JSON
-        let structured_data = if let Ok(json) = serde_json::from_str(&stdout) {
-            Some(json)
-        } else {
-            None
-        };
+        let structured_data = serde_json::from_str(&stdout).ok();
 
         Ok(ProcessOutput::new()
             .with_stdout(stdout)
@@ -556,7 +550,7 @@ impl CommandResult {
             .content
             .stderr
             .as_deref()
-            .or_else(|| self.output.content.error_summary.as_deref())
+            .or(self.output.content.error_summary.as_deref())
     }
 
     pub fn get_structured_output<T>(&self) -> Result<Option<T>>
@@ -618,6 +612,12 @@ pub struct ExecutionMetadata {
     pub environment_hash: String,
     pub git_commit: Option<String>,
     pub observability_trace_id: Option<String>,
+}
+
+impl Default for ExecutionMetadata {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ExecutionMetadata {
@@ -748,6 +748,12 @@ pub struct ExecutionContextBuilder {
     id: Option<Uuid>,
     request: Option<CommandRequest>,
     resource_limits: Option<ResourceLimits>,
+}
+
+impl Default for ExecutionContextBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ExecutionContextBuilder {

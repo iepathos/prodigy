@@ -45,24 +45,34 @@ mod tests {
     #[test]
     fn test_execution_context_substitute_variables() {
         let mut context = ExecutionContext::default();
-        context.variables.insert("name".to_string(), "world".to_string());
-        context.variables.insert("action".to_string(), "greet".to_string());
+        context
+            .variables
+            .insert("name".to_string(), "world".to_string());
+        context
+            .variables
+            .insert("action".to_string(), "greet".to_string());
 
         // Test ${} syntax
-        assert_eq!(context.substitute_variables("Hello ${name}!"), "Hello world!");
-        
+        assert_eq!(
+            context.substitute_variables("Hello ${name}!"),
+            "Hello world!"
+        );
+
         // Test ${} with braces
-        assert_eq!(context.substitute_variables("${action} ${name}"), "greet world");
-        
+        assert_eq!(
+            context.substitute_variables("${action} ${name}"),
+            "greet world"
+        );
+
         // Test mixed variables
         assert_eq!(
             context.substitute_variables("${action} the ${name}"),
             "greet the world"
         );
-        
+
         // Test no substitution needed
         assert_eq!(context.substitute_variables("plain text"), "plain text");
-        
+
         // Test undefined variable
         assert_eq!(context.substitute_variables("${undefined}"), "${undefined}");
     }
@@ -152,7 +162,10 @@ mod tests {
         let cmd = spec.to_executable_command(&context).unwrap();
 
         assert_eq!(cmd.program, "claude");
-        assert_eq!(cmd.args, vec!["--print", "--dangerously-skip-permissions", "test command"]);
+        assert_eq!(
+            cmd.args,
+            vec!["--print", "--dangerously-skip-permissions", "test command"]
+        );
         assert_eq!(cmd.command_type, CommandType::Claude);
     }
 
@@ -195,7 +208,9 @@ mod tests {
     #[test]
     fn test_command_spec_with_variable_substitution() {
         let mut context = ExecutionContext::default();
-        context.variables.insert("project".to_string(), "myapp".to_string());
+        context
+            .variables
+            .insert("project".to_string(), "myapp".to_string());
 
         let spec = CommandSpec::Shell {
             command: "echo Building ${project}".to_string(),
@@ -308,7 +323,7 @@ mod tests {
             max_memory_bytes: Some(1024 * 1024 * 100), // 100MB
             max_cpu_percent: Some(50.0),
             max_disk_io_bytes: Some(1024 * 1024 * 10), // 10MB
-            max_network_bytes: Some(1024 * 1024), // 1MB
+            max_network_bytes: Some(1024 * 1024),      // 1MB
             max_file_descriptors: Some(100),
         };
 

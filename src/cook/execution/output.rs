@@ -77,6 +77,12 @@ pub struct ProcessOutput {
     pub metadata: OutputMetadata,
 }
 
+impl Default for ProcessOutput {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ProcessOutput {
     pub fn empty() -> Self {
         Self {
