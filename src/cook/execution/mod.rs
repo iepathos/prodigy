@@ -33,6 +33,8 @@ pub mod process;
 #[cfg(test)]
 pub mod process_tests;
 pub mod progress;
+#[cfg(test)]
+pub mod progress_tests;
 pub mod runner;
 #[cfg(test)]
 pub mod shell_failure_tests;

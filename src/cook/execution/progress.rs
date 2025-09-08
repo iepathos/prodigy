@@ -9,21 +9,27 @@ use axum::{
         ws::{Message, WebSocket, WebSocketUpgrade},
         State,
     },
-    response::{Html, Json, Response},
+    response::{Html, Json, Response, Sse},
     routing::get,
     Router,
 };
 use chrono::{DateTime, Utc};
+use futures_util::stream::Stream;
+use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::convert::Infallible;
 use std::net::SocketAddr;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tokio::fs;
 use tokio::sync::{mpsc, Mutex, RwLock};
 use tokio::time::interval;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 use tower_http::cors::CorsLayer;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use uuid::Uuid;
 
 /// Enhanced progress tracker with detailed metrics
@@ -153,6 +159,154 @@ pub enum ExportFormat {
     Html,
 }
 
+/// Progress persistence manager
+pub struct ProgressPersistence {
+    base_path: PathBuf,
+    job_id: String,
+    save_interval: Duration,
+}
+
+impl ProgressPersistence {
+    /// Create new persistence manager
+    pub fn new(job_id: String) -> Self {
+        let base_path = PathBuf::from(".prodigy/progress");
+        Self {
+            base_path,
+            job_id,
+            save_interval: Duration::from_secs(5),
+        }
+    }
+
+    /// Get the path for progress snapshots
+    fn snapshot_path(&self) -> PathBuf {
+        self.base_path.join(format!("{}.json", self.job_id))
+    }
+
+    /// Get the path for progress history
+    fn history_path(&self) -> PathBuf {
+        self.base_path.join(format!("{}_history.json", self.job_id))
+    }
+
+    /// Save progress snapshot to disk
+    pub async fn save_snapshot(&self, snapshot: &ProgressSnapshot) -> MapReduceResult<()> {
+        // Ensure directory exists
+        fs::create_dir_all(&self.base_path).await?;
+
+        let path = self.snapshot_path();
+        let json = serde_json::to_string_pretty(snapshot)?;
+        fs::write(&path, json).await?;
+
+        info!("Saved progress snapshot to {:?}", path);
+        Ok(())
+    }
+
+    /// Load progress snapshot from disk
+    pub async fn load_snapshot(&self) -> MapReduceResult<Option<ProgressSnapshot>> {
+        let path = self.snapshot_path();
+        if !path.exists() {
+            return Ok(None);
+        }
+
+        let json = fs::read_to_string(&path).await?;
+        let snapshot: ProgressSnapshot = serde_json::from_str(&json)?;
+        info!("Loaded progress snapshot from {:?}", path);
+        Ok(Some(snapshot))
+    }
+
+    /// Append to progress history
+    pub async fn append_to_history(&self, snapshot: &ProgressSnapshot) -> MapReduceResult<()> {
+        fs::create_dir_all(&self.base_path).await?;
+
+        let path = self.history_path();
+        let mut history = if path.exists() {
+            let json = fs::read_to_string(&path).await?;
+            serde_json::from_str::<ProgressHistory>(&json).unwrap_or_else(|_| ProgressHistory {
+                snapshots: Vec::new(),
+                interval_seconds: self.save_interval.as_secs() as u32,
+            })
+        } else {
+            ProgressHistory {
+                snapshots: Vec::new(),
+                interval_seconds: self.save_interval.as_secs() as u32,
+            }
+        };
+
+        // Limit history size to last 1000 snapshots
+        if history.snapshots.len() >= 1000 {
+            history.snapshots.remove(0);
+        }
+        history.snapshots.push(snapshot.clone());
+
+        let json = serde_json::to_string_pretty(&history)?;
+        fs::write(&path, json).await?;
+
+        Ok(())
+    }
+
+    /// Clean up persistence files
+    pub async fn cleanup(&self) -> MapReduceResult<()> {
+        let snapshot_path = self.snapshot_path();
+        if snapshot_path.exists() {
+            fs::remove_file(&snapshot_path).await?;
+        }
+
+        let history_path = self.history_path();
+        if history_path.exists() {
+            fs::remove_file(&history_path).await?;
+        }
+
+        info!("Cleaned up progress persistence files for job {}", self.job_id);
+        Ok(())
+    }
+}
+
+/// Progress sampler for performance optimization
+pub struct ProgressSampler {
+    sample_rate: Duration,
+    cache: Arc<RwLock<ProgressCache>>,
+}
+
+#[derive(Clone, Debug)]
+struct ProgressCache {
+    last_update: Instant,
+    snapshot: Option<ProgressSnapshot>,
+    metrics: ProgressMetrics,
+}
+
+impl ProgressSampler {
+    /// Create new progress sampler
+    pub fn new(sample_rate: Duration) -> Self {
+        Self {
+            sample_rate,
+            cache: Arc::new(RwLock::new(ProgressCache {
+                last_update: Instant::now(),
+                snapshot: None,
+                metrics: ProgressMetrics::default(),
+            })),
+        }
+    }
+
+    /// Check if we should sample progress
+    pub async fn should_sample(&self) -> bool {
+        let cache = self.cache.read().await;
+        cache.last_update.elapsed() >= self.sample_rate
+    }
+
+    /// Update cache with new snapshot
+    pub async fn update_cache(&self, snapshot: ProgressSnapshot, metrics: ProgressMetrics) {
+        let mut cache = self.cache.write().await;
+        cache.last_update = Instant::now();
+        cache.snapshot = Some(snapshot);
+        cache.metrics = metrics;
+    }
+
+    /// Get cached progress
+    pub async fn get_cached(&self) -> Option<(ProgressSnapshot, ProgressMetrics)> {
+        let cache = self.cache.read().await;
+        cache.snapshot.as_ref().map(|s| (s.clone(), cache.metrics.clone()))
+    }
+}
+
 impl EnhancedProgressTracker {
     /// Create a new enhanced progress tracker
     pub fn new(job_id: String, total_items: usize) -> Self {
@@ -170,6 +324,64 @@ impl EnhancedProgressTracker {
             event_sender,
             event_receiver: Arc::new(Mutex::new(event_receiver)),
             web_server: None,
+        }
+    }
+
+    /// Start persistence background task
+    pub async fn start_persistence(&self) -> MapReduceResult<()> {
+        let persistence = ProgressPersistence::new(self.job_id.clone());
+        let tracker = self.clone();
+
+        tokio::spawn(async move {
+            let mut interval = interval(persistence.save_interval);
+            loop {
+                interval.tick().await;
+                let snapshot = tracker.create_snapshot().await;
+                if let Err(e) = persistence.save_snapshot(&snapshot).await {
+                    warn!("Failed to save progress snapshot: {}", e);
+                }
+                if let Err(e) = persistence.append_to_history(&snapshot).await {
+                    warn!("Failed to append to progress history: {}", e);
+                }
+            }
+        });
+
+        info!("Started progress persistence for job {}", self.job_id);
+        Ok(())
+    }
+
+    /// Restore from persisted snapshot
+    pub async fn restore_from_disk(&mut self) -> MapReduceResult<bool> {
+        let persistence = ProgressPersistence::new(self.job_id.clone());
+        
+        if let Some(snapshot) = persistence.load_snapshot().await? {
+            // Restore metrics
+            let mut metrics = self.metrics.write().await;
+            *metrics = snapshot.metrics;
+
+            // Restore agent states
+            let mut agents = self.agents.write().await;
+            for (agent_id, state) in snapshot.agent_states {
+                agents.insert(agent_id.clone(), AgentProgress {
+                    agent_id: agent_id.clone(),
+                    item_id: String::new(),
+                    state,
+                    current_step: String::new(),
+                    steps_completed: 0,
+                    total_steps: 0,
+                    progress_percentage: 0.0,
+                    started_at: snapshot.timestamp,
+                    last_update: snapshot.timestamp,
+                    estimated_completion: None,
+                    error_count: 0,
+                    retry_count: 0,
+                });
+            }
+
+            info!("Restored progress from disk for job {}", self.job_id);
+            Ok(true)
+        } else {
+            Ok(false)
         }
     }
 
@@ -438,6 +650,8 @@ impl ProgressWebServer {
             .route("/api/agents", get(Self::get_agents))
             .route("/api/metrics", get(Self::get_metrics))
             .route("/ws", get(Self::websocket_handler))
+            .route("/sse", get(Self::sse_handler))
+            .route("/api/prometheus", get(Self::prometheus_metrics))
             .layer(CorsLayer::permissive())
             .with_state(self.clone());
 
@@ -511,6 +725,110 @@ impl ProgressWebServer {
         ws.on_upgrade(move |socket| Self::handle_socket(socket, server))
     }
 
+    /// Handle Server-Sent Events as fallback
+    async fn sse_handler(
+        State(server): State<Arc<ProgressWebServer>>,
+    ) -> Sse<impl Stream<Item = Result<axum::response::sse::Event, Infallible>>> {
+        let (tx, rx) = mpsc::unbounded_channel();
+        let client_id = Uuid::new_v4();
+
+        // Register SSE connection
+        {
+            let mut connections = server.connections.write().await;
+            connections.insert(client_id, tx);
+        }
+
+        // Create stream from receiver
+        let stream = UnboundedReceiverStream::new(rx).map(|msg| {
+            Ok(axum::response::sse::Event::default().data(msg))
+        });
+
+        // Clean up on disconnect
+        let server_clone = server.clone();
+        tokio::spawn(async move {
+            // This will run when the SSE connection closes
+            let mut connections = server_clone.connections.write().await;
+            connections.remove(&client_id);
+        });
+
+        Sse::new(stream).keep_alive(
+            axum::response::sse::KeepAlive::new()
+                .interval(Duration::from_secs(30))
+                .text("keep-alive"),
+        )
+    }
+
+    /// Export Prometheus metrics
+    async fn prometheus_metrics(State(server): State<Arc<ProgressWebServer>>) -> String {
+        let metrics = server.tracker.metrics.read().await;
+        let agents = server.tracker.agents.read().await;
+
+        let mut output = String::new();
+
+        // Job metrics
+        output.push_str(&format!("# HELP mapreduce_items_completed Number of completed items\n"));
+        output.push_str(&format!("# TYPE mapreduce_items_completed counter\n"));
+        output.push_str(&format!("mapreduce_items_completed{{job_id=\"{}\"}} {}\n", 
+            server.tracker.job_id, metrics.completed_items));
+
+        output.push_str(&format!("# HELP mapreduce_items_failed Number of failed items\n"));
+        output.push_str(&format!("# TYPE mapreduce_items_failed counter\n"));
+        output.push_str(&format!("mapreduce_items_failed{{job_id=\"{}\"}} {}\n", 
+            server.tracker.job_id, metrics.failed_items));
+
+        output.push_str(&format!("# HELP mapreduce_items_pending Number of pending items\n"));
+        output.push_str(&format!("# TYPE mapreduce_items_pending gauge\n"));
+        output.push_str(&format!("mapreduce_items_pending{{job_id=\"{}\"}} {}\n", 
+            server.tracker.job_id, metrics.pending_items));
+
+        output.push_str(&format!("# HELP mapreduce_active_agents Number of active agents\n"));
+        output.push_str(&format!("# TYPE mapreduce_active_agents gauge\n"));
+        output.push_str(&format!("mapreduce_active_agents{{job_id=\"{}\"}} {}\n", 
+            server.tracker.job_id, metrics.active_agents));
+
+        output.push_str(&format!("# HELP mapreduce_throughput_average Average throughput in items/sec\n"));
+        output.push_str(&format!("# TYPE mapreduce_throughput_average gauge\n"));
+        output.push_str(&format!("mapreduce_throughput_average{{job_id=\"{}\"}} {}\n", 
+            server.tracker.job_id, metrics.throughput_average));
+
+        output.push_str(&format!("# HELP mapreduce_success_rate Success rate percentage\n"));
+        output.push_str(&format!("# TYPE mapreduce_success_rate gauge\n"));
+        output.push_str(&format!("mapreduce_success_rate{{job_id=\"{}\"}} {}\n", 
+            server.tracker.job_id, metrics.success_rate));
+
+        // Agent states
+        let mut state_counts: HashMap<String, usize> = HashMap::new();
+        for agent in agents.values() {
+            let state_name = match &agent.state {
+                AgentState::Queued => "queued",
+                AgentState::Initializing => "initializing",
+                AgentState::Running { .. } => "running",
+                AgentState::Merging => "merging",
+                AgentState::Completed => "completed",
+                AgentState::Failed { .. } => "failed",
+                AgentState::Retrying { .. } => "retrying",
+                AgentState::DeadLettered => "dead_lettered",
+            };
+            *state_counts.entry(state_name.to_string()).or_insert(0) += 1;
+        }
+
+        output.push_str(&format!("# HELP mapreduce_agent_states Count of agents by state\n"));
+        output.push_str(&format!("# TYPE mapreduce_agent_states gauge\n"));
+        for (state, count) in state_counts {
+            output.push_str(&format!("mapreduce_agent_states{{job_id=\"{}\",state=\"{}\"}} {}\n", 
+                server.tracker.job_id, state, count));
+        }
+
+        // Job duration
+        let duration = server.tracker.start_time.elapsed().as_secs();
+        output.push_str(&format!("# HELP mapreduce_job_duration_seconds Job duration in seconds\n"));
+        output.push_str(&format!("# TYPE mapreduce_job_duration_seconds gauge\n"));
+        output.push_str(&format!("mapreduce_job_duration_seconds{{job_id=\"{}\"}} {}\n", 
+            server.tracker.job_id, duration));
+
+        output
+    }
+
     /// Handle individual WebSocket connection
     async fn handle_socket(socket: WebSocket, server: Arc<ProgressWebServer>) {
         use futures_util::{SinkExt, StreamExt};
@@ -557,6 +875,7 @@ impl ProgressWebServer {
 pub struct CLIProgressViewer {
     tracker: Arc<EnhancedProgressTracker>,
     update_interval: Duration,
+    sampler: Option<ProgressSampler>,
 }
 
 impl CLIProgressViewer {
@@ -565,6 +884,16 @@ impl CLIProgressViewer {
         Self {
             tracker,
             update_interval: Duration::from_millis(500),
+            sampler: None,
+        }
+    }
+
+    /// Create with performance optimization for large jobs
+    pub fn with_sampling(tracker: Arc<EnhancedProgressTracker>, sample_rate: Duration) -> Self {
+        Self {
+            tracker,
+            update_interval: Duration::from_millis(500),
+            sampler: Some(ProgressSampler::new(sample_rate)),
         }
     }
 
@@ -575,10 +904,32 @@ impl CLIProgressViewer {
         loop {
             interval.tick().await;
 
-            self.clear_screen();
-            self.render_header().await?;
-            self.render_metrics().await?;
-            self.render_agents().await?;
+            // Use sampler if available for performance
+            let should_render = if let Some(ref sampler) = self.sampler {
+                if sampler.should_sample().await {
+                    let snapshot = self.tracker.create_snapshot().await;
+                    let metrics = self.tracker.metrics.read().await;
+                    sampler.update_cache(snapshot, metrics.clone()).await;
+                    true
+                } else {
+                    // Use cached data for display
+                    if let Some((_, metrics)) = sampler.get_cached().await {
+                        self.clear_screen();
+                        self.render_header_with_metrics(&metrics).await?;
+                        self.render_cached_agents().await?;
+                    }
+                    false
+                }
+            } else {
+                true
+            };
+
+            if should_render {
+                self.clear_screen();
+                self.render_header().await?;
+                self.render_metrics().await?;
+                self.render_agents().await?;
+            }
 
             // Check if job is complete
             let metrics = self.tracker.metrics.read().await;
@@ -588,6 +939,50 @@ impl CLIProgressViewer {
             }
         }
 
+        Ok(())
+    }
+
+    /// Render header with cached metrics
+    async fn render_header_with_metrics(&self, metrics: &ProgressMetrics) -> MapReduceResult<()> {
+        let total = metrics.completed_items + metrics.failed_items + metrics.pending_items;
+        let progress = if total > 0 {
+            ((metrics.completed_items + metrics.failed_items) as f32 / total as f32) * 100.0
+        } else {
+            0.0
+        };
+        let elapsed = self.tracker.start_time.elapsed();
+
+        println!("╔════════════════════════════════════════════════════════════════╗");
+        println!("║  MapReduce Job: {}  ║", self.tracker.job_id);
+        println!("║  Progress: {:.1}% | Elapsed: {:?}  ║", progress, elapsed);
+        println!("╚════════════════════════════════════════════════════════════════╝");
+
+        Ok(())
+    }
+
+    /// Render cached agents
+    async fn render_cached_agents(&self) -> MapReduceResult<()> {
+        if let Some(ref sampler) = self.sampler {
+            if let Some((snapshot, _)) = sampler.get_cached().await {
+                println!("\n👥 Agent Status (cached):");
+                println!("{}", "─".repeat(60));
+                
+                for (id, state) in snapshot.agent_states.iter().take(10) {
+                    let state_str = match state {
+                        AgentState::Running { step, .. } => format!("🔄 {}", step),
+                        AgentState::Completed => "✅ Completed".to_string(),
+                        AgentState::Failed { error } => format!("❌ Failed: {}", error),
+                        _ => format!("{:?}", state),
+                    };
+                    
+                    println!("  {}: {}", &id[..8.min(id.len())], state_str);
+                }
+                
+                if snapshot.agent_states.len() > 10 {
+                    println!("  ... and {} more agents", snapshot.agent_states.len() - 10);
+                }
+            }
+        }
         Ok(())
     }
 
@@ -673,7 +1068,7 @@ impl CLIProgressViewer {
     }
 
     /// Create ASCII progress bar
-    fn create_progress_bar(&self, percentage: f32) -> String {
+    pub fn create_progress_bar(&self, percentage: f32) -> String {
         let width = 20;
         let filled = ((percentage / 100.0) * width as f32) as usize;
         let empty = width - filled;
@@ -683,7 +1078,7 @@ impl CLIProgressViewer {
 }
 
 /// Format duration for display
-fn format_duration(duration: Duration) -> String {
+pub fn format_duration(duration: Duration) -> String {
     let secs = duration.as_secs();
     let hours = secs / 3600;
     let minutes = (secs % 3600) / 60;
