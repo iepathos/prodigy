@@ -427,6 +427,8 @@ pub struct WorkflowExecutor {
     command_registry: Option<CommandRegistry>,
     subprocess: crate::subprocess::SubprocessManager,
     sensitive_config: SensitivePatternConfig,
+    /// Track completed steps for resume functionality
+    completed_steps: Vec<crate::cook::session::StepResult>,
 }
 
 impl WorkflowExecutor {
@@ -911,6 +913,7 @@ impl WorkflowExecutor {
             command_registry: None,
             subprocess: crate::subprocess::SubprocessManager::production(),
             sensitive_config: SensitivePatternConfig::default(),
+            completed_steps: Vec::new(),
         }
     }
 
@@ -936,6 +939,7 @@ impl WorkflowExecutor {
             command_registry: None,
             subprocess: crate::subprocess::SubprocessManager::production(),
             sensitive_config: SensitivePatternConfig::default(),
+            completed_steps: Vec::new(),
         }
     }
 
@@ -1090,6 +1094,9 @@ impl WorkflowExecutor {
         let mut iteration = 0;
         let mut should_continue = true;
 
+        // Clear completed steps at the start of a new workflow
+        self.completed_steps.clear();
+
         // Initialize workflow context
         let mut workflow_context = WorkflowContext::default();
 
@@ -1161,6 +1168,7 @@ impl WorkflowExecutor {
                 // Start command timing
                 self.timing_tracker.start_command(step_display.clone());
                 let command_start = Instant::now();
+                let step_started_at = chrono::Utc::now();
 
                 // Execute the step with context
                 let step_result = self
@@ -1213,6 +1221,7 @@ impl WorkflowExecutor {
 
                 // Complete command timing
                 let command_duration = command_start.elapsed();
+                let step_completed_at = chrono::Utc::now();
                 if let Some((cmd_name, _)) = self.timing_tracker.complete_command() {
                     self.session_manager
                         .update_session(SessionUpdate::RecordCommandTiming(
@@ -1222,17 +1231,33 @@ impl WorkflowExecutor {
                         .await?;
                 }
 
+                // Track the completed step with output
+                let completed_step = crate::cook::session::StepResult {
+                    step_index,
+                    command: step_display.clone(),
+                    success: step_result.success,
+                    output: if step.capture_output.is_enabled() {
+                        Some(step_result.stdout.clone())
+                    } else {
+                        None
+                    },
+                    duration: command_duration,
+                    error: if !step_result.success {
+                        Some(step_result.stderr.clone())
+                    } else {
+                        None
+                    },
+                    started_at: step_started_at,
+                    completed_at: step_completed_at,
+                    exit_code: step_result.exit_code,
+                };
+                self.completed_steps.push(completed_step);
+
                 // Save checkpoint after successful step execution
                 let workflow_state = crate::cook::session::WorkflowState {
                     current_iteration: iteration as usize - 1, // Convert to 0-based index
                     current_step: step_index + 1,              // Next step to execute
-                    completed_steps: vec![crate::cook::session::StepResult {
-                        step_index,
-                        command: step_display.clone(),
-                        success: step_result.success,
-                        output: None,
-                        duration: command_duration,
-                    }],
+                    completed_steps: self.completed_steps.clone(), // Use accumulated steps
                     workflow_path: env.working_dir.join("workflow.yml"), // This would need to be passed in
                     input_args: Vec::new(), // Would need to be passed from config
                     map_patterns: Vec::new(), // Would need to be passed from config

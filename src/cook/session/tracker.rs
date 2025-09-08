@@ -103,6 +103,21 @@ impl SessionManager for SessionTrackerImpl {
                     state.interrupt();
                 }
             }
+            SessionUpdate::SetWorkflowHash(hash) => {
+                if let Ok(mut state) = self.state.lock() {
+                    state.workflow_hash = Some(hash);
+                }
+            }
+            SessionUpdate::SetWorkflowType(workflow_type) => {
+                if let Ok(mut state) = self.state.lock() {
+                    state.workflow_type = Some(workflow_type);
+                }
+            }
+            SessionUpdate::UpdateExecutionContext(exec_context) => {
+                if let Ok(mut state) = self.state.lock() {
+                    state.execution_context = Some(exec_context);
+                }
+            }
         }
         Ok(())
     }

@@ -19,6 +19,19 @@ pub enum SessionStatus {
     Interrupted,
 }
 
+/// Type of workflow being executed
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum WorkflowType {
+    /// Standard single-run workflow
+    Standard,
+    /// Iterative workflow with multiple runs
+    Iterative,
+    /// Structured workflow with outputs
+    StructuredWithOutputs,
+    /// MapReduce parallel workflow
+    MapReduce,
+}
+
 /// State of a cooking session
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionState {
@@ -56,6 +69,16 @@ pub struct SessionState {
     pub execution_environment: Option<ExecutionEnvironment>,
     /// Last checkpoint timestamp
     pub last_checkpoint: Option<DateTime<Utc>>,
+    /// Hash of the workflow configuration for validation
+    pub workflow_hash: Option<String>,
+    /// Type of workflow being executed
+    pub workflow_type: Option<WorkflowType>,
+    /// Execution context with variables and outputs
+    pub execution_context: Option<ExecutionContext>,
+    /// Checkpoint version for compatibility
+    pub checkpoint_version: u32,
+    /// Last time the checkpoint was validated
+    pub last_validated_at: Option<DateTime<Utc>>,
 }
 
 /// State of workflow execution for resume capability
@@ -90,6 +113,51 @@ pub struct StepResult {
     pub output: Option<String>,
     /// Time taken to execute
     pub duration: Duration,
+    /// Error message if step failed
+    pub error: Option<String>,
+    /// When step started
+    pub started_at: DateTime<Utc>,
+    /// When step completed
+    pub completed_at: DateTime<Utc>,
+    /// Exit code from the command
+    pub exit_code: Option<i32>,
+}
+
+/// Execution context for variable interpolation and outputs
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecutionContext {
+    /// Variables for interpolation
+    pub variables: HashMap<String, String>,
+    /// Captured step outputs indexed by step number
+    pub step_outputs: HashMap<usize, String>,
+    /// Environment variables
+    pub environment: HashMap<String, String>,
+}
+
+impl ExecutionContext {
+    /// Create a new execution context
+    pub fn new() -> Self {
+        Self {
+            variables: HashMap::new(),
+            step_outputs: HashMap::new(),
+            environment: HashMap::new(),
+        }
+    }
+
+    /// Restore context from workflow state
+    pub fn restore_from_state(workflow_state: &WorkflowState) -> Self {
+        let mut context = Self::new();
+        for step in &workflow_state.completed_steps {
+            if let Some(ref output) = step.output {
+                context.step_outputs.insert(step.step_index, output.clone());
+                context.variables.insert(
+                    format!("step_{}_output", step.step_index),
+                    output.clone(),
+                );
+            }
+        }
+        context
+    }
 }
 
 /// Execution environment for resuming
@@ -126,6 +194,11 @@ impl SessionState {
             workflow_state: None,
             execution_environment: None,
             last_checkpoint: None,
+            workflow_hash: None,
+            workflow_type: None,
+            execution_context: None,
+            checkpoint_version: 1,
+            last_validated_at: None,
         }
     }
 
