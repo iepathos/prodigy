@@ -228,14 +228,18 @@ impl SessionManager for SessionTrackerImpl {
             }
         }
 
-        // Check for session-specific files
+        // Check for session-specific files (both old cook-* and new session-* formats)
         if let Ok(entries) = fs::read_dir(&self.base_path).await {
             let mut entries = entries;
             while let Ok(Some(entry)) = entries.next_entry().await {
                 let path = entry.path();
                 if let Some(name) = path.file_name() {
                     let name_str = name.to_string_lossy();
-                    if name_str.starts_with("cook-") && name_str.ends_with(".json") {
+                    // Support both old cook-{timestamp} and new session-{uuid} formats
+                    if (name_str.starts_with("cook-") || name_str.starts_with("session-"))
+                        && name_str.ends_with(".json")
+                        && name_str != "session_state.json"
+                    {
                         if let Ok(json) = fs::read_to_string(&path).await {
                             if let Ok(state) = serde_json::from_str::<SessionState>(&json) {
                                 if state.is_resumable()

@@ -151,6 +151,23 @@ impl WorktreeManager {
         let session_id = Uuid::new_v4();
         // Simple name using UUID
         let name = format!("session-{session_id}");
+
+        self.create_session_with_id(&name).await
+    }
+
+    /// Create a new worktree session with a specific session ID
+    ///
+    /// # Arguments
+    /// * `session_id` - The session ID to use (should be in "session-{uuid}" format)
+    ///
+    /// # Returns
+    /// * `Result<WorktreeSession>` - The created worktree session
+    ///
+    /// # Errors
+    /// Returns error if worktree creation fails
+    pub async fn create_session_with_id(&self, session_id: &str) -> Result<WorktreeSession> {
+        // Use the provided session ID as the name
+        let name = session_id.to_string();
         let branch = format!("prodigy-{name}");
         let worktree_path = self.base_dir.join(&name);
 

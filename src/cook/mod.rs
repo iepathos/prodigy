@@ -23,6 +23,7 @@ mod mod_tests;
 
 use crate::abstractions::git::RealGitOperations;
 use crate::config::{workflow::WorkflowConfig, ConfigLoader};
+use crate::session::SessionId;
 use crate::simple_state::StateManager;
 use anyhow::{anyhow, Context as _, Result};
 use std::path::Path;
@@ -139,8 +140,10 @@ async fn create_orchestrator(
         project_path.to_path_buf(),
         subprocess.as_ref().clone(),
     )?);
+    // Use unified session ID format
+    let session_id = SessionId::new();
     let session_manager = Arc::new(session::tracker::SessionTrackerImpl::new(
-        format!("cook-{}", chrono::Utc::now().timestamp()),
+        session_id.to_string(),
         project_path.to_path_buf(),
     ));
     let state_manager = Arc::new(StateManager::new()?);
