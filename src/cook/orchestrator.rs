@@ -714,7 +714,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 
         // Set up signal handler for graceful interruption
         let session_manager = self.session_manager.clone();
-        let session_id = env.session_id.clone();
+        let _session_id = env.session_id.clone();
         let interrupt_handler = tokio::spawn(async move {
             tokio::signal::ctrl_c().await.ok();
             // Mark session as interrupted when Ctrl+C is pressed
@@ -748,7 +748,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                         config
                             .workflow
                             .commands
-                            .get(0)
+                            .first()
                             .map(|_| config.command.playbook.display().to_string())
                             .unwrap_or_else(|| "<workflow>".to_string()),
                         env.session_id

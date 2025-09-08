@@ -182,10 +182,10 @@ impl SessionManager for SessionTrackerImpl {
         // Create a copy with status set to Interrupted for checkpoint
         let mut checkpoint_state = state.clone();
         checkpoint_state.status = SessionStatus::Interrupted;
-        
+
         // Update the internal state with Interrupted status
         *self.state.lock().unwrap() = checkpoint_state.clone();
-        
+
         // Save to both standard location and session-specific file
         let session_file = self.base_path.join("session_state.json");
         self.save_state(&session_file).await?;

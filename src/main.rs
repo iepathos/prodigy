@@ -977,7 +977,6 @@ async fn run_events_command(command: EventCommands) -> anyhow::Result<()> {
 
 async fn run_sessions_command(command: SessionCommands) -> anyhow::Result<()> {
     use prodigy::cook::session::{SessionManager, SessionTrackerImpl};
-    use std::path::PathBuf;
 
     let working_dir = std::env::current_dir()?;
     let session_tracker = SessionTrackerImpl::new("session-query".to_string(), working_dir.clone());
