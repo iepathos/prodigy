@@ -2,6 +2,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -49,6 +50,59 @@ pub struct SessionState {
     pub iteration_timings: Vec<(u32, Duration)>,
     /// Command timings (command name, duration)
     pub command_timings: Vec<(String, Duration)>,
+    /// Workflow execution state for resuming
+    pub workflow_state: Option<WorkflowState>,
+    /// Execution environment for resuming
+    pub execution_environment: Option<ExecutionEnvironment>,
+    /// Last checkpoint timestamp
+    pub last_checkpoint: Option<DateTime<Utc>>,
+}
+
+/// State of workflow execution for resume capability
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowState {
+    /// Current iteration index (for multi-iteration workflows)
+    pub current_iteration: usize,
+    /// Current step index within the workflow
+    pub current_step: usize,
+    /// Completed steps with their results
+    pub completed_steps: Vec<StepResult>,
+    /// Workflow file path
+    pub workflow_path: PathBuf,
+    /// Input arguments provided
+    pub input_args: Vec<String>,
+    /// Map patterns provided
+    pub map_patterns: Vec<String>,
+    /// Whether worktree was being used
+    pub using_worktree: bool,
+}
+
+/// Result of a completed workflow step
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StepResult {
+    /// Step index
+    pub step_index: usize,
+    /// Command that was executed
+    pub command: String,
+    /// Whether the step succeeded
+    pub success: bool,
+    /// Output from the command (if captured)
+    pub output: Option<String>,
+    /// Time taken to execute
+    pub duration: Duration,
+}
+
+/// Execution environment for resuming
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecutionEnvironment {
+    /// Working directory path
+    pub working_directory: PathBuf,
+    /// Worktree name if using worktree
+    pub worktree_name: Option<String>,
+    /// Environment variables
+    pub environment_vars: HashMap<String, String>,
+    /// Original command arguments
+    pub command_args: Vec<String>,
 }
 
 impl SessionState {
@@ -69,6 +123,9 @@ impl SessionState {
             current_iteration_number: None,
             iteration_timings: Vec::new(),
             command_timings: Vec::new(),
+            workflow_state: None,
+            execution_environment: None,
+            last_checkpoint: None,
         }
     }
 
@@ -105,5 +162,31 @@ impl SessionState {
     pub fn duration(&self) -> Option<chrono::Duration> {
         self.ended_at
             .map(|end| end.signed_duration_since(self.started_at))
+    }
+
+    /// Check if session is resumable
+    pub fn is_resumable(&self) -> bool {
+        matches!(
+            self.status,
+            SessionStatus::InProgress | SessionStatus::Interrupted
+        ) && self.workflow_state.is_some()
+    }
+
+    /// Update workflow state for checkpoint
+    pub fn update_workflow_state(&mut self, state: WorkflowState) {
+        self.workflow_state = Some(state);
+        self.last_checkpoint = Some(Utc::now());
+    }
+
+    /// Get resume information for display
+    pub fn get_resume_info(&self) -> Option<String> {
+        self.workflow_state.as_ref().map(|ws| {
+            format!(
+                "Step {}/{} in iteration {}",
+                ws.current_step + 1,
+                ws.completed_steps.len() + 1,
+                ws.current_iteration + 1
+            )
+        })
     }
 }

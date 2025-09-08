@@ -8,7 +8,7 @@ pub mod summary;
 pub mod tracker;
 
 pub use adapter::SessionManagerAdapter;
-pub use state::{SessionState, SessionStatus};
+pub use state::{ExecutionEnvironment, SessionState, SessionStatus, StepResult, WorkflowState};
 pub use summary::SessionSummary;
 pub use tracker::{SessionTracker, SessionTrackerImpl};
 
@@ -36,6 +36,28 @@ pub trait SessionManager: Send + Sync {
 
     /// Load session state from disk
     async fn load_state(&self, path: &Path) -> Result<()>;
+
+    /// Load session by ID for resuming
+    async fn load_session(&self, session_id: &str) -> Result<SessionState>;
+
+    /// Save checkpoint for resume
+    async fn save_checkpoint(&self, state: &SessionState) -> Result<()>;
+
+    /// List resumable sessions
+    async fn list_resumable(&self) -> Result<Vec<SessionInfo>>;
+
+    /// Get last interrupted session
+    async fn get_last_interrupted(&self) -> Result<Option<String>>;
+}
+
+/// Information about a resumable session
+#[derive(Debug, Clone)]
+pub struct SessionInfo {
+    pub session_id: String,
+    pub status: SessionStatus,
+    pub started_at: chrono::DateTime<chrono::Utc>,
+    pub workflow_path: std::path::PathBuf,
+    pub progress: String,
 }
 
 /// Updates that can be applied to a session
@@ -57,4 +79,11 @@ pub enum SessionUpdate {
     CompleteIteration,
     /// Record command timing
     RecordCommandTiming(String, std::time::Duration),
+    /// Update workflow state for checkpoint
+    UpdateWorkflowState(state::WorkflowState),
+    /// Mark session as interrupted
+    MarkInterrupted,
 }
+
+#[cfg(test)]
+mod resume_tests;

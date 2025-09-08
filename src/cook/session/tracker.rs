@@ -1,23 +1,33 @@
 //! Session tracking implementation
 
-use super::{SessionManager, SessionState, SessionStatus, SessionSummary, SessionUpdate};
-use anyhow::Result;
+use super::{
+    SessionInfo, SessionManager, SessionState, SessionStatus, SessionSummary, SessionUpdate,
+};
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tokio::fs;
 
 /// Default implementation of session tracking
 pub struct SessionTrackerImpl {
     state: Mutex<SessionState>,
+    base_path: PathBuf,
 }
 
 impl SessionTrackerImpl {
     /// Create a new session tracker
     pub fn new(session_id: String, working_directory: std::path::PathBuf) -> Self {
+        let base_path = working_directory.join(".prodigy");
         Self {
             state: Mutex::new(SessionState::new(session_id, working_directory)),
+            base_path,
         }
+    }
+
+    /// Get the session state file path
+    fn get_session_file_path(&self, session_id: &str) -> PathBuf {
+        self.base_path.join(format!("{}.json", session_id))
     }
 
     /// Set worktree name
@@ -83,6 +93,16 @@ impl SessionManager for SessionTrackerImpl {
                     state.command_timings.push((command, duration));
                 }
             }
+            SessionUpdate::UpdateWorkflowState(workflow_state) => {
+                if let Ok(mut state) = self.state.lock() {
+                    state.update_workflow_state(workflow_state);
+                }
+            }
+            SessionUpdate::MarkInterrupted => {
+                if let Ok(mut state) = self.state.lock() {
+                    state.interrupt();
+                }
+            }
         }
         Ok(())
     }
@@ -133,6 +153,126 @@ impl SessionManager for SessionTrackerImpl {
         let json = fs::read_to_string(path).await?;
         *self.state.lock().unwrap() = serde_json::from_str(&json)?;
         Ok(())
+    }
+
+    async fn load_session(&self, session_id: &str) -> Result<SessionState> {
+        let session_file = self.base_path.join("session_state.json");
+
+        // First try the standard session_state.json
+        if session_file.exists() {
+            let json = fs::read_to_string(&session_file).await?;
+            let state: SessionState = serde_json::from_str(&json)?;
+            if state.session_id == session_id {
+                return Ok(state);
+            }
+        }
+
+        // Try the session-specific file
+        let specific_file = self.get_session_file_path(session_id);
+        if specific_file.exists() {
+            let json = fs::read_to_string(&specific_file).await?;
+            let state: SessionState = serde_json::from_str(&json)?;
+            return Ok(state);
+        }
+
+        Err(anyhow!("Session {} not found", session_id))
+    }
+
+    async fn save_checkpoint(&self, state: &SessionState) -> Result<()> {
+        // Create a copy with status set to Interrupted for checkpoint
+        let mut checkpoint_state = state.clone();
+        checkpoint_state.status = SessionStatus::Interrupted;
+
+        // Update the internal state with Interrupted status
+        *self.state.lock().unwrap() = checkpoint_state.clone();
+
+        // Save to both standard location and session-specific file
+        let session_file = self.base_path.join("session_state.json");
+        self.save_state(&session_file).await?;
+
+        // Also save a session-specific backup with Interrupted status
+        let specific_file = self.get_session_file_path(&checkpoint_state.session_id);
+        let json = serde_json::to_string_pretty(&checkpoint_state)?;
+
+        // Ensure directory exists
+        if let Some(parent) = specific_file.parent() {
+            fs::create_dir_all(parent).await?;
+        }
+
+        fs::write(&specific_file, json).await?;
+        Ok(())
+    }
+
+    async fn list_resumable(&self) -> Result<Vec<SessionInfo>> {
+        let mut sessions = Vec::new();
+
+        // Check the main session file
+        let session_file = self.base_path.join("session_state.json");
+        if session_file.exists() {
+            if let Ok(json) = fs::read_to_string(&session_file).await {
+                if let Ok(state) = serde_json::from_str::<SessionState>(&json) {
+                    if state.is_resumable() {
+                        sessions.push(SessionInfo {
+                            session_id: state.session_id.clone(),
+                            status: state.status.clone(),
+                            started_at: state.started_at,
+                            workflow_path: state
+                                .workflow_state
+                                .as_ref()
+                                .map(|ws| ws.workflow_path.clone())
+                                .unwrap_or_default(),
+                            progress: state.get_resume_info().unwrap_or_default(),
+                        });
+                    }
+                }
+            }
+        }
+
+        // Check for session-specific files
+        if let Ok(entries) = fs::read_dir(&self.base_path).await {
+            let mut entries = entries;
+            while let Ok(Some(entry)) = entries.next_entry().await {
+                let path = entry.path();
+                if let Some(name) = path.file_name() {
+                    let name_str = name.to_string_lossy();
+                    if name_str.starts_with("cook-") && name_str.ends_with(".json") {
+                        if let Ok(json) = fs::read_to_string(&path).await {
+                            if let Ok(state) = serde_json::from_str::<SessionState>(&json) {
+                                if state.is_resumable()
+                                    && !sessions.iter().any(|s| s.session_id == state.session_id)
+                                {
+                                    sessions.push(SessionInfo {
+                                        session_id: state.session_id.clone(),
+                                        status: state.status.clone(),
+                                        started_at: state.started_at,
+                                        workflow_path: state
+                                            .workflow_state
+                                            .as_ref()
+                                            .map(|ws| ws.workflow_path.clone())
+                                            .unwrap_or_default(),
+                                        progress: state.get_resume_info().unwrap_or_default(),
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(sessions)
+    }
+
+    async fn get_last_interrupted(&self) -> Result<Option<String>> {
+        let sessions = self.list_resumable().await?;
+
+        // Find the most recent interrupted session
+        let interrupted = sessions
+            .into_iter()
+            .filter(|s| s.status == SessionStatus::Interrupted)
+            .max_by_key(|s| s.started_at);
+
+        Ok(interrupted.map(|s| s.session_id))
     }
 }
 
