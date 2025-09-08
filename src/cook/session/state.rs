@@ -134,6 +134,12 @@ pub struct ExecutionContext {
     pub environment: HashMap<String, String>,
 }
 
+impl Default for ExecutionContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ExecutionContext {
     /// Create a new execution context
     pub fn new() -> Self {
@@ -150,10 +156,9 @@ impl ExecutionContext {
         for step in &workflow_state.completed_steps {
             if let Some(ref output) = step.output {
                 context.step_outputs.insert(step.step_index, output.clone());
-                context.variables.insert(
-                    format!("step_{}_output", step.step_index),
-                    output.clone(),
-                );
+                context
+                    .variables
+                    .insert(format!("step_{}_output", step.step_index), output.clone());
             }
         }
         context

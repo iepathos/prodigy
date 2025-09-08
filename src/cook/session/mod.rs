@@ -9,8 +9,8 @@ pub mod tracker;
 
 pub use adapter::SessionManagerAdapter;
 pub use state::{
-    ExecutionContext, ExecutionEnvironment, SessionState, SessionStatus, StepResult,
-    WorkflowState, WorkflowType,
+    ExecutionContext, ExecutionEnvironment, SessionState, SessionStatus, StepResult, WorkflowState,
+    WorkflowType,
 };
 pub use summary::SessionSummary;
 pub use tracker::{SessionTracker, SessionTrackerImpl};

@@ -9,7 +9,7 @@ use crate::testing::config::TestConfiguration;
 use crate::worktree::WorktreeManager;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -68,7 +68,9 @@ impl From<WorkflowType> for crate::cook::session::WorkflowType {
     fn from(wt: WorkflowType) -> Self {
         match wt {
             WorkflowType::MapReduce => crate::cook::session::WorkflowType::MapReduce,
-            WorkflowType::StructuredWithOutputs => crate::cook::session::WorkflowType::StructuredWithOutputs,
+            WorkflowType::StructuredWithOutputs => {
+                crate::cook::session::WorkflowType::StructuredWithOutputs
+            }
             WorkflowType::WithArguments => crate::cook::session::WorkflowType::Iterative,
             WorkflowType::Standard => crate::cook::session::WorkflowType::Standard,
         }
@@ -374,18 +376,15 @@ impl DefaultCookOrchestrator {
 
         // Determine workflow type and route to appropriate resume handler
         let workflow_type = Self::classify_workflow_type(config);
-        
+
         // For MapReduce workflows, use specialized resume mechanism
         if workflow_type == WorkflowType::MapReduce {
             // Check if there's an existing MapReduce job to resume
             if let Some(mapreduce_config) = &config.mapreduce_config {
                 // Try to resume MapReduce job using existing resume mechanism
-                return self.execute_mapreduce_workflow(
-                    env,
-                    config,
-                    mapreduce_config,
-                )
-                .await;
+                return self
+                    .execute_mapreduce_workflow(env, config, mapreduce_config)
+                    .await;
             }
         }
 
@@ -780,11 +779,11 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         self.session_manager.start_session(&env.session_id).await?;
         self.user_interaction
             .display_info(&format!("🔄 Starting session: {}", env.session_id));
-        
+
         // Calculate and store workflow hash
         let workflow_hash = Self::calculate_workflow_hash(&config.workflow);
         let workflow_type = Self::classify_workflow_type(&config);
-        
+
         // Update session with workflow metadata
         self.session_manager
             .update_session(SessionUpdate::SetWorkflowHash(workflow_hash))
