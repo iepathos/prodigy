@@ -47,6 +47,10 @@ async fn test_workflow_state_checkpoint() {
                 success: true,
                 output: Some("output1".to_string()),
                 duration: std::time::Duration::from_secs(1),
+                error: None,
+                started_at: chrono::Utc::now(),
+                completed_at: chrono::Utc::now(),
+                exit_code: Some(0),
             },
             StepResult {
                 step_index: 1,
@@ -54,6 +58,10 @@ async fn test_workflow_state_checkpoint() {
                 success: true,
                 output: None,
                 duration: std::time::Duration::from_secs(2),
+                error: None,
+                started_at: chrono::Utc::now(),
+                completed_at: chrono::Utc::now(),
+                exit_code: Some(0),
             },
         ],
         workflow_path: PathBuf::from("workflow.yml"),
@@ -137,6 +145,10 @@ async fn test_get_resume_info() {
             success: true,
             output: None,
             duration: std::time::Duration::from_secs(1),
+            error: None,
+            started_at: chrono::Utc::now(),
+            completed_at: chrono::Utc::now(),
+            exit_code: Some(0),
         }],
         workflow_path: PathBuf::from("test.yml"),
         input_args: vec![],
@@ -244,6 +256,10 @@ async fn test_session_persistence_across_interruption() {
                 success: true,
                 output: None,
                 duration: std::time::Duration::from_secs(1),
+                error: None,
+                started_at: chrono::Utc::now(),
+                completed_at: chrono::Utc::now(),
+                exit_code: Some(0),
             },
             StepResult {
                 step_index: 1,
@@ -251,6 +267,10 @@ async fn test_session_persistence_across_interruption() {
                 success: true,
                 output: None,
                 duration: std::time::Duration::from_secs(2),
+                error: None,
+                started_at: chrono::Utc::now(),
+                completed_at: chrono::Utc::now(),
+                exit_code: Some(0),
             },
         ],
         workflow_path: PathBuf::from("test.yml"),
@@ -333,6 +353,11 @@ async fn test_list_resumable_with_worktree_sessions() {
         current_iteration_started_at: None,
         execution_environment: None,
         workflow_started_at: None,
+        workflow_hash: None,
+        workflow_type: None,
+        execution_context: None,
+        checkpoint_version: 1,
+        last_validated_at: None,
     };
     let json1 = serde_json::to_string_pretty(&session1).unwrap();
     std::fs::write(prodigy_dir.join("session-001.json"), json1).unwrap();
@@ -356,6 +381,11 @@ async fn test_list_resumable_with_worktree_sessions() {
         current_iteration_started_at: None,
         execution_environment: None,
         workflow_started_at: None,
+        workflow_hash: None,
+        workflow_type: None,
+        execution_context: None,
+        checkpoint_version: 1,
+        last_validated_at: None,
     };
     let json2 = serde_json::to_string_pretty(&session2).unwrap();
     std::fs::write(prodigy_dir.join("session-002.json"), json2).unwrap();
@@ -379,6 +409,11 @@ async fn test_list_resumable_with_worktree_sessions() {
         current_iteration_started_at: None,
         execution_environment: None,
         workflow_started_at: None,
+        workflow_hash: None,
+        workflow_type: None,
+        execution_context: None,
+        checkpoint_version: 1,
+        last_validated_at: None,
     };
     let json3 = serde_json::to_string_pretty(&session3).unwrap();
     std::fs::write(prodigy_dir.join("session-003.json"), json3).unwrap();

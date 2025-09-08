@@ -8,7 +8,10 @@ pub mod summary;
 pub mod tracker;
 
 pub use adapter::SessionManagerAdapter;
-pub use state::{ExecutionEnvironment, SessionState, SessionStatus, StepResult, WorkflowState};
+pub use state::{
+    ExecutionContext, ExecutionEnvironment, SessionState, SessionStatus, StepResult, WorkflowState,
+    WorkflowType,
+};
 pub use summary::SessionSummary;
 pub use tracker::{SessionTracker, SessionTrackerImpl};
 
@@ -83,6 +86,12 @@ pub enum SessionUpdate {
     UpdateWorkflowState(state::WorkflowState),
     /// Mark session as interrupted
     MarkInterrupted,
+    /// Set workflow hash for validation
+    SetWorkflowHash(String),
+    /// Set workflow type
+    SetWorkflowType(state::WorkflowType),
+    /// Update execution context
+    UpdateExecutionContext(state::ExecutionContext),
 }
 
 #[cfg(test)]

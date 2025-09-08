@@ -9,6 +9,7 @@ use crate::testing::config::TestConfiguration;
 use crate::worktree::WorktreeManager;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -61,6 +62,19 @@ enum WorkflowType {
     StructuredWithOutputs,
     WithArguments,
     Standard,
+}
+
+impl From<WorkflowType> for crate::cook::session::WorkflowType {
+    fn from(wt: WorkflowType) -> Self {
+        match wt {
+            WorkflowType::MapReduce => crate::cook::session::WorkflowType::MapReduce,
+            WorkflowType::StructuredWithOutputs => {
+                crate::cook::session::WorkflowType::StructuredWithOutputs
+            }
+            WorkflowType::WithArguments => crate::cook::session::WorkflowType::Iterative,
+            WorkflowType::Standard => crate::cook::session::WorkflowType::Standard,
+        }
+    }
 }
 
 /// Execution environment for cook operations
@@ -151,6 +165,14 @@ impl DefaultCookOrchestrator {
         crate::session::SessionId::new().to_string()
     }
 
+    /// Calculate workflow hash for validation
+    fn calculate_workflow_hash(workflow: &WorkflowConfig) -> String {
+        let mut hasher = Sha256::new();
+        let serialized = serde_json::to_string(workflow).unwrap_or_default();
+        hasher.update(serialized);
+        format!("{:x}", hasher.finalize())
+    }
+
     /// Resume an interrupted workflow
     async fn resume_workflow(&self, session_id: &str, mut config: CookConfig) -> Result<()> {
         // Load the session state
@@ -163,6 +185,17 @@ impl DefaultCookOrchestrator {
                 session_id,
                 state.status
             ));
+        }
+
+        // Validate workflow hasn't changed
+        if let Some(ref stored_hash) = state.workflow_hash {
+            let current_hash = Self::calculate_workflow_hash(&config.workflow);
+            if current_hash != *stored_hash {
+                return Err(anyhow!(
+                    "Workflow has been modified since interruption. \
+                     Use --force to override or start a new session."
+                ));
+            }
         }
 
         // Display resume information
@@ -187,6 +220,17 @@ impl DefaultCookOrchestrator {
             // Update config with saved arguments
             config.command.args = workflow_state.input_args.clone();
             config.command.map = workflow_state.map_patterns.clone();
+
+            // Restore execution context if available
+            if let Some(ref exec_context) = state.execution_context {
+                // This context would need to be passed to the workflow executor
+                // For now, we'll just log that it was restored
+                self.user_interaction.display_info(&format!(
+                    "Restored {} variables and {} step outputs",
+                    exec_context.variables.len(),
+                    exec_context.step_outputs.len()
+                ));
+            }
 
             // Execute the workflow starting from the saved position
             let result = self
@@ -306,11 +350,19 @@ impl DefaultCookOrchestrator {
             start_step + 1
         ));
 
+        // Load existing completed steps from session state
+        let existing_state = self.session_manager.get_state();
+        let completed_steps = existing_state
+            .workflow_state
+            .as_ref()
+            .map(|ws| ws.completed_steps.clone())
+            .unwrap_or_default();
+
         // Create workflow state for checkpointing
         let workflow_state = super::session::WorkflowState {
             current_iteration: start_iteration,
             current_step: start_step,
-            completed_steps: Vec::new(),
+            completed_steps,
             workflow_path: config.command.playbook.clone(),
             input_args: config.command.args.clone(),
             map_patterns: config.command.map.clone(),
@@ -322,8 +374,22 @@ impl DefaultCookOrchestrator {
             .update_session(SessionUpdate::UpdateWorkflowState(workflow_state))
             .await?;
 
+        // Determine workflow type and route to appropriate resume handler
+        let workflow_type = Self::classify_workflow_type(config);
+
+        // For MapReduce workflows, use specialized resume mechanism
+        if workflow_type == WorkflowType::MapReduce {
+            // Check if there's an existing MapReduce job to resume
+            if let Some(mapreduce_config) = &config.mapreduce_config {
+                // Try to resume MapReduce job using existing resume mechanism
+                return self
+                    .execute_mapreduce_workflow(env, config, mapreduce_config)
+                    .await;
+            }
+        }
+
         // Execute the workflow based on type, but skip completed steps
-        match Self::classify_workflow_type(config) {
+        match workflow_type {
             WorkflowType::MapReduce => {
                 // MapReduce workflows have their own resume mechanism
                 self.execute_mapreduce_workflow(
@@ -399,6 +465,10 @@ impl DefaultCookOrchestrator {
                     success: true,
                     output: None,
                     duration: std::time::Duration::from_secs(0),
+                    error: None,
+                    started_at: chrono::Utc::now(),
+                    completed_at: chrono::Utc::now(),
+                    exit_code: Some(0),
                 });
 
             // Save checkpoint after successful execution
@@ -709,6 +779,18 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         self.session_manager.start_session(&env.session_id).await?;
         self.user_interaction
             .display_info(&format!("🔄 Starting session: {}", env.session_id));
+
+        // Calculate and store workflow hash
+        let workflow_hash = Self::calculate_workflow_hash(&config.workflow);
+        let workflow_type = Self::classify_workflow_type(&config);
+
+        // Update session with workflow metadata
+        self.session_manager
+            .update_session(SessionUpdate::SetWorkflowHash(workflow_hash))
+            .await?;
+        self.session_manager
+            .update_session(SessionUpdate::SetWorkflowType(workflow_type.into()))
+            .await?;
 
         // Set up signal handler for graceful interruption
         let session_manager = self.session_manager.clone();

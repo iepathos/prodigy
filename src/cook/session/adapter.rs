@@ -223,6 +223,15 @@ impl OldSessionManager for SessionManagerAdapter {
                     )
                     .await?;
             }
+            SessionUpdate::SetWorkflowHash(_) => {
+                // Not supported in adapter - workflow hash is for resume functionality
+            }
+            SessionUpdate::SetWorkflowType(_) => {
+                // Not supported in adapter - workflow type is for resume functionality
+            }
+            SessionUpdate::UpdateExecutionContext(_) => {
+                // Not supported in adapter - execution context is for resume functionality
+            }
         }
 
         Ok(())
@@ -295,6 +304,11 @@ impl OldSessionManager for SessionManagerAdapter {
                     workflow_state: None,
                     execution_environment: None,
                     last_checkpoint: None,
+                    workflow_hash: None,
+                    workflow_type: None,
+                    execution_context: None,
+                    checkpoint_version: 1,
+                    last_validated_at: None,
                 };
             }
         }
