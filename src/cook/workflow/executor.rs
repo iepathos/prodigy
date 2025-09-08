@@ -475,6 +475,12 @@ impl WorkflowExecutor {
         }
     }
 
+    /// Format variable value for display (used by tests)
+    #[cfg(test)]
+    pub fn format_variable_value(&self, value: &str) -> String {
+        Self::format_variable_value_static(value)
+    }
+
     /// Static helper for formatting variable values
     fn format_variable_value_static(value: &str) -> String {
         const MAX_LENGTH: usize = 200;
@@ -2268,15 +2274,14 @@ mod tests {
         assert_eq!(result, "Running command with 98 and alice");
         assert_eq!(resolutions.len(), 2);
 
-        // Check first resolution
-        assert_eq!(resolutions[0].name, "ARG");
-        assert_eq!(resolutions[0].raw_expression, "$ARG");
-        assert_eq!(resolutions[0].resolved_value, "98");
+        // Check resolutions - order may vary due to HashMap iteration
+        let arg_resolution = resolutions.iter().find(|r| r.name == "ARG").unwrap();
+        assert_eq!(arg_resolution.raw_expression, "$ARG");
+        assert_eq!(arg_resolution.resolved_value, "98");
 
-        // Check second resolution
-        assert_eq!(resolutions[1].name, "USER");
-        assert_eq!(resolutions[1].raw_expression, "${USER}");
-        assert_eq!(resolutions[1].resolved_value, "alice");
+        let user_resolution = resolutions.iter().find(|r| r.name == "USER").unwrap();
+        assert_eq!(user_resolution.raw_expression, "${USER}");
+        assert_eq!(user_resolution.resolved_value, "alice");
     }
 
     #[test]
@@ -2322,11 +2327,147 @@ mod tests {
         assert_eq!(resolutions.len(), 0);
     }
 
+    // Minimal mock implementations for tests
+    #[cfg(test)]
+    mod test_mocks {
+        use super::*;
+        use crate::cook::execution::{ClaudeExecutor, ExecutionResult};
+        use crate::cook::interaction::{UserInteraction, SpinnerHandle};
+        use crate::cook::session::{SessionManager, SessionSummary, SessionUpdate, SessionState, SessionInfo};
+        use crate::cook::interaction::VerbosityLevel;
+        use async_trait::async_trait;
+        use std::path::Path;
+        use std::collections::HashMap;
+
+        pub struct MockClaudeExecutor;
+        
+        impl MockClaudeExecutor {
+            pub fn new() -> Self {
+                Self
+            }
+        }
+        
+        #[async_trait]
+        impl ClaudeExecutor for MockClaudeExecutor {
+            async fn execute_claude_command(
+                &self,
+                _command: &str,
+                _project_path: &Path,
+                _env_vars: HashMap<String, String>,
+            ) -> Result<ExecutionResult> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+            
+            async fn check_claude_cli(&self) -> Result<bool> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+            
+            async fn get_claude_version(&self) -> Result<String> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+        }
+
+        pub struct MockSessionManager;
+        
+        impl MockSessionManager {
+            pub fn new() -> Self {
+                Self
+            }
+        }
+        
+        #[async_trait]
+        impl SessionManager for MockSessionManager {
+            async fn start_session(&self, _session_id: &str) -> Result<()> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+            
+            async fn update_session(&self, _update: SessionUpdate) -> Result<()> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+            
+            async fn complete_session(&self) -> Result<SessionSummary> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+            
+            fn get_state(&self) -> SessionState {
+                unreachable!("Not used in format_variable_value tests")
+            }
+            
+            async fn save_state(&self, _path: &Path) -> Result<()> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+            
+            async fn load_state(&self, _path: &Path) -> Result<()> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+            
+            async fn load_session(&self, _session_id: &str) -> Result<SessionState> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+            
+            async fn save_checkpoint(&self, _state: &SessionState) -> Result<()> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+            
+            async fn list_resumable(&self) -> Result<Vec<SessionInfo>> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+            
+            async fn get_last_interrupted(&self) -> Result<Option<String>> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+        }
+
+        pub struct MockUserInteraction;
+        
+        impl MockUserInteraction {
+            pub fn new() -> Self {
+                Self
+            }
+        }
+        
+        #[async_trait]
+        impl UserInteraction for MockUserInteraction {
+            async fn prompt_yes_no(&self, _message: &str) -> Result<bool> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+            
+            async fn prompt_text(&self, _message: &str, _default: Option<&str>) -> Result<String> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+            
+            fn display_info(&self, _message: &str) {}
+            fn display_warning(&self, _message: &str) {}
+            fn display_error(&self, _message: &str) {}
+            fn display_success(&self, _message: &str) {}
+            fn display_progress(&self, _message: &str) {}
+            fn start_spinner(&self, _message: &str) -> Box<dyn SpinnerHandle> {
+                struct NoOpSpinner;
+                impl SpinnerHandle for NoOpSpinner {
+                    fn update_message(&mut self, _message: &str) {}
+                    fn success(&mut self, _message: &str) {}
+                    fn fail(&mut self, _message: &str) {}
+                }
+                Box::new(NoOpSpinner)
+            }
+            fn display_action(&self, _message: &str) {}
+            fn display_metric(&self, _label: &str, _value: &str) {}
+            fn display_status(&self, _message: &str) {}
+            fn iteration_start(&self, _current: u32, _total: u32) {}
+            fn iteration_end(&self, _current: u32, _duration: std::time::Duration, _success: bool) {}
+            fn step_start(&self, _step: u32, _total: u32, _description: &str) {}
+            fn step_end(&self, _step: u32, _success: bool) {}
+            fn command_output(&self, _output: &str, _verbosity: VerbosityLevel) {}
+            fn debug_output(&self, _message: &str, _min_verbosity: VerbosityLevel) {}
+            fn verbosity(&self) -> VerbosityLevel {
+                VerbosityLevel::Normal
+            }
+        }
+    }
+
     #[test]
     fn test_format_variable_value_short_string() {
-        use crate::cook::execution::MockClaudeExecutor;
-        use crate::cook::interaction::MockUserInteraction;
-        use crate::cook::session::MockSessionManager;
+        use self::test_mocks::{MockClaudeExecutor, MockUserInteraction, MockSessionManager};
         use std::sync::Arc;
 
         let executor = WorkflowExecutor::new(
@@ -2342,9 +2483,7 @@ mod tests {
 
     #[test]
     fn test_format_variable_value_json_array() {
-        use crate::cook::execution::MockClaudeExecutor;
-        use crate::cook::interaction::MockUserInteraction;
-        use crate::cook::session::MockSessionManager;
+        use self::test_mocks::{MockClaudeExecutor, MockUserInteraction, MockSessionManager};
         use std::sync::Arc;
 
         let executor = WorkflowExecutor::new(
@@ -2360,9 +2499,7 @@ mod tests {
 
     #[test]
     fn test_format_variable_value_large_array() {
-        use crate::cook::execution::MockClaudeExecutor;
-        use crate::cook::interaction::MockUserInteraction;
-        use crate::cook::session::MockSessionManager;
+        use self::test_mocks::{MockClaudeExecutor, MockUserInteraction, MockSessionManager};
         use std::sync::Arc;
 
         let executor = WorkflowExecutor::new(
@@ -2380,9 +2517,7 @@ mod tests {
 
     #[test]
     fn test_format_variable_value_json_object() {
-        use crate::cook::execution::MockClaudeExecutor;
-        use crate::cook::interaction::MockUserInteraction;
-        use crate::cook::session::MockSessionManager;
+        use self::test_mocks::{MockClaudeExecutor, MockUserInteraction, MockSessionManager};
         use std::sync::Arc;
 
         let executor = WorkflowExecutor::new(
@@ -2402,9 +2537,7 @@ mod tests {
 
     #[test]
     fn test_format_variable_value_truncated() {
-        use crate::cook::execution::MockClaudeExecutor;
-        use crate::cook::interaction::MockUserInteraction;
-        use crate::cook::session::MockSessionManager;
+        use self::test_mocks::{MockClaudeExecutor, MockUserInteraction, MockSessionManager};
         use std::sync::Arc;
 
         let executor = WorkflowExecutor::new(
