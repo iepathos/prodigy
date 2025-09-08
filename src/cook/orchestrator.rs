@@ -146,9 +146,9 @@ impl DefaultCookOrchestrator {
         }
     }
 
-    /// Generate session ID
+    /// Generate session ID using unified format
     fn generate_session_id(&self) -> String {
-        format!("cook-{}", chrono::Utc::now().timestamp())
+        crate::session::SessionId::new().to_string()
     }
 
     /// Resume an interrupted workflow
@@ -815,7 +815,8 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         if config.command.worktree {
             let worktree_manager =
                 WorktreeManager::new(config.project_path.clone(), self.subprocess.clone())?;
-            let session = worktree_manager.create_session().await?;
+            // Pass the unified session ID to the worktree manager
+            let session = worktree_manager.create_session_with_id(&session_id).await?;
 
             working_dir = session.path.clone();
             worktree_name = Some(session.name.clone());
