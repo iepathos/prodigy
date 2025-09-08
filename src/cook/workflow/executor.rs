@@ -13,6 +13,7 @@ use crate::cook::workflow::validation::{ValidationConfig, ValidationResult};
 use crate::session::{format_duration, TimingTracker};
 use crate::testing::config::TestConfiguration;
 use anyhow::{anyhow, Context, Result};
+use regex::Regex;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -103,6 +104,14 @@ pub struct StepResult {
     pub stderr: String,
 }
 
+/// Variable resolution tracking for verbose output
+#[derive(Debug, Clone)]
+pub struct VariableResolution {
+    pub name: String,
+    pub raw_expression: String,
+    pub resolved_value: String,
+}
+
 /// Workflow context for variable interpolation
 #[derive(Debug, Clone, Default)]
 pub struct WorkflowContext {
@@ -115,48 +124,151 @@ pub struct WorkflowContext {
 impl WorkflowContext {
     /// Interpolate variables in a template string
     pub fn interpolate(&self, template: &str) -> String {
+        self.interpolate_with_tracking(template).0
+    }
+
+    /// Interpolate variables and track resolutions for verbose output
+    pub fn interpolate_with_tracking(&self, template: &str) -> (String, Vec<VariableResolution>) {
         let mut result = template.to_string();
+        let mut resolutions = Vec::new();
 
         // Replace ${VAR} and $VAR patterns
         for (key, value) in &self.variables {
-            result = result.replace(&format!("${{{key}}}"), value);
-            result = result.replace(&format!("${key}"), value);
+            let braced_pattern = format!("${{{key}}}");
+            let simple_pattern = format!("${key}");
+
+            if result.contains(&braced_pattern) {
+                result = result.replace(&braced_pattern, value);
+                resolutions.push(VariableResolution {
+                    name: key.clone(),
+                    raw_expression: braced_pattern,
+                    resolved_value: value.clone(),
+                });
+            }
+            if result.contains(&simple_pattern) {
+                result = result.replace(&simple_pattern, value);
+                resolutions.push(VariableResolution {
+                    name: key.clone(),
+                    raw_expression: simple_pattern,
+                    resolved_value: value.clone(),
+                });
+            }
         }
 
         for (key, value) in &self.captured_outputs {
-            result = result.replace(&format!("${{{key}}}"), value);
-            result = result.replace(&format!("${key}"), value);
+            let braced_pattern = format!("${{{key}}}");
+            let simple_pattern = format!("${key}");
+
+            if result.contains(&braced_pattern) {
+                result = result.replace(&braced_pattern, value);
+                resolutions.push(VariableResolution {
+                    name: key.clone(),
+                    raw_expression: braced_pattern,
+                    resolved_value: value.clone(),
+                });
+            }
+            if result.contains(&simple_pattern) {
+                result = result.replace(&simple_pattern, value);
+                resolutions.push(VariableResolution {
+                    name: key.clone(),
+                    raw_expression: simple_pattern,
+                    resolved_value: value.clone(),
+                });
+            }
         }
 
         for (key, value) in &self.iteration_vars {
-            result = result.replace(&format!("${{{key}}}"), value);
-            result = result.replace(&format!("${key}"), value);
+            let braced_pattern = format!("${{{key}}}");
+            let simple_pattern = format!("${key}");
+
+            if result.contains(&braced_pattern) {
+                result = result.replace(&braced_pattern, value);
+                resolutions.push(VariableResolution {
+                    name: key.clone(),
+                    raw_expression: braced_pattern,
+                    resolved_value: value.clone(),
+                });
+            }
+            if result.contains(&simple_pattern) {
+                result = result.replace(&simple_pattern, value);
+                resolutions.push(VariableResolution {
+                    name: key.clone(),
+                    raw_expression: simple_pattern,
+                    resolved_value: value.clone(),
+                });
+            }
         }
 
         // Add validation context variables
         for (key, validation_result) in &self.validation_results {
             // Add completion percentage
-            result = result.replace(
-                &format!("${{{key}.completion}}"),
-                &validation_result.completion_percentage.to_string(),
-            );
-            result = result.replace(
-                &format!("${key}.completion"),
-                &validation_result.completion_percentage.to_string(),
-            );
+            let completion_braced = format!("${{{key}.completion}}");
+            let completion_simple = format!("${key}.completion");
+            let completion_value = validation_result.completion_percentage.to_string();
+
+            if result.contains(&completion_braced) {
+                result = result.replace(&completion_braced, &completion_value);
+                resolutions.push(VariableResolution {
+                    name: format!("{key}.completion"),
+                    raw_expression: completion_braced,
+                    resolved_value: completion_value.clone(),
+                });
+            }
+            if result.contains(&completion_simple) {
+                result = result.replace(&completion_simple, &completion_value);
+                resolutions.push(VariableResolution {
+                    name: format!("{key}.completion"),
+                    raw_expression: completion_simple,
+                    resolved_value: completion_value,
+                });
+            }
 
             // Add gaps summary
             let gaps_summary = validation_result.gaps_summary();
-            result = result.replace(&format!("${{{key}.gaps}}"), &gaps_summary);
-            result = result.replace(&format!("${key}.gaps"), &gaps_summary);
+            let gaps_braced = format!("${{{key}.gaps}}");
+            let gaps_simple = format!("${key}.gaps");
+
+            if result.contains(&gaps_braced) {
+                result = result.replace(&gaps_braced, &gaps_summary);
+                resolutions.push(VariableResolution {
+                    name: format!("{key}.gaps"),
+                    raw_expression: gaps_braced,
+                    resolved_value: gaps_summary.clone(),
+                });
+            }
+            if result.contains(&gaps_simple) {
+                result = result.replace(&gaps_simple, &gaps_summary);
+                resolutions.push(VariableResolution {
+                    name: format!("{key}.gaps"),
+                    raw_expression: gaps_simple,
+                    resolved_value: gaps_summary,
+                });
+            }
 
             // Add missing items as comma-separated list
             let missing = validation_result.missing.join(", ");
-            result = result.replace(&format!("${{{key}.missing}}"), &missing);
-            result = result.replace(&format!("${key}.missing"), &missing);
+            let missing_braced = format!("${{{key}.missing}}");
+            let missing_simple = format!("${key}.missing");
+
+            if result.contains(&missing_braced) {
+                result = result.replace(&missing_braced, &missing);
+                resolutions.push(VariableResolution {
+                    name: format!("{key}.missing"),
+                    raw_expression: missing_braced,
+                    resolved_value: missing.clone(),
+                });
+            }
+            if result.contains(&missing_simple) {
+                result = result.replace(&missing_simple, &missing);
+                resolutions.push(VariableResolution {
+                    name: format!("{key}.missing"),
+                    raw_expression: missing_simple,
+                    resolved_value: missing,
+                });
+            }
         }
 
-        result
+        (result, resolutions)
     }
 }
 
@@ -238,6 +350,44 @@ fn default_commit_required() -> bool {
     true
 }
 
+/// Configuration for sensitive variable patterns
+#[derive(Debug, Clone)]
+pub struct SensitivePatternConfig {
+    /// Regex patterns to identify sensitive variable names
+    pub name_patterns: Vec<Regex>,
+    /// Regex patterns to identify sensitive values
+    pub value_patterns: Vec<Regex>,
+    /// Custom masking string (default: "***REDACTED***")
+    pub mask_string: String,
+}
+
+impl Default for SensitivePatternConfig {
+    fn default() -> Self {
+        Self {
+            // Default patterns for common sensitive variable names
+            name_patterns: vec![
+                Regex::new(r"(?i)(password|passwd|pwd)").unwrap(),
+                Regex::new(r"(?i)(token|api[_-]?key|secret)").unwrap(),
+                Regex::new(r"(?i)(auth|authorization|bearer)").unwrap(),
+                Regex::new(r"(?i)(private[_-]?key|ssh[_-]?key)").unwrap(),
+                Regex::new(r"(?i)(access[_-]?key|client[_-]?secret)").unwrap(),
+            ],
+            // Default patterns for common sensitive value formats
+            value_patterns: vec![
+                // GitHub/GitLab tokens (ghp_, glpat-, etc.)
+                Regex::new(r"^(ghp_|gho_|ghu_|ghs_|ghr_|glpat-)").unwrap(),
+                // AWS access keys
+                Regex::new(r"^AKIA[0-9A-Z]{16}$").unwrap(),
+                // JWT tokens
+                Regex::new(r"^eyJ[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$").unwrap(),
+                // Basic auth headers
+                Regex::new(r"^(Basic|Bearer)\s+[A-Za-z0-9+/=]+$").unwrap(),
+            ],
+            mask_string: "***REDACTED***".to_string(),
+        }
+    }
+}
+
 /// Workflow execution mode
 #[derive(Debug, Clone, PartialEq)]
 pub enum WorkflowMode {
@@ -276,6 +426,7 @@ pub struct WorkflowExecutor {
     test_config: Option<Arc<TestConfiguration>>,
     command_registry: Option<CommandRegistry>,
     subprocess: crate::subprocess::SubprocessManager,
+    sensitive_config: SensitivePatternConfig,
 }
 
 impl WorkflowExecutor {
@@ -283,6 +434,121 @@ impl WorkflowExecutor {
     pub async fn with_command_registry(mut self) -> Self {
         self.command_registry = Some(CommandRegistry::with_defaults().await);
         self
+    }
+
+    /// Log variable resolutions when verbose mode is enabled
+    fn log_variable_resolutions(&self, resolutions: &[VariableResolution]) {
+        if tracing::enabled!(tracing::Level::DEBUG) && !resolutions.is_empty() {
+            for resolution in resolutions {
+                // Format the value for display, applying masking if sensitive
+                let display_value = self.format_variable_value_with_masking(
+                    &resolution.name,
+                    &resolution.resolved_value,
+                );
+                tracing::debug!(
+                    "   📊 Variable {} = {}",
+                    resolution.raw_expression,
+                    display_value
+                );
+            }
+        }
+    }
+
+    /// Format variable value with sensitive data masking
+    fn format_variable_value_with_masking(&self, name: &str, value: &str) -> String {
+        // Check if this variable should be masked based on name patterns
+        let should_mask_by_name = self
+            .sensitive_config
+            .name_patterns
+            .iter()
+            .any(|pattern| pattern.is_match(name));
+
+        // Check if this value should be masked based on value patterns
+        let should_mask_by_value = self
+            .sensitive_config
+            .value_patterns
+            .iter()
+            .any(|pattern| pattern.is_match(value));
+
+        if should_mask_by_name || should_mask_by_value {
+            // Return masked value
+            self.sensitive_config.mask_string.clone()
+        } else {
+            // Format normally if not sensitive
+            Self::format_variable_value_static(value)
+        }
+    }
+
+    /// Format variable value for display (used by tests)
+    #[cfg(test)]
+    pub fn format_variable_value(&self, value: &str) -> String {
+        Self::format_variable_value_static(value)
+    }
+
+    /// Static helper for formatting variable values
+    fn format_variable_value_static(value: &str) -> String {
+        const MAX_LENGTH: usize = 200;
+
+        // Try to parse as JSON for pretty printing
+        if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(value) {
+            // Handle arrays and objects specially
+            match &json_val {
+                serde_json::Value::Array(arr) => {
+                    if arr.is_empty() {
+                        return "[]".to_string();
+                    }
+                    // For arrays, show as JSON if small, otherwise show count
+                    let json_str =
+                        serde_json::to_string(&json_val).unwrap_or_else(|_| value.to_string());
+                    if json_str.len() <= MAX_LENGTH {
+                        return json_str;
+                    } else {
+                        return format!("[...{} items...]", arr.len());
+                    }
+                }
+                serde_json::Value::Object(obj) => {
+                    if obj.is_empty() {
+                        return "{}".to_string();
+                    }
+                    // For objects, pretty print if small
+                    if let Ok(pretty) = serde_json::to_string_pretty(&json_val) {
+                        if pretty.len() <= MAX_LENGTH {
+                            return pretty;
+                        } else {
+                            // Show abbreviated version
+                            let keys: Vec<_> = obj.keys().take(3).cloned().collect();
+                            let preview = if obj.len() > 3 {
+                                format!(
+                                    "{{ {}, ... ({} total fields) }}",
+                                    keys.join(", "),
+                                    obj.len()
+                                )
+                            } else {
+                                format!("{{ {} }}", keys.join(", "))
+                            };
+                            return preview;
+                        }
+                    }
+                }
+                _ => {
+                    // For simple values, use as-is
+                    return value.to_string();
+                }
+            }
+        }
+
+        // Not JSON, handle as plain string
+        if value.len() <= MAX_LENGTH {
+            // Quote strings to make them clear
+            format!("\"{}\"", value)
+        } else {
+            // Truncate long values
+            format!(
+                "\"{}...\" (showing first {} chars)",
+                &value[..MAX_LENGTH],
+                MAX_LENGTH
+            )
+        }
     }
 
     /// Handle validation for a successful command
@@ -489,12 +755,14 @@ impl WorkflowExecutor {
     ) -> Result<StepResult> {
         match command_type.clone() {
             CommandType::Claude(cmd) => {
-                let interpolated_cmd = ctx.interpolate(&cmd);
+                let (interpolated_cmd, resolutions) = ctx.interpolate_with_tracking(&cmd);
+                self.log_variable_resolutions(&resolutions);
                 self.execute_claude_command(&interpolated_cmd, env, env_vars)
                     .await
             }
             CommandType::Shell(cmd) => {
-                let interpolated_cmd = ctx.interpolate(&cmd);
+                let (interpolated_cmd, resolutions) = ctx.interpolate_with_tracking(&cmd);
+                self.log_variable_resolutions(&resolutions);
                 self.execute_shell_for_step(&interpolated_cmd, step, env, ctx, env_vars)
                     .await
             }
@@ -503,7 +771,8 @@ impl WorkflowExecutor {
                     .await
             }
             CommandType::Legacy(cmd) => {
-                let interpolated_cmd = ctx.interpolate(&cmd);
+                let (interpolated_cmd, resolutions) = ctx.interpolate_with_tracking(&cmd);
+                self.log_variable_resolutions(&resolutions);
                 self.execute_claude_command(&interpolated_cmd, env, env_vars)
                     .await
             }
@@ -641,7 +910,14 @@ impl WorkflowExecutor {
             test_config: None,
             command_registry: None,
             subprocess: crate::subprocess::SubprocessManager::production(),
+            sensitive_config: SensitivePatternConfig::default(),
         }
+    }
+
+    /// Configure sensitive pattern detection
+    pub fn with_sensitive_patterns(mut self, config: SensitivePatternConfig) -> Self {
+        self.sensitive_config = config;
+        self
     }
 
     /// Create a new workflow executor with test configuration
@@ -659,6 +935,7 @@ impl WorkflowExecutor {
             test_config: Some(test_config),
             command_registry: None,
             subprocess: crate::subprocess::SubprocessManager::production(),
+            sensitive_config: SensitivePatternConfig::default(),
         }
     }
 
@@ -1067,7 +1344,11 @@ impl WorkflowExecutor {
 
         // Add step-specific environment variables with interpolation
         for (key, value) in &step.env {
-            let interpolated_value = ctx.interpolate(value);
+            let (interpolated_value, resolutions) = ctx.interpolate_with_tracking(value);
+            if !resolutions.is_empty() {
+                tracing::debug!("   📊 Environment variable {} resolved:", key);
+                self.log_variable_resolutions(&resolutions);
+            }
             env_vars.insert(key.clone(), interpolated_value);
         }
 
@@ -1176,12 +1457,19 @@ impl WorkflowExecutor {
             }
         }
 
-        // Interpolate attribute values
-        for (_, value) in attributes.iter_mut() {
+        // Interpolate attribute values and track resolutions
+        let mut all_resolutions = Vec::new();
+        for (attr_name, value) in attributes.iter_mut() {
             if let AttributeValue::String(s) = value {
-                *s = ctx.interpolate(s);
+                let (interpolated, resolutions) = ctx.interpolate_with_tracking(s);
+                if !resolutions.is_empty() {
+                    tracing::debug!("   📊 Handler attribute '{}' variables:", attr_name);
+                    all_resolutions.extend(resolutions);
+                }
+                *s = interpolated;
             }
         }
+        self.log_variable_resolutions(&all_resolutions);
 
         // Execute the handler
         let result = registry
@@ -1287,7 +1575,8 @@ impl WorkflowExecutor {
         use std::fs;
         use tempfile::NamedTempFile;
 
-        let interpolated_cmd = ctx.interpolate(command);
+        let (interpolated_cmd, resolutions) = ctx.interpolate_with_tracking(command);
+        self.log_variable_resolutions(&resolutions);
 
         // Execute the shell command with retry logic
         let mut attempt = 0;
@@ -1374,7 +1663,10 @@ impl WorkflowExecutor {
                 }
 
                 // Interpolate the debug command
-                debug_cmd = ctx.interpolate(&debug_cmd);
+                let (interpolated_debug_cmd, debug_resolutions) =
+                    ctx.interpolate_with_tracking(&debug_cmd);
+                self.log_variable_resolutions(&debug_resolutions);
+                debug_cmd = interpolated_debug_cmd;
 
                 // Log the actual command being run
                 self.user_interaction.display_info(&format!(
@@ -1414,7 +1706,8 @@ impl WorkflowExecutor {
         use std::fs;
         use tempfile::NamedTempFile;
 
-        let interpolated_test_cmd = ctx.interpolate(&test_cmd.command);
+        let (interpolated_test_cmd, resolutions) = ctx.interpolate_with_tracking(&test_cmd.command);
+        self.log_variable_resolutions(&resolutions);
 
         // First, execute the test command
         let mut attempt = 0;
@@ -1501,7 +1794,10 @@ impl WorkflowExecutor {
                 }
 
                 // Interpolate the debug command
-                debug_cmd = ctx.interpolate(&debug_cmd);
+                let (interpolated_debug_cmd, debug_resolutions) =
+                    ctx.interpolate_with_tracking(&debug_cmd);
+                self.log_variable_resolutions(&debug_resolutions);
+                debug_cmd = interpolated_debug_cmd;
 
                 // Log the actual command being run
                 self.user_interaction.display_info(&format!(
@@ -1818,7 +2114,8 @@ impl WorkflowExecutor {
 
         // Execute either claude or shell command
         let result = if let Some(claude_cmd) = &validation_config.claude {
-            let command = ctx.interpolate(claude_cmd);
+            let (command, resolutions) = ctx.interpolate_with_tracking(claude_cmd);
+            self.log_variable_resolutions(&resolutions);
             self.user_interaction
                 .display_progress(&format!("Running validation (Claude): {}", command));
 
@@ -1831,7 +2128,8 @@ impl WorkflowExecutor {
             .or(validation_config.command.as_ref())
         {
             // Prefer 'shell' field, fall back to 'command' for backward compatibility
-            let command = ctx.interpolate(shell_cmd);
+            let (command, resolutions) = ctx.interpolate_with_tracking(shell_cmd);
+            self.log_variable_resolutions(&resolutions);
             self.user_interaction
                 .display_progress(&format!("Running validation (shell): {}", command));
 
@@ -1857,7 +2155,8 @@ impl WorkflowExecutor {
 
         // If result_file is specified, read from file instead of stdout
         let json_content = if let Some(result_file) = &validation_config.result_file {
-            let interpolated_file = ctx.interpolate(result_file);
+            let (interpolated_file, _resolutions) = ctx.interpolate_with_tracking(result_file);
+            // No need to log resolutions for result file path
             let file_path = env.working_dir.join(&interpolated_file);
 
             // Read the validation result from the file
@@ -1973,6 +2272,300 @@ mod tests {
         }
 
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    }
+
+    #[test]
+    fn test_variable_interpolation_with_tracking() {
+        let mut ctx = WorkflowContext::default();
+        ctx.variables.insert("ARG".to_string(), "98".to_string());
+        ctx.variables
+            .insert("USER".to_string(), "alice".to_string());
+
+        let template = "Running command with $ARG and ${USER}";
+        let (result, resolutions) = ctx.interpolate_with_tracking(template);
+
+        assert_eq!(result, "Running command with 98 and alice");
+        assert_eq!(resolutions.len(), 2);
+
+        // Check resolutions - order may vary due to HashMap iteration
+        let arg_resolution = resolutions.iter().find(|r| r.name == "ARG").unwrap();
+        assert_eq!(arg_resolution.raw_expression, "$ARG");
+        assert_eq!(arg_resolution.resolved_value, "98");
+
+        let user_resolution = resolutions.iter().find(|r| r.name == "USER").unwrap();
+        assert_eq!(user_resolution.raw_expression, "${USER}");
+        assert_eq!(user_resolution.resolved_value, "alice");
+    }
+
+    #[test]
+    fn test_variable_interpolation_with_validation_results() {
+        let mut ctx = WorkflowContext::default();
+
+        // Add a validation result
+        let validation = crate::cook::workflow::validation::ValidationResult {
+            completion_percentage: 95.5,
+            status: crate::cook::workflow::validation::ValidationStatus::Incomplete,
+            implemented: vec![],
+            missing: vec!["test coverage".to_string(), "documentation".to_string()],
+            gaps: Default::default(),
+            raw_output: None,
+        };
+        ctx.validation_results
+            .insert("validation".to_string(), validation);
+
+        let template = "Completion: ${validation.completion}%, missing: ${validation.missing}";
+        let (result, resolutions) = ctx.interpolate_with_tracking(template);
+
+        assert_eq!(
+            result,
+            "Completion: 95.5%, missing: test coverage, documentation"
+        );
+        assert_eq!(resolutions.len(), 2);
+        assert_eq!(resolutions[0].name, "validation.completion");
+        assert_eq!(resolutions[0].resolved_value, "95.5");
+        assert_eq!(resolutions[1].name, "validation.missing");
+        assert_eq!(
+            resolutions[1].resolved_value,
+            "test coverage, documentation"
+        );
+    }
+
+    #[test]
+    fn test_variable_interpolation_no_variables() {
+        let ctx = WorkflowContext::default();
+        let template = "No variables here";
+        let (result, resolutions) = ctx.interpolate_with_tracking(template);
+
+        assert_eq!(result, "No variables here");
+        assert_eq!(resolutions.len(), 0);
+    }
+
+    // Minimal mock implementations for tests
+    #[cfg(test)]
+    mod test_mocks {
+        use super::*;
+        use crate::cook::execution::{ClaudeExecutor, ExecutionResult};
+        use crate::cook::interaction::VerbosityLevel;
+        use crate::cook::interaction::{SpinnerHandle, UserInteraction};
+        use crate::cook::session::{
+            SessionInfo, SessionManager, SessionState, SessionSummary, SessionUpdate,
+        };
+        use async_trait::async_trait;
+        use std::collections::HashMap;
+        use std::path::Path;
+
+        pub struct MockClaudeExecutor;
+
+        impl MockClaudeExecutor {
+            pub fn new() -> Self {
+                Self
+            }
+        }
+
+        #[async_trait]
+        impl ClaudeExecutor for MockClaudeExecutor {
+            async fn execute_claude_command(
+                &self,
+                _command: &str,
+                _project_path: &Path,
+                _env_vars: HashMap<String, String>,
+            ) -> Result<ExecutionResult> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+
+            async fn check_claude_cli(&self) -> Result<bool> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+
+            async fn get_claude_version(&self) -> Result<String> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+        }
+
+        pub struct MockSessionManager;
+
+        impl MockSessionManager {
+            pub fn new() -> Self {
+                Self
+            }
+        }
+
+        #[async_trait]
+        impl SessionManager for MockSessionManager {
+            async fn start_session(&self, _session_id: &str) -> Result<()> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+
+            async fn update_session(&self, _update: SessionUpdate) -> Result<()> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+
+            async fn complete_session(&self) -> Result<SessionSummary> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+
+            fn get_state(&self) -> SessionState {
+                unreachable!("Not used in format_variable_value tests")
+            }
+
+            async fn save_state(&self, _path: &Path) -> Result<()> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+
+            async fn load_state(&self, _path: &Path) -> Result<()> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+
+            async fn load_session(&self, _session_id: &str) -> Result<SessionState> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+
+            async fn save_checkpoint(&self, _state: &SessionState) -> Result<()> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+
+            async fn list_resumable(&self) -> Result<Vec<SessionInfo>> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+
+            async fn get_last_interrupted(&self) -> Result<Option<String>> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+        }
+
+        pub struct MockUserInteraction;
+
+        impl MockUserInteraction {
+            pub fn new() -> Self {
+                Self
+            }
+        }
+
+        #[async_trait]
+        impl UserInteraction for MockUserInteraction {
+            async fn prompt_yes_no(&self, _message: &str) -> Result<bool> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+
+            async fn prompt_text(&self, _message: &str, _default: Option<&str>) -> Result<String> {
+                unreachable!("Not used in format_variable_value tests")
+            }
+
+            fn display_info(&self, _message: &str) {}
+            fn display_warning(&self, _message: &str) {}
+            fn display_error(&self, _message: &str) {}
+            fn display_success(&self, _message: &str) {}
+            fn display_progress(&self, _message: &str) {}
+            fn start_spinner(&self, _message: &str) -> Box<dyn SpinnerHandle> {
+                struct NoOpSpinner;
+                impl SpinnerHandle for NoOpSpinner {
+                    fn update_message(&mut self, _message: &str) {}
+                    fn success(&mut self, _message: &str) {}
+                    fn fail(&mut self, _message: &str) {}
+                }
+                Box::new(NoOpSpinner)
+            }
+            fn display_action(&self, _message: &str) {}
+            fn display_metric(&self, _label: &str, _value: &str) {}
+            fn display_status(&self, _message: &str) {}
+            fn iteration_start(&self, _current: u32, _total: u32) {}
+            fn iteration_end(&self, _current: u32, _duration: std::time::Duration, _success: bool) {
+            }
+            fn step_start(&self, _step: u32, _total: u32, _description: &str) {}
+            fn step_end(&self, _step: u32, _success: bool) {}
+            fn command_output(&self, _output: &str, _verbosity: VerbosityLevel) {}
+            fn debug_output(&self, _message: &str, _min_verbosity: VerbosityLevel) {}
+            fn verbosity(&self) -> VerbosityLevel {
+                VerbosityLevel::Normal
+            }
+        }
+    }
+
+    #[test]
+    fn test_format_variable_value_short_string() {
+        use self::test_mocks::{MockClaudeExecutor, MockSessionManager, MockUserInteraction};
+        use std::sync::Arc;
+
+        let executor = WorkflowExecutor::new(
+            Arc::new(MockClaudeExecutor::new()),
+            Arc::new(MockSessionManager::new()),
+            Arc::new(MockUserInteraction::new()),
+        );
+
+        let value = "simple value";
+        let formatted = executor.format_variable_value(value);
+        assert_eq!(formatted, "\"simple value\"");
+    }
+
+    #[test]
+    fn test_format_variable_value_json_array() {
+        use self::test_mocks::{MockClaudeExecutor, MockSessionManager, MockUserInteraction};
+        use std::sync::Arc;
+
+        let executor = WorkflowExecutor::new(
+            Arc::new(MockClaudeExecutor::new()),
+            Arc::new(MockSessionManager::new()),
+            Arc::new(MockUserInteraction::new()),
+        );
+
+        let value = r#"["item1", "item2", "item3"]"#;
+        let formatted = executor.format_variable_value(value);
+        assert_eq!(formatted, r#"["item1","item2","item3"]"#);
+    }
+
+    #[test]
+    fn test_format_variable_value_large_array() {
+        use self::test_mocks::{MockClaudeExecutor, MockSessionManager, MockUserInteraction};
+        use std::sync::Arc;
+
+        let executor = WorkflowExecutor::new(
+            Arc::new(MockClaudeExecutor::new()),
+            Arc::new(MockSessionManager::new()),
+            Arc::new(MockUserInteraction::new()),
+        );
+
+        // Create a large array
+        let items: Vec<String> = (0..100).map(|i| format!("\"item{}\"", i)).collect();
+        let value = format!("[{}]", items.join(","));
+        let formatted = executor.format_variable_value(&value);
+        assert!(formatted.contains("...100 items..."));
+    }
+
+    #[test]
+    fn test_format_variable_value_json_object() {
+        use self::test_mocks::{MockClaudeExecutor, MockSessionManager, MockUserInteraction};
+        use std::sync::Arc;
+
+        let executor = WorkflowExecutor::new(
+            Arc::new(MockClaudeExecutor::new()),
+            Arc::new(MockSessionManager::new()),
+            Arc::new(MockUserInteraction::new()),
+        );
+
+        let value = r#"{"name": "test", "value": 42}"#;
+        let formatted = executor.format_variable_value(value);
+        // Should be pretty-printed
+        assert!(formatted.contains("name"));
+        assert!(formatted.contains("test"));
+        assert!(formatted.contains("value"));
+        assert!(formatted.contains("42"));
+    }
+
+    #[test]
+    fn test_format_variable_value_truncated() {
+        use self::test_mocks::{MockClaudeExecutor, MockSessionManager, MockUserInteraction};
+        use std::sync::Arc;
+
+        let executor = WorkflowExecutor::new(
+            Arc::new(MockClaudeExecutor::new()),
+            Arc::new(MockSessionManager::new()),
+            Arc::new(MockUserInteraction::new()),
+        );
+
+        let value = "a".repeat(300);
+        let formatted = executor.format_variable_value(&value);
+        assert!(formatted.contains("...\" (showing first 200 chars)"));
+        assert!(formatted.starts_with("\""));
     }
 
     #[test]

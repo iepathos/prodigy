@@ -1,0 +1,22 @@
+name: Test Sensitive Variable Masking
+description: Demonstrates verbose variable output with sensitive data masking
+
+steps:
+  - name: Test sensitive variables in verbose mode
+    shell: |
+      # Set some test variables
+      echo "Testing variable interpolation with masking"
+    env:
+      USERNAME: "john_doe"
+      PASSWORD: "super_secret_password"
+      API_KEY: "sk_test_123456789"
+      AUTH_TOKEN: "ghp_abcdefghijklmnop"
+      NORMAL_VAR: "this_is_visible"
+  
+  - name: Display results
+    shell: |
+      echo "If running with -vv (debug), check that:"
+      echo "- PASSWORD is shown as ***REDACTED***"
+      echo "- API_KEY is shown as ***REDACTED***" 
+      echo "- AUTH_TOKEN is shown as ***REDACTED***"
+      echo "- USERNAME and NORMAL_VAR are shown normally"
