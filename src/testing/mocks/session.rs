@@ -1,6 +1,8 @@
 //! Mock session manager for testing
 
-use crate::cook::session::{SessionManager, SessionState, SessionSummary, SessionUpdate};
+use crate::cook::session::{
+    SessionInfo, SessionManager, SessionState, SessionSummary, SessionUpdate,
+};
 use anyhow::Result;
 use async_trait::async_trait;
 use std::path::{Path, PathBuf};
@@ -134,5 +136,52 @@ impl SessionManager for MockSessionManager {
         }
         *self.load_path.lock().unwrap() = Some(path.to_path_buf());
         Ok(())
+    }
+
+    async fn load_session(&self, session_id: &str) -> Result<SessionState> {
+        if self.should_fail {
+            return Err(anyhow::anyhow!("Mock failure"));
+        }
+        let mut state = self.state.lock().unwrap().clone();
+        state.session_id = session_id.to_string();
+        Ok(state)
+    }
+
+    async fn save_checkpoint(&self, state: &SessionState) -> Result<()> {
+        if self.should_fail {
+            return Err(anyhow::anyhow!("Mock failure"));
+        }
+        *self.state.lock().unwrap() = state.clone();
+        Ok(())
+    }
+
+    async fn list_resumable(&self) -> Result<Vec<SessionInfo>> {
+        if self.should_fail {
+            return Err(anyhow::anyhow!("Mock failure"));
+        }
+        let state = self.state.lock().unwrap().clone();
+        if state.is_resumable() {
+            Ok(vec![SessionInfo {
+                session_id: state.session_id.clone(),
+                status: state.status.clone(),
+                started_at: state.started_at,
+                workflow_path: PathBuf::from("test.yml"),
+                progress: "test progress".to_string(),
+            }])
+        } else {
+            Ok(Vec::new())
+        }
+    }
+
+    async fn get_last_interrupted(&self) -> Result<Option<String>> {
+        if self.should_fail {
+            return Err(anyhow::anyhow!("Mock failure"));
+        }
+        let state = self.state.lock().unwrap();
+        if state.status == crate::cook::session::SessionStatus::Interrupted {
+            Ok(Some(state.session_id.clone()))
+        } else {
+            Ok(None)
+        }
     }
 }

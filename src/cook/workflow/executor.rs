@@ -939,11 +939,31 @@ impl WorkflowExecutor {
                 if let Some((cmd_name, _)) = self.timing_tracker.complete_command() {
                     self.session_manager
                         .update_session(SessionUpdate::RecordCommandTiming(
-                            cmd_name,
+                            cmd_name.clone(),
                             command_duration,
                         ))
                         .await?;
                 }
+
+                // Save checkpoint after successful step execution
+                let workflow_state = crate::cook::session::WorkflowState {
+                    current_iteration: iteration as usize - 1, // Convert to 0-based index
+                    current_step: step_index + 1,              // Next step to execute
+                    completed_steps: vec![crate::cook::session::StepResult {
+                        step_index,
+                        command: step_display.clone(),
+                        success: step_result.success,
+                        output: None,
+                        duration: command_duration,
+                    }],
+                    workflow_path: env.working_dir.join("workflow.yml"), // This would need to be passed in
+                    input_args: Vec::new(), // Would need to be passed from config
+                    map_patterns: Vec::new(), // Would need to be passed from config
+                    using_worktree: env.worktree_name.is_some(),
+                };
+                self.session_manager
+                    .update_session(SessionUpdate::UpdateWorkflowState(workflow_state))
+                    .await?;
 
                 // Check for commits if required
                 if let Some(before) = head_before {

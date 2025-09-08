@@ -16,7 +16,7 @@ use std::sync::Arc;
 use super::command::CookCommand;
 use super::execution::{ClaudeExecutor, CommandExecutor};
 use super::interaction::UserInteraction;
-use super::session::{SessionManager, SessionStatus, SessionUpdate};
+use super::session::{SessionManager, SessionState, SessionStatus, SessionUpdate};
 use super::workflow::{CaptureOutput, ExtendedWorkflowConfig, WorkflowStep};
 use crate::session::{format_duration, TimingTracker};
 use std::time::Instant;
@@ -149,6 +149,385 @@ impl DefaultCookOrchestrator {
     /// Generate session ID
     fn generate_session_id(&self) -> String {
         format!("cook-{}", chrono::Utc::now().timestamp())
+    }
+
+    /// Resume an interrupted workflow
+    async fn resume_workflow(&self, session_id: &str, mut config: CookConfig) -> Result<()> {
+        // Load the session state
+        let state = self.session_manager.load_session(session_id).await?;
+
+        // Validate the session is resumable
+        if !state.is_resumable() {
+            return Err(anyhow!(
+                "Session {} is not resumable (status: {:?})",
+                session_id,
+                state.status
+            ));
+        }
+
+        // Display resume information
+        self.user_interaction.display_info(&format!(
+            "🔄 Resuming session: {} from {}",
+            session_id,
+            state
+                .get_resume_info()
+                .unwrap_or_else(|| "unknown state".to_string())
+        ));
+
+        // Restore the environment
+        let env = self.restore_environment(&state, &config).await?;
+
+        // Update the session manager with the loaded state
+        let session_file = config
+            .project_path
+            .join(".prodigy")
+            .join("session_state.json");
+        self.session_manager.load_state(&session_file).await?;
+
+        // Resume the workflow execution from the saved state
+        if let Some(ref workflow_state) = state.workflow_state {
+            // Update config with saved arguments
+            config.command.args = workflow_state.input_args.clone();
+            config.command.map = workflow_state.map_patterns.clone();
+
+            // Execute the workflow starting from the saved position
+            let result = self
+                .resume_workflow_execution(
+                    &env,
+                    &config,
+                    workflow_state.current_iteration,
+                    workflow_state.current_step,
+                )
+                .await;
+
+            // Handle result
+            match result {
+                Ok(_) => {
+                    self.session_manager
+                        .update_session(SessionUpdate::UpdateStatus(SessionStatus::Completed))
+                        .await?;
+                    self.user_interaction
+                        .display_success("Resumed session completed successfully!");
+                }
+                Err(e) => {
+                    // Check if session was interrupted again
+                    let current_state = self.session_manager.get_state();
+                    if current_state.status == SessionStatus::Interrupted {
+                        self.user_interaction.display_warning(&format!(
+                            "\nSession interrupted again. Resume with: prodigy cook {} --resume {}",
+                            config.command.playbook.display(),
+                            session_id
+                        ));
+                        // Save updated checkpoint
+                        self.session_manager.save_state(&session_file).await?;
+                    } else {
+                        self.session_manager
+                            .update_session(SessionUpdate::UpdateStatus(SessionStatus::Failed))
+                            .await?;
+                        self.session_manager
+                            .update_session(SessionUpdate::AddError(e.to_string()))
+                            .await?;
+                        self.user_interaction
+                            .display_error(&format!("Resumed session failed: {e}"));
+                    }
+                    return Err(e);
+                }
+            }
+
+            // Cleanup
+            self.cleanup(&env, &config).await?;
+
+            // Complete session
+            let summary = self.session_manager.complete_session().await?;
+            self.user_interaction.display_info(&format!(
+                "Session complete: {} iterations, {} files changed",
+                summary.iterations, summary.files_changed
+            ));
+        } else {
+            return Err(anyhow!(
+                "Session {} has no workflow state to resume",
+                session_id
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Restore the execution environment from saved state
+    async fn restore_environment(
+        &self,
+        state: &SessionState,
+        config: &CookConfig,
+    ) -> Result<ExecutionEnvironment> {
+        let mut working_dir = state.working_directory.clone();
+        let mut worktree_name = state.worktree_name.clone();
+
+        // If using a worktree, verify it still exists
+        if let Some(ref name) = worktree_name {
+            let worktree_manager =
+                WorktreeManager::new(config.project_path.clone(), self.subprocess.clone())?;
+
+            // Check if worktree still exists
+            // Check if worktree still exists by trying to list sessions
+            let sessions = worktree_manager.list_sessions().await?;
+            if !sessions.iter().any(|s| &s.name == name) {
+                // Recreate the worktree if it was deleted
+                self.user_interaction
+                    .display_warning(&format!("Worktree {} was deleted, recreating...", name));
+                let session = worktree_manager.create_session().await?;
+                working_dir = session.path.clone();
+                worktree_name = Some(session.name.clone());
+            } else {
+                // Get the existing worktree path
+                let sessions = worktree_manager.list_sessions().await?;
+                if let Some(session) = sessions.iter().find(|s| &s.name == name) {
+                    working_dir = session.path.clone();
+                }
+            }
+        }
+
+        Ok(ExecutionEnvironment {
+            working_dir,
+            project_dir: config.project_path.clone(),
+            worktree_name,
+            session_id: state.session_id.clone(),
+        })
+    }
+
+    /// Resume workflow execution from a specific point
+    async fn resume_workflow_execution(
+        &self,
+        env: &ExecutionEnvironment,
+        config: &CookConfig,
+        start_iteration: usize,
+        start_step: usize,
+    ) -> Result<()> {
+        self.user_interaction.display_info(&format!(
+            "Resuming from iteration {} step {}",
+            start_iteration + 1,
+            start_step + 1
+        ));
+
+        // Create workflow state for checkpointing
+        let workflow_state = super::session::WorkflowState {
+            current_iteration: start_iteration,
+            current_step: start_step,
+            completed_steps: Vec::new(),
+            workflow_path: config.command.playbook.clone(),
+            input_args: config.command.args.clone(),
+            map_patterns: config.command.map.clone(),
+            using_worktree: config.command.worktree,
+        };
+
+        // Update session with workflow state
+        self.session_manager
+            .update_session(SessionUpdate::UpdateWorkflowState(workflow_state))
+            .await?;
+
+        // Execute the workflow based on type, but skip completed steps
+        match Self::classify_workflow_type(config) {
+            WorkflowType::MapReduce => {
+                // MapReduce workflows have their own resume mechanism
+                self.execute_mapreduce_workflow(
+                    env,
+                    config,
+                    config.mapreduce_config.as_ref().unwrap(),
+                )
+                .await
+            }
+            WorkflowType::StructuredWithOutputs => {
+                self.execute_structured_workflow_from(env, config, start_iteration, start_step)
+                    .await
+            }
+            WorkflowType::WithArguments => {
+                self.execute_iterative_workflow_from(env, config, start_iteration, start_step)
+                    .await
+            }
+            WorkflowType::Standard => {
+                self.execute_standard_workflow_from(env, config, start_iteration, start_step)
+                    .await
+            }
+        }
+    }
+
+    /// Execute standard workflow from a specific point
+    async fn execute_standard_workflow_from(
+        &self,
+        env: &ExecutionEnvironment,
+        config: &CookConfig,
+        _start_iteration: usize,
+        start_step: usize,
+    ) -> Result<()> {
+        // Standard workflow only has one iteration
+        let steps: Vec<WorkflowStep> = config
+            .workflow
+            .commands
+            .iter()
+            .map(Self::convert_command_to_step)
+            .collect();
+
+        // Execute steps starting from start_step
+        for (index, step) in steps.iter().enumerate().skip(start_step) {
+            self.user_interaction.display_info(&format!(
+                "Executing step {}/{}",
+                index + 1,
+                steps.len()
+            ));
+
+            // Save checkpoint before executing
+            let mut workflow_state = super::session::WorkflowState {
+                current_iteration: 0,
+                current_step: index,
+                completed_steps: Vec::new(),
+                workflow_path: config.command.playbook.clone(),
+                input_args: config.command.args.clone(),
+                map_patterns: config.command.map.clone(),
+                using_worktree: config.command.worktree,
+            };
+
+            self.session_manager
+                .update_session(SessionUpdate::UpdateWorkflowState(workflow_state.clone()))
+                .await?;
+
+            // Execute the step
+            self.execute_step(env, step, config).await?;
+
+            // Update completed steps
+            workflow_state
+                .completed_steps
+                .push(super::session::StepResult {
+                    step_index: index,
+                    command: format!("{:?}", step),
+                    success: true,
+                    output: None,
+                    duration: std::time::Duration::from_secs(0),
+                });
+
+            // Save checkpoint after successful execution
+            self.session_manager
+                .update_session(SessionUpdate::UpdateWorkflowState(workflow_state))
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    /// Execute iterative workflow from a specific point
+    async fn execute_iterative_workflow_from(
+        &self,
+        env: &ExecutionEnvironment,
+        config: &CookConfig,
+        start_iteration: usize,
+        start_step: usize,
+    ) -> Result<()> {
+        // Similar to standard workflow but with iteration support
+        let max_iterations = config.command.max_iterations as usize;
+
+        for iteration in start_iteration..max_iterations {
+            self.user_interaction.display_info(&format!(
+                "Iteration {}/{}",
+                iteration + 1,
+                max_iterations
+            ));
+
+            self.session_manager
+                .update_session(SessionUpdate::StartIteration((iteration + 1) as u32))
+                .await?;
+
+            let steps: Vec<WorkflowStep> = config
+                .workflow
+                .commands
+                .iter()
+                .map(Self::convert_command_to_step)
+                .collect();
+
+            let step_start = if iteration == start_iteration {
+                start_step
+            } else {
+                0
+            };
+
+            for (index, step) in steps.iter().enumerate().skip(step_start) {
+                // Save checkpoint and execute step
+                let workflow_state = super::session::WorkflowState {
+                    current_iteration: iteration,
+                    current_step: index,
+                    completed_steps: Vec::new(),
+                    workflow_path: config.command.playbook.clone(),
+                    input_args: config.command.args.clone(),
+                    map_patterns: config.command.map.clone(),
+                    using_worktree: config.command.worktree,
+                };
+
+                self.session_manager
+                    .update_session(SessionUpdate::UpdateWorkflowState(workflow_state))
+                    .await?;
+
+                self.execute_step(env, step, config).await?;
+            }
+
+            self.session_manager
+                .update_session(SessionUpdate::CompleteIteration)
+                .await?;
+            self.session_manager
+                .update_session(SessionUpdate::IncrementIteration)
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    /// Execute structured workflow from a specific point
+    async fn execute_structured_workflow_from(
+        &self,
+        env: &ExecutionEnvironment,
+        config: &CookConfig,
+        _start_iteration: usize,
+        start_step: usize,
+    ) -> Result<()> {
+        // Similar to standard workflow but preserves output handling
+        self.execute_standard_workflow_from(env, config, 0, start_step)
+            .await
+    }
+
+    /// Execute a single workflow step
+    async fn execute_step(
+        &self,
+        env: &ExecutionEnvironment,
+        step: &WorkflowStep,
+        _config: &CookConfig,
+    ) -> Result<()> {
+        // Execute based on step type
+        if let Some(ref claude_cmd) = step.claude {
+            // Execute Claude command using the correct method
+            let env_vars = std::collections::HashMap::new();
+            self.claude_executor
+                .execute_claude_command(claude_cmd, &env.working_dir, env_vars)
+                .await?;
+        } else if let Some(ref shell_cmd) = step.shell {
+            // Execute shell command using subprocess runner
+            use crate::subprocess::{ProcessCommand, ProcessError};
+            let command = ProcessCommand {
+                program: "sh".to_string(),
+                args: vec!["-c".to_string(), shell_cmd.clone()],
+                working_dir: Some(env.working_dir.clone()),
+                env: std::collections::HashMap::new(),
+                timeout: None,
+                stdin: None,
+                suppress_stderr: false,
+            };
+            let output = self
+                .subprocess
+                .runner()
+                .run(command)
+                .await
+                .map_err(|e: ProcessError| anyhow!("Shell command failed: {}", e))?;
+            if !output.status.success() {
+                return Err(anyhow!("Shell command failed: {}", shell_cmd));
+            }
+        }
+
+        Ok(())
     }
 
     /// Convert a workflow command to a workflow step
@@ -317,17 +696,39 @@ impl DefaultCookOrchestrator {
 #[async_trait]
 impl CookOrchestrator for DefaultCookOrchestrator {
     async fn run(&self, config: CookConfig) -> Result<()> {
+        // Check if this is a resume operation
+        if let Some(session_id) = config.command.resume.clone() {
+            return self.resume_workflow(&session_id, config).await;
+        }
+
         // Check prerequisites
         self.check_prerequisites().await?;
 
         // Setup environment
         let env = self.setup_environment(&config).await?;
 
-        // Start session
+        // Start session and display session ID prominently
         self.session_manager.start_session(&env.session_id).await?;
+        self.user_interaction
+            .display_info(&format!("🔄 Starting session: {}", env.session_id));
+
+        // Set up signal handler for graceful interruption
+        let session_manager = self.session_manager.clone();
+        let session_id = env.session_id.clone();
+        let interrupt_handler = tokio::spawn(async move {
+            tokio::signal::ctrl_c().await.ok();
+            // Mark session as interrupted when Ctrl+C is pressed
+            session_manager
+                .update_session(SessionUpdate::MarkInterrupted)
+                .await
+                .ok();
+        });
 
         // Execute workflow
         let result = self.execute_workflow(&env, &config).await;
+
+        // Cancel the interrupt handler
+        interrupt_handler.abort();
 
         // Handle result
         match result {
@@ -339,14 +740,35 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                     .display_success("Cook session completed successfully!");
             }
             Err(e) => {
-                self.session_manager
-                    .update_session(SessionUpdate::UpdateStatus(SessionStatus::Failed))
-                    .await?;
-                self.session_manager
-                    .update_session(SessionUpdate::AddError(e.to_string()))
-                    .await?;
-                self.user_interaction
-                    .display_error(&format!("Cook session failed: {e}"));
+                // Check if session was interrupted
+                let state = self.session_manager.get_state();
+                if state.status == SessionStatus::Interrupted {
+                    self.user_interaction.display_warning(&format!(
+                        "\nSession interrupted. Resume with: prodigy cook {} --resume {}",
+                        config
+                            .workflow
+                            .commands
+                            .get(0)
+                            .map(|_| config.command.playbook.display().to_string())
+                            .unwrap_or_else(|| "<workflow>".to_string()),
+                        env.session_id
+                    ));
+                    // Save checkpoint for resume
+                    let checkpoint_path = config
+                        .project_path
+                        .join(".prodigy")
+                        .join("session_state.json");
+                    self.session_manager.save_state(&checkpoint_path).await?;
+                } else {
+                    self.session_manager
+                        .update_session(SessionUpdate::UpdateStatus(SessionStatus::Failed))
+                        .await?;
+                    self.session_manager
+                        .update_session(SessionUpdate::AddError(e.to_string()))
+                        .await?;
+                    self.user_interaction
+                        .display_error(&format!("Cook session failed: {e}"));
+                }
                 return Err(e);
             }
         }

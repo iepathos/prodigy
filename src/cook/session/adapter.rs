@@ -210,6 +210,19 @@ impl OldSessionManager for SessionManagerAdapter {
                 // Store duration separately if needed
                 let _ = duration;
             }
+            SessionUpdate::UpdateWorkflowState(_) => {
+                // Not supported in adapter - workflow state is for resume functionality
+            }
+            SessionUpdate::MarkInterrupted => {
+                self.new_manager
+                    .record_event(
+                        &session_id,
+                        crate::session::SessionEvent::Paused {
+                            reason: "Interrupted".to_string(),
+                        },
+                    )
+                    .await?;
+            }
         }
 
         Ok(())
@@ -279,6 +292,9 @@ impl OldSessionManager for SessionManagerAdapter {
                     current_iteration_number: None,
                     iteration_timings: vec![],
                     command_timings: vec![],
+                    workflow_state: None,
+                    execution_environment: None,
+                    last_checkpoint: None,
                 };
             }
         }
@@ -306,6 +322,30 @@ impl OldSessionManager for SessionManagerAdapter {
         // Loading from old format not supported
         // Would need to migrate old state files to new format
         Ok(())
+    }
+
+    async fn load_session(&self, _session_id: &str) -> Result<OldSessionState> {
+        // Adapter does not support resume functionality
+        Err(anyhow::anyhow!(
+            "Resume functionality not supported in adapter"
+        ))
+    }
+
+    async fn save_checkpoint(&self, _state: &OldSessionState) -> Result<()> {
+        // Adapter does not support checkpoint functionality
+        // Just save to state file for compatibility
+        let path = self.working_dir.join(".prodigy").join("session_state.json");
+        self.save_state(&path).await
+    }
+
+    async fn list_resumable(&self) -> Result<Vec<super::SessionInfo>> {
+        // Adapter does not have resumable sessions
+        Ok(Vec::new())
+    }
+
+    async fn get_last_interrupted(&self) -> Result<Option<String>> {
+        // Adapter does not track interrupted sessions
+        Ok(None)
     }
 }
 

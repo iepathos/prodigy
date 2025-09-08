@@ -114,6 +114,32 @@ enum Commands {
         #[command(subcommand)]
         command: DlqCommands,
     },
+    /// Manage cooking sessions
+    Sessions {
+        #[command(subcommand)]
+        command: SessionCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum SessionCommands {
+    /// List resumable sessions
+    #[command(name = "ls", alias = "list")]
+    List,
+    /// Show details about a specific session
+    Show {
+        /// Session ID to show details for
+        session_id: String,
+    },
+    /// Clean up old sessions
+    Clean {
+        /// Clean all sessions (not just old ones)
+        #[arg(long)]
+        all: bool,
+        /// Force cleanup without confirmation
+        #[arg(short, long)]
+        force: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -398,6 +424,7 @@ async fn execute_command(command: Option<Commands>) -> anyhow::Result<()> {
         }) => run_resume_job_command(job_id, force, max_retries, path).await,
         Some(Commands::Events { command }) => run_events_command(command).await,
         Some(Commands::Dlq { command }) => run_dlq_command(command).await,
+        Some(Commands::Sessions { command }) => run_sessions_command(command).await,
         None => {
             // Display help when no command is provided (following CLI conventions)
             let mut cmd = Cli::command();
@@ -946,6 +973,143 @@ async fn run_events_command(command: EventCommands) -> anyhow::Result<()> {
     };
 
     events::execute(events_args).await
+}
+
+async fn run_sessions_command(command: SessionCommands) -> anyhow::Result<()> {
+    use prodigy::cook::session::{SessionManager, SessionTrackerImpl};
+    use std::path::PathBuf;
+
+    let working_dir = std::env::current_dir()?;
+    let session_tracker = SessionTrackerImpl::new("session-query".to_string(), working_dir.clone());
+
+    match command {
+        SessionCommands::List => {
+            let sessions = session_tracker.list_resumable().await?;
+            if sessions.is_empty() {
+                println!("No resumable sessions found.");
+            } else {
+                println!("Resumable sessions:");
+                for session in sessions {
+                    println!(
+                        "  {} - {:?} - Started: {} - Progress: {}",
+                        session.session_id,
+                        session.status,
+                        session.started_at.format("%Y-%m-%d %H:%M:%S"),
+                        session.progress
+                    );
+                    if !session.workflow_path.as_os_str().is_empty() {
+                        println!("    Workflow: {}", session.workflow_path.display());
+                    }
+                }
+            }
+            Ok(())
+        }
+        SessionCommands::Show { session_id } => {
+            match session_tracker.load_session(&session_id).await {
+                Ok(state) => {
+                    println!("Session: {}", state.session_id);
+                    println!("Status: {:?}", state.status);
+                    println!("Started: {}", state.started_at.format("%Y-%m-%d %H:%M:%S"));
+                    if let Some(ended) = state.ended_at {
+                        println!("Ended: {}", ended.format("%Y-%m-%d %H:%M:%S"));
+                    }
+                    println!("Working Directory: {}", state.working_directory.display());
+                    if let Some(ref worktree) = state.worktree_name {
+                        println!("Worktree: {}", worktree);
+                    }
+                    println!("Iterations Completed: {}", state.iterations_completed);
+                    println!("Files Changed: {}", state.files_changed);
+
+                    if let Some(ref workflow_state) = state.workflow_state {
+                        println!("\nWorkflow State:");
+                        println!(
+                            "  Current Step: {}/{}",
+                            workflow_state.current_step + 1,
+                            workflow_state.completed_steps.len() + 1
+                        );
+                        println!(
+                            "  Current Iteration: {}",
+                            workflow_state.current_iteration + 1
+                        );
+                        println!(
+                            "  Workflow Path: {}",
+                            workflow_state.workflow_path.display()
+                        );
+                        if !workflow_state.input_args.is_empty() {
+                            println!("  Arguments: {:?}", workflow_state.input_args);
+                        }
+                        if !workflow_state.map_patterns.is_empty() {
+                            println!("  Map Patterns: {:?}", workflow_state.map_patterns);
+                        }
+                    }
+
+                    if state.is_resumable() {
+                        println!("\n✅ This session can be resumed with:");
+                        println!("  prodigy cook <workflow> --resume {}", session_id);
+                    } else {
+                        println!(
+                            "\n❌ This session cannot be resumed (status: {:?})",
+                            state.status
+                        );
+                    }
+                    Ok(())
+                }
+                Err(e) => {
+                    eprintln!("Error: Session {} not found: {}", session_id, e);
+                    std::process::exit(1);
+                }
+            }
+        }
+        SessionCommands::Clean { all, force } => {
+            let sessions = session_tracker.list_resumable().await?;
+
+            if sessions.is_empty() {
+                println!("No sessions to clean.");
+                return Ok(());
+            }
+
+            let sessions_to_clean = if all {
+                sessions
+            } else {
+                // Filter for old sessions (> 7 days)
+                let cutoff = chrono::Utc::now() - chrono::Duration::days(7);
+                sessions
+                    .into_iter()
+                    .filter(|s| s.started_at < cutoff)
+                    .collect()
+            };
+
+            if sessions_to_clean.is_empty() {
+                println!("No old sessions to clean (use --all to clean all sessions).");
+                return Ok(());
+            }
+
+            if !force {
+                println!("Would clean {} sessions:", sessions_to_clean.len());
+                for session in &sessions_to_clean {
+                    println!(
+                        "  {} - Started: {}",
+                        session.session_id,
+                        session.started_at.format("%Y-%m-%d %H:%M:%S")
+                    );
+                }
+                println!("\nUse --force to actually clean these sessions.");
+            } else {
+                println!("Cleaning {} sessions...", sessions_to_clean.len());
+                let base_path = working_dir.join(".prodigy");
+                for session in sessions_to_clean {
+                    let session_file = base_path.join(format!("{}.json", session.session_id));
+                    if session_file.exists() {
+                        std::fs::remove_file(&session_file)?;
+                        println!("  Cleaned: {}", session.session_id);
+                    }
+                }
+                println!("Session cleanup complete.");
+            }
+
+            Ok(())
+        }
+    }
 }
 
 async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
