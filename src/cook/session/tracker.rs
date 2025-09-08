@@ -156,26 +156,53 @@ impl SessionManager for SessionTrackerImpl {
     }
 
     async fn load_session(&self, session_id: &str) -> Result<SessionState> {
-        let session_file = self.base_path.join("session_state.json");
+        // Try multiple locations for the session state
+        let locations = vec![
+            // 1. Standard session_state.json in current .prodigy
+            self.base_path.join("session_state.json"),
+            // 2. Session-specific file in current .prodigy
+            self.get_session_file_path(session_id),
+            // 3. Worktree's .prodigy directory if it exists
+            PathBuf::from(format!(
+                "{}/.prodigy/worktrees/{}/{}/{}.prodigy/session_state.json",
+                std::env::var("HOME").unwrap_or_else(|_| "~".to_string()),
+                self.base_path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy(),
+                session_id,
+                session_id
+            )),
+            // 4. Global worktree metadata directory
+            PathBuf::from(format!(
+                "{}/.prodigy/worktrees/{}/{}/.prodigy/session_state.json",
+                std::env::var("HOME").unwrap_or_else(|_| "~".to_string()),
+                self.base_path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy(),
+                session_id
+            )),
+        ];
 
-        // First try the standard session_state.json
-        if session_file.exists() {
-            let json = fs::read_to_string(&session_file).await?;
-            let state: SessionState = serde_json::from_str(&json)?;
-            if state.session_id == session_id {
-                return Ok(state);
+        // Try each location
+        for location in locations {
+            if location.exists() {
+                if let Ok(json) = fs::read_to_string(&location).await {
+                    if let Ok(state) = serde_json::from_str::<SessionState>(&json) {
+                        // Verify this is the right session
+                        if state.session_id == session_id {
+                            return Ok(state);
+                        }
+                    }
+                }
             }
         }
 
-        // Try the session-specific file
-        let specific_file = self.get_session_file_path(session_id);
-        if specific_file.exists() {
-            let json = fs::read_to_string(&specific_file).await?;
-            let state: SessionState = serde_json::from_str(&json)?;
-            return Ok(state);
-        }
-
-        Err(anyhow!("Session {} not found", session_id))
+        Err(anyhow!(
+            "Session {} not found in any known location",
+            session_id
+        ))
     }
 
     async fn save_checkpoint(&self, state: &SessionState) -> Result<()> {

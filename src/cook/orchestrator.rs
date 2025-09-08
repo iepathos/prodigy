@@ -178,10 +178,8 @@ impl DefaultCookOrchestrator {
         let env = self.restore_environment(&state, &config).await?;
 
         // Update the session manager with the loaded state
-        let session_file = config
-            .project_path
-            .join(".prodigy")
-            .join("session_state.json");
+        // Use the working directory from the restored environment
+        let session_file = env.working_dir.join(".prodigy").join("session_state.json");
         self.session_manager.load_state(&session_file).await?;
 
         // Resume the workflow execution from the saved state
@@ -714,7 +712,9 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 
         // Set up signal handler for graceful interruption
         let session_manager = self.session_manager.clone();
-        let _session_id = env.session_id.clone();
+        let worktree_name = env.worktree_name.clone();
+        let project_path = config.project_path.clone();
+        let subprocess = self.subprocess.clone();
         let interrupt_handler = tokio::spawn(async move {
             tokio::signal::ctrl_c().await.ok();
             // Mark session as interrupted when Ctrl+C is pressed
@@ -722,6 +722,19 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                 .update_session(SessionUpdate::MarkInterrupted)
                 .await
                 .ok();
+
+            // Also update worktree state if using a worktree
+            if let Some(ref name) = worktree_name {
+                if let Ok(worktree_manager) = WorktreeManager::new(project_path, subprocess) {
+                    let _ = worktree_manager.update_session_state(name, |state| {
+                        state.status = crate::worktree::WorktreeStatus::Interrupted;
+                        state.interrupted_at = Some(chrono::Utc::now());
+                        state.interruption_type =
+                            Some(crate::worktree::InterruptionType::UserInterrupt);
+                        state.resumable = true;
+                    });
+                }
+            }
         });
 
         // Execute workflow
@@ -754,11 +767,25 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                         env.session_id
                     ));
                     // Save checkpoint for resume
-                    let checkpoint_path = config
-                        .project_path
-                        .join(".prodigy")
-                        .join("session_state.json");
+                    // Use the working directory from the environment, not the project path
+                    let checkpoint_path =
+                        env.working_dir.join(".prodigy").join("session_state.json");
                     self.session_manager.save_state(&checkpoint_path).await?;
+
+                    // Also update worktree state if using a worktree
+                    if let Some(ref name) = env.worktree_name {
+                        let worktree_manager = WorktreeManager::new(
+                            config.project_path.clone(),
+                            self.subprocess.clone(),
+                        )?;
+                        worktree_manager.update_session_state(name, |state| {
+                            state.status = crate::worktree::WorktreeStatus::Interrupted;
+                            state.interrupted_at = Some(chrono::Utc::now());
+                            state.interruption_type =
+                                Some(crate::worktree::InterruptionType::Unknown);
+                            state.resumable = true;
+                        })?;
+                    }
                 } else {
                     self.session_manager
                         .update_session(SessionUpdate::UpdateStatus(SessionStatus::Failed))
@@ -912,7 +939,8 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 
     async fn cleanup(&self, env: &ExecutionEnvironment, config: &CookConfig) -> Result<()> {
         // Save session state to a separate file to avoid conflicts with StateManager
-        let session_state_path = env.project_dir.join(".prodigy/session_state.json");
+        // Use the working directory (which may be a worktree) not the project directory
+        let session_state_path = env.working_dir.join(".prodigy/session_state.json");
         self.session_manager.save_state(&session_state_path).await?;
 
         // Clean up worktree if needed
