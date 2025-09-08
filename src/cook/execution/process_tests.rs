@@ -3,12 +3,11 @@
 #[cfg(test)]
 mod tests {
     use super::super::command::*;
-    use super::super::executor::{ExecutionContextInternal, ResourceMonitor};
+    use super::super::executor::ExecutionContextInternal;
     use super::super::process::*;
     use std::collections::HashMap;
     use std::path::PathBuf;
     use std::process::Stdio;
-    use std::sync::Arc;
     use std::time::Duration;
 
     fn create_test_process_manager() -> ProcessManager {
@@ -270,10 +269,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_cleanup_handler_requirements() {
-        let mut requirements = CleanupRequirements::default();
-        requirements.kill_timeout = Duration::from_secs(10);
-        requirements.cleanup_children = false;
-        requirements.preserve_output = true;
+        let requirements = CleanupRequirements {
+            kill_timeout: Duration::from_secs(10),
+            cleanup_children: false,
+            preserve_output: true,
+        };
 
         let handler = CleanupHandler::new(ProcessId(123), requirements.clone());
 
@@ -300,8 +300,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_command_type_specific_stdio() {
-        let manager = create_test_process_manager();
-        let context = create_test_context();
+        let _manager = create_test_process_manager();
+        let _context = create_test_context();
 
         // Test Claude type - should have stdin
         let executable = create_test_executable("echo").with_type(CommandType::Claude);

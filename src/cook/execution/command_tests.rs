@@ -259,7 +259,7 @@ mod tests {
 
     #[test]
     fn test_capture_output_mode_variants() {
-        let modes = vec![
+        let modes = [
             CaptureOutputMode::None,
             CaptureOutputMode::Stdout,
             CaptureOutputMode::Stderr,
@@ -309,7 +309,7 @@ mod tests {
         let config = ValidationConfig {
             script: Some("test.sh".to_string()),
             expected_pattern: Some("^SUCCESS".to_string()),
-            forbidden_patterns: Some(vec!["ERROR".to_string()]),
+            forbidden_patterns: Some(["ERROR".to_string()].into()),
             json_schema: None,
         };
 

@@ -8,10 +8,8 @@ mod tests {
     use super::super::process::ProcessManager;
     use anyhow::Result;
     use async_trait::async_trait;
-    use std::collections::HashMap;
     use std::sync::Arc;
     use std::time::Duration;
-    use tokio::sync::Mutex;
 
     // Mock observability collector for testing
     struct MockObservabilityCollector;

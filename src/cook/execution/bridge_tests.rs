@@ -4,13 +4,10 @@
 mod tests {
     use super::super::bridge::*;
     use super::super::command::*;
-    use super::super::executor::{
-        CommandExecutor as UnifiedExecutorTrait, CommandResult, CommandStatus,
-        ExecutorCapabilities, ResourceEstimate, UnifiedCommandExecutor, ValidationIssue,
-    };
+    use super::super::executor::{CommandResult, CommandStatus, UnifiedCommandExecutor};
     use super::super::output::{OutputProcessor, ProcessOutput, ProcessedOutput};
     use super::super::process::ProcessManager;
-    use super::super::{ClaudeExecutor, CommandExecutor, ExecutionContext, ExecutionResult};
+    use super::super::{ExecutionContext, ExecutionResult};
     use anyhow::Result;
     use async_trait::async_trait;
     use std::collections::HashMap;
@@ -18,81 +15,7 @@ mod tests {
     use std::sync::Arc;
     use std::time::Duration;
 
-    // Mock unified executor for testing
-    struct MockUnifiedExecutor {
-        should_succeed: bool,
-        output: String,
-    }
-
-    #[async_trait]
-    impl UnifiedExecutorTrait for MockUnifiedExecutor {
-        async fn execute(&self, _request: CommandRequest) -> Result<CommandResult> {
-            Ok(CommandResult {
-                command_id: "test".to_string(),
-                command_spec: CommandSpec::Shell {
-                    command: "test".to_string(),
-                    shell: None,
-                    working_dir: None,
-                    env: None,
-                },
-                status: if self.should_succeed {
-                    CommandStatus::Success
-                } else {
-                    CommandStatus::Failed {
-                        reason: super::super::executor::FailureReason::NonZeroExit(1),
-                        retryable: false,
-                    }
-                },
-                output: ProcessedOutput {
-                    content: ProcessOutput::new().with_stdout(self.output.clone()),
-                    format: OutputFormat::PlainText,
-                    processing_duration: Duration::from_secs(0),
-                    warnings: Vec::new(),
-                },
-                execution_time: Duration::from_secs(1),
-                resource_usage: super::super::executor::ResourceUsage::default(),
-                exit_code: if self.should_succeed {
-                    Some(0)
-                } else {
-                    Some(1)
-                },
-                error: None,
-                validation_result: None,
-                metadata: super::super::executor::ExecutionMetadata::new(),
-            })
-        }
-
-        async fn validate(&self, _request: &CommandRequest) -> Result<Vec<ValidationIssue>> {
-            Ok(Vec::new())
-        }
-
-        fn supports(&self, _command_type: &CommandType) -> bool {
-            true
-        }
-
-        fn capabilities(&self) -> ExecutorCapabilities {
-            ExecutorCapabilities {
-                supported_command_types: vec![CommandType::Claude, CommandType::Shell],
-                max_concurrent_executions: Some(10),
-                supported_output_formats: vec![OutputFormat::PlainText],
-                timeout_support: true,
-                resource_limiting_support: false,
-                security_context_support: false,
-            }
-        }
-
-        async fn estimate_resources(&self, _request: &CommandRequest) -> Result<ResourceEstimate> {
-            Ok(ResourceEstimate {
-                estimated_duration: Some(Duration::from_secs(1)),
-                estimated_memory_mb: Some(100),
-                estimated_cpu_percent: Some(10.0),
-                estimated_disk_io_mb: Some(10),
-                confidence: 0.8,
-            })
-        }
-    }
-
-    fn create_test_bridge(should_succeed: bool, output: &str) -> LegacyExecutorBridge {
+    fn create_test_bridge(_should_succeed: bool, _output: &str) -> LegacyExecutorBridge {
         // Create real components for more realistic testing
         let resource_monitor = Arc::new(super::super::executor::ResourceMonitor);
         let process_manager = Arc::new(ProcessManager::new());
@@ -206,7 +129,7 @@ mod tests {
     #[test]
     fn test_no_op_observability() {
         // Just ensure NoOpObservability can be created and used
-        let observability = super::super::bridge::NoOpObservability;
+        let _observability = super::super::bridge::NoOpObservability;
 
         // The trait methods are async, so we'd need tokio to test them
         // This test just ensures the struct exists and compiles
@@ -305,12 +228,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_command_request_creation_for_claude() {
-        let bridge = create_test_bridge(true, "test output");
+        let _bridge = create_test_bridge(true, "test output");
 
         // Test data
-        let command = "test command";
-        let project_path = Path::new("/test/project");
-        let env_vars = HashMap::from([
+        let _command = "test command";
+        let _project_path = Path::new("/test/project");
+        let _env_vars = HashMap::from([
             ("KEY1".to_string(), "VALUE1".to_string()),
             ("KEY2".to_string(), "VALUE2".to_string()),
         ]);
@@ -324,7 +247,7 @@ mod tests {
     #[tokio::test]
     async fn test_shell_command_detection() {
         // Test that non-claude commands are treated as shell commands
-        let context = ExecutionContext {
+        let _context = ExecutionContext {
             working_directory: PathBuf::from("/test"),
             env_vars: HashMap::new(),
             capture_output: true,

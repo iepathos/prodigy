@@ -3,12 +3,15 @@
 //! This benchmark suite measures the performance of the new unified
 //! command execution pipeline to ensure no regressions are introduced.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
+use prodigy::cook::execution::executor::{
+    CommandResult, ExecutionContextInternal, ObservabilityCollector, ResourceMonitor,
+};
 use prodigy::cook::execution::{
-    command::*, executor::*, output::*, process::*, CommandExecutor as UnifiedExecutor,
-    UnifiedCommandExecutor,
+    command::*, executor::*, output::*, process::*, UnifiedCommandExecutor,
 };
 use std::collections::HashMap;
+use std::hint::black_box;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -227,17 +230,16 @@ fn create_test_executor() -> UnifiedCommandExecutor {
     struct MockObservability;
 
     #[async_trait::async_trait]
-    impl executor::ObservabilityCollector for MockObservability {
-        async fn record_command_start(&self, _context: &executor::ExecutionContextInternal) {}
-        async fn record_command_complete(&self, _result: &anyhow::Result<executor::CommandResult>) {
-        }
+    impl ObservabilityCollector for MockObservability {
+        async fn record_command_start(&self, _context: &ExecutionContextInternal) {}
+        async fn record_command_complete(&self, _result: &anyhow::Result<CommandResult>) {}
     }
 
     UnifiedCommandExecutor::new(
         Arc::new(ProcessManager::new()),
         Arc::new(OutputProcessor::new()),
         Arc::new(MockObservability),
-        Arc::new(executor::ResourceMonitor),
+        Arc::new(ResourceMonitor),
     )
 }
 
