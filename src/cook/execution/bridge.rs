@@ -20,7 +20,7 @@ impl LegacyExecutorBridge {
     }
 
     /// Convert legacy execution context to unified context
-    fn to_unified_context(context: &ExecutionContext) -> super::command::ExecutionContext {
+    pub fn to_unified_context(context: &ExecutionContext) -> super::command::ExecutionContext {
         super::command::ExecutionContext {
             working_dir: context.working_directory.clone(),
             env_vars: context.env_vars.clone(),
@@ -32,7 +32,7 @@ impl LegacyExecutorBridge {
     }
 
     /// Convert unified result to legacy result
-    fn from_unified_result(result: CommandResult) -> ExecutionResult {
+    pub fn from_unified_result(result: CommandResult) -> ExecutionResult {
         ExecutionResult {
             success: result.is_success(),
             stdout: result.get_output_text().unwrap_or_default().to_string(),
@@ -204,7 +204,7 @@ pub fn create_legacy_executor<R: CommandRunner + 'static>(runner: R) -> impl Cla
     // Create unified executor components
     let resource_monitor = Arc::new(super::executor::ResourceMonitor);
     let security_context = Arc::new(super::process::SecurityContext);
-    let process_manager = Arc::new(super::process::ProcessManager::new(
+    let process_manager = Arc::new(super::process::ProcessManager::with_monitors(
         resource_monitor.clone(),
         security_context,
     ));
@@ -222,7 +222,7 @@ pub fn create_legacy_executor<R: CommandRunner + 'static>(runner: R) -> impl Cla
 }
 
 /// No-op observability for backward compatibility
-struct NoOpObservability;
+pub struct NoOpObservability;
 
 #[async_trait]
 impl super::executor::ObservabilityCollector for NoOpObservability {

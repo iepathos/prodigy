@@ -22,7 +22,15 @@ pub struct ProcessManager {
 }
 
 impl ProcessManager {
-    pub fn new(
+    pub fn new() -> Self {
+        Self {
+            resource_monitor: Arc::new(super::executor::ResourceMonitor),
+            security_context: Arc::new(SecurityContext),
+            cleanup_registry: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+    
+    pub fn with_monitors(
         resource_monitor: Arc<super::executor::ResourceMonitor>,
         security_context: Arc<SecurityContext>,
     ) -> Self {
@@ -241,8 +249,8 @@ pub struct ResourceUsage {
 
 /// Cleanup handler for process termination
 pub struct CleanupHandler {
-    process_id: ProcessId,
-    requirements: CleanupRequirements,
+    pub process_id: ProcessId,
+    pub requirements: CleanupRequirements,
 }
 
 impl CleanupHandler {

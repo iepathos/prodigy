@@ -9,8 +9,8 @@ use std::time::Duration;
 
 /// Output processor for command results
 pub struct OutputProcessor {
-    formatters: HashMap<CommandType, Box<dyn OutputFormatter>>,
-    parsers: HashMap<OutputFormat, Box<dyn OutputParser>>,
+    pub formatters: HashMap<CommandType, Box<dyn OutputFormatter>>,
+    pub parsers: HashMap<OutputFormat, Box<dyn OutputParser>>,
 }
 
 impl OutputProcessor {
@@ -180,7 +180,7 @@ impl OutputFormatter for ClaudeOutputFormatter {
 }
 
 impl ClaudeOutputFormatter {
-    fn remove_claude_artifacts(&self, stdout: &str) -> String {
+    pub fn remove_claude_artifacts(&self, stdout: &str) -> String {
         // Remove common Claude CLI formatting
         stdout
             .lines()
@@ -192,7 +192,7 @@ impl ClaudeOutputFormatter {
             .join("\n")
     }
 
-    fn extract_structured_data(&self, output: &str) -> Result<Option<JsonValue>> {
+    pub fn extract_structured_data(&self, output: &str) -> Result<Option<JsonValue>> {
         // Look for JSON blocks in the output
         if let Some(start) = output.find("```json") {
             if let Some(end) = output[start..].find("```\n").map(|i| start + i) {
@@ -211,7 +211,7 @@ impl ClaudeOutputFormatter {
         Ok(None)
     }
 
-    fn extract_claude_error(&self, stderr: &str) -> Option<String> {
+    pub fn extract_claude_error(&self, stderr: &str) -> Option<String> {
         // Extract meaningful error from Claude stderr
         for line in stderr.lines() {
             if line.contains("Error:") || line.contains("Failed:") {
@@ -241,7 +241,7 @@ impl OutputFormatter for ShellOutputFormatter {
 }
 
 impl ShellOutputFormatter {
-    fn extract_error_summary(&self, stderr: &str) -> Option<String> {
+    pub fn extract_error_summary(&self, stderr: &str) -> Option<String> {
         // Extract meaningful errors from shell stderr
         let error_patterns = [
             "command not found",
@@ -287,7 +287,7 @@ impl OutputFormatter for TestOutputFormatter {
 }
 
 impl TestOutputFormatter {
-    fn extract_test_results(&self, stdout: &str) -> Option<JsonValue> {
+    pub fn extract_test_results(&self, stdout: &str) -> Option<JsonValue> {
         // Look for common test output patterns
         let mut results = serde_json::Map::new();
 
