@@ -13,6 +13,7 @@ use crate::cook::workflow::validation::{ValidationConfig, ValidationResult};
 use crate::session::{format_duration, TimingTracker};
 use crate::testing::config::TestConfiguration;
 use anyhow::{anyhow, Context, Result};
+use regex::Regex;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -349,6 +350,44 @@ fn default_commit_required() -> bool {
     true
 }
 
+/// Configuration for sensitive variable patterns
+#[derive(Debug, Clone)]
+pub struct SensitivePatternConfig {
+    /// Regex patterns to identify sensitive variable names
+    pub name_patterns: Vec<Regex>,
+    /// Regex patterns to identify sensitive values
+    pub value_patterns: Vec<Regex>,
+    /// Custom masking string (default: "***REDACTED***")
+    pub mask_string: String,
+}
+
+impl Default for SensitivePatternConfig {
+    fn default() -> Self {
+        Self {
+            // Default patterns for common sensitive variable names
+            name_patterns: vec![
+                Regex::new(r"(?i)(password|passwd|pwd)").unwrap(),
+                Regex::new(r"(?i)(token|api[_-]?key|secret)").unwrap(),
+                Regex::new(r"(?i)(auth|authorization|bearer)").unwrap(),
+                Regex::new(r"(?i)(private[_-]?key|ssh[_-]?key)").unwrap(),
+                Regex::new(r"(?i)(access[_-]?key|client[_-]?secret)").unwrap(),
+            ],
+            // Default patterns for common sensitive value formats
+            value_patterns: vec![
+                // GitHub/GitLab tokens (ghp_, glpat-, etc.)
+                Regex::new(r"^(ghp_|gho_|ghu_|ghs_|ghr_|glpat-)").unwrap(),
+                // AWS access keys
+                Regex::new(r"^AKIA[0-9A-Z]{16}$").unwrap(),
+                // JWT tokens
+                Regex::new(r"^eyJ[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$").unwrap(),
+                // Basic auth headers
+                Regex::new(r"^(Basic|Bearer)\s+[A-Za-z0-9+/=]+$").unwrap(),
+            ],
+            mask_string: "***REDACTED***".to_string(),
+        }
+    }
+}
+
 /// Workflow execution mode
 #[derive(Debug, Clone, PartialEq)]
 pub enum WorkflowMode {
@@ -387,6 +426,7 @@ pub struct WorkflowExecutor {
     test_config: Option<Arc<TestConfiguration>>,
     command_registry: Option<CommandRegistry>,
     subprocess: crate::subprocess::SubprocessManager,
+    sensitive_config: SensitivePatternConfig,
 }
 
 impl WorkflowExecutor {
@@ -400,8 +440,11 @@ impl WorkflowExecutor {
     fn log_variable_resolutions(&self, resolutions: &[VariableResolution]) {
         if tracing::enabled!(tracing::Level::DEBUG) && !resolutions.is_empty() {
             for resolution in resolutions {
-                // Format the value for display
-                let display_value = self.format_variable_value(&resolution.resolved_value);
+                // Format the value for display, applying masking if sensitive
+                let display_value = self.format_variable_value_with_masking(
+                    &resolution.name,
+                    &resolution.resolved_value,
+                );
                 tracing::debug!(
                     "   📊 Variable {} = {}",
                     resolution.raw_expression,
@@ -411,9 +454,25 @@ impl WorkflowExecutor {
         }
     }
 
-    /// Format variable value for display (truncate if too long, format JSON, etc.)
-    fn format_variable_value(&self, value: &str) -> String {
-        Self::format_variable_value_static(value)
+    /// Format variable value with sensitive data masking
+    fn format_variable_value_with_masking(&self, name: &str, value: &str) -> String {
+        // Check if this variable should be masked based on name patterns
+        let should_mask_by_name = self.sensitive_config.name_patterns.iter().any(|pattern| {
+            pattern.is_match(name)
+        });
+
+        // Check if this value should be masked based on value patterns
+        let should_mask_by_value = self.sensitive_config.value_patterns.iter().any(|pattern| {
+            pattern.is_match(value)
+        });
+
+        if should_mask_by_name || should_mask_by_value {
+            // Return masked value
+            self.sensitive_config.mask_string.clone()
+        } else {
+            // Format normally if not sensitive
+            Self::format_variable_value_static(value)
+        }
     }
 
     /// Static helper for formatting variable values
@@ -832,7 +891,14 @@ impl WorkflowExecutor {
             test_config: None,
             command_registry: None,
             subprocess: crate::subprocess::SubprocessManager::production(),
+            sensitive_config: SensitivePatternConfig::default(),
         }
+    }
+
+    /// Configure sensitive pattern detection
+    pub fn with_sensitive_patterns(mut self, config: SensitivePatternConfig) -> Self {
+        self.sensitive_config = config;
+        self
     }
 
     /// Create a new workflow executor with test configuration
@@ -850,6 +916,7 @@ impl WorkflowExecutor {
             test_config: Some(test_config),
             command_registry: None,
             subprocess: crate::subprocess::SubprocessManager::production(),
+            sensitive_config: SensitivePatternConfig::default(),
         }
     }
 
