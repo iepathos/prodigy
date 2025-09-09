@@ -1,0 +1,262 @@
+{
+  "timestamp": "2025-01-09T00:00:00Z",
+  "summary": {
+    "total_issues": 28,
+    "critical": 3,
+    "major": 8,
+    "minor": 12,
+    "info": 5
+  },
+  "categories": {
+    "missing": [
+      {
+        "severity": "critical",
+        "file": "src/config/workflow.rs",
+        "feature": "Workflow validation",
+        "description": "Workflow validation with 'validate:' field extensively documented but completely unimplemented",
+        "documented_in": ["workflows/implement.yml", "workflows/README.md"],
+        "example": "validate:\n  claude: \"/prodigy-validate-spec $ARG\"\n  threshold: 100"
+      },
+      {
+        "severity": "major",
+        "file": "src/cook/execution/mapreduce.rs",
+        "feature": "MapReduce context field",
+        "description": "Context field for agent templates documented but not parsed or used",
+        "documented_in": ["workflows/mapreduce-example.yml"],
+        "example": "context:\n  file: \"${item.location.file}\"\n  line: \"${item.location.line}\""
+      },
+      {
+        "severity": "major",
+        "file": "src/config/workflow.rs",
+        "feature": "Staged workflow mode",
+        "description": "Documentation mentions 'staged' mode alongside 'sequential' and 'mapreduce' but not implemented",
+        "documented_in": ["workflows/README.md"],
+        "impact": "Users may try to use non-existent mode"
+      },
+      {
+        "severity": "major",
+        "file": "src/cook/execution/mapreduce.rs",
+        "feature": "Environment variables in reduce phase",
+        "description": "Examples show 'env:' field setting environment variables in reduce phase but not implemented",
+        "documented_in": ["workflows/debtmap-reduce.yml"],
+        "example": "env:\n  CUSTOM_VAR: \"value\""
+      }
+    ],
+    "outdated": [
+      {
+        "severity": "critical",
+        "file": "CLAUDE.md",
+        "feature": "DLQ retry command",
+        "description": "Documentation says 'prodigy dlq retry' but actual command is 'prodigy dlq reprocess'",
+        "actual": "prodigy dlq reprocess",
+        "documented": "prodigy dlq retry",
+        "line": 115
+      },
+      {
+        "severity": "major",
+        "file": "CLAUDE.md",
+        "feature": "Test command type",
+        "description": "Documentation lists 'test:' as supported command type but it's deprecated",
+        "documented_in": ["CLAUDE.md"],
+        "actual_status": "Deprecated with warning in src/config/command.rs:313"
+      }
+    ],
+    "incorrect": [
+      {
+        "severity": "critical",
+        "file": "CLAUDE.md",
+        "feature": "DLQ reprocessing",
+        "description": "Documentation claims DLQ items can be reprocessed but feature is unimplemented",
+        "documented": "Can be reprocessed with 'prodigy dlq retry'",
+        "actual": "Returns error: 'DLQ reprocessing is not yet implemented'",
+        "source": "src/dlq/commands.rs"
+      },
+      {
+        "severity": "major",
+        "file": "CLAUDE.md",
+        "feature": "Resume job functionality",
+        "description": "Documentation suggests resume-job is fully functional but it's mostly placeholder",
+        "documented": "Resume MapReduce jobs from checkpoint",
+        "actual": "Just prints placeholder messages, no actual resume logic"
+      },
+      {
+        "severity": "minor",
+        "file": "README.md",
+        "feature": "Progress web dashboard",
+        "description": "Documentation mentions web dashboard but implementation only prints placeholder",
+        "documented": "Start web dashboard on specified port",
+        "actual": "Just prints 'Web dashboard would start on port X'"
+      }
+    ],
+    "inconsistent": [
+      {
+        "severity": "minor",
+        "file": "README.md vs CLAUDE.md",
+        "feature": "Command list",
+        "description": "README lists specific commands that may not exist in templates",
+        "readme_lists": ["prodigy-product-enhance", "prodigy-security-audit"],
+        "actual": "Dynamic discovery of prodigy-* commands from .claude/commands/"
+      },
+      {
+        "severity": "minor",
+        "file": "workflows/README.md",
+        "feature": "Workflow examples",
+        "description": "Some workflow examples use deprecated or non-functional syntax",
+        "examples": ["validation fields", "context fields", "test: commands"]
+      }
+    ],
+    "broken_examples": [
+      {
+        "severity": "major",
+        "file": "workflows/implement.yml",
+        "lines": "10-20",
+        "issue": "Validation workflow syntax completely non-functional",
+        "example": "validate:\n  claude: \"/prodigy-validate-spec\"\n  on_incomplete: ..."
+      },
+      {
+        "severity": "major",
+        "file": "workflows/mapreduce-example.yml",
+        "lines": "45-50",
+        "issue": "Context field in agent template ignored during execution",
+        "example": "context:\n  file: \"${item.location.file}\""
+      },
+      {
+        "severity": "minor",
+        "file": "CLAUDE.md",
+        "lines": "115",
+        "issue": "DLQ retry command example uses wrong command name",
+        "incorrect": "prodigy dlq retry",
+        "correct": "prodigy dlq reprocess"
+      }
+    ],
+    "deprecated_references": [
+      {
+        "severity": "major",
+        "file": "CLAUDE.md",
+        "deprecated_feature": "test: command type",
+        "replacement": "shell: command type",
+        "location": "Command Types section"
+      }
+    ]
+  },
+  "files": {
+    "README.md": [
+      {
+        "type": "inconsistent",
+        "issue": "Command list may reference non-existent commands",
+        "severity": "minor"
+      },
+      {
+        "type": "incorrect",
+        "issue": "Progress web dashboard described as functional",
+        "severity": "minor"
+      }
+    ],
+    "CLAUDE.md": [
+      {
+        "type": "outdated",
+        "issue": "DLQ retry command name incorrect",
+        "severity": "critical"
+      },
+      {
+        "type": "incorrect",
+        "issue": "DLQ reprocessing described as functional",
+        "severity": "critical"
+      },
+      {
+        "type": "deprecated",
+        "issue": "test: command type still documented",
+        "severity": "major"
+      },
+      {
+        "type": "incorrect",
+        "issue": "Resume job described as fully functional",
+        "severity": "major"
+      }
+    ],
+    "workflows/README.md": [
+      {
+        "type": "missing",
+        "issue": "Staged mode documented but not implemented",
+        "severity": "major"
+      },
+      {
+        "type": "broken_examples",
+        "issue": "Examples use non-functional syntax",
+        "severity": "major"
+      }
+    ],
+    "workflows/implement.yml": [
+      {
+        "type": "missing",
+        "issue": "Validation workflow completely unimplemented",
+        "severity": "critical"
+      }
+    ],
+    "workflows/mapreduce-example.yml": [
+      {
+        "type": "missing",
+        "issue": "Context field not implemented",
+        "severity": "major"
+      }
+    ],
+    "workflows/debtmap-reduce.yml": [
+      {
+        "type": "missing",
+        "issue": "Environment variables in reduce phase not implemented",
+        "severity": "major"
+      }
+    ],
+    ".claude/commands/*.md": [
+      {
+        "type": "info",
+        "issue": "Dynamic command discovery may not match documented list",
+        "severity": "info"
+      }
+    ]
+  },
+  "recommendations": [
+    {
+      "priority": 1,
+      "action": "Remove or mark as 'planned' the workflow validation feature documentation",
+      "files": ["workflows/implement.yml", "workflows/README.md"],
+      "reason": "Feature completely unimplemented, misleads users"
+    },
+    {
+      "priority": 1,
+      "action": "Fix DLQ command documentation to use 'reprocess' and mark as unimplemented",
+      "files": ["CLAUDE.md"],
+      "reason": "Wrong command name and unimplemented functionality"
+    },
+    {
+      "priority": 2,
+      "action": "Add deprecation warning to test: command documentation",
+      "files": ["CLAUDE.md"],
+      "reason": "Command type is deprecated in code"
+    },
+    {
+      "priority": 2,
+      "action": "Remove references to 'staged' workflow mode",
+      "files": ["workflows/README.md"],
+      "reason": "Mode not implemented"
+    },
+    {
+      "priority": 3,
+      "action": "Update MapReduce examples to remove context: fields",
+      "files": ["workflows/mapreduce-example.yml"],
+      "reason": "Field ignored during execution"
+    },
+    {
+      "priority": 3,
+      "action": "Clarify resume-job and progress web dashboard are placeholders",
+      "files": ["CLAUDE.md", "README.md"],
+      "reason": "Features mostly unimplemented"
+    },
+    {
+      "priority": 4,
+      "action": "Review and update workflow examples to use only implemented features",
+      "files": ["workflows/*.yml"],
+      "reason": "Multiple examples use non-functional syntax"
+    }
+  ]
+}

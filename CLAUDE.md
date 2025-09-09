@@ -101,7 +101,9 @@ Events are logged to `~/.prodigy/events/{repo_name}/{job_id}/` for debugging:
 Failed work items are stored in `~/.prodigy/dlq/{repo_name}/{job_id}/` for manual review and retry:
 - Contains the original work item data
 - Includes failure reason and timestamp
-- Can be reprocessed with `prodigy dlq retry`
+- **Important**: DLQ reprocessing is not yet implemented
+  - The `prodigy dlq reprocess` command exists but returns error: 'DLQ reprocessing is not yet implemented'
+  - Failed items must be manually reviewed and re-run if needed
 - Shared across worktrees for centralized failure tracking
 
 ## Workflow Execution
@@ -110,7 +112,7 @@ Failed work items are stored in `~/.prodigy/dlq/{repo_name}/{job_id}/` for manua
 Prodigy supports several command types in workflows:
 - `claude:` - Execute Claude commands via Claude Code CLI
 - `shell:` - Run shell commands
-- `test:` - Run tests with special handling
+- `test:` - **Deprecated** - This command type is deprecated and will show a warning. Use `shell:` instead for running tests
 
 ### Variable Interpolation
 Workflows support variable interpolation:
@@ -147,7 +149,7 @@ Prodigy CLI commands:
 - `prodigy cook` - Execute a workflow
 - `prodigy worktree` - Manage git worktrees
 - `prodigy init` - Initialize Claude commands
-- `prodigy resume-job` - Resume MapReduce jobs
+- `prodigy resume-job` - Display MapReduce job status (**Note**: Actual job resumption is not yet implemented, this command only prints job status)
 - `prodigy events` - View execution events
 - `prodigy dlq` - Manage failed work items
 
@@ -175,8 +177,9 @@ Prodigy CLI commands:
 
 ### MapReduce Failures
 - Check `.prodigy/dlq/` for failed items
-- Resume with `prodigy resume-job`
+- View job status with `prodigy resume-job` (actual resumption not yet implemented)
 - Review checkpoint in `.prodigy/events/{job_id}/checkpoint.json`
+- **Note**: To retry failed items, you must currently re-run the workflow manually
 
 ### Worktree Problems
 - List worktrees with `prodigy worktree ls`

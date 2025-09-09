@@ -47,7 +47,7 @@ Claude: "Let me see the new error..."
 - Automatic retry of failed formatting/linting
 - Full subprocess stdout/stderr capture
 - Flexible failure modes per command
-- MapReduce job resumption from checkpoints
+- MapReduce job checkpointing (full resumption coming soon)
 - on_success handlers for conditional execution
 
 📊 **Data Pipeline Features**: Advanced filtering and transformation
@@ -92,12 +92,13 @@ prodigy cook workflows/debug.yml  # Same great results for everyone
                     │ Orchestrates & provides context to
 ┌───────────────────▼──────────────────────────────────┐
 │              Claude Commands Layer                   │
+│  Example commands (discovered from .claude/commands/):   │
 │  • /prodigy-code-review - Analyzes & generates specs     │
 │  • /prodigy-implement-spec - Applies improvements        │
 │  • /prodigy-lint - Formats & validates code              │
-│  • /prodigy-security-audit - Security analysis           │
-│  • /prodigy-performance - Performance optimization       │
-│  • [Custom commands for your workflow]               │
+│  • /prodigy-debug-test-failure - Debug test failures     │
+│  • [Custom commands for your workflow]                   │
+│  Note: Actual commands depend on what's in your project  │
 └───────────────────┬──────────────────────────────────┘
                     │ Executed by
 ┌───────────────────▼──────────────────────────────────┐
@@ -259,8 +260,8 @@ prodigy cook workflows/implement.yml --worktree --yes
 # Process multiple files with mapping
 prodigy cook workflows/implement.yml --map "specs/*.md"
 
-# Resume an interrupted session
-prodigy cook workflows/implement.yml --resume session-abc123
+# View interrupted session status (full resumption coming soon)
+prodigy resume-job session-abc123
 
 # See detailed progress
 prodigy cook workflows/implement.yml --verbose
@@ -280,8 +281,8 @@ prodigy cook workflows/fix-files-mapreduce.yml --worktree
 # Auto-merge results from parallel agents
 prodigy cook workflows/mapreduce-example.yml --worktree --yes
 
-# Resume an interrupted MapReduce job from checkpoint
-prodigy cook workflows/debtmap-reduce.yml --worktree --resume
+# View MapReduce job status from checkpoint (full resumption coming soon)
+prodigy resume-job job-id
 
 # Run with custom parallelism limit
 prodigy cook workflows/mapreduce-example.yml --worktree --max-parallel 20
@@ -476,8 +477,8 @@ Basic implementation workflow:
 
 Security audit workflow:
 ```yaml
-# Security-focused workflow
-- claude: "/prodigy-security-audit"
+# Example workflow (requires corresponding command in .claude/commands/)
+- claude: "/prodigy-code-review"
   id: audit
   outputs:
     spec:
@@ -571,7 +572,7 @@ reduce:
 - **Custom Variables**: Capture command output with custom variable names via `capture_output`
 - **Conditional Execution**: on_success and on_failure handlers for both map and reduce phases
 - **Progress Tracking**: Real-time progress bars for parallel agent execution
-- **Job Resumption**: Resume failed MapReduce jobs from last checkpoint with `--resume`
+- **Job Checkpointing**: Saves progress for MapReduce jobs (full resumption coming soon)
 
 #### Command Arguments & Error Handling
 

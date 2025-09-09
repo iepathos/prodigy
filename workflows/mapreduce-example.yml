@@ -13,10 +13,8 @@ map:
   # Commands to execute for each work item
   agent_template:
     commands:
-      - claude: "/fix-issue ${item.description}"
-        context:
-          file: "${item.location.file}"
-          line: "${item.location.line}"
+      # Note: Context field is not yet implemented. Pass context via command arguments instead.
+      - claude: "/fix-issue ${item.description} --file ${item.location.file} --line ${item.location.line}"
       
       - shell: "cargo test"
         on_failure:
@@ -42,7 +40,6 @@ reduce:
     - shell: "git merge --no-ff prodigy-agent-*"
       commit_required: true
     
-    - claude: "/generate-report"
-      env:
-        TOTAL_FIXED: "${map.successful}"
-        TOTAL_FAILED: "${map.failed}"
+    # Note: Environment variables in reduce phase are not yet implemented.
+    # Pass values as command arguments instead.
+    - claude: "/generate-report --fixed ${map.successful} --failed ${map.failed}"

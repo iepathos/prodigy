@@ -96,7 +96,6 @@ prodigy cook workflows/debtmap-mapreduce.yml --worktree -y
 
 - **sequential** (default): Execute steps one after another
 - **mapreduce**: Execute map phase in parallel, then reduce phase
-- **staged**: Execute in defined stages with checkpoints
 
 ## Best Practices
 
