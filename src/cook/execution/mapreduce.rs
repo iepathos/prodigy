@@ -456,15 +456,19 @@ impl MapReduceExecutor {
         project_root: PathBuf,
     ) -> Self {
         // Create state manager with global storage support
-        let state_manager = match DefaultJobStateManager::new_with_global(project_root.clone()).await {
-            Ok(manager) => Arc::new(manager),
-            Err(e) => {
-                warn!("Failed to create global state manager: {}, falling back to local", e);
-                // Fallback to local storage
-                let state_dir = project_root.join(".prodigy").join("mapreduce");
-                Arc::new(DefaultJobStateManager::new(state_dir))
-            }
-        };
+        let state_manager =
+            match DefaultJobStateManager::new_with_global(project_root.clone()).await {
+                Ok(manager) => Arc::new(manager),
+                Err(e) => {
+                    warn!(
+                        "Failed to create global state manager: {}, falling back to local",
+                        e
+                    );
+                    // Fallback to local storage
+                    let state_dir = project_root.join(".prodigy").join("mapreduce");
+                    Arc::new(DefaultJobStateManager::new(state_dir))
+                }
+            };
 
         // Use global storage if enabled, otherwise fall back to local
         let event_logger = if crate::storage::GlobalStorage::should_use_global() {

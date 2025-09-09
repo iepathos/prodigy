@@ -32,7 +32,7 @@ pub struct RetentionPolicy {
 impl Default for RetentionPolicy {
     fn default() -> Self {
         use crate::storage::GlobalStorage;
-        
+
         // Use global archive path if global storage is enabled
         let archive_path = if GlobalStorage::should_use_global() {
             if let Ok(global_base) = crate::storage::get_global_base_dir() {
@@ -43,7 +43,7 @@ impl Default for RetentionPolicy {
         } else {
             Some(PathBuf::from(".prodigy/events/archive"))
         };
-        
+
         Self {
             max_age_days: Some(30),   // Keep events for 30 days by default
             max_events: Some(100000), // Keep max 100k events
@@ -74,11 +74,11 @@ impl RetentionManager {
     pub fn with_default_policy(events_path: PathBuf) -> Self {
         Self::new(RetentionPolicy::default(), events_path)
     }
-    
+
     /// Create with global storage support
     pub async fn with_global_storage(repo_path: &Path, job_id: &str) -> Result<Self> {
         use crate::storage::GlobalStorage;
-        
+
         if GlobalStorage::should_use_global() {
             let storage = GlobalStorage::new(repo_path)?;
             let events_path = storage.get_events_dir(job_id).await?;

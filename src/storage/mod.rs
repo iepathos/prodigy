@@ -314,45 +314,51 @@ mod tests {
     #[tokio::test]
     async fn test_cross_worktree_event_aggregation() {
         use serde_json::json;
-        
+
         let temp_dir = TempDir::new().unwrap();
         let repo_path = temp_dir.path().join("test-repo");
         std::fs::create_dir(&repo_path).unwrap();
-        
+
         // Simulate multiple worktrees accessing the same job
         let worktree1_path = temp_dir.path().join("worktree1").join("test-repo");
         std::fs::create_dir_all(&worktree1_path).unwrap();
         let worktree2_path = temp_dir.path().join("worktree2").join("test-repo");
         std::fs::create_dir_all(&worktree2_path).unwrap();
-        
+
         let job_id = "shared-job-123";
-        
+
         // Create storage instances for each worktree
         let storage1 = GlobalStorage::new(&worktree1_path).unwrap();
         let storage2 = GlobalStorage::new(&worktree2_path).unwrap();
-        
+
         // Both should resolve to the same global event directory
         let events_dir1 = storage1.get_events_dir(job_id).await.unwrap();
         let events_dir2 = storage2.get_events_dir(job_id).await.unwrap();
-        
+
         assert_eq!(events_dir1, events_dir2);
         assert!(events_dir1.ends_with("events/test-repo/shared-job-123"));
-        
+
         // Write events from both worktrees
         let event_file1 = events_dir1.join("events-wt1.jsonl");
         let event_file2 = events_dir2.join("events-wt2.jsonl");
-        
-        fs::write(&event_file1, json!({"worktree": 1, "event": "test"}).to_string() + "\n")
-            .await
-            .unwrap();
-        fs::write(&event_file2, json!({"worktree": 2, "event": "test"}).to_string() + "\n")
-            .await
-            .unwrap();
-        
+
+        fs::write(
+            &event_file1,
+            json!({"worktree": 1, "event": "test"}).to_string() + "\n",
+        )
+        .await
+        .unwrap();
+        fs::write(
+            &event_file2,
+            json!({"worktree": 2, "event": "test"}).to_string() + "\n",
+        )
+        .await
+        .unwrap();
+
         // Verify both event files exist in the same directory
         assert!(event_file1.exists());
         assert!(event_file2.exists());
-        
+
         // Read all events from the shared directory
         let mut entries = fs::read_dir(&events_dir1).await.unwrap();
         let mut event_files = Vec::new();
@@ -361,29 +367,29 @@ mod tests {
                 event_files.push(entry.path());
             }
         }
-        
+
         assert_eq!(event_files.len(), 2);
     }
 
     #[tokio::test]
     async fn test_global_storage_isolation_between_repos() {
         let temp_dir = TempDir::new().unwrap();
-        
+
         // Create two different repositories
         let repo1_path = temp_dir.path().join("repo-one");
         let repo2_path = temp_dir.path().join("repo-two");
         std::fs::create_dir(&repo1_path).unwrap();
         std::fs::create_dir(&repo2_path).unwrap();
-        
+
         let storage1 = GlobalStorage::new(&repo1_path).unwrap();
         let storage2 = GlobalStorage::new(&repo2_path).unwrap();
-        
+
         let job_id = "same-job-id";
-        
+
         // Get event directories for the same job ID but different repos
         let events_dir1 = storage1.get_events_dir(job_id).await.unwrap();
         let events_dir2 = storage2.get_events_dir(job_id).await.unwrap();
-        
+
         // Ensure they are different (isolated by repo name)
         assert_ne!(events_dir1, events_dir2);
         assert!(events_dir1.ends_with("events/repo-one/same-job-id"));
