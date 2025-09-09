@@ -67,4 +67,4 @@
 # Options:
 # - Use --verbose for detailed output
 # - Use --dry-run to preview without making changes
-# - Results saved in .prodigy/documentation-drift.json
+# - Results saved in .prodigy/documentation-drift.json (session-specific, not committed)

@@ -97,3 +97,4 @@ dev/
 .prodigy/metrics/
 .prodigy/events/
 .prodigy/dlq/
+.prodigy/documentation-drift.json
