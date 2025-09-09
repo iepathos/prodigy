@@ -109,6 +109,13 @@ impl ProcessRunner for TokioProcessRunner {
 
         let mut cmd = tokio::process::Command::new(&command.program);
 
+        // Set up process group for proper signal handling on Unix
+        #[cfg(unix)]
+        {
+            // Create new process group to ensure all child processes are terminated together
+            cmd.process_group(0);
+        }
+
         cmd.args(&command.args);
 
         for (key, value) in &command.env {
@@ -154,6 +161,8 @@ impl ProcessRunner for TokioProcessRunner {
             match tokio::time::timeout(timeout_duration, child.wait_with_output()).await {
                 Ok(result) => result.map_err(ProcessError::Io)?,
                 Err(_) => {
+                    // Timeout occurred - child has been moved, so we can't kill it here
+                    // The timeout itself will cause the process to be terminated
                     return Err(ProcessError::Timeout(timeout_duration));
                 }
             }

@@ -793,6 +793,21 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             .await?;
 
         // Set up signal handler for graceful interruption
+        if config.command.worktree {
+            // Set up worktree-aware signal handler
+            // This allows the worktree state to be marked as interrupted
+            let worktree_manager = Arc::new(WorktreeManager::new(
+                config.project_path.clone(),
+                self.subprocess.clone(),
+            )?);
+            super::signal_handler::setup_interrupt_handlers(
+                worktree_manager,
+                env.session_id.clone(),
+            )?;
+        } else {
+            // Set up simple signal handler for immediate termination
+            super::signal_handler::setup_simple_interrupt_handler()?;
+        }
         let session_manager = self.session_manager.clone();
         let worktree_name = env.worktree_name.clone();
         let project_path = config.project_path.clone();

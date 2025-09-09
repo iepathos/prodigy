@@ -323,3 +323,8 @@ mod tests {
         }
     }
 }
+
+// Include comprehensive process kill tests
+#[cfg(test)]
+#[path = "process_kill_tests.rs"]
+mod process_kill_tests;

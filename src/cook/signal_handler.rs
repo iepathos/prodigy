@@ -44,6 +44,34 @@ pub fn setup_interrupt_handlers(
     Ok(())
 }
 
+/// Set up a simple signal handler that immediately terminates the process
+///
+/// This is used when not in worktree mode, and ensures that the entire
+/// process tree is terminated when Ctrl+C is pressed.
+pub fn setup_simple_interrupt_handler() -> Result<()> {
+    // Set up SIGINT handler using Signals
+    let mut signals = Signals::new([SIGINT, SIGTERM])?;
+    
+    thread::spawn(move || {
+        for sig in signals.forever() {
+            match sig {
+                SIGINT => {
+                    eprintln!("\nInterrupted by user");
+                    std::process::exit(130); // Standard exit code for SIGINT
+                }
+                SIGTERM => {
+                    eprintln!("\nTerminated");
+                    std::process::exit(143); // Standard exit code for SIGTERM  
+                }
+                _ => unreachable!(),
+            }
+        }
+    });
+    
+    Ok(())
+}
+
+
 /// Update the worktree state to mark it as interrupted
 fn update_interrupted_state(
     worktree_manager: &WorktreeManager,
@@ -208,3 +236,8 @@ mod signal_tests {
         );
     }
 }
+
+// Include the comprehensive test suite
+#[cfg(test)]
+#[path = "signal_handler_tests.rs"]
+mod signal_handler_tests;

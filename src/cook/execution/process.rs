@@ -215,6 +215,28 @@ impl UnifiedProcess {
 
     /// Kill the process
     pub async fn kill(&mut self) -> Result<()> {
+        // On Unix, kill the entire process group to ensure all child processes are terminated
+        #[cfg(unix)]
+        {
+            if let Some(pid) = self.child.id() {
+                use nix::sys::signal::{self, Signal};
+                use nix::unistd::Pid;
+                
+                // Try to kill the process group (negative PID)
+                let pgid = Pid::from_raw(-(pid as i32));
+                let _ = signal::kill(pgid, Signal::SIGTERM);
+                
+                // Give it a moment to terminate gracefully
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                
+                // Force kill if still running
+                if let Ok(None) = self.child.try_wait() {
+                    let _ = signal::kill(pgid, Signal::SIGKILL);
+                }
+            }
+        }
+        
+        // Always try the standard kill as well
         self.child.kill().await?;
         Ok(())
     }
