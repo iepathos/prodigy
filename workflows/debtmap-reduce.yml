@@ -24,6 +24,7 @@ map:
       
       # Run tests to verify the fix
       - shell: "just test"
+        timeout: 300  # 5 minutes
         on_failure:
           claude: "/prodigy-debug-test-failure --output '${shell.output}'"
           max_attempts: 2
@@ -51,6 +52,7 @@ reduce:
   commands:
     # Run full test suite after all fixes
     - shell: "just test"
+      timeout: 300  # 5 minutes
       on_failure:
         claude: "/prodigy-debug-test-failure --output '${shell.output}'"
         max_attempts: 3
@@ -65,6 +67,7 @@ reduce:
           
     # Re-run debtmap to measure improvements
     - shell: "just coverage-lcov"
+      timeout: 600  # 10 minutes
     
     - shell: "debtmap analyze src --lcov target/coverage/lcov.info --output debtmap-after.json --format json"
       capture_output: true
