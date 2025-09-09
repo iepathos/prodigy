@@ -102,75 +102,208 @@ pub enum EventsCommand {
     },
 }
 
-/// Resolve event file path, checking both global and local storage
-async fn resolve_event_path(mut file: PathBuf, job_id: Option<&str>) -> Result<PathBuf> {
-    // If the provided path exists, use it
-    if file.exists() {
-        return Ok(file);
+/// Information about available jobs in the global storage
+#[derive(Debug)]
+struct JobInfo {
+    id: String,
+    status: JobStatus,
+    start_time: Option<DateTime<Local>>,
+    end_time: Option<DateTime<Local>>,
+    success_count: u64,
+    failure_count: u64,
+}
+
+#[derive(Debug)]
+enum JobStatus {
+    InProgress,
+    Completed,
+    Failed,
+    Unknown,
+}
+
+/// Get list of available jobs from global storage
+fn get_available_jobs() -> Result<Vec<JobInfo>> {
+    if !crate::storage::GlobalStorage::should_use_global() {
+        return Ok(Vec::new());
     }
 
-    // Check if we should look in global storage
-    if crate::storage::GlobalStorage::should_use_global() {
-        // Try to determine repository path from current directory
-        let current_dir = std::env::current_dir()?;
+    let current_dir = std::env::current_dir()?;
+    let repo_name = crate::storage::extract_repo_name(&current_dir)?;
+    let global_base = crate::storage::get_global_base_dir()?;
+    let global_events_dir = global_base.join("events").join(&repo_name);
 
-        // Extract repository name
-        if let Ok(repo_name) = crate::storage::extract_repo_name(&current_dir) {
-            let global_base = crate::storage::get_global_base_dir()?;
-            let global_events_dir = global_base.join("events").join(&repo_name);
+    if !global_events_dir.exists() {
+        return Ok(Vec::new());
+    }
 
-            // If a job_id is provided, look for that specific job's events
-            if let Some(job_id) = job_id {
-                let job_events_dir = global_events_dir.join(job_id);
+    let entries = fs::read_dir(&global_events_dir)?;
+    
+    let jobs: Vec<JobInfo> = entries
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().is_dir())
+        .map(|entry| {
+            let job_id = entry.file_name().to_string_lossy().to_string();
+            let job_info = read_job_status(&global_events_dir.join(&job_id))
+                .unwrap_or_else(|_| JobInfo {
+                    id: job_id.clone(),
+                    status: JobStatus::Unknown,
+                    start_time: None,
+                    end_time: None,
+                    success_count: 0,
+                    failure_count: 0,
+                });
+            job_info
+        })
+        .collect();
 
-                if job_events_dir.exists() {
-                    // Find the most recent event file in the directory
-                    if let Ok(entries) = fs::read_dir(&job_events_dir) {
-                        let mut event_files: Vec<_> = entries
-                            .filter_map(|e| e.ok())
-                            .filter(|e| {
-                                e.path()
-                                    .extension()
-                                    .and_then(|ext| ext.to_str())
-                                    .map(|ext| ext == "jsonl")
-                                    .unwrap_or(false)
-                            })
-                            .collect();
+    Ok(jobs)
+}
 
-                        // Sort by modification time (most recent first)
-                        event_files.sort_by_key(|e| {
-                            e.metadata()
-                                .and_then(|m| m.modified())
-                                .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
-                        });
-                        event_files.reverse();
+/// Read job status from event files
+fn read_job_status(job_events_dir: &Path) -> Result<JobInfo> {
+    let job_id = job_events_dir
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("unknown")
+        .to_string();
 
-                        if let Some(latest) = event_files.first() {
-                            file = latest.path();
-                            info!("Using global event file: {:?}", file);
-                            return Ok(file);
-                        }
-                    }
-                }
-            } else if global_events_dir.exists() {
-                // No job_id provided - list available jobs
-                if let Ok(entries) = fs::read_dir(&global_events_dir) {
-                    let job_dirs: Vec<_> = entries
-                        .filter_map(|e| e.ok())
-                        .filter(|e| e.path().is_dir())
-                        .map(|e| e.file_name().to_string_lossy().to_string())
-                        .collect();
+    let mut status = JobStatus::Unknown;
+    let mut start_time = None;
+    let mut end_time = None;
+    let mut success_count = 0;
+    let mut failure_count = 0;
 
-                    if !job_dirs.is_empty() {
-                        // Return a special marker to indicate we should list jobs
-                        return Err(anyhow::anyhow!("LIST_JOBS:{}", job_dirs.join(",")));
-                    }
-                }
+    // Find and read event files
+    let event_files = find_event_files(job_events_dir)?;
+    
+    for file in event_files {
+        let content = fs::read_to_string(&file)?;
+        for line in content.lines() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            
+            if let Ok(event) = serde_json::from_str::<Value>(line) {
+                process_event_for_status(
+                    &event,
+                    &mut status,
+                    &mut start_time,
+                    &mut end_time,
+                    &mut success_count,
+                    &mut failure_count,
+                );
             }
         }
     }
 
-    // If file still doesn't exist, return the original path (will fail gracefully later)
+    Ok(JobInfo {
+        id: job_id,
+        status,
+        start_time,
+        end_time,
+        success_count,
+        failure_count,
+    })
+}
+
+/// Process a single event to extract status information
+fn process_event_for_status(
+    event: &Value,
+    status: &mut JobStatus,
+    start_time: &mut Option<DateTime<Local>>,
+    end_time: &mut Option<DateTime<Local>>,
+    success_count: &mut u64,
+    failure_count: &mut u64,
+) {
+    if event.get("JobStarted").is_some() {
+        *status = JobStatus::InProgress;
+        if let Some(ts) = extract_timestamp(event) {
+            *start_time = Some(ts.with_timezone(&Local));
+        }
+    } else if let Some(completed) = event.get("JobCompleted") {
+        *status = JobStatus::Completed;
+        if let Some(ts) = extract_timestamp(event) {
+            *end_time = Some(ts.with_timezone(&Local));
+        }
+        if let Some(s) = completed.get("success_count").and_then(|v| v.as_u64()) {
+            *success_count = s;
+        }
+        if let Some(f) = completed.get("failure_count").and_then(|v| v.as_u64()) {
+            *failure_count = f;
+        }
+    } else if event.get("JobFailed").is_some() {
+        *status = JobStatus::Failed;
+        if let Some(ts) = extract_timestamp(event) {
+            *end_time = Some(ts.with_timezone(&Local));
+        }
+    }
+}
+
+/// Find all event files in a directory, sorted by name
+fn find_event_files(dir: &Path) -> Result<Vec<PathBuf>> {
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut files: Vec<_> = fs::read_dir(dir)?
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            e.path()
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .map(|ext| ext == "jsonl")
+                .unwrap_or(false)
+        })
+        .map(|e| e.path())
+        .collect();
+    
+    files.sort();
+    Ok(files)
+}
+
+/// Resolve event file path for a specific job
+fn resolve_job_event_file(job_id: &str) -> Result<PathBuf> {
+    if !crate::storage::GlobalStorage::should_use_global() {
+        return Ok(PathBuf::from(".prodigy/events/mapreduce_events.jsonl"));
+    }
+
+    let current_dir = std::env::current_dir()?;
+    let repo_name = crate::storage::extract_repo_name(&current_dir)?;
+    let global_base = crate::storage::get_global_base_dir()?;
+    let job_events_dir = global_base.join("events").join(&repo_name).join(job_id);
+
+    if !job_events_dir.exists() {
+        return Err(anyhow::anyhow!("Job '{}' not found", job_id));
+    }
+
+    // Find the most recent event file
+    let event_files = find_event_files(&job_events_dir)?;
+    
+    event_files
+        .into_iter()
+        .rev() // Most recent first
+        .next()
+        .ok_or_else(|| anyhow::anyhow!("No event files found for job '{}'", job_id))
+}
+
+/// Resolve event file path, with fallback to local file if it exists
+fn resolve_event_file_with_fallback(file: PathBuf, job_id: Option<&str>) -> Result<PathBuf> {
+    // If the provided file exists, use it directly
+    if file.exists() {
+        return Ok(file);
+    }
+
+    // If a job_id is provided and we're using global storage, resolve it
+    if let Some(job_id) = job_id {
+        if crate::storage::GlobalStorage::should_use_global() {
+            if let Ok(resolved) = resolve_job_event_file(job_id) {
+                info!("Using global event file: {:?}", resolved);
+                return Ok(resolved);
+            }
+        }
+    }
+
+    // Return the original path (will fail gracefully if it doesn't exist)
     Ok(file)
 }
 
@@ -185,160 +318,20 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
             limit,
             file,
         } => {
-            match resolve_event_path(file, job_id.as_deref()).await {
-                Ok(resolved_file) => {
-                    list_events(resolved_file, job_id, event_type, agent_id, since, limit).await
-                }
-                Err(e) if e.to_string().starts_with("LIST_JOBS:") => {
-                    // Extract and display job list
-                    let error_msg = e.to_string();
-                    let jobs_str = error_msg.strip_prefix("LIST_JOBS:").unwrap_or("");
-                    let jobs: Vec<&str> = jobs_str.split(',').filter(|s| !s.is_empty()).collect();
-
-                    if jobs.is_empty() {
-                        println!("No MapReduce jobs found in global storage.");
-                    } else {
-                        println!("Available MapReduce jobs:");
-                        println!("{}", "=".repeat(50));
-
-                        // Get repository name for display
-                        let repo_name = std::env::current_dir()
-                            .ok()
-                            .and_then(|dir| crate::storage::extract_repo_name(&dir).ok())
-                            .unwrap_or_else(|| "unknown".to_string());
-
-                        for job in jobs {
-                            // Try to get job info from the events
-                            let global_base = crate::storage::get_global_base_dir()?;
-                            let job_events_dir =
-                                global_base.join("events").join(&repo_name).join(job);
-
-                            let mut job_info = format!("  • {}", job);
-                            let mut job_status = "unknown";
-                            let mut start_time = None;
-                            let mut end_time = None;
-                            let mut success_count = 0;
-                            let mut failure_count = 0;
-
-                            // Try to find event files and read first/last events
-                            if let Ok(entries) = fs::read_dir(&job_events_dir) {
-                                let mut event_files: Vec<_> = entries
-                                    .filter_map(|e| e.ok())
-                                    .filter(|e| {
-                                        e.path()
-                                            .extension()
-                                            .and_then(|ext| ext.to_str())
-                                            .map(|ext| ext == "jsonl")
-                                            .unwrap_or(false)
-                                    })
-                                    .collect();
-
-                                // Sort by filename (which includes timestamp)
-                                event_files.sort_by_key(|e| e.file_name());
-
-                                if let Some(latest_file) = event_files.last() {
-                                    // Read the file to find JobStarted and JobCompleted events
-                                    if let Ok(content) = fs::read_to_string(latest_file.path()) {
-                                        for line in content.lines() {
-                                            if line.trim().is_empty() {
-                                                continue;
-                                            }
-
-                                            if let Ok(event) = serde_json::from_str::<Value>(line) {
-                                                if event.get("JobStarted").is_some() {
-                                                    job_status = "in_progress";
-                                                    if let Some(ts) = extract_timestamp(&event) {
-                                                        start_time = Some(ts.with_timezone(&Local));
-                                                    }
-                                                } else if let Some(completed) =
-                                                    event.get("JobCompleted")
-                                                {
-                                                    job_status = "completed";
-                                                    if let Some(ts) = extract_timestamp(&event) {
-                                                        end_time = Some(ts.with_timezone(&Local));
-                                                    }
-                                                    if let Some(s) = completed
-                                                        .get("success_count")
-                                                        .and_then(|v| v.as_u64())
-                                                    {
-                                                        success_count = s;
-                                                    }
-                                                    if let Some(f) = completed
-                                                        .get("failure_count")
-                                                        .and_then(|v| v.as_u64())
-                                                    {
-                                                        failure_count = f;
-                                                    }
-                                                } else if event.get("JobFailed").is_some() {
-                                                    job_status = "failed";
-                                                    if let Some(ts) = extract_timestamp(&event) {
-                                                        end_time = Some(ts.with_timezone(&Local));
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Format the job info based on status
-                            match job_status {
-                                "completed" => {
-                                    let duration =
-                                        if let (Some(start), Some(end)) = (start_time, end_time) {
-                                            let diff = end.signed_duration_since(start);
-                                            format!(
-                                                " in {}m{}s",
-                                                diff.num_minutes(),
-                                                diff.num_seconds() % 60
-                                            )
-                                        } else {
-                                            String::new()
-                                        };
-
-                                    job_info = format!(
-                                        "{} [✓ COMPLETED{} - Success: {}, Failed: {}]",
-                                        job_info, duration, success_count, failure_count
-                                    );
-                                }
-                                "failed" => {
-                                    job_info = format!("{} [✗ FAILED]", job_info);
-                                }
-                                "in_progress" => {
-                                    let elapsed = if let Some(start) = start_time {
-                                        let diff = Local::now().signed_duration_since(start);
-                                        format!(" - running for {}m", diff.num_minutes())
-                                    } else {
-                                        String::new()
-                                    };
-                                    job_info = format!("{} [⟳ IN PROGRESS{}]", job_info, elapsed);
-                                }
-                                _ => {
-                                    job_info = format!("{} [? UNKNOWN]", job_info);
-                                }
-                            }
-
-                            println!("{}", job_info);
-                        }
-
-                        println!("{}", "=".repeat(50));
-                        println!("\nTo view events for a specific job:");
-                        println!("  prodigy events list --job-id <JOB_ID>");
-                        println!("\nTo view all recent events across jobs:");
-                        println!(
-                            "  prodigy events list --file .prodigy/events/mapreduce_events.jsonl"
-                        );
-                    }
-
-                    Ok(())
-                }
-                Err(e) => Err(e),
+            // If no job_id provided and using global storage, show available jobs
+            if job_id.is_none() && crate::storage::GlobalStorage::should_use_global() && !file.exists() {
+                display_available_jobs()?;
+                Ok(())
+            } else {
+                // Resolve the event file and list events
+                let resolved_file = resolve_event_file_with_fallback(file, job_id.as_deref())?;
+                list_events(resolved_file, job_id, event_type, agent_id, since, limit).await
             }
         }
 
         EventsCommand::Stats { file, group_by } => {
-            let file = resolve_event_path(file, None).await?;
-            show_stats(file, group_by).await
+            let resolved_file = resolve_event_file_with_fallback(file, None)?;
+            show_stats(resolved_file, group_by).await
         }
 
         EventsCommand::Search {
@@ -346,8 +339,8 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
             file,
             fields,
         } => {
-            let file = resolve_event_path(file, None).await?;
-            search_events(file, pattern, fields).await
+            let resolved_file = resolve_event_file_with_fallback(file, None)?;
+            search_events(resolved_file, pattern, fields).await
         }
 
         EventsCommand::Follow {
@@ -355,8 +348,8 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
             job_id,
             event_type,
         } => {
-            let file = resolve_event_path(file, job_id.as_deref()).await?;
-            follow_events(file, job_id, event_type).await
+            let resolved_file = resolve_event_file_with_fallback(file, job_id.as_deref())?;
+            follow_events(resolved_file, job_id, event_type).await
         }
 
         EventsCommand::Export {
@@ -364,9 +357,82 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
             format,
             output,
         } => {
-            let file = resolve_event_path(file, None).await?;
-            export_events(file, format, output).await
+            let resolved_file = resolve_event_file_with_fallback(file, None)?;
+            export_events(resolved_file, format, output).await
         }
+    }
+}
+
+/// Display available jobs with their status
+fn display_available_jobs() -> Result<()> {
+    let jobs = get_available_jobs()?;
+    
+    if jobs.is_empty() {
+        println!("No MapReduce jobs found in global storage.");
+        return Ok(());
+    }
+
+    println!("Available MapReduce jobs:");
+    println!("{}", "=".repeat(50));
+
+    for job in jobs {
+        let job_info = format_job_info(&job);
+        println!("  • {}", job_info);
+    }
+
+    println!("{}", "=".repeat(50));
+    println!("\nTo view events for a specific job:");
+    println!("  prodigy events list --job-id <JOB_ID>");
+    println!("\nTo view all recent events across jobs:");
+    println!("  prodigy events list --file .prodigy/events/mapreduce_events.jsonl");
+
+    Ok(())
+}
+
+/// Format job information for display
+fn format_job_info(job: &JobInfo) -> String {
+    let base = &job.id;
+    
+    match job.status {
+        JobStatus::Completed => {
+            let duration = calculate_duration(job.start_time, job.end_time);
+            format!(
+                "{} [✓ COMPLETED{} - Success: {}, Failed: {}]",
+                base, duration, job.success_count, job.failure_count
+            )
+        }
+        JobStatus::Failed => {
+            format!("{} [✗ FAILED]", base)
+        }
+        JobStatus::InProgress => {
+            let elapsed = calculate_elapsed(job.start_time);
+            format!("{} [⟳ IN PROGRESS{}]", base, elapsed)
+        }
+        JobStatus::Unknown => {
+            format!("{} [? UNKNOWN]", base)
+        }
+    }
+}
+
+/// Calculate duration between start and end times
+fn calculate_duration(start: Option<DateTime<Local>>, end: Option<DateTime<Local>>) -> String {
+    match (start, end) {
+        (Some(start), Some(end)) => {
+            let diff = end.signed_duration_since(start);
+            format!(" in {}m{}s", diff.num_minutes(), diff.num_seconds() % 60)
+        }
+        _ => String::new()
+    }
+}
+
+/// Calculate elapsed time from start
+fn calculate_elapsed(start: Option<DateTime<Local>>) -> String {
+    match start {
+        Some(start) => {
+            let diff = Local::now().signed_duration_since(start);
+            format!(" - running for {}m", diff.num_minutes())
+        }
+        None => String::new()
     }
 }
 
