@@ -8,16 +8,36 @@ Prodigy is a workflow orchestration tool that executes Claude commands through s
 
 ## Directory Structure
 
+### Local Storage (Legacy)
 ```
 .prodigy/
 ├── session_state.json         # Current session state and timing
 ├── validation-result.json     # Workflow validation results
-├── events/                    # MapReduce event logs
+├── events/                    # MapReduce event logs (legacy)
 │   └── {job_id}/             # Job-specific events
 │       ├── {timestamp}.json  # Individual event records
 │       └── checkpoint.json   # Job checkpoint for resumption
-└── dlq/                      # Dead Letter Queue for failed items
+└── dlq/                      # Dead Letter Queue for failed items (legacy)
     └── {job_id}.json         # Failed work items for retry
+```
+
+### Global Storage (Default)
+```
+~/.prodigy/
+├── events/
+│   └── {repo_name}/          # Events grouped by repository
+│       └── {job_id}/         # Job-specific events
+│           └── events-{timestamp}.jsonl  # Event log files
+├── dlq/
+│   └── {repo_name}/          # DLQ grouped by repository
+│       └── {job_id}/         # Job-specific failed items
+├── state/
+│   └── {repo_name}/          # State grouped by repository
+│       └── mapreduce/        # MapReduce job states
+│           └── jobs/
+│               └── {job_id}/ # Job-specific checkpoints
+└── worktrees/
+    └── {repo_name}/          # Git worktrees for sessions
 ```
 
 ## Session Management
@@ -39,8 +59,26 @@ Tracks the current cooking session:
 
 ### Environment Variables
 
-When executing Claude commands, Prodigy sets this environment variable:
+When executing Claude commands, Prodigy sets these environment variables:
 - `PRODIGY_AUTOMATION="true"` - Signals automated execution mode
+- `PRODIGY_USE_LOCAL_STORAGE="true"` - Force local storage instead of global (optional)
+- `PRODIGY_REMOVE_LOCAL_AFTER_MIGRATION="true"` - Remove local storage after migration (optional)
+
+## Global Storage Architecture
+
+### Overview
+Prodigy uses a global storage architecture by default, storing all events, state, and DLQ data in `~/.prodigy/`. This enables:
+- **Cross-worktree event aggregation**: Multiple worktrees working on the same job share event logs
+- **Persistent state management**: Job checkpoints survive worktree cleanup
+- **Centralized monitoring**: All job data accessible from a single location
+- **Efficient storage**: Deduplication across worktrees
+
+### Migration from Local Storage
+When upgrading from an older version:
+- Prodigy automatically detects existing local storage
+- Data is migrated to global storage on first run
+- Set `PRODIGY_REMOVE_LOCAL_AFTER_MIGRATION=true` to remove local storage after migration
+- Use `PRODIGY_USE_LOCAL_STORAGE=true` to continue using local storage
 
 ## MapReduce Features
 
@@ -52,17 +90,19 @@ Prodigy supports parallel execution of work items across multiple Claude agents:
 - Failed items can be retried via the DLQ
 
 ### Event Tracking
-Events are logged to `.prodigy/events/{job_id}/` for debugging:
+Events are logged to `~/.prodigy/events/{repo_name}/{job_id}/` for debugging:
 - Agent lifecycle events (started, completed, failed)
 - Work item processing status
 - Checkpoint saves for resumption
 - Error details with correlation IDs
+- Cross-worktree event aggregation for parallel jobs
 
 ### Dead Letter Queue (DLQ)
-Failed work items are stored in `.prodigy/dlq/` for manual review and retry:
+Failed work items are stored in `~/.prodigy/dlq/{repo_name}/{job_id}/` for manual review and retry:
 - Contains the original work item data
 - Includes failure reason and timestamp
 - Can be reprocessed with `prodigy dlq retry`
+- Shared across worktrees for centralized failure tracking
 
 ## Workflow Execution
 
