@@ -51,8 +51,9 @@ pub fn setup_interrupt_handlers(
 pub fn setup_simple_interrupt_handler() -> Result<()> {
     // Set up SIGINT handler using Signals
     let mut signals = Signals::new([SIGINT, SIGTERM])?;
-    
+
     thread::spawn(move || {
+        #[allow(clippy::never_loop)]
         for sig in signals.forever() {
             match sig {
                 SIGINT => {
@@ -61,16 +62,15 @@ pub fn setup_simple_interrupt_handler() -> Result<()> {
                 }
                 SIGTERM => {
                     eprintln!("\nTerminated");
-                    std::process::exit(143); // Standard exit code for SIGTERM  
+                    std::process::exit(143); // Standard exit code for SIGTERM
                 }
                 _ => unreachable!(),
             }
         }
     });
-    
+
     Ok(())
 }
-
 
 /// Update the worktree state to mark it as interrupted
 fn update_interrupted_state(
