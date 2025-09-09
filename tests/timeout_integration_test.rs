@@ -50,7 +50,7 @@ commands:
 
 #[tokio::test]
 async fn test_timeout_propagation_to_normalized_workflow() -> Result<()> {
-    use prodigy::cook::workflow::normalized::{NormalizedWorkflow, ExecutionMode};
+    use prodigy::cook::workflow::normalized::{ExecutionMode, NormalizedWorkflow};
     use std::time::Duration;
 
     let yaml = r#"
@@ -65,18 +65,12 @@ commands:
     let normalized = NormalizedWorkflow::from_workflow_config(&config, ExecutionMode::Sequential)?;
 
     assert_eq!(normalized.steps.len(), 2);
-    
+
     // First step should have 5 second timeout
-    assert_eq!(
-        normalized.steps[0].timeout,
-        Some(Duration::from_secs(5))
-    );
-    
+    assert_eq!(normalized.steps[0].timeout, Some(Duration::from_secs(5)));
+
     // Second step should have 120 second timeout
-    assert_eq!(
-        normalized.steps[1].timeout,
-        Some(Duration::from_secs(120))
-    );
+    assert_eq!(normalized.steps[1].timeout, Some(Duration::from_secs(120)));
 
     Ok(())
 }
@@ -85,22 +79,22 @@ commands:
 async fn test_shell_command_timeout_execution() -> Result<()> {
     // This test just verifies the configuration parsing and propagation
     // Actual execution tests would be in the integration test suite
-    
+
     let yaml = r#"
 commands:
   - shell: "sleep 5"
     timeout: 1
 "#;
-    
+
     let config: WorkflowConfig = serde_yaml::from_str(yaml)?;
-    
+
     // Check that timeout is parsed correctly
     if let prodigy::config::command::WorkflowCommand::WorkflowStep(step) = &config.commands[0] {
         assert_eq!(step.timeout, Some(1));
     } else {
         panic!("Expected WorkflowStep variant");
     }
-    
+
     Ok(())
 }
 
@@ -124,7 +118,7 @@ fn test_timeout_field_serialization() {
 
     let yaml = serde_yaml::to_string(&step).unwrap();
     assert!(yaml.contains("timeout: 300"));
-    
+
     // Test deserialization
     let deserialized: WorkflowStepCommand = serde_yaml::from_str(&yaml).unwrap();
     assert_eq!(deserialized.timeout, Some(300));
@@ -134,7 +128,7 @@ fn test_timeout_field_serialization() {
 fn test_timeout_error_message() {
     // Test that timeout error messages are properly formatted
     let stderr_message = "Command timed out after 300 seconds";
-    
+
     assert!(stderr_message.contains("timed out"));
     assert!(stderr_message.contains("300 seconds"));
 }

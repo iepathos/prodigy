@@ -757,7 +757,10 @@ impl WorkflowExecutor {
     ) -> Result<StepResult> {
         // Add timeout to environment variables if configured for the step
         if let Some(timeout_secs) = step.timeout {
-            env_vars.insert("PRODIGY_COMMAND_TIMEOUT".to_string(), timeout_secs.to_string());
+            env_vars.insert(
+                "PRODIGY_COMMAND_TIMEOUT".to_string(),
+                timeout_secs.to_string(),
+            );
         }
 
         match command_type.clone() {
