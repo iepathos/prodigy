@@ -463,6 +463,7 @@ mod tests {
                 on_failure: None,
                 on_success: None,
                 validate: None,
+                timeout: None,
             })),
             WorkflowCommand::WorkflowStep(Box::new(WorkflowStepCommand {
                 analyze: None,
@@ -477,6 +478,7 @@ mod tests {
                 on_failure: None,
                 on_success: None,
                 validate: None,
+                timeout: None,
             })),
             WorkflowCommand::WorkflowStep(Box::new(WorkflowStepCommand {
                 analyze: None,
@@ -494,6 +496,7 @@ mod tests {
                 on_failure: None,
                 on_success: None,
                 validate: None,
+                timeout: None,
             })),
         ];
 

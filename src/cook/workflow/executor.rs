@@ -753,8 +753,13 @@ impl WorkflowExecutor {
         step: &WorkflowStep,
         env: &ExecutionEnvironment,
         ctx: &mut WorkflowContext,
-        env_vars: HashMap<String, String>,
+        mut env_vars: HashMap<String, String>,
     ) -> Result<StepResult> {
+        // Add timeout to environment variables if configured for the step
+        if let Some(timeout_secs) = step.timeout {
+            env_vars.insert("PRODIGY_COMMAND_TIMEOUT".to_string(), timeout_secs.to_string());
+        }
+
         match command_type.clone() {
             CommandType::Claude(cmd) => {
                 let (interpolated_cmd, resolutions) = ctx.interpolate_with_tracking(&cmd);

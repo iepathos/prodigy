@@ -165,7 +165,7 @@ impl NormalizedWorkflow {
                             .map(|s| Box::new(Self::workflow_step_command_to_workflow_step(s))),
                         on_exit_code: HashMap::new(), // WorkflowStepCommand doesn't have on_exit_code
                     },
-                    timeout: None, // WorkflowStepCommand doesn't have timeout field directly
+                    timeout: step.timeout.map(Duration::from_secs),
                     working_dir: None, // WorkflowStepCommand doesn't have working_dir field
                     env: HashMap::new(), // WorkflowStepCommand doesn't have env field
                     outputs: step.outputs.clone(),
@@ -484,6 +484,7 @@ mod tests {
             on_failure: None,
             on_success: None,
             validate: Some(validation.clone()),
+            timeout: None,
         };
 
         let config = WorkflowConfig {

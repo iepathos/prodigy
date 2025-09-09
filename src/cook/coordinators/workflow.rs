@@ -334,6 +334,7 @@ mod tests {
             analysis: None,
             outputs: None,
             validate: None,
+            timeout: None,
         };
         let result = DefaultWorkflowCoordinator::extract_workflow_step_command(&step);
         assert_eq!(result, "claude-command");
@@ -354,6 +355,7 @@ mod tests {
             analysis: None,
             outputs: None,
             validate: None,
+            timeout: None,
         };
         let result = DefaultWorkflowCoordinator::extract_workflow_step_command(&step);
         assert_eq!(result, "shell ls -la");
@@ -378,6 +380,7 @@ mod tests {
             analysis: None,
             outputs: None,
             validate: None,
+            timeout: None,
         };
         let result = DefaultWorkflowCoordinator::extract_workflow_step_command(&step);
         assert_eq!(result, "test cargo test");
@@ -398,6 +401,7 @@ mod tests {
             analysis: None,
             outputs: None,
             validate: None,
+            timeout: None,
         };
         let result = DefaultWorkflowCoordinator::extract_workflow_step_command(&step);
         assert_eq!(result, "");
@@ -467,6 +471,7 @@ mod tests {
             analysis: None,
             outputs: None,
             validate: None,
+            timeout: None,
         };
         let result = DefaultWorkflowCoordinator::extract_workflow_step_command(&step);
         assert_eq!(
