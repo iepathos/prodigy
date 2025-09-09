@@ -10,8 +10,8 @@ use crate::cook::execution::errors::{ErrorContext, MapReduceError, MapReduceResu
 use crate::cook::execution::events::{EventLogger, EventWriter, JsonlEventWriter, MapReduceEvent};
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
 use crate::cook::execution::progress::{
-    AgentProgress, AgentState, CLIProgressViewer, EnhancedProgressTracker,
-    ProgressUpdate, UpdateType,
+    AgentProgress, AgentState, CLIProgressViewer, EnhancedProgressTracker, ProgressUpdate,
+    UpdateType,
 };
 use crate::cook::execution::state::{DefaultJobStateManager, JobStateManager, MapReduceJobState};
 use crate::cook::execution::ClaudeExecutor;
@@ -1199,13 +1199,11 @@ impl MapReduceExecutor {
         }
 
         // Mark job as complete in tracker
-        let _ = tracker
-            .event_sender
-            .send(ProgressUpdate {
-                update_type: UpdateType::JobCompleted,
-                timestamp: Utc::now(),
-                data: json!({"job_id": tracker.job_id}),
-            });
+        let _ = tracker.event_sender.send(ProgressUpdate {
+            update_type: UpdateType::JobCompleted,
+            timestamp: Utc::now(),
+            data: json!({"job_id": tracker.job_id}),
+        });
 
         // Return collected results
         let results = results.read().await;

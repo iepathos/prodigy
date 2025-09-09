@@ -255,7 +255,10 @@ impl ProgressPersistence {
             fs::remove_file(&history_path).await?;
         }
 
-        info!("Cleaned up progress persistence files for job {}", self.job_id);
+        info!(
+            "Cleaned up progress persistence files for job {}",
+            self.job_id
+        );
         Ok(())
     }
 }
@@ -303,7 +306,10 @@ impl ProgressSampler {
     /// Get cached progress
     pub async fn get_cached(&self) -> Option<(ProgressSnapshot, ProgressMetrics)> {
         let cache = self.cache.read().await;
-        cache.snapshot.as_ref().map(|s| (s.clone(), cache.metrics.clone()))
+        cache
+            .snapshot
+            .as_ref()
+            .map(|s| (s.clone(), cache.metrics.clone()))
     }
 }
 
@@ -353,7 +359,7 @@ impl EnhancedProgressTracker {
     /// Restore from persisted snapshot
     pub async fn restore_from_disk(&mut self) -> MapReduceResult<bool> {
         let persistence = ProgressPersistence::new(self.job_id.clone());
-        
+
         if let Some(snapshot) = persistence.load_snapshot().await? {
             // Restore metrics
             let mut metrics = self.metrics.write().await;
@@ -362,20 +368,23 @@ impl EnhancedProgressTracker {
             // Restore agent states
             let mut agents = self.agents.write().await;
             for (agent_id, state) in snapshot.agent_states {
-                agents.insert(agent_id.clone(), AgentProgress {
-                    agent_id: agent_id.clone(),
-                    item_id: String::new(),
-                    state,
-                    current_step: String::new(),
-                    steps_completed: 0,
-                    total_steps: 0,
-                    progress_percentage: 0.0,
-                    started_at: snapshot.timestamp,
-                    last_update: snapshot.timestamp,
-                    estimated_completion: None,
-                    error_count: 0,
-                    retry_count: 0,
-                });
+                agents.insert(
+                    agent_id.clone(),
+                    AgentProgress {
+                        agent_id: agent_id.clone(),
+                        item_id: String::new(),
+                        state,
+                        current_step: String::new(),
+                        steps_completed: 0,
+                        total_steps: 0,
+                        progress_percentage: 0.0,
+                        started_at: snapshot.timestamp,
+                        last_update: snapshot.timestamp,
+                        estimated_completion: None,
+                        error_count: 0,
+                        retry_count: 0,
+                    },
+                );
             }
 
             info!("Restored progress from disk for job {}", self.job_id);
@@ -447,10 +456,29 @@ impl EnhancedProgressTracker {
         agent_id: &str,
         state: AgentState,
     ) -> MapReduceResult<()> {
-        let mut agents = self.agents.write().await;
-        if let Some(agent) = agents.get_mut(agent_id) {
-            agent.state = state;
-            agent.last_update = Utc::now();
+        {
+            let mut agents = self.agents.write().await;
+            if let Some(agent) = agents.get_mut(agent_id) {
+                agent.state = state;
+                agent.last_update = Utc::now();
+            } else {
+                // Create a new agent entry if it doesn't exist
+                let new_agent = AgentProgress {
+                    agent_id: agent_id.to_string(),
+                    item_id: String::new(),
+                    state,
+                    current_step: String::new(),
+                    steps_completed: 0,
+                    total_steps: 0,
+                    progress_percentage: 0.0,
+                    started_at: Utc::now(),
+                    last_update: Utc::now(),
+                    estimated_completion: None,
+                    error_count: 0,
+                    retry_count: 0,
+                };
+                agents.insert(agent_id.to_string(), new_agent);
+            }
         }
 
         self.recalculate_metrics().await?;
@@ -459,25 +487,47 @@ impl EnhancedProgressTracker {
 
     /// Mark item as completed
     pub async fn mark_item_completed(&self, agent_id: &str) -> MapReduceResult<()> {
-        self.update_agent_state(agent_id, AgentState::Completed)
-            .await?;
+        // Update agent state first
+        {
+            let mut agents = self.agents.write().await;
+            if let Some(agent) = agents.get_mut(agent_id) {
+                agent.state = AgentState::Completed;
+                agent.last_update = Utc::now();
+            }
+        }
 
-        let mut metrics = self.metrics.write().await;
-        metrics.completed_items += 1;
-        metrics.pending_items = metrics.pending_items.saturating_sub(1);
+        // Then update metrics in a single lock
+        {
+            let mut metrics = self.metrics.write().await;
+            metrics.completed_items += 1;
+            metrics.pending_items = metrics.pending_items.saturating_sub(1);
+        }
 
+        // Recalculate metrics separately to avoid nested locks
+        self.recalculate_metrics().await?;
         Ok(())
     }
 
     /// Mark item as failed
     pub async fn mark_item_failed(&self, agent_id: &str, error: String) -> MapReduceResult<()> {
-        self.update_agent_state(agent_id, AgentState::Failed { error })
-            .await?;
+        // Update agent state first
+        {
+            let mut agents = self.agents.write().await;
+            if let Some(agent) = agents.get_mut(agent_id) {
+                agent.state = AgentState::Failed { error };
+                agent.last_update = Utc::now();
+            }
+        }
 
-        let mut metrics = self.metrics.write().await;
-        metrics.failed_items += 1;
-        metrics.pending_items = metrics.pending_items.saturating_sub(1);
+        // Then update metrics in a single lock
+        {
+            let mut metrics = self.metrics.write().await;
+            metrics.failed_items += 1;
+            metrics.pending_items = metrics.pending_items.saturating_sub(1);
+        }
 
+        // Recalculate metrics separately to avoid nested locks
+        self.recalculate_metrics().await?;
         Ok(())
     }
 
@@ -748,9 +798,8 @@ impl ProgressWebServer {
         }
 
         // Create stream from receiver
-        let stream = UnboundedReceiverStream::new(rx).map(|msg| {
-            Ok(axum::response::sse::Event::default().data(msg))
-        });
+        let stream = UnboundedReceiverStream::new(rx)
+            .map(|msg| Ok(axum::response::sse::Event::default().data(msg)));
 
         // Clean up on disconnect
         let server_clone = server.clone();
@@ -775,35 +824,47 @@ impl ProgressWebServer {
         let mut output = String::new();
 
         // Job metrics
-        output.push_str(&format!("# HELP mapreduce_items_completed Number of completed items\n"));
-        output.push_str(&format!("# TYPE mapreduce_items_completed counter\n"));
-        output.push_str(&format!("mapreduce_items_completed{{job_id=\"{}\"}} {}\n", 
-            server.tracker.job_id, metrics.completed_items));
+        output.push_str("# HELP mapreduce_items_completed Number of completed items\n");
+        output.push_str("# TYPE mapreduce_items_completed counter\n");
+        output.push_str(&format!(
+            "mapreduce_items_completed{{job_id=\"{}\"}} {}\n",
+            server.tracker.job_id, metrics.completed_items
+        ));
 
-        output.push_str(&format!("# HELP mapreduce_items_failed Number of failed items\n"));
-        output.push_str(&format!("# TYPE mapreduce_items_failed counter\n"));
-        output.push_str(&format!("mapreduce_items_failed{{job_id=\"{}\"}} {}\n", 
-            server.tracker.job_id, metrics.failed_items));
+        output.push_str("# HELP mapreduce_items_failed Number of failed items\n");
+        output.push_str("# TYPE mapreduce_items_failed counter\n");
+        output.push_str(&format!(
+            "mapreduce_items_failed{{job_id=\"{}\"}} {}\n",
+            server.tracker.job_id, metrics.failed_items
+        ));
 
-        output.push_str(&format!("# HELP mapreduce_items_pending Number of pending items\n"));
-        output.push_str(&format!("# TYPE mapreduce_items_pending gauge\n"));
-        output.push_str(&format!("mapreduce_items_pending{{job_id=\"{}\"}} {}\n", 
-            server.tracker.job_id, metrics.pending_items));
+        output.push_str("# HELP mapreduce_items_pending Number of pending items\n");
+        output.push_str("# TYPE mapreduce_items_pending gauge\n");
+        output.push_str(&format!(
+            "mapreduce_items_pending{{job_id=\"{}\"}} {}\n",
+            server.tracker.job_id, metrics.pending_items
+        ));
 
-        output.push_str(&format!("# HELP mapreduce_active_agents Number of active agents\n"));
-        output.push_str(&format!("# TYPE mapreduce_active_agents gauge\n"));
-        output.push_str(&format!("mapreduce_active_agents{{job_id=\"{}\"}} {}\n", 
-            server.tracker.job_id, metrics.active_agents));
+        output.push_str("# HELP mapreduce_active_agents Number of active agents\n");
+        output.push_str("# TYPE mapreduce_active_agents gauge\n");
+        output.push_str(&format!(
+            "mapreduce_active_agents{{job_id=\"{}\"}} {}\n",
+            server.tracker.job_id, metrics.active_agents
+        ));
 
-        output.push_str(&format!("# HELP mapreduce_throughput_average Average throughput in items/sec\n"));
-        output.push_str(&format!("# TYPE mapreduce_throughput_average gauge\n"));
-        output.push_str(&format!("mapreduce_throughput_average{{job_id=\"{}\"}} {}\n", 
-            server.tracker.job_id, metrics.throughput_average));
+        output.push_str("# HELP mapreduce_throughput_average Average throughput in items/sec\n");
+        output.push_str("# TYPE mapreduce_throughput_average gauge\n");
+        output.push_str(&format!(
+            "mapreduce_throughput_average{{job_id=\"{}\"}} {}\n",
+            server.tracker.job_id, metrics.throughput_average
+        ));
 
-        output.push_str(&format!("# HELP mapreduce_success_rate Success rate percentage\n"));
-        output.push_str(&format!("# TYPE mapreduce_success_rate gauge\n"));
-        output.push_str(&format!("mapreduce_success_rate{{job_id=\"{}\"}} {}\n", 
-            server.tracker.job_id, metrics.success_rate));
+        output.push_str("# HELP mapreduce_success_rate Success rate percentage\n");
+        output.push_str("# TYPE mapreduce_success_rate gauge\n");
+        output.push_str(&format!(
+            "mapreduce_success_rate{{job_id=\"{}\"}} {}\n",
+            server.tracker.job_id, metrics.success_rate
+        ));
 
         // Agent states
         let mut state_counts: HashMap<String, usize> = HashMap::new();
@@ -821,19 +882,23 @@ impl ProgressWebServer {
             *state_counts.entry(state_name.to_string()).or_insert(0) += 1;
         }
 
-        output.push_str(&format!("# HELP mapreduce_agent_states Count of agents by state\n"));
-        output.push_str(&format!("# TYPE mapreduce_agent_states gauge\n"));
+        output.push_str("# HELP mapreduce_agent_states Count of agents by state\n");
+        output.push_str("# TYPE mapreduce_agent_states gauge\n");
         for (state, count) in state_counts {
-            output.push_str(&format!("mapreduce_agent_states{{job_id=\"{}\",state=\"{}\"}} {}\n", 
-                server.tracker.job_id, state, count));
+            output.push_str(&format!(
+                "mapreduce_agent_states{{job_id=\"{}\",state=\"{}\"}} {}\n",
+                server.tracker.job_id, state, count
+            ));
         }
 
         // Job duration
         let duration = server.tracker.start_time.elapsed().as_secs();
-        output.push_str(&format!("# HELP mapreduce_job_duration_seconds Job duration in seconds\n"));
-        output.push_str(&format!("# TYPE mapreduce_job_duration_seconds gauge\n"));
-        output.push_str(&format!("mapreduce_job_duration_seconds{{job_id=\"{}\"}} {}\n", 
-            server.tracker.job_id, duration));
+        output.push_str("# HELP mapreduce_job_duration_seconds Job duration in seconds\n");
+        output.push_str("# TYPE mapreduce_job_duration_seconds gauge\n");
+        output.push_str(&format!(
+            "mapreduce_job_duration_seconds{{job_id=\"{}\"}} {}\n",
+            server.tracker.job_id, duration
+        ));
 
         output
     }
@@ -975,7 +1040,7 @@ impl CLIProgressViewer {
             if let Some((snapshot, _)) = sampler.get_cached().await {
                 println!("\n👥 Agent Status (cached):");
                 println!("{}", "─".repeat(60));
-                
+
                 for (id, state) in snapshot.agent_states.iter().take(10) {
                     let state_str = match state {
                         AgentState::Running { step, .. } => format!("🔄 {}", step),
@@ -983,10 +1048,10 @@ impl CLIProgressViewer {
                         AgentState::Failed { error } => format!("❌ Failed: {}", error),
                         _ => format!("{:?}", state),
                     };
-                    
+
                     println!("  {}: {}", &id[..8.min(id.len())], state_str);
                 }
-                
+
                 if snapshot.agent_states.len() > 10 {
                     println!("  ... and {} more agents", snapshot.agent_states.len() - 10);
                 }
