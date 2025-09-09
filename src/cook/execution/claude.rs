@@ -68,10 +68,16 @@ impl<R: CommandRunner + 'static> ClaudeExecutor for ClaudeExecutorImpl<R> {
         #[allow(clippy::field_reassign_with_default)]
         {
             context.working_directory = project_path.to_path_buf();
-            context.env_vars = env_vars;
+            context.env_vars = env_vars.clone();
         }
 
-        // No timeout for Claude commands - let them run as long as needed for automated workflows
+        // Check for timeout configuration passed via environment variable
+        if let Some(timeout_str) = env_vars.get("PRODIGY_COMMAND_TIMEOUT") {
+            if let Ok(timeout_secs) = timeout_str.parse::<u64>() {
+                context.timeout_seconds = Some(timeout_secs);
+                tracing::debug!("Claude command timeout set to {} seconds", timeout_secs);
+            }
+        }
 
         // Claude requires some input on stdin to work properly
         context.stdin = Some("".to_string());

@@ -2362,6 +2362,7 @@ mod tests {
             outputs: None,
             on_success: None,
             validate: None,
+            timeout: None,
         };
 
         let (shell, test, on_failure) = DefaultCookOrchestrator::process_step_failure_config(&step);
@@ -2395,6 +2396,7 @@ mod tests {
             outputs: None,
             on_success: None,
             validate: None,
+            timeout: None,
         };
 
         let (shell, test, on_failure) = DefaultCookOrchestrator::process_step_failure_config(&step);
@@ -2433,6 +2435,7 @@ mod tests {
             outputs: None,
             on_success: None,
             validate: None,
+            timeout: None,
         };
 
         let (shell, test, on_failure) = DefaultCookOrchestrator::process_step_failure_config(&step);
@@ -2457,6 +2460,7 @@ mod tests {
             outputs: None,
             on_success: None,
             validate: None,
+            timeout: None,
         };
         let cmd = WorkflowCommand::WorkflowStep(Box::new(step));
 

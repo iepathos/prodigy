@@ -275,6 +275,10 @@ pub struct WorkflowStepCommand {
     /// Validation configuration for checking implementation completeness
     #[serde(skip_serializing_if = "Option::is_none")]
     pub validate: Option<crate::cook::workflow::validation::ValidationConfig>,
+
+    /// Timeout in seconds for command execution
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timeout: Option<u64>,
 }
 
 impl<'de> Deserialize<'de> for WorkflowStepCommand {
@@ -298,6 +302,7 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
             on_failure: Option<TestDebugConfig>,
             on_success: Option<Box<WorkflowStepCommand>>,
             validate: Option<crate::cook::workflow::validation::ValidationConfig>,
+            timeout: Option<u64>,
         }
 
         let helper = Helper::deserialize(deserializer)?;
@@ -341,6 +346,7 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
             on_failure,
             on_success: helper.on_success,
             validate: helper.validate,
+            timeout: helper.timeout,
         })
     }
 }
