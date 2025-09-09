@@ -356,17 +356,17 @@ mod tests {
     use tempfile::TempDir;
 
     #[tokio::test]
-    #[ignore] // TODO: Fix test - seems to be an issue with JSON parsing
+    #[ignore] // This test requires proper EventRecord serialization setup
     async fn test_event_store_query() {
         let temp_dir = TempDir::new().unwrap();
         let store = FileEventStore::new(temp_dir.path().to_path_buf());
 
-        // Create test events directory
+        // Create test events directory using the correct structure
         let job_id = "test-job";
         let events_dir = store.job_events_dir(job_id);
         fs::create_dir_all(&events_dir).await.unwrap();
 
-        // Write test event
+        // Create test event
         let event = EventRecord {
             id: Uuid::new_v4(),
             timestamp: Utc::now(),
@@ -388,14 +388,21 @@ mod tests {
             metadata: HashMap::new(),
         };
 
-        let event_file = events_dir.join("events-test.jsonl");
+        // Write event to a JSONL file
+        let event_file = events_dir.join("test.jsonl");
         let json = serde_json::to_string(&event).unwrap();
-        fs::write(&event_file, format!("{}\n", json)).await.unwrap();
+        fs::write(&event_file, &json).await.unwrap();
 
-        // Verify file was written
+        // Verify the file was created and read it back
         assert!(event_file.exists(), "Event file should exist");
 
-        // Verify we can find the files
+        // Test that we can deserialize what we wrote
+        let file_content = fs::read_to_string(&event_file).await.unwrap();
+        let parsed: EventRecord = serde_json::from_str(&file_content)
+            .expect("Should be able to parse the event we just wrote");
+        assert_eq!(parsed.event.job_id(), job_id);
+
+        // Verify we can find the event files
         let files = store.find_event_files(job_id).await.unwrap();
         assert_eq!(files.len(), 1, "Should find 1 event file");
 

@@ -457,19 +457,32 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore] // TODO: Fix the event counting logic
     async fn test_retention_manager_no_cleanup_needed() {
         let temp_dir = TempDir::new().unwrap();
         let events_file = temp_dir.path().join("events.jsonl");
 
-        // Create a small events file
-        let content = r#"{"timestamp":"2024-01-01T00:00:00Z","event":"test"}"#;
-        fs::write(&events_file, content).unwrap();
+        // Create a small events file with a recent timestamp
+        let recent_timestamp = Utc::now().to_rfc3339();
+        let content = format!(r#"{{"timestamp":"{}","event":"test"}}"#, recent_timestamp);
+        std::fs::write(&events_file, content).unwrap();
 
-        let manager = RetentionManager::with_default_policy(events_file);
+        // Create a policy with high limits so cleanup is not triggered
+        let policy = RetentionPolicy {
+            max_age_days: Some(365),                      // Keep events for a year
+            max_events: Some(10000),                      // Allow many events
+            max_file_size_bytes: Some(100 * 1024 * 1024), // 100MB limit
+            archive_old_events: false,
+            archive_path: None,
+            compress_archives: false,
+        };
+
+        let manager = RetentionManager::new(policy, events_file);
         let stats = manager.apply_retention().await.unwrap();
 
-        // The small file doesn't trigger cleanup, so it should just count events
+        // Even though cleanup wasn't needed due to file size,
+        // the retention manager still processes events when max_age_days is set
+        // It will scan the file to check for old events
+        assert_eq!(stats.events_processed, 1);
         assert_eq!(stats.events_retained, 1);
         assert_eq!(stats.events_removed, 0);
     }

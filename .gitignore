@@ -95,3 +95,5 @@ dev/
 .prodigy/worktrees/
 .prodigy/context/
 .prodigy/metrics/
+.prodigy/events/
+.prodigy/dlq/

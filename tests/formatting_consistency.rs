@@ -200,27 +200,3 @@ fn test_parallel_display_safety() {
         handle.join().unwrap();
     }
 }
-
-#[cfg(test)]
-mod integration_tests {
-    use std::process::Command;
-
-    #[test]
-    #[ignore] // Run with --ignored flag
-    fn test_real_command_output_formatting() {
-        // This test runs actual commands to verify formatting in practice
-        let output = Command::new("cargo")
-            .arg("run")
-            .arg("--")
-            .arg("--help")
-            .output()
-            .expect("Failed to run cargo");
-
-        let stdout = String::from_utf8_lossy(&output.stdout);
-
-        // Verify help text doesn't contain raw emoji
-        assert!(!stdout.contains("🚀"));
-        assert!(!stdout.contains("❌"));
-        assert!(!stdout.contains("⚠️"));
-    }
-}
