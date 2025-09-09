@@ -73,6 +73,38 @@ impl GlobalStorage {
         &self.repo_name
     }
 
+    /// List all job IDs with DLQ data for this repository
+    pub async fn list_dlq_job_ids(&self) -> Result<Vec<String>> {
+        let dlq_repo_dir = self.base_dir.join("dlq").join(&self.repo_name);
+
+        if !dlq_repo_dir.exists() {
+            return Ok(vec![]);
+        }
+
+        let mut job_ids = Vec::new();
+        let mut entries = fs::read_dir(dlq_repo_dir).await?;
+
+        while let Some(entry) = entries.next_entry().await? {
+            if entry.file_type().await?.is_dir() {
+                if let Some(job_id) = entry.file_name().to_str() {
+                    // Check if this job has any DLQ items
+                    let items_dir = entry.path().join("items");
+                    if items_dir.exists() {
+                        let mut items_entries = fs::read_dir(&items_dir).await?;
+                        if items_entries.next_entry().await?.is_some() {
+                            job_ids.push(job_id.to_string());
+                        }
+                    }
+                }
+            }
+        }
+
+        // Sort by name (which includes timestamps)
+        job_ids.sort();
+        job_ids.reverse(); // Most recent first
+        Ok(job_ids)
+    }
+
     /// Check if we should use global storage based on environment
     pub fn should_use_global() -> bool {
         // Check for opt-out environment variable
@@ -111,6 +143,40 @@ pub fn get_global_base_dir() -> Result<PathBuf> {
     dirs::home_dir()
         .ok_or_else(|| anyhow!("Could not determine home directory"))
         .map(|home| home.join(".prodigy"))
+}
+
+/// List DLQ job IDs from local storage (fallback for legacy support)
+pub async fn list_local_dlq_job_ids(project_root: &Path) -> Result<Vec<String>> {
+    let local_dlq_dir = project_root.join(".prodigy").join("dlq");
+
+    if !local_dlq_dir.exists() {
+        return Ok(vec![]);
+    }
+
+    let mut job_ids = Vec::new();
+    let mut entries = fs::read_dir(local_dlq_dir).await?;
+
+    while let Some(entry) = entries.next_entry().await? {
+        if let Some(name) = entry.file_name().to_str() {
+            if name.ends_with(".json") {
+                job_ids.push(name.trim_end_matches(".json").to_string());
+            }
+        }
+    }
+
+    job_ids.sort();
+    job_ids.reverse(); // Most recent first
+    Ok(job_ids)
+}
+
+/// Discover all available DLQ job IDs, checking both global and local storage
+pub async fn discover_dlq_job_ids(project_root: &Path) -> Result<Vec<String>> {
+    if GlobalStorage::should_use_global() {
+        let storage = GlobalStorage::new(project_root)?;
+        storage.list_dlq_job_ids().await
+    } else {
+        list_local_dlq_job_ids(project_root).await
+    }
 }
 
 /// Create a new event logger with global storage
@@ -394,5 +460,97 @@ mod tests {
         assert_ne!(events_dir1, events_dir2);
         assert!(events_dir1.ends_with("events/repo-one/same-job-id"));
         assert!(events_dir2.ends_with("events/repo-two/same-job-id"));
+    }
+
+    #[tokio::test]
+    async fn test_list_dlq_job_ids() {
+        let temp_dir = TempDir::new().unwrap();
+        let repo_path = temp_dir.path().join("test-repo");
+        std::fs::create_dir(&repo_path).unwrap();
+
+        // Create a GlobalStorage instance with a test base directory
+        let storage = GlobalStorage {
+            base_dir: temp_dir.path().join("test-global"),
+            repo_name: "test-repo".to_string(),
+        };
+
+        // Initially no job IDs
+        let job_ids = storage.list_dlq_job_ids().await.unwrap();
+        assert!(job_ids.is_empty());
+
+        // Create some DLQ directories with items
+        for i in 1..=3 {
+            let job_id = format!("job-{}", i);
+            let dlq_dir = storage.get_dlq_dir(&job_id).await.unwrap();
+            let items_dir = dlq_dir.join("items");
+            fs::create_dir_all(&items_dir).await.unwrap();
+
+            // Create a dummy item file
+            let item_file = items_dir.join("item-1.json");
+            fs::write(&item_file, "{}").await.unwrap();
+        }
+
+        // Create a directory without items (should not be listed)
+        let empty_job_dir = storage.get_dlq_dir("empty-job").await.unwrap();
+        fs::create_dir_all(&empty_job_dir.join("items"))
+            .await
+            .unwrap();
+
+        let job_ids = storage.list_dlq_job_ids().await.unwrap();
+        assert_eq!(job_ids.len(), 3);
+
+        // Should be sorted in reverse order (most recent first)
+        assert_eq!(job_ids, vec!["job-3", "job-2", "job-1"]);
+    }
+
+    #[tokio::test]
+    async fn test_local_dlq_discovery() {
+        let temp_dir = TempDir::new().unwrap();
+        let project_path = temp_dir.path().join("test-project");
+        std::fs::create_dir(&project_path).unwrap();
+
+        // Initially no job IDs
+        let job_ids = list_local_dlq_job_ids(&project_path).await.unwrap();
+        assert!(job_ids.is_empty());
+
+        // Create local DLQ structure
+        let dlq_dir = project_path.join(".prodigy").join("dlq");
+        fs::create_dir_all(&dlq_dir).await.unwrap();
+
+        // Create job files
+        for i in 1..=3 {
+            let job_file = dlq_dir.join(format!("job-{}.json", i));
+            fs::write(&job_file, "{}").await.unwrap();
+        }
+
+        let job_ids = list_local_dlq_job_ids(&project_path).await.unwrap();
+        assert_eq!(job_ids.len(), 3);
+        assert_eq!(job_ids, vec!["job-3", "job-2", "job-1"]);
+    }
+
+    #[tokio::test]
+    async fn test_discover_dlq_job_ids() {
+        let temp_dir = TempDir::new().unwrap();
+        let project_path = temp_dir.path().join("test-project");
+        std::fs::create_dir(&project_path).unwrap();
+
+        // Test with local storage (override global default)
+        std::env::set_var("PRODIGY_USE_LOCAL_STORAGE", "true");
+
+        let job_ids = discover_dlq_job_ids(&project_path).await.unwrap();
+        assert!(job_ids.is_empty());
+
+        // Create local DLQ structure
+        let dlq_dir = project_path.join(".prodigy").join("dlq");
+        fs::create_dir_all(&dlq_dir).await.unwrap();
+        let job_file = dlq_dir.join("test-job.json");
+        fs::write(&job_file, "{}").await.unwrap();
+
+        let job_ids = discover_dlq_job_ids(&project_path).await.unwrap();
+        assert_eq!(job_ids.len(), 1);
+        assert_eq!(job_ids[0], "test-job");
+
+        // Clean up environment variable
+        std::env::remove_var("PRODIGY_USE_LOCAL_STORAGE");
     }
 }

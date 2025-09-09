@@ -801,13 +801,90 @@ async fn run_resume_job_command(
     Ok(())
 }
 
+// Pure helper functions for DLQ operations
+fn create_dlq_filter(eligible: bool) -> prodigy::cook::execution::dlq::DLQFilter {
+    prodigy::cook::execution::dlq::DLQFilter {
+        reprocess_eligible: if eligible { Some(true) } else { None },
+        ..Default::default()
+    }
+}
+
+fn format_dlq_item_display(item: &prodigy::cook::execution::dlq::DeadLetteredItem) -> String {
+    format!(
+        "ID: {}\n  Last Attempt: {}\n  Failure Count: {}\n  Error: {}\n  Reprocess Eligible: {}",
+        item.item_id,
+        item.last_attempt,
+        item.failure_count,
+        item.error_signature,
+        item.reprocess_eligible
+    )
+}
+
+async fn resolve_job_id(
+    provided_job_id: Option<String>,
+    project_root: &std::path::Path,
+) -> anyhow::Result<String> {
+    match provided_job_id {
+        Some(id) => Ok(id),
+        None => {
+            let available_jobs = prodigy::storage::discover_dlq_job_ids(project_root).await?;
+
+            if available_jobs.is_empty() {
+                anyhow::bail!("No DLQ data found. Run a MapReduce job first to generate DLQ data.");
+            }
+
+            if available_jobs.len() == 1 {
+                Ok(available_jobs.into_iter().next().unwrap())
+            } else {
+                println!("Multiple jobs with DLQ data found:");
+                for (i, job_id) in available_jobs.iter().enumerate() {
+                    println!("  {}: {}", i + 1, job_id);
+                }
+                anyhow::bail!("Multiple job IDs found. Use --job-id to specify which one to use.");
+            }
+        }
+    }
+}
+
+async fn get_dlq_instance(
+    job_id: &str,
+    project_root: &std::path::Path,
+) -> anyhow::Result<prodigy::cook::execution::dlq::DeadLetterQueue> {
+    use prodigy::cook::execution::dlq::DeadLetterQueue;
+
+    if prodigy::storage::GlobalStorage::should_use_global() {
+        let storage = prodigy::storage::GlobalStorage::new(project_root)?;
+        let dlq_dir = storage.get_dlq_dir(job_id).await?;
+        DeadLetterQueue::new(job_id.to_string(), dlq_dir, 10000, 30, None).await
+    } else {
+        let dlq_path = project_root.join(".prodigy");
+        DeadLetterQueue::new(job_id.to_string(), dlq_path, 10000, 30, None).await
+    }
+}
+
+fn display_dlq_items(
+    items: &[prodigy::cook::execution::dlq::DeadLetteredItem],
+    job_id: &str,
+    limit: usize,
+) {
+    let display_items: Vec<_> = items.iter().take(limit).collect();
+
+    if display_items.is_empty() {
+        println!("No items in Dead Letter Queue for job {}", job_id);
+    } else {
+        println!("Dead Letter Queue items for job {}:", job_id);
+        println!("{:─<80}", "");
+        for item in display_items {
+            println!("{}", format_dlq_item_display(item));
+            println!("{:─<80}", "");
+        }
+    }
+}
+
 async fn run_dlq_command(command: DlqCommands) -> anyhow::Result<()> {
     use chrono::{Duration, Utc};
-    use prodigy::cook::execution::dlq::{DLQFilter, DeadLetterQueue};
 
-    // Get project root
     let project_root = std::env::current_dir()?;
-    let dlq_path = project_root.join(".prodigy");
 
     match command {
         DlqCommands::List {
@@ -815,43 +892,16 @@ async fn run_dlq_command(command: DlqCommands) -> anyhow::Result<()> {
             eligible,
             limit,
         } => {
-            // Find the most recent job ID if not specified
-            let job_id = if let Some(id) = job_id {
-                id
-            } else {
-                // Try to find the most recent job
-                anyhow::bail!("Job ID is required. Use --job-id to specify.");
-            };
-
-            let dlq = DeadLetterQueue::new(job_id.clone(), dlq_path, 10000, 30, None).await?;
-
-            let filter = DLQFilter {
-                reprocess_eligible: if eligible { Some(true) } else { None },
-                ..Default::default()
-            };
-
+            let resolved_job_id = resolve_job_id(job_id, &project_root).await?;
+            let dlq = get_dlq_instance(&resolved_job_id, &project_root).await?;
+            let filter = create_dlq_filter(eligible);
             let items = dlq.list_items(filter).await?;
-            let display_items: Vec<_> = items.into_iter().take(limit).collect();
 
-            if display_items.is_empty() {
-                println!("No items in Dead Letter Queue for job {}", job_id);
-            } else {
-                println!("Dead Letter Queue items for job {}:", job_id);
-                println!("{:─<80}", "");
-                for item in display_items {
-                    println!("ID: {}", item.item_id);
-                    println!("  Last Attempt: {}", item.last_attempt);
-                    println!("  Failure Count: {}", item.failure_count);
-                    println!("  Error: {}", item.error_signature);
-                    println!("  Reprocess Eligible: {}", item.reprocess_eligible);
-                    println!("{:─<80}", "");
-                }
-            }
+            display_dlq_items(&items, &resolved_job_id, limit);
         }
         DlqCommands::Inspect { item_id, job_id } => {
-            let job_id = job_id.ok_or_else(|| anyhow::anyhow!("Job ID is required for inspect"))?;
-
-            let dlq = DeadLetterQueue::new(job_id.clone(), dlq_path, 10000, 30, None).await?;
+            let resolved_job_id = resolve_job_id(job_id, &project_root).await?;
+            let dlq = get_dlq_instance(&resolved_job_id, &project_root).await?;
 
             if let Some(item) = dlq.get_item(&item_id).await? {
                 println!("Dead Letter Queue Item Details:");
@@ -861,10 +911,8 @@ async fn run_dlq_command(command: DlqCommands) -> anyhow::Result<()> {
             }
         }
         DlqCommands::Analyze { job_id, export } => {
-            let job_id =
-                job_id.ok_or_else(|| anyhow::anyhow!("Job ID is required for analysis"))?;
-
-            let dlq = DeadLetterQueue::new(job_id.clone(), dlq_path, 10000, 30, None).await?;
+            let resolved_job_id = resolve_job_id(job_id, &project_root).await?;
+            let dlq = get_dlq_instance(&resolved_job_id, &project_root).await?;
 
             let analysis = dlq.analyze_patterns().await?;
 
@@ -873,7 +921,7 @@ async fn run_dlq_command(command: DlqCommands) -> anyhow::Result<()> {
                 std::fs::write(&export_path, json)?;
                 println!("Analysis exported to {:?}", export_path);
             } else {
-                println!("Dead Letter Queue Analysis for job {}:", job_id);
+                println!("Dead Letter Queue Analysis for job {}:", resolved_job_id);
                 println!("Total Items: {}", analysis.total_items);
                 println!("\nFailure Patterns:");
                 for pattern in analysis.pattern_groups {
@@ -890,9 +938,8 @@ async fn run_dlq_command(command: DlqCommands) -> anyhow::Result<()> {
             job_id,
             format,
         } => {
-            let job_id = job_id.ok_or_else(|| anyhow::anyhow!("Job ID is required for export"))?;
-
-            let dlq = DeadLetterQueue::new(job_id.clone(), dlq_path, 10000, 30, None).await?;
+            let resolved_job_id = resolve_job_id(job_id, &project_root).await?;
+            let dlq = get_dlq_instance(&resolved_job_id, &project_root).await?;
 
             dlq.export_items(&output).await?;
             println!("DLQ items exported to {:?} in {} format", output, format);
@@ -910,7 +957,7 @@ async fn run_dlq_command(command: DlqCommands) -> anyhow::Result<()> {
             job_id,
             yes,
         } => {
-            let job_id = job_id.ok_or_else(|| anyhow::anyhow!("Job ID is required for purge"))?;
+            let resolved_job_id = resolve_job_id(job_id, &project_root).await?;
 
             if !yes {
                 println!(
@@ -926,7 +973,7 @@ async fn run_dlq_command(command: DlqCommands) -> anyhow::Result<()> {
                 }
             }
 
-            let dlq = DeadLetterQueue::new(job_id.clone(), dlq_path, 10000, 30, None).await?;
+            let dlq = get_dlq_instance(&resolved_job_id, &project_root).await?;
 
             let cutoff = Utc::now() - Duration::days(older_than_days as i64);
             let count = dlq.purge_old_items(cutoff).await?;
