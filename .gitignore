@@ -98,3 +98,4 @@ dev/
 .prodigy/events/
 .prodigy/dlq/
 .prodigy/documentation-drift.json
+.prodigy/documentation-drift-update.json
