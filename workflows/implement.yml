@@ -20,6 +20,7 @@
 
 # Step 2: Run tests to verify implementation
 - shell: "just test"
+  timeout: 300  # 5 minutes
   on_failure:
     claude: "/prodigy-debug-test-failure --spec $ARG --output ${shell.output}"
     commit_required: true
