@@ -119,6 +119,24 @@ enum Commands {
         #[command(subcommand)]
         command: SessionCommands,
     },
+    /// View MapReduce job progress
+    #[command(name = "progress")]
+    Progress {
+        /// Job ID to view progress for
+        job_id: String,
+
+        /// Export progress data to file
+        #[arg(long)]
+        export: Option<PathBuf>,
+
+        /// Export format (json, csv, html)
+        #[arg(long, default_value = "json")]
+        format: String,
+
+        /// Start web dashboard on specified port
+        #[arg(long)]
+        web: Option<u16>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -425,6 +443,12 @@ async fn execute_command(command: Option<Commands>) -> anyhow::Result<()> {
         Some(Commands::Events { command }) => run_events_command(command).await,
         Some(Commands::Dlq { command }) => run_dlq_command(command).await,
         Some(Commands::Sessions { command }) => run_sessions_command(command).await,
+        Some(Commands::Progress {
+            job_id,
+            export,
+            format,
+            web,
+        }) => run_progress_command(job_id, export, format, web).await,
         None => {
             // Display help when no command is provided (following CLI conventions)
             let mut cmd = Cli::command();
@@ -1109,6 +1133,56 @@ async fn run_sessions_command(command: SessionCommands) -> anyhow::Result<()> {
             Ok(())
         }
     }
+}
+
+async fn run_progress_command(
+    job_id: String,
+    export: Option<PathBuf>,
+    format: String,
+    web: Option<u16>,
+) -> anyhow::Result<()> {
+    use prodigy::cook::execution::progress::{
+        CLIProgressViewer, EnhancedProgressTracker, ExportFormat,
+    };
+    use std::sync::Arc;
+
+    // Create progress tracker
+    let tracker = Arc::new(EnhancedProgressTracker::new(job_id.clone(), 0));
+
+    // Start web dashboard if requested
+    if let Some(port) = web {
+        let mut tracker_mut = EnhancedProgressTracker::new(job_id.clone(), 0);
+        if let Err(e) = tracker_mut.start_web_server(port).await {
+            eprintln!("Failed to start web server: {}", e);
+        } else {
+            println!("Progress dashboard available at http://localhost:{}", port);
+            println!("Press Ctrl+C to stop...");
+
+            // Keep the server running
+            tokio::signal::ctrl_c().await?;
+        }
+        return Ok(());
+    }
+
+    // Export progress data if requested
+    if let Some(output_path) = export {
+        let export_format = match format.as_str() {
+            "csv" => ExportFormat::Csv,
+            "html" => ExportFormat::Html,
+            _ => ExportFormat::Json,
+        };
+
+        let data = tracker.export_progress(export_format).await?;
+        std::fs::write(&output_path, data)?;
+        println!("Progress data exported to: {}", output_path.display());
+        return Ok(());
+    }
+
+    // Otherwise, show CLI progress viewer
+    let viewer = CLIProgressViewer::new(tracker);
+    viewer.display().await?;
+
+    Ok(())
 }
 
 async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
