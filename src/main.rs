@@ -163,7 +163,8 @@ enum SessionCommands {
 #[derive(Subcommand)]
 enum EventCommands {
     /// List all events
-    List {
+    #[command(alias = "list")]
+    Ls {
         /// Filter by job ID
         #[arg(long)]
         job_id: Option<String>,
@@ -988,7 +989,7 @@ async fn run_events_command(command: EventCommands) -> anyhow::Result<()> {
     use prodigy::cli::events::{self, EventsArgs, EventsCommand};
 
     let events_args = match command {
-        EventCommands::List {
+        EventCommands::Ls {
             job_id,
             event_type,
             agent_id,
@@ -996,7 +997,7 @@ async fn run_events_command(command: EventCommands) -> anyhow::Result<()> {
             limit,
             file,
         } => EventsArgs {
-            command: EventsCommand::List {
+            command: EventsCommand::Ls {
                 job_id,
                 event_type,
                 agent_id,

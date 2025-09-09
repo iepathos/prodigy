@@ -7,7 +7,7 @@ use serde_json::Value;
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-use tracing::{info, warn};
+use tracing::info;
 
 /// Event viewer commands
 #[derive(Debug, Args)]
@@ -19,7 +19,8 @@ pub struct EventsArgs {
 #[derive(Debug, Subcommand)]
 pub enum EventsCommand {
     /// List all events
-    List {
+    #[command(alias = "list")]
+    Ls {
         /// Filter by job ID
         #[arg(long)]
         job_id: Option<String>,
@@ -116,14 +117,15 @@ async fn resolve_event_path(mut file: PathBuf, job_id: Option<&str>) -> Result<P
         // Extract repository name
         if let Ok(repo_name) = crate::storage::extract_repo_name(&current_dir) {
             let global_base = crate::storage::get_global_base_dir()?;
+            let global_events_dir = global_base.join("events").join(&repo_name);
 
             // If a job_id is provided, look for that specific job's events
             if let Some(job_id) = job_id {
-                let global_events_dir = global_base.join("events").join(&repo_name).join(job_id);
+                let job_events_dir = global_events_dir.join(job_id);
 
-                if global_events_dir.exists() {
+                if job_events_dir.exists() {
                     // Find the most recent event file in the directory
-                    if let Ok(entries) = fs::read_dir(&global_events_dir) {
+                    if let Ok(entries) = fs::read_dir(&job_events_dir) {
                         let mut event_files: Vec<_> = entries
                             .filter_map(|e| e.ok())
                             .filter(|e| {
@@ -146,15 +148,23 @@ async fn resolve_event_path(mut file: PathBuf, job_id: Option<&str>) -> Result<P
                         if let Some(latest) = event_files.first() {
                             file = latest.path();
                             info!("Using global event file: {:?}", file);
+                            return Ok(file);
                         }
                     }
                 }
-            } else {
-                // Look for any events in the global repository directory
-                let global_events_dir = global_base.join("events").join(&repo_name);
+            } else if global_events_dir.exists() {
+                // No job_id provided - list available jobs
+                if let Ok(entries) = fs::read_dir(&global_events_dir) {
+                    let job_dirs: Vec<_> = entries
+                        .filter_map(|e| e.ok())
+                        .filter(|e| e.path().is_dir())
+                        .map(|e| e.file_name().to_string_lossy().to_string())
+                        .collect();
 
-                if global_events_dir.exists() {
-                    warn!("Global events directory exists at {:?}, but no job_id specified. Use --job-id to specify.", global_events_dir);
+                    if !job_dirs.is_empty() {
+                        // Return a special marker to indicate we should list jobs
+                        return Err(anyhow::anyhow!("LIST_JOBS:{}", job_dirs.join(",")));
+                    }
                 }
             }
         }
@@ -167,7 +177,7 @@ async fn resolve_event_path(mut file: PathBuf, job_id: Option<&str>) -> Result<P
 /// Execute event viewer commands
 pub async fn execute(args: EventsArgs) -> Result<()> {
     match args.command {
-        EventsCommand::List {
+        EventsCommand::Ls {
             job_id,
             event_type,
             agent_id,
@@ -175,8 +185,155 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
             limit,
             file,
         } => {
-            let file = resolve_event_path(file, job_id.as_deref()).await?;
-            list_events(file, job_id, event_type, agent_id, since, limit).await
+            match resolve_event_path(file, job_id.as_deref()).await {
+                Ok(resolved_file) => {
+                    list_events(resolved_file, job_id, event_type, agent_id, since, limit).await
+                }
+                Err(e) if e.to_string().starts_with("LIST_JOBS:") => {
+                    // Extract and display job list
+                    let error_msg = e.to_string();
+                    let jobs_str = error_msg.strip_prefix("LIST_JOBS:").unwrap_or("");
+                    let jobs: Vec<&str> = jobs_str.split(',').filter(|s| !s.is_empty()).collect();
+
+                    if jobs.is_empty() {
+                        println!("No MapReduce jobs found in global storage.");
+                    } else {
+                        println!("Available MapReduce jobs:");
+                        println!("{}", "=".repeat(50));
+
+                        // Get repository name for display
+                        let repo_name = std::env::current_dir()
+                            .ok()
+                            .and_then(|dir| crate::storage::extract_repo_name(&dir).ok())
+                            .unwrap_or_else(|| "unknown".to_string());
+
+                        for job in jobs {
+                            // Try to get job info from the events
+                            let global_base = crate::storage::get_global_base_dir()?;
+                            let job_events_dir =
+                                global_base.join("events").join(&repo_name).join(job);
+
+                            let mut job_info = format!("  • {}", job);
+                            let mut job_status = "unknown";
+                            let mut start_time = None;
+                            let mut end_time = None;
+                            let mut success_count = 0;
+                            let mut failure_count = 0;
+
+                            // Try to find event files and read first/last events
+                            if let Ok(entries) = fs::read_dir(&job_events_dir) {
+                                let mut event_files: Vec<_> = entries
+                                    .filter_map(|e| e.ok())
+                                    .filter(|e| {
+                                        e.path()
+                                            .extension()
+                                            .and_then(|ext| ext.to_str())
+                                            .map(|ext| ext == "jsonl")
+                                            .unwrap_or(false)
+                                    })
+                                    .collect();
+
+                                // Sort by filename (which includes timestamp)
+                                event_files.sort_by_key(|e| e.file_name());
+
+                                if let Some(latest_file) = event_files.last() {
+                                    // Read the file to find JobStarted and JobCompleted events
+                                    if let Ok(content) = fs::read_to_string(latest_file.path()) {
+                                        for line in content.lines() {
+                                            if line.trim().is_empty() {
+                                                continue;
+                                            }
+
+                                            if let Ok(event) = serde_json::from_str::<Value>(line) {
+                                                if event.get("JobStarted").is_some() {
+                                                    job_status = "in_progress";
+                                                    if let Some(ts) = extract_timestamp(&event) {
+                                                        start_time = Some(ts.with_timezone(&Local));
+                                                    }
+                                                } else if let Some(completed) =
+                                                    event.get("JobCompleted")
+                                                {
+                                                    job_status = "completed";
+                                                    if let Some(ts) = extract_timestamp(&event) {
+                                                        end_time = Some(ts.with_timezone(&Local));
+                                                    }
+                                                    if let Some(s) = completed
+                                                        .get("success_count")
+                                                        .and_then(|v| v.as_u64())
+                                                    {
+                                                        success_count = s;
+                                                    }
+                                                    if let Some(f) = completed
+                                                        .get("failure_count")
+                                                        .and_then(|v| v.as_u64())
+                                                    {
+                                                        failure_count = f;
+                                                    }
+                                                } else if event.get("JobFailed").is_some() {
+                                                    job_status = "failed";
+                                                    if let Some(ts) = extract_timestamp(&event) {
+                                                        end_time = Some(ts.with_timezone(&Local));
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Format the job info based on status
+                            match job_status {
+                                "completed" => {
+                                    let duration =
+                                        if let (Some(start), Some(end)) = (start_time, end_time) {
+                                            let diff = end.signed_duration_since(start);
+                                            format!(
+                                                " in {}m{}s",
+                                                diff.num_minutes(),
+                                                diff.num_seconds() % 60
+                                            )
+                                        } else {
+                                            String::new()
+                                        };
+
+                                    job_info = format!(
+                                        "{} [✓ COMPLETED{} - Success: {}, Failed: {}]",
+                                        job_info, duration, success_count, failure_count
+                                    );
+                                }
+                                "failed" => {
+                                    job_info = format!("{} [✗ FAILED]", job_info);
+                                }
+                                "in_progress" => {
+                                    let elapsed = if let Some(start) = start_time {
+                                        let diff = Local::now().signed_duration_since(start);
+                                        format!(" - running for {}m", diff.num_minutes())
+                                    } else {
+                                        String::new()
+                                    };
+                                    job_info = format!("{} [⟳ IN PROGRESS{}]", job_info, elapsed);
+                                }
+                                _ => {
+                                    job_info = format!("{} [? UNKNOWN]", job_info);
+                                }
+                            }
+
+                            println!("{}", job_info);
+                        }
+
+                        println!("{}", "=".repeat(50));
+                        println!("\nTo view events for a specific job:");
+                        println!("  prodigy events list --job-id <JOB_ID>");
+                        println!("\nTo view all recent events across jobs:");
+                        println!(
+                            "  prodigy events list --file .prodigy/events/mapreduce_events.jsonl"
+                        );
+                    }
+
+                    Ok(())
+                }
+                Err(e) => Err(e),
+            }
         }
 
         EventsCommand::Stats { file, group_by } => {
@@ -496,11 +653,21 @@ async fn export_events(file: PathBuf, format: String, output: Option<PathBuf>) -
 // Helper functions
 
 fn event_matches_field(event: &Value, field: &str, value: &str) -> bool {
-    event
-        .get(field)
-        .and_then(|v| v.as_str())
-        .map(|s| s == value)
-        .unwrap_or(false)
+    // First try direct field access
+    if let Some(v) = event.get(field) {
+        if let Some(s) = v.as_str() {
+            return s == value;
+        }
+    }
+
+    // Then try nested field access
+    if let Some(v) = extract_nested_field(event, field) {
+        if let Some(s) = v.as_str() {
+            return s == value;
+        }
+    }
+
+    false
 }
 
 fn event_matches_type(event: &Value, event_type: &str) -> bool {
