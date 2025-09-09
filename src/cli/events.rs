@@ -137,22 +137,20 @@ fn get_available_jobs() -> Result<Vec<JobInfo>> {
     }
 
     let entries = fs::read_dir(&global_events_dir)?;
-    
+
     let jobs: Vec<JobInfo> = entries
         .filter_map(|e| e.ok())
         .filter(|e| e.path().is_dir())
         .map(|entry| {
             let job_id = entry.file_name().to_string_lossy().to_string();
-            let job_info = read_job_status(&global_events_dir.join(&job_id))
-                .unwrap_or_else(|_| JobInfo {
-                    id: job_id.clone(),
-                    status: JobStatus::Unknown,
-                    start_time: None,
-                    end_time: None,
-                    success_count: 0,
-                    failure_count: 0,
-                });
-            job_info
+            read_job_status(&global_events_dir.join(&job_id)).unwrap_or_else(|_| JobInfo {
+                id: job_id.clone(),
+                status: JobStatus::Unknown,
+                start_time: None,
+                end_time: None,
+                success_count: 0,
+                failure_count: 0,
+            })
         })
         .collect();
 
@@ -175,14 +173,14 @@ fn read_job_status(job_events_dir: &Path) -> Result<JobInfo> {
 
     // Find and read event files
     let event_files = find_event_files(job_events_dir)?;
-    
+
     for file in event_files {
         let content = fs::read_to_string(&file)?;
         for line in content.lines() {
             if line.trim().is_empty() {
                 continue;
             }
-            
+
             if let Ok(event) = serde_json::from_str::<Value>(line) {
                 process_event_for_status(
                     &event,
@@ -256,7 +254,7 @@ fn find_event_files(dir: &Path) -> Result<Vec<PathBuf>> {
         })
         .map(|e| e.path())
         .collect();
-    
+
     files.sort();
     Ok(files)
 }
@@ -278,11 +276,10 @@ fn resolve_job_event_file(job_id: &str) -> Result<PathBuf> {
 
     // Find the most recent event file
     let event_files = find_event_files(&job_events_dir)?;
-    
+
     event_files
         .into_iter()
-        .rev() // Most recent first
-        .next()
+        .next_back()
         .ok_or_else(|| anyhow::anyhow!("No event files found for job '{}'", job_id))
 }
 
@@ -323,7 +320,7 @@ fn get_all_event_files() -> Result<Vec<PathBuf>> {
     }
 
     let mut all_files = Vec::new();
-    
+
     // Iterate through all job directories
     for entry in fs::read_dir(&global_events_dir)? {
         let entry = entry?;
@@ -332,7 +329,7 @@ fn get_all_event_files() -> Result<Vec<PathBuf>> {
             all_files.extend(event_files);
         }
     }
-    
+
     all_files.sort();
     Ok(all_files)
 }
@@ -349,7 +346,10 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
             file,
         } => {
             // If no job_id provided and using global storage, show available jobs
-            if job_id.is_none() && crate::storage::GlobalStorage::should_use_global() && !file.exists() {
+            if job_id.is_none()
+                && crate::storage::GlobalStorage::should_use_global()
+                && !file.exists()
+            {
                 display_available_jobs()?;
                 Ok(())
             } else {
@@ -411,7 +411,7 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
 /// Display available jobs with their status
 fn display_available_jobs() -> Result<()> {
     let jobs = get_available_jobs()?;
-    
+
     if jobs.is_empty() {
         println!("No MapReduce jobs found in global storage.");
         return Ok(());
@@ -437,7 +437,7 @@ fn display_available_jobs() -> Result<()> {
 /// Format job information for display
 fn format_job_info(job: &JobInfo) -> String {
     let base = &job.id;
-    
+
     match job.status {
         JobStatus::Completed => {
             let duration = calculate_duration(job.start_time, job.end_time);
@@ -466,7 +466,7 @@ fn calculate_duration(start: Option<DateTime<Local>>, end: Option<DateTime<Local
             let diff = end.signed_duration_since(start);
             format!(" in {}m{}s", diff.num_minutes(), diff.num_seconds() % 60)
         }
-        _ => String::new()
+        _ => String::new(),
     }
 }
 
@@ -477,7 +477,7 @@ fn calculate_elapsed(start: Option<DateTime<Local>>) -> String {
             let diff = Local::now().signed_duration_since(start);
             format!(" - running for {}m", diff.num_minutes())
         }
-        None => String::new()
+        None => String::new(),
     }
 }
 
@@ -550,14 +550,14 @@ async fn list_events(
 /// Show aggregated statistics from all global event files
 async fn show_aggregated_stats(group_by: String) -> Result<()> {
     let event_files = get_all_event_files()?;
-    
+
     if event_files.is_empty() {
         println!("No events found in global storage.");
         return Ok(());
     }
 
     use std::collections::HashMap;
-    
+
     let mut stats: HashMap<String, usize> = HashMap::new();
     let mut total = 0;
 
@@ -565,7 +565,7 @@ async fn show_aggregated_stats(group_by: String) -> Result<()> {
     for file in event_files {
         let content = fs::File::open(&file)?;
         let reader = BufReader::new(content);
-        
+
         for line in reader.lines() {
             let line = line?;
             if line.trim().is_empty() {
@@ -678,7 +678,7 @@ async fn show_stats(file: PathBuf, group_by: String) -> Result<()> {
 /// Search aggregated events from all global event files
 async fn search_aggregated_events(pattern: String, fields: Option<Vec<String>>) -> Result<()> {
     let event_files = get_all_event_files()?;
-    
+
     if event_files.is_empty() {
         println!("No events found in global storage.");
         return Ok(());
@@ -692,7 +692,7 @@ async fn search_aggregated_events(pattern: String, fields: Option<Vec<String>>) 
     for file in event_files {
         let content = fs::File::open(&file)?;
         let reader = BufReader::new(content);
-        
+
         for line in reader.lines() {
             let line = line?;
             if line.trim().is_empty() {
@@ -846,7 +846,7 @@ async fn follow_events(
 /// Export aggregated events from all global event files
 async fn export_aggregated_events(format: String, output: Option<PathBuf>) -> Result<()> {
     let event_files = get_all_event_files()?;
-    
+
     if event_files.is_empty() {
         println!("No events found in global storage.");
         return Ok(());
@@ -858,7 +858,7 @@ async fn export_aggregated_events(format: String, output: Option<PathBuf>) -> Re
     for file in event_files {
         let content = fs::File::open(&file)?;
         let reader = BufReader::new(content);
-        
+
         for line in reader.lines() {
             let line = line?;
             if line.trim().is_empty() {
@@ -878,7 +878,10 @@ async fn export_aggregated_events(format: String, output: Option<PathBuf>) -> Re
 
     if let Some(output_path) = output {
         fs::write(output_path, exported)?;
-        println!("Events exported successfully ({} events from all jobs)", events.len());
+        println!(
+            "Events exported successfully ({} events from all jobs)",
+            events.len()
+        );
     } else {
         println!("{}", exported);
     }
