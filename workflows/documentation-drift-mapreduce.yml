@@ -1,0 +1,186 @@
+# Documentation Drift MapReduce Workflow
+# Parallel analysis and correction of documentation drift across large codebases
+
+# Phase 1: Prepare work items
+- shell: |
+    # Create work items for different documentation areas
+    cat > .prodigy/doc-areas.json << 'EOF'
+    [
+      {"area": "README", "files": "README.md,**/README.md", "priority": "high"},
+      {"area": "CLAUDE", "files": "CLAUDE.md,.claude/**/*.md", "priority": "high"},
+      {"area": "commands", "files": ".claude/commands/*.md", "priority": "medium"},
+      {"area": "workflows", "files": "workflows/*.yml,workflows/*.md", "priority": "medium"},
+      {"area": "api", "files": "src/**/*.rs", "priority": "high"},
+      {"area": "examples", "files": "examples/**/*,**/examples/**/*", "priority": "low"},
+      {"area": "config", "files": "*.toml,*.yaml,*.yml", "priority": "medium"},
+      {"area": "tests", "files": "tests/**/*.rs,**/tests/**/*.rs", "priority": "low"}
+    ]
+    EOF
+    echo "Created ${shell.input_count} documentation areas for analysis"
+  output: ".prodigy/doc-areas.json"
+  description: "Prepare documentation areas for parallel analysis"
+
+# Phase 2: Analyze drift in parallel
+- map_reduce:
+    work_items: "${shell.output}"
+    max_parallel: 4
+    
+    map:
+      - claude: "/prodigy-docs-drift-analyze ${item.area}"
+        description: "Analyze ${item.area} documentation"
+        commit_required: false
+      
+      - shell: |
+          # Extract drift statistics for this area
+          if [ -f .prodigy/documentation-drift.json ]; then
+            jq --arg area "${item.area}" '{
+              area: $area,
+              priority: "${item.priority}",
+              issues: .summary.total_issues,
+              critical: .summary.critical,
+              major: .summary.major,
+              minor: .summary.minor
+            }' .prodigy/documentation-drift.json > .prodigy/drift-${item.area}.json
+            cat .prodigy/drift-${item.area}.json
+          else
+            echo '{"area": "${item.area}", "issues": 0}'
+          fi
+        output: ".prodigy/drift-${item.area}.json"
+        description: "Extract drift statistics for ${item.area}"
+    
+    reduce:
+      - shell: |
+          # Aggregate all drift reports
+          echo "=== Documentation Drift Analysis Results ==="
+          total_issues=0
+          total_critical=0
+          total_major=0
+          total_minor=0
+          
+          for result in ${map.results}; do
+            if [ -f "$result" ]; then
+              area=$(jq -r '.area' "$result")
+              issues=$(jq -r '.issues // 0' "$result")
+              critical=$(jq -r '.critical // 0' "$result")
+              major=$(jq -r '.major // 0' "$result")
+              minor=$(jq -r '.minor // 0' "$result")
+              
+              echo "  $area: $issues issues ($critical critical, $major major, $minor minor)"
+              
+              total_issues=$((total_issues + issues))
+              total_critical=$((total_critical + critical))
+              total_major=$((total_major + major))
+              total_minor=$((total_minor + minor))
+            fi
+          done
+          
+          echo ""
+          echo "Total: $total_issues issues ($total_critical critical, $total_major major, $total_minor minor)"
+          
+          # Create aggregated report
+          cat > .prodigy/drift-summary.json << EOF
+          {
+            "total_issues": $total_issues,
+            "critical": $total_critical,
+            "major": $total_major,  
+            "minor": $total_minor,
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+        description: "Aggregate drift analysis results"
+
+# Phase 3: Fix critical issues across all areas
+- map_reduce:
+    work_items: "${shell.output}"
+    max_parallel: 2  # Fewer parallel updates to avoid conflicts
+    
+    map:
+      - shell: |
+          # Check if this area has critical issues
+          if [ -f .prodigy/drift-${item.area}.json ]; then
+            critical=$(jq -r '.critical // 0' .prodigy/drift-${item.area}.json)
+            if [ "$critical" -gt 0 ]; then
+              echo "Fixing $critical critical issues in ${item.area}"
+              echo "true"
+            else
+              echo "No critical issues in ${item.area}"
+              echo "false"
+            fi
+          else
+            echo "false"
+          fi
+        output: "should_fix"
+      
+      - claude: |
+          if [ "${shell.output}" = "true" ]; then
+            /prodigy-docs-drift-update critical ${item.area}
+          else
+            echo "Skipping ${item.area} - no critical issues"
+          fi
+        description: "Fix critical issues in ${item.area}"
+        commit_required: true
+        on_failure:
+          - shell: "echo 'Failed to fix critical issues in ${item.area}'"
+    
+    reduce:
+      - shell: |
+          echo "=== Critical Issues Resolution ==="
+          echo "Processed ${map.completed_count} areas"
+          echo "Failed: ${map.failed_count} areas"
+          if [ "${map.failed_count}" -gt 0 ]; then
+            echo "⚠️  Some critical issues could not be fixed automatically"
+          else
+            echo "✅ All critical issues have been addressed"
+          fi
+        description: "Summarize critical issue fixes"
+
+# Phase 4: Fix remaining issues
+- claude: "/prodigy-docs-drift-update major"
+  description: "Fix remaining major documentation issues"
+  commit_required: true
+
+- claude: "/prodigy-docs-drift-update incremental"
+  description: "Fix minor documentation issues"
+  commit_required: true
+
+# Phase 5: Final verification
+- claude: "/prodigy-docs-drift-analyze"
+  description: "Final verification of documentation consistency"
+
+- shell: |
+    if [ -f .prodigy/documentation-drift.json ]; then
+      echo "=== Final Documentation Status ==="
+      jq '.summary' .prodigy/documentation-drift.json
+      remaining=$(jq '.summary.total_issues' .prodigy/documentation-drift.json)
+      if [ "$remaining" -eq 0 ]; then
+        echo "✅ All documentation drift has been resolved!"
+      else
+        echo "⚠️  $remaining documentation issues remain"
+        jq '.categories | to_entries | .[] | select(.value | length > 0) | {category: .key, count: (.value | length)}' .prodigy/documentation-drift.json
+      fi
+    fi
+  description: "Display final documentation status"
+
+# Phase 6: Cleanup and format
+- claude: "/prodigy-lint"
+  description: "Final formatting pass"
+  commit_required: true
+
+# This MapReduce workflow:
+# 1. Divides documentation into logical areas
+# 2. Analyzes each area in parallel for drift
+# 3. Aggregates results to identify priority fixes
+# 4. Fixes critical issues in parallel by area
+# 5. Fixes remaining major and minor issues
+# 6. Performs final verification
+# 7. Ensures consistent formatting
+
+# Usage:
+# prodigy cook workflows/documentation-drift-mapreduce.yml
+#
+# Benefits:
+# - Parallel analysis for faster processing
+# - Area-based updates reduce conflicts
+# - Prioritized fixing (critical first)
+# - Detailed progress tracking
+# - Suitable for large codebases

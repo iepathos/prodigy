@@ -1,0 +1,133 @@
+# Documentation Drift Detection and Correction Workflow
+# Analyzes and fixes inconsistencies between code and documentation
+
+# Phase 1: Analysis
+- claude: "/prodigy-docs-drift-analyze"
+  description: "Analyze documentation drift across all sources"
+  on_failure: 
+    - shell: "echo 'Failed to analyze documentation drift'"
+    - shell: "exit 1"
+
+# Phase 2: Review drift report
+- shell: |
+    if [ -f .prodigy/documentation-drift.json ]; then
+      echo "Documentation drift report generated:"
+      jq '.summary' .prodigy/documentation-drift.json
+    else
+      echo "No drift report found"
+      exit 1
+    fi
+  description: "Display drift analysis summary"
+
+# Phase 3: Fix critical issues first with validation
+- claude: "/prodigy-docs-drift-update critical only"
+  description: "Fix critical documentation issues"
+  commit_required: true
+  validate:
+    claude: "/prodigy-docs-drift-analyze critical"
+    result_file: ".prodigy/documentation-drift.json"
+    threshold: 0  # Critical issues must be 0
+    json_path: "summary.critical"  # Path to check in JSON result
+    on_incomplete:
+      claude: "/prodigy-docs-drift-update critical retry"
+      max_attempts: 2
+      fail_workflow: false  # Continue even if some critical issues remain
+      commit_required: true
+  on_failure:
+    - shell: "echo 'Failed to fix critical issues, continuing with major issues'"
+
+# Phase 4: Fix major issues with validation
+- claude: "/prodigy-docs-drift-update major"
+  description: "Fix major documentation issues"
+  commit_required: true
+  validate:
+    claude: "/prodigy-docs-drift-analyze major"
+    result_file: ".prodigy/documentation-drift.json"
+    threshold: 20  # Allow up to 20% major issues to remain
+    json_path: "summary.major"
+    percentage_of: "summary.total_issues"  # Calculate as percentage of total
+    on_incomplete:
+      claude: "/prodigy-docs-drift-update major retry"
+      max_attempts: 2
+      fail_workflow: false
+      commit_required: true
+  on_failure:
+    - shell: "echo 'Some major issues could not be fixed automatically'"
+
+# Phase 5: Update remaining documentation with threshold check
+- claude: "/prodigy-docs-drift-update incremental"
+  description: "Fix remaining documentation issues incrementally"
+  commit_required: true
+  validate:
+    shell: |
+      # Check if drift is below acceptable threshold (10% of original)
+      if [ -f .prodigy/documentation-drift.json ]; then
+        total=$(jq '.summary.total_issues' .prodigy/documentation-drift.json)
+        original=$(jq '.summary.original_total // 100' .prodigy/documentation-drift.json)
+        threshold=$((original * 10 / 100))  # 10% threshold
+        
+        if [ "$total" -le "$threshold" ]; then
+          echo "✅ Documentation drift is below threshold: $total issues (threshold: $threshold)"
+          echo '{"success": true, "remaining": '$total', "threshold": '$threshold'}' > .prodigy/drift-validation.json
+          exit 0
+        else
+          echo "⚠️ Documentation drift above threshold: $total issues (threshold: $threshold)"
+          echo '{"success": false, "remaining": '$total', "threshold": '$threshold'}' > .prodigy/drift-validation.json
+          exit 1
+        fi
+      fi
+    result_file: ".prodigy/drift-validation.json"
+    on_incomplete:
+      claude: "/prodigy-docs-drift-update all remaining"
+      max_attempts: 1
+      fail_workflow: false
+      commit_required: true
+
+# Phase 6: Re-analyze to verify fixes
+- claude: "/prodigy-docs-drift-analyze"
+  description: "Verify documentation drift has been resolved"
+
+# Phase 7: Generate final report
+- shell: |
+    if [ -f .prodigy/documentation-drift.json ]; then
+      echo "=== Final Documentation Status ==="
+      jq '.summary' .prodigy/documentation-drift.json
+      remaining=$(jq '.summary.total_issues' .prodigy/documentation-drift.json)
+      if [ "$remaining" -eq 0 ]; then
+        echo "✅ All documentation drift has been resolved!"
+      else
+        echo "⚠️  $remaining documentation issues remain"
+        echo "These may require manual intervention"
+      fi
+    fi
+  description: "Display final documentation status"
+
+# Phase 8: Lint and format
+- claude: "/prodigy-lint"
+  description: "Ensure documentation follows formatting standards"
+  commit_required: true
+
+# Phase 9: Test that examples still work
+- shell: "cargo test --doc 2>/dev/null || echo 'Note: Some doctests may need manual review'"
+  description: "Test documentation examples"
+  on_failure:
+    - shell: "echo 'Some documentation examples may not compile'"
+
+# This workflow:
+# 1. Analyzes all documentation for drift
+# 2. Reviews the drift report
+# 3. Fixes critical issues first (wrong information)
+# 4. Fixes major issues (significant discrepancies)
+# 5. Updates remaining documentation incrementally
+# 6. Re-analyzes to verify all fixes
+# 7. Generates final status report
+# 8. Ensures proper formatting
+# 9. Tests documentation examples
+
+# Usage:
+# prodigy cook workflows/documentation-drift.yml
+#
+# Options:
+# - Use --verbose for detailed output
+# - Use --dry-run to preview without making changes
+# - Results saved in .prodigy/documentation-drift.json

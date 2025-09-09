@@ -1,0 +1,256 @@
+# Continuous Documentation Maintenance Workflow
+# Maintains documentation quality with smart validation and incremental updates
+
+# Phase 1: Baseline analysis with history tracking
+- shell: |
+    # Save previous drift report for comparison
+    if [ -f .prodigy/documentation-drift.json ]; then
+      cp .prodigy/documentation-drift.json .prodigy/documentation-drift-previous.json
+      echo "Saved previous drift report for comparison"
+    else
+      echo "No previous drift report found, starting fresh analysis"
+    fi
+  description: "Save baseline for comparison"
+
+- claude: "/prodigy-docs-drift-analyze"
+  description: "Comprehensive documentation drift analysis"
+  on_failure:
+    - shell: "echo 'Initial analysis failed'; exit 1"
+
+# Phase 2: Calculate drift metrics and determine strategy
+- shell: |
+    if [ -f .prodigy/documentation-drift.json ]; then
+      total=$(jq '.summary.total_issues' .prodigy/documentation-drift.json)
+      critical=$(jq '.summary.critical' .prodigy/documentation-drift.json)
+      major=$(jq '.summary.major' .prodigy/documentation-drift.json)
+      minor=$(jq '.summary.minor' .prodigy/documentation-drift.json)
+      
+      # Store original totals for threshold calculations
+      jq '. + {summary: (.summary + {original_total: .summary.total_issues})}' \
+        .prodigy/documentation-drift.json > .prodigy/tmp.json && \
+        mv .prodigy/tmp.json .prodigy/documentation-drift.json
+      
+      echo "=== Documentation Drift Metrics ==="
+      echo "Total Issues: $total"
+      echo "Critical: $critical (must be 0)"
+      echo "Major: $major (target < 5)"
+      echo "Minor: $minor (acceptable < 20)"
+      
+      # Determine update strategy based on severity
+      if [ "$critical" -gt 0 ]; then
+        echo "STRATEGY=critical" > .prodigy/update-strategy.txt
+        echo "🚨 Critical issues detected - immediate fix required"
+      elif [ "$major" -gt 10 ]; then
+        echo "STRATEGY=comprehensive" > .prodigy/update-strategy.txt
+        echo "⚠️ Many major issues - comprehensive update needed"
+      elif [ "$total" -gt 50 ]; then
+        echo "STRATEGY=incremental" > .prodigy/update-strategy.txt
+        echo "📝 High total drift - incremental updates recommended"
+      else
+        echo "STRATEGY=minor" > .prodigy/update-strategy.txt
+        echo "✅ Documentation in good shape - minor updates only"
+      fi
+    fi
+  description: "Analyze drift metrics and determine strategy"
+  output: ".prodigy/update-strategy.txt"
+
+# Phase 3: Execute strategy-based updates with validation loops
+- shell: |
+    STRATEGY=$(cat .prodigy/update-strategy.txt | grep "STRATEGY=" | cut -d= -f2)
+    echo "Executing $STRATEGY update strategy"
+  description: "Load update strategy"
+
+# Critical path: Must fix all critical issues
+- claude: |
+    STRATEGY=$(cat .prodigy/update-strategy.txt | grep "STRATEGY=" | cut -d= -f2)
+    if [ "$STRATEGY" = "critical" ] || [ "$STRATEGY" = "comprehensive" ]; then
+      /prodigy-docs-drift-update critical only
+    else
+      echo "No critical issues to fix"
+    fi
+  description: "Fix critical issues if present"
+  commit_required: true
+  validate:
+    shell: |
+      # Re-analyze and check critical issues are resolved
+      claude /prodigy-docs-drift-analyze critical > /dev/null 2>&1
+      if [ -f .prodigy/documentation-drift.json ]; then
+        critical=$(jq '.summary.critical // 0' .prodigy/documentation-drift.json)
+        if [ "$critical" -eq 0 ]; then
+          echo '{"validated": true, "critical_remaining": 0}' > .prodigy/critical-validation.json
+          exit 0
+        else
+          echo '{"validated": false, "critical_remaining": '$critical'}' > .prodigy/critical-validation.json
+          exit 1
+        fi
+      fi
+    result_file: ".prodigy/critical-validation.json"
+    on_incomplete:
+      claude: "/prodigy-docs-drift-update critical force"
+      max_attempts: 3
+      fail_workflow: true  # Critical issues MUST be fixed
+      commit_required: true
+
+# Major issues path with percentage threshold
+- claude: |
+    STRATEGY=$(cat .prodigy/update-strategy.txt | grep "STRATEGY=" | cut -d= -f2)
+    if [ "$STRATEGY" = "comprehensive" ] || [ "$STRATEGY" = "incremental" ]; then
+      /prodigy-docs-drift-update major
+    else
+      echo "Skipping major issues based on strategy"
+    fi
+  description: "Fix major issues based on strategy"
+  commit_required: true
+  validate:
+    shell: |
+      # Check if major issues are reduced to acceptable level
+      claude /prodigy-docs-drift-analyze major > /dev/null 2>&1
+      if [ -f .prodigy/documentation-drift.json ]; then
+        major=$(jq '.summary.major // 0' .prodigy/documentation-drift.json)
+        total=$(jq '.summary.total_issues // 1' .prodigy/documentation-drift.json)
+        percentage=$((major * 100 / total))
+        
+        # Major issues should be less than 30% of total
+        if [ "$percentage" -le 30 ]; then
+          echo '{"validated": true, "major_percentage": '$percentage'}' > .prodigy/major-validation.json
+          exit 0
+        else
+          echo '{"validated": false, "major_percentage": '$percentage'}' > .prodigy/major-validation.json
+          exit 1
+        fi
+      fi
+    result_file: ".prodigy/major-validation.json"
+    on_incomplete:
+      claude: "/prodigy-docs-drift-update major focused"
+      max_attempts: 2
+      fail_workflow: false
+      commit_required: true
+
+# Minor issues with smart batching
+- claude: |
+    STRATEGY=$(cat .prodigy/update-strategy.txt | grep "STRATEGY=" | cut -d= -f2)
+    case "$STRATEGY" in
+      comprehensive)
+        /prodigy-docs-drift-update all
+        ;;
+      incremental)
+        /prodigy-docs-drift-update incremental
+        ;;
+      minor)
+        /prodigy-docs-drift-update minor only
+        ;;
+      *)
+        echo "Documentation already in good shape"
+        ;;
+    esac
+  description: "Fix remaining issues based on strategy"
+  commit_required: true
+
+# Phase 4: Comparative analysis
+- shell: |
+    echo "=== Documentation Improvement Report ==="
+    
+    if [ -f .prodigy/documentation-drift-previous.json ] && [ -f .prodigy/documentation-drift.json ]; then
+      # Compare before and after
+      before_total=$(jq '.summary.total_issues' .prodigy/documentation-drift-previous.json)
+      after_total=$(jq '.summary.total_issues' .prodigy/documentation-drift.json)
+      
+      before_critical=$(jq '.summary.critical // 0' .prodigy/documentation-drift-previous.json)
+      after_critical=$(jq '.summary.critical // 0' .prodigy/documentation-drift.json)
+      
+      before_major=$(jq '.summary.major // 0' .prodigy/documentation-drift-previous.json)
+      after_major=$(jq '.summary.major // 0' .prodigy/documentation-drift.json)
+      
+      improvement=$((before_total - after_total))
+      percentage=$((improvement * 100 / (before_total + 1)))  # +1 to avoid division by zero
+      
+      echo "📊 Results:"
+      echo "  Total Issues: $before_total → $after_total (improved by $improvement)"
+      echo "  Critical: $before_critical → $after_critical"
+      echo "  Major: $before_major → $after_major"
+      echo "  Improvement Rate: $percentage%"
+      
+      if [ "$after_critical" -eq 0 ] && [ "$after_major" -le 5 ] && [ "$after_total" -le 20 ]; then
+        echo ""
+        echo "✅ Documentation quality targets achieved!"
+        echo "  ✓ No critical issues"
+        echo "  ✓ Major issues ≤ 5"
+        echo "  ✓ Total issues ≤ 20"
+      elif [ "$percentage" -ge 50 ]; then
+        echo ""
+        echo "👍 Significant improvement achieved (>50% reduction)"
+      else
+        echo ""
+        echo "📝 Documentation updated. Consider running again for further improvements."
+      fi
+    else
+      jq '.summary' .prodigy/documentation-drift.json
+    fi
+    
+    # Save improvement metrics
+    cat > .prodigy/documentation-improvement.json << EOF
+    {
+      "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+      "before": ${before_total:-0},
+      "after": ${after_total:-0},
+      "improvement": ${improvement:-0},
+      "percentage": ${percentage:-0},
+      "targets_met": $([[ "$after_critical" -eq 0 && "$after_major" -le 5 && "$after_total" -le 20 ]] && echo "true" || echo "false")
+    }
+    EOF
+  description: "Generate improvement report"
+
+# Phase 5: Format and final validation
+- claude: "/prodigy-lint"
+  description: "Format documentation files"
+  commit_required: true
+
+# Phase 6: Documentation quality gate
+- shell: |
+    # Final quality check
+    if [ -f .prodigy/documentation-drift.json ]; then
+      critical=$(jq '.summary.critical // 0' .prodigy/documentation-drift.json)
+      major=$(jq '.summary.major // 0' .prodigy/documentation-drift.json)
+      total=$(jq '.summary.total_issues // 0' .prodigy/documentation-drift.json)
+      
+      if [ "$critical" -gt 0 ]; then
+        echo "❌ QUALITY GATE FAILED: Critical documentation issues remain"
+        exit 1
+      elif [ "$major" -gt 10 ]; then
+        echo "⚠️ WARNING: $major major documentation issues remain (threshold: 10)"
+        echo "Consider running workflow again or manual intervention"
+        exit 0
+      elif [ "$total" -gt 50 ]; then
+        echo "📝 INFO: $total total documentation issues (threshold: 50)"
+        echo "Documentation is acceptable but could be improved"
+        exit 0
+      else
+        echo "✅ QUALITY GATE PASSED: Documentation meets all quality standards"
+        echo "  Critical: $critical (target: 0) ✓"
+        echo "  Major: $major (target: ≤10) ✓"
+        echo "  Total: $total (target: ≤50) ✓"
+        exit 0
+      fi
+    fi
+  description: "Final quality gate check"
+  fail_workflow: false  # Don't fail workflow, just report status
+
+# This workflow provides:
+# 1. Smart strategy selection based on drift severity
+# 2. Validation loops with retry logic for each severity level
+# 3. Percentage-based thresholds for major issues
+# 4. Before/after comparison metrics
+# 5. Quality gates with clear targets
+# 6. Incremental improvement tracking
+# 7. Graceful handling of partial success
+
+# Usage:
+# prodigy cook workflows/documentation-maintain.yml
+#
+# Quality Targets:
+# - Critical issues: 0 (must fix)
+# - Major issues: ≤5 (should fix)
+# - Total issues: ≤20 (nice to have)
+#
+# The workflow will adapt its strategy based on the current state
+# and make multiple attempts to reach quality targets.
