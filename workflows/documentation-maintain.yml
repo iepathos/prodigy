@@ -70,26 +70,47 @@
     fi
   description: "Fix critical issues if present"
   commit_required: true
-  validate:
-    shell: |
-      # Re-analyze and check critical issues are resolved
-      claude /prodigy-docs-drift-analyze critical > /dev/null 2>&1
-      if [ -f .prodigy/documentation-drift.json ]; then
-        critical=$(jq '.summary.critical // 0' .prodigy/documentation-drift.json)
-        if [ "$critical" -eq 0 ]; then
-          echo '{"validated": true, "critical_remaining": 0}' > .prodigy/critical-validation.json
-          exit 0
-        else
-          echo '{"validated": false, "critical_remaining": '$critical'}' > .prodigy/critical-validation.json
-          exit 1
-        fi
+  # Note: The 'validate' field is planned but not yet implemented.
+  # As a workaround, validation is performed in subsequent steps.
+  # Original validate logic preserved below for future implementation:
+  # validate:
+  #   shell: |
+  #     # Re-analyze and check critical issues are resolved
+  #     claude /prodigy-docs-drift-analyze critical > /dev/null 2>&1
+  #     if [ -f .prodigy/documentation-drift.json ]; then
+  #       critical=$(jq '.summary.critical // 0' .prodigy/documentation-drift.json)
+  #       if [ "$critical" -eq 0 ]; then
+  #         echo '{"validated": true, "critical_remaining": 0}' > .prodigy/critical-validation.json
+  #         exit 0
+  #       else
+  #         echo '{"validated": false, "critical_remaining": '$critical'}' > .prodigy/critical-validation.json
+  #         exit 1
+  #       fi
+  #     fi
+  #   result_file: ".prodigy/critical-validation.json"
+  #   on_incomplete:
+  #     claude: "/prodigy-docs-drift-update critical force"
+  #     max_attempts: 3
+  #     fail_workflow: true  # Critical issues MUST be fixed
+  #     commit_required: true
+
+# Workaround: Manual validation step for critical issues
+- shell: |
+    # Re-analyze and check critical issues are resolved
+    claude /prodigy-docs-drift-analyze critical > /dev/null 2>&1
+    if [ -f .prodigy/documentation-drift.json ]; then
+      critical=$(jq '.summary.critical // 0' .prodigy/documentation-drift.json)
+      if [ "$critical" -gt 0 ]; then
+        echo "Critical documentation issues still present: $critical"
+        exit 1
       fi
-    result_file: ".prodigy/critical-validation.json"
-    on_incomplete:
-      claude: "/prodigy-docs-drift-update critical force"
-      max_attempts: 3
-      fail_workflow: true  # Critical issues MUST be fixed
-      commit_required: true
+    fi
+  description: "Validate critical issues are resolved"
+  on_failure:
+    claude: "/prodigy-docs-drift-update critical force"
+    max_attempts: 3
+    fail_workflow: true  # Critical issues MUST be fixed
+    commit_required: true
 
 # Major issues path with percentage threshold
 - claude: |
@@ -101,30 +122,55 @@
     fi
   description: "Fix major issues based on strategy"
   commit_required: true
-  validate:
-    shell: |
-      # Check if major issues are reduced to acceptable level
-      claude /prodigy-docs-drift-analyze major > /dev/null 2>&1
-      if [ -f .prodigy/documentation-drift.json ]; then
-        major=$(jq '.summary.major // 0' .prodigy/documentation-drift.json)
-        total=$(jq '.summary.total_issues // 1' .prodigy/documentation-drift.json)
-        percentage=$((major * 100 / total))
-        
-        # Major issues should be less than 30% of total
-        if [ "$percentage" -le 30 ]; then
-          echo '{"validated": true, "major_percentage": '$percentage'}' > .prodigy/major-validation.json
-          exit 0
-        else
-          echo '{"validated": false, "major_percentage": '$percentage'}' > .prodigy/major-validation.json
-          exit 1
-        fi
+  # Note: The 'validate' field is planned but not yet implemented.
+  # Validation moved to separate step as workaround.
+  # Original validate logic preserved below for future implementation:
+  # validate:
+  #   shell: |
+  #     # Check if major issues are reduced to acceptable level
+  #     claude /prodigy-docs-drift-analyze major > /dev/null 2>&1
+  #     if [ -f .prodigy/documentation-drift.json ]; then
+  #       major=$(jq '.summary.major // 0' .prodigy/documentation-drift.json)
+  #       total=$(jq '.summary.total_issues // 1' .prodigy/documentation-drift.json)
+  #       percentage=$((major * 100 / total))
+  #       
+  #       # Major issues should be less than 30% of total
+  #       if [ "$percentage" -le 30 ]; then
+  #         echo '{"validated": true, "major_percentage": '$percentage'}' > .prodigy/major-validation.json
+  #         exit 0
+  #       else
+  #         echo '{"validated": false, "major_percentage": '$percentage'}' > .prodigy/major-validation.json
+  #         exit 1
+  #       fi
+  #     fi
+  #   result_file: ".prodigy/major-validation.json"
+  #   on_incomplete:
+  #     claude: "/prodigy-docs-drift-update major focused"
+  #     max_attempts: 2
+  #     fail_workflow: false
+  #     commit_required: true
+
+# Workaround: Manual validation step for major issues
+- shell: |
+    # Check if major issues are reduced to acceptable level
+    claude /prodigy-docs-drift-analyze major > /dev/null 2>&1
+    if [ -f .prodigy/documentation-drift.json ]; then
+      major=$(jq '.summary.major // 0' .prodigy/documentation-drift.json)
+      total=$(jq '.summary.total_issues // 1' .prodigy/documentation-drift.json)
+      percentage=$((major * 100 / total))
+      
+      # Major issues should be less than 30% of total
+      if [ "$percentage" -gt 30 ]; then
+        echo "Major documentation issues above threshold: ${percentage}% (target: <=30%)"
+        exit 1
       fi
-    result_file: ".prodigy/major-validation.json"
-    on_incomplete:
-      claude: "/prodigy-docs-drift-update major focused"
-      max_attempts: 2
-      fail_workflow: false
-      commit_required: true
+    fi
+  description: "Validate major issues are below threshold"
+  on_failure:
+    claude: "/prodigy-docs-drift-update major focused"
+    max_attempts: 2
+    fail_workflow: false
+    commit_required: true
 
 # Minor issues with smart batching
 - claude: |

@@ -1,0 +1,59 @@
+{
+  "timestamp": "2025-01-09T00:15:00Z",
+  "update_strategy": "major",
+  "resolved_issues": {
+    "critical": 3,
+    "major": 8,
+    "minor": 0,
+    "info": 0
+  },
+  "files_updated": [
+    "CLAUDE.md",
+    "README.md",
+    "workflows/README.md",
+    "workflows/mapreduce-example.yml"
+  ],
+  "changes_made": [
+    {
+      "file": "CLAUDE.md",
+      "changes": [
+        "Clarified DLQ reprocessing is not yet implemented",
+        "Updated test: command type as deprecated",
+        "Clarified resume-job only displays status",
+        "Updated MapReduce failure recovery documentation"
+      ]
+    },
+    {
+      "file": "README.md",
+      "changes": [
+        "Updated job resumption features as coming soon",
+        "Clarified Claude commands are dynamically discovered",
+        "Fixed example workflows to use actual commands"
+      ]
+    },
+    {
+      "file": "workflows/README.md",
+      "changes": [
+        "Removed reference to unimplemented 'staged' mode"
+      ]
+    },
+    {
+      "file": "workflows/mapreduce-example.yml",
+      "changes": [
+        "Removed non-functional context field",
+        "Removed non-functional env field in reduce phase",
+        "Added notes explaining alternatives"
+      ]
+    }
+  ],
+  "remaining_issues": {
+    "minor": 12,
+    "info": 5
+  },
+  "commit": "937b288",
+  "recommendations": [
+    "Re-run /prodigy-docs-drift-analyze to verify fixes",
+    "Consider addressing remaining minor issues in a follow-up",
+    "Update workflow examples to only use implemented features"
+  ]
+}
