@@ -307,6 +307,36 @@ fn resolve_event_file_with_fallback(file: PathBuf, job_id: Option<&str>) -> Resu
     Ok(file)
 }
 
+/// Get all event files from global storage for aggregate operations
+fn get_all_event_files() -> Result<Vec<PathBuf>> {
+    if !crate::storage::GlobalStorage::should_use_global() {
+        return Ok(Vec::new());
+    }
+
+    let current_dir = std::env::current_dir()?;
+    let repo_name = crate::storage::extract_repo_name(&current_dir)?;
+    let global_base = crate::storage::get_global_base_dir()?;
+    let global_events_dir = global_base.join("events").join(&repo_name);
+
+    if !global_events_dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut all_files = Vec::new();
+    
+    // Iterate through all job directories
+    for entry in fs::read_dir(&global_events_dir)? {
+        let entry = entry?;
+        if entry.path().is_dir() {
+            let event_files = find_event_files(&entry.path())?;
+            all_files.extend(event_files);
+        }
+    }
+    
+    all_files.sort();
+    Ok(all_files)
+}
+
 /// Execute event viewer commands
 pub async fn execute(args: EventsArgs) -> Result<()> {
     match args.command {
@@ -330,8 +360,13 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
         }
 
         EventsCommand::Stats { file, group_by } => {
-            let resolved_file = resolve_event_file_with_fallback(file, None)?;
-            show_stats(resolved_file, group_by).await
+            // If no explicit file and using global storage, aggregate all events
+            if !file.exists() && crate::storage::GlobalStorage::should_use_global() {
+                show_aggregated_stats(group_by).await
+            } else {
+                let resolved_file = resolve_event_file_with_fallback(file, None)?;
+                show_stats(resolved_file, group_by).await
+            }
         }
 
         EventsCommand::Search {
@@ -339,8 +374,13 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
             file,
             fields,
         } => {
-            let resolved_file = resolve_event_file_with_fallback(file, None)?;
-            search_events(resolved_file, pattern, fields).await
+            // If no explicit file and using global storage, search all events
+            if !file.exists() && crate::storage::GlobalStorage::should_use_global() {
+                search_aggregated_events(pattern, fields).await
+            } else {
+                let resolved_file = resolve_event_file_with_fallback(file, None)?;
+                search_events(resolved_file, pattern, fields).await
+            }
         }
 
         EventsCommand::Follow {
@@ -357,8 +397,13 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
             format,
             output,
         } => {
-            let resolved_file = resolve_event_file_with_fallback(file, None)?;
-            export_events(resolved_file, format, output).await
+            // If no explicit file and using global storage, export all events
+            if !file.exists() && crate::storage::GlobalStorage::should_use_global() {
+                export_aggregated_events(format, output).await
+            } else {
+                let resolved_file = resolve_event_file_with_fallback(file, None)?;
+                export_events(resolved_file, format, output).await
+            }
         }
     }
 }
@@ -502,6 +547,74 @@ async fn list_events(
     Ok(())
 }
 
+/// Show aggregated statistics from all global event files
+async fn show_aggregated_stats(group_by: String) -> Result<()> {
+    let event_files = get_all_event_files()?;
+    
+    if event_files.is_empty() {
+        println!("No events found in global storage.");
+        return Ok(());
+    }
+
+    use std::collections::HashMap;
+    
+    let mut stats: HashMap<String, usize> = HashMap::new();
+    let mut total = 0;
+
+    // Process all event files
+    for file in event_files {
+        let content = fs::File::open(&file)?;
+        let reader = BufReader::new(content);
+        
+        for line in reader.lines() {
+            let line = line?;
+            if line.trim().is_empty() {
+                continue;
+            }
+
+            let event: Value = serde_json::from_str(&line)?;
+            total += 1;
+
+            // Group by specified field
+            let key = match group_by.as_str() {
+                "event_type" => get_event_type(&event),
+                "job_id" => event
+                    .get("job_id")
+                    .or_else(|| extract_nested_field(&event, "job_id"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown")
+                    .to_string(),
+                "agent_id" => event
+                    .get("agent_id")
+                    .or_else(|| extract_nested_field(&event, "agent_id"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("n/a")
+                    .to_string(),
+                _ => "unknown".to_string(),
+            };
+
+            *stats.entry(key).or_insert(0) += 1;
+        }
+    }
+
+    // Display statistics
+    println!("Event Statistics (grouped by {}) - All Jobs", group_by);
+    println!("{}", "=".repeat(50));
+
+    let mut sorted_stats: Vec<_> = stats.iter().collect();
+    sorted_stats.sort_by(|a, b| b.1.cmp(a.1));
+
+    for (key, count) in sorted_stats {
+        let percentage = (*count as f64 / total as f64) * 100.0;
+        println!("{:<30} {:>6} ({:>5.1}%)", key, count, percentage);
+    }
+
+    println!("{}", "=".repeat(50));
+    println!("Total events: {}", total);
+
+    Ok(())
+}
+
 /// Show event statistics
 async fn show_stats(file: PathBuf, group_by: String) -> Result<()> {
     if !file.exists() {
@@ -559,6 +672,57 @@ async fn show_stats(file: PathBuf, group_by: String) -> Result<()> {
     println!("{}", "=".repeat(50));
     println!("Total events: {}", total);
 
+    Ok(())
+}
+
+/// Search aggregated events from all global event files
+async fn search_aggregated_events(pattern: String, fields: Option<Vec<String>>) -> Result<()> {
+    let event_files = get_all_event_files()?;
+    
+    if event_files.is_empty() {
+        println!("No events found in global storage.");
+        return Ok(());
+    }
+
+    use regex::Regex;
+    let re = Regex::new(&pattern)?;
+    let mut count = 0;
+
+    // Process all event files
+    for file in event_files {
+        let content = fs::File::open(&file)?;
+        let reader = BufReader::new(content);
+        
+        for line in reader.lines() {
+            let line = line?;
+            if line.trim().is_empty() {
+                continue;
+            }
+
+            let event: Value = serde_json::from_str(&line)?;
+
+            // Search in specified fields or all fields
+            let matches = if let Some(ref fields) = fields {
+                fields.iter().any(|field| {
+                    event
+                        .get(field)
+                        .and_then(|v| v.as_str())
+                        .map(|s| re.is_match(s))
+                        .unwrap_or(false)
+                })
+            } else {
+                // Search in all string values
+                search_in_value(&event, &re)
+            };
+
+            if matches {
+                display_event(&event);
+                count += 1;
+            }
+        }
+    }
+
+    println!("\nFound {} matching events across all jobs", count);
     Ok(())
 }
 
@@ -674,6 +838,49 @@ async fn follow_events(
                 Err(_) => continue,
             }
         }
+    }
+
+    Ok(())
+}
+
+/// Export aggregated events from all global event files
+async fn export_aggregated_events(format: String, output: Option<PathBuf>) -> Result<()> {
+    let event_files = get_all_event_files()?;
+    
+    if event_files.is_empty() {
+        println!("No events found in global storage.");
+        return Ok(());
+    }
+
+    let mut events = Vec::new();
+
+    // Collect all events from all files
+    for file in event_files {
+        let content = fs::File::open(&file)?;
+        let reader = BufReader::new(content);
+        
+        for line in reader.lines() {
+            let line = line?;
+            if line.trim().is_empty() {
+                continue;
+            }
+            let event: Value = serde_json::from_str(&line)?;
+            events.push(event);
+        }
+    }
+
+    let exported = match format.as_str() {
+        "json" => export_as_json(&events)?,
+        "csv" => export_as_csv(&events)?,
+        "markdown" => export_as_markdown(&events)?,
+        _ => return Err(anyhow::anyhow!("Unsupported format: {}", format)),
+    };
+
+    if let Some(output_path) = output {
+        fs::write(output_path, exported)?;
+        println!("Events exported successfully ({} events from all jobs)", events.len());
+    } else {
+        println!("{}", exported);
     }
 
     Ok(())
