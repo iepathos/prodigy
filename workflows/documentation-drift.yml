@@ -43,12 +43,22 @@
       fi
     fi
 
-# Phase 8: Lint and format
-- claude: "/prodigy-lint"
-  commit_required: true
+# Step 8: Run documentation tests to verify implementation
+- shell: "cargo test --doc"
+  timeout: 300  # 5 minutes
+  on_failure:
+    claude: "/prodigy-debug-test-failure --output ${shell.output}"
+    commit_required: true
+    max_attempts: 3
+    fail_workflow: false  # Continue workflow even if tests can't be fixed
 
-# Phase 9: Test documentation examples
-- shell: "cargo test --doc 2>/dev/null || echo 'Note: Some doctests may need manual review'"
+# Step 9: Run linting and formatting after implementation
+- shell: "just fmt-check && just lint"
+  on_failure:
+    claude: "/prodigy-lint ${shell.output}"
+    commit_required: true
+    max_attempts: 3
+    fail_workflow: false
 
 # This workflow:
 # 1. Analyzes all documentation for drift
