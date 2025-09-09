@@ -7,6 +7,7 @@ use serde_json::Value;
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
+use tracing::{info, warn};
 
 /// Event viewer commands
 #[derive(Debug, Args)]
@@ -100,6 +101,69 @@ pub enum EventsCommand {
     },
 }
 
+/// Resolve event file path, checking both global and local storage
+async fn resolve_event_path(mut file: PathBuf, job_id: Option<&str>) -> Result<PathBuf> {
+    // If the provided path exists, use it
+    if file.exists() {
+        return Ok(file);
+    }
+
+    // Check if we should look in global storage
+    if crate::storage::GlobalStorage::should_use_global() {
+        // Try to determine repository path from current directory
+        let current_dir = std::env::current_dir()?;
+
+        // Extract repository name
+        if let Ok(repo_name) = crate::storage::extract_repo_name(&current_dir) {
+            let global_base = crate::storage::get_global_base_dir()?;
+
+            // If a job_id is provided, look for that specific job's events
+            if let Some(job_id) = job_id {
+                let global_events_dir = global_base.join("events").join(&repo_name).join(job_id);
+
+                if global_events_dir.exists() {
+                    // Find the most recent event file in the directory
+                    if let Ok(entries) = fs::read_dir(&global_events_dir) {
+                        let mut event_files: Vec<_> = entries
+                            .filter_map(|e| e.ok())
+                            .filter(|e| {
+                                e.path()
+                                    .extension()
+                                    .and_then(|ext| ext.to_str())
+                                    .map(|ext| ext == "jsonl")
+                                    .unwrap_or(false)
+                            })
+                            .collect();
+
+                        // Sort by modification time (most recent first)
+                        event_files.sort_by_key(|e| {
+                            e.metadata()
+                                .and_then(|m| m.modified())
+                                .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
+                        });
+                        event_files.reverse();
+
+                        if let Some(latest) = event_files.first() {
+                            file = latest.path();
+                            info!("Using global event file: {:?}", file);
+                        }
+                    }
+                }
+            } else {
+                // Look for any events in the global repository directory
+                let global_events_dir = global_base.join("events").join(&repo_name);
+
+                if global_events_dir.exists() {
+                    warn!("Global events directory exists at {:?}, but no job_id specified. Use --job-id to specify.", global_events_dir);
+                }
+            }
+        }
+    }
+
+    // If file still doesn't exist, return the original path (will fail gracefully later)
+    Ok(file)
+}
+
 /// Execute event viewer commands
 pub async fn execute(args: EventsArgs) -> Result<()> {
     match args.command {
@@ -110,27 +174,42 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
             since,
             limit,
             file,
-        } => list_events(file, job_id, event_type, agent_id, since, limit).await,
+        } => {
+            let file = resolve_event_path(file, job_id.as_deref()).await?;
+            list_events(file, job_id, event_type, agent_id, since, limit).await
+        }
 
-        EventsCommand::Stats { file, group_by } => show_stats(file, group_by).await,
+        EventsCommand::Stats { file, group_by } => {
+            let file = resolve_event_path(file, None).await?;
+            show_stats(file, group_by).await
+        }
 
         EventsCommand::Search {
             pattern,
             file,
             fields,
-        } => search_events(file, pattern, fields).await,
+        } => {
+            let file = resolve_event_path(file, None).await?;
+            search_events(file, pattern, fields).await
+        }
 
         EventsCommand::Follow {
             file,
             job_id,
             event_type,
-        } => follow_events(file, job_id, event_type).await,
+        } => {
+            let file = resolve_event_path(file, job_id.as_deref()).await?;
+            follow_events(file, job_id, event_type).await
+        }
 
         EventsCommand::Export {
             file,
             format,
             output,
-        } => export_events(file, format, output).await,
+        } => {
+            let file = resolve_event_path(file, None).await?;
+            export_events(file, format, output).await
+        }
     }
 }
 

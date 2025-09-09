@@ -18,6 +18,7 @@
 //! - `init` - Initialize MMM commands in projects
 //! - `scoring` - Unified project health scoring system
 //! - `simple_state` - Minimal state management with JSON persistence
+//! - `storage` - Global storage management for events, DLQ, and job state
 //! - `subprocess` - Unified subprocess abstraction layer for testing
 //! - `worktree` - Git worktree management for parallel sessions
 //! - `session` - Session state management with event-driven architecture
@@ -32,6 +33,7 @@ pub mod init;
 pub mod scoring;
 pub mod session;
 pub mod simple_state;
+pub mod storage;
 pub mod subprocess;
 pub mod worktree;
 
