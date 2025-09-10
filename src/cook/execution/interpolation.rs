@@ -4,11 +4,12 @@
 //! in MapReduce workflows. Supports nested property access, default values, and
 //! multiple variable contexts.
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use regex::Regex;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
+use tracing;
 
 /// Interpolation engine for processing template strings
 pub struct InterpolationEngine {
@@ -29,8 +30,10 @@ impl Default for InterpolationEngine {
 impl InterpolationEngine {
     /// Create a new interpolation engine
     pub fn new(strict_mode: bool) -> Self {
-        // Matches ${variable}, ${variable.path}, ${variable:-default}
-        let variable_regex = Regex::new(r"\$\{([^}]+)\}").expect("Invalid regex pattern");
+        // Matches both ${variable} and $variable patterns
+        // ${variable}, ${variable.path}, ${variable:-default} or $VAR (simple unbraced)
+        let variable_regex =
+            Regex::new(r"\$\{([^}]+)\}|\$([A-Za-z_][A-Za-z0-9_]*)").expect("Invalid regex pattern");
 
         Self {
             strict_mode,
@@ -45,42 +48,177 @@ impl InterpolationEngine {
         template_str: &str,
         context: &InterpolationContext,
     ) -> Result<String> {
-        // Check cache for parsed template
-        let template = if let Some(cached) = self.cache.get(template_str) {
-            cached.clone()
+        self.interpolate_with_debug(template_str, context, false)
+    }
+
+    /// Interpolate with enhanced debugging information
+    pub fn interpolate_with_debug(
+        &mut self,
+        template_str: &str,
+        context: &InterpolationContext,
+        debug_mode: bool,
+    ) -> Result<String> {
+        let template = self.get_or_parse_template(template_str)?;
+
+        self.resolve_template_segments(&template, context, debug_mode)
+    }
+
+    /// Get template from cache or parse new one
+    fn get_or_parse_template(&mut self, template_str: &str) -> Result<Arc<Template>> {
+        if let Some(cached) = self.cache.get(template_str) {
+            Ok(cached.clone())
         } else {
             let parsed = Arc::new(self.parse_template(template_str)?);
             self.cache.insert(template_str.to_string(), parsed.clone());
-            parsed
-        };
+            Ok(parsed)
+        }
+    }
 
-        // Resolve all segments
+    /// Resolve all template segments with enhanced error reporting
+    fn resolve_template_segments(
+        &self,
+        template: &Template,
+        context: &InterpolationContext,
+        debug_mode: bool,
+    ) -> Result<String> {
         let mut result = String::new();
+        let mut failed_variables = Vec::new();
+
         for segment in &template.segments {
             match segment {
                 Segment::Literal(text) => result.push_str(text),
                 Segment::Variable { path, default } => {
-                    match self.resolve_variable(path, context) {
+                    match self.resolve_variable_with_context(path, context, debug_mode) {
                         Ok(value) => result.push_str(&value_to_string(&value)),
-                        Err(_) if default.is_some() => {
-                            result.push_str(default.as_ref().unwrap());
-                        }
-                        Err(e) if self.strict_mode => {
-                            return Err(e).context(format!(
-                                "Failed to resolve variable: {}",
-                                path.join(".")
-                            ));
-                        }
-                        Err(_) => {
-                            // In non-strict mode, leave placeholder as-is
-                            result.push_str(&format!("${{{}}}", path.join(".")));
+                        Err(resolution_error) => {
+                            if let Some(default_value) = default {
+                                if debug_mode {
+                                    tracing::debug!(
+                                        "Using default value '{}' for variable '{}' due to: {}",
+                                        default_value,
+                                        path.join("."),
+                                        resolution_error
+                                    );
+                                }
+                                result.push_str(default_value);
+                            } else if self.strict_mode {
+                                failed_variables
+                                    .push((path.join("."), resolution_error.to_string()));
+                            } else {
+                                // In non-strict mode, leave placeholder as-is
+                                let placeholder = format!("${{{}}}", path.join("."));
+                                result.push_str(&placeholder);
+                                if debug_mode {
+                                    tracing::warn!(
+                                        "Left placeholder '{}' unresolved: {}",
+                                        placeholder,
+                                        resolution_error
+                                    );
+                                }
+                            }
                         }
                     }
                 }
             }
         }
 
+        // Report all failed variables in strict mode
+        if self.strict_mode && !failed_variables.is_empty() {
+            let error_summary =
+                self.build_interpolation_error_summary(&failed_variables, context, &template.raw);
+            return Err(anyhow!("Variable interpolation failed: {}", error_summary));
+        }
+
         Ok(result)
+    }
+
+    /// Resolve variable with enhanced context and debugging
+    fn resolve_variable_with_context(
+        &self,
+        path: &[String],
+        context: &InterpolationContext,
+        debug_mode: bool,
+    ) -> Result<Value> {
+        let result = context.resolve_path(path);
+
+        if debug_mode {
+            match &result {
+                Ok(value) => {
+                    tracing::debug!(
+                        "Resolved variable '{}' to: {}",
+                        path.join("."),
+                        match value {
+                            serde_json::Value::String(s) => format!("\"{}\" (string)", s),
+                            serde_json::Value::Number(n) => format!("{} (number)", n),
+                            serde_json::Value::Bool(b) => format!("{} (bool)", b),
+                            serde_json::Value::Array(arr) => format!("[...] ({} items)", arr.len()),
+                            serde_json::Value::Object(obj) =>
+                                format!("{{...}} ({} keys)", obj.len()),
+                            serde_json::Value::Null => "null".to_string(),
+                        }
+                    );
+                }
+                Err(e) => {
+                    tracing::debug!("Failed to resolve variable '{}': {}", path.join("."), e);
+                }
+            }
+        }
+
+        result
+    }
+
+    /// Build comprehensive error summary for failed interpolations
+    fn build_interpolation_error_summary(
+        &self,
+        failed_variables: &[(String, String)],
+        context: &InterpolationContext,
+        template: &str,
+    ) -> String {
+        let mut summary = String::new();
+
+        summary.push_str(&format!("\nTemplate: '{}'\n", template));
+
+        summary.push_str("\nFailed variables:\n");
+        for (var_name, error) in failed_variables {
+            summary.push_str(&format!("  - {}: {}\n", var_name, error));
+        }
+
+        summary.push_str("\nAvailable variables:\n");
+        let available = Self::get_available_variables_summary(context);
+        for var in available {
+            summary.push_str(&format!("  - {}\n", var));
+        }
+
+        summary
+    }
+
+    /// Get summary of available variables for debugging
+    fn get_available_variables_summary(context: &InterpolationContext) -> Vec<String> {
+        let mut variables = Vec::new();
+
+        // Collect variables from current context
+        for (key, value) in &context.variables {
+            let type_info = match value {
+                serde_json::Value::String(s) => format!("string({})", s.len()),
+                serde_json::Value::Number(_) => "number".to_string(),
+                serde_json::Value::Bool(_) => "bool".to_string(),
+                serde_json::Value::Array(arr) => format!("array[{}]", arr.len()),
+                serde_json::Value::Object(obj) => format!("object{{{}}}", obj.len()),
+                serde_json::Value::Null => "null".to_string(),
+            };
+            variables.push(format!("{} ({})", key, type_info));
+        }
+
+        // Collect from parent context if present
+        if let Some(parent) = &context.parent {
+            let parent_vars = Self::get_available_variables_summary(parent);
+            for var in parent_vars {
+                variables.push(format!("{} (from parent)", var));
+            }
+        }
+
+        variables.sort();
+        variables
     }
 
     /// Parse a template string into segments
@@ -90,7 +228,17 @@ impl InterpolationEngine {
 
         for cap in self.variable_regex.captures_iter(template_str) {
             let full_match = cap.get(0).unwrap();
-            let var_expr = cap.get(1).unwrap().as_str();
+
+            // Determine which capture group matched: ${...} or $VAR
+            let var_expr = if let Some(braced_match) = cap.get(1) {
+                // ${variable} pattern
+                braced_match.as_str()
+            } else if let Some(unbraced_match) = cap.get(2) {
+                // $VAR pattern
+                unbraced_match.as_str()
+            } else {
+                continue; // Should never happen
+            };
 
             // Add literal text before this variable
             if full_match.start() > last_end {
@@ -182,11 +330,6 @@ impl InterpolationEngine {
         }
 
         Ok(segments)
-    }
-
-    /// Resolve a variable from the context
-    fn resolve_variable(&self, path: &[String], context: &InterpolationContext) -> Result<Value> {
-        context.resolve_path(path)
     }
 }
 
@@ -288,45 +431,67 @@ impl InterpolationContext {
 
     /// Resolve a path in the current context only
     fn resolve_in_current(&self, path: &[String]) -> Result<Value> {
-        let mut current = if let Some(root_val) = self.variables.get(&path[0]) {
-            root_val.clone()
-        } else {
-            return Err(anyhow!("Variable '{}' not found", path[0]));
-        };
-
-        for segment in &path[1..] {
-            // Handle array indexing
-            if segment.starts_with('[') && segment.ends_with(']') {
-                let index_str = &segment[1..segment.len() - 1];
-                let index: usize = index_str
-                    .parse()
-                    .map_err(|_| anyhow!("Invalid array index: {}", index_str))?;
-
-                current = match current {
-                    Value::Array(arr) => arr
-                        .get(index)
-                        .ok_or_else(|| anyhow!("Array index {} out of bounds", index))?
-                        .clone(),
-                    _ => return Err(anyhow!("Cannot index non-array with [{}]", index)),
-                };
-            } else {
-                // Regular property access
-                current = match current {
-                    Value::Object(map) => map
-                        .get(segment)
-                        .ok_or_else(|| anyhow!("Property '{}' not found", segment))?
-                        .clone(),
-                    _ => {
-                        return Err(anyhow!(
-                            "Cannot access property '{}' on non-object",
-                            segment
-                        ))
-                    }
-                };
-            }
+        if path.is_empty() {
+            return Err(anyhow!("Empty path"));
         }
 
+        let root_value = self.get_root_variable(&path[0])?;
+        Self::resolve_path_in_value(root_value, &path[1..])
+    }
+
+    /// Get root variable from context (pure function)
+    fn get_root_variable(&self, root_key: &str) -> Result<Value> {
+        self.variables
+            .get(root_key)
+            .cloned()
+            .ok_or_else(|| anyhow!("Variable '{}' not found", root_key))
+    }
+
+    /// Resolve remaining path segments in a JSON value (pure function)
+    fn resolve_path_in_value(mut current: Value, path: &[String]) -> Result<Value> {
+        for segment in path {
+            current = if Self::is_array_index(segment) {
+                Self::resolve_array_index(current, segment)?
+            } else {
+                Self::resolve_property_access(current, segment)?
+            };
+        }
         Ok(current)
+    }
+
+    /// Check if segment is an array index like "[0]" (pure function)
+    fn is_array_index(segment: &str) -> bool {
+        segment.starts_with('[') && segment.ends_with(']')
+    }
+
+    /// Resolve array indexing (pure function)
+    fn resolve_array_index(value: Value, segment: &str) -> Result<Value> {
+        let index_str = &segment[1..segment.len() - 1];
+        let index: usize = index_str
+            .parse()
+            .map_err(|_| anyhow!("Invalid array index: {}", index_str))?;
+
+        match value {
+            Value::Array(arr) => arr
+                .get(index)
+                .cloned()
+                .ok_or_else(|| anyhow!("Array index {} out of bounds", index)),
+            _ => Err(anyhow!("Cannot index non-array with [{}]", index)),
+        }
+    }
+
+    /// Resolve property access (pure function)
+    fn resolve_property_access(value: Value, property: &str) -> Result<Value> {
+        match value {
+            Value::Object(map) => map
+                .get(property)
+                .cloned()
+                .ok_or_else(|| anyhow!("Property '{}' not found", property)),
+            _ => Err(anyhow!(
+                "Cannot access property '{}' on non-object",
+                property
+            )),
+        }
     }
 
     /// Add variables from a JSON object
@@ -356,8 +521,21 @@ fn value_to_string(value: &Value) -> String {
         Value::Bool(b) => b.to_string(),
         Value::Number(n) => n.to_string(),
         Value::String(s) => s.clone(),
-        Value::Array(_) | Value::Object(_) => {
-            // For complex types, use compact JSON representation
+        Value::Array(arr) => {
+            // For arrays of strings, join with commas for readability
+            if arr.iter().all(|v| matches!(v, Value::String(_))) {
+                let strings: Vec<String> = arr
+                    .iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect();
+                strings.join(", ")
+            } else {
+                // For mixed arrays, use JSON representation
+                serde_json::to_string(value).unwrap_or_else(|_| String::new())
+            }
+        }
+        Value::Object(_) => {
+            // For objects, use compact JSON representation
             serde_json::to_string(value).unwrap_or_else(|_| String::new())
         }
     }
@@ -380,6 +558,157 @@ pub fn shell_escape(s: &str) -> String {
     // Escape single quotes by ending quote, adding escaped quote, and starting new quote
     let escaped = s.replace('\'', "'\\''");
     format!("'{}'", escaped)
+}
+
+#[cfg(test)]
+mod mapreduce_variable_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// Test that InterpolationEngine handles both ${VAR} and $VAR syntax
+    #[test]
+    fn test_mixed_variable_syntax() {
+        let mut engine = InterpolationEngine::new(false);
+        let mut context = InterpolationContext::new();
+        context.set("user", Value::String("alice".to_string()));
+        context.set("count", Value::Number(42.into()));
+
+        let template = "User $user processed ${count} items";
+        let result = engine.interpolate(template, &context).unwrap();
+        assert_eq!(result, "User alice processed 42 items");
+    }
+
+    /// Test array handling in string conversion (important for MapReduce variables)
+    #[test]
+    fn test_array_to_string_conversion() {
+        let mut engine = InterpolationEngine::new(false);
+        let mut context = InterpolationContext::new();
+
+        // Test string array - should be comma-separated
+        context.set(
+            "missing_items",
+            json!(["test coverage", "documentation", "error handling"]),
+        );
+
+        let template = "Missing: ${missing_items}";
+        let result = engine.interpolate(template, &context).unwrap();
+        assert_eq!(
+            result,
+            "Missing: test coverage, documentation, error handling"
+        );
+
+        // Test mixed array - should be JSON
+        context.set("mixed_data", json!(["string", 123, true]));
+
+        let template2 = "Data: ${mixed_data}";
+        let result2 = engine.interpolate(template2, &context).unwrap();
+        assert_eq!(result2, r#"Data: ["string",123,true]"#);
+    }
+
+    /// Test nested object access for MapReduce variables
+    #[test]
+    fn test_nested_mapreduce_variables() {
+        let mut engine = InterpolationEngine::new(false);
+        let mut context = InterpolationContext::new();
+
+        // Set up map object like MapReduce would
+        context.set(
+            "map",
+            json!({
+                "successful": 5,
+                "failed": 2,
+                "total": 7
+            }),
+        );
+
+        let template = "Processed ${map.total}: ${map.successful} ok, ${map.failed} failed";
+        let result = engine.interpolate(template, &context).unwrap();
+        assert_eq!(result, "Processed 7: 5 ok, 2 failed");
+    }
+
+    /// Test unbraced variable parsing edge cases
+    #[test]
+    fn test_unbraced_variable_edge_cases() {
+        let mut engine = InterpolationEngine::new(false);
+        let mut context = InterpolationContext::new();
+        context.set("PATH", Value::String("/usr/bin".to_string()));
+        context.set("HOME", Value::String("/home/user".to_string()));
+
+        // Test multiple unbraced variables
+        let template = "PATH=$PATH HOME=$HOME";
+        let result = engine.interpolate(template, &context).unwrap();
+        assert_eq!(result, "PATH=/usr/bin HOME=/home/user");
+
+        // Test unbraced variable at end of string
+        let template2 = "Current path: $PATH";
+        let result2 = engine.interpolate(template2, &context).unwrap();
+        assert_eq!(result2, "Current path: /usr/bin");
+
+        // Test unbraced variable at start
+        let template3 = "$HOME/documents";
+        let result3 = engine.interpolate(template3, &context).unwrap();
+        assert_eq!(result3, "/home/user/documents");
+    }
+
+    /// Test that the specific MapReduce bug scenario works
+    #[test]
+    fn test_mapreduce_interpolation_bug_fix() {
+        let mut engine = InterpolationEngine::new(false);
+        let mut context = InterpolationContext::new();
+
+        // Set up context as it would be in reduce phase
+        context.set(
+            "map",
+            json!({
+                "successful": 8,
+                "failed": 2,
+                "total": 10
+            }),
+        );
+
+        // Test the exact template that was failing
+        let shell_template =
+            "echo 'Total: ${map.total}, Success: ${map.successful}, Failed: ${map.failed}'";
+        let shell_result = engine.interpolate(shell_template, &context).unwrap();
+        assert_eq!(shell_result, "echo 'Total: 10, Success: 8, Failed: 2'");
+
+        // Test commit message template
+        let commit_template = r#"git commit -m "Processed ${map.successful} items
+
+Total items: ${map.total}
+Failed items: ${map.failed}""#;
+
+        let commit_result = engine.interpolate(commit_template, &context).unwrap();
+        assert!(commit_result.contains("Processed 8 items"));
+        assert!(commit_result.contains("Total items: 10"));
+        assert!(commit_result.contains("Failed items: 2"));
+    }
+
+    /// Test empty array handling
+    #[test]
+    fn test_empty_array_handling() {
+        let mut engine = InterpolationEngine::new(false);
+        let mut context = InterpolationContext::new();
+
+        context.set("empty_list", json!([]));
+
+        let template = "Items: ${empty_list}";
+        let result = engine.interpolate(template, &context).unwrap();
+        assert_eq!(result, "Items: ");
+    }
+
+    /// Test single item array handling  
+    #[test]
+    fn test_single_item_array() {
+        let mut engine = InterpolationEngine::new(false);
+        let mut context = InterpolationContext::new();
+
+        context.set("single_item", json!(["only item"]));
+
+        let template = "Item: ${single_item}";
+        let result = engine.interpolate(template, &context).unwrap();
+        assert_eq!(result, "Item: only item");
+    }
 }
 
 #[cfg(test)]

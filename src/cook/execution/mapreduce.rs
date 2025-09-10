@@ -431,6 +431,543 @@ pub struct MapReduceExecutor {
     enable_web_dashboard: bool,
 }
 
+/// Summary statistics for map results
+#[derive(Debug)]
+struct MapResultSummary {
+    successful: usize,
+    failed: usize,
+    total: usize,
+}
+
+/// Calculate summary statistics from map results (pure function)
+fn calculate_map_result_summary(map_results: &[AgentResult]) -> MapResultSummary {
+    let successful = map_results
+        .iter()
+        .filter(|r| matches!(r.status, AgentStatus::Success))
+        .count();
+
+    let failed = map_results
+        .iter()
+        .filter(|r| matches!(r.status, AgentStatus::Failed(_) | AgentStatus::Timeout))
+        .count();
+
+    MapResultSummary {
+        successful,
+        failed,
+        total: map_results.len(),
+    }
+}
+
+/// Build InterpolationContext with map results (pure function)
+fn build_map_results_interpolation_context(
+    map_results: &[AgentResult],
+    summary: &MapResultSummary,
+) -> Result<InterpolationContext, serde_json::Error> {
+    let mut context = InterpolationContext::new();
+
+    // Add summary statistics
+    context.set(
+        "map",
+        json!({
+            "successful": summary.successful,
+            "failed": summary.failed,
+            "total": summary.total
+        }),
+    );
+
+    // Add complete results as JSON value
+    let results_value = serde_json::to_value(map_results)?;
+    context.set("map.results", results_value);
+
+    // Add individual result access
+    for (index, result) in map_results.iter().enumerate() {
+        let result_value = serde_json::to_value(result)?;
+        context.set(format!("results[{}]", index), result_value);
+    }
+
+    Ok(context)
+}
+
+/// Build AgentContext variables for shell commands (pure function)
+fn build_agent_context_variables(
+    map_results: &[AgentResult],
+    summary: &MapResultSummary,
+) -> Result<HashMap<String, String>, serde_json::Error> {
+    let mut variables = HashMap::new();
+
+    // Add summary statistics as strings for shell command substitution
+    variables.insert("map.successful".to_string(), summary.successful.to_string());
+    variables.insert("map.failed".to_string(), summary.failed.to_string());
+    variables.insert("map.total".to_string(), summary.total.to_string());
+
+    // Add complete results as JSON string for complex access patterns
+    let results_json = serde_json::to_string(map_results)?;
+    variables.insert("map.results_json".to_string(), results_json.clone());
+    variables.insert("map.results".to_string(), results_json);
+
+    // Add individual result summaries for easier access in shell commands
+    for (index, result) in map_results.iter().enumerate() {
+        add_individual_result_variables(&mut variables, index, result);
+    }
+
+    Ok(variables)
+}
+
+#[cfg(test)]
+mod pure_function_tests {
+    use super::*;
+    use serde_json::Value;
+    use std::time::Duration;
+
+    /// Helper function to create test AgentResult
+    fn create_test_agent_result(
+        item_id: &str,
+        status: AgentStatus,
+        output: Option<String>,
+        commits: Vec<String>,
+    ) -> AgentResult {
+        AgentResult {
+            item_id: item_id.to_string(),
+            status,
+            output,
+            commits,
+            duration: Duration::from_secs(1),
+            error: None,
+            worktree_path: None,
+            branch_name: None,
+            worktree_session_id: None,
+            files_modified: vec![],
+        }
+    }
+
+    /// Test calculate_map_result_summary with mixed results
+    #[test]
+    fn test_calculate_map_result_summary_mixed_results() {
+        let map_results = vec![
+            create_test_agent_result(
+                "item1",
+                AgentStatus::Success,
+                Some("success output".to_string()),
+                vec!["commit1".to_string()],
+            ),
+            create_test_agent_result(
+                "item2",
+                AgentStatus::Failed("error".to_string()),
+                Some("error output".to_string()),
+                vec![],
+            ),
+            create_test_agent_result(
+                "item3",
+                AgentStatus::Success,
+                Some("success output 2".to_string()),
+                vec!["commit2".to_string(), "commit3".to_string()],
+            ),
+        ];
+
+        let summary = calculate_map_result_summary(&map_results);
+
+        assert_eq!(summary.successful, 2);
+        assert_eq!(summary.failed, 1);
+        assert_eq!(summary.total, 3);
+    }
+
+    /// Test calculate_map_result_summary with all successful results
+    #[test]
+    fn test_calculate_map_result_summary_all_successful() {
+        let map_results = vec![
+            create_test_agent_result(
+                "item1",
+                AgentStatus::Success,
+                Some("success".to_string()),
+                vec!["commit1".to_string()],
+            ),
+            create_test_agent_result(
+                "item2",
+                AgentStatus::Success,
+                Some("success".to_string()),
+                vec!["commit2".to_string()],
+            ),
+        ];
+
+        let summary = calculate_map_result_summary(&map_results);
+
+        assert_eq!(summary.successful, 2);
+        assert_eq!(summary.failed, 0);
+        assert_eq!(summary.total, 2);
+    }
+
+    /// Test calculate_map_result_summary with all failed results
+    #[test]
+    fn test_calculate_map_result_summary_all_failed() {
+        let map_results = vec![
+            AgentResult {
+                item_id: "item1".to_string(),
+                status: AgentStatus::Failed("error1".to_string()),
+                output: None,
+                commits: vec![],
+                duration: Duration::from_secs(1),
+                error: Some("error1".to_string()),
+                worktree_path: None,
+                branch_name: None,
+                worktree_session_id: None,
+                files_modified: vec![],
+            },
+            AgentResult {
+                item_id: "item2".to_string(),
+                status: AgentStatus::Timeout,
+                output: None,
+                commits: vec![],
+                duration: Duration::from_secs(1),
+                error: None,
+                worktree_path: None,
+                branch_name: None,
+                worktree_session_id: None,
+                files_modified: vec![],
+            },
+        ];
+
+        let summary = calculate_map_result_summary(&map_results);
+
+        assert_eq!(summary.successful, 0);
+        assert_eq!(summary.failed, 2);
+        assert_eq!(summary.total, 2);
+    }
+
+    /// Test calculate_map_result_summary with empty results
+    #[test]
+    fn test_calculate_map_result_summary_empty_results() {
+        let map_results = vec![];
+
+        let summary = calculate_map_result_summary(&map_results);
+
+        assert_eq!(summary.successful, 0);
+        assert_eq!(summary.failed, 0);
+        assert_eq!(summary.total, 0);
+    }
+
+    /// Test build_map_results_interpolation_context
+    #[test]
+    fn test_build_map_results_interpolation_context() {
+        let map_results = vec![
+            AgentResult {
+                item_id: "item1".to_string(),
+                status: AgentStatus::Success,
+                output: Some("success".to_string()),
+                commits: vec!["commit1".to_string()],
+                duration: Duration::from_secs(1),
+                error: None,
+                worktree_path: None,
+                branch_name: None,
+                worktree_session_id: None,
+                files_modified: vec![],
+            },
+            AgentResult {
+                item_id: "item2".to_string(),
+                status: AgentStatus::Failed("error".to_string()),
+                output: None,
+                commits: vec![],
+                duration: Duration::from_secs(1),
+                error: Some("error".to_string()),
+                worktree_path: None,
+                branch_name: None,
+                worktree_session_id: None,
+                files_modified: vec![],
+            },
+        ];
+
+        let summary = MapResultSummary {
+            successful: 1,
+            failed: 1,
+            total: 2,
+        };
+
+        let context = build_map_results_interpolation_context(&map_results, &summary).unwrap();
+
+        // Test that map object is properly structured
+        let map_value = context.resolve_path(&["map".to_string()]).unwrap();
+
+        if let Value::Object(map_obj) = map_value {
+            assert_eq!(map_obj.get("successful").unwrap().as_u64().unwrap(), 1);
+            assert_eq!(map_obj.get("failed").unwrap().as_u64().unwrap(), 1);
+            assert_eq!(map_obj.get("total").unwrap().as_u64().unwrap(), 2);
+        } else {
+            panic!("Expected map to be an object");
+        }
+
+        // Test that individual paths resolve correctly
+        assert_eq!(
+            context
+                .resolve_path(&["map".to_string(), "successful".to_string()])
+                .unwrap(),
+            Value::Number(1.into())
+        );
+        assert_eq!(
+            context
+                .resolve_path(&["map".to_string(), "failed".to_string()])
+                .unwrap(),
+            Value::Number(1.into())
+        );
+        assert_eq!(
+            context
+                .resolve_path(&["map".to_string(), "total".to_string()])
+                .unwrap(),
+            Value::Number(2.into())
+        );
+
+        // Test that map.results contains the full results
+        let results_value = context.resolve_path(&["map.results".to_string()]).unwrap();
+        assert!(results_value.is_array());
+    }
+
+    /// Test build_agent_context_variables
+    #[test]
+    fn test_build_agent_context_variables() {
+        let map_results = vec![AgentResult {
+            item_id: "test_item".to_string(),
+            status: AgentStatus::Success,
+            output: Some("output data".to_string()),
+            commits: vec!["abc123".to_string()],
+            duration: Duration::from_secs(1),
+            error: None,
+            worktree_path: None,
+            branch_name: None,
+            worktree_session_id: None,
+            files_modified: vec![],
+        }];
+
+        let summary = MapResultSummary {
+            successful: 1,
+            failed: 0,
+            total: 1,
+        };
+
+        let variables = build_agent_context_variables(&map_results, &summary).unwrap();
+
+        // Test summary statistics
+        assert_eq!(variables.get("map.successful").unwrap(), "1");
+        assert_eq!(variables.get("map.failed").unwrap(), "0");
+        assert_eq!(variables.get("map.total").unwrap(), "1");
+
+        // Test that results are present as JSON
+        assert!(variables.contains_key("map.results"));
+        assert!(variables.contains_key("map.results_json"));
+
+        // Test individual result variables
+        assert_eq!(variables.get("result.0.item_id").unwrap(), "test_item");
+        assert_eq!(variables.get("result.0.status").unwrap(), "success");
+        assert_eq!(variables.get("result.0.output").unwrap(), "output data");
+        assert_eq!(variables.get("result.0.commits").unwrap(), "1");
+    }
+
+    /// Test add_individual_result_variables with different statuses
+    #[test]
+    fn test_add_individual_result_variables_various_statuses() {
+        let mut variables = HashMap::new();
+
+        // Test success result
+        let success_result = AgentResult {
+            item_id: "success_item".to_string(),
+            status: AgentStatus::Success,
+            output: Some("success output".to_string()),
+            commits: vec!["commit1".to_string(), "commit2".to_string()],
+            duration: Duration::from_secs(1),
+            error: None,
+            worktree_path: None,
+            branch_name: None,
+            worktree_session_id: None,
+            files_modified: vec![],
+        };
+
+        add_individual_result_variables(&mut variables, 0, &success_result);
+        assert_eq!(variables.get("result.0.item_id").unwrap(), "success_item");
+        assert_eq!(variables.get("result.0.status").unwrap(), "success");
+        assert_eq!(variables.get("result.0.output").unwrap(), "success output");
+        assert_eq!(variables.get("result.0.commits").unwrap(), "2");
+
+        // Test failed result
+        let failed_result = AgentResult {
+            item_id: "failed_item".to_string(),
+            status: AgentStatus::Failed("test error".to_string()),
+            output: None,
+            commits: vec![],
+            duration: Duration::from_secs(1),
+            error: Some("test error".to_string()),
+            worktree_path: None,
+            branch_name: None,
+            worktree_session_id: None,
+            files_modified: vec![],
+        };
+
+        add_individual_result_variables(&mut variables, 1, &failed_result);
+        assert_eq!(variables.get("result.1.item_id").unwrap(), "failed_item");
+        assert_eq!(
+            variables.get("result.1.status").unwrap(),
+            "failed: test error"
+        );
+        assert!(!variables.contains_key("result.1.output")); // No output for failed
+        assert_eq!(variables.get("result.1.commits").unwrap(), "0");
+
+        // Test timeout result
+        let timeout_result = AgentResult {
+            item_id: "timeout_item".to_string(),
+            status: AgentStatus::Timeout,
+            output: None,
+            commits: vec![],
+            duration: Duration::from_secs(1),
+            error: None,
+            worktree_path: None,
+            branch_name: None,
+            worktree_session_id: None,
+            files_modified: vec![],
+        };
+
+        add_individual_result_variables(&mut variables, 2, &timeout_result);
+        assert_eq!(variables.get("result.2.status").unwrap(), "timeout");
+    }
+
+    /// Test truncate_output function
+    #[test]
+    fn test_truncate_output() {
+        // Test short output - should not be truncated
+        let short_output = "short output";
+        assert_eq!(truncate_output(short_output, 100), "short output");
+
+        // Test long output - should be truncated
+        let long_output = "a".repeat(600);
+        let truncated = truncate_output(&long_output, 500);
+        assert!(truncated.len() <= 500 + "...[truncated]".len());
+        assert!(truncated.ends_with("...[truncated]"));
+        assert!(truncated.starts_with("aaa"));
+
+        // Test exact length - should not be truncated
+        let exact_output = "a".repeat(500);
+        assert_eq!(truncate_output(&exact_output, 500), exact_output);
+    }
+
+    /// Test that the bug scenario we fixed is now properly handled
+    #[test]
+    fn test_mapreduce_variable_interpolation_bug_fix() {
+        // This test simulates the exact scenario that was failing before our fix:
+        // MapReduce variables (${map.successful}, ${map.failed}, ${map.total})
+        // were showing as 0 instead of actual values in the reduce phase
+
+        let map_results = vec![
+            AgentResult {
+                item_id: "item1".to_string(),
+                status: AgentStatus::Success,
+                output: Some("processed item 1".to_string()),
+                commits: vec!["commit1".to_string()],
+                duration: Duration::from_secs(1),
+                error: None,
+                worktree_path: None,
+                branch_name: None,
+                worktree_session_id: None,
+                files_modified: vec![],
+            },
+            AgentResult {
+                item_id: "item2".to_string(),
+                status: AgentStatus::Success,
+                output: Some("processed item 2".to_string()),
+                commits: vec!["commit2".to_string()],
+                duration: Duration::from_secs(1),
+                error: None,
+                worktree_path: None,
+                branch_name: None,
+                worktree_session_id: None,
+                files_modified: vec![],
+            },
+            AgentResult {
+                item_id: "item3".to_string(),
+                status: AgentStatus::Failed("processing error".to_string()),
+                output: None,
+                commits: vec![],
+                duration: Duration::from_secs(1),
+                error: Some("processing error".to_string()),
+                worktree_path: None,
+                branch_name: None,
+                worktree_session_id: None,
+                files_modified: vec![],
+            },
+        ];
+
+        // Calculate summary - this is the core fix
+        let summary = calculate_map_result_summary(&map_results);
+        assert_eq!(summary.successful, 2);
+        assert_eq!(summary.failed, 1);
+        assert_eq!(summary.total, 3);
+
+        // Build interpolation context - this ensures variables are available
+        let interp_context =
+            build_map_results_interpolation_context(&map_results, &summary).unwrap();
+
+        // Test the exact variables that were failing
+        let successful_value = interp_context
+            .resolve_path(&["map".to_string(), "successful".to_string()])
+            .unwrap();
+        let failed_value = interp_context
+            .resolve_path(&["map".to_string(), "failed".to_string()])
+            .unwrap();
+        let total_value = interp_context
+            .resolve_path(&["map".to_string(), "total".to_string()])
+            .unwrap();
+
+        assert_eq!(successful_value, Value::Number(2.into()));
+        assert_eq!(failed_value, Value::Number(1.into()));
+        assert_eq!(total_value, Value::Number(3.into()));
+
+        // Test shell command variables - this is what was causing substitution errors
+        let shell_variables = build_agent_context_variables(&map_results, &summary).unwrap();
+
+        assert_eq!(shell_variables.get("map.successful").unwrap(), "2");
+        assert_eq!(shell_variables.get("map.failed").unwrap(), "1");
+        assert_eq!(shell_variables.get("map.total").unwrap(), "3");
+
+        // Before the fix, these would have been "0", "0", "0"
+        // After the fix, they correctly show "2", "1", "3"
+    }
+}
+
+/// Add variables for a single agent result (pure function)
+fn add_individual_result_variables(
+    variables: &mut HashMap<String, String>,
+    index: usize,
+    result: &AgentResult,
+) {
+    // Add basic result info
+    variables.insert(format!("result.{}.item_id", index), result.item_id.clone());
+
+    let status_string = match &result.status {
+        AgentStatus::Success => "success".to_string(),
+        AgentStatus::Failed(err) => format!("failed: {}", err),
+        AgentStatus::Timeout => "timeout".to_string(),
+        AgentStatus::Pending => "pending".to_string(),
+        AgentStatus::Running => "running".to_string(),
+        AgentStatus::Retrying(attempt) => format!("retrying: {}", attempt),
+    };
+    variables.insert(format!("result.{}.status", index), status_string);
+
+    // Add output if available (truncated for safety)
+    if let Some(ref output) = result.output {
+        let truncated_output = truncate_output(output, 500);
+        variables.insert(format!("result.{}.output", index), truncated_output);
+    }
+
+    // Add commit count
+    variables.insert(
+        format!("result.{}.commits", index),
+        result.commits.len().to_string(),
+    );
+}
+
+/// Truncate output to safe length (pure function)
+fn truncate_output(output: &str, max_length: usize) -> String {
+    if output.len() > max_length {
+        format!("{}...[truncated]", &output[..max_length])
+    } else {
+        output.to_string()
+    }
+}
+
 impl MapReduceExecutor {
     /// Create error context with correlation ID
     fn create_error_context(&self, span_name: &str) -> ErrorContext {
@@ -2426,16 +2963,10 @@ impl MapReduceExecutor {
         map_results: &[AgentResult],
         env: &ExecutionEnvironment,
     ) -> MapReduceResult<()> {
-        // All successful agents have already been merged to parent progressively
-        let successful_count = map_results
-            .iter()
-            .filter(|r| matches!(r.status, AgentStatus::Success))
-            .count();
-
-        let failed_count = map_results
-            .iter()
-            .filter(|r| matches!(r.status, AgentStatus::Failed(_)))
-            .count();
+        // Calculate summary statistics using pure functions
+        let summary_stats = calculate_map_result_summary(map_results);
+        let successful_count = summary_stats.successful;
+        let failed_count = summary_stats.failed;
 
         self.user_interaction.display_info(&format!(
             "All {} successful agents merged to parent worktree",
@@ -2452,28 +2983,17 @@ impl MapReduceExecutor {
         self.user_interaction
             .display_progress("Starting reduce phase in parent worktree...");
 
-        // Create interpolation context with map results
-        let mut interp_context = InterpolationContext::new();
-
-        // Add summary statistics
-        interp_context.set(
-            "map",
-            json!({
-                "successful": successful_count,
-                "failed": failed_count,
-                "total": map_results.len()
-            }),
-        );
-
-        // Add complete results as JSON value
-        let results_value = serde_json::to_value(map_results)?;
-        interp_context.set("map.results", results_value);
-
-        // Also add individual result access
-        for (index, result) in map_results.iter().enumerate() {
-            let result_value = serde_json::to_value(result)?;
-            interp_context.set(format!("results[{}]", index), result_value);
-        }
+        // Build interpolation context using pure functions
+        let _interp_context = build_map_results_interpolation_context(map_results, &summary_stats)
+            .map_err(|e| {
+                let context = self.create_error_context("build_interpolation_context");
+                MapReduceError::General {
+                    message: "Failed to build interpolation context from map results".to_string(),
+                    source: Some(Box::new(e)),
+                }
+                .with_context(context)
+                .error
+            })?;
 
         // Create a context for reduce phase execution in parent worktree
         let mut reduce_context = AgentContext::new(
@@ -2485,72 +3005,21 @@ impl MapReduceExecutor {
             env.clone(),
         );
 
-        // Transfer map results to reduce context variables for shell command substitution
-        reduce_context
-            .variables
-            .insert("map.successful".to_string(), successful_count.to_string());
-        reduce_context
-            .variables
-            .insert("map.failed".to_string(), failed_count.to_string());
-        reduce_context
-            .variables
-            .insert("map.total".to_string(), map_results.len().to_string());
+        // Build and add variables using pure functions
+        let context_variables = build_agent_context_variables(map_results, &summary_stats)
+            .map_err(|e| {
+                let context = self.create_error_context("build_agent_context_variables");
+                MapReduceError::General {
+                    message: "Failed to build agent context variables from map results".to_string(),
+                    source: Some(Box::new(e)),
+                }
+                .with_context(context)
+                .error
+            })?;
 
-        // Add complete results as JSON string for complex access patterns
-        let results_json = serde_json::to_string(map_results).map_err(|e| {
-            let context = self.create_error_context("reduce_phase_execution");
-            MapReduceError::General {
-                message: "Failed to serialize map results to JSON".to_string(),
-                source: Some(Box::new(e)),
-            }
-            .with_context(context)
-            .error
-        })?;
-        reduce_context
-            .variables
-            .insert("map.results_json".to_string(), results_json.clone());
-
-        // Also add map.results for Claude command interpolation
-        // This will be available when to_interpolation_context is called
-        reduce_context
-            .variables
-            .insert("map.results".to_string(), results_json);
-
-        // Add individual result summaries for easier access in shell commands
-        for (index, result) in map_results.iter().enumerate() {
-            // Add basic result info
-            reduce_context
-                .variables
-                .insert(format!("result.{}.item_id", index), result.item_id.clone());
-            reduce_context.variables.insert(
-                format!("result.{}.status", index),
-                match &result.status {
-                    AgentStatus::Success => "success".to_string(),
-                    AgentStatus::Failed(err) => format!("failed: {}", err),
-                    AgentStatus::Timeout => "timeout".to_string(),
-                    AgentStatus::Pending => "pending".to_string(),
-                    AgentStatus::Running => "running".to_string(),
-                    AgentStatus::Retrying(attempt) => format!("retrying: {}", attempt),
-                },
-            );
-
-            // Add output if available (truncated for safety)
-            if let Some(ref output) = result.output {
-                let truncated_output = if output.len() > 500 {
-                    format!("{}...[truncated]", &output[..500])
-                } else {
-                    output.clone()
-                };
-                reduce_context
-                    .variables
-                    .insert(format!("result.{}.output", index), truncated_output);
-            }
-
-            // Add commit count
-            reduce_context.variables.insert(
-                format!("result.{}.commits", index),
-                result.commits.len().to_string(),
-            );
+        // Transfer variables to reduce context
+        for (key, value) in context_variables {
+            reduce_context.variables.insert(key, value);
         }
 
         // Validate that required variables are available for reduce phase
@@ -2565,6 +3034,15 @@ impl MapReduceExecutor {
                 reduce_phase.commands.len(),
                 step_display
             ));
+
+            // Log available variables for debugging interpolation issues
+            debug!(
+                "Executing reduce step {} with variables: map.successful={}, map.failed={}, map.total={}",
+                step_index + 1,
+                reduce_context.variables.get("map.successful").unwrap_or(&"<missing>".to_string()),
+                reduce_context.variables.get("map.failed").unwrap_or(&"<missing>".to_string()),
+                reduce_context.variables.get("map.total").unwrap_or(&"<missing>".to_string())
+            );
 
             // Execute the step in parent worktree context
             let step_result = self.execute_single_step(step, &mut reduce_context).await?;

@@ -4,6 +4,7 @@
 //! and manages iteration logic for continuous improvement sessions.
 
 use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};
+use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
 use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
@@ -15,6 +16,7 @@ use crate::testing::config::TestConfiguration;
 use anyhow::{anyhow, Context, Result};
 use regex::Regex;
 use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -122,6 +124,124 @@ pub struct WorkflowContext {
 }
 
 impl WorkflowContext {
+    /// Build InterpolationContext from WorkflowContext variables (pure function)
+    fn build_interpolation_context(&self) -> InterpolationContext {
+        let mut context = InterpolationContext::new();
+
+        // Add variables as strings
+        for (key, value) in &self.variables {
+            context.set(key.clone(), Value::String(value.clone()));
+        }
+
+        // Add captured outputs
+        for (key, value) in &self.captured_outputs {
+            context.set(key.clone(), Value::String(value.clone()));
+        }
+
+        // Add iteration variables
+        for (key, value) in &self.iteration_vars {
+            context.set(key.clone(), Value::String(value.clone()));
+        }
+
+        // Add validation results as structured data
+        for (key, validation_result) in &self.validation_results {
+            let validation_value = serde_json::json!({
+                "completion": validation_result.completion_percentage,
+                "missing": validation_result.missing,
+                "missing_count": validation_result.missing.len(),
+                "status": validation_result.status,
+                "implemented": validation_result.implemented,
+                "gaps": validation_result.gaps
+            });
+            context.set(key.clone(), validation_value);
+        }
+
+        context
+    }
+
+    /// Track variable resolutions from interpolation (pure function)
+    fn extract_variable_resolutions(
+        template: &str,
+        _result: &str,
+        context: &InterpolationContext,
+    ) -> Vec<VariableResolution> {
+        let mut resolutions = Vec::new();
+
+        // Find ${...} patterns in original template
+        let braced_var_regex = regex::Regex::new(r"\$\{([^}]+)\}").unwrap();
+
+        for captures in braced_var_regex.captures_iter(template) {
+            if let Some(var_match) = captures.get(0) {
+                let full_expression = var_match.as_str();
+                let var_expression = captures.get(1).unwrap().as_str();
+
+                // Parse path segments (handle dotted paths like "map.successful")
+                let path_segments: Vec<String> =
+                    var_expression.split('.').map(|s| s.to_string()).collect();
+
+                // Check if this variable was resolved by looking in the context
+                if let Ok(value) = context.resolve_path(&path_segments) {
+                    let resolved_value = Self::value_to_string(&value, var_expression);
+
+                    resolutions.push(VariableResolution {
+                        name: var_expression.to_string(),
+                        raw_expression: full_expression.to_string(),
+                        resolved_value,
+                    });
+                }
+            }
+        }
+
+        // Find $VAR patterns (unbraced variables)
+        let unbraced_var_regex = regex::Regex::new(r"\$([A-Za-z_][A-Za-z0-9_]*)").unwrap();
+
+        for captures in unbraced_var_regex.captures_iter(template) {
+            if let Some(var_match) = captures.get(0) {
+                let full_expression = var_match.as_str();
+                let var_name = captures.get(1).unwrap().as_str();
+
+                // Check if this variable was resolved by looking in the context
+                let path_segments = vec![var_name.to_string()];
+                if let Ok(value) = context.resolve_path(&path_segments) {
+                    let resolved_value = Self::value_to_string(&value, var_name);
+
+                    resolutions.push(VariableResolution {
+                        name: var_name.to_string(),
+                        raw_expression: full_expression.to_string(),
+                        resolved_value,
+                    });
+                }
+            }
+        }
+
+        resolutions
+    }
+
+    /// Convert a JSON value to string representation for display (pure function)
+    fn value_to_string(value: &Value, _var_name: &str) -> String {
+        match value {
+            Value::String(s) => s.clone(),
+            Value::Number(n) => n.to_string(),
+            Value::Bool(b) => b.to_string(),
+            Value::Array(arr) => {
+                // For arrays, if they contain strings, join them
+                if arr.iter().all(|v| matches!(v, Value::String(_))) {
+                    let strings: Vec<String> = arr
+                        .iter()
+                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                        .collect();
+                    strings.join(", ")
+                } else {
+                    serde_json::to_string(arr).unwrap_or_else(|_| format!("{:?}", arr))
+                }
+            }
+            other => {
+                // For complex objects, try to serialize to JSON
+                serde_json::to_string(other).unwrap_or_else(|_| format!("{:?}", other))
+            }
+        }
+    }
+
     /// Interpolate variables in a template string
     pub fn interpolate(&self, template: &str) -> String {
         self.interpolate_with_tracking(template).0
@@ -129,146 +249,66 @@ impl WorkflowContext {
 
     /// Interpolate variables and track resolutions for verbose output
     pub fn interpolate_with_tracking(&self, template: &str) -> (String, Vec<VariableResolution>) {
-        let mut result = template.to_string();
-        let mut resolutions = Vec::new();
+        // Build interpolation context using pure function
+        let context = self.build_interpolation_context();
 
-        // Replace ${VAR} and $VAR patterns
-        for (key, value) in &self.variables {
-            let braced_pattern = format!("${{{key}}}");
-            let simple_pattern = format!("${key}");
+        // Use InterpolationEngine for proper template parsing and variable resolution
+        let mut engine = InterpolationEngine::new(false); // non-strict mode for backward compatibility
 
-            if result.contains(&braced_pattern) {
-                result = result.replace(&braced_pattern, value);
-                resolutions.push(VariableResolution {
-                    name: key.clone(),
-                    raw_expression: braced_pattern,
-                    resolved_value: value.clone(),
-                });
+        match engine.interpolate(template, &context) {
+            Ok(result) => {
+                // Extract variable resolutions for tracking
+                let resolutions = Self::extract_variable_resolutions(template, &result, &context);
+                (result, resolutions)
             }
-            if result.contains(&simple_pattern) {
-                result = result.replace(&simple_pattern, value);
-                resolutions.push(VariableResolution {
-                    name: key.clone(),
-                    raw_expression: simple_pattern,
-                    resolved_value: value.clone(),
-                });
-            }
-        }
+            Err(error) => {
+                // Log interpolation failure for debugging
+                tracing::warn!(
+                    "Variable interpolation failed for template '{}': {}",
+                    template,
+                    error
+                );
 
-        for (key, value) in &self.captured_outputs {
-            let braced_pattern = format!("${{{key}}}");
-            let simple_pattern = format!("${key}");
+                // Provide detailed error information
+                let available_variables = Self::get_available_variable_summary(&context);
+                tracing::debug!("Available variables: {}", available_variables);
 
-            if result.contains(&braced_pattern) {
-                result = result.replace(&braced_pattern, value);
-                resolutions.push(VariableResolution {
-                    name: key.clone(),
-                    raw_expression: braced_pattern,
-                    resolved_value: value.clone(),
-                });
-            }
-            if result.contains(&simple_pattern) {
-                result = result.replace(&simple_pattern, value);
-                resolutions.push(VariableResolution {
-                    name: key.clone(),
-                    raw_expression: simple_pattern,
-                    resolved_value: value.clone(),
-                });
+                // Fallback to original template on error (non-strict mode behavior)
+                (template.to_string(), Vec::new())
             }
         }
+    }
 
-        for (key, value) in &self.iteration_vars {
-            let braced_pattern = format!("${{{key}}}");
-            let simple_pattern = format!("${key}");
+    /// Get summary of available variables for debugging (pure function)
+    fn get_available_variable_summary(context: &InterpolationContext) -> String {
+        let mut variables: Vec<String> = context.variables.keys().cloned().collect();
+        variables.sort();
 
-            if result.contains(&braced_pattern) {
-                result = result.replace(&braced_pattern, value);
-                resolutions.push(VariableResolution {
-                    name: key.clone(),
-                    raw_expression: braced_pattern,
-                    resolved_value: value.clone(),
-                });
-            }
-            if result.contains(&simple_pattern) {
-                result = result.replace(&simple_pattern, value);
-                resolutions.push(VariableResolution {
-                    name: key.clone(),
-                    raw_expression: simple_pattern,
-                    resolved_value: value.clone(),
-                });
-            }
+        if variables.is_empty() {
+            "none".to_string()
+        } else if variables.len() > 10 {
+            format!(
+                "{} variables ({}...)",
+                variables.len(),
+                variables[..3].join(", ")
+            )
+        } else {
+            variables.join(", ")
         }
+    }
 
-        // Add validation context variables
-        for (key, validation_result) in &self.validation_results {
-            // Add completion percentage
-            let completion_braced = format!("${{{key}.completion}}");
-            let completion_simple = format!("${key}.completion");
-            let completion_value = validation_result.completion_percentage.to_string();
+    /// Enhanced interpolation with strict mode and detailed error reporting
+    pub fn interpolate_strict(&self, template: &str) -> Result<String, String> {
+        let context = self.build_interpolation_context();
+        let mut engine = InterpolationEngine::new(true); // strict mode
 
-            if result.contains(&completion_braced) {
-                result = result.replace(&completion_braced, &completion_value);
-                resolutions.push(VariableResolution {
-                    name: format!("{key}.completion"),
-                    raw_expression: completion_braced,
-                    resolved_value: completion_value.clone(),
-                });
-            }
-            if result.contains(&completion_simple) {
-                result = result.replace(&completion_simple, &completion_value);
-                resolutions.push(VariableResolution {
-                    name: format!("{key}.completion"),
-                    raw_expression: completion_simple,
-                    resolved_value: completion_value,
-                });
-            }
-
-            // Add gaps summary
-            let gaps_summary = validation_result.gaps_summary();
-            let gaps_braced = format!("${{{key}.gaps}}");
-            let gaps_simple = format!("${key}.gaps");
-
-            if result.contains(&gaps_braced) {
-                result = result.replace(&gaps_braced, &gaps_summary);
-                resolutions.push(VariableResolution {
-                    name: format!("{key}.gaps"),
-                    raw_expression: gaps_braced,
-                    resolved_value: gaps_summary.clone(),
-                });
-            }
-            if result.contains(&gaps_simple) {
-                result = result.replace(&gaps_simple, &gaps_summary);
-                resolutions.push(VariableResolution {
-                    name: format!("{key}.gaps"),
-                    raw_expression: gaps_simple,
-                    resolved_value: gaps_summary,
-                });
-            }
-
-            // Add missing items as comma-separated list
-            let missing = validation_result.missing.join(", ");
-            let missing_braced = format!("${{{key}.missing}}");
-            let missing_simple = format!("${key}.missing");
-
-            if result.contains(&missing_braced) {
-                result = result.replace(&missing_braced, &missing);
-                resolutions.push(VariableResolution {
-                    name: format!("{key}.missing"),
-                    raw_expression: missing_braced,
-                    resolved_value: missing.clone(),
-                });
-            }
-            if result.contains(&missing_simple) {
-                result = result.replace(&missing_simple, &missing);
-                resolutions.push(VariableResolution {
-                    name: format!("{key}.missing"),
-                    raw_expression: missing_simple,
-                    resolved_value: missing,
-                });
-            }
-        }
-
-        (result, resolutions)
+        engine.interpolate(template, &context).map_err(|error| {
+            let available_variables = Self::get_available_variable_summary(&context);
+            format!(
+                "Variable interpolation failed for template '{}': {}. Available variables: {}",
+                template, error, available_variables
+            )
+        })
     }
 }
 
