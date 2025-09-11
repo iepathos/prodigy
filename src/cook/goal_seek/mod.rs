@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 
 pub mod engine;
+pub mod shell_executor;
 pub mod validator;
 pub mod validators;
 

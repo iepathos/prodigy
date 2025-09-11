@@ -102,14 +102,10 @@ impl GoalSeekEngine {
     }
     
     async fn execute_command_with_context(&self, command: &str, has_validation_context: bool) -> Result<String> {
-        // Parse command and arguments
-        let parts: Vec<&str> = command.split_whitespace().collect();
-        if parts.is_empty() {
+        // Don't parse the command - pass it as-is to the executor
+        if command.trim().is_empty() {
             return Err(anyhow::anyhow!("Empty command"));
         }
-        
-        let cmd = parts[0];
-        let args: Vec<String> = parts[1..].iter().map(|s| s.to_string()).collect();
         
         // Create execution context with validation data if available
         let mut context = ExecutionContext::default();
@@ -139,8 +135,8 @@ impl GoalSeekEngine {
             }
         }
         
-        // Execute with context
-        let result = self.command_executor.execute(cmd, &args, context).await?;
+        // Execute with context - pass full command string
+        let result = self.command_executor.execute(command, &[], context).await?;
         
         if !result.success {
             warn!("Command failed: {}", result.stderr);

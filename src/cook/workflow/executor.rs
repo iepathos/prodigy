@@ -855,11 +855,10 @@ impl WorkflowExecutor {
         _ctx: &WorkflowContext,
         _env_vars: &HashMap<String, String>,
     ) -> Result<StepResult> {
-        use crate::cook::goal_seek::GoalSeekEngine;
-        use crate::testing::mocks::CommandExecutorMock;
+        use crate::cook::goal_seek::{GoalSeekEngine, shell_executor::ShellCommandExecutor};
 
-        // Create a mock command executor for now (TODO: integrate with real executor)
-        let executor = Box::new(CommandExecutorMock::new());
+        // Create shell command executor for goal-seeking
+        let executor = Box::new(ShellCommandExecutor::new());
 
         // Create goal-seek engine
         let mut engine = GoalSeekEngine::new(executor);

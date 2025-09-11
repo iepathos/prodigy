@@ -63,6 +63,9 @@ impl ScoreExtractor {
 
     /// Try to parse validation output as JSON first
     pub fn parse_structured_validation(output: &str, threshold: u32) -> Result<ValidationResult> {
+        // Debug: Log the output we're trying to parse
+        tracing::debug!("Parsing validation output: '{}'", output);
+        
         if let Ok(json) = serde_json::from_str::<serde_json::Value>(output) {
             let score = json.get("score")
                 .and_then(|v| v.as_u64())
@@ -83,6 +86,7 @@ impl ScoreExtractor {
         
         // Fallback: try to extract numeric score from output
         let score = Self::extract_score_from_output(output);
+        tracing::debug!("Extracted score: {}", score);
         
         Ok(ValidationResult {
             score,
