@@ -1,0 +1,94 @@
+# implement-goal.yml - Specification implementation using goal-seeking
+# Provides iterative refinement for more reliable spec implementation
+
+# Commands to execute for each specification
+# Uses goal-seeking to ensure complete and correct implementation
+# The $ARG variable contains:
+# - The spec ID extracted from filename when using --map
+# - The direct argument value when using --args
+
+# Step 1: Implement the specification with goal-seeking
+# Iteratively refines implementation until spec coverage is satisfactory
+- goal_seek:
+    goal: "Implement specification: $ARG"
+    command: "claude: /prodigy-implement-spec $ARG"
+    validate: |
+      # Simple validation: check if implementation created new Rust files
+      # and has reasonable code content
+      new_files=$(git status --porcelain | grep -c "^A.*\\.rs$" || echo 0)
+      modified_files=$(git status --porcelain | grep -c "^M.*\\.rs$" || echo 0)
+      total_changes=$((new_files + modified_files))
+      
+      if [ "$total_changes" -eq 0 ]; then
+        echo "score: 0"
+      else
+        # Give higher score for more substantial changes
+        score=$((total_changes * 20))
+        if [ "$score" -gt 90 ]; then
+          score=90
+        fi
+        echo "score: $score"
+      fi
+    threshold: 70
+    max_attempts: 3
+    timeout_seconds: 600
+    fail_on_incomplete: false
+  commit_required: true
+
+# Step 2: Ensure tests compile and run with goal-seeking
+# Fixes test compilation and execution errors iteratively
+- goal_seek:
+    goal: "Fix test errors for $ARG"
+    command: "claude: /prodigy-debug-test-failure --spec $ARG"
+    validate: |
+      # Check if tests pass using just
+      if just test 2>&1 | grep -q "test result: ok"; then
+        echo "score: 100"
+      else
+        # Try to extract pass/fail ratio
+        output=$(just test 2>&1)
+        if echo "$output" | grep -q "passed"; then
+          echo "score: 50"  # Some tests pass
+        elif echo "$output" | grep -q "Compiling"; then
+          echo "score: 25"  # At least compiles
+        else
+          echo "score: 0"
+        fi
+      fi
+    threshold: 90
+    max_attempts: 4
+    timeout_seconds: 300
+    fail_on_incomplete: false
+  commit_required: true
+
+# Step 3: Fix linting and formatting issues with goal-seeking
+# Iteratively fixes style and quality issues
+- goal_seek:
+    goal: "Fix linting and formatting"
+    command: "claude: /prodigy-lint"
+    validate: |
+      # Run both format check and lint check
+      if just fmt-check 2>&1 | grep -q "formatted" && just lint 2>&1 | grep -q "warning"; then
+        echo "score: 0"  # Has issues
+      elif just fmt-check 2>&1 | grep -q "formatted"; then
+        echo "score: 50"  # Format issues only
+      elif just lint 2>&1 | grep -q "warning"; then
+        echo "score: 50"  # Lint issues only
+      else
+        echo "score: 100"  # All clean
+      fi
+    threshold: 95
+    max_attempts: 3
+    timeout_seconds: 180
+    fail_on_incomplete: false
+  commit_required: true
+
+# Step 4: Final validation - ensure everything works together
+- shell: "just test"
+  timeout: 300
+  on_failure:
+    # Final attempt to fix any remaining issues
+    claude: "/prodigy-debug-test-failure --spec $ARG --output ${shell.output}"
+    commit_required: true
+    max_attempts: 2
+    fail_workflow: true  # Fail if we can't get tests passing at the end
