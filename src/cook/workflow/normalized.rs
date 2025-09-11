@@ -46,6 +46,7 @@ pub enum StepCommand {
         command: String,
         on_failure: Option<TestDebugConfig>,
     },
+    GoalSeek(crate::cook::goal_seek::GoalSeekConfig),
     Handler(HandlerConfig),
     Simple(String),
 }
@@ -126,6 +127,8 @@ impl NormalizedWorkflow {
                         command: test.command.clone(),
                         on_failure: test.on_failure.clone(),
                     }
+                } else if let Some(goal_seek) = &step.goal_seek {
+                    StepCommand::GoalSeek(goal_seek.clone())
                 } else {
                     return Err(anyhow!("WorkflowStep must have at least one command type"));
                 };
@@ -227,6 +230,7 @@ impl NormalizedWorkflow {
             claude: cmd.claude.clone(),
             shell: cmd.shell.clone(),
             test: cmd.test.clone(),
+            goal_seek: cmd.goal_seek.clone(),
             command: None,
             handler: None,
             capture_output: crate::cook::workflow::CaptureOutput::Disabled,
@@ -289,9 +293,9 @@ impl NormalizedWorkflow {
         // Validate step before transformation
         self.validate_step(step)?;
 
-        let (claude, shell, test) = match &step.command {
-            StepCommand::Claude(cmd) => (Some(cmd.clone()), None, None),
-            StepCommand::Shell(cmd) => (None, Some(cmd.clone()), None),
+        let (claude, shell, test, goal_seek) = match &step.command {
+            StepCommand::Claude(cmd) => (Some(cmd.clone()), None, None, None),
+            StepCommand::Shell(cmd) => (None, Some(cmd.clone()), None, None),
             StepCommand::Test {
                 command,
                 on_failure,
@@ -302,7 +306,9 @@ impl NormalizedWorkflow {
                     command: command.clone(),
                     on_failure: on_failure.clone(),
                 }),
+                None,
             ),
+            StepCommand::GoalSeek(config) => (None, None, None, Some(config.clone())),
             StepCommand::Handler(handler) => {
                 // For handler steps, use the handler field
                 return Ok(WorkflowStep {
@@ -310,6 +316,7 @@ impl NormalizedWorkflow {
                     claude: None,
                     shell: None,
                     test: None,
+                    goal_seek: None,
                     command: None,
                     handler: Some(crate::cook::workflow::HandlerStep {
                         name: handler.name.clone(),
@@ -333,6 +340,7 @@ impl NormalizedWorkflow {
                     claude: None,
                     shell: None,
                     test: None,
+                    goal_seek: None,
                     command: Some(cmd.clone()),
                     handler: None,
                     capture_output: crate::cook::workflow::CaptureOutput::Disabled,
@@ -353,6 +361,7 @@ impl NormalizedWorkflow {
             claude,
             shell,
             test,
+            goal_seek,
             command: None,
             handler: None,
             capture_output: crate::cook::workflow::CaptureOutput::Disabled,

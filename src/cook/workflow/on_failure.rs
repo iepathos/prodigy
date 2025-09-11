@@ -80,6 +80,7 @@ impl OnFailureConfig {
                         shell: shell.clone(),
                         claude: claude.clone(),
                         test: None,
+                        goal_seek: None,
                         command: None,
                         handler: None,
                         timeout: None,

@@ -3244,6 +3244,16 @@ impl MapReduceExecutor {
                     .error);
                 }
             }
+            CommandType::GoalSeek(_) => {
+                let context = self.create_error_context("execute_single_step");
+                return Err(MapReduceError::InvalidConfiguration {
+                    reason: "Goal-seeking commands are not supported in MapReduce".to_string(),
+                    field: "command_type".to_string(),
+                    value: "goal_seek".to_string(),
+                }
+                .with_context(context)
+                .error);
+            }
         };
 
         // Capture output if requested

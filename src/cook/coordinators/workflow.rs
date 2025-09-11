@@ -104,6 +104,7 @@ impl DefaultWorkflowCoordinator {
             claude: None,
             shell: None,
             test: None,
+            goal_seek: None,
             handler: None,
             capture_output: CaptureOutput::Disabled,
             timeout: None,

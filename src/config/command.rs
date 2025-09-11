@@ -244,6 +244,10 @@ pub struct WorkflowStepCommand {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub test: Option<TestCommand>,
 
+    /// Goal-seeking configuration for iterative refinement
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub goal_seek: Option<crate::cook::goal_seek::GoalSeekConfig>,
+
     /// Command ID for referencing outputs
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
@@ -292,6 +296,7 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
             shell: Option<String>,
             analyze: Option<HashMap<String, serde_json::Value>>,
             test: Option<TestCommand>,
+            goal_seek: Option<crate::cook::goal_seek::GoalSeekConfig>,
             id: Option<String>,
             #[serde(default)]
             commit_required: bool,
@@ -326,10 +331,10 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
             (helper.shell, None, helper.on_failure)
         };
 
-        // Validate that at least one of claude, shell, or analyze is present
-        if helper.claude.is_none() && shell.is_none() && helper.analyze.is_none() {
+        // Validate that at least one command field is present
+        if helper.claude.is_none() && shell.is_none() && helper.analyze.is_none() && helper.goal_seek.is_none() {
             return Err(serde::de::Error::custom(
-                "WorkflowStepCommand must have 'claude', 'shell', or 'analyze' field",
+                "WorkflowStepCommand must have 'claude', 'shell', 'analyze', or 'goal_seek' field",
             ));
         }
 
@@ -338,6 +343,7 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
             shell,
             analyze: helper.analyze,
             test,
+            goal_seek: helper.goal_seek,
             id: helper.id,
             commit_required: helper.commit_required,
             analysis: helper.analysis,
@@ -372,6 +378,9 @@ impl WorkflowCommand {
                 } else if let Some(test_cmd) = &step.test {
                     // For test commands, we need special handling
                     format!("test {}", test_cmd.command)
+                } else if let Some(goal_seek_config) = &step.goal_seek {
+                    // For goal_seek commands, we need special handling
+                    format!("goal_seek {}", goal_seek_config.goal)
                 } else {
                     // No command specified
                     String::new()

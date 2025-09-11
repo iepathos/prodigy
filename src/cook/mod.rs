@@ -7,6 +7,7 @@ pub mod command;
 pub mod coordinators;
 pub mod execution;
 pub mod git_ops;
+pub mod goal_seek;
 pub mod input;
 pub mod interaction;
 pub mod orchestrator;

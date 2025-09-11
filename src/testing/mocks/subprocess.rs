@@ -1,8 +1,11 @@
 //! Mock subprocess execution for testing
 
 use anyhow::Result;
+use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+
+use crate::cook::execution::{CommandExecutor, ExecutionContext, ExecutionResult};
 
 /// Builder for creating configured mock subprocess managers
 pub struct MockSubprocessManagerBuilder {
@@ -136,6 +139,57 @@ impl MockSubprocessManager {
 
     pub fn reset_history(&self) {
         self.call_history.lock().unwrap().clear();
+    }
+}
+
+/// Mock command executor for goal-seek testing
+pub struct CommandExecutorMock {
+    responses: Arc<Mutex<HashMap<String, ExecutionResult>>>,
+}
+
+impl CommandExecutorMock {
+    pub fn new() -> Self {
+        Self {
+            responses: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    pub fn add_response(&mut self, command: &str, result: ExecutionResult) {
+        let mut responses = self.responses.lock().unwrap();
+        responses.insert(command.to_string(), result);
+    }
+}
+
+impl Default for CommandExecutorMock {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl CommandExecutor for CommandExecutorMock {
+    async fn execute(
+        &self,
+        command: &str,
+        _args: &[String],
+        _context: ExecutionContext,
+    ) -> Result<ExecutionResult> {
+        let responses = self.responses.lock().unwrap();
+        if let Some(result) = responses.get(command) {
+            Ok(ExecutionResult {
+                success: result.success,
+                stdout: result.stdout.clone(),
+                stderr: result.stderr.clone(),
+                exit_code: result.exit_code,
+            })
+        } else {
+            Ok(ExecutionResult {
+                success: true,
+                stdout: "default output".to_string(),
+                stderr: String::new(),
+                exit_code: Some(0),
+            })
+        }
     }
 }
 

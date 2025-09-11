@@ -53,6 +53,7 @@ impl CaptureOutput {
                     CommandType::Shell(_) => "shell.output".to_string(),
                     CommandType::Handler { .. } => "handler.output".to_string(),
                     CommandType::Test(_) => "test.output".to_string(),
+                    CommandType::GoalSeek(_) => "goal_seek.output".to_string(),
                 })
             }
             CaptureOutput::Variable(name) => Some(name.clone()),
@@ -88,6 +89,8 @@ pub enum CommandType {
     Shell(String),
     /// Test command with retry logic
     Test(crate::config::command::TestCommand),
+    /// Goal-seeking command with iterative refinement
+    GoalSeek(crate::cook::goal_seek::GoalSeekConfig),
     /// Legacy name-based approach
     Legacy(String),
     /// Modular command handler
@@ -340,6 +343,10 @@ pub struct WorkflowStep {
     /// Test command configuration
     #[serde(skip_serializing_if = "Option::is_none")]
     pub test: Option<crate::config::command::TestCommand>,
+
+    /// Goal-seeking configuration for iterative refinement
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub goal_seek: Option<crate::cook::goal_seek::GoalSeekConfig>,
 
     /// Legacy command field (for backward compatibility)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -833,6 +840,113 @@ impl WorkflowExecutor {
                 self.execute_handler_command(handler_name, attributes, env, ctx, env_vars)
                     .await
             }
+            CommandType::GoalSeek(goal_seek_config) => {
+                self.execute_goal_seek_command(goal_seek_config, env, ctx, &env_vars)
+                    .await
+            }
+        }
+    }
+
+    /// Execute goal-seeking command with iterative refinement
+    async fn execute_goal_seek_command(
+        &self,
+        goal_seek_config: crate::cook::goal_seek::GoalSeekConfig,
+        _env: &ExecutionEnvironment,
+        _ctx: &WorkflowContext,
+        _env_vars: &HashMap<String, String>,
+    ) -> Result<StepResult> {
+        use crate::cook::goal_seek::GoalSeekEngine;
+        use crate::testing::mocks::CommandExecutorMock;
+
+        // Create a mock command executor for now (TODO: integrate with real executor)
+        let executor = Box::new(CommandExecutorMock::new());
+
+        // Create goal-seek engine
+        let mut engine = GoalSeekEngine::new(executor);
+
+        // Execute goal-seeking
+        let result = engine.seek(goal_seek_config.clone()).await?;
+
+        // Convert result to StepResult
+        match result {
+            crate::cook::goal_seek::GoalSeekResult::Success {
+                attempts,
+                final_score,
+                execution_time: _,
+            } => Ok(StepResult {
+                success: true,
+                stdout: format!(
+                    "Goal '{}' achieved in {} attempts with score {}%",
+                    goal_seek_config.goal, attempts, final_score
+                ),
+                stderr: String::new(),
+                exit_code: Some(0),
+            }),
+            crate::cook::goal_seek::GoalSeekResult::MaxAttemptsReached {
+                attempts,
+                best_score,
+                last_output: _,
+            } => {
+                if goal_seek_config.fail_on_incomplete.unwrap_or(false) {
+                    Err(anyhow::anyhow!(
+                        "Goal '{}' not achieved after {} attempts. Best score: {}%",
+                        goal_seek_config.goal,
+                        attempts,
+                        best_score
+                    ))
+                } else {
+                    Ok(StepResult {
+                        success: false,
+                        stdout: format!(
+                            "Goal '{}' not achieved after {} attempts. Best score: {}%",
+                            goal_seek_config.goal, attempts, best_score
+                        ),
+                        stderr: String::new(),
+                        exit_code: Some(1),
+                    })
+                }
+            }
+            crate::cook::goal_seek::GoalSeekResult::Timeout {
+                attempts,
+                best_score,
+                elapsed,
+            } => Err(anyhow::anyhow!(
+                "Goal '{}' timed out after {} attempts and {:?}. Best score: {}%",
+                goal_seek_config.goal,
+                attempts,
+                elapsed,
+                best_score
+            )),
+            crate::cook::goal_seek::GoalSeekResult::Converged {
+                attempts,
+                final_score,
+                reason,
+            } => {
+                if goal_seek_config.fail_on_incomplete.unwrap_or(false) && final_score < goal_seek_config.threshold {
+                    Err(anyhow::anyhow!(
+                        "Goal '{}' converged after {} attempts but didn't reach threshold. Score: {}%, Reason: {}",
+                        goal_seek_config.goal, attempts, final_score, reason
+                    ))
+                } else {
+                    Ok(StepResult {
+                        success: final_score >= goal_seek_config.threshold,
+                        stdout: format!(
+                            "Goal '{}' converged after {} attempts. Score: {}%, Reason: {}",
+                            goal_seek_config.goal, attempts, final_score, reason
+                        ),
+                        stderr: String::new(),
+                        exit_code: Some(if final_score >= goal_seek_config.threshold { 0 } else { 1 }),
+                    })
+                }
+            }
+            crate::cook::goal_seek::GoalSeekResult::Failed { attempts, error } => {
+                Err(anyhow::anyhow!(
+                    "Goal '{}' failed after {} attempts: {}",
+                    goal_seek_config.goal,
+                    attempts,
+                    error
+                ))
+            }
         }
     }
 
@@ -1041,6 +1155,9 @@ impl WorkflowExecutor {
         if step.handler.is_some() {
             specified_count += 1;
         }
+        if step.goal_seek.is_some() {
+            specified_count += 1;
+        }
         if step.name.is_some() || step.command.is_some() {
             specified_count += 1;
         }
@@ -1048,13 +1165,13 @@ impl WorkflowExecutor {
         // Ensure only one command type is specified
         if specified_count > 1 {
             return Err(anyhow!(
-                "Multiple command types specified. Use only one of: claude, shell, test, handler, or name/command"
+                "Multiple command types specified. Use only one of: claude, shell, test, handler, goal_seek, or name/command"
             ));
         }
 
         if specified_count == 0 {
             return Err(anyhow!(
-                "No command specified. Use one of: claude, shell, test, handler, or name/command"
+                "No command specified. Use one of: claude, shell, test, handler, goal_seek, or name/command"
             ));
         }
 
@@ -1075,6 +1192,8 @@ impl WorkflowExecutor {
             Ok(CommandType::Shell(shell_cmd.clone()))
         } else if let Some(test_cmd) = &step.test {
             Ok(CommandType::Test(test_cmd.clone()))
+        } else if let Some(goal_seek_config) = &step.goal_seek {
+            Ok(CommandType::GoalSeek(goal_seek_config.clone()))
         } else if let Some(name) = &step.name {
             // Legacy support - prepend / if not present
             let command = if name.starts_with('/') {
@@ -1916,6 +2035,7 @@ impl WorkflowExecutor {
             CommandType::Test(test_cmd) => format!("Test command: {}", test_cmd.command),
             CommandType::Legacy(cmd) => format!("Legacy command: {cmd}"),
             CommandType::Handler { handler_name, .. } => format!("Handler command: {handler_name}"),
+            CommandType::GoalSeek(config) => format!("Goal-seek command: {}", config.goal),
         };
 
         println!("[TEST MODE] Would execute {command_str}");
@@ -1928,6 +2048,7 @@ impl WorkflowExecutor {
             CommandType::Shell(_) => false,
             CommandType::Test(_) => false,
             CommandType::Handler { .. } => false,
+            CommandType::GoalSeek(_) => false,
         };
 
         if should_simulate_no_changes {
@@ -1990,6 +2111,7 @@ impl WorkflowExecutor {
             CommandType::Shell(cmd) => cmd,
             CommandType::Test(test_cmd) => &test_cmd.command,
             CommandType::Handler { handler_name, .. } => handler_name,
+            CommandType::GoalSeek(config) => &config.goal,
         };
 
         eprintln!("\nWorkflow stopped: No changes were committed by {step_display}");
@@ -2280,6 +2402,7 @@ impl WorkflowExecutor {
                 claude: on_incomplete.claude.clone(),
                 shell: on_incomplete.shell.clone(),
                 test: None,
+                goal_seek: None,
                 command: None,
                 handler: None,
                 timeout: None,

@@ -16,6 +16,6 @@ pub use config::*;
 pub use fs::*;
 pub use git::*;
 pub use session::*;
-pub use subprocess::*;
+pub use subprocess::{CommandExecutorMock, MockSubprocessManager, MockSubprocessManagerBuilder};
 pub use workflow::*;
 pub use worktree::*;
