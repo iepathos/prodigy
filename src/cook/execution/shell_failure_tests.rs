@@ -230,6 +230,7 @@ map:
             shell: Some("exit 42".to_string()),
             claude: None,
             test: None,
+            goal_seek: None,
             command: None,
             handler: None,
             timeout: None,

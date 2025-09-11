@@ -34,12 +34,12 @@ pub struct TestFailure {
 
 /// Built-in validator for specification coverage
 pub struct SpecCoverageValidator {
-    spec_path: String,
+    _spec_path: String,
 }
 
 impl SpecCoverageValidator {
     pub fn new(spec_path: String) -> Self {
-        Self { spec_path }
+        Self { _spec_path: spec_path }
     }
 
     pub async fn analyze_implementation(
@@ -104,12 +104,12 @@ impl Validator for SpecCoverageValidator {
 
 /// Built-in validator for test pass rate
 pub struct TestPassValidator {
-    test_pattern: Option<String>,
+    _test_pattern: Option<String>,
 }
 
 impl TestPassValidator {
     pub fn new(test_pattern: Option<String>) -> Self {
-        Self { test_pattern }
+        Self { _test_pattern: test_pattern }
     }
 
     pub async fn validate_tests(&self, _test_pattern: Option<&str>) -> Result<TestValidationResult> {

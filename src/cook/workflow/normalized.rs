@@ -485,6 +485,7 @@ mod tests {
             shell: None,
             analyze: None,
             test: None,
+            goal_seek: None,
             id: Some("test-step".to_string()),
             commit_required: true,
             analysis: None,

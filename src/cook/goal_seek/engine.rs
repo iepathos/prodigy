@@ -236,7 +236,7 @@ mod tests {
             success: true,
         });
         
-        let config = GoalSeekConfig {
+        let _config = GoalSeekConfig {
             goal: "Test convergence".to_string(),
             command: "test-cmd".to_string(),
             validate: "validate-cmd".to_string(),
