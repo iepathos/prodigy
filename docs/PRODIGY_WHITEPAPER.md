@@ -52,7 +52,7 @@ goals:
   - achieve: "All tests passing"      # Human-readable description
     check: "npm test"                 # Validation command (shell)
     improve:                           # Improvement command
-      claude: "/fix-tests"             # Claude CLI command
+      ai: "/fix-tests"                 # AI command with configured provider
     target: 100                       # Success threshold (percentage)
     max_attempts: 5                   # Iteration limit
 ```
@@ -67,14 +67,15 @@ goals:
 The improve command can explicitly reference the validation output:
 ```yaml
 improve:
-  claude: "/fix-tests --errors ${check.output}"
+  ai: "/fix-tests --errors ${check.output}"
 ```
 
 #### 2.1.2 Commands
 Commands are the atomic units of execution:
 
 - `shell:` - Execute shell commands
-- `claude:` - Invoke Claude through CLI
+- `claude:` - Invoke Claude via CLI with markdown commands
+- `ai:` - Future: Provider-agnostic AI invocation
 
 #### 2.1.3 Workflows
 Workflows compose goals into larger automation pipelines:
@@ -184,11 +185,11 @@ Each improvement iteration receives validation feedback to guide refinement:
 ```yaml
 # Explicit context passing (transparent and recommended)
 improve:
-  claude: "/fix-tests --errors '${check.output}' --attempt ${attempt}"
+  ai: "/fix-tests --errors '${check.output}' --attempt ${attempt}"
 
-# Without explicit context, Claude only sees what you pass
+# Without explicit context, AI only sees what you pass
 improve:
-  claude: "/fix-tests"  # No automatic context injection
+  ai: "/fix-tests"  # No automatic context injection
 ```
 
 For workflows requiring memory of previous attempts, consider:
@@ -197,7 +198,7 @@ goals:
   - achieve: "Tests passing"
     check: "cargo test 2>&1 | tee test-attempt-${attempt}.log"
     improve:
-      claude: "/fix-tests --current-errors '${check.output}' --previous 'test-attempt-*.log'"
+      ai: "/fix-tests --current-errors '${check.output}' --previous 'test-attempt-*.log'"
 ```
 
 ### 3.2.1 Automatic Context Scoping Through Validation
@@ -213,7 +214,7 @@ goals:
   - achieve: "All tests passing"
     check: "cargo test"
     improve:
-      claude: "/fix-tests"
+      claude: "/fix-tests --output '${check.output}'"
 ```
 
 Each iteration:
@@ -243,13 +244,13 @@ goals:
   - achieve: "Tests passing"
     check: "cargo test"
     improve:
-      claude: "/fix-tests"
+      claude: "/fix-tests --output '${check.output}'"
     
   - achieve: "Benchmarks improved"
     when: "${tests.passed} == true"
     check: "cargo bench"
     improve:
-      claude: "/optimize-performance"
+      claude: "/optimize-performance --benchmark '${check.output}'"
     
   - achieve: "Deploy to production"
     when: "${branch} == 'main' && ${benchmarks.passed}"
@@ -267,13 +268,13 @@ goals:
     check: "cargo build"
     improve:
       - when: "${check.output} contains 'unresolved import'"
-        command: "claude: /fix-imports"
+        ai: "/fix-imports"
       - when: "${check.output} contains 'type mismatch'"
-        command: "claude: /fix-type-errors"
+        ai: "/fix-type-errors"
       - when: "${check.output} contains 'borrow checker'"
-        command: "claude: /fix-lifetime-issues"
+        ai: "/fix-lifetime-issues"
       - default:
-        command: "claude: /fix-build-errors"
+        ai: "/fix-build-errors"
 ```
 
 #### 3.3.3 Boolean Expression Support
@@ -293,27 +294,140 @@ when: "${output} matches 'error:.*timeout' || ${duration} > 300"
 when: "!${cache.exists} && ${env.CI} == 'true'"
 ```
 
-### 3.4 Parallel Execution
+### 3.4 Parallel Execution Patterns
 
-The MapReduce pattern enables parallel processing:
+Prodigy provides two approaches for parallel processing: dedicated MapReduce workflows and parallel goal execution.
+
+#### 3.4.1 MapReduce Workflows
+
+For large-scale parallel processing, use the dedicated MapReduce mode:
 
 ```yaml
-goals:
-  - achieve: "All modules refactored"
-    parallel:
-      input: "find . -name '*.py'"    # Generate work items
-      max_parallel: 10                # Concurrency limit
-    check: "pylint ${item}"           # Per-item validation
-    improve:
-      claude: "/refactor ${item}"    # Per-item improvement
+name: parallel-refactoring
+mode: mapreduce
+
+# Setup phase: Preparation and analysis
+setup:
+  - shell: "cargo test"  # Ensure tests pass before refactoring
+  - shell: "find . -name '*.rs' > files.txt"
+  - ai: "/analyze-codebase --output analysis.json"
+
+# Map phase: Parallel processing of work items
+map:
+  input: files.txt                    # Input source
+  # OR for JSON input:
+  # input: analysis.json
+  # json_path: "$.items[*]"          # JSONPath to extract items
+  
+  agent_template:
+    commands:
+      - ai: "/refactor-file ${item}"
+        commit_required: true
+      - shell: "cargo fmt -- ${item}"
+      - shell: "cargo test"
+        on_failure:
+          ai: "/fix-test-failures --file ${item}"
+          max_attempts: 2
+  
+  max_parallel: 5                     # Run up to 5 agents in parallel
+  timeout_per_agent: 600s
+  retry_on_failure: 1
+
+# Reduce phase: Aggregate results and finalize
+reduce:
+  commands:
+    - shell: "cargo test"              # Final test run
+    - shell: "cargo clippy"
+    - ai: |
+        /summarize-refactoring \
+          --successful ${map.successful} \
+          --failed ${map.failed} \
+          --total ${map.total}
+      commit_required: true
 ```
 
-Execution semantics:
-1. **Map phase**: Distribute work items to parallel workers
-2. **Execute phase**: Each worker processes items independently
-3. **Reduce phase**: Aggregate results and determine success
+#### 3.4.2 Goal-Based Parallel Processing
 
-### 3.4 State Management
+Goals can orchestrate parallel processing with setup, parallel execution, and aggregation phases:
+
+```yaml
+name: goal-based-refactoring
+mode: goals  # Goal-seeking mode with parallel execution
+
+goals:
+  # Setup phase - runs sequentially before parallel processing
+  - achieve: "Environment prepared"
+    id: setup
+    check: "cargo test"
+    improve:
+      shell: "cargo fix --allow-dirty"
+    
+  - achieve: "Work items identified"
+    id: items
+    requires: [setup]
+    start:
+      shell: "find . -name '*.rs' -type f > files.txt"
+    check: "test -f files.txt && test -s files.txt"
+    output: "files.txt"  # Output available to next goals
+  
+  # Parallel phase - processes items in parallel with goal-seeking per item
+  - achieve: "All modules refactored and validated"
+    id: refactor
+    requires: [items]
+    parallel:
+      input: "${items.output}"        # Use output from previous goal
+      max_parallel: 10
+      isolation: worktree             # Each agent in git worktree
+    # Per-item goal-seeking with validation and refinement
+    check: "cargo clippy -- ${item} 2>&1 | grep -c warning"
+    validate:
+      target: "${check.output} == 0"  # No warnings
+    improve:
+      ai: "/refactor-module ${item} --warnings '${check.output}'"
+    max_attempts: 3
+    # Parallel execution results available as variables
+    outputs:
+      successful_items: "${parallel.successful}"
+      failed_items: "${parallel.failed}"
+      total_processed: "${parallel.total}"
+  
+  # Reduce phase - aggregates results after parallel execution
+  - achieve: "Refactoring complete and tested"
+    id: finalize
+    requires: [refactor]
+    check: "cargo test --all"
+    improve:
+      ai: |
+        /fix-integration-issues \
+          --successful ${refactor.successful_items} \
+          --failed ${refactor.failed_items}
+    on_success:
+      ai: |
+        /generate-refactoring-report \
+          --total ${refactor.total_processed} \
+          --successful ${refactor.successful_items} \
+          --failed ${refactor.failed_items}
+      commit_required: true
+```
+
+This approach combines goal-seeking's validation loops with MapReduce's parallel execution, providing:
+- **Sequential setup** through goal dependencies
+- **Parallel processing** with per-item validation and refinement
+- **Result aggregation** through goal outputs and variables
+- **Unified validation** ensuring both individual items and overall success
+
+#### 3.4.3 Execution Semantics
+
+Both patterns provide:
+1. **Work distribution**: Items processed by parallel agents
+2. **Git isolation**: Each agent runs in isolated git worktree
+3. **Independent validation**: Each item validated separately
+4. **Failure handling**: Failed items tracked in Dead Letter Queue
+5. **Result aggregation**: Success/failure counts available to reduce phase
+
+Choose MapReduce for batch processing, goals with parallel for iterative refinement per item.
+
+### 3.5 State Management
 
 Prodigy maintains execution state at multiple levels:
 
@@ -334,52 +448,283 @@ Success determined by exit code:
 check: "npm test"  # Success if exit code = 0
 ```
 
-#### 4.1.2 Threshold Validation
-Success determined by score:
+#### 4.1.2 JSONPath-Based Validation
+Using JSONPath expressions to evaluate any JSON structure:
 ```yaml
-check: "pytest --cov"
-target: 80  # Require 80% coverage
+goals:
+  - achieve: "80% test coverage"
+    check:
+      shell: "pytest --cov --json-report --json-report-file=coverage.json"
+    validate:
+      result_file: "coverage.json"
+      target: "${result_file.totals.percent_covered} >= 80"
 ```
 
-#### 4.1.3 Custom Validation
-Complex validation logic:
+#### 4.1.3 Claude-Parsed Validation with Expressions
+Using Claude to generate structured validation data:
 ```yaml
-check: 
-  command: "./validate.sh"
-  success_pattern: "VALID"
-  extract_score: 'Score: (\d+)'
+goals:
+  - achieve: "Specification fully implemented"
+    start:
+      ai: "/implement-spec ${SPEC}"
+    check:
+      ai: "/validate-spec ${SPEC} --output validation.json"
+    validate:
+      result_file: "validation.json"
+      # Boolean expression using JSONPath
+      target: "${result_file.completion_percentage} >= 95"
+    improve:
+      # Access any field from the JSON for improvement
+      ai: "/complete-spec ${SPEC} --gaps '${result_file.gaps}' --score ${result_file.completion_percentage}"
 ```
+
+Example validation.json (from prodigy-validate-spec):
+```json
+{
+  "completion_percentage": 85.0,
+  "status": "incomplete",
+  "implemented": ["Feature A", "Feature B"],
+  "missing": ["Unit tests"],
+  "gaps": {
+    "missing_tests": {
+      "description": "No tests for cleanup_worktree",
+      "location": "src/worktree.rs:234",
+      "severity": "high"
+    }
+  }
+}
+```
+
+#### 4.1.4 Complex Boolean Expressions
+Support for sophisticated validation logic:
+```yaml
+goals:
+  - achieve: "Quality gates passed"
+    check:
+      shell: "sonarqube-scanner -Dsonar.format=json > quality.json"
+    validate:
+      result_file: "quality.json"
+      # Multiple conditions with AND/OR
+      target: |
+        ${result_file.measures.coverage} >= 80 &&
+        ${result_file.measures.bugs} == 0 &&
+        ${result_file.measures.code_smells} < 10
+        
+  - achieve: "Performance benchmarks met"
+    check:
+      shell: "hyperfine --export-json bench.json './app'"
+    validate:
+      result_file: "bench.json"
+      # Compare against baseline
+      target: "${result_file.results[0].mean} < 0.100"  # Under 100ms
+```
+
+#### 4.1.5 Direct Shell Output Validation
+For simple numeric outputs:
+```yaml
+goals:
+  - achieve: "Line count under limit"
+    check: "wc -l src/*.rs | tail -1 | awk '{print $1}'"
+    validate:
+      # Direct numeric comparison when check returns a number
+      target: "${check.output} < 10000"
+```
+
+**Note**: All validation requires explicit expressions. There's no magic - you must specify exactly what to compare and how.
 
 ### 4.2 Validation Feedback Loop
 
-The validation result influences the improvement phase:
+The validation result influences the improvement phase through variable access:
 
-1. **Error messages** → Passed to improvement command
-2. **Partial success** → Score guides refinement intensity
-3. **Regression detection** → Rollback mechanisms
-4. **Convergence** → Automatic termination
+1. **Check output** → Available as `${check.output}` (stdout/stderr)
+2. **JSON fields** → Accessible via `${result_file.path.to.field}`
+3. **Expression result** → Boolean from target evaluation
+4. **Convergence** → Automatic termination when target expression evaluates to true
+
+Example showing complete feedback loop:
+```yaml
+goals:
+  - achieve: "Implementation complete"
+    check:
+      claude: "/validate-implementation --output result.json"
+    validate:
+      result_file: "result.json"
+      target: "${result_file.completion_percentage} >= 95"
+    improve:
+      # All JSON fields are accessible for improvement
+      claude: |
+        /fix-implementation \
+          --score ${result_file.completion_percentage} \
+          --gaps '${result_file.gaps}' \
+          --missing '${result_file.missing}'
+    max_attempts: 5
+```
+
+The power of this approach:
+- **No fixed schema** - Works with any JSON structure
+- **Transparent logic** - Expression shows exactly what's being evaluated
+- **Full access** - Any JSON field can be used in improvement commands
+- **Type flexible** - Supports numbers, strings, booleans, arrays
 
 ---
 
 ## 5. Integration Architecture
 
-### 5.1 LLM Provider Abstraction
+### 5.1 Claude Integration
 
-Prodigy abstracts LLM interactions through a provider interface:
+Prodigy is designed to work seamlessly with Claude through the Claude CLI and markdown command system:
+
+#### 5.1.1 Claude Command Structure
 
 ```yaml
+# Claude commands use markdown files in .claude/commands/
 improve:
-  command: "/fix-issue"
-  provider: "claude-3.5"      # Provider selection
-  temperature: 0.2            # Provider-specific parameters
-  max_tokens: 4000
+  claude: "/fix-issue"              # Invokes .claude/commands/fix-issue.md
+
+# Pass arguments to commands
+improve:
+  claude: "/fix-tests --errors '${check.output}' --file ${item}"
+
+# Commands can specify model preferences
+improve:
+  claude: "/complex-analysis"
+  model: "claude-3-opus"            # Use Opus for complex tasks
+  temperature: 0.2                  # Lower temperature for consistency
 ```
 
-Provider capabilities:
-- **Multi-provider support**: Claude, GPT-4, Llama, etc.
-- **Automatic failover**: Switch providers on failure
-- **Cost optimization**: Route based on task complexity
-- **Caching layer**: Reuse previous responses
+#### 5.1.2 Claude Configuration
+
+Global configuration in `~/.prodigy/config.yml`:
+```yaml
+claude:
+  # Model selection
+  default_model: "claude-3-sonnet"
+  
+  # Model-specific settings
+  models:
+    claude-3-opus:
+      temperature: 0.3
+      max_tokens: 4096
+      use_for: ["/analyze-*", "/design-*"]  # Complex reasoning tasks
+      
+    claude-3-sonnet:
+      temperature: 0.5
+      max_tokens: 4096
+      use_for: ["/fix-*", "/refactor-*"]    # Code generation
+      
+    claude-3-haiku:
+      temperature: 0.7
+      max_tokens: 2048
+      use_for: ["/format-*", "/lint-*"]     # Simple tasks
+
+  # Cost optimization
+  routing:
+    - match: "/fix-simple-*"
+      model: "claude-3-haiku"    # Use faster model for simple tasks
+    - match: "/analyze-*"
+      model: "claude-3-opus"     # Use best model for analysis
+  
+  # Caching configuration
+  cache:
+    enabled: true
+    ttl: 3600
+    path: "~/.prodigy/cache/claude"
+```
+
+Project-level overrides in `.prodigy/config.yml`:
+```yaml
+claude:
+  default_model: "claude-3-opus"  # This project needs higher quality
+  
+  # Project-specific routing
+  routing:
+    - match: "/security-*"
+      model: "claude-3-opus"      # Security requires best model
+      temperature: 0.1            # Low temperature for consistency
+```
+
+#### 5.1.3 Claude Command System
+
+Prodigy leverages Claude's markdown command system in `.claude/commands/`:
+
+```markdown
+# .claude/commands/fix-tests.md
+Fix failing test cases
+
+Arguments: $ARGUMENTS
+
+## Instructions
+
+1. Analyze the test failures provided
+2. Identify root causes, not symptoms
+3. Fix the underlying issues
+4. Ensure no regressions
+5. Add comments explaining the fix
+
+## Context
+
+You have access to:
+- Full codebase via file reading
+- Test execution via shell commands
+- Git history for understanding changes
+
+## Output
+
+Provide fixes that:
+- Address all test failures
+- Maintain backward compatibility
+- Include clear explanations
+```
+
+Prodigy automatically:
+- Passes workflow variables as arguments
+- Captures command output for validation
+- Manages context between iterations
+- Tracks token usage and costs
+
+#### 5.1.4 Cost and Performance Optimization
+
+```yaml
+claude:
+  # Intelligent model routing
+  optimization:
+    auto_routing: true            # Choose model based on task
+    
+    # Model selection strategy
+    strategy:
+      simple_tasks: "claude-3-haiku"
+      standard_tasks: "claude-3-sonnet"
+      complex_tasks: "claude-3-opus"
+    
+    # Cost controls
+    budget:
+      max_per_command: "$1.00"
+      max_per_workflow: "$10.00"
+      max_daily: "$100.00"
+      
+    # Performance tuning
+    parallel_calls: 5             # Max concurrent Claude calls
+    retry_on_rate_limit: true
+    backoff_strategy: "exponential"
+```
+
+This Claude-focused approach provides:
+- **Optimal Claude usage**: Right model for each task
+- **Cost control**: Budget limits and smart routing
+- **Performance**: Caching and parallel execution
+- **Reliability**: Automatic retries and fallbacks
+
+#### 5.1.5 Future Multi-Provider Support
+
+While Prodigy v1.0 focuses on excellent Claude integration, the architecture is designed to support future expansion to other providers. The `ai:` command namespace is reserved for this future capability, where workflows could seamlessly switch between providers through configuration alone.
+
+Future considerations:
+- **OpenAI**: Function calling integration
+- **Google Gemini**: Grounding and search integration  
+- **Local models**: Ollama/llama.cpp support
+- **Universal commands**: Single format working across all providers
+
+For v1.0, the focus remains on making Claude workflows exceptional, with the confidence that the architecture can expand when needed.
 
 ### 5.2 Tool Integration
 
@@ -392,19 +737,54 @@ goals:
 ```
 
 #### 5.2.2 CI/CD Systems
+
+Prodigy workflows can be executed in CI/CD pipelines by installing and running the CLI:
+
 ```yaml
-# GitHub Actions integration
+# GitHub Actions example
+name: Automated PR Review
 on:
   pull_request:
     types: [opened, synchronize]
+
 jobs:
-  prodigy:
+  prodigy-review:
     runs-on: ubuntu-latest
     steps:
-      - uses: prodigy/action@v1
-        with:
-          workflow: .prodigy/review.yml
+      - uses: actions/checkout@v3
+      
+      - name: Install Prodigy
+        run: |
+          curl -sSL https://install.prodigy.dev | sh
+          # Or: cargo install prodigy
+      
+      - name: Set up Claude API key
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      
+      - name: Run Prodigy workflow
+        run: |
+          # User must create .prodigy/workflows/review-pr.yml
+          prodigy cook .prodigy/workflows/review-pr.yml
 ```
+
+The user creates their own workflow file (e.g., `.prodigy/workflows/review-pr.yml`):
+```yaml
+name: review-pr
+goals:
+  - achieve: "Code review complete"
+    check:
+      shell: "git diff origin/main --name-only"
+    improve:
+      claude: "/review-changes --files '${check.output}'"
+    
+  - achieve: "Tests passing"
+    check: "cargo test"
+    improve:
+      claude: "/fix-test-failures --output '${check.output}'"
+```
+
+Note: There is no official GitHub Action yet. Users run Prodigy via standard CLI commands in their CI/CD environment.
 
 #### 5.2.3 Testing Frameworks
 ```yaml
@@ -412,12 +792,12 @@ goals:
   - achieve: "Unit tests passing"
     check: "pytest tests/unit"
     improve:
-      claude: "/fix-test-failures"
+      claude: "/fix-test-failures --output '${check.output}'"
     
   - achieve: "Integration tests passing"
     check: "pytest tests/integration"
     improve:
-      claude: "/fix-integration-issues"
+      claude: "/fix-integration-issues --failures '${check.output}' --exit-code ${check.exit_code}"
 ```
 
 ### 5.3 Context Management
@@ -460,7 +840,7 @@ goals:
   - achieve: "Implementation passing tests"
     check: "pytest tests/test_${FEATURE}.py"
     improve:
-      claude: "/implement-to-pass-tests"
+      claude: "/implement-to-pass-tests --failures '${check.output}'"
 ```
 
 ### 6.2 Continuous Refactoring
@@ -471,7 +851,7 @@ goals:
   - achieve: "No code smells detected"
     check: "sonarqube-scanner"
     improve:
-      claude: "/fix-code-smells"
+      claude: "/fix-code-smells --report '${check.output}'"
     parallel:
       input: "find src -name '*.js'"
       max_parallel: 5
@@ -485,12 +865,12 @@ goals:
   - achieve: "API documentation complete"
     check: "npx docgen --check"
     improve:
-      claude: "/generate-missing-docs"
+      claude: "/generate-missing-docs --missing '${check.output}'"
     
   - achieve: "Examples provided"
     check: "./validate-examples.sh"
     improve:
-      claude: "/add-usage-examples"
+      claude: "/add-usage-examples --validation '${check.output}'"
 ```
 
 ### 6.4 Security Patching
@@ -501,7 +881,7 @@ goals:
   - achieve: "No critical vulnerabilities"
     check: "npm audit --audit-level=critical"
     improve:
-      claude: "/fix-vulnerabilities"
+      claude: "/fix-vulnerabilities --audit-report '${check.output}'"
     max_attempts: 3
     on_failure: "shell: echo 'Manual intervention required' | tee SECURITY.md"
 ```
@@ -532,7 +912,7 @@ goals:
   - achieve: "Build successful"
     check: "make build"
     improve:
-      claude: "/fix-build"
+      claude: "/fix-build --errors '${check.output}'"
     on_failure:                    # Goal-level handler
       command: "git reset --hard"
     
