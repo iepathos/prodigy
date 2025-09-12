@@ -447,9 +447,11 @@ async fn run_goal_seek(params: GoalSeekParams) -> anyhow::Result<()> {
     }
     
     // Create goal-seek configuration
+    // CLI uses shell command by default (could be extended to support --claude flag)
     let config = GoalSeekConfig {
         goal: params.goal.clone(),
-        command: params.command,
+        claude: None,
+        shell: Some(params.command),
         validate: params.validate,
         threshold: params.threshold,
         max_attempts: params.max_attempts,

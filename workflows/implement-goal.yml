@@ -11,7 +11,7 @@
 # Iteratively refines implementation until spec coverage is satisfactory
 - goal_seek:
     goal: "Implement specification: $ARG"
-    command: "claude: /prodigy-implement-spec $ARG"
+    claude: "/prodigy-implement-spec $ARG"
     validate: |
       # Simple validation: check if implementation created new Rust files
       # and has reasonable code content
@@ -39,7 +39,7 @@
 # Fixes test compilation and execution errors iteratively
 - goal_seek:
     goal: "Fix test errors for $ARG"
-    command: "claude: /prodigy-debug-test-failure --spec $ARG"
+    claude: "/prodigy-debug-test-failure --spec $ARG"
     validate: |
       # Check if tests pass using just
       if just test 2>&1 | grep -q "test result: ok"; then
@@ -65,7 +65,7 @@
 # Iteratively fixes style and quality issues
 - goal_seek:
     goal: "Fix linting and formatting"
-    command: "claude: /prodigy-lint"
+    claude: "/prodigy-lint"
     validate: |
       # Run both format check and lint check
       if just fmt-check 2>&1 | grep -q "formatted" && just lint 2>&1 | grep -q "warning"; then

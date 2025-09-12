@@ -53,8 +53,13 @@ impl GoalSeekEngine {
             }
             
             // Execute command (handles both initial attempt and refinement based on context)
-            debug!("Executing: {}", config.command);
-            let attempt_result = self.execute_command_with_context(&config.command, attempt > 1).await?;
+            let command = config.claude.as_ref()
+                .map(|c| format!("claude {}", c))
+                .or_else(|| config.shell.clone())
+                .ok_or_else(|| anyhow::anyhow!("Goal seek must have either 'claude' or 'shell' command"))?;
+            
+            debug!("Executing: {}", command);
+            let attempt_result = self.execute_command_with_context(&command, attempt > 1).await?;
             
             // Validate result
             debug!("Validating with: {}", config.validate);
@@ -201,7 +206,8 @@ mod tests {
         
         let config = GoalSeekConfig {
             goal: "Test goal".to_string(),
-            command: "test-cmd".to_string(),
+            claude: None,
+            shell: Some("test-cmd".to_string()),
             validate: "validate-cmd".to_string(),
             threshold: 90,
             max_attempts: 3,
@@ -234,7 +240,8 @@ mod tests {
         
         let _config = GoalSeekConfig {
             goal: "Test convergence".to_string(),
-            command: "test-cmd".to_string(),
+            claude: None,
+            shell: Some("test-cmd".to_string()),
             validate: "validate-cmd".to_string(),
             threshold: 95,
             max_attempts: 5,

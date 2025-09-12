@@ -16,9 +16,13 @@ pub struct GoalSeekConfig {
     /// Human-readable goal description
     pub goal: String,
     
-    /// Single command that handles both initial attempt and refinement
-    /// Command gets validation context automatically via ${validation.gaps}
-    pub command: String,
+    /// Claude command for refinement attempts
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub claude: Option<String>,
+    
+    /// Shell command for refinement attempts  
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shell: Option<String>,
     
     /// Command to validate the attempt (returns score 0-100)
     pub validate: String,
