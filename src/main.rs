@@ -424,8 +424,8 @@ fn check_deprecated_alias() {
     }
 }
 
-/// Run goal-seeking operation from CLI
-async fn run_goal_seek(
+/// Parameters for goal-seeking operation
+struct GoalSeekParams {
     goal: String,
     command: String,
     validate: String,
@@ -434,24 +434,27 @@ async fn run_goal_seek(
     timeout: Option<u64>,
     fail_on_incomplete: bool,
     path: Option<PathBuf>,
-) -> anyhow::Result<()> {
+}
+
+/// Run goal-seeking operation from CLI
+async fn run_goal_seek(params: GoalSeekParams) -> anyhow::Result<()> {
     use prodigy::cook::goal_seek::{GoalSeekConfig, GoalSeekEngine, shell_executor::ShellCommandExecutor};
     use std::env;
     
     // Change to specified directory if provided
-    if let Some(path) = path {
+    if let Some(path) = params.path {
         env::set_current_dir(path)?;
     }
     
     // Create goal-seek configuration
     let config = GoalSeekConfig {
-        goal: goal.clone(),
-        command,
-        validate,
-        threshold,
-        max_attempts,
-        timeout_seconds: timeout,
-        fail_on_incomplete: Some(fail_on_incomplete),
+        goal: params.goal.clone(),
+        command: params.command,
+        validate: params.validate,
+        threshold: params.threshold,
+        max_attempts: params.max_attempts,
+        timeout_seconds: params.timeout,
+        fail_on_incomplete: Some(params.fail_on_incomplete),
     };
     
     // Create shell executor and engine
@@ -459,7 +462,7 @@ async fn run_goal_seek(
     let mut engine = GoalSeekEngine::new(executor);
     
     // Execute goal-seeking
-    println!("🎯 Starting goal-seeking: {}", goal);
+    println!("🎯 Starting goal-seeking: {}", params.goal);
     let result = engine.seek(config).await?;
     
     // Handle result
@@ -476,7 +479,7 @@ async fn run_goal_seek(
                 "❌ Goal not achieved after {} attempts. Best score: {}%",
                 attempts, best_score
             );
-            if fail_on_incomplete {
+            if params.fail_on_incomplete {
                 Err(anyhow::anyhow!(msg))
             } else {
                 println!("{}", msg);
@@ -494,7 +497,7 @@ async fn run_goal_seek(
                 "🔄 Converged after {} attempts. Score: {}%. Reason: {}",
                 attempts, final_score, reason
             );
-            if fail_on_incomplete && final_score < threshold {
+            if params.fail_on_incomplete && final_score < params.threshold {
                 Err(anyhow::anyhow!(msg))
             } else {
                 println!("{}", msg);
@@ -553,7 +556,7 @@ async fn execute_command(command: Option<Commands>) -> anyhow::Result<()> {
             fail_on_incomplete,
             path,
         }) => {
-            run_goal_seek(
+            run_goal_seek(GoalSeekParams {
                 goal,
                 command,
                 validate,
@@ -562,7 +565,7 @@ async fn execute_command(command: Option<Commands>) -> anyhow::Result<()> {
                 timeout,
                 fail_on_incomplete,
                 path,
-            ).await
+            }).await
         }
         Some(Commands::Worktree { command }) => run_worktree_command(command).await,
         Some(Commands::Init {

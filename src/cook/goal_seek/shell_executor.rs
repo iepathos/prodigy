@@ -10,6 +10,12 @@ use crate::cook::execution::{CommandExecutor, ExecutionContext, ExecutionResult}
 /// Shell-based command executor for goal-seeking
 pub struct ShellCommandExecutor;
 
+impl Default for ShellCommandExecutor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ShellCommandExecutor {
     pub fn new() -> Self {
         Self
