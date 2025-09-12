@@ -1,89 +1,38 @@
-# implement-goal.yml - Specification implementation using goal-seeking
-# Provides iterative refinement for more reliable spec implementation
+# implement-goal.yml - Enhanced specification implementation with goal-seeking
+# Improves upon implement.yml by using iterative refinement for better results
 
-# Commands to execute for each specification
-# Uses goal-seeking to ensure complete and correct implementation
-# The $ARG variable contains:
-# - The spec ID extracted from filename when using --map
-# - The direct argument value when using --args
+# The $ARG variable contains the spec ID or direct argument value
 
-# Step 1: Implement the specification with goal-seeking
-# Iteratively refines implementation until spec coverage is satisfactory
+# Step 1: Implement the specification with iterative refinement
+# Goal-seeking ensures a more complete initial implementation
 - goal_seek:
     goal: "Implement specification: $ARG"
     claude: "/prodigy-implement-spec $ARG"
-    validate: |
-      # Simple validation: check if implementation created new Rust files
-      # and has reasonable code content
-      new_files=$(git status --porcelain | grep -c "^A.*\\.rs$" || echo 0)
-      modified_files=$(git status --porcelain | grep -c "^M.*\\.rs$" || echo 0)
-      total_changes=$((new_files + modified_files))
-      
-      if [ "$total_changes" -eq 0 ]; then
-        echo "score: 0"
-      else
-        # Give higher score for more substantial changes
-        score=$((total_changes * 20))
-        if [ "$score" -gt 90 ]; then
-          score=90
-        fi
-        echo "score: $score"
-      fi
-    threshold: 70
+    validate: "git diff --stat | grep -q '.*\\.rs' && echo 'score: 100' || echo 'score: 0'"
+    threshold: 90
     max_attempts: 3
     timeout_seconds: 600
-    fail_on_incomplete: false
   commit_required: true
 
-# Step 2: Fix linting and formatting issues with goal-seeking
-# Do this before tests to avoid test failures from linting issues
+# Step 2: Ensure tests pass with iterative fixing
+# Goal-seeking will retry until all tests pass
+- goal_seek:
+    goal: "Fix all test failures"
+    claude: "/prodigy-debug-test-failure --spec $ARG"
+    validate: "just test 2>&1 | grep -q 'test result: ok' && echo 'score: 100' || echo 'score: 0'"
+    threshold: 100
+    max_attempts: 5
+    timeout_seconds: 300
+    fail_on_incomplete: true
+  commit_required: true
+
+# Step 3: Fix any linting and formatting issues
+# Goal-seeking ensures code meets quality standards
 - goal_seek:
     goal: "Fix linting and formatting"
     claude: "/prodigy-lint"
-    validate: |
-      # Run both format check and lint check
-      if just fmt-check 2>&1 | grep -q "formatted" || just lint 2>&1 | grep -q "warning"; then
-        echo "score: 50"  # Has issues
-      else
-        echo "score: 100"  # All clean
-      fi
-    threshold: 95
+    validate: "just fmt-check && just lint && echo 'score: 100' || echo 'score: 0'"
+    threshold: 100
     max_attempts: 3
     timeout_seconds: 180
-    fail_on_incomplete: false
-  commit_required: true
-
-# Step 3: Ensure all tests pass with goal-seeking
-# Fixes test compilation and execution errors iteratively
-- goal_seek:
-    goal: "Fix all test failures for $ARG"
-    claude: "/prodigy-debug-test-failure --spec $ARG"
-    validate: |
-      # Check if tests pass using just test
-      if just test 2>&1 | grep -q "test result: ok"; then
-        echo "score: 100"
-      else
-        # Try to extract pass/fail ratio
-        output=$(just test 2>&1)
-        if echo "$output" | grep -q "passed"; then
-          # Count passed vs failed tests
-          passed=$(echo "$output" | grep -oP '\d+(?= passed)' | head -1 || echo 0)
-          failed=$(echo "$output" | grep -oP '\d+(?= failed)' | head -1 || echo 0)
-          if [ "$failed" -eq 0 ]; then
-            echo "score: 100"
-          else
-            total=$((passed + failed))
-            score=$((passed * 100 / total))
-            echo "score: $score"
-          fi
-        elif echo "$output" | grep -q "Compiling"; then
-          echo "score: 25"  # At least compiles
-        else
-          echo "score: 0"
-        fi
-      fi
-    threshold: 100  # All tests must pass
-    max_attempts: 5
-    timeout_seconds: 300
-    fail_on_incomplete: true  # Fail workflow if tests don't pass
   commit_required: true
