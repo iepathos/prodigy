@@ -1,9 +1,11 @@
 //! Tests for foreach execution functionality
 
 use super::foreach::*;
-use crate::config::command::{ForeachConfig, ForeachInput, ParallelConfig, TestCommand, WorkflowStepCommand};
-use std::sync::Arc;
+use crate::config::command::{
+    ForeachConfig, ForeachInput, ParallelConfig, TestCommand, WorkflowStepCommand,
+};
 use std::sync::atomic::AtomicUsize;
+use std::sync::Arc;
 
 #[cfg(test)]
 mod foreach_execution_tests {
@@ -124,7 +126,10 @@ mod foreach_execution_tests {
         assert_eq!(result.failed_items, 0);
 
         // With parallelism of 2, 4 items with 0.1s sleep each should take ~0.2s, not 0.4s
-        assert!(duration.as_secs_f32() < 0.35, "Parallel execution should be faster than sequential");
+        assert!(
+            duration.as_secs_f32() < 0.35,
+            "Parallel execution should be faster than sequential"
+        );
     }
 
     /// Test max_items limit
@@ -452,7 +457,10 @@ mod foreach_item_source_tests {
         let input = ForeachInput::Command("exit 1".to_string());
         let result = get_items(&input).await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Foreach command failed"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Foreach command failed"));
     }
 
     /// Test list input preservation

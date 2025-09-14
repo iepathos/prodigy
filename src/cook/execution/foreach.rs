@@ -2,9 +2,7 @@
 //!
 //! Implements the foreach construct for parallel processing of items without MapReduce complexity.
 
-use crate::config::command::{
-    ForeachConfig, ForeachInput, ParallelConfig, WorkflowStepCommand,
-};
+use crate::config::command::{ForeachConfig, ForeachInput, ParallelConfig, WorkflowStepCommand};
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
 use crate::subprocess::{ProcessCommand, SubprocessManager};
 use anyhow::{anyhow, Context, Result};
@@ -228,7 +226,8 @@ async fn execute_item_commands(
         );
 
         // Interpolate variables in the command
-        let interpolated_command = interpolate_command(command, &mut engine, &interpolation_context)?;
+        let interpolated_command =
+            interpolate_command(command, &mut engine, &interpolation_context)?;
 
         // Execute the interpolated command
         execute_single_command(
@@ -334,7 +333,10 @@ async fn execute_single_command(
     }
 
     if let Some(test_cmd) = &command.test {
-        warn!("Test command type is deprecated, executing as shell command: {}", test_cmd.command);
+        warn!(
+            "Test command type is deprecated, executing as shell command: {}",
+            test_cmd.command
+        );
 
         // Execute test as shell command (deprecated)
         let mut cmd_builder = tokio::process::Command::new("sh");
@@ -359,9 +361,7 @@ async fn execute_single_command(
     }
 
     // Other command types not supported in foreach
-    Err(anyhow!(
-        "Command type not supported in foreach do block"
-    ))
+    Err(anyhow!("Command type not supported in foreach do block"))
 }
 
 /// Create a progress bar for foreach execution
@@ -448,11 +448,7 @@ mod tests {
     #[tokio::test]
     async fn test_foreach_parallel_execution() {
         let config = ForeachConfig {
-            input: ForeachInput::List(vec![
-                "p1".to_string(),
-                "p2".to_string(),
-                "p3".to_string(),
-            ]),
+            input: ForeachInput::List(vec!["p1".to_string(), "p2".to_string(), "p3".to_string()]),
             parallel: ParallelConfig::Count(2),
             do_block: vec![Box::new(WorkflowStepCommand {
                 shell: Some("echo Parallel ${item}".to_string()),
