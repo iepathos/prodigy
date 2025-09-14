@@ -49,7 +49,9 @@ prodigy/
 │   │   ├── workflow/           # Workflow management
 │   │   │   ├── executor.rs     # Step execution
 │   │   │   ├── normalized.rs   # Workflow normalization
-│   │   │   └── on_failure.rs   # Error handling
+│   │   │   ├── on_failure.rs   # Error handling
+│   │   │   ├── checkpoint.rs   # Checkpoint management
+│   │   │   └── resume.rs       # Resume execution
 │   │   ├── coordinators/       # High-level coordination
 │   │   ├── session/            # Session management
 │   │   └── orchestrator.rs     # Main orchestration
@@ -111,6 +113,21 @@ YAML Config → NormalizedWorkflow → WorkflowSteps → ExecutionResults
      ↓              ↓                   ↓              ↓
 Configuration   Validation         Execution      Result
    Parsing      & Planning         Engine        Aggregation
+                                       ↓
+                                 Checkpoint
+                                  Creation
+```
+
+### Checkpoint & Resume Flow
+```
+Workflow → ExecuteSteps → SaveCheckpoint → Interruption
+    ↓          ↓              ↓               ↓
+  Start    Progress      Periodic        LoadCheckpoint
+           Tracking      Saves               ↓
+                                         ResumeExecution
+                                              ↓
+                                         SkipCompleted →
+                                         ContinueFrom
 ```
 
 ### Goal-Seeking Flow

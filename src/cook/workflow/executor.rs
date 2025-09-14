@@ -9,6 +9,7 @@ use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::{SessionManager, SessionUpdate};
+use crate::cook::workflow::normalized;
 use crate::cook::workflow::on_failure::OnFailureConfig;
 use crate::cook::workflow::validation::{ValidationConfig, ValidationResult};
 use crate::session::{format_duration, TimingTracker};
@@ -483,6 +484,104 @@ impl WorkflowExecutor {
     pub async fn with_command_registry(mut self) -> Self {
         self.command_registry = Some(CommandRegistry::with_defaults().await);
         self
+    }
+
+    /// Execute a single workflow step (public for resume functionality)
+    pub async fn execute_single_step(
+        &self,
+        step: &normalized::NormalizedStep,
+        context: &mut WorkflowContext,
+    ) -> Result<StepResult> {
+        // Convert NormalizedStep to WorkflowStep for execution
+        let workflow_step = self.normalized_to_workflow_step(step)?;
+
+        // Create a minimal execution environment
+        let env = ExecutionEnvironment {
+            working_dir: std::env::current_dir()?,
+            project_dir: std::env::current_dir()?,
+            worktree_name: None,
+            session_id: "resume-session".to_string(),
+        };
+
+        // Execute the step
+        self.execute_step_internal(&workflow_step, &env, context)
+            .await
+    }
+
+    /// Convert NormalizedStep to WorkflowStep
+    fn normalized_to_workflow_step(
+        &self,
+        step: &normalized::NormalizedStep,
+    ) -> Result<WorkflowStep> {
+        use normalized::StepCommand;
+
+        let mut workflow_step = WorkflowStep {
+            name: Some(step.id.clone()),
+            claude: None,
+            shell: None,
+            test: None,
+            goal_seek: None,
+            command: None,
+            handler: None,
+            capture_output: CaptureOutput::Disabled,
+            timeout: step.timeout.map(|d| d.as_secs()),
+            working_dir: step.working_dir.clone(),
+            env: step.env.clone(),
+            on_failure: step.handlers.on_failure.clone(),
+            on_success: step.handlers.on_success.clone(),
+            on_exit_code: step.handlers.on_exit_code.clone(),
+            commit_required: step.commit_required,
+            validate: step.validation.clone(),
+        };
+
+        // Set command based on step type
+        match &step.command {
+            StepCommand::Claude(cmd) => {
+                workflow_step.claude = Some(cmd.clone());
+            }
+            StepCommand::Shell(cmd) => {
+                workflow_step.shell = Some(cmd.clone());
+            }
+            StepCommand::Test { command, on_failure } => {
+                workflow_step.test = Some(crate::config::command::TestCommand {
+                    command: command.clone(),
+                    on_failure: on_failure.clone(),
+                });
+            }
+            StepCommand::GoalSeek(config) => {
+                workflow_step.goal_seek = Some(config.clone());
+            }
+            StepCommand::Handler(handler) => {
+                workflow_step.handler = Some(HandlerStep {
+                    name: handler.name.clone(),
+                    attributes: handler.attributes.clone(),
+                });
+            }
+            StepCommand::Simple(cmd) => {
+                // For simple commands, use the legacy command field
+                workflow_step.command = Some(cmd.clone());
+            }
+        }
+
+        Ok(workflow_step)
+    }
+
+    /// Internal execute_step method that doesn't modify self
+    async fn execute_step_internal(
+        &self,
+        step: &WorkflowStep,
+        env: &ExecutionEnvironment,
+        context: &mut WorkflowContext,
+    ) -> Result<StepResult> {
+        // Determine command type
+        let command_type = self.determine_command_type(step)?;
+
+        // Prepare environment variables
+        let env_vars = self.prepare_env_vars(step, env, context);
+
+        // Execute the command based on its type
+        self.execute_command_by_type(&command_type, step, env, context, env_vars)
+            .await
     }
 
     /// Log variable resolutions when verbose mode is enabled

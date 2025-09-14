@@ -2,13 +2,18 @@
 //!
 //! Handles command execution with git commit verification and iteration logic.
 
+pub mod checkpoint;
+#[cfg(test)]
+mod checkpoint_tests;
 mod executor;
 pub mod normalized;
 mod on_failure;
+pub mod resume;
 mod traits;
 pub mod validation;
 pub mod variables;
 
+pub use checkpoint::{CheckpointManager, WorkflowCheckpoint};
 pub use executor::{
     CaptureOutput, CommandType, ExtendedWorkflowConfig, HandlerStep, StepResult, WorkflowContext,
     WorkflowExecutor as WorkflowExecutorImpl, WorkflowMode, WorkflowStep,
@@ -18,6 +23,8 @@ pub use normalized::{
     WorkflowType,
 };
 pub use on_failure::OnFailureConfig;
+pub use resume::{ResumeExecutor, ResumeResult};
+pub use checkpoint::ResumeOptions;
 pub use traits::WorkflowExecutor;
 pub use validation::{
     GapDetail, OnIncompleteConfig, Severity, ValidationConfig, ValidationResult, ValidationStatus,
