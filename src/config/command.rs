@@ -849,7 +849,7 @@ analysis:
     fn test_workflow_step_command_with_when_clause() {
         // Test parsing with when clause
         let yaml = r#"
-claud_e: "/prodigy-test"
+claude: "/prodigy-test"
 when: "${build.success} == true"
 "#;
 
