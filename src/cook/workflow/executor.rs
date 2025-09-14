@@ -58,6 +58,7 @@ impl CaptureOutput {
                     CommandType::Handler { .. } => "handler.output".to_string(),
                     CommandType::Test(_) => "test.output".to_string(),
                     CommandType::GoalSeek(_) => "goal_seek.output".to_string(),
+                    CommandType::Foreach(_) => "foreach.output".to_string(),
                 })
             }
             CaptureOutput::Variable(name) => Some(name.clone()),
@@ -95,6 +96,8 @@ pub enum CommandType {
     Test(crate::config::command::TestCommand),
     /// Goal-seeking command with iterative refinement
     GoalSeek(crate::cook::goal_seek::GoalSeekConfig),
+    /// Foreach command for parallel iteration
+    Foreach(crate::config::command::ForeachConfig),
     /// Legacy name-based approach
     Legacy(String),
     /// Modular command handler
@@ -352,6 +355,10 @@ pub struct WorkflowStep {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub goal_seek: Option<crate::cook::goal_seek::GoalSeekConfig>,
 
+    /// Foreach configuration for parallel iteration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub foreach: Option<crate::config::command::ForeachConfig>,
+
     /// Legacy command field (for backward compatibility)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub command: Option<String>,
@@ -532,6 +539,7 @@ impl WorkflowExecutor {
             shell: None,
             test: None,
             goal_seek: None,
+            foreach: None,
             command: None,
             handler: None,
             capture_output: CaptureOutput::Disabled,
@@ -574,6 +582,9 @@ impl WorkflowExecutor {
             StepCommand::Simple(cmd) => {
                 // For simple commands, use the legacy command field
                 workflow_step.command = Some(cmd.clone());
+            }
+            StepCommand::Foreach(config) => {
+                workflow_step.foreach = Some(config.clone());
             }
         }
 
@@ -957,7 +968,39 @@ impl WorkflowExecutor {
                 self.execute_goal_seek_command(goal_seek_config, env, ctx, &env_vars)
                     .await
             }
+            CommandType::Foreach(foreach_config) => {
+                self.execute_foreach_command(foreach_config, env, ctx, &env_vars)
+                    .await
+            }
         }
+    }
+
+    /// Execute foreach command with parallel iteration
+    async fn execute_foreach_command(
+        &self,
+        foreach_config: crate::config::command::ForeachConfig,
+        _env: &ExecutionEnvironment,
+        _ctx: &WorkflowContext,
+        _env_vars: &HashMap<String, String>,
+    ) -> Result<StepResult> {
+        use crate::cook::execution::foreach::execute_foreach;
+
+        let result = execute_foreach(&foreach_config).await?;
+
+        // Return aggregated results
+        Ok(StepResult {
+            success: result.failed_items == 0,
+            stdout: format!(
+                "Foreach completed: {} total, {} successful, {} failed",
+                result.total_items, result.successful_items, result.failed_items
+            ),
+            stderr: if result.failed_items > 0 {
+                format!("{} items failed", result.failed_items)
+            } else {
+                String::new()
+            },
+            exit_code: Some(if result.failed_items == 0 { 0 } else { 1 }),
+        })
     }
 
     /// Execute goal-seeking command with iterative refinement
@@ -1329,6 +1372,8 @@ impl WorkflowExecutor {
             Ok(CommandType::Test(test_cmd.clone()))
         } else if let Some(goal_seek_config) = &step.goal_seek {
             Ok(CommandType::GoalSeek(goal_seek_config.clone()))
+        } else if let Some(foreach_config) = &step.foreach {
+            Ok(CommandType::Foreach(foreach_config.clone()))
         } else if let Some(name) = &step.name {
             // Legacy support - prepend / if not present
             let command = if name.starts_with('/') {
@@ -2216,6 +2261,13 @@ impl WorkflowExecutor {
             CommandType::Legacy(cmd) => format!("Legacy command: {cmd}"),
             CommandType::Handler { handler_name, .. } => format!("Handler command: {handler_name}"),
             CommandType::GoalSeek(config) => format!("Goal-seek command: {}", config.goal),
+            CommandType::Foreach(config) => {
+                let item_count = match &config.input {
+                    crate::config::command::ForeachInput::List(items) => items.len(),
+                    crate::config::command::ForeachInput::Command(_) => 0,
+                };
+                format!("Foreach command: {} items", item_count)
+            }
         };
 
         println!("[TEST MODE] Would execute {command_str}");
@@ -2229,6 +2281,7 @@ impl WorkflowExecutor {
             CommandType::Test(_) => false,
             CommandType::Handler { .. } => false,
             CommandType::GoalSeek(_) => false,
+            CommandType::Foreach(_) => false,
         };
 
         if should_simulate_no_changes {
@@ -2292,6 +2345,7 @@ impl WorkflowExecutor {
             CommandType::Test(test_cmd) => &test_cmd.command,
             CommandType::Handler { handler_name, .. } => handler_name,
             CommandType::GoalSeek(config) => &config.goal,
+            CommandType::Foreach(_) => "foreach",
         };
 
         eprintln!("\nWorkflow stopped: No changes were committed by {step_display}");
@@ -2604,6 +2658,7 @@ impl WorkflowExecutor {
                 shell: on_incomplete.shell.clone(),
                 test: None,
                 goal_seek: None,
+                foreach: None,
                 command: None,
                 handler: None,
                 timeout: None,

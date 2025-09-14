@@ -1,6 +1,6 @@
 # Prodigy Project Status
 
-## Current State: 99%
+## Current State: 100%
 
 A workflow orchestration tool that executes Claude commands through structured YAML workflows with session state management and parallel execution through MapReduce patterns.
 
@@ -12,6 +12,7 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **Claude Integration**: Direct Claude Code CLI integration
 - **Shell Commands**: Full shell command support
 - **MapReduce Processing**: Parallel execution across multiple agents with setup phase ✅
+- **Foreach Iteration**: Simple parallel iteration without MapReduce complexity ✅
 - **Error Handling**: Comprehensive failure recovery patterns
 - **Git Integration**: Worktree management and commit tracking
 - **Goal-Seeking Primitives**: Iterative refinement with validation ✅
@@ -20,6 +21,7 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - `claude:` - Execute Claude commands via Claude Code CLI
 - `shell:` - Run shell commands with environment context
 - `goal_seek:` - Iterative refinement with validation feedback ✅
+- `foreach:` - Simple parallel iteration over items ✅
 - `test:` - Test execution (deprecated, use shell instead)
 
 ### Storage Architecture ✅
@@ -42,6 +44,15 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - `prodigy sessions` - Session management
 
 ## Recent Additions
+
+### Foreach Parallel Iteration ✅
+- **Simple Iteration**: Alternative to MapReduce for simpler parallel operations
+- **Command or List Input**: Execute command or iterate static list
+- **Parallel Configuration**: Boolean or numeric parallel count
+- **Do Block Execution**: Nested commands executed per item
+- **Variable Interpolation**: ${item} available in nested commands
+- **Continue on Error**: Optional failure tolerance
+- **Progress Tracking**: Status updates during execution
 
 ### MapReduce Setup Phase ✅
 - **Setup Command Execution**: Sequential setup commands before map phase
@@ -152,6 +163,17 @@ prodigy resume workflow-123
     validate: "cargo test && echo 'score: 100' || echo 'score: 0'"
     threshold: 100
     max_attempts: 5
+```
+
+### Foreach Workflow ✅
+```yaml
+- foreach:
+    foreach: "find . -name '*.js'"
+    parallel: 10
+    do:
+      - shell: "cp ${item} ${item}.backup"
+      - claude: "/convert-to-typescript ${item}"
+    continue_on_error: true
 ```
 
 ### MapReduce with Setup Phase ✅

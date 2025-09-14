@@ -81,6 +81,7 @@ impl OnFailureConfig {
                         claude: claude.clone(),
                         test: None,
                         goal_seek: None,
+                        foreach: None,
                         command: None,
                         handler: None,
                         timeout: None,

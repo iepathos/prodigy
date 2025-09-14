@@ -47,6 +47,7 @@ pub enum StepCommand {
         on_failure: Option<TestDebugConfig>,
     },
     GoalSeek(crate::cook::goal_seek::GoalSeekConfig),
+    Foreach(crate::config::command::ForeachConfig),
     Handler(HandlerConfig),
     Simple(String),
 }
@@ -129,6 +130,8 @@ impl NormalizedWorkflow {
                     }
                 } else if let Some(goal_seek) = &step.goal_seek {
                     StepCommand::GoalSeek(goal_seek.clone())
+                } else if let Some(foreach) = &step.foreach {
+                    StepCommand::Foreach(foreach.clone())
                 } else {
                     return Err(anyhow!("WorkflowStep must have at least one command type"));
                 };
@@ -231,6 +234,7 @@ impl NormalizedWorkflow {
             shell: cmd.shell.clone(),
             test: cmd.test.clone(),
             goal_seek: cmd.goal_seek.clone(),
+            foreach: cmd.foreach.clone(),
             command: None,
             handler: None,
             capture_output: crate::cook::workflow::CaptureOutput::Disabled,
@@ -294,9 +298,9 @@ impl NormalizedWorkflow {
         // Validate step before transformation
         self.validate_step(step)?;
 
-        let (claude, shell, test, goal_seek) = match &step.command {
-            StepCommand::Claude(cmd) => (Some(cmd.clone()), None, None, None),
-            StepCommand::Shell(cmd) => (None, Some(cmd.clone()), None, None),
+        let (claude, shell, test, goal_seek, foreach) = match &step.command {
+            StepCommand::Claude(cmd) => (Some(cmd.clone()), None, None, None, None),
+            StepCommand::Shell(cmd) => (None, Some(cmd.clone()), None, None, None),
             StepCommand::Test {
                 command,
                 on_failure,
@@ -308,8 +312,10 @@ impl NormalizedWorkflow {
                     on_failure: on_failure.clone(),
                 }),
                 None,
+                None,
             ),
-            StepCommand::GoalSeek(config) => (None, None, None, Some(config.clone())),
+            StepCommand::GoalSeek(config) => (None, None, None, Some(config.clone()), None),
+            StepCommand::Foreach(config) => (None, None, None, None, Some(config.clone())),
             StepCommand::Handler(handler) => {
                 // For handler steps, use the handler field
                 return Ok(WorkflowStep {
@@ -318,6 +324,7 @@ impl NormalizedWorkflow {
                     shell: None,
                     test: None,
                     goal_seek: None,
+                    foreach: None,
                     command: None,
                     handler: Some(crate::cook::workflow::HandlerStep {
                         name: handler.name.clone(),
@@ -342,6 +349,7 @@ impl NormalizedWorkflow {
                     shell: None,
                     test: None,
                     goal_seek: None,
+                    foreach: None,
                     command: Some(cmd.clone()),
                     handler: None,
                     capture_output: crate::cook::workflow::CaptureOutput::Disabled,
@@ -363,6 +371,7 @@ impl NormalizedWorkflow {
             shell,
             test,
             goal_seek,
+            foreach,
             command: None,
             handler: None,
             capture_output: crate::cook::workflow::CaptureOutput::Disabled,
