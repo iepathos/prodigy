@@ -157,7 +157,7 @@ pub struct CommandMetadata {
 ///
 /// Specifies how to extract and name outputs from command execution
 /// for use by subsequent commands in the workflow.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct OutputDeclaration {
     /// File pattern for git commit extraction (since we only extract from git commits)
     pub file_pattern: String,
@@ -184,6 +184,56 @@ pub struct TestDebugConfig {
 
 fn default_max_attempts() -> u32 {
     3
+}
+
+/// Foreach configuration for simple parallel iteration
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ForeachConfig {
+    /// Input source (command or list)
+    #[serde(rename = "foreach")]
+    pub input: ForeachInput,
+
+    /// Parallel execution config (bool or number)
+    #[serde(default)]
+    pub parallel: ParallelConfig,
+
+    /// Commands to execute per item (renamed from "do" to avoid keyword)
+    #[serde(rename = "do")]
+    pub do_block: Vec<Box<WorkflowStepCommand>>,
+
+    /// Continue on item failure
+    #[serde(default)]
+    pub continue_on_error: bool,
+
+    /// Maximum items to process
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_items: Option<usize>,
+}
+
+/// Input source for foreach - either a command or a list
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub enum ForeachInput {
+    /// Command to execute whose output becomes items
+    Command(String),
+    /// Static list of items
+    List(Vec<String>),
+}
+
+/// Parallel execution configuration
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub enum ParallelConfig {
+    /// Boolean flag (true = default parallel count, false = sequential)
+    Boolean(bool),
+    /// Specific parallel count
+    Count(usize),
+}
+
+impl Default for ParallelConfig {
+    fn default() -> Self {
+        ParallelConfig::Boolean(false)
+    }
 }
 
 /// Test command configuration
@@ -226,7 +276,7 @@ pub struct SimpleCommand {
 }
 
 /// New workflow step command format supporting claude:, shell:, analyze:, and test: syntax
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct WorkflowStepCommand {
     /// Claude CLI command with args
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -247,6 +297,10 @@ pub struct WorkflowStepCommand {
     /// Goal-seeking configuration for iterative refinement
     #[serde(skip_serializing_if = "Option::is_none")]
     pub goal_seek: Option<crate::cook::goal_seek::GoalSeekConfig>,
+
+    /// Foreach configuration for parallel iteration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub foreach: Option<ForeachConfig>,
 
     /// Command ID for referencing outputs
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -297,6 +351,7 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
             analyze: Option<HashMap<String, serde_json::Value>>,
             test: Option<TestCommand>,
             goal_seek: Option<crate::cook::goal_seek::GoalSeekConfig>,
+            foreach: Option<ForeachConfig>,
             id: Option<String>,
             #[serde(default)]
             commit_required: bool,
@@ -336,9 +391,10 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
             && shell.is_none()
             && helper.analyze.is_none()
             && helper.goal_seek.is_none()
+            && helper.foreach.is_none()
         {
             return Err(serde::de::Error::custom(
-                "WorkflowStepCommand must have 'claude', 'shell', 'analyze', or 'goal_seek' field",
+                "WorkflowStepCommand must have 'claude', 'shell', 'analyze', 'goal_seek', or 'foreach' field",
             ));
         }
 
@@ -348,6 +404,7 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
             analyze: helper.analyze,
             test,
             goal_seek: helper.goal_seek,
+            foreach: helper.foreach,
             id: helper.id,
             commit_required: helper.commit_required,
             analysis: helper.analysis,
@@ -385,6 +442,12 @@ impl WorkflowCommand {
                 } else if let Some(goal_seek_config) = &step.goal_seek {
                     // For goal_seek commands, we need special handling
                     format!("goal_seek {}", goal_seek_config.goal)
+                } else if let Some(foreach_config) = &step.foreach {
+                    // For foreach commands, we need special handling
+                    match &foreach_config.input {
+                        ForeachInput::Command(cmd) => format!("foreach {}", cmd),
+                        ForeachInput::List(items) => format!("foreach {} items", items.len()),
+                    }
                 } else {
                     // No command specified
                     String::new()

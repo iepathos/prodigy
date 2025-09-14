@@ -3256,6 +3256,16 @@ impl MapReduceExecutor {
                 .with_context(context)
                 .error);
             }
+            CommandType::Foreach(_) => {
+                let context = self.create_error_context("execute_single_step");
+                return Err(MapReduceError::InvalidConfiguration {
+                    reason: "Foreach commands are not supported in MapReduce".to_string(),
+                    field: "command_type".to_string(),
+                    value: "foreach".to_string(),
+                }
+                .with_context(context)
+                .error);
+            }
         };
 
         // Capture output if requested
@@ -3880,6 +3890,7 @@ mod tests {
             shell: None,
             test: None,
             goal_seek: None,
+            foreach: None,
             handler: None,
             name: None,
             command: None,
@@ -3907,6 +3918,7 @@ mod tests {
             shell: Some("echo test".to_string()),
             test: None,
             goal_seek: None,
+            foreach: None,
             handler: None,
             name: None,
             command: None,
@@ -3937,6 +3949,7 @@ mod tests {
                 on_failure: None,
             }),
             goal_seek: None,
+            foreach: None,
             handler: None,
             name: None,
             command: None,
@@ -3964,6 +3977,7 @@ mod tests {
             shell: None,
             test: None,
             goal_seek: None,
+            foreach: None,
             handler: Some(HandlerStep {
                 name: "test_handler".to_string(),
                 attributes: HashMap::new(),
@@ -3994,6 +4008,7 @@ mod tests {
             shell: None,
             test: None,
             goal_seek: None,
+            foreach: None,
             handler: None,
             name: Some("test_command".to_string()),
             command: None,
@@ -4021,6 +4036,7 @@ mod tests {
             shell: None,
             test: None,
             goal_seek: None,
+            foreach: None,
             handler: None,
             name: Some("/test_command".to_string()),
             command: None,
@@ -4052,6 +4068,7 @@ mod tests {
             shell: None,
             test: None,
             goal_seek: None,
+            foreach: None,
             handler: None,
             name: None,
             command: None,
@@ -4080,6 +4097,7 @@ mod tests {
             shell: Some("shell cmd".to_string()),
             test: None,
             goal_seek: None,
+            foreach: None,
             handler: None,
             name: None,
             command: None,

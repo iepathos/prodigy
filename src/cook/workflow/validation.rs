@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Configuration for spec validation
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ValidationConfig {
     /// Shell command to run for validation (deprecated, use 'shell' instead)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -45,7 +45,7 @@ pub struct ValidationConfig {
 }
 
 /// Configuration for handling incomplete implementations
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct OnIncompleteConfig {
     /// Claude command to execute for gap filling
     #[serde(skip_serializing_if = "Option::is_none")]

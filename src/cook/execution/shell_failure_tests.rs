@@ -231,6 +231,7 @@ map:
             claude: None,
             test: None,
             goal_seek: None,
+            foreach: None,
             command: None,
             handler: None,
             timeout: None,

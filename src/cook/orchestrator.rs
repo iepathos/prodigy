@@ -613,6 +613,7 @@ impl DefaultCookOrchestrator {
                     shell,
                     test, // Contains retry logic for shell commands
                     goal_seek: step.goal_seek.clone(),
+                    foreach: step.foreach.clone(),
                     handler: None,
                     capture_output: if step.capture_output {
                         CaptureOutput::Default
@@ -649,6 +650,7 @@ impl DefaultCookOrchestrator {
                     shell: None,
                     test: None,
                     goal_seek: None,
+                    foreach: None,
                     handler: None,
                     capture_output: CaptureOutput::Disabled,
                     timeout: None,
@@ -2381,6 +2383,7 @@ mod tests {
             claude: None,
             test: None,
             goal_seek: None,
+            foreach: None,
             capture_output: false,
             commit_required: false,
             analyze: None,
@@ -2416,6 +2419,7 @@ mod tests {
             }),
             test: None,
             goal_seek: None,
+            foreach: None,
             capture_output: false,
             commit_required: false,
             analyze: None,
@@ -2456,6 +2460,7 @@ mod tests {
             on_failure: None,
             test: None,
             goal_seek: None,
+            foreach: None,
             capture_output: false,
             commit_required: false,
             analyze: None,
@@ -2482,6 +2487,7 @@ mod tests {
             on_failure: None,
             test: None,
             goal_seek: None,
+            foreach: None,
             capture_output: true,
             commit_required: false,
             analyze: None,

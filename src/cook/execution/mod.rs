@@ -23,6 +23,9 @@ pub mod events;
 pub mod executor;
 #[cfg(test)]
 pub mod executor_tests;
+pub mod foreach;
+#[cfg(test)]
+pub mod foreach_tests;
 pub mod input_source;
 pub mod interpolation;
 pub mod mapreduce;
@@ -36,6 +39,8 @@ pub mod output;
 #[cfg(test)]
 pub mod output_tests;
 pub mod process;
+#[cfg(test)]
+pub mod process_kill_tests;
 #[cfg(test)]
 pub mod process_tests;
 pub mod progress;

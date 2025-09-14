@@ -297,6 +297,7 @@ impl ResumeExecutor {
                     shell: None,
                     test: None,
                     goal_seek: None,
+                    foreach: None,
                     command: None,
                     handler: None,
                     capture_output: crate::cook::workflow::executor::CaptureOutput::Disabled,
