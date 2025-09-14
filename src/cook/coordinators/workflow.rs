@@ -116,6 +116,7 @@ impl DefaultWorkflowCoordinator {
             on_exit_code: HashMap::new(),
             commit_required: true,
             validate: None,
+            when: None,
         }
     }
 
@@ -339,6 +340,7 @@ mod tests {
             outputs: None,
             validate: None,
             timeout: None,
+            when: None,
         };
         let result = DefaultWorkflowCoordinator::extract_workflow_step_command(&step);
         assert_eq!(result, "claude-command");
@@ -362,6 +364,7 @@ mod tests {
             outputs: None,
             validate: None,
             timeout: None,
+            when: None,
         };
         let result = DefaultWorkflowCoordinator::extract_workflow_step_command(&step);
         assert_eq!(result, "shell ls -la");
@@ -389,6 +392,7 @@ mod tests {
             outputs: None,
             validate: None,
             timeout: None,
+            when: None,
         };
         let result = DefaultWorkflowCoordinator::extract_workflow_step_command(&step);
         assert_eq!(result, "test cargo test");
@@ -412,6 +416,7 @@ mod tests {
             outputs: None,
             validate: None,
             timeout: None,
+            when: None,
         };
         let result = DefaultWorkflowCoordinator::extract_workflow_step_command(&step);
         assert_eq!(result, "");
@@ -484,6 +489,7 @@ mod tests {
             outputs: None,
             validate: None,
             timeout: None,
+            when: None,
         };
         let result = DefaultWorkflowCoordinator::extract_workflow_step_command(&step);
         assert_eq!(

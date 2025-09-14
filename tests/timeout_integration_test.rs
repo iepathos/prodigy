@@ -116,6 +116,7 @@ fn test_timeout_field_serialization() {
         on_failure: None,
         on_success: None,
         validate: None,
+        when: None,
     };
 
     let yaml = serde_yaml::to_string(&step).unwrap();

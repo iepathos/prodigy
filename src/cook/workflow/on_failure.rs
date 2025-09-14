@@ -93,6 +93,7 @@ impl OnFailureConfig {
                         working_dir: None,
                         env: Default::default(),
                         validate: None,
+                        when: None,
                     })
                 } else {
                     None

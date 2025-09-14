@@ -309,6 +309,7 @@ impl ResumeExecutor {
                     on_exit_code: std::collections::HashMap::new(),
                     commit_required: false,
                     validate: None,
+                    when: None,
                 };
 
                 // Parse command based on enum variant

@@ -629,6 +629,7 @@ impl DefaultCookOrchestrator {
                     // Commands don't require commits by default unless explicitly set
                     commit_required: step.commit_required,
                     validate: step.validate.clone(),
+                    when: None,
                 }
             }
             _ => {
@@ -661,6 +662,7 @@ impl DefaultCookOrchestrator {
                     on_exit_code: std::collections::HashMap::new(),
                     commit_required,
                     validate: None,
+                    when: None,
                 }
             }
         }
@@ -2393,6 +2395,7 @@ mod tests {
             on_success: None,
             validate: None,
             timeout: None,
+            when: None,
         };
 
         let (shell, test, on_failure) = DefaultCookOrchestrator::process_step_failure_config(&step);
@@ -2429,6 +2432,7 @@ mod tests {
             on_success: None,
             validate: None,
             timeout: None,
+            when: None,
         };
 
         let (shell, test, on_failure) = DefaultCookOrchestrator::process_step_failure_config(&step);
@@ -2470,6 +2474,7 @@ mod tests {
             on_success: None,
             validate: None,
             timeout: None,
+            when: None,
         };
 
         let (shell, test, on_failure) = DefaultCookOrchestrator::process_step_failure_config(&step);
@@ -2497,6 +2502,7 @@ mod tests {
             on_success: None,
             validate: None,
             timeout: None,
+            when: None,
         };
         let cmd = WorkflowCommand::WorkflowStep(Box::new(step));
 
