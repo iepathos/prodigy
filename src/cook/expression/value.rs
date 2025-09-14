@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 /// Value type for expression evaluation
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
+#[derive(Default)]
 pub enum Value {
     /// Boolean value
     Bool(bool),
@@ -13,6 +14,7 @@ pub enum Value {
     /// String value
     String(String),
     /// Null value
+    #[default]
     Null,
 }
 
@@ -92,12 +94,6 @@ impl From<String> for Value {
 impl From<&str> for Value {
     fn from(s: &str) -> Self {
         Value::String(s.to_string())
-    }
-}
-
-impl Default for Value {
-    fn default() -> Self {
-        Value::Null
     }
 }
 

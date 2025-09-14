@@ -202,7 +202,7 @@ fn consume_until(
     delimiter: char,
 ) -> Result<String> {
     let mut result = String::new();
-    while let Some(ch) = chars.next() {
+    for ch in chars.by_ref() {
         if ch == delimiter {
             return Ok(result);
         }
