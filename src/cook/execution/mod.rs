@@ -11,6 +11,9 @@ pub mod command;
 pub mod command_tests;
 pub mod data_pipeline;
 pub mod dlq;
+pub mod dlq_reprocessor;
+#[cfg(test)]
+pub mod dlq_reprocessor_test;
 #[cfg(test)]
 pub mod dlq_test;
 pub mod errors;
