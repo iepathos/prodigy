@@ -1,6 +1,6 @@
 # Prodigy Project Status
 
-## Current State: 95%
+## Current State: 97%
 
 A workflow orchestration tool that executes Claude commands through structured YAML workflows with session state management and parallel execution through MapReduce patterns.
 
@@ -29,7 +29,11 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **Session Persistence**: Session state and timing data
 
 ### CLI Commands ✅
-- `prodigy cook` - Execute workflows
+- `prodigy run` - Execute workflows (simplified alias for cook) ✅
+- `prodigy exec` - Execute single command with retry support ✅
+- `prodigy batch` - Process multiple files in parallel ✅
+- `prodigy resume` - Resume interrupted workflows ✅
+- `prodigy cook` - Execute workflows (original command)
 - `prodigy goal-seek` - Standalone goal-seeking operations ✅
 - `prodigy worktree` - Git worktree management
 - `prodigy init` - Claude command initialization
@@ -38,6 +42,14 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - `prodigy sessions` - Session management
 
 ## Recent Additions
+
+### Simplified CLI Interface ✅
+- **`prodigy run`**: Intuitive alias for cook command
+- **`prodigy exec`**: Single command execution with retry support
+- **`prodigy batch`**: Parallel file processing with MapReduce
+- **`prodigy resume`**: Resume interrupted workflows
+- **Workflow Generation**: Automatic YAML generation for simple operations
+- **Smart Defaults**: Sensible retry, timeout, and parallelism settings
 
 ### Goal-Seeking System ✅
 - **Iterative Refinement Engine**: Multi-attempt execution with validation
@@ -51,6 +63,8 @@ A workflow orchestration tool that executes Claude commands through structured Y
 ## Architecture
 
 ### Core Modules
+- `cli/`: CLI command handlers and workflow generation ✅
+- `cli/workflow_generator/`: Dynamic workflow generation for simple commands ✅
 - `cook/`: Workflow orchestration and execution
 - `cook/goal_seek/`: Goal-seeking primitives and validators ✅
 - `cook/execution/`: Command execution and MapReduce processing
@@ -87,6 +101,21 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - Linting and formatting enforcement
 
 ## Usage Patterns
+
+### Simplified CLI Commands ✅
+```bash
+# Run a workflow
+prodigy run workflow.yml
+
+# Execute single command with retries
+prodigy exec "claude: /refactor app.py" --retry 3
+
+# Process files in parallel
+prodigy batch "*.py" --command "claude: /add-types" --parallel 5
+
+# Resume interrupted workflow
+prodigy resume workflow-123
+```
 
 ### Basic Workflow
 ```yaml

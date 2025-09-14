@@ -18,6 +18,94 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Run a workflow file (alias for cook)
+    #[command(name = "run")]
+    Run {
+        /// Workflow file to execute
+        workflow: PathBuf,
+
+        /// Repository path to run in (defaults to current directory)
+        #[arg(short = 'p', long)]
+        path: Option<PathBuf>,
+
+        /// Maximum number of iterations
+        #[arg(short = 'n', long, default_value = "1")]
+        max_iterations: u32,
+
+        /// Run in an isolated git worktree
+        #[arg(short = 'w', long)]
+        worktree: bool,
+
+        /// Direct arguments to pass to commands
+        #[arg(long, value_name = "VALUE")]
+        args: Vec<String>,
+
+        /// Automatically answer yes to all prompts
+        #[arg(short = 'y', long = "yes")]
+        auto_accept: bool,
+    },
+
+    /// Execute a single command with retry support
+    #[command(name = "exec")]
+    Exec {
+        /// Command to execute (e.g., "claude: /refactor app.py" or "shell: npm test")
+        command: String,
+
+        /// Number of retry attempts
+        #[arg(long, default_value = "1")]
+        retry: u32,
+
+        /// Timeout in seconds
+        #[arg(long)]
+        timeout: Option<u64>,
+
+        /// Working directory
+        #[arg(short = 'p', long)]
+        path: Option<PathBuf>,
+    },
+
+    /// Process multiple files in parallel
+    #[command(name = "batch")]
+    Batch {
+        /// File pattern to match (e.g., "*.py", "src/**/*.ts")
+        pattern: String,
+
+        /// Command to execute for each file
+        #[arg(long)]
+        command: String,
+
+        /// Number of parallel workers
+        #[arg(long, default_value = "5")]
+        parallel: usize,
+
+        /// Number of retry attempts per file
+        #[arg(long)]
+        retry: Option<u32>,
+
+        /// Timeout per file in seconds
+        #[arg(long)]
+        timeout: Option<u64>,
+
+        /// Working directory
+        #[arg(short = 'p', long)]
+        path: Option<PathBuf>,
+    },
+
+    /// Resume an interrupted workflow
+    #[command(name = "resume")]
+    Resume {
+        /// Workflow ID to resume
+        workflow_id: String,
+
+        /// Force resume even if marked complete
+        #[arg(long)]
+        force: bool,
+
+        /// Working directory
+        #[arg(short = 'p', long)]
+        path: Option<PathBuf>,
+    },
+
     /// Cook your code to perfection (make it better)
     #[command(name = "cook", alias = "improve")]
     Cook {
@@ -137,7 +225,7 @@ enum Commands {
         path: Option<PathBuf>,
     },
     /// Resume a MapReduce job from its checkpoint
-    #[command(name = "resume-job", alias = "resume")]
+    #[command(name = "resume-job")]
     ResumeJob {
         /// Job ID to resume
         job_id: String,
@@ -552,6 +640,50 @@ async fn run_goal_seek(params: GoalSeekParams) -> anyhow::Result<()> {
 /// Execute the appropriate command based on CLI input
 async fn execute_command(command: Option<Commands>) -> anyhow::Result<()> {
     match command {
+        Some(Commands::Run {
+            workflow,
+            path,
+            max_iterations,
+            worktree,
+            args,
+            auto_accept,
+        }) => {
+            // Run is an alias for cook with better semantics
+            let cook_cmd = prodigy::cook::command::CookCommand {
+                playbook: workflow,
+                path,
+                max_iterations,
+                worktree,
+                map: vec![],
+                args,
+                fail_fast: false,
+                auto_accept,
+                metrics: false,
+                resume: None,
+                quiet: false,
+                verbosity: 0,
+            };
+            prodigy::cook::cook(cook_cmd).await
+        }
+        Some(Commands::Exec {
+            command,
+            retry,
+            timeout,
+            path,
+        }) => run_exec_command(command, retry, timeout, path).await,
+        Some(Commands::Batch {
+            pattern,
+            command,
+            parallel,
+            retry,
+            timeout,
+            path,
+        }) => run_batch_command(pattern, command, parallel, retry, timeout, path).await,
+        Some(Commands::Resume {
+            workflow_id,
+            force,
+            path,
+        }) => run_resume_workflow(workflow_id, force, path).await,
         Some(Commands::Cook {
             playbook,
             path,
@@ -638,6 +770,166 @@ async fn execute_command(command: Option<Commands>) -> anyhow::Result<()> {
             let _ = cmd.print_help();
             println!(); // Add blank line for better formatting
             Ok(())
+        }
+    }
+}
+
+/// Run exec command - execute a single command with retry support
+async fn run_exec_command(
+    command: String,
+    retry: u32,
+    timeout: Option<u64>,
+    path: Option<PathBuf>,
+) -> anyhow::Result<()> {
+    use prodigy::cli::workflow_generator::{generate_exec_workflow, TemporaryWorkflow};
+
+    // Change to specified directory if provided
+    if let Some(p) = path.clone() {
+        std::env::set_current_dir(&p)?;
+    }
+
+    println!("🚀 Executing command: {}", command);
+    if retry > 1 {
+        println!("   Retry attempts: {}", retry);
+    }
+    if let Some(t) = timeout {
+        println!("   Timeout: {}s", t);
+    }
+
+    // Generate temporary workflow
+    let (_workflow, temp_path) = generate_exec_workflow(&command, retry, timeout)?;
+    let _temp_workflow = TemporaryWorkflow {
+        path: temp_path.clone(),
+    };
+
+    // Execute using cook command
+    let cook_cmd = prodigy::cook::command::CookCommand {
+        playbook: temp_path,
+        path,
+        max_iterations: 1,
+        worktree: false,
+        map: vec![],
+        args: vec![],
+        fail_fast: false,
+        auto_accept: true,
+        metrics: false,
+        resume: None,
+        quiet: false,
+        verbosity: 0,
+    };
+
+    prodigy::cook::cook(cook_cmd).await
+}
+
+/// Run batch command - process multiple files in parallel
+async fn run_batch_command(
+    pattern: String,
+    command: String,
+    parallel: usize,
+    retry: Option<u32>,
+    timeout: Option<u64>,
+    path: Option<PathBuf>,
+) -> anyhow::Result<()> {
+    use prodigy::cli::workflow_generator::{generate_batch_workflow, TemporaryWorkflow};
+
+    // Change to specified directory if provided
+    if let Some(p) = path.clone() {
+        std::env::set_current_dir(&p)?;
+    }
+
+    println!("📦 Starting batch processing");
+    println!("   Pattern: {}", pattern);
+    println!("   Command: {}", command);
+    println!("   Parallel workers: {}", parallel);
+    if let Some(r) = retry {
+        println!("   Retry attempts: {}", r);
+    }
+    if let Some(t) = timeout {
+        println!("   Timeout per file: {}s", t);
+    }
+
+    // Generate temporary workflow
+    let (_workflow, temp_path) =
+        generate_batch_workflow(&pattern, &command, parallel, retry, timeout)?;
+    let _temp_workflow = TemporaryWorkflow {
+        path: temp_path.clone(),
+    };
+
+    // Execute using cook command
+    let cook_cmd = prodigy::cook::command::CookCommand {
+        playbook: temp_path,
+        path,
+        max_iterations: 1,
+        worktree: false,
+        map: vec![],
+        args: vec![],
+        fail_fast: false,
+        auto_accept: true,
+        metrics: false,
+        resume: None,
+        quiet: false,
+        verbosity: 0,
+    };
+
+    prodigy::cook::cook(cook_cmd).await
+}
+
+/// Run resume workflow command
+async fn run_resume_workflow(
+    workflow_id: String,
+    force: bool,
+    path: Option<PathBuf>,
+) -> anyhow::Result<()> {
+    use prodigy::cook::session::{SessionManager, SessionTrackerImpl};
+
+    let working_dir = path.unwrap_or_else(|| std::env::current_dir().unwrap());
+    let session_tracker = SessionTrackerImpl::new("resume".to_string(), working_dir.clone());
+
+    // Check if session exists and is resumable
+    match session_tracker.load_session(&workflow_id).await {
+        Ok(state) => {
+            if !state.is_resumable() && !force {
+                anyhow::bail!(
+                    "Session {} is not resumable (status: {:?}). Use --force to override.",
+                    workflow_id,
+                    state.status
+                );
+            }
+
+            println!("📂 Resuming workflow: {}", workflow_id);
+            println!("   Status: {:?}", state.status);
+            println!(
+                "   Progress: {} iterations completed",
+                state.iterations_completed
+            );
+
+            if let Some(workflow_state) = state.workflow_state {
+                // Resume the workflow using the saved state
+                let cook_cmd = prodigy::cook::command::CookCommand {
+                    playbook: workflow_state.workflow_path.clone(),
+                    path: Some(working_dir),
+                    max_iterations: 1, // Default to 1 for resume
+                    worktree: state.worktree_name.is_some(),
+                    map: workflow_state.map_patterns.clone(),
+                    args: workflow_state.input_args.clone(),
+                    fail_fast: false,
+                    auto_accept: true,
+                    metrics: false,
+                    resume: Some(workflow_id),
+                    quiet: false,
+                    verbosity: 0,
+                };
+
+                prodigy::cook::cook(cook_cmd).await
+            } else {
+                anyhow::bail!(
+                    "Session {} does not have workflow state to resume",
+                    workflow_id
+                );
+            }
+        }
+        Err(e) => {
+            anyhow::bail!("Failed to load session {}: {}", workflow_id, e);
         }
     }
 }
