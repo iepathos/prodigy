@@ -1,0 +1,7 @@
+# Test workflow for resume functionality
+# This workflow will fail at step 3 to test checkpoint/resume
+- shell: echo "Step 1 - Starting workflow"
+- shell: echo "Step 2 - Processing data"
+- shell: exit 1  # This will cause the workflow to fail
+- shell: echo "Step 4 - This should run on resume"
+- shell: echo "Step 5 - Final step"

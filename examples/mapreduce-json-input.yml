@@ -1,0 +1,48 @@
+# Example: MapReduce workflow using JSON file as input
+# This demonstrates processing structured data from a JSON file
+name: process-work-items
+mode: mapreduce
+
+# Setup phase - create the JSON file with work items
+setup:
+  - shell: |
+      cat > work-items.json <<EOF
+      {
+        "items": [
+          {"id": 1, "file": "src/main.rs", "task": "add-types"},
+          {"id": 2, "file": "src/lib.rs", "task": "refactor"},
+          {"id": 3, "file": "src/config.rs", "task": "optimize"}
+        ]
+      }
+      EOF
+  - shell: echo "Created work-items.json with $(jq '.items | length' work-items.json) items"
+
+# Map phase - process each item from the JSON file
+map:
+  # JSON file path
+  input: "work-items.json"
+
+  # JSONPath expression to extract items
+  json_path: "$.items[*]"
+
+  # Template for each parallel agent
+  agent_template:
+    commands:
+      - shell: echo "Processing item ${item.id}: ${item.task} for ${item.file}"
+      - shell: |
+          # Simulate processing
+          sleep 1
+          echo "Completed ${item.task} on ${item.file}"
+
+  # Run up to 3 agents in parallel
+  max_parallel: 3
+
+  # Timeout per agent
+  timeout_per_agent: 60
+
+# Reduce phase - aggregate results
+reduce:
+  commands:
+    - shell: echo "Processed ${map.total} items"
+    - shell: echo "Successful: ${map.successful}, Failed: ${map.failed}"
+    - shell: rm -f work-items.json

@@ -916,8 +916,10 @@ async fn run_resume_workflow(
     force: bool,
     path: Option<PathBuf>,
 ) -> anyhow::Result<()> {
+    use prodigy::cook::execution::claude::ClaudeExecutorImpl;
+    use prodigy::cook::interaction::DefaultUserInteraction;
     use prodigy::cook::session::{SessionManager, SessionTrackerImpl};
-    use prodigy::cook::workflow::{CheckpointManager, ResumeOptions};
+    use prodigy::cook::workflow::{CheckpointManager, ResumeExecutor, ResumeOptions};
     use std::sync::Arc;
 
     let working_dir = path.unwrap_or_else(|| std::env::current_dir().unwrap());
@@ -939,25 +941,110 @@ async fn run_resume_workflow(
                 );
                 println!("   Status: {:?}", checkpoint.execution_state.status);
 
+                // Try to find the workflow file
+                let workflow_path = if let Some(ref name) = checkpoint.workflow_name {
+                    // Try common workflow file names including current directory
+                    let possible_paths = [
+                        working_dir.join(format!("{}.yml", name)),
+                        working_dir.join(format!("{}.yaml", name)),
+                        working_dir.join("workflow.yml"),
+                        working_dir.join("workflow.yaml"),
+                        working_dir.join("playbook.yml"),
+                        working_dir.join("playbook.yaml"),
+                        // Also check for test files
+                        working_dir.join("test_complete_resume.yml"),
+                        working_dir.join("test_checkpoint.yml"),
+                    ];
+
+                    if let Some(found_path) = possible_paths.iter().find(|p| p.exists()) {
+                        found_path.clone()
+                    } else {
+                        // Ask user for the workflow file
+                        println!("⚠️  Could not find workflow file automatically.");
+                        println!("   Please specify the workflow file path with --path");
+                        println!(
+                            "   Searched in: {:?}",
+                            possible_paths
+                                .iter()
+                                .map(|p| p.display())
+                                .collect::<Vec<_>>()
+                        );
+                        std::process::exit(1);
+                    }
+                } else {
+                    // If no workflow name, try to find any YAML file
+                    let yaml_files: Vec<PathBuf> = std::fs::read_dir(&working_dir)
+                        .unwrap_or_else(|_| panic!("Could not read directory"))
+                        .filter_map(|entry| {
+                            let entry = entry.ok()?;
+                            let path = entry.path();
+                            if path.extension().and_then(|s| s.to_str()) == Some("yml") {
+                                Some(path)
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+
+                    if yaml_files.len() == 1 {
+                        yaml_files.into_iter().next().unwrap()
+                    } else {
+                        println!("⚠️  Checkpoint doesn't contain workflow file information.");
+                        println!("   Found {} YAML files: {:?}", yaml_files.len(), yaml_files);
+                        println!("   Please specify the workflow file path with --path");
+                        std::process::exit(1);
+                    }
+                };
+
                 // Create resume options
-                let _resume_options = ResumeOptions {
+                let resume_options = ResumeOptions {
                     force,
                     from_step: None,
                     reset_failures: false,
                     skip_validation: false,
                 };
 
-                // Create workflow executor (simplified for now)
+                // Create executors for resume
+                let command_runner = prodigy::cook::execution::runner::RealCommandRunner::new();
+                let claude_executor = Arc::new(ClaudeExecutorImpl::new(command_runner));
+                let session_tracker = Arc::new(SessionTrackerImpl::new(
+                    format!("resume-{}", workflow_id),
+                    working_dir.clone(),
+                ));
+                let user_interaction = Arc::new(DefaultUserInteraction::default());
+
+                // Create resume executor with full execution support
+                let resume_executor = ResumeExecutor::new(checkpoint_manager.clone())
+                    .with_executors(
+                        claude_executor.clone(),
+                        session_tracker.clone(),
+                        user_interaction.clone(),
+                    );
+
                 println!("📂 Resuming workflow from checkpoint...");
+                println!("   Workflow file: {}", workflow_path.display());
                 println!(
                     "   Skipping {} completed steps",
                     checkpoint.execution_state.current_step_index
                 );
 
-                // For now, we'll fall back to the session-based resume
-                // In a full implementation, we'd create the workflow executor and resume
-                println!("Note: Full checkpoint-based resume infrastructure is ready.");
-                println!("      Falling back to session-based resume for compatibility.");
+                // Execute from checkpoint
+                match resume_executor
+                    .execute_from_checkpoint(&workflow_id, &workflow_path, resume_options)
+                    .await
+                {
+                    Ok(result) => {
+                        println!("✅ Workflow resumed successfully!");
+                        println!(
+                            "   Executed {} new steps (skipped {})",
+                            result.new_steps_executed, result.skipped_steps
+                        );
+                        return Ok(());
+                    }
+                    Err(e) => {
+                        return Err(anyhow::anyhow!("Failed to resume workflow: {}", e));
+                    }
+                }
             }
             Err(_) => {
                 // No checkpoint found, try session-based resume

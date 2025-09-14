@@ -9,6 +9,9 @@ use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::{SessionManager, SessionUpdate};
+use crate::cook::workflow::checkpoint::{
+    create_checkpoint_with_total_steps, CheckpointManager, CompletedStep as CheckpointCompletedStep,
+};
 use crate::cook::workflow::normalized;
 use crate::cook::workflow::on_failure::OnFailureConfig;
 use crate::cook::workflow::validation::{ValidationConfig, ValidationResult};
@@ -477,6 +480,12 @@ pub struct WorkflowExecutor {
     sensitive_config: SensitivePatternConfig,
     /// Track completed steps for resume functionality
     completed_steps: Vec<crate::cook::session::StepResult>,
+    /// Checkpoint manager for workflow resumption
+    checkpoint_manager: Option<Arc<CheckpointManager>>,
+    /// Workflow ID for checkpoint tracking
+    workflow_id: Option<String>,
+    /// Checkpoint completed steps (separate from session steps)
+    checkpoint_completed_steps: Vec<CheckpointCompletedStep>,
 }
 
 impl WorkflowExecutor {
@@ -1183,7 +1192,21 @@ impl WorkflowExecutor {
             subprocess: crate::subprocess::SubprocessManager::production(),
             sensitive_config: SensitivePatternConfig::default(),
             completed_steps: Vec::new(),
+            checkpoint_manager: None,
+            workflow_id: None,
+            checkpoint_completed_steps: Vec::new(),
         }
+    }
+
+    /// Set the checkpoint manager for workflow resumption
+    pub fn with_checkpoint_manager(
+        mut self,
+        manager: Arc<CheckpointManager>,
+        workflow_id: String,
+    ) -> Self {
+        self.checkpoint_manager = Some(manager);
+        self.workflow_id = Some(workflow_id);
+        self
     }
 
     /// Configure sensitive pattern detection
@@ -1209,6 +1232,9 @@ impl WorkflowExecutor {
             subprocess: crate::subprocess::SubprocessManager::production(),
             sensitive_config: SensitivePatternConfig::default(),
             completed_steps: Vec::new(),
+            checkpoint_manager: None,
+            workflow_id: None,
+            checkpoint_completed_steps: Vec::new(),
         }
     }
 
@@ -1525,7 +1551,52 @@ impl WorkflowExecutor {
                     completed_at: step_completed_at,
                     exit_code: step_result.exit_code,
                 };
-                self.completed_steps.push(completed_step);
+                self.completed_steps.push(completed_step.clone());
+
+                // Also track for checkpoint system
+                let checkpoint_step = CheckpointCompletedStep {
+                    step_index,
+                    command: step_display.clone(),
+                    success: step_result.success,
+                    output: if step.capture_output.is_enabled() {
+                        Some(step_result.stdout.clone())
+                    } else {
+                        None
+                    },
+                    captured_variables: workflow_context.captured_outputs.clone(),
+                    duration: command_duration,
+                    completed_at: step_completed_at,
+                };
+                self.checkpoint_completed_steps.push(checkpoint_step);
+
+                // Save checkpoint if manager is available
+                if let Some(ref checkpoint_manager) = self.checkpoint_manager {
+                    if let Some(ref workflow_id) = self.workflow_id {
+                        // Create a normalized workflow for hashing (simplified)
+                        let workflow_hash = format!("{:?}", workflow.steps.len());
+
+                        // Build checkpoint
+                        let checkpoint = create_checkpoint_with_total_steps(
+                            workflow_id.clone(),
+                            &normalized::NormalizedWorkflow {
+                                name: workflow.name.clone(),
+                                steps: vec![], // We'd need to convert, but for now use empty
+                                execution_mode: normalized::ExecutionMode::Sequential,
+                                variables: workflow_context.variables.clone(),
+                            },
+                            &workflow_context,
+                            self.checkpoint_completed_steps.clone(),
+                            step_index + 1,
+                            workflow_hash,
+                            workflow.steps.len(), // Pass the actual total steps count
+                        );
+
+                        // Save checkpoint asynchronously
+                        if let Err(e) = checkpoint_manager.save_checkpoint(&checkpoint).await {
+                            tracing::warn!("Failed to save checkpoint: {}", e);
+                        }
+                    }
+                }
 
                 // Save checkpoint after successful step execution
                 let workflow_state = crate::cook::session::WorkflowState {
@@ -1655,7 +1726,7 @@ impl WorkflowExecutor {
     }
 
     /// Execute a single workflow step
-    async fn execute_step(
+    pub async fn execute_step(
         &mut self,
         step: &WorkflowStep,
         env: &ExecutionEnvironment,

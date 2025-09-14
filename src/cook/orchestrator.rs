@@ -1023,12 +1023,19 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 
         // Analysis functionality has been removed in v0.3.0
 
-        // Create workflow executor
+        // Create workflow executor with checkpoint support
+        let checkpoint_dir = env.working_dir.join(".prodigy/checkpoints");
+        let checkpoint_manager = Arc::new(crate::cook::workflow::CheckpointManager::new(
+            checkpoint_dir,
+        ));
+        let workflow_id = format!("workflow-{}", chrono::Utc::now().timestamp_millis());
+
         let mut executor = crate::cook::workflow::WorkflowExecutorImpl::new(
             self.claude_executor.clone(),
             self.session_manager.clone(),
             self.user_interaction.clone(),
-        );
+        )
+        .with_checkpoint_manager(checkpoint_manager, workflow_id);
 
         // Execute workflow steps
         executor.execute(&extended_workflow, env).await?;
@@ -1649,12 +1656,19 @@ impl DefaultCookOrchestrator {
         // Set the ARG environment variable so the executor can pick it up
         std::env::set_var("PRODIGY_ARG", input);
 
-        // Create workflow executor
+        // Create workflow executor with checkpoint support
+        let checkpoint_dir = env.working_dir.join(".prodigy/checkpoints");
+        let checkpoint_manager = Arc::new(crate::cook::workflow::CheckpointManager::new(
+            checkpoint_dir,
+        ));
+        let workflow_id = format!("workflow-{}", chrono::Utc::now().timestamp_millis());
+
         let mut executor = crate::cook::workflow::WorkflowExecutorImpl::new(
             self.claude_executor.clone(),
             self.session_manager.clone(),
             self.user_interaction.clone(),
-        );
+        )
+        .with_checkpoint_manager(checkpoint_manager, workflow_id);
 
         // Set test config if available
         if let Some(test_config) = &self.test_config {

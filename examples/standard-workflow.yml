@@ -1,0 +1,14 @@
+# Example: Standard sequential workflow
+# This demonstrates a simple workflow with multiple steps
+- shell: echo "Starting code analysis..."
+- shell: find . -name "*.rs" -type f | wc -l | xargs -I {} echo "Found {} Rust files"
+- shell: echo "Running cargo check..."
+- shell: cargo check --quiet 2>&1 || echo "Check completed"
+- shell: echo "Checking documentation..."
+- shell: |
+    if [ -f README.md ]; then
+      echo "README.md exists"
+    else
+      echo "README.md not found"
+    fi
+- shell: echo "Workflow complete"

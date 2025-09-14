@@ -33,53 +33,95 @@ pub fn generate_batch_workflow(
     retry: Option<u32>,
     timeout: Option<u64>,
 ) -> Result<(Value, PathBuf)> {
-    // Create a MapReduce workflow structure
-    let mut agent_step = parse_command(&command.replace("${item}", "${item.path}"));
-    if let Some(r) = retry {
-        agent_step.max_attempts = Some(r);
-    }
-    if let Some(t) = timeout {
-        agent_step.timeout_seconds = Some(t);
-    }
+    // Create workflow step with functional approach
+    let agent_step = create_workflow_step(command, retry, timeout);
 
-    // Build the MapReduce configuration as a YAML Value
+    // Build the MapReduce configuration functionally
+    let map_config = build_map_config(pattern, parallel, agent_step)?;
+    let reduce_config = build_reduce_config();
+    let workflow = build_mapreduce_workflow(map_config, reduce_config);
+
+    let temp_file = create_temp_workflow_yaml(&workflow)?;
+    Ok((workflow, temp_file))
+}
+
+/// Create a workflow step with optional retry and timeout
+fn create_workflow_step(command: &str, retry: Option<u32>, timeout: Option<u64>) -> WorkflowStep {
+    // Parse command as-is for MapReduce (${item} will be resolved during execution)
+    let mut step = parse_command(command);
+    step.max_attempts = retry.filter(|&r| r > 1);
+    step.timeout_seconds = timeout;
+    step
+}
+
+/// Build the map configuration for MapReduce
+fn build_map_config(
+    pattern: &str,
+    parallel: usize,
+    agent_step: WorkflowStep,
+) -> Result<serde_yaml::Mapping> {
     let mut map_config = serde_yaml::Mapping::new();
+
+    // Use find command to generate file list as input
+    let find_command = format!("find . -name '{}'", pattern);
     map_config.insert(
-        Value::String("path".to_string()),
-        Value::String(pattern.to_string()),
+        Value::String("input".to_string()),
+        Value::String(find_command),
     );
     map_config.insert(
         Value::String("max_parallel".to_string()),
         Value::Number(parallel.into()),
     );
 
-    // agent_template needs a commands field
-    let mut agent_template_config = serde_yaml::Mapping::new();
+    // Build agent template with commands
+    let agent_template = build_agent_template(agent_step)?;
+    map_config.insert(
+        Value::String("agent_template".to_string()),
+        Value::Mapping(agent_template),
+    );
+
+    Ok(map_config)
+}
+
+/// Build the agent template configuration
+fn build_agent_template(agent_step: WorkflowStep) -> Result<serde_yaml::Mapping> {
+    let mut agent_template = serde_yaml::Mapping::new();
     let commands = vec![serde_yaml::to_value(agent_step)?];
-    agent_template_config.insert(
+    agent_template.insert(
         Value::String("commands".to_string()),
         Value::Sequence(commands),
     );
-    map_config.insert(
-        Value::String("agent_template".to_string()),
-        Value::Mapping(agent_template_config),
-    );
+    Ok(agent_template)
+}
 
+/// Build the reduce configuration
+fn build_reduce_config() -> serde_yaml::Mapping {
     let mut reduce_config = serde_yaml::Mapping::new();
-    let mut reduce_steps = Vec::new();
+    let summary_step = build_summary_step();
+    reduce_config.insert(
+        Value::String("commands".to_string()),
+        Value::Sequence(vec![Value::Mapping(summary_step)]),
+    );
+    reduce_config
+}
+
+/// Build the summary step for reduce phase
+fn build_summary_step() -> serde_yaml::Mapping {
     let mut summary_step = serde_yaml::Mapping::new();
     summary_step.insert(
         Value::String("shell".to_string()),
         Value::String(
-            "echo 'Batch processing complete. Processed ${map.results.length} files.'".to_string(),
+            "echo 'Batch processing complete. Processed ${map.successful} items.'".to_string(),
         ),
     );
-    reduce_steps.push(Value::Mapping(summary_step));
-    reduce_config.insert(
-        Value::String("steps".to_string()),
-        Value::Sequence(reduce_steps),
-    );
+    summary_step
+}
 
+/// Build the complete MapReduce workflow
+fn build_mapreduce_workflow(
+    map_config: serde_yaml::Mapping,
+    reduce_config: serde_yaml::Mapping,
+) -> Value {
     let mut workflow_root = serde_yaml::Mapping::new();
     workflow_root.insert(
         Value::String("name".to_string()),
@@ -95,10 +137,7 @@ pub fn generate_batch_workflow(
         Value::Mapping(reduce_config),
     );
 
-    let workflow = Value::Mapping(workflow_root);
-
-    let temp_file = create_temp_workflow_yaml(&workflow)?;
-    Ok((workflow, temp_file))
+    Value::Mapping(workflow_root)
 }
 
 /// Parse a command string into the appropriate command type
@@ -230,6 +269,18 @@ mod tests {
             assert!(map.contains_key(&Value::String("mode".to_string())));
             assert!(map.contains_key(&Value::String("map".to_string())));
             assert!(map.contains_key(&Value::String("reduce".to_string())));
+
+            // Verify map config has input field
+            if let Some(Value::Mapping(map_config)) = map.get(&Value::String("map".to_string())) {
+                assert!(map_config.contains_key(&Value::String("input".to_string())));
+                // Check that input contains the find command
+                if let Some(Value::String(input)) =
+                    map_config.get(&Value::String("input".to_string()))
+                {
+                    assert!(input.contains("find"));
+                    assert!(input.contains("*.py"));
+                }
+            }
         } else {
             panic!("Expected a mapping for batch workflow");
         }

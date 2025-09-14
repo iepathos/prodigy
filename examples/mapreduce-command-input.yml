@@ -1,0 +1,33 @@
+# Example: MapReduce workflow using command output as input
+# This demonstrates using shell commands to generate work items
+name: analyze-rust-files
+mode: mapreduce
+
+# Setup phase - runs once before map phase
+setup:
+  - shell: "echo 'Starting analysis of Rust files...'"
+  - shell: "pwd | xargs -I {} echo 'Repository: {}'"
+
+# Map phase - processes items in parallel
+map:
+  # Use find command to generate list of Rust files
+  input: "find . -name '*.rs' -type f | head -20"
+
+  # Template for each parallel agent
+  agent_template:
+    commands:
+      - shell: echo "Analyzing ${item}"
+      - shell: |
+          wc -l "${item}" | awk '{print "Lines in " $2 ": " $1}'
+
+  # Run up to 5 agents in parallel
+  max_parallel: 5
+
+  # Timeout per agent (seconds)
+  timeout_per_agent: 30
+
+# Reduce phase - runs once after all map agents complete
+reduce:
+  commands:
+    - shell: echo "Analysis complete. Results available in map.results"
+    - shell: echo "Total items processed"

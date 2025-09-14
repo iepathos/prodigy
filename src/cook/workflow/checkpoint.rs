@@ -43,6 +43,8 @@ pub struct WorkflowCheckpoint {
     pub total_steps: usize,
     /// Workflow name for reference
     pub workflow_name: Option<String>,
+    /// Path to workflow file for resume
+    pub workflow_path: Option<PathBuf>,
 }
 
 /// Current state of workflow execution
@@ -318,6 +320,27 @@ pub fn create_checkpoint(
     current_step: usize,
     workflow_hash: String,
 ) -> WorkflowCheckpoint {
+    create_checkpoint_with_total_steps(
+        workflow_id,
+        workflow,
+        context,
+        completed_steps,
+        current_step,
+        workflow_hash,
+        workflow.steps.len(),
+    )
+}
+
+/// Create a checkpoint from current workflow state with explicit total steps
+pub fn create_checkpoint_with_total_steps(
+    workflow_id: String,
+    workflow: &NormalizedWorkflow,
+    context: &WorkflowContext,
+    completed_steps: Vec<CompletedStep>,
+    current_step: usize,
+    workflow_hash: String,
+    total_steps: usize,
+) -> WorkflowCheckpoint {
     // Convert WorkflowContext variables to Value map
     let mut variable_state = HashMap::new();
     for (key, value) in &context.variables {
@@ -331,7 +354,7 @@ pub fn create_checkpoint(
         workflow_id,
         execution_state: ExecutionState {
             current_step_index: current_step,
-            total_steps: workflow.steps.len(),
+            total_steps,
             status: WorkflowStatus::Running,
             start_time: Utc::now(),
             last_checkpoint: Utc::now(),
@@ -344,8 +367,9 @@ pub fn create_checkpoint(
         timestamp: Utc::now(),
         version: CHECKPOINT_VERSION,
         workflow_hash,
-        total_steps: workflow.steps.len(),
+        total_steps,
         workflow_name: Some(workflow.name.clone()),
+        workflow_path: None, // Will be set by the executor if available
     }
 }
 

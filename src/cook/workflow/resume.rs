@@ -2,10 +2,15 @@
 //!
 //! Handles resuming interrupted workflows from checkpoints.
 
+use crate::config::WorkflowConfig;
+use crate::cook::execution::ClaudeExecutor;
+use crate::cook::interaction::UserInteraction;
+use crate::cook::orchestrator::ExecutionEnvironment;
+use crate::cook::session::SessionManager;
 use crate::cook::workflow::checkpoint::{
     self, CheckpointManager, ResumeContext, ResumeOptions, WorkflowCheckpoint,
 };
-use crate::cook::workflow::executor::WorkflowContext;
+use crate::cook::workflow::executor::{WorkflowContext, WorkflowExecutor as WorkflowExecutorImpl};
 use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
 use std::path::PathBuf;
@@ -31,12 +36,36 @@ pub struct ResumeResult {
 pub struct ResumeExecutor {
     /// Checkpoint manager for loading/saving
     checkpoint_manager: Arc<CheckpointManager>,
+    /// Claude executor for commands
+    claude_executor: Option<Arc<dyn ClaudeExecutor>>,
+    /// Session manager
+    session_manager: Option<Arc<dyn SessionManager>>,
+    /// User interaction
+    user_interaction: Option<Arc<dyn UserInteraction>>,
 }
 
 impl ResumeExecutor {
     /// Create a new resume executor
     pub fn new(checkpoint_manager: Arc<CheckpointManager>) -> Self {
-        Self { checkpoint_manager }
+        Self {
+            checkpoint_manager,
+            claude_executor: None,
+            session_manager: None,
+            user_interaction: None,
+        }
+    }
+
+    /// Set the executors for workflow execution
+    pub fn with_executors(
+        mut self,
+        claude_executor: Arc<dyn ClaudeExecutor>,
+        session_manager: Arc<dyn SessionManager>,
+        user_interaction: Arc<dyn UserInteraction>,
+    ) -> Self {
+        self.claude_executor = Some(claude_executor);
+        self.session_manager = Some(session_manager);
+        self.user_interaction = Some(user_interaction);
+        self
     }
 
     /// Resume a workflow from checkpoint
@@ -203,6 +232,214 @@ impl ResumeExecutor {
         }
 
         Ok(context)
+    }
+
+    /// Execute workflow from checkpoint with full execution support
+    pub async fn execute_from_checkpoint(
+        &self,
+        workflow_id: &str,
+        workflow_path: &PathBuf,
+        options: ResumeOptions,
+    ) -> Result<ResumeResult> {
+        // Ensure we have executors
+        let claude_executor = self
+            .claude_executor
+            .as_ref()
+            .ok_or_else(|| anyhow!("Claude executor not configured for resume"))?;
+        let session_manager = self
+            .session_manager
+            .as_ref()
+            .ok_or_else(|| anyhow!("Session manager not configured for resume"))?;
+        let user_interaction = self
+            .user_interaction
+            .as_ref()
+            .ok_or_else(|| anyhow!("User interaction not configured for resume"))?;
+
+        info!("Executing workflow {} from checkpoint", workflow_id);
+
+        // Load checkpoint
+        let checkpoint = self
+            .checkpoint_manager
+            .load_checkpoint(workflow_id)
+            .await
+            .context("Failed to load checkpoint")?;
+
+        // Validate checkpoint
+        if !options.skip_validation {
+            self.validate_checkpoint(&checkpoint)?;
+        }
+
+        // Load the workflow file
+        let workflow_content = tokio::fs::read_to_string(workflow_path)
+            .await
+            .context("Failed to read workflow file")?;
+
+        // Parse workflow based on type
+        let workflow_config: WorkflowConfig = if workflow_path.extension().and_then(|s| s.to_str())
+            == Some("yml")
+            || workflow_path.extension().and_then(|s| s.to_str()) == Some("yaml")
+        {
+            serde_yaml::from_str(&workflow_content)?
+        } else if workflow_path.extension().and_then(|s| s.to_str()) == Some("json") {
+            serde_json::from_str(&workflow_content)?
+        } else {
+            return Err(anyhow!("Unsupported workflow file format"));
+        };
+
+        // Convert workflow commands to steps
+        let steps = workflow_config
+            .commands
+            .into_iter()
+            .map(|cmd| {
+                let mut step = crate::cook::workflow::executor::WorkflowStep {
+                    name: None,
+                    claude: None,
+                    shell: None,
+                    test: None,
+                    goal_seek: None,
+                    command: None,
+                    handler: None,
+                    capture_output: crate::cook::workflow::executor::CaptureOutput::Disabled,
+                    timeout: None,
+                    working_dir: None,
+                    env: std::collections::HashMap::new(),
+                    on_failure: None,
+                    on_success: None,
+                    on_exit_code: std::collections::HashMap::new(),
+                    commit_required: false,
+                    validate: None,
+                };
+
+                // Parse command based on enum variant
+                match cmd {
+                    crate::config::WorkflowCommand::Simple(cmd_str) => {
+                        if cmd_str.starts_with("claude:") {
+                            step.claude =
+                                Some(cmd_str.strip_prefix("claude:").unwrap().trim().to_string());
+                        } else if cmd_str.starts_with("shell:") {
+                            step.shell =
+                                Some(cmd_str.strip_prefix("shell:").unwrap().trim().to_string());
+                        } else if !cmd_str.contains(':') {
+                            // Default to shell if no prefix
+                            step.shell = Some(cmd_str);
+                        } else {
+                            // Treat as legacy command
+                            step.command = Some(cmd_str);
+                        }
+                    }
+                    crate::config::WorkflowCommand::WorkflowStep(wf_step) => {
+                        step.claude = wf_step.claude;
+                        step.shell = wf_step.shell;
+                        // Copy other fields if they exist
+                    }
+                    _ => {
+                        // For other variants, try to convert to a command string
+                        step.command = Some(format!("{:?}", cmd));
+                    }
+                }
+
+                step
+            })
+            .collect();
+
+        // Convert to extended workflow config
+        let extended_workflow = crate::cook::workflow::executor::ExtendedWorkflowConfig {
+            name: checkpoint
+                .workflow_name
+                .clone()
+                .unwrap_or_else(|| "resumed".to_string()),
+            steps,
+            mode: crate::cook::workflow::executor::WorkflowMode::Sequential,
+            max_iterations: 1,
+            iterate: false,
+            map_phase: None,    // Not a MapReduce workflow
+            reduce_phase: None, // Not a MapReduce workflow
+        };
+
+        // Create execution environment
+        let env = ExecutionEnvironment {
+            working_dir: workflow_path
+                .parent()
+                .unwrap_or_else(|| std::path::Path::new("."))
+                .to_path_buf(),
+            project_dir: workflow_path
+                .parent()
+                .unwrap_or_else(|| std::path::Path::new("."))
+                .to_path_buf(),
+            worktree_name: None,
+            session_id: format!("resume-{}", workflow_id),
+        };
+
+        // Restore workflow context
+        let mut workflow_context = self.restore_workflow_context(&checkpoint)?;
+
+        // Create workflow executor with checkpoint support
+        let mut executor = WorkflowExecutorImpl::new(
+            claude_executor.clone(),
+            session_manager.clone(),
+            user_interaction.clone(),
+        )
+        .with_checkpoint_manager(self.checkpoint_manager.clone(), workflow_id.to_string());
+
+        // Execute remaining steps
+        let start_from = checkpoint.execution_state.current_step_index;
+        let total_steps = extended_workflow.steps.len();
+        let mut steps_executed = 0;
+
+        info!(
+            "Resuming execution from step {} of {}",
+            start_from + 1,
+            total_steps
+        );
+
+        // Skip completed steps and execute remaining ones
+        for (step_index, step) in extended_workflow.steps.iter().enumerate() {
+            if step_index < start_from {
+                info!("Skipping completed step {}: {:?}", step_index + 1, step);
+                continue;
+            }
+
+            info!(
+                "Executing step {}/{}: {:?}",
+                step_index + 1,
+                total_steps,
+                step
+            );
+
+            // Execute the step
+            match executor
+                .execute_step(step, &env, &mut workflow_context)
+                .await
+            {
+                Ok(_result) => {
+                    steps_executed += 1;
+                    info!("Step {} completed successfully", step_index + 1);
+                }
+                Err(e) => {
+                    // If step fails, save checkpoint and return error
+                    info!("Step {} failed: {}", step_index + 1, e);
+                    return Err(e);
+                }
+            }
+        }
+
+        // Delete checkpoint on successful completion
+        self.checkpoint_manager
+            .delete_checkpoint(workflow_id)
+            .await?;
+
+        info!(
+            "Workflow {} completed successfully. Executed {} new steps.",
+            workflow_id, steps_executed
+        );
+
+        Ok(ResumeResult {
+            success: true,
+            total_steps_executed: total_steps,
+            skipped_steps: start_from,
+            new_steps_executed: steps_executed,
+            final_context: workflow_context,
+        })
     }
 }
 
