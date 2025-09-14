@@ -337,6 +337,10 @@ pub struct WorkflowStepCommand {
     /// Timeout in seconds for command execution
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeout: Option<u64>,
+
+    /// Conditional execution expression
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub when: Option<String>,
 }
 
 impl<'de> Deserialize<'de> for WorkflowStepCommand {
@@ -363,6 +367,7 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
             on_success: Option<Box<WorkflowStepCommand>>,
             validate: Option<crate::cook::workflow::validation::ValidationConfig>,
             timeout: Option<u64>,
+            when: Option<String>,
         }
 
         let helper = Helper::deserialize(deserializer)?;
@@ -414,6 +419,7 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
             on_success: helper.on_success,
             validate: helper.validate,
             timeout: helper.timeout,
+            when: helper.when,
         })
     }
 }
@@ -836,6 +842,53 @@ analysis:
         assert!(!step.commit_required);
         assert!(step.outputs.is_some());
         assert!(step.analysis.is_some());
+        assert!(step.when.is_none());
+    }
+
+    #[test]
+    fn test_workflow_step_command_with_when_clause() {
+        // Test parsing with when clause
+        let yaml = r#"
+claud_e: "/prodigy-test"
+when: "${build.success} == true"
+"#;
+
+        let step: WorkflowStepCommand = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(step.claude, Some("/prodigy-test".to_string()));
+        assert_eq!(step.when, Some("${build.success} == true".to_string()));
+    }
+
+    #[test]
+    fn test_conditional_workflow_serialization() {
+        // Test serialization and deserialization of when clauses
+        let step = WorkflowStepCommand {
+            claude: Some("/prodigy-test".to_string()),
+            shell: None,
+            analyze: None,
+            test: None,
+            goal_seek: None,
+            foreach: None,
+            id: Some("test-step".to_string()),
+            commit_required: false,
+            analysis: None,
+            outputs: None,
+            capture_output: false,
+            on_failure: None,
+            on_success: None,
+            validate: None,
+            timeout: None,
+            when: Some("${env} == 'production'".to_string()),
+        };
+
+        let yaml = serde_yaml::to_string(&step).unwrap();
+        assert!(yaml.contains("when:"));
+        assert!(yaml.contains("${env} == 'production'"));
+
+        let deserialized: WorkflowStepCommand = serde_yaml::from_str(&yaml).unwrap();
+        assert_eq!(
+            deserialized.when,
+            Some("${env} == 'production'".to_string())
+        );
     }
 
     #[test]

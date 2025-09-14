@@ -32,6 +32,7 @@ mod tests {
                     env: HashMap::new(),
                     outputs: None,
                     commit_required: false,
+                    when: None,
                 },
                 NormalizedStep {
                     id: "step-2".to_string(),
@@ -43,6 +44,7 @@ mod tests {
                     env: HashMap::new(),
                     outputs: None,
                     commit_required: false,
+                    when: None,
                 },
                 NormalizedStep {
                     id: "step-3".to_string(),
@@ -54,6 +56,7 @@ mod tests {
                     env: HashMap::new(),
                     outputs: None,
                     commit_required: false,
+                    when: None,
                 },
             ],
             execution_mode: crate::cook::workflow::normalized::ExecutionMode::Sequential,

@@ -35,6 +35,7 @@ pub struct NormalizedStep {
     pub env: HashMap<String, String>,
     pub outputs: Option<HashMap<String, OutputDeclaration>>,
     pub commit_required: bool,
+    pub when: Option<String>,
 }
 
 /// Command representation within a normalized step
@@ -176,6 +177,7 @@ impl NormalizedWorkflow {
                     env: HashMap::new(), // WorkflowStepCommand doesn't have env field
                     outputs: step.outputs.clone(),
                     commit_required: step.commit_required,
+                    when: step.when.clone(),
                 })
             }
             WorkflowCommand::Structured(cmd) => {
@@ -193,6 +195,7 @@ impl NormalizedWorkflow {
                     env: cmd.metadata.env.clone(),
                     outputs: cmd.outputs.clone(),
                     commit_required: cmd.metadata.commit_required,
+                    when: None, // Structured commands don't have when clauses
                 })
             }
             WorkflowCommand::SimpleObject(cmd) => {
@@ -207,6 +210,7 @@ impl NormalizedWorkflow {
                     env: HashMap::new(),
                     outputs: None,
                     commit_required: cmd.commit_required.unwrap_or(false),
+                    when: None, // SimpleObject commands don't have when clauses
                 })
             }
             WorkflowCommand::Simple(cmd) => {
@@ -221,6 +225,7 @@ impl NormalizedWorkflow {
                     env: HashMap::new(),
                     outputs: None,
                     commit_required: false,
+                    when: None, // Simple commands don't have when clauses
                 })
             }
         }
@@ -255,6 +260,7 @@ impl NormalizedWorkflow {
             on_exit_code: HashMap::new(),
             commit_required: cmd.commit_required,
             validate: cmd.validate.clone(),
+            when: cmd.when.clone(),
         }
     }
 
@@ -339,6 +345,7 @@ impl NormalizedWorkflow {
                     on_exit_code: step.handlers.on_exit_code.clone(),
                     commit_required: step.commit_required,
                     validate: step.validation.clone(), // PRESERVED!
+                    when: step.when.clone(),           // PRESERVED!
                 });
             }
             StepCommand::Simple(cmd) => {
@@ -361,6 +368,7 @@ impl NormalizedWorkflow {
                     on_exit_code: step.handlers.on_exit_code.clone(),
                     commit_required: step.commit_required,
                     validate: step.validation.clone(), // PRESERVED!
+                    when: step.when.clone(),           // PRESERVED!
                 });
             }
         };
@@ -383,6 +391,7 @@ impl NormalizedWorkflow {
             on_exit_code: step.handlers.on_exit_code.clone(),
             commit_required: step.commit_required,
             validate: step.validation.clone(), // PRESERVED!
+            when: step.when.clone(),           // PRESERVED!
         })
     }
 
@@ -506,6 +515,7 @@ mod tests {
             on_success: None,
             validate: Some(validation.clone()),
             timeout: None,
+            when: None,
         };
 
         let config = WorkflowConfig {
@@ -578,6 +588,7 @@ mod tests {
             env: HashMap::new(),
             outputs: None,
             commit_required: false,
+            when: None,
         };
         assert!(workflow.validate_step(&invalid_step).is_err());
 
@@ -592,6 +603,7 @@ mod tests {
             env: HashMap::new(),
             outputs: None,
             commit_required: false,
+            when: None,
         };
         assert!(workflow.validate_step(&invalid_timeout).is_err());
 
@@ -606,6 +618,7 @@ mod tests {
             env: HashMap::new(),
             outputs: None,
             commit_required: false,
+            when: None,
         };
         assert!(workflow.validate_step(&valid_step).is_ok());
     }

@@ -6,6 +6,7 @@
 use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
 use crate::cook::execution::ClaudeExecutor;
+use crate::cook::expression::{ExpressionEvaluator, VariableContext};
 use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::{SessionManager, SessionUpdate};
@@ -402,6 +403,10 @@ pub struct WorkflowStep {
     /// Validation configuration for checking implementation completeness
     #[serde(skip_serializing_if = "Option::is_none")]
     pub validate: Option<ValidationConfig>,
+
+    /// Conditional execution expression
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub when: Option<String>,
 }
 
 fn default_commit_required() -> bool {
@@ -551,6 +556,7 @@ impl WorkflowExecutor {
             on_exit_code: step.handlers.on_exit_code.clone(),
             commit_required: step.commit_required,
             validate: step.validation.clone(),
+            when: step.when.clone(),
         };
 
         // Set command based on step type
@@ -598,6 +604,20 @@ impl WorkflowExecutor {
         env: &ExecutionEnvironment,
         context: &mut WorkflowContext,
     ) -> Result<StepResult> {
+        // Check conditional execution (when clause)
+        if let Some(when_expr) = &step.when {
+            let should_execute = self.evaluate_when_condition(when_expr, context)?;
+            if !should_execute {
+                tracing::info!("Skipping step due to when condition: {}", when_expr);
+                return Ok(StepResult {
+                    success: true,
+                    exit_code: Some(0),
+                    stdout: "Skipped due to when condition".to_string(),
+                    stderr: String::new(),
+                });
+            }
+        }
+
         // Determine command type
         let command_type = self.determine_command_type(step)?;
 
@@ -852,6 +872,27 @@ impl WorkflowExecutor {
     }
 
     /// Determine if workflow should fail based on command result
+    /// Evaluate a when condition expression
+    fn evaluate_when_condition(&self, when_expr: &str, context: &WorkflowContext) -> Result<bool> {
+        let evaluator = ExpressionEvaluator::new();
+        let mut variable_context = VariableContext::new();
+
+        // Add workflow context variables to expression context
+        for (key, value) in &context.variables {
+            variable_context.set_string(key.clone(), value.clone());
+        }
+
+        // Add command outputs to expression context
+        for (key, value) in &context.captured_outputs {
+            variable_context.set_string(key.clone(), value.clone());
+        }
+
+        // Evaluate the expression
+        evaluator
+            .evaluate(when_expr, &variable_context)
+            .with_context(|| format!("Failed to evaluate when condition: {}", when_expr))
+    }
+
     fn should_fail_workflow(&self, result: &StepResult, step: &WorkflowStep) -> bool {
         if !result.success {
             // Command failed, check on_failure configuration
@@ -2670,6 +2711,7 @@ impl WorkflowExecutor {
                 working_dir: None,
                 env: Default::default(),
                 validate: None,
+                when: None,
             })
         } else {
             None

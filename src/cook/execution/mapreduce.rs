@@ -3903,6 +3903,7 @@ mod tests {
             on_exit_code: HashMap::new(),
             commit_required: false,
             validate: None,
+            when: None,
         };
 
         let commands = MapReduceExecutor::collect_command_types(&step);
@@ -3931,6 +3932,7 @@ mod tests {
             on_exit_code: HashMap::new(),
             commit_required: false,
             validate: None,
+            when: None,
         };
 
         let commands = MapReduceExecutor::collect_command_types(&step);
@@ -3962,6 +3964,7 @@ mod tests {
             on_exit_code: HashMap::new(),
             commit_required: false,
             validate: None,
+            when: None,
         };
 
         let commands = MapReduceExecutor::collect_command_types(&step);
@@ -3993,6 +3996,7 @@ mod tests {
             on_exit_code: HashMap::new(),
             commit_required: false,
             validate: None,
+            when: None,
         };
 
         let commands = MapReduceExecutor::collect_command_types(&step);
@@ -4021,6 +4025,7 @@ mod tests {
             on_exit_code: HashMap::new(),
             commit_required: false,
             validate: None,
+            when: None,
         };
 
         let commands = MapReduceExecutor::collect_command_types(&step);
@@ -4049,6 +4054,7 @@ mod tests {
             on_exit_code: HashMap::new(),
             commit_required: false,
             validate: None,
+            when: None,
         };
 
         let commands = MapReduceExecutor::collect_command_types(&step);
@@ -4081,6 +4087,7 @@ mod tests {
             on_exit_code: HashMap::new(),
             commit_required: false,
             validate: None,
+            when: None,
         };
 
         let commands = MapReduceExecutor::collect_command_types(&step);
@@ -4110,6 +4117,7 @@ mod tests {
             on_exit_code: HashMap::new(),
             commit_required: false,
             validate: None,
+            when: None,
         };
 
         let commands = MapReduceExecutor::collect_command_types(&step);

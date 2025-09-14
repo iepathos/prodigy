@@ -205,6 +205,9 @@ pub struct WorkflowStep {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fail_workflow: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub when: Option<String>,
 }
 
 /// Cleanup temporary workflow file

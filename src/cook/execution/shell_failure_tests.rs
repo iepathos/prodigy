@@ -243,6 +243,7 @@ map:
             validate: None,
             working_dir: None,
             env: Default::default(),
+            when: None,
         };
 
         // Create a minimal execution environment

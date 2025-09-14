@@ -181,6 +181,7 @@ mod tests {
             commit_required: false,
             validate: None,
             handler: None,
+            when: None,
         };
 
         let context = WorkflowContext {
@@ -468,6 +469,7 @@ mod tests {
                 on_success: None,
                 validate: None,
                 timeout: None,
+                when: None,
             })),
             WorkflowCommand::WorkflowStep(Box::new(WorkflowStepCommand {
                 analyze: None,
@@ -485,6 +487,7 @@ mod tests {
                 on_success: None,
                 validate: None,
                 timeout: None,
+                when: None,
             })),
             WorkflowCommand::WorkflowStep(Box::new(WorkflowStepCommand {
                 analyze: None,
@@ -505,6 +508,7 @@ mod tests {
                 on_success: None,
                 validate: None,
                 timeout: None,
+                when: None,
             })),
         ];
 
