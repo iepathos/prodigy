@@ -8,6 +8,7 @@ use crate::cook::execution::data_pipeline::DataPipeline;
 use crate::cook::execution::dlq::{DeadLetterQueue, DeadLetteredItem, ErrorType, FailureDetail};
 use crate::cook::execution::errors::{ErrorContext, MapReduceError, MapReduceResult, SpanInfo};
 use crate::cook::execution::events::{EventLogger, EventWriter, JsonlEventWriter, MapReduceEvent};
+use crate::cook::execution::input_source::InputSource;
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
 use crate::cook::execution::progress::{
     AgentProgress, AgentState, CLIProgressViewer, EnhancedProgressTracker, ProgressUpdate,
@@ -41,9 +42,9 @@ use uuid::Uuid;
 /// Configuration for MapReduce execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MapReduceConfig {
-    /// Path to input JSON file
-    pub input: PathBuf,
-    /// JSON path expression to extract work items
+    /// Input source: either a file path or command to execute
+    pub input: String,
+    /// JSON path expression to extract work items (for JSON files)
     #[serde(default)]
     pub json_path: String,
     /// Maximum number of parallel agents
@@ -1528,100 +1529,67 @@ impl MapReduceExecutor {
         Ok(Vec::new())
     }
 
-    /// Load work items from JSON file with pipeline processing
+    /// Load work items from input source (command or JSON file) with pipeline processing
     async fn load_work_items_with_pipeline(
         &self,
         config: &MapReduceConfig,
         filter: &Option<String>,
         sort_by: &Option<String>,
     ) -> MapReduceResult<Vec<Value>> {
-        let input_path = if config.input.is_absolute() {
-            config.input.clone()
-        } else {
-            self.project_root.join(&config.input)
+        // Detect input source type
+        let input_source = InputSource::detect(&config.input);
+
+        let items = match input_source {
+            InputSource::Command(ref cmd) => {
+                // Execute command to get work items
+                info!("Executing command for work items: {}", cmd);
+
+                // Use subprocess manager with timeout
+                let timeout = Duration::from_secs(config.timeout_per_agent);
+                InputSource::execute_command(cmd, timeout, &self.subprocess).await?
+            }
+            InputSource::JsonFile(ref path) => {
+                // Load JSON file and process with pipeline
+                let json = InputSource::load_json_file(path, &self.project_root).await?;
+
+                debug!("Loaded JSON file: {}", path);
+
+                // Debug: Show the top-level structure
+                if let Value::Object(ref map) = json {
+                    let keys: Vec<_> = map.keys().cloned().collect();
+                    debug!("JSON top-level keys: {:?}", keys);
+                }
+
+                // Use data pipeline for extraction, filtering, and sorting
+                let json_path = if config.json_path.is_empty() {
+                    None
+                } else {
+                    Some(config.json_path.clone())
+                };
+
+                // Create pipeline with all configuration options
+                let mut pipeline = DataPipeline::from_config(
+                    json_path.clone(),
+                    filter.clone(),
+                    sort_by.clone(),
+                    config.max_items,
+                )?;
+
+                // Set offset if specified
+                if let Some(offset) = config.offset {
+                    pipeline.offset = Some(offset);
+                }
+
+                // Debug: Show what JSON path will be used
+                if let Some(ref path) = json_path {
+                    debug!("Using JSON path expression: {}", path);
+                } else {
+                    debug!("No JSON path specified, treating input as array or single item");
+                }
+
+                pipeline.process(&json)?
+            }
         };
-
-        debug!("Attempting to read input file: {}", input_path.display());
-
-        // Check if file exists first
-        if !input_path.exists() {
-            let context = self.create_error_context("load_work_items");
-            return Err(MapReduceError::WorkItemLoadFailed {
-                path: input_path.clone(),
-                reason: "File does not exist".to_string(),
-                source: None,
-            }
-            .with_context(context)
-            .error);
-        }
-
-        let file_size = std::fs::metadata(&input_path)?.len();
-        debug!("Input file size: {} bytes", file_size);
-
-        let content = tokio::fs::read_to_string(&input_path).await.map_err(|e| {
-            let context = self.create_error_context("load_work_items");
-            MapReduceError::WorkItemLoadFailed {
-                path: input_path.clone(),
-                reason: format!("Failed to read file: {}", e),
-                source: Some(Box::new(e)),
-            }
-            .with_context(context)
-            .error
-        })?;
-
-        debug!("Read {} bytes from input file", content.len());
-
-        let json: Value = serde_json::from_str(&content).map_err(|e| {
-            let context = self.create_error_context("load_work_items");
-            MapReduceError::WorkItemLoadFailed {
-                path: input_path.clone(),
-                reason: "Failed to parse JSON".to_string(),
-                source: Some(Box::new(e)),
-            }
-            .with_context(context)
-            .error
-        })?;
-
-        // Debug: Show the top-level structure
-        if let Value::Object(ref map) = json {
-            let keys: Vec<_> = map.keys().cloned().collect();
-            debug!("JSON top-level keys: {:?}", keys);
-        }
-
-        // Debug: Log the JSON path configuration
-        debug!(
-            "Loading work items with JSON path: '{}', filter: {:?}, sort: {:?}",
-            config.json_path, filter, sort_by
-        );
-
-        // Use data pipeline for extraction, filtering, and sorting
-        let json_path = if config.json_path.is_empty() {
-            None
-        } else {
-            Some(config.json_path.clone())
-        };
-
-        // Create pipeline with all configuration options
-        let mut pipeline = DataPipeline::from_config(
-            json_path.clone(),
-            filter.clone(),
-            sort_by.clone(),
-            config.max_items,
-        )?;
-
-        // Set offset if specified
-        if let Some(offset) = config.offset {
-            pipeline.offset = Some(offset);
-        }
-
-        // Debug: Show what JSON path will be used
-        if let Some(ref path) = json_path {
-            debug!("Using JSON path expression: {}", path);
-        } else {
-            debug!("No JSON path specified, treating input as array or single item");
-        }
-
-        let items = pipeline.process(&json)?;
 
         debug!(
             "Loaded {} work items after pipeline processing",

@@ -262,7 +262,7 @@ reduce:
         assert!(setup[1].commit_required);
 
         // Verify map phase
-        assert_eq!(config.map.input.to_string_lossy(), "debtmap.json");
+        assert_eq!(config.map.input, "debtmap.json");
         assert_eq!(config.map.json_path, "$.items[*]");
         assert_eq!(config.map.max_parallel, 5);
         assert_eq!(config.map.max_items, Some(10));
