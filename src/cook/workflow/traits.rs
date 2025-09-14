@@ -6,16 +6,9 @@ use async_trait::async_trait;
 
 use super::{ExtendedWorkflowConfig, StepResult, WorkflowContext, WorkflowStep};
 
-/// Trait for workflow execution
+/// Trait for executing individual workflow steps
 #[async_trait]
-pub trait WorkflowExecutor: Send + Sync {
-    /// Execute a complete workflow with iterations
-    async fn execute(
-        &mut self,
-        workflow: &ExtendedWorkflowConfig,
-        env: &ExecutionEnvironment,
-    ) -> Result<()>;
-
+pub trait StepExecutor: Send + Sync {
     /// Execute a single workflow step
     async fn execute_step(
         &mut self,
@@ -23,4 +16,15 @@ pub trait WorkflowExecutor: Send + Sync {
         env: &ExecutionEnvironment,
         context: &mut WorkflowContext,
     ) -> Result<StepResult>;
+}
+
+/// Trait for workflow execution
+#[async_trait]
+pub trait WorkflowExecutor: StepExecutor {
+    /// Execute a complete workflow with iterations
+    async fn execute(
+        &mut self,
+        workflow: &ExtendedWorkflowConfig,
+        env: &ExecutionEnvironment,
+    ) -> Result<()>;
 }

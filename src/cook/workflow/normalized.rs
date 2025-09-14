@@ -280,6 +280,7 @@ impl NormalizedWorkflow {
             name: self.name.clone(),
             mode,
             steps,
+            setup_phase: None,  // Would need to be set based on MapReduceConfig
             map_phase: None,    // Would need to be set based on MapReduceConfig
             reduce_phase: None, // Would need to be set based on MapReduceConfig
             max_iterations: self.extract_max_iterations()? as u32,

@@ -97,26 +97,9 @@ impl MockWorkflowExecutor {
     }
 }
 
-// Implement the WorkflowExecutor trait for MockWorkflowExecutor
+// Implement the StepExecutor trait for MockWorkflowExecutor
 #[async_trait]
-impl WorkflowExecutor for MockWorkflowExecutor {
-    async fn execute(
-        &mut self,
-        workflow: &ExtendedWorkflowConfig,
-        _env: &ExecutionEnvironment,
-    ) -> Result<()> {
-        if self.should_fail {
-            return Err(anyhow::anyhow!("Mock workflow execution failed"));
-        }
-
-        // Record all steps from the workflow
-        for step in &workflow.steps {
-            self.steps_executed.lock().unwrap().push(step.clone());
-        }
-
-        Ok(())
-    }
-
+impl crate::cook::workflow::StepExecutor for MockWorkflowExecutor {
     async fn execute_step(
         &mut self,
         step: &WorkflowStep,
@@ -136,5 +119,26 @@ impl WorkflowExecutor for MockWorkflowExecutor {
             stdout: self.outputs.get("stdout").cloned().unwrap_or_default(),
             stderr: String::new(),
         })
+    }
+}
+
+// Implement the WorkflowExecutor trait for MockWorkflowExecutor
+#[async_trait]
+impl WorkflowExecutor for MockWorkflowExecutor {
+    async fn execute(
+        &mut self,
+        workflow: &ExtendedWorkflowConfig,
+        _env: &ExecutionEnvironment,
+    ) -> Result<()> {
+        if self.should_fail {
+            return Err(anyhow::anyhow!("Mock workflow execution failed"));
+        }
+
+        // Record all steps from the workflow
+        for step in &workflow.steps {
+            self.steps_executed.lock().unwrap().push(step.clone());
+        }
+
+        Ok(())
     }
 }

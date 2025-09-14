@@ -1092,6 +1092,7 @@ mod disabled_tests {
         // Set up workflow
         let workflow = ExtendedWorkflowConfig {
             name: "Test Workflow".to_string(),
+            mode: WorkflowMode::Sequential,
             steps: vec![WorkflowStep {
                 name: None,
                 claude: Some("/prodigy-code-review".to_string()),
@@ -1109,6 +1110,9 @@ mod disabled_tests {
                 validate: None,
                 handler: None,
             }],
+            setup_phase: None,
+            map_phase: None,
+            reduce_phase: None,
             max_iterations: 1,
             iterate: false,
             // collect_metrics removed - MMM focuses on orchestration

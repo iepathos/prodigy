@@ -76,6 +76,19 @@ fn default_retry() -> u32 {
     2
 }
 
+/// Setup phase configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SetupPhase {
+    /// Commands to execute during setup
+    pub commands: Vec<WorkflowStep>,
+    /// Timeout for the entire setup phase (in seconds)
+    pub timeout: u64,
+    /// Variables to capture from setup commands
+    /// Key is variable name, value is the command index to capture from
+    #[serde(default)]
+    pub capture_outputs: HashMap<String, usize>,
+}
+
 /// Map phase configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MapPhase {
