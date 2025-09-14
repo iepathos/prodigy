@@ -1,4 +1,4 @@
-# implement.yml - Configuration for implementing specifications
+# implement.yml - Configuration for implementing specifications with validation
 
 # Commands to execute for each specification
 # Implement the spec using the $ARG variable which contains:
@@ -8,16 +8,20 @@
 # Step 1: Implement the specification
 - claude: "/prodigy-implement-spec $ARG"
   commit_required: true
-  
-# Note: Workflow validation feature is planned but not yet implemented.
-# Manual validation can be done using separate commands after implementation.
+  validate:
+    claude: "/prodigy-validate-spec $ARG --output .prodigy/validation-result.json"
+    result_file: ".prodigy/validation-result.json"  # Where Prodigy reads validation results from
+    threshold: 100  # Spec must be 100% implemented (default)
+    on_incomplete:
+      claude: "/prodigy-complete-spec $ARG --gaps ${validation.gaps}"
+      max_attempts: 3
+      fail_workflow: false  # Continue even if we can't reach 100%
+      commit_required: true  # Require commit to verify fixes were made
 
 # Step 2: Run tests to verify implementation
 - shell: "just test"
-  timeout: 300  # 5 minutes
   on_failure:
     claude: "/prodigy-debug-test-failure --spec $ARG --output ${shell.output}"
-    commit_required: true
     max_attempts: 3
     fail_workflow: false  # Continue workflow even if tests can't be fixed
 
@@ -25,6 +29,5 @@
 - shell: "just fmt-check && just lint"
   on_failure:
     claude: "/prodigy-lint ${shell.output}"
-    commit_required: true
     max_attempts: 3
     fail_workflow: false
