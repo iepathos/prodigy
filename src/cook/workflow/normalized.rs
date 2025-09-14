@@ -496,6 +496,7 @@ mod tests {
             analyze: None,
             test: None,
             goal_seek: None,
+            foreach: None,
             id: Some("test-step".to_string()),
             commit_required: true,
             analysis: None,
