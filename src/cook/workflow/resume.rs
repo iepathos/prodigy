@@ -8,10 +8,9 @@ use crate::cook::workflow::checkpoint::{
 use crate::cook::workflow::executor::WorkflowContext;
 use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tracing::{info, warn};
+use tracing::info;
 
 /// Result of resuming a workflow
 #[derive(Debug)]
@@ -72,7 +71,7 @@ impl ResumeExecutor {
         let resume_context = self.build_resume_context(checkpoint.clone(), &options)?;
 
         // Restore workflow context
-        let mut workflow_context = self.restore_workflow_context(&checkpoint)?;
+        let workflow_context = self.restore_workflow_context(&checkpoint)?;
 
         info!(
             "Resuming from step {} of {}, skipping {} completed steps",

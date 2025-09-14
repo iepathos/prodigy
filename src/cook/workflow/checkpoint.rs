@@ -2,7 +2,6 @@
 //!
 //! Provides checkpoint creation, persistence, and restoration for workflow execution.
 
-use crate::cook::session::{ExecutionContext, StepResult, WorkflowState};
 use crate::cook::workflow::executor::WorkflowContext;
 use crate::cook::workflow::normalized::NormalizedWorkflow;
 use anyhow::{anyhow, Context, Result};
@@ -10,7 +9,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Duration;
 use tokio::fs;
 use tracing::{debug, info, warn};

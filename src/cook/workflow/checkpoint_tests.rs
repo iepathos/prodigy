@@ -6,7 +6,6 @@ mod tests {
     use crate::cook::workflow::executor::WorkflowContext;
     use crate::cook::workflow::normalized::{NormalizedStep, NormalizedWorkflow, StepCommand};
     use std::collections::HashMap;
-    use std::path::PathBuf;
     use tempfile::TempDir;
 
     /// Create a test checkpoint manager with temp directory
@@ -21,9 +20,7 @@ mod tests {
         use std::time::Duration;
 
         NormalizedWorkflow {
-            name: Some("test-workflow".to_string()),
-            description: Some("Test workflow for checkpointing".to_string()),
-            version: Some("1.0.0".to_string()),
+            name: "test-workflow".to_string(),
             steps: vec![
                 NormalizedStep {
                     id: "step-1".to_string(),
@@ -60,7 +57,7 @@ mod tests {
                 },
             ],
             execution_mode: crate::cook::workflow::normalized::ExecutionMode::Sequential,
-            mapreduce_config: None,
+            variables: HashMap::new(),
         }
     }
 
@@ -240,20 +237,23 @@ mod tests {
     async fn test_checkpoint_auto_interval() {
         let (mut manager, _temp_dir) = create_test_checkpoint_manager();
 
-        // Configure with short interval for testing
-        manager.configure(std::time::Duration::from_millis(100), true);
+        // Configure with 1 second interval for testing (to avoid timing issues)
+        manager.configure(std::time::Duration::from_secs(1), true);
 
-        // Check if should checkpoint immediately
-        let now = chrono::Utc::now();
-        assert!(manager.should_checkpoint(now).await);
+        // Create fixed timestamps relative to a baseline
+        let baseline = chrono::Utc::now();
 
-        // Check after short delay (should not checkpoint)
-        let recent = now - chrono::Duration::milliseconds(50);
-        assert!(!manager.should_checkpoint(recent).await);
+        // Check with last checkpoint 10 seconds ago (should checkpoint)
+        let old_checkpoint = baseline - chrono::Duration::seconds(10);
+        assert!(manager.should_checkpoint(old_checkpoint).await);
 
-        // Check after longer delay (should checkpoint)
-        let old = now - chrono::Duration::seconds(1);
-        assert!(manager.should_checkpoint(old).await);
+        // Check with last checkpoint 500ms ago (should not checkpoint yet with 1s interval)
+        let recent_checkpoint = baseline - chrono::Duration::milliseconds(500);
+        assert!(!manager.should_checkpoint(recent_checkpoint).await);
+
+        // Check with last checkpoint 2 seconds ago (should checkpoint since interval is 1s)
+        let old_enough_checkpoint = baseline - chrono::Duration::seconds(2);
+        assert!(manager.should_checkpoint(old_enough_checkpoint).await);
     }
 
     #[test]

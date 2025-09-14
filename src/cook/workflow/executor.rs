@@ -488,7 +488,7 @@ impl WorkflowExecutor {
 
     /// Execute a single workflow step (public for resume functionality)
     pub async fn execute_single_step(
-        &self,
+        &mut self,
         step: &normalized::NormalizedStep,
         context: &mut WorkflowContext,
     ) -> Result<StepResult> {
@@ -568,7 +568,7 @@ impl WorkflowExecutor {
 
     /// Internal execute_step method that doesn't modify self
     async fn execute_step_internal(
-        &self,
+        &mut self,
         step: &WorkflowStep,
         env: &ExecutionEnvironment,
         context: &mut WorkflowContext,
