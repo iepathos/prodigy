@@ -462,6 +462,42 @@ enum DlqCommands {
         #[arg(long)]
         yes: bool,
     },
+    /// Retry failed items from the DLQ
+    Retry {
+        /// Workflow ID to retry
+        workflow_id: String,
+
+        /// Filter expression for selective retry
+        #[arg(long)]
+        filter: Option<String>,
+
+        /// Maximum retry attempts
+        #[arg(long, default_value = "3")]
+        max_retries: u32,
+
+        /// Number of parallel workers
+        #[arg(long, default_value = "10")]
+        parallel: usize,
+
+        /// Force retry even if not eligible
+        #[arg(long)]
+        force: bool,
+    },
+    /// Show DLQ statistics
+    Stats {
+        /// Show stats for specific workflow
+        #[arg(long)]
+        workflow_id: Option<String>,
+    },
+    /// Clear processed items from DLQ
+    Clear {
+        /// Workflow ID to clear
+        workflow_id: String,
+
+        /// Confirm clear without prompting
+        #[arg(long)]
+        yes: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -1425,7 +1461,121 @@ async fn run_dlq_command(command: DlqCommands) -> anyhow::Result<()> {
             max_retries: _,
             force: _,
         } => {
-            anyhow::bail!("DLQ reprocessing is not yet implemented. Items must be manually reviewed and resubmitted.");
+            anyhow::bail!("This command is deprecated. Please use 'prodigy dlq retry' instead.");
+        }
+        DlqCommands::Retry {
+            workflow_id,
+            filter,
+            max_retries,
+            parallel,
+            force,
+        } => {
+            use prodigy::cook::execution::dlq_reprocessor::{
+                DlqReprocessor, ReprocessOptions, RetryStrategy,
+            };
+            use std::sync::Arc;
+
+            // Get DLQ instance
+            let dlq = get_dlq_instance(&workflow_id, &project_root).await?;
+            let dlq_arc = Arc::new(dlq);
+
+            // Create reprocessor
+            let _reprocessor = DlqReprocessor::new(
+                dlq_arc.clone(),
+                None, // Event logger
+                project_root.clone(),
+            );
+
+            // Create reprocess options
+            let options = ReprocessOptions {
+                max_retries,
+                filter,
+                parallel,
+                timeout_per_item: 300,
+                strategy: RetryStrategy::ExponentialBackoff,
+                merge_results: true,
+                force,
+            };
+
+            // For now, we'll display what would be reprocessed
+            let filter_obj = prodigy::cook::execution::dlq::DLQFilter::default();
+            let items = dlq_arc.list_items(filter_obj).await?;
+
+            let eligible_count = if force {
+                items.len()
+            } else {
+                items.iter().filter(|i| i.reprocess_eligible).count()
+            };
+
+            println!("DLQ Reprocessing for workflow: {}", workflow_id);
+            println!("  Total items in DLQ: {}", items.len());
+            println!("  Eligible for reprocessing: {}", eligible_count);
+            if let Some(ref f) = options.filter {
+                println!("  Filter expression: {}", f);
+            }
+            println!("  Max retries: {}", options.max_retries);
+            println!("  Parallel workers: {}", options.parallel);
+            println!("  Force reprocessing: {}", options.force);
+
+            println!(
+                "\nNote: Full reprocessing with MapReduce executor integration is in progress."
+            );
+            println!("Currently showing analysis only. Items can be manually resubmitted.");
+        }
+        DlqCommands::Stats { workflow_id } => {
+            if let Some(wf_id) = workflow_id {
+                // Show stats for specific workflow
+                let dlq = get_dlq_instance(&wf_id, &project_root).await?;
+                let stats = dlq.get_stats().await?;
+
+                println!("DLQ Statistics for workflow {}:", wf_id);
+                println!("  Total items: {}", stats.total_items);
+                println!("  Eligible for reprocess: {}", stats.eligible_for_reprocess);
+                println!(
+                    "  Requiring manual review: {}",
+                    stats.requiring_manual_review
+                );
+                if let Some(oldest) = stats.oldest_item {
+                    println!("  Oldest item: {}", oldest);
+                }
+                if let Some(newest) = stats.newest_item {
+                    println!("  Newest item: {}", newest);
+                }
+            } else {
+                // Show global stats
+                println!("Global DLQ Statistics:");
+                println!("  Note: Global stats aggregation is not yet fully implemented");
+                println!("  Use --workflow-id to see stats for a specific workflow");
+            }
+        }
+        DlqCommands::Clear { workflow_id, yes } => {
+            use std::sync::Arc;
+
+            if !yes {
+                println!("This will permanently delete all processed items from the DLQ.");
+                println!("Continue? (y/N)");
+                let mut input = String::new();
+                std::io::stdin().read_line(&mut input)?;
+                if !input.trim().eq_ignore_ascii_case("y") {
+                    println!("Clear cancelled.");
+                    return Ok(());
+                }
+            }
+
+            let dlq = get_dlq_instance(&workflow_id, &project_root).await?;
+            let dlq_arc = Arc::new(dlq);
+
+            let reprocessor = prodigy::cook::execution::dlq_reprocessor::DlqReprocessor::new(
+                dlq_arc,
+                None,
+                project_root.clone(),
+            );
+
+            let count = reprocessor.clear_processed_items(&workflow_id).await?;
+            println!(
+                "Cleared {} processed items from DLQ for workflow {}",
+                count, workflow_id
+            );
         }
         DlqCommands::Purge {
             older_than_days,

@@ -18,7 +18,7 @@ use super::events::EventLogger;
 
 /// Dead Letter Queue for handling failed items
 pub struct DeadLetterQueue {
-    job_id: String,
+    pub job_id: String,
     items: Arc<RwLock<HashMap<String, DeadLetteredItem>>>,
     storage: Arc<DLQStorage>,
     max_items: usize,
