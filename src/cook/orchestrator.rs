@@ -615,6 +615,10 @@ impl DefaultCookOrchestrator {
                     goal_seek: step.goal_seek.clone(),
                     foreach: step.foreach.clone(),
                     handler: None,
+                    capture: None,
+                    capture_format: None,
+                    capture_streams: Default::default(),
+                    output_file: None,
                     capture_output: if step.capture_output {
                         CaptureOutput::Default
                     } else {
@@ -653,6 +657,10 @@ impl DefaultCookOrchestrator {
                     goal_seek: None,
                     foreach: None,
                     handler: None,
+                    capture: None,
+                    capture_format: None,
+                    capture_streams: Default::default(),
+                    output_file: None,
                     capture_output: CaptureOutput::Disabled,
                     timeout: None,
                     working_dir: None,
@@ -1657,6 +1665,7 @@ impl DefaultCookOrchestrator {
             captured_outputs: HashMap::new(),
             iteration_vars: HashMap::new(),
             validation_results: HashMap::new(),
+            variable_store: std::sync::Arc::new(crate::cook::workflow::VariableStore::new()),
         };
 
         // Set the ARG environment variable so the executor can pick it up

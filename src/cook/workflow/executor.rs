@@ -126,12 +126,26 @@ pub struct VariableResolution {
 }
 
 /// Workflow context for variable interpolation
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct WorkflowContext {
     pub variables: HashMap<String, String>,
     pub captured_outputs: HashMap<String, String>,
     pub iteration_vars: HashMap<String, String>,
     pub validation_results: HashMap<String, ValidationResult>,
+    /// Variable store for advanced capture functionality
+    pub variable_store: Arc<super::variables::VariableStore>,
+}
+
+impl Default for WorkflowContext {
+    fn default() -> Self {
+        Self {
+            variables: HashMap::new(),
+            captured_outputs: HashMap::new(),
+            iteration_vars: HashMap::new(),
+            validation_results: HashMap::new(),
+            variable_store: Arc::new(super::variables::VariableStore::new()),
+        }
+    }
 }
 
 impl WorkflowContext {
@@ -147,6 +161,12 @@ impl WorkflowContext {
         // Add captured outputs
         for (key, value) in &self.captured_outputs {
             context.set(key.clone(), Value::String(value.clone()));
+        }
+
+        // Add variables from variable store
+        let store_vars = futures::executor::block_on(self.variable_store.to_hashmap());
+        for (key, value) in store_vars {
+            context.set(key, Value::String(value));
         }
 
         // Add iteration variables
@@ -321,6 +341,15 @@ impl WorkflowContext {
             )
         })
     }
+
+    /// Resolve a variable path from the store (async)
+    pub async fn resolve_variable(&self, path: &str) -> Option<String> {
+        if let Ok(value) = self.variable_store.resolve_path(path).await {
+            Some(value.to_string())
+        } else {
+            None
+        }
+    }
 }
 
 /// Handler step configuration
@@ -368,7 +397,23 @@ pub struct WorkflowStep {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handler: Option<HandlerStep>,
 
-    /// Whether to capture command output (bool or variable name string)
+    /// Variable name to capture output into
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub capture: Option<String>,
+
+    /// Format for captured output (string, json, lines, number, boolean)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub capture_format: Option<super::variables::CaptureFormat>,
+
+    /// Which streams to capture (stdout, stderr, exit_code, etc.)
+    #[serde(default)]
+    pub capture_streams: super::variables::CaptureStreams,
+
+    /// Output file for command results
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output_file: Option<std::path::PathBuf>,
+
+    /// Whether to capture command output (bool or variable name string) - DEPRECATED
     #[serde(default, deserialize_with = "deserialize_capture_output")]
     pub capture_output: CaptureOutput,
 
@@ -547,6 +592,10 @@ impl WorkflowExecutor {
             foreach: None,
             command: None,
             handler: None,
+            capture: None,
+            capture_format: None,
+            capture_streams: Default::default(),
+            output_file: None,
             capture_output: CaptureOutput::Disabled,
             timeout: step.timeout.map(|d| d.as_secs()),
             working_dir: step.working_dir.clone(),
@@ -1837,7 +1886,56 @@ impl WorkflowExecutor {
             .execute_command_by_type(&command_type, step, env, ctx, env_vars)
             .await?;
 
-        // Capture output if requested
+        // Capture command output if requested
+        if let Some(capture_name) = &step.capture {
+            let command_result = super::variables::CommandResult {
+                stdout: Some(result.stdout.clone()),
+                stderr: Some(result.stderr.clone()),
+                exit_code: result.exit_code.unwrap_or(-1),
+                success: result.success,
+                duration: std::time::Duration::from_secs(0), // TODO: Track actual duration
+            };
+
+            let capture_format = step.capture_format.unwrap_or_default();
+            let capture_streams = &step.capture_streams;
+
+            ctx.variable_store
+                .capture_command_result(
+                    capture_name,
+                    command_result,
+                    capture_format,
+                    capture_streams,
+                )
+                .await
+                .map_err(|e| anyhow!("Failed to capture command result: {}", e))?;
+
+            // Also update captured_outputs for backward compatibility
+            ctx.captured_outputs
+                .insert(capture_name.clone(), result.stdout.clone());
+        }
+
+        // Write output to file if requested
+        if let Some(output_file) = &step.output_file {
+            use std::fs;
+
+            let output_path = if output_file.is_absolute() {
+                output_file.clone()
+            } else {
+                env.working_dir.join(output_file)
+            };
+
+            // Create parent directory if needed
+            if let Some(parent) = output_path.parent() {
+                fs::create_dir_all(parent)
+                    .map_err(|e| anyhow!("Failed to create output directory: {}", e))?;
+            }
+
+            // Write output to file
+            fs::write(&output_path, &result.stdout)
+                .map_err(|e| anyhow!("Failed to write output to file {:?}: {}", output_path, e))?;
+        }
+
+        // Capture output if requested (deprecated)
         if step.capture_output.is_enabled() {
             // Get the variable name for this output (custom or default)
             if let Some(var_name) = step.capture_output.get_variable_name(&command_type) {
@@ -2702,6 +2800,10 @@ impl WorkflowExecutor {
                 foreach: None,
                 command: None,
                 handler: None,
+                capture: None,
+                capture_format: None,
+                capture_streams: Default::default(),
+                output_file: None,
                 timeout: None,
                 capture_output: CaptureOutput::Disabled,
                 on_failure: None,

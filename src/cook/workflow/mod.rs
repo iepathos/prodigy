@@ -31,4 +31,7 @@ pub use traits::{StepExecutor, WorkflowExecutor};
 pub use validation::{
     GapDetail, OnIncompleteConfig, Severity, ValidationConfig, ValidationResult, ValidationStatus,
 };
-pub use variables::{ExecutionInput, StandardVariables, VariableContext};
+pub use variables::{
+    CaptureFormat, CaptureStreams, CapturedValue, CommandResult, ExecutionInput, StandardVariables,
+    VariableContext, VariableStore,
+};
