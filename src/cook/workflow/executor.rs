@@ -2342,13 +2342,25 @@ impl WorkflowExecutor {
 
         // Don't duplicate the message - it's already shown by the orchestrator
 
+        let mut workflow_context = WorkflowContext::default();
+        let mut generated_input_file: Option<String> = None;
+
         // Execute setup phase if present
         if !workflow.steps.is_empty() {
             self.user_interaction
                 .display_progress("Running setup phase...");
 
+            // Track files before setup to detect created files
+            let files_before_setup = std::fs::read_dir(".")
+                .map(|entries| {
+                    entries
+                        .filter_map(|e| e.ok())
+                        .filter_map(|e| e.file_name().into_string().ok())
+                        .collect::<std::collections::HashSet<_>>()
+                })
+                .unwrap_or_default();
+
             // Execute setup steps in the main worktree
-            let mut workflow_context = WorkflowContext::default();
             for (step_index, step) in workflow.steps.iter().enumerate() {
                 let step_display = self.get_step_display_name(step);
                 self.user_interaction.display_progress(&format!(
@@ -2379,15 +2391,41 @@ impl WorkflowExecutor {
                 // We only get here if the step succeeded or if on_failure handling allowed continuation
             }
 
+            // Detect created files
+            let files_after_setup = std::fs::read_dir(".")
+                .map(|entries| {
+                    entries
+                        .filter_map(|e| e.ok())
+                        .filter_map(|e| e.file_name().into_string().ok())
+                        .collect::<std::collections::HashSet<_>>()
+                })
+                .unwrap_or_default();
+
+            // Check if work-items.json was created
+            for file in files_after_setup.difference(&files_before_setup) {
+                if file.ends_with("work-items.json") || file == "work-items.json" {
+                    generated_input_file = Some(file.clone());
+                    self.user_interaction
+                        .display_info(&format!("Setup phase generated input file: {}", file));
+                    break;
+                }
+            }
+
             self.user_interaction
                 .display_success("Setup phase completed");
         }
 
         // Ensure we have map phase configuration
-        let map_phase = workflow
+        let mut map_phase = workflow
             .map_phase
             .as_ref()
-            .ok_or_else(|| anyhow!("MapReduce workflow requires map phase configuration"))?;
+            .ok_or_else(|| anyhow!("MapReduce workflow requires map phase configuration"))?
+            .clone();
+
+        // Update map phase input if setup generated a work-items.json file
+        if let Some(generated_file) = generated_input_file {
+            map_phase.config.input = generated_file;
+        }
 
         // Create worktree manager
         let worktree_manager = Arc::new(WorktreeManager::new(
@@ -2410,9 +2448,14 @@ impl WorkflowExecutor {
             .update_session(SessionUpdate::StartWorkflow)
             .await?;
 
-        // Execute MapReduce workflow
+        // Execute MapReduce workflow with setup context
         let results = mapreduce_executor
-            .execute(map_phase, workflow.reduce_phase.as_ref(), env)
+            .execute_with_context(
+                &map_phase,
+                workflow.reduce_phase.as_ref(),
+                env,
+                workflow_context.captured_outputs.clone(),
+            )
             .await?;
 
         // Update session with results

@@ -29,6 +29,8 @@ pub mod mapreduce;
 #[cfg(test)]
 pub mod mapreduce_integration_tests;
 #[cfg(test)]
+pub mod mapreduce_setup_test;
+#[cfg(test)]
 pub mod mapreduce_tests;
 pub mod output;
 #[cfg(test)]

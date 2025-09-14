@@ -1,6 +1,6 @@
 # Prodigy Project Status
 
-## Current State: 98%
+## Current State: 99%
 
 A workflow orchestration tool that executes Claude commands through structured YAML workflows with session state management and parallel execution through MapReduce patterns.
 
@@ -11,7 +11,7 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **Session Management**: Persistent state tracking with timing
 - **Claude Integration**: Direct Claude Code CLI integration
 - **Shell Commands**: Full shell command support
-- **MapReduce Processing**: Parallel execution across multiple agents
+- **MapReduce Processing**: Parallel execution across multiple agents with setup phase ✅
 - **Error Handling**: Comprehensive failure recovery patterns
 - **Git Integration**: Worktree management and commit tracking
 - **Goal-Seeking Primitives**: Iterative refinement with validation ✅
@@ -42,6 +42,14 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - `prodigy sessions` - Session management
 
 ## Recent Additions
+
+### MapReduce Setup Phase ✅
+- **Setup Command Execution**: Sequential setup commands before map phase
+- **Dynamic Work Item Generation**: Setup can generate input files for map phase
+- **Variable Capture and Passing**: Variables from setup available in map phase
+- **File Creation Detection**: Automatic detection of generated work-items.json
+- **Setup Failure Prevention**: Failed setup prevents map phase execution
+- **Main Worktree Execution**: Setup runs in main worktree for consistency
 
 ### Workflow Resume Capability ✅
 - **Checkpoint-Based Recovery**: Automatic checkpoint creation at configurable intervals
@@ -146,14 +154,22 @@ prodigy resume workflow-123
     max_attempts: 5
 ```
 
-### MapReduce Processing
+### MapReduce with Setup Phase ✅
 ```yaml
-agent_template:
-  - claude: "/process-item ${item}"
+setup:
+  - shell: "npm run analyze"
+  - shell: "generate-work-items > work-items.json"
+
 map:
-  - path: "*.md"
+  input: work-items.json
+  json_path: "$[*]"
+  agent_template:
+    commands:
+      - claude: "/process-item ${item}"
+
 reduce:
-  - claude: "/aggregate-results ${map.results}"
+  commands:
+    - claude: "/aggregate-results ${map.results}"
 ```
 
 ## Technical Debt
