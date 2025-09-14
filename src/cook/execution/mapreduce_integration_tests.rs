@@ -39,7 +39,7 @@ reduce:
         let config = parse_mapreduce_workflow(yaml).unwrap();
         assert_eq!(config.name, "test-mapreduce");
         assert!(config.setup.is_some());
-        assert_eq!(config.setup.as_ref().unwrap().len(), 2);
+        assert_eq!(config.setup.as_ref().unwrap().commands.len(), 2);
     }
 
     /// Test that map phase doesn't run when setup produces no items
@@ -257,9 +257,12 @@ reduce:
         // Verify setup phase
         assert!(config.setup.is_some());
         let setup = config.setup.as_ref().unwrap();
-        assert_eq!(setup.len(), 2);
-        assert_eq!(setup[0].shell, Some("just coverage-lcov".to_string()));
-        assert!(setup[1].commit_required);
+        assert_eq!(setup.commands.len(), 2);
+        assert_eq!(
+            setup.commands[0].shell,
+            Some("just coverage-lcov".to_string())
+        );
+        assert!(setup.commands[1].commit_required);
 
         // Verify map phase
         assert_eq!(config.map.input, "debtmap.json");
@@ -386,10 +389,17 @@ reduce:
         let mapreduce_config = parse_mapreduce_workflow(yaml).unwrap();
 
         // Convert to ExtendedWorkflowConfig (as done in orchestrator)
+        let setup_steps = mapreduce_config
+            .setup
+            .as_ref()
+            .map(|setup| setup.commands.clone())
+            .unwrap_or_default();
+
         let extended_workflow = ExtendedWorkflowConfig {
             name: mapreduce_config.name.clone(),
             mode: WorkflowMode::MapReduce,
-            steps: mapreduce_config.setup.clone().unwrap_or_default(),
+            steps: setup_steps,
+            setup_phase: mapreduce_config.to_setup_phase(),
             map_phase: Some(mapreduce_config.to_map_phase()),
             reduce_phase: mapreduce_config.to_reduce_phase(),
             max_iterations: 1,

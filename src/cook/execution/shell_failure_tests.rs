@@ -34,10 +34,10 @@ map:
         let config = parse_mapreduce_workflow(yaml).unwrap();
         assert!(config.setup.is_some());
         let setup = config.setup.unwrap();
-        assert_eq!(setup.len(), 2);
+        assert_eq!(setup.commands.len(), 2);
 
         // Check first step has on_failure configured
-        let first_step = &setup[0];
+        let first_step = &setup.commands[0];
         assert!(first_step.on_failure.is_some());
 
         // The on_failure should indicate to fail the workflow

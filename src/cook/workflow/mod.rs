@@ -25,7 +25,7 @@ pub use normalized::{
 };
 pub use on_failure::OnFailureConfig;
 pub use resume::{ResumeExecutor, ResumeResult};
-pub use traits::WorkflowExecutor;
+pub use traits::{StepExecutor, WorkflowExecutor};
 pub use validation::{
     GapDetail, OnIncompleteConfig, Severity, ValidationConfig, ValidationResult, ValidationStatus,
 };

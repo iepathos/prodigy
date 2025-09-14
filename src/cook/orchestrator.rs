@@ -1014,6 +1014,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             name: "default".to_string(),
             mode: crate::cook::workflow::WorkflowMode::Sequential,
             steps,
+            setup_phase: None,
             map_phase: None,
             reduce_phase: None,
             max_iterations: config.command.max_iterations,
@@ -1637,6 +1638,7 @@ impl DefaultCookOrchestrator {
             name: "args-workflow".to_string(),
             mode: crate::cook::workflow::WorkflowMode::Sequential,
             steps,
+            setup_phase: None,
             map_phase: None,
             reduce_phase: None,
             max_iterations: 1,
@@ -1802,10 +1804,18 @@ impl DefaultCookOrchestrator {
         }
 
         // Convert MapReduce config to ExtendedWorkflowConfig
+        // Extract setup commands if they exist
+        let setup_steps = mapreduce_config
+            .setup
+            .as_ref()
+            .map(|setup| setup.commands.clone())
+            .unwrap_or_default();
+
         let extended_workflow = ExtendedWorkflowConfig {
             name: mapreduce_config.name.clone(),
             mode: crate::cook::workflow::WorkflowMode::MapReduce,
-            steps: mapreduce_config.setup.clone().unwrap_or_default(),
+            steps: setup_steps,
+            setup_phase: mapreduce_config.to_setup_phase(),
             map_phase: Some(mapreduce_config.to_map_phase()),
             reduce_phase: mapreduce_config.to_reduce_phase(),
             max_iterations: 1, // MapReduce runs once

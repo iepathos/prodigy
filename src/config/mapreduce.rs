@@ -2,9 +2,10 @@
 //!
 //! Handles parsing of MapReduce workflow YAML files.
 
-use crate::cook::execution::{MapPhase, MapReduceConfig, ReducePhase};
+use crate::cook::execution::{MapPhase, MapReduceConfig, ReducePhase, SetupPhase};
 use crate::cook::workflow::WorkflowStep;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// MapReduce workflow configuration from YAML
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16,9 +17,13 @@ pub struct MapReduceWorkflowConfig {
     #[serde(default = "default_mode")]
     pub mode: String,
 
-    /// Optional setup phase
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub setup: Option<Vec<WorkflowStep>>,
+    /// Optional setup phase with separate configuration or simple list of steps
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_setup_phase_option"
+    )]
+    pub setup: Option<SetupPhaseConfig>,
 
     /// Map phase configuration
     pub map: MapPhaseYaml,
@@ -30,6 +35,68 @@ pub struct MapReduceWorkflowConfig {
 
 fn default_mode() -> String {
     "mapreduce".to_string()
+}
+
+/// Setup phase configuration from YAML
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SetupPhaseConfig {
+    /// Commands to execute during setup
+    pub commands: Vec<WorkflowStep>,
+
+    /// Timeout for the entire setup phase (in seconds)
+    #[serde(
+        default = "default_setup_timeout",
+        deserialize_with = "deserialize_timeout_required"
+    )]
+    pub timeout: u64,
+
+    /// Variables to capture from setup commands
+    /// Key is variable name, value is the command index to capture from
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub capture_outputs: HashMap<String, usize>,
+}
+
+fn default_setup_timeout() -> u64 {
+    300 // 5 minutes default
+}
+
+/// Custom deserializer for required timeout values
+fn deserialize_timeout_required<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    deserialize_timeout(deserializer)?
+        .ok_or_else(|| serde::de::Error::custom("timeout is required"))
+}
+
+/// Custom deserializer for setup phase that supports both simple list and full config
+fn deserialize_setup_phase_option<'de, D>(
+    deserializer: D,
+) -> Result<Option<SetupPhaseConfig>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum SetupValue {
+        Commands(Vec<WorkflowStep>),
+        Config(SetupPhaseConfig),
+    }
+
+    let value = Option::<SetupValue>::deserialize(deserializer)?;
+
+    match value {
+        None => Ok(None),
+        Some(SetupValue::Commands(commands)) => {
+            // Convert simple list of commands to full setup config
+            Ok(Some(SetupPhaseConfig {
+                commands,
+                timeout: default_setup_timeout(),
+                capture_outputs: HashMap::new(),
+            }))
+        }
+        Some(SetupValue::Config(config)) => Ok(Some(config)),
+    }
 }
 
 /// Map phase configuration from YAML
@@ -130,6 +197,15 @@ where
 }
 
 impl MapReduceWorkflowConfig {
+    /// Convert to execution-ready SetupPhase
+    pub fn to_setup_phase(&self) -> Option<SetupPhase> {
+        self.setup.as_ref().map(|s| SetupPhase {
+            commands: s.commands.clone(),
+            timeout: s.timeout,
+            capture_outputs: s.capture_outputs.clone(),
+        })
+    }
+
     /// Convert to execution-ready MapPhase
     pub fn to_map_phase(&self) -> MapPhase {
         MapPhase {

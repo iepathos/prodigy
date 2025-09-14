@@ -29,6 +29,8 @@ pub mod mapreduce;
 #[cfg(test)]
 pub mod mapreduce_integration_tests;
 #[cfg(test)]
+pub mod mapreduce_setup_test;
+#[cfg(test)]
 pub mod mapreduce_tests;
 pub mod output;
 #[cfg(test)]
@@ -40,6 +42,7 @@ pub mod progress;
 #[cfg(test)]
 pub mod progress_tests;
 pub mod runner;
+pub mod setup_executor;
 #[cfg(test)]
 pub mod shell_failure_tests;
 pub mod state;
@@ -52,7 +55,7 @@ pub use command::{CommandRequest, CommandSpec, CommandType, ExecutionConfig, Out
 pub use executor::{CommandExecutor as UnifiedExecutor, UnifiedCommandExecutor};
 pub use mapreduce::{
     AgentResult, AgentStatus, MapPhase, MapReduceConfig, MapReduceExecutor, ReducePhase,
-    ResumeOptions, ResumeResult,
+    ResumeOptions, ResumeResult, SetupPhase,
 };
 pub use runner::{CommandRunner, RealCommandRunner};
 

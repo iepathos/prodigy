@@ -76,6 +76,19 @@ fn default_retry() -> u32 {
     2
 }
 
+/// Setup phase configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SetupPhase {
+    /// Commands to execute during setup
+    pub commands: Vec<WorkflowStep>,
+    /// Timeout for the entire setup phase (in seconds)
+    pub timeout: u64,
+    /// Variables to capture from setup commands
+    /// Key is variable name, value is the command index to capture from
+    #[serde(default)]
+    pub capture_outputs: HashMap<String, usize>,
+}
+
 /// Map phase configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MapPhase {
@@ -430,6 +443,7 @@ pub struct MapReduceExecutor {
     correlation_id: String,
     enhanced_progress_tracker: Option<Arc<EnhancedProgressTracker>>,
     enable_web_dashboard: bool,
+    setup_variables: HashMap<String, String>,
 }
 
 /// Summary statistics for map results
@@ -1075,6 +1089,7 @@ impl MapReduceExecutor {
             enable_web_dashboard: std::env::var("PRODIGY_WEB_DASHBOARD")
                 .unwrap_or_else(|_| "false".to_string())
                 .eq_ignore_ascii_case("true"),
+            setup_variables: HashMap::new(),
         }
     }
 
@@ -1085,7 +1100,22 @@ impl MapReduceExecutor {
         reduce_phase: Option<&ReducePhase>,
         env: &ExecutionEnvironment,
     ) -> MapReduceResult<Vec<AgentResult>> {
+        self.execute_with_context(map_phase, reduce_phase, env, HashMap::new())
+            .await
+    }
+
+    /// Execute a MapReduce workflow with setup context variables
+    pub async fn execute_with_context(
+        &mut self,
+        map_phase: &MapPhase,
+        reduce_phase: Option<&ReducePhase>,
+        env: &ExecutionEnvironment,
+        setup_variables: HashMap<String, String>,
+    ) -> MapReduceResult<Vec<AgentResult>> {
         let start_time = Instant::now();
+
+        // Store setup variables for use in agent execution
+        self.setup_variables = setup_variables;
 
         // Load and parse work items with filtering and sorting
         let work_items = self
@@ -2121,6 +2151,7 @@ impl MapReduceExecutor {
 
     /// Initialize agent context with all necessary variables
     fn initialize_agent_context(
+        &self,
         item_id: &str,
         item: &Value,
         worktree_path: PathBuf,
@@ -2148,6 +2179,9 @@ impl MapReduceExecutor {
         // Add standard variables
         let std_vars = Self::create_standard_variables(&worktree_name, item_id, &env.session_id);
         context.variables.extend(std_vars);
+
+        // Add setup variables from setup phase
+        context.variables.extend(self.setup_variables.clone());
 
         context
     }
@@ -2213,7 +2247,7 @@ impl MapReduceExecutor {
         let branch_name = format!("prodigy-agent-{}-{}", env.session_id, item_id);
 
         // Initialize agent context with all variables
-        let mut context = Self::initialize_agent_context(
+        let mut context = self.initialize_agent_context(
             item_id,
             item,
             worktree_path.clone(),
@@ -2319,7 +2353,7 @@ impl MapReduceExecutor {
         let branch_name = format!("prodigy-agent-{}-{}", env.session_id, item_id);
 
         // Initialize agent context with all variables
-        let mut context = Self::initialize_agent_context(
+        let mut context = self.initialize_agent_context(
             item_id,
             item,
             worktree_path.clone(),
@@ -3703,6 +3737,7 @@ impl MapReduceExecutor {
             correlation_id: self.correlation_id.clone(),
             enhanced_progress_tracker: self.enhanced_progress_tracker.clone(),
             enable_web_dashboard: self.enable_web_dashboard,
+            setup_variables: self.setup_variables.clone(),
         }
     }
 

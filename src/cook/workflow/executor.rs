@@ -105,7 +105,7 @@ pub enum CommandType {
 }
 
 /// Result of executing a step
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct StepResult {
     pub success: bool,
     pub exit_code: Option<i32>,
@@ -330,7 +330,7 @@ pub struct HandlerStep {
 }
 
 /// A workflow step with extended syntax support
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct WorkflowStep {
     /// Legacy step name (for backward compatibility)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -455,8 +455,10 @@ pub struct ExtendedWorkflowConfig {
     pub name: String,
     /// Execution mode
     pub mode: WorkflowMode,
-    /// Steps to execute (for sequential mode)
+    /// Steps to execute (for sequential mode or simple setup phase)
     pub steps: Vec<WorkflowStep>,
+    /// Setup phase configuration (for advanced MapReduce setup with timeout and capture)
+    pub setup_phase: Option<crate::cook::execution::SetupPhase>,
     /// Map phase configuration (for mapreduce mode)
     pub map_phase: Option<crate::cook::execution::MapPhase>,
     /// Reduce phase configuration (for mapreduce mode)
@@ -2335,48 +2337,58 @@ impl WorkflowExecutor {
         workflow: &ExtendedWorkflowConfig,
         env: &ExecutionEnvironment,
     ) -> Result<()> {
-        use crate::cook::execution::MapReduceExecutor;
+        use crate::cook::execution::setup_executor::SetupPhaseExecutor;
+        use crate::cook::execution::{MapReduceExecutor, SetupPhase};
         use crate::worktree::WorktreeManager;
 
         let workflow_start = Instant::now();
 
         // Don't duplicate the message - it's already shown by the orchestrator
 
+        let mut workflow_context = WorkflowContext::default();
+        let mut generated_input_file: Option<String> = None;
+        let mut _captured_variables = HashMap::new();
+
         // Execute setup phase if present
-        if !workflow.steps.is_empty() {
+        if !workflow.steps.is_empty() || workflow.setup_phase.is_some() {
             self.user_interaction
                 .display_progress("Running setup phase...");
 
-            // Execute setup steps in the main worktree
-            let mut workflow_context = WorkflowContext::default();
-            for (step_index, step) in workflow.steps.iter().enumerate() {
-                let step_display = self.get_step_display_name(step);
-                self.user_interaction.display_progress(&format!(
-                    "Setup step {}/{}: {}",
-                    step_index + 1,
-                    workflow.steps.len(),
-                    step_display
-                ));
+            // Use provided setup_phase configuration or create a default one
+            let setup_phase = if let Some(ref setup) = workflow.setup_phase {
+                setup.clone()
+            } else if !workflow.steps.is_empty() {
+                // For backward compatibility, use default timeout and no capture_outputs
+                SetupPhase {
+                    commands: workflow.steps.clone(),
+                    timeout: 300,                    // 5 minutes default
+                    capture_outputs: HashMap::new(), // No variables to capture by default
+                }
+            } else {
+                // No setup phase
+                SetupPhase {
+                    commands: vec![],
+                    timeout: 300,
+                    capture_outputs: HashMap::new(),
+                }
+            };
 
-                // Execute the setup step
-                let _step_result = match self.execute_step(step, env, &mut workflow_context).await {
-                    Ok(result) => result,
-                    Err(e) => {
-                        // The execute_step error already contains detailed stdout/stderr
-                        // We want to preserve the full error message, not just add context
-                        return Err(anyhow!(
-                            "Setup step {}/{}: {}\n\n{}",
-                            step_index + 1,
-                            workflow.steps.len(),
-                            step_display,
-                            e
-                        ));
-                    }
-                };
+            if !setup_phase.commands.is_empty() {
+                let setup_executor = SetupPhaseExecutor::new(&setup_phase);
 
-                // Note: execute_step will return an error if the step fails and should_fail is true
-                // It already includes detailed stdout/stderr in the error message
-                // We only get here if the step succeeded or if on_failure handling allowed continuation
+                // Execute setup phase with file detection
+                let (captured, gen_file) = setup_executor
+                    .execute_with_file_detection(
+                        &setup_phase.commands,
+                        self,
+                        env,
+                        &mut workflow_context,
+                    )
+                    .await
+                    .map_err(|e| anyhow!("Setup phase failed: {}", e))?;
+
+                _captured_variables = captured;
+                generated_input_file = gen_file;
             }
 
             self.user_interaction
@@ -2384,10 +2396,16 @@ impl WorkflowExecutor {
         }
 
         // Ensure we have map phase configuration
-        let map_phase = workflow
+        let mut map_phase = workflow
             .map_phase
             .as_ref()
-            .ok_or_else(|| anyhow!("MapReduce workflow requires map phase configuration"))?;
+            .ok_or_else(|| anyhow!("MapReduce workflow requires map phase configuration"))?
+            .clone();
+
+        // Update map phase input if setup generated a work-items.json file
+        if let Some(generated_file) = generated_input_file {
+            map_phase.config.input = generated_file;
+        }
 
         // Create worktree manager
         let worktree_manager = Arc::new(WorktreeManager::new(
@@ -2410,9 +2428,14 @@ impl WorkflowExecutor {
             .update_session(SessionUpdate::StartWorkflow)
             .await?;
 
-        // Execute MapReduce workflow
+        // Execute MapReduce workflow with setup context
         let results = mapreduce_executor
-            .execute(map_phase, workflow.reduce_phase.as_ref(), env)
+            .execute_with_context(
+                &map_phase,
+                workflow.reduce_phase.as_ref(),
+                env,
+                workflow_context.captured_outputs.clone(),
+            )
             .await?;
 
         // Update session with results
@@ -2605,16 +2628,7 @@ mod executor_tests;
 
 // Implement the WorkflowExecutor trait
 #[async_trait::async_trait]
-impl super::traits::WorkflowExecutor for WorkflowExecutor {
-    async fn execute(
-        &mut self,
-        workflow: &ExtendedWorkflowConfig,
-        env: &ExecutionEnvironment,
-    ) -> Result<()> {
-        // Call the existing execute method
-        self.execute(workflow, env).await
-    }
-
+impl super::traits::StepExecutor for WorkflowExecutor {
     async fn execute_step(
         &mut self,
         step: &WorkflowStep,
@@ -2623,6 +2637,18 @@ impl super::traits::WorkflowExecutor for WorkflowExecutor {
     ) -> Result<StepResult> {
         // Call the existing execute_step method
         self.execute_step(step, env, context).await
+    }
+}
+
+#[async_trait::async_trait]
+impl super::traits::WorkflowExecutor for WorkflowExecutor {
+    async fn execute(
+        &mut self,
+        workflow: &ExtendedWorkflowConfig,
+        env: &ExecutionEnvironment,
+    ) -> Result<()> {
+        // Call the existing execute method
+        self.execute(workflow, env).await
     }
 }
 
