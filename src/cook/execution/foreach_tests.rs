@@ -82,8 +82,8 @@ mod foreach_execution_tests {
     #[tokio::test]
     async fn test_foreach_parallel_execution() {
         // Create a counter to track concurrent executions
-        let counter = Arc::new(AtomicUsize::new(0));
-        let max_concurrent = Arc::new(AtomicUsize::new(0));
+        let _counter = Arc::new(AtomicUsize::new(0));
+        let _max_concurrent = Arc::new(AtomicUsize::new(0));
 
         let config = ForeachConfig {
             input: ForeachInput::List(vec![
@@ -439,7 +439,7 @@ mod foreach_item_source_tests {
     /// Test command that produces items with spaces
     #[tokio::test]
     async fn test_command_input_with_spaces() {
-        let input = ForeachInput::Command("echo -e 'item with spaces\\nanother item'".to_string());
+        let input = ForeachInput::Command("printf 'item with spaces\\nanother item'".to_string());
         let items = get_items(&input).await.unwrap();
         assert_eq!(items.len(), 2);
         assert_eq!(items[0], "item with spaces");
