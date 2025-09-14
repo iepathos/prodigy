@@ -18,7 +18,11 @@ pub struct MapReduceWorkflowConfig {
     pub mode: String,
 
     /// Optional setup phase with separate configuration or simple list of steps
-    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_setup_phase_option")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_setup_phase_option"
+    )]
     pub setup: Option<SetupPhaseConfig>,
 
     /// Map phase configuration
@@ -40,7 +44,10 @@ pub struct SetupPhaseConfig {
     pub commands: Vec<WorkflowStep>,
 
     /// Timeout for the entire setup phase (in seconds)
-    #[serde(default = "default_setup_timeout", deserialize_with = "deserialize_timeout_required")]
+    #[serde(
+        default = "default_setup_timeout",
+        deserialize_with = "deserialize_timeout_required"
+    )]
     pub timeout: u64,
 
     /// Variables to capture from setup commands
@@ -63,7 +70,9 @@ where
 }
 
 /// Custom deserializer for setup phase that supports both simple list and full config
-fn deserialize_setup_phase_option<'de, D>(deserializer: D) -> Result<Option<SetupPhaseConfig>, D::Error>
+fn deserialize_setup_phase_option<'de, D>(
+    deserializer: D,
+) -> Result<Option<SetupPhaseConfig>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {

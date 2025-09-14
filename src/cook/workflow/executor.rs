@@ -2337,8 +2337,8 @@ impl WorkflowExecutor {
         workflow: &ExtendedWorkflowConfig,
         env: &ExecutionEnvironment,
     ) -> Result<()> {
-        use crate::cook::execution::{MapReduceExecutor, SetupPhase};
         use crate::cook::execution::setup_executor::SetupPhaseExecutor;
+        use crate::cook::execution::{MapReduceExecutor, SetupPhase};
         use crate::worktree::WorktreeManager;
 
         let workflow_start = Instant::now();
@@ -2361,7 +2361,7 @@ impl WorkflowExecutor {
                 // For backward compatibility, use default timeout and no capture_outputs
                 SetupPhase {
                     commands: workflow.steps.clone(),
-                    timeout: 300, // 5 minutes default
+                    timeout: 300,                    // 5 minutes default
                     capture_outputs: HashMap::new(), // No variables to capture by default
                 }
             } else {
@@ -2378,14 +2378,18 @@ impl WorkflowExecutor {
 
                 // Execute setup phase with file detection
                 let (captured, gen_file) = setup_executor
-                    .execute_with_file_detection(&setup_phase.commands, self, env, &mut workflow_context)
+                    .execute_with_file_detection(
+                        &setup_phase.commands,
+                        self,
+                        env,
+                        &mut workflow_context,
+                    )
                     .await
                     .map_err(|e| anyhow!("Setup phase failed: {}", e))?;
 
                 _captured_variables = captured;
                 generated_input_file = gen_file;
             }
-
 
             self.user_interaction
                 .display_success("Setup phase completed");

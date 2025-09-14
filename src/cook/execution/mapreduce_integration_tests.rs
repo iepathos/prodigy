@@ -258,7 +258,10 @@ reduce:
         assert!(config.setup.is_some());
         let setup = config.setup.as_ref().unwrap();
         assert_eq!(setup.commands.len(), 2);
-        assert_eq!(setup.commands[0].shell, Some("just coverage-lcov".to_string()));
+        assert_eq!(
+            setup.commands[0].shell,
+            Some("just coverage-lcov".to_string())
+        );
         assert!(setup.commands[1].commit_required);
 
         // Verify map phase

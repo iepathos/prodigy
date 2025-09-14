@@ -52,7 +52,10 @@ impl SetupPhaseExecutor {
                 // Check if we need to capture output from this command
                 for (var_name, cmd_index) in &self.capture_outputs {
                     if *cmd_index == index {
-                        info!("Capturing output from command {} as variable {}", index, var_name);
+                        info!(
+                            "Capturing output from command {} as variable {}",
+                            index, var_name
+                        );
 
                         // Capture the stdout as the variable value
                         let output = step_result.stdout.trim().to_string();
@@ -87,7 +90,10 @@ impl SetupPhaseExecutor {
             Ok(Err(e)) => Err(e),
             Err(_) => {
                 warn!("Setup phase timed out after {:?}", self.timeout);
-                Err(anyhow!("Setup phase timed out after {} seconds", self.timeout.as_secs()))
+                Err(anyhow!(
+                    "Setup phase timed out after {} seconds",
+                    self.timeout.as_secs()
+                ))
             }
         }
     }
@@ -179,10 +185,7 @@ mod tests {
         capture_outputs.insert("ITEM_COUNT".to_string(), 1);
 
         let setup_phase = SetupPhase {
-            commands: vec![
-                WorkflowStep::default(),
-                WorkflowStep::default(),
-            ],
+            commands: vec![WorkflowStep::default(), WorkflowStep::default()],
             timeout: 60,
             capture_outputs,
         };
@@ -217,7 +220,12 @@ mod tests {
         let mut context = WorkflowContext::default();
 
         let captured = executor_impl
-            .execute(&setup_phase.commands, &mut mock_executor, &env, &mut context)
+            .execute(
+                &setup_phase.commands,
+                &mut mock_executor,
+                &env,
+                &mut context,
+            )
             .await
             .unwrap();
 
@@ -263,7 +271,12 @@ mod tests {
         let mut context = WorkflowContext::default();
 
         let result = executor_impl
-            .execute(&setup_phase.commands, &mut slow_executor, &env, &mut context)
+            .execute(
+                &setup_phase.commands,
+                &mut slow_executor,
+                &env,
+                &mut context,
+            )
             .await;
 
         assert!(result.is_err());
