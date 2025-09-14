@@ -542,7 +542,10 @@ impl WorkflowExecutor {
             StepCommand::Shell(cmd) => {
                 workflow_step.shell = Some(cmd.clone());
             }
-            StepCommand::Test { command, on_failure } => {
+            StepCommand::Test {
+                command,
+                on_failure,
+            } => {
                 workflow_step.test = Some(crate::config::command::TestCommand {
                     command: command.clone(),
                     on_failure: on_failure.clone(),

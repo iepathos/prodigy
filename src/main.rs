@@ -917,7 +917,7 @@ async fn run_resume_workflow(
     path: Option<PathBuf>,
 ) -> anyhow::Result<()> {
     use prodigy::cook::session::{SessionManager, SessionTrackerImpl};
-    use prodigy::cook::workflow::{CheckpointManager, ResumeExecutor, ResumeOptions};
+    use prodigy::cook::workflow::{CheckpointManager, ResumeOptions};
     use std::sync::Arc;
 
     let working_dir = path.unwrap_or_else(|| std::env::current_dir().unwrap());
@@ -940,7 +940,7 @@ async fn run_resume_workflow(
                 println!("   Status: {:?}", checkpoint.execution_state.status);
 
                 // Create resume options
-                let resume_options = ResumeOptions {
+                let _resume_options = ResumeOptions {
                     force,
                     from_step: None,
                     reset_failures: false,

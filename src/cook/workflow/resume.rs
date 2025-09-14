@@ -36,9 +36,7 @@ pub struct ResumeExecutor {
 impl ResumeExecutor {
     /// Create a new resume executor
     pub fn new(checkpoint_manager: Arc<CheckpointManager>) -> Self {
-        Self {
-            checkpoint_manager,
-        }
+        Self { checkpoint_manager }
     }
 
     /// Resume a workflow from checkpoint
@@ -206,7 +204,6 @@ impl ResumeExecutor {
 
         Ok(context)
     }
-
 }
 
 /// List all resumable workflows
@@ -244,4 +241,3 @@ pub struct ResumableWorkflow {
     pub last_checkpoint: chrono::DateTime<chrono::Utc>,
     pub can_resume: bool,
 }
-

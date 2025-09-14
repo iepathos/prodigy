@@ -13,6 +13,7 @@ mod traits;
 pub mod validation;
 pub mod variables;
 
+pub use checkpoint::ResumeOptions;
 pub use checkpoint::{CheckpointManager, WorkflowCheckpoint};
 pub use executor::{
     CaptureOutput, CommandType, ExtendedWorkflowConfig, HandlerStep, StepResult, WorkflowContext,
@@ -24,7 +25,6 @@ pub use normalized::{
 };
 pub use on_failure::OnFailureConfig;
 pub use resume::{ResumeExecutor, ResumeResult};
-pub use checkpoint::ResumeOptions;
 pub use traits::WorkflowExecutor;
 pub use validation::{
     GapDetail, OnIncompleteConfig, Severity, ValidationConfig, ValidationResult, ValidationStatus,
