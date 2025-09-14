@@ -142,10 +142,8 @@ impl FilterEvaluator {
                             Some(n.to_string())
                         } else if let Some(b) = val.as_bool() {
                             Some(b.to_string())
-                        } else if let Some(f) = val.as_f64() {
-                            Some(f.to_string())
                         } else {
-                            None
+                            val.as_f64().map(|f| f.to_string())
                         }
                     } else {
                         None
@@ -476,7 +474,10 @@ impl DlqReprocessor {
     }
 
     /// Get statistics across all DLQs
-    pub async fn get_global_stats(&self, _project_root: &std::path::Path) -> Result<GlobalDLQStats> {
+    pub async fn get_global_stats(
+        &self,
+        _project_root: &std::path::Path,
+    ) -> Result<GlobalDLQStats> {
         // In a real implementation, this would scan all DLQs
         // For now, return stats for the current DLQ
         let stats = self.dlq.get_stats().await?;
