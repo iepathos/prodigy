@@ -1,12 +1,8 @@
 //! Integration tests for MapReduce command input functionality
 
 use prodigy::config::mapreduce::parse_mapreduce_workflow;
-use prodigy::cook::execution::MapReduceExecutor;
-use prodigy::subprocess::SubprocessManager;
-use prodigy::worktree::WorktreeManager;
 use serde_json::json;
 use std::fs;
-use std::path::Path;
 use tempfile::TempDir;
 
 /// Test that command input is properly detected and executed
@@ -49,6 +45,9 @@ map:
 async fn test_mapreduce_command_pipeline() {
     let temp_dir = TempDir::new().unwrap();
     let project_root = temp_dir.path().to_path_buf();
+
+    // Create src directory first
+    fs::create_dir_all(project_root.join("src")).unwrap();
 
     // Create test files with TODO comments
     fs::write(
@@ -196,7 +195,7 @@ map:
 #[tokio::test]
 async fn test_mapreduce_empty_command_output() {
     let temp_dir = TempDir::new().unwrap();
-    let project_root = temp_dir.path().to_path_buf();
+    let _project_root = temp_dir.path().to_path_buf();
 
     let workflow_yaml = r#"
 name: test-empty-output
@@ -212,7 +211,7 @@ map:
   max_parallel: 1
 "#;
 
-    let config = parse_mapreduce_workflow(workflow_yaml).unwrap();
+    let _config = parse_mapreduce_workflow(workflow_yaml).unwrap();
 
     // Should handle empty output gracefully (0 work items)
 }
