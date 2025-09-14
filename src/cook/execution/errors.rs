@@ -72,6 +72,14 @@ pub enum MapReduceError {
         available_vars: Vec<String>,
     },
 
+    #[error("Command execution failed for input source: {command}")]
+    CommandExecutionFailed {
+        command: String,
+        reason: String,
+        #[source]
+        source: Option<Box<dyn std::error::Error + Send + Sync>>,
+    },
+
     // I/O errors
     #[error("Failed to persist checkpoint for job {job_id}")]
     CheckpointPersistFailed {
@@ -310,6 +318,7 @@ impl MapReduceError {
             Self::WorktreeMergeConflict { .. } => "WorktreeMergeConflict",
             Self::CommandFailed(_) => "CommandFailed",
             Self::ShellSubstitutionFailed { .. } => "ShellSubstitutionFailed",
+            Self::CommandExecutionFailed { .. } => "CommandExecutionFailed",
             Self::CheckpointPersistFailed { .. } => "CheckpointPersistFailed",
             Self::WorkItemLoadFailed { .. } => "WorkItemLoadFailed",
             Self::InvalidConfiguration { .. } => "InvalidConfiguration",

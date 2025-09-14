@@ -6,7 +6,7 @@ mod tests {
     use crate::cook::execution::mapreduce::MapReduceConfig;
     use chrono::Utc;
     use std::collections::HashMap;
-    use std::path::PathBuf;
+
     use std::sync::Arc;
     use tempfile::TempDir;
     use tokio::sync::Mutex;
@@ -61,7 +61,7 @@ mod tests {
         let event = MapReduceEvent::JobStarted {
             job_id: job_id.to_string(),
             config: MapReduceConfig {
-                input: PathBuf::from("test.json"),
+                input: "test.json".to_string(),
                 json_path: "$.items".to_string(),
                 max_parallel: 5,
                 timeout_per_agent: 300,
@@ -191,7 +191,7 @@ mod tests {
         let job_event = MapReduceEvent::JobStarted {
             job_id: "job-1".to_string(),
             config: MapReduceConfig {
-                input: PathBuf::from("test.json"),
+                input: "test.json".to_string(),
                 json_path: "$.items".to_string(),
                 max_parallel: 5,
                 timeout_per_agent: 300,
@@ -238,7 +238,7 @@ mod tests {
                 event: MapReduceEvent::JobStarted {
                     job_id: "job-1".to_string(),
                     config: MapReduceConfig {
-                        input: PathBuf::from("test.json"),
+                        input: "test.json".to_string(),
                         json_path: "$.items".to_string(),
                         max_parallel: 5,
                         timeout_per_agent: 300,
@@ -303,7 +303,7 @@ mod tests {
             event: MapReduceEvent::JobStarted {
                 job_id: job_id.to_string(),
                 config: MapReduceConfig {
-                    input: PathBuf::from("test.json"),
+                    input: "test.json".to_string(),
                     json_path: "$.items".to_string(),
                     max_parallel: 5,
                     timeout_per_agent: 300,

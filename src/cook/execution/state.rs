@@ -714,7 +714,7 @@ mod tests {
 
         // Create a test state
         let config = MapReduceConfig {
-            input: PathBuf::from("test.json"),
+            input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
             timeout_per_agent: 60,
@@ -764,7 +764,7 @@ mod tests {
         let manager = CheckpointManager::new(temp_dir.path().to_path_buf());
 
         let config = MapReduceConfig {
-            input: PathBuf::from("test.json"),
+            input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
             timeout_per_agent: 60,
@@ -797,7 +797,7 @@ mod tests {
         let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
 
         let config = MapReduceConfig {
-            input: PathBuf::from("test.json"),
+            input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
             timeout_per_agent: 60,

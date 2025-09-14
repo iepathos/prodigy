@@ -5,7 +5,6 @@
 use crate::cook::execution::{MapPhase, MapReduceConfig, ReducePhase};
 use crate::cook::workflow::WorkflowStep;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 /// MapReduce workflow configuration from YAML
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,8 +35,8 @@ fn default_mode() -> String {
 /// Map phase configuration from YAML
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MapPhaseYaml {
-    /// Input file path
-    pub input: PathBuf,
+    /// Input source: either a file path or command to execute
+    pub input: String,
 
     /// JSON path expression
     #[serde(default)]

@@ -84,7 +84,7 @@ fn test_resume_result_serialization() {
 #[test]
 fn test_mapreduce_config_defaults() {
     let config = MapReduceConfig {
-        input: PathBuf::from("test.json"),
+        input: "test.json".to_string(),
         json_path: "$.items[*]".to_string(),
         max_parallel: 5,
         timeout_per_agent: 300,
@@ -236,7 +236,7 @@ fn test_map_phase_configuration() {
 
     let map_phase = MapPhase {
         config: MapReduceConfig {
-            input: PathBuf::from("items.json"),
+            input: "items.json".to_string(),
             json_path: "$.items[*]".to_string(),
             max_parallel: 20,
             timeout_per_agent: 1200,

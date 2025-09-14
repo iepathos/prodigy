@@ -374,7 +374,7 @@ mod tests {
             event: MapReduceEvent::JobStarted {
                 job_id: job_id.to_string(),
                 config: MapReduceConfig {
-                    input: PathBuf::from("test.json"),
+                    input: "test.json".to_string(),
                     json_path: "$.items".to_string(),
                     max_parallel: 5,
                     timeout_per_agent: 300,

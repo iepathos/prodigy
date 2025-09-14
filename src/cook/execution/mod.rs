@@ -20,6 +20,7 @@ pub mod events;
 pub mod executor;
 #[cfg(test)]
 pub mod executor_tests;
+pub mod input_source;
 pub mod interpolation;
 pub mod mapreduce;
 #[cfg(test)]

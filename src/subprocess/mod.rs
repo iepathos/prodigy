@@ -183,4 +183,38 @@ impl SubprocessManager {
     pub fn claude(&self) -> claude::ClaudeRunnerImpl {
         claude::ClaudeRunnerImpl::new(Arc::clone(&self.runner))
     }
+
+    /// Run a shell command with timeout
+    ///
+    /// Executes a shell command through /bin/sh with a specified timeout.
+    /// Returns the command output including stdout, stderr, and exit status.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use prodigy::subprocess::SubprocessManager;
+    /// # use std::time::Duration;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let subprocess = SubprocessManager::production();
+    /// let result = subprocess
+    ///     .run_with_timeout("ls -la", Duration::from_secs(5))
+    ///     .await?;
+    /// println!("Output: {}", result.stdout);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn run_with_timeout(
+        &self,
+        command: &str,
+        timeout: std::time::Duration,
+    ) -> Result<ProcessOutput, ProcessError> {
+        let cmd = ProcessCommandBuilder::new("sh")
+            .arg("-c")
+            .arg(command)
+            .timeout(timeout)
+            .build();
+
+        self.runner.run(cmd).await
+    }
 }

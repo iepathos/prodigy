@@ -278,7 +278,6 @@ fn hostname() -> String {
 mod tests {
     use super::*;
     use crate::cook::execution::mapreduce::MapReduceConfig;
-    use std::path::PathBuf;
 
     #[tokio::test]
     async fn test_event_logger_basic() {
@@ -286,7 +285,7 @@ mod tests {
         let event = MapReduceEvent::JobStarted {
             job_id: "test-job".to_string(),
             config: MapReduceConfig {
-                input: PathBuf::from("test.json"),
+                input: "test.json".to_string(),
                 json_path: "$.items".to_string(),
                 max_parallel: 5,
                 timeout_per_agent: 300,

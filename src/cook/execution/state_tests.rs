@@ -14,7 +14,7 @@ mod tests {
     #[tokio::test]
     async fn test_job_state_creation() {
         let config = MapReduceConfig {
-            input: PathBuf::from("test.json"),
+            input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
             timeout_per_agent: 60,
@@ -49,7 +49,7 @@ mod tests {
     #[tokio::test]
     async fn test_find_work_item() {
         let config = MapReduceConfig {
-            input: PathBuf::from("test.json"),
+            input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
             timeout_per_agent: 60,
@@ -90,7 +90,7 @@ mod tests {
         let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
 
         let config = MapReduceConfig {
-            input: PathBuf::from("test.json"),
+            input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
             timeout_per_agent: 60,
@@ -169,7 +169,7 @@ mod tests {
     #[tokio::test]
     async fn test_agent_result_update() {
         let config = MapReduceConfig {
-            input: PathBuf::from("test.json"),
+            input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
             timeout_per_agent: 60,
@@ -236,7 +236,7 @@ mod tests {
         let checkpoint_manager = CheckpointManager::new(temp_dir.path().to_path_buf());
 
         let config = MapReduceConfig {
-            input: PathBuf::from("test.json"),
+            input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
             timeout_per_agent: 60,
@@ -305,7 +305,7 @@ mod tests {
         let checkpoint_manager = CheckpointManager::new(temp_dir.path().to_path_buf());
 
         let config = MapReduceConfig {
-            input: PathBuf::from("test.json"),
+            input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
             timeout_per_agent: 60,
@@ -343,7 +343,7 @@ mod tests {
         let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
 
         let config = MapReduceConfig {
-            input: PathBuf::from("test.json"),
+            input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
             timeout_per_agent: 60,
@@ -418,7 +418,7 @@ mod tests {
         let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
 
         let config = MapReduceConfig {
-            input: PathBuf::from("test.json"),
+            input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
             timeout_per_agent: 60,
@@ -499,7 +499,7 @@ mod tests {
         let checkpoint_manager = CheckpointManager::new(temp_dir.path().to_path_buf());
 
         let config = MapReduceConfig {
-            input: PathBuf::from("test.json"),
+            input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
             timeout_per_agent: 60,
@@ -532,7 +532,7 @@ mod tests {
     #[tokio::test]
     async fn test_phase_completion_tracking() {
         let config = MapReduceConfig {
-            input: PathBuf::from("test.json"),
+            input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
             timeout_per_agent: 60,
