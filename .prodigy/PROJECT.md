@@ -1,6 +1,6 @@
 # Prodigy Project Status
 
-## Current State: 97%
+## Current State: 98%
 
 A workflow orchestration tool that executes Claude commands through structured YAML workflows with session state management and parallel execution through MapReduce patterns.
 
@@ -32,7 +32,7 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - `prodigy run` - Execute workflows (simplified alias for cook) ✅
 - `prodigy exec` - Execute single command with retry support ✅
 - `prodigy batch` - Process multiple files in parallel ✅
-- `prodigy resume` - Resume interrupted workflows ✅
+- `prodigy resume` - Resume interrupted workflows with checkpoint recovery ✅
 - `prodigy cook` - Execute workflows (original command)
 - `prodigy goal-seek` - Standalone goal-seeking operations ✅
 - `prodigy worktree` - Git worktree management
@@ -43,11 +43,20 @@ A workflow orchestration tool that executes Claude commands through structured Y
 
 ## Recent Additions
 
+### Workflow Resume Capability ✅
+- **Checkpoint-Based Recovery**: Automatic checkpoint creation at configurable intervals
+- **Step-Level Granularity**: Resume from exact point of failure
+- **Variable State Preservation**: Full context restoration on resume
+- **MapReduce Resume Support**: Partial completion handling for parallel jobs
+- **Atomic Checkpoint Writes**: Corruption-resistant checkpoint persistence
+- **Resume Options**: Force resume, step selection, failure reset
+- **Checkpoint Management**: List, load, and delete checkpoint operations
+
 ### Simplified CLI Interface ✅
 - **`prodigy run`**: Intuitive alias for cook command
 - **`prodigy exec`**: Single command execution with retry support
 - **`prodigy batch`**: Parallel file processing with MapReduce
-- **`prodigy resume`**: Resume interrupted workflows
+- **`prodigy resume`**: Resume interrupted workflows with full state recovery
 - **Workflow Generation**: Automatic YAML generation for simple operations
 - **Smart Defaults**: Sensible retry, timeout, and parallelism settings
 
@@ -69,6 +78,8 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - `cook/goal_seek/`: Goal-seeking primitives and validators ✅
 - `cook/execution/`: Command execution and MapReduce processing
 - `cook/workflow/`: Workflow parsing and step management
+- `cook/workflow/checkpoint/`: Checkpoint creation and persistence ✅
+- `cook/workflow/resume/`: Resume execution from checkpoints ✅
 - `config/`: Configuration management and command discovery
 - `session/`: Session state and timing tracking
 
@@ -149,7 +160,6 @@ reduce:
 
 ### Known Issues
 - DLQ reprocessing not yet implemented (command exists but returns error)
-- Job resumption shows status only (actual resumption not implemented)
 - Context directory feature planned but not implemented
 
 ### Performance Optimizations Needed
