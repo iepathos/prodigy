@@ -71,31 +71,48 @@ enum Commands {
         /// Goal description
         #[arg(help = "What you want to achieve")]
         goal: String,
-        
+
         /// Command to execute for attempts
-        #[arg(short = 'c', long, help = "Command to execute (gets validation context)")]
+        #[arg(
+            short = 'c',
+            long,
+            help = "Command to execute (gets validation context)"
+        )]
         command: String,
-        
+
         /// Validation command
-        #[arg(long, help = "Command to validate results (should output score: 0-100)")]
+        #[arg(
+            long,
+            help = "Command to validate results (should output score: 0-100)"
+        )]
         validate: String,
-        
+
         /// Success threshold (0-100)
-        #[arg(short = 't', long, default_value = "80", help = "Minimum score to consider success")]
+        #[arg(
+            short = 't',
+            long,
+            default_value = "80",
+            help = "Minimum score to consider success"
+        )]
         threshold: u32,
-        
+
         /// Maximum attempts
-        #[arg(short = 'm', long, default_value = "5", help = "Maximum attempts before giving up")]
+        #[arg(
+            short = 'm',
+            long,
+            default_value = "5",
+            help = "Maximum attempts before giving up"
+        )]
         max_attempts: u32,
-        
+
         /// Timeout in seconds
         #[arg(long, help = "Overall timeout in seconds")]
         timeout: Option<u64>,
-        
+
         /// Fail on incomplete
         #[arg(long, help = "Exit with error if goal not achieved")]
         fail_on_incomplete: bool,
-        
+
         /// Working directory
         #[arg(short = 'p', long, help = "Working directory for commands")]
         path: Option<PathBuf>,
@@ -438,14 +455,16 @@ struct GoalSeekParams {
 
 /// Run goal-seeking operation from CLI
 async fn run_goal_seek(params: GoalSeekParams) -> anyhow::Result<()> {
-    use prodigy::cook::goal_seek::{GoalSeekConfig, GoalSeekEngine, shell_executor::ShellCommandExecutor};
+    use prodigy::cook::goal_seek::{
+        shell_executor::ShellCommandExecutor, GoalSeekConfig, GoalSeekEngine,
+    };
     use std::env;
-    
+
     // Change to specified directory if provided
     if let Some(path) = params.path {
         env::set_current_dir(path)?;
     }
-    
+
     // Create goal-seek configuration
     // CLI uses shell command by default (could be extended to support --claude flag)
     let config = GoalSeekConfig {
@@ -458,25 +477,33 @@ async fn run_goal_seek(params: GoalSeekParams) -> anyhow::Result<()> {
         timeout_seconds: params.timeout,
         fail_on_incomplete: Some(params.fail_on_incomplete),
     };
-    
+
     // Create shell executor and engine
     let executor = Box::new(ShellCommandExecutor::new());
     let mut engine = GoalSeekEngine::new(executor);
-    
+
     // Execute goal-seeking
     println!("🎯 Starting goal-seeking: {}", params.goal);
     let result = engine.seek(config).await?;
-    
+
     // Handle result
     use prodigy::cook::goal_seek::GoalSeekResult;
     match result {
-        GoalSeekResult::Success { attempts, final_score, execution_time } => {
+        GoalSeekResult::Success {
+            attempts,
+            final_score,
+            execution_time,
+        } => {
             println!("✅ Goal achieved in {} attempts!", attempts);
             println!("   Final score: {}%", final_score);
             println!("   Time taken: {:?}", execution_time);
             Ok(())
         }
-        GoalSeekResult::MaxAttemptsReached { attempts, best_score, .. } => {
+        GoalSeekResult::MaxAttemptsReached {
+            attempts,
+            best_score,
+            ..
+        } => {
             let msg = format!(
                 "❌ Goal not achieved after {} attempts. Best score: {}%",
                 attempts, best_score
@@ -488,13 +515,21 @@ async fn run_goal_seek(params: GoalSeekParams) -> anyhow::Result<()> {
                 Ok(())
             }
         }
-        GoalSeekResult::Timeout { attempts, best_score, elapsed } => {
-            Err(anyhow::anyhow!(
-                "⏱️  Timed out after {} attempts and {:?}. Best score: {}%",
-                attempts, elapsed, best_score
-            ))
-        }
-        GoalSeekResult::Converged { attempts, final_score, reason } => {
+        GoalSeekResult::Timeout {
+            attempts,
+            best_score,
+            elapsed,
+        } => Err(anyhow::anyhow!(
+            "⏱️  Timed out after {} attempts and {:?}. Best score: {}%",
+            attempts,
+            elapsed,
+            best_score
+        )),
+        GoalSeekResult::Converged {
+            attempts,
+            final_score,
+            reason,
+        } => {
             let msg = format!(
                 "🔄 Converged after {} attempts. Score: {}%. Reason: {}",
                 attempts, final_score, reason
@@ -506,12 +541,11 @@ async fn run_goal_seek(params: GoalSeekParams) -> anyhow::Result<()> {
                 Ok(())
             }
         }
-        GoalSeekResult::Failed { attempts, error } => {
-            Err(anyhow::anyhow!(
-                "💥 Failed after {} attempts: {}",
-                attempts, error
-            ))
-        }
+        GoalSeekResult::Failed { attempts, error } => Err(anyhow::anyhow!(
+            "💥 Failed after {} attempts: {}",
+            attempts,
+            error
+        )),
     }
 }
 
@@ -567,7 +601,8 @@ async fn execute_command(command: Option<Commands>) -> anyhow::Result<()> {
                 timeout,
                 fail_on_incomplete,
                 path,
-            }).await
+            })
+            .await
         }
         Some(Commands::Worktree { command }) => run_worktree_command(command).await,
         Some(Commands::Init {

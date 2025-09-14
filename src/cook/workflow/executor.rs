@@ -855,7 +855,7 @@ impl WorkflowExecutor {
         _ctx: &WorkflowContext,
         _env_vars: &HashMap<String, String>,
     ) -> Result<StepResult> {
-        use crate::cook::goal_seek::{GoalSeekEngine, shell_executor::ShellCommandExecutor};
+        use crate::cook::goal_seek::{shell_executor::ShellCommandExecutor, GoalSeekEngine};
 
         // Create shell command executor for goal-seeking
         let executor = Box::new(ShellCommandExecutor::new());
@@ -921,7 +921,9 @@ impl WorkflowExecutor {
                 final_score,
                 reason,
             } => {
-                if goal_seek_config.fail_on_incomplete.unwrap_or(false) && final_score < goal_seek_config.threshold {
+                if goal_seek_config.fail_on_incomplete.unwrap_or(false)
+                    && final_score < goal_seek_config.threshold
+                {
                     Err(anyhow::anyhow!(
                         "Goal '{}' converged after {} attempts but didn't reach threshold. Score: {}%, Reason: {}",
                         goal_seek_config.goal, attempts, final_score, reason
@@ -934,7 +936,11 @@ impl WorkflowExecutor {
                             goal_seek_config.goal, attempts, final_score, reason
                         ),
                         stderr: String::new(),
-                        exit_code: Some(if final_score >= goal_seek_config.threshold { 0 } else { 1 }),
+                        exit_code: Some(if final_score >= goal_seek_config.threshold {
+                            0
+                        } else {
+                            1
+                        }),
                     })
                 }
             }

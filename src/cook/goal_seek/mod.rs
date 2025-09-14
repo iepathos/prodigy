@@ -8,34 +8,34 @@ pub mod validators;
 
 pub use engine::GoalSeekEngine;
 pub use validator::{ValidationResult, Validator};
-pub use validators::{SpecCoverageValidator, TestPassValidator, OutputQualityValidator};
+pub use validators::{OutputQualityValidator, SpecCoverageValidator, TestPassValidator};
 
 /// Simplified goal-seek configuration with single command
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct GoalSeekConfig {
     /// Human-readable goal description
     pub goal: String,
-    
+
     /// Claude command for refinement attempts
     #[serde(skip_serializing_if = "Option::is_none")]
     pub claude: Option<String>,
-    
+
     /// Shell command for refinement attempts  
     #[serde(skip_serializing_if = "Option::is_none")]
     pub shell: Option<String>,
-    
+
     /// Command to validate the attempt (returns score 0-100)
     pub validate: String,
-    
+
     /// Success threshold (0-100)
     pub threshold: u32,
-    
+
     /// Maximum attempts before giving up
     pub max_attempts: u32,
-    
+
     /// Optional timeout for entire operation
     pub timeout_seconds: Option<u64>,
-    
+
     /// Whether to fail workflow on incomplete
     pub fail_on_incomplete: Option<bool>,
 }
@@ -49,33 +49,30 @@ pub enum GoalSeekResult {
         final_score: u32,
         execution_time: Duration,
     },
-    
+
     /// Max attempts reached without success
     MaxAttemptsReached {
         attempts: u32,
         best_score: u32,
         last_output: String,
     },
-    
+
     /// Operation timed out
     Timeout {
         attempts: u32,
         best_score: u32,
         elapsed: Duration,
     },
-    
+
     /// Converged (no improvement)
     Converged {
         attempts: u32,
         final_score: u32,
         reason: String,
     },
-    
+
     /// Failed due to error
-    Failed {
-        attempts: u32,
-        error: String,
-    },
+    Failed { attempts: u32, error: String },
 }
 
 #[derive(Debug, Clone)]

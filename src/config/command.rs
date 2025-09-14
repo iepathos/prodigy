@@ -332,7 +332,11 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
         };
 
         // Validate that at least one command field is present
-        if helper.claude.is_none() && shell.is_none() && helper.analyze.is_none() && helper.goal_seek.is_none() {
+        if helper.claude.is_none()
+            && shell.is_none()
+            && helper.analyze.is_none()
+            && helper.goal_seek.is_none()
+        {
             return Err(serde::de::Error::custom(
                 "WorkflowStepCommand must have 'claude', 'shell', 'analyze', or 'goal_seek' field",
             ));
