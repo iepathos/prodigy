@@ -278,7 +278,6 @@ fn hostname() -> String {
 mod tests {
     use super::*;
     use crate::cook::execution::mapreduce::MapReduceConfig;
-    
 
     #[tokio::test]
     async fn test_event_logger_basic() {

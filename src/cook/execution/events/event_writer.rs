@@ -265,7 +265,7 @@ mod tests {
     use super::*;
     use crate::cook::execution::events::MapReduceEvent;
     use crate::cook::execution::mapreduce::MapReduceConfig;
-    
+
     use tempfile::TempDir;
     use uuid::Uuid;
 

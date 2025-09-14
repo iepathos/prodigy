@@ -6,7 +6,7 @@ mod tests {
     use crate::cook::execution::mapreduce::MapReduceConfig;
     use chrono::Utc;
     use std::collections::HashMap;
-    
+
     use std::sync::Arc;
     use tempfile::TempDir;
     use tokio::sync::Mutex;
