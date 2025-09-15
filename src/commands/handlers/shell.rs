@@ -220,10 +220,7 @@ mod tests {
 
         let result = handler.execute(&context, attributes).await;
         assert!(!result.is_success());
-        assert_eq!(
-            result.error.unwrap(),
-            "Missing required attribute: command"
-        );
+        assert_eq!(result.error.unwrap(), "Missing required attribute: command");
     }
 
     #[tokio::test]
@@ -452,9 +449,6 @@ mod tests {
 
         let result = handler.execute(&context, attributes).await;
         assert!(!result.is_success());
-        assert!(result
-            .error
-            .unwrap()
-            .contains("Failed to execute command"));
+        assert!(result.error.unwrap().contains("Failed to execute command"));
     }
 }

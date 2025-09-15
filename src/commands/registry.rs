@@ -60,15 +60,13 @@ impl CommandRegistry {
     }
 
     /// Creates a future for handler registration (pure function)
-    fn create_registration_future(
+    async fn create_registration_future(
         handlers: Arc<RwLock<HashMap<String, Arc<dyn CommandHandler>>>>,
         name: String,
         handler: Arc<dyn CommandHandler>,
-    ) -> impl std::future::Future<Output = ()> {
-        async move {
-            let mut handlers = handlers.write().await;
-            handlers.insert(name, handler);
-        }
+    ) {
+        let mut handlers = handlers.write().await;
+        handlers.insert(name, handler);
     }
 
     /// Executes a future in the appropriate runtime context
@@ -281,7 +279,9 @@ mod tests {
         let registry = CommandRegistry::new();
         let context = ExecutionContext::new(std::env::current_dir().unwrap());
 
-        let result = registry.execute("nonexistent", &context, HashMap::new()).await;
+        let result = registry
+            .execute("nonexistent", &context, HashMap::new())
+            .await;
         assert!(result.is_error());
         assert!(result
             .error

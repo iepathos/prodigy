@@ -17,10 +17,14 @@ use super::{
 
 /// Internal event generator for mapping updates to events
 enum EventGenerator {
-    Simple(SessionEvent),
+    Simple(Box<SessionEvent>),
     IncrementIteration,
     FilesChanged(usize),
-    CommandTiming { command: String, #[allow(dead_code)] duration: std::time::Duration },
+    CommandTiming {
+        command: String,
+        #[allow(dead_code)]
+        duration: std::time::Duration,
+    },
     NoOp,
 }
 
@@ -56,41 +60,45 @@ impl SessionManagerAdapter {
                 vec![Self::map_status_to_event(status)]
             }
             SessionUpdate::StartIteration(number) => {
-                vec![EventGenerator::Simple(SessionEvent::IterationStarted { number })]
+                vec![EventGenerator::Simple(Box::new(
+                    SessionEvent::IterationStarted { number },
+                ))]
             }
             SessionUpdate::CompleteIteration => {
-                vec![EventGenerator::Simple(SessionEvent::IterationCompleted {
-                    changes: IterationChanges::default(),
-                })]
+                vec![EventGenerator::Simple(Box::new(
+                    SessionEvent::IterationCompleted {
+                        changes: IterationChanges::default(),
+                    },
+                ))]
             }
             SessionUpdate::RecordCommandTiming(command, duration) => {
                 vec![EventGenerator::CommandTiming { command, duration }]
             }
             SessionUpdate::MarkInterrupted => {
-                vec![EventGenerator::Simple(SessionEvent::Paused {
+                vec![EventGenerator::Simple(Box::new(SessionEvent::Paused {
                     reason: "Interrupted".to_string(),
-                })]
+                }))]
             }
             // Non-operational updates
-            SessionUpdate::AddError(_) |
-            SessionUpdate::StartWorkflow |
-            SessionUpdate::UpdateWorkflowState(_) |
-            SessionUpdate::SetWorkflowHash(_) |
-            SessionUpdate::SetWorkflowType(_) |
-            SessionUpdate::UpdateExecutionContext(_) => vec![EventGenerator::NoOp],
+            SessionUpdate::AddError(_)
+            | SessionUpdate::StartWorkflow
+            | SessionUpdate::UpdateWorkflowState(_)
+            | SessionUpdate::SetWorkflowHash(_)
+            | SessionUpdate::SetWorkflowType(_)
+            | SessionUpdate::UpdateExecutionContext(_) => vec![EventGenerator::NoOp],
         }
     }
 
     /// Pure function to map SessionStatus to EventGenerator
     fn map_status_to_event(status: SessionStatus) -> EventGenerator {
         match status {
-            SessionStatus::Completed => EventGenerator::Simple(SessionEvent::Completed),
-            SessionStatus::Failed => EventGenerator::Simple(SessionEvent::Failed {
+            SessionStatus::Completed => EventGenerator::Simple(Box::new(SessionEvent::Completed)),
+            SessionStatus::Failed => EventGenerator::Simple(Box::new(SessionEvent::Failed {
                 error: "Session failed".to_string(),
-            }),
-            SessionStatus::Interrupted => EventGenerator::Simple(SessionEvent::Paused {
+            })),
+            SessionStatus::Interrupted => EventGenerator::Simple(Box::new(SessionEvent::Paused {
                 reason: "Interrupted".to_string(),
-            }),
+            })),
             _ => EventGenerator::NoOp,
         }
     }
@@ -192,7 +200,7 @@ impl OldSessionManager for SessionManagerAdapter {
         for event_generator in events {
             match event_generator {
                 EventGenerator::Simple(event) => {
-                    self.new_manager.record_event(&session_id, event).await?;
+                    self.new_manager.record_event(&session_id, *event).await?;
                 }
                 EventGenerator::IncrementIteration => {
                     let progress = self.new_manager.get_progress(&session_id).await?;
@@ -474,17 +482,23 @@ mod adapter_tests {
         // Test StartIteration
         let events = SessionManagerAdapter::map_update_to_events(SessionUpdate::StartIteration(42));
         assert_eq!(events.len(), 1);
-        assert!(matches!(events[0], EventGenerator::Simple(SessionEvent::IterationStarted { number: 42 })));
+        assert!(matches!(
+            &events[0],
+            EventGenerator::Simple(event) if matches!(**event, SessionEvent::IterationStarted { number: 42 })
+        ));
 
         // Test CompleteIteration
         let events = SessionManagerAdapter::map_update_to_events(SessionUpdate::CompleteIteration);
         assert_eq!(events.len(), 1);
-        assert!(matches!(events[0], EventGenerator::Simple(SessionEvent::IterationCompleted { .. })));
+        assert!(matches!(
+            &events[0],
+            EventGenerator::Simple(event) if matches!(**event, SessionEvent::IterationCompleted { .. })
+        ));
 
         // Test RecordCommandTiming
         let duration = std::time::Duration::from_secs(10);
         let events = SessionManagerAdapter::map_update_to_events(
-            SessionUpdate::RecordCommandTiming("test-cmd".to_string(), duration)
+            SessionUpdate::RecordCommandTiming("test-cmd".to_string(), duration),
         );
         assert_eq!(events.len(), 1);
         assert!(matches!(events[0], EventGenerator::CommandTiming { .. }));
@@ -492,14 +506,19 @@ mod adapter_tests {
         // Test MarkInterrupted
         let events = SessionManagerAdapter::map_update_to_events(SessionUpdate::MarkInterrupted);
         assert_eq!(events.len(), 1);
-        assert!(matches!(events[0], EventGenerator::Simple(SessionEvent::Paused { .. })));
+        assert!(matches!(
+            &events[0],
+            EventGenerator::Simple(event) if matches!(**event, SessionEvent::Paused { .. })
+        ));
 
         // Test NoOp updates
         let events = SessionManagerAdapter::map_update_to_events(SessionUpdate::StartWorkflow);
         assert_eq!(events.len(), 1);
         assert!(matches!(events[0], EventGenerator::NoOp));
 
-        let events = SessionManagerAdapter::map_update_to_events(SessionUpdate::AddError("error".to_string()));
+        let events = SessionManagerAdapter::map_update_to_events(SessionUpdate::AddError(
+            "error".to_string(),
+        ));
         assert_eq!(events.len(), 1);
         assert!(matches!(events[0], EventGenerator::NoOp));
     }
@@ -508,15 +527,24 @@ mod adapter_tests {
     fn test_map_status_to_event() {
         // Test Completed status
         let event = SessionManagerAdapter::map_status_to_event(SessionStatus::Completed);
-        assert!(matches!(event, EventGenerator::Simple(SessionEvent::Completed)));
+        assert!(matches!(
+            &event,
+            EventGenerator::Simple(event) if matches!(**event, SessionEvent::Completed)
+        ));
 
         // Test Failed status
         let event = SessionManagerAdapter::map_status_to_event(SessionStatus::Failed);
-        assert!(matches!(event, EventGenerator::Simple(SessionEvent::Failed { .. })));
+        assert!(matches!(
+            &event,
+            EventGenerator::Simple(event) if matches!(**event, SessionEvent::Failed { .. })
+        ));
 
         // Test Interrupted status
         let event = SessionManagerAdapter::map_status_to_event(SessionStatus::Interrupted);
-        assert!(matches!(event, EventGenerator::Simple(SessionEvent::Paused { .. })));
+        assert!(matches!(
+            &event,
+            EventGenerator::Simple(event) if matches!(**event, SessionEvent::Paused { .. })
+        ));
 
         // Test InProgress status (should be NoOp)
         let event = SessionManagerAdapter::map_status_to_event(SessionStatus::InProgress);
@@ -545,25 +573,55 @@ mod adapter_tests {
         adapter.start_session("test-all-updates").await.unwrap();
 
         // Test each update variant
-        adapter.update_session(SessionUpdate::IncrementIteration).await.unwrap();
-        adapter.update_session(SessionUpdate::AddFilesChanged(2)).await.unwrap();
-        adapter.update_session(SessionUpdate::UpdateStatus(SessionStatus::InProgress)).await.unwrap();
-        adapter.update_session(SessionUpdate::UpdateStatus(SessionStatus::Completed)).await.unwrap();
+        adapter
+            .update_session(SessionUpdate::IncrementIteration)
+            .await
+            .unwrap();
+        adapter
+            .update_session(SessionUpdate::AddFilesChanged(2))
+            .await
+            .unwrap();
+        adapter
+            .update_session(SessionUpdate::UpdateStatus(SessionStatus::InProgress))
+            .await
+            .unwrap();
+        adapter
+            .update_session(SessionUpdate::UpdateStatus(SessionStatus::Completed))
+            .await
+            .unwrap();
 
         // Restart for more tests
         adapter.start_session("test-more-updates").await.unwrap();
 
-        adapter.update_session(SessionUpdate::StartIteration(1)).await.unwrap();
-        adapter.update_session(SessionUpdate::CompleteIteration).await.unwrap();
-        adapter.update_session(SessionUpdate::RecordCommandTiming(
-            "test".to_string(),
-            std::time::Duration::from_secs(5)
-        )).await.unwrap();
-        adapter.update_session(SessionUpdate::MarkInterrupted).await.unwrap();
+        adapter
+            .update_session(SessionUpdate::StartIteration(1))
+            .await
+            .unwrap();
+        adapter
+            .update_session(SessionUpdate::CompleteIteration)
+            .await
+            .unwrap();
+        adapter
+            .update_session(SessionUpdate::RecordCommandTiming(
+                "test".to_string(),
+                std::time::Duration::from_secs(5),
+            ))
+            .await
+            .unwrap();
+        adapter
+            .update_session(SessionUpdate::MarkInterrupted)
+            .await
+            .unwrap();
 
         // Test NoOp updates (should not error)
-        adapter.update_session(SessionUpdate::StartWorkflow).await.unwrap();
-        adapter.update_session(SessionUpdate::AddError("test error".to_string())).await.unwrap();
+        adapter
+            .update_session(SessionUpdate::StartWorkflow)
+            .await
+            .unwrap();
+        adapter
+            .update_session(SessionUpdate::AddError("test error".to_string()))
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
