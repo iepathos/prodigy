@@ -2292,8 +2292,10 @@ impl WorkflowExecutor {
                     if !commits.is_empty() {
                         // Create commit tracker and squash
                         let git_ops = Arc::new(crate::abstractions::git::RealGitOperations::new());
-                        let commit_tracker =
-                            crate::cook::commit_tracker::CommitTracker::new(git_ops, env.working_dir.clone());
+                        let commit_tracker = crate::cook::commit_tracker::CommitTracker::new(
+                            git_ops,
+                            env.working_dir.clone(),
+                        );
 
                         // Generate squash message
                         let squash_message = format!(
@@ -2368,7 +2370,8 @@ impl WorkflowExecutor {
         // Initialize CommitTracker for this step
         let git_ops = Arc::new(crate::abstractions::RealGitOperations::new());
         let working_dir = env.working_dir.clone();
-        let mut commit_tracker = crate::cook::commit_tracker::CommitTracker::new(git_ops, working_dir);
+        let mut commit_tracker =
+            crate::cook::commit_tracker::CommitTracker::new(git_ops, working_dir);
         commit_tracker.initialize().await?;
 
         // Get the HEAD before step execution
@@ -2409,18 +2412,24 @@ impl WorkflowExecutor {
         // Track commits created during step execution
         let after_head = commit_tracker.get_current_head().await?;
         let step_name = self.get_step_display_name(step);
-        let mut tracked_commits = commit_tracker.track_step_commits(&step_name, &before_head, &after_head).await?;
+        let mut tracked_commits = commit_tracker
+            .track_step_commits(&step_name, &before_head, &after_head)
+            .await?;
 
         // Create auto-commit if configured and changes exist
         if step.auto_commit && commit_tracker.has_changes().await? {
-            let message_template = step.commit_config.as_ref()
+            let message_template = step
+                .commit_config
+                .as_ref()
                 .and_then(|c| c.message_template.as_deref());
-            let auto_commit = commit_tracker.create_auto_commit(
-                &step_name,
-                message_template,
-                &ctx.variables,
-                step.commit_config.as_ref(),
-            ).await?;
+            let auto_commit = commit_tracker
+                .create_auto_commit(
+                    &step_name,
+                    message_template,
+                    &ctx.variables,
+                    step.commit_config.as_ref(),
+                )
+                .await?;
 
             // Add auto-commit to tracked commits
             tracked_commits.push(auto_commit);
@@ -2428,21 +2437,33 @@ impl WorkflowExecutor {
 
         // Populate commit variables in context if we have commits
         if !tracked_commits.is_empty() {
-            let tracking_result = crate::cook::commit_tracker::CommitTrackingResult::from_commits(tracked_commits.clone());
-            ctx.variables.insert("step.commits".to_string(), serde_json::to_string(&tracked_commits)?);
-            ctx.variables.insert("step.files_changed".to_string(), tracking_result.total_files_changed.to_string());
-            ctx.variables.insert("step.insertions".to_string(), tracking_result.total_insertions.to_string());
-            ctx.variables.insert("step.deletions".to_string(), tracking_result.total_deletions.to_string());
+            let tracking_result = crate::cook::commit_tracker::CommitTrackingResult::from_commits(
+                tracked_commits.clone(),
+            );
+            ctx.variables.insert(
+                "step.commits".to_string(),
+                serde_json::to_string(&tracked_commits)?,
+            );
+            ctx.variables.insert(
+                "step.files_changed".to_string(),
+                tracking_result.total_files_changed.to_string(),
+            );
+            ctx.variables.insert(
+                "step.insertions".to_string(),
+                tracking_result.total_insertions.to_string(),
+            );
+            ctx.variables.insert(
+                "step.deletions".to_string(),
+                tracking_result.total_deletions.to_string(),
+            );
         }
 
         // Enforce commit_required if configured
-        if step.commit_required {
-            if tracked_commits.is_empty() && after_head == before_head {
-                return Err(anyhow::anyhow!(
-                    "Step '{}' has commit_required=true but no commits were created",
-                    step_name
-                ));
-            }
+        if step.commit_required && tracked_commits.is_empty() && after_head == before_head {
+            return Err(anyhow::anyhow!(
+                "Step '{}' has commit_required=true but no commits were created",
+                step_name
+            ));
         }
 
         // Capture command output if requested

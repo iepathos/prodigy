@@ -1027,10 +1027,7 @@ mod merge_history_tests {
             message: "feat: add new feature".to_string(),
             author: "Test Author".to_string(),
             timestamp,
-            files_changed: vec![
-                PathBuf::from("src/main.rs"),
-                PathBuf::from("src/lib.rs"),
-            ],
+            files_changed: vec![PathBuf::from("src/main.rs"), PathBuf::from("src/lib.rs")],
             insertions: 50,
             deletions: 10,
             step_name: "map-agent-1".to_string(),
@@ -1097,8 +1094,9 @@ mod merge_history_tests {
         // Verify commits maintain order
         for (i, commit) in commits.iter().enumerate() {
             assert_eq!(commit.hash, format!("commit{}", i + 1));
-            assert!(commit.message.contains(&format!("{}",
-                ["First", "Second", "Third"][i])));
+            assert!(commit
+                .message
+                .contains(&format!("{}", ["First", "Second", "Third"][i])));
         }
 
         // Verify serialization preserves all commits

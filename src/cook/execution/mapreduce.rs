@@ -2293,7 +2293,9 @@ impl MapReduceExecutor {
         match &result.status {
             AgentStatus::Success => {
                 // Convert commits to include agent_id
-                let agent_commits: Vec<String> = result.commits.iter()
+                let agent_commits: Vec<String> = result
+                    .commits
+                    .iter()
                     .map(|c| format!("{} (agent: {})", c, agent_id))
                     .collect();
 
@@ -2670,10 +2672,8 @@ impl MapReduceExecutor {
     ) -> MapReduceResult<AgentResult> {
         // Initialize CommitTracker for agent commit tracking
         let git_ops = Arc::new(crate::abstractions::RealGitOperations::new());
-        let mut commit_tracker = crate::cook::commit_tracker::CommitTracker::new(
-            git_ops,
-            worktree_path.to_path_buf(),
-        );
+        let mut commit_tracker =
+            crate::cook::commit_tracker::CommitTracker::new(git_ops, worktree_path.to_path_buf());
         commit_tracker.initialize().await.map_err(|e| {
             let context = self.create_error_context("commit_tracker_init");
             MapReduceError::General {

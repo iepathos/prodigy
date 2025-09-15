@@ -236,8 +236,13 @@ impl CommitTracker {
     /// Check if GPG signing is properly configured
     async fn check_gpg_config(&self) -> Result<bool> {
         // Check if GPG signing is configured in git
-        let output = self.git_ops
-            .git_command_in_dir(&["config", "--get", "commit.gpgsign"], "check GPG config", &self.working_dir)
+        let output = self
+            .git_ops
+            .git_command_in_dir(
+                &["config", "--get", "commit.gpgsign"],
+                "check GPG config",
+                &self.working_dir,
+            )
             .await
             .ok();
 
@@ -245,8 +250,13 @@ impl CommitTracker {
             let stdout = String::from_utf8_lossy(&output.stdout);
             if stdout.trim() == "true" {
                 // Check if a signing key is configured
-                let key_output = self.git_ops
-                    .git_command_in_dir(&["config", "--get", "user.signingkey"], "check signing key", &self.working_dir)
+                let key_output = self
+                    .git_ops
+                    .git_command_in_dir(
+                        &["config", "--get", "user.signingkey"],
+                        "check signing key",
+                        &self.working_dir,
+                    )
                     .await
                     .ok();
 
@@ -254,13 +264,20 @@ impl CommitTracker {
                     let key_stdout = String::from_utf8_lossy(&key_output.stdout);
                     if !key_stdout.trim().is_empty() {
                         // Verify GPG is available and the key exists
-                        let gpg_check = self.git_ops
-                            .git_command_in_dir(&["config", "--get", "gpg.program"], "check GPG program", &self.working_dir)
+                        let gpg_check = self
+                            .git_ops
+                            .git_command_in_dir(
+                                &["config", "--get", "gpg.program"],
+                                "check GPG program",
+                                &self.working_dir,
+                            )
                             .await
                             .ok();
 
                         let gpg_program = if let Some(gpg_output) = gpg_check {
-                            String::from_utf8_lossy(&gpg_output.stdout).trim().to_string()
+                            String::from_utf8_lossy(&gpg_output.stdout)
+                                .trim()
+                                .to_string()
                         } else {
                             "gpg".to_string()
                         };
@@ -287,9 +304,13 @@ impl CommitTracker {
     }
 
     /// Filter files based on include/exclude patterns
-    async fn get_files_to_stage(&self, commit_config: Option<&CommitConfig>) -> Result<Vec<String>> {
+    async fn get_files_to_stage(
+        &self,
+        commit_config: Option<&CommitConfig>,
+    ) -> Result<Vec<String>> {
         // Get all changed files
-        let output = self.git_ops
+        let output = self
+            .git_ops
             .git_command_in_dir(&["status", "--porcelain"], "get status", &self.working_dir)
             .await?;
 
@@ -357,9 +378,10 @@ impl CommitTracker {
         }
 
         // Stage files based on patterns
-        if commit_config.is_some() &&
-           (commit_config.unwrap().include_files.is_some() ||
-            commit_config.unwrap().exclude_files.is_some()) {
+        if commit_config.is_some()
+            && (commit_config.unwrap().include_files.is_some()
+                || commit_config.unwrap().exclude_files.is_some())
+        {
             // Use selective file staging
             let files_to_stage = self.get_files_to_stage(commit_config).await?;
 
@@ -410,17 +432,15 @@ impl CommitTracker {
                 if self.check_gpg_config().await? {
                     commit_args.push("-S");
                 } else {
-                    log::warn!("GPG signing requested but not properly configured, skipping signing");
+                    log::warn!(
+                        "GPG signing requested but not properly configured, skipping signing"
+                    );
                 }
             }
         }
 
         self.git_ops
-            .git_command_in_dir(
-                &commit_args,
-                "create commit",
-                &self.working_dir,
-            )
+            .git_command_in_dir(&commit_args, "create commit", &self.working_dir)
             .await?;
 
         // Get the new HEAD
@@ -699,7 +719,9 @@ mod tests {
     #[tokio::test]
     async fn test_step_commits_variable_format() {
         // Create test commits with known values
-        let timestamp = DateTime::parse_from_rfc3339("2024-01-01T12:00:00Z").unwrap().with_timezone(&Utc);
+        let timestamp = DateTime::parse_from_rfc3339("2024-01-01T12:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
         let commits = vec![
             TrackedCommit {
                 hash: "abc123def456789".to_string(),

@@ -22,10 +22,12 @@ mod tests {
         mock_git.add_success_response("").await; // stage all
         mock_git.add_success_response("").await; // commit
         mock_git.add_success_response("newcommit456\n").await; // new HEAD
-        // Mock get_commits_between response
+                                                               // Mock get_commits_between response
         mock_git.add_success_response("newcommit456|chore: auto commit for /test-command|Test User|2024-01-01T12:00:00Z\nsrc/main.rs\n").await;
         // Mock diff stats
-        mock_git.add_success_response(" 1 file changed, 5 insertions(+), 2 deletions(-)\n").await;
+        mock_git
+            .add_success_response(" 1 file changed, 5 insertions(+), 2 deletions(-)\n")
+            .await;
 
         let git_client: Arc<dyn GitOperations> = Arc::new(mock_git);
         let mut tracker = CommitTracker::new(git_client.clone(), path.clone());
@@ -50,16 +52,20 @@ mod tests {
         };
 
         // Create auto-commit
-        let variables: HashMap<String, String> = HashMap::from([
-            ("command".to_string(), "/test-command".to_string()),
-        ]);
+        let variables: HashMap<String, String> =
+            HashMap::from([("command".to_string(), "/test-command".to_string())]);
 
-        let commit = tracker.create_auto_commit(
-            "/test-command",
-            step.commit_config.as_ref().and_then(|c| c.message_template.as_deref()),
-            &variables,
-            step.commit_config.as_ref(),
-        ).await.unwrap();
+        let commit = tracker
+            .create_auto_commit(
+                "/test-command",
+                step.commit_config
+                    .as_ref()
+                    .and_then(|c| c.message_template.as_deref()),
+                &variables,
+                step.commit_config.as_ref(),
+            )
+            .await
+            .unwrap();
 
         assert!(!commit.hash.is_empty(), "Should have created auto-commit");
         assert_eq!(commit.step_name, "/test-command");
@@ -102,8 +108,14 @@ mod tests {
 
         // Verify should find no commits
         let all_commits = tracker.get_all_commits().await;
-        let commits_created = all_commits.iter().filter(|c| c.step_name == "/implement-feature").count();
-        assert_eq!(commits_created, 0, "Should find no commits when none created");
+        let commits_created = all_commits
+            .iter()
+            .filter(|c| c.step_name == "/implement-feature")
+            .count();
+        assert_eq!(
+            commits_created, 0,
+            "Should find no commits when none created"
+        );
 
         // Verification should fail when commits are required but none exist
         if step.commit_required && commits_created == 0 {
@@ -124,10 +136,16 @@ mod tests {
         mock_git.add_success_response("").await; // stage all
         mock_git.add_success_response("").await; // commit
         mock_git.add_success_response("defaultcommit\n").await; // new HEAD
-        // Mock get_commits_between response
-        mock_git.add_success_response("defaultcommit|Auto-commit: /test|Test User|2024-01-01T12:00:00Z\ntest.rs\n").await;
+                                                                // Mock get_commits_between response
+        mock_git
+            .add_success_response(
+                "defaultcommit|Auto-commit: /test|Test User|2024-01-01T12:00:00Z\ntest.rs\n",
+            )
+            .await;
         // Mock diff stats
-        mock_git.add_success_response(" 1 file changed, 3 insertions(+), 1 deletion(-)\n").await;
+        mock_git
+            .add_success_response(" 1 file changed, 3 insertions(+), 1 deletion(-)\n")
+            .await;
 
         let git_client: Arc<dyn GitOperations> = Arc::new(mock_git);
         let mut tracker = CommitTracker::new(git_client.clone(), path.clone());
@@ -144,18 +162,23 @@ mod tests {
         };
 
         // Create auto-commit with default config
-        let variables: HashMap<String, String> = HashMap::from([
-            ("command".to_string(), "/test".to_string()),
-        ]);
+        let variables: HashMap<String, String> =
+            HashMap::from([("command".to_string(), "/test".to_string())]);
 
-        let commit = tracker.create_auto_commit(
-            "/test",
-            None, // No custom message template
-            &variables,
-            step.commit_config.as_ref(),
-        ).await.unwrap();
+        let commit = tracker
+            .create_auto_commit(
+                "/test",
+                None, // No custom message template
+                &variables,
+                step.commit_config.as_ref(),
+            )
+            .await
+            .unwrap();
 
-        assert!(!commit.hash.is_empty(), "Should create commit with default config");
+        assert!(
+            !commit.hash.is_empty(),
+            "Should create commit with default config"
+        );
         assert_eq!(commit.step_name, "/test");
     }
 }
