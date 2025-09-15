@@ -15,19 +15,20 @@ map:
 
   # Commands to execute for each debt item
   agent_template:
-    - claude: |
-        /fix-debt-item --json '${item}'
-      commit_required: true
+    commands:
+      - claude: |
+          /fix-debt-item --json '${item}'
+        commit_required: true
 
-    # Run tests to verify the fix
-    - shell: "just test"
-      on_failure:
-        claude: "/prodigy-debug-test-failure --output '${shell.output}'"
+      # Run tests to verify the fix
+      - shell: "just test"
+        on_failure:
+          claude: "/prodigy-debug-test-failure --output '${shell.output}'"
 
-    # Check formatting and linting
-    - shell: "just fmt-check && just lint"
-      on_failure:
-        claude: "/prodigy-lint '${shell.output}'"
+      # Check formatting and linting
+      - shell: "just fmt-check && just lint"
+        on_failure:
+          claude: "/prodigy-lint '${shell.output}'"
 
   # Parallelization settings
   max_parallel: 5  # Run up to 5 agents in parallel
@@ -39,27 +40,28 @@ map:
 
 # Reduce phase: Aggregate results and finalize
 reduce:
-  - shell: "just test"
-    on_failure:
-      claude: "/prodigy-debug-test-failure --output '${shell.output}'"
+  commands:
+    - shell: "just test"
+      on_failure:
+        claude: "/prodigy-debug-test-failure --output '${shell.output}'"
 
-  - shell: "just fmt-check && just lint"
-    on_failure:
-      claude: "/prodigy-lint ${shell.output}"
+    - shell: "just fmt-check && just lint"
+      on_failure:
+        claude: "/prodigy-lint ${shell.output}"
 
-  # Re-run debtmap to measure improvements
-  - shell: "just coverage-lcov"
+    # Re-run debtmap to measure improvements
+    - shell: "just coverage-lcov"
 
-  - shell: "debtmap analyze src --lcov target/coverage/lcov.info --output debtmap-after.json --format json"
+    - shell: "debtmap analyze src --lcov target/coverage/lcov.info --output debtmap-after.json --format json"
 
-  # Compare debt metrics and create final commit with summary
-  - claude: |
-      /prodigy-compare-debt-results \
-        --before debtmap.json \
-        --after debtmap-after.json \
-        --map-results '${map.results}' \
-        --successful ${map.successful} \
-        --failed ${map.failed} \
-        --total ${map.total}
-    commit_required: true
+    # Compare debt metrics and create final commit with summary
+    - claude: |
+        /prodigy-compare-debt-results \
+          --before debtmap.json \
+          --after debtmap-after.json \
+          --map-results '${map.results}' \
+          --successful ${map.successful} \
+          --failed ${map.failed} \
+          --total ${map.total}
+      commit_required: true
 
