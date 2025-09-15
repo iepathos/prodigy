@@ -19,12 +19,15 @@ mod tests {
             commit_required: false,
             analysis: None,
             outputs: None,
-            capture_output: false,
+            capture_output: None,
             on_failure: None,
             on_success: None,
             validate: None,
             timeout: None,
             when: Some("${condition} == true".to_string()),
+            capture_format: None,
+            capture_streams: None,
+            output_file: None,
         };
 
         assert_eq!(step.when, Some("${condition} == true".to_string()));
@@ -43,12 +46,15 @@ mod tests {
             commit_required: false,
             analysis: None,
             outputs: None,
-            capture_output: false,
+            capture_output: None,
             on_failure: None,
             on_success: None,
             validate: None,
             timeout: None,
             when: Some("${build.success} && ${coverage} >= 80".to_string()),
+            capture_format: None,
+            capture_streams: None,
+            output_file: None,
         };
 
         assert!(step.when.is_some());
@@ -141,12 +147,15 @@ mod tests {
             commit_required: false,
             analysis: None,
             outputs: None,
-            capture_output: false,
+            capture_output: None,
             on_failure: None,
             on_success: None,
             validate: None,
             timeout: None,
             when: Some("${condition} == true".to_string()),
+            capture_format: None,
+            capture_streams: None,
+            output_file: None,
         };
 
         let json = serde_json::to_string(&step).unwrap();

@@ -1,0 +1,76 @@
+# Example: Conditional Workflow with Variable Capture
+# Demonstrates using captured variables to control workflow execution flow
+
+name: conditional-deployment
+mode: standard
+
+commands:
+  # Step 1: Check if tests pass
+  - shell: "cargo test --quiet 2>/dev/null && echo true || echo false"
+    capture: "tests_passed"
+    capture_format: boolean
+    allow_failure: true
+
+  # Step 2: Get test results count
+  - shell: "cargo test 2>&1 | grep -E 'test result:' | grep -oE '[0-9]+ passed' | cut -d' ' -f1 || echo 0"
+    capture: "test_count"
+    capture_format: number
+    allow_failure: true
+
+  # Step 3: Check code coverage if tests passed
+  - shell: "echo 'Running coverage analysis...'"
+    when: "${tests_passed}"
+    capture: "coverage_status"
+
+  # Step 4: Get current version
+  - shell: "grep '^version' Cargo.toml | cut -d'\"' -f2 || echo '0.0.0'"
+    capture: "current_version"
+
+  # Step 5: Determine if version bump is needed
+  - shell: |
+      if [ "${test_count}" -gt "10" ]; then
+        echo "true"
+      else
+        echo "false"
+      fi
+    capture: "should_bump"
+    capture_format: boolean
+
+  # Step 6: Bump version if needed
+  - shell: "echo 'Would bump version from ${current_version}'"
+    when: "${should_bump}"
+
+  # Step 7: Build release if all checks pass
+  - shell: "cargo build --release"
+    when: "${tests_passed}"
+    capture: "build_output"
+    capture_streams:
+      stdout: true
+      stderr: true
+      exit_code: true
+      success: true
+
+  # Step 8: Generate deployment summary
+  - shell: |
+      cat << EOF
+      Deployment Summary
+      ==================
+      Tests Passed: ${tests_passed}
+      Test Count: ${test_count}
+      Current Version: ${current_version}
+      Version Bumped: ${should_bump}
+      Build Success: ${build_output.success|default:false}
+      Build Exit Code: ${build_output.exit_code|default:N/A}
+      EOF
+    capture: "deployment_summary"
+
+  # Step 9: Save summary to file
+  - shell: "echo '${deployment_summary}' > deployment-summary.txt"
+
+  # Step 10: Notify completion
+  - shell: |
+      if [ "${tests_passed}" = "true" ] && [ "${build_output.success|default:false}" = "true" ]; then
+        echo "✅ Deployment ready!"
+      else
+        echo "❌ Deployment blocked - check summary"
+      fi

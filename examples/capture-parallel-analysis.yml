@@ -1,0 +1,146 @@
+# Example: Parallel Analysis with Variable Capture
+# Demonstrates capturing variables in MapReduce workflows for parallel processing
+
+name: parallel-code-analysis
+mode: mapreduce
+
+setup:
+  # Capture repository metadata
+  - shell: "find src -name '*.rs' | wc -l"
+    capture: "total_files"
+    capture_format: number
+
+  - shell: "git rev-parse --short HEAD 2>/dev/null || echo 'unknown'"
+    capture: "commit_hash"
+
+  - shell: "date +%Y%m%d-%H%M%S"
+    capture: "analysis_timestamp"
+
+  - shell: |
+      echo '{
+        "repository": "'$(basename $(pwd))'",
+        "commit": "${commit_hash}",
+        "timestamp": "${analysis_timestamp}",
+        "total_files": ${total_files}
+      }'
+    capture: "metadata"
+    capture_format: json
+
+map:
+  # Process Rust source files in parallel
+  input: files.json
+  json_path: "$.files[*]"
+
+  agent_template:
+    commands:
+      # Analyze each file
+      - shell: "wc -l ${item} | awk '{print $1}'"
+        capture: "line_count"
+        capture_format: number
+
+      - shell: "grep -c '^fn ' ${item} || echo 0"
+        capture: "function_count"
+        capture_format: number
+
+      - shell: "grep -c '^#\\[test\\]' ${item} || echo 0"
+        capture: "test_count"
+        capture_format: number
+
+      - shell: "grep -c 'TODO\\|FIXME' ${item} || echo 0"
+        capture: "todo_count"
+        capture_format: number
+
+      # Check complexity metrics
+      - shell: |
+          if [ ${line_count} -gt 500 ]; then
+            echo "high"
+          elif [ ${line_count} -gt 200 ]; then
+            echo "medium"
+          else
+            echo "low"
+          fi
+        capture: "complexity"
+
+      # Generate file report
+      - shell: |
+          echo '{
+            "file": "${item}",
+            "metrics": {
+              "lines": ${line_count},
+              "functions": ${function_count},
+              "tests": ${test_count},
+              "todos": ${todo_count},
+              "complexity": "${complexity}"
+            }
+          }'
+        capture: "file_report"
+        capture_format: json
+
+      # Save individual file report
+      - shell: "echo '${file_report}' > reports/$(basename ${item}).json"
+
+reduce:
+  commands:
+    # Aggregate results
+    - shell: "echo 'Analyzed ${map.total} files from commit ${metadata.commit}'"
+      capture: "summary_header"
+
+    # Count high complexity files
+    - shell: "grep -l '\"complexity\": \"high\"' reports/*.json | wc -l"
+      capture: "high_complexity_count"
+      capture_format: number
+
+    # Calculate total lines of code
+    - shell: "grep '\"lines\":' reports/*.json | grep -oE '[0-9]+' | awk '{sum+=$1} END {print sum}'"
+      capture: "total_lines"
+      capture_format: number
+
+    # Calculate total test count
+    - shell: "grep '\"tests\":' reports/*.json | grep -oE '[0-9]+' | awk '{sum+=$1} END {print sum}'"
+      capture: "total_tests"
+      capture_format: number
+
+    # Generate final report
+    - shell: |
+      cat << EOF
+      Code Analysis Report
+      ====================
+      Repository: ${metadata.repository}
+      Commit: ${metadata.commit}
+      Timestamp: ${metadata.timestamp}
+
+      Summary Statistics:
+      - Files Analyzed: ${map.successful}/${map.total}
+      - Total Lines: ${total_lines}
+      - Total Tests: ${total_tests}
+      - High Complexity Files: ${high_complexity_count}
+
+      Processing Results:
+      - Successful: ${map.successful}
+      - Failed: ${map.failed}
+      - Duration: ${map.duration|default:unknown}
+      EOF
+    capture: "final_report"
+
+    # Save the final report
+    - shell: "echo '${final_report}' > analysis-report-${analysis_timestamp}.txt"
+
+    # Create JSON summary for further processing
+    - shell: |
+      echo '{
+        "metadata": ${metadata},
+        "results": {
+          "files_processed": ${map.successful},
+          "total_lines": ${total_lines},
+          "total_tests": ${total_tests},
+          "high_complexity_files": ${high_complexity_count}
+        },
+        "report": "${final_report}"
+      }' | jq .
+    capture: "json_summary"
+    capture_format: json
+
+    # Display completion message
+    - shell: |
+      echo "✅ Analysis complete! Report saved to analysis-report-${analysis_timestamp}.txt"
+      echo "📊 Metrics: ${total_lines} lines, ${total_tests} tests across ${map.successful} files"

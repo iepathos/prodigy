@@ -621,6 +621,210 @@ This is especially useful for:
 - Validation commands that only check code without modifying it
 - Optional cleanup steps that may have already been addressed
 
+### Variable Capture and Output Management
+
+Prodigy provides powerful variable capture capabilities that allow you to capture command outputs and use them in subsequent commands, enabling sophisticated data pipelines and conditional execution flows.
+
+#### Basic Variable Capture
+
+Capture command output to use in later commands:
+
+```yaml
+# Capture to default variable names
+- shell: "echo 'Hello, World!'"
+  capture_output: true  # Captures to ${shell.output}
+
+- shell: "echo 'You said: ${shell.output}'"
+
+# Capture with custom variable names
+- shell: "git rev-parse --short HEAD"
+  capture_output: "commit_hash"
+
+- shell: "echo 'Building commit ${commit_hash}'"
+```
+
+#### Capture Formats
+
+Different formats for parsing captured output:
+
+```yaml
+# String format (default) - raw output as string
+- shell: "echo 'simple text'"
+  capture_output: "text_var"
+  capture_format: string
+
+# JSON format - parse output as JSON
+- shell: "cat package.json"
+  capture_output: "package_info"
+  capture_format: json
+
+- shell: "echo 'Package: ${package_info.name} v${package_info.version}'"
+
+# Number format - parse as numeric value
+- shell: "wc -l < src/main.rs"
+  capture_output: "line_count"
+  capture_format: number
+
+# Boolean format - parse as true/false
+- shell: "test -f Cargo.toml && echo true || echo false"
+  capture_output: "has_cargo"
+  capture_format: boolean
+
+# Lines format - split into array of lines
+- shell: "ls src/"
+  capture_output: "source_files"
+  capture_format: lines
+```
+
+#### Capture Streams Configuration
+
+Control which output streams to capture:
+
+```yaml
+- shell: "cargo build"
+  capture_output: "build"
+  capture_streams:
+    stdout: true      # Capture standard output (default: true)
+    stderr: true      # Capture standard error (default: false)
+    exit_code: true   # Capture exit code (default: true)
+    success: true     # Capture success status (default: true)
+    duration: true    # Capture execution time (default: true)
+
+# Access captured metadata
+- shell: |
+    echo "Build output: ${build}"
+    echo "Build errors: ${build.stderr}"
+    echo "Exit code: ${build.exit_code}"
+    echo "Success: ${build.success}"
+    echo "Duration: ${build.duration}s"
+```
+
+#### Variable Interpolation in Commands
+
+Use captured variables throughout your workflow:
+
+```yaml
+# Capture multiple values
+- shell: "cargo metadata --format-version 1 | jq -r .target_directory"
+  capture_output: "target_dir"
+
+- shell: "du -sh ${target_dir} | cut -f1"
+  capture_output: "target_size"
+
+- shell: "find ${target_dir} -name '*.rs' | wc -l"
+  capture_output: "rust_files"
+  capture_format: number
+
+# Use all captured variables
+- shell: |
+    echo "Build Report:"
+    echo "Target Dir: ${target_dir}"
+    echo "Size: ${target_size}"
+    echo "Rust Files: ${rust_files}"
+  capture_output: "report"
+
+# Pass to Claude commands
+- claude: "/analyze-build --size ${target_size} --files ${rust_files}"
+```
+
+#### JSON Processing and Nested Access
+
+Work with complex JSON data structures:
+
+```yaml
+# Capture JSON with nested fields
+- shell: |
+    echo '{
+      "build": {
+        "status": "success",
+        "artifacts": ["app", "lib"],
+        "metrics": {
+          "duration": 45,
+          "warnings": 3
+        }
+      }
+    }'
+  capture_output: "build_info"
+  capture_format: json
+
+# Access nested fields
+- shell: "echo 'Status: ${build_info.build.status}'"
+- shell: "echo 'Duration: ${build_info.build.metrics.duration}s'"
+- shell: "echo 'Warnings: ${build_info.build.metrics.warnings}'"
+```
+
+#### Conditional Execution with Variables
+
+Use captured variables for conditional workflow control:
+
+```yaml
+# Check if tests pass
+- shell: "cargo test --quiet && echo true || echo false"
+  capture_output: "tests_passed"
+  capture_format: boolean
+  allow_failure: true
+
+# Only proceed if tests passed
+- shell: "cargo build --release"
+  when: "${tests_passed}"
+
+# Get test count for decision making
+- shell: "cargo test 2>&1 | grep -E 'test result' | grep -oE '[0-9]+ passed' | cut -d' ' -f1"
+  capture_output: "test_count"
+  capture_format: number
+
+# Conditional based on numeric comparison
+- claude: "/generate-more-tests"
+  when: "${test_count} < 50"
+```
+
+#### MapReduce Variable Persistence
+
+Variables captured in setup phase are available throughout MapReduce workflows:
+
+```yaml
+mode: mapreduce
+
+setup:
+  # Capture setup variables
+  - shell: "date +%Y%m%d-%H%M%S"
+    capture_output: "timestamp"
+
+  - shell: "git rev-parse --short HEAD"
+    capture_output: "commit"
+
+map:
+  input: items.json
+  json_path: "$.items[*]"
+
+  agent_template:
+    commands:
+      # Access setup variables in map phase
+      - shell: "echo 'Processing ${item.name} at ${timestamp}'"
+
+      # Capture per-item results
+      - shell: "analyze ${item.path}"
+        capture_output: "analysis"
+
+      - shell: "echo '${commit}:${item.id}:${analysis}' > result.txt"
+
+reduce:
+  commands:
+    # Access setup variables in reduce phase
+    - shell: "echo 'Completed at ${timestamp} for commit ${commit}'"
+
+    # Aggregate results
+    - shell: "echo 'Processed ${map.total} items, ${map.successful} succeeded'"
+```
+
+#### Examples in Practice
+
+See the `examples/` directory for complete workflows demonstrating variable capture:
+- `capture-output-custom-vars.yml` - Custom variable names and basic capture
+- `capture-json-processing.yml` - JSON data processing and nested field access
+- `capture-conditional-flow.yml` - Conditional execution based on captured values
+- `capture-parallel-analysis.yml` - Variable capture in MapReduce workflows
+
 ### Parallel Sessions with Git Worktrees
 
 Run multiple cooking sessions concurrently without conflicts:

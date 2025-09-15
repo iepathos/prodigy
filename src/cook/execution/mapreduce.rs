@@ -360,6 +360,8 @@ pub struct AgentContext {
     pub captured_outputs: HashMap<String, String>,
     /// Iteration-specific variables
     pub iteration_vars: HashMap<String, String>,
+    /// Variable store for structured capture data
+    pub variable_store: crate::cook::workflow::variables::VariableStore,
 }
 
 impl AgentContext {
@@ -380,6 +382,7 @@ impl AgentContext {
             retry_count: 0,
             captured_outputs: HashMap::new(),
             iteration_vars: HashMap::new(),
+            variable_store: crate::cook::workflow::variables::VariableStore::new(),
         }
     }
 
@@ -3024,6 +3027,58 @@ impl MapReduceExecutor {
             reduce_context.variables.insert(key, value);
         }
 
+        // Add map results to variable store as structured data for better access
+        {
+            use crate::cook::workflow::variables::CapturedValue;
+
+            // Add summary statistics
+            reduce_context
+                .variable_store
+                .set(
+                    "map.successful",
+                    CapturedValue::Number(summary_stats.successful as f64),
+                )
+                .await;
+            reduce_context
+                .variable_store
+                .set(
+                    "map.failed",
+                    CapturedValue::Number(summary_stats.failed as f64),
+                )
+                .await;
+            reduce_context
+                .variable_store
+                .set(
+                    "map.total",
+                    CapturedValue::Number(summary_stats.total as f64),
+                )
+                .await;
+
+            // Add the full results as a structured JSON value
+            if let Ok(results_value) = serde_json::to_value(map_results) {
+                reduce_context
+                    .variable_store
+                    .set("map.results", CapturedValue::from(results_value))
+                    .await;
+            }
+
+            // Also add individual results for easier access
+            let results_array: Vec<CapturedValue> = map_results
+                .iter()
+                .map(|result| {
+                    if let Ok(result_json) = serde_json::to_value(result) {
+                        CapturedValue::from(result_json)
+                    } else {
+                        CapturedValue::String(format!("{:?}", result))
+                    }
+                })
+                .collect();
+            reduce_context
+                .variable_store
+                .set("map.results_array", CapturedValue::Array(results_array))
+                .await;
+        }
+
         // Validate that required variables are available for reduce phase
         self.validate_reduce_variables(&reduce_phase.commands, &reduce_context)?;
 
@@ -3268,7 +3323,45 @@ impl MapReduceExecutor {
             }
         };
 
-        // Capture output if requested
+        // Capture command output if requested (new capture field)
+        if let Some(capture_name) = &step.capture {
+            let command_result = crate::cook::workflow::variables::CommandResult {
+                stdout: Some(result.stdout.clone()),
+                stderr: Some(result.stderr.clone()),
+                exit_code: result.exit_code.unwrap_or(-1),
+                success: result.success,
+                duration: std::time::Duration::from_secs(0), // TODO: Track actual duration
+            };
+
+            let capture_format = step.capture_format.unwrap_or_default();
+            let capture_streams = &step.capture_streams;
+
+            context
+                .variable_store
+                .capture_command_result(
+                    capture_name,
+                    command_result,
+                    capture_format,
+                    capture_streams,
+                )
+                .await
+                .map_err(|e| {
+                    let context = self.create_error_context("capture_command_result");
+                    MapReduceError::General {
+                        message: format!("Failed to capture command result: {}", e),
+                        source: None,
+                    }
+                    .with_context(context)
+                    .error
+                })?;
+
+            // Also update captured_outputs for backward compatibility
+            context
+                .captured_outputs
+                .insert(capture_name.clone(), result.stdout.clone());
+        }
+
+        // Capture output if requested (deprecated capture_output field)
         if step.capture_output.is_enabled() && !result.stdout.is_empty() {
             // Get the variable name for this output (custom or default)
             if let Some(var_name) = step.capture_output.get_variable_name(&command_type) {
@@ -3895,6 +3988,10 @@ mod tests {
             name: None,
             command: None,
             capture_output: CaptureOutput::Disabled,
+            capture: None,
+            capture_format: None,
+            capture_streams: Default::default(),
+            output_file: None,
             timeout: None,
             working_dir: None,
             env: HashMap::new(),
@@ -3924,6 +4021,10 @@ mod tests {
             name: None,
             command: None,
             capture_output: CaptureOutput::Disabled,
+            capture: None,
+            capture_format: None,
+            capture_streams: Default::default(),
+            output_file: None,
             timeout: None,
             working_dir: None,
             env: HashMap::new(),
@@ -3956,6 +4057,10 @@ mod tests {
             name: None,
             command: None,
             capture_output: CaptureOutput::Disabled,
+            capture: None,
+            capture_format: None,
+            capture_streams: Default::default(),
+            output_file: None,
             timeout: None,
             working_dir: None,
             env: HashMap::new(),
@@ -3988,6 +4093,10 @@ mod tests {
             name: None,
             command: None,
             capture_output: CaptureOutput::Disabled,
+            capture: None,
+            capture_format: None,
+            capture_streams: Default::default(),
+            output_file: None,
             timeout: None,
             working_dir: None,
             env: HashMap::new(),
@@ -4017,6 +4126,10 @@ mod tests {
             name: Some("test_command".to_string()),
             command: None,
             capture_output: CaptureOutput::Disabled,
+            capture: None,
+            capture_format: None,
+            capture_streams: Default::default(),
+            output_file: None,
             timeout: None,
             working_dir: None,
             env: HashMap::new(),
@@ -4046,6 +4159,10 @@ mod tests {
             name: Some("/test_command".to_string()),
             command: None,
             capture_output: CaptureOutput::Disabled,
+            capture: None,
+            capture_format: None,
+            capture_streams: Default::default(),
+            output_file: None,
             timeout: None,
             working_dir: None,
             env: HashMap::new(),
@@ -4079,6 +4196,10 @@ mod tests {
             name: None,
             command: None,
             capture_output: CaptureOutput::Disabled,
+            capture: None,
+            capture_format: None,
+            capture_streams: Default::default(),
+            output_file: None,
             timeout: None,
             working_dir: None,
             env: HashMap::new(),
@@ -4109,6 +4230,10 @@ mod tests {
             name: None,
             command: None,
             capture_output: CaptureOutput::Disabled,
+            capture: None,
+            capture_format: None,
+            capture_streams: Default::default(),
+            output_file: None,
             timeout: None,
             working_dir: None,
             env: HashMap::new(),

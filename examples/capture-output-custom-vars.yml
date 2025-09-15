@@ -9,11 +9,11 @@ mode: mapreduce
 setup:
   # Capture to default variable name (shell.output)
   - shell: "echo 'Starting analysis...'"
-    capture_output: true
+    capture: "shell.output"
     
   # Capture to a custom variable name
   - shell: "ls -la | wc -l"
-    capture_output: "file_count"
+    capture: "file_count"
     
   # Use the captured variable in next command
   - shell: "echo 'Found ${file_count} files in current directory'"
@@ -26,11 +26,11 @@ map:
     commands:
       # Capture Claude output to custom variable
       - claude: "/analyze-item --id ${item.id}"
-        capture_output: "analysis_result"
+        capture: "analysis_result"
         
-      # Capture shell output to another custom variable  
+      # Capture shell output to another custom variable
       - shell: "grep -c TODO src/*.rs || echo 0"
-        capture_output: "todo_count"
+        capture: "todo_count"
         
       # Use both captured variables
       - shell: |
@@ -41,11 +41,11 @@ reduce:
   commands:
     # Run debtmap analysis and capture to custom variable
     - shell: "debtmap analyze . --output debtmap.json --format json"
-      capture_output: "debtmap_output"
+      capture: "debtmap_output"
     
     # Get summary from Claude with specific variable name
     - claude: "/summarize-results --items ${map.total}"
-      capture_output: "summary"
+      capture: "summary"
     
     # Create commit using the captured variables
     - shell: |

@@ -249,7 +249,7 @@ reduce:
         fail_workflow: true
     
     - shell: "just fmt && just lint"
-      capture_output: false
+      capture_output: None
 "#;
 
         let config = parse_mapreduce_workflow(yaml).unwrap();
