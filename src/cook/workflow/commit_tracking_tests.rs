@@ -40,7 +40,7 @@ mod tests {
                 author: None,
                 include_files: None,
                 exclude_files: None,
-                include_timestamp: false,
+                squash: false,
             }),
             ..Default::default()
         };
@@ -91,7 +91,7 @@ mod tests {
                 author: None,
                 include_files: None,
                 exclude_files: None,
-                include_timestamp: false,
+                squash: false,
             }),
             ..Default::default()
         };

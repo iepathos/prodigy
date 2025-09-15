@@ -257,6 +257,13 @@ impl CommitTracker {
             format!("Auto-commit: {step_name}")
         };
 
+        // Validate message pattern if configured
+        if let Some(config) = commit_config {
+            if let Some(pattern) = &config.message_pattern {
+                self.validate_message(&message, pattern)?;
+            }
+        }
+
         // Create the commit with optional author override and signing
         let mut commit_args = vec!["commit", "-m", &message];
 
