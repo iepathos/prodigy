@@ -75,144 +75,131 @@ impl CommandRegistry {
         registry
     }
 
+    /// Create command metadata with default values
+    fn create_metadata(
+        retries: u32,
+        timeout: u64,
+        continue_on_error: bool,
+        commit_required: bool,
+    ) -> CommandMetadata {
+        CommandMetadata {
+            retries: Some(retries),
+            timeout: Some(timeout),
+            continue_on_error: Some(continue_on_error),
+            env: HashMap::new(),
+            commit_required,
+            analysis: None,
+        }
+    }
+
+    /// Create a focus option for analysis commands
+    fn create_focus_option(description: &str) -> OptionDef {
+        OptionDef {
+            name: "focus".to_string(),
+            description: description.to_string(),
+            option_type: ArgumentType::String,
+            default: None,
+        }
+    }
+
+    /// Create a max count option with default value
+    fn create_max_option(name: &str, description: &str, default: i32) -> OptionDef {
+        OptionDef {
+            name: name.to_string(),
+            description: description.to_string(),
+            option_type: ArgumentType::Integer,
+            default: Some(serde_json::json!(default)),
+        }
+    }
+
     fn register_built_in_commands(&mut self) {
-        // Register prodigy-code-review
-        self.register(CommandDefinition {
-            name: "prodigy-code-review".to_string(),
-            description: "Analyze code and generate improvement specs".to_string(),
-            required_args: vec![],
-            optional_args: vec![],
-            options: vec![
-                OptionDef {
-                    name: "focus".to_string(),
-                    description: "Focus area for analysis (e.g., security, performance)"
-                        .to_string(),
-                    option_type: ArgumentType::String,
-                    default: None,
-                },
-                OptionDef {
-                    name: "max-issues".to_string(),
-                    description: "Maximum number of issues to report".to_string(),
-                    option_type: ArgumentType::Integer,
-                    default: Some(serde_json::json!(10)),
-                },
-            ],
-            defaults: CommandMetadata {
-                retries: Some(2),
-                timeout: Some(300),
-                continue_on_error: Some(false),
-                env: HashMap::new(),
-                commit_required: true,
-                analysis: None,
+        // Define all built-in commands in a declarative way
+        let commands = vec![
+            // prodigy-code-review
+            CommandDefinition {
+                name: "prodigy-code-review".to_string(),
+                description: "Analyze code and generate improvement specs".to_string(),
+                required_args: vec![],
+                optional_args: vec![],
+                options: vec![
+                    Self::create_focus_option(
+                        "Focus area for analysis (e.g., security, performance)",
+                    ),
+                    Self::create_max_option("max-issues", "Maximum number of issues to report", 10),
+                ],
+                defaults: Self::create_metadata(2, 300, false, true),
             },
-        });
-
-        // Register prodigy-implement-spec
-        self.register(CommandDefinition {
-            name: "prodigy-implement-spec".to_string(),
-            description: "Implement a specification file".to_string(),
-            required_args: vec![ArgumentDef {
-                name: "spec-id".to_string(),
-                description: "Specification identifier".to_string(),
-                arg_type: ArgumentType::String,
-            }],
-            optional_args: vec![],
-            options: vec![],
-            defaults: CommandMetadata {
-                retries: Some(1),
-                timeout: Some(600),
-                continue_on_error: Some(false),
-                env: HashMap::new(),
-                commit_required: true,
-                analysis: None,
+            // prodigy-implement-spec
+            CommandDefinition {
+                name: "prodigy-implement-spec".to_string(),
+                description: "Implement a specification file".to_string(),
+                required_args: vec![ArgumentDef {
+                    name: "spec-id".to_string(),
+                    description: "Specification identifier".to_string(),
+                    arg_type: ArgumentType::String,
+                }],
+                optional_args: vec![],
+                options: vec![],
+                defaults: Self::create_metadata(1, 600, false, true),
             },
-        });
-
-        // Register prodigy-lint
-        self.register(CommandDefinition {
-            name: "prodigy-lint".to_string(),
-            description: "Run linting and formatting tools".to_string(),
-            required_args: vec![],
-            optional_args: vec![],
-            options: vec![OptionDef {
-                name: "fix".to_string(),
-                description: "Automatically fix issues".to_string(),
-                option_type: ArgumentType::Boolean,
-                default: Some(serde_json::json!(true)),
-            }],
-            defaults: CommandMetadata {
-                retries: Some(1),
-                timeout: Some(180),
-                continue_on_error: Some(true),
-                env: HashMap::new(),
-                commit_required: false,
-                analysis: None,
+            // prodigy-lint
+            CommandDefinition {
+                name: "prodigy-lint".to_string(),
+                description: "Run linting and formatting tools".to_string(),
+                required_args: vec![],
+                optional_args: vec![],
+                options: vec![OptionDef {
+                    name: "fix".to_string(),
+                    description: "Automatically fix issues".to_string(),
+                    option_type: ArgumentType::Boolean,
+                    default: Some(serde_json::json!(true)),
+                }],
+                defaults: Self::create_metadata(1, 180, true, false),
             },
-        });
-
-        // Register prodigy-product-enhance
-        self.register(CommandDefinition {
-            name: "prodigy-product-enhance".to_string(),
-            description: "Analyze code from product management perspective".to_string(),
-            required_args: vec![],
-            optional_args: vec![],
-            options: vec![
-                OptionDef {
-                    name: "focus".to_string(),
-                    description: "Focus area for analysis (e.g., onboarding, api, cli-ux)"
-                        .to_string(),
-                    option_type: ArgumentType::String,
-                    default: None,
-                },
-                OptionDef {
-                    name: "max-enhancements".to_string(),
-                    description: "Maximum number of enhancements to propose".to_string(),
-                    option_type: ArgumentType::Integer,
-                    default: Some(serde_json::json!(10)),
-                },
-            ],
-            defaults: CommandMetadata {
-                retries: Some(2),
-                timeout: Some(300),
-                continue_on_error: Some(false),
-                env: HashMap::new(),
-                commit_required: true,
-                analysis: None,
+            // prodigy-product-enhance
+            CommandDefinition {
+                name: "prodigy-product-enhance".to_string(),
+                description: "Analyze code from product management perspective".to_string(),
+                required_args: vec![],
+                optional_args: vec![],
+                options: vec![
+                    Self::create_focus_option(
+                        "Focus area for analysis (e.g., onboarding, api, cli-ux)",
+                    ),
+                    Self::create_max_option(
+                        "max-enhancements",
+                        "Maximum number of enhancements to propose",
+                        10,
+                    ),
+                ],
+                defaults: Self::create_metadata(2, 300, false, true),
             },
-        });
-
-        // Register prodigy-cleanup-tech-debt
-        self.register(CommandDefinition {
-            name: "prodigy-cleanup-tech-debt".to_string(),
-            description: "Analyze technical debt and generate cleanup specifications".to_string(),
-            required_args: vec![],
-            optional_args: vec![],
-            options: vec![
-                OptionDef {
-                    name: "focus".to_string(),
-                    description:
-                        "Focus area for debt cleanup (e.g., performance, security, maintainability)"
+            // prodigy-cleanup-tech-debt
+            CommandDefinition {
+                name: "prodigy-cleanup-tech-debt".to_string(),
+                description: "Analyze technical debt and generate cleanup specifications".to_string(),
+                required_args: vec![],
+                optional_args: vec![],
+                options: vec![
+                    Self::create_focus_option(
+                        "Focus area for debt cleanup (e.g., performance, security, maintainability)",
+                    ),
+                    OptionDef {
+                        name: "scope".to_string(),
+                        description: "Scope for analysis (e.g., src/agents, src/mcp, tests, all)"
                             .to_string(),
-                    option_type: ArgumentType::String,
-                    default: None,
-                },
-                OptionDef {
-                    name: "scope".to_string(),
-                    description: "Scope for analysis (e.g., src/agents, src/mcp, tests, all)"
-                        .to_string(),
-                    option_type: ArgumentType::String,
-                    default: Some(serde_json::json!("all")),
-                },
-            ],
-            defaults: CommandMetadata {
-                retries: Some(2),
-                timeout: Some(300),
-                continue_on_error: Some(false),
-                env: HashMap::new(),
-                commit_required: true,
-                analysis: None,
+                        option_type: ArgumentType::String,
+                        default: Some(serde_json::json!("all")),
+                    },
+                ],
+                defaults: Self::create_metadata(2, 300, false, true),
             },
-        });
+        ];
+
+        // Register all commands
+        for command in commands {
+            self.register(command);
+        }
     }
 
     pub fn register(&mut self, definition: CommandDefinition) {
@@ -484,6 +471,35 @@ pub fn apply_command_defaults(command: &mut Command) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_create_metadata() {
+        let metadata = CommandRegistry::create_metadata(2, 300, false, true);
+        assert_eq!(metadata.retries, Some(2));
+        assert_eq!(metadata.timeout, Some(300));
+        assert_eq!(metadata.continue_on_error, Some(false));
+        assert!(metadata.commit_required);
+        assert!(metadata.env.is_empty());
+        assert!(metadata.analysis.is_none());
+    }
+
+    #[test]
+    fn test_create_focus_option() {
+        let option = CommandRegistry::create_focus_option("Test focus description");
+        assert_eq!(option.name, "focus");
+        assert_eq!(option.description, "Test focus description");
+        assert_eq!(option.option_type, ArgumentType::String);
+        assert!(option.default.is_none());
+    }
+
+    #[test]
+    fn test_create_max_option() {
+        let option = CommandRegistry::create_max_option("max-test", "Test max description", 25);
+        assert_eq!(option.name, "max-test");
+        assert_eq!(option.description, "Test max description");
+        assert_eq!(option.option_type, ArgumentType::Integer);
+        assert_eq!(option.default, Some(serde_json::json!(25)));
+    }
 
     #[test]
     fn test_registry_initialization() {
