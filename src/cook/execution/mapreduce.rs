@@ -105,6 +105,9 @@ pub struct MapPhase {
     /// Optional sort field
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sort_by: Option<String>,
+    /// Optional distinct field for deduplication
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub distinct: Option<String>,
 }
 
 /// Reduce phase configuration
@@ -1145,7 +1148,12 @@ impl MapReduceExecutor {
 
         // Load and parse work items with filtering and sorting
         let work_items = self
-            .load_work_items_with_pipeline(&map_phase.config, &map_phase.filter, &map_phase.sort_by)
+            .load_work_items_with_pipeline(
+                &map_phase.config,
+                &map_phase.filter,
+                &map_phase.sort_by,
+                &map_phase.distinct,
+            )
             .await?;
 
         self.user_interaction.display_info(&format!(
@@ -1423,6 +1431,7 @@ impl MapReduceExecutor {
                     agent_template: vec![], // This would need to be stored in state
                     filter: None,
                     sort_by: None,
+                    distinct: None,
                 };
 
                 // Execute remaining items
@@ -1591,6 +1600,7 @@ impl MapReduceExecutor {
         config: &MapReduceConfig,
         filter: &Option<String>,
         sort_by: &Option<String>,
+        distinct: &Option<String>,
     ) -> MapReduceResult<Vec<Value>> {
         // Detect input source type
         let input_source = InputSource::detect(&config.input);
@@ -1624,17 +1634,14 @@ impl MapReduceExecutor {
                 };
 
                 // Create pipeline with all configuration options
-                let mut pipeline = DataPipeline::from_config(
+                let pipeline = DataPipeline::from_full_config(
                     json_path.clone(),
                     filter.clone(),
                     sort_by.clone(),
                     config.max_items,
+                    config.offset,
+                    distinct.clone(),
                 )?;
-
-                // Set offset if specified
-                if let Some(offset) = config.offset {
-                    pipeline.offset = Some(offset);
-                }
 
                 // Debug: Show what JSON path will be used
                 if let Some(ref path) = json_path {

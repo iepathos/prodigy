@@ -277,6 +277,7 @@ fn test_map_phase_configuration() {
         }],
         filter: Some("severity == 'high'".to_string()),
         sort_by: Some("priority".to_string()),
+        distinct: None,
     };
 
     assert_eq!(map_phase.config.max_parallel, 20);

@@ -139,6 +139,10 @@ pub struct MapPhaseYaml {
     /// Number of items to skip (offset)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub offset: Option<usize>,
+
+    /// Field for deduplication
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub distinct: Option<String>,
 }
 
 fn default_max_parallel() -> usize {
@@ -221,6 +225,7 @@ impl MapReduceWorkflowConfig {
             agent_template: self.map.agent_template.commands.clone(),
             filter: self.map.filter.clone(),
             sort_by: self.map.sort_by.clone(),
+            distinct: self.map.distinct.clone(),
         }
     }
 
