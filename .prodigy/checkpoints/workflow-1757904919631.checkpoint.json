@@ -1,11 +1,11 @@
 {
   "workflow_id": "workflow-1757904919631",
   "execution_state": {
-    "current_step_index": 1,
+    "current_step_index": 2,
     "total_steps": 3,
     "status": "Running",
-    "start_time": "2025-09-15T03:27:40.175912Z",
-    "last_checkpoint": "2025-09-15T03:27:40.175912Z",
+    "start_time": "2025-09-15T03:53:45.888355Z",
+    "last_checkpoint": "2025-09-15T03:53:45.888356Z",
     "current_iteration": null,
     "total_iterations": null
   },
@@ -21,14 +21,29 @@
         "nanos": 674546792
       },
       "completed_at": "2025-09-15T03:27:40.175902Z"
+    },
+    {
+      "step_index": 1,
+      "command": "test: just test",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 665,
+        "nanos": 607667958
+      },
+      "completed_at": "2025-09-15T03:53:45.888283Z"
     }
   ],
   "variable_state": {
+    "ARG": "64",
+    "test.exit_code": "101",
+    "test.output": "/var/folders/fc/plw0013j1yj8dj00s3gbpdfw0000gn/T/.tmpFgyOWL",
     "PROJECT_ROOT": "/Users/glen/.prodigy/worktrees/prodigy/session-c448b911-992e-4b6b-baff-672ec69d8eaf",
-    "ARG": "64"
+    "test.attempt": "1"
   },
   "mapreduce_state": null,
-  "timestamp": "2025-09-15T03:27:40.175912Z",
+  "timestamp": "2025-09-15T03:53:45.888356Z",
   "version": 1,
   "workflow_hash": "3",
   "total_steps": 3,

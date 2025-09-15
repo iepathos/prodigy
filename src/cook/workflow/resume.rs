@@ -363,9 +363,9 @@ impl ResumeExecutor {
             mode: crate::cook::workflow::executor::WorkflowMode::Sequential,
             max_iterations: 1,
             iterate: false,
-            setup_phase: None,  // Not a MapReduce workflow
-            map_phase: None,    // Not a MapReduce workflow
-            reduce_phase: None, // Not a MapReduce workflow
+            setup_phase: None,    // Not a MapReduce workflow
+            map_phase: None,      // Not a MapReduce workflow
+            reduce_phase: None,   // Not a MapReduce workflow
             retry_defaults: None, // Would need to be loaded from checkpoint
         };
 

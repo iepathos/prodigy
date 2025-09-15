@@ -153,19 +153,15 @@ impl ErrorMatcher {
 /// Action to take on final failure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum FailureAction {
     /// Stop workflow execution
+    #[default]
     Stop,
     /// Continue with next step
     Continue,
     /// Execute fallback command
     Fallback { command: String },
-}
-
-impl Default for FailureAction {
-    fn default() -> Self {
-        FailureAction::Stop
-    }
 }
 
 /// Retry executor with circuit breaker

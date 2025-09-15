@@ -1639,6 +1639,7 @@ impl WorkflowExecutor {
     }
 
     /// Execute command with enhanced retry logic
+    #[allow(clippy::too_many_arguments)]
     async fn execute_with_enhanced_retry(
         &mut self,
         retry_config: crate::cook::retry_v2::RetryConfig,
