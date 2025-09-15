@@ -7,14 +7,14 @@ mode: mapreduce
 setup:
   # Capture repository metadata
   - shell: "find src -name '*.rs' | wc -l"
-    capture_output: "total_files"
+    capture: "total_files"
     capture_format: number
 
   - shell: "git rev-parse --short HEAD 2>/dev/null || echo 'unknown'"
-    capture_output: "commit_hash"
+    capture: "commit_hash"
 
   - shell: "date +%Y%m%d-%H%M%S"
-    capture_output: "analysis_timestamp"
+    capture: "analysis_timestamp"
 
   - shell: |
       echo '{
@@ -23,7 +23,7 @@ setup:
         "timestamp": "${analysis_timestamp}",
         "total_files": ${total_files}
       }'
-    capture_output: "metadata"
+    capture: "metadata"
     capture_format: json
 
 map:
@@ -35,19 +35,19 @@ map:
     commands:
       # Analyze each file
       - shell: "wc -l ${item} | awk '{print $1}'"
-        capture_output: "line_count"
+        capture: "line_count"
         capture_format: number
 
       - shell: "grep -c '^fn ' ${item} || echo 0"
-        capture_output: "function_count"
+        capture: "function_count"
         capture_format: number
 
       - shell: "grep -c '^#\\[test\\]' ${item} || echo 0"
-        capture_output: "test_count"
+        capture: "test_count"
         capture_format: number
 
       - shell: "grep -c 'TODO\\|FIXME' ${item} || echo 0"
-        capture_output: "todo_count"
+        capture: "todo_count"
         capture_format: number
 
       # Check complexity metrics
@@ -59,7 +59,7 @@ map:
           else
             echo "low"
           fi
-        capture_output: "complexity"
+        capture: "complexity"
 
       # Generate file report
       - shell: |
@@ -73,7 +73,7 @@ map:
               "complexity": "${complexity}"
             }
           }'
-        capture_output: "file_report"
+        capture: "file_report"
         capture_format: json
 
       # Save individual file report
@@ -83,21 +83,21 @@ reduce:
   commands:
     # Aggregate results
     - shell: "echo 'Analyzed ${map.total} files from commit ${metadata.commit}'"
-      capture_output: "summary_header"
+      capture: "summary_header"
 
     # Count high complexity files
     - shell: "grep -l '\"complexity\": \"high\"' reports/*.json | wc -l"
-      capture_output: "high_complexity_count"
+      capture: "high_complexity_count"
       capture_format: number
 
     # Calculate total lines of code
     - shell: "grep '\"lines\":' reports/*.json | grep -oE '[0-9]+' | awk '{sum+=$1} END {print sum}'"
-      capture_output: "total_lines"
+      capture: "total_lines"
       capture_format: number
 
     # Calculate total test count
     - shell: "grep '\"tests\":' reports/*.json | grep -oE '[0-9]+' | awk '{sum+=$1} END {print sum}'"
-      capture_output: "total_tests"
+      capture: "total_tests"
       capture_format: number
 
     # Generate final report
@@ -120,7 +120,7 @@ reduce:
       - Failed: ${map.failed}
       - Duration: ${map.duration|default:unknown}
       EOF
-    capture_output: "final_report"
+    capture: "final_report"
 
     # Save the final report
     - shell: "echo '${final_report}' > analysis-report-${analysis_timestamp}.txt"
@@ -137,7 +137,7 @@ reduce:
         },
         "report": "${final_report}"
       }' | jq .
-    capture_output: "json_summary"
+    capture: "json_summary"
     capture_format: json
 
     # Display completion message

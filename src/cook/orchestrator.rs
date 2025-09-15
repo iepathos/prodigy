@@ -2438,6 +2438,9 @@ mod tests {
             validate: None,
             timeout: None,
             when: None,
+            capture_format: None,
+            capture_streams: None,
+            output_file: None,
         };
 
         let (shell, test, on_failure) = DefaultCookOrchestrator::process_step_failure_config(&step);
@@ -2475,6 +2478,9 @@ mod tests {
             validate: None,
             timeout: None,
             when: None,
+            capture_format: None,
+            capture_streams: None,
+            output_file: None,
         };
 
         let (shell, test, on_failure) = DefaultCookOrchestrator::process_step_failure_config(&step);
@@ -2538,7 +2544,7 @@ mod tests {
             test: None,
             goal_seek: None,
             foreach: None,
-            capture_output: true,
+            capture_output: Some(crate::config::command::CaptureOutputConfig::Boolean(true)),
             commit_required: false,
             analyze: None,
             id: None,

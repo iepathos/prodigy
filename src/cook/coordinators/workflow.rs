@@ -403,6 +403,9 @@ mod tests {
             validate: None,
             timeout: None,
             when: None,
+            capture_format: None,
+            capture_streams: None,
+            output_file: None,
         };
         let result = DefaultWorkflowCoordinator::extract_workflow_step_command(&step);
         assert_eq!(result, "test cargo test");
@@ -503,6 +506,9 @@ mod tests {
             validate: None,
             timeout: None,
             when: None,
+            capture_format: None,
+            capture_streams: None,
+            output_file: None,
         };
         let result = DefaultWorkflowCoordinator::extract_workflow_step_command(&step);
         assert_eq!(

@@ -7,12 +7,12 @@ mode: standard
 commands:
   # Step 1: Capture package.json data
   - shell: "cat package.json 2>/dev/null || echo '{\"name\":\"test\",\"version\":\"1.0.0\"}'"
-    capture_output: "package_info"
+    capture: "package_info"
     capture_format: json
 
   # Step 2: Extract specific fields from JSON
   - shell: "echo 'Package: ${package_info.name} v${package_info.version}'"
-    capture_output: "package_summary"
+    capture: "package_summary"
 
   # Step 3: Capture git information as JSON
   - shell: |
@@ -21,7 +21,7 @@ commands:
         "commit": "'$(git rev-parse --short HEAD 2>/dev/null || echo abc123)'",
         "dirty": '$(git diff --quiet 2>/dev/null && echo false || echo true)'
       }'
-    capture_output: "git_info"
+    capture: "git_info"
     capture_format: json
 
   # Step 4: Build comprehensive status report using captured variables
@@ -34,7 +34,7 @@ commands:
       Git Commit: ${git_info.commit}
       Has Changes: ${git_info.dirty}
       EOF
-    capture_output: "status_report"
+    capture: "status_report"
 
   # Step 5: Create a JSON summary combining all captured data
   - shell: |
@@ -50,7 +50,7 @@ commands:
         },
         "report": "${status_report}"
       }'
-    capture_output: "final_summary"
+    capture: "final_summary"
     capture_format: json
 
   # Step 6: Output the final summary
