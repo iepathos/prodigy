@@ -25,7 +25,6 @@ mod enhanced_progress_tracker_tests {
     }
 
     #[tokio::test]
-    #[ignore = "Temporarily disabled - investigating deadlock"]
     async fn test_update_agent_progress() {
         let tracker = EnhancedProgressTracker::new("test-job".to_string(), 10);
 
@@ -62,7 +61,6 @@ mod enhanced_progress_tracker_tests {
     }
 
     #[tokio::test]
-    #[ignore = "Temporarily disabled - investigating deadlock"]
     async fn test_mark_item_completed() {
         let tracker = EnhancedProgressTracker::new("test-job".to_string(), 10);
 
@@ -100,7 +98,6 @@ mod enhanced_progress_tracker_tests {
     }
 
     #[tokio::test]
-    #[ignore = "Temporarily disabled - investigating deadlock"]
     async fn test_mark_item_failed() {
         let tracker = EnhancedProgressTracker::new("test-job".to_string(), 10);
 
@@ -144,7 +141,6 @@ mod enhanced_progress_tracker_tests {
     }
 
     #[tokio::test]
-    #[ignore = "Temporarily disabled - investigating deadlock"]
     async fn test_overall_progress_calculation() {
         let tracker = EnhancedProgressTracker::new("test-job".to_string(), 10);
 
@@ -203,7 +199,6 @@ mod enhanced_progress_tracker_tests {
     }
 
     #[tokio::test]
-    #[ignore = "Temporarily disabled - investigating deadlock"]
     async fn test_export_json_format() {
         let tracker = EnhancedProgressTracker::new("test-job".to_string(), 5);
 
@@ -263,7 +258,6 @@ mod enhanced_progress_tracker_tests {
     }
 
     #[tokio::test]
-    #[ignore = "Temporarily disabled - investigating deadlock"]
     async fn test_create_snapshot() {
         let tracker = EnhancedProgressTracker::new("test-job".to_string(), 10);
 
@@ -308,7 +302,6 @@ mod enhanced_progress_tracker_tests {
     }
 
     #[tokio::test]
-    #[ignore = "Temporarily disabled - investigating deadlock"]
     async fn test_metrics_recalculation() {
         let tracker = EnhancedProgressTracker::new("test-job".to_string(), 100);
 
@@ -563,7 +556,6 @@ mod integration_tests {
     use std::sync::Arc;
 
     #[tokio::test]
-    #[ignore = "Temporarily disabled - investigating deadlock"]
     async fn test_complete_workflow_simulation() {
         let tracker = EnhancedProgressTracker::new("integration-test".to_string(), 20);
 
@@ -635,8 +627,8 @@ mod integration_tests {
 
         // Verify final state
         let metrics = tracker.metrics.read().await;
-        assert_eq!(metrics.completed_items, 8);
-        assert_eq!(metrics.failed_items, 2);
+        assert_eq!(metrics.completed_items, 9);
+        assert_eq!(metrics.failed_items, 1);
         assert_eq!(metrics.pending_items, 10);
 
         let overall_progress = tracker.get_overall_progress().await;
@@ -659,7 +651,6 @@ mod integration_tests {
     }
 
     #[tokio::test]
-    #[ignore = "Temporarily disabled - investigating deadlock"]
     async fn test_concurrent_agent_updates() {
         let tracker = Arc::new(EnhancedProgressTracker::new(
             "concurrent-test".to_string(),

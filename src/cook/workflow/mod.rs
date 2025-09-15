@@ -12,6 +12,7 @@ mod conditional_tests;
 mod executor;
 pub mod normalized;
 mod on_failure;
+pub mod progress_config;
 pub mod resume;
 pub mod step_validation;
 #[cfg(test)]
@@ -31,6 +32,7 @@ pub use normalized::{
     WorkflowType,
 };
 pub use on_failure::{FailureHandlerConfig, HandlerCommand, HandlerStrategy, OnFailureConfig};
+pub use progress_config::{LogLevel, ProgressConfig, ProgressDisplayMode};
 pub use resume::{ResumeExecutor, ResumeResult};
 pub use step_validation::{
     StepValidationConfig, StepValidationExecutor, StepValidationResult, StepValidationSpec,

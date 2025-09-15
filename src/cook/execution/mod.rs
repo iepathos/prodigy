@@ -44,8 +44,11 @@ pub mod process;
 #[cfg(test)]
 pub mod process_tests;
 pub mod progress;
+pub mod progress_dashboard;
+pub mod progress_display;
 #[cfg(test)]
 pub mod progress_tests;
+pub mod progress_tracker;
 pub mod runner;
 pub mod setup_executor;
 #[cfg(test)]
