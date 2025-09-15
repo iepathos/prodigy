@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// Global environment configuration for workflows
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EnvironmentConfig {
     /// Global environment variables
     #[serde(default)]
@@ -141,6 +141,19 @@ pub struct StepEnvironment {
     /// Temporary environment (restored after step)
     #[serde(default)]
     pub temporary: bool,
+}
+
+impl Default for EnvironmentConfig {
+    fn default() -> Self {
+        Self {
+            global_env: HashMap::new(),
+            secrets: HashMap::new(),
+            env_files: Vec::new(),
+            inherit: true,  // This is the key difference - should default to true
+            profiles: HashMap::new(),
+            active_profile: None,
+        }
+    }
 }
 
 fn default_true() -> bool {
