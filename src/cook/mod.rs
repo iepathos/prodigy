@@ -251,7 +251,16 @@ async fn load_playbook_with_mapreduce(
             match crate::config::parse_mapreduce_workflow(&content) {
                 Ok(mapreduce_config) => {
                     // Return empty workflow config with the MapReduce config
-                    Ok((WorkflowConfig { commands: vec![], env: None, secrets: None, env_files: None, profiles: None }, Some(mapreduce_config)))
+                    Ok((
+                        WorkflowConfig {
+                            commands: vec![],
+                            env: None,
+                            secrets: None,
+                            env_files: None,
+                            profiles: None,
+                        },
+                        Some(mapreduce_config),
+                    ))
                 }
                 Err(e) => {
                     let mut error_msg =

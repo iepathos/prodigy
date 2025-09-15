@@ -39,7 +39,11 @@ mod standard_workflow {
     #[test]
     fn test_standard_workflow_with_validation() {
         // Document that validation works in standard workflows
-        let workflow = WorkflowConfig { env: None, secrets: None, env_files: None, profiles: None,
+        let workflow = WorkflowConfig {
+            env: None,
+            secrets: None,
+            env_files: None,
+            profiles: None,
             commands: vec![WorkflowCommand::Simple("test-command".to_string())],
         };
 
@@ -53,7 +57,11 @@ mod standard_workflow {
     #[test]
     fn test_standard_workflow_with_handlers() {
         // Document that handlers work in standard workflows
-        let workflow = WorkflowConfig { env: None, secrets: None, env_files: None, profiles: None,
+        let workflow = WorkflowConfig {
+            env: None,
+            secrets: None,
+            env_files: None,
+            profiles: None,
             commands: vec![WorkflowCommand::Simple("test-command".to_string())],
         };
 
@@ -67,7 +75,11 @@ mod standard_workflow {
     #[test]
     fn test_standard_workflow_with_timeouts() {
         // Document that timeouts work in standard workflows
-        let workflow = WorkflowConfig { env: None, secrets: None, env_files: None, profiles: None,
+        let workflow = WorkflowConfig {
+            env: None,
+            secrets: None,
+            env_files: None,
+            profiles: None,
             commands: vec![WorkflowCommand::Simple("test-command".to_string())],
         };
 
@@ -85,7 +97,11 @@ mod structured_workflow {
     #[test]
     fn test_structured_workflow_type_classification() {
         // Document that structured workflows are those with outputs
-        let workflow = WorkflowConfig { env: None, secrets: None, env_files: None, profiles: None,
+        let workflow = WorkflowConfig {
+            env: None,
+            secrets: None,
+            env_files: None,
+            profiles: None,
             commands: vec![
                 // WorkflowCommand doesn't have WithOutput variant in actual code
                 WorkflowCommand::Simple("test-command".to_string()),
@@ -105,7 +121,11 @@ mod args_workflow {
     #[test]
     fn test_args_workflow_type_classification() {
         // Document that args workflows use the args field
-        let workflow = WorkflowConfig { env: None, secrets: None, env_files: None, profiles: None,
+        let workflow = WorkflowConfig {
+            env: None,
+            secrets: None,
+            env_files: None,
+            profiles: None,
             commands: vec![WorkflowCommand::Simple("test-command".to_string())],
         };
 
@@ -123,7 +143,13 @@ mod mapreduce_workflow {
     #[test]
     fn test_mapreduce_workflow_type_exists() {
         // Document that MapReduce workflows exist
-        let workflow = WorkflowConfig { commands: vec![], env: None, secrets: None, env_files: None, profiles: None };
+        let workflow = WorkflowConfig {
+            commands: vec![],
+            env: None,
+            secrets: None,
+            env_files: None,
+            profiles: None,
+        };
 
         // MapReduceWorkflowConfig would be in a separate field
         let config = CookConfig {
@@ -175,7 +201,11 @@ mod feature_matrix {
         // Test that we can correctly classify workflow types
 
         // Standard workflow
-        let standard = WorkflowConfig { env: None, secrets: None, env_files: None, profiles: None,
+        let standard = WorkflowConfig {
+            env: None,
+            secrets: None,
+            env_files: None,
+            profiles: None,
             commands: vec![WorkflowCommand::Simple("test".to_string())],
         };
 
@@ -194,7 +224,13 @@ mod migration_tests {
         // during the incremental migration
 
         // All existing workflow configs must continue to work
-        let workflow = WorkflowConfig { commands: vec![], env: None, secrets: None, env_files: None, profiles: None };
+        let workflow = WorkflowConfig {
+            commands: vec![],
+            env: None,
+            secrets: None,
+            env_files: None,
+            profiles: None,
+        };
         let config = create_test_config(workflow);
 
         // The config structure should remain unchanged

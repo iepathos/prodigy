@@ -71,13 +71,13 @@ impl<'de> Deserialize<'de> for WorkflowConfig {
                 env,
                 secrets,
                 env_files,
-                profiles
+                profiles,
             } => Ok(WorkflowConfig {
                 commands,
                 env,
                 secrets,
                 env_files,
-                profiles
+                profiles,
             }),
             WorkflowConfigHelper::WithCommandsField { commands } => Ok(WorkflowConfig {
                 commands,

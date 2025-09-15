@@ -1,0 +1,49 @@
+{
+  "workflow_id": "workflow-1757930777829",
+  "execution_state": {
+    "current_step_index": 2,
+    "total_steps": 3,
+    "status": "Running",
+    "start_time": "2025-09-15T10:50:33.051608Z",
+    "last_checkpoint": "2025-09-15T10:50:33.051608Z",
+    "current_iteration": null,
+    "total_iterations": null
+  },
+  "completed_steps": [
+    {
+      "step_index": 0,
+      "command": "claude: /prodigy-implement-spec $ARG",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 2635,
+        "nanos": 971367750
+      },
+      "completed_at": "2025-09-15T10:50:13.816033Z"
+    },
+    {
+      "step_index": 1,
+      "command": "test: just test",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 19,
+        "nanos": 226253500
+      },
+      "completed_at": "2025-09-15T10:50:33.051590Z"
+    }
+  ],
+  "variable_state": {
+    "PROJECT_ROOT": "/Users/glen/.prodigy/worktrees/prodigy/session-202f1b58-3112-4590-a039-348aafe8a369",
+    "ARG": "74"
+  },
+  "mapreduce_state": null,
+  "timestamp": "2025-09-15T10:50:33.051609Z",
+  "version": 1,
+  "workflow_hash": "3",
+  "total_steps": 3,
+  "workflow_name": "args-workflow",
+  "workflow_path": null
+}

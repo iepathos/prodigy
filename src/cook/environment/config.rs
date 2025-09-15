@@ -149,7 +149,7 @@ impl Default for EnvironmentConfig {
             global_env: HashMap::new(),
             secrets: HashMap::new(),
             env_files: Vec::new(),
-            inherit: true,  // This is the key difference - should default to true
+            inherit: true, // This is the key difference - should default to true
             profiles: HashMap::new(),
             active_profile: None,
         }

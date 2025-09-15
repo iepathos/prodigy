@@ -2426,7 +2426,13 @@ mod tests {
         let mut config = CookConfig {
             command: create_test_cook_command(),
             project_path: PathBuf::from("/test"),
-            workflow: WorkflowConfig { commands: vec![], env: None, secrets: None, env_files: None, profiles: None },
+            workflow: WorkflowConfig {
+                commands: vec![],
+                env: None,
+                secrets: None,
+                env_files: None,
+                profiles: None,
+            },
             mapreduce_config: None,
         };
 
@@ -2459,7 +2465,13 @@ mod tests {
         let config = CookConfig {
             command,
             project_path: PathBuf::from("/test"),
-            workflow: WorkflowConfig { commands: vec![], env: None, secrets: None, env_files: None, profiles: None },
+            workflow: WorkflowConfig {
+                commands: vec![],
+                env: None,
+                secrets: None,
+                env_files: None,
+                profiles: None,
+            },
             mapreduce_config: None,
         };
 
@@ -2477,7 +2489,13 @@ mod tests {
         let config = CookConfig {
             command,
             project_path: PathBuf::from("/test"),
-            workflow: WorkflowConfig { commands: vec![], env: None, secrets: None, env_files: None, profiles: None },
+            workflow: WorkflowConfig {
+                commands: vec![],
+                env: None,
+                secrets: None,
+                env_files: None,
+                profiles: None,
+            },
             mapreduce_config: None,
         };
 
@@ -2492,7 +2510,13 @@ mod tests {
         let config = CookConfig {
             command: create_test_cook_command(),
             project_path: PathBuf::from("/test"),
-            workflow: WorkflowConfig { commands: vec![], env: None, secrets: None, env_files: None, profiles: None },
+            workflow: WorkflowConfig {
+                commands: vec![],
+                env: None,
+                secrets: None,
+                env_files: None,
+                profiles: None,
+            },
             mapreduce_config: None,
         };
 

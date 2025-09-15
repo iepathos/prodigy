@@ -36,7 +36,9 @@ mod tests {
             DefaultEnvironmentCoordinator::new(config_loader, worktree_manager, Arc::new(git_ops));
 
         // Test - just use current directory for testing
-        let result = coordinator.verify_git_repository(std::path::Path::new(".")).await;
+        let result = coordinator
+            .verify_git_repository(std::path::Path::new("."))
+            .await;
 
         // Verify
         assert!(result.is_ok());
@@ -69,7 +71,9 @@ mod tests {
             DefaultEnvironmentCoordinator::new(config_loader, worktree_manager, Arc::new(git_ops));
 
         // Test - just use current directory for testing
-        let result = coordinator.verify_git_repository(std::path::Path::new(".")).await;
+        let result = coordinator
+            .verify_git_repository(std::path::Path::new("."))
+            .await;
 
         // Verify
         assert!(result.is_err());

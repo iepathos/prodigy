@@ -9,7 +9,9 @@ use super::config::{
 };
 use super::path_resolver::PathResolver;
 use super::secret_store::SecretStore;
-use crate::cook::expression::{ExpressionEvaluator, VariableContext as ExpressionVariableContext, Value};
+use crate::cook::expression::{
+    ExpressionEvaluator, Value, VariableContext as ExpressionVariableContext,
+};
 use crate::cook::workflow::WorkflowStep;
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
@@ -41,6 +43,7 @@ pub struct EnvironmentSnapshot {
 pub struct EnvironmentManager {
     base_env: HashMap<String, String>,
     secrets: SecretStore,
+    #[allow(dead_code)]
     profiles: HashMap<String, HashMap<String, String>>,
     current_dir: PathBuf,
     env_stack: Vec<EnvironmentSnapshot>,
@@ -92,7 +95,7 @@ impl EnvironmentManager {
         // Start with base environment
         let mut env = if step_env.clear_env {
             HashMap::new()
-        } else if global_config.map_or(true, |c| c.inherit) {
+        } else if global_config.is_none_or(|c| c.inherit) {
             self.get_inherited_env()?
         } else {
             HashMap::new()
@@ -304,7 +307,7 @@ impl EnvironmentManager {
             conditional.condition, value, condition_met
         );
 
-        Ok(self.interpolate_value(value, variables)?)
+        self.interpolate_value(value, variables)
     }
 
     /// Resolve secret value

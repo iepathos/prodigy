@@ -307,7 +307,7 @@ impl NormalizedWorkflow {
             max_iterations: self.extract_max_iterations()? as u32,
             iterate: self.extract_max_iterations()? > 1,
             retry_defaults: None, // Would need to be set from workflow config
-            environment: None, // Would need to be set from workflow config
+            environment: None,    // Would need to be set from workflow config
         })
     }
 

@@ -2,7 +2,9 @@
 
 use anyhow::Result;
 use prodigy::config::WorkflowConfig;
-use prodigy::cook::environment::{EnvironmentConfig, EnvironmentManager, EnvValue, StepEnvironment, EnvProfile};
+use prodigy::cook::environment::{
+    EnvProfile, EnvValue, EnvironmentConfig, EnvironmentManager, StepEnvironment,
+};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tempfile::TempDir;
@@ -104,7 +106,10 @@ async fn test_environment_profiles() -> Result<()> {
         .await?;
 
     // Verify development profile is applied
-    assert_eq!(context.env.get("NODE_ENV"), Some(&"development".to_string()));
+    assert_eq!(
+        context.env.get("NODE_ENV"),
+        Some(&"development".to_string())
+    );
     assert_eq!(context.env.get("DEBUG"), Some(&"true".to_string()));
 
     // Test with production profile
@@ -118,7 +123,10 @@ async fn test_environment_profiles() -> Result<()> {
         .await?;
 
     // Verify production profile is applied
-    assert_eq!(prod_context.env.get("NODE_ENV"), Some(&"production".to_string()));
+    assert_eq!(
+        prod_context.env.get("NODE_ENV"),
+        Some(&"production".to_string())
+    );
     assert_eq!(prod_context.env.get("DEBUG"), Some(&"false".to_string()));
 
     Ok(())
