@@ -285,7 +285,13 @@ mod tests {
 
     #[test]
     fn test_composable_workflow_creation() {
-        let config = crate::config::WorkflowConfig { commands: vec![] };
+        let config = crate::config::WorkflowConfig {
+            commands: vec![],
+            env: None,
+            secrets: None,
+            env_files: None,
+            profiles: None,
+        };
 
         let workflow = ComposableWorkflow::from_config(config);
         assert!(!workflow.uses_composition());
@@ -293,8 +299,13 @@ mod tests {
 
     #[test]
     fn test_parameter_validation() {
-        let mut workflow =
-            ComposableWorkflow::from_config(crate::config::WorkflowConfig { commands: vec![] });
+        let mut workflow = ComposableWorkflow::from_config(crate::config::WorkflowConfig {
+            commands: vec![],
+            env: None,
+            secrets: None,
+            env_files: None,
+            profiles: None,
+        });
 
         workflow.parameters = Some(ParameterDefinitions {
             required: vec![Parameter {

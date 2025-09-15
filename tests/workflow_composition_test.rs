@@ -18,7 +18,13 @@ async fn test_basic_workflow_composition() -> Result<()> {
     let composer = WorkflowComposer::new(registry);
 
     // Create a simple workflow
-    let workflow = ComposableWorkflow::from_config(WorkflowConfig { commands: vec![] });
+    let workflow = ComposableWorkflow::from_config(WorkflowConfig {
+        commands: vec![],
+        env: None,
+        secrets: None,
+        env_files: None,
+        profiles: None,
+    });
 
     assert!(!workflow.uses_composition());
     Ok(())
@@ -26,7 +32,13 @@ async fn test_basic_workflow_composition() -> Result<()> {
 
 #[tokio::test]
 async fn test_workflow_with_parameters() -> Result<()> {
-    let mut workflow = ComposableWorkflow::from_config(WorkflowConfig { commands: vec![] });
+    let mut workflow = ComposableWorkflow::from_config(WorkflowConfig {
+        commands: vec![],
+        env: None,
+        secrets: None,
+        env_files: None,
+        profiles: None,
+    });
 
     // Add parameter definitions
     workflow.parameters = Some(ParameterDefinitions {
@@ -64,7 +76,13 @@ async fn test_workflow_with_parameters() -> Result<()> {
 
 #[tokio::test]
 async fn test_workflow_with_imports() -> Result<()> {
-    let mut workflow = ComposableWorkflow::from_config(WorkflowConfig { commands: vec![] });
+    let mut workflow = ComposableWorkflow::from_config(WorkflowConfig {
+        commands: vec![],
+        env: None,
+        secrets: None,
+        env_files: None,
+        profiles: None,
+    });
 
     // Add imports
     workflow.imports = Some(vec![
@@ -86,7 +104,13 @@ async fn test_workflow_with_imports() -> Result<()> {
 
 #[tokio::test]
 async fn test_workflow_with_template() -> Result<()> {
-    let mut workflow = ComposableWorkflow::from_config(WorkflowConfig { commands: vec![] });
+    let mut workflow = ComposableWorkflow::from_config(WorkflowConfig {
+        commands: vec![],
+        env: None,
+        secrets: None,
+        env_files: None,
+        profiles: None,
+    });
 
     // Add template usage
     workflow.template = Some(WorkflowTemplate {
@@ -105,7 +129,13 @@ async fn test_workflow_with_template() -> Result<()> {
 
 #[tokio::test]
 async fn test_workflow_with_sub_workflows() -> Result<()> {
-    let mut workflow = ComposableWorkflow::from_config(WorkflowConfig { commands: vec![] });
+    let mut workflow = ComposableWorkflow::from_config(WorkflowConfig {
+        commands: vec![],
+        env: None,
+        secrets: None,
+        env_files: None,
+        profiles: None,
+    });
 
     // Add sub-workflows
     let mut sub_workflows = HashMap::new();
@@ -142,7 +172,13 @@ async fn test_template_registry() -> Result<()> {
     ));
 
     // Create a template workflow
-    let template = ComposableWorkflow::from_config(WorkflowConfig { commands: vec![] });
+    let template = ComposableWorkflow::from_config(WorkflowConfig {
+        commands: vec![],
+        env: None,
+        secrets: None,
+        env_files: None,
+        profiles: None,
+    });
 
     // Register template
     registry
@@ -172,7 +208,13 @@ async fn test_template_registry() -> Result<()> {
 
 #[tokio::test]
 async fn test_parameter_type_validation() -> Result<()> {
-    let mut workflow = ComposableWorkflow::from_config(WorkflowConfig { commands: vec![] });
+    let mut workflow = ComposableWorkflow::from_config(WorkflowConfig {
+        commands: vec![],
+        env: None,
+        secrets: None,
+        env_files: None,
+        profiles: None,
+    });
 
     workflow.parameters = Some(ParameterDefinitions {
         required: vec![
@@ -214,7 +256,13 @@ async fn test_parameter_type_validation() -> Result<()> {
 
 #[tokio::test]
 async fn test_workflow_defaults() -> Result<()> {
-    let mut workflow = ComposableWorkflow::from_config(WorkflowConfig { commands: vec![] });
+    let mut workflow = ComposableWorkflow::from_config(WorkflowConfig {
+        commands: vec![],
+        env: None,
+        secrets: None,
+        env_files: None,
+        profiles: None,
+    });
 
     // Add defaults
     workflow.defaults = Some(HashMap::from([
@@ -235,7 +283,13 @@ async fn test_workflow_defaults() -> Result<()> {
 
 #[tokio::test]
 async fn test_workflow_inheritance() -> Result<()> {
-    let mut workflow = ComposableWorkflow::from_config(WorkflowConfig { commands: vec![] });
+    let mut workflow = ComposableWorkflow::from_config(WorkflowConfig {
+        commands: vec![],
+        env: None,
+        secrets: None,
+        env_files: None,
+        profiles: None,
+    });
 
     // Set up inheritance
     workflow.extends = Some("base-workflow".to_string());
@@ -246,7 +300,13 @@ async fn test_workflow_inheritance() -> Result<()> {
 
 #[tokio::test]
 async fn test_required_parameters() -> Result<()> {
-    let mut workflow = ComposableWorkflow::from_config(WorkflowConfig { commands: vec![] });
+    let mut workflow = ComposableWorkflow::from_config(WorkflowConfig {
+        commands: vec![],
+        env: None,
+        secrets: None,
+        env_files: None,
+        profiles: None,
+    });
 
     workflow.parameters = Some(ParameterDefinitions {
         required: vec![
@@ -287,7 +347,13 @@ async fn test_template_metadata() -> Result<()> {
         ),
     ));
 
-    let template = ComposableWorkflow::from_config(WorkflowConfig { commands: vec![] });
+    let template = ComposableWorkflow::from_config(WorkflowConfig {
+        commands: vec![],
+        env: None,
+        secrets: None,
+        env_files: None,
+        profiles: None,
+    });
 
     let metadata = TemplateMetadata {
         description: Some("Test template for unit testing".to_string()),
@@ -323,7 +389,13 @@ async fn test_template_search_by_tags() -> Result<()> {
     ));
 
     // Register templates with different tags
-    let template1 = ComposableWorkflow::from_config(WorkflowConfig { commands: vec![] });
+    let template1 = ComposableWorkflow::from_config(WorkflowConfig {
+        commands: vec![],
+        env: None,
+        secrets: None,
+        env_files: None,
+        profiles: None,
+    });
     let metadata1 = TemplateMetadata {
         description: Some("Refactoring template".to_string()),
         author: None,
@@ -337,7 +409,13 @@ async fn test_template_search_by_tags() -> Result<()> {
         .register_template_with_metadata("refactor-template".to_string(), template1, metadata1)
         .await?;
 
-    let template2 = ComposableWorkflow::from_config(WorkflowConfig { commands: vec![] });
+    let template2 = ComposableWorkflow::from_config(WorkflowConfig {
+        commands: vec![],
+        env: None,
+        secrets: None,
+        env_files: None,
+        profiles: None,
+    });
     let metadata2 = TemplateMetadata {
         description: Some("Testing template".to_string()),
         author: None,

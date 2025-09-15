@@ -1,0 +1,70 @@
+# Example workflow demonstrating environment variable and working directory control
+
+# Global environment configuration
+env:
+  # Static environment variables
+  NODE_ENV: production
+  API_URL: https://api.example.com
+
+  # Dynamic environment variable (computed from command)
+  WORKERS:
+    command: "nproc 2>/dev/null || echo 4"
+    cache: true
+
+  # Conditional environment variable
+  DEPLOY_ENV:
+    condition: "${branch} == 'main'"
+    when_true: "production"
+    when_false: "staging"
+
+# Secret environment variables (masked in logs)
+secrets:
+  # Reference to environment variable
+  API_KEY: "${env:SECRET_API_KEY}"
+
+# Environment files to load
+env_files:
+  - .env.production
+
+# Environment profiles for different contexts
+profiles:
+  development:
+    NODE_ENV: development
+    API_URL: http://localhost:3000
+    DEBUG: "true"
+
+  testing:
+    NODE_ENV: test
+    API_URL: http://localhost:4000
+    COVERAGE: "true"
+
+# Workflow steps demonstrating environment features
+commands:
+  - name: "Show environment"
+    shell: "echo NODE_ENV=$NODE_ENV API_URL=$API_URL WORKERS=$WORKERS"
+    capture_output: true
+
+  - name: "Build frontend"
+    shell: "echo 'Building frontend with NODE_ENV='$NODE_ENV"
+    env:
+      BUILD_TARGET: production
+      OPTIMIZE: "true"
+    working_dir: ./frontend
+
+  - name: "Run tests"
+    shell: "echo 'Running tests in test environment'"
+    env:
+      PYTHONPATH: "./src:./tests"
+      TEST_ENV: "true"
+    working_dir: ./backend
+    temporary: true  # Environment restored after this step
+
+  - name: "Deploy application"
+    shell: "echo 'Deploying to '$DEPLOY_ENV' environment'"
+    working_dir: "${env.DEPLOY_DIR}"
+
+  - name: "Cleanup"
+    shell: "echo 'Cleaning up temporary files'"
+    clear_env: true  # Clear all environment variables except step-specific ones
+    env:
+      CLEANUP_MODE: "full"

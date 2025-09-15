@@ -405,6 +405,7 @@ reduce:
             max_iterations: 1,
             iterate: false,
             retry_defaults: None,
+            environment: None,
         };
 
         assert_eq!(extended_workflow.name, "test-conversion");

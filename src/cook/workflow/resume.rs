@@ -369,6 +369,7 @@ impl ResumeExecutor {
             map_phase: None,      // Not a MapReduce workflow
             reduce_phase: None,   // Not a MapReduce workflow
             retry_defaults: None, // Would need to be loaded from checkpoint
+            environment: None,    // Would need to be loaded from checkpoint
         };
 
         // Create execution environment

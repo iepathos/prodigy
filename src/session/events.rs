@@ -127,7 +127,13 @@ mod tests {
         let event = SessionEvent::Started {
             config: SessionConfig {
                 project_path: PathBuf::from("/test"),
-                workflow: crate::config::workflow::WorkflowConfig { commands: vec![] },
+                workflow: crate::config::workflow::WorkflowConfig {
+                    commands: vec![],
+                    env: None,
+                    secrets: None,
+                    env_files: None,
+                    profiles: None,
+                },
                 execution_mode: crate::session::ExecutionMode::Direct,
                 max_iterations: 10,
                 options: Default::default(),

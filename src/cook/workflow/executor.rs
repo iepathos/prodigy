@@ -560,6 +560,8 @@ pub struct ExtendedWorkflowConfig {
     pub iterate: bool,
     /// Global retry defaults (applied to all steps unless overridden)
     pub retry_defaults: Option<crate::cook::retry_v2::RetryConfig>,
+    /// Global environment configuration
+    pub environment: Option<crate::cook::environment::EnvironmentConfig>,
     // collect_metrics removed - MMM focuses on orchestration, not metrics
 }
 
@@ -581,6 +583,10 @@ pub struct WorkflowExecutor {
     workflow_id: Option<String>,
     /// Checkpoint completed steps (separate from session steps)
     checkpoint_completed_steps: Vec<CheckpointCompletedStep>,
+    /// Environment manager for workflow execution
+    environment_manager: Option<crate::cook::environment::EnvironmentManager>,
+    /// Global environment configuration
+    global_environment_config: Option<crate::cook::environment::EnvironmentConfig>,
 }
 
 impl WorkflowExecutor {
@@ -1622,7 +1628,23 @@ impl WorkflowExecutor {
             checkpoint_manager: None,
             workflow_id: None,
             checkpoint_completed_steps: Vec::new(),
+            environment_manager: None,
+            global_environment_config: None,
         }
+    }
+
+    /// Set the environment configuration for the workflow
+    pub fn with_environment_config(
+        mut self,
+        config: crate::cook::environment::EnvironmentConfig,
+    ) -> Result<Self> {
+        // Initialize environment manager with current directory
+        let current_dir = std::env::current_dir()?;
+        self.environment_manager = Some(crate::cook::environment::EnvironmentManager::new(
+            current_dir,
+        )?);
+        self.global_environment_config = Some(config);
+        Ok(self)
     }
 
     /// Set the checkpoint manager for workflow resumption
@@ -1662,6 +1684,8 @@ impl WorkflowExecutor {
             checkpoint_manager: None,
             workflow_id: None,
             checkpoint_completed_steps: Vec::new(),
+            environment_manager: None,
+            global_environment_config: None,
         }
     }
 
@@ -2380,8 +2404,38 @@ impl WorkflowExecutor {
         // Determine command type
         let command_type = self.determine_command_type(step)?;
 
-        // Prepare environment variables
-        let env_vars = self.prepare_env_vars(step, env, ctx);
+        // Set up environment for this step
+        let (env_vars, working_dir_override) =
+            if let Some(ref mut env_manager) = self.environment_manager {
+                // Use environment manager to set up step environment
+                let env_context = env_manager
+                    .setup_step_environment(
+                        step,
+                        self.global_environment_config.as_ref(),
+                        &ctx.variables,
+                    )
+                    .await?;
+
+                // Update working directory if overridden
+                let working_dir_override = if env_context.working_dir != env.working_dir {
+                    Some(env_context.working_dir.clone())
+                } else {
+                    None
+                };
+
+                (env_context.env, working_dir_override)
+            } else {
+                // Fall back to traditional environment preparation
+                let env_vars = self.prepare_env_vars(step, env, ctx);
+                let working_dir_override = step.working_dir.clone();
+                (env_vars, working_dir_override)
+            };
+
+        // Update execution environment if working directory is overridden
+        let mut actual_env = env.clone();
+        if let Some(ref dir) = working_dir_override {
+            actual_env.working_dir = dir.clone();
+        }
 
         // Handle test mode
         let test_mode = std::env::var("PRODIGY_TEST_MODE").unwrap_or_default() == "true";
@@ -2398,14 +2452,14 @@ impl WorkflowExecutor {
                 &step_name,
                 &command_type,
                 step,
-                env,
+                &actual_env,
                 ctx,
                 env_vars,
             )
             .await?
         } else {
             // Execute without enhanced retry
-            self.execute_command_by_type(&command_type, step, env, ctx, env_vars)
+            self.execute_command_by_type(&command_type, step, &actual_env, ctx, env_vars)
                 .await?
         };
 
@@ -2501,7 +2555,7 @@ impl WorkflowExecutor {
             let output_path = if output_file.is_absolute() {
                 output_file.clone()
             } else {
-                env.working_dir.join(output_file)
+                actual_env.working_dir.join(output_file)
             };
 
             // Create parent directory if needed
@@ -2531,14 +2585,15 @@ impl WorkflowExecutor {
         // Handle validation if configured and command succeeded
         if result.success {
             if let Some(validation_config) = &step.validate {
-                self.handle_validation(validation_config, env, ctx).await?;
+                self.handle_validation(validation_config, &actual_env, ctx)
+                    .await?;
             }
 
             // Handle step validation (first-class validation feature)
             if let Some(step_validation) = &step.step_validate {
                 if !step.skip_validation {
                     let validation_result = self
-                        .handle_step_validation(step_validation, env, ctx, step)
+                        .handle_step_validation(step_validation, &actual_env, ctx, step)
                         .await?;
 
                     // Update result based on validation
@@ -2559,7 +2614,7 @@ impl WorkflowExecutor {
 
         // Handle conditional execution (failure, success, exit codes)
         result = self
-            .handle_conditional_execution(step, result, env, ctx)
+            .handle_conditional_execution(step, result, &actual_env, ctx)
             .await?;
 
         // Check if we should fail the workflow based on the result

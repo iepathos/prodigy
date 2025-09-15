@@ -307,6 +307,7 @@ impl NormalizedWorkflow {
             max_iterations: self.extract_max_iterations()? as u32,
             iterate: self.extract_max_iterations()? > 1,
             retry_defaults: None, // Would need to be set from workflow config
+            environment: None,    // Would need to be set from workflow config
         })
     }
 
@@ -521,6 +522,10 @@ mod tests {
     fn test_normalize_simple_workflow() {
         let config = WorkflowConfig {
             commands: vec![WorkflowCommand::Simple("echo hello".to_string())],
+            env: None,
+            secrets: None,
+            env_files: None,
+            profiles: None,
         };
 
         let normalized =
@@ -568,6 +573,10 @@ mod tests {
 
         let config = WorkflowConfig {
             commands: vec![WorkflowCommand::WorkflowStep(Box::new(step_cmd))],
+            env: None,
+            secrets: None,
+            env_files: None,
+            profiles: None,
         };
 
         let normalized =
@@ -587,6 +596,10 @@ mod tests {
         // Standard workflow
         let standard = WorkflowConfig {
             commands: vec![WorkflowCommand::Simple("echo test".to_string())],
+            env: None,
+            secrets: None,
+            env_files: None,
+            profiles: None,
         };
         assert_eq!(
             NormalizedWorkflow::classify_workflow_type(&standard),
@@ -609,6 +622,10 @@ mod tests {
                 )])),
                 analysis: None,
             }))],
+            env: None,
+            secrets: None,
+            env_files: None,
+            profiles: None,
         };
         assert_eq!(
             NormalizedWorkflow::classify_workflow_type(&with_outputs),
