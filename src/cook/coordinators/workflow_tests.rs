@@ -181,6 +181,7 @@ mod tests {
             working_dir: None,
             env: HashMap::new(),
             on_failure: None,
+            retry: None,
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,

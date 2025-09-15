@@ -241,6 +241,7 @@ map:
             timeout: None,
             capture_output: CaptureOutput::Disabled,
             on_failure: None,
+            retry: None,
             on_success: None,
             on_exit_code: Default::default(),
             commit_required: false,

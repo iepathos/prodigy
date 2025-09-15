@@ -433,6 +433,10 @@ pub struct WorkflowStep {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_failure: Option<OnFailureConfig>,
 
+    /// Enhanced retry configuration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry: Option<crate::cook::retry_v2::RetryConfig>,
+
     /// Conditional execution on success
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_success: Option<Box<WorkflowStep>>,
@@ -540,6 +544,8 @@ pub struct ExtendedWorkflowConfig {
     pub max_iterations: u32,
     /// Whether to iterate
     pub iterate: bool,
+    /// Global retry defaults (applied to all steps unless overridden)
+    pub retry_defaults: Option<crate::cook::retry_v2::RetryConfig>,
     // collect_metrics removed - MMM focuses on orchestration, not metrics
 }
 
@@ -617,6 +623,7 @@ impl WorkflowExecutor {
             working_dir: step.working_dir.clone(),
             env: step.env.clone(),
             on_failure: step.handlers.on_failure.clone(),
+            retry: None,
             on_success: step.handlers.on_success.clone(),
             on_exit_code: step.handlers.on_exit_code.clone(),
             commit_required: step.commit_required,
@@ -1631,6 +1638,95 @@ impl WorkflowExecutor {
         }
     }
 
+    /// Execute command with enhanced retry logic
+    #[allow(clippy::too_many_arguments)]
+    async fn execute_with_enhanced_retry(
+        &mut self,
+        retry_config: crate::cook::retry_v2::RetryConfig,
+        step_name: &str,
+        command_type: &CommandType,
+        step: &WorkflowStep,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+        env_vars: HashMap<String, String>,
+    ) -> Result<StepResult> {
+        use crate::cook::retry_v2::RetryExecutor;
+
+        let retry_executor = RetryExecutor::new(retry_config.clone());
+        let mut attempt = 0;
+        let mut last_error = None;
+
+        // Manual retry loop since we can't clone self
+        loop {
+            attempt += 1;
+
+            // Check if we should retry
+            if attempt > retry_config.attempts {
+                if let Some(err) = last_error {
+                    return Err(anyhow::anyhow!(
+                        "Failed after {} attempts: {}",
+                        retry_config.attempts,
+                        err
+                    ));
+                }
+                break;
+            }
+
+            // Calculate delay if this is a retry
+            if attempt > 1 {
+                let delay = retry_executor.calculate_delay(attempt - 1);
+                let jittered_delay = retry_executor.apply_jitter(delay);
+
+                self.user_interaction.display_info(&format!(
+                    "Retrying {} (attempt {}/{}) after {:?}",
+                    step_name, attempt, retry_config.attempts, jittered_delay
+                ));
+
+                tokio::time::sleep(jittered_delay).await;
+            }
+
+            // Execute the command
+            match self
+                .execute_command_by_type(command_type, step, env, ctx, env_vars.clone())
+                .await
+            {
+                Ok(result) => {
+                    if attempt > 1 {
+                        self.user_interaction
+                            .display_info(&format!("Command succeeded after {} attempts", attempt));
+                    }
+                    return Ok(result);
+                }
+                Err(err) => {
+                    let error_str = err.to_string();
+
+                    // Check if we should retry this error
+                    let should_retry = if retry_config.retry_on.is_empty() {
+                        true // Retry all errors if no specific matchers
+                    } else {
+                        retry_config
+                            .retry_on
+                            .iter()
+                            .any(|matcher| matcher.matches(&error_str))
+                    };
+
+                    if !should_retry || attempt >= retry_config.attempts {
+                        return Err(err);
+                    }
+
+                    self.user_interaction.display_warning(&format!(
+                        "Command failed (attempt {}/{}): {}",
+                        attempt, retry_config.attempts, error_str
+                    ));
+
+                    last_error = Some(error_str);
+                }
+            }
+        }
+
+        Err(anyhow::anyhow!("Retry logic error: should not reach here"))
+    }
+
     /// Execute a workflow
     pub async fn execute(
         &mut self,
@@ -2014,10 +2110,25 @@ impl WorkflowExecutor {
             return self.handle_test_mode_execution(step, &command_type);
         }
 
-        // Execute the command based on its type
-        let mut result = self
-            .execute_command_by_type(&command_type, step, env, ctx, env_vars)
-            .await?;
+        // Execute the command with retry if configured
+        let mut result = if let Some(retry_config) = &step.retry {
+            // Use enhanced retry executor
+            let step_name = self.get_step_display_name(step);
+            self.execute_with_enhanced_retry(
+                retry_config.clone(),
+                &step_name,
+                &command_type,
+                step,
+                env,
+                ctx,
+                env_vars,
+            )
+            .await?
+        } else {
+            // Execute without enhanced retry
+            self.execute_command_by_type(&command_type, step, env, ctx, env_vars)
+                .await?
+        };
 
         // Capture command output if requested
         if let Some(capture_name) = &step.capture {
@@ -2962,6 +3073,7 @@ impl WorkflowExecutor {
                 timeout: None,
                 capture_output: CaptureOutput::Disabled,
                 on_failure: None,
+                retry: None,
                 on_success: None,
                 on_exit_code: Default::default(),
                 commit_required: on_incomplete.commit_required,

@@ -257,6 +257,7 @@ impl NormalizedWorkflow {
                 retry_original: false,
                 max_retries: tf.max_attempts,
             }),
+            retry: None,
             on_success: cmd
                 .on_success
                 .as_ref()
@@ -303,6 +304,7 @@ impl NormalizedWorkflow {
             reduce_phase: None, // Would need to be set based on MapReduceConfig
             max_iterations: self.extract_max_iterations()? as u32,
             iterate: self.extract_max_iterations()? > 1,
+            retry_defaults: None, // Would need to be set from workflow config
         })
     }
 
@@ -353,6 +355,7 @@ impl NormalizedWorkflow {
                     working_dir: step.working_dir.clone(),
                     env: step.env.clone(),
                     on_failure: step.handlers.on_failure.clone(),
+                    retry: None,
                     on_success: step.handlers.on_success.clone(),
                     on_exit_code: step.handlers.on_exit_code.clone(),
                     commit_required: step.commit_required,
@@ -384,6 +387,7 @@ impl NormalizedWorkflow {
                     working_dir: step.working_dir.clone(),
                     env: step.env.clone(),
                     on_failure: step.handlers.on_failure.clone(),
+                    retry: None,
                     on_success: step.handlers.on_success.clone(),
                     on_exit_code: step.handlers.on_exit_code.clone(),
                     commit_required: step.commit_required,
@@ -415,6 +419,7 @@ impl NormalizedWorkflow {
             working_dir: step.working_dir.clone(),
             env: step.env.clone(),
             on_failure: step.handlers.on_failure.clone(),
+            retry: None,
             on_success: step.handlers.on_success.clone(),
             on_exit_code: step.handlers.on_exit_code.clone(),
             commit_required: step.commit_required,

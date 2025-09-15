@@ -13,6 +13,7 @@ pub mod input;
 pub mod interaction;
 pub mod orchestrator;
 pub mod retry;
+pub mod retry_v2;
 pub mod session;
 pub mod signal_handler;
 pub mod workflow;

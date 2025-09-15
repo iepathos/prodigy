@@ -4004,6 +4004,7 @@ mod tests {
             skip_validation: false,
             validation_timeout: None,
             ignore_validation_failure: false,
+            retry: None,
             when: None,
         };
 
@@ -4041,6 +4042,7 @@ mod tests {
             skip_validation: false,
             validation_timeout: None,
             ignore_validation_failure: false,
+            retry: None,
             when: None,
         };
 
@@ -4081,6 +4083,7 @@ mod tests {
             skip_validation: false,
             validation_timeout: None,
             ignore_validation_failure: false,
+            retry: None,
             when: None,
         };
 
@@ -4121,6 +4124,7 @@ mod tests {
             skip_validation: false,
             validation_timeout: None,
             ignore_validation_failure: false,
+            retry: None,
             when: None,
         };
 
@@ -4158,6 +4162,7 @@ mod tests {
             skip_validation: false,
             validation_timeout: None,
             ignore_validation_failure: false,
+            retry: None,
             when: None,
         };
 
@@ -4195,6 +4200,7 @@ mod tests {
             skip_validation: false,
             validation_timeout: None,
             ignore_validation_failure: false,
+            retry: None,
             when: None,
         };
 
@@ -4236,6 +4242,7 @@ mod tests {
             skip_validation: false,
             validation_timeout: None,
             ignore_validation_failure: false,
+            retry: None,
             when: None,
         };
 
@@ -4274,6 +4281,7 @@ mod tests {
             skip_validation: false,
             validation_timeout: None,
             ignore_validation_failure: false,
+            retry: None,
             when: None,
         };
 
