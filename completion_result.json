@@ -2,17 +2,13 @@
   "completion_percentage": 100.0,
   "status": "complete",
   "gaps_fixed": [
-    "Integrated CommitTracker in execute_step to track commits during step execution",
-    "Enforced commit_required flag - steps now fail if no commits created when required",
-    "Implemented auto_commit functionality - automatically creates commits when configured",
-    "Populated commit variables (step.commits, step.files_changed, etc.) in workflow context",
-    "Implemented MapReduce agent commit tracking with CommitTracker integration",
-    "Added message pattern validation for commit messages against regex patterns"
+    "Implemented glob pattern matching for selective file staging using include_files and exclude_files patterns",
+    "Added GPG configuration check before attempting signed commits to prevent failures",
+    "Added comprehensive tests to verify commit history is preserved through worktree merges",
+    "Added test to verify step.commits variable format matches expected JSON structure"
   ],
   "files_modified": [
-    "src/cook/workflow/executor.rs",
-    "src/cook/execution/mapreduce.rs",
     "src/cook/commit_tracker.rs",
-    "src/cook/workflow/commit_tracking_tests.rs"
+    "src/cook/execution/mapreduce_tests.rs"
   ]
 }

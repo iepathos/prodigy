@@ -22,6 +22,10 @@ mod tests {
         mock_git.add_success_response("").await; // stage all
         mock_git.add_success_response("").await; // commit
         mock_git.add_success_response("newcommit456\n").await; // new HEAD
+        // Mock get_commits_between response
+        mock_git.add_success_response("newcommit456|chore: auto commit for /test-command|Test User|2024-01-01T12:00:00Z\nsrc/main.rs\n").await;
+        // Mock diff stats
+        mock_git.add_success_response(" 1 file changed, 5 insertions(+), 2 deletions(-)\n").await;
 
         let git_client: Arc<dyn GitOperations> = Arc::new(mock_git);
         let mut tracker = CommitTracker::new(git_client.clone(), path.clone());
@@ -120,6 +124,10 @@ mod tests {
         mock_git.add_success_response("").await; // stage all
         mock_git.add_success_response("").await; // commit
         mock_git.add_success_response("defaultcommit\n").await; // new HEAD
+        // Mock get_commits_between response
+        mock_git.add_success_response("defaultcommit|Auto-commit: /test|Test User|2024-01-01T12:00:00Z\ntest.rs\n").await;
+        // Mock diff stats
+        mock_git.add_success_response(" 1 file changed, 3 insertions(+), 1 deletion(-)\n").await;
 
         let git_client: Arc<dyn GitOperations> = Arc::new(mock_git);
         let mut tracker = CommitTracker::new(git_client.clone(), path.clone());

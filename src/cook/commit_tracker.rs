@@ -212,7 +212,7 @@ impl CommitTracker {
                 // Parse stats like "2 files changed, 10 insertions(+), 3 deletions(-)"
                 if let Some(insertions) = stats
                     .split_whitespace()
-                    .position(|w| w == "insertions(+)" || w == "insertion(+)")
+                    .position(|w| w.starts_with("insertions(+)") || w.starts_with("insertion(+)"))
                     .and_then(|i| stats.split_whitespace().nth(i.saturating_sub(1)))
                     .and_then(|s| s.parse::<usize>().ok())
                 {
@@ -221,7 +221,7 @@ impl CommitTracker {
 
                 if let Some(deletions) = stats
                     .split_whitespace()
-                    .position(|w| w == "deletions(-)" || w == "deletion(-)")
+                    .position(|w| w.starts_with("deletions(-)") || w.starts_with("deletion(-)"))
                     .and_then(|i| stats.split_whitespace().nth(i.saturating_sub(1)))
                     .and_then(|s| s.parse::<usize>().ok())
                 {
@@ -433,6 +433,11 @@ impl CommitTracker {
 
         if let Some(mut commit) = commits.pop() {
             commit.step_name = step_name.to_string();
+
+            // Add to tracked commits
+            let mut tracked = self.tracked_commits.write().await;
+            tracked.push(commit.clone());
+
             Ok(commit)
         } else {
             Err(anyhow!("Failed to retrieve created commit"))
