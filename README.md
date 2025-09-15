@@ -522,43 +522,30 @@ setup:
 map:
   input: debt_items.json
   json_path: "$.debt_items[*]"
-  
+
   # Commands to execute for each work item
   agent_template:
-    commands:
-      - claude: "/fix-issue ${item.description}"
-        context:
-          file: "${item.location.file}"
-          line: "${item.location.line}"
-      
-      - shell: "cargo test"
-        on_failure:
-          claude: "/debug-test ${shell.output}"
-          max_attempts: 3
-          fail_workflow: false
-  
+    - claude: "/fix-issue ${item.description}"
+
+    - shell: "cargo test"
+      on_failure:
+        claude: "/debug-test ${shell.output}"
+
   # Parallelization settings
   max_parallel: 10
-  timeout_per_agent: 600s
-  retry_on_failure: 2
-  
+
   # Optional filtering and sorting
   filter: "severity == 'high' || severity == 'critical'"
-  sort_by: "priority"
+  sort_by: "priority DESC"
 
 # Reduce phase: Aggregate results
 reduce:
-  commands:
-    - claude: "/summarize-fixes ${map.results}"
-      capture_output: true
-    
-    - shell: "git merge --no-ff prodigy-agent-*"
-      commit_required: true
-    
-    - claude: "/generate-report"
-      env:
-        TOTAL_FIXED: "${map.successful}"
-        TOTAL_FAILED: "${map.failed}"
+  - claude: "/summarize-fixes ${map.results}"
+
+  - shell: "git merge --no-ff prodigy-agent-*"
+    commit_required: true
+
+  - claude: "/generate-report"
 ```
 
 #### MapReduce Features
@@ -579,29 +566,23 @@ reduce:
 Prodigy provides sophisticated error handling with automatic recovery:
 
 ```yaml
-# Implementation workflow with advanced error handling
+# Implementation workflow with error handling
 - claude: "/prodigy-implement-spec $ARG"
   commit_required: true
-  
+
 - shell: "just test"
   on_failure:
     claude: "/prodigy-debug-test-failure --spec $ARG --output ${shell.output}"
-    max_attempts: 3
-    fail_workflow: false  # Continue even if tests can't be fixed
-    
+
 - shell: "just fmt && just lint"
   on_failure:
     # Auto-recovery: Automatically retry formatting/linting after Claude fixes
     shell: "just fmt && just lint"
-    max_attempts: 2
-    fail_workflow: false
 ```
 
 **Error Handling Features**:
 - **Automatic Recovery**: Failed formatting/linting commands can auto-retry after fixes
 - **Subprocess Feedback**: Full stdout/stderr capture for debugging
-- **Flexible Failure Modes**: Choose whether to fail the workflow or continue
-- **Retry Logic**: Configure max attempts for each recovery action
 - **Context Preservation**: Error outputs passed to recovery commands via `${shell.output}`
 
 #### Commit Requirements

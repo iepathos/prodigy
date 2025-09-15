@@ -12,36 +12,26 @@ map:
   # Input configuration - debtmap.json contains items array
   input: debtmap.json
   json_path: "$.items[*]"
-  
+
   # Commands to execute for each debt item
   agent_template:
-    commands:
-      # Fix the specific debt item with the full JSON context
-      - claude: |
-          /fix-debt-item --json '${item}'
-        commit_required: true
-        timeout: 300
-      
-      # Run tests to verify the fix
-      - shell: "just test"
-        timeout: 300  # 5 minutes
-        on_failure:
-          claude: "/prodigy-debug-test-failure --output '${shell.output}'"
-          max_attempts: 2
-          fail_workflow: false
-      
-      # Check formatting and linting
-      - shell: "just fmt-check && just lint"
-        on_failure:
-          claude: "/prodigy-lint '${shell.output}'"
-          max_attempts: 2
-          fail_workflow: false
-  
+    - claude: |
+        /fix-debt-item --json '${item}'
+      commit_required: true
+
+    # Run tests to verify the fix
+    - shell: "just test"
+      on_failure:
+        claude: "/prodigy-debug-test-failure --output '${shell.output}'"
+
+    # Check formatting and linting
+    - shell: "just fmt-check && just lint"
+      on_failure:
+        claude: "/prodigy-lint '${shell.output}'"
+
   # Parallelization settings
   max_parallel: 5  # Run up to 5 agents in parallel
-  timeout_per_agent: 600s  # 10 minutes per agent
-  retry_on_failure: 1  # Retry once if an agent fails
-  
+
   # Process high-score items first
   filter: "unified_score.final_score >= 5"  # Only process items with score >= 5
   sort_by: "unified_score.final_score DESC"  # Process highest score items first
@@ -49,37 +39,27 @@ map:
 
 # Reduce phase: Aggregate results and finalize
 reduce:
-  commands:
-    # Run full test suite after all fixes
-    - shell: "just test"
-      timeout: 300  # 5 minutes
-      on_failure:
-        claude: "/prodigy-debug-test-failure --output '${shell.output}'"
-        max_attempts: 3
-        fail_workflow: true  # Fail if tests don't pass after merging
-    
-    # Check formatting and linting
-    - shell: "just fmt-check && just lint"
-      on_failure:
-        claude: "/prodigy-lint ${shell.output}"
-        max_attempts: 3
-        fail_workflow: false
-          
-    # Re-run debtmap to measure improvements
-    - shell: "just coverage-lcov"
-      timeout: 600  # 10 minutes
-    
-    - shell: "debtmap analyze src --lcov target/coverage/lcov.info --output debtmap-after.json --format json"
-      capture_output: true
-    
-    # Compare debt metrics and create final commit with summary
-    - claude: |
-        /prodigy-compare-debt-results \
-          --before debtmap.json \
-          --after debtmap-after.json \
-          --map-results '${map.results}' \
-          --successful ${map.successful} \
-          --failed ${map.failed} \
-          --total ${map.total}
-      commit_required: true
+  - shell: "just test"
+    on_failure:
+      claude: "/prodigy-debug-test-failure --output '${shell.output}'"
+
+  - shell: "just fmt-check && just lint"
+    on_failure:
+      claude: "/prodigy-lint ${shell.output}"
+
+  # Re-run debtmap to measure improvements
+  - shell: "just coverage-lcov"
+
+  - shell: "debtmap analyze src --lcov target/coverage/lcov.info --output debtmap-after.json --format json"
+
+  # Compare debt metrics and create final commit with summary
+  - claude: |
+      /prodigy-compare-debt-results \
+        --before debtmap.json \
+        --after debtmap-after.json \
+        --map-results '${map.results}' \
+        --successful ${map.successful} \
+        --failed ${map.failed} \
+        --total ${map.total}
+    commit_required: true
 

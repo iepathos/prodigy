@@ -843,7 +843,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         // Start session and display session ID prominently
         self.session_manager.start_session(&env.session_id).await?;
         self.user_interaction
-            .display_info(&format!("🔄 Starting session: {}", env.session_id));
+            .display_info(&format!("Starting session: {}", env.session_id));
 
         // Calculate and store workflow hash
         let workflow_hash = Self::calculate_workflow_hash(&config.workflow);

@@ -6,6 +6,48 @@ This document explains how Prodigy manages sessions and provides information to 
 
 Prodigy is a workflow orchestration tool that executes Claude commands through structured YAML workflows. It manages session state, tracks execution progress, and supports parallel execution through MapReduce patterns.
 
+## MapReduce Workflow Syntax
+
+Prodigy supports MapReduce workflows for massive parallel processing. The syntax follows the specification in the whitepaper:
+
+### Basic MapReduce Structure
+```yaml
+name: workflow-name
+mode: mapreduce
+
+# Optional setup phase
+setup:
+  - shell: "generate-work-items.sh"
+  - shell: "analyze-codebase --output items.json"
+
+# Map phase: Process items in parallel
+map:
+  input: "items.json"          # JSON file with array of items
+  json_path: "$.items[*]"      # JSONPath to extract items
+
+  agent_template:
+    - claude: "/process '${item}'"
+    - shell: "test ${item.path}"
+      on_failure:
+        claude: "/fix-issue '${item}'"
+
+  max_parallel: 10             # Number of concurrent agents
+  filter: "item.score >= 5"    # Optional: filter items
+  sort_by: "item.priority DESC" # Optional: process order
+  max_items: 100               # Optional: limit items per run
+
+# Reduce phase: Aggregate results
+reduce:
+  - claude: "/summarize ${map.results}"
+  - shell: "echo 'Processed ${map.successful}/${map.total} items'"
+```
+
+### Key Syntax Changes from Previous Versions
+- **Agent Template**: No longer uses nested `commands` array - commands are directly under `agent_template`
+- **Reduce Phase**: Commands are directly under `reduce`, not nested under `commands`
+- **Error Handling**: Simplified `on_failure` syntax without `max_attempts` and `fail_workflow`
+- **Removed Parameters**: No longer supports `timeout_per_agent`, `retry_on_failure`, or other deprecated parameters
+
 ## Directory Structure
 
 ### Local Storage (Legacy)
@@ -124,8 +166,6 @@ Workflows support variable interpolation:
 ### Error Handling
 Commands can specify error handling behavior:
 - `on_failure:` - Commands to run on failure
-- `max_attempts:` - Retry count
-- `fail_workflow:` - Whether to fail entire workflow
 - `commit_required:` - Whether a git commit is expected
 
 ## Git Integration
