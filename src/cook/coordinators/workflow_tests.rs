@@ -172,6 +172,11 @@ mod tests {
             goal_seek: None,
             foreach: None,
             capture_output: CaptureOutput::Disabled,
+            capture: None,
+            capture_format: None,
+            capture_streams: Default::default(),
+            handler: None,
+            output_file: None,
             timeout: None,
             working_dir: None,
             env: HashMap::new(),
@@ -180,7 +185,6 @@ mod tests {
             on_exit_code: HashMap::new(),
             commit_required: false,
             validate: None,
-            handler: None,
             when: None,
         };
 

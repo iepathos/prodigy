@@ -1,0 +1,57 @@
+# Example: JSON Data Processing with Variable Capture
+# This workflow demonstrates capturing and processing JSON data from various sources
+
+name: json-data-processing
+mode: standard
+
+commands:
+  # Step 1: Capture package.json data
+  - shell: "cat package.json 2>/dev/null || echo '{\"name\":\"test\",\"version\":\"1.0.0\"}'"
+    capture_output: "package_info"
+    capture_format: json
+
+  # Step 2: Extract specific fields from JSON
+  - shell: "echo 'Package: ${package_info.name} v${package_info.version}'"
+    capture_output: "package_summary"
+
+  # Step 3: Capture git information as JSON
+  - shell: |
+      echo '{
+        "branch": "'$(git branch --show-current 2>/dev/null || echo main)'",
+        "commit": "'$(git rev-parse --short HEAD 2>/dev/null || echo abc123)'",
+        "dirty": '$(git diff --quiet 2>/dev/null && echo false || echo true)'
+      }'
+    capture_output: "git_info"
+    capture_format: json
+
+  # Step 4: Build comprehensive status report using captured variables
+  - shell: |
+      cat << EOF
+      Build Status Report
+      ===================
+      Package: ${package_summary}
+      Git Branch: ${git_info.branch}
+      Git Commit: ${git_info.commit}
+      Has Changes: ${git_info.dirty}
+      EOF
+    capture_output: "status_report"
+
+  # Step 5: Create a JSON summary combining all captured data
+  - shell: |
+      echo '{
+        "package": {
+          "name": "${package_info.name}",
+          "version": "${package_info.version}"
+        },
+        "git": {
+          "branch": "${git_info.branch}",
+          "commit": "${git_info.commit}",
+          "dirty": ${git_info.dirty}
+        },
+        "report": "${status_report}"
+      }'
+    capture_output: "final_summary"
+    capture_format: json
+
+  # Step 6: Output the final summary
+  - shell: "echo 'Final summary saved with ${final_summary|length:100} characters'"

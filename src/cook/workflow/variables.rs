@@ -875,4 +875,210 @@ mod tests {
             _ => panic!("Expected array value"),
         }
     }
+
+    #[test]
+    fn test_interpolation_with_captured_variables() {
+        let mut ctx = VariableContext::empty();
+
+        // Simulate captured variables from different commands
+        ctx.add_variable("shell.output", json!("build successful"));
+        ctx.add_variable("test.output", json!("all tests passed"));
+        ctx.add_variable("custom_var", json!("custom value"));
+
+        // Test interpolation with captured variables
+        let template = "Build: ${shell.output}, Tests: ${test.output}, Custom: ${custom_var}";
+        let result = ctx.interpolate(template).unwrap();
+
+        assert_eq!(
+            result,
+            "Build: build successful, Tests: all tests passed, Custom: custom value"
+        );
+    }
+
+    #[test]
+    fn test_interpolation_missing_variable_fallback() {
+        let mut ctx = VariableContext::empty();
+        ctx.add_variable("existing", json!("present"));
+
+        // Test with missing variable (should use empty string or fail gracefully)
+        let template = "Existing: ${existing}, Missing: ${missing|default:not_found}";
+        let result = ctx.interpolate(template);
+
+        // The interpolation should handle missing variables
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_complex_nested_interpolation() {
+        let mut ctx = VariableContext::empty();
+
+        // Add nested JSON structure
+        let nested = json!({
+            "build": {
+                "status": "success",
+                "time": 123,
+                "artifacts": ["app.exe", "lib.dll"]
+            }
+        });
+        ctx.add_variable("result", nested);
+
+        // Test nested field access
+        let template = "Status: ${result.build.status}, Time: ${result.build.time}s";
+        let result = ctx.interpolate(template).unwrap();
+
+        assert_eq!(result, "Status: success, Time: 123s");
+    }
+
+    #[test]
+    fn test_interpolation_with_mixed_sources() {
+        let mut ctx = VariableContext::empty();
+
+        // Mix of workflow variables and captured outputs
+        ctx.set_workflow_metadata("test-workflow", "wf-123", 1);
+        ctx.add_variable("git.branch", json!("main"));
+        ctx.add_variable("commit.hash", json!("abc123"));
+        ctx.set_last_output("Deploy completed", 0);
+
+        let template = concat!(
+            "Workflow: ${workflow.name} (${workflow.id})\n",
+            "Branch: ${git.branch} @ ${commit.hash}\n",
+            "Status: ${last.output}"
+        );
+
+        let result = ctx.interpolate(template).unwrap();
+
+        assert!(result.contains("Workflow: test-workflow (wf-123)"));
+        assert!(result.contains("Branch: main @ abc123"));
+        assert!(result.contains("Status: Deploy completed"));
+    }
+
+    #[tokio::test]
+    async fn test_variable_store_to_hashmap() {
+        let store = VariableStore::new();
+
+        store
+            .set("name", CapturedValue::String("test".to_string()))
+            .await;
+        store.set("count", CapturedValue::Number(42.0)).await;
+        store
+            .set(
+                "data",
+                CapturedValue::Json(json!({"key": "value"})),
+            )
+            .await;
+
+        let hashmap = store.to_hashmap().await;
+
+        assert_eq!(hashmap.get("name"), Some(&"test".to_string()));
+        assert_eq!(hashmap.get("count"), Some(&"42".to_string()));
+        assert!(hashmap.contains_key("data"));
+    }
+
+    #[tokio::test]
+    async fn test_number_capture_format() {
+        let store = VariableStore::new();
+
+        let result = CommandResult {
+            stdout: Some("  42.5  \n".to_string()),
+            stderr: None,
+            exit_code: 0,
+            success: true,
+            duration: Duration::from_secs(1),
+        };
+
+        store
+            .capture_command_result(
+                "number",
+                result,
+                CaptureFormat::Number,
+                &CaptureStreams::default(),
+            )
+            .await
+            .unwrap();
+
+        let number = store.get("number").await.unwrap();
+        assert_eq!(number.to_string(), "42.5");
+    }
+
+    #[tokio::test]
+    async fn test_boolean_capture_format() {
+        let store = VariableStore::new();
+
+        // Test 'true' string
+        let result_true = CommandResult {
+            stdout: Some("true".to_string()),
+            stderr: None,
+            exit_code: 0,
+            success: true,
+            duration: Duration::from_secs(1),
+        };
+
+        store
+            .capture_command_result(
+                "bool_true",
+                result_true,
+                CaptureFormat::Boolean,
+                &CaptureStreams::default(),
+            )
+            .await
+            .unwrap();
+
+        let bool_val = store.get("bool_true").await.unwrap();
+        assert_eq!(bool_val.to_string(), "true");
+
+        // Test 'false' string
+        let result_false = CommandResult {
+            stdout: Some("false".to_string()),
+            stderr: None,
+            exit_code: 1,
+            success: false,
+            duration: Duration::from_secs(1),
+        };
+
+        store
+            .capture_command_result(
+                "bool_false",
+                result_false,
+                CaptureFormat::Boolean,
+                &CaptureStreams::default(),
+            )
+            .await
+            .unwrap();
+
+        let bool_val = store.get("bool_false").await.unwrap();
+        assert_eq!(bool_val.to_string(), "false");
+    }
+
+    #[tokio::test]
+    async fn test_variable_override_in_child_store() {
+        let parent = VariableStore::new();
+        parent
+            .set("shared_var", CapturedValue::String("parent_value".to_string()))
+            .await;
+
+        let child = parent.child();
+
+        // Child can access parent variable
+        assert_eq!(
+            child.get("shared_var").await.unwrap().to_string(),
+            "parent_value"
+        );
+
+        // Child overrides the variable
+        child
+            .set("shared_var", CapturedValue::String("child_value".to_string()))
+            .await;
+
+        // Child sees overridden value
+        assert_eq!(
+            child.get("shared_var").await.unwrap().to_string(),
+            "child_value"
+        );
+
+        // Parent still sees original value
+        assert_eq!(
+            parent.get("shared_var").await.unwrap().to_string(),
+            "parent_value"
+        );
+    }
 }
