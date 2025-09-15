@@ -465,7 +465,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_template_registry() {
-        let registry = TemplateRegistry::new();
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let storage = Box::new(FileTemplateStorage::new(temp_dir.path().to_path_buf()));
+        let registry = TemplateRegistry::with_storage(storage);
 
         let workflow = ComposableWorkflow::from_config(crate::config::WorkflowConfig {
             commands: vec![],

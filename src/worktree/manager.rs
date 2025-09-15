@@ -111,11 +111,27 @@ impl WorktreeManager {
                 )
             })?;
 
-        // Use home directory for worktrees
-        let home_dir =
-            dirs::home_dir().ok_or_else(|| anyhow!("Could not determine home directory"))?;
-
-        let base_dir = home_dir.join(".prodigy").join("worktrees").join(repo_name);
+        // Use home directory for worktrees (or temp dir during tests)
+        let base_dir = {
+            #[cfg(test)]
+            {
+                use std::sync::OnceLock;
+                static TEST_DIR: OnceLock<std::path::PathBuf> = OnceLock::new();
+                let test_dir = TEST_DIR.get_or_init(|| {
+                    let temp =
+                        std::env::temp_dir().join(format!("prodigy-test-{}", std::process::id()));
+                    std::fs::create_dir_all(&temp).unwrap();
+                    temp
+                });
+                test_dir.join("worktrees").join(repo_name)
+            }
+            #[cfg(not(test))]
+            {
+                let home_dir = dirs::home_dir()
+                    .ok_or_else(|| anyhow!("Could not determine home directory"))?;
+                home_dir.join(".prodigy").join("worktrees").join(repo_name)
+            }
+        };
 
         std::fs::create_dir_all(&base_dir).context("Failed to create worktree base directory")?;
 
@@ -125,13 +141,10 @@ impl WorktreeManager {
             fs::write(&gitignore_path, ".metadata/\n")?;
         }
 
-        // Canonicalize paths to handle symlinks (e.g., /private/var vs /var on macOS)
-        let base_dir = base_dir
-            .canonicalize()
-            .context("Failed to canonicalize base directory")?;
-        let repo_path = repo_path
-            .canonicalize()
-            .context("Failed to canonicalize repo path")?;
+        // Try to canonicalize paths to handle symlinks (e.g., /private/var vs /var on macOS)
+        // If canonicalization fails (e.g., on certain filesystems), use the original paths
+        let base_dir = base_dir.canonicalize().unwrap_or(base_dir);
+        let repo_path = repo_path.canonicalize().unwrap_or(repo_path);
 
         Ok(Self {
             base_dir,
