@@ -14,6 +14,11 @@ use crate::cook::execution::progress::{
     AgentProgress, AgentState, CLIProgressViewer, EnhancedProgressTracker, ProgressUpdate,
     UpdateType,
 };
+use crate::cook::execution::progress_display::{DisplayMode, MultiProgressDisplay};
+use crate::cook::execution::progress_tracker::{
+    AgentProgress as NewAgentProgress, AgentStatus as NewAgentStatus, PhaseStatus, PhaseType,
+    ProgressTracker as NewProgressTracker, ResourceUsage, WorkflowStatus,
+};
 use crate::cook::execution::state::{DefaultJobStateManager, JobStateManager, MapReduceJobState};
 use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
@@ -451,6 +456,7 @@ pub struct MapReduceExecutor {
     dlq: Option<Arc<DeadLetterQueue>>,
     correlation_id: String,
     enhanced_progress_tracker: Option<Arc<EnhancedProgressTracker>>,
+    new_progress_tracker: Option<Arc<NewProgressTracker>>,
     enable_web_dashboard: bool,
     setup_variables: HashMap<String, String>,
 }
@@ -1096,6 +1102,7 @@ impl MapReduceExecutor {
             dlq: None, // Will be initialized per job
             correlation_id: Uuid::new_v4().to_string(),
             enhanced_progress_tracker: None,
+            new_progress_tracker: None,
             enable_web_dashboard: std::env::var("PRODIGY_WEB_DASHBOARD")
                 .unwrap_or_else(|_| "false".to_string())
                 .eq_ignore_ascii_case("true"),
@@ -1247,6 +1254,31 @@ impl MapReduceExecutor {
 
             self.enhanced_progress_tracker = Some(Arc::new(tracker));
         }
+
+        // Initialize new progress tracker with rich display
+        let display_mode = match std::env::var("PRODIGY_PROGRESS_MODE") {
+            Ok(mode) => match mode.to_lowercase().as_str() {
+                "rich" => DisplayMode::Rich,
+                "simple" => DisplayMode::Simple,
+                "json" => DisplayMode::Json,
+                "none" => DisplayMode::None,
+                _ => DisplayMode::Rich,
+            },
+            Err(_) => DisplayMode::Rich,
+        };
+
+        let progress_display = Box::new(MultiProgressDisplay::new(display_mode));
+        let new_tracker = NewProgressTracker::new(
+            job_id.clone(),
+            "MapReduce Workflow".to_string(),
+            progress_display,
+        );
+
+        // Start the workflow with total steps
+        let total_steps = if reduce_phase.is_some() { 2 } else { 1 };
+        new_tracker.start_workflow(total_steps).await.ok();
+
+        self.new_progress_tracker = Some(Arc::new(new_tracker));
 
         // Execute map phase with state tracking
         let map_results = self
@@ -3943,6 +3975,7 @@ impl MapReduceExecutor {
             dlq: self.dlq.clone(),
             correlation_id: self.correlation_id.clone(),
             enhanced_progress_tracker: self.enhanced_progress_tracker.clone(),
+            new_progress_tracker: self.new_progress_tracker.clone(),
             enable_web_dashboard: self.enable_web_dashboard,
             setup_variables: self.setup_variables.clone(),
         }
