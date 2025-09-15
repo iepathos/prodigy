@@ -4,7 +4,7 @@ mode: mapreduce
 # Setup phase: Analyze the codebase and generate debt items
 setup:
   - shell: "just coverage-lcov"
-    
+
   - shell: "debtmap analyze src --lcov target/coverage/lcov.info --output debtmap.json --format json"
 
 # Map phase: Process each debt item in parallel

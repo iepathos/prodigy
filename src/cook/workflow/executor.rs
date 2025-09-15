@@ -485,7 +485,7 @@ pub struct WorkflowStep {
 }
 
 fn default_commit_required() -> bool {
-    true
+    false
 }
 
 fn is_false(b: &bool) -> bool {
