@@ -688,13 +688,13 @@ mod tests {
             .await
             .unwrap();
         Command::new("git")
-            .args(&["config", "user.email", "test@example.com"])
+            .args(["config", "user.email", "test@example.com"])
             .current_dir(temp_dir.path())
             .output()
             .await
             .unwrap();
         Command::new("git")
-            .args(&["config", "user.name", "Test User"])
+            .args(["config", "user.name", "Test User"])
             .current_dir(temp_dir.path())
             .output()
             .await
@@ -703,13 +703,13 @@ mod tests {
         // Create initial commit
         std::fs::write(temp_dir.path().join("README.md"), "test").unwrap();
         Command::new("git")
-            .args(&["add", "."])
+            .args(["add", "."])
             .current_dir(temp_dir.path())
             .output()
             .await
             .unwrap();
         Command::new("git")
-            .args(&["commit", "-m", "Initial commit"])
+            .args(["commit", "-m", "Initial commit"])
             .current_dir(temp_dir.path())
             .output()
             .await
@@ -749,13 +749,13 @@ mod tests {
             .await
             .unwrap();
         Command::new("git")
-            .args(&["config", "user.email", "test@example.com"])
+            .args(["config", "user.email", "test@example.com"])
             .current_dir(temp_dir.path())
             .output()
             .await
             .unwrap();
         Command::new("git")
-            .args(&["config", "user.name", "Test User"])
+            .args(["config", "user.name", "Test User"])
             .current_dir(temp_dir.path())
             .output()
             .await
@@ -764,13 +764,13 @@ mod tests {
         // Create initial commit
         std::fs::write(temp_dir.path().join("README.md"), "test").unwrap();
         Command::new("git")
-            .args(&["add", "."])
+            .args(["add", "."])
             .current_dir(temp_dir.path())
             .output()
             .await
             .unwrap();
         Command::new("git")
-            .args(&["commit", "-m", "Initial commit"])
+            .args(["commit", "-m", "Initial commit"])
             .current_dir(temp_dir.path())
             .output()
             .await
@@ -805,13 +805,13 @@ mod tests {
             .await
             .unwrap();
         Command::new("git")
-            .args(&["config", "user.email", "test@example.com"])
+            .args(["config", "user.email", "test@example.com"])
             .current_dir(temp_dir.path())
             .output()
             .await
             .unwrap();
         Command::new("git")
-            .args(&["config", "user.name", "Test User"])
+            .args(["config", "user.name", "Test User"])
             .current_dir(temp_dir.path())
             .output()
             .await
@@ -820,13 +820,13 @@ mod tests {
         // Create initial commit
         std::fs::write(temp_dir.path().join("README.md"), "test").unwrap();
         Command::new("git")
-            .args(&["add", "."])
+            .args(["add", "."])
             .current_dir(temp_dir.path())
             .output()
             .await
             .unwrap();
         Command::new("git")
-            .args(&["commit", "-m", "Initial commit"])
+            .args(["commit", "-m", "Initial commit"])
             .current_dir(temp_dir.path())
             .output()
             .await

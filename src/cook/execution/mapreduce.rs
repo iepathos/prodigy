@@ -2261,7 +2261,10 @@ impl MapReduceExecutor {
         let agent_id = format!("agent-{}-{}", agent_index, item_id);
 
         // Log that agent is starting
-        info!("Agent {} starting to process item: {}", agent_index, item_id);
+        info!(
+            "Agent {} starting to process item: {}",
+            agent_index, item_id
+        );
         self.user_interaction.display_progress(&format!(
             "Agent {} processing item: {}",
             agent_index, item_id

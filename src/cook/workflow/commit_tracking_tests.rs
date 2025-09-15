@@ -120,7 +120,7 @@ mod tests {
         // Verification should fail when commits are required but none exist
         if step.commit_required && commits_created == 0 {
             // This would normally return an error in the workflow executor
-            assert!(true, "Correctly detected missing required commits");
+            // Test passes - correctly detected missing required commits
         }
     }
 

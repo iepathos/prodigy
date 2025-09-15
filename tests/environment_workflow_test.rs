@@ -6,7 +6,6 @@ use prodigy::cook::environment::{
     EnvProfile, EnvValue, EnvironmentConfig, EnvironmentManager, StepEnvironment,
 };
 use std::collections::HashMap;
-use std::path::PathBuf;
 use tempfile::TempDir;
 
 #[tokio::test]

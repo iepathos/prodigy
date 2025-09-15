@@ -654,7 +654,7 @@ mod tests {
         for _ in 0..10 {
             let jittered = executor.apply_jitter(Duration::from_secs(10));
             let secs = jittered.as_secs_f64();
-            assert!(secs >= 5.0 && secs <= 15.0);
+            assert!((5.0..=15.0).contains(&secs));
         }
     }
 

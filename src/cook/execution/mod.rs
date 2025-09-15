@@ -39,7 +39,6 @@ pub mod output;
 #[cfg(test)]
 pub mod output_tests;
 pub mod process;
-#[cfg(test)]
 // pub mod process_kill_tests; // Already included via process_tests
 #[cfg(test)]
 pub mod process_tests;

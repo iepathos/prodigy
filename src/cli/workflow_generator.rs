@@ -268,17 +268,17 @@ mod tests {
             generate_batch_workflow("*.py", "claude: /add-types", 5, Some(2), Some(60)).unwrap();
         // Test that it's a mapreduce workflow
         if let Value::Mapping(ref map) = workflow_value {
-            assert!(map.contains_key(&Value::String("name".to_string())));
-            assert!(map.contains_key(&Value::String("mode".to_string())));
-            assert!(map.contains_key(&Value::String("map".to_string())));
-            assert!(map.contains_key(&Value::String("reduce".to_string())));
+            assert!(map.contains_key(Value::String("name".to_string())));
+            assert!(map.contains_key(Value::String("mode".to_string())));
+            assert!(map.contains_key(Value::String("map".to_string())));
+            assert!(map.contains_key(Value::String("reduce".to_string())));
 
             // Verify map config has input field
-            if let Some(Value::Mapping(map_config)) = map.get(&Value::String("map".to_string())) {
-                assert!(map_config.contains_key(&Value::String("input".to_string())));
+            if let Some(Value::Mapping(map_config)) = map.get(Value::String("map".to_string())) {
+                assert!(map_config.contains_key(Value::String("input".to_string())));
                 // Check that input contains the find command
                 if let Some(Value::String(input)) =
-                    map_config.get(&Value::String("input".to_string()))
+                    map_config.get(Value::String("input".to_string()))
                 {
                     assert!(input.contains("find"));
                     assert!(input.contains("*.py"));

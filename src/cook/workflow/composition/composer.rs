@@ -501,10 +501,10 @@ mod tests {
     #[tokio::test]
     async fn test_workflow_composer_creation() {
         let registry = Arc::new(TemplateRegistry::new());
-        let composer = WorkflowComposer::new(registry);
+        let _composer = WorkflowComposer::new(registry);
 
         // Basic test to ensure composer can be created
-        assert!(true);
+        // Composer created successfully
     }
 
     #[test]
