@@ -97,6 +97,10 @@ impl OnFailureConfig {
                         working_dir: None,
                         env: Default::default(),
                         validate: None,
+                        step_validate: None,
+                        skip_validation: false,
+                        validation_timeout: None,
+                        ignore_validation_failure: false,
                         when: None,
                     })
                 } else {

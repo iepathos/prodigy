@@ -264,6 +264,10 @@ impl NormalizedWorkflow {
             on_exit_code: HashMap::new(),
             commit_required: cmd.commit_required,
             validate: cmd.validate.clone(),
+            step_validate: None,
+            skip_validation: false,
+            validation_timeout: None,
+            ignore_validation_failure: false,
             when: cmd.when.clone(),
         }
     }
@@ -353,6 +357,10 @@ impl NormalizedWorkflow {
                     on_exit_code: step.handlers.on_exit_code.clone(),
                     commit_required: step.commit_required,
                     validate: step.validation.clone(), // PRESERVED!
+                    step_validate: None,
+                    skip_validation: false,
+                    validation_timeout: None,
+                    ignore_validation_failure: false,
                     when: step.when.clone(),           // PRESERVED!
                 });
             }
@@ -380,6 +388,10 @@ impl NormalizedWorkflow {
                     on_exit_code: step.handlers.on_exit_code.clone(),
                     commit_required: step.commit_required,
                     validate: step.validation.clone(), // PRESERVED!
+                    step_validate: None,
+                    skip_validation: false,
+                    validation_timeout: None,
+                    ignore_validation_failure: false,
                     when: step.when.clone(),           // PRESERVED!
                 });
             }
@@ -407,6 +419,10 @@ impl NormalizedWorkflow {
             on_exit_code: step.handlers.on_exit_code.clone(),
             commit_required: step.commit_required,
             validate: step.validation.clone(), // PRESERVED!
+            step_validate: None,
+            skip_validation: false,
+            validation_timeout: None,
+            ignore_validation_failure: false,
             when: step.when.clone(),           // PRESERVED!
         })
     }

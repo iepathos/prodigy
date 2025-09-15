@@ -670,6 +670,10 @@ impl DefaultCookOrchestrator {
                     // Commands don't require commits by default unless explicitly set
                     commit_required: step.commit_required,
                     validate: step.validate.clone(),
+                    step_validate: None,
+                    skip_validation: false,
+                    validation_timeout: None,
+                    ignore_validation_failure: false,
                     when: None,
                 }
             }
@@ -707,6 +711,10 @@ impl DefaultCookOrchestrator {
                     on_exit_code: std::collections::HashMap::new(),
                     commit_required,
                     validate: None,
+                    step_validate: None,
+                    skip_validation: false,
+                    validation_timeout: None,
+                    ignore_validation_failure: false,
                     when: None,
                 }
             }
