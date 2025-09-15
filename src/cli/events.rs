@@ -951,36 +951,28 @@ fn event_matches_type(event: &Value, event_type: &str) -> bool {
 }
 
 fn get_event_type(event: &Value) -> String {
-    // Extract event type from the event structure
-    if event.get("JobStarted").is_some() {
-        "JobStarted".to_string()
-    } else if event.get("JobCompleted").is_some() {
-        "JobCompleted".to_string()
-    } else if event.get("JobFailed").is_some() {
-        "JobFailed".to_string()
-    } else if event.get("JobPaused").is_some() {
-        "JobPaused".to_string()
-    } else if event.get("JobResumed").is_some() {
-        "JobResumed".to_string()
-    } else if event.get("AgentStarted").is_some() {
-        "AgentStarted".to_string()
-    } else if event.get("AgentProgress").is_some() {
-        "AgentProgress".to_string()
-    } else if event.get("AgentCompleted").is_some() {
-        "AgentCompleted".to_string()
-    } else if event.get("AgentFailed").is_some() {
-        "AgentFailed".to_string()
-    } else if event.get("PipelineStarted").is_some() {
-        "PipelineStarted".to_string()
-    } else if event.get("PipelineStageCompleted").is_some() {
-        "PipelineStageCompleted".to_string()
-    } else if event.get("PipelineCompleted").is_some() {
-        "PipelineCompleted".to_string()
-    } else if event.get("MetricsSnapshot").is_some() {
-        "MetricsSnapshot".to_string()
-    } else {
-        "Unknown".to_string()
-    }
+    // Extract event type from the event structure using functional pattern
+    const EVENT_TYPES: &[&str] = &[
+        "JobStarted",
+        "JobCompleted",
+        "JobFailed",
+        "JobPaused",
+        "JobResumed",
+        "AgentStarted",
+        "AgentProgress",
+        "AgentCompleted",
+        "AgentFailed",
+        "PipelineStarted",
+        "PipelineStageCompleted",
+        "PipelineCompleted",
+        "MetricsSnapshot",
+    ];
+
+    EVENT_TYPES
+        .iter()
+        .find(|&&event_type| event.get(event_type).is_some())
+        .map(|&s| s.to_string())
+        .unwrap_or_else(|| "Unknown".to_string())
 }
 
 fn event_is_recent(event: &Value, since_time: DateTime<Utc>) -> bool {
@@ -1329,5 +1321,212 @@ fn format_event_details(event: &Value) -> String {
             }
         }
         _ => "".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_get_event_type_job_started() {
+        let event = json!({
+            "JobStarted": {
+                "job_id": "test-123",
+                "timestamp": "2024-01-01T00:00:00Z"
+            }
+        });
+        assert_eq!(get_event_type(&event), "JobStarted");
+    }
+
+    #[test]
+    fn test_get_event_type_job_completed() {
+        let event = json!({
+            "JobCompleted": {
+                "job_id": "test-123",
+                "success_count": 5,
+                "failure_count": 0
+            }
+        });
+        assert_eq!(get_event_type(&event), "JobCompleted");
+    }
+
+    #[test]
+    fn test_get_event_type_job_failed() {
+        let event = json!({
+            "JobFailed": {
+                "job_id": "test-123",
+                "error": "Test error"
+            }
+        });
+        assert_eq!(get_event_type(&event), "JobFailed");
+    }
+
+    #[test]
+    fn test_get_event_type_job_paused() {
+        let event = json!({
+            "JobPaused": {
+                "job_id": "test-123",
+                "reason": "Manual pause"
+            }
+        });
+        assert_eq!(get_event_type(&event), "JobPaused");
+    }
+
+    #[test]
+    fn test_get_event_type_job_resumed() {
+        let event = json!({
+            "JobResumed": {
+                "job_id": "test-123"
+            }
+        });
+        assert_eq!(get_event_type(&event), "JobResumed");
+    }
+
+    #[test]
+    fn test_get_event_type_agent_started() {
+        let event = json!({
+            "AgentStarted": {
+                "agent_id": "agent-1",
+                "work_item": {}
+            }
+        });
+        assert_eq!(get_event_type(&event), "AgentStarted");
+    }
+
+    #[test]
+    fn test_get_event_type_agent_progress() {
+        let event = json!({
+            "AgentProgress": {
+                "agent_id": "agent-1",
+                "step": "Running tests",
+                "progress_pct": 50.0
+            }
+        });
+        assert_eq!(get_event_type(&event), "AgentProgress");
+    }
+
+    #[test]
+    fn test_get_event_type_agent_completed() {
+        let event = json!({
+            "AgentCompleted": {
+                "agent_id": "agent-1",
+                "result": "Success"
+            }
+        });
+        assert_eq!(get_event_type(&event), "AgentCompleted");
+    }
+
+    #[test]
+    fn test_get_event_type_agent_failed() {
+        let event = json!({
+            "AgentFailed": {
+                "agent_id": "agent-1",
+                "error": "Test failure"
+            }
+        });
+        assert_eq!(get_event_type(&event), "AgentFailed");
+    }
+
+    #[test]
+    fn test_get_event_type_pipeline_started() {
+        let event = json!({
+            "PipelineStarted": {
+                "pipeline_id": "pipeline-1"
+            }
+        });
+        assert_eq!(get_event_type(&event), "PipelineStarted");
+    }
+
+    #[test]
+    fn test_get_event_type_pipeline_stage_completed() {
+        let event = json!({
+            "PipelineStageCompleted": {
+                "pipeline_id": "pipeline-1",
+                "stage": "build"
+            }
+        });
+        assert_eq!(get_event_type(&event), "PipelineStageCompleted");
+    }
+
+    #[test]
+    fn test_get_event_type_pipeline_completed() {
+        let event = json!({
+            "PipelineCompleted": {
+                "pipeline_id": "pipeline-1",
+                "duration_ms": 1000
+            }
+        });
+        assert_eq!(get_event_type(&event), "PipelineCompleted");
+    }
+
+    #[test]
+    fn test_get_event_type_metrics_snapshot() {
+        let event = json!({
+            "MetricsSnapshot": {
+                "cpu_usage": 50.0,
+                "memory_usage": 1024
+            }
+        });
+        assert_eq!(get_event_type(&event), "MetricsSnapshot");
+    }
+
+    #[test]
+    fn test_get_event_type_unknown() {
+        let event = json!({
+            "UnknownEvent": {
+                "data": "test"
+            }
+        });
+        assert_eq!(get_event_type(&event), "Unknown");
+    }
+
+    #[test]
+    fn test_get_event_type_empty_object() {
+        let event = json!({});
+        assert_eq!(get_event_type(&event), "Unknown");
+    }
+
+    #[test]
+    fn test_get_event_type_null_value() {
+        let event = json!(null);
+        assert_eq!(get_event_type(&event), "Unknown");
+    }
+
+    #[test]
+    fn test_get_event_type_multiple_fields() {
+        // When an event has multiple fields, the first matching one should be returned
+        let event = json!({
+            "JobStarted": {"job_id": "job-1"},
+            "AgentStarted": {"agent_id": "agent-1"}
+        });
+        // JobStarted comes first in the EVENT_TYPES array
+        assert_eq!(get_event_type(&event), "JobStarted");
+    }
+
+    #[test]
+    fn test_get_event_type_nested_structure() {
+        let event = json!({
+            "JobCompleted": {
+                "job_id": "test-123",
+                "nested": {
+                    "deep": {
+                        "value": true
+                    }
+                }
+            }
+        });
+        assert_eq!(get_event_type(&event), "JobCompleted");
+    }
+
+    #[test]
+    fn test_event_matches_type() {
+        let event = json!({
+            "JobStarted": {"job_id": "test-123"}
+        });
+        assert!(event_matches_type(&event, "JobStarted"));
+        assert!(!event_matches_type(&event, "JobCompleted"));
+        assert!(!event_matches_type(&event, "Unknown"));
     }
 }
