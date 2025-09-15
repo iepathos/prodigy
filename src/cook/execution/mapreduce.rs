@@ -15,10 +15,7 @@ use crate::cook::execution::progress::{
     UpdateType,
 };
 use crate::cook::execution::progress_display::{DisplayMode, MultiProgressDisplay};
-use crate::cook::execution::progress_tracker::{
-    AgentProgress as NewAgentProgress, AgentStatus as NewAgentStatus, PhaseStatus, PhaseType,
-    ProgressTracker as NewProgressTracker, ResourceUsage, WorkflowStatus,
-};
+use crate::cook::execution::progress_tracker::ProgressTracker as NewProgressTracker;
 use crate::cook::execution::state::{DefaultJobStateManager, JobStateManager, MapReduceJobState};
 use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;

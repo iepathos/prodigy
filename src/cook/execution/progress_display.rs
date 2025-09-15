@@ -5,7 +5,6 @@ use std::time::Duration;
 use anyhow::Result;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use tokio::sync::RwLock;
-use tokio::time;
 
 use super::progress_tracker::{AgentProgress, PhaseProgress, ProgressRenderer, WorkflowProgress};
 
@@ -22,7 +21,7 @@ pub struct MultiProgressDisplay {
     phase_bars: Arc<RwLock<HashMap<String, ProgressBar>>>,
     agent_bars: Arc<RwLock<HashMap<String, ProgressBar>>>,
     log_area: ProgressBar,
-    update_interval: Duration,
+    _update_interval: Duration,
     mode: DisplayMode,
 }
 
@@ -53,7 +52,7 @@ impl MultiProgressDisplay {
             phase_bars: Arc::new(RwLock::new(HashMap::new())),
             agent_bars: Arc::new(RwLock::new(HashMap::new())),
             log_area,
-            update_interval: Duration::from_millis(100),
+            _update_interval: Duration::from_millis(100),
             mode,
         };
 

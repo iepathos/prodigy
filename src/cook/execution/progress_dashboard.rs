@@ -6,7 +6,7 @@ use anyhow::Result;
 use axum::extract::ws::WebSocket;
 use axum::{
     extract::{Query, State, WebSocketUpgrade},
-    response::{Html, IntoResponse, Response},
+    response::{Html, Response},
     routing::get,
     Json, Router,
 };
@@ -169,7 +169,7 @@ async fn handle_socket(socket: WebSocket, server: Arc<DashboardServer>) {
                 if text == "ping" {
                     // Respond with current snapshot
                     let snapshot = server_clone.progress_tracker.serializable_snapshot().await;
-                    if let Ok(json) = serde_json::to_string(&snapshot) {
+                    if let Ok(_json) = serde_json::to_string(&snapshot) {
                         // Can't send here, would need channel back to sender
                     }
                 }

@@ -231,7 +231,7 @@ impl ProgressTracker {
         let mut workflow = self.workflow_progress.write().await;
         workflow.current_phase = Some(phase_id);
 
-        self.renderer.update_display(&*workflow, &*phases).await?;
+        self.renderer.update_display(&workflow, &phases).await?;
         Ok(())
     }
 
@@ -437,6 +437,12 @@ pub struct SystemMetrics {
     system: Arc<RwLock<System>>,
 }
 
+impl Default for SystemMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SystemMetrics {
     pub fn new() -> Self {
         let mut system = System::new_all();
@@ -486,7 +492,13 @@ pub struct ProgressHistory {
 struct HistoryPoint {
     timestamp: Instant,
     items_completed: usize,
-    phases_completed: usize,
+    _phases_completed: usize,
+}
+
+impl Default for ProgressHistory {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ProgressHistory {
@@ -509,7 +521,7 @@ impl ProgressHistory {
         history.push_back(HistoryPoint {
             timestamp: now,
             items_completed: completed_steps,
-            phases_completed: completed_steps,
+            _phases_completed: completed_steps,
         });
 
         while history.len() > self.window_size {
