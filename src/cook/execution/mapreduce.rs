@@ -24,7 +24,7 @@ use crate::cook::session::SessionManager;
 use crate::cook::workflow::{CommandType, StepResult, WorkflowStep};
 use crate::subprocess::SubprocessManager;
 use crate::worktree::{
-    WorktreeHandle, WorktreeManager, WorktreePool, WorktreePoolConfig, WorktreeRequest,
+    WorktreeManager, WorktreePool, WorktreePoolConfig, WorktreeRequest, WorktreeSession,
 };
 // Keep anyhow imports for backwards compatibility with state.rs which still uses anyhow::Result
 use chrono::Utc;
@@ -540,6 +540,39 @@ fn build_agent_context_variables(
     Ok(variables)
 }
 
+/// Generate agent ID from index and item ID (pure function)
+fn generate_agent_id(agent_index: usize, item_id: &str) -> String {
+    format!("agent-{}-{}", agent_index, item_id)
+}
+
+/// Generate branch name for an agent (pure function)
+fn generate_agent_branch_name(session_id: &str, item_id: &str) -> String {
+    format!("prodigy-agent-{}-{}", session_id, item_id)
+}
+
+/// Classify agent status for event logging (pure function)
+#[cfg(test)]
+fn classify_agent_status(status: &AgentStatus) -> AgentEventType {
+    match status {
+        AgentStatus::Success => AgentEventType::Completed,
+        AgentStatus::Failed(_) => AgentEventType::Failed,
+        AgentStatus::Timeout => AgentEventType::TimedOut,
+        AgentStatus::Retrying(_) => AgentEventType::Retrying,
+        _ => AgentEventType::InProgress,
+    }
+}
+
+/// Enum for agent event types
+#[cfg(test)]
+#[derive(Debug, Clone, PartialEq)]
+enum AgentEventType {
+    Completed,
+    Failed,
+    TimedOut,
+    Retrying,
+    InProgress,
+}
+
 #[cfg(test)]
 mod pure_function_tests {
     use super::*;
@@ -670,6 +703,56 @@ mod pure_function_tests {
         assert_eq!(summary.successful, 0);
         assert_eq!(summary.failed, 0);
         assert_eq!(summary.total, 0);
+    }
+
+    /// Test generate_agent_id pure function
+    #[test]
+    fn test_generate_agent_id() {
+        assert_eq!(generate_agent_id(0, "item-1"), "agent-0-item-1");
+        assert_eq!(generate_agent_id(5, "test-item"), "agent-5-test-item");
+        assert_eq!(generate_agent_id(100, "special"), "agent-100-special");
+    }
+
+    /// Test generate_agent_branch_name pure function
+    #[test]
+    fn test_generate_agent_branch_name() {
+        assert_eq!(
+            generate_agent_branch_name("session-123", "item-1"),
+            "prodigy-agent-session-123-item-1"
+        );
+        assert_eq!(
+            generate_agent_branch_name("test-session", "special-item"),
+            "prodigy-agent-test-session-special-item"
+        );
+    }
+
+    /// Test classify_agent_status pure function
+    #[test]
+    fn test_classify_agent_status() {
+        assert_eq!(
+            classify_agent_status(&AgentStatus::Success),
+            AgentEventType::Completed
+        );
+        assert_eq!(
+            classify_agent_status(&AgentStatus::Failed("error".to_string())),
+            AgentEventType::Failed
+        );
+        assert_eq!(
+            classify_agent_status(&AgentStatus::Timeout),
+            AgentEventType::TimedOut
+        );
+        assert_eq!(
+            classify_agent_status(&AgentStatus::Retrying(1)),
+            AgentEventType::Retrying
+        );
+        assert_eq!(
+            classify_agent_status(&AgentStatus::Pending),
+            AgentEventType::InProgress
+        );
+        assert_eq!(
+            classify_agent_status(&AgentStatus::Running),
+            AgentEventType::InProgress
+        );
     }
 
     /// Test build_map_results_interpolation_context
@@ -996,6 +1079,63 @@ fn truncate_output(output: &str, max_length: usize) -> String {
 }
 
 impl MapReduceExecutor {
+    /// Acquire worktree session for an agent (extracted for clarity)
+    async fn acquire_worktree_session(
+        &self,
+        agent_id: &str,
+        _env: &ExecutionEnvironment,
+    ) -> MapReduceResult<WorktreeSession> {
+        // Try to use worktree pool first
+        if let Some(pool) = &self.worktree_pool {
+            let handle = pool
+                .acquire(WorktreeRequest::Anonymous)
+                .await
+                .map_err(|e| self.create_worktree_error(agent_id, e.to_string()))?;
+
+            handle
+                .session()
+                .ok_or_else(|| MapReduceError::WorktreeCreationFailed {
+                    agent_id: agent_id.to_string(),
+                    reason: "No session in worktree handle".to_string(),
+                    source: std::io::Error::other("No session in worktree handle"),
+                })
+                .cloned()
+        } else {
+            // Fallback to direct creation
+            self.worktree_manager
+                .create_session()
+                .await
+                .map_err(|e| self.create_worktree_error(agent_id, e.to_string()))
+        }
+    }
+
+    /// Create worktree error with context
+    fn create_worktree_error(&self, agent_id: &str, reason: String) -> MapReduceError {
+        let context = self.create_error_context("worktree_creation");
+        MapReduceError::WorktreeCreationFailed {
+            agent_id: agent_id.to_string(),
+            reason: reason.clone(),
+            source: std::io::Error::other(reason),
+        }
+        .with_context(context)
+        .error
+    }
+
+    /// Log agent failure event asynchronously
+    fn log_agent_failure_async(&self, job_id: String, agent_id: String, error_msg: String) {
+        let event_logger = self.event_logger.clone();
+        tokio::spawn(async move {
+            event_logger
+                .log(MapReduceEvent::AgentFailed {
+                    job_id,
+                    agent_id,
+                    error: error_msg,
+                    retry_eligible: true,
+                })
+                .await
+                .unwrap_or_else(|e| log::warn!("Failed to log error event: {}", e));
+        });
+    }
     /// Create error context with correlation ID
     fn create_error_context(&self, span_name: &str) -> ErrorContext {
         ErrorContext {
@@ -2258,7 +2398,7 @@ impl MapReduceExecutor {
         progress: Arc<ProgressTracker>,
     ) -> MapReduceResult<AgentResult> {
         let start_time = Instant::now();
-        let agent_id = format!("agent-{}-{}", agent_index, item_id);
+        let agent_id = generate_agent_id(agent_index, item_id);
 
         // Log that agent is starting
         info!(
@@ -2270,86 +2410,18 @@ impl MapReduceExecutor {
             agent_index, item_id
         ));
 
-        // Use worktree pool if available, otherwise fall back to direct creation
-        let worktree_handle: Option<WorktreeHandle> = if let Some(pool) = &self.worktree_pool {
-            // Acquire worktree from pool
-            Some(
-                pool.acquire(WorktreeRequest::Anonymous)
-                    .await
-                    .map_err(|e| {
-                        let context = self.create_error_context("worktree_creation");
-                        let error = MapReduceError::WorktreeCreationFailed {
-                            agent_id: agent_id.clone(),
-                            reason: e.to_string(),
-                            source: std::io::Error::other(e.to_string()),
-                        }
-                        .with_context(context);
-
-                        // Log error event with correlation ID
-                        let event_logger = self.event_logger.clone();
-                        let job_id = env.session_id.clone();
-                        let agent_id_clone = agent_id.clone();
-                        let error_msg = error.to_string();
-                        tokio::spawn(async move {
-                            event_logger
-                                .log(MapReduceEvent::AgentFailed {
-                                    job_id,
-                                    agent_id: agent_id_clone,
-                                    error: error_msg,
-                                    retry_eligible: true,
-                                })
-                                .await
-                                .unwrap_or_else(|e| log::warn!("Failed to log error event: {}", e));
-                        });
-
-                        error.error
-                    })?,
-            )
-        } else {
-            None
-        };
-
-        // Get worktree session either from pool or create directly
-        let worktree_session = if let Some(ref handle) = worktree_handle {
-            // Extract session from handle
-            handle
-                .session()
-                .ok_or_else(|| MapReduceError::WorktreeCreationFailed {
-                    agent_id: agent_id.clone(),
-                    reason: "No session in worktree handle".to_string(),
-                    source: std::io::Error::other("No session in worktree handle"),
-                })?
-                .clone()
-        } else {
-            // Fallback to direct creation
-            self.worktree_manager.create_session().await.map_err(|e| {
-                let context = self.create_error_context("worktree_creation");
-                let error = MapReduceError::WorktreeCreationFailed {
-                    agent_id: agent_id.clone(),
-                    reason: e.to_string(),
-                    source: std::io::Error::other(e.to_string()),
-                }
-                .with_context(context);
-
-                // Log error event with correlation ID
-                let event_logger = self.event_logger.clone();
-                let job_id = env.session_id.clone();
-                let agent_id_clone = agent_id.clone();
-                let error_msg = error.to_string();
-                tokio::spawn(async move {
-                    event_logger
-                        .log(MapReduceEvent::AgentFailed {
-                            job_id,
-                            agent_id: agent_id_clone,
-                            error: error_msg,
-                            retry_eligible: true,
-                        })
-                        .await
-                        .unwrap_or_else(|e| log::warn!("Failed to log error event: {}", e));
-                });
-
-                error.error
-            })?
+        // Acquire worktree session with error handling
+        let worktree_session = match self.acquire_worktree_session(&agent_id, env).await {
+            Ok(session) => session,
+            Err(e) => {
+                // Log failure asynchronously
+                self.log_agent_failure_async(
+                    env.session_id.clone(),
+                    agent_id.clone(),
+                    e.to_string(),
+                );
+                return Err(e);
+            }
         };
         let worktree_name = worktree_session.name.clone();
         let worktree_path = worktree_session.path.clone();
@@ -2368,7 +2440,7 @@ impl MapReduceExecutor {
             .unwrap_or_else(|e| log::warn!("Failed to log agent started event: {}", e));
 
         // Create branch name for this agent
-        let branch_name = format!("prodigy-agent-{}-{}", env.session_id, item_id);
+        let branch_name = generate_agent_branch_name(&env.session_id, item_id);
 
         // Initialize agent context with all variables
         let mut context = self.initialize_agent_context(
@@ -2481,7 +2553,7 @@ impl MapReduceExecutor {
         let worktree_session_id = worktree_name.clone();
 
         // Create branch name for this agent
-        let branch_name = format!("prodigy-agent-{}-{}", env.session_id, item_id);
+        let branch_name = generate_agent_branch_name(&env.session_id, item_id);
 
         // Initialize agent context with all variables
         let mut context = self.initialize_agent_context(
