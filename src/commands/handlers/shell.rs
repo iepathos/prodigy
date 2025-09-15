@@ -211,4 +211,244 @@ mod tests {
         assert!(result.is_success());
         assert!(result.data.unwrap().as_str().unwrap().contains("[DRY RUN]"));
     }
+
+    #[tokio::test]
+    async fn test_missing_command_attribute() {
+        let handler = ShellHandler::new();
+        let context = ExecutionContext::new(PathBuf::from("/test"));
+        let attributes = HashMap::new();
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(!result.is_success());
+        assert_eq!(result.error.unwrap(), "Missing required attribute: command");
+    }
+
+    #[tokio::test]
+    async fn test_custom_shell() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "zsh",
+            vec!["-c", "echo custom"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"custom\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("echo custom".to_string()),
+        );
+        attributes.insert(
+            "shell".to_string(),
+            AttributeValue::String("zsh".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+        assert_eq!(result.stdout, Some("custom\n".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_custom_timeout() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "sleep 1"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(60)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: Vec::new(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("sleep 1".to_string()),
+        );
+        attributes.insert("timeout".to_string(), AttributeValue::Number(60.0));
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_custom_working_directory() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "pwd"],
+            Some(PathBuf::from("/custom/dir")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"/custom/dir\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("pwd".to_string()),
+        );
+        attributes.insert(
+            "working_dir".to_string(),
+            AttributeValue::String("/custom/dir".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+        assert_eq!(result.stdout, Some("/custom/dir\n".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_environment_variables() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Note: MockSubprocessExecutor ignores env parameter, but we test the flow
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "echo $TEST_VAR"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"test_value\n".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut env_obj = HashMap::new();
+        env_obj.insert(
+            "TEST_VAR".to_string(),
+            AttributeValue::String("test_value".to_string()),
+        );
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("echo $TEST_VAR".to_string()),
+        );
+        attributes.insert("env".to_string(), AttributeValue::Object(env_obj));
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+        assert_eq!(result.stdout, Some("test_value\n".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_execution_failure() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        // Mock a failure by returning non-zero exit code
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "exit 1"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(1 << 8),
+                stdout: Vec::new(),
+                stderr: b"Command failed\n".to_vec(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("exit 1".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(!result.is_success());
+        assert_eq!(result.stderr, Some("Command failed\n".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_non_zero_exit_code() {
+        let handler = ShellHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "bash",
+            vec!["-c", "exit 42"],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(30)),
+            Output {
+                status: std::process::ExitStatus::from_raw(42 << 8),
+                stdout: Vec::new(),
+                stderr: b"Error occurred\n".to_vec(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("exit 42".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(!result.is_success());
+        assert_eq!(result.stderr, Some("Error occurred\n".to_string()));
+        assert_eq!(result.exit_code, Some(42));
+    }
+
+    #[tokio::test]
+    async fn test_executor_error() {
+        let handler = ShellHandler::new();
+        // Mock executor with no expectations will return error
+        let mock_executor = MockSubprocessExecutor::new();
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "command".to_string(),
+            AttributeValue::String("unexpected command".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(!result.is_success());
+        assert!(result.error.unwrap().contains("Failed to execute command"));
+    }
 }
