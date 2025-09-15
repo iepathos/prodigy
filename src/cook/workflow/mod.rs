@@ -11,6 +11,9 @@ mod executor;
 pub mod normalized;
 mod on_failure;
 pub mod resume;
+pub mod step_validation;
+#[cfg(test)]
+mod step_validation_tests;
 mod traits;
 pub mod validation;
 pub mod variables;
@@ -27,6 +30,9 @@ pub use normalized::{
 };
 pub use on_failure::OnFailureConfig;
 pub use resume::{ResumeExecutor, ResumeResult};
+pub use step_validation::{
+    StepValidationConfig, StepValidationExecutor, StepValidationResult, StepValidationSpec,
+};
 pub use traits::{StepExecutor, WorkflowExecutor};
 pub use validation::{
     GapDetail, OnIncompleteConfig, Severity, ValidationConfig, ValidationResult, ValidationStatus,

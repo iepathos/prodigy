@@ -449,6 +449,22 @@ pub struct WorkflowStep {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub validate: Option<ValidationConfig>,
 
+    /// Step validation that runs after command execution to verify success
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub step_validate: Option<super::step_validation::StepValidationSpec>,
+
+    /// Skip step validation even if specified
+    #[serde(default)]
+    pub skip_validation: bool,
+
+    /// Validation-specific timeout in seconds
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub validation_timeout: Option<u64>,
+
+    /// Continue on validation failure
+    #[serde(default)]
+    pub ignore_validation_failure: bool,
+
     /// Conditional execution expression
     #[serde(skip_serializing_if = "Option::is_none")]
     pub when: Option<String>,
@@ -605,6 +621,10 @@ impl WorkflowExecutor {
             on_exit_code: step.handlers.on_exit_code.clone(),
             commit_required: step.commit_required,
             validate: step.validation.clone(),
+            step_validate: None,
+            skip_validation: false,
+            validation_timeout: None,
+            ignore_validation_failure: false,
             when: step.when.clone(),
         };
 
@@ -918,6 +938,119 @@ impl WorkflowExecutor {
         }
 
         Ok(())
+    }
+
+    /// Handle step validation (first-class validation feature)
+    async fn handle_step_validation(
+        &mut self,
+        validation_spec: &super::step_validation::StepValidationSpec,
+        env: &ExecutionEnvironment,
+        ctx: &mut WorkflowContext,
+        step: &WorkflowStep,
+    ) -> Result<super::step_validation::StepValidationResult> {
+        // Create a validation executor with the command executor
+        let validation_executor = super::step_validation::StepValidationExecutor::new(Arc::new(
+            StepValidationCommandExecutor {
+                workflow_executor: self as *mut WorkflowExecutor,
+                env: env.clone(),
+                ctx: ctx.clone(),
+            },
+        )
+            as Arc<dyn crate::cook::execution::CommandExecutor>);
+
+        // Create execution context for validation
+        let exec_context = crate::cook::execution::ExecutionContext {
+            working_directory: env.working_dir.clone(),
+            env_vars: std::collections::HashMap::new(),
+            capture_output: true,
+            timeout_seconds: step.validation_timeout,
+            stdin: None,
+        };
+
+        // Get step name for logging
+        let step_name = step.name.as_deref().unwrap_or_else(|| {
+            if step.claude.is_some() {
+                "claude command"
+            } else if step.shell.is_some() {
+                "shell command"
+            } else {
+                "workflow step"
+            }
+        });
+
+        // Execute validation with timeout if specified
+        let validation_future =
+            validation_executor.validate_step(validation_spec, &exec_context, step_name);
+
+        let validation_result = if let Some(timeout_secs) = step.validation_timeout {
+            let timeout = tokio::time::Duration::from_secs(timeout_secs);
+            match tokio::time::timeout(timeout, validation_future).await {
+                Ok(result) => result?,
+                Err(_) => {
+                    self.user_interaction.display_error(&format!(
+                        "Step validation timed out after {} seconds",
+                        timeout_secs
+                    ));
+                    super::step_validation::StepValidationResult {
+                        passed: false,
+                        results: vec![],
+                        duration: std::time::Duration::from_secs(timeout_secs),
+                        attempts: 1,
+                    }
+                }
+            }
+        } else {
+            validation_future.await?
+        };
+
+        // Display validation result
+        if validation_result.passed {
+            self.user_interaction.display_success(&format!(
+                "Step validation passed ({} validation{}, {} attempt{})",
+                validation_result.results.len(),
+                if validation_result.results.len() == 1 {
+                    ""
+                } else {
+                    "s"
+                },
+                validation_result.attempts,
+                if validation_result.attempts == 1 {
+                    ""
+                } else {
+                    "s"
+                }
+            ));
+        } else {
+            self.user_interaction.display_warning(&format!(
+                "Step validation failed ({} validation{}, {} attempt{})",
+                validation_result.results.len(),
+                if validation_result.results.len() == 1 {
+                    ""
+                } else {
+                    "s"
+                },
+                validation_result.attempts,
+                if validation_result.attempts == 1 {
+                    ""
+                } else {
+                    "s"
+                }
+            ));
+
+            // Show details of failed validations
+            for (idx, result) in validation_result.results.iter().enumerate() {
+                if !result.passed {
+                    self.user_interaction.display_info(&format!(
+                        "  Validation {}: {} (exit code: {})",
+                        idx + 1,
+                        result.message,
+                        result.exit_code
+                    ));
+                }
+            }
+        }
+
+        Ok(validation_result)
     }
 
     /// Determine if workflow should fail based on command result
@@ -1953,6 +2086,28 @@ impl WorkflowExecutor {
             if let Some(validation_config) = &step.validate {
                 self.handle_validation(validation_config, env, ctx).await?;
             }
+
+            // Handle step validation (first-class validation feature)
+            if let Some(step_validation) = &step.step_validate {
+                if !step.skip_validation {
+                    let validation_result = self
+                        .handle_step_validation(step_validation, env, ctx, step)
+                        .await?;
+
+                    // Update result based on validation
+                    if !validation_result.passed && !step.ignore_validation_failure {
+                        result.success = false;
+                        result.stdout.push_str(&format!(
+                            "\n[Validation Failed: {} validation(s) executed, {} attempt(s) made]",
+                            validation_result.results.len(),
+                            validation_result.attempts
+                        ));
+                        if result.exit_code == Some(0) {
+                            result.exit_code = Some(1); // Set exit code to indicate validation failure
+                        }
+                    }
+                }
+            }
         }
 
         // Handle conditional execution (failure, success, exit codes)
@@ -2813,6 +2968,10 @@ impl WorkflowExecutor {
                 working_dir: None,
                 env: Default::default(),
                 validate: None,
+                step_validate: None,
+                skip_validation: false,
+                validation_timeout: None,
+                ignore_validation_failure: false,
                 when: None,
             })
         } else {
@@ -2848,6 +3007,60 @@ impl super::traits::WorkflowExecutor for WorkflowExecutor {
     ) -> Result<()> {
         // Call the existing execute method
         self.execute(workflow, env).await
+    }
+}
+
+/// Adapter to allow StepValidationExecutor to use WorkflowExecutor for command execution
+struct StepValidationCommandExecutor {
+    workflow_executor: *mut WorkflowExecutor,
+    env: ExecutionEnvironment,
+    ctx: WorkflowContext,
+}
+
+unsafe impl Send for StepValidationCommandExecutor {}
+unsafe impl Sync for StepValidationCommandExecutor {}
+
+#[async_trait::async_trait]
+impl crate::cook::execution::CommandExecutor for StepValidationCommandExecutor {
+    async fn execute(
+        &self,
+        command_type: &str,
+        args: &[String],
+        _context: crate::cook::execution::ExecutionContext,
+    ) -> Result<crate::cook::execution::ExecutionResult> {
+        // Safety: We ensure the workflow executor pointer is valid during validation
+        let executor = unsafe { &mut *self.workflow_executor };
+
+        // Create a workflow step for the validation command
+        let step = match command_type {
+            "claude" => WorkflowStep {
+                claude: Some(args.join(" ")),
+                ..Default::default()
+            },
+            "shell" => WorkflowStep {
+                shell: Some(args.join(" ")),
+                ..Default::default()
+            },
+            _ => {
+                return Err(anyhow!(
+                    "Unsupported validation command type: {}",
+                    command_type
+                ));
+            }
+        };
+
+        // Execute the step
+        let mut ctx_clone = self.ctx.clone();
+        let result = executor
+            .execute_step(&step, &self.env, &mut ctx_clone)
+            .await?;
+
+        Ok(crate::cook::execution::ExecutionResult {
+            stdout: result.stdout,
+            stderr: result.stderr,
+            exit_code: result.exit_code,
+            success: result.success,
+        })
     }
 }
 

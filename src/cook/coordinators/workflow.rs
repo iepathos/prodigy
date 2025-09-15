@@ -120,6 +120,10 @@ impl DefaultWorkflowCoordinator {
             on_exit_code: HashMap::new(),
             commit_required: true,
             validate: None,
+            step_validate: None,
+            skip_validation: false,
+            validation_timeout: None,
+            ignore_validation_failure: false,
             when: None,
         }
     }

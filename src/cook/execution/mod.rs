@@ -96,7 +96,7 @@ impl Default for ExecutionContext {
 }
 
 /// Result of command execution
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExecutionResult {
     /// Exit status
     pub success: bool,

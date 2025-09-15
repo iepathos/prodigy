@@ -313,6 +313,10 @@ impl ResumeExecutor {
                     on_exit_code: std::collections::HashMap::new(),
                     commit_required: false,
                     validate: None,
+                    step_validate: None,
+                    skip_validation: false,
+                    validation_timeout: None,
+                    ignore_validation_failure: false,
                     when: None,
                 };
 
