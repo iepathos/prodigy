@@ -77,7 +77,7 @@ impl WorkflowComposer {
 
         // Resolve sub-workflows
         if let Some(sub_workflows) = &workflow.workflows {
-            self.validate_sub_workflows(&sub_workflows)
+            self.validate_sub_workflows(sub_workflows)
                 .context("Sub-workflow validation failed")?;
         }
 
@@ -435,15 +435,11 @@ impl WorkflowLoader {
 }
 
 /// Resolves and validates workflow dependencies
-struct DependencyResolver {
-    visited: std::sync::Mutex<HashSet<PathBuf>>,
-}
+struct DependencyResolver;
 
 impl DependencyResolver {
     fn new() -> Self {
-        Self {
-            visited: std::sync::Mutex::new(HashSet::new()),
-        }
+        Self
     }
 
     fn check_circular_deps(&self, dependencies: &[DependencyInfo]) -> Result<()> {
@@ -462,10 +458,10 @@ impl DependencyResolver {
         let mut rec_stack = HashSet::new();
 
         for node in graph.keys() {
-            if !visited.contains(node) {
-                if self.has_cycle(&graph, node, &mut visited, &mut rec_stack)? {
-                    anyhow::bail!("Circular dependency detected in workflow composition");
-                }
+            if !visited.contains(node)
+                && Self::has_cycle(&graph, node, &mut visited, &mut rec_stack)?
+            {
+                anyhow::bail!("Circular dependency detected in workflow composition");
             }
         }
 
@@ -473,7 +469,6 @@ impl DependencyResolver {
     }
 
     fn has_cycle(
-        &self,
         graph: &HashMap<String, Vec<String>>,
         node: &str,
         visited: &mut HashSet<String>,
@@ -485,7 +480,7 @@ impl DependencyResolver {
         if let Some(neighbors) = graph.get(node) {
             for neighbor in neighbors {
                 if !visited.contains(neighbor) {
-                    if self.has_cycle(graph, neighbor, visited, rec_stack)? {
+                    if Self::has_cycle(graph, neighbor, visited, rec_stack)? {
                         return Ok(true);
                     }
                 } else if rec_stack.contains(neighbor) {

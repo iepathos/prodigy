@@ -15,6 +15,12 @@ pub struct TemplateRegistry {
     storage: Box<dyn TemplateStorage>,
 }
 
+impl Default for TemplateRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TemplateRegistry {
     /// Create a new template registry with default file storage
     pub fn new() -> Self {
