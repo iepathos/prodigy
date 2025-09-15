@@ -193,7 +193,7 @@ mod tests {
             worktree_path: Some(PathBuf::from("/tmp/worktree")),
             branch_name: Some("feature-1".to_string()),
             worktree_session_id: Some("session-1".to_string()),
-            files_modified: vec![PathBuf::from("file1.rs")],
+            files_modified: vec!["file1.rs".to_string()],
         };
 
         state.update_agent_result(success_result.clone());

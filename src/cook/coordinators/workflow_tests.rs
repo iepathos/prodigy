@@ -9,7 +9,7 @@ mod tests {
         DefaultWorkflowCoordinator, WorkflowContext, WorkflowCoordinator,
     };
     use crate::cook::interaction::UserInteraction;
-    use crate::cook::workflow::{CaptureOutput, WorkflowStep};
+    use crate::cook::workflow::WorkflowStep;
     use crate::testing::mocks::MockWorkflowExecutor;
     use anyhow::Result;
     use async_trait::async_trait;
