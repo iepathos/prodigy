@@ -21,7 +21,9 @@ use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::SessionManager;
 use crate::cook::workflow::{CommandType, StepResult, WorkflowStep};
 use crate::subprocess::SubprocessManager;
-use crate::worktree::WorktreeManager;
+use crate::worktree::{
+    WorktreeHandle, WorktreeManager, WorktreePool, WorktreePoolConfig, WorktreeRequest,
+};
 // Keep anyhow imports for backwards compatibility with state.rs which still uses anyhow::Result
 use chrono::Utc;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -436,6 +438,7 @@ pub struct MapReduceExecutor {
     session_manager: Arc<dyn SessionManager>,
     user_interaction: Arc<dyn UserInteraction>,
     worktree_manager: Arc<WorktreeManager>,
+    worktree_pool: Option<Arc<WorktreePool>>,
     project_root: PathBuf,
     interpolation_engine: Arc<Mutex<InterpolationEngine>>,
     command_registry: Arc<CommandRegistry>,
@@ -1080,6 +1083,7 @@ impl MapReduceExecutor {
             session_manager,
             user_interaction,
             worktree_manager,
+            worktree_pool: None, // Will be initialized when needed with config
             project_root,
             interpolation_engine: Arc::new(Mutex::new(InterpolationEngine::new(false))),
             command_registry: Arc::new(CommandRegistry::with_defaults().await),
@@ -1093,6 +1097,22 @@ impl MapReduceExecutor {
                 .unwrap_or_else(|_| "false".to_string())
                 .eq_ignore_ascii_case("true"),
             setup_variables: HashMap::new(),
+        }
+    }
+
+    /// Initialize worktree pool with given configuration
+    fn initialize_pool(&mut self, config: WorktreePoolConfig) {
+        if self.worktree_pool.is_none() {
+            let pool = WorktreePool::new(config, self.worktree_manager.clone());
+            self.worktree_pool = Some(Arc::new(pool));
+        }
+    }
+
+    /// Initialize pool with default configuration if not already initialized
+    fn ensure_pool_initialized(&mut self) {
+        if self.worktree_pool.is_none() {
+            let config = WorktreePoolConfig::default();
+            self.initialize_pool(config);
         }
     }
 
@@ -1116,6 +1136,9 @@ impl MapReduceExecutor {
         setup_variables: HashMap<String, String>,
     ) -> MapReduceResult<Vec<AgentResult>> {
         let start_time = Instant::now();
+
+        // Initialize worktree pool if needed
+        self.ensure_pool_initialized();
 
         // Store setup variables for use in agent execution
         self.setup_variables = setup_variables;
@@ -2201,35 +2224,87 @@ impl MapReduceExecutor {
         let start_time = Instant::now();
         let agent_id = format!("agent-{}-{}", agent_index, item_id);
 
-        // Create isolated worktree session for this agent
-        let worktree_session = self.worktree_manager.create_session().await.map_err(|e| {
-            let context = self.create_error_context("worktree_creation");
-            let error = MapReduceError::WorktreeCreationFailed {
-                agent_id: agent_id.clone(),
-                reason: e.to_string(),
-                source: std::io::Error::other(e.to_string()),
-            }
-            .with_context(context);
-
-            // Log error event with correlation ID
-            let event_logger = self.event_logger.clone();
-            let job_id = env.session_id.clone();
-            let agent_id_clone = agent_id.clone();
-            let error_msg = error.to_string();
-            tokio::spawn(async move {
-                event_logger
-                    .log(MapReduceEvent::AgentFailed {
-                        job_id,
-                        agent_id: agent_id_clone,
-                        error: error_msg,
-                        retry_eligible: true,
-                    })
+        // Use worktree pool if available, otherwise fall back to direct creation
+        let worktree_handle: Option<WorktreeHandle> = if let Some(pool) = &self.worktree_pool {
+            // Acquire worktree from pool
+            Some(
+                pool.acquire(WorktreeRequest::Anonymous)
                     .await
-                    .unwrap_or_else(|e| log::warn!("Failed to log error event: {}", e));
-            });
+                    .map_err(|e| {
+                        let context = self.create_error_context("worktree_creation");
+                        let error = MapReduceError::WorktreeCreationFailed {
+                            agent_id: agent_id.clone(),
+                            reason: e.to_string(),
+                            source: std::io::Error::other(e.to_string()),
+                        }
+                        .with_context(context);
 
-            error.error
-        })?;
+                        // Log error event with correlation ID
+                        let event_logger = self.event_logger.clone();
+                        let job_id = env.session_id.clone();
+                        let agent_id_clone = agent_id.clone();
+                        let error_msg = error.to_string();
+                        tokio::spawn(async move {
+                            event_logger
+                                .log(MapReduceEvent::AgentFailed {
+                                    job_id,
+                                    agent_id: agent_id_clone,
+                                    error: error_msg,
+                                    retry_eligible: true,
+                                })
+                                .await
+                                .unwrap_or_else(|e| log::warn!("Failed to log error event: {}", e));
+                        });
+
+                        error.error
+                    })?,
+            )
+        } else {
+            None
+        };
+
+        // Get worktree session either from pool or create directly
+        let worktree_session = if let Some(ref handle) = worktree_handle {
+            // Extract session from handle
+            handle
+                .session()
+                .ok_or_else(|| MapReduceError::WorktreeCreationFailed {
+                    agent_id: agent_id.clone(),
+                    reason: "No session in worktree handle".to_string(),
+                    source: std::io::Error::other("No session in worktree handle"),
+                })?
+                .clone()
+        } else {
+            // Fallback to direct creation
+            self.worktree_manager.create_session().await.map_err(|e| {
+                let context = self.create_error_context("worktree_creation");
+                let error = MapReduceError::WorktreeCreationFailed {
+                    agent_id: agent_id.clone(),
+                    reason: e.to_string(),
+                    source: std::io::Error::other(e.to_string()),
+                }
+                .with_context(context);
+
+                // Log error event with correlation ID
+                let event_logger = self.event_logger.clone();
+                let job_id = env.session_id.clone();
+                let agent_id_clone = agent_id.clone();
+                let error_msg = error.to_string();
+                tokio::spawn(async move {
+                    event_logger
+                        .log(MapReduceEvent::AgentFailed {
+                            job_id,
+                            agent_id: agent_id_clone,
+                            error: error_msg,
+                            retry_eligible: true,
+                        })
+                        .await
+                        .unwrap_or_else(|e| log::warn!("Failed to log error event: {}", e));
+                });
+
+                error.error
+            })?
+        };
         let worktree_name = worktree_session.name.clone();
         let worktree_path = worktree_session.path.clone();
         let worktree_session_id = worktree_name.clone();
@@ -3851,6 +3926,7 @@ impl MapReduceExecutor {
             session_manager: self.session_manager.clone(),
             user_interaction: self.user_interaction.clone(),
             worktree_manager: self.worktree_manager.clone(),
+            worktree_pool: self.worktree_pool.clone(),
             project_root: self.project_root.clone(),
             interpolation_engine: self.interpolation_engine.clone(),
             command_registry: self.command_registry.clone(),
