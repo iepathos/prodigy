@@ -84,7 +84,7 @@ impl OldSessionManager for SessionManagerAdapter {
         // Create new session config
         let config = SessionConfig {
             project_path: self.working_dir.clone(),
-            workflow: crate::config::workflow::WorkflowConfig { commands: vec![] },
+            workflow: crate::config::workflow::WorkflowConfig { commands: vec![], env: None, secrets: None, env_files: None, profiles: None },
             execution_mode: ExecutionMode::Direct,
             max_iterations: 10,
             options: SessionOptions::default(),

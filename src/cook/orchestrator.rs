@@ -1103,6 +1103,37 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         )
         .with_checkpoint_manager(checkpoint_manager, workflow_id);
 
+        // Set global environment configuration if present in workflow
+        if config.workflow.env.is_some()
+            || config.workflow.secrets.is_some()
+            || config.workflow.env_files.is_some()
+            || config.workflow.profiles.is_some()
+        {
+            let global_env_config = crate::cook::environment::EnvironmentConfig {
+                global_env: config
+                    .workflow
+                    .env
+                    .as_ref()
+                    .map(|env| {
+                        env.iter()
+                            .map(|(k, v)| {
+                                (
+                                    k.clone(),
+                                    crate::cook::environment::EnvValue::Static(v.clone()),
+                                )
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+                secrets: config.workflow.secrets.clone().unwrap_or_default(),
+                env_files: config.workflow.env_files.clone().unwrap_or_default(),
+                inherit: true,
+                profiles: config.workflow.profiles.clone().unwrap_or_default(),
+                active_profile: None,
+            };
+            executor = executor.with_environment_config(global_env_config)?;
+        }
+
         // Execute workflow steps
         executor.execute(&extended_workflow, env).await?;
 
@@ -1750,6 +1781,37 @@ impl DefaultCookOrchestrator {
             );
         }
 
+        // Set global environment configuration if present in workflow
+        if config.workflow.env.is_some()
+            || config.workflow.secrets.is_some()
+            || config.workflow.env_files.is_some()
+            || config.workflow.profiles.is_some()
+        {
+            let global_env_config = crate::cook::environment::EnvironmentConfig {
+                global_env: config
+                    .workflow
+                    .env
+                    .as_ref()
+                    .map(|env| {
+                        env.iter()
+                            .map(|(k, v)| {
+                                (
+                                    k.clone(),
+                                    crate::cook::environment::EnvValue::Static(v.clone()),
+                                )
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+                secrets: config.workflow.secrets.clone().unwrap_or_default(),
+                env_files: config.workflow.env_files.clone().unwrap_or_default(),
+                inherit: true,
+                profiles: config.workflow.profiles.clone().unwrap_or_default(),
+                active_profile: None,
+            };
+            executor = executor.with_environment_config(global_env_config)?;
+        }
+
         // Execute the workflow through the executor to ensure validation is handled
         executor.execute(&extended_workflow, env).await?;
 
@@ -1899,6 +1961,37 @@ impl DefaultCookOrchestrator {
             self.session_manager.clone(),
             self.user_interaction.clone(),
         );
+
+        // Set global environment configuration if present in workflow
+        if config.workflow.env.is_some()
+            || config.workflow.secrets.is_some()
+            || config.workflow.env_files.is_some()
+            || config.workflow.profiles.is_some()
+        {
+            let global_env_config = crate::cook::environment::EnvironmentConfig {
+                global_env: config
+                    .workflow
+                    .env
+                    .as_ref()
+                    .map(|env| {
+                        env.iter()
+                            .map(|(k, v)| {
+                                (
+                                    k.clone(),
+                                    crate::cook::environment::EnvValue::Static(v.clone()),
+                                )
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+                secrets: config.workflow.secrets.clone().unwrap_or_default(),
+                env_files: config.workflow.env_files.clone().unwrap_or_default(),
+                inherit: true,
+                profiles: config.workflow.profiles.clone().unwrap_or_default(),
+                active_profile: None,
+            };
+            executor = executor.with_environment_config(global_env_config)?;
+        }
 
         // Execute the MapReduce workflow
         let result = executor.execute(&extended_workflow, env).await;
@@ -2333,7 +2426,7 @@ mod tests {
         let mut config = CookConfig {
             command: create_test_cook_command(),
             project_path: PathBuf::from("/test"),
-            workflow: WorkflowConfig { commands: vec![] },
+            workflow: WorkflowConfig { commands: vec![], env: None, secrets: None, env_files: None, profiles: None },
             mapreduce_config: None,
         };
 
@@ -2366,7 +2459,7 @@ mod tests {
         let config = CookConfig {
             command,
             project_path: PathBuf::from("/test"),
-            workflow: WorkflowConfig { commands: vec![] },
+            workflow: WorkflowConfig { commands: vec![], env: None, secrets: None, env_files: None, profiles: None },
             mapreduce_config: None,
         };
 
@@ -2384,7 +2477,7 @@ mod tests {
         let config = CookConfig {
             command,
             project_path: PathBuf::from("/test"),
-            workflow: WorkflowConfig { commands: vec![] },
+            workflow: WorkflowConfig { commands: vec![], env: None, secrets: None, env_files: None, profiles: None },
             mapreduce_config: None,
         };
 
@@ -2399,7 +2492,7 @@ mod tests {
         let config = CookConfig {
             command: create_test_cook_command(),
             project_path: PathBuf::from("/test"),
-            workflow: WorkflowConfig { commands: vec![] },
+            workflow: WorkflowConfig { commands: vec![], env: None, secrets: None, env_files: None, profiles: None },
             mapreduce_config: None,
         };
 

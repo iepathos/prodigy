@@ -468,7 +468,7 @@ mod tests {
         let registry = TemplateRegistry::new();
 
         let workflow =
-            ComposableWorkflow::from_config(crate::config::WorkflowConfig { commands: vec![] });
+            ComposableWorkflow::from_config(crate::config::WorkflowConfig { commands: vec![], env: None, secrets: None, env_files: None, profiles: None });
 
         // Register template
         registry
