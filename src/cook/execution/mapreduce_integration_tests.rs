@@ -404,6 +404,7 @@ reduce:
             reduce_phase: mapreduce_config.to_reduce_phase(),
             max_iterations: 1,
             iterate: false,
+            retry_defaults: None,
         };
 
         assert_eq!(extended_workflow.name, "test-conversion");

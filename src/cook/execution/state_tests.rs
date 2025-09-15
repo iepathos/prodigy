@@ -19,7 +19,6 @@ mod tests {
             max_parallel: 5,
             timeout_per_agent: 60,
             retry_on_failure: 2,
-            retry: None,
             max_items: Some(10),
             offset: None,
         };
@@ -55,7 +54,6 @@ mod tests {
             max_parallel: 5,
             timeout_per_agent: 60,
             retry_on_failure: 2,
-            retry: None,
             max_items: None,
             offset: None,
         };
@@ -97,7 +95,6 @@ mod tests {
             max_parallel: 5,
             timeout_per_agent: 60,
             retry_on_failure: 2,
-            retry: None,
             max_items: None,
             offset: None,
         };
@@ -177,7 +174,6 @@ mod tests {
             max_parallel: 5,
             timeout_per_agent: 60,
             retry_on_failure: 2,
-            retry: None,
             max_items: None,
             offset: None,
         };
@@ -245,7 +241,6 @@ mod tests {
             max_parallel: 5,
             timeout_per_agent: 60,
             retry_on_failure: 2,
-            retry: None,
             max_items: None,
             offset: None,
         };
@@ -315,7 +310,6 @@ mod tests {
             max_parallel: 5,
             timeout_per_agent: 60,
             retry_on_failure: 2,
-            retry: None,
             max_items: None,
             offset: None,
         };
@@ -354,7 +348,6 @@ mod tests {
             max_parallel: 5,
             timeout_per_agent: 60,
             retry_on_failure: 2,
-            retry: None,
             max_items: None,
             offset: None,
         };
@@ -430,7 +423,6 @@ mod tests {
             max_parallel: 5,
             timeout_per_agent: 60,
             retry_on_failure: 3,
-            retry: None,
             max_items: None,
             offset: None,
         };
@@ -512,7 +504,6 @@ mod tests {
             max_parallel: 5,
             timeout_per_agent: 60,
             retry_on_failure: 2,
-            retry: None,
             max_items: None,
             offset: None,
         };
@@ -546,7 +537,6 @@ mod tests {
             max_parallel: 5,
             timeout_per_agent: 60,
             retry_on_failure: 2,
-            retry: None,
             max_items: None,
             offset: None,
         };

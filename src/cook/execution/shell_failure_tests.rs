@@ -250,7 +250,6 @@ map:
             skip_validation: false,
             validation_timeout: None,
             ignore_validation_failure: false,
-            retry: None,
             working_dir: None,
             env: Default::default(),
             when: None,

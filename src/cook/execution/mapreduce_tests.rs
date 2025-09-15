@@ -89,7 +89,6 @@ fn test_mapreduce_config_defaults() {
         max_parallel: 5,
         timeout_per_agent: 300,
         retry_on_failure: 1,
-            retry: None,
         max_items: None,
         offset: None,
     };
@@ -242,7 +241,6 @@ fn test_map_phase_configuration() {
             max_parallel: 20,
             timeout_per_agent: 1200,
             retry_on_failure: 3,
-            retry: None,
             max_items: None,
             offset: None,
         },
@@ -273,7 +271,6 @@ fn test_map_phase_configuration() {
             skip_validation: false,
             validation_timeout: None,
             ignore_validation_failure: false,
-            retry: None,
             when: None,
         }],
         filter: Some("severity == 'high'".to_string()),
@@ -311,7 +308,7 @@ fn test_reduce_phase_configuration() {
                 working_dir: None,
                 env: HashMap::new(),
                 on_failure: None,
-            retry: None,
+                retry: None,
                 on_success: None,
                 on_exit_code: HashMap::new(),
                 commit_required: false,
@@ -320,7 +317,6 @@ fn test_reduce_phase_configuration() {
                 skip_validation: false,
                 validation_timeout: None,
                 ignore_validation_failure: false,
-            retry: None,
                 when: None,
             },
             WorkflowStep {
@@ -341,7 +337,7 @@ fn test_reduce_phase_configuration() {
                 working_dir: None,
                 env: HashMap::new(),
                 on_failure: None,
-            retry: None,
+                retry: None,
                 on_success: None,
                 on_exit_code: HashMap::new(),
                 commit_required: true,
@@ -350,7 +346,6 @@ fn test_reduce_phase_configuration() {
                 skip_validation: false,
                 validation_timeout: None,
                 ignore_validation_failure: false,
-            retry: None,
                 when: None,
             },
         ],
@@ -785,7 +780,6 @@ mod command_type_tests {
             skip_validation: false,
             validation_timeout: None,
             ignore_validation_failure: false,
-            retry: None,
             when: None,
         };
 
@@ -823,7 +817,6 @@ mod command_type_tests {
             skip_validation: false,
             validation_timeout: None,
             ignore_validation_failure: false,
-            retry: None,
             when: None,
         };
 
@@ -861,7 +854,6 @@ mod command_type_tests {
             skip_validation: false,
             validation_timeout: None,
             ignore_validation_failure: false,
-            retry: None,
             when: None,
         };
 
@@ -898,7 +890,6 @@ mod command_type_tests {
             skip_validation: false,
             validation_timeout: None,
             ignore_validation_failure: false,
-            retry: None,
             when: None,
         };
 
@@ -940,7 +931,6 @@ mod command_type_tests {
             skip_validation: false,
             validation_timeout: None,
             ignore_validation_failure: false,
-            retry: None,
             when: None,
         };
 
