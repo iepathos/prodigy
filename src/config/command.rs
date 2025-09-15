@@ -318,9 +318,9 @@ pub struct WorkflowStepCommand {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub outputs: Option<HashMap<String, OutputDeclaration>>,
 
-    /// Whether to capture command output
-    #[serde(default)]
-    pub capture_output: bool,
+    /// Whether to capture command output (bool for backward compat, string for variable name)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capture_output: Option<CaptureOutputConfig>,
 
     /// Conditional execution on failure (for shell commands, replaces test on_failure)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -341,6 +341,28 @@ pub struct WorkflowStepCommand {
     /// Conditional execution expression
     #[serde(skip_serializing_if = "Option::is_none")]
     pub when: Option<String>,
+
+    /// Format for captured output (json, text, lines)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub capture_format: Option<String>,
+
+    /// Which streams to capture (stdout, stderr, both)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub capture_streams: Option<String>,
+
+    /// File to redirect output to
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output_file: Option<String>,
+}
+
+/// Configuration for output capture
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub enum CaptureOutputConfig {
+    /// Simple boolean for backward compatibility
+    Boolean(bool),
+    /// Variable name to capture to
+    Variable(String),
 }
 
 impl<'de> Deserialize<'de> for WorkflowStepCommand {
@@ -362,12 +384,15 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
             analysis: Option<AnalysisConfig>,
             outputs: Option<HashMap<String, OutputDeclaration>>,
             #[serde(default)]
-            capture_output: bool,
+            capture_output: Option<CaptureOutputConfig>,
             on_failure: Option<TestDebugConfig>,
             on_success: Option<Box<WorkflowStepCommand>>,
             validate: Option<crate::cook::workflow::validation::ValidationConfig>,
             timeout: Option<u64>,
             when: Option<String>,
+            capture_format: Option<String>,
+            capture_streams: Option<String>,
+            output_file: Option<String>,
         }
 
         let helper = Helper::deserialize(deserializer)?;
@@ -420,6 +445,9 @@ impl<'de> Deserialize<'de> for WorkflowStepCommand {
             validate: helper.validate,
             timeout: helper.timeout,
             when: helper.when,
+            capture_format: helper.capture_format,
+            capture_streams: helper.capture_streams,
+            output_file: helper.output_file,
         })
     }
 }
@@ -872,12 +900,15 @@ when: "${build.success} == true"
             commit_required: false,
             analysis: None,
             outputs: None,
-            capture_output: false,
+            capture_output: None,
             on_failure: None,
             on_success: None,
             validate: None,
             timeout: None,
             when: Some("${env} == 'production'".to_string()),
+            capture_format: None,
+            capture_streams: None,
+            output_file: None,
         };
 
         let yaml = serde_yaml::to_string(&step).unwrap();

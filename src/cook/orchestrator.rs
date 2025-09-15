@@ -616,13 +616,46 @@ impl DefaultCookOrchestrator {
                     foreach: step.foreach.clone(),
                     handler: None,
                     capture: None,
-                    capture_format: None,
-                    capture_streams: Default::default(),
-                    output_file: None,
-                    capture_output: if step.capture_output {
-                        CaptureOutput::Default
-                    } else {
-                        CaptureOutput::Disabled
+                    capture_format: step.capture_format.as_ref().and_then(|f| {
+                        match f.as_str() {
+                            "json" => Some(super::workflow::variables::CaptureFormat::Json),
+                            "lines" => Some(super::workflow::variables::CaptureFormat::Lines),
+                            "string" => Some(super::workflow::variables::CaptureFormat::String),
+                            "number" => Some(super::workflow::variables::CaptureFormat::Number),
+                            "boolean" => Some(super::workflow::variables::CaptureFormat::Boolean),
+                            _ => None
+                        }
+                    }),
+                    capture_streams: match step.capture_streams.as_deref() {
+                        Some("stdout") => super::workflow::variables::CaptureStreams {
+                            stdout: true,
+                            stderr: false,
+                            exit_code: true,
+                            success: true,
+                            duration: true,
+                        },
+                        Some("stderr") => super::workflow::variables::CaptureStreams {
+                            stdout: false,
+                            stderr: true,
+                            exit_code: true,
+                            success: true,
+                            duration: true,
+                        },
+                        Some("both") => super::workflow::variables::CaptureStreams {
+                            stdout: true,
+                            stderr: true,
+                            exit_code: true,
+                            success: true,
+                            duration: true,
+                        },
+                        _ => super::workflow::variables::CaptureStreams::default(),
+                    },
+                    output_file: step.output_file.as_ref().map(|f| std::path::PathBuf::from(f)),
+                    capture_output: match &step.capture_output {
+                        Some(crate::config::command::CaptureOutputConfig::Boolean(true)) => CaptureOutput::Default,
+                        Some(crate::config::command::CaptureOutputConfig::Boolean(false)) => CaptureOutput::Disabled,
+                        Some(crate::config::command::CaptureOutputConfig::Variable(var)) => CaptureOutput::Variable(var.clone()),
+                        None => CaptureOutput::Disabled,
                     },
                     timeout: None,
                     working_dir: None,
@@ -2395,7 +2428,7 @@ mod tests {
             test: None,
             goal_seek: None,
             foreach: None,
-            capture_output: false,
+            capture_output: None,
             commit_required: false,
             analyze: None,
             id: None,
@@ -2432,7 +2465,7 @@ mod tests {
             test: None,
             goal_seek: None,
             foreach: None,
-            capture_output: false,
+            capture_output: None,
             commit_required: false,
             analyze: None,
             id: None,
@@ -2474,7 +2507,7 @@ mod tests {
             test: None,
             goal_seek: None,
             foreach: None,
-            capture_output: false,
+            capture_output: None,
             commit_required: false,
             analyze: None,
             id: None,
@@ -2484,6 +2517,9 @@ mod tests {
             validate: None,
             timeout: None,
             when: None,
+            capture_format: None,
+            capture_streams: None,
+            output_file: None,
         };
 
         let (shell, test, on_failure) = DefaultCookOrchestrator::process_step_failure_config(&step);
@@ -2512,6 +2548,9 @@ mod tests {
             validate: None,
             timeout: None,
             when: None,
+            capture_format: None,
+            capture_streams: None,
+            output_file: None,
         };
         let cmd = WorkflowCommand::WorkflowStep(Box::new(step));
 

@@ -526,12 +526,15 @@ mod tests {
             commit_required: true,
             analysis: None,
             outputs: None,
-            capture_output: false,
+            capture_output: None,
             on_failure: None,
             on_success: None,
             validate: Some(validation.clone()),
             timeout: None,
             when: None,
+            capture_format: None,
+            capture_streams: None,
+            output_file: None,
         };
 
         let config = WorkflowConfig {

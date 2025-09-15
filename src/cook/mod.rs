@@ -587,7 +587,7 @@ reduce:
     
     # Run formatting and linting
     - shell: "just fmt && just lint"
-      capture_output: false
+      capture_output: None
     
     # Regenerate debt analysis to see improvement
     - claude: "/debtmap --compare-before"
