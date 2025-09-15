@@ -1470,7 +1470,7 @@ impl WorkflowExecutor {
                     capture_format: None,
                     capture_streams: Default::default(),
                     output_file: None,
-                    timeout: on_failure_config.handler_timeout().map(|t| t),
+                    timeout: on_failure_config.handler_timeout(),
                     capture_output: CaptureOutput::Disabled,
                     on_failure: None,
                     retry: None,
