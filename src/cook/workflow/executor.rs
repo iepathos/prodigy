@@ -2391,6 +2391,11 @@ impl WorkflowExecutor {
         env: &ExecutionEnvironment,
         ctx: &mut WorkflowContext,
     ) -> Result<StepResult> {
+        // Display what step we're executing
+        let step_name = self.get_step_display_name(step);
+        self.user_interaction
+            .display_progress(&format!("Executing: {}", step_name));
+
         // Initialize CommitTracker for this step
         let git_ops = Arc::new(crate::abstractions::RealGitOperations::new());
         let working_dir = env.working_dir.clone();

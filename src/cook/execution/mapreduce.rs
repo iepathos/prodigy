@@ -2260,6 +2260,13 @@ impl MapReduceExecutor {
         let start_time = Instant::now();
         let agent_id = format!("agent-{}-{}", agent_index, item_id);
 
+        // Log that agent is starting
+        info!("Agent {} starting to process item: {}", agent_index, item_id);
+        self.user_interaction.display_progress(&format!(
+            "Agent {} processing item: {}",
+            agent_index, item_id
+        ));
+
         // Use worktree pool if available, otherwise fall back to direct creation
         let worktree_handle: Option<WorktreeHandle> = if let Some(pool) = &self.worktree_pool {
             // Acquire worktree from pool
@@ -2516,6 +2523,22 @@ impl MapReduceExecutor {
             tracker
                 .update_agent_progress(&agent_id, agent_progress)
                 .await?;
+
+            // Log the step being executed
+            let step_display = if let Some(claude_cmd) = &step.claude {
+                format!("claude: {}", claude_cmd)
+            } else if let Some(shell_cmd) = &step.shell {
+                format!("shell: {}", shell_cmd)
+            } else {
+                step_name.clone()
+            };
+            info!(
+                "Agent {} executing step {}/{}: {}",
+                agent_id,
+                step_index + 1,
+                template_steps.len(),
+                step_display
+            );
 
             // Execute the step
             let result = self.execute_single_step(step, &mut context).await;
@@ -3100,6 +3123,9 @@ impl MapReduceExecutor {
         map_results: &[AgentResult],
         env: &ExecutionEnvironment,
     ) -> MapReduceResult<()> {
+        self.user_interaction
+            .display_progress("Starting reduce phase...");
+
         // Calculate summary statistics using pure functions
         let summary_stats = calculate_map_result_summary(map_results);
         let successful_count = summary_stats.successful;
