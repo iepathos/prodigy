@@ -70,10 +70,18 @@ impl ProcessManager {
         // Apply resource limits
         command = self.apply_resource_limits(command, executable.resource_requirements())?;
 
-        // Spawn process
-        let child = command
-            .spawn()
-            .with_context(|| format!("Failed to spawn command: {}", executable.display()))?;
+        // Spawn process with better error handling
+        let child = match command.spawn() {
+            Ok(child) => child,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                // Handle case where command is not found (common in test environments)
+                anyhow::bail!("Command not found: {}", executable.display());
+            }
+            Err(e) => {
+                return Err(e)
+                    .with_context(|| format!("Failed to spawn command: {}", executable.display()));
+            }
+        };
 
         let process = UnifiedProcess::new(child, executable.command_type);
 

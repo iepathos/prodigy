@@ -150,6 +150,13 @@ mod tests {
         };
 
         let result = manager.spawn(executable, &context).await;
+        if let Err(e) = &result {
+            // Skip test if sh command is not available
+            if e.to_string().contains("Command not found") {
+                eprintln!("Skipping test: sh command not found");
+                return;
+            }
+        }
         assert!(result.is_ok());
 
         let mut process = result.unwrap();

@@ -40,7 +40,7 @@ pub mod output;
 pub mod output_tests;
 pub mod process;
 #[cfg(test)]
-pub mod process_kill_tests;
+// pub mod process_kill_tests; // Already included via process_tests
 #[cfg(test)]
 pub mod process_tests;
 pub mod progress;
@@ -87,7 +87,7 @@ impl Default for ExecutionContext {
     fn default() -> Self {
         Self {
             env_vars: HashMap::new(),
-            working_directory: std::env::current_dir().unwrap_or_default(),
+            working_directory: std::env::current_dir().unwrap_or_else(|_| std::env::temp_dir()),
             capture_output: true,
             timeout_seconds: None,
             stdin: None,

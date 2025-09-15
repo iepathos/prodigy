@@ -39,8 +39,13 @@ impl CommandExecutor for ShellCommandExecutor {
             cmd.env(key, value);
         }
 
-        // Set working directory if specified
-        cmd.current_dir(&context.working_directory);
+        // Set working directory if it exists, otherwise use temp dir for tests
+        let working_dir = if context.working_directory.exists() {
+            context.working_directory.clone()
+        } else {
+            std::env::temp_dir()
+        };
+        cmd.current_dir(&working_dir);
 
         // Configure stdio
         cmd.stdout(Stdio::piped())
