@@ -7,6 +7,7 @@ pub mod checkpoint;
 mod checkpoint_tests;
 #[cfg(test)]
 mod commit_tracking_tests;
+pub mod composition;
 #[cfg(test)]
 mod conditional_tests;
 mod executor;
@@ -23,6 +24,11 @@ pub mod variables;
 
 pub use checkpoint::ResumeOptions;
 pub use checkpoint::{CheckpointManager, WorkflowCheckpoint};
+pub use composition::{
+    ComposableWorkflow, ComposedWorkflow, CompositionMetadata, Parameter, ParameterDefinitions,
+    ParameterType, SubWorkflow, SubWorkflowExecutor, SubWorkflowResult, TemplateRegistry,
+    TemplateSource, TemplateStorage, WorkflowComposer, WorkflowImport, WorkflowTemplate,
+};
 pub use executor::{
     CaptureOutput, CommandType, ExtendedWorkflowConfig, HandlerStep, StepResult, WorkflowContext,
     WorkflowExecutor as WorkflowExecutorImpl, WorkflowMode, WorkflowStep,

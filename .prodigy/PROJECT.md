@@ -18,6 +18,7 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **Git Integration**: Worktree management and commit tracking
 - **Goal-Seeking Primitives**: Iterative refinement with validation ✅
 - **Worktree Pool Management**: Sophisticated worktree pooling with allocation strategies ✅
+- **Workflow Composition**: Build complex workflows from reusable components ✅
 
 ### Command Types ✅
 - `claude:` - Execute Claude commands via Claude Code CLI
@@ -108,6 +109,16 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **Context Passing**: Environment variables for attempt history
 - **Convergence Detection**: Automatic stopping when no improvement
 - **Flexible Validation**: JSON and text score extraction
+
+### Workflow Composition and Reusability ✅
+- **Import Workflows**: Import workflows from other files with aliasing
+- **Template System**: Define and use reusable workflow templates
+- **Parameter Support**: Parameterize workflows with type-safe inputs
+- **Sub-Workflows**: Compose workflows from sub-workflow components
+- **Template Registry**: Store and retrieve workflow templates
+- **Inheritance**: Extend base workflows with overrides
+- **Selective Imports**: Import specific components from workflows
+- **Circular Dependency Detection**: Validate composition dependencies
 
 ### Worktree Pool Management ✅
 - **Pool Allocation Strategies**: OnDemand, Pooled, Reuse, and Dedicated modes
