@@ -1631,8 +1631,8 @@ impl MapReduceExecutor {
         sort_by: &Option<String>,
         distinct: &Option<String>,
     ) -> MapReduceResult<Vec<Value>> {
-        // Detect input source type
-        let input_source = InputSource::detect(&config.input);
+        // Detect input source type using the project root as base
+        let input_source = InputSource::detect_with_base(&config.input, &self.project_root);
 
         let items = match input_source {
             InputSource::Command(ref cmd) => {

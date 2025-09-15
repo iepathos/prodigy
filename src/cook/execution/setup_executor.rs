@@ -110,8 +110,13 @@ impl SetupPhaseExecutor {
     where
         E: crate::cook::workflow::StepExecutor,
     {
+        // Use the working directory from the environment
+        let working_dir = &env.working_dir;
+
+        info!("Setup phase executing in directory: {}", working_dir.display());
+
         // Track files before setup to detect created files
-        let files_before_setup = std::fs::read_dir(".")
+        let files_before_setup = std::fs::read_dir(working_dir)
             .map(|entries| {
                 entries
                     .filter_map(|e| e.ok())
@@ -124,7 +129,7 @@ impl SetupPhaseExecutor {
         let captured_outputs = self.execute(commands, executor, env, context).await?;
 
         // Detect created files
-        let files_after_setup = std::fs::read_dir(".")
+        let files_after_setup = std::fs::read_dir(working_dir)
             .map(|entries| {
                 entries
                     .filter_map(|e| e.ok())
@@ -137,8 +142,10 @@ impl SetupPhaseExecutor {
         let mut generated_input_file = None;
         for file in files_after_setup.difference(&files_before_setup) {
             if file.ends_with("work-items.json") || file == "work-items.json" {
-                generated_input_file = Some(file.clone());
-                info!("Setup phase generated input file: {}", file);
+                // Use full path for the generated file
+                let full_path = working_dir.join(file);
+                generated_input_file = Some(full_path.to_string_lossy().to_string());
+                info!("Setup phase generated input file: {}", full_path.display());
                 break;
             }
         }

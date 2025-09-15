@@ -24,13 +24,30 @@ impl InputSource {
     /// If the input is a path to an existing .json file, it's treated as a JSON file.
     /// Otherwise, it's treated as a command to execute.
     pub fn detect(input: &str) -> Self {
+        Self::detect_with_base(input, Path::new("."))
+    }
+
+    /// Detect the input source type from a string with a base path for resolution
+    ///
+    /// If the input is a path to an existing .json file, it's treated as a JSON file.
+    /// Otherwise, it's treated as a command to execute.
+    pub fn detect_with_base(input: &str, base_path: &Path) -> Self {
         let path = Path::new(input);
 
+        // Resolve the path relative to the base if it's not absolute
+        let resolved_path = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            base_path.join(path)
+        };
+
+        debug!("Checking for file at: {}", resolved_path.display());
+
         // Check if it's an existing JSON file
-        if path.exists() && path.extension().and_then(|s| s.to_str()) == Some("json") {
+        if resolved_path.exists() && resolved_path.extension().and_then(|s| s.to_str()) == Some("json") {
             debug!("Detected JSON file input: {}", input);
             InputSource::JsonFile(input.to_string())
-        } else if path.exists() && path.is_file() {
+        } else if resolved_path.exists() && resolved_path.is_file() {
             // If it's another type of existing file, still treat as JSON file
             // This allows for flexibility in file naming
             debug!("Detected file input (non-.json extension): {}", input);
