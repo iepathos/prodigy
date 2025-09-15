@@ -247,6 +247,8 @@ impl NormalizedWorkflow {
             capture_streams: Default::default(),
             output_file: None,
             capture_output: crate::cook::workflow::CaptureOutput::Disabled,
+            auto_commit: false,
+            commit_config: None,
             timeout: None,
             working_dir: None,
             env: HashMap::new(),
@@ -359,6 +361,8 @@ impl NormalizedWorkflow {
                     on_success: step.handlers.on_success.clone(),
                     on_exit_code: step.handlers.on_exit_code.clone(),
                     commit_required: step.commit_required,
+                    auto_commit: false,
+                    commit_config: None,
                     validate: step.validation.clone(), // PRESERVED!
                     step_validate: None,
                     skip_validation: false,
@@ -391,6 +395,8 @@ impl NormalizedWorkflow {
                     on_success: step.handlers.on_success.clone(),
                     on_exit_code: step.handlers.on_exit_code.clone(),
                     commit_required: step.commit_required,
+                    auto_commit: false,
+                    commit_config: None,
                     validate: step.validation.clone(), // PRESERVED!
                     step_validate: None,
                     skip_validation: false,
@@ -423,6 +429,8 @@ impl NormalizedWorkflow {
             on_success: step.handlers.on_success.clone(),
             on_exit_code: step.handlers.on_exit_code.clone(),
             commit_required: step.commit_required,
+            auto_commit: false,
+            commit_config: None,
             validate: step.validation.clone(), // PRESERVED!
             step_validate: None,
             skip_validation: false,

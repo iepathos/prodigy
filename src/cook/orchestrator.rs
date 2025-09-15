@@ -616,6 +616,8 @@ impl DefaultCookOrchestrator {
                     foreach: step.foreach.clone(),
                     handler: None,
                     capture: None,
+                    auto_commit: false,
+                    commit_config: None,
                     capture_format: step.capture_format.as_ref().and_then(|f| match f.as_str() {
                         "json" => Some(super::workflow::variables::CaptureFormat::Json),
                         "lines" => Some(super::workflow::variables::CaptureFormat::Lines),
@@ -700,6 +702,8 @@ impl DefaultCookOrchestrator {
                     foreach: None,
                     handler: None,
                     capture: None,
+                    auto_commit: false,
+                    commit_config: None,
                     capture_format: None,
                     capture_streams: Default::default(),
                     output_file: None,

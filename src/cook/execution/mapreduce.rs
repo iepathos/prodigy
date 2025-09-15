@@ -136,6 +136,9 @@ pub struct AgentResult {
     /// Git commits created by the agent
     #[serde(default)]
     pub commits: Vec<String>,
+    /// Files modified by the agent
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub files_modified: Vec<String>,
     /// Duration of execution
     pub duration: Duration,
     /// Error message if failed
@@ -150,9 +153,6 @@ pub struct AgentResult {
     /// Worktree session ID for cleanup tracking
     #[serde(skip_serializing_if = "Option::is_none")]
     pub worktree_session_id: Option<String>,
-    /// Files modified by this agent
-    #[serde(default)]
-    pub files_modified: Vec<PathBuf>,
 }
 
 /// Options for resuming a MapReduce job
@@ -2691,6 +2691,7 @@ impl MapReduceExecutor {
             status,
             output: Some(total_output),
             commits,
+            files_modified,
             duration: start_time.elapsed(),
             error: execution_error,
             worktree_path: if merge_result {
@@ -2704,7 +2705,6 @@ impl MapReduceExecutor {
             } else {
                 Some(worktree_session_id)
             },
-            files_modified,
         })
     }
 
@@ -2815,7 +2815,7 @@ impl MapReduceExecutor {
     }
 
     /// Get modified files in a worktree
-    async fn get_modified_files(&self, worktree_path: &Path) -> MapReduceResult<Vec<PathBuf>> {
+    async fn get_modified_files(&self, worktree_path: &Path) -> MapReduceResult<Vec<String>> {
         let output = Command::new("git")
             .args(["diff", "--name-only", "HEAD~1..HEAD"])
             .current_dir(worktree_path)
@@ -2828,7 +2828,7 @@ impl MapReduceExecutor {
 
         let files = String::from_utf8_lossy(&output.stdout)
             .lines()
-            .map(PathBuf::from)
+            .map(|s| s.to_string())
             .collect();
 
         Ok(files)

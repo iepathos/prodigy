@@ -4,6 +4,7 @@
 //! with dependency injection for improved testability and maintainability.
 
 pub mod command;
+pub mod commit_tracker;
 pub mod coordinators;
 pub mod execution;
 pub mod expression;

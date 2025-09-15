@@ -450,6 +450,14 @@ pub struct WorkflowStep {
     #[serde(default = "default_commit_required")]
     pub commit_required: bool,
 
+    /// Commit configuration for auto-commit and validation
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commit_config: Option<crate::cook::commit_tracker::CommitConfig>,
+
+    /// Auto-commit if changes detected
+    #[serde(default)]
+    pub auto_commit: bool,
+
     /// Validation configuration for checking implementation completeness
     #[serde(skip_serializing_if = "Option::is_none")]
     pub validate: Option<ValidationConfig>,
@@ -628,6 +636,8 @@ impl WorkflowExecutor {
             on_success: step.handlers.on_success.clone(),
             on_exit_code: step.handlers.on_exit_code.clone(),
             commit_required: step.commit_required,
+            auto_commit: false,
+            commit_config: None,
             validate: step.validation.clone(),
             step_validate: None,
             skip_validation: false,
@@ -1469,6 +1479,8 @@ impl WorkflowExecutor {
                     capture: None,
                     capture_format: None,
                     capture_streams: Default::default(),
+                    auto_commit: false,
+                    commit_config: None,
                     output_file: None,
                     timeout: on_failure_config.handler_timeout(),
                     capture_output: CaptureOutput::Disabled,
@@ -2117,12 +2129,78 @@ impl WorkflowExecutor {
                 if let Some(before) = head_before {
                     let head_after = self.get_current_head(&env.working_dir).await?;
                     if head_after == before {
-                        // No commits were created
-                        self.handle_no_commits_error(step)?;
+                        // No commits were created - check if auto-commit is enabled
+                        if step.auto_commit {
+                            // Try to create an auto-commit
+                            if let Ok(has_changes) = self.check_for_changes(&env.working_dir).await
+                            {
+                                if has_changes {
+                                    let message =
+                                        self.generate_commit_message(step, &workflow_context);
+                                    if let Err(e) =
+                                        self.create_auto_commit(&env.working_dir, &message).await
+                                    {
+                                        tracing::warn!("Failed to create auto-commit: {}", e);
+                                        if step.commit_required {
+                                            self.handle_no_commits_error(step)?;
+                                        }
+                                    } else {
+                                        any_changes = true;
+                                        self.user_interaction.display_success(&format!(
+                                            "{step_display} auto-committed changes"
+                                        ));
+                                    }
+                                } else if step.commit_required {
+                                    self.handle_no_commits_error(step)?;
+                                }
+                            } else if step.commit_required {
+                                self.handle_no_commits_error(step)?;
+                            }
+                        } else if step.commit_required {
+                            self.handle_no_commits_error(step)?;
+                        }
                     } else {
                         any_changes = true;
-                        self.user_interaction
-                            .display_success(&format!("{step_display} created commits"));
+                        // Track commit metadata if available
+                        if let Ok(commits) = self
+                            .get_commits_between(&env.working_dir, &before, &head_after)
+                            .await
+                        {
+                            let commit_count = commits.len();
+                            let files_changed: std::collections::HashSet<_> = commits
+                                .iter()
+                                .flat_map(|c| c.files_changed.iter())
+                                .collect();
+                            self.user_interaction.display_success(&format!(
+                                "{step_display} created {} commit{} affecting {} file{}",
+                                commit_count,
+                                if commit_count == 1 { "" } else { "s" },
+                                files_changed.len(),
+                                if files_changed.len() == 1 { "" } else { "s" }
+                            ));
+
+                            // Store commit info in context for later use
+                            workflow_context.variables.insert(
+                                "step.commits".to_string(),
+                                commits
+                                    .iter()
+                                    .map(|c| &c.hash)
+                                    .cloned()
+                                    .collect::<Vec<_>>()
+                                    .join(","),
+                            );
+                            workflow_context.variables.insert(
+                                "step.files_changed".to_string(),
+                                files_changed
+                                    .into_iter()
+                                    .map(|p| p.to_string_lossy().to_string())
+                                    .collect::<Vec<_>>()
+                                    .join(","),
+                            );
+                        } else {
+                            self.user_interaction
+                                .display_success(&format!("{step_display} created commits"));
+                        }
                     }
                 } else {
                     // In test mode or when commit_required is false
@@ -2870,6 +2948,139 @@ impl WorkflowExecutor {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 
+    /// Check if there are uncommitted changes
+    async fn check_for_changes(&self, working_dir: &std::path::Path) -> Result<bool> {
+        let output = tokio::process::Command::new("git")
+            .args(["status", "--porcelain"])
+            .current_dir(working_dir)
+            .output()
+            .await
+            .context("Failed to check git status")?;
+
+        Ok(!output.stdout.is_empty())
+    }
+
+    /// Create an auto-commit with the given message
+    async fn create_auto_commit(&self, working_dir: &std::path::Path, message: &str) -> Result<()> {
+        // Stage all changes
+        let output = tokio::process::Command::new("git")
+            .args(["add", "."])
+            .current_dir(working_dir)
+            .output()
+            .await
+            .context("Failed to stage changes")?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(anyhow!("Failed to stage changes: {stderr}"));
+        }
+
+        // Create commit
+        let output = tokio::process::Command::new("git")
+            .args(["commit", "-m", message])
+            .current_dir(working_dir)
+            .output()
+            .await
+            .context("Failed to create commit")?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(anyhow!("Failed to create commit: {stderr}"));
+        }
+
+        Ok(())
+    }
+
+    /// Generate a commit message from template or default
+    fn generate_commit_message(&self, step: &WorkflowStep, context: &WorkflowContext) -> String {
+        if let Some(ref config) = step.commit_config {
+            if let Some(ref template) = config.message_template {
+                // Interpolate variables in template
+                let mut message = template.clone();
+                message = message.replace("${step.name}", &self.get_step_display_name(step));
+
+                // Replace other variables from context
+                for (key, value) in &context.variables {
+                    message = message.replace(&format!("${{{key}}}"), value);
+                    message = message.replace(&format!("${key}"), value);
+                }
+
+                return message;
+            }
+        }
+
+        format!("Auto-commit: {}", self.get_step_display_name(step))
+    }
+
+    /// Get commits between two refs
+    async fn get_commits_between(
+        &self,
+        working_dir: &std::path::Path,
+        from: &str,
+        to: &str,
+    ) -> Result<Vec<crate::cook::commit_tracker::TrackedCommit>> {
+        use crate::cook::commit_tracker::TrackedCommit;
+        use chrono::{DateTime, Utc};
+
+        let output = tokio::process::Command::new("git")
+            .args([
+                "log",
+                &format!("{from}..{to}"),
+                "--pretty=format:%H|%s|%an|%aI",
+                "--name-only",
+            ])
+            .current_dir(working_dir)
+            .output()
+            .await
+            .context("Failed to get commit log")?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(anyhow!("Failed to get commits: {stderr}"));
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let mut commits = Vec::new();
+        let mut current_commit: Option<TrackedCommit> = None;
+
+        for line in stdout.lines() {
+            if line.contains('|') {
+                // This is a commit header line
+                if let Some(commit) = current_commit.take() {
+                    commits.push(commit);
+                }
+
+                let parts: Vec<&str> = line.split('|').collect();
+                if parts.len() >= 4 {
+                    current_commit = Some(TrackedCommit {
+                        hash: parts[0].to_string(),
+                        message: parts[1].to_string(),
+                        author: parts[2].to_string(),
+                        timestamp: parts[3]
+                            .parse::<DateTime<Utc>>()
+                            .unwrap_or_else(|_| Utc::now()),
+                        files_changed: Vec::new(),
+                        insertions: 0,
+                        deletions: 0,
+                        step_name: String::new(),
+                        agent_id: None,
+                    });
+                }
+            } else if !line.is_empty() {
+                // This is a file name
+                if let Some(ref mut commit) = current_commit {
+                    commit.files_changed.push(std::path::PathBuf::from(line));
+                }
+            }
+        }
+
+        if let Some(commit) = current_commit {
+            commits.push(commit);
+        }
+
+        Ok(commits)
+    }
+
     /// Handle the case where no commits were created when expected
     fn handle_no_commits_error(&self, step: &WorkflowStep) -> Result<()> {
         let step_display = self.get_step_display_name(step);
@@ -3212,6 +3423,8 @@ impl WorkflowExecutor {
                 on_success: None,
                 on_exit_code: Default::default(),
                 commit_required: on_incomplete.commit_required,
+                auto_commit: false,
+                commit_config: None,
                 working_dir: None,
                 env: Default::default(),
                 validate: None,

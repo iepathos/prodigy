@@ -312,6 +312,8 @@ impl ResumeExecutor {
                     retry: None,
                     on_success: None,
                     on_exit_code: std::collections::HashMap::new(),
+                    auto_commit: false,
+                    commit_config: None,
                     commit_required: false,
                     validate: None,
                     step_validate: None,
