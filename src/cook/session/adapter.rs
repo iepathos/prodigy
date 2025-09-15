@@ -15,6 +15,15 @@ use super::{
     SessionSummary, SessionUpdate,
 };
 
+/// Internal event generator for mapping updates to events
+enum EventGenerator {
+    Simple(SessionEvent),
+    IncrementIteration,
+    FilesChanged(usize),
+    CommandTiming { command: String, #[allow(dead_code)] duration: std::time::Duration },
+    NoOp,
+}
+
 /// Adapter that implements old SessionManager trait using new session management
 pub struct SessionManagerAdapter {
     new_manager: Arc<InMemorySessionManager>,
@@ -36,6 +45,67 @@ impl SessionManagerAdapter {
     /// Get the underlying new session manager
     pub fn inner(&self) -> Arc<InMemorySessionManager> {
         self.new_manager.clone()
+    }
+
+    /// Pure function to map SessionUpdate to EventGenerators
+    fn map_update_to_events(update: SessionUpdate) -> Vec<EventGenerator> {
+        match update {
+            SessionUpdate::IncrementIteration => vec![EventGenerator::IncrementIteration],
+            SessionUpdate::AddFilesChanged(count) => vec![EventGenerator::FilesChanged(count)],
+            SessionUpdate::UpdateStatus(status) => {
+                vec![Self::map_status_to_event(status)]
+            }
+            SessionUpdate::StartIteration(number) => {
+                vec![EventGenerator::Simple(SessionEvent::IterationStarted { number })]
+            }
+            SessionUpdate::CompleteIteration => {
+                vec![EventGenerator::Simple(SessionEvent::IterationCompleted {
+                    changes: IterationChanges::default(),
+                })]
+            }
+            SessionUpdate::RecordCommandTiming(command, duration) => {
+                vec![EventGenerator::CommandTiming { command, duration }]
+            }
+            SessionUpdate::MarkInterrupted => {
+                vec![EventGenerator::Simple(SessionEvent::Paused {
+                    reason: "Interrupted".to_string(),
+                })]
+            }
+            // Non-operational updates
+            SessionUpdate::AddError(_) |
+            SessionUpdate::StartWorkflow |
+            SessionUpdate::UpdateWorkflowState(_) |
+            SessionUpdate::SetWorkflowHash(_) |
+            SessionUpdate::SetWorkflowType(_) |
+            SessionUpdate::UpdateExecutionContext(_) => vec![EventGenerator::NoOp],
+        }
+    }
+
+    /// Pure function to map SessionStatus to EventGenerator
+    fn map_status_to_event(status: SessionStatus) -> EventGenerator {
+        match status {
+            SessionStatus::Completed => EventGenerator::Simple(SessionEvent::Completed),
+            SessionStatus::Failed => EventGenerator::Simple(SessionEvent::Failed {
+                error: "Session failed".to_string(),
+            }),
+            SessionStatus::Interrupted => EventGenerator::Simple(SessionEvent::Paused {
+                reason: "Interrupted".to_string(),
+            }),
+            _ => EventGenerator::NoOp,
+        }
+    }
+
+    /// Pure function to create dummy iteration changes
+    fn create_dummy_changes(count: usize) -> IterationChanges {
+        IterationChanges {
+            files_modified: (0..count)
+                .map(|i| std::path::PathBuf::from(format!("file{i}.rs")))
+                .collect(),
+            lines_added: 0,
+            lines_removed: 0,
+            commands_run: vec![],
+            git_commits: vec![],
+        }
     }
 
     /// Convert old session state to new state
@@ -115,128 +185,45 @@ impl OldSessionManager for SessionManagerAdapter {
             .clone()
             .ok_or_else(|| anyhow::anyhow!("No active session"))?;
 
-        match update {
-            SessionUpdate::IncrementIteration => {
-                let progress = self.new_manager.get_progress(&session_id).await?;
-                let iteration = progress.iterations_completed + 1;
+        // Map update to events that need to be recorded
+        let events = Self::map_update_to_events(update);
 
-                self.new_manager
-                    .record_event(
-                        &session_id,
-                        SessionEvent::IterationStarted { number: iteration },
-                    )
-                    .await?;
-            }
-            SessionUpdate::AddFilesChanged(count) => {
-                // Create dummy iteration changes
-                let changes = IterationChanges {
-                    files_modified: (0..count)
-                        .map(|i| std::path::PathBuf::from(format!("file{i}.rs")))
-                        .collect(),
-                    lines_added: 0,
-                    lines_removed: 0,
-                    commands_run: vec![],
-                    git_commits: vec![],
-                };
-
-                self.new_manager
-                    .record_event(&session_id, SessionEvent::IterationCompleted { changes })
-                    .await?;
-            }
-            SessionUpdate::UpdateStatus(status) => match status {
-                SessionStatus::Completed => {
-                    self.new_manager
-                        .record_event(&session_id, SessionEvent::Completed)
-                        .await?;
+        // Process events that require async operations
+        for event_generator in events {
+            match event_generator {
+                EventGenerator::Simple(event) => {
+                    self.new_manager.record_event(&session_id, event).await?;
                 }
-                SessionStatus::Failed => {
+                EventGenerator::IncrementIteration => {
+                    let progress = self.new_manager.get_progress(&session_id).await?;
+                    let iteration = progress.iterations_completed + 1;
                     self.new_manager
                         .record_event(
                             &session_id,
-                            SessionEvent::Failed {
-                                error: "Session failed".to_string(),
+                            SessionEvent::IterationStarted { number: iteration },
+                        )
+                        .await?;
+                }
+                EventGenerator::FilesChanged(count) => {
+                    let changes = Self::create_dummy_changes(count);
+                    self.new_manager
+                        .record_event(&session_id, SessionEvent::IterationCompleted { changes })
+                        .await?;
+                }
+                EventGenerator::CommandTiming { command, .. } => {
+                    self.new_manager
+                        .record_event(
+                            &session_id,
+                            SessionEvent::CommandExecuted {
+                                command,
+                                success: true,
                             },
                         )
                         .await?;
                 }
-                SessionStatus::Interrupted => {
-                    self.new_manager
-                        .record_event(
-                            &session_id,
-                            SessionEvent::Paused {
-                                reason: "Interrupted".to_string(),
-                            },
-                        )
-                        .await?;
+                EventGenerator::NoOp => {
+                    // No action needed
                 }
-                _ => {}
-            },
-            SessionUpdate::AddError(error) => {
-                // Errors are tracked differently in new system
-                // This is handled when status changes to Failed
-                let _ = error;
-            }
-            SessionUpdate::StartWorkflow => {
-                // Workflow start is tracked through session start
-                // No additional action needed
-            }
-            SessionUpdate::StartIteration(iteration_number) => {
-                self.new_manager
-                    .record_event(
-                        &session_id,
-                        crate::session::SessionEvent::IterationStarted {
-                            number: iteration_number,
-                        },
-                    )
-                    .await?;
-            }
-            SessionUpdate::CompleteIteration => {
-                // Iteration completion is tracked through IterationCompleted event
-                // which requires changes data - using empty changes for timing
-                self.new_manager
-                    .record_event(
-                        &session_id,
-                        crate::session::SessionEvent::IterationCompleted {
-                            changes: crate::session::IterationChanges::default(),
-                        },
-                    )
-                    .await?;
-            }
-            SessionUpdate::RecordCommandTiming(command, duration) => {
-                // Command timing is tracked through CommandExecuted event
-                self.new_manager
-                    .record_event(
-                        &session_id,
-                        crate::session::SessionEvent::CommandExecuted {
-                            command,
-                            success: true, // Assume success for timing tracking
-                        },
-                    )
-                    .await?;
-                // Store duration separately if needed
-                let _ = duration;
-            }
-            SessionUpdate::UpdateWorkflowState(_) => {
-                // Not supported in adapter - workflow state is for resume functionality
-            }
-            SessionUpdate::MarkInterrupted => {
-                self.new_manager
-                    .record_event(
-                        &session_id,
-                        crate::session::SessionEvent::Paused {
-                            reason: "Interrupted".to_string(),
-                        },
-                    )
-                    .await?;
-            }
-            SessionUpdate::SetWorkflowHash(_) => {
-                // Not supported in adapter - workflow hash is for resume functionality
-            }
-            SessionUpdate::SetWorkflowType(_) => {
-                // Not supported in adapter - workflow type is for resume functionality
-            }
-            SessionUpdate::UpdateExecutionContext(_) => {
-                // Not supported in adapter - execution context is for resume functionality
             }
         }
 
@@ -471,6 +458,113 @@ mod tests {
 mod adapter_tests {
     use super::*;
     use tempfile::TempDir;
+
+    #[test]
+    fn test_map_update_to_events() {
+        // Test IncrementIteration
+        let events = SessionManagerAdapter::map_update_to_events(SessionUpdate::IncrementIteration);
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0], EventGenerator::IncrementIteration));
+
+        // Test AddFilesChanged
+        let events = SessionManagerAdapter::map_update_to_events(SessionUpdate::AddFilesChanged(5));
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0], EventGenerator::FilesChanged(5)));
+
+        // Test StartIteration
+        let events = SessionManagerAdapter::map_update_to_events(SessionUpdate::StartIteration(42));
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0], EventGenerator::Simple(SessionEvent::IterationStarted { number: 42 })));
+
+        // Test CompleteIteration
+        let events = SessionManagerAdapter::map_update_to_events(SessionUpdate::CompleteIteration);
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0], EventGenerator::Simple(SessionEvent::IterationCompleted { .. })));
+
+        // Test RecordCommandTiming
+        let duration = std::time::Duration::from_secs(10);
+        let events = SessionManagerAdapter::map_update_to_events(
+            SessionUpdate::RecordCommandTiming("test-cmd".to_string(), duration)
+        );
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0], EventGenerator::CommandTiming { .. }));
+
+        // Test MarkInterrupted
+        let events = SessionManagerAdapter::map_update_to_events(SessionUpdate::MarkInterrupted);
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0], EventGenerator::Simple(SessionEvent::Paused { .. })));
+
+        // Test NoOp updates
+        let events = SessionManagerAdapter::map_update_to_events(SessionUpdate::StartWorkflow);
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0], EventGenerator::NoOp));
+
+        let events = SessionManagerAdapter::map_update_to_events(SessionUpdate::AddError("error".to_string()));
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0], EventGenerator::NoOp));
+    }
+
+    #[test]
+    fn test_map_status_to_event() {
+        // Test Completed status
+        let event = SessionManagerAdapter::map_status_to_event(SessionStatus::Completed);
+        assert!(matches!(event, EventGenerator::Simple(SessionEvent::Completed)));
+
+        // Test Failed status
+        let event = SessionManagerAdapter::map_status_to_event(SessionStatus::Failed);
+        assert!(matches!(event, EventGenerator::Simple(SessionEvent::Failed { .. })));
+
+        // Test Interrupted status
+        let event = SessionManagerAdapter::map_status_to_event(SessionStatus::Interrupted);
+        assert!(matches!(event, EventGenerator::Simple(SessionEvent::Paused { .. })));
+
+        // Test InProgress status (should be NoOp)
+        let event = SessionManagerAdapter::map_status_to_event(SessionStatus::InProgress);
+        assert!(matches!(event, EventGenerator::NoOp));
+    }
+
+    #[test]
+    fn test_create_dummy_changes() {
+        let changes = SessionManagerAdapter::create_dummy_changes(3);
+        assert_eq!(changes.files_modified.len(), 3);
+        assert_eq!(changes.files_modified[0].to_str().unwrap(), "file0.rs");
+        assert_eq!(changes.files_modified[1].to_str().unwrap(), "file1.rs");
+        assert_eq!(changes.files_modified[2].to_str().unwrap(), "file2.rs");
+        assert_eq!(changes.lines_added, 0);
+        assert_eq!(changes.lines_removed, 0);
+        assert!(changes.commands_run.is_empty());
+        assert!(changes.git_commits.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_update_session_all_variants() {
+        let temp_dir = TempDir::new().unwrap();
+        let adapter = SessionManagerAdapter::new(temp_dir.path().to_path_buf());
+
+        // Start session first
+        adapter.start_session("test-all-updates").await.unwrap();
+
+        // Test each update variant
+        adapter.update_session(SessionUpdate::IncrementIteration).await.unwrap();
+        adapter.update_session(SessionUpdate::AddFilesChanged(2)).await.unwrap();
+        adapter.update_session(SessionUpdate::UpdateStatus(SessionStatus::InProgress)).await.unwrap();
+        adapter.update_session(SessionUpdate::UpdateStatus(SessionStatus::Completed)).await.unwrap();
+
+        // Restart for more tests
+        adapter.start_session("test-more-updates").await.unwrap();
+
+        adapter.update_session(SessionUpdate::StartIteration(1)).await.unwrap();
+        adapter.update_session(SessionUpdate::CompleteIteration).await.unwrap();
+        adapter.update_session(SessionUpdate::RecordCommandTiming(
+            "test".to_string(),
+            std::time::Duration::from_secs(5)
+        )).await.unwrap();
+        adapter.update_session(SessionUpdate::MarkInterrupted).await.unwrap();
+
+        // Test NoOp updates (should not error)
+        adapter.update_session(SessionUpdate::StartWorkflow).await.unwrap();
+        adapter.update_session(SessionUpdate::AddError("test error".to_string())).await.unwrap();
+    }
 
     #[tokio::test]
     async fn test_complete_session_lifecycle() {
