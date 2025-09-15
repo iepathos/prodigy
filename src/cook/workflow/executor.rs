@@ -456,6 +456,7 @@ pub struct WorkflowStep {
 
     /// Auto-commit if changes detected
     #[serde(default)]
+    #[serde(skip_serializing_if = "is_false")]
     pub auto_commit: bool,
 
     /// Validation configuration for checking implementation completeness
@@ -485,6 +486,10 @@ pub struct WorkflowStep {
 
 fn default_commit_required() -> bool {
     true
+}
+
+fn is_false(b: &bool) -> bool {
+    !b
 }
 
 /// Configuration for sensitive variable patterns
@@ -1906,6 +1911,7 @@ impl WorkflowExecutor {
 
         let mut iteration = 0;
         let mut should_continue = true;
+        let mut any_changes = false;
 
         // Clear completed steps at the start of a new workflow
         self.completed_steps.clear();
@@ -1961,7 +1967,6 @@ impl WorkflowExecutor {
                 .await?;
 
             // Execute workflow steps
-            let mut any_changes = false;
             for (step_index, step) in workflow.steps.iter().enumerate() {
                 let step_display = self.get_step_display_name(step);
                 self.user_interaction.display_progress(&format!(
@@ -2263,6 +2268,55 @@ impl WorkflowExecutor {
         }
 
         // Metrics collection removed in v0.3.0
+
+        // Check if any step has squash enabled in commit_config
+        let should_squash = workflow.steps.iter().any(|step| {
+            step.commit_config
+                .as_ref()
+                .map(|config| config.squash)
+                .unwrap_or(false)
+        });
+
+        // If squash is enabled, squash all commits at the end of workflow
+        if should_squash && any_changes {
+            self.user_interaction
+                .display_progress("Squashing workflow commits...");
+
+            // Try to get all commits created during this workflow
+            if let Ok(head_after) = self.get_current_head(&env.working_dir).await {
+                // Use a reasonable range for getting commits (last 20 commits should be enough for a workflow)
+                if let Ok(commits) = self
+                    .get_commits_between(&env.working_dir, "HEAD~20", &head_after)
+                    .await
+                {
+                    if !commits.is_empty() {
+                        // Create commit tracker and squash
+                        let git_ops = Arc::new(crate::abstractions::git::RealGitOperations::new());
+                        let commit_tracker =
+                            crate::cook::commit_tracker::CommitTracker::new(git_ops, env.working_dir.clone());
+
+                        // Generate squash message
+                        let squash_message = format!(
+                            "Squashed {} workflow commits from {}",
+                            commits.len(),
+                            workflow.name
+                        );
+
+                        if let Err(e) = commit_tracker
+                            .squash_commits(&commits, &squash_message)
+                            .await
+                        {
+                            tracing::warn!("Failed to squash commits: {}", e);
+                        } else {
+                            self.user_interaction.display_success(&format!(
+                                "Squashed {} commits into one",
+                                commits.len()
+                            ));
+                        }
+                    }
+                }
+            }
+        }
 
         // Display total workflow timing
         let total_duration = workflow_start.elapsed();

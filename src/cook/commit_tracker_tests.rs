@@ -4,7 +4,6 @@
 mod tests {
     use crate::abstractions::MockGitOperations;
     use crate::cook::commit_tracker::{CommitConfig, CommitTracker, TrackedCommit};
-    use crate::cook::workflow::executor::WorkflowStep;
     use chrono::Utc;
     use std::collections::HashMap;
     use std::path::PathBuf;
@@ -94,7 +93,7 @@ mod tests {
         let tracker = CommitTracker::new(mock_git, PathBuf::from("/test"));
         let variables = HashMap::new();
         let commit = tracker
-            .create_auto_commit("test-step", None, &variables)
+            .create_auto_commit("test-step", None, &variables, None)
             .await
             .unwrap();
 

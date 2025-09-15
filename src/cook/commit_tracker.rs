@@ -238,6 +238,7 @@ impl CommitTracker {
         step_name: &str,
         message_template: Option<&str>,
         variables: &HashMap<String, String>,
+        commit_config: Option<&CommitConfig>,
     ) -> Result<TrackedCommit> {
         // Check for changes
         if !self.has_changes().await? {
@@ -256,10 +257,26 @@ impl CommitTracker {
             format!("Auto-commit: {step_name}")
         };
 
-        // Create the commit
+        // Create the commit with optional author override and signing
+        let mut commit_args = vec!["commit", "-m", &message];
+
+        // Add author override if specified from commit_config
+        let author_string;
+        if let Some(config) = commit_config {
+            if let Some(author) = &config.author {
+                author_string = format!("--author={}", author);
+                commit_args.push(&author_string);
+            }
+
+            // Add GPG signing if enabled
+            if config.sign {
+                commit_args.push("-S");
+            }
+        }
+
         self.git_ops
             .git_command_in_dir(
-                &["commit", "-m", &message],
+                &commit_args,
                 "create commit",
                 &self.working_dir,
             )

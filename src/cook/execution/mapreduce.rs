@@ -2202,6 +2202,8 @@ impl MapReduceExecutor {
         let agent_id = format!("agent-{}-{}", agent_index, item_id);
 
         // Create isolated worktree session for this agent
+        // NOTE: Individual agent commit tracking is not yet implemented
+        // TODO: Integrate CommitTracker to track commits per agent_id
         let worktree_session = self.worktree_manager.create_session().await.map_err(|e| {
             let context = self.create_error_context("worktree_creation");
             let error = MapReduceError::WorktreeCreationFailed {
@@ -2337,6 +2339,8 @@ impl MapReduceExecutor {
         let agent_id = format!("agent_{}", agent_index);
 
         // Create isolated worktree session for this agent
+        // NOTE: Individual agent commit tracking is not yet implemented
+        // TODO: Integrate CommitTracker to track commits per agent_id
         let worktree_session = self.worktree_manager.create_session().await.map_err(|e| {
             let context = self.create_error_context("worktree_creation");
             MapReduceError::WorktreeCreationFailed {
@@ -3999,6 +4003,8 @@ mod tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            auto_commit: false,
+            commit_config: None,
             validate: None,
             step_validate: None,
             skip_validation: false,
@@ -4037,6 +4043,8 @@ mod tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            auto_commit: false,
+            commit_config: None,
             validate: None,
             step_validate: None,
             skip_validation: false,
@@ -4078,6 +4086,8 @@ mod tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            auto_commit: false,
+            commit_config: None,
             validate: None,
             step_validate: None,
             skip_validation: false,
@@ -4119,6 +4129,8 @@ mod tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            auto_commit: false,
+            commit_config: None,
             validate: None,
             step_validate: None,
             skip_validation: false,
@@ -4157,6 +4169,8 @@ mod tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            auto_commit: false,
+            commit_config: None,
             validate: None,
             step_validate: None,
             skip_validation: false,
@@ -4195,6 +4209,8 @@ mod tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            auto_commit: false,
+            commit_config: None,
             validate: None,
             step_validate: None,
             skip_validation: false,
@@ -4237,6 +4253,8 @@ mod tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            auto_commit: false,
+            commit_config: None,
             validate: None,
             step_validate: None,
             skip_validation: false,
@@ -4276,6 +4294,8 @@ mod tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            auto_commit: false,
+            commit_config: None,
             validate: None,
             step_validate: None,
             skip_validation: false,
