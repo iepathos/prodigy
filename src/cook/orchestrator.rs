@@ -665,6 +665,7 @@ impl DefaultCookOrchestrator {
                     working_dir: None,
                     env: std::collections::HashMap::new(),
                     on_failure,
+                    retry: None,
                     on_success: None,
                     on_exit_code: std::collections::HashMap::new(),
                     // Commands don't require commits by default unless explicitly set
@@ -707,6 +708,7 @@ impl DefaultCookOrchestrator {
                     working_dir: None,
                     env: std::collections::HashMap::new(),
                     on_failure: None,
+                    retry: None,
                     on_success: None,
                     on_exit_code: std::collections::HashMap::new(),
                     commit_required,
@@ -1076,6 +1078,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             reduce_phase: None,
             max_iterations: config.command.max_iterations,
             iterate: config.command.max_iterations > 1,
+            retry_defaults: None,
             // collect_metrics removed - MMM focuses on orchestration
         };
 
@@ -1700,6 +1703,7 @@ impl DefaultCookOrchestrator {
             reduce_phase: None,
             max_iterations: 1,
             iterate: false,
+            retry_defaults: None,
         };
 
         // Create workflow context with variables
@@ -1878,6 +1882,7 @@ impl DefaultCookOrchestrator {
             reduce_phase: mapreduce_config.to_reduce_phase(),
             max_iterations: 1, // MapReduce runs once
             iterate: false,
+            retry_defaults: None,
             // collect_metrics removed - MMM focuses on orchestration
         };
 

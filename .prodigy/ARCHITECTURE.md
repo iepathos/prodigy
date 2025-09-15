@@ -47,6 +47,11 @@ prodigy/
 │   │   │   ├── validator.rs    # Validation framework
 │   │   │   ├── validators.rs   # Built-in validators
 │   │   │   └── shell_executor.rs # Shell command execution
+│   │   ├── retry_v2.rs         # Enhanced retry strategies
+│   │   │   ├── RetryConfig     # Backoff configuration
+│   │   │   ├── RetryExecutor   # Retry execution engine
+│   │   │   ├── CircuitBreaker  # Failure protection
+│   │   │   └── RetryMetrics    # Observability
 │   │   ├── workflow/           # Workflow management
 │   │   │   ├── executor.rs     # Step execution
 │   │   │   ├── normalized.rs   # Workflow normalization

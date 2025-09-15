@@ -181,6 +181,7 @@ mod tests {
             working_dir: None,
             env: HashMap::new(),
             on_failure: None,
+            retry: None,
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
@@ -189,6 +190,7 @@ mod tests {
             skip_validation: false,
             validation_timeout: None,
             ignore_validation_failure: false,
+            retry: None,
             when: None,
         };
 
@@ -474,6 +476,7 @@ mod tests {
                 outputs: None,
                 capture_output: None,
                 on_failure: None,
+            retry: None,
                 on_success: None,
                 validate: None,
                 timeout: None,
@@ -495,6 +498,7 @@ mod tests {
                 outputs: None,
                 capture_output: None,
                 on_failure: None,
+            retry: None,
                 on_success: None,
                 validate: None,
                 timeout: None,
@@ -510,6 +514,7 @@ mod tests {
                 test: Some(TestCommand {
                     command: "cargo build".to_string(),
                     on_failure: None,
+            retry: None,
                 }),
                 goal_seek: None,
                 foreach: None,
@@ -519,6 +524,7 @@ mod tests {
                 outputs: None,
                 capture_output: None,
                 on_failure: None,
+            retry: None,
                 on_success: None,
                 validate: None,
                 timeout: None,

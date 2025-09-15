@@ -14,6 +14,7 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **MapReduce Processing**: Parallel execution across multiple agents with setup phase ✅
 - **Foreach Iteration**: Simple parallel iteration without MapReduce complexity ✅
 - **Error Handling**: Comprehensive failure recovery patterns
+- **Retry Strategies**: Enhanced retry with configurable backoff, jitter, and circuit breakers ✅
 - **Git Integration**: Worktree management and commit tracking
 - **Goal-Seeking Primitives**: Iterative refinement with validation ✅
 
@@ -44,6 +45,15 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - `prodigy sessions` - Session management
 
 ## Recent Additions
+
+### Enhanced Retry Strategies ✅
+- **Multiple Backoff Strategies**: Fixed, linear, exponential, fibonacci, custom
+- **Configurable Jitter**: Prevents thundering herd with randomized delays
+- **Selective Retry**: Retry only on specific error types (network, timeout, rate limit)
+- **Retry Budget**: Maximum total time limit for retries
+- **Circuit Breaker**: Automatic failure protection with recovery timeout
+- **Per-Step Configuration**: Override global retry defaults at step level
+- **Retry Metrics**: Detailed tracking of attempts and delays
 
 ### Foreach Parallel Iteration ✅
 - **Simple Iteration**: Alternative to MapReduce for simpler parallel operations
@@ -153,6 +163,31 @@ prodigy resume workflow-123
   commit_required: true
 - shell: "cargo test"
   timeout: 300
+```
+
+### Workflow with Retry Strategies ✅
+```yaml
+# Global retry defaults for all steps
+retry_defaults:
+  attempts: 3
+  backoff: exponential
+  initial_delay: 2s
+  max_delay: 30s
+  jitter: true
+
+steps:
+  - shell: "curl https://api.example.com/data"
+    retry:
+      attempts: 5
+      backoff:
+        exponential:
+          base: 2.0
+      retry_on: [network, timeout, rate_limit]
+      retry_budget: 2m
+
+  - claude: "/process-critical-data"
+    retry:
+      attempts: 1  # No retry for critical operations
 ```
 
 ### Goal-Seeking Workflow ✅
