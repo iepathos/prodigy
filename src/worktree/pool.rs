@@ -57,8 +57,10 @@ fn default_parallel_worktrees() -> usize {
 /// Worktree allocation strategy
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum AllocationStrategy {
     /// Create new worktree for each task
+    #[default]
     OnDemand,
     /// Pre-create pool of worktrees
     Pooled { size: usize },
@@ -66,12 +68,6 @@ pub enum AllocationStrategy {
     Reuse,
     /// Dedicated worktrees for named tasks
     Dedicated,
-}
-
-impl Default for AllocationStrategy {
-    fn default() -> Self {
-        AllocationStrategy::OnDemand
-    }
 }
 
 /// Cleanup policy for worktrees
@@ -625,7 +621,7 @@ impl WorktreePool {
 
         ResourceUsage {
             disk_mb,
-            memory_mb: 0, // Would need process monitoring for accurate memory
+            memory_mb: 0,     // Would need process monitoring for accurate memory
             cpu_percent: 0.0, // Would need process monitoring for accurate CPU
         }
     }
@@ -635,7 +631,7 @@ impl WorktreePool {
         use tokio::process::Command;
 
         let output = Command::new("du")
-            .args(&["-sm", path.to_str().unwrap_or(".")])
+            .args(["-sm", path.to_str().unwrap_or(".")])
             .output()
             .await?;
 
