@@ -325,10 +325,7 @@ impl std::fmt::Display for CapturedValue {
                 write!(f, "[{}]", strings.join(", "))
             }
             CapturedValue::Object(map) => {
-                let pairs: Vec<String> = map
-                    .iter()
-                    .map(|(k, v)| format!("{}: {}", k, v))
-                    .collect();
+                let pairs: Vec<String> = map.iter().map(|(k, v)| format!("{}: {}", k, v)).collect();
                 write!(f, "{{{}}}", pairs.join(", "))
             }
         }
@@ -336,7 +333,6 @@ impl std::fmt::Display for CapturedValue {
 }
 
 impl CapturedValue {
-
     /// Convert to JSON value
     pub fn to_json(&self) -> Value {
         match self {
@@ -961,10 +957,7 @@ mod tests {
             .await;
         store.set("count", CapturedValue::Number(42.0)).await;
         store
-            .set(
-                "data",
-                CapturedValue::Json(json!({"key": "value"})),
-            )
+            .set("data", CapturedValue::Json(json!({"key": "value"})))
             .await;
 
         let hashmap = store.to_hashmap().await;
@@ -1053,7 +1046,10 @@ mod tests {
     async fn test_variable_override_in_child_store() {
         let parent = VariableStore::new();
         parent
-            .set("shared_var", CapturedValue::String("parent_value".to_string()))
+            .set(
+                "shared_var",
+                CapturedValue::String("parent_value".to_string()),
+            )
             .await;
 
         let child = parent.child();
@@ -1066,7 +1062,10 @@ mod tests {
 
         // Child overrides the variable
         child
-            .set("shared_var", CapturedValue::String("child_value".to_string()))
+            .set(
+                "shared_var",
+                CapturedValue::String("child_value".to_string()),
+            )
             .await;
 
         // Child sees overridden value

@@ -3032,39 +3032,51 @@ impl MapReduceExecutor {
             use crate::cook::workflow::variables::CapturedValue;
 
             // Add summary statistics
-            reduce_context.variable_store.set(
-                "map.successful",
-                CapturedValue::Number(summary_stats.successful as f64),
-            ).await;
-            reduce_context.variable_store.set(
-                "map.failed",
-                CapturedValue::Number(summary_stats.failed as f64),
-            ).await;
-            reduce_context.variable_store.set(
-                "map.total",
-                CapturedValue::Number(summary_stats.total as f64),
-            ).await;
+            reduce_context
+                .variable_store
+                .set(
+                    "map.successful",
+                    CapturedValue::Number(summary_stats.successful as f64),
+                )
+                .await;
+            reduce_context
+                .variable_store
+                .set(
+                    "map.failed",
+                    CapturedValue::Number(summary_stats.failed as f64),
+                )
+                .await;
+            reduce_context
+                .variable_store
+                .set(
+                    "map.total",
+                    CapturedValue::Number(summary_stats.total as f64),
+                )
+                .await;
 
             // Add the full results as a structured JSON value
             if let Ok(results_value) = serde_json::to_value(map_results) {
-                reduce_context.variable_store.set(
-                    "map.results",
-                    CapturedValue::from(results_value),
-                ).await;
+                reduce_context
+                    .variable_store
+                    .set("map.results", CapturedValue::from(results_value))
+                    .await;
             }
 
             // Also add individual results for easier access
-            let results_array: Vec<CapturedValue> = map_results.iter().map(|result| {
-                if let Ok(result_json) = serde_json::to_value(result) {
-                    CapturedValue::from(result_json)
-                } else {
-                    CapturedValue::String(format!("{:?}", result))
-                }
-            }).collect();
-            reduce_context.variable_store.set(
-                "map.results_array",
-                CapturedValue::Array(results_array),
-            ).await;
+            let results_array: Vec<CapturedValue> = map_results
+                .iter()
+                .map(|result| {
+                    if let Ok(result_json) = serde_json::to_value(result) {
+                        CapturedValue::from(result_json)
+                    } else {
+                        CapturedValue::String(format!("{:?}", result))
+                    }
+                })
+                .collect();
+            reduce_context
+                .variable_store
+                .set("map.results_array", CapturedValue::Array(results_array))
+                .await;
         }
 
         // Validate that required variables are available for reduce phase
@@ -3324,7 +3336,8 @@ impl MapReduceExecutor {
             let capture_format = step.capture_format.unwrap_or_default();
             let capture_streams = &step.capture_streams;
 
-            context.variable_store
+            context
+                .variable_store
                 .capture_command_result(
                     capture_name,
                     command_result,
@@ -3343,7 +3356,8 @@ impl MapReduceExecutor {
                 })?;
 
             // Also update captured_outputs for backward compatibility
-            context.captured_outputs
+            context
+                .captured_outputs
                 .insert(capture_name.clone(), result.stdout.clone());
         }
 
