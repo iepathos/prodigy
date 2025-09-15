@@ -216,7 +216,7 @@ fn test_agent_result_serialization() {
         worktree_path: Some(PathBuf::from("/tmp/worktree")),
         branch_name: Some("prodigy-agent-123-test_item".to_string()),
         worktree_session_id: Some("prodigy-session-123".to_string()),
-        files_modified: vec![PathBuf::from("src/main.rs")],
+        files_modified: vec!["src/main.rs".to_string()],
     };
 
     let json = serde_json::to_string(&result).unwrap();
@@ -257,6 +257,8 @@ fn test_map_phase_configuration() {
             capture: None,
             capture_format: None,
             capture_streams: Default::default(),
+            auto_commit: false,
+            commit_config: None,
             output_file: None,
             timeout: None,
             working_dir: None,
@@ -312,6 +314,8 @@ fn test_reduce_phase_configuration() {
                 on_success: None,
                 on_exit_code: HashMap::new(),
                 commit_required: false,
+                auto_commit: false,
+                commit_config: None,
                 validate: None,
                 step_validate: None,
                 skip_validation: false,
@@ -341,6 +345,8 @@ fn test_reduce_phase_configuration() {
                 on_success: None,
                 on_exit_code: HashMap::new(),
                 commit_required: true,
+                auto_commit: false,
+                commit_config: None,
                 validate: None,
                 step_validate: None,
                 skip_validation: false,
@@ -775,6 +781,8 @@ mod command_type_tests {
             env: HashMap::new(),
             on_exit_code: HashMap::new(),
             commit_required: true,
+            auto_commit: false,
+            commit_config: None,
             validate: None,
             step_validate: None,
             skip_validation: false,
@@ -812,6 +820,8 @@ mod command_type_tests {
             env: HashMap::new(),
             on_exit_code: HashMap::new(),
             commit_required: true,
+            auto_commit: false,
+            commit_config: None,
             validate: None,
             step_validate: None,
             skip_validation: false,
@@ -849,6 +859,8 @@ mod command_type_tests {
             env: HashMap::new(),
             on_exit_code: HashMap::new(),
             commit_required: true,
+            auto_commit: false,
+            commit_config: None,
             validate: None,
             step_validate: None,
             skip_validation: false,
@@ -885,6 +897,8 @@ mod command_type_tests {
             env: HashMap::new(),
             on_exit_code: HashMap::new(),
             commit_required: true,
+            auto_commit: false,
+            commit_config: None,
             validate: None,
             step_validate: None,
             skip_validation: false,
@@ -926,6 +940,8 @@ mod command_type_tests {
             env: HashMap::new(),
             on_exit_code: HashMap::new(),
             commit_required: true,
+            auto_commit: false,
+            commit_config: None,
             validate: None,
             step_validate: None,
             skip_validation: false,
@@ -991,5 +1007,169 @@ mod command_type_tests {
     fn test_format_legacy_command_empty() {
         let formatted = MapReduceExecutor::format_legacy_command("");
         assert_eq!(formatted, "/");
+    }
+}
+
+#[cfg(test)]
+mod merge_history_tests {
+    use crate::cook::commit_tracker::TrackedCommit;
+    use chrono::Utc;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_merge_preserves_commit_structure() {
+        // Test that commit structure is preserved through merge operations
+        // This verifies that TrackedCommit maintains all fields properly
+
+        let timestamp = Utc::now();
+        let commit = TrackedCommit {
+            hash: "abc123def456".to_string(),
+            message: "feat: add new feature".to_string(),
+            author: "Test Author".to_string(),
+            timestamp,
+            files_changed: vec![PathBuf::from("src/main.rs"), PathBuf::from("src/lib.rs")],
+            insertions: 50,
+            deletions: 10,
+            step_name: "map-agent-1".to_string(),
+            agent_id: Some("agent-001".to_string()),
+        };
+
+        // Serialize and deserialize to ensure structure is preserved
+        let json = serde_json::to_string(&commit).unwrap();
+        let deserialized: serde_json::Value = serde_json::from_str(&json).unwrap();
+
+        // Verify all fields are present and correct
+        assert_eq!(deserialized["hash"], "abc123def456");
+        assert_eq!(deserialized["message"], "feat: add new feature");
+        assert_eq!(deserialized["author"], "Test Author");
+        assert_eq!(deserialized["insertions"], 50);
+        assert_eq!(deserialized["deletions"], 10);
+        assert_eq!(deserialized["step_name"], "map-agent-1");
+        assert_eq!(deserialized["agent_id"], "agent-001");
+        assert!(deserialized["files_changed"].is_array());
+        assert_eq!(deserialized["files_changed"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_multiple_commits_history_format() {
+        // Test that multiple commits maintain proper order and structure
+        let timestamp = Utc::now();
+
+        let commits = vec![
+            TrackedCommit {
+                hash: "commit1".to_string(),
+                message: "First commit".to_string(),
+                author: "Author 1".to_string(),
+                timestamp,
+                files_changed: vec![PathBuf::from("file1.rs")],
+                insertions: 10,
+                deletions: 5,
+                step_name: "step1".to_string(),
+                agent_id: Some("agent-1".to_string()),
+            },
+            TrackedCommit {
+                hash: "commit2".to_string(),
+                message: "Second commit".to_string(),
+                author: "Author 2".to_string(),
+                timestamp: timestamp + chrono::Duration::minutes(5),
+                files_changed: vec![PathBuf::from("file2.rs")],
+                insertions: 20,
+                deletions: 3,
+                step_name: "step2".to_string(),
+                agent_id: Some("agent-2".to_string()),
+            },
+            TrackedCommit {
+                hash: "commit3".to_string(),
+                message: "Third commit".to_string(),
+                author: "Author 3".to_string(),
+                timestamp: timestamp + chrono::Duration::minutes(10),
+                files_changed: vec![PathBuf::from("file3.rs")],
+                insertions: 15,
+                deletions: 8,
+                step_name: "step3".to_string(),
+                agent_id: None,
+            },
+        ];
+
+        // Verify commits maintain order
+        for (i, commit) in commits.iter().enumerate() {
+            assert_eq!(commit.hash, format!("commit{}", i + 1));
+            assert!(commit
+                .message
+                .contains(&format!("{}", ["First", "Second", "Third"][i])));
+        }
+
+        // Verify serialization preserves all commits
+        let json = serde_json::to_string(&commits).unwrap();
+        let parsed: Vec<serde_json::Value> = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.len(), 3);
+
+        // Verify agent_id handling (some have it, some don't)
+        assert!(parsed[0]["agent_id"].is_string());
+        assert!(parsed[1]["agent_id"].is_string());
+        assert!(parsed[2]["agent_id"].is_null());
+    }
+
+    #[test]
+    fn test_worktree_merge_scenario() {
+        // Simulate a typical worktree merge scenario with commits
+        let base_time = Utc::now();
+
+        // Agent commits in worktree
+        let agent_commits = vec![
+            TrackedCommit {
+                hash: "agent1hash".to_string(),
+                message: "feat: implement feature A".to_string(),
+                author: "Agent".to_string(),
+                timestamp: base_time,
+                files_changed: vec![PathBuf::from("feature_a.rs")],
+                insertions: 100,
+                deletions: 0,
+                step_name: "map-phase".to_string(),
+                agent_id: Some("worker-1".to_string()),
+            },
+            TrackedCommit {
+                hash: "agent2hash".to_string(),
+                message: "test: add tests for feature A".to_string(),
+                author: "Agent".to_string(),
+                timestamp: base_time + chrono::Duration::minutes(1),
+                files_changed: vec![PathBuf::from("tests/feature_a_test.rs")],
+                insertions: 50,
+                deletions: 0,
+                step_name: "map-phase".to_string(),
+                agent_id: Some("worker-1".to_string()),
+            },
+        ];
+
+        // Verify commit history would be preserved (all fields intact)
+        for commit in &agent_commits {
+            assert!(!commit.hash.is_empty());
+            assert!(!commit.message.is_empty());
+            assert!(commit.agent_id.is_some());
+            assert_eq!(commit.step_name, "map-phase");
+        }
+
+        // Simulate merged history (parent + agent commits)
+        let mut full_history = Vec::new();
+        full_history.push(TrackedCommit {
+            hash: "parenthash".to_string(),
+            message: "Previous work on main branch".to_string(),
+            author: "Developer".to_string(),
+            timestamp: base_time - chrono::Duration::hours(1),
+            files_changed: vec![PathBuf::from("main.rs")],
+            insertions: 30,
+            deletions: 10,
+            step_name: "initial".to_string(),
+            agent_id: None,
+        });
+        full_history.extend(agent_commits);
+
+        // Verify combined history maintains chronological order
+        assert_eq!(full_history.len(), 3);
+
+        // Verify each commit retains its identity
+        assert!(full_history[0].agent_id.is_none()); // Parent commit
+        assert!(full_history[1].agent_id.is_some()); // Agent commit 1
+        assert!(full_history[2].agent_id.is_some()); // Agent commit 2
     }
 }

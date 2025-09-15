@@ -9,7 +9,7 @@ mod tests {
         DefaultWorkflowCoordinator, WorkflowContext, WorkflowCoordinator,
     };
     use crate::cook::interaction::UserInteraction;
-    use crate::cook::workflow::{CaptureOutput, WorkflowStep};
+    use crate::cook::workflow::WorkflowStep;
     use crate::testing::mocks::MockWorkflowExecutor;
     use anyhow::Result;
     use async_trait::async_trait;
@@ -166,31 +166,7 @@ mod tests {
         let step = WorkflowStep {
             name: Some("test step".to_string()),
             command: Some("/test-command".to_string()),
-            claude: None,
-            shell: None,
-            test: None,
-            goal_seek: None,
-            foreach: None,
-            capture_output: CaptureOutput::Disabled,
-            capture: None,
-            capture_format: None,
-            capture_streams: Default::default(),
-            handler: None,
-            output_file: None,
-            timeout: None,
-            working_dir: None,
-            env: HashMap::new(),
-            on_failure: None,
-            retry: None,
-            on_success: None,
-            on_exit_code: HashMap::new(),
-            commit_required: false,
-            validate: None,
-            step_validate: None,
-            skip_validation: false,
-            validation_timeout: None,
-            ignore_validation_failure: false,
-            when: None,
+            ..Default::default()
         };
 
         let context = WorkflowContext {

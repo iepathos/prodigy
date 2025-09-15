@@ -6,6 +6,8 @@ pub mod checkpoint;
 #[cfg(test)]
 mod checkpoint_tests;
 #[cfg(test)]
+mod commit_tracking_tests;
+#[cfg(test)]
 mod conditional_tests;
 mod executor;
 pub mod normalized;

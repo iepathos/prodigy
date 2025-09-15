@@ -226,6 +226,8 @@ impl OnFailureConfig {
                         on_success: None,
                         on_exit_code: Default::default(),
                         commit_required: false,
+                        auto_commit: false,
+                        commit_config: None,
                         working_dir: None,
                         env: Default::default(),
                         validate: None,

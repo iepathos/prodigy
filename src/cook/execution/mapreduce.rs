@@ -136,6 +136,9 @@ pub struct AgentResult {
     /// Git commits created by the agent
     #[serde(default)]
     pub commits: Vec<String>,
+    /// Files modified by the agent
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub files_modified: Vec<String>,
     /// Duration of execution
     pub duration: Duration,
     /// Error message if failed
@@ -150,9 +153,6 @@ pub struct AgentResult {
     /// Worktree session ID for cleanup tracking
     #[serde(skip_serializing_if = "Option::is_none")]
     pub worktree_session_id: Option<String>,
-    /// Files modified by this agent
-    #[serde(default)]
-    pub files_modified: Vec<PathBuf>,
 }
 
 /// Options for resuming a MapReduce job
@@ -2292,13 +2292,20 @@ impl MapReduceExecutor {
         // Log agent completed or failed event
         match &result.status {
             AgentStatus::Success => {
+                // Convert commits to include agent_id
+                let agent_commits: Vec<String> = result
+                    .commits
+                    .iter()
+                    .map(|c| format!("{} (agent: {})", c, agent_id))
+                    .collect();
+
                 self.event_logger
                     .log(MapReduceEvent::AgentCompleted {
                         job_id: env.session_id.clone(),
                         agent_id: agent_id.clone(),
                         duration: chrono::Duration::from_std(start_time.elapsed())
                             .unwrap_or(chrono::Duration::seconds(0)),
-                        commits: vec![],
+                        commits: agent_commits,
                     })
                     .await
                     .unwrap_or_else(|e| log::warn!("Failed to log agent completed event: {}", e));
@@ -2663,6 +2670,20 @@ impl MapReduceExecutor {
         total_output: String,
         start_time: Instant,
     ) -> MapReduceResult<AgentResult> {
+        // Initialize CommitTracker for agent commit tracking
+        let git_ops = Arc::new(crate::abstractions::RealGitOperations::new());
+        let mut commit_tracker =
+            crate::cook::commit_tracker::CommitTracker::new(git_ops, worktree_path.to_path_buf());
+        commit_tracker.initialize().await.map_err(|e| {
+            let context = self.create_error_context("commit_tracker_init");
+            MapReduceError::General {
+                message: format!("Failed to initialize commit tracker: {}", e),
+                source: None,
+            }
+            .with_context(context)
+            .error
+        })?;
+
         // Get commits and modified files
         let commits = self.get_worktree_commits(worktree_path).await?;
         let files_modified = self.get_modified_files(worktree_path).await?;
@@ -2691,6 +2712,7 @@ impl MapReduceExecutor {
             status,
             output: Some(total_output),
             commits,
+            files_modified,
             duration: start_time.elapsed(),
             error: execution_error,
             worktree_path: if merge_result {
@@ -2704,7 +2726,6 @@ impl MapReduceExecutor {
             } else {
                 Some(worktree_session_id)
             },
-            files_modified,
         })
     }
 
@@ -2815,7 +2836,7 @@ impl MapReduceExecutor {
     }
 
     /// Get modified files in a worktree
-    async fn get_modified_files(&self, worktree_path: &Path) -> MapReduceResult<Vec<PathBuf>> {
+    async fn get_modified_files(&self, worktree_path: &Path) -> MapReduceResult<Vec<String>> {
         let output = Command::new("git")
             .args(["diff", "--name-only", "HEAD~1..HEAD"])
             .current_dir(worktree_path)
@@ -2828,7 +2849,7 @@ impl MapReduceExecutor {
 
         let files = String::from_utf8_lossy(&output.stdout)
             .lines()
-            .map(PathBuf::from)
+            .map(|s| s.to_string())
             .collect();
 
         Ok(files)
@@ -3999,6 +4020,8 @@ mod tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            auto_commit: false,
+            commit_config: None,
             validate: None,
             step_validate: None,
             skip_validation: false,
@@ -4037,6 +4060,8 @@ mod tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            auto_commit: false,
+            commit_config: None,
             validate: None,
             step_validate: None,
             skip_validation: false,
@@ -4078,6 +4103,8 @@ mod tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            auto_commit: false,
+            commit_config: None,
             validate: None,
             step_validate: None,
             skip_validation: false,
@@ -4119,6 +4146,8 @@ mod tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            auto_commit: false,
+            commit_config: None,
             validate: None,
             step_validate: None,
             skip_validation: false,
@@ -4157,6 +4186,8 @@ mod tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            auto_commit: false,
+            commit_config: None,
             validate: None,
             step_validate: None,
             skip_validation: false,
@@ -4195,6 +4226,8 @@ mod tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            auto_commit: false,
+            commit_config: None,
             validate: None,
             step_validate: None,
             skip_validation: false,
@@ -4237,6 +4270,8 @@ mod tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            auto_commit: false,
+            commit_config: None,
             validate: None,
             step_validate: None,
             skip_validation: false,
@@ -4276,6 +4311,8 @@ mod tests {
             on_success: None,
             on_exit_code: HashMap::new(),
             commit_required: false,
+            auto_commit: false,
+            commit_config: None,
             validate: None,
             step_validate: None,
             skip_validation: false,

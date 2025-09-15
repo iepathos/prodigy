@@ -245,6 +245,8 @@ map:
             on_success: None,
             on_exit_code: Default::default(),
             commit_required: false,
+            auto_commit: false,
+            commit_config: None,
             validate: None,
             step_validate: None,
             skip_validation: false,
