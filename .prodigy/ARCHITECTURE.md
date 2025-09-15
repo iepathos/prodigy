@@ -55,7 +55,7 @@ prodigy/
 │   │   ├── workflow/           # Workflow management
 │   │   │   ├── executor.rs     # Step execution
 │   │   │   ├── normalized.rs   # Workflow normalization
-│   │   │   ├── on_failure.rs   # Error handling
+│   │   │   ├── on_failure.rs   # Enhanced error handling with strategies
 │   │   │   ├── checkpoint.rs   # Checkpoint management
 │   │   │   └── resume.rs       # Resume execution
 │   │   ├── coordinators/       # High-level coordination

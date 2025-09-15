@@ -28,7 +28,7 @@ pub use normalized::{
     ExecutionMode, MapReduceConfig, NormalizedStep, NormalizedWorkflow, StepCommand, StepHandlers,
     WorkflowType,
 };
-pub use on_failure::OnFailureConfig;
+pub use on_failure::{FailureHandlerConfig, HandlerCommand, HandlerStrategy, OnFailureConfig};
 pub use resume::{ResumeExecutor, ResumeResult};
 pub use step_validation::{
     StepValidationConfig, StepValidationExecutor, StepValidationResult, StepValidationSpec,
