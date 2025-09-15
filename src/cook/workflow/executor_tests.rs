@@ -1377,7 +1377,7 @@ mod capture_output_tests {
         assert_eq!(step.capture_output, CaptureOutput::Default);
 
         // Test boolean false deserializes to Disabled
-        let yaml = "capture_output: None";
+        let yaml = "capture_output: false";
         let step: WorkflowStep =
             serde_yaml::from_str(&format!("shell: echo test\n{}", yaml)).unwrap();
         assert_eq!(step.capture_output, CaptureOutput::Disabled);
