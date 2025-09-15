@@ -14,7 +14,7 @@
     threshold: 100  # Spec must be 100% implemented (default)
     on_incomplete:
       claude: "/prodigy-complete-spec $ARG --gaps ${validation.gaps}"
-      max_attempts: 3
+      max_attempts: 5
       fail_workflow: false  # Continue even if we can't reach 100%
       commit_required: true  # Require commit to verify fixes were made
 
@@ -22,12 +22,12 @@
 - shell: "just test"
   on_failure:
     claude: "/prodigy-debug-test-failure --spec $ARG --output ${shell.output}"
-    max_attempts: 3
+    max_attempts: 5
     fail_workflow: false  # Continue workflow even if tests can't be fixed
 
 # Step 3: Run linting and formatting after implementation
 - shell: "just fmt-check && just lint"
   on_failure:
     claude: "/prodigy-lint ${shell.output}"
-    max_attempts: 3
+    max_attempts: 5
     fail_workflow: false
