@@ -6,6 +6,7 @@
 use crate::abstractions::GitOperations;
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
+use glob::Pattern;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -232,6 +233,116 @@ impl CommitTracker {
         Ok(commits)
     }
 
+    /// Check if GPG signing is properly configured
+    async fn check_gpg_config(&self) -> Result<bool> {
+        // Check if GPG signing is configured in git
+        let output = self.git_ops
+            .git_command_in_dir(&["config", "--get", "commit.gpgsign"], "check GPG config", &self.working_dir)
+            .await
+            .ok();
+
+        if let Some(output) = output {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            if stdout.trim() == "true" {
+                // Check if a signing key is configured
+                let key_output = self.git_ops
+                    .git_command_in_dir(&["config", "--get", "user.signingkey"], "check signing key", &self.working_dir)
+                    .await
+                    .ok();
+
+                if let Some(key_output) = key_output {
+                    let key_stdout = String::from_utf8_lossy(&key_output.stdout);
+                    if !key_stdout.trim().is_empty() {
+                        // Verify GPG is available and the key exists
+                        let gpg_check = self.git_ops
+                            .git_command_in_dir(&["config", "--get", "gpg.program"], "check GPG program", &self.working_dir)
+                            .await
+                            .ok();
+
+                        let gpg_program = if let Some(gpg_output) = gpg_check {
+                            String::from_utf8_lossy(&gpg_output.stdout).trim().to_string()
+                        } else {
+                            "gpg".to_string()
+                        };
+
+                        // Try to list the key to verify it exists
+                        let key = key_stdout.trim();
+                        let check_key_cmd = format!("{} --list-secret-keys {}", gpg_program, key);
+
+                        // Run the GPG check using shell command
+                        let key_exists = std::process::Command::new("sh")
+                            .arg("-c")
+                            .arg(&check_key_cmd)
+                            .output()
+                            .map(|o| o.status.success())
+                            .unwrap_or(false);
+
+                        return Ok(key_exists);
+                    }
+                }
+            }
+        }
+
+        Ok(false)
+    }
+
+    /// Filter files based on include/exclude patterns
+    async fn get_files_to_stage(&self, commit_config: Option<&CommitConfig>) -> Result<Vec<String>> {
+        // Get all changed files
+        let output = self.git_ops
+            .git_command_in_dir(&["status", "--porcelain"], "get status", &self.working_dir)
+            .await?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let mut files = Vec::new();
+        for line in stdout.lines() {
+            if line.len() > 3 {
+                let file = line[3..].trim().to_string();
+
+                // Check if file should be included based on patterns
+                if let Some(config) = commit_config {
+                    let mut should_include = true;
+
+                    // Check include patterns
+                    if let Some(include_patterns) = &config.include_files {
+                        should_include = false;
+                        for pattern_str in include_patterns {
+                            if let Ok(pattern) = Pattern::new(pattern_str) {
+                                if pattern.matches(&file) {
+                                    should_include = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // Check exclude patterns
+                    if should_include {
+                        if let Some(exclude_patterns) = &config.exclude_files {
+                            for pattern_str in exclude_patterns {
+                                if let Ok(pattern) = Pattern::new(pattern_str) {
+                                    if pattern.matches(&file) {
+                                        should_include = false;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if should_include {
+                        files.push(file);
+                    }
+                } else {
+                    // No patterns configured, include all files
+                    files.push(file);
+                }
+            }
+        }
+
+        Ok(files)
+    }
+
     /// Create an auto-commit with the given configuration
     pub async fn create_auto_commit(
         &self,
@@ -245,10 +356,29 @@ impl CommitTracker {
             return Err(anyhow!("No changes to commit"));
         }
 
-        // Stage all changes
-        self.git_ops
-            .git_command_in_dir(&["add", "."], "stage changes", &self.working_dir)
-            .await?;
+        // Stage files based on patterns
+        if commit_config.is_some() &&
+           (commit_config.unwrap().include_files.is_some() ||
+            commit_config.unwrap().exclude_files.is_some()) {
+            // Use selective file staging
+            let files_to_stage = self.get_files_to_stage(commit_config).await?;
+
+            if files_to_stage.is_empty() {
+                return Err(anyhow!("No files match the specified patterns"));
+            }
+
+            // Stage each file individually
+            for file in files_to_stage {
+                self.git_ops
+                    .git_command_in_dir(&["add", &file], "stage file", &self.working_dir)
+                    .await?;
+            }
+        } else {
+            // Stage all changes (default behavior)
+            self.git_ops
+                .git_command_in_dir(&["add", "."], "stage all changes", &self.working_dir)
+                .await?;
+        }
 
         // Generate commit message
         let message = if let Some(template) = message_template {
@@ -275,9 +405,13 @@ impl CommitTracker {
                 commit_args.push(&author_string);
             }
 
-            // Add GPG signing if enabled
+            // Add GPG signing if enabled and properly configured
             if config.sign {
-                commit_args.push("-S");
+                if self.check_gpg_config().await? {
+                    commit_args.push("-S");
+                } else {
+                    log::warn!("GPG signing requested but not properly configured, skipping signing");
+                }
             }
         }
 
@@ -555,5 +689,79 @@ mod tests {
         assert_eq!(result.total_files_changed, 3);
         assert_eq!(result.total_insertions, 30);
         assert_eq!(result.total_deletions, 8);
+    }
+
+    #[tokio::test]
+    async fn test_step_commits_variable_format() {
+        // Create test commits with known values
+        let timestamp = DateTime::parse_from_rfc3339("2024-01-01T12:00:00Z").unwrap().with_timezone(&Utc);
+        let commits = vec![
+            TrackedCommit {
+                hash: "abc123def456789".to_string(),
+                message: "feat: implement new feature".to_string(),
+                author: "Test Author <test@example.com>".to_string(),
+                timestamp,
+                files_changed: vec![PathBuf::from("src/main.rs"), PathBuf::from("src/lib.rs")],
+                insertions: 42,
+                deletions: 17,
+                step_name: "implement-feature".to_string(),
+                agent_id: Some("agent-001".to_string()),
+            },
+            TrackedCommit {
+                hash: "fedcba987654321".to_string(),
+                message: "fix: resolve bug in parser".to_string(),
+                author: "Bug Fixer <fix@example.com>".to_string(),
+                timestamp: timestamp + chrono::Duration::minutes(30),
+                files_changed: vec![PathBuf::from("src/parser.rs")],
+                insertions: 5,
+                deletions: 3,
+                step_name: "fix-bug".to_string(),
+                agent_id: None,
+            },
+        ];
+
+        // Serialize to JSON (mimicking what executor.rs does)
+        let json_str = serde_json::to_string(&commits).unwrap();
+
+        // Parse back to verify structure
+        let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+
+        // Verify it's an array
+        assert!(parsed.is_array());
+        let commits_array = parsed.as_array().unwrap();
+        assert_eq!(commits_array.len(), 2);
+
+        // Verify first commit structure
+        let first_commit = &commits_array[0];
+        assert_eq!(first_commit["hash"], "abc123def456789");
+        assert_eq!(first_commit["message"], "feat: implement new feature");
+        assert_eq!(first_commit["author"], "Test Author <test@example.com>");
+        assert_eq!(first_commit["step_name"], "implement-feature");
+        assert_eq!(first_commit["agent_id"], "agent-001");
+        assert_eq!(first_commit["insertions"], 42);
+        assert_eq!(first_commit["deletions"], 17);
+
+        // Verify files_changed is an array
+        assert!(first_commit["files_changed"].is_array());
+        let files = first_commit["files_changed"].as_array().unwrap();
+        assert_eq!(files.len(), 2);
+
+        // Verify timestamp is ISO 8601 format
+        assert!(first_commit["timestamp"].is_string());
+        let timestamp_str = first_commit["timestamp"].as_str().unwrap();
+        assert!(timestamp_str.contains("2024-01-01"));
+        assert!(timestamp_str.contains("T"));
+        assert!(timestamp_str.ends_with("Z"));
+
+        // Verify second commit has null agent_id
+        assert!(commits_array[1]["agent_id"].is_null());
+
+        // Verify the format can be used in variable interpolation
+        // This is what would be available as ${step.commits}
+        assert!(json_str.contains("hash"));
+        assert!(json_str.contains("message"));
+        assert!(json_str.contains("files_changed"));
+        assert!(json_str.contains("insertions"));
+        assert!(json_str.contains("deletions"));
     }
 }
