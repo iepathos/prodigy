@@ -57,7 +57,12 @@ prodigy/
 │   │   │   ├── normalized.rs   # Workflow normalization
 │   │   │   ├── on_failure.rs   # Enhanced error handling with strategies
 │   │   │   ├── checkpoint.rs   # Checkpoint management
-│   │   │   └── resume.rs       # Resume execution
+│   │   │   ├── resume.rs       # Resume execution
+│   │   │   └── composition/    # Workflow composition
+│   │   │       ├── mod.rs      # Composition structures
+│   │   │       ├── composer.rs # Workflow composer
+│   │   │       ├── registry.rs # Template registry
+│   │   │       └── sub_workflow.rs # Sub-workflow execution
 │   │   ├── coordinators/       # High-level coordination
 │   │   ├── session/            # Session management
 │   │   └── orchestrator.rs     # Main orchestration
