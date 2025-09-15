@@ -19,6 +19,7 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **Goal-Seeking Primitives**: Iterative refinement with validation ✅
 - **Worktree Pool Management**: Sophisticated worktree pooling with allocation strategies ✅
 - **Workflow Composition**: Build complex workflows from reusable components ✅
+- **Environment Management**: Comprehensive environment variable and working directory control ✅
 
 ### Command Types ✅
 - `claude:` - Execute Claude commands via Claude Code CLI
@@ -129,6 +130,19 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **Pool Metrics**: Tracking of creation, reuse, and utilization statistics
 - **Handle-Based Access**: Automatic release with RAII pattern
 - **Cross-Job Sharing**: Worktree pools can be shared across MapReduce jobs
+
+### Environment Variables and Working Directory Control ✅
+- **Global Environment Variables**: Workflow-wide environment configuration
+- **Per-Step Environment Override**: Step-specific environment variables
+- **Working Directory Control**: Per-step working directory specification
+- **Dynamic Environment Values**: Command-based value computation with caching
+- **Conditional Environment**: Environment based on expressions and conditions
+- **Secret Management**: Secure handling with masking in logs
+- **Environment Profiles**: Named profiles for different contexts (dev, test, prod)
+- **Environment Files**: Support for .env file loading
+- **Path Expansion**: Cross-platform path resolution with variable expansion
+- **Environment Inheritance**: Configurable parent process inheritance
+- **Temporary Environments**: Restore after step completion
 
 ## Architecture
 
@@ -319,6 +333,42 @@ tasks:
     worktree: "experiment-b"  # Different named worktree
     commands:
       - claude: "/approach-b"
+```
+
+### Environment Configuration ✅
+```yaml
+# Global environment configuration
+env:
+  NODE_ENV: production
+  API_URL: https://api.example.com
+  WORKERS:
+    command: "nproc"
+    cache: true
+
+secrets:
+  API_KEY: ${vault:api/keys/production}
+  DB_PASSWORD: ${env:SECRET_DB_PASS}
+
+env_files:
+  - .env.production
+
+profiles:
+  development:
+    NODE_ENV: development
+    API_URL: http://localhost:3000
+
+# Step with environment override
+steps:
+  - shell: "npm run build"
+    env:
+      BUILD_TARGET: production
+    working_dir: ./frontend
+
+  - shell: "pytest"
+    working_dir: ./backend
+    env:
+      PYTHONPATH: ./src:./tests
+    temporary: true  # Restore environment after step
 ```
 
 ## Technical Debt

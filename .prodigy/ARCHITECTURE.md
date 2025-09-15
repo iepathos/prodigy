@@ -37,6 +37,12 @@ prodigy/
 │   │   ├── context.rs          # Execution context
 │   │   └── registry.rs         # Command registration
 │   ├── cook/                   # Core workflow orchestration
+│   │   ├── environment/        # Environment management
+│   │   │   ├── mod.rs          # Environment utilities
+│   │   │   ├── config.rs       # Environment configuration types
+│   │   │   ├── manager.rs      # Environment manager
+│   │   │   ├── path_resolver.rs # Cross-platform path handling
+│   │   │   └── secret_store.rs # Secret management
 │   │   ├── execution/          # Command execution engine
 │   │   │   ├── mod.rs          # CommandExecutor trait
 │   │   │   ├── mapreduce.rs    # Parallel processing
@@ -115,6 +121,14 @@ pub trait SessionManager: Send + Sync {
     async fn track_iteration(&mut self) -> Result<()>;
 }
 ```
+
+### EnvironmentManager
+Manages environment variables and working directories for workflow execution:
+- Setup step-specific environments
+- Handle secret management
+- Resolve dynamic and conditional values
+- Support environment profiles
+- Cross-platform path resolution
 
 ## Data Flow Architecture
 

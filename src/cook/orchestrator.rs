@@ -1083,6 +1083,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             max_iterations: config.command.max_iterations,
             iterate: config.command.max_iterations > 1,
             retry_defaults: None,
+            environment: None,
             // collect_metrics removed - MMM focuses on orchestration
         };
 
@@ -1708,6 +1709,7 @@ impl DefaultCookOrchestrator {
             max_iterations: 1,
             iterate: false,
             retry_defaults: None,
+            environment: None,
         };
 
         // Create workflow context with variables
@@ -1887,6 +1889,7 @@ impl DefaultCookOrchestrator {
             max_iterations: 1, // MapReduce runs once
             iterate: false,
             retry_defaults: None,
+            environment: None,
             // collect_metrics removed - MMM focuses on orchestration
         };
 
