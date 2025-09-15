@@ -72,19 +72,15 @@ pub enum ValidationCommandType {
 /// Success criteria for validation
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum SuccessCriteria {
     /// All validations must pass
+    #[default]
     All,
     /// At least one validation must pass
     Any,
     /// Specific number of validations must pass
     AtLeast(usize),
-}
-
-impl Default for SuccessCriteria {
-    fn default() -> Self {
-        SuccessCriteria::All
-    }
 }
 
 /// Result from a single validation command
@@ -313,7 +309,11 @@ impl StepValidationExecutor {
         // Execute the command
         let result = self
             .command_executor
-            .execute(command_type, &[command_string.clone()], context.clone())
+            .execute(
+                command_type,
+                std::slice::from_ref(&command_string),
+                context.clone(),
+            )
             .await
             .context("Failed to execute validation command")?;
 
@@ -340,7 +340,7 @@ impl StepValidationExecutor {
                 cmd.expect_exit_code, exit_code
             )
         } else {
-            format!("Output did not match expected pattern")
+            "Output did not match expected pattern".to_string()
         };
 
         Ok(SingleValidationResult {

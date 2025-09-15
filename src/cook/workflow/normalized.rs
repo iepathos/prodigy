@@ -361,7 +361,7 @@ impl NormalizedWorkflow {
                     skip_validation: false,
                     validation_timeout: None,
                     ignore_validation_failure: false,
-                    when: step.when.clone(),           // PRESERVED!
+                    when: step.when.clone(), // PRESERVED!
                 });
             }
             StepCommand::Simple(cmd) => {
@@ -392,7 +392,7 @@ impl NormalizedWorkflow {
                     skip_validation: false,
                     validation_timeout: None,
                     ignore_validation_failure: false,
-                    when: step.when.clone(),           // PRESERVED!
+                    when: step.when.clone(), // PRESERVED!
                 });
             }
         };
@@ -423,7 +423,7 @@ impl NormalizedWorkflow {
             skip_validation: false,
             validation_timeout: None,
             ignore_validation_failure: false,
-            when: step.when.clone(),           // PRESERVED!
+            when: step.when.clone(), // PRESERVED!
         })
     }
 
