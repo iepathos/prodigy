@@ -4,6 +4,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use sysinfo::System;
 use tokio::sync::RwLock;
 
 #[derive(Debug, Clone)]
@@ -432,16 +433,47 @@ pub trait ProgressRenderer: Send + Sync {
     ) -> Result<()>;
 }
 
-pub struct SystemMetrics;
+pub struct SystemMetrics {
+    system: Arc<RwLock<System>>,
+}
 
 impl SystemMetrics {
     pub fn new() -> Self {
-        Self
+        let mut system = System::new_all();
+        system.refresh_all();
+
+        Self {
+            system: Arc::new(RwLock::new(system)),
+        }
     }
 
     pub async fn collect_metrics(&self) -> Result<ResourceUsage> {
-        // TODO: Implement actual metrics collection using sysinfo crate
-        Ok(ResourceUsage::default())
+        let mut system = self.system.write().await;
+
+        // Refresh system data
+        system.refresh_all();
+
+        // Calculate CPU usage
+        let cpu_percent = system.global_cpu_usage();
+
+        // Calculate memory usage
+        let used_memory = system.used_memory();
+
+        // For now, use placeholder values for disk and network I/O
+        // as the sysinfo API doesn't provide these directly
+        let disk_bytes_read = 0usize;
+        let disk_bytes_written = 0usize;
+        let network_bytes_sent = 0usize;
+        let network_bytes_received = 0usize;
+
+        Ok(ResourceUsage {
+            cpu_percent,
+            memory_bytes: used_memory as usize,
+            disk_bytes_written,
+            disk_bytes_read,
+            network_bytes_sent,
+            network_bytes_received,
+        })
     }
 }
 

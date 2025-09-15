@@ -1,17 +1,19 @@
+use std::collections::VecDeque;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::Result;
 use axum::extract::ws::WebSocket;
 use axum::{
-    extract::{State, WebSocketUpgrade},
+    extract::{Query, State, WebSocketUpgrade},
     response::{Html, IntoResponse, Response},
     routing::get,
     Json, Router,
 };
 use futures::{sink::SinkExt, stream::StreamExt};
+use serde::Deserialize;
 use serde_json::json;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, RwLock};
 use tracing::info;
 
 use super::progress_tracker::{ProgressTracker, SerializableProgressSnapshot};
@@ -20,6 +22,22 @@ pub struct DashboardServer {
     progress_tracker: Arc<ProgressTracker>,
     port: u16,
     update_channel: broadcast::Sender<String>,
+    log_buffer: Arc<RwLock<VecDeque<LogEntry>>>,
+}
+
+#[derive(Clone, Debug, Deserialize, serde::Serialize)]
+struct LogEntry {
+    timestamp: String,
+    level: String,
+    message: String,
+    agent_id: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct LogQuery {
+    agent_id: Option<String>,
+    level: Option<String>,
+    limit: Option<usize>,
 }
 
 impl DashboardServer {
@@ -29,6 +47,7 @@ impl DashboardServer {
             progress_tracker,
             port,
             update_channel: tx,
+            log_buffer: Arc::new(RwLock::new(VecDeque::with_capacity(1000))),
         }
     }
 
@@ -54,6 +73,22 @@ impl DashboardServer {
         self.update_channel.send(json).ok();
         Ok(())
     }
+
+    pub async fn add_log(&self, level: &str, message: &str, agent_id: Option<String>) {
+        let mut logs = self.log_buffer.write().await;
+
+        // Keep buffer size limited
+        if logs.len() >= 1000 {
+            logs.pop_front();
+        }
+
+        logs.push_back(LogEntry {
+            timestamp: chrono::Utc::now().to_rfc3339(),
+            level: level.to_string(),
+            message: message.to_string(),
+            agent_id,
+        });
+    }
 }
 
 async fn serve_dashboard() -> Html<&'static str> {
@@ -65,10 +100,44 @@ async fn progress_endpoint(State(server): State<Arc<DashboardServer>>) -> Json<s
     Json(json!(snapshot))
 }
 
-async fn logs_endpoint(State(_server): State<Arc<DashboardServer>>) -> Json<serde_json::Value> {
-    // TODO: Implement log retrieval
+async fn logs_endpoint(
+    State(server): State<Arc<DashboardServer>>,
+    Query(params): Query<LogQuery>,
+) -> Json<serde_json::Value> {
+    let logs = server.log_buffer.read().await;
+
+    let mut filtered_logs: Vec<LogEntry> = logs
+        .iter()
+        .filter(|log| {
+            // Filter by agent_id if specified
+            if let Some(ref agent_id) = params.agent_id {
+                if let Some(ref log_agent) = log.agent_id {
+                    if log_agent != agent_id {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            }
+
+            // Filter by level if specified
+            if let Some(ref level) = params.level {
+                if log.level.to_lowercase() != level.to_lowercase() {
+                    return false;
+                }
+            }
+
+            true
+        })
+        .cloned()
+        .collect();
+
+    // Apply limit
+    let limit = params.limit.unwrap_or(100);
+    filtered_logs.truncate(limit);
+
     Json(json!({
-        "logs": []
+        "logs": filtered_logs
     }))
 }
 

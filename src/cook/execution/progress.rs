@@ -422,8 +422,10 @@ impl EnhancedProgressTracker {
         agent_id: &str,
         progress: AgentProgress,
     ) -> MapReduceResult<()> {
-        let mut agents = self.agents.write().await;
-        agents.insert(agent_id.to_string(), progress.clone());
+        {
+            let mut agents = self.agents.write().await;
+            agents.insert(agent_id.to_string(), progress.clone());
+        } // Release lock before recalculating
 
         // Send update event
         let update = ProgressUpdate {
@@ -533,11 +535,16 @@ impl EnhancedProgressTracker {
 
     /// Recalculate aggregate metrics
     async fn recalculate_metrics(&self) -> MapReduceResult<()> {
-        let agents = self.agents.read().await;
+        // Clone agents data to avoid holding lock during metric calculation
+        let agents_data = {
+            let agents = self.agents.read().await;
+            agents.clone()
+        };
+
         let mut metrics = self.metrics.write().await;
 
         // Count active agents
-        metrics.active_agents = agents
+        metrics.active_agents = agents_data
             .values()
             .filter(|a| {
                 matches!(
