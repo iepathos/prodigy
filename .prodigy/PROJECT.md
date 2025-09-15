@@ -55,6 +55,16 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **Per-Step Configuration**: Override global retry defaults at step level
 - **Retry Metrics**: Detailed tracking of attempts and delays
 
+### Step-Level On-Failure Handlers ✅
+- **Single Command Handlers**: Execute a single recovery command on failure
+- **Multiple Command Handlers**: Execute a sequence of recovery commands
+- **Detailed Handler Configuration**: Strategy, timeout, and error handling options
+- **Handler Strategies**: Recovery, fallback, cleanup, or custom approaches
+- **Error Context Variables**: Access to error.message, error.exit_code, error.step
+- **Recovery Detection**: Successful recovery handlers mark steps as recovered
+- **Continue on Error**: Optionally continue execution after handler failures
+- **Handler Timeouts**: Configurable timeout for handler execution
+
 ### Foreach Parallel Iteration ✅
 - **Simple Iteration**: Alternative to MapReduce for simpler parallel operations
 - **Command or List Input**: Execute command or iterate static list
@@ -188,6 +198,36 @@ steps:
   - claude: "/process-critical-data"
     retry:
       attempts: 1  # No retry for critical operations
+```
+
+### Workflow with On-Failure Handlers ✅
+```yaml
+# Simple handler
+- shell: "npm run build"
+  on_failure: "npm cache clean --force && npm install"
+
+# Multiple commands
+- shell: "cargo test"
+  on_failure:
+    - "cargo clean"
+    - "cargo build"
+    - "cargo test"
+
+# Detailed configuration with recovery strategy
+- shell: "deploy.sh production"
+  on_failure:
+    strategy: recovery
+    commands:
+      - shell: "rollback.sh"
+      - shell: "validate-rollback.sh"
+    timeout: 300
+    fail_workflow: false
+
+# Using error context variables
+- shell: "critical-operation"
+  on_failure:
+    - "echo 'Operation failed with exit code: ${error.exit_code}'"
+    - "send-alert '${error.step} failed: ${error.message}'"
 ```
 
 ### Goal-Seeking Workflow ✅
