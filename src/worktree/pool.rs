@@ -7,7 +7,7 @@ use super::{WorktreeManager, WorktreeSession};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -400,8 +400,16 @@ impl WorktreePool {
     }
 
     async fn create_new_worktree(&self) -> Result<WorktreeHandle> {
+        // Check resource limits before creating
+        if let Some(limits) = &self.config.resource_limits {
+            self.check_resource_limits(limits).await?;
+        }
+
         let session = self.manager.create_session().await?;
         let id = uuid::Uuid::new_v4().to_string();
+
+        // Monitor initial resource usage
+        let resource_usage = self.measure_resource_usage(&session.path).await;
 
         let worktree = PooledWorktree {
             id: id.clone(),
@@ -413,7 +421,7 @@ impl WorktreePool {
             status: WorktreeStatus::InUse {
                 task: "new".to_string(),
             },
-            resource_usage: ResourceUsage::default(),
+            resource_usage,
             session: Some(session),
         };
 
@@ -528,12 +536,12 @@ impl WorktreePool {
     }
 
     /// Get pool metrics
-    pub fn get_metrics(&self) -> WorktreeMetrics {
+    pub async fn get_metrics(&self) -> WorktreeMetrics {
         WorktreeMetrics {
             total: self.config.parallel_worktrees,
-            in_use: self.in_use.blocking_read().len(),
-            available: self.available.blocking_read().len(),
-            named: self.named.blocking_read().len(),
+            in_use: self.in_use.read().await.len(),
+            available: self.available.read().await.len(),
+            named: self.named.read().await.len(),
             total_created: self.metrics.total_created.load(Ordering::Relaxed),
             total_reused: self.metrics.total_reused.load(Ordering::Relaxed),
         }
@@ -561,6 +569,89 @@ impl WorktreePool {
             self.cleanup_worktree(worktree).await;
         }
     }
+
+    /// Check if resource limits would be exceeded
+    async fn check_resource_limits(&self, limits: &ResourceLimits) -> Result<()> {
+        // Get current total resource usage
+        let in_use = self.in_use.read().await;
+        let mut total_disk = 0;
+        let mut total_memory = 0;
+        let mut total_cpu = 0.0;
+
+        for worktree in in_use.values() {
+            total_disk += worktree.resource_usage.disk_mb;
+            total_memory += worktree.resource_usage.memory_mb;
+            total_cpu += worktree.resource_usage.cpu_percent;
+        }
+
+        // Check against limits
+        if let Some(max_disk) = limits.max_disk_mb {
+            if total_disk >= max_disk {
+                return Err(anyhow!(
+                    "Disk usage limit exceeded: {} MB / {} MB",
+                    total_disk,
+                    max_disk
+                ));
+            }
+        }
+
+        if let Some(max_memory) = limits.max_memory_mb {
+            if total_memory >= max_memory {
+                return Err(anyhow!(
+                    "Memory usage limit exceeded: {} MB / {} MB",
+                    total_memory,
+                    max_memory
+                ));
+            }
+        }
+
+        if let Some(max_cpu) = limits.max_cpu_percent {
+            if total_cpu >= max_cpu {
+                return Err(anyhow!(
+                    "CPU usage limit exceeded: {:.1}% / {:.1}%",
+                    total_cpu,
+                    max_cpu
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Measure resource usage for a worktree path
+    async fn measure_resource_usage(&self, path: &Path) -> ResourceUsage {
+        // Simple implementation - measure disk usage
+        let disk_mb = self.measure_disk_usage(path).await.unwrap_or(0);
+
+        ResourceUsage {
+            disk_mb,
+            memory_mb: 0, // Would need process monitoring for accurate memory
+            cpu_percent: 0.0, // Would need process monitoring for accurate CPU
+        }
+    }
+
+    /// Measure disk usage of a directory in MB
+    async fn measure_disk_usage(&self, path: &Path) -> Result<usize> {
+        use tokio::process::Command;
+
+        let output = Command::new("du")
+            .args(&["-sm", path.to_str().unwrap_or(".")])
+            .output()
+            .await?;
+
+        if !output.status.success() {
+            return Ok(0);
+        }
+
+        let output_str = String::from_utf8_lossy(&output.stdout);
+        let size_mb = output_str
+            .split_whitespace()
+            .next()
+            .and_then(|s| s.parse::<usize>().ok())
+            .unwrap_or(0);
+
+        Ok(size_mb)
+    }
 }
 
 // Clone implementation for WorktreePool
@@ -586,11 +677,48 @@ mod tests {
     use super::*;
     use crate::subprocess::SubprocessManager;
     use tempfile::TempDir;
+    use tokio::process::Command;
 
     #[tokio::test]
     async fn test_pool_basic_allocation() {
         let temp_dir = TempDir::new().unwrap();
         let subprocess = SubprocessManager::production();
+
+        // Initialize git repository for testing
+        Command::new("git")
+            .arg("init")
+            .current_dir(temp_dir.path())
+            .output()
+            .await
+            .unwrap();
+        Command::new("git")
+            .args(&["config", "user.email", "test@example.com"])
+            .current_dir(temp_dir.path())
+            .output()
+            .await
+            .unwrap();
+        Command::new("git")
+            .args(&["config", "user.name", "Test User"])
+            .current_dir(temp_dir.path())
+            .output()
+            .await
+            .unwrap();
+
+        // Create initial commit
+        std::fs::write(temp_dir.path().join("README.md"), "test").unwrap();
+        Command::new("git")
+            .args(&["add", "."])
+            .current_dir(temp_dir.path())
+            .output()
+            .await
+            .unwrap();
+        Command::new("git")
+            .args(&["commit", "-m", "Initial commit"])
+            .current_dir(temp_dir.path())
+            .output()
+            .await
+            .unwrap();
+
         let manager =
             Arc::new(WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess).unwrap());
 
@@ -616,6 +744,42 @@ mod tests {
     async fn test_named_worktree() {
         let temp_dir = TempDir::new().unwrap();
         let subprocess = SubprocessManager::production();
+
+        // Initialize git repository for testing
+        Command::new("git")
+            .arg("init")
+            .current_dir(temp_dir.path())
+            .output()
+            .await
+            .unwrap();
+        Command::new("git")
+            .args(&["config", "user.email", "test@example.com"])
+            .current_dir(temp_dir.path())
+            .output()
+            .await
+            .unwrap();
+        Command::new("git")
+            .args(&["config", "user.name", "Test User"])
+            .current_dir(temp_dir.path())
+            .output()
+            .await
+            .unwrap();
+
+        // Create initial commit
+        std::fs::write(temp_dir.path().join("README.md"), "test").unwrap();
+        Command::new("git")
+            .args(&["add", "."])
+            .current_dir(temp_dir.path())
+            .output()
+            .await
+            .unwrap();
+        Command::new("git")
+            .args(&["commit", "-m", "Initial commit"])
+            .current_dir(temp_dir.path())
+            .output()
+            .await
+            .unwrap();
+
         let manager =
             Arc::new(WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess).unwrap());
 
@@ -636,6 +800,42 @@ mod tests {
     async fn test_metrics() {
         let temp_dir = TempDir::new().unwrap();
         let subprocess = SubprocessManager::production();
+
+        // Initialize git repository for testing
+        Command::new("git")
+            .arg("init")
+            .current_dir(temp_dir.path())
+            .output()
+            .await
+            .unwrap();
+        Command::new("git")
+            .args(&["config", "user.email", "test@example.com"])
+            .current_dir(temp_dir.path())
+            .output()
+            .await
+            .unwrap();
+        Command::new("git")
+            .args(&["config", "user.name", "Test User"])
+            .current_dir(temp_dir.path())
+            .output()
+            .await
+            .unwrap();
+
+        // Create initial commit
+        std::fs::write(temp_dir.path().join("README.md"), "test").unwrap();
+        Command::new("git")
+            .args(&["add", "."])
+            .current_dir(temp_dir.path())
+            .output()
+            .await
+            .unwrap();
+        Command::new("git")
+            .args(&["commit", "-m", "Initial commit"])
+            .current_dir(temp_dir.path())
+            .output()
+            .await
+            .unwrap();
+
         let manager =
             Arc::new(WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess).unwrap());
 
@@ -644,7 +844,7 @@ mod tests {
 
         let handle = pool.acquire(WorktreeRequest::Anonymous).await.unwrap();
 
-        let metrics = pool.get_metrics();
+        let metrics = pool.get_metrics().await;
         assert_eq!(metrics.in_use, 1);
         assert_eq!(metrics.total_created, 1);
 

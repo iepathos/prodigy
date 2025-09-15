@@ -23,7 +23,6 @@ use crate::cook::workflow::{CommandType, StepResult, WorkflowStep};
 use crate::subprocess::SubprocessManager;
 use crate::worktree::{
     WorktreeHandle, WorktreeManager, WorktreePool, WorktreePoolConfig, WorktreeRequest,
-    WorktreeSession,
 };
 // Keep anyhow imports for backwards compatibility with state.rs which still uses anyhow::Result
 use chrono::Utc;
@@ -1137,6 +1136,9 @@ impl MapReduceExecutor {
         setup_variables: HashMap<String, String>,
     ) -> MapReduceResult<Vec<AgentResult>> {
         let start_time = Instant::now();
+
+        // Initialize worktree pool if needed
+        self.ensure_pool_initialized();
 
         // Store setup variables for use in agent execution
         self.setup_variables = setup_variables;
