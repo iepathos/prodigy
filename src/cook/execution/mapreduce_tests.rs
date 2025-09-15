@@ -266,6 +266,10 @@ fn test_map_phase_configuration() {
             on_exit_code: HashMap::new(),
             commit_required: true,
             validate: None,
+            step_validate: None,
+            skip_validation: false,
+            validation_timeout: None,
+            ignore_validation_failure: false,
             when: None,
         }],
         filter: Some("severity == 'high'".to_string()),
@@ -307,6 +311,10 @@ fn test_reduce_phase_configuration() {
                 on_exit_code: HashMap::new(),
                 commit_required: false,
                 validate: None,
+                step_validate: None,
+                skip_validation: false,
+                validation_timeout: None,
+                ignore_validation_failure: false,
                 when: None,
             },
             WorkflowStep {
@@ -331,6 +339,10 @@ fn test_reduce_phase_configuration() {
                 on_exit_code: HashMap::new(),
                 commit_required: true,
                 validate: None,
+                step_validate: None,
+                skip_validation: false,
+                validation_timeout: None,
+                ignore_validation_failure: false,
                 when: None,
             },
         ],
@@ -760,6 +772,10 @@ mod command_type_tests {
             on_exit_code: HashMap::new(),
             commit_required: true,
             validate: None,
+            step_validate: None,
+            skip_validation: false,
+            validation_timeout: None,
+            ignore_validation_failure: false,
             when: None,
         };
 
@@ -792,6 +808,10 @@ mod command_type_tests {
             on_exit_code: HashMap::new(),
             commit_required: true,
             validate: None,
+            step_validate: None,
+            skip_validation: false,
+            validation_timeout: None,
+            ignore_validation_failure: false,
             when: None,
         };
 
@@ -824,6 +844,10 @@ mod command_type_tests {
             on_exit_code: HashMap::new(),
             commit_required: true,
             validate: None,
+            step_validate: None,
+            skip_validation: false,
+            validation_timeout: None,
+            ignore_validation_failure: false,
             when: None,
         };
 
@@ -855,6 +879,10 @@ mod command_type_tests {
             on_exit_code: HashMap::new(),
             commit_required: true,
             validate: None,
+            step_validate: None,
+            skip_validation: false,
+            validation_timeout: None,
+            ignore_validation_failure: false,
             when: None,
         };
 
@@ -891,6 +919,10 @@ mod command_type_tests {
             on_exit_code: HashMap::new(),
             commit_required: true,
             validate: None,
+            step_validate: None,
+            skip_validation: false,
+            validation_timeout: None,
+            ignore_validation_failure: false,
             when: None,
         };
 

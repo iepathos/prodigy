@@ -4000,6 +4000,10 @@ mod tests {
             on_exit_code: HashMap::new(),
             commit_required: false,
             validate: None,
+            step_validate: None,
+            skip_validation: false,
+            validation_timeout: None,
+            ignore_validation_failure: false,
             when: None,
         };
 
@@ -4033,6 +4037,10 @@ mod tests {
             on_exit_code: HashMap::new(),
             commit_required: false,
             validate: None,
+            step_validate: None,
+            skip_validation: false,
+            validation_timeout: None,
+            ignore_validation_failure: false,
             when: None,
         };
 
@@ -4069,6 +4077,10 @@ mod tests {
             on_exit_code: HashMap::new(),
             commit_required: false,
             validate: None,
+            step_validate: None,
+            skip_validation: false,
+            validation_timeout: None,
+            ignore_validation_failure: false,
             when: None,
         };
 
@@ -4105,6 +4117,10 @@ mod tests {
             on_exit_code: HashMap::new(),
             commit_required: false,
             validate: None,
+            step_validate: None,
+            skip_validation: false,
+            validation_timeout: None,
+            ignore_validation_failure: false,
             when: None,
         };
 
@@ -4138,6 +4154,10 @@ mod tests {
             on_exit_code: HashMap::new(),
             commit_required: false,
             validate: None,
+            step_validate: None,
+            skip_validation: false,
+            validation_timeout: None,
+            ignore_validation_failure: false,
             when: None,
         };
 
@@ -4171,6 +4191,10 @@ mod tests {
             on_exit_code: HashMap::new(),
             commit_required: false,
             validate: None,
+            step_validate: None,
+            skip_validation: false,
+            validation_timeout: None,
+            ignore_validation_failure: false,
             when: None,
         };
 
@@ -4208,6 +4232,10 @@ mod tests {
             on_exit_code: HashMap::new(),
             commit_required: false,
             validate: None,
+            step_validate: None,
+            skip_validation: false,
+            validation_timeout: None,
+            ignore_validation_failure: false,
             when: None,
         };
 
@@ -4242,6 +4270,10 @@ mod tests {
             on_exit_code: HashMap::new(),
             commit_required: false,
             validate: None,
+            step_validate: None,
+            skip_validation: false,
+            validation_timeout: None,
+            ignore_validation_failure: false,
             when: None,
         };
 
