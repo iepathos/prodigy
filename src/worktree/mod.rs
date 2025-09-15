@@ -64,6 +64,7 @@ use chrono::{DateTime, Utc};
 use std::path::PathBuf;
 
 pub mod manager;
+pub mod pool;
 pub mod state;
 #[cfg(test)]
 mod test_state;
@@ -73,6 +74,11 @@ mod tests;
 mod tracking_tests;
 
 pub use manager::{CleanupConfig, CleanupPolicy, WorktreeManager};
+pub use pool::{
+    AllocationStrategy, CleanupPolicy as PoolCleanupPolicy, PooledWorktree, ResourceLimits,
+    ResourceUsage, ReuseCriteria, WorktreeHandle, WorktreeMetrics, WorktreePool,
+    WorktreePoolConfig, WorktreeRequest, WorktreeStatus as PoolWorktrStatus,
+};
 pub use state::{
     Checkpoint, CommandType, InterruptionType, IterationInfo, WorktreeState, WorktreeStats,
     WorktreeStatus,

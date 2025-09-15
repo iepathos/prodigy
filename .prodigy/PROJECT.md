@@ -17,6 +17,7 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **Retry Strategies**: Enhanced retry with configurable backoff, jitter, and circuit breakers ✅
 - **Git Integration**: Worktree management and commit tracking
 - **Goal-Seeking Primitives**: Iterative refinement with validation ✅
+- **Worktree Pool Management**: Sophisticated worktree pooling with allocation strategies ✅
 
 ### Command Types ✅
 - `claude:` - Execute Claude commands via Claude Code CLI
@@ -108,6 +109,16 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **Convergence Detection**: Automatic stopping when no improvement
 - **Flexible Validation**: JSON and text score extraction
 
+### Worktree Pool Management ✅
+- **Pool Allocation Strategies**: OnDemand, Pooled, Reuse, and Dedicated modes
+- **Named Worktrees**: Support for experiment-specific named worktrees
+- **Resource Limits**: Configurable disk, memory, and CPU limits per worktree
+- **Cleanup Policies**: Automatic cleanup with idle timeout and age limits
+- **Worktree Reuse**: Intelligent reuse based on branch prefix and usage patterns
+- **Pool Metrics**: Tracking of creation, reuse, and utilization statistics
+- **Handle-Based Access**: Automatic release with RAII pattern
+- **Cross-Job Sharing**: Worktree pools can be shared across MapReduce jobs
+
 ## Architecture
 
 ### Core Modules
@@ -121,6 +132,8 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - `cook/workflow/resume/`: Resume execution from checkpoints ✅
 - `config/`: Configuration management and command discovery
 - `session/`: Session state and timing tracking
+- `worktree/`: Git worktree management and pooling ✅
+- `worktree/pool.rs`: Worktree pool allocation and lifecycle ✅
 
 ### Key Traits
 - `CommandExecutor`: Pluggable command execution
@@ -267,6 +280,34 @@ map:
 reduce:
   commands:
     - claude: "/aggregate-results ${map.results}"
+```
+
+### Worktree Pool Configuration ✅
+```yaml
+# Global worktree pool configuration
+worktree_config:
+  parallel_worktrees: 20
+  allocation_strategy: pooled
+  cleanup_policy:
+    idle_timeout_secs: 300
+    max_age_secs: 3600
+    cleanup_on_complete: true
+    keep_failed: false
+  resource_limits:
+    max_disk_mb: 1000
+    max_memory_mb: 512
+
+# Named worktrees for experiments
+tasks:
+  - name: "Experiment A"
+    worktree: "experiment-a"  # Named worktree
+    commands:
+      - claude: "/approach-a"
+
+  - name: "Experiment B"
+    worktree: "experiment-b"  # Different named worktree
+    commands:
+      - claude: "/approach-b"
 ```
 
 ## Technical Debt
