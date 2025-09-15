@@ -44,7 +44,9 @@ impl InputSource {
         debug!("Checking for file at: {}", resolved_path.display());
 
         // Check if it's an existing JSON file
-        if resolved_path.exists() && resolved_path.extension().and_then(|s| s.to_str()) == Some("json") {
+        if resolved_path.exists()
+            && resolved_path.extension().and_then(|s| s.to_str()) == Some("json")
+        {
             debug!("Detected JSON file input: {}", input);
             InputSource::JsonFile(input.to_string())
         } else if resolved_path.exists() && resolved_path.is_file() {

@@ -113,7 +113,10 @@ impl SetupPhaseExecutor {
         // Use the working directory from the environment
         let working_dir = &env.working_dir;
 
-        info!("Setup phase executing in directory: {}", working_dir.display());
+        info!(
+            "Setup phase executing in directory: {}",
+            working_dir.display()
+        );
 
         // Track files before setup to detect created files
         let files_before_setup = std::fs::read_dir(working_dir)

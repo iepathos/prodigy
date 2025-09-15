@@ -2485,8 +2485,11 @@ impl WorkflowExecutor {
             tracing::info!("Environment Variables:");
             for (key, value) in &env_vars {
                 // Don't log sensitive values
-                if key.to_lowercase().contains("secret") || key.to_lowercase().contains("token")
-                    || key.to_lowercase().contains("password") || key.to_lowercase().contains("key") {
+                if key.to_lowercase().contains("secret")
+                    || key.to_lowercase().contains("token")
+                    || key.to_lowercase().contains("password")
+                    || key.to_lowercase().contains("key")
+                {
                     tracing::info!("  {} = <redacted>", key);
                 } else {
                     let display_value = if value.len() > 100 {
@@ -2499,7 +2502,10 @@ impl WorkflowExecutor {
             }
         }
 
-        tracing::info!("Actual execution directory: {}", actual_env.working_dir.display());
+        tracing::info!(
+            "Actual execution directory: {}",
+            actual_env.working_dir.display()
+        );
         tracing::info!("==============================");
 
         // Handle test mode
