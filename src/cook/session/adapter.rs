@@ -116,6 +116,44 @@ impl SessionManagerAdapter {
         }
     }
 
+    /// Convert old session state to new state
+    #[allow(dead_code)]
+    fn convert_state(&self, old_state: &OldSessionState) -> crate::session::SessionState {
+        match old_state.status {
+            SessionStatus::InProgress => crate::session::SessionState::Running {
+                iteration: old_state.iterations_completed as u32,
+            },
+            SessionStatus::Completed => crate::session::SessionState::Completed {
+                summary: crate::session::SessionSummary {
+                    total_iterations: old_state.iterations_completed as u32,
+                    files_changed: old_state.files_changed,
+                    total_commits: 0, // Not tracked in old system
+                    duration: old_state
+                        .duration()
+                        .map(|d| d.to_std().unwrap_or_default())
+                        .unwrap_or_default(),
+                    success_rate: 1.0, // Not tracked in old system
+                    iteration_timings: vec![],
+                    workflow_timing: crate::session::WorkflowTiming {
+                        total_duration: old_state
+                            .duration()
+                            .map(|d| d.to_std().unwrap_or_default())
+                            .unwrap_or_default(),
+                        iteration_count: old_state.iterations_completed,
+                        average_iteration_time: std::time::Duration::ZERO,
+                        slowest_iteration: None,
+                        fastest_iteration: None,
+                    },
+                },
+            },
+            SessionStatus::Failed => crate::session::SessionState::Failed {
+                error: old_state.errors.join(", "),
+            },
+            SessionStatus::Interrupted => crate::session::SessionState::Paused {
+                reason: "Interrupted".to_string(),
+            },
+        }
+    }
 }
 
 #[async_trait]

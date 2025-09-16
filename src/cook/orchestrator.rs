@@ -94,12 +94,18 @@ pub struct ExecutionEnvironment {
 pub struct DefaultCookOrchestrator {
     /// Session manager
     session_manager: Arc<dyn SessionManager>,
+    /// Command executor
+    #[allow(dead_code)]
+    command_executor: Arc<dyn CommandExecutor>,
     /// Claude executor
     claude_executor: Arc<dyn ClaudeExecutor>,
     /// User interaction
     user_interaction: Arc<dyn UserInteraction>,
     /// Git operations
     git_operations: Arc<dyn GitOperations>,
+    /// State manager
+    #[allow(dead_code)]
+    state_manager: StateManager,
     /// Subprocess manager
     subprocess: crate::subprocess::SubprocessManager,
     /// Test configuration
@@ -1997,6 +2003,72 @@ impl DefaultCookOrchestrator {
         }
 
         result
+    }
+
+    /// Execute a single workflow command
+    #[allow(clippy::too_many_arguments)]
+    #[allow(dead_code)]
+    async fn execute_workflow_command(
+        &self,
+        env: &ExecutionEnvironment,
+        config: &CookConfig,
+        cmd: &WorkflowCommand,
+        step_index: usize,
+        input: &str,
+        variables: &mut HashMap<String, String>,
+        timing_tracker: &mut TimingTracker,
+    ) -> Result<()> {
+        let mut command = cmd.to_command();
+        // Apply defaults from the command registry
+        crate::config::apply_command_defaults(&mut command);
+
+        self.user_interaction.display_progress(&format!(
+            "Executing step {}/{}: {}",
+            step_index + 1,
+            config.workflow.commands.len(),
+            command.name
+        ));
+
+        // Start timing this command
+        timing_tracker.start_command(command.name.clone());
+
+        // Analysis functionality has been removed in v0.3.0
+
+        // Build the command with resolved arguments
+        let (final_command, has_arg_reference) = self.build_command(&command, variables);
+
+        // Only show ARG in log if the command actually uses it
+        if has_arg_reference {
+            self.user_interaction
+                .display_info(&format!("Executing command: {final_command} (ARG={input})"));
+        } else {
+            self.user_interaction
+                .display_action(&format!("Executing command: {final_command}"));
+        }
+
+        // Prepare environment variables
+        let env_vars = self.prepare_environment_variables(env, variables);
+
+        // Execute and validate command
+        self.execute_and_validate_command(env, config, &command, &final_command, input, env_vars)
+            .await?;
+
+        // Complete command timing
+        if let Some((cmd_name, duration)) = timing_tracker.complete_command() {
+            self.user_interaction.display_success(&format!(
+                "Command '{}' succeeded for input '{}' in {}",
+                cmd_name,
+                input,
+                format_duration(duration)
+            ));
+        } else {
+            self.user_interaction.display_success(&format!(
+                "Command '{}' succeeded for input '{}'",
+                command.name, input
+            ));
+        }
+
+        Ok(())
     }
 
     /// Build command string with resolved arguments

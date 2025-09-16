@@ -89,33 +89,13 @@ impl<R: CommandRunner + 'static> ClaudeExecutor for ClaudeExecutorImpl<R> {
         ];
         tracing::debug!("Executing claude command with args: {:?}", args);
 
-        // Print progress indicator for long-running Claude commands
-        println!("🤖 Claude is processing: {}", command);
-        println!("⏳ This may take a few minutes...");
-
-        // Start a progress indicator task
-        let progress_handle = tokio::spawn(async {
-            let mut count = 0;
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-                count += 10;
-                println!("   ⏱️  Still working... ({} seconds elapsed)", count);
-            }
-        });
-
         let result = self
             .runner
             .run_with_context("claude", &args, &context)
             .await;
 
-        // Stop the progress indicator
-        progress_handle.abort();
-
         if let Err(ref e) = result {
             tracing::error!("Claude command failed: {:?}", e);
-            println!("❌ Claude command failed: {:?}", e);
-        } else if result.as_ref().map(|r| r.success).unwrap_or(false) {
-            println!("✅ Claude command completed successfully");
         }
 
         result

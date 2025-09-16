@@ -3,7 +3,7 @@
 //! Implements parallel execution of workflow steps across multiple agents
 //! using isolated git worktrees for fault isolation and parallelism.
 
-use crate::commands::CommandRegistry;
+use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};
 use crate::cook::execution::dlq::{DeadLetterQueue, DeadLetteredItem, ErrorType, FailureDetail};
 use crate::cook::execution::errors::{MapReduceError, MapReduceResult};
 use crate::cook::execution::events::EventLogger;
@@ -194,6 +194,7 @@ pub struct ResumeResult {
 
 /// Agent operation types for detailed status display
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 enum AgentOperation {
     Idle,
     Setup(String),
@@ -207,10 +208,14 @@ enum AgentOperation {
 
 /// Progress tracking for parallel execution
 struct ProgressTracker {
+    #[allow(dead_code)]
+    multi_progress: MultiProgress,
     overall_bar: ProgressBar,
     agent_bars: Vec<ProgressBar>,
     tick_handle: Option<JoinHandle<()>>,
     is_finished: Arc<AtomicBool>,
+    #[allow(dead_code)]
+    start_time: Instant,
     agent_operations: Arc<RwLock<Vec<AgentOperation>>>,
 }
 
@@ -249,10 +254,12 @@ impl ProgressTracker {
         }
 
         Self {
+            multi_progress,
             overall_bar,
             agent_bars,
             tick_handle: None,
             is_finished: Arc::new(AtomicBool::new(false)),
+            start_time: Instant::now(),
             agent_operations: Arc::new(RwLock::new(agent_operations)),
         }
     }
@@ -527,6 +534,7 @@ fn build_agent_context_variables(
 }
 
 /// Generate agent ID from index and item ID (pure function)
+#[allow(dead_code)]
 fn generate_agent_id(agent_index: usize, item_id: &str) -> String {
     format!("agent-{}-{}", agent_index, item_id)
 }
@@ -564,6 +572,7 @@ enum AgentEventType {
 // ============================================================================
 
 /// Convert worktree errors to MapReduceError with proper context
+#[allow(dead_code)]
 fn handle_worktree_error(
     agent_id: &str,
     operation: &str,
@@ -577,6 +586,7 @@ fn handle_worktree_error(
 }
 
 /// Convert command execution errors to MapReduceError
+#[allow(dead_code)]
 fn handle_command_error(
     _job_id: &str,
     command: &str,
@@ -590,6 +600,7 @@ fn handle_command_error(
 }
 
 /// Convert generic errors to MapReduceError with context
+#[allow(dead_code)]
 fn handle_generic_error(
     operation: &str,
     error: impl std::error::Error + Send + Sync + 'static,
@@ -601,6 +612,7 @@ fn handle_generic_error(
 }
 
 /// Create a DLQ item from failed agent result
+#[allow(dead_code)]
 fn create_dlq_item(
     item_id: &str,
     item: &Value,
@@ -655,6 +667,7 @@ fn validate_reduce_phase(map_results: &[AgentResult]) -> Result<(), String> {
 }
 
 /// Validate workflow step before execution
+#[allow(dead_code)]
 fn validate_workflow_step(step: &WorkflowStep) -> Result<(), String> {
     // Simplified validation - just check if step has some command configured
     if step.command.is_none()
@@ -670,6 +683,7 @@ fn validate_workflow_step(step: &WorkflowStep) -> Result<(), String> {
 }
 
 /// Validate map phase configuration
+#[allow(dead_code)]
 fn validate_map_phase(config: &MapReduceConfig) -> Result<(), String> {
     if config.max_parallel == 0 {
         return Err("max_parallel must be greater than 0".to_string());
@@ -1150,6 +1164,7 @@ mod pure_function_tests {
         // Before the fix, these would have been "0", "0", "0"
         // After the fix, they correctly show "2", "1", "3"
     }
+}
 
 /// Add variables for a single agent result (pure function)
 fn add_individual_result_variables(
@@ -2972,4 +2987,4 @@ mod tests {
             "exactly_..."
         );
     }
-}}
+}

@@ -170,7 +170,37 @@ impl ProjectHealthScore {
     }
 }
 
+/// Calculate code quality score based on lint warnings and duplication
+#[allow(dead_code)]
+fn calculate_code_quality_score(lint_warnings: u32, code_duplication: f32) -> Option<f64> {
+    // Start with perfect score
+    let mut score = 100.0;
 
+    // Deduct for lint warnings (max 30 point deduction)
+    let warning_penalty = (lint_warnings as f64 * 2.0).min(30.0);
+    score -= warning_penalty;
+
+    // Deduct for code duplication (max 20 point deduction)
+    let duplication_penalty = (code_duplication as f64).min(20.0);
+    score -= duplication_penalty;
+
+    Some(score.max(0.0))
+}
+
+/// Calculate code quality from patterns and idioms
+#[allow(dead_code)]
+fn calculate_quality_from_patterns(pattern_count: usize, idiom_count: usize) -> f64 {
+    // Start with base score
+    let mut score = 50.0;
+
+    // Add points for established patterns (up to 30 points)
+    score += (pattern_count as f64 * 5.0).min(30.0);
+
+    // Add points for project idioms (up to 20 points)
+    score += (idiom_count as f64 * 4.0).min(20.0);
+
+    score.min(100.0)
+}
 
 /* Removed: metrics-dependent function
 fn calculate_maintainability_from_metrics(metrics: &ImprovementMetrics) -> f64 {
