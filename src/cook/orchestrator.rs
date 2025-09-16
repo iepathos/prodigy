@@ -165,6 +165,34 @@ impl DefaultCookOrchestrator {
         crate::session::SessionId::new().to_string()
     }
 
+    /// Check prerequisites with config-aware git checking
+    async fn check_prerequisites_with_config(&self, config: &CookConfig) -> Result<()> {
+        // Skip checks in test mode
+        let test_mode = std::env::var("PRODIGY_TEST_MODE").unwrap_or_default() == "true";
+        if test_mode {
+            return Ok(());
+        }
+
+        // Check Claude CLI
+        if !self.claude_executor.check_claude_cli().await? {
+            anyhow::bail!("Claude CLI is not available. Please install it first.");
+        }
+
+        // Check if this is a temporary workflow (batch/exec commands)
+        let is_temp_workflow = config.command.playbook.to_str()
+            .map(|s| s.contains("/tmp/") || s.contains("/var/folders/") || s.contains("Temp"))
+            .unwrap_or(false);
+
+        // Only check git if not a temporary workflow or if worktree is requested
+        if !is_temp_workflow || config.command.worktree {
+            if !self.git_operations.is_git_repo().await {
+                anyhow::bail!("Not in a git repository. Please run from a git repository.");
+            }
+        }
+
+        Ok(())
+    }
+
     /// Calculate workflow hash for validation
     fn calculate_workflow_hash(workflow: &WorkflowConfig) -> String {
         let mut hasher = Sha256::new();
@@ -834,8 +862,8 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             return self.resume_workflow(&session_id, config).await;
         }
 
-        // Check prerequisites
-        self.check_prerequisites().await?;
+        // Check prerequisites - pass config to determine if git check is needed
+        self.check_prerequisites_with_config(&config).await?;
 
         // Setup environment
         let env = self.setup_environment(&config).await?;
