@@ -1490,6 +1490,7 @@ async fn run_resume_job_command(
         force,
         max_additional_retries: max_retries,
         skip_validation: false,
+        from_checkpoint: None,
     };
 
     println!("\n🔄 Resuming job execution...\n");
