@@ -12,7 +12,8 @@ use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::{SessionManager, SessionUpdate};
 use crate::cook::workflow::checkpoint::{
-    self, create_checkpoint_with_total_steps, CheckpointManager, CompletedStep as CheckpointCompletedStep,
+    self, create_checkpoint_with_total_steps, CheckpointManager,
+    CompletedStep as CheckpointCompletedStep,
 };
 use crate::cook::workflow::normalized;
 use crate::cook::workflow::normalized::NormalizedWorkflow;
@@ -625,7 +626,9 @@ impl WorkflowExecutor {
                         match &workflow.steps[current_step_index].command {
                             normalized::StepCommand::Claude(cmd) => format!("claude: {}", cmd),
                             normalized::StepCommand::Shell(cmd) => format!("shell: {}", cmd),
-                            normalized::StepCommand::Test { command, .. } => format!("test: {}", command),
+                            normalized::StepCommand::Test { command, .. } => {
+                                format!("test: {}", command)
+                            }
                             normalized::StepCommand::Simple(cmd) => cmd.clone(),
                             _ => "complex command".to_string(),
                         }
@@ -662,7 +665,10 @@ impl WorkflowExecutor {
                 if let Err(e) = checkpoint_manager.save_checkpoint(&checkpoint).await {
                     tracing::warn!("Failed to save retry checkpoint: {}", e);
                 } else {
-                    tracing::debug!("Saved retry checkpoint at step {} attempt", current_step_index);
+                    tracing::debug!(
+                        "Saved retry checkpoint at step {} attempt",
+                        current_step_index
+                    );
                 }
             }
         }
@@ -3114,8 +3120,8 @@ impl WorkflowExecutor {
         env: &ExecutionEnvironment,
         ctx: &mut WorkflowContext,
         mut env_vars: HashMap<String, String>,
-        workflow: Option<&NormalizedWorkflow>,
-        step_index: Option<usize>,
+        _workflow: Option<&NormalizedWorkflow>,
+        _step_index: Option<usize>,
     ) -> Result<StepResult> {
         use std::fs;
         use tempfile::NamedTempFile;
@@ -3125,7 +3131,11 @@ impl WorkflowExecutor {
 
         // Track failure history for retry state
         let mut failure_history: Vec<String> = Vec::new();
-        let max_attempts = test_cmd.on_failure.as_ref().map(|f| f.max_attempts).unwrap_or(1);
+        let _max_attempts = test_cmd
+            .on_failure
+            .as_ref()
+            .map(|f| f.max_attempts)
+            .unwrap_or(1);
 
         // First, execute the test command
         let mut attempt = 0;
@@ -3177,15 +3187,22 @@ impl WorkflowExecutor {
                 }
 
                 // Save checkpoint after test failure but before retry
-                if let (Some(workflow), Some(step_index)) = (&self.current_workflow, self.current_step_index) {
+                if let (Some(workflow), Some(step_index)) =
+                    (&self.current_workflow, self.current_step_index)
+                {
                     let retry_state = checkpoint::RetryState {
                         current_attempt: attempt as usize,
                         max_attempts: debug_config.max_attempts as usize,
                         failure_history: failure_history.clone(),
                         in_retry_loop: true,
                     };
-                    self.save_retry_checkpoint(workflow, step_index, Some(retry_state), ctx).await;
-                    tracing::info!("Saved checkpoint for test retry at attempt {}/{}", attempt, debug_config.max_attempts);
+                    self.save_retry_checkpoint(workflow, step_index, Some(retry_state), ctx)
+                        .await;
+                    tracing::info!(
+                        "Saved checkpoint for test retry at attempt {}/{}",
+                        attempt,
+                        debug_config.max_attempts
+                    );
                 }
 
                 // Save test output to a temp file if it's too large

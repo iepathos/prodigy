@@ -1188,7 +1188,6 @@ pub mod test_mocks {
     use crate::worktree::WorktreeSession;
     use std::collections::VecDeque;
     use std::sync::{Arc, Mutex as StdMutex};
-    use uuid::Uuid;
 
     /// Mock WorktreeManager for testing parallel execution
     pub struct MockWorktreeManager {
@@ -1196,6 +1195,12 @@ pub mod test_mocks {
         pub fail_on_create: bool,
         pub fail_on_cleanup: bool,
         pub create_delay_ms: u64,
+    }
+
+    impl Default for MockWorktreeManager {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 
     impl MockWorktreeManager {
@@ -1244,6 +1249,12 @@ pub mod test_mocks {
         pub execution_delay_ms: u64,
     }
 
+    impl Default for MockCommandExecutor {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl MockCommandExecutor {
         pub fn new() -> Self {
             Self {
@@ -1263,6 +1274,12 @@ pub mod test_mocks {
     pub struct MockEventLogger {
         pub events: Arc<StdMutex<Vec<MapReduceEvent>>>,
         pub fail_on_log: bool,
+    }
+
+    impl Default for MockEventLogger {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 
     impl MockEventLogger {
@@ -1663,6 +1680,7 @@ mod recovery_tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::unnecessary_to_owned)]
     async fn test_recovery_with_partial_results() {
         // Test recovery scenarios with partially completed work
         let mut completed_items = std::collections::HashSet::new();
@@ -1670,7 +1688,7 @@ mod recovery_tests {
         completed_items.insert("item-3".to_string());
         completed_items.insert("item-5".to_string());
 
-        let total_items = vec!["item-1", "item-2", "item-3", "item-4", "item-5"];
+        let total_items = ["item-1", "item-2", "item-3", "item-4", "item-5"];
 
         // Find items that still need processing
         let remaining: Vec<_> = total_items
@@ -1995,7 +2013,7 @@ mod integration_tests {
     #[tokio::test]
     async fn test_filter_and_sort_operations() {
         // Test filtering and sorting of work items
-        let items = vec![
+        let items = [
             json!({"id": 1, "priority": 3, "status": "active"}),
             json!({"id": 2, "priority": 1, "status": "inactive"}),
             json!({"id": 3, "priority": 2, "status": "active"}),

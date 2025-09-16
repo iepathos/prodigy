@@ -9,10 +9,10 @@ fn test_sigint_handling() {
     use nix::sys::signal::{kill, Signal};
     use nix::unistd::Pid;
 
-    let mut test = CliTest::new();
-    let (mut test, workflow_path) = test.with_workflow("long", &create_long_workflow("interrupt"));
+    let test = CliTest::new();
+    let (test, workflow_path) = test.with_workflow("long", &create_long_workflow("interrupt"));
 
-    let mut child = test
+    let child = test
         .arg("cook")
         .arg(workflow_path.to_str().unwrap())
         .spawn();
@@ -39,10 +39,10 @@ fn test_sigterm_handling() {
     use nix::sys::signal::{kill, Signal};
     use nix::unistd::Pid;
 
-    let mut test = CliTest::new();
-    let (mut test, workflow_path) = test.with_workflow("long", &create_long_workflow("terminate"));
+    let test = CliTest::new();
+    let (test, workflow_path) = test.with_workflow("long", &create_long_workflow("terminate"));
 
-    let mut child = test
+    let child = test
         .arg("cook")
         .arg(workflow_path.to_str().unwrap())
         .spawn();
@@ -65,7 +65,7 @@ fn test_sigterm_handling() {
 
 #[test]
 fn test_graceful_shutdown() {
-    let mut test = CliTest::new();
+    let test = CliTest::new();
     let workflow_content = r#"
 name: graceful-test
 commands:
@@ -73,7 +73,7 @@ commands:
   - shell: "sleep 5"
   - shell: "echo 'Should not reach here'"
 "#;
-    let (mut test, workflow_path) = test.with_workflow("graceful", workflow_content);
+    let (test, workflow_path) = test.with_workflow("graceful", workflow_content);
 
     let mut child = test
         .arg("cook")
@@ -99,10 +99,10 @@ fn test_multiple_signals() {
     use nix::sys::signal::{kill, Signal};
     use nix::unistd::Pid;
 
-    let mut test = CliTest::new();
-    let (mut test, workflow_path) = test.with_workflow("multi", &create_long_workflow("multi"));
+    let test = CliTest::new();
+    let (test, workflow_path) = test.with_workflow("multi", &create_long_workflow("multi"));
 
-    let mut child = test
+    let child = test
         .arg("cook")
         .arg(workflow_path.to_str().unwrap())
         .spawn();
@@ -124,14 +124,14 @@ fn test_multiple_signals() {
 
 #[test]
 fn test_cleanup_on_interrupt() {
-    let mut test = CliTest::new();
+    let test = CliTest::new();
     let workflow_content = r#"
 name: cleanup-test
 commands:
   - shell: "touch /tmp/prodigy-test-file"
   - shell: "sleep 10"
 "#;
-    let (mut test, workflow_path) = test.with_workflow("cleanup", workflow_content);
+    let (test, workflow_path) = test.with_workflow("cleanup", workflow_content);
 
     let mut child = test
         .arg("cook")

@@ -26,8 +26,7 @@ fn test_dlq_show_with_job_id() {
 
     // Should show DLQ items or report no data found
     assert!(
-        output.exit_code == exit_codes::SUCCESS
-            || output.exit_code == exit_codes::GENERAL_ERROR
+        output.exit_code == exit_codes::SUCCESS || output.exit_code == exit_codes::GENERAL_ERROR
     );
     // Should provide relevant feedback
     if output.exit_code == exit_codes::GENERAL_ERROR {
@@ -148,8 +147,7 @@ fn test_dlq_list_verbose() {
 
     // Should show verbose output - command may fail but should show debug output
     assert!(
-        output.exit_code == exit_codes::SUCCESS
-            || output.exit_code == exit_codes::GENERAL_ERROR
+        output.exit_code == exit_codes::SUCCESS || output.exit_code == exit_codes::GENERAL_ERROR
     );
     // Verbose output should appear in stdout or stderr should contain relevant info
     assert!(

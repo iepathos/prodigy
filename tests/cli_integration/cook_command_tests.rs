@@ -4,8 +4,8 @@ use super::test_utils::*;
 
 #[test]
 fn test_cook_basic_workflow() {
-    let mut test = CliTest::new();
-    let (mut test, workflow_path) = test.with_workflow("basic", &create_test_workflow("basic"));
+    let test = CliTest::new();
+    let (test, workflow_path) = test.with_workflow("basic", &create_test_workflow("basic"));
 
     let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
 
@@ -37,13 +37,13 @@ fn test_cook_with_invalid_workflow() {
 
 #[test]
 fn test_cook_with_max_iterations() {
-    let mut test = CliTest::new();
+    let test = CliTest::new();
     let workflow_content = r#"
 name: iteration-test
 commands:
   - shell: "echo 'Iteration'"
 "#;
-    let (mut test, workflow_path) = test.with_workflow("iteration", workflow_content);
+    let (test, workflow_path) = test.with_workflow("iteration", workflow_content);
 
     let output = test
         .arg("cook")
@@ -57,9 +57,8 @@ commands:
 
 #[test]
 fn test_cook_with_worktree_flag() {
-    let mut test = CliTest::new();
-    let (mut test, workflow_path) =
-        test.with_workflow("worktree", &create_test_workflow("worktree"));
+    let test = CliTest::new();
+    let (test, workflow_path) = test.with_workflow("worktree", &create_test_workflow("worktree"));
 
     let output = test
         .arg("cook")
@@ -74,13 +73,13 @@ fn test_cook_with_worktree_flag() {
 
 #[test]
 fn test_cook_with_args() {
-    let mut test = CliTest::new();
+    let test = CliTest::new();
     let workflow_content = r#"
 name: args-test
 commands:
   - shell: "echo 'KEY=${KEY}'"
 "#;
-    let (mut test, workflow_path) = test.with_workflow("args", workflow_content);
+    let (test, workflow_path) = test.with_workflow("args", workflow_content);
 
     let output = test
         .arg("cook")
@@ -94,8 +93,8 @@ commands:
 
 #[test]
 fn test_cook_with_auto_accept() {
-    let mut test = CliTest::new();
-    let (mut test, workflow_path) = test.with_workflow("auto", &create_test_workflow("auto"));
+    let test = CliTest::new();
+    let (test, workflow_path) = test.with_workflow("auto", &create_test_workflow("auto"));
 
     let output = test
         .arg("cook")
@@ -113,8 +112,8 @@ fn test_cook_with_auto_accept() {
 
 #[test]
 fn test_cook_failing_workflow() {
-    let mut test = CliTest::new();
-    let (mut test, workflow_path) = test.with_workflow("fail", &create_failing_workflow("fail"));
+    let test = CliTest::new();
+    let (test, workflow_path) = test.with_workflow("fail", &create_failing_workflow("fail"));
 
     let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
 
@@ -123,7 +122,7 @@ fn test_cook_failing_workflow() {
 
 #[test]
 fn test_cook_with_invalid_yaml() {
-    let mut test = CliTest::new();
+    let test = CliTest::new();
     let workflow_path = test.temp_path().join("invalid.yaml");
     std::fs::write(&workflow_path, "not: valid: yaml: syntax").unwrap();
 
@@ -135,7 +134,7 @@ fn test_cook_with_invalid_yaml() {
 
 #[test]
 fn test_cook_with_path_option() {
-    let mut test = CliTest::new();
+    let test = CliTest::new();
     let other_dir = tempfile::TempDir::new().unwrap();
 
     // Initialize git in other directory
@@ -146,7 +145,7 @@ fn test_cook_with_path_option() {
         .unwrap();
 
     let workflow_path = other_dir.path().join("test.yaml");
-    std::fs::write(&workflow_path, &create_test_workflow("path-test")).unwrap();
+    std::fs::write(&workflow_path, create_test_workflow("path-test")).unwrap();
 
     let output = test
         .arg("cook")
@@ -157,8 +156,7 @@ fn test_cook_with_path_option() {
 
     // Should process workflow from specified path - may succeed or fail depending on environment
     assert!(
-        output.exit_code == exit_codes::SUCCESS
-            || output.exit_code == exit_codes::GENERAL_ERROR
+        output.exit_code == exit_codes::SUCCESS || output.exit_code == exit_codes::GENERAL_ERROR
     );
     // If successful, should show the expected output
     if output.exit_code == exit_codes::SUCCESS {
@@ -168,8 +166,8 @@ fn test_cook_with_path_option() {
 
 #[test]
 fn test_cook_mapreduce_workflow() {
-    let mut test = CliTest::new();
-    let (mut test, workflow_path) =
+    let test = CliTest::new();
+    let (test, workflow_path) =
         test.with_workflow("mapreduce", &create_mapreduce_workflow("mr-test"));
 
     let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
@@ -180,21 +178,20 @@ fn test_cook_mapreduce_workflow() {
 
 #[test]
 fn test_cook_with_timeout() {
-    let mut test = CliTest::new();
+    let test = CliTest::new();
     let workflow_content = r#"
 name: timeout-test
 commands:
   - shell: "sleep 10"
     timeout: 1
 "#;
-    let (mut test, workflow_path) = test.with_workflow("timeout", workflow_content);
+    let (test, workflow_path) = test.with_workflow("timeout", workflow_content);
 
     let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
 
     // Timeout behavior may vary - either success (if timeout not enforced) or error
     assert!(
-        output.exit_code == exit_codes::SUCCESS
-            || output.exit_code == exit_codes::GENERAL_ERROR
+        output.exit_code == exit_codes::SUCCESS || output.exit_code == exit_codes::GENERAL_ERROR
     );
     // If error, should mention timeout
     if output.exit_code == exit_codes::GENERAL_ERROR {
@@ -204,8 +201,8 @@ commands:
 
 #[test]
 fn test_run_alias_for_cook() {
-    let mut test = CliTest::new();
-    let (mut test, workflow_path) = test.with_workflow("alias", &create_test_workflow("alias"));
+    let test = CliTest::new();
+    let (test, workflow_path) = test.with_workflow("alias", &create_test_workflow("alias"));
 
     let output = test
         .arg("run") // Using 'run' instead of 'cook'
@@ -222,8 +219,8 @@ fn test_run_alias_for_cook() {
 
 #[test]
 fn test_cook_with_metrics_flag() {
-    let mut test = CliTest::new();
-    let (mut test, workflow_path) = test.with_workflow("metrics", &create_test_workflow("metrics"));
+    let test = CliTest::new();
+    let (test, workflow_path) = test.with_workflow("metrics", &create_test_workflow("metrics"));
 
     let output = test
         .arg("cook")
@@ -238,7 +235,7 @@ fn test_cook_with_metrics_flag() {
 #[test]
 #[ignore = "foreach functionality not fully implemented yet"]
 fn test_cook_with_foreach() {
-    let mut test = CliTest::new();
+    let test = CliTest::new();
     let workflow_content = r#"
 name: foreach-test
 commands:
@@ -247,7 +244,7 @@ commands:
       do:
         - shell: "echo 'Processing ${item}'"
 "#;
-    let (mut test, workflow_path) = test.with_workflow("foreach", workflow_content);
+    let (test, workflow_path) = test.with_workflow("foreach", workflow_content);
 
     let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
 
@@ -257,7 +254,7 @@ commands:
 #[test]
 #[ignore = "goal_seek functionality not fully implemented yet"]
 fn test_cook_with_goal_seek() {
-    let mut test = CliTest::new();
+    let test = CliTest::new();
     let workflow_content = r#"
 name: goal-seek-test
 commands:
@@ -268,7 +265,7 @@ commands:
       threshold: 80
       max_attempts: 2
 "#;
-    let (mut test, workflow_path) = test.with_workflow("goal", workflow_content);
+    let (test, workflow_path) = test.with_workflow("goal", workflow_content);
 
     let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
 

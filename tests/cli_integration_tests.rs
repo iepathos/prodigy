@@ -4,4 +4,3 @@
 mod cli_integration;
 
 // Re-export all test modules so they run
-use cli_integration::*;

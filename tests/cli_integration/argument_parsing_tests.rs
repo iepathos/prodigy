@@ -131,8 +131,8 @@ fn test_invalid_flag_value() {
 
 #[test]
 fn test_conflicting_arguments() {
-    let mut test = CliTest::new();
-    let (mut test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
+    let test = CliTest::new();
+    let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
     let output = test
         .arg("cook")
@@ -153,8 +153,8 @@ fn test_conflicting_arguments() {
 #[test]
 fn test_boolean_flag_variations() {
     // Test long form
-    let mut test = CliTest::new();
-    let (mut test, workflow_path) = test.with_workflow("test1", &create_test_workflow("test1"));
+    let test = CliTest::new();
+    let (test, workflow_path) = test.with_workflow("test1", &create_test_workflow("test1"));
 
     let output = test
         .arg("cook")
@@ -165,8 +165,8 @@ fn test_boolean_flag_variations() {
     assert_eq!(output.exit_code, exit_codes::SUCCESS);
 
     // Test short form
-    let mut test = CliTest::new();
-    let (mut test, workflow_path) = test.with_workflow("test2", &create_test_workflow("test2"));
+    let test = CliTest::new();
+    let (test, workflow_path) = test.with_workflow("test2", &create_test_workflow("test2"));
 
     let output = test
         .arg("cook")
@@ -179,8 +179,8 @@ fn test_boolean_flag_variations() {
 
 #[test]
 fn test_multiple_values_argument() {
-    let mut test = CliTest::new();
-    let (mut test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
+    let test = CliTest::new();
+    let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
     let output = test
         .arg("cook")
@@ -228,8 +228,8 @@ fn test_path_argument_validation() {
 
 #[test]
 fn test_numeric_argument_bounds() {
-    let mut test = CliTest::new();
-    let (mut test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
+    let test = CliTest::new();
+    let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
     // Test very large iteration count - should either accept it or show a reasonable error
     // Using --dry-run to avoid actually running 999999 iterations

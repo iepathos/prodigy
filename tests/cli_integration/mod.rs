@@ -15,5 +15,3 @@ pub mod signal_handling_tests;
 pub mod test_utils;
 pub mod verbose_output_tests;
 pub mod worktree_command_tests;
-
-use test_utils::CliTest;

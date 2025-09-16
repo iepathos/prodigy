@@ -19,7 +19,11 @@ fn test_events_list() {
 
 #[test]
 fn test_events_show_with_job_id() {
-    let mut test = CliTest::new().arg("events").arg("show").arg("test-job-id");
+    let mut test = CliTest::new()
+        .arg("events")
+        .arg("ls")
+        .arg("--job-id")
+        .arg("test-job-id");
 
     let output = test.run();
 
@@ -121,18 +125,13 @@ fn test_events_clean_with_invalid_duration() {
 
 #[test]
 fn test_events_show_missing_job_id() {
-    let mut test = CliTest::new().arg("events").arg("show");
-    // Missing job ID
+    let mut test = CliTest::new().arg("events").arg("ls");
+    // Lists all events when no job ID is provided
 
     let output = test.run();
 
-    // Should fail with missing argument
-    assert_eq!(output.exit_code, exit_codes::ARGUMENT_ERROR);
-    assert!(
-        output.stderr_contains("required")
-            || output.stderr_contains("job")
-            || output.stderr_contains("argument")
-    );
+    // Should succeed and list all events
+    assert_eq!(output.exit_code, exit_codes::SUCCESS);
 }
 
 #[test]

@@ -5,7 +5,7 @@ use std::fs;
 
 #[test]
 fn test_batch_basic_pattern() {
-    let mut test = CliTest::new();
+    let test = CliTest::new();
 
     // Create test files
     let test_dir = test.temp_path().to_path_buf();
@@ -26,7 +26,7 @@ fn test_batch_basic_pattern() {
 
 #[test]
 fn test_batch_with_parallel_workers() {
-    let mut test = CliTest::new();
+    let test = CliTest::new();
 
     // Create multiple test files
     let test_dir = test.temp_path().to_path_buf();
@@ -52,7 +52,7 @@ fn test_batch_with_parallel_workers() {
 
 #[test]
 fn test_batch_with_retry() {
-    let mut test = CliTest::new();
+    let test = CliTest::new();
 
     // Create test file
     let test_dir = test.temp_path().to_path_buf();
@@ -72,7 +72,7 @@ fn test_batch_with_retry() {
 
 #[test]
 fn test_batch_with_timeout() {
-    let mut test = CliTest::new();
+    let test = CliTest::new();
 
     // Create test file
     let test_dir = test.temp_path().to_path_buf();
@@ -123,7 +123,7 @@ fn test_batch_with_no_matching_files() {
 
 #[test]
 fn test_batch_with_nested_pattern() {
-    let mut test = CliTest::new();
+    let test = CliTest::new();
 
     // Create nested directory structure
     let test_dir = test.temp_path().to_path_buf();
@@ -145,7 +145,7 @@ fn test_batch_with_nested_pattern() {
 
 #[test]
 fn test_batch_with_claude_command() {
-    let mut test = CliTest::new();
+    let test = CliTest::new();
 
     // Create test file
     let test_dir = test.temp_path().to_path_buf();
@@ -198,7 +198,7 @@ fn test_batch_with_working_directory() {
 
 #[test]
 fn test_batch_with_failing_command() {
-    let mut test = CliTest::new();
+    let test = CliTest::new();
 
     // Create test files
     let test_dir = test.temp_path().to_path_buf();
@@ -226,7 +226,7 @@ fn test_batch_with_failing_command() {
 
 #[test]
 fn test_batch_with_single_file() {
-    let mut test = CliTest::new();
+    let test = CliTest::new();
 
     // Create single test file
     let test_dir = test.temp_path().to_path_buf();
@@ -249,7 +249,7 @@ fn test_batch_with_single_file() {
 
 #[test]
 fn test_batch_with_zero_parallel() {
-    let mut test = CliTest::new();
+    let test = CliTest::new();
 
     // Create test file
     let test_dir = test.temp_path().to_path_buf();
@@ -268,18 +268,17 @@ fn test_batch_with_zero_parallel() {
     // MapReduce may interpret 0 as "use default parallelism"
     // The batch command uses MapReduce which may succeed with 0 parallelism
     assert!(
-        output.exit_code != exit_codes::SUCCESS
+        output.exit_code == exit_codes::SUCCESS
         || output.stdout_contains("ompleted")  // Completed or completed
         || output.stdout_contains("rocessing") // Processing or processing
         || output.stdout_contains("atch")      // batch processing
-        || output.stdout_contains("ummary")    // Summary from MapReduce
-        || output.exit_code == exit_codes::SUCCESS // Allow success
+        || output.stdout_contains("ummary") // Summary from MapReduce
     );
 }
 
 #[test]
 fn test_batch_with_complex_command() {
-    let mut test = CliTest::new();
+    let test = CliTest::new();
 
     // Create test files
     let test_dir = test.temp_path().to_path_buf();

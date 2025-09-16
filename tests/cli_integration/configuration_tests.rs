@@ -10,9 +10,9 @@ auto_worktree: true
 verbose: true
 "#;
 
-    let mut test = CliTest::new().with_config(config_content);
+    let test = CliTest::new().with_config(config_content);
 
-    let (mut test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
+    let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
     let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
 
@@ -26,9 +26,9 @@ fn test_config_override_with_cli_args() {
 default_max_iterations: 5
 "#;
 
-    let mut test = CliTest::new().with_config(config_content);
+    let test = CliTest::new().with_config(config_content);
 
-    let (mut test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
+    let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
     let output = test
         .arg("cook")
@@ -46,9 +46,9 @@ fn test_invalid_config_file() {
     // Use truly invalid YAML syntax that will cause a parse error
     let config_content = "invalid yaml : : : this is not valid\n  bad indentation without key";
 
-    let mut test = CliTest::new().with_config(config_content);
+    let test = CliTest::new().with_config(config_content);
 
-    let (mut test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
+    let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
     let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
 
@@ -70,11 +70,11 @@ fn test_invalid_config_file() {
 
 #[test]
 fn test_config_with_environment_variables() {
-    let mut test = CliTest::new()
+    let test = CliTest::new()
         .env("PRODIGY_MAX_ITERATIONS", "3")
         .env("PRODIGY_AUTO_WORKTREE", "true");
 
-    let (mut test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
+    let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
     let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
 
@@ -90,9 +90,9 @@ workflow_defaults:
   retry_attempts: 3
 "#;
 
-    let mut test = CliTest::new().with_config(config_content);
+    let test = CliTest::new().with_config(config_content);
 
-    let (mut test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
+    let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
     let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
 
@@ -108,10 +108,10 @@ command_aliases:
   e: exec
 "#;
 
-    let mut test = CliTest::new().with_config(config_content);
+    let test = CliTest::new().with_config(config_content);
 
     // Note: Command aliases might not be supported, but test the config loading
-    let (mut test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
+    let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
     let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
 
@@ -126,11 +126,11 @@ fn test_config_precedence() {
 default_max_iterations: 2
 "#;
 
-    let mut test = CliTest::new()
+    let test = CliTest::new()
         .with_config(config_content)
         .env("PRODIGY_MAX_ITERATIONS", "3");
 
-    let (mut test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
+    let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
     let output = test
         .arg("cook")
@@ -150,10 +150,9 @@ mapreduce_defaults:
   chunk_size: 100
 "#;
 
-    let mut test = CliTest::new().with_config(config_content);
+    let test = CliTest::new().with_config(config_content);
 
-    let (mut test, workflow_path) =
-        test.with_workflow("mapreduce", &create_mapreduce_workflow("mr"));
+    let (test, workflow_path) = test.with_workflow("mapreduce", &create_mapreduce_workflow("mr"));
 
     let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
 
@@ -169,9 +168,9 @@ logging:
   format: json
 "#;
 
-    let mut test = CliTest::new().with_config(config_content);
+    let test = CliTest::new().with_config(config_content);
 
-    let (mut test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
+    let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
     let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
 
@@ -186,8 +185,8 @@ logging:
 #[test]
 fn test_missing_config_file() {
     // When no config file exists, should use defaults
-    let mut test = CliTest::new();
-    let (mut test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
+    let test = CliTest::new();
+    let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
     let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
 
@@ -204,9 +203,9 @@ git:
   branch_prefix: "prodigy/"
 "#;
 
-    let mut test = CliTest::new().with_config(config_content);
+    let test = CliTest::new().with_config(config_content);
 
-    let (mut test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
+    let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
     let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
 
@@ -222,9 +221,9 @@ paths:
   event_storage: "/tmp/prodigy-events"
 "#;
 
-    let mut test = CliTest::new().with_config(config_content);
+    let test = CliTest::new().with_config(config_content);
 
-    let (mut test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
+    let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
     let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
 

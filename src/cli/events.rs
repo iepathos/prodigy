@@ -985,6 +985,7 @@ async fn export_events(file: PathBuf, format: String, output: Option<PathBuf>) -
 }
 
 /// Clean up old events based on retention policy
+#[allow(clippy::too_many_arguments)]
 async fn clean_events(
     older_than: Option<String>,
     max_events: Option<usize>,
@@ -995,7 +996,7 @@ async fn clean_events(
     all_jobs: bool,
     job_id: Option<String>,
 ) -> Result<()> {
-    use crate::cook::execution::events::retention::{RetentionPolicy, RetentionManager};
+    use crate::cook::execution::events::retention::{RetentionManager, RetentionPolicy};
 
     // Build retention policy from arguments
     let mut policy = RetentionPolicy::default();
@@ -1026,7 +1027,7 @@ async fn clean_events(
     println!("  Max events: {:?}", policy.max_events);
     println!("  Max file size: {:?} bytes", policy.max_file_size_bytes);
     println!("  Archive: {}", policy.archive_old_events);
-    println!("");
+    println!();
 
     let mut total_cleaned = 0usize;
     let mut total_archived = 0usize;
@@ -1044,7 +1045,10 @@ async fn clean_events(
         let global_events_dir = global_base.join("events").join(&repo_name);
 
         if !global_events_dir.exists() {
-            println!("No events found in global storage for repository: {}", repo_name);
+            println!(
+                "No events found in global storage for repository: {}",
+                repo_name
+            );
             return Ok(());
         }
 
@@ -1080,8 +1084,11 @@ async fn clean_events(
                 } else {
                     let retention = RetentionManager::new(policy.clone(), event_file);
                     let stats = retention.apply_retention().await?;
-                    println!("  Cleaned: {} events, {:.1}% space saved",
-                             stats.events_removed, stats.space_saved_percentage());
+                    println!(
+                        "  Cleaned: {} events, {:.1}% space saved",
+                        stats.events_removed,
+                        stats.space_saved_percentage()
+                    );
                     total_cleaned += stats.events_removed;
                     if policy.archive_old_events {
                         total_archived += stats.events_removed;
@@ -1104,8 +1111,11 @@ async fn clean_events(
         } else {
             let retention = RetentionManager::new(policy.clone(), local_file);
             let stats = retention.apply_retention().await?;
-            println!("Cleaned: {} events, {:.1}% space saved",
-                     stats.events_removed, stats.space_saved_percentage());
+            println!(
+                "Cleaned: {} events, {:.1}% space saved",
+                stats.events_removed,
+                stats.space_saved_percentage()
+            );
             total_cleaned = stats.events_removed;
             if policy.archive_old_events {
                 total_archived = stats.events_removed;
@@ -1114,9 +1124,12 @@ async fn clean_events(
     }
 
     // Summary
-    println!("");
+    println!();
     if dry_run {
-        println!("Summary (dry run): {} events would be cleaned", total_cleaned);
+        println!(
+            "Summary (dry run): {} events would be cleaned",
+            total_cleaned
+        );
         if total_archived > 0 {
             println!("  {} events would be archived", total_archived);
         }
@@ -1131,7 +1144,6 @@ async fn clean_events(
         println!("No events matched the cleanup criteria.");
     }
 
-
     Ok(())
 }
 
@@ -1143,15 +1155,17 @@ fn parse_duration_to_days(duration_str: &str) -> Result<u32> {
         return Err(anyhow::anyhow!("Empty duration string"));
     }
 
-    let (number_part, unit_part) = if let Some(unit_pos) = duration_str.chars().position(|c| c.is_alphabetic()) {
-        let (num, unit) = duration_str.split_at(unit_pos);
-        (num, unit)
-    } else {
-        // If no unit specified, assume days
-        (duration_str.as_str(), "d")
-    };
+    let (number_part, unit_part) =
+        if let Some(unit_pos) = duration_str.chars().position(|c| c.is_alphabetic()) {
+            let (num, unit) = duration_str.split_at(unit_pos);
+            (num, unit)
+        } else {
+            // If no unit specified, assume days
+            (duration_str.as_str(), "d")
+        };
 
-    let number: f64 = number_part.parse()
+    let number: f64 = number_part
+        .parse()
         .map_err(|_| anyhow::anyhow!("Invalid number in duration: '{}'", number_part))?;
 
     let days = match unit_part {
@@ -1160,7 +1174,12 @@ fn parse_duration_to_days(duration_str: &str) -> Result<u32> {
         "h" | "hour" | "hours" => number / 24.0,
         "m" | "min" | "minute" | "minutes" => number / (24.0 * 60.0),
         "s" | "sec" | "second" | "seconds" => number / (24.0 * 60.0 * 60.0),
-        _ => return Err(anyhow::anyhow!("Invalid duration unit: '{}'. Use d/day, w/week, h/hour, m/min, s/sec", unit_part)),
+        _ => {
+            return Err(anyhow::anyhow!(
+                "Invalid duration unit: '{}'. Use d/day, w/week, h/hour, m/min, s/sec",
+                unit_part
+            ))
+        }
     };
 
     // Convert to u32, ensuring at least 0 days
@@ -1175,15 +1194,17 @@ fn parse_size_to_bytes(size_str: &str) -> Result<u64> {
         return Err(anyhow::anyhow!("Empty size string"));
     }
 
-    let (number_part, unit_part) = if let Some(unit_pos) = size_str.chars().position(|c| c.is_alphabetic()) {
-        let (num, unit) = size_str.split_at(unit_pos);
-        (num, unit)
-    } else {
-        // If no unit specified, assume bytes
-        (size_str.as_str(), "B")
-    };
+    let (number_part, unit_part) =
+        if let Some(unit_pos) = size_str.chars().position(|c| c.is_alphabetic()) {
+            let (num, unit) = size_str.split_at(unit_pos);
+            (num, unit)
+        } else {
+            // If no unit specified, assume bytes
+            (size_str.as_str(), "B")
+        };
 
-    let number: f64 = number_part.parse()
+    let number: f64 = number_part
+        .parse()
         .map_err(|_| anyhow::anyhow!("Invalid number in size: '{}'", number_part))?;
 
     let bytes = match unit_part {
@@ -1192,7 +1213,12 @@ fn parse_size_to_bytes(size_str: &str) -> Result<u64> {
         "MB" | "M" => number * 1024.0 * 1024.0,
         "GB" | "G" => number * 1024.0 * 1024.0 * 1024.0,
         "TB" | "T" => number * 1024.0 * 1024.0 * 1024.0 * 1024.0,
-        _ => return Err(anyhow::anyhow!("Invalid size unit: '{}'. Use B/byte, KB/K, MB/M, GB/G, TB/T", unit_part)),
+        _ => {
+            return Err(anyhow::anyhow!(
+                "Invalid size unit: '{}'. Use B/byte, KB/K, MB/M, GB/G, TB/T",
+                unit_part
+            ))
+        }
     };
 
     // Convert to u64, ensuring at least 0 bytes

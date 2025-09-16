@@ -47,12 +47,12 @@ impl CliTest {
 
         // Add initial commit to avoid empty repo issues
         Command::new("git")
-            .args(&["config", "user.email", "test@example.com"])
+            .args(["config", "user.email", "test@example.com"])
             .current_dir(temp_dir.path())
             .output()
             .ok();
         Command::new("git")
-            .args(&["config", "user.name", "Test User"])
+            .args(["config", "user.name", "Test User"])
             .current_dir(temp_dir.path())
             .output()
             .ok();
@@ -61,12 +61,12 @@ impl CliTest {
         std::fs::write(&readme, "# Test Project\n").ok();
 
         Command::new("git")
-            .args(&["add", "."])
+            .args(["add", "."])
             .current_dir(temp_dir.path())
             .output()
             .ok();
         Command::new("git")
-            .args(&["commit", "-m", "Initial commit"])
+            .args(["commit", "-m", "Initial commit"])
             .current_dir(temp_dir.path())
             .output()
             .ok();
@@ -105,14 +105,6 @@ impl CliTest {
     /// Add a command argument
     pub fn arg(mut self, arg: &str) -> Self {
         self.command.arg(arg);
-        self
-    }
-
-    /// Add multiple command arguments
-    pub fn args(mut self, args: &[&str]) -> Self {
-        for arg in args {
-            self.command.arg(arg);
-        }
         self
     }
 

@@ -167,13 +167,13 @@ fn test_worktree_with_path() {
         .unwrap();
 
     std::process::Command::new("git")
-        .args(&["config", "user.email", "test@example.com"])
+        .args(["config", "user.email", "test@example.com"])
         .current_dir(&other_dir)
         .output()
         .ok();
 
     std::process::Command::new("git")
-        .args(&["config", "user.name", "Test User"])
+        .args(["config", "user.name", "Test User"])
         .current_dir(&other_dir)
         .output()
         .ok();
@@ -181,13 +181,13 @@ fn test_worktree_with_path() {
     std::fs::write(other_dir.path().join("README.md"), "# Test").unwrap();
 
     std::process::Command::new("git")
-        .args(&["add", "."])
+        .args(["add", "."])
         .current_dir(&other_dir)
         .output()
         .ok();
 
     std::process::Command::new("git")
-        .args(&["commit", "-m", "Initial"])
+        .args(["commit", "-m", "Initial"])
         .current_dir(&other_dir)
         .output()
         .ok();

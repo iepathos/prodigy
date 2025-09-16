@@ -533,7 +533,7 @@ async fn test_file_pattern_symlink_handling() {
     config.set("patterns".to_string(), json!(["*.txt"]));
     let inputs = provider.generate_inputs(&config).await.unwrap();
     // Should find both file1.txt and the symlink
-    assert!(inputs.len() >= 1, "Should find at least the original file");
+    assert!(!inputs.is_empty(), "Should find at least the original file");
 
     // Test symlinked directory traversal
     config.set("patterns".to_string(), json!(["**/*.txt"]));
@@ -1104,7 +1104,7 @@ async fn test_environment_provider_filter_empty() {
 
     let inputs = provider.generate_inputs(&config).await.unwrap();
     // Should get at least 1 (TEST_FULL), may get more if other TEST_ vars exist
-    assert!(inputs.len() >= 1, "Should filter out empty values");
+    assert!(!inputs.is_empty(), "Should filter out empty values");
 
     // Verify TEST_FULL is included
     let has_test_full = inputs
@@ -1225,7 +1225,7 @@ async fn test_generated_random() {
             .unwrap()
             .as_number()
             .unwrap();
-        assert!(value >= 0 && value <= 100);
+        assert!((0..=100).contains(&value));
     }
 }
 
@@ -1362,7 +1362,7 @@ async fn test_generated_fibonacci() {
     let inputs = provider.generate_inputs(&config).await.unwrap();
     assert_eq!(inputs.len(), 8);
 
-    let expected = vec![0, 1, 1, 2, 3, 5, 8, 13];
+    let expected = [0, 1, 1, 2, 3, 5, 8, 13];
     for (i, expected_val) in expected.iter().enumerate() {
         assert_eq!(
             inputs[i]
@@ -1389,7 +1389,7 @@ async fn test_generated_factorial() {
     let inputs = provider.generate_inputs(&config).await.unwrap();
     assert_eq!(inputs.len(), 6);
 
-    let expected = vec![1, 1, 2, 6, 24, 120]; // 0!, 1!, 2!, 3!, 4!, 5!
+    let expected = [1, 1, 2, 6, 24, 120]; // 0!, 1!, 2!, 3!, 4!, 5!
     for (i, expected_val) in expected.iter().enumerate() {
         assert_eq!(
             inputs[i]
@@ -1416,7 +1416,7 @@ async fn test_generated_prime() {
     let inputs = provider.generate_inputs(&config).await.unwrap();
     assert_eq!(inputs.len(), 10);
 
-    let expected = vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29];
+    let expected = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29];
     for (i, expected_val) in expected.iter().enumerate() {
         assert_eq!(
             inputs[i]
@@ -1513,7 +1513,7 @@ async fn test_malformed_json_input() {
     let mut config = provider::InputConfig::new();
 
     // Test various malformed JSON inputs
-    let malformed_jsons = vec![
+    let malformed_jsons = [
         "{invalid json}",             // Invalid JSON syntax
         "{\"key\": }",                // Missing value
         "{\"key\": undefined}",       // Undefined is not valid JSON
@@ -1546,7 +1546,7 @@ async fn test_malformed_yaml_input() {
     let mut config = provider::InputConfig::new();
 
     // Test various malformed YAML inputs
-    let malformed_yamls = vec![
+    let malformed_yamls = [
         "key:\n  - item1\n - item2",     // Inconsistent indentation
         "key: value\n  invalid",         // Invalid indentation
         "- item\nkey: value",            // Mixed list and dict at root
@@ -1583,7 +1583,7 @@ async fn test_malformed_toml_input() {
     let mut config = provider::InputConfig::new();
 
     // Test various malformed TOML inputs
-    let malformed_tomls = vec![
+    let malformed_tomls = [
         "[section\nkey = value",       // Unclosed section
         "key = 'unclosed string",      // Unclosed string
         "key = value\nkey = other",    // Duplicate keys
@@ -1615,7 +1615,7 @@ async fn test_malformed_csv_input() {
     let mut config = provider::InputConfig::new();
 
     // Test various malformed CSV inputs
-    let malformed_csvs = vec![
+    let malformed_csvs = [
         "col1,col2\n\"unclosed quote,value2", // Unclosed quote
         "col1,col2\nval1",                    // Inconsistent column count
         "col1,col2\nval1,val2,val3",          // Too many columns
@@ -1649,7 +1649,7 @@ async fn test_malformed_xml_input() {
     let mut config = provider::InputConfig::new();
 
     // Test various malformed XML inputs
-    let malformed_xmls = vec![
+    let malformed_xmls = [
         "<root>unclosed",                      // Unclosed tag
         "<root><child></root>",                // Mismatched tags
         "<<invalid>>",                         // Invalid tag syntax
@@ -1832,6 +1832,7 @@ impl MockStdinProvider {
         Ok(inputs)
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn json_to_variable_value(&self, value: serde_json::Value) -> VariableValue {
         match value {
             serde_json::Value::Null => VariableValue::Null,
