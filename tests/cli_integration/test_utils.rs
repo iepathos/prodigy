@@ -203,7 +203,7 @@ pub fn create_failing_workflow(name: &str) -> String {
     format!(
         r#"
 name: {}
-steps:
+commands:
   - shell: "exit 1"
 "#,
         name
@@ -215,7 +215,7 @@ pub fn create_long_workflow(name: &str) -> String {
     format!(
         r#"
 name: {}
-steps:
+commands:
   - shell: "sleep 30"
 "#,
         name

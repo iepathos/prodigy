@@ -68,7 +68,7 @@ fn test_graceful_shutdown() {
     let mut test = CliTest::new();
     let workflow_content = r#"
 name: graceful-test
-steps:
+commands:
   - shell: "echo 'Starting'"
   - shell: "sleep 5"
   - shell: "echo 'Should not reach here'"
@@ -127,7 +127,7 @@ fn test_cleanup_on_interrupt() {
     let mut test = CliTest::new();
     let workflow_content = r#"
 name: cleanup-test
-steps:
+commands:
   - shell: "touch /tmp/prodigy-test-file"
   - shell: "sleep 10"
 "#;
