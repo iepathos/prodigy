@@ -76,6 +76,20 @@ prodigy/
 │   ├── testing/                # Test utilities
 │   │   └── mocks/              # Mock implementations
 │   └── abstractions/           # Common abstractions
+├── tests/                      # Test infrastructure
+│   ├── cli_integration/        # CLI integration tests ✅
+│   │   ├── test_utils.rs       # Test harness and utilities
+│   │   ├── cook_command_tests.rs
+│   │   ├── exec_command_tests.rs
+│   │   ├── batch_command_tests.rs
+│   │   ├── worktree_command_tests.rs
+│   │   ├── events_command_tests.rs
+│   │   ├── dlq_command_tests.rs
+│   │   ├── argument_parsing_tests.rs
+│   │   ├── configuration_tests.rs
+│   │   ├── signal_handling_tests.rs
+│   │   └── verbose_output_tests.rs
+│   └── *.rs                    # Other integration tests
 ├── workflows/                  # Example workflows
 ├── docs/                       # Documentation
 └── .prodigy/                   # Project context files
@@ -233,13 +247,18 @@ pub struct SessionState {
 
 ### Integration Tests
 - End-to-end workflow execution
-- CLI command testing
+- CLI command testing with comprehensive coverage ✅
 - File system integration testing
+- Signal handling and graceful shutdown tests ✅
+- Configuration loading and precedence tests ✅
+- Argument parsing and validation tests ✅
 
 ### Test Utilities
 - `CommandExecutorMock`: Predictable command execution
 - `MockSubprocessManager`: Shell command mocking
 - Test fixtures for workflow configuration
+- `CliTest`: Comprehensive CLI test harness ✅
+- `CliOutput`: Structured test output validation ✅
 
 ## Performance Considerations
 
