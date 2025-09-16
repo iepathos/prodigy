@@ -1186,8 +1186,8 @@ pub mod test_mocks {
     use super::*;
     use crate::cook::execution::events::MapReduceEvent;
     use crate::worktree::WorktreeSession;
-    use std::sync::{Arc, Mutex as StdMutex};
     use std::collections::VecDeque;
+    use std::sync::{Arc, Mutex as StdMutex};
     use uuid::Uuid;
 
     /// Mock WorktreeManager for testing parallel execution
@@ -1209,7 +1209,6 @@ pub mod test_mocks {
         }
 
         pub async fn create_worktree(&self, branch_name: &str) -> anyhow::Result<WorktreeSession> {
-
             if self.create_delay_ms > 0 {
                 tokio::time::sleep(Duration::from_millis(self.create_delay_ms)).await;
             }
@@ -1279,7 +1278,6 @@ pub mod test_mocks {
         }
 
         pub async fn log_event(&self, event: MapReduceEvent) -> anyhow::Result<()> {
-
             if self.fail_on_log {
                 anyhow::bail!("Mock event logging failed");
             }
@@ -1295,10 +1293,10 @@ pub mod test_mocks {
 
 #[cfg(test)]
 mod concurrency_tests {
-    use super::*;
     use super::test_mocks::*;
-    use tokio::sync::Semaphore;
+    use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use tokio::sync::Semaphore;
 
     #[tokio::test]
     async fn test_parallel_agent_execution_limits() {
@@ -1337,7 +1335,10 @@ mod concurrency_tests {
                     if current <= max {
                         break;
                     }
-                    if max_con.compare_exchange(max, current, Ordering::SeqCst, Ordering::SeqCst).is_ok() {
+                    if max_con
+                        .compare_exchange(max, current, Ordering::SeqCst, Ordering::SeqCst)
+                        .is_ok()
+                    {
                         break;
                     }
                 }
@@ -1361,7 +1362,11 @@ mod concurrency_tests {
 
         // Verify max_parallel was respected
         let max_observed = max_concurrent.load(Ordering::SeqCst);
-        assert!(max_observed <= 3, "Max concurrent agents ({}) exceeded limit of 3", max_observed);
+        assert!(
+            max_observed <= 3,
+            "Max concurrent agents ({}) exceeded limit of 3",
+            max_observed
+        );
     }
 
     #[tokio::test]
@@ -1380,16 +1385,17 @@ mod concurrency_tests {
         let start = std::time::Instant::now();
 
         // Simulate agent that takes too long
-        let result = tokio::time::timeout(
-            Duration::from_secs(config.timeout_per_agent),
-            async {
-                tokio::time::sleep(Duration::from_secs(5)).await;
-                "Should timeout"
-            }
-        ).await;
+        let result = tokio::time::timeout(Duration::from_secs(config.timeout_per_agent), async {
+            tokio::time::sleep(Duration::from_secs(5)).await;
+            "Should timeout"
+        })
+        .await;
 
         assert!(result.is_err(), "Agent should have timed out");
-        assert!(start.elapsed() < Duration::from_secs(2), "Timeout took too long");
+        assert!(
+            start.elapsed() < Duration::from_secs(2),
+            "Timeout took too long"
+        );
     }
 
     #[tokio::test]
@@ -1400,9 +1406,8 @@ mod concurrency_tests {
 
         for i in 0..5 {
             let mgr = manager.clone();
-            let handle = tokio::spawn(async move {
-                mgr.create_worktree(&format!("agent-{}", i)).await
-            });
+            let handle =
+                tokio::spawn(async move { mgr.create_worktree(&format!("agent-{}", i)).await });
             handles.push(handle);
         }
 
@@ -1564,8 +1569,8 @@ mod dlq_tests {
 
     #[tokio::test]
     async fn test_dlq_persistence_simulation() {
-        use tempfile::TempDir;
         use std::fs;
+        use tempfile::TempDir;
 
         // Test DLQ persistence to filesystem
         let temp_dir = TempDir::new().unwrap();
@@ -1650,7 +1655,10 @@ mod recovery_tests {
         // Verify integrity
         assert_eq!(deserialized["job_id"], "test-job-123");
         assert_eq!(deserialized["work_items"].as_array().unwrap().len(), 2);
-        assert_eq!(deserialized["completed_agents"].as_array().unwrap().len(), 2);
+        assert_eq!(
+            deserialized["completed_agents"].as_array().unwrap().len(),
+            2
+        );
         assert_eq!(deserialized["checkpoint_version"], 1);
     }
 
@@ -1689,39 +1697,37 @@ mod additional_coverage_tests {
     fn test_setup_phase_edge_cases() {
         // Test SetupPhase with multiple configurations
         let setup_phase = SetupPhase {
-            commands: vec![
-                WorkflowStep {
-                    shell: Some("echo 'setup'".to_string()),
-                    claude: None,
-                    name: None,
-                    test: None,
-                    goal_seek: None,
-                    foreach: None,
-                    command: None,
-                    handler: None,
-                    capture_output: CaptureOutput::Variable("setup_output".to_string()),
-                    capture: None,
-                    capture_format: None,
-                    capture_streams: Default::default(),
-                    output_file: None,
-                    timeout: Some(30),
-                    working_dir: None,
-                    env: HashMap::new(),
-                    on_failure: None,
-                    retry: None,
-                    on_success: None,
-                    on_exit_code: HashMap::new(),
-                    commit_required: false,
-                    auto_commit: false,
-                    commit_config: None,
-                    validate: None,
-                    step_validate: None,
-                    skip_validation: false,
-                    validation_timeout: None,
-                    ignore_validation_failure: false,
-                    when: None,
-                },
-            ],
+            commands: vec![WorkflowStep {
+                shell: Some("echo 'setup'".to_string()),
+                claude: None,
+                name: None,
+                test: None,
+                goal_seek: None,
+                foreach: None,
+                command: None,
+                handler: None,
+                capture_output: CaptureOutput::Variable("setup_output".to_string()),
+                capture: None,
+                capture_format: None,
+                capture_streams: Default::default(),
+                output_file: None,
+                timeout: Some(30),
+                working_dir: None,
+                env: HashMap::new(),
+                on_failure: None,
+                retry: None,
+                on_success: None,
+                on_exit_code: HashMap::new(),
+                commit_required: false,
+                auto_commit: false,
+                commit_config: None,
+                validate: None,
+                step_validate: None,
+                skip_validation: false,
+                validation_timeout: None,
+                ignore_validation_failure: false,
+                when: None,
+            }],
             timeout: 60,
             capture_outputs: HashMap::from([("setup_output".to_string(), 0)]),
         };
@@ -1747,39 +1753,37 @@ mod additional_coverage_tests {
                 max_items: Some(100),
                 offset: Some(10),
             },
-            agent_template: vec![
-                WorkflowStep {
-                    claude: Some("/process ${item}".to_string()),
-                    shell: None,
-                    name: None,
-                    test: None,
-                    goal_seek: None,
-                    foreach: None,
-                    command: None,
-                    handler: None,
-                    capture_output: CaptureOutput::Default,
-                    capture: None,
-                    capture_format: None,
-                    capture_streams: Default::default(),
-                    output_file: None,
-                    timeout: None,
-                    working_dir: None,
-                    env: HashMap::new(),
-                    on_failure: None,
-                    retry: None,
-                    on_success: None,
-                    on_exit_code: HashMap::new(),
-                    commit_required: false,
-                    auto_commit: false,
-                    commit_config: None,
-                    validate: None,
-                    step_validate: None,
-                    skip_validation: false,
-                    validation_timeout: None,
-                    ignore_validation_failure: false,
-                    when: None,
-                },
-            ],
+            agent_template: vec![WorkflowStep {
+                claude: Some("/process ${item}".to_string()),
+                shell: None,
+                name: None,
+                test: None,
+                goal_seek: None,
+                foreach: None,
+                command: None,
+                handler: None,
+                capture_output: CaptureOutput::Default,
+                capture: None,
+                capture_format: None,
+                capture_streams: Default::default(),
+                output_file: None,
+                timeout: None,
+                working_dir: None,
+                env: HashMap::new(),
+                on_failure: None,
+                retry: None,
+                on_success: None,
+                on_exit_code: HashMap::new(),
+                commit_required: false,
+                auto_commit: false,
+                commit_config: None,
+                validate: None,
+                step_validate: None,
+                skip_validation: false,
+                validation_timeout: None,
+                ignore_validation_failure: false,
+                when: None,
+            }],
             filter: Some("item.priority == 'high'".to_string()),
             sort_by: Some("item.created_at DESC".to_string()),
             distinct: Some("item.id".to_string()),
@@ -1819,7 +1823,10 @@ mod additional_coverage_tests {
             let deserialized: ResumeOptions = serde_json::from_str(&serialized).unwrap();
 
             assert_eq!(deserialized.force, opt.force);
-            assert_eq!(deserialized.max_additional_retries, opt.max_additional_retries);
+            assert_eq!(
+                deserialized.max_additional_retries,
+                opt.max_additional_retries
+            );
             assert_eq!(deserialized.skip_validation, opt.skip_validation);
             assert_eq!(deserialized.from_checkpoint, opt.from_checkpoint);
         }
@@ -1907,9 +1914,18 @@ mod additional_coverage_tests {
         assert_eq!(results.len(), 50);
 
         // Count different statuses
-        let success_count = results.iter().filter(|r| matches!(r.status, AgentStatus::Success)).count();
-        let failed_count = results.iter().filter(|r| matches!(r.status, AgentStatus::Failed(_))).count();
-        let retrying_count = results.iter().filter(|r| matches!(r.status, AgentStatus::Retrying(_))).count();
+        let success_count = results
+            .iter()
+            .filter(|r| matches!(r.status, AgentStatus::Success))
+            .count();
+        let failed_count = results
+            .iter()
+            .filter(|r| matches!(r.status, AgentStatus::Failed(_)))
+            .count();
+        let retrying_count = results
+            .iter()
+            .filter(|r| matches!(r.status, AgentStatus::Retrying(_)))
+            .count();
 
         assert!(success_count > 0);
         assert!(failed_count > 0);
@@ -1987,7 +2003,8 @@ mod integration_tests {
         ];
 
         // Simulate filter: status == "active"
-        let filtered: Vec<_> = items.iter()
+        let filtered: Vec<_> = items
+            .iter()
             .filter(|item| item["status"] == "active")
             .cloned()
             .collect();
@@ -2020,7 +2037,8 @@ mod integration_tests {
 
         // Simulate offset and limit
         let start = config.offset.unwrap_or(0);
-        let processed: Vec<_> = items.iter()
+        let processed: Vec<_> = items
+            .iter()
             .skip(start)
             .take(config.max_items.unwrap_or(items.len()))
             .collect();
