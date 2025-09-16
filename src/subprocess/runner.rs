@@ -80,12 +80,9 @@ pub trait ProcessRunner: Send + Sync {
 
 pub struct TokioProcessRunner;
 
-#[async_trait]
-impl ProcessRunner for TokioProcessRunner {
-    async fn run(&self, command: ProcessCommand) -> Result<ProcessOutput, ProcessError> {
-        let start = std::time::Instant::now();
-
-        // Log the command being executed
+impl TokioProcessRunner {
+    /// Log command execution details
+    fn log_command_start(command: &ProcessCommand) {
         tracing::debug!(
             "Executing subprocess: {} {}",
             command.program,
@@ -100,13 +97,13 @@ impl ProcessRunner for TokioProcessRunner {
             tracing::trace!("Working directory: {:?}", dir);
         }
 
-        if command.stdin.is_some() {
-            tracing::trace!(
-                "Stdin provided: {} bytes",
-                command.stdin.as_ref().unwrap().len()
-            );
+        if let Some(ref stdin) = command.stdin {
+            tracing::trace!("Stdin provided: {} bytes", stdin.len());
         }
+    }
 
+    /// Configure the command with environment and working directory
+    fn configure_command(command: &ProcessCommand) -> tokio::process::Command {
         let mut cmd = tokio::process::Command::new(&command.program);
 
         // Set up process group for proper signal handling on Unix
@@ -126,6 +123,12 @@ impl ProcessRunner for TokioProcessRunner {
             cmd.current_dir(dir);
         }
 
+        Self::configure_stdio(&mut cmd, command);
+        cmd
+    }
+
+    /// Configure stdio pipes for the process
+    fn configure_stdio(cmd: &mut tokio::process::Command, command: &ProcessCommand) {
         if command.stdin.is_some() {
             cmd.stdin(std::process::Stdio::piped());
         }
@@ -137,93 +140,106 @@ impl ProcessRunner for TokioProcessRunner {
         } else {
             cmd.stderr(std::process::Stdio::piped());
         }
+    }
 
-        let mut child = cmd.spawn().map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                ProcessError::CommandNotFound(command.program.clone())
-            } else {
-                ProcessError::Io(e)
-            }
-        })?;
-
-        if let Some(stdin_data) = &command.stdin {
-            if let Some(mut stdin) = child.stdin.take() {
-                use tokio::io::AsyncWriteExt;
-                stdin
-                    .write_all(stdin_data.as_bytes())
-                    .await
-                    .map_err(ProcessError::Io)?;
-                stdin.shutdown().await.map_err(ProcessError::Io)?;
-            }
+    /// Write stdin data to the child process
+    async fn write_stdin(
+        child: &mut tokio::process::Child,
+        stdin_data: &str,
+    ) -> Result<(), ProcessError> {
+        if let Some(mut stdin) = child.stdin.take() {
+            use tokio::io::AsyncWriteExt;
+            stdin
+                .write_all(stdin_data.as_bytes())
+                .await
+                .map_err(ProcessError::Io)?;
+            stdin.shutdown().await.map_err(ProcessError::Io)?;
         }
+        Ok(())
+    }
 
-        let output = if let Some(timeout_duration) = command.timeout {
-            match tokio::time::timeout(timeout_duration, child.wait_with_output()).await {
-                Ok(result) => result.map_err(ProcessError::Io)?,
-                Err(_) => {
-                    // Timeout occurred - child has been moved, so we can't kill it here
-                    // The timeout itself will cause the process to be terminated
-                    return Err(ProcessError::Timeout(timeout_duration));
+    /// Wait for process with optional timeout
+    async fn wait_with_timeout(
+        child: tokio::process::Child,
+        timeout: Option<std::time::Duration>,
+    ) -> Result<std::process::Output, ProcessError> {
+        match timeout {
+            Some(duration) => {
+                match tokio::time::timeout(duration, child.wait_with_output()).await {
+                    Ok(result) => result.map_err(ProcessError::Io),
+                    Err(_) => Err(ProcessError::Timeout(duration)),
                 }
             }
-        } else {
-            child.wait_with_output().await.map_err(ProcessError::Io)?
-        };
+            None => child.wait_with_output().await.map_err(ProcessError::Io),
+        }
+    }
 
-        let duration = start.elapsed();
-
-        let status = if output.status.success() {
+    /// Convert process exit status to our ExitStatus enum
+    fn parse_exit_status(status: std::process::ExitStatus) -> ExitStatus {
+        if status.success() {
             ExitStatus::Success
-        } else if let Some(code) = output.status.code() {
+        } else if let Some(code) = status.code() {
             ExitStatus::Error(code)
         } else {
-            #[cfg(unix)]
-            {
-                use std::os::unix::process::ExitStatusExt;
-                if let Some(signal) = output.status.signal() {
-                    ExitStatus::Signal(signal)
-                } else {
-                    ExitStatus::Error(1)
-                }
-            }
-            #[cfg(not(unix))]
-            {
-                ExitStatus::Error(1)
-            }
-        };
+            Self::parse_signal_status(status)
+        }
+    }
 
-        let result = ProcessOutput {
-            status: status.clone(),
+    /// Parse signal status on Unix systems
+    #[cfg(unix)]
+    fn parse_signal_status(status: std::process::ExitStatus) -> ExitStatus {
+        use std::os::unix::process::ExitStatusExt;
+        if let Some(signal) = status.signal() {
+            ExitStatus::Signal(signal)
+        } else {
+            ExitStatus::Error(1)
+        }
+    }
+
+    #[cfg(not(unix))]
+    fn parse_signal_status(_status: std::process::ExitStatus) -> ExitStatus {
+        ExitStatus::Error(1)
+    }
+
+    /// Build ProcessOutput from command output
+    fn build_output(
+        output: std::process::Output,
+        command: &ProcessCommand,
+        status: ExitStatus,
+        duration: std::time::Duration,
+    ) -> ProcessOutput {
+        ProcessOutput {
+            status,
             stdout: String::from_utf8_lossy(&output.stdout).to_string(),
             stderr: if command.suppress_stderr {
-                String::new() // Empty stderr when suppressed
+                String::new()
             } else {
                 String::from_utf8_lossy(&output.stderr).to_string()
             },
             duration,
-        };
+        }
+    }
 
-        // Log the result
-        match &status {
+    /// Log the process execution result
+    fn log_result(result: &ProcessOutput, command: &ProcessCommand) {
+        let command_str = format!("{} {}", command.program, command.args.join(" "));
+
+        match &result.status {
             ExitStatus::Success => {
                 tracing::debug!(
-                    "Subprocess completed successfully in {:?}: {} {}",
-                    duration,
-                    command.program,
-                    command.args.join(" ")
+                    "Subprocess completed successfully in {:?}: {}",
+                    result.duration,
+                    command_str
                 );
                 tracing::trace!("Stdout length: {} bytes", result.stdout.len());
                 tracing::trace!("Stderr length: {} bytes", result.stderr.len());
             }
             ExitStatus::Error(code) => {
-                // Use debug level for expected failures like cargo clean/test when no Cargo.toml exists
-                // This prevents noisy warnings during normal operation
                 tracing::debug!(
-                    "Subprocess failed with exit code {} in {:?}: {} {}",
+                    "Subprocess failed with exit code {} in {:?}: {}",
                     code,
-                    duration,
-                    command.program,
-                    command.args.join(" ")
+                    result.duration,
+                    command_str
                 );
                 if !result.stderr.is_empty() {
                     tracing::trace!("Stderr: {}", result.stderr);
@@ -231,22 +247,60 @@ impl ProcessRunner for TokioProcessRunner {
             }
             ExitStatus::Signal(signal) => {
                 tracing::warn!(
-                    "Subprocess terminated by signal {} in {:?}: {} {}",
+                    "Subprocess terminated by signal {} in {:?}: {}",
                     signal,
-                    duration,
-                    command.program,
-                    command.args.join(" ")
+                    result.duration,
+                    command_str
                 );
             }
             ExitStatus::Timeout => {
                 tracing::warn!(
-                    "Subprocess timed out after {:?}: {} {}",
-                    duration,
-                    command.program,
-                    command.args.join(" ")
+                    "Subprocess timed out after {:?}: {}",
+                    result.duration,
+                    command_str
                 );
             }
         }
+    }
+
+    /// Map spawn error to ProcessError
+    fn map_spawn_error(error: std::io::Error, program: &str) -> ProcessError {
+        if error.kind() == std::io::ErrorKind::NotFound {
+            ProcessError::CommandNotFound(program.to_string())
+        } else {
+            ProcessError::Io(error)
+        }
+    }
+}
+
+#[async_trait]
+impl ProcessRunner for TokioProcessRunner {
+    async fn run(&self, command: ProcessCommand) -> Result<ProcessOutput, ProcessError> {
+        let start = std::time::Instant::now();
+
+        // Log command details
+        Self::log_command_start(&command);
+
+        // Configure and spawn the process
+        let mut cmd = Self::configure_command(&command);
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| Self::map_spawn_error(e, &command.program))?;
+
+        // Write stdin if provided
+        if let Some(stdin_data) = &command.stdin {
+            Self::write_stdin(&mut child, stdin_data).await?;
+        }
+
+        // Wait for process completion with optional timeout
+        let output = Self::wait_with_timeout(child, command.timeout).await?;
+
+        let duration = start.elapsed();
+        let status = Self::parse_exit_status(output.status);
+        let result = Self::build_output(output, &command, status.clone(), duration);
+
+        // Log the result
+        Self::log_result(&result, &command);
 
         Ok(result)
     }

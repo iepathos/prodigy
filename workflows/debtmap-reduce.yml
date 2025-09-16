@@ -4,7 +4,7 @@ mode: mapreduce
 # Setup phase: Analyze the codebase and generate debt items
 setup:
   - shell: "just coverage-lcov"
-    
+
   - shell: "debtmap analyze src --lcov target/coverage/lcov.info --output debtmap.json --format json"
 
 # Map phase: Process each debt item in parallel
@@ -13,7 +13,7 @@ map:
   input: debtmap.json
   json_path: "$.items[*]"
 
-  # Commands to execute for each debt item
+  # Commands to execute for each debt item (simplified syntax)
   agent_template:
     - claude: |
         /fix-debt-item --json '${item}'
@@ -37,7 +37,7 @@ map:
   sort_by: "unified_score.final_score DESC"  # Process highest score items first
   max_items: 10  # Limit to 10 items per run
 
-# Reduce phase: Aggregate results and finalize
+# Reduce phase: Aggregate results and finalize (simplified syntax)
 reduce:
   - shell: "just test"
     on_failure:

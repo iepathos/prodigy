@@ -4,6 +4,7 @@
 //! from failures and job resumption with minimal data loss.
 
 use crate::cook::execution::mapreduce::{AgentResult, AgentStatus, MapReduceConfig};
+use crate::cook::workflow::WorkflowStep;
 use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -90,6 +91,9 @@ pub struct MapReduceJobState {
     pub pending_items: Vec<String>,
     /// Version number for this checkpoint
     pub checkpoint_version: u32,
+    /// Format version of the checkpoint (for migration support)
+    #[serde(default = "default_format_version")]
+    pub checkpoint_format_version: u32,
     /// Parent worktree if job is running in isolated mode
     pub parent_worktree: Option<String>,
     /// State of the reduce phase
@@ -102,6 +106,15 @@ pub struct MapReduceJobState {
     pub failed_count: usize,
     /// Whether the job has completed
     pub is_complete: bool,
+    /// Agent template commands (needed for resumption)
+    pub agent_template: Vec<WorkflowStep>,
+    /// Reduce phase commands (needed for resumption)
+    pub reduce_commands: Option<Vec<WorkflowStep>>,
+}
+
+/// Default checkpoint format version
+fn default_format_version() -> u32 {
+    1
 }
 
 impl MapReduceJobState {
@@ -125,12 +138,15 @@ impl MapReduceJobState {
             failed_agents: HashMap::new(),
             pending_items,
             checkpoint_version: 0,
+            checkpoint_format_version: 1,
             parent_worktree: None,
             reduce_phase_state: None,
             total_items,
             successful_count: 0,
             failed_count: 0,
             is_complete: false,
+            agent_template: vec![],
+            reduce_commands: None,
         }
     }
 
@@ -371,31 +387,85 @@ impl CheckpointManager {
 
     /// Load the latest checkpoint for a job
     pub async fn load_checkpoint(&self, job_id: &str) -> Result<MapReduceJobState> {
-        // Try to load metadata first
-        let metadata_path = self.metadata_path(job_id);
-        if !metadata_path.exists() {
-            return Err(anyhow!("No checkpoint found for job {}", job_id));
-        }
+        self.load_checkpoint_by_version(job_id, None).await
+    }
 
-        let metadata_json = fs::read_to_string(&metadata_path)
-            .await
-            .context("Failed to read checkpoint metadata")?;
+    /// Load a specific checkpoint by version, or latest if None
+    pub async fn load_checkpoint_by_version(
+        &self,
+        job_id: &str,
+        version: Option<u32>,
+    ) -> Result<MapReduceJobState> {
+        let checkpoint_path = if let Some(v) = version {
+            // Load specific version
+            let path = self.checkpoint_path(job_id, v);
+            if !path.exists() {
+                return Err(anyhow!(
+                    "Checkpoint version {} not found for job {}",
+                    v,
+                    job_id
+                ));
+            }
+            path
+        } else {
+            // Load latest from metadata
+            let metadata_path = self.metadata_path(job_id);
+            if !metadata_path.exists() {
+                return Err(anyhow!("No checkpoint found for job {}", job_id));
+            }
 
-        let metadata: CheckpointInfo =
-            serde_json::from_str(&metadata_json).context("Failed to parse checkpoint metadata")?;
+            let metadata_json = fs::read_to_string(&metadata_path)
+                .await
+                .context("Failed to read checkpoint metadata")?;
+
+            let metadata: CheckpointInfo = serde_json::from_str(&metadata_json)
+                .context("Failed to parse checkpoint metadata")?;
+
+            metadata.path
+        };
 
         // Load the checkpoint file
-        let checkpoint_json = fs::read_to_string(&metadata.path)
+        let checkpoint_json = fs::read_to_string(&checkpoint_path)
             .await
             .context("Failed to read checkpoint file")?;
 
-        let state: MapReduceJobState =
+        let mut state: MapReduceJobState =
             serde_json::from_str(&checkpoint_json).context("Failed to parse checkpoint data")?;
 
+        // Apply migrations if needed
+        state = self.migrate_checkpoint(state)?;
+
         info!(
-            "Loaded checkpoint v{} for job {} ({} bytes)",
-            metadata.version, job_id, metadata.size_bytes
+            "Loaded checkpoint v{} for job {} (format v{})",
+            state.checkpoint_version, job_id, state.checkpoint_format_version
         );
+
+        Ok(state)
+    }
+
+    /// Migrate checkpoint to current format version
+    fn migrate_checkpoint(&self, mut state: MapReduceJobState) -> Result<MapReduceJobState> {
+        const CURRENT_FORMAT_VERSION: u32 = 1;
+
+        // If checkpoint is already at current version, no migration needed
+        if state.checkpoint_format_version >= CURRENT_FORMAT_VERSION {
+            return Ok(state);
+        }
+
+        debug!(
+            "Migrating checkpoint from format v{} to v{}",
+            state.checkpoint_format_version, CURRENT_FORMAT_VERSION
+        );
+
+        // Apply migrations based on version
+        // Currently we only have version 1, so no actual migrations yet
+        // Future migrations would go here:
+        // if state.checkpoint_format_version < 2 {
+        //     state = self.migrate_v1_to_v2(state)?;
+        // }
+
+        // Update format version
+        state.checkpoint_format_version = CURRENT_FORMAT_VERSION;
 
         Ok(state)
     }
@@ -524,13 +594,26 @@ pub trait Resumable: Send + Sync {
 #[async_trait::async_trait]
 pub trait JobStateManager: Send + Sync {
     /// Create a new job
-    async fn create_job(&self, config: MapReduceConfig, work_items: Vec<Value>) -> Result<String>;
+    async fn create_job(
+        &self,
+        config: MapReduceConfig,
+        work_items: Vec<Value>,
+        agent_template: Vec<WorkflowStep>,
+        reduce_commands: Option<Vec<WorkflowStep>>,
+    ) -> Result<String>;
 
     /// Update an agent result
     async fn update_agent_result(&self, job_id: &str, result: AgentResult) -> Result<()>;
 
     /// Get the current job state
     async fn get_job_state(&self, job_id: &str) -> Result<MapReduceJobState>;
+
+    /// Get job state from a specific checkpoint version
+    async fn get_job_state_from_checkpoint(
+        &self,
+        job_id: &str,
+        checkpoint_version: Option<u32>,
+    ) -> Result<MapReduceJobState>;
 
     /// Resume a job from checkpoint
     async fn resume_job(&self, job_id: &str) -> Result<Vec<AgentResult>>;
@@ -593,9 +676,17 @@ impl DefaultJobStateManager {
 
 #[async_trait::async_trait]
 impl JobStateManager for DefaultJobStateManager {
-    async fn create_job(&self, config: MapReduceConfig, work_items: Vec<Value>) -> Result<String> {
+    async fn create_job(
+        &self,
+        config: MapReduceConfig,
+        work_items: Vec<Value>,
+        agent_template: Vec<WorkflowStep>,
+        reduce_commands: Option<Vec<WorkflowStep>>,
+    ) -> Result<String> {
         let job_id = format!("mapreduce-{}", Utc::now().timestamp_millis());
-        let state = MapReduceJobState::new(job_id.clone(), config, work_items);
+        let mut state = MapReduceJobState::new(job_id.clone(), config, work_items);
+        state.agent_template = agent_template;
+        state.reduce_commands = reduce_commands;
 
         // Save initial checkpoint
         self.checkpoint_manager.save_checkpoint(&state).await?;
@@ -631,6 +722,17 @@ impl JobStateManager for DefaultJobStateManager {
 
         // Try to load from checkpoint
         self.checkpoint_manager.load_checkpoint(job_id).await
+    }
+
+    async fn get_job_state_from_checkpoint(
+        &self,
+        job_id: &str,
+        checkpoint_version: Option<u32>,
+    ) -> Result<MapReduceJobState> {
+        // Load from specific checkpoint version
+        self.checkpoint_manager
+            .load_checkpoint_by_version(job_id, checkpoint_version)
+            .await
     }
 
     async fn resume_job(&self, job_id: &str) -> Result<Vec<AgentResult>> {
@@ -699,6 +801,30 @@ impl JobStateManager for DefaultJobStateManager {
         self.checkpoint_manager.save_checkpoint(state).await?;
 
         Ok(())
+    }
+}
+
+impl DefaultJobStateManager {
+    /// Resume a job from a specific checkpoint version (internal use)
+    pub async fn resume_job_from_checkpoint(
+        &self,
+        job_id: &str,
+        checkpoint_version: Option<u32>,
+    ) -> Result<Vec<AgentResult>> {
+        // Load checkpoint (specific version or latest)
+        let state = self
+            .checkpoint_manager
+            .load_checkpoint_by_version(job_id, checkpoint_version)
+            .await?;
+
+        // Extract completed results
+        let results: Vec<AgentResult> = state.agent_results.values().cloned().collect();
+
+        // Store in active jobs
+        let mut jobs = self.active_jobs.write().await;
+        jobs.insert(job_id.to_string(), state);
+
+        Ok(results)
     }
 }
 
@@ -809,7 +935,10 @@ mod tests {
         let work_items = vec![serde_json::json!({"id": 1}), serde_json::json!({"id": 2})];
 
         // Create job
-        let job_id = manager.create_job(config, work_items).await.unwrap();
+        let job_id = manager
+            .create_job(config, work_items, vec![], None)
+            .await
+            .unwrap();
 
         // Update with result
         let result = AgentResult {

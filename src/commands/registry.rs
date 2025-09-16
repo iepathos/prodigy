@@ -52,20 +52,38 @@ impl CommandRegistry {
         let handler: Arc<dyn CommandHandler> = Arc::from(handler);
         let name = handler.name().to_string();
 
-        // Use try_current to check if we're in an async context
-        if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            // We're in an async context, spawn the task
-            handle.spawn(async move {
-                let mut handlers = handlers.write().await;
-                handlers.insert(name, handler);
-            });
-        } else {
-            // We're not in an async context, create a new runtime
-            let rt = tokio::runtime::Runtime::new().unwrap();
-            rt.block_on(async {
-                let mut handlers = handlers.write().await;
-                handlers.insert(name, handler);
-            });
+        // Extract the registration logic into a pure async function
+        let registration_future = Self::create_registration_future(handlers, name, handler);
+
+        // Handle runtime context using extracted logic
+        Self::execute_in_appropriate_context(registration_future);
+    }
+
+    /// Creates a future for handler registration (pure function)
+    async fn create_registration_future(
+        handlers: Arc<RwLock<HashMap<String, Arc<dyn CommandHandler>>>>,
+        name: String,
+        handler: Arc<dyn CommandHandler>,
+    ) {
+        let mut handlers = handlers.write().await;
+        handlers.insert(name, handler);
+    }
+
+    /// Executes a future in the appropriate runtime context
+    fn execute_in_appropriate_context<F>(future: F)
+    where
+        F: std::future::Future<Output = ()> + Send + 'static,
+    {
+        match tokio::runtime::Handle::try_current() {
+            Ok(handle) => {
+                // We're in an async context, spawn the task
+                handle.spawn(future);
+            }
+            Err(_) => {
+                // We're not in an async context, create a new runtime
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(future);
+            }
         }
     }
 
@@ -215,5 +233,60 @@ mod tests {
         let result = registry.execute("test", &context, HashMap::new()).await;
 
         assert!(result.is_success());
+    }
+
+    #[test]
+    fn test_register_sync_from_non_async_context() {
+        // Test registration from a synchronous context
+        let registry = CommandRegistry::new();
+        let handler = Box::new(TestHandler {
+            name: "sync_test".to_string(),
+        });
+
+        // This should work without panicking
+        registry.register_sync(handler);
+
+        // Create a runtime to check the result
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let names = rt.block_on(async { registry.list().await });
+        assert!(names.contains(&"sync_test".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_register_multiple_handlers() {
+        let registry = CommandRegistry::new();
+
+        // Register multiple handlers
+        for i in 0..5 {
+            let handler = Box::new(TestHandler {
+                name: format!("handler_{}", i),
+            });
+            registry.register_sync(handler);
+        }
+
+        // Wait for registrations
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+
+        let names = registry.list().await;
+        assert_eq!(names.len(), 5);
+        for i in 0..5 {
+            assert!(names.contains(&format!("handler_{}", i)));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_nonexistent_handler() {
+        let registry = CommandRegistry::new();
+        let context = ExecutionContext::new(std::env::current_dir().unwrap());
+
+        let result = registry
+            .execute("nonexistent", &context, HashMap::new())
+            .await;
+        assert!(result.is_error());
+        assert!(result
+            .error
+            .as_ref()
+            .map(|e| e.contains("Unknown command handler"))
+            .unwrap_or(false));
     }
 }

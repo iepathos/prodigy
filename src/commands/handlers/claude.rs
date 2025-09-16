@@ -283,4 +283,301 @@ mod tests {
         assert_eq!(data.get("dry_run"), Some(&json!(true)));
         assert_eq!(data.get("temperature"), Some(&json!(0.5)));
     }
+
+    #[tokio::test]
+    async fn test_missing_prompt_attribute() {
+        let handler = ClaudeHandler::new();
+        let context = ExecutionContext::new(PathBuf::from("/test"));
+
+        let attributes = HashMap::new();
+        let result = handler.execute(&context, attributes).await;
+
+        assert!(!result.is_success());
+        assert_eq!(result.error.unwrap(), "Missing required attribute: prompt");
+    }
+
+    #[tokio::test]
+    async fn test_with_custom_model() {
+        let handler = ClaudeHandler::new();
+        let context = ExecutionContext::new(PathBuf::from("/test")).with_dry_run(true);
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "prompt".to_string(),
+            AttributeValue::String("Test".to_string()),
+        );
+        attributes.insert(
+            "model".to_string(),
+            AttributeValue::String("claude-3-opus".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+
+        let data = result.data.unwrap();
+        assert_eq!(data.get("model"), Some(&json!("claude-3-opus")));
+    }
+
+    #[tokio::test]
+    async fn test_with_max_tokens() {
+        let handler = ClaudeHandler::new();
+        let context = ExecutionContext::new(PathBuf::from("/test")).with_dry_run(true);
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "prompt".to_string(),
+            AttributeValue::String("Test".to_string()),
+        );
+        attributes.insert("max_tokens".to_string(), AttributeValue::Number(1024.0));
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+
+        let data = result.data.unwrap();
+        assert_eq!(data.get("max_tokens"), Some(&json!(1024)));
+    }
+
+    #[tokio::test]
+    async fn test_with_system_prompt() {
+        let handler = ClaudeHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "claude",
+            vec![
+                "--model",
+                "claude-3-sonnet",
+                "--max-tokens",
+                "4096",
+                "--temperature",
+                "0.7",
+                "--system",
+                "You are a code reviewer",
+                "Review this",
+            ],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(60)),
+            Output {
+                status: std::process::ExitStatus::from_raw(0),
+                stdout: b"Review complete".to_vec(),
+                stderr: Vec::new(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "prompt".to_string(),
+            AttributeValue::String("Review this".to_string()),
+        );
+        attributes.insert(
+            "system".to_string(),
+            AttributeValue::String("You are a code reviewer".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+    }
+
+    #[tokio::test]
+    async fn test_with_context_files() {
+        let handler = ClaudeHandler::new();
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file_path = temp_dir.path().join("test.rs");
+        tokio::fs::write(&file_path, "fn main() {}").await.unwrap();
+
+        let context = ExecutionContext::new(temp_dir.path().to_path_buf()).with_dry_run(true);
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "prompt".to_string(),
+            AttributeValue::String("Review".to_string()),
+        );
+        attributes.insert(
+            "context_files".to_string(),
+            AttributeValue::Array(vec![AttributeValue::String("test.rs".to_string())]),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+
+        let data = result.data.unwrap();
+        let prompt = data.get("prompt").unwrap().as_str().unwrap();
+        assert!(prompt.contains("test.rs"));
+        assert!(prompt.contains("fn main() {}"));
+    }
+
+    #[tokio::test]
+    async fn test_context_file_not_found() {
+        let handler = ClaudeHandler::new();
+        let context = ExecutionContext::new(PathBuf::from("/test"));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "prompt".to_string(),
+            AttributeValue::String("Review".to_string()),
+        );
+        attributes.insert(
+            "context_files".to_string(),
+            AttributeValue::Array(vec![AttributeValue::String("nonexistent.rs".to_string())]),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(!result.is_success());
+        assert!(result
+            .error
+            .unwrap()
+            .contains("Failed to read context file"));
+    }
+
+    #[tokio::test]
+    async fn test_execution_failure() {
+        let handler = ClaudeHandler::new();
+        let mut mock_executor = MockSubprocessExecutor::new();
+
+        mock_executor.expect_execute(
+            "claude",
+            vec![
+                "--model",
+                "claude-3-sonnet",
+                "--max-tokens",
+                "4096",
+                "--temperature",
+                "0.7",
+                "Test",
+            ],
+            Some(PathBuf::from("/test")),
+            None,
+            Some(std::time::Duration::from_secs(60)),
+            Output {
+                status: std::process::ExitStatus::from_raw(1),
+                stdout: Vec::new(),
+                stderr: b"API error".to_vec(),
+            },
+        );
+
+        let context =
+            ExecutionContext::new(PathBuf::from("/test")).with_executor(Arc::new(mock_executor));
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "prompt".to_string(),
+            AttributeValue::String("Test".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(!result.is_success());
+        assert_eq!(result.error.unwrap(), "Claude CLI failed: API error");
+    }
+
+    #[tokio::test]
+    async fn test_execution_timeout() {
+        let handler = ClaudeHandler::new();
+        let context = ExecutionContext::new(PathBuf::from("/test")).with_dry_run(true);
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "prompt".to_string(),
+            AttributeValue::String("Test".to_string()),
+        );
+        attributes.insert("timeout".to_string(), AttributeValue::Number(30.0));
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+
+        // Timeout value is used in dry run output
+        let data = result.data.unwrap();
+        assert_eq!(data.get("dry_run"), Some(&json!(true)));
+    }
+
+    #[tokio::test]
+    async fn test_with_multiple_context_files() {
+        let handler = ClaudeHandler::new();
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let file1 = temp_dir.path().join("file1.rs");
+        let file2 = temp_dir.path().join("file2.rs");
+        tokio::fs::write(&file1, "// File 1").await.unwrap();
+        tokio::fs::write(&file2, "// File 2").await.unwrap();
+
+        let context = ExecutionContext::new(temp_dir.path().to_path_buf()).with_dry_run(true);
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "prompt".to_string(),
+            AttributeValue::String("Review".to_string()),
+        );
+        attributes.insert(
+            "context_files".to_string(),
+            AttributeValue::Array(vec![
+                AttributeValue::String("file1.rs".to_string()),
+                AttributeValue::String("file2.rs".to_string()),
+            ]),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+
+        let data = result.data.unwrap();
+        let prompt = data.get("prompt").unwrap().as_str().unwrap();
+        assert!(prompt.contains("file1.rs"));
+        assert!(prompt.contains("// File 1"));
+        assert!(prompt.contains("file2.rs"));
+        assert!(prompt.contains("// File 2"));
+    }
+
+    #[tokio::test]
+    async fn test_default_values() {
+        let handler = ClaudeHandler::new();
+        let context = ExecutionContext::new(PathBuf::from("/test")).with_dry_run(true);
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "prompt".to_string(),
+            AttributeValue::String("Test".to_string()),
+        );
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+
+        let data = result.data.unwrap();
+        assert_eq!(data.get("model"), Some(&json!("claude-3-sonnet")));
+        assert_eq!(data.get("temperature"), Some(&json!(0.7)));
+        assert_eq!(data.get("max_tokens"), Some(&json!(4096)));
+    }
+
+    #[tokio::test]
+    async fn test_with_all_optional_parameters() {
+        let handler = ClaudeHandler::new();
+        let context = ExecutionContext::new(PathBuf::from("/test")).with_dry_run(true);
+
+        let mut attributes = HashMap::new();
+        attributes.insert(
+            "prompt".to_string(),
+            AttributeValue::String("Test".to_string()),
+        );
+        attributes.insert(
+            "model".to_string(),
+            AttributeValue::String("claude-3-haiku".to_string()),
+        );
+        attributes.insert("temperature".to_string(), AttributeValue::Number(0.3));
+        attributes.insert("max_tokens".to_string(), AttributeValue::Number(2048.0));
+        attributes.insert(
+            "system".to_string(),
+            AttributeValue::String("System prompt".to_string()),
+        );
+        attributes.insert("timeout".to_string(), AttributeValue::Number(120.0));
+
+        let result = handler.execute(&context, attributes).await;
+        assert!(result.is_success());
+
+        let data = result.data.unwrap();
+        assert_eq!(data.get("model"), Some(&json!("claude-3-haiku")));
+        assert_eq!(data.get("temperature"), Some(&json!(0.3)));
+        assert_eq!(data.get("max_tokens"), Some(&json!(2048)));
+        assert_eq!(data.get("system"), Some(&json!("System prompt")));
+    }
 }

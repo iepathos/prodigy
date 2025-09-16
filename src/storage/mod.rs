@@ -140,9 +140,26 @@ pub fn extract_repo_name(repo_path: &Path) -> Result<String> {
 
 /// Get the global base directory (~/.prodigy)
 pub fn get_global_base_dir() -> Result<PathBuf> {
-    dirs::home_dir()
-        .ok_or_else(|| anyhow!("Could not determine home directory"))
-        .map(|home| home.join(".prodigy"))
+    // During tests, use a temp directory to avoid filesystem issues
+    #[cfg(test)]
+    {
+        use std::sync::OnceLock;
+        static TEST_DIR: OnceLock<PathBuf> = OnceLock::new();
+        let test_dir = TEST_DIR.get_or_init(|| {
+            let temp_dir =
+                std::env::temp_dir().join(format!("prodigy-test-{}", std::process::id()));
+            std::fs::create_dir_all(&temp_dir).unwrap();
+            temp_dir
+        });
+        Ok(test_dir.clone())
+    }
+
+    #[cfg(not(test))]
+    {
+        dirs::home_dir()
+            .ok_or_else(|| anyhow!("Could not determine home directory"))
+            .map(|home| home.join(".prodigy"))
+    }
 }
 
 /// List DLQ job IDs from local storage (fallback for legacy support)

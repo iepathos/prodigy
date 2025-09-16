@@ -1,0 +1,21 @@
+name: test-mapreduce-context
+mode: mapreduce
+
+setup:
+  - shell: "pwd"
+  - shell: "echo 'Current directory:' && ls -la"
+  - shell: "echo '[\"item1\", \"item2\"]' > test-items.json"
+  - shell: "cat test-items.json"
+
+map:
+  input: test-items.json
+  json_path: "$[*]"
+
+  agent_template:
+    - shell: "echo 'Processing ${item} in directory:' && pwd"
+
+  max_parallel: 2
+
+reduce:
+  - shell: "echo 'Reduce phase executed in:' && pwd"
+  - shell: "echo 'Processed ${map.successful} out of ${map.total} items'"

@@ -10,36 +10,30 @@ map:
   input: debt_items.json
   json_path: "$.debt_items[*]"
   
-  # Commands to execute for each work item
+  # Commands to execute for each work item (simplified syntax)
   agent_template:
-    commands:
-      # Note: Context field is not yet implemented. Pass context via command arguments instead.
-      - claude: "/fix-issue ${item.description} --file ${item.location.file} --line ${item.location.line}"
-      
-      - shell: "cargo test"
-        on_failure:
-          claude: "/debug-test ${shell.output}"
-          max_attempts: 3
-          fail_workflow: false
-  
+    # Note: Context field is not yet implemented. Pass context via command arguments instead.
+    - claude: "/fix-issue ${item.description} --file ${item.location.file} --line ${item.location.line}"
+
+    - shell: "cargo test"
+      on_failure:
+        claude: "/debug-test ${shell.output}"
+
   # Parallelization settings
   max_parallel: 10
-  timeout_per_agent: 600s
-  retry_on_failure: 2
-  
+
   # Optional filtering and sorting
   filter: "severity == 'high' || severity == 'critical'"
   sort_by: "priority"
 
-# Reduce phase: Aggregate results
+# Reduce phase: Aggregate results (simplified syntax)
 reduce:
-  commands:
-    - claude: "/summarize-fixes ${map.results}"
-      capture_output: true
-    
-    - shell: "git merge --no-ff prodigy-agent-*"
-      commit_required: true
-    
-    # Note: Environment variables in reduce phase are not yet implemented.
-    # Pass values as command arguments instead.
-    - claude: "/generate-report --fixed ${map.successful} --failed ${map.failed}"
+  - claude: "/summarize-fixes ${map.results}"
+    capture_output: true
+
+  - shell: "git merge --no-ff prodigy-agent-*"
+    commit_required: true
+
+  # Note: Environment variables in reduce phase are not yet implemented.
+  # Pass values as command arguments instead.
+  - claude: "/generate-report --fixed ${map.successful} --failed ${map.failed}"

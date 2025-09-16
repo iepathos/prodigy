@@ -69,13 +69,9 @@ mod tests {
         // This is handled in the workflow executor by returning early on setup failure
 
         // Simulate a failing setup step
-        let setup_result: Result<(), anyhow::Error> = Err(anyhow::anyhow!("Setup command failed"));
+        let setup_error = anyhow::anyhow!("Setup command failed");
 
         // Verify that error is propagated correctly
-        assert!(setup_result.is_err());
-        assert!(setup_result
-            .unwrap_err()
-            .to_string()
-            .contains("Setup command failed"));
+        assert!(setup_error.to_string().contains("Setup command failed"));
     }
 }

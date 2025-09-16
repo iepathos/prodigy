@@ -1,17 +1,23 @@
-# Sequential debt elimination workflow
-# For parallel processing, use debtmap-mapreduce.yml instead
+# Sequential workflow. Fix top technical item
+- shell: "just coverage-lcov"
 
-name: debtmap-sequential
-mode: sequential  # Process items one at a time
+# Capture initial debtmap state for validation
+- shell: "debtmap analyze . --lcov target/coverage/lcov.info --output .prodigy/debtmap-before.json --format json -vv"
 
-# Generate coverage report
-- shell: "cargo tarpaulin --config .tarpaulin.toml --out Lcov --output-dir target/coverage --timeout 120"
-
-# Analyze and fix technical debt
-- claude: "/debtmap"
+- claude: "/prodigy-debtmap"
   commit_required: true
+  validate:
+    # Capture state after changes and validate improvement
+    shell: "debtmap analyze . --lcov target/coverage/lcov.info --output .prodigy/debtmap-after.json --format json -vv"
+    claude: "/prodigy-validate-debtmap-improvement --before .prodigy/debtmap-before.json --after .prodigy/debtmap-after.json --output .prodigy/debtmap-validation.json"
+    result_file: ".prodigy/debtmap-validation.json"
+    threshold: 75  # Debtmap item should be at least 75% improved
+    on_incomplete:
+      claude: "/prodigy-complete-debtmap-fix --gaps ${validation.gaps}"
+      max_attempts: 3
+      fail_workflow: false  # Continue even if we can't reach threshold
+      commit_required: true
 
-# Run tests after debt fixes
 - shell: "just test"
   on_failure:
     claude: "/prodigy-debug-test-failure --output ${shell.output}"
@@ -24,8 +30,3 @@ mode: sequential  # Process items one at a time
     claude: "/prodigy-lint ${shell.output}"
     max_attempts: 3
     fail_workflow: false
-
-# Note: This workflow processes debt items sequentially.
-# For parallel processing of multiple debt items, use:
-#   prodigy cook workflows/debtmap-mapreduce.yml --worktree
-# This will process debt items in parallel using MapReduce mode.

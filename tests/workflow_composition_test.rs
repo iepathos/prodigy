@@ -15,7 +15,7 @@ use tempfile::TempDir;
 #[tokio::test]
 async fn test_basic_workflow_composition() -> Result<()> {
     let registry = Arc::new(TemplateRegistry::new());
-    let composer = WorkflowComposer::new(registry);
+    let _composer = WorkflowComposer::new(registry);
 
     // Create a simple workflow
     let workflow = ComposableWorkflow::from_config(WorkflowConfig {

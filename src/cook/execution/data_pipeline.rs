@@ -1545,8 +1545,10 @@ mod tests {
     #[test]
     fn test_distinct_deduplication() {
         // Test deduplication based on distinct field
-        let mut pipeline = DataPipeline::default();
-        pipeline.distinct = Some("id".to_string());
+        let pipeline = DataPipeline {
+            distinct: Some("id".to_string()),
+            ..Default::default()
+        };
 
         let items = vec![
             json!({"id": 1, "value": "a"}),

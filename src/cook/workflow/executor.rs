@@ -485,7 +485,7 @@ pub struct WorkflowStep {
 }
 
 fn default_commit_required() -> bool {
-    true
+    false
 }
 
 fn is_false(b: &bool) -> bool {
@@ -2391,6 +2391,48 @@ impl WorkflowExecutor {
         env: &ExecutionEnvironment,
         ctx: &mut WorkflowContext,
     ) -> Result<StepResult> {
+        // Display what step we're executing
+        let step_name = self.get_step_display_name(step);
+        self.user_interaction
+            .display_progress(&format!("Executing: {}", step_name));
+
+        // Log verbose execution context
+        tracing::info!("=== Step Execution Context ===");
+        tracing::info!("Step: {}", step_name);
+        tracing::info!("Working Directory: {}", env.working_dir.display());
+        tracing::info!("Project Directory: {}", env.project_dir.display());
+        if let Some(ref worktree) = env.worktree_name {
+            tracing::info!("Worktree: {}", worktree);
+        }
+        tracing::info!("Session ID: {}", env.session_id);
+
+        // Log variables if any
+        if !ctx.variables.is_empty() {
+            tracing::info!("Variables:");
+            for (key, value) in &ctx.variables {
+                // Truncate long values for readability
+                let display_value = if value.len() > 100 {
+                    format!("{}... (truncated)", &value[..100])
+                } else {
+                    value.clone()
+                };
+                tracing::info!("  {} = {}", key, display_value);
+            }
+        }
+
+        // Log captured outputs if any
+        if !ctx.captured_outputs.is_empty() {
+            tracing::info!("Captured Outputs:");
+            for (key, value) in &ctx.captured_outputs {
+                let display_value = if value.len() > 100 {
+                    format!("{}... (truncated)", &value[..100])
+                } else {
+                    value.clone()
+                };
+                tracing::info!("  {} = {}", key, display_value);
+            }
+        }
+
         // Initialize CommitTracker for this step
         let git_ops = Arc::new(crate::abstractions::RealGitOperations::new());
         let working_dir = env.working_dir.clone();
@@ -2435,7 +2477,36 @@ impl WorkflowExecutor {
         let mut actual_env = env.clone();
         if let Some(ref dir) = working_dir_override {
             actual_env.working_dir = dir.clone();
+            tracing::info!("Working directory overridden to: {}", dir.display());
         }
+
+        // Log environment variables being set
+        if !env_vars.is_empty() {
+            tracing::info!("Environment Variables:");
+            for (key, value) in &env_vars {
+                // Don't log sensitive values
+                if key.to_lowercase().contains("secret")
+                    || key.to_lowercase().contains("token")
+                    || key.to_lowercase().contains("password")
+                    || key.to_lowercase().contains("key")
+                {
+                    tracing::info!("  {} = <redacted>", key);
+                } else {
+                    let display_value = if value.len() > 100 {
+                        format!("{}... (truncated)", &value[..100])
+                    } else {
+                        value.clone()
+                    };
+                    tracing::info!("  {} = {}", key, display_value);
+                }
+            }
+        }
+
+        tracing::info!(
+            "Actual execution directory: {}",
+            actual_env.working_dir.display()
+        );
+        tracing::info!("==============================");
 
         // Handle test mode
         let test_mode = std::env::var("PRODIGY_TEST_MODE").unwrap_or_default() == "true";
@@ -2736,6 +2807,13 @@ impl WorkflowExecutor {
     ) -> Result<StepResult> {
         use tokio::process::Command;
         use tokio::time::{timeout as tokio_timeout, Duration};
+
+        // Log shell command execution details
+        tracing::info!("Executing shell command: {}", command);
+        tracing::info!("  Working directory: {}", env.working_dir.display());
+        if !env_vars.is_empty() {
+            tracing::debug!("  With {} environment variables set", env_vars.len());
+        }
 
         // Create command (Unix-like systems only)
         let mut cmd = Command::new("sh");

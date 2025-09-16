@@ -531,6 +531,49 @@ impl WorktreePool {
         });
     }
 
+    /// Clean up a worktree by its name
+    pub async fn cleanup_by_name(&self, name: &str) -> Result<()> {
+        // Check in-use worktrees
+        {
+            let mut in_use = self.in_use.write().await;
+            if let Some((id, worktree)) = in_use
+                .iter()
+                .find(|(_, w)| w.session.as_ref().is_some_and(|s| s.name == name))
+                .map(|(id, w)| (id.clone(), w.clone()))
+            {
+                in_use.remove(&id);
+                self.cleanup_worktree(&worktree).await;
+                return Ok(());
+            }
+        }
+
+        // Check available worktrees
+        {
+            let mut available = self.available.write().await;
+            if let Some(pos) = available
+                .iter()
+                .position(|w| w.session.as_ref().is_some_and(|s| s.name == name))
+            {
+                if let Some(worktree) = available.remove(pos) {
+                    self.cleanup_worktree(&worktree).await;
+                    return Ok(());
+                }
+            }
+        }
+
+        // Check named worktrees
+        {
+            let mut named = self.named.write().await;
+            if let Some(worktree) = named.remove(name) {
+                self.cleanup_worktree(&worktree).await;
+                return Ok(());
+            }
+        }
+
+        // If not found in pool, try direct cleanup
+        self.manager.cleanup_session(name, false).await
+    }
+
     /// Get pool metrics
     pub async fn get_metrics(&self) -> WorktreeMetrics {
         WorktreeMetrics {
@@ -688,13 +731,13 @@ mod tests {
             .await
             .unwrap();
         Command::new("git")
-            .args(&["config", "user.email", "test@example.com"])
+            .args(["config", "user.email", "test@example.com"])
             .current_dir(temp_dir.path())
             .output()
             .await
             .unwrap();
         Command::new("git")
-            .args(&["config", "user.name", "Test User"])
+            .args(["config", "user.name", "Test User"])
             .current_dir(temp_dir.path())
             .output()
             .await
@@ -703,13 +746,13 @@ mod tests {
         // Create initial commit
         std::fs::write(temp_dir.path().join("README.md"), "test").unwrap();
         Command::new("git")
-            .args(&["add", "."])
+            .args(["add", "."])
             .current_dir(temp_dir.path())
             .output()
             .await
             .unwrap();
         Command::new("git")
-            .args(&["commit", "-m", "Initial commit"])
+            .args(["commit", "-m", "Initial commit"])
             .current_dir(temp_dir.path())
             .output()
             .await
@@ -749,13 +792,13 @@ mod tests {
             .await
             .unwrap();
         Command::new("git")
-            .args(&["config", "user.email", "test@example.com"])
+            .args(["config", "user.email", "test@example.com"])
             .current_dir(temp_dir.path())
             .output()
             .await
             .unwrap();
         Command::new("git")
-            .args(&["config", "user.name", "Test User"])
+            .args(["config", "user.name", "Test User"])
             .current_dir(temp_dir.path())
             .output()
             .await
@@ -764,13 +807,13 @@ mod tests {
         // Create initial commit
         std::fs::write(temp_dir.path().join("README.md"), "test").unwrap();
         Command::new("git")
-            .args(&["add", "."])
+            .args(["add", "."])
             .current_dir(temp_dir.path())
             .output()
             .await
             .unwrap();
         Command::new("git")
-            .args(&["commit", "-m", "Initial commit"])
+            .args(["commit", "-m", "Initial commit"])
             .current_dir(temp_dir.path())
             .output()
             .await
@@ -805,13 +848,13 @@ mod tests {
             .await
             .unwrap();
         Command::new("git")
-            .args(&["config", "user.email", "test@example.com"])
+            .args(["config", "user.email", "test@example.com"])
             .current_dir(temp_dir.path())
             .output()
             .await
             .unwrap();
         Command::new("git")
-            .args(&["config", "user.name", "Test User"])
+            .args(["config", "user.name", "Test User"])
             .current_dir(temp_dir.path())
             .output()
             .await
@@ -820,13 +863,13 @@ mod tests {
         // Create initial commit
         std::fs::write(temp_dir.path().join("README.md"), "test").unwrap();
         Command::new("git")
-            .args(&["add", "."])
+            .args(["add", "."])
             .current_dir(temp_dir.path())
             .output()
             .await
             .unwrap();
         Command::new("git")
-            .args(&["commit", "-m", "Initial commit"])
+            .args(["commit", "-m", "Initial commit"])
             .current_dir(temp_dir.path())
             .output()
             .await

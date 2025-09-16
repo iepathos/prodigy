@@ -1097,7 +1097,7 @@ mod merge_history_tests {
             assert_eq!(commit.hash, format!("commit{}", i + 1));
             assert!(commit
                 .message
-                .contains(&format!("{}", ["First", "Second", "Third"][i])));
+                .contains(&["First", "Second", "Third"][i].to_string()));
         }
 
         // Verify serialization preserves all commits

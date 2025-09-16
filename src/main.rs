@@ -224,6 +224,43 @@ enum Commands {
         #[arg(short, long)]
         path: Option<PathBuf>,
     },
+    /// Migrate workflow YAML files to simplified syntax
+    #[command(name = "migrate-yaml")]
+    MigrateYaml {
+        /// Workflow file or directory to migrate (defaults to workflows/)
+        #[arg(value_name = "PATH")]
+        path: Option<PathBuf>,
+
+        /// Create backup files (.bak)
+        #[arg(long, default_value = "true")]
+        backup: bool,
+
+        /// Dry run - show what would be changed without modifying files
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Force overwrite without backup
+        #[arg(short, long)]
+        force: bool,
+    },
+    /// Validate workflow YAML format and suggest improvements
+    #[command(name = "validate")]
+    Validate {
+        /// Workflow file to validate
+        workflow: PathBuf,
+
+        /// Check for simplified format
+        #[arg(long, default_value = "simplified")]
+        format: String,
+
+        /// Show suggestions for improvements
+        #[arg(long, default_value = "true")]
+        suggest: bool,
+
+        /// Exit with error code if not valid
+        #[arg(long)]
+        strict: bool,
+    },
     /// Resume a MapReduce job from its checkpoint
     #[command(name = "resume-job")]
     ResumeJob {
@@ -785,6 +822,18 @@ async fn execute_command(command: Option<Commands>) -> anyhow::Result<()> {
             };
             prodigy::init::run(init_cmd).await
         }
+        Some(Commands::MigrateYaml {
+            path,
+            backup,
+            dry_run,
+            force,
+        }) => run_migrate_yaml_command(path, backup, dry_run, force).await,
+        Some(Commands::Validate {
+            workflow,
+            format,
+            suggest,
+            strict,
+        }) => run_validate_command(workflow, format, suggest, strict).await,
         Some(Commands::ResumeJob {
             job_id,
             force,
@@ -1427,24 +1476,159 @@ async fn run_resume_job_command(
     max_retries: u32,
     path: Option<PathBuf>,
 ) -> anyhow::Result<()> {
+    use prodigy::cook::execution::mapreduce::{MapReduceExecutor, ResumeOptions};
+    use prodigy::cook::execution::state::{DefaultJobStateManager, JobStateManager};
+    use prodigy::cook::orchestrator::ExecutionEnvironment;
+    use prodigy::worktree::WorktreeManager;
+    use std::sync::Arc;
+
     println!("📝 Resuming MapReduce job: {}", job_id);
     println!("  Options: force={}, max_retries={}", force, max_retries);
 
-    // For now, print a message that this feature is implemented but needs the infrastructure
-    println!("✅ Resume job command infrastructure is ready.");
-    println!("Note: To resume a job, ensure the job was created with checkpoint support.");
+    // Change to specified directory if provided
+    let project_root = if let Some(p) = path {
+        std::env::set_current_dir(&p)?;
+        p
+    } else {
+        std::env::current_dir()?
+    };
 
-    if let Some(p) = path {
-        println!("  Working directory: {}", p.display());
+    // Create state manager to load job checkpoint
+    let state_manager: Arc<dyn JobStateManager> =
+        Arc::new(DefaultJobStateManager::new_with_global(project_root.clone()).await?);
+
+    // Load job state to validate it exists
+    let job_state = match state_manager.get_job_state(&job_id).await {
+        Ok(state) => state,
+        Err(e) => {
+            eprintln!("❌ Failed to load job state for '{}': {}", job_id, e);
+            eprintln!("   Make sure the job ID is correct and the checkpoint exists.");
+            return Err(anyhow::anyhow!("Job not found or checkpoint corrupted"));
+        }
+    };
+
+    // Display job status
+    println!("\n📊 Job Status:");
+    println!("  Job ID: {}", job_state.job_id);
+    println!("  Total items: {}", job_state.total_items);
+    println!(
+        "  Completed: {} ({:.1}%)",
+        job_state.completed_agents.len(),
+        (job_state.completed_agents.len() as f64 / job_state.total_items as f64) * 100.0
+    );
+    println!("  Failed: {}", job_state.failed_agents.len());
+    println!("  Pending: {}", job_state.pending_items.len());
+    println!("  Checkpoint version: {}", job_state.checkpoint_version);
+
+    if job_state.is_complete && !force {
+        println!("\n✅ Job is already complete. Use --force to re-process failed items.");
+        return Ok(());
     }
 
-    // TODO: Once the proper infrastructure is in place, this will:
-    // 1. Load the job state from checkpoint
-    // 2. Resume execution from the last checkpoint
-    // 3. Process remaining work items
-    // 4. Handle retries for failed items
+    // Prepare execution environment using the orchestrator's ExecutionEnvironment
+    // Generate a unique session ID for this resume operation
+    let session_id = format!("resume-{}-{}", job_id, chrono::Utc::now().timestamp());
 
-    Ok(())
+    let env = ExecutionEnvironment {
+        working_dir: project_root.clone(),
+        project_dir: project_root.clone(),
+        worktree_name: None,
+        session_id,
+    };
+
+    // Create resume options - only use fields that exist
+    let options = ResumeOptions {
+        force,
+        max_additional_retries: max_retries,
+        skip_validation: false,
+        from_checkpoint: None,
+    };
+
+    println!("\n🔄 Resuming job execution...\n");
+
+    // Create necessary components for MapReduceExecutor
+    // Note: This is a simplified version - full implementation would reuse components from cook command
+    use prodigy::subprocess::SubprocessManager;
+    let subprocess = SubprocessManager::production();
+    let worktree_manager = Arc::new(WorktreeManager::new(project_root.clone(), subprocess)?);
+
+    // Create Claude executor using the cook module's implementation
+    use prodigy::cook::execution::{ClaudeExecutor, ClaudeExecutorImpl, RealCommandRunner};
+    let runner = RealCommandRunner::new();
+    let claude_executor: Arc<dyn ClaudeExecutor> = Arc::new(ClaudeExecutorImpl::new(runner));
+
+    // Create session manager using the SessionManagerAdapter
+    use prodigy::cook::session::{SessionManager, SessionManagerAdapter};
+
+    // SessionManagerAdapter creates its own internal session manager
+    let session_manager: Arc<dyn SessionManager> =
+        Arc::new(SessionManagerAdapter::new(project_root.clone()));
+
+    // Create user interaction handler
+    use prodigy::cook::interaction::{DefaultUserInteraction, UserInteraction};
+    let user_interaction: Arc<dyn UserInteraction> = Arc::new(DefaultUserInteraction::new());
+
+    // Create MapReduce executor
+    let executor = MapReduceExecutor::new(
+        claude_executor,
+        session_manager,
+        user_interaction,
+        worktree_manager,
+        project_root,
+    )
+    .await;
+
+    // Resume the job
+    match executor
+        .resume_job_with_options(&job_id, options, &env)
+        .await
+    {
+        Ok(result) => {
+            println!("\n✅ Job resumed successfully!");
+            println!(
+                "  Resumed from checkpoint version: {}",
+                result.resumed_from_version
+            );
+            println!("  Items already completed: {}", result.already_completed);
+            println!("  Items processed in this run: {}", result.remaining_items);
+            println!(
+                "  Total successful: {}",
+                result
+                    .final_results
+                    .iter()
+                    .filter(|r| matches!(
+                        r.status,
+                        prodigy::cook::execution::mapreduce::AgentStatus::Success
+                    ))
+                    .count()
+            );
+
+            let failed_count = result
+                .final_results
+                .iter()
+                .filter(|r| {
+                    matches!(
+                        r.status,
+                        prodigy::cook::execution::mapreduce::AgentStatus::Failed(_)
+                    )
+                })
+                .count();
+
+            if failed_count > 0 {
+                println!("  ⚠️  Failed items: {}", failed_count);
+                println!(
+                    "     Check the Dead Letter Queue for details: prodigy dlq list {}",
+                    job_id
+                );
+            }
+
+            Ok(())
+        }
+        Err(e) => {
+            eprintln!("\n❌ Failed to resume job: {}", e);
+            Err(anyhow::anyhow!("Job resumption failed: {}", e))
+        }
+    }
 }
 
 // Pure helper functions for DLQ operations
@@ -1606,25 +1790,64 @@ async fn run_dlq_command(command: DlqCommands) -> anyhow::Result<()> {
             force,
         } => {
             use prodigy::cook::execution::dlq_reprocessor::{
-                DlqReprocessor, ReprocessOptions, RetryStrategy,
+                DlqFilterAdvanced, DlqReprocessor, ErrorType, ReprocessOptions, RetryStrategy,
             };
             use std::sync::Arc;
+
+            println!("Starting DLQ reprocessing for workflow: {}", workflow_id);
 
             // Get DLQ instance
             let dlq = get_dlq_instance(&workflow_id, &project_root).await?;
             let dlq_arc = Arc::new(dlq);
 
             // Create reprocessor
-            let _reprocessor = DlqReprocessor::new(
+            let reprocessor = DlqReprocessor::new(
                 dlq_arc.clone(),
                 None, // Event logger
                 project_root.clone(),
             );
 
+            // Parse filter if provided
+            let advanced_filter = if let Some(filter_str) = filter {
+                // Parse simple filter expressions into advanced filter
+                let mut adv_filter = DlqFilterAdvanced {
+                    error_types: None,
+                    date_range: None,
+                    item_filter: None,
+                    max_failure_count: None,
+                };
+
+                // Check for common filter patterns
+                if filter_str.contains("error_type=") {
+                    // Parse error type filter
+                    if filter_str.contains("timeout") {
+                        adv_filter.error_types = Some(vec![ErrorType::Timeout]);
+                    } else if filter_str.contains("validation") {
+                        adv_filter.error_types = Some(vec![ErrorType::Validation]);
+                    } else if filter_str.contains("command") {
+                        adv_filter.error_types = Some(vec![ErrorType::CommandFailure]);
+                    }
+                } else if filter_str.contains("failure_count") {
+                    // Parse failure count filter
+                    if let Some(num_str) = filter_str.split('=').nth(1) {
+                        if let Ok(num) = num_str.trim().parse::<u32>() {
+                            adv_filter.max_failure_count = Some(num);
+                        }
+                    }
+                } else {
+                    // Use as item filter expression
+                    adv_filter.item_filter = Some(filter_str);
+                }
+
+                Some(adv_filter)
+            } else {
+                None
+            };
+
             // Create reprocess options
             let options = ReprocessOptions {
                 max_retries,
-                filter,
+                filter: advanced_filter,
                 parallel,
                 timeout_per_item: 300,
                 strategy: RetryStrategy::ExponentialBackoff,
@@ -1632,30 +1855,67 @@ async fn run_dlq_command(command: DlqCommands) -> anyhow::Result<()> {
                 force,
             };
 
-            // For now, we'll display what would be reprocessed
-            let filter_obj = prodigy::cook::execution::dlq::DLQFilter::default();
-            let items = dlq_arc.list_items(filter_obj).await?;
-
-            let eligible_count = if force {
-                items.len()
-            } else {
-                items.iter().filter(|i| i.reprocess_eligible).count()
-            };
-
-            println!("DLQ Reprocessing for workflow: {}", workflow_id);
-            println!("  Total items in DLQ: {}", items.len());
-            println!("  Eligible for reprocessing: {}", eligible_count);
-            if let Some(ref f) = options.filter {
-                println!("  Filter expression: {}", f);
-            }
+            // Execute reprocessing
+            println!("Configuration:");
             println!("  Max retries: {}", options.max_retries);
             println!("  Parallel workers: {}", options.parallel);
             println!("  Force reprocessing: {}", options.force);
+            if let Some(ref f) = options.filter {
+                if let Some(ref types) = f.error_types {
+                    println!("  Error type filter: {:?}", types);
+                }
+                if let Some(ref expr) = f.item_filter {
+                    println!("  Item filter: {}", expr);
+                }
+                if let Some(max) = f.max_failure_count {
+                    println!("  Max failure count: {}", max);
+                }
+            }
+            println!();
 
-            println!(
-                "\nNote: Full reprocessing with MapReduce executor integration is in progress."
-            );
-            println!("Currently showing analysis only. Items can be manually resubmitted.");
+            // Perform the actual reprocessing
+            match reprocessor.reprocess_items(options).await {
+                Ok(result) => {
+                    println!("\n✅ DLQ Reprocessing completed!");
+                    println!("\nSummary:");
+                    println!("  Total items processed: {}", result.total_items);
+                    println!("  Successful: {} ✓", result.successful);
+                    println!("  Failed: {} ✗", result.failed);
+                    if result.skipped > 0 {
+                        println!("  Skipped: {} ⊘", result.skipped);
+                    }
+                    println!("  Duration: {:?}", result.duration);
+                    println!("  Job ID: {}", result.job_id);
+
+                    if !result.error_patterns.is_empty() {
+                        println!("\nError patterns:");
+                        for (pattern, count) in &result.error_patterns {
+                            println!("  {}: {}", pattern, count);
+                        }
+                    }
+
+                    if !result.failed_items.is_empty() {
+                        println!("\nFailed items ({}):", result.failed_items.len());
+                        for (i, item) in result.failed_items.iter().take(5).enumerate() {
+                            println!("  {}. {}", i + 1, item);
+                        }
+                        if result.failed_items.len() > 5 {
+                            println!("  ... and {} more", result.failed_items.len() - 5);
+                        }
+                    }
+
+                    if result.failed > 0 {
+                        println!("\n⚠️  Some items failed reprocessing. Review the failed items and consider:");
+                        println!("  - Adjusting retry parameters");
+                        println!("  - Fixing underlying issues");
+                        println!("  - Manual intervention for persistent failures");
+                    }
+                }
+                Err(e) => {
+                    eprintln!("❌ DLQ reprocessing failed: {}", e);
+                    std::process::exit(1);
+                }
+            }
         }
         DlqCommands::Stats { workflow_id } => {
             if let Some(wf_id) = workflow_id {
@@ -2011,6 +2271,87 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
             merged_only,
         } => handle_clean_command(&worktree_manager, name, all, force, merged_only).await,
     }
+}
+
+/// Run migrate-yaml command to convert workflows to simplified syntax
+async fn run_migrate_yaml_command(
+    path: Option<PathBuf>,
+    backup: bool,
+    dry_run: bool,
+    force: bool,
+) -> anyhow::Result<()> {
+    use prodigy::cli::yaml_migrator::YamlMigrator;
+
+    let target = path.unwrap_or_else(|| PathBuf::from("workflows"));
+
+    if dry_run {
+        println!("🔍 Running migration check (dry run)...");
+    } else {
+        println!("📝 Migrating YAML files to simplified syntax...");
+    }
+
+    let migrator = YamlMigrator::new(backup && !force);
+    let results = if target.is_file() {
+        vec![migrator.migrate_file(&target, dry_run)?]
+    } else {
+        migrator.migrate_directory(&target, dry_run)?
+    };
+
+    // Print summary
+    let migrated_count = results.iter().filter(|r| r.was_migrated).count();
+    let error_count = results.iter().filter(|r| r.error.is_some()).count();
+
+    if migrated_count > 0 {
+        println!(
+            "✅ Migrated {} file(s) to simplified syntax",
+            migrated_count
+        );
+    }
+    if error_count > 0 {
+        println!("⚠️  {} file(s) had errors", error_count);
+    }
+    if migrated_count == 0 && error_count == 0 {
+        println!("ℹ️  No files needed migration");
+    }
+
+    Ok(())
+}
+
+/// Run validate command to check workflow format
+async fn run_validate_command(
+    workflow: PathBuf,
+    format: String,
+    suggest: bool,
+    strict: bool,
+) -> anyhow::Result<()> {
+    use prodigy::cli::yaml_validator::YamlValidator;
+
+    println!("🔍 Validating workflow: {}", workflow.display());
+
+    let validator = YamlValidator::new(format == "simplified");
+    let result = validator.validate_file(&workflow)?;
+
+    if result.is_valid {
+        println!("✅ Workflow is valid and uses {} format", format);
+    } else {
+        println!("⚠️  Workflow validation issues found:");
+        for issue in &result.issues {
+            println!("   - {}", issue);
+        }
+    }
+
+    if suggest && !result.suggestions.is_empty() {
+        println!("\n💡 Suggestions for improvement:");
+        for suggestion in &result.suggestions {
+            println!("   - {}", suggestion);
+        }
+    }
+
+    if strict && !result.is_valid {
+        return Err(anyhow::anyhow!("Workflow validation failed"));
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

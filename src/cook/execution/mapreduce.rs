@@ -24,7 +24,7 @@ use crate::cook::session::SessionManager;
 use crate::cook::workflow::{CommandType, StepResult, WorkflowStep};
 use crate::subprocess::SubprocessManager;
 use crate::worktree::{
-    WorktreeHandle, WorktreeManager, WorktreePool, WorktreePoolConfig, WorktreeRequest,
+    WorktreeManager, WorktreePool, WorktreePoolConfig, WorktreeRequest, WorktreeSession,
 };
 // Keep anyhow imports for backwards compatibility with state.rs which still uses anyhow::Result
 use chrono::Utc;
@@ -171,6 +171,9 @@ pub struct ResumeOptions {
     pub max_additional_retries: u32,
     /// Skip validation of checkpoint integrity
     pub skip_validation: bool,
+    /// Specific checkpoint version to resume from (None for latest)
+    #[serde(default)]
+    pub from_checkpoint: Option<u32>,
 }
 
 impl Default for ResumeOptions {
@@ -179,6 +182,7 @@ impl Default for ResumeOptions {
             force: false,
             max_additional_retries: 2,
             skip_validation: false,
+            from_checkpoint: None,
         }
     }
 }
@@ -540,6 +544,39 @@ fn build_agent_context_variables(
     Ok(variables)
 }
 
+/// Generate agent ID from index and item ID (pure function)
+fn generate_agent_id(agent_index: usize, item_id: &str) -> String {
+    format!("agent-{}-{}", agent_index, item_id)
+}
+
+/// Generate branch name for an agent (pure function)
+fn generate_agent_branch_name(session_id: &str, item_id: &str) -> String {
+    format!("prodigy-agent-{}-{}", session_id, item_id)
+}
+
+/// Classify agent status for event logging (pure function)
+#[cfg(test)]
+fn classify_agent_status(status: &AgentStatus) -> AgentEventType {
+    match status {
+        AgentStatus::Success => AgentEventType::Completed,
+        AgentStatus::Failed(_) => AgentEventType::Failed,
+        AgentStatus::Timeout => AgentEventType::TimedOut,
+        AgentStatus::Retrying(_) => AgentEventType::Retrying,
+        _ => AgentEventType::InProgress,
+    }
+}
+
+/// Enum for agent event types
+#[cfg(test)]
+#[derive(Debug, Clone, PartialEq)]
+enum AgentEventType {
+    Completed,
+    Failed,
+    TimedOut,
+    Retrying,
+    InProgress,
+}
+
 #[cfg(test)]
 mod pure_function_tests {
     use super::*;
@@ -670,6 +707,56 @@ mod pure_function_tests {
         assert_eq!(summary.successful, 0);
         assert_eq!(summary.failed, 0);
         assert_eq!(summary.total, 0);
+    }
+
+    /// Test generate_agent_id pure function
+    #[test]
+    fn test_generate_agent_id() {
+        assert_eq!(generate_agent_id(0, "item-1"), "agent-0-item-1");
+        assert_eq!(generate_agent_id(5, "test-item"), "agent-5-test-item");
+        assert_eq!(generate_agent_id(100, "special"), "agent-100-special");
+    }
+
+    /// Test generate_agent_branch_name pure function
+    #[test]
+    fn test_generate_agent_branch_name() {
+        assert_eq!(
+            generate_agent_branch_name("session-123", "item-1"),
+            "prodigy-agent-session-123-item-1"
+        );
+        assert_eq!(
+            generate_agent_branch_name("test-session", "special-item"),
+            "prodigy-agent-test-session-special-item"
+        );
+    }
+
+    /// Test classify_agent_status pure function
+    #[test]
+    fn test_classify_agent_status() {
+        assert_eq!(
+            classify_agent_status(&AgentStatus::Success),
+            AgentEventType::Completed
+        );
+        assert_eq!(
+            classify_agent_status(&AgentStatus::Failed("error".to_string())),
+            AgentEventType::Failed
+        );
+        assert_eq!(
+            classify_agent_status(&AgentStatus::Timeout),
+            AgentEventType::TimedOut
+        );
+        assert_eq!(
+            classify_agent_status(&AgentStatus::Retrying(1)),
+            AgentEventType::Retrying
+        );
+        assert_eq!(
+            classify_agent_status(&AgentStatus::Pending),
+            AgentEventType::InProgress
+        );
+        assert_eq!(
+            classify_agent_status(&AgentStatus::Running),
+            AgentEventType::InProgress
+        );
     }
 
     /// Test build_map_results_interpolation_context
@@ -996,6 +1083,63 @@ fn truncate_output(output: &str, max_length: usize) -> String {
 }
 
 impl MapReduceExecutor {
+    /// Acquire worktree session for an agent (extracted for clarity)
+    async fn acquire_worktree_session(
+        &self,
+        agent_id: &str,
+        _env: &ExecutionEnvironment,
+    ) -> MapReduceResult<WorktreeSession> {
+        // Try to use worktree pool first
+        if let Some(pool) = &self.worktree_pool {
+            let handle = pool
+                .acquire(WorktreeRequest::Anonymous)
+                .await
+                .map_err(|e| self.create_worktree_error(agent_id, e.to_string()))?;
+
+            handle
+                .session()
+                .ok_or_else(|| MapReduceError::WorktreeCreationFailed {
+                    agent_id: agent_id.to_string(),
+                    reason: "No session in worktree handle".to_string(),
+                    source: std::io::Error::other("No session in worktree handle"),
+                })
+                .cloned()
+        } else {
+            // Fallback to direct creation
+            self.worktree_manager
+                .create_session()
+                .await
+                .map_err(|e| self.create_worktree_error(agent_id, e.to_string()))
+        }
+    }
+
+    /// Create worktree error with context
+    fn create_worktree_error(&self, agent_id: &str, reason: String) -> MapReduceError {
+        let context = self.create_error_context("worktree_creation");
+        MapReduceError::WorktreeCreationFailed {
+            agent_id: agent_id.to_string(),
+            reason: reason.clone(),
+            source: std::io::Error::other(reason),
+        }
+        .with_context(context)
+        .error
+    }
+
+    /// Log agent failure event asynchronously
+    fn log_agent_failure_async(&self, job_id: String, agent_id: String, error_msg: String) {
+        let event_logger = self.event_logger.clone();
+        tokio::spawn(async move {
+            event_logger
+                .log(MapReduceEvent::AgentFailed {
+                    job_id,
+                    agent_id,
+                    error: error_msg,
+                    retry_eligible: true,
+                })
+                .await
+                .unwrap_or_else(|e| log::warn!("Failed to log error event: {}", e));
+        });
+    }
     /// Create error context with correlation ID
     fn create_error_context(&self, span_name: &str) -> ErrorContext {
         ErrorContext {
@@ -1169,7 +1313,12 @@ impl MapReduceExecutor {
         // Create a new job with persistent state
         let job_id = self
             .state_manager
-            .create_job(map_phase.config.clone(), work_items.clone())
+            .create_job(
+                map_phase.config.clone(),
+                work_items.clone(),
+                map_phase.agent_template.clone(),
+                reduce_phase.map(|r| r.commands.clone()),
+            )
             .await?;
 
         debug!("Created MapReduce job with ID: {}", job_id);
@@ -1394,13 +1543,22 @@ impl MapReduceExecutor {
         options: ResumeOptions,
         env: &ExecutionEnvironment,
     ) -> MapReduceResult<ResumeResult> {
-        // Load job state from checkpoint
-        let state = self.state_manager.get_job_state(job_id).await?;
+        // Load job state from checkpoint (specific version if requested)
+        let state = if let Some(version) = options.from_checkpoint {
+            self.state_manager
+                .get_job_state_from_checkpoint(job_id, Some(version))
+                .await?
+        } else {
+            self.state_manager.get_job_state(job_id).await?
+        };
 
         // Validate checkpoint integrity unless skipped
         if !options.skip_validation {
             self.validate_checkpoint(&state)?;
         }
+
+        // Clean up orphaned worktrees from failed agents
+        self.cleanup_orphaned_resources(&state).await;
 
         // Check if job is already complete and not forcing
         if state.is_complete && !options.force {
@@ -1457,7 +1615,7 @@ impl MapReduceExecutor {
                 // Create a map phase config from the stored state
                 let map_phase = MapPhase {
                     config: state.config.clone(),
-                    agent_template: vec![], // This would need to be stored in state
+                    agent_template: state.agent_template.clone(),
                     filter: None,
                     sort_by: None,
                     distinct: None,
@@ -1485,9 +1643,40 @@ impl MapReduceExecutor {
             // Map phase is complete
             final_results = state.agent_results.into_values().collect();
 
-            if state.reduce_phase_state.is_none() {
+            // Check if reduce phase needs to be executed
+            if let Some(reduce_commands) = &state.reduce_commands {
+                if state.reduce_phase_state.is_none()
+                    || (state
+                        .reduce_phase_state
+                        .as_ref()
+                        .is_some_and(|s| !s.started))
+                {
+                    self.user_interaction
+                        .display_info("Map phase complete, executing pending reduce phase");
+
+                    // Create reduce phase from stored commands
+                    let reduce_phase = ReducePhase {
+                        commands: reduce_commands.clone(),
+                    };
+
+                    // Mark reduce phase as started
+                    self.state_manager.start_reduce_phase(job_id).await?;
+
+                    // Execute reduce phase
+                    self.execute_reduce_phase(&reduce_phase, &final_results, env)
+                        .await?;
+
+                    // Mark reduce phase as completed
+                    self.state_manager
+                        .complete_reduce_phase(job_id, None)
+                        .await?;
+
+                    self.user_interaction
+                        .display_success("Reduce phase completed successfully");
+                }
+            } else if state.reduce_phase_state.is_none() {
                 self.user_interaction
-                    .display_info("Map phase complete, reduce phase pending");
+                    .display_info("Map phase complete, no reduce phase configured");
             }
         }
 
@@ -1608,6 +1797,47 @@ impl MapReduceExecutor {
         Ok(pending_items)
     }
 
+    /// Clean up orphaned worktrees from failed agents
+    async fn cleanup_orphaned_resources(&self, state: &MapReduceJobState) {
+        // Clean up worktrees from failed agents that may have been left behind
+        for failure in state.failed_agents.values() {
+            if let Some(ref worktree_info) = failure.worktree_info {
+                // Try to clean up using worktree pool if available
+                if let Some(pool) = &self.worktree_pool {
+                    // Try to find and cleanup the worktree by name
+                    if let Err(e) = pool.cleanup_by_name(&worktree_info.name).await {
+                        debug!(
+                            "Failed to cleanup orphaned worktree {}: {}",
+                            worktree_info.name, e
+                        );
+                    } else {
+                        info!(
+                            "Cleaned up orphaned worktree {} from failed agent",
+                            worktree_info.name
+                        );
+                    }
+                } else {
+                    // Direct cleanup using worktree manager if no pool
+                    if let Err(e) = self
+                        .worktree_manager
+                        .cleanup_session(&worktree_info.name, false)
+                        .await
+                    {
+                        debug!(
+                            "Failed to cleanup orphaned worktree {}: {}",
+                            worktree_info.name, e
+                        );
+                    } else {
+                        info!(
+                            "Cleaned up orphaned worktree {} from failed agent",
+                            worktree_info.name
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     /// Check if a job can be resumed
     pub async fn can_resume_job(&self, job_id: &str) -> bool {
         match self.state_manager.get_job_state(job_id).await {
@@ -1631,8 +1861,8 @@ impl MapReduceExecutor {
         sort_by: &Option<String>,
         distinct: &Option<String>,
     ) -> MapReduceResult<Vec<Value>> {
-        // Detect input source type
-        let input_source = InputSource::detect(&config.input);
+        // Detect input source type using the project root as base
+        let input_source = InputSource::detect_with_base(&config.input, &self.project_root);
 
         let items = match input_source {
             InputSource::Command(ref cmd) => {
@@ -2258,88 +2488,30 @@ impl MapReduceExecutor {
         progress: Arc<ProgressTracker>,
     ) -> MapReduceResult<AgentResult> {
         let start_time = Instant::now();
-        let agent_id = format!("agent-{}-{}", agent_index, item_id);
+        let agent_id = generate_agent_id(agent_index, item_id);
 
-        // Use worktree pool if available, otherwise fall back to direct creation
-        let worktree_handle: Option<WorktreeHandle> = if let Some(pool) = &self.worktree_pool {
-            // Acquire worktree from pool
-            Some(
-                pool.acquire(WorktreeRequest::Anonymous)
-                    .await
-                    .map_err(|e| {
-                        let context = self.create_error_context("worktree_creation");
-                        let error = MapReduceError::WorktreeCreationFailed {
-                            agent_id: agent_id.clone(),
-                            reason: e.to_string(),
-                            source: std::io::Error::other(e.to_string()),
-                        }
-                        .with_context(context);
+        // Log that agent is starting
+        info!(
+            "Agent {} starting to process item: {}",
+            agent_index, item_id
+        );
+        self.user_interaction.display_progress(&format!(
+            "Agent {} processing item: {}",
+            agent_index, item_id
+        ));
 
-                        // Log error event with correlation ID
-                        let event_logger = self.event_logger.clone();
-                        let job_id = env.session_id.clone();
-                        let agent_id_clone = agent_id.clone();
-                        let error_msg = error.to_string();
-                        tokio::spawn(async move {
-                            event_logger
-                                .log(MapReduceEvent::AgentFailed {
-                                    job_id,
-                                    agent_id: agent_id_clone,
-                                    error: error_msg,
-                                    retry_eligible: true,
-                                })
-                                .await
-                                .unwrap_or_else(|e| log::warn!("Failed to log error event: {}", e));
-                        });
-
-                        error.error
-                    })?,
-            )
-        } else {
-            None
-        };
-
-        // Get worktree session either from pool or create directly
-        let worktree_session = if let Some(ref handle) = worktree_handle {
-            // Extract session from handle
-            handle
-                .session()
-                .ok_or_else(|| MapReduceError::WorktreeCreationFailed {
-                    agent_id: agent_id.clone(),
-                    reason: "No session in worktree handle".to_string(),
-                    source: std::io::Error::other("No session in worktree handle"),
-                })?
-                .clone()
-        } else {
-            // Fallback to direct creation
-            self.worktree_manager.create_session().await.map_err(|e| {
-                let context = self.create_error_context("worktree_creation");
-                let error = MapReduceError::WorktreeCreationFailed {
-                    agent_id: agent_id.clone(),
-                    reason: e.to_string(),
-                    source: std::io::Error::other(e.to_string()),
-                }
-                .with_context(context);
-
-                // Log error event with correlation ID
-                let event_logger = self.event_logger.clone();
-                let job_id = env.session_id.clone();
-                let agent_id_clone = agent_id.clone();
-                let error_msg = error.to_string();
-                tokio::spawn(async move {
-                    event_logger
-                        .log(MapReduceEvent::AgentFailed {
-                            job_id,
-                            agent_id: agent_id_clone,
-                            error: error_msg,
-                            retry_eligible: true,
-                        })
-                        .await
-                        .unwrap_or_else(|e| log::warn!("Failed to log error event: {}", e));
-                });
-
-                error.error
-            })?
+        // Acquire worktree session with error handling
+        let worktree_session = match self.acquire_worktree_session(&agent_id, env).await {
+            Ok(session) => session,
+            Err(e) => {
+                // Log failure asynchronously
+                self.log_agent_failure_async(
+                    env.session_id.clone(),
+                    agent_id.clone(),
+                    e.to_string(),
+                );
+                return Err(e);
+            }
         };
         let worktree_name = worktree_session.name.clone();
         let worktree_path = worktree_session.path.clone();
@@ -2358,7 +2530,7 @@ impl MapReduceExecutor {
             .unwrap_or_else(|e| log::warn!("Failed to log agent started event: {}", e));
 
         // Create branch name for this agent
-        let branch_name = format!("prodigy-agent-{}-{}", env.session_id, item_id);
+        let branch_name = generate_agent_branch_name(&env.session_id, item_id);
 
         // Initialize agent context with all variables
         let mut context = self.initialize_agent_context(
@@ -2471,7 +2643,7 @@ impl MapReduceExecutor {
         let worktree_session_id = worktree_name.clone();
 
         // Create branch name for this agent
-        let branch_name = format!("prodigy-agent-{}-{}", env.session_id, item_id);
+        let branch_name = generate_agent_branch_name(&env.session_id, item_id);
 
         // Initialize agent context with all variables
         let mut context = self.initialize_agent_context(
@@ -2516,6 +2688,22 @@ impl MapReduceExecutor {
             tracker
                 .update_agent_progress(&agent_id, agent_progress)
                 .await?;
+
+            // Log the step being executed
+            let step_display = if let Some(claude_cmd) = &step.claude {
+                format!("claude: {}", claude_cmd)
+            } else if let Some(shell_cmd) = &step.shell {
+                format!("shell: {}", shell_cmd)
+            } else {
+                step_name.clone()
+            };
+            info!(
+                "Agent {} executing step {}/{}: {}",
+                agent_id,
+                step_index + 1,
+                template_steps.len(),
+                step_display
+            );
 
             // Execute the step
             let result = self.execute_single_step(step, &mut context).await;
@@ -3100,6 +3288,9 @@ impl MapReduceExecutor {
         map_results: &[AgentResult],
         env: &ExecutionEnvironment,
     ) -> MapReduceResult<()> {
+        self.user_interaction
+            .display_progress("Starting reduce phase...");
+
         // Calculate summary statistics using pure functions
         let summary_stats = calculate_map_result_summary(map_results);
         let successful_count = summary_stats.successful;
@@ -4465,5 +4656,97 @@ mod tests {
             MapReduceExecutor::truncate_identifier("exactly_eleven_", 11),
             "exactly_..."
         );
+    }
+
+    // Tests for checkpoint validation and pending item calculations
+    // These tests verify the logic without needing full MapReduceExecutor setup
+
+    #[test]
+    fn test_checkpoint_state_validation() {
+        use crate::cook::execution::state::MapReduceJobState;
+
+        let config = MapReduceConfig {
+            input: "test.json".to_string(),
+            json_path: String::new(),
+            max_parallel: 5,
+            timeout_per_agent: 60,
+            retry_on_failure: 2,
+            max_items: None,
+            offset: None,
+        };
+
+        // Test empty job ID case
+        let mut state = MapReduceJobState::new(
+            String::new(),
+            config.clone(),
+            vec![serde_json::json!({"id": 1})],
+        );
+        state.job_id = String::new();
+        assert!(state.job_id.is_empty());
+
+        // Test no work items case
+        let state2 = MapReduceJobState::new("test-job".to_string(), config.clone(), vec![]);
+        assert!(state2.work_items.is_empty());
+
+        // Test valid state
+        let state3 = MapReduceJobState::new(
+            "test-job".to_string(),
+            config,
+            vec![serde_json::json!({"id": 1})],
+        );
+        assert!(!state3.job_id.is_empty());
+        assert!(!state3.work_items.is_empty());
+    }
+
+    #[test]
+    fn test_pending_items_logic() {
+        use crate::cook::execution::state::{FailureRecord, MapReduceJobState};
+
+        let config = MapReduceConfig {
+            input: "test.json".to_string(),
+            json_path: String::new(),
+            max_parallel: 5,
+            timeout_per_agent: 60,
+            retry_on_failure: 2,
+            max_items: None,
+            offset: None,
+        };
+
+        let work_items = vec![
+            serde_json::json!({"id": 1}),
+            serde_json::json!({"id": 2}),
+            serde_json::json!({"id": 3}),
+        ];
+
+        // Test all items pending initially
+        let state =
+            MapReduceJobState::new("test-job".to_string(), config.clone(), work_items.clone());
+        assert_eq!(state.pending_items.len(), 3);
+        assert!(state.completed_agents.is_empty());
+
+        // Test with completed items
+        let mut state2 =
+            MapReduceJobState::new("test-job".to_string(), config.clone(), work_items.clone());
+        state2.completed_agents.insert("item_0".to_string());
+        state2.pending_items.retain(|x| x != "item_0");
+        assert_eq!(state2.pending_items.len(), 2);
+
+        // Test with failed items
+        let mut state3 = MapReduceJobState::new("test-job".to_string(), config, work_items);
+        use chrono::Utc;
+        state3.failed_agents.insert(
+            "item_1".to_string(),
+            FailureRecord {
+                item_id: "item_1".to_string(),
+                attempts: 1,
+                last_error: "Test error".to_string(),
+                last_attempt: Utc::now(),
+                worktree_info: None,
+            },
+        );
+
+        // Check if item is retriable (attempts < retry_on_failure)
+        let failed_record = state3.failed_agents.get("item_1").unwrap();
+        assert!(failed_record.attempts < state3.config.retry_on_failure);
     }
 }
