@@ -171,6 +171,9 @@ pub struct ResumeOptions {
     pub max_additional_retries: u32,
     /// Skip validation of checkpoint integrity
     pub skip_validation: bool,
+    /// Specific checkpoint version to resume from (None for latest)
+    #[serde(default)]
+    pub from_checkpoint: Option<u32>,
 }
 
 impl Default for ResumeOptions {
@@ -179,6 +182,7 @@ impl Default for ResumeOptions {
             force: false,
             max_additional_retries: 2,
             skip_validation: false,
+            from_checkpoint: None,
         }
     }
 }
@@ -1539,13 +1543,20 @@ impl MapReduceExecutor {
         options: ResumeOptions,
         env: &ExecutionEnvironment,
     ) -> MapReduceResult<ResumeResult> {
-        // Load job state from checkpoint
-        let state = self.state_manager.get_job_state(job_id).await?;
+        // Load job state from checkpoint (specific version if requested)
+        let state = if let Some(version) = options.from_checkpoint {
+            self.state_manager.get_job_state_from_checkpoint(job_id, Some(version)).await?
+        } else {
+            self.state_manager.get_job_state(job_id).await?
+        };
 
         // Validate checkpoint integrity unless skipped
         if !options.skip_validation {
             self.validate_checkpoint(&state)?;
         }
+
+        // Clean up orphaned worktrees from failed agents
+        self.cleanup_orphaned_resources(&state).await;
 
         // Check if job is already complete and not forcing
         if state.is_complete && !options.force {
@@ -1778,6 +1789,47 @@ impl MapReduceExecutor {
         }
 
         Ok(pending_items)
+    }
+
+    /// Clean up orphaned worktrees from failed agents
+    async fn cleanup_orphaned_resources(&self, state: &MapReduceJobState) {
+        // Clean up worktrees from failed agents that may have been left behind
+        for failure in state.failed_agents.values() {
+            if let Some(ref worktree_info) = failure.worktree_info {
+                // Try to clean up using worktree pool if available
+                if let Some(pool) = &self.worktree_pool {
+                    // Try to find and cleanup the worktree by name
+                    if let Err(e) = pool.cleanup_by_name(&worktree_info.name).await {
+                        debug!(
+                            "Failed to cleanup orphaned worktree {}: {}",
+                            worktree_info.name, e
+                        );
+                    } else {
+                        info!(
+                            "Cleaned up orphaned worktree {} from failed agent",
+                            worktree_info.name
+                        );
+                    }
+                } else {
+                    // Direct cleanup using worktree manager if no pool
+                    if let Err(e) = self
+                        .worktree_manager
+                        .cleanup_session(&worktree_info.name, false)
+                        .await
+                    {
+                        debug!(
+                            "Failed to cleanup orphaned worktree {}: {}",
+                            worktree_info.name, e
+                        );
+                    } else {
+                        info!(
+                            "Cleaned up orphaned worktree {} from failed agent",
+                            worktree_info.name
+                        );
+                    }
+                }
+            }
+        }
     }
 
     /// Check if a job can be resumed

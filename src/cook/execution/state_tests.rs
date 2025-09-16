@@ -635,6 +635,7 @@ mod tests {
             force: false,
             max_additional_retries: 0,
             skip_validation: false,
+            from_checkpoint: None,
         };
 
         // Verify resume options behavior
@@ -677,6 +678,7 @@ mod tests {
             force: false,
             max_additional_retries: 0,
             skip_validation: false,
+            from_checkpoint: None,
         };
 
         // Verify resume options
@@ -737,6 +739,7 @@ mod tests {
             force: false,
             max_additional_retries: 2,
             skip_validation: false,
+            from_checkpoint: None,
         };
 
         // Verify additional retries would allow failed items to be retried
@@ -799,6 +802,7 @@ mod tests {
             force: true,
             max_additional_retries: 0,
             skip_validation: false,
+            from_checkpoint: None,
         };
 
         // Verify force flag would force retry regardless of job state
