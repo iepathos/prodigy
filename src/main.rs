@@ -2167,7 +2167,10 @@ async fn run_migrate_yaml_command(
     let error_count = results.iter().filter(|r| r.error.is_some()).count();
 
     if migrated_count > 0 {
-        println!("✅ Migrated {} file(s) to simplified syntax", migrated_count);
+        println!(
+            "✅ Migrated {} file(s) to simplified syntax",
+            migrated_count
+        );
     }
     if error_count > 0 {
         println!("⚠️  {} file(s) had errors", error_count);

@@ -51,8 +51,9 @@ impl YamlMigrator {
             // Create backup if requested
             if self.create_backup {
                 let backup_path = path.with_extension("yml.bak");
-                fs::copy(path, &backup_path)
-                    .with_context(|| format!("Failed to create backup: {}", backup_path.display()))?;
+                fs::copy(path, &backup_path).with_context(|| {
+                    format!("Failed to create backup: {}", backup_path.display())
+                })?;
             }
 
             // Write migrated content
@@ -103,11 +104,12 @@ impl YamlMigrator {
         // Migrate map.agent_template.commands -> map.agent_template
         if let Some(Value::Mapping(map)) = workflow.get_mut("map") {
             // Check if agent_template has nested commands
-            let needs_migration = if let Some(Value::Mapping(agent_template)) = map.get("agent_template") {
-                agent_template.contains_key("commands")
-            } else {
-                false
-            };
+            let needs_migration =
+                if let Some(Value::Mapping(agent_template)) = map.get("agent_template") {
+                    agent_template.contains_key("commands")
+                } else {
+                    false
+                };
 
             if needs_migration {
                 // Extract and migrate the commands
@@ -151,6 +153,10 @@ impl YamlMigrator {
 
     /// Recursively migrate on_failure sections
     fn migrate_on_failure_recursive(&self, value: &mut Value) -> Result<()> {
+        Self::migrate_on_failure_recursive_impl(value)
+    }
+
+    fn migrate_on_failure_recursive_impl(value: &mut Value) -> Result<()> {
         match value {
             Value::Mapping(map) => {
                 // Check for on_failure
@@ -162,13 +168,13 @@ impl YamlMigrator {
 
                 // Recurse into all values
                 for (_key, val) in map.iter_mut() {
-                    self.migrate_on_failure_recursive(val)?;
+                    Self::migrate_on_failure_recursive_impl(val)?;
                 }
             }
             Value::Sequence(seq) => {
                 // Recurse into all items
                 for item in seq.iter_mut() {
-                    self.migrate_on_failure_recursive(item)?;
+                    Self::migrate_on_failure_recursive_impl(item)?;
                 }
             }
             _ => {}

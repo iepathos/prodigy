@@ -105,11 +105,13 @@ impl YamlValidator {
             // Check for deprecated parameters
             if map.contains_key("timeout_per_agent") {
                 issues.push("Using deprecated parameter 'timeout_per_agent'".to_string());
-                suggestions.push("Remove 'timeout_per_agent' - it's no longer supported".to_string());
+                suggestions
+                    .push("Remove 'timeout_per_agent' - it's no longer supported".to_string());
             }
             if map.contains_key("retry_on_failure") {
                 issues.push("Using deprecated parameter 'retry_on_failure'".to_string());
-                suggestions.push("Remove 'retry_on_failure' - it's no longer supported".to_string());
+                suggestions
+                    .push("Remove 'retry_on_failure' - it's no longer supported".to_string());
             }
         } else {
             issues.push("Missing required 'map' section for MapReduce workflow".to_string());
@@ -167,7 +169,10 @@ impl YamlValidator {
 
                 // Check for deprecated 'test' command
                 if step_map.contains_key("test") {
-                    issues.push(format!("Step {} uses deprecated 'test' command type", idx + 1));
+                    issues.push(format!(
+                        "Step {} uses deprecated 'test' command type",
+                        idx + 1
+                    ));
                     suggestions.push("Replace 'test:' with 'shell:' for test commands".to_string());
                 }
             } else {
@@ -185,29 +190,43 @@ impl YamlValidator {
         issues: &mut Vec<String>,
         suggestions: &mut Vec<String>,
     ) -> Result<()> {
+        Self::check_commands_recursive_impl(value, issues, suggestions)
+    }
+
+    fn check_commands_recursive_impl(
+        value: &Value,
+        issues: &mut Vec<String>,
+        suggestions: &mut Vec<String>,
+    ) -> Result<()> {
         match value {
             Value::Mapping(map) => {
                 // Check for on_failure with deprecated parameters
                 if let Some(Value::Mapping(on_failure)) = map.get("on_failure") {
                     if on_failure.contains_key("max_attempts") {
                         issues.push("Using deprecated 'max_attempts' in on_failure".to_string());
-                        suggestions.push("Remove 'max_attempts' from on_failure - it's no longer supported".to_string());
+                        suggestions.push(
+                            "Remove 'max_attempts' from on_failure - it's no longer supported"
+                                .to_string(),
+                        );
                     }
                     if on_failure.contains_key("fail_workflow") {
                         issues.push("Using deprecated 'fail_workflow' in on_failure".to_string());
-                        suggestions.push("Remove 'fail_workflow' from on_failure - it's no longer supported".to_string());
+                        suggestions.push(
+                            "Remove 'fail_workflow' from on_failure - it's no longer supported"
+                                .to_string(),
+                        );
                     }
                 }
 
                 // Recurse into all values
                 for (_key, val) in map.iter() {
-                    self.check_commands_recursive(val, issues, suggestions)?;
+                    Self::check_commands_recursive_impl(val, issues, suggestions)?;
                 }
             }
             Value::Sequence(seq) => {
                 // Recurse into all items
                 for item in seq.iter() {
-                    self.check_commands_recursive(item, issues, suggestions)?;
+                    Self::check_commands_recursive_impl(item, issues, suggestions)?;
                 }
             }
             _ => {}

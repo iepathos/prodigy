@@ -1,0 +1,53 @@
+{
+  "workflow_id": "workflow-1757992452022",
+  "execution_state": {
+    "current_step_index": 2,
+    "total_steps": 3,
+    "status": "Running",
+    "start_time": "2025-09-16T03:36:37.226701Z",
+    "last_checkpoint": "2025-09-16T03:36:37.226701Z",
+    "current_iteration": null,
+    "total_iterations": null
+  },
+  "completed_steps": [
+    {
+      "step_index": 0,
+      "command": "claude: /prodigy-implement-spec $ARG",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 1327,
+        "nanos": 335090000
+      },
+      "completed_at": "2025-09-16T03:36:19.334395Z"
+    },
+    {
+      "step_index": 1,
+      "command": "test: just test",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 17,
+        "nanos": 867891042
+      },
+      "completed_at": "2025-09-16T03:36:37.226683Z"
+    }
+  ],
+  "variable_state": {
+    "step.deletions": "212",
+    "ARG": "63",
+    "step.files_changed": "src/cli/yaml_migrator.rs,src/main.rs,src/config/mapreduce.rs,workflows/test-mapreduce-context.yml,workflows/test-mapreduce.yml,specs/63-simplified-yaml-syntax.md,src/cli/mod.rs,src/cli/yaml_validator.rs,workflows/fix-files-mapreduce.yml,src/cook/execution/dlq_reprocessor_test.rs,workflows/mapreduce-example.yml,workflows/debtmap-reduce.yml,workflows/documentation-drift-mapreduce.yml",
+    "PROJECT_ROOT": "/Users/glen/.prodigy/worktrees/prodigy/session-80d0e3d9-da9a-4e3b-9251-9c63c514fd4a",
+    "step.insertions": "715",
+    "step.commits": "c58f543d5b9f1457e3f819f8556dfe210ba974d3,1e831c138ebe39cf8cb12927524f920108fe1c90"
+  },
+  "mapreduce_state": null,
+  "timestamp": "2025-09-16T03:36:37.226701Z",
+  "version": 1,
+  "workflow_hash": "3",
+  "total_steps": 3,
+  "workflow_name": "args-workflow",
+  "workflow_path": null
+}
