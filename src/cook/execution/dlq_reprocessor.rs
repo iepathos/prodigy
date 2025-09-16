@@ -943,7 +943,7 @@ mod tests {
         // Test default options
         let options = ReprocessOptions::default();
         assert_eq!(options.max_retries, 3);
-        assert_eq!(options.parallel, 10);
+        assert_eq!(options.parallel, 5);
         assert!(matches!(
             options.strategy,
             RetryStrategy::ExponentialBackoff

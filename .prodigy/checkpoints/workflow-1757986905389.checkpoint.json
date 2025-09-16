@@ -1,0 +1,41 @@
+{
+  "workflow_id": "workflow-1757986905389",
+  "execution_state": {
+    "current_step_index": 1,
+    "total_steps": 3,
+    "status": "Running",
+    "start_time": "2025-09-16T02:10:55.762059Z",
+    "last_checkpoint": "2025-09-16T02:10:55.762059Z",
+    "current_iteration": null,
+    "total_iterations": null
+  },
+  "completed_steps": [
+    {
+      "step_index": 0,
+      "command": "claude: /prodigy-implement-spec $ARG",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 1721,
+        "nanos": 996143083
+      },
+      "completed_at": "2025-09-16T02:10:55.762033Z"
+    }
+  ],
+  "variable_state": {
+    "step.insertions": "625",
+    "ARG": "58",
+    "step.files_changed": "2",
+    "step.deletions": "6",
+    "step.commits": "[{\"hash\":\"3f58a232df2457042147e42238612ce1dbefa494\",\"message\":\"fix: complete spec 58 implementation gaps\",\"author\":\"Glen Baker\",\"timestamp\":\"2025-09-16T02:06:55Z\",\"files_changed\":[\"CLAUDE.md\",\"src/cook/execution/dlq_reprocessor_test.rs\"],\"insertions\":625,\"deletions\":6,\"step_name\":\"claude: /prodigy-complete-spec $ARG --gaps ${validation.gaps}\",\"agent_id\":null}]",
+    "PROJECT_ROOT": "/Users/glen/.prodigy/worktrees/prodigy/session-d8dea394-5864-448f-91b9-e801f32bcef5"
+  },
+  "mapreduce_state": null,
+  "timestamp": "2025-09-16T02:10:55.762059Z",
+  "version": 1,
+  "workflow_hash": "3",
+  "total_steps": 3,
+  "workflow_name": "args-workflow",
+  "workflow_path": null
+}
