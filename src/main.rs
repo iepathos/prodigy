@@ -1445,7 +1445,8 @@ async fn run_resume_job_command(
     };
 
     // Create state manager to load job checkpoint
-    let state_manager: Arc<dyn JobStateManager> = Arc::new(DefaultJobStateManager::new_with_global(project_root.clone()).await?);
+    let state_manager: Arc<dyn JobStateManager> =
+        Arc::new(DefaultJobStateManager::new_with_global(project_root.clone()).await?);
 
     // Load job state to validate it exists
     let job_state = match state_manager.get_job_state(&job_id).await {
@@ -1461,7 +1462,8 @@ async fn run_resume_job_command(
     println!("\n📊 Job Status:");
     println!("  Job ID: {}", job_state.job_id);
     println!("  Total items: {}", job_state.total_items);
-    println!("  Completed: {} ({:.1}%)",
+    println!(
+        "  Completed: {} ({:.1}%)",
         job_state.completed_agents.len(),
         (job_state.completed_agents.len() as f64 / job_state.total_items as f64) * 100.0
     );
@@ -1510,10 +1512,11 @@ async fn run_resume_job_command(
     use prodigy::cook::session::{SessionManager, SessionManagerAdapter};
 
     // SessionManagerAdapter creates its own internal session manager
-    let session_manager: Arc<dyn SessionManager> = Arc::new(SessionManagerAdapter::new(project_root.clone()));
+    let session_manager: Arc<dyn SessionManager> =
+        Arc::new(SessionManagerAdapter::new(project_root.clone()));
 
     // Create user interaction handler
-    use prodigy::cook::interaction::{UserInteraction, DefaultUserInteraction};
+    use prodigy::cook::interaction::{DefaultUserInteraction, UserInteraction};
     let user_interaction: Arc<dyn UserInteraction> = Arc::new(DefaultUserInteraction::new());
 
     // Create MapReduce executor
@@ -1523,28 +1526,51 @@ async fn run_resume_job_command(
         user_interaction,
         worktree_manager,
         project_root,
-    ).await;
+    )
+    .await;
 
     // Resume the job
-    match executor.resume_job_with_options(&job_id, options, &env).await {
+    match executor
+        .resume_job_with_options(&job_id, options, &env)
+        .await
+    {
         Ok(result) => {
             println!("\n✅ Job resumed successfully!");
-            println!("  Resumed from checkpoint version: {}", result.resumed_from_version);
+            println!(
+                "  Resumed from checkpoint version: {}",
+                result.resumed_from_version
+            );
             println!("  Items already completed: {}", result.already_completed);
             println!("  Items processed in this run: {}", result.remaining_items);
-            println!("  Total successful: {}",
-                result.final_results.iter()
-                    .filter(|r| matches!(r.status, prodigy::cook::execution::mapreduce::AgentStatus::Success))
+            println!(
+                "  Total successful: {}",
+                result
+                    .final_results
+                    .iter()
+                    .filter(|r| matches!(
+                        r.status,
+                        prodigy::cook::execution::mapreduce::AgentStatus::Success
+                    ))
                     .count()
             );
 
-            let failed_count = result.final_results.iter()
-                .filter(|r| matches!(r.status, prodigy::cook::execution::mapreduce::AgentStatus::Failed(_)))
+            let failed_count = result
+                .final_results
+                .iter()
+                .filter(|r| {
+                    matches!(
+                        r.status,
+                        prodigy::cook::execution::mapreduce::AgentStatus::Failed(_)
+                    )
+                })
                 .count();
 
             if failed_count > 0 {
                 println!("  ⚠️  Failed items: {}", failed_count);
-                println!("     Check the Dead Letter Queue for details: prodigy dlq list {}", job_id);
+                println!(
+                    "     Check the Dead Letter Queue for details: prodigy dlq list {}",
+                    job_id
+                );
             }
 
             Ok(())

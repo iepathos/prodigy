@@ -538,7 +538,7 @@ impl WorktreePool {
             let mut in_use = self.in_use.write().await;
             if let Some((id, worktree)) = in_use
                 .iter()
-                .find(|(_, w)| w.session.as_ref().map_or(false, |s| s.name == name))
+                .find(|(_, w)| w.session.as_ref().is_some_and(|s| s.name == name))
                 .map(|(id, w)| (id.clone(), w.clone()))
             {
                 in_use.remove(&id);
@@ -552,7 +552,7 @@ impl WorktreePool {
             let mut available = self.available.write().await;
             if let Some(pos) = available
                 .iter()
-                .position(|w| w.session.as_ref().map_or(false, |s| s.name == name))
+                .position(|w| w.session.as_ref().is_some_and(|s| s.name == name))
             {
                 if let Some(worktree) = available.remove(pos) {
                     self.cleanup_worktree(&worktree).await;

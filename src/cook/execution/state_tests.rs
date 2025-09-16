@@ -435,7 +435,10 @@ mod tests {
         ];
 
         // Create job
-        let job_id = manager.create_job(config, work_items, vec![], None).await.unwrap();
+        let job_id = manager
+            .create_job(config, work_items, vec![], None)
+            .await
+            .unwrap();
 
         // Simulate partial completion
         manager

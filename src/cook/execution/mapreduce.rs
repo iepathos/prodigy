@@ -1317,7 +1317,7 @@ impl MapReduceExecutor {
                 map_phase.config.clone(),
                 work_items.clone(),
                 map_phase.agent_template.clone(),
-                reduce_phase.map(|r| r.commands.clone())
+                reduce_phase.map(|r| r.commands.clone()),
             )
             .await?;
 
@@ -1545,7 +1545,9 @@ impl MapReduceExecutor {
     ) -> MapReduceResult<ResumeResult> {
         // Load job state from checkpoint (specific version if requested)
         let state = if let Some(version) = options.from_checkpoint {
-            self.state_manager.get_job_state_from_checkpoint(job_id, Some(version)).await?
+            self.state_manager
+                .get_job_state_from_checkpoint(job_id, Some(version))
+                .await?
         } else {
             self.state_manager.get_job_state(job_id).await?
         };
@@ -1643,8 +1645,12 @@ impl MapReduceExecutor {
 
             // Check if reduce phase needs to be executed
             if let Some(reduce_commands) = &state.reduce_commands {
-                if state.reduce_phase_state.is_none() ||
-                   (state.reduce_phase_state.as_ref().map_or(false, |s| !s.started)) {
+                if state.reduce_phase_state.is_none()
+                    || (state
+                        .reduce_phase_state
+                        .as_ref()
+                        .is_some_and(|s| !s.started))
+                {
                     self.user_interaction
                         .display_info("Map phase complete, executing pending reduce phase");
 
@@ -4694,7 +4700,7 @@ mod tests {
 
     #[test]
     fn test_pending_items_logic() {
-        use crate::cook::execution::state::{MapReduceJobState, FailureRecord};
+        use crate::cook::execution::state::{FailureRecord, MapReduceJobState};
 
         let config = MapReduceConfig {
             input: "test.json".to_string(),
@@ -4713,12 +4719,14 @@ mod tests {
         ];
 
         // Test all items pending initially
-        let state = MapReduceJobState::new("test-job".to_string(), config.clone(), work_items.clone());
+        let state =
+            MapReduceJobState::new("test-job".to_string(), config.clone(), work_items.clone());
         assert_eq!(state.pending_items.len(), 3);
         assert!(state.completed_agents.is_empty());
 
         // Test with completed items
-        let mut state2 = MapReduceJobState::new("test-job".to_string(), config.clone(), work_items.clone());
+        let mut state2 =
+            MapReduceJobState::new("test-job".to_string(), config.clone(), work_items.clone());
         state2.completed_agents.insert("item_0".to_string());
         state2.pending_items.retain(|x| x != "item_0");
         assert_eq!(state2.pending_items.len(), 2);
