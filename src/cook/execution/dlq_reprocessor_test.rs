@@ -680,7 +680,10 @@ async fn test_integration_end_to_end_dlq_retry_with_mock_failures() {
     };
 
     // Should succeed even without lock management (current implementation)
-    let result = interrupt_reprocessor_2.reprocess_items(options).await.unwrap();
+    let result = interrupt_reprocessor_2
+        .reprocess_items(options)
+        .await
+        .unwrap();
     // Note: Current implementation is simulated
     assert!(result.total_items > 0);
 
@@ -695,10 +698,15 @@ async fn test_integration_end_to_end_dlq_retry_with_mock_failures() {
         .acquire_reprocessing_lock(interrupt_job_id)
         .await;
     assert!(lock_result.is_err());
-    assert!(lock_result.unwrap_err().to_string().contains("already being reprocessed"));
+    assert!(lock_result
+        .unwrap_err()
+        .to_string()
+        .contains("already being reprocessed"));
 
     // Release and verify
-    interrupt_reprocessor.release_reprocessing_lock(interrupt_job_id).await;
+    interrupt_reprocessor
+        .release_reprocessing_lock(interrupt_job_id)
+        .await;
 
     // Now lock should succeed
     interrupt_reprocessor
@@ -908,7 +916,7 @@ async fn test_performance_large_dlq_processing() {
         timeout_per_item: 10,
         strategy: RetryStrategy::Immediate,
         merge_results: false, // Don't merge to reduce memory usage
-        force: false, // Only eligible items
+        force: false,         // Only eligible items
     };
 
     let result = reprocessor.reprocess_items(options).await.unwrap();
@@ -951,8 +959,7 @@ async fn test_performance_large_dlq_processing() {
     let single_thread_time = scaling_results[0].1;
     let multi_thread_time = scaling_results[3].1;
     assert!(
-        multi_thread_time < single_thread_time ||
-        multi_thread_time < single_thread_time * 2,
+        multi_thread_time < single_thread_time || multi_thread_time < single_thread_time * 2,
         "Parallel execution should be faster or at least not significantly slower"
     );
 
