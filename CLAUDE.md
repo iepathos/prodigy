@@ -140,13 +140,33 @@ Events are logged to `~/.prodigy/events/{repo_name}/{job_id}/` for debugging:
 - Cross-worktree event aggregation for parallel jobs
 
 ### Dead Letter Queue (DLQ)
-Failed work items are stored in `~/.prodigy/dlq/{repo_name}/{job_id}/` for manual review and retry:
+Failed work items are stored in `~/.prodigy/dlq/{repo_name}/{job_id}/` for review and retry:
 - Contains the original work item data
 - Includes failure reason and timestamp
-- **Important**: DLQ reprocessing is not yet implemented
-  - The `prodigy dlq reprocess` command exists but returns error: 'DLQ reprocessing is not yet implemented'
-  - Failed items must be manually reviewed and re-run if needed
+- Supports automatic reprocessing via `prodigy dlq reprocess`
+- Configurable parallel execution and resource limits
 - Shared across worktrees for centralized failure tracking
+
+#### DLQ Reprocessing
+The `prodigy dlq reprocess` command allows you to retry failed items:
+
+```bash
+# Reprocess all failed items for a job
+prodigy dlq reprocess <job_id>
+
+# Reprocess with custom parallelism (default: 5)
+prodigy dlq reprocess <job_id> --max-parallel 10
+
+# Dry run to see what would be reprocessed
+prodigy dlq reprocess <job_id> --dry-run
+```
+
+Features:
+- Streams items to avoid memory issues with large queues
+- Respects original workflow's max_parallel setting
+- Preserves correlation IDs for tracking
+- Updates DLQ state (removes successful, keeps failed)
+- Supports interruption and resumption
 
 ## Workflow Execution
 
@@ -191,7 +211,7 @@ Prodigy CLI commands:
 - `prodigy init` - Initialize Claude commands
 - `prodigy resume-job` - Display MapReduce job status (**Note**: Actual job resumption is not yet implemented, this command only prints job status)
 - `prodigy events` - View execution events
-- `prodigy dlq` - Manage failed work items
+- `prodigy dlq` - Manage and reprocess failed work items
 
 ## Best Practices
 
@@ -217,9 +237,9 @@ Prodigy CLI commands:
 
 ### MapReduce Failures
 - Check `.prodigy/dlq/` for failed items
+- Reprocess failed items with `prodigy dlq reprocess <job_id>`
 - View job status with `prodigy resume-job` (actual resumption not yet implemented)
 - Review checkpoint in `.prodigy/events/{job_id}/checkpoint.json`
-- **Note**: To retry failed items, you must currently re-run the workflow manually
 
 ### Worktree Problems
 - List worktrees with `prodigy worktree ls`
