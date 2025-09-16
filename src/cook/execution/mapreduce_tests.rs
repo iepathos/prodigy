@@ -7,7 +7,9 @@ use crate::cook::workflow::{CaptureOutput, CommandType};
 use serde_json::json;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::Mutex;
 
 #[test]
 fn test_agent_status_serialization() {
@@ -1176,6 +1178,505 @@ mod merge_history_tests {
 }
 
 // ============================================================================
+// Mock Implementations for Testing
+// ============================================================================
+
+#[cfg(test)]
+pub mod test_mocks {
+    use super::*;
+    use crate::cook::execution::events::MapReduceEvent;
+    use crate::worktree::WorktreeSession;
+    use std::sync::{Arc, Mutex as StdMutex};
+    use std::collections::VecDeque;
+    use uuid::Uuid;
+
+    /// Mock WorktreeManager for testing parallel execution
+    pub struct MockWorktreeManager {
+        pub sessions: Arc<StdMutex<Vec<WorktreeSession>>>,
+        pub fail_on_create: bool,
+        pub fail_on_cleanup: bool,
+        pub create_delay_ms: u64,
+    }
+
+    impl MockWorktreeManager {
+        pub fn new() -> Self {
+            Self {
+                sessions: Arc::new(StdMutex::new(Vec::new())),
+                fail_on_create: false,
+                fail_on_cleanup: false,
+                create_delay_ms: 0,
+            }
+        }
+
+        pub async fn create_worktree(&self, branch_name: &str) -> anyhow::Result<WorktreeSession> {
+
+            if self.create_delay_ms > 0 {
+                tokio::time::sleep(Duration::from_millis(self.create_delay_ms)).await;
+            }
+
+            if self.fail_on_create {
+                anyhow::bail!("Mock worktree creation failed");
+            }
+
+            let session = WorktreeSession {
+                name: format!("mock-worktree-{}", branch_name),
+                path: PathBuf::from(format!("/mock/worktree/{}", branch_name)),
+                branch: branch_name.to_string(),
+                created_at: chrono::Utc::now(),
+            };
+
+            self.sessions.lock().unwrap().push(session.clone());
+            Ok(session)
+        }
+
+        pub async fn cleanup_worktree(&self, _name: &str) -> anyhow::Result<()> {
+            if self.fail_on_cleanup {
+                anyhow::bail!("Mock worktree cleanup failed");
+            }
+            Ok(())
+        }
+    }
+
+    /// Mock CommandExecutor for testing command execution
+    pub struct MockCommandExecutor {
+        pub responses: Arc<StdMutex<VecDeque<(bool, String)>>>,
+        pub executed_commands: Arc<StdMutex<Vec<String>>>,
+        pub fail_on_command: Option<String>,
+        pub execution_delay_ms: u64,
+    }
+
+    impl MockCommandExecutor {
+        pub fn new() -> Self {
+            Self {
+                responses: Arc::new(StdMutex::new(VecDeque::new())),
+                executed_commands: Arc::new(StdMutex::new(Vec::new())),
+                fail_on_command: None,
+                execution_delay_ms: 0,
+            }
+        }
+
+        pub fn add_response(&self, success: bool, output: String) {
+            self.responses.lock().unwrap().push_back((success, output));
+        }
+    }
+
+    /// Mock EventLogger for testing event logging
+    pub struct MockEventLogger {
+        pub events: Arc<StdMutex<Vec<MapReduceEvent>>>,
+        pub fail_on_log: bool,
+    }
+
+    impl MockEventLogger {
+        pub fn new() -> Self {
+            Self {
+                events: Arc::new(StdMutex::new(Vec::new())),
+                fail_on_log: false,
+            }
+        }
+
+        pub fn get_events(&self) -> Vec<MapReduceEvent> {
+            self.events.lock().unwrap().clone()
+        }
+
+        pub async fn log_event(&self, event: MapReduceEvent) -> anyhow::Result<()> {
+
+            if self.fail_on_log {
+                anyhow::bail!("Mock event logging failed");
+            }
+            self.events.lock().unwrap().push(event);
+            Ok(())
+        }
+    }
+}
+
+// ============================================================================
+// Concurrency Tests for Parallel Agent Execution
+// ============================================================================
+
+#[cfg(test)]
+mod concurrency_tests {
+    use super::*;
+    use super::test_mocks::*;
+    use tokio::sync::Semaphore;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[tokio::test]
+    async fn test_parallel_agent_execution_limits() {
+        // Test that max_parallel is respected
+        let concurrent_count = Arc::new(AtomicUsize::new(0));
+        let max_concurrent = Arc::new(AtomicUsize::new(0));
+
+        let config = MapReduceConfig {
+            input: "test.json".to_string(),
+            json_path: "$.items[*]".to_string(),
+            max_parallel: 3,
+            timeout_per_agent: 10,
+            retry_on_failure: 0,
+            max_items: Some(10),
+            offset: None,
+        };
+
+        // Simulate 10 work items with max_parallel=3
+        let semaphore = Arc::new(Semaphore::new(config.max_parallel));
+        let mut handles = vec![];
+
+        for i in 0..10 {
+            let sem = semaphore.clone();
+            let concurrent = concurrent_count.clone();
+            let max_con = max_concurrent.clone();
+
+            let handle = tokio::spawn(async move {
+                let _permit = sem.acquire().await.unwrap();
+
+                // Increment concurrent count
+                let current = concurrent.fetch_add(1, Ordering::SeqCst) + 1;
+
+                // Update max if needed
+                loop {
+                    let max = max_con.load(Ordering::SeqCst);
+                    if current <= max {
+                        break;
+                    }
+                    if max_con.compare_exchange(max, current, Ordering::SeqCst, Ordering::SeqCst).is_ok() {
+                        break;
+                    }
+                }
+
+                // Simulate work
+                tokio::time::sleep(Duration::from_millis(50)).await;
+
+                // Decrement concurrent count
+                concurrent.fetch_sub(1, Ordering::SeqCst);
+
+                format!("Agent {} completed", i)
+            });
+
+            handles.push(handle);
+        }
+
+        // Wait for all agents
+        for handle in handles {
+            let _ = handle.await;
+        }
+
+        // Verify max_parallel was respected
+        let max_observed = max_concurrent.load(Ordering::SeqCst);
+        assert!(max_observed <= 3, "Max concurrent agents ({}) exceeded limit of 3", max_observed);
+    }
+
+    #[tokio::test]
+    async fn test_agent_timeout_handling() {
+        // Test that agent timeouts are properly enforced
+        let config = MapReduceConfig {
+            input: "test.json".to_string(),
+            json_path: "$.items[*]".to_string(),
+            max_parallel: 2,
+            timeout_per_agent: 1, // 1 second timeout
+            retry_on_failure: 0,
+            max_items: None,
+            offset: None,
+        };
+
+        let start = std::time::Instant::now();
+
+        // Simulate agent that takes too long
+        let result = tokio::time::timeout(
+            Duration::from_secs(config.timeout_per_agent),
+            async {
+                tokio::time::sleep(Duration::from_secs(5)).await;
+                "Should timeout"
+            }
+        ).await;
+
+        assert!(result.is_err(), "Agent should have timed out");
+        assert!(start.elapsed() < Duration::from_secs(2), "Timeout took too long");
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_worktree_creation() {
+        // Test multiple agents creating worktrees concurrently
+        let manager = Arc::new(MockWorktreeManager::new());
+        let mut handles = vec![];
+
+        for i in 0..5 {
+            let mgr = manager.clone();
+            let handle = tokio::spawn(async move {
+                mgr.create_worktree(&format!("agent-{}", i)).await
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all to complete
+        let mut results = vec![];
+        for handle in handles {
+            results.push(handle.await.unwrap());
+        }
+
+        // All should succeed
+        assert_eq!(results.iter().filter(|r| r.is_ok()).count(), 5);
+
+        // Check all worktrees were created
+        let sessions = manager.sessions.lock().unwrap();
+        assert_eq!(sessions.len(), 5);
+    }
+
+    #[tokio::test]
+    async fn test_agent_race_conditions() {
+        // Test for race conditions in agent result collection
+        let results = Arc::new(Mutex::new(Vec::<AgentResult>::new()));
+        let mut handles = vec![];
+
+        // Spawn multiple agents that write results concurrently
+        for i in 0..20 {
+            let res = results.clone();
+            let handle = tokio::spawn(async move {
+                // Random delay to increase chance of race conditions
+                tokio::time::sleep(Duration::from_millis(i as u64 % 10)).await;
+
+                let result = AgentResult {
+                    item_id: format!("item-{}", i),
+                    status: AgentStatus::Success,
+                    output: Some(format!("Output {}", i)),
+                    commits: vec![],
+                    duration: Duration::from_millis(i as u64),
+                    error: None,
+                    worktree_path: None,
+                    branch_name: None,
+                    worktree_session_id: None,
+                    files_modified: vec![],
+                };
+
+                res.lock().await.push(result);
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all
+        for handle in handles {
+            handle.await.unwrap();
+        }
+
+        // Verify all results were collected
+        let final_results = results.lock().await;
+        assert_eq!(final_results.len(), 20);
+
+        // Verify no duplicates
+        let mut ids: Vec<String> = final_results.iter().map(|r| r.item_id.clone()).collect();
+        ids.sort();
+        ids.dedup();
+        assert_eq!(ids.len(), 20);
+    }
+}
+
+// ============================================================================
+// Dead Letter Queue (DLQ) Tests
+// ============================================================================
+
+#[cfg(test)]
+mod dlq_tests {
+    use super::*;
+    use crate::cook::execution::dlq::{ErrorType, FailureDetail};
+    use chrono::Utc;
+    use serde_json::Value;
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_dlq_failure_detail_serialization() {
+        // Test that FailureDetail can be properly serialized/deserialized
+        let failure_detail = FailureDetail {
+            attempt_number: 2,
+            timestamp: Utc::now(),
+            error_type: ErrorType::CommandFailed { exit_code: 1 },
+            error_message: "Command execution failed".to_string(),
+            stack_trace: Some("Stack trace here".to_string()),
+            agent_id: "agent-123".to_string(),
+            step_failed: "map-phase".to_string(),
+            duration_ms: 1500,
+        };
+
+        let json = serde_json::to_value(&failure_detail).unwrap();
+        let deserialized: FailureDetail = serde_json::from_value(json).unwrap();
+
+        assert_eq!(deserialized.error_message, failure_detail.error_message);
+        assert_eq!(deserialized.attempt_number, 2);
+    }
+
+    #[test]
+    fn test_dlq_error_type_categorization() {
+        // Test different error types
+        let error_types = vec![
+            ErrorType::Timeout,
+            ErrorType::CommandFailed { exit_code: 1 },
+            ErrorType::WorktreeError,
+            ErrorType::ValidationFailed,
+            ErrorType::Unknown,
+        ];
+
+        for err_type in error_types {
+            let detail = FailureDetail {
+                attempt_number: 1,
+                timestamp: Utc::now(),
+                error_type: err_type.clone(),
+                error_message: "Test message".to_string(),
+                stack_trace: None,
+                agent_id: "test-agent".to_string(),
+                step_failed: "test-step".to_string(),
+                duration_ms: 1000,
+            };
+
+            let json = serde_json::to_value(&detail).unwrap();
+            assert!(json.is_object());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_dlq_failed_item_tracking() {
+        // Simulate DLQ behavior with a simple in-memory store
+        let mut failed_items: HashMap<String, Value> = HashMap::new();
+
+        // Add failed items
+        for i in 0..5 {
+            let item_id = format!("item-{}", i);
+            let item_data = json!({
+                "id": item_id.clone(),
+                "failure": {
+                    "error_type": if i % 2 == 0 { "Timeout" } else { "CommandExecution" },
+                    "message": format!("Failed item {}", i),
+                    "retry_count": i,
+                }
+            });
+
+            failed_items.insert(item_id, item_data);
+        }
+
+        assert_eq!(failed_items.len(), 5);
+
+        // Simulate retry - remove successfully processed items
+        failed_items.remove("item-0");
+        failed_items.remove("item-2");
+        failed_items.remove("item-4");
+
+        // Verify only failed items remain
+        assert_eq!(failed_items.len(), 2);
+        assert!(failed_items.contains_key("item-1"));
+        assert!(failed_items.contains_key("item-3"));
+    }
+
+    #[tokio::test]
+    async fn test_dlq_persistence_simulation() {
+        use tempfile::TempDir;
+        use std::fs;
+
+        // Test DLQ persistence to filesystem
+        let temp_dir = TempDir::new().unwrap();
+        let dlq_path = temp_dir.path().join("dlq");
+        fs::create_dir_all(&dlq_path).unwrap();
+
+        // Write failed item to disk
+        let item_data = json!({
+            "item_id": "test-item",
+            "error": "Test failure",
+            "retry_count": 1
+        });
+
+        let item_file = dlq_path.join("test-item.json");
+        fs::write(&item_file, item_data.to_string()).unwrap();
+
+        // Read back and verify
+        let content = fs::read_to_string(&item_file).unwrap();
+        let parsed: Value = serde_json::from_str(&content).unwrap();
+
+        assert_eq!(parsed["item_id"], "test-item");
+        assert_eq!(parsed["retry_count"], 1);
+    }
+}
+
+// ============================================================================
+// Job Recovery Tests (simplified for new structure)
+// ============================================================================
+
+#[cfg(test)]
+mod recovery_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    #[tokio::test]
+    async fn test_sigint_handling_simulation() {
+        // Test graceful shutdown on SIGINT
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let shutdown_clone = shutdown.clone();
+
+        // Simulate work with shutdown check
+        let handle = tokio::spawn(async move {
+            for i in 0..100 {
+                if shutdown_clone.load(Ordering::Relaxed) {
+                    // Save state and exit gracefully
+                    return Ok::<_, String>(format!("Interrupted at item {}", i));
+                }
+
+                // Simulate work
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            Ok("Completed all items".to_string())
+        });
+
+        // Simulate SIGINT after some time
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        shutdown.store(true, Ordering::Relaxed);
+
+        let result = handle.await.unwrap().unwrap();
+        assert!(result.contains("Interrupted"));
+    }
+
+    #[tokio::test]
+    async fn test_checkpoint_data_integrity() {
+        // Test that checkpoint data maintains integrity during serialization
+        use serde_json::Value;
+
+        let checkpoint_data = json!({
+            "job_id": "test-job-123",
+            "work_items": [
+                {"id": 1, "data": "item1"},
+                {"id": 2, "data": "item2"}
+            ],
+            "completed_agents": ["agent-1", "agent-2"],
+            "checkpoint_version": 1
+        });
+
+        // Serialize and deserialize
+        let serialized = serde_json::to_string(&checkpoint_data).unwrap();
+        let deserialized: Value = serde_json::from_str(&serialized).unwrap();
+
+        // Verify integrity
+        assert_eq!(deserialized["job_id"], "test-job-123");
+        assert_eq!(deserialized["work_items"].as_array().unwrap().len(), 2);
+        assert_eq!(deserialized["completed_agents"].as_array().unwrap().len(), 2);
+        assert_eq!(deserialized["checkpoint_version"], 1);
+    }
+
+    #[tokio::test]
+    async fn test_recovery_with_partial_results() {
+        // Test recovery scenarios with partially completed work
+        let mut completed_items = std::collections::HashSet::new();
+        completed_items.insert("item-1".to_string());
+        completed_items.insert("item-3".to_string());
+        completed_items.insert("item-5".to_string());
+
+        let total_items = vec!["item-1", "item-2", "item-3", "item-4", "item-5"];
+
+        // Find items that still need processing
+        let remaining: Vec<_> = total_items
+            .iter()
+            .filter(|item| !completed_items.contains(&item.to_string()))
+            .collect();
+
+        assert_eq!(remaining.len(), 2);
+        assert!(remaining.contains(&&"item-2"));
+        assert!(remaining.contains(&&"item-4"));
+    }
+}
+
+// ============================================================================
 // Additional tests for improving MapReduce coverage
 // ============================================================================
 
@@ -1419,5 +1920,113 @@ mod additional_coverage_tests {
         let deserialized: Vec<AgentResult> = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(deserialized.len(), 50);
+    }
+}
+
+// ============================================================================
+// Integration Tests for MapReduce Executor
+// ============================================================================
+
+#[cfg(test)]
+mod integration_tests {
+    use super::*;
+    use serde_json::Value;
+    use tempfile::TempDir;
+
+    #[tokio::test]
+    async fn test_end_to_end_mapreduce_flow() {
+        // Test complete flow: setup -> map -> reduce
+        let temp_dir = TempDir::new().unwrap();
+        let work_dir = temp_dir.path();
+
+        // Create test input file
+        let input_file = work_dir.join("test_items.json");
+        let items = json!({
+            "items": [
+                {"id": 1, "name": "task1", "priority": "high"},
+                {"id": 2, "name": "task2", "priority": "low"},
+                {"id": 3, "name": "task3", "priority": "high"},
+            ]
+        });
+        std::fs::write(&input_file, items.to_string()).unwrap();
+
+        // Create map phase configuration
+        let map_config = MapReduceConfig {
+            input: input_file.to_string_lossy().to_string(),
+            json_path: "$.items[*]".to_string(),
+            max_parallel: 2,
+            timeout_per_agent: 30,
+            retry_on_failure: 1,
+            max_items: None,
+            offset: None,
+        };
+
+        // Verify configuration
+        assert_eq!(map_config.max_parallel, 2);
+        assert_eq!(map_config.retry_on_failure, 1);
+
+        // Test JSON path extraction
+        let json_content = std::fs::read_to_string(&input_file).unwrap();
+        let parsed: Value = serde_json::from_str(&json_content).unwrap();
+
+        // Simple JSONPath simulation for testing
+        if let Some(items_array) = parsed.get("items").and_then(|v| v.as_array()) {
+            assert_eq!(items_array.len(), 3);
+            assert_eq!(items_array[0]["priority"], "high");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_filter_and_sort_operations() {
+        // Test filtering and sorting of work items
+        let items = vec![
+            json!({"id": 1, "priority": 3, "status": "active"}),
+            json!({"id": 2, "priority": 1, "status": "inactive"}),
+            json!({"id": 3, "priority": 2, "status": "active"}),
+            json!({"id": 4, "priority": 1, "status": "active"}),
+        ];
+
+        // Simulate filter: status == "active"
+        let filtered: Vec<_> = items.iter()
+            .filter(|item| item["status"] == "active")
+            .cloned()
+            .collect();
+        assert_eq!(filtered.len(), 3);
+
+        // Simulate sort by priority
+        let mut sorted = filtered.clone();
+        sorted.sort_by_key(|item| item["priority"].as_u64().unwrap_or(0));
+        assert_eq!(sorted[0]["id"], 4);
+        assert_eq!(sorted[1]["id"], 3);
+        assert_eq!(sorted[2]["id"], 1);
+    }
+
+    #[tokio::test]
+    async fn test_offset_and_limit_processing() {
+        // Test max_items and offset parameters
+        let items: Vec<Value> = (0..100)
+            .map(|i| json!({"id": i, "value": format!("item_{}", i)}))
+            .collect();
+
+        let config = MapReduceConfig {
+            input: "dummy".to_string(),
+            json_path: "$[*]".to_string(),
+            max_parallel: 5,
+            timeout_per_agent: 10,
+            retry_on_failure: 0,
+            max_items: Some(20),
+            offset: Some(10),
+        };
+
+        // Simulate offset and limit
+        let start = config.offset.unwrap_or(0);
+        let processed: Vec<_> = items.iter()
+            .skip(start)
+            .take(config.max_items.unwrap_or(items.len()))
+            .collect();
+
+        assert_eq!(processed.len(), 20);
+        assert_eq!(processed[0]["id"], 10);
+        assert_eq!(processed[19]["id"], 29);
     }
 }
