@@ -224,6 +224,43 @@ enum Commands {
         #[arg(short, long)]
         path: Option<PathBuf>,
     },
+    /// Migrate workflow YAML files to simplified syntax
+    #[command(name = "migrate-yaml")]
+    MigrateYaml {
+        /// Workflow file or directory to migrate (defaults to workflows/)
+        #[arg(value_name = "PATH")]
+        path: Option<PathBuf>,
+
+        /// Create backup files (.bak)
+        #[arg(long, default_value = "true")]
+        backup: bool,
+
+        /// Dry run - show what would be changed without modifying files
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Force overwrite without backup
+        #[arg(short, long)]
+        force: bool,
+    },
+    /// Validate workflow YAML format and suggest improvements
+    #[command(name = "validate")]
+    Validate {
+        /// Workflow file to validate
+        workflow: PathBuf,
+
+        /// Check for simplified format
+        #[arg(long, default_value = "simplified")]
+        format: String,
+
+        /// Show suggestions for improvements
+        #[arg(long, default_value = "true")]
+        suggest: bool,
+
+        /// Exit with error code if not valid
+        #[arg(long)]
+        strict: bool,
+    },
     /// Resume a MapReduce job from its checkpoint
     #[command(name = "resume-job")]
     ResumeJob {
@@ -785,6 +822,18 @@ async fn execute_command(command: Option<Commands>) -> anyhow::Result<()> {
             };
             prodigy::init::run(init_cmd).await
         }
+        Some(Commands::MigrateYaml {
+            path,
+            backup,
+            dry_run,
+            force,
+        }) => run_migrate_yaml_command(path, backup, dry_run, force).await,
+        Some(Commands::Validate {
+            workflow,
+            format,
+            suggest,
+            strict,
+        }) => run_validate_command(workflow, format, suggest, strict).await,
         Some(Commands::ResumeJob {
             job_id,
             force,
@@ -2087,6 +2136,87 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
             merged_only,
         } => handle_clean_command(&worktree_manager, name, all, force, merged_only).await,
     }
+}
+
+/// Run migrate-yaml command to convert workflows to simplified syntax
+async fn run_migrate_yaml_command(
+    path: Option<PathBuf>,
+    backup: bool,
+    dry_run: bool,
+    force: bool,
+) -> anyhow::Result<()> {
+    use prodigy::cli::yaml_migrator::YamlMigrator;
+
+    let target = path.unwrap_or_else(|| PathBuf::from("workflows"));
+
+    if dry_run {
+        println!("🔍 Running migration check (dry run)...");
+    } else {
+        println!("📝 Migrating YAML files to simplified syntax...");
+    }
+
+    let migrator = YamlMigrator::new(backup && !force);
+    let results = if target.is_file() {
+        vec![migrator.migrate_file(&target, dry_run)?]
+    } else {
+        migrator.migrate_directory(&target, dry_run)?
+    };
+
+    // Print summary
+    let migrated_count = results.iter().filter(|r| r.was_migrated).count();
+    let error_count = results.iter().filter(|r| r.error.is_some()).count();
+
+    if migrated_count > 0 {
+        println!(
+            "✅ Migrated {} file(s) to simplified syntax",
+            migrated_count
+        );
+    }
+    if error_count > 0 {
+        println!("⚠️  {} file(s) had errors", error_count);
+    }
+    if migrated_count == 0 && error_count == 0 {
+        println!("ℹ️  No files needed migration");
+    }
+
+    Ok(())
+}
+
+/// Run validate command to check workflow format
+async fn run_validate_command(
+    workflow: PathBuf,
+    format: String,
+    suggest: bool,
+    strict: bool,
+) -> anyhow::Result<()> {
+    use prodigy::cli::yaml_validator::YamlValidator;
+
+    println!("🔍 Validating workflow: {}", workflow.display());
+
+    let validator = YamlValidator::new(format == "simplified");
+    let result = validator.validate_file(&workflow)?;
+
+    if result.is_valid {
+        println!("✅ Workflow is valid and uses {} format", format);
+    } else {
+        println!("⚠️  Workflow validation issues found:");
+        for issue in &result.issues {
+            println!("   - {}", issue);
+        }
+    }
+
+    if suggest && !result.suggestions.is_empty() {
+        println!("\n💡 Suggestions for improvement:");
+        for suggestion in &result.suggestions {
+            println!("   - {}", suggestion);
+        }
+    }
+
+    if strict && !result.is_valid {
+        return Err(anyhow::anyhow!("Workflow validation failed"));
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

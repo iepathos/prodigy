@@ -38,89 +38,85 @@ map:
   input: .prodigy/doc-areas.json
   json_path: "$.areas[*]"
   
-  # Commands to execute for each documentation area
+  # Commands to execute for each documentation area (simplified syntax)
   agent_template:
-    commands:
-      # Analyze drift for this specific area
-      - claude: "/prodigy-docs-drift-analyze --area '${item.name}' --pattern '${item.pattern}'"
-        commit_required: false
-        timeout: 300
-      
-      # Fix critical issues in this area
-      - claude: "/prodigy-docs-drift-update critical --area '${item.name}'"
-        commit_required: true
-        timeout: 300
-      
-      # Fix major issues in this area
-      - claude: "/prodigy-docs-drift-update major --area '${item.name}'"
-        commit_required: true
-        timeout: 300
-      
-      # Capture metrics for this area
-      - shell: |
-          if [ -f .prodigy/documentation-drift.json ]; then
-            jq --arg area "${item.name}" '{
-              area: $area,
-              priority: "${item.priority}",
-              remaining_issues: .summary.total_issues,
-              fixed_critical: .summary.fixed_critical // 0,
-              fixed_major: .summary.fixed_major // 0
-            }' .prodigy/documentation-drift.json > .prodigy/drift-${item.name}-result.json
-          else
-            echo '{"area": "${item.name}", "remaining_issues": 0}' > .prodigy/drift-${item.name}-result.json
-          fi
-        capture_output: true
-  
-  # Parallelization settings
-  max_parallel: 4  # Run up to 4 agents in parallel
-  timeout_per_agent: 600s  # 10 minutes per agent
-  retry_on_failure: 1  # Retry once if an agent fails
+    # Analyze drift for this specific area
+    - claude: "/prodigy-docs-drift-analyze --area '${item.name}' --pattern '${item.pattern}'"
+      commit_required: false
+      timeout: 300
 
-# Reduce phase: Aggregate results and finalize
-reduce:
-  commands:
-    # Fix any remaining minor issues globally
-    - claude: "/prodigy-docs-drift-update minor"
+    # Fix critical issues in this area
+    - claude: "/prodigy-docs-drift-update critical --area '${item.name}'"
       commit_required: true
       timeout: 300
-    
-    # Final analysis to measure improvements
-    - claude: "/prodigy-docs-drift-analyze"
-      commit_required: false
-    
-    # Generate comparison report
+
+    # Fix major issues in this area
+    - claude: "/prodigy-docs-drift-update major --area '${item.name}'"
+      commit_required: true
+      timeout: 300
+
+    # Capture metrics for this area
     - shell: |
-        echo "=== Documentation Drift Resolution Summary ==="
-        echo "Parallel agents processed: ${map.total}"
-        echo "Successful: ${map.successful}"
-        echo "Failed: ${map.failed}"
-        echo ""
-        
-        if [ -f .prodigy/drift-baseline.json ] && [ -f .prodigy/documentation-drift.json ]; then
-          baseline_total=$(jq '.summary.total_issues // 0' .prodigy/drift-baseline.json)
-          final_total=$(jq '.summary.total_issues // 0' .prodigy/documentation-drift.json)
-          fixed=$((baseline_total - final_total))
-          
-          echo "Baseline issues: $baseline_total"
-          echo "Remaining issues: $final_total"
-          echo "Issues fixed: $fixed"
-          
-          if [ "$final_total" -eq 0 ]; then
-            echo "✅ All documentation drift has been resolved!"
-          elif [ "$fixed" -gt 0 ]; then
-            echo "✅ Fixed $fixed documentation issues"
-          else
-            echo "⚠️ Some documentation issues could not be fixed automatically"
-          fi
+        if [ -f .prodigy/documentation-drift.json ]; then
+          jq --arg area "${item.name}" '{
+            area: $area,
+            priority: "${item.priority}",
+            remaining_issues: .summary.total_issues,
+            fixed_critical: .summary.fixed_critical // 0,
+            fixed_major: .summary.fixed_major // 0
+          }' .prodigy/documentation-drift.json > .prodigy/drift-${item.name}-result.json
+        else
+          echo '{"area": "${item.name}", "remaining_issues": 0}' > .prodigy/drift-${item.name}-result.json
         fi
       capture_output: true
-    
-    # Final lint and format
-    - claude: "/prodigy-lint"
-      commit_required: true
-    
-    # Test documentation examples
-    - shell: "cargo test --doc 2>/dev/null || echo 'Note: Some doctests may need manual review'"
+
+  # Parallelization settings
+  max_parallel: 4  # Run up to 4 agents in parallel
+
+# Reduce phase: Aggregate results and finalize (simplified syntax)
+reduce:
+  # Fix any remaining minor issues globally
+  - claude: "/prodigy-docs-drift-update minor"
+    commit_required: true
+    timeout: 300
+
+  # Final analysis to measure improvements
+  - claude: "/prodigy-docs-drift-analyze"
+    commit_required: false
+
+  # Generate comparison report
+  - shell: |
+      echo "=== Documentation Drift Resolution Summary ==="
+      echo "Parallel agents processed: ${map.total}"
+      echo "Successful: ${map.successful}"
+      echo "Failed: ${map.failed}"
+      echo ""
+
+      if [ -f .prodigy/drift-baseline.json ] && [ -f .prodigy/documentation-drift.json ]; then
+        baseline_total=$(jq '.summary.total_issues // 0' .prodigy/drift-baseline.json)
+        final_total=$(jq '.summary.total_issues // 0' .prodigy/documentation-drift.json)
+        fixed=$((baseline_total - final_total))
+
+        echo "Baseline issues: $baseline_total"
+        echo "Remaining issues: $final_total"
+        echo "Issues fixed: $fixed"
+
+        if [ "$final_total" -eq 0 ]; then
+          echo "✅ All documentation drift has been resolved!"
+        elif [ "$fixed" -gt 0 ]; then
+          echo "✅ Fixed $fixed documentation issues"
+        else
+          echo "⚠️ Some documentation issues could not be fixed automatically"
+        fi
+      fi
+    capture_output: true
+
+  # Final lint and format
+  - claude: "/prodigy-lint"
+    commit_required: true
+
+  # Test documentation examples
+  - shell: "cargo test --doc 2>/dev/null || echo 'Note: Some doctests may need manual review'"
 
 # This MapReduce workflow:
 # 1. Sets up documentation areas for parallel processing
