@@ -11,7 +11,7 @@ pub struct ValidationIssue {
     pub severity: ValidationSeverity,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ValidationSeverity {
     Error,
     Warning,
