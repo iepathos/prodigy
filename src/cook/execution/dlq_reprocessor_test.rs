@@ -2,9 +2,9 @@
 
 use super::dlq_reprocessor::*;
 use crate::cook::execution::dlq::{
-    DLQFilter, DeadLetterQueue, DeadLetteredItem, ErrorType, FailureDetail,
+    DLQFilter, DeadLetterQueue, DeadLetteredItem, ErrorType as DlqErrorType, FailureDetail,
 };
-use chrono::Utc;
+use chrono::{Duration, Utc};
 use serde_json::json;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -36,7 +36,7 @@ async fn create_test_dlq_with_items(
         failure_history: vec![FailureDetail {
             attempt_number: 1,
             timestamp: Utc::now(),
-            error_type: ErrorType::CommandFailed { exit_code: 1 },
+            error_type: DlqErrorType::CommandFailed { exit_code: 1 },
             error_message: "Test failure".to_string(),
             stack_trace: None,
             agent_id: "agent-1".to_string(),
@@ -301,4 +301,196 @@ async fn test_global_stats() {
     assert_eq!(stats.requiring_manual_review, 1);
     assert!(stats.oldest_item.is_some());
     assert!(stats.newest_item.is_some());
+}
+
+#[tokio::test]
+async fn test_advanced_filter_error_types() {
+    let (dlq, _temp_dir) = create_test_dlq_with_items("test-job-7").await.unwrap();
+    let project_root = PathBuf::from(".");
+    let reprocessor = DlqReprocessor::new(dlq.clone(), None, project_root);
+
+    // Create test items with different error signatures
+    let timeout_item = DeadLetteredItem {
+        item_id: "timeout-item".to_string(),
+        item_data: json!({"id": 10}),
+        first_attempt: Utc::now(),
+        last_attempt: Utc::now(),
+        failure_count: 1,
+        failure_history: vec![],
+        error_signature: "timeout occurred during execution".to_string(),
+        worktree_artifacts: None,
+        reprocess_eligible: true,
+        manual_review_required: false,
+    };
+
+    let validation_item = DeadLetteredItem {
+        item_id: "validation-item".to_string(),
+        item_data: json!({"id": 11}),
+        first_attempt: Utc::now(),
+        last_attempt: Utc::now(),
+        failure_count: 2,
+        failure_history: vec![],
+        error_signature: "validation failed for input".to_string(),
+        worktree_artifacts: None,
+        reprocess_eligible: true,
+        manual_review_required: false,
+    };
+
+    let items = vec![timeout_item, validation_item];
+
+    // Test filtering by error types
+    let filter = DlqFilterAdvanced {
+        error_types: Some(vec![ErrorType::Timeout]),
+        date_range: None,
+        item_filter: None,
+        max_failure_count: None,
+    };
+
+    let filtered = reprocessor
+        .apply_advanced_filter(items.clone(), &filter)
+        .unwrap();
+    assert_eq!(filtered.len(), 1);
+    assert_eq!(filtered[0].item_id, "timeout-item");
+
+    // Test filtering by validation errors
+    let filter = DlqFilterAdvanced {
+        error_types: Some(vec![ErrorType::Validation]),
+        date_range: None,
+        item_filter: None,
+        max_failure_count: None,
+    };
+
+    let filtered = reprocessor
+        .apply_advanced_filter(items.clone(), &filter)
+        .unwrap();
+    assert_eq!(filtered.len(), 1);
+    assert_eq!(filtered[0].item_id, "validation-item");
+}
+
+#[tokio::test]
+async fn test_advanced_filter_date_range() {
+    let (dlq, _temp_dir) = create_test_dlq_with_items("test-job-8").await.unwrap();
+    let project_root = PathBuf::from(".");
+    let reprocessor = DlqReprocessor::new(dlq.clone(), None, project_root);
+
+    let now = Utc::now();
+    let old_item = DeadLetteredItem {
+        item_id: "old-item".to_string(),
+        item_data: json!({"id": 20}),
+        first_attempt: now - Duration::days(5),
+        last_attempt: now - Duration::days(5),
+        failure_count: 1,
+        failure_history: vec![],
+        error_signature: "old error".to_string(),
+        worktree_artifacts: None,
+        reprocess_eligible: true,
+        manual_review_required: false,
+    };
+
+    let recent_item = DeadLetteredItem {
+        item_id: "recent-item".to_string(),
+        item_data: json!({"id": 21}),
+        first_attempt: now - Duration::hours(1),
+        last_attempt: now - Duration::hours(1),
+        failure_count: 1,
+        failure_history: vec![],
+        error_signature: "recent error".to_string(),
+        worktree_artifacts: None,
+        reprocess_eligible: true,
+        manual_review_required: false,
+    };
+
+    let items = vec![old_item, recent_item];
+
+    // Filter for items from last 2 days
+    let filter = DlqFilterAdvanced {
+        error_types: None,
+        date_range: Some(DateRange {
+            start: now - Duration::days(2),
+            end: now,
+        }),
+        item_filter: None,
+        max_failure_count: None,
+    };
+
+    let filtered = reprocessor.apply_advanced_filter(items, &filter).unwrap();
+    assert_eq!(filtered.len(), 1);
+    assert_eq!(filtered[0].item_id, "recent-item");
+}
+
+#[tokio::test]
+async fn test_advanced_filter_failure_count() {
+    let (dlq, _temp_dir) = create_test_dlq_with_items("test-job-9").await.unwrap();
+    let project_root = PathBuf::from(".");
+    let reprocessor = DlqReprocessor::new(dlq.clone(), None, project_root);
+
+    let low_failure_item = DeadLetteredItem {
+        item_id: "low-failure".to_string(),
+        item_data: json!({"id": 30}),
+        first_attempt: Utc::now(),
+        last_attempt: Utc::now(),
+        failure_count: 2,
+        failure_history: vec![],
+        error_signature: "error".to_string(),
+        worktree_artifacts: None,
+        reprocess_eligible: true,
+        manual_review_required: false,
+    };
+
+    let high_failure_item = DeadLetteredItem {
+        item_id: "high-failure".to_string(),
+        item_data: json!({"id": 31}),
+        first_attempt: Utc::now(),
+        last_attempt: Utc::now(),
+        failure_count: 10,
+        failure_history: vec![],
+        error_signature: "error".to_string(),
+        worktree_artifacts: None,
+        reprocess_eligible: true,
+        manual_review_required: false,
+    };
+
+    let items = vec![low_failure_item, high_failure_item];
+
+    // Filter for items with <= 5 failures
+    let filter = DlqFilterAdvanced {
+        error_types: None,
+        date_range: None,
+        item_filter: None,
+        max_failure_count: Some(5),
+    };
+
+    let filtered = reprocessor.apply_advanced_filter(items, &filter).unwrap();
+    assert_eq!(filtered.len(), 1);
+    assert_eq!(filtered[0].item_id, "low-failure");
+}
+
+#[tokio::test]
+async fn test_reprocess_items_basic() {
+    let (dlq, _temp_dir) = create_test_dlq_with_items("test-job-10").await.unwrap();
+    let project_root = PathBuf::from(".");
+    let reprocessor = DlqReprocessor::new(dlq.clone(), None, project_root);
+
+    // Test basic reprocess_items call
+    let options = ReprocessOptions {
+        max_retries: 1,
+        filter: None,
+        parallel: 2,
+        timeout_per_item: 10,
+        strategy: RetryStrategy::Immediate,
+        merge_results: false,
+        force: true,
+    };
+
+    // This will use the simulated processing in the implementation
+    let result = reprocessor.reprocess_items(options).await.unwrap();
+
+    // Should have attempted to process all items
+    assert!(result.total_items > 0);
+    assert_eq!(
+        result.total_items,
+        result.successful + result.failed + result.skipped
+    );
+    assert!(!result.job_id.is_empty());
+    assert!(result.duration.as_secs() >= 0);
 }

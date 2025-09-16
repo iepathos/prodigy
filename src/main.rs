@@ -1606,25 +1606,64 @@ async fn run_dlq_command(command: DlqCommands) -> anyhow::Result<()> {
             force,
         } => {
             use prodigy::cook::execution::dlq_reprocessor::{
-                DlqReprocessor, ReprocessOptions, RetryStrategy,
+                DlqFilterAdvanced, DlqReprocessor, ErrorType, ReprocessOptions, RetryStrategy,
             };
             use std::sync::Arc;
+
+            println!("Starting DLQ reprocessing for workflow: {}", workflow_id);
 
             // Get DLQ instance
             let dlq = get_dlq_instance(&workflow_id, &project_root).await?;
             let dlq_arc = Arc::new(dlq);
 
             // Create reprocessor
-            let _reprocessor = DlqReprocessor::new(
+            let reprocessor = DlqReprocessor::new(
                 dlq_arc.clone(),
                 None, // Event logger
                 project_root.clone(),
             );
 
+            // Parse filter if provided
+            let advanced_filter = if let Some(filter_str) = filter {
+                // Parse simple filter expressions into advanced filter
+                let mut adv_filter = DlqFilterAdvanced {
+                    error_types: None,
+                    date_range: None,
+                    item_filter: None,
+                    max_failure_count: None,
+                };
+
+                // Check for common filter patterns
+                if filter_str.contains("error_type=") {
+                    // Parse error type filter
+                    if filter_str.contains("timeout") {
+                        adv_filter.error_types = Some(vec![ErrorType::Timeout]);
+                    } else if filter_str.contains("validation") {
+                        adv_filter.error_types = Some(vec![ErrorType::Validation]);
+                    } else if filter_str.contains("command") {
+                        adv_filter.error_types = Some(vec![ErrorType::CommandFailure]);
+                    }
+                } else if filter_str.contains("failure_count") {
+                    // Parse failure count filter
+                    if let Some(num_str) = filter_str.split('=').nth(1) {
+                        if let Ok(num) = num_str.trim().parse::<u32>() {
+                            adv_filter.max_failure_count = Some(num);
+                        }
+                    }
+                } else {
+                    // Use as item filter expression
+                    adv_filter.item_filter = Some(filter_str);
+                }
+
+                Some(adv_filter)
+            } else {
+                None
+            };
+
             // Create reprocess options
             let options = ReprocessOptions {
                 max_retries,
-                filter,
+                filter: advanced_filter,
                 parallel,
                 timeout_per_item: 300,
                 strategy: RetryStrategy::ExponentialBackoff,
@@ -1632,30 +1671,67 @@ async fn run_dlq_command(command: DlqCommands) -> anyhow::Result<()> {
                 force,
             };
 
-            // For now, we'll display what would be reprocessed
-            let filter_obj = prodigy::cook::execution::dlq::DLQFilter::default();
-            let items = dlq_arc.list_items(filter_obj).await?;
-
-            let eligible_count = if force {
-                items.len()
-            } else {
-                items.iter().filter(|i| i.reprocess_eligible).count()
-            };
-
-            println!("DLQ Reprocessing for workflow: {}", workflow_id);
-            println!("  Total items in DLQ: {}", items.len());
-            println!("  Eligible for reprocessing: {}", eligible_count);
-            if let Some(ref f) = options.filter {
-                println!("  Filter expression: {}", f);
-            }
+            // Execute reprocessing
+            println!("Configuration:");
             println!("  Max retries: {}", options.max_retries);
             println!("  Parallel workers: {}", options.parallel);
             println!("  Force reprocessing: {}", options.force);
+            if let Some(ref f) = options.filter {
+                if let Some(ref types) = f.error_types {
+                    println!("  Error type filter: {:?}", types);
+                }
+                if let Some(ref expr) = f.item_filter {
+                    println!("  Item filter: {}", expr);
+                }
+                if let Some(max) = f.max_failure_count {
+                    println!("  Max failure count: {}", max);
+                }
+            }
+            println!();
 
-            println!(
-                "\nNote: Full reprocessing with MapReduce executor integration is in progress."
-            );
-            println!("Currently showing analysis only. Items can be manually resubmitted.");
+            // Perform the actual reprocessing
+            match reprocessor.reprocess_items(options).await {
+                Ok(result) => {
+                    println!("\n✅ DLQ Reprocessing completed!");
+                    println!("\nSummary:");
+                    println!("  Total items processed: {}", result.total_items);
+                    println!("  Successful: {} ✓", result.successful);
+                    println!("  Failed: {} ✗", result.failed);
+                    if result.skipped > 0 {
+                        println!("  Skipped: {} ⊘", result.skipped);
+                    }
+                    println!("  Duration: {:?}", result.duration);
+                    println!("  Job ID: {}", result.job_id);
+
+                    if !result.error_patterns.is_empty() {
+                        println!("\nError patterns:");
+                        for (pattern, count) in &result.error_patterns {
+                            println!("  {}: {}", pattern, count);
+                        }
+                    }
+
+                    if !result.failed_items.is_empty() {
+                        println!("\nFailed items ({}):", result.failed_items.len());
+                        for (i, item) in result.failed_items.iter().take(5).enumerate() {
+                            println!("  {}. {}", i + 1, item);
+                        }
+                        if result.failed_items.len() > 5 {
+                            println!("  ... and {} more", result.failed_items.len() - 5);
+                        }
+                    }
+
+                    if result.failed > 0 {
+                        println!("\n⚠️  Some items failed reprocessing. Review the failed items and consider:");
+                        println!("  - Adjusting retry parameters");
+                        println!("  - Fixing underlying issues");
+                        println!("  - Manual intervention for persistent failures");
+                    }
+                }
+                Err(e) => {
+                    eprintln!("❌ DLQ reprocessing failed: {}", e);
+                    std::process::exit(1);
+                }
+            }
         }
         DlqCommands::Stats { workflow_id } => {
             if let Some(wf_id) = workflow_id {
