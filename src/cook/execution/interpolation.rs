@@ -459,7 +459,7 @@ impl InterpolationContext {
         Ok(current)
     }
 
-    /// Check if segment is an array index like "[0]" (pure function)
+    /// Check if segment is an array index like `[0]` (pure function)
     fn is_array_index(segment: &str) -> bool {
         segment.starts_with('[') && segment.ends_with(']')
     }
