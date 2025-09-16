@@ -493,7 +493,7 @@ async fn test_reprocess_items_basic() {
         result.successful + result.failed + result.skipped
     );
     assert!(!result.job_id.is_empty());
-    assert!(result.duration.as_secs() >= 0);
+    // Duration is recorded (might be 0ms for very fast tests)
 }
 
 #[tokio::test]

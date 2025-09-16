@@ -150,17 +150,77 @@ fn default_max_parallel() -> usize {
 }
 
 /// Agent template configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct AgentTemplate {
     /// Commands to execute for each work item
     pub commands: Vec<WorkflowStep>,
 }
 
+impl<'de> Deserialize<'de> for AgentTemplate {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum AgentTemplateValue {
+            // New simplified format: direct array of steps
+            Commands(Vec<WorkflowStep>),
+            // Old nested format with 'commands' key
+            Nested { commands: Vec<WorkflowStep> },
+        }
+
+        let value = AgentTemplateValue::deserialize(deserializer)?;
+
+        match value {
+            AgentTemplateValue::Commands(commands) => {
+                // Using the new simplified format - this is preferred
+                Ok(AgentTemplate { commands })
+            }
+            AgentTemplateValue::Nested { commands } => {
+                // Using deprecated nested format
+                tracing::warn!("Using deprecated nested 'commands' syntax in agent_template. Consider using the simplified array format directly under 'agent_template'.");
+                Ok(AgentTemplate { commands })
+            }
+        }
+    }
+}
+
 /// Reduce phase configuration from YAML
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ReducePhaseYaml {
     /// Commands to execute in reduce phase
     pub commands: Vec<WorkflowStep>,
+}
+
+impl<'de> Deserialize<'de> for ReducePhaseYaml {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum ReduceValue {
+            // New simplified format: direct array of steps
+            Commands(Vec<WorkflowStep>),
+            // Old nested format with 'commands' key
+            Nested { commands: Vec<WorkflowStep> },
+        }
+
+        let value = ReduceValue::deserialize(deserializer)?;
+
+        match value {
+            ReduceValue::Commands(commands) => {
+                // Using the new simplified format - this is preferred
+                Ok(ReducePhaseYaml { commands })
+            }
+            ReduceValue::Nested { commands } => {
+                // Using deprecated nested format
+                tracing::warn!("Using deprecated nested 'commands' syntax in reduce. Consider using the simplified array format directly under 'reduce'.");
+                Ok(ReducePhaseYaml { commands })
+            }
+        }
+    }
 }
 
 /// Custom deserializer for timeout values
@@ -313,5 +373,139 @@ map:
 
         let config = parse_mapreduce_workflow(yaml).unwrap();
         assert_eq!(config.map.timeout_per_agent, Some(300));
+    }
+
+    #[test]
+    fn test_simplified_agent_template_syntax() {
+        // Test new simplified format (preferred)
+        let yaml = r#"
+name: test-simplified
+mode: mapreduce
+
+map:
+  input: items.json
+  json_path: "$.items[*]"
+
+  # New simplified syntax - direct array of commands
+  agent_template:
+    - claude: "/process '${item}'"
+    - shell: "validate ${item}"
+
+  max_parallel: 5
+"#;
+
+        let config = parse_mapreduce_workflow(yaml).unwrap();
+        assert_eq!(config.name, "test-simplified");
+        assert_eq!(config.map.agent_template.commands.len(), 2);
+
+        // Verify commands are correctly parsed
+        let first_step = &config.map.agent_template.commands[0];
+        assert!(first_step.claude.is_some());
+        assert!(first_step.claude.as_ref().unwrap().contains("/process"));
+    }
+
+    #[test]
+    fn test_nested_agent_template_syntax() {
+        // Test old nested format (still supported for backward compatibility)
+        let yaml = r#"
+name: test-nested
+mode: mapreduce
+
+map:
+  input: items.json
+  json_path: "$.items[*]"
+
+  # Old nested syntax with 'commands' key
+  agent_template:
+    commands:
+      - claude: "/process '${item}'"
+      - shell: "validate ${item}"
+
+  max_parallel: 5
+"#;
+
+        let config = parse_mapreduce_workflow(yaml).unwrap();
+        assert_eq!(config.name, "test-nested");
+        assert_eq!(config.map.agent_template.commands.len(), 2);
+    }
+
+    #[test]
+    fn test_simplified_reduce_syntax() {
+        // Test new simplified format for reduce phase
+        let yaml = r#"
+name: test-reduce-simplified
+mode: mapreduce
+
+map:
+  input: items.json
+  agent_template:
+    - shell: "echo processing"
+
+# New simplified reduce syntax
+reduce:
+  - claude: "/summarize ${map.results}"
+  - shell: "generate-report"
+"#;
+
+        let config = parse_mapreduce_workflow(yaml).unwrap();
+        assert!(config.reduce.is_some());
+        assert_eq!(config.reduce.as_ref().unwrap().commands.len(), 2);
+    }
+
+    #[test]
+    fn test_nested_reduce_syntax() {
+        // Test old nested format for reduce phase
+        let yaml = r#"
+name: test-reduce-nested
+mode: mapreduce
+
+map:
+  input: items.json
+  agent_template:
+    - shell: "echo processing"
+
+# Old nested reduce syntax
+reduce:
+  commands:
+    - claude: "/summarize ${map.results}"
+    - shell: "generate-report"
+"#;
+
+        let config = parse_mapreduce_workflow(yaml).unwrap();
+        assert!(config.reduce.is_some());
+        assert_eq!(config.reduce.as_ref().unwrap().commands.len(), 2);
+    }
+
+    #[test]
+    fn test_mixed_simplified_and_nested_syntax() {
+        // Test workflow with mixed syntax (not recommended but should work)
+        let yaml = r#"
+name: test-mixed
+mode: mapreduce
+
+# Setup uses simple list format (already supported)
+setup:
+  - shell: "prepare-data"
+  - claude: "/analyze-requirements"
+
+map:
+  input: items.json
+  # Using new simplified syntax for agent_template
+  agent_template:
+    - claude: "/process ${item}"
+    - shell: "test ${item}"
+
+# Using old nested syntax for reduce
+reduce:
+  commands:
+    - claude: "/summarize ${map.results}"
+"#;
+
+        let config = parse_mapreduce_workflow(yaml).unwrap();
+        assert!(config.setup.is_some());
+        assert_eq!(config.setup.as_ref().unwrap().commands.len(), 2);
+        assert_eq!(config.map.agent_template.commands.len(), 2);
+        assert!(config.reduce.is_some());
+        assert_eq!(config.reduce.as_ref().unwrap().commands.len(), 1);
     }
 }
