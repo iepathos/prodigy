@@ -23,44 +23,41 @@ map:
   json_path: "$.test_items[*]"
   
   agent_template:
-    commands:
-      # Simulate processing based on type
-      - shell: |
-          echo "Processing item ${item.id}: ${item.type} in ${item.file}"
-          if [ "${item.type}" = "lint" ]; then
-            cargo clippy --lib 2>&1 | head -20
-          elif [ "${item.type}" = "format" ]; then
-            cargo fmt --check 2>&1 | head -20
-          elif [ "${item.type}" = "test" ]; then
-            cargo test --lib 2>&1 | grep "test result"
-          fi
-        capture_output: true
-        timeout: 60
-      
-      # Simulate a fix attempt
-      - shell: |
-          echo "Fixed ${item.type} issue in ${item.file} (severity: ${item.severity})"
-        capture_output: true
-  
+    # Simulate processing based on type
+    - shell: |
+        echo "Processing item ${item.id}: ${item.type} in ${item.file}"
+        if [ "${item.type}" = "lint" ]; then
+          cargo clippy --lib 2>&1 | head -20
+        elif [ "${item.type}" = "format" ]; then
+          cargo fmt --check 2>&1 | head -20
+        elif [ "${item.type}" = "test" ]; then
+          cargo test --lib 2>&1 | grep "test result"
+        fi
+      capture_output: true
+      timeout: 60
+
+    # Simulate a fix attempt
+    - shell: |
+        echo "Fixed ${item.type} issue in ${item.file} (severity: ${item.severity})"
+      capture_output: true
+
   # Process only high and critical severity items
   filter: "severity == 'high' || severity == 'critical'"
   sort_by: "severity DESC"
-  
+
   # Run 3 agents in parallel
   max_parallel: 3
-  timeout_per_agent: 120s
 
 # Reduce phase: Summarize results
 reduce:
-  commands:
-    - shell: |
-        echo "=== MapReduce Test Summary ==="
-        echo "Total items processed: ${map.total}"
-        echo "Successful: ${map.successful}"
-        echo "Failed: ${map.failed}"
-        echo "=============================="
-      capture_output: true
-    
-    # Clean up test file
-    - shell: "rm -f test_items.json"
-      capture_output: false
+  - shell: |
+      echo "=== MapReduce Test Summary ==="
+      echo "Total items processed: ${map.total}"
+      echo "Successful: ${map.successful}"
+      echo "Failed: ${map.failed}"
+      echo "=============================="
+    capture_output: true
+
+  # Clean up test file
+  - shell: "rm -f test_items.json"
+    capture_output: false
