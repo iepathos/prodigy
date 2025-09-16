@@ -220,15 +220,6 @@ async fn load_workflow_with_mapreduce(
     load_playbook_with_mapreduce(&cmd.playbook).await
 }
 
-/// Load workflow configuration (backward compatibility)
-#[allow(dead_code)]
-async fn load_workflow(
-    cmd: &CookCommand,
-    _config: &crate::config::Config,
-) -> Result<WorkflowConfig> {
-    // Always load from playbook since it's required
-    load_playbook(&cmd.playbook).await
-}
 
 /// Load workflow configuration from a playbook file with MapReduce support
 async fn load_playbook_with_mapreduce(
