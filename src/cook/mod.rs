@@ -75,8 +75,15 @@ pub async fn cook(mut cmd: CookCommand) -> Result<()> {
             ));
         }
 
-        // Check if it's a git repository
-        if !absolute_path.join(".git").exists() {
+        // Check if it's a git repository (only required if using worktree or git operations)
+        // Skip this check for batch/exec commands that don't need git
+        let is_temp_workflow = cmd
+            .playbook
+            .to_str()
+            .map(|s| s.contains("/tmp/") || s.contains("/var/folders/") || s.contains("Temp"))
+            .unwrap_or(false);
+        let requires_git = cmd.worktree || (!cmd.map.is_empty() && !is_temp_workflow);
+        if requires_git && !absolute_path.join(".git").exists() {
             return Err(anyhow!("Not a git repository: {}", absolute_path.display()));
         }
 

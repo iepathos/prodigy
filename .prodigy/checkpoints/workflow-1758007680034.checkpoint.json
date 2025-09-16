@@ -1,0 +1,56 @@
+{
+  "workflow_id": "workflow-1758007680034",
+  "execution_state": {
+    "current_step_index": 2,
+    "total_steps": 3,
+    "status": "Running",
+    "start_time": "2025-09-16T08:34:08.802632Z",
+    "last_checkpoint": "2025-09-16T08:34:08.802632Z",
+    "current_iteration": null,
+    "total_iterations": null
+  },
+  "completed_steps": [
+    {
+      "step_index": 0,
+      "command": "claude: /prodigy-implement-spec $ARG",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 1728,
+        "nanos": 218591750
+      },
+      "completed_at": "2025-09-16T07:56:48.293807Z"
+    },
+    {
+      "step_index": 1,
+      "command": "test: just test",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 2240,
+        "nanos": 434511375
+      },
+      "completed_at": "2025-09-16T08:34:08.802621Z"
+    }
+  ],
+  "variable_state": {
+    "step.files_changed": "10",
+    "ARG": "66",
+    "PROJECT_ROOT": "/Users/glen/.prodigy/worktrees/prodigy/session-a782bfce-1d00-432c-8643-206e933e5a28",
+    "step.insertions": "162",
+    "step.commits": "[{\"hash\":\"f9fe61ef94077af12613aac059cf6eecbea8fc2b\",\"message\":\"fix: resolve test failures with functional patterns\",\"author\":\"Glen Baker\",\"timestamp\":\"2025-09-16T08:33:44Z\",\"files_changed\":[\"tests/cli_integration/configuration_tests.rs\",\"tests/cli_integration/cook_command_tests.rs\",\"tests/cli_integration/signal_handling_tests.rs\",\"tests/cli_integration/test_utils.rs\",\"tests/cli_integration/verbose_output_tests.rs\"],\"insertions\":33,\"deletions\":15,\"step_name\":\"test: just test\",\"agent_id\":null},{\"hash\":\"a48cd93ee7650f8ff4e1a12fe41da4609dc0c7bb\",\"message\":\"fix: resolve test failures with functional patterns\",\"author\":\"Glen Baker\",\"timestamp\":\"2025-09-16T08:23:10Z\",\"files_changed\":[\"tests/cli_integration/batch_command_tests.rs\"],\"insertions\":34,\"deletions\":7,\"step_name\":\"test: just test\",\"agent_id\":null},{\"hash\":\"ff080bb40d78a76fbd697ec125eccc558764ee31\",\"message\":\"fix: resolve test failures with functional patterns\",\"author\":\"Glen Baker\",\"timestamp\":\"2025-09-16T08:14:30Z\",\"files_changed\":[\"src/cook/mod.rs\",\"src/cook/orchestrator.rs\"],\"insertions\":37,\"deletions\":4,\"step_name\":\"test: just test\",\"agent_id\":null},{\"hash\":\"72431e3f34a4e324fb6d89bca3c2999642ac7478\",\"message\":\"fix: resolve test failures with functional patterns\",\"author\":\"Glen Baker\",\"timestamp\":\"2025-09-16T08:05:08Z\",\"files_changed\":[\".prodigy/checkpoints/workflow-1758007680034.checkpoint.json\",\"tests/cli_integration/argument_parsing_tests.rs\",\"tests/cli_integration/test_utils.rs\"],\"insertions\":58,\"deletions\":9,\"step_name\":\"test: just test\",\"agent_id\":null}]",
+    "test.attempt": "4",
+    "test.exit_code": "100",
+    "test.output": "/var/folders/fc/plw0013j1yj8dj00s3gbpdfw0000gn/T/.tmpq9Yzef",
+    "step.deletions": "35"
+  },
+  "mapreduce_state": null,
+  "timestamp": "2025-09-16T08:34:08.802632Z",
+  "version": 1,
+  "workflow_hash": "3",
+  "total_steps": 3,
+  "workflow_name": "args-workflow",
+  "workflow_path": null
+}
