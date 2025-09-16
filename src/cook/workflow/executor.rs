@@ -3,6 +3,7 @@
 //! Executes workflow steps in sequence, verifies git commits when required,
 //! and manages iteration logic for continuous improvement sessions.
 
+use crate::abstractions::git::{GitOperations, RealGitOperations};
 use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
 use crate::cook::execution::ClaudeExecutor;
@@ -592,6 +593,8 @@ pub struct WorkflowExecutor {
     current_workflow: Option<NormalizedWorkflow>,
     /// Current step index being executed (for checkpoint context)
     current_step_index: Option<usize>,
+    /// Git operations abstraction for testing
+    git_operations: Arc<dyn GitOperations>,
 }
 
 impl WorkflowExecutor {
@@ -1153,7 +1156,11 @@ impl WorkflowExecutor {
 
     /// Determine if workflow should fail based on command result
     /// Evaluate a when condition expression
-    fn evaluate_when_condition(&self, when_expr: &str, context: &WorkflowContext) -> Result<bool> {
+    pub(crate) fn evaluate_when_condition(
+        &self,
+        when_expr: &str,
+        context: &WorkflowContext,
+    ) -> Result<bool> {
         let evaluator = ExpressionEvaluator::new();
         let mut variable_context = VariableContext::new();
 
@@ -1701,6 +1708,7 @@ impl WorkflowExecutor {
             global_environment_config: None,
             current_workflow: None,
             current_step_index: None,
+            git_operations: Arc::new(RealGitOperations::new()),
         }
     }
 
@@ -1759,6 +1767,37 @@ impl WorkflowExecutor {
             global_environment_config: None,
             current_workflow: None,
             current_step_index: None,
+            git_operations: Arc::new(RealGitOperations::new()),
+        }
+    }
+
+    /// Create executor with test configuration and custom git operations
+    #[cfg(test)]
+    pub fn with_test_config_and_git(
+        claude_executor: Arc<dyn ClaudeExecutor>,
+        session_manager: Arc<dyn SessionManager>,
+        user_interaction: Arc<dyn UserInteraction>,
+        test_config: Arc<TestConfiguration>,
+        git_operations: Arc<dyn GitOperations>,
+    ) -> Self {
+        Self {
+            claude_executor,
+            session_manager,
+            user_interaction,
+            timing_tracker: TimingTracker::new(),
+            test_config: Some(test_config),
+            command_registry: None,
+            subprocess: crate::subprocess::SubprocessManager::production(),
+            sensitive_config: SensitivePatternConfig::default(),
+            completed_steps: Vec::new(),
+            checkpoint_manager: None,
+            workflow_id: None,
+            checkpoint_completed_steps: Vec::new(),
+            environment_manager: None,
+            global_environment_config: None,
+            current_workflow: None,
+            current_step_index: None,
+            git_operations,
         }
     }
 
@@ -1797,7 +1836,7 @@ impl WorkflowExecutor {
     }
 
     /// Determine command type from a workflow step
-    fn determine_command_type(&self, step: &WorkflowStep) -> Result<CommandType> {
+    pub(crate) fn determine_command_type(&self, step: &WorkflowStep) -> Result<CommandType> {
         // Count how many command fields are specified
         let mut specified_count = 0;
         if step.claude.is_some() {
@@ -1815,6 +1854,9 @@ impl WorkflowExecutor {
         if step.goal_seek.is_some() {
             specified_count += 1;
         }
+        if step.foreach.is_some() {
+            specified_count += 1;
+        }
         if step.name.is_some() || step.command.is_some() {
             specified_count += 1;
         }
@@ -1822,13 +1864,13 @@ impl WorkflowExecutor {
         // Ensure only one command type is specified
         if specified_count > 1 {
             return Err(anyhow!(
-                "Multiple command types specified. Use only one of: claude, shell, test, handler, goal_seek, or name/command"
+                "Multiple command types specified. Use only one of: claude, shell, test, handler, goal_seek, foreach, or name/command"
             ));
         }
 
         if specified_count == 0 {
             return Err(anyhow!(
-                "No command specified. Use one of: claude, shell, test, handler, goal_seek, or name/command"
+                "No command specified. Use one of: claude, shell, test, handler, goal_seek, foreach, or name/command"
             ));
         }
 
@@ -1869,7 +1911,7 @@ impl WorkflowExecutor {
     }
 
     /// Get display name for a step
-    fn get_step_display_name(&self, step: &WorkflowStep) -> String {
+    pub(crate) fn get_step_display_name(&self, step: &WorkflowStep) -> String {
         if let Some(claude_cmd) = &step.claude {
             format!("claude: {claude_cmd}")
         } else if let Some(shell_cmd) = &step.shell {
@@ -2512,8 +2554,8 @@ impl WorkflowExecutor {
             }
         }
 
-        // Initialize CommitTracker for this step
-        let git_ops = Arc::new(crate::abstractions::RealGitOperations::new());
+        // Initialize CommitTracker for this step using the executor's git operations (enables mocking)
+        let git_ops = self.git_operations.clone();
         let working_dir = env.working_dir.clone();
         let mut commit_tracker =
             crate::cook::commit_tracker::CommitTracker::new(git_ops, working_dir);
@@ -2857,7 +2899,7 @@ impl WorkflowExecutor {
     }
 
     /// Execute a Claude command
-    async fn execute_claude_command(
+    pub(crate) async fn execute_claude_command(
         &self,
         command: &str,
         env: &ExecutionEnvironment,
@@ -2877,7 +2919,7 @@ impl WorkflowExecutor {
     }
 
     /// Execute a shell command
-    async fn execute_shell_command(
+    pub(crate) async fn execute_shell_command(
         &self,
         command: &str,
         env: &ExecutionEnvironment,
@@ -3227,7 +3269,7 @@ impl WorkflowExecutor {
     }
 
     /// Handle test mode execution
-    fn handle_test_mode_execution(
+    pub(crate) fn handle_test_mode_execution(
         &self,
         step: &WorkflowStep,
         command_type: &CommandType,
@@ -3293,27 +3335,19 @@ impl WorkflowExecutor {
     /// Get current git HEAD
     async fn get_current_head(&self, working_dir: &std::path::Path) -> Result<String> {
         // We need to run git commands in the correct working directory (especially for worktrees)
-        let output = tokio::process::Command::new("git")
-            .args(["rev-parse", "HEAD"])
-            .current_dir(working_dir)
-            .output()
+        let output = self
+            .git_operations
+            .git_command_in_dir(&["rev-parse", "HEAD"], "get HEAD", working_dir)
             .await
-            .context("Failed to execute git rev-parse HEAD")?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow::anyhow!("Failed to get git HEAD: {}", stderr));
-        }
-
+            .context("Failed to get git HEAD")?;
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 
     /// Check if there are uncommitted changes
     async fn check_for_changes(&self, working_dir: &std::path::Path) -> Result<bool> {
-        let output = tokio::process::Command::new("git")
-            .args(["status", "--porcelain"])
-            .current_dir(working_dir)
-            .output()
+        let output = self
+            .git_operations
+            .git_command_in_dir(&["status", "--porcelain"], "check status", working_dir)
             .await
             .context("Failed to check git status")?;
 
@@ -3323,23 +3357,15 @@ impl WorkflowExecutor {
     /// Create an auto-commit with the given message
     async fn create_auto_commit(&self, working_dir: &std::path::Path, message: &str) -> Result<()> {
         // Stage all changes
-        let output = tokio::process::Command::new("git")
-            .args(["add", "."])
-            .current_dir(working_dir)
-            .output()
+        self.git_operations
+            .git_command_in_dir(&["add", "."], "stage changes", working_dir)
             .await
             .context("Failed to stage changes")?;
 
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow!("Failed to stage changes: {stderr}"));
-        }
-
         // Create commit
-        let output = tokio::process::Command::new("git")
-            .args(["commit", "-m", message])
-            .current_dir(working_dir)
-            .output()
+        let output = self
+            .git_operations
+            .git_command_in_dir(&["commit", "-m", message], "create commit", working_dir)
             .await
             .context("Failed to create commit")?;
 
@@ -3382,22 +3408,20 @@ impl WorkflowExecutor {
         use crate::cook::commit_tracker::TrackedCommit;
         use chrono::{DateTime, Utc};
 
-        let output = tokio::process::Command::new("git")
-            .args([
-                "log",
-                &format!("{from}..{to}"),
-                "--pretty=format:%H|%s|%an|%aI",
-                "--name-only",
-            ])
-            .current_dir(working_dir)
-            .output()
+        let output = self
+            .git_operations
+            .git_command_in_dir(
+                &[
+                    "log",
+                    &format!("{from}..{to}"),
+                    "--pretty=format:%H|%s|%an|%aI",
+                    "--name-only",
+                ],
+                "get commit log",
+                working_dir,
+            )
             .await
             .context("Failed to get commit log")?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow!("Failed to get commits: {stderr}"));
-        }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let mut commits = Vec::new();
@@ -3442,7 +3466,7 @@ impl WorkflowExecutor {
     }
 
     /// Handle the case where no commits were created when expected
-    fn handle_no_commits_error(&self, step: &WorkflowStep) -> Result<()> {
+    pub(crate) fn handle_no_commits_error(&self, step: &WorkflowStep) -> Result<()> {
         let step_display = self.get_step_display_name(step);
         let command_type = self.determine_command_type(step)?;
 
@@ -3643,7 +3667,7 @@ impl WorkflowExecutor {
     }
 
     /// Check if this is the focus tracking test
-    fn is_focus_tracking_test(&self) -> bool {
+    pub(crate) fn is_focus_tracking_test(&self) -> bool {
         self.test_config.as_ref().is_some_and(|c| c.track_focus)
     }
 
@@ -3800,10 +3824,6 @@ impl WorkflowExecutor {
     }
 }
 
-#[cfg(test)]
-#[path = "executor_tests.rs"]
-mod executor_tests;
-
 // Implement the WorkflowExecutor trait
 #[async_trait::async_trait]
 impl super::traits::StepExecutor for WorkflowExecutor {
@@ -3890,19 +3910,14 @@ mod tests {
     use tempfile::TempDir;
 
     /// Helper function to test get_current_head directly without needing a full executor
+    #[cfg(test)]
     async fn test_get_current_head(working_dir: &std::path::Path) -> Result<String> {
-        let output = tokio::process::Command::new("git")
-            .args(["rev-parse", "HEAD"])
-            .current_dir(working_dir)
-            .output()
+        use crate::abstractions::git::RealGitOperations;
+        let git_ops = RealGitOperations::new();
+        let output = git_ops
+            .git_command_in_dir(&["rev-parse", "HEAD"], "get HEAD", working_dir)
             .await
-            .context("Failed to execute git rev-parse HEAD")?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow::anyhow!("Failed to get git HEAD: {}", stderr));
-        }
-
+            .context("Failed to get git HEAD")?;
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 

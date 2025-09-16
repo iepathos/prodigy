@@ -11,6 +11,8 @@ pub mod composition;
 #[cfg(test)]
 mod conditional_tests;
 mod executor;
+#[cfg(test)]
+mod executor_tests;
 pub mod normalized;
 mod on_failure;
 pub mod progress_config;
