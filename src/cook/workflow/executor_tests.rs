@@ -2,7 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::config::command::TestCommand;
+    use crate::abstractions::git::{GitOperations, MockGitOperations};
+    use crate::config::command::{TestCommand, ForeachInput, ParallelConfig, WorkflowStepCommand};
     use crate::testing::config::TestConfiguration;
     use crate::cook::execution::ExecutionResult;
     use crate::cook::interaction::SpinnerHandle;
@@ -298,7 +299,7 @@ mod tests {
         }
     }
 
-    // Helper function to create a test executor with mocks
+    // Helper function to create a test executor with mocked git operations
     #[allow(clippy::type_complexity)]
     fn create_test_executor() -> (
         WorkflowExecutor,
@@ -309,11 +310,15 @@ mod tests {
         let claude_executor = Arc::new(MockClaudeExecutor::new());
         let session_manager = Arc::new(MockSessionManager::new());
         let user_interaction = Arc::new(MockUserInteraction::new());
+        let git_operations = Arc::new(MockGitOperations::new());
+        let test_config = Arc::new(TestConfiguration::default());
 
-        let executor = WorkflowExecutor::new(
+        let executor = WorkflowExecutor::with_test_config_and_git(
             claude_executor.clone() as Arc<dyn ClaudeExecutor>,
             session_manager.clone() as Arc<dyn SessionManager>,
             user_interaction.clone() as Arc<dyn UserInteraction>,
+            test_config,
+            git_operations,
         );
 
         (
@@ -324,7 +329,7 @@ mod tests {
         )
     }
 
-    // Helper function to create a test executor with configuration
+    // Helper function to create a test executor with configuration and git mocks
     #[allow(clippy::type_complexity)]
     fn create_test_executor_with_config(
         config: TestConfiguration,
@@ -337,12 +342,14 @@ mod tests {
         let claude_executor = Arc::new(MockClaudeExecutor::new());
         let session_manager = Arc::new(MockSessionManager::new());
         let user_interaction = Arc::new(MockUserInteraction::new());
+        let git_operations = Arc::new(MockGitOperations::new());
 
-        let executor = WorkflowExecutor::with_test_config(
+        let executor = WorkflowExecutor::with_test_config_and_git(
             claude_executor.clone() as Arc<dyn ClaudeExecutor>,
             session_manager.clone() as Arc<dyn SessionManager>,
             user_interaction.clone() as Arc<dyn UserInteraction>,
             Arc::new(config),
+            git_operations,
         );
 
         (
@@ -350,6 +357,43 @@ mod tests {
             claude_executor,
             session_manager,
             user_interaction,
+        )
+    }
+
+    // Helper function to create a test executor with git mock that returns expected responses
+    #[allow(clippy::type_complexity)]
+    async fn create_test_executor_with_git_mock() -> (
+        WorkflowExecutor,
+        Arc<MockClaudeExecutor>,
+        Arc<MockSessionManager>,
+        Arc<MockUserInteraction>,
+        Arc<MockGitOperations>,
+    ) {
+        let claude_executor = Arc::new(MockClaudeExecutor::new());
+        let session_manager = Arc::new(MockSessionManager::new());
+        let user_interaction = Arc::new(MockUserInteraction::new());
+        let git_operations = Arc::new(MockGitOperations::new());
+
+        // Set up default git mock responses
+        git_operations.add_success_response("abc123def456").await; // git rev-parse HEAD
+        git_operations.add_success_response("").await; // git status --porcelain (no changes)
+
+        let test_config = Arc::new(TestConfiguration::default());
+
+        let executor = WorkflowExecutor::with_test_config_and_git(
+            claude_executor.clone() as Arc<dyn ClaudeExecutor>,
+            session_manager.clone() as Arc<dyn SessionManager>,
+            user_interaction.clone() as Arc<dyn UserInteraction>,
+            test_config,
+            git_operations.clone(),
+        );
+
+        (
+            executor,
+            claude_executor,
+            session_manager,
+            user_interaction,
+            git_operations,
         )
     }
 
@@ -408,6 +452,89 @@ mod tests {
     }
 
     #[test]
+    fn test_complex_variable_interpolation_nested() {
+        let mut context = WorkflowContext::default();
+
+        // Test nested variable references
+        context.variables.insert("user.name".to_string(), "Alice".to_string());
+        context.variables.insert("user.id".to_string(), "12345".to_string());
+        context.variables.insert("project.name".to_string(), "MyProject".to_string());
+        context.variables.insert("project.version".to_string(), "1.2.3".to_string());
+
+        // Test nested field access patterns
+        assert_eq!(context.interpolate("${user.name}"), "Alice");
+        assert_eq!(context.interpolate("${user.id}"), "12345");
+        assert_eq!(context.interpolate("${project.name}"), "MyProject");
+        assert_eq!(context.interpolate("${project.version}"), "1.2.3");
+
+        // Test multiple nested variables in one string
+        assert_eq!(
+            context.interpolate("User ${user.name} (${user.id}) working on ${project.name} v${project.version}"),
+            "User Alice (12345) working on MyProject v1.2.3"
+        );
+    }
+
+    #[test]
+    fn test_complex_variable_interpolation_arrays() {
+        let mut context = WorkflowContext::default();
+
+        // Test array-like variable access
+        context.variables.insert("items[0]".to_string(), "first".to_string());
+        context.variables.insert("items[1]".to_string(), "second".to_string());
+        context.variables.insert("items[2]".to_string(), "third".to_string());
+
+        assert_eq!(context.interpolate("${items[0]}"), "first");
+        assert_eq!(context.interpolate("${items[1]}"), "second");
+        assert_eq!(context.interpolate("${items[2]}"), "third");
+
+        // Test in combination
+        assert_eq!(
+            context.interpolate("Items: ${items[0]}, ${items[1]}, ${items[2]}"),
+            "Items: first, second, third"
+        );
+    }
+
+    #[test]
+    fn test_complex_variable_interpolation_defaults() {
+        let mut context = WorkflowContext::default();
+        context.variables.insert("existing".to_string(), "value".to_string());
+
+        // Test default value syntax (when variable doesn't exist)
+        // Note: Default values are not currently supported in the basic interpolate function
+        // This test documents the current behavior
+        assert_eq!(context.interpolate("${missing:-default}"), "${missing:-default}");
+        assert_eq!(context.interpolate("${existing:-default}"), "value");
+
+        // Test undefined variable behavior
+        assert_eq!(context.interpolate("${undefined}"), "${undefined}");
+    }
+
+    #[test]
+    fn test_complex_variable_interpolation_special_chars() {
+        let mut context = WorkflowContext::default();
+
+        // Test variables with special characters
+        context.variables.insert("path/to/file".to_string(), "/home/user/doc.txt".to_string());
+        context.variables.insert("json.field".to_string(), "{\"key\":\"value\"}".to_string());
+        context.variables.insert("command_output".to_string(), "Line1\nLine2\nLine3".to_string());
+
+        assert_eq!(context.interpolate("${path/to/file}"), "/home/user/doc.txt");
+        assert_eq!(context.interpolate("${json.field}"), "{\"key\":\"value\"}");
+        assert_eq!(context.interpolate("${command_output}"), "Line1\nLine2\nLine3");
+    }
+
+    #[test]
+    fn test_complex_variable_interpolation_escaping() {
+        let mut context = WorkflowContext::default();
+        context.variables.insert("var".to_string(), "value".to_string());
+
+        // Test escaping of special characters
+        // Currently, escaping is not supported, so this documents current behavior
+        assert_eq!(context.interpolate("\\${var}"), "\\value");  // Backslash doesn't escape
+        assert_eq!(context.interpolate("$${var}"), "$value");     // Double $ doesn't escape
+    }
+
+    #[test]
     fn test_determine_command_type_claude() {
         let (executor, _, _, _) = create_test_executor();
 
@@ -450,6 +577,77 @@ mod tests {
 
         let result = executor.determine_command_type(&step).unwrap();
         assert!(matches!(result, CommandType::Test(cmd) if cmd.command == "cargo test"));
+    }
+
+    #[test]
+    fn test_determine_command_type_goal_seek() {
+        let (executor, _, _, _) = create_test_executor();
+
+        let goal_seek_config = crate::cook::goal_seek::GoalSeekConfig {
+            goal: "Performance improvement > 20%".to_string(),
+            claude: Some("/optimize-performance".to_string()),
+            shell: None,
+            validate: "cargo test performance".to_string(),
+            threshold: 80,
+            max_attempts: 5,
+            timeout_seconds: Some(300),
+            fail_on_incomplete: Some(false),
+        };
+
+        let step = WorkflowStep {
+            goal_seek: Some(goal_seek_config.clone()),
+            ..Default::default()
+        };
+
+        let result = executor.determine_command_type(&step).unwrap();
+        assert!(matches!(result, CommandType::GoalSeek(config) if config.goal == "Performance improvement > 20%"));
+    }
+
+    #[test]
+    fn test_determine_command_type_foreach() {
+        let (executor, _, _, _) = create_test_executor();
+
+        let foreach_config = crate::config::command::ForeachConfig {
+            input: crate::config::command::ForeachInput::List(vec![
+                "file1.rs".to_string(),
+                "file2.rs".to_string(),
+                "file3.rs".to_string()
+            ]),
+            parallel: crate::config::command::ParallelConfig::Count(2),
+            do_block: vec![
+                Box::new(crate::config::command::WorkflowStepCommand {
+                    claude: None,
+                    shell: Some("echo Processing item".to_string()),
+                    analyze: None,
+                    test: None,
+                    goal_seek: None,
+                    foreach: None,
+                    id: None,
+                    commit_required: false,
+                    analysis: None,
+                    outputs: None,
+                    capture_output: None,
+                    on_failure: None,
+                    on_success: None,
+                    validate: None,
+                    timeout: None,
+                    when: None,
+                    capture_format: None,
+                    capture_streams: None,
+                    output_file: None,
+                }),
+            ],
+            continue_on_error: false,
+            max_items: None,
+        };
+
+        let step = WorkflowStep {
+            foreach: Some(foreach_config.clone()),
+            ..Default::default()
+        };
+
+        let result = executor.determine_command_type(&step).unwrap();
+        assert!(matches!(result, CommandType::Foreach(_)));  // Just verify it's a Foreach command
     }
 
     #[test]
@@ -668,7 +866,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_execute_claude_command() {
-        let (executor, claude_mock, _, _) = create_test_executor();
+        let (executor, claude_mock, _, _, _) = create_test_executor_with_git_mock().await;
 
         let command = "/prodigy-code-review";
         let temp_dir = TempDir::new().unwrap();
@@ -708,7 +906,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_execute_shell_command_success() {
-        let (executor, _, _, _) = create_test_executor();
+        let (executor, _, _, _, _) = create_test_executor_with_git_mock().await;
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
@@ -733,7 +931,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_workflow_execution_single_iteration() {
-        let (mut executor, _, session_mock, user_mock) = create_test_executor();
+        let (mut executor, _, session_mock, user_mock, _) = create_test_executor_with_git_mock().await;
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
@@ -788,7 +986,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_execute_step_with_capture_output() {
-        let (mut executor, _, _, _) = create_test_executor();
+        let (mut executor, _, _, _, _) = create_test_executor_with_git_mock().await;
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
@@ -818,7 +1016,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_execute_step_with_env_interpolation() {
-        let (mut executor, _, _, _) = create_test_executor();
+        let (mut executor, _, _, _, _) = create_test_executor_with_git_mock().await;
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
@@ -853,7 +1051,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_shell_command_with_on_failure_retry() {
-        let (mut executor, claude_mock, _, _) = create_test_executor();
+        let (mut executor, claude_mock, _, _, _) = create_test_executor_with_git_mock().await;
 
         // Add responses for claude commands (the on_failure handler)
         claude_mock.add_response(ExecutionResult {
@@ -910,7 +1108,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_shell_command_with_on_failure_fail_workflow() {
-        let (mut executor, claude_mock, _, _) = create_test_executor();
+        let (mut executor, claude_mock, _, _, _) = create_test_executor_with_git_mock().await;
 
         // Add responses for claude commands (the on_failure handler)
         claude_mock.add_response(ExecutionResult {
@@ -961,7 +1159,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_when_clause_skips_step() {
-        let (mut executor, _, _, _) = create_test_executor();
+        let (mut executor, _, _, _, git_mock) = create_test_executor_with_git_mock().await;
+        // Add git mocks for commit verification
+        git_mock.add_success_response("abc123def456").await; // git rev-parse HEAD (initial)
+        git_mock.add_success_response("").await; // git status --porcelain (no changes)
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
@@ -987,7 +1188,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_when_clause_executes_step() {
-        let (mut executor, _, _, _) = create_test_executor();
+        let (mut executor, _, _, _, git_mock) = create_test_executor_with_git_mock().await;
+        // Add git mocks for commit verification
+        git_mock.add_success_response("abc123def456").await; // git rev-parse HEAD (initial)
+        git_mock.add_success_response("").await; // git status --porcelain (no changes)
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
@@ -1041,7 +1245,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_conditional_workflow_branching() {
-        let (mut executor, _, _, user_mock) = create_test_executor();
+        let (mut executor, _, _, user_mock, git_mock) = create_test_executor_with_git_mock().await;
+        // Add git mocks for commit verification
+        git_mock.add_success_response("abc123def456").await; // git rev-parse HEAD (initial)
+        git_mock.add_success_response("").await; // git status --porcelain (no changes)
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
@@ -1096,7 +1303,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_on_failure_handler_execution() {
-        let (mut executor, _, _, _) = create_test_executor();
+        let (mut executor, _, _, _, _) = create_test_executor_with_git_mock().await;
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
@@ -1122,7 +1329,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_on_failure_abort_strategy() {
-        let (mut executor, _, _, _) = create_test_executor();
+        let (mut executor, _, _, _, _) = create_test_executor_with_git_mock().await;
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
@@ -1148,7 +1355,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_retry_configuration() {
-        let (mut executor, _, _, _) = create_test_executor();
+        let (mut executor, _, _, _, _) = create_test_executor_with_git_mock().await;
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
@@ -1174,7 +1381,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_exit_code_handler() {
-        let (mut executor, _, _, _) = create_test_executor();
+        let (mut executor, _, _, _, _) = create_test_executor_with_git_mock().await;
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
@@ -1217,7 +1424,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_test_command_with_retry() {
-        let (mut executor, claude_mock, _, _) = create_test_executor();
+        let (mut executor, claude_mock, _, _, _) = create_test_executor_with_git_mock().await;
 
         // Add mock response for the debug handler
         claude_mock.add_response(ExecutionResult {
@@ -1262,7 +1469,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_error_recovery_workflow() {
-        let (mut executor, _, _, user_mock) = create_test_executor();
+        let (mut executor, _, _, user_mock, _) = create_test_executor_with_git_mock().await;
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
@@ -1316,11 +1523,127 @@ mod tests {
         std::env::remove_var("PRODIGY_TEST_MODE");
     }
 
+    #[tokio::test]
+    async fn test_execute_goal_seek_command() {
+        let (mut executor, claude_mock, _, _, _) = create_test_executor_with_git_mock().await;
+
+        let temp_dir = TempDir::new().unwrap();
+        let env = ExecutionEnvironment {
+            working_dir: temp_dir.path().to_path_buf(),
+            project_dir: temp_dir.path().to_path_buf(),
+            worktree_name: None,
+            session_id: "test".to_string(),
+        };
+
+        // Add mock responses for goal seek iterations
+        claude_mock.add_response(ExecutionResult {
+            stdout: "Iteration 1: Performance improved by 10%".to_string(),
+            stderr: String::new(),
+            exit_code: Some(0),
+            success: true,
+        });
+        claude_mock.add_response(ExecutionResult {
+            stdout: "Iteration 2: Performance improved by 25%".to_string(),
+            stderr: String::new(),
+            exit_code: Some(0),
+            success: true,
+        });
+
+        let goal_seek_config = crate::cook::goal_seek::GoalSeekConfig {
+            goal: "Performance improvement > 20%".to_string(),
+            claude: Some("/optimize-performance".to_string()),
+            shell: None,
+            validate: "echo 25".to_string(),  // Simple validation returning score
+            threshold: 20,
+            max_attempts: 5,
+            timeout_seconds: None,
+            fail_on_incomplete: None,
+        };
+
+        let step = WorkflowStep {
+            goal_seek: Some(goal_seek_config),
+            ..Default::default()
+        };
+
+        let mut context = WorkflowContext::default();
+        let result = executor.execute_step(&step, &env, &mut context).await;
+
+        // Goal seek should succeed after finding 25% improvement
+        assert!(result.is_ok());
+        let step_result = result.unwrap();
+        assert!(step_result.success);
+    }
+
+    #[tokio::test]
+    async fn test_execute_foreach_command() {
+        let (mut executor, _, _, _, _) = create_test_executor_with_git_mock().await;
+
+        let temp_dir = TempDir::new().unwrap();
+        let env = ExecutionEnvironment {
+            working_dir: temp_dir.path().to_path_buf(),
+            project_dir: temp_dir.path().to_path_buf(),
+            worktree_name: None,
+            session_id: "test".to_string(),
+        };
+
+        // Create test files
+        std::fs::write(temp_dir.path().join("file1.txt"), "content1").unwrap();
+        std::fs::write(temp_dir.path().join("file2.txt"), "content2").unwrap();
+
+        let foreach_config = crate::config::command::ForeachConfig {
+            input: crate::config::command::ForeachInput::List(vec![
+                "file1.txt".to_string(),
+                "file2.txt".to_string()
+            ]),
+            parallel: crate::config::command::ParallelConfig::Boolean(false),
+            do_block: vec![
+                Box::new(crate::config::command::WorkflowStepCommand {
+                    claude: None,
+                    shell: Some("echo Processing item".to_string()),
+                    analyze: None,
+                    test: None,
+                    goal_seek: None,
+                    foreach: None,
+                    id: None,
+                    commit_required: false,
+                    analysis: None,
+                    outputs: None,
+                    capture_output: None,
+                    on_failure: None,
+                    on_success: None,
+                    validate: None,
+                    timeout: None,
+                    when: None,
+                    capture_format: None,
+                    capture_streams: None,
+                    output_file: None,
+                }),
+            ],
+            continue_on_error: false,
+            max_items: None,
+        };
+
+        let step = WorkflowStep {
+            foreach: Some(foreach_config),
+            ..Default::default()
+        };
+
+        let mut context = WorkflowContext::default();
+        let result = executor.execute_step(&step, &env, &mut context).await;
+
+        // Foreach should process all items successfully
+        assert!(result.is_ok());
+        let step_result = result.unwrap();
+        assert!(step_result.success);
+        // The output should contain processing messages for both files
+        assert!(step_result.stdout.contains("file1.txt") || step_result.stdout.contains("Processing"));
+    }
+
     // ==================== INTEGRATION TESTS ====================
 
     #[tokio::test]
     async fn test_complete_workflow_execution() {
-        let (mut executor, claude_mock, session_mock, user_mock) = create_test_executor();
+        let (mut executor, claude_mock, session_mock, user_mock, _) = create_test_executor_with_git_mock().await;
 
         // Add mock responses for claude commands
         claude_mock.add_response(ExecutionResult {
@@ -1409,7 +1732,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_iterative_workflow() {
-        let (mut executor, claude_mock, session_mock, _) = create_test_executor();
+        let (mut executor, claude_mock, session_mock, _, _) = create_test_executor_with_git_mock().await;
 
         // Add mock responses for multiple iterations
         for _ in 0..3 {
@@ -1463,7 +1786,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_workflow_with_environment_variables() {
-        let (mut executor, _, _, _) = create_test_executor();
+        let (mut executor, _, _, _, _) = create_test_executor_with_git_mock().await;
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
@@ -1503,7 +1826,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_workflow_with_validation() {
-        let (mut executor, claude_mock, _, _) = create_test_executor();
+        let (mut executor, claude_mock, _, _, _) = create_test_executor_with_git_mock().await;
 
         // Add mock response for validation
         claude_mock.add_response(ExecutionResult {
@@ -1553,7 +1876,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_workflow_resume_capability() {
-        let (mut executor, _, session_mock, _) = create_test_executor();
+        let (mut executor, _, session_mock, _, _) = create_test_executor_with_git_mock().await;
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {

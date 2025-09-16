@@ -3,6 +3,7 @@
 //! Executes workflow steps in sequence, verifies git commits when required,
 //! and manages iteration logic for continuous improvement sessions.
 
+use crate::abstractions::git::{GitOperations, RealGitOperations};
 use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
 use crate::cook::execution::ClaudeExecutor;
@@ -587,6 +588,8 @@ pub struct WorkflowExecutor {
     environment_manager: Option<crate::cook::environment::EnvironmentManager>,
     /// Global environment configuration
     global_environment_config: Option<crate::cook::environment::EnvironmentConfig>,
+    /// Git operations abstraction for testing
+    git_operations: Arc<dyn GitOperations>,
 }
 
 impl WorkflowExecutor {
@@ -1630,6 +1633,7 @@ impl WorkflowExecutor {
             checkpoint_completed_steps: Vec::new(),
             environment_manager: None,
             global_environment_config: None,
+            git_operations: Arc::new(RealGitOperations::new()),
         }
     }
 
@@ -1686,6 +1690,35 @@ impl WorkflowExecutor {
             checkpoint_completed_steps: Vec::new(),
             environment_manager: None,
             global_environment_config: None,
+            git_operations: Arc::new(RealGitOperations::new()),
+        }
+    }
+
+    /// Create executor with test configuration and custom git operations
+    #[cfg(test)]
+    pub fn with_test_config_and_git(
+        claude_executor: Arc<dyn ClaudeExecutor>,
+        session_manager: Arc<dyn SessionManager>,
+        user_interaction: Arc<dyn UserInteraction>,
+        test_config: Arc<TestConfiguration>,
+        git_operations: Arc<dyn GitOperations>,
+    ) -> Self {
+        Self {
+            claude_executor,
+            session_manager,
+            user_interaction,
+            timing_tracker: TimingTracker::new(),
+            test_config: Some(test_config),
+            command_registry: None,
+            subprocess: crate::subprocess::SubprocessManager::production(),
+            sensitive_config: SensitivePatternConfig::default(),
+            completed_steps: Vec::new(),
+            checkpoint_manager: None,
+            workflow_id: None,
+            checkpoint_completed_steps: Vec::new(),
+            environment_manager: None,
+            global_environment_config: None,
+            git_operations,
         }
     }
 
@@ -3189,27 +3222,19 @@ impl WorkflowExecutor {
     /// Get current git HEAD
     async fn get_current_head(&self, working_dir: &std::path::Path) -> Result<String> {
         // We need to run git commands in the correct working directory (especially for worktrees)
-        let output = tokio::process::Command::new("git")
-            .args(["rev-parse", "HEAD"])
-            .current_dir(working_dir)
-            .output()
+        let output = self
+            .git_operations
+            .git_command_in_dir(&["rev-parse", "HEAD"], "get HEAD", working_dir)
             .await
-            .context("Failed to execute git rev-parse HEAD")?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow::anyhow!("Failed to get git HEAD: {}", stderr));
-        }
-
+            .context("Failed to get git HEAD")?;
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 
     /// Check if there are uncommitted changes
     async fn check_for_changes(&self, working_dir: &std::path::Path) -> Result<bool> {
-        let output = tokio::process::Command::new("git")
-            .args(["status", "--porcelain"])
-            .current_dir(working_dir)
-            .output()
+        let output = self
+            .git_operations
+            .git_command_in_dir(&["status", "--porcelain"], "check status", working_dir)
             .await
             .context("Failed to check git status")?;
 
@@ -3219,23 +3244,15 @@ impl WorkflowExecutor {
     /// Create an auto-commit with the given message
     async fn create_auto_commit(&self, working_dir: &std::path::Path, message: &str) -> Result<()> {
         // Stage all changes
-        let output = tokio::process::Command::new("git")
-            .args(["add", "."])
-            .current_dir(working_dir)
-            .output()
+        self.git_operations
+            .git_command_in_dir(&["add", "."], "stage changes", working_dir)
             .await
             .context("Failed to stage changes")?;
 
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow!("Failed to stage changes: {stderr}"));
-        }
-
         // Create commit
-        let output = tokio::process::Command::new("git")
-            .args(["commit", "-m", message])
-            .current_dir(working_dir)
-            .output()
+        let output = self
+            .git_operations
+            .git_command_in_dir(&["commit", "-m", message], "create commit", working_dir)
             .await
             .context("Failed to create commit")?;
 
@@ -3278,22 +3295,20 @@ impl WorkflowExecutor {
         use crate::cook::commit_tracker::TrackedCommit;
         use chrono::{DateTime, Utc};
 
-        let output = tokio::process::Command::new("git")
-            .args([
-                "log",
-                &format!("{from}..{to}"),
-                "--pretty=format:%H|%s|%an|%aI",
-                "--name-only",
-            ])
-            .current_dir(working_dir)
-            .output()
+        let output = self
+            .git_operations
+            .git_command_in_dir(
+                &[
+                    "log",
+                    &format!("{from}..{to}"),
+                    "--pretty=format:%H|%s|%an|%aI",
+                    "--name-only",
+                ],
+                "get commit log",
+                working_dir,
+            )
             .await
             .context("Failed to get commit log")?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow!("Failed to get commits: {stderr}"));
-        }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let mut commits = Vec::new();
@@ -3786,19 +3801,14 @@ mod tests {
     use tempfile::TempDir;
 
     /// Helper function to test get_current_head directly without needing a full executor
+    #[cfg(test)]
     async fn test_get_current_head(working_dir: &std::path::Path) -> Result<String> {
-        let output = tokio::process::Command::new("git")
-            .args(["rev-parse", "HEAD"])
-            .current_dir(working_dir)
-            .output()
+        use crate::abstractions::git::RealGitOperations;
+        let git_ops = RealGitOperations::new();
+        let output = git_ops
+            .git_command_in_dir(&["rev-parse", "HEAD"], "get HEAD", working_dir)
             .await
-            .context("Failed to execute git rev-parse HEAD")?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow::anyhow!("Failed to get git HEAD: {}", stderr));
-        }
-
+            .context("Failed to get git HEAD")?;
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 
