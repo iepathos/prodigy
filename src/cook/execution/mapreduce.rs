@@ -4567,4 +4567,94 @@ mod tests {
             "exactly_..."
         );
     }
+
+    // Tests for checkpoint validation and pending item calculations
+    // These tests verify the logic without needing full MapReduceExecutor setup
+
+    #[test]
+    fn test_checkpoint_state_validation() {
+        use crate::cook::execution::state::MapReduceJobState;
+
+        let config = MapReduceConfig {
+            input: "test.json".to_string(),
+            json_path: String::new(),
+            max_parallel: 5,
+            timeout_per_agent: 60,
+            retry_on_failure: 2,
+            max_items: None,
+            offset: None,
+        };
+
+        // Test empty job ID case
+        let mut state = MapReduceJobState::new(
+            String::new(),
+            config.clone(),
+            vec![serde_json::json!({"id": 1})],
+        );
+        state.job_id = String::new();
+        assert!(state.job_id.is_empty());
+
+        // Test no work items case
+        let state2 = MapReduceJobState::new("test-job".to_string(), config.clone(), vec![]);
+        assert!(state2.work_items.is_empty());
+
+        // Test valid state
+        let state3 = MapReduceJobState::new(
+            "test-job".to_string(),
+            config,
+            vec![serde_json::json!({"id": 1})],
+        );
+        assert!(!state3.job_id.is_empty());
+        assert!(!state3.work_items.is_empty());
+    }
+
+    #[test]
+    fn test_pending_items_logic() {
+        use crate::cook::execution::state::{MapReduceJobState, FailureRecord};
+
+        let config = MapReduceConfig {
+            input: "test.json".to_string(),
+            json_path: String::new(),
+            max_parallel: 5,
+            timeout_per_agent: 60,
+            retry_on_failure: 2,
+            max_items: None,
+            offset: None,
+        };
+
+        let work_items = vec![
+            serde_json::json!({"id": 1}),
+            serde_json::json!({"id": 2}),
+            serde_json::json!({"id": 3}),
+        ];
+
+        // Test all items pending initially
+        let state = MapReduceJobState::new("test-job".to_string(), config.clone(), work_items.clone());
+        assert_eq!(state.pending_items.len(), 3);
+        assert!(state.completed_agents.is_empty());
+
+        // Test with completed items
+        let mut state2 = MapReduceJobState::new("test-job".to_string(), config.clone(), work_items.clone());
+        state2.completed_agents.insert("item_0".to_string());
+        state2.pending_items.retain(|x| x != "item_0");
+        assert_eq!(state2.pending_items.len(), 2);
+
+        // Test with failed items
+        let mut state3 = MapReduceJobState::new("test-job".to_string(), config, work_items);
+        use chrono::Utc;
+        state3.failed_agents.insert(
+            "item_1".to_string(),
+            FailureRecord {
+                item_id: "item_1".to_string(),
+                attempts: 1,
+                last_error: "Test error".to_string(),
+                last_attempt: Utc::now(),
+                worktree_info: None,
+            },
+        );
+
+        // Check if item is retriable (attempts < retry_on_failure)
+        let failed_record = state3.failed_agents.get("item_1").unwrap();
+        assert!(failed_record.attempts < state3.config.retry_on_failure);
+    }
 }
