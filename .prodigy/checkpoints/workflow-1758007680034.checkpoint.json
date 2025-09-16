@@ -1,0 +1,41 @@
+{
+  "workflow_id": "workflow-1758007680034",
+  "execution_state": {
+    "current_step_index": 1,
+    "total_steps": 3,
+    "status": "Running",
+    "start_time": "2025-09-16T07:56:48.293982Z",
+    "last_checkpoint": "2025-09-16T07:56:48.293982Z",
+    "current_iteration": null,
+    "total_iterations": null
+  },
+  "completed_steps": [
+    {
+      "step_index": 0,
+      "command": "claude: /prodigy-implement-spec $ARG",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 1728,
+        "nanos": 218591750
+      },
+      "completed_at": "2025-09-16T07:56:48.293807Z"
+    }
+  ],
+  "variable_state": {
+    "step.files_changed": "4",
+    "step.commits": "[{\"hash\":\"fa600f4c63da3d43d73b68eb09aeeefd405d35c5\",\"message\":\"fix: complete spec 66 implementation gaps\",\"author\":\"Glen Baker\",\"timestamp\":\"2025-09-16T07:53:12Z\",\"files_changed\":[\"tests/cli_integration/batch_command_tests.rs\",\"tests/cli_integration/mod.rs\",\"tests/cli_integration/resume_command_tests.rs\",\"tests/cli_integration/test_utils.rs\"],\"insertions\":111,\"deletions\":9,\"step_name\":\"claude: /prodigy-complete-spec $ARG --gaps ${validation.gaps}\",\"agent_id\":null}]",
+    "PROJECT_ROOT": "/Users/glen/.prodigy/worktrees/prodigy/session-a782bfce-1d00-432c-8643-206e933e5a28",
+    "step.insertions": "111",
+    "ARG": "66",
+    "step.deletions": "9"
+  },
+  "mapreduce_state": null,
+  "timestamp": "2025-09-16T07:56:48.293982Z",
+  "version": 1,
+  "workflow_hash": "3",
+  "total_steps": 3,
+  "workflow_name": "args-workflow",
+  "workflow_path": null
+}

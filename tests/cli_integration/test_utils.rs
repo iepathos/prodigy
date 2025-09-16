@@ -191,7 +191,7 @@ pub fn create_test_workflow(name: &str) -> String {
     format!(
         r#"
 name: {}
-steps:
+commands:
   - shell: "echo 'Test workflow {}'"
 "#,
         name, name
