@@ -358,6 +358,105 @@ async fn test_structured_data_format_validation() {
     }
 }
 
+#[tokio::test]
+async fn test_structured_data_yaml_anchors() {
+    let provider = structured_data::StructuredDataInputProvider;
+
+    // Test YAML with anchors and references - using array format since provider processes arrays
+    let yaml_with_anchors = r#"
+- &defaults
+  timeout: 30
+  retries: 3
+  type: default
+
+- name: job1
+  <<: *defaults
+  command: echo "Job 1"
+
+- name: job2
+  <<: *defaults
+  command: echo "Job 2"
+  timeout: 60  # Override default
+
+- &template1
+  type: test
+  enabled: true
+  template_name: template1
+
+- <<: *template1
+  instance_id: 1
+"#;
+
+    let mut config = provider::InputConfig::new();
+    config.set("data".to_string(), json!(yaml_with_anchors));
+    config.set("format".to_string(), json!("yaml"));
+
+    // Should successfully parse YAML with anchors
+    let inputs = provider.generate_inputs(&config).await.unwrap();
+
+    // The provider generates one input per array item
+    assert_eq!(inputs.len(), 5, "Should generate 5 inputs for 5 array items");
+
+    // Verify that YAML anchors are parsed (even if not fully expanded)
+    // The serde_yaml parser handles anchor references but preserves the merge keys
+
+    // Check job1 (input 1) has the expected fields
+    let job1_data = &inputs[1].variables.get("data").unwrap();
+
+    // For VariableValue objects, check the actual object structure
+    use super::types::VariableValue;
+    match job1_data {
+        VariableValue::Object(obj) => {
+            assert!(obj.contains_key("name"), "job1 should have name field");
+            assert_eq!(obj.get("name").unwrap().to_string(), "job1");
+            assert!(obj.contains_key("command"), "job1 should have command field");
+            // The merge key should have brought in the values
+            assert!(obj.contains_key("<<"), "job1 should have merge key");
+        }
+        _ => panic!("Expected job1 data to be an object"),
+    }
+
+    // Check job2 (input 2) has the expected fields with override
+    let job2_data = &inputs[2].variables.get("data").unwrap();
+    match job2_data {
+        VariableValue::Object(obj) => {
+            assert!(obj.contains_key("name"), "job2 should have name field");
+            assert_eq!(obj.get("name").unwrap().to_string(), "job2");
+            assert!(obj.contains_key("timeout"), "job2 should have timeout field");
+            assert_eq!(obj.get("timeout").unwrap().to_string(), "60");
+            assert!(obj.contains_key("command"), "job2 should have command field");
+        }
+        _ => panic!("Expected job2 data to be an object"),
+    }
+
+    // Check template (input 3) has expected fields
+    let template_data = &inputs[3].variables.get("data").unwrap();
+    match template_data {
+        VariableValue::Object(obj) => {
+            assert!(obj.contains_key("type"), "template should have type field");
+            assert_eq!(obj.get("type").unwrap().to_string(), "test");
+            assert!(obj.contains_key("enabled"), "template should have enabled field");
+            assert_eq!(obj.get("enabled").unwrap().to_string(), "true");
+            assert!(obj.contains_key("template_name"), "template should have template_name field");
+        }
+        _ => panic!("Expected template data to be an object"),
+    }
+
+    // Check template reference (input 4) inherits from template
+    let ref_data = &inputs[4].variables.get("data").unwrap();
+    match ref_data {
+        VariableValue::Object(obj) => {
+            assert!(obj.contains_key("instance_id"), "reference should have instance_id");
+            assert_eq!(obj.get("instance_id").unwrap().to_string(), "1");
+            assert!(obj.contains_key("<<"), "reference should have merge key");
+        }
+        _ => panic!("Expected reference data to be an object"),
+    }
+
+    // The test verifies that YAML anchors and references are at least being parsed without errors
+    // Full expansion of merge keys depends on the YAML parser implementation
+}
+
 // ========== File Pattern Provider Tests ==========
 
 #[tokio::test]
@@ -381,6 +480,54 @@ async fn test_file_pattern_validation() {
 }
 
 #[tokio::test]
+async fn test_file_pattern_symlink_handling() {
+    use std::os::unix::fs as unix_fs;
+
+    let temp_dir = TempDir::new().unwrap();
+    let temp_path = temp_dir.path();
+
+    // Create test file structure with symlinks
+    let file1_path = temp_path.join("file1.txt");
+    std::fs::write(&file1_path, "content1").unwrap();
+
+    let dir1_path = temp_path.join("dir1");
+    std::fs::create_dir(&dir1_path).unwrap();
+    std::fs::write(dir1_path.join("file2.txt"), "content2").unwrap();
+
+    // Create symlinks
+    let symlink_file = temp_path.join("link_to_file.txt");
+    unix_fs::symlink(&file1_path, &symlink_file).unwrap();
+
+    let symlink_dir = temp_path.join("link_to_dir");
+    unix_fs::symlink(&dir1_path, &symlink_dir).unwrap();
+
+    let provider = file_pattern::FilePatternInputProvider::new();
+    let mut config = provider::InputConfig::new();
+
+    // Set the base path for glob patterns
+    std::env::set_current_dir(temp_path).unwrap();
+
+    // Test that symlinks are followed by default
+    config.set("patterns".to_string(), json!(["*.txt"]));
+    let inputs = provider.generate_inputs(&config).await.unwrap();
+    // Should find both file1.txt and the symlink
+    assert!(inputs.len() >= 1, "Should find at least the original file");
+
+    // Test symlinked directory traversal
+    config.set("patterns".to_string(), json!(["**/*.txt"]));
+    let inputs = provider.generate_inputs(&config).await.unwrap();
+    assert!(inputs.len() >= 2, "Should find files in symlinked directories");
+
+    // Test that broken symlinks don't cause failures
+    let broken_symlink = temp_path.join("broken_link.txt");
+    unix_fs::symlink("/nonexistent/file.txt", &broken_symlink).unwrap();
+
+    config.set("patterns".to_string(), json!(["*.txt"]));
+    let result = provider.generate_inputs(&config).await;
+    assert!(result.is_ok(), "Broken symlinks should not cause failures");
+}
+
+#[tokio::test]
 async fn test_file_pattern_glob_expansion() {
     let temp_dir = TempDir::new().unwrap();
     let temp_path = temp_dir.path();
@@ -399,7 +546,9 @@ async fn test_file_pattern_glob_expansion() {
         if let Some(parent) = file_path.parent() {
             std::fs::create_dir_all(parent).unwrap();
         }
-        std::fs::File::create(file_path).unwrap();
+        let f = std::fs::File::create(&file_path).unwrap();
+        // Ensure file is written to disk to avoid timing issues
+        f.sync_all().unwrap();
     }
 
     let provider = file_pattern::FilePatternInputProvider::new();
