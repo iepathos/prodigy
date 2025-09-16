@@ -2,8 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::abstractions::git::{GitOperations, MockGitOperations};
-    use crate::config::command::{TestCommand, ForeachInput, ParallelConfig, WorkflowStepCommand};
+    use crate::abstractions::git::MockGitOperations;
+    use crate::config::command::TestCommand;
     use crate::testing::config::TestConfiguration;
     use crate::cook::execution::ExecutionResult;
     use crate::cook::interaction::SpinnerHandle;
@@ -26,7 +26,7 @@ mod tests {
 
     // Mock implementations for testing
 
-    struct MockClaudeExecutor {
+    pub(super) struct MockClaudeExecutor {
         responses: Arc<Mutex<Vec<ExecutionResult>>>,
         #[allow(clippy::type_complexity)]
         calls: Arc<Mutex<Vec<(String, PathBuf, HashMap<String, String>)>>>,
@@ -79,7 +79,7 @@ mod tests {
         }
     }
 
-    struct MockSessionManager {
+    pub(super) struct MockSessionManager {
         updates: Arc<Mutex<Vec<SessionUpdate>>>,
         iteration: Arc<Mutex<u32>>,
     }
@@ -158,7 +158,7 @@ mod tests {
         fn fail(&mut self, _message: &str) {}
     }
 
-    struct MockUserInteraction {
+    pub(super) struct MockUserInteraction {
         messages: Arc<Mutex<Vec<(String, String)>>>,
     }
 
@@ -362,7 +362,7 @@ mod tests {
 
     // Helper function to create a test executor with git mock that returns expected responses
     #[allow(clippy::type_complexity)]
-    async fn create_test_executor_with_git_mock() -> (
+    pub(super) async fn create_test_executor_with_git_mock() -> (
         WorkflowExecutor,
         Arc<MockClaudeExecutor>,
         Arc<MockSessionManager>,
@@ -455,13 +455,15 @@ mod tests {
     fn test_complex_variable_interpolation_nested() {
         let mut context = WorkflowContext::default();
 
-        // Test nested variable references
+        // Test nested variable references - store as flat keys with dots
+        // The interpolation engine will look them up directly
         context.variables.insert("user.name".to_string(), "Alice".to_string());
         context.variables.insert("user.id".to_string(), "12345".to_string());
         context.variables.insert("project.name".to_string(), "MyProject".to_string());
         context.variables.insert("project.version".to_string(), "1.2.3".to_string());
 
         // Test nested field access patterns
+        // The interpolation should handle these as direct key lookups
         assert_eq!(context.interpolate("${user.name}"), "Alice");
         assert_eq!(context.interpolate("${user.id}"), "12345");
         assert_eq!(context.interpolate("${project.name}"), "MyProject");
@@ -500,12 +502,11 @@ mod tests {
         context.variables.insert("existing".to_string(), "value".to_string());
 
         // Test default value syntax (when variable doesn't exist)
-        // Note: Default values are not currently supported in the basic interpolate function
-        // This test documents the current behavior
-        assert_eq!(context.interpolate("${missing:-default}"), "${missing:-default}");
+        // The interpolation engine now supports default values
+        assert_eq!(context.interpolate("${missing:-default}"), "default");
         assert_eq!(context.interpolate("${existing:-default}"), "value");
 
-        // Test undefined variable behavior
+        // Test undefined variable behavior (no default specified)
         assert_eq!(context.interpolate("${undefined}"), "${undefined}");
     }
 
@@ -878,7 +879,8 @@ mod tests {
             session_id: "test".to_string(),
         };
 
-        let env_vars = HashMap::new();
+        let mut env_vars = HashMap::new();
+        env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
 
         // Set up mock response
         claude_mock.add_response(ExecutionResult {
@@ -1160,9 +1162,6 @@ mod tests {
     #[tokio::test]
     async fn test_when_clause_skips_step() {
         let (mut executor, _, _, _, git_mock) = create_test_executor_with_git_mock().await;
-        // Add git mocks for commit verification
-        git_mock.add_success_response("abc123def456").await; // git rev-parse HEAD (initial)
-        git_mock.add_success_response("").await; // git status --porcelain (no changes)
 
         let temp_dir = TempDir::new().unwrap();
         let env = ExecutionEnvironment {
@@ -1982,5 +1981,99 @@ mod capture_output_tests {
         let result = context.interpolate(template);
 
         assert_eq!(result, "Analysis: High complexity detected, TODOs: 42");
+    }
+}
+
+// ==================== TIMEOUT TESTS ====================
+
+pub(crate) mod timeout_tests {
+    use super::tests::*;
+    use crate::cook::orchestrator::ExecutionEnvironment;
+    use crate::cook::workflow::{ExtendedWorkflowConfig, WorkflowMode, WorkflowStep};
+    use tempfile::TempDir;
+    use std::collections::HashMap;
+
+    #[tokio::test]
+    async fn test_workflow_timeout() {
+        let (mut executor, _, _, _, _) = create_test_executor_with_git_mock().await;
+
+        let temp_dir = TempDir::new().unwrap();
+        let env = ExecutionEnvironment {
+            working_dir: temp_dir.path().to_path_buf(),
+            project_dir: temp_dir.path().to_path_buf(),
+            worktree_name: None,
+            session_id: "test".to_string(),
+        };
+
+        // Create a workflow with a timeout
+        let workflow = ExtendedWorkflowConfig {
+            name: "Timeout Test".to_string(),
+            mode: WorkflowMode::Sequential,
+            steps: vec![WorkflowStep {
+                shell: Some("sleep 10".to_string()),
+                timeout: Some(1), // 1 second timeout
+                ..Default::default()
+            }],
+            setup_phase: None,
+            map_phase: None,
+            reduce_phase: None,
+            max_iterations: 1,
+            iterate: false,
+            retry_defaults: None,
+            environment: None,
+        };
+
+        let result = executor.execute(&workflow, &env).await;
+
+        // The workflow should fail due to timeout
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("timeout") || error_msg.contains("Timeout"));
+    }
+
+    #[tokio::test]
+    async fn test_step_timeout() {
+        let (executor, _, _, _, _) = create_test_executor_with_git_mock().await;
+
+        let temp_dir = TempDir::new().unwrap();
+        let env = ExecutionEnvironment {
+            working_dir: temp_dir.path().to_path_buf(),
+            project_dir: temp_dir.path().to_path_buf(),
+            worktree_name: None,
+            session_id: "test".to_string(),
+        };
+
+        // Test shell command with timeout
+        let env_vars = HashMap::new();
+        let result = executor
+            .execute_shell_command("sleep 10", &env, env_vars, Some(1))
+            .await;
+
+        // Should fail due to timeout
+        assert!(result.is_err() || !result.unwrap().success);
+    }
+
+    #[tokio::test]
+    async fn test_command_completes_within_timeout() {
+        let (executor, _, _, _, _) = create_test_executor_with_git_mock().await;
+
+        let temp_dir = TempDir::new().unwrap();
+        let env = ExecutionEnvironment {
+            working_dir: temp_dir.path().to_path_buf(),
+            project_dir: temp_dir.path().to_path_buf(),
+            worktree_name: None,
+            session_id: "test".to_string(),
+        };
+
+        // Test shell command that completes within timeout
+        let env_vars = HashMap::new();
+        let result = executor
+            .execute_shell_command("echo 'fast command'", &env, env_vars, Some(5000))
+            .await
+            .unwrap();
+
+        // Should succeed
+        assert!(result.success);
+        assert!(result.stdout.contains("fast command"));
     }
 }

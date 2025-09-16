@@ -105,8 +105,12 @@ impl InterpolationEngine {
                                 failed_variables
                                     .push((path.join("."), resolution_error.to_string()));
                             } else {
-                                // In non-strict mode, leave placeholder as-is
-                                let placeholder = format!("${{{}}}", path.join("."));
+                                // In non-strict mode, leave placeholder as-is including any default value syntax
+                                let placeholder = if let Some(default_val) = default {
+                                    format!("${{{}:-{}}}", path.join("."), default_val)
+                                } else {
+                                    format!("${{{}}}", path.join("."))
+                                };
                                 result.push_str(&placeholder);
                                 if debug_mode {
                                     tracing::warn!(
@@ -435,6 +439,27 @@ impl InterpolationContext {
             return Err(anyhow!("Empty path"));
         }
 
+        // For single segment paths, directly look them up
+        if path.len() == 1 {
+            return self.get_root_variable(&path[0]);
+        }
+
+        // First, try to look up the full path as a single key
+        // This handles cases like "user.name" or "items[0]" stored as flat keys
+        let full_key = path.join(".");
+        if let Some(value) = self.variables.get(&full_key) {
+            return Ok(value.clone());
+        }
+
+        // Also try with array notation for paths like ["items", "[0]"]
+        if path.len() > 1 && path[1].starts_with('[') && path[1].ends_with(']') {
+            let array_key = format!("{}{}", path[0], path[1]);
+            if let Some(value) = self.variables.get(&array_key) {
+                return Ok(value.clone());
+            }
+        }
+
+        // Fall back to nested resolution
         let root_value = self.get_root_variable(&path[0])?;
         Self::resolve_path_in_value(root_value, &path[1..])
     }

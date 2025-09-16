@@ -79,31 +79,57 @@ impl ExpressionEvaluator {
 
     /// Compare two values
     fn compare(&self, left: Value, op: &ComparisonOp, right: Value) -> Result<Value> {
+        // Try to coerce values to compatible types for comparison
+        let (left_coerced, right_coerced) = self.coerce_for_comparison(left.clone(), right.clone());
+
         let result = match op {
-            ComparisonOp::Equal => left == right,
-            ComparisonOp::NotEqual => left != right,
-            ComparisonOp::GreaterThan => match (&left, &right) {
+            ComparisonOp::Equal => left_coerced == right_coerced,
+            ComparisonOp::NotEqual => left_coerced != right_coerced,
+            ComparisonOp::GreaterThan => match (&left_coerced, &right_coerced) {
                 (Value::Number(l), Value::Number(r)) => l > r,
                 (Value::String(l), Value::String(r)) => l > r,
                 _ => return Err(anyhow!("Cannot compare {:?} and {:?} with >", left, right)),
             },
-            ComparisonOp::LessThan => match (&left, &right) {
+            ComparisonOp::LessThan => match (&left_coerced, &right_coerced) {
                 (Value::Number(l), Value::Number(r)) => l < r,
                 (Value::String(l), Value::String(r)) => l < r,
                 _ => return Err(anyhow!("Cannot compare {:?} and {:?} with <", left, right)),
             },
-            ComparisonOp::GreaterThanOrEqual => match (&left, &right) {
+            ComparisonOp::GreaterThanOrEqual => match (&left_coerced, &right_coerced) {
                 (Value::Number(l), Value::Number(r)) => l >= r,
                 (Value::String(l), Value::String(r)) => l >= r,
                 _ => return Err(anyhow!("Cannot compare {:?} and {:?} with >=", left, right)),
             },
-            ComparisonOp::LessThanOrEqual => match (&left, &right) {
+            ComparisonOp::LessThanOrEqual => match (&left_coerced, &right_coerced) {
                 (Value::Number(l), Value::Number(r)) => l <= r,
                 (Value::String(l), Value::String(r)) => l <= r,
                 _ => return Err(anyhow!("Cannot compare {:?} and {:?} with <=", left, right)),
             },
         };
         Ok(Value::Bool(result))
+    }
+
+    /// Coerce values to compatible types for comparison
+    fn coerce_for_comparison(&self, left: Value, right: Value) -> (Value, Value) {
+        match (&left, &right) {
+            // If one is a string that looks like a number and the other is a number, convert the string
+            (Value::String(s), Value::Number(_)) => {
+                if let Ok(n) = s.parse::<f64>() {
+                    (Value::Number(n), right)
+                } else {
+                    (left, right)
+                }
+            },
+            (Value::Number(_), Value::String(s)) => {
+                if let Ok(n) = s.parse::<f64>() {
+                    (left, Value::Number(n))
+                } else {
+                    (left, right)
+                }
+            },
+            // Otherwise keep original types
+            _ => (left, right),
+        }
     }
 
     /// Convert a value to boolean

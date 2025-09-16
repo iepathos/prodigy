@@ -1775,6 +1775,9 @@ impl WorkflowExecutor {
         if step.goal_seek.is_some() {
             specified_count += 1;
         }
+        if step.foreach.is_some() {
+            specified_count += 1;
+        }
         if step.name.is_some() || step.command.is_some() {
             specified_count += 1;
         }
@@ -1782,13 +1785,13 @@ impl WorkflowExecutor {
         // Ensure only one command type is specified
         if specified_count > 1 {
             return Err(anyhow!(
-                "Multiple command types specified. Use only one of: claude, shell, test, handler, goal_seek, or name/command"
+                "Multiple command types specified. Use only one of: claude, shell, test, handler, goal_seek, foreach, or name/command"
             ));
         }
 
         if specified_count == 0 {
             return Err(anyhow!(
-                "No command specified. Use one of: claude, shell, test, handler, goal_seek, or name/command"
+                "No command specified. Use one of: claude, shell, test, handler, goal_seek, foreach, or name/command"
             ));
         }
 
