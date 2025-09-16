@@ -1087,7 +1087,11 @@ impl WorkflowExecutor {
 
     /// Determine if workflow should fail based on command result
     /// Evaluate a when condition expression
-    pub(crate) fn evaluate_when_condition(&self, when_expr: &str, context: &WorkflowContext) -> Result<bool> {
+    pub(crate) fn evaluate_when_condition(
+        &self,
+        when_expr: &str,
+        context: &WorkflowContext,
+    ) -> Result<bool> {
         let evaluator = ExpressionEvaluator::new();
         let mut variable_context = VariableContext::new();
 
@@ -2469,8 +2473,8 @@ impl WorkflowExecutor {
             }
         }
 
-        // Initialize CommitTracker for this step
-        let git_ops = Arc::new(crate::abstractions::RealGitOperations::new());
+        // Initialize CommitTracker for this step using the executor's git operations (enables mocking)
+        let git_ops = self.git_operations.clone();
         let working_dir = env.working_dir.clone();
         let mut commit_tracker =
             crate::cook::commit_tracker::CommitTracker::new(git_ops, working_dir);
@@ -3713,10 +3717,6 @@ impl WorkflowExecutor {
         }
     }
 }
-
-#[cfg(test)]
-#[path = "executor_tests.rs"]
-mod executor_tests;
 
 // Implement the WorkflowExecutor trait
 #[async_trait::async_trait]

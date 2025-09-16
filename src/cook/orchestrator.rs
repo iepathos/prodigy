@@ -138,7 +138,7 @@ impl DefaultCookOrchestrator {
 
     /// Display health score for the project
     async fn display_health_score(&self, config: &CookConfig) -> Result<()> {
-        use crate::scoring::{BasicMetrics, ProjectHealthScore, display_health_score};
+        use crate::scoring::{display_health_score, BasicMetrics, ProjectHealthScore};
 
         // Create basic metrics from available data
         // For now, we'll use placeholder values - in a real implementation,
@@ -147,9 +147,9 @@ impl DefaultCookOrchestrator {
             test_coverage: self.get_test_coverage(&config.project_path).await.ok(),
             lint_warnings: self.get_lint_warnings(&config.project_path).await.ok(),
             code_duplication: self.get_code_duplication(&config.project_path).await.ok(),
-            doc_coverage: None,  // Not readily available
-            type_coverage: None,  // Not readily available
-            complexity_average: None,  // Not readily available
+            doc_coverage: None,       // Not readily available
+            type_coverage: None,      // Not readily available
+            complexity_average: None, // Not readily available
         };
 
         // Calculate and display the score

@@ -80,7 +80,8 @@ impl ProjectHealthScore {
             let quality = calculate_code_quality_score(
                 metrics.lint_warnings.unwrap_or(0),
                 metrics.code_duplication.unwrap_or(0.0),
-            ).unwrap_or(75.0);
+            )
+            .unwrap_or(75.0);
             components.code_quality = Some(quality);
             total_score += quality * 0.25;
             total_weight += 0.25;
@@ -531,15 +532,35 @@ pub fn display_health_score(score: &ProjectHealthScore) -> String {
 
     // Component breakdown
     output.push_str("\nComponent Scores:\n");
-    output.push_str(&format_component("Test Coverage", score.components.test_coverage, None));
+    output.push_str(&format_component(
+        "Test Coverage",
+        score.components.test_coverage,
+        None,
+    ));
     output.push('\n');
-    output.push_str(&format_component("Code Quality", score.components.code_quality, None));
+    output.push_str(&format_component(
+        "Code Quality",
+        score.components.code_quality,
+        None,
+    ));
     output.push('\n');
-    output.push_str(&format_component("Documentation", score.components.documentation, None));
+    output.push_str(&format_component(
+        "Documentation",
+        score.components.documentation,
+        None,
+    ));
     output.push('\n');
-    output.push_str(&format_component("Maintainability", score.components.maintainability, None));
+    output.push_str(&format_component(
+        "Maintainability",
+        score.components.maintainability,
+        None,
+    ));
     output.push('\n');
-    output.push_str(&format_component("Type Safety", score.components.type_safety, None));
+    output.push_str(&format_component(
+        "Type Safety",
+        score.components.type_safety,
+        None,
+    ));
     output.push('\n');
 
     // Improvement suggestions

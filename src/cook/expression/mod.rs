@@ -119,14 +119,14 @@ impl ExpressionEvaluator {
                 } else {
                     (left, right)
                 }
-            },
+            }
             (Value::Number(_), Value::String(s)) => {
                 if let Ok(n) = s.parse::<f64>() {
                     (left, Value::Number(n))
                 } else {
                     (left, right)
                 }
-            },
+            }
             // Otherwise keep original types
             _ => (left, right),
         }
