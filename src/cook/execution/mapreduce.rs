@@ -1309,7 +1309,12 @@ impl MapReduceExecutor {
         // Create a new job with persistent state
         let job_id = self
             .state_manager
-            .create_job(map_phase.config.clone(), work_items.clone())
+            .create_job(
+                map_phase.config.clone(),
+                work_items.clone(),
+                map_phase.agent_template.clone(),
+                reduce_phase.map(|r| r.commands.clone())
+            )
             .await?;
 
         debug!("Created MapReduce job with ID: {}", job_id);
@@ -1597,7 +1602,7 @@ impl MapReduceExecutor {
                 // Create a map phase config from the stored state
                 let map_phase = MapPhase {
                     config: state.config.clone(),
-                    agent_template: vec![], // This would need to be stored in state
+                    agent_template: state.agent_template.clone(),
                     filter: None,
                     sort_by: None,
                     distinct: None,
@@ -1625,9 +1630,36 @@ impl MapReduceExecutor {
             // Map phase is complete
             final_results = state.agent_results.into_values().collect();
 
-            if state.reduce_phase_state.is_none() {
+            // Check if reduce phase needs to be executed
+            if let Some(reduce_commands) = &state.reduce_commands {
+                if state.reduce_phase_state.is_none() ||
+                   (state.reduce_phase_state.as_ref().map_or(false, |s| !s.started)) {
+                    self.user_interaction
+                        .display_info("Map phase complete, executing pending reduce phase");
+
+                    // Create reduce phase from stored commands
+                    let reduce_phase = ReducePhase {
+                        commands: reduce_commands.clone(),
+                    };
+
+                    // Mark reduce phase as started
+                    self.state_manager.start_reduce_phase(job_id).await?;
+
+                    // Execute reduce phase
+                    self.execute_reduce_phase(&reduce_phase, &final_results, env)
+                        .await?;
+
+                    // Mark reduce phase as completed
+                    self.state_manager
+                        .complete_reduce_phase(job_id, None)
+                        .await?;
+
+                    self.user_interaction
+                        .display_success("Reduce phase completed successfully");
+                }
+            } else if state.reduce_phase_state.is_none() {
                 self.user_interaction
-                    .display_info("Map phase complete, reduce phase pending");
+                    .display_info("Map phase complete, no reduce phase configured");
             }
         }
 

@@ -4,6 +4,7 @@
 //! from failures and job resumption with minimal data loss.
 
 use crate::cook::execution::mapreduce::{AgentResult, AgentStatus, MapReduceConfig};
+use crate::cook::workflow::WorkflowStep;
 use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -102,6 +103,10 @@ pub struct MapReduceJobState {
     pub failed_count: usize,
     /// Whether the job has completed
     pub is_complete: bool,
+    /// Agent template commands (needed for resumption)
+    pub agent_template: Vec<WorkflowStep>,
+    /// Reduce phase commands (needed for resumption)
+    pub reduce_commands: Option<Vec<WorkflowStep>>,
 }
 
 impl MapReduceJobState {
@@ -131,6 +136,8 @@ impl MapReduceJobState {
             successful_count: 0,
             failed_count: 0,
             is_complete: false,
+            agent_template: vec![],
+            reduce_commands: None,
         }
     }
 
@@ -524,7 +531,7 @@ pub trait Resumable: Send + Sync {
 #[async_trait::async_trait]
 pub trait JobStateManager: Send + Sync {
     /// Create a new job
-    async fn create_job(&self, config: MapReduceConfig, work_items: Vec<Value>) -> Result<String>;
+    async fn create_job(&self, config: MapReduceConfig, work_items: Vec<Value>, agent_template: Vec<WorkflowStep>, reduce_commands: Option<Vec<WorkflowStep>>) -> Result<String>;
 
     /// Update an agent result
     async fn update_agent_result(&self, job_id: &str, result: AgentResult) -> Result<()>;
@@ -593,9 +600,11 @@ impl DefaultJobStateManager {
 
 #[async_trait::async_trait]
 impl JobStateManager for DefaultJobStateManager {
-    async fn create_job(&self, config: MapReduceConfig, work_items: Vec<Value>) -> Result<String> {
+    async fn create_job(&self, config: MapReduceConfig, work_items: Vec<Value>, agent_template: Vec<WorkflowStep>, reduce_commands: Option<Vec<WorkflowStep>>) -> Result<String> {
         let job_id = format!("mapreduce-{}", Utc::now().timestamp_millis());
-        let state = MapReduceJobState::new(job_id.clone(), config, work_items);
+        let mut state = MapReduceJobState::new(job_id.clone(), config, work_items);
+        state.agent_template = agent_template;
+        state.reduce_commands = reduce_commands;
 
         // Save initial checkpoint
         self.checkpoint_manager.save_checkpoint(&state).await?;
@@ -809,7 +818,7 @@ mod tests {
         let work_items = vec![serde_json::json!({"id": 1}), serde_json::json!({"id": 2})];
 
         // Create job
-        let job_id = manager.create_job(config, work_items).await.unwrap();
+        let job_id = manager.create_job(config, work_items, vec![], None).await.unwrap();
 
         // Update with result
         let result = AgentResult {

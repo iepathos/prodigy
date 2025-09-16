@@ -108,7 +108,7 @@ mod tests {
 
         // Create job
         let job_id = manager
-            .create_job(config.clone(), work_items)
+            .create_job(config.clone(), work_items, vec![], None)
             .await
             .unwrap();
 
@@ -356,7 +356,7 @@ mod tests {
 
         // Create job
         let job_id = manager
-            .create_job(config.clone(), work_items.clone())
+            .create_job(config.clone(), work_items.clone(), vec![], None)
             .await
             .unwrap();
 
@@ -435,7 +435,7 @@ mod tests {
         ];
 
         // Create job
-        let job_id = manager.create_job(config, work_items).await.unwrap();
+        let job_id = manager.create_job(config, work_items, vec![], None).await.unwrap();
 
         // Simulate partial completion
         manager
@@ -622,7 +622,7 @@ mod tests {
 
         // Create job with initial configuration
         let job_id = manager
-            .create_job(config.clone(), work_items)
+            .create_job(config.clone(), work_items, vec![], None)
             .await
             .unwrap();
 
@@ -664,7 +664,7 @@ mod tests {
 
         // Create job
         let job_id = manager
-            .create_job(config.clone(), work_items)
+            .create_job(config.clone(), work_items, vec![], None)
             .await
             .unwrap();
 
@@ -705,7 +705,7 @@ mod tests {
 
         // Create job
         let job_id = manager
-            .create_job(config.clone(), work_items)
+            .create_job(config.clone(), work_items, vec![], None)
             .await
             .unwrap();
 
@@ -765,7 +765,7 @@ mod tests {
 
         // Create job
         let job_id = manager
-            .create_job(config.clone(), work_items)
+            .create_job(config.clone(), work_items, vec![], None)
             .await
             .unwrap();
 
@@ -831,7 +831,7 @@ mod tests {
 
         // Create job
         let job_id = manager
-            .create_job(config.clone(), work_items)
+            .create_job(config.clone(), work_items, vec![], None)
             .await
             .unwrap();
 
@@ -1015,7 +1015,7 @@ mod tests {
 
         // Create job
         let job_id = manager
-            .create_job(config.clone(), work_items)
+            .create_job(config.clone(), work_items, vec![], None)
             .await
             .unwrap();
 
