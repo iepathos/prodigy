@@ -1476,24 +1476,159 @@ async fn run_resume_job_command(
     max_retries: u32,
     path: Option<PathBuf>,
 ) -> anyhow::Result<()> {
+    use prodigy::cook::execution::mapreduce::{MapReduceExecutor, ResumeOptions};
+    use prodigy::cook::execution::state::{DefaultJobStateManager, JobStateManager};
+    use prodigy::cook::orchestrator::ExecutionEnvironment;
+    use prodigy::worktree::WorktreeManager;
+    use std::sync::Arc;
+
     println!("📝 Resuming MapReduce job: {}", job_id);
     println!("  Options: force={}, max_retries={}", force, max_retries);
 
-    // For now, print a message that this feature is implemented but needs the infrastructure
-    println!("✅ Resume job command infrastructure is ready.");
-    println!("Note: To resume a job, ensure the job was created with checkpoint support.");
+    // Change to specified directory if provided
+    let project_root = if let Some(p) = path {
+        std::env::set_current_dir(&p)?;
+        p
+    } else {
+        std::env::current_dir()?
+    };
 
-    if let Some(p) = path {
-        println!("  Working directory: {}", p.display());
+    // Create state manager to load job checkpoint
+    let state_manager: Arc<dyn JobStateManager> =
+        Arc::new(DefaultJobStateManager::new_with_global(project_root.clone()).await?);
+
+    // Load job state to validate it exists
+    let job_state = match state_manager.get_job_state(&job_id).await {
+        Ok(state) => state,
+        Err(e) => {
+            eprintln!("❌ Failed to load job state for '{}': {}", job_id, e);
+            eprintln!("   Make sure the job ID is correct and the checkpoint exists.");
+            return Err(anyhow::anyhow!("Job not found or checkpoint corrupted"));
+        }
+    };
+
+    // Display job status
+    println!("\n📊 Job Status:");
+    println!("  Job ID: {}", job_state.job_id);
+    println!("  Total items: {}", job_state.total_items);
+    println!(
+        "  Completed: {} ({:.1}%)",
+        job_state.completed_agents.len(),
+        (job_state.completed_agents.len() as f64 / job_state.total_items as f64) * 100.0
+    );
+    println!("  Failed: {}", job_state.failed_agents.len());
+    println!("  Pending: {}", job_state.pending_items.len());
+    println!("  Checkpoint version: {}", job_state.checkpoint_version);
+
+    if job_state.is_complete && !force {
+        println!("\n✅ Job is already complete. Use --force to re-process failed items.");
+        return Ok(());
     }
 
-    // TODO: Once the proper infrastructure is in place, this will:
-    // 1. Load the job state from checkpoint
-    // 2. Resume execution from the last checkpoint
-    // 3. Process remaining work items
-    // 4. Handle retries for failed items
+    // Prepare execution environment using the orchestrator's ExecutionEnvironment
+    // Generate a unique session ID for this resume operation
+    let session_id = format!("resume-{}-{}", job_id, chrono::Utc::now().timestamp());
 
-    Ok(())
+    let env = ExecutionEnvironment {
+        working_dir: project_root.clone(),
+        project_dir: project_root.clone(),
+        worktree_name: None,
+        session_id,
+    };
+
+    // Create resume options - only use fields that exist
+    let options = ResumeOptions {
+        force,
+        max_additional_retries: max_retries,
+        skip_validation: false,
+        from_checkpoint: None,
+    };
+
+    println!("\n🔄 Resuming job execution...\n");
+
+    // Create necessary components for MapReduceExecutor
+    // Note: This is a simplified version - full implementation would reuse components from cook command
+    use prodigy::subprocess::SubprocessManager;
+    let subprocess = SubprocessManager::production();
+    let worktree_manager = Arc::new(WorktreeManager::new(project_root.clone(), subprocess)?);
+
+    // Create Claude executor using the cook module's implementation
+    use prodigy::cook::execution::{ClaudeExecutor, ClaudeExecutorImpl, RealCommandRunner};
+    let runner = RealCommandRunner::new();
+    let claude_executor: Arc<dyn ClaudeExecutor> = Arc::new(ClaudeExecutorImpl::new(runner));
+
+    // Create session manager using the SessionManagerAdapter
+    use prodigy::cook::session::{SessionManager, SessionManagerAdapter};
+
+    // SessionManagerAdapter creates its own internal session manager
+    let session_manager: Arc<dyn SessionManager> =
+        Arc::new(SessionManagerAdapter::new(project_root.clone()));
+
+    // Create user interaction handler
+    use prodigy::cook::interaction::{DefaultUserInteraction, UserInteraction};
+    let user_interaction: Arc<dyn UserInteraction> = Arc::new(DefaultUserInteraction::new());
+
+    // Create MapReduce executor
+    let executor = MapReduceExecutor::new(
+        claude_executor,
+        session_manager,
+        user_interaction,
+        worktree_manager,
+        project_root,
+    )
+    .await;
+
+    // Resume the job
+    match executor
+        .resume_job_with_options(&job_id, options, &env)
+        .await
+    {
+        Ok(result) => {
+            println!("\n✅ Job resumed successfully!");
+            println!(
+                "  Resumed from checkpoint version: {}",
+                result.resumed_from_version
+            );
+            println!("  Items already completed: {}", result.already_completed);
+            println!("  Items processed in this run: {}", result.remaining_items);
+            println!(
+                "  Total successful: {}",
+                result
+                    .final_results
+                    .iter()
+                    .filter(|r| matches!(
+                        r.status,
+                        prodigy::cook::execution::mapreduce::AgentStatus::Success
+                    ))
+                    .count()
+            );
+
+            let failed_count = result
+                .final_results
+                .iter()
+                .filter(|r| {
+                    matches!(
+                        r.status,
+                        prodigy::cook::execution::mapreduce::AgentStatus::Failed(_)
+                    )
+                })
+                .count();
+
+            if failed_count > 0 {
+                println!("  ⚠️  Failed items: {}", failed_count);
+                println!(
+                    "     Check the Dead Letter Queue for details: prodigy dlq list {}",
+                    job_id
+                );
+            }
+
+            Ok(())
+        }
+        Err(e) => {
+            eprintln!("\n❌ Failed to resume job: {}", e);
+            Err(anyhow::anyhow!("Job resumption failed: {}", e))
+        }
+    }
 }
 
 // Pure helper functions for DLQ operations

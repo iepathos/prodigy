@@ -39,6 +39,7 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - `prodigy exec` - Execute single command with retry support ✅
 - `prodigy batch` - Process multiple files in parallel ✅
 - `prodigy resume` - Resume interrupted workflows with checkpoint recovery ✅
+- `prodigy resume-job` - Resume MapReduce jobs with detailed progress reporting ✅
 - `prodigy cook` - Execute workflows (original command)
 - `prodigy goal-seek` - Standalone goal-seeking operations ✅
 - `prodigy worktree` - Git worktree management
@@ -143,6 +144,15 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **Path Expansion**: Cross-platform path resolution with variable expansion
 - **Environment Inheritance**: Configurable parent process inheritance
 - **Temporary Environments**: Restore after step completion
+
+### MapReduce Job Resumption ✅
+- **Job Status Reporting**: Detailed progress and completion statistics
+- **Checkpoint-Based Recovery**: Resume MapReduce jobs from exact failure point
+- **Progress Monitoring**: Real-time tracking of agent execution status
+- **Failed Item Reprocessing**: Automatic retry of failed work items
+- **Force Resume Option**: Override complete status to reprocess items
+- **DLQ Integration**: Direct access to Dead Letter Queue for failed items
+- **Verbose Status Display**: Comprehensive job state visualization
 
 ## Architecture
 

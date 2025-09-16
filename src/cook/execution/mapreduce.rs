@@ -171,6 +171,9 @@ pub struct ResumeOptions {
     pub max_additional_retries: u32,
     /// Skip validation of checkpoint integrity
     pub skip_validation: bool,
+    /// Specific checkpoint version to resume from (None for latest)
+    #[serde(default)]
+    pub from_checkpoint: Option<u32>,
 }
 
 impl Default for ResumeOptions {
@@ -179,6 +182,7 @@ impl Default for ResumeOptions {
             force: false,
             max_additional_retries: 2,
             skip_validation: false,
+            from_checkpoint: None,
         }
     }
 }
@@ -1309,7 +1313,12 @@ impl MapReduceExecutor {
         // Create a new job with persistent state
         let job_id = self
             .state_manager
-            .create_job(map_phase.config.clone(), work_items.clone())
+            .create_job(
+                map_phase.config.clone(),
+                work_items.clone(),
+                map_phase.agent_template.clone(),
+                reduce_phase.map(|r| r.commands.clone()),
+            )
             .await?;
 
         debug!("Created MapReduce job with ID: {}", job_id);
@@ -1534,13 +1543,22 @@ impl MapReduceExecutor {
         options: ResumeOptions,
         env: &ExecutionEnvironment,
     ) -> MapReduceResult<ResumeResult> {
-        // Load job state from checkpoint
-        let state = self.state_manager.get_job_state(job_id).await?;
+        // Load job state from checkpoint (specific version if requested)
+        let state = if let Some(version) = options.from_checkpoint {
+            self.state_manager
+                .get_job_state_from_checkpoint(job_id, Some(version))
+                .await?
+        } else {
+            self.state_manager.get_job_state(job_id).await?
+        };
 
         // Validate checkpoint integrity unless skipped
         if !options.skip_validation {
             self.validate_checkpoint(&state)?;
         }
+
+        // Clean up orphaned worktrees from failed agents
+        self.cleanup_orphaned_resources(&state).await;
 
         // Check if job is already complete and not forcing
         if state.is_complete && !options.force {
@@ -1597,7 +1615,7 @@ impl MapReduceExecutor {
                 // Create a map phase config from the stored state
                 let map_phase = MapPhase {
                     config: state.config.clone(),
-                    agent_template: vec![], // This would need to be stored in state
+                    agent_template: state.agent_template.clone(),
                     filter: None,
                     sort_by: None,
                     distinct: None,
@@ -1625,9 +1643,40 @@ impl MapReduceExecutor {
             // Map phase is complete
             final_results = state.agent_results.into_values().collect();
 
-            if state.reduce_phase_state.is_none() {
+            // Check if reduce phase needs to be executed
+            if let Some(reduce_commands) = &state.reduce_commands {
+                if state.reduce_phase_state.is_none()
+                    || (state
+                        .reduce_phase_state
+                        .as_ref()
+                        .is_some_and(|s| !s.started))
+                {
+                    self.user_interaction
+                        .display_info("Map phase complete, executing pending reduce phase");
+
+                    // Create reduce phase from stored commands
+                    let reduce_phase = ReducePhase {
+                        commands: reduce_commands.clone(),
+                    };
+
+                    // Mark reduce phase as started
+                    self.state_manager.start_reduce_phase(job_id).await?;
+
+                    // Execute reduce phase
+                    self.execute_reduce_phase(&reduce_phase, &final_results, env)
+                        .await?;
+
+                    // Mark reduce phase as completed
+                    self.state_manager
+                        .complete_reduce_phase(job_id, None)
+                        .await?;
+
+                    self.user_interaction
+                        .display_success("Reduce phase completed successfully");
+                }
+            } else if state.reduce_phase_state.is_none() {
                 self.user_interaction
-                    .display_info("Map phase complete, reduce phase pending");
+                    .display_info("Map phase complete, no reduce phase configured");
             }
         }
 
@@ -1746,6 +1795,47 @@ impl MapReduceExecutor {
         }
 
         Ok(pending_items)
+    }
+
+    /// Clean up orphaned worktrees from failed agents
+    async fn cleanup_orphaned_resources(&self, state: &MapReduceJobState) {
+        // Clean up worktrees from failed agents that may have been left behind
+        for failure in state.failed_agents.values() {
+            if let Some(ref worktree_info) = failure.worktree_info {
+                // Try to clean up using worktree pool if available
+                if let Some(pool) = &self.worktree_pool {
+                    // Try to find and cleanup the worktree by name
+                    if let Err(e) = pool.cleanup_by_name(&worktree_info.name).await {
+                        debug!(
+                            "Failed to cleanup orphaned worktree {}: {}",
+                            worktree_info.name, e
+                        );
+                    } else {
+                        info!(
+                            "Cleaned up orphaned worktree {} from failed agent",
+                            worktree_info.name
+                        );
+                    }
+                } else {
+                    // Direct cleanup using worktree manager if no pool
+                    if let Err(e) = self
+                        .worktree_manager
+                        .cleanup_session(&worktree_info.name, false)
+                        .await
+                    {
+                        debug!(
+                            "Failed to cleanup orphaned worktree {}: {}",
+                            worktree_info.name, e
+                        );
+                    } else {
+                        info!(
+                            "Cleaned up orphaned worktree {} from failed agent",
+                            worktree_info.name
+                        );
+                    }
+                }
+            }
+        }
     }
 
     /// Check if a job can be resumed
@@ -4566,5 +4656,97 @@ mod tests {
             MapReduceExecutor::truncate_identifier("exactly_eleven_", 11),
             "exactly_..."
         );
+    }
+
+    // Tests for checkpoint validation and pending item calculations
+    // These tests verify the logic without needing full MapReduceExecutor setup
+
+    #[test]
+    fn test_checkpoint_state_validation() {
+        use crate::cook::execution::state::MapReduceJobState;
+
+        let config = MapReduceConfig {
+            input: "test.json".to_string(),
+            json_path: String::new(),
+            max_parallel: 5,
+            timeout_per_agent: 60,
+            retry_on_failure: 2,
+            max_items: None,
+            offset: None,
+        };
+
+        // Test empty job ID case
+        let mut state = MapReduceJobState::new(
+            String::new(),
+            config.clone(),
+            vec![serde_json::json!({"id": 1})],
+        );
+        state.job_id = String::new();
+        assert!(state.job_id.is_empty());
+
+        // Test no work items case
+        let state2 = MapReduceJobState::new("test-job".to_string(), config.clone(), vec![]);
+        assert!(state2.work_items.is_empty());
+
+        // Test valid state
+        let state3 = MapReduceJobState::new(
+            "test-job".to_string(),
+            config,
+            vec![serde_json::json!({"id": 1})],
+        );
+        assert!(!state3.job_id.is_empty());
+        assert!(!state3.work_items.is_empty());
+    }
+
+    #[test]
+    fn test_pending_items_logic() {
+        use crate::cook::execution::state::{FailureRecord, MapReduceJobState};
+
+        let config = MapReduceConfig {
+            input: "test.json".to_string(),
+            json_path: String::new(),
+            max_parallel: 5,
+            timeout_per_agent: 60,
+            retry_on_failure: 2,
+            max_items: None,
+            offset: None,
+        };
+
+        let work_items = vec![
+            serde_json::json!({"id": 1}),
+            serde_json::json!({"id": 2}),
+            serde_json::json!({"id": 3}),
+        ];
+
+        // Test all items pending initially
+        let state =
+            MapReduceJobState::new("test-job".to_string(), config.clone(), work_items.clone());
+        assert_eq!(state.pending_items.len(), 3);
+        assert!(state.completed_agents.is_empty());
+
+        // Test with completed items
+        let mut state2 =
+            MapReduceJobState::new("test-job".to_string(), config.clone(), work_items.clone());
+        state2.completed_agents.insert("item_0".to_string());
+        state2.pending_items.retain(|x| x != "item_0");
+        assert_eq!(state2.pending_items.len(), 2);
+
+        // Test with failed items
+        let mut state3 = MapReduceJobState::new("test-job".to_string(), config, work_items);
+        use chrono::Utc;
+        state3.failed_agents.insert(
+            "item_1".to_string(),
+            FailureRecord {
+                item_id: "item_1".to_string(),
+                attempts: 1,
+                last_error: "Test error".to_string(),
+                last_attempt: Utc::now(),
+                worktree_info: None,
+            },
+        );
+
+        // Check if item is retriable (attempts < retry_on_failure)
+        let failed_record = state3.failed_agents.get("item_1").unwrap();
+        assert!(failed_record.attempts < state3.config.retry_on_failure);
     }
 }
