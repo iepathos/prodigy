@@ -10,6 +10,7 @@ pub mod cook_command_tests;
 pub mod dlq_command_tests;
 pub mod events_command_tests;
 pub mod exec_command_tests;
+pub mod resume_command_tests;
 pub mod signal_handling_tests;
 pub mod test_utils;
 pub mod verbose_output_tests;

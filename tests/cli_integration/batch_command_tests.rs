@@ -243,9 +243,8 @@ fn test_batch_with_zero_parallel() {
         .arg("--command")
         .arg("shell: echo 'Test'")
         .arg("--parallel")
-        .arg("0"); // Invalid value
-
-    let output = test.run();
+        .arg("0") // Invalid value
+        .run();
 
     // Should reject invalid parallel value
     assert!(output.exit_code != exit_codes::SUCCESS);

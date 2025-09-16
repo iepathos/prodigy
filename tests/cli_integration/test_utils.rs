@@ -71,12 +71,28 @@ impl CliTest {
             .output()
             .ok();
 
-        let mut command = Command::new("cargo");
-        command
-            .arg("run")
-            .arg("--quiet")
-            .arg("--")
-            .current_dir(temp_dir.path());
+        // Use the compiled binary directly, not cargo run
+        // This allows tests to work from temp directories
+        let binary_path = std::env::current_exe()
+            .ok()
+            .and_then(|path| {
+                // The test binary is in target/debug/deps/
+                // The actual binary is in target/debug/
+                path.parent()
+                    .and_then(|p| p.parent())
+                    .map(|p| p.join("prodigy"))
+            })
+            .filter(|p| p.exists())
+            .unwrap_or_else(|| {
+                // Fallback to searching for the binary
+                PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("target")
+                    .join("debug")
+                    .join("prodigy")
+            });
+
+        let mut command = Command::new(binary_path);
+        command.current_dir(temp_dir.path());
 
         Self {
             temp_dir,
