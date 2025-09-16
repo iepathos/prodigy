@@ -318,7 +318,7 @@ async fn test_structured_data_validation() {
 
     // Test with inline data
     let mut config2 = provider::InputConfig::new();
-    config2.set("data".to_string(), json!("{\"key\": \"value\"}"));  // Pass as string, not object
+    config2.set("data".to_string(), json!("{\"key\": \"value\"}")); // Pass as string, not object
     let validation = provider.validate(&config2).await.unwrap();
     assert!(validation.iter().all(|v| v.field != "source"));
 }
@@ -395,7 +395,11 @@ async fn test_structured_data_yaml_anchors() {
     let inputs = provider.generate_inputs(&config).await.unwrap();
 
     // The provider generates one input per array item
-    assert_eq!(inputs.len(), 5, "Should generate 5 inputs for 5 array items");
+    assert_eq!(
+        inputs.len(),
+        5,
+        "Should generate 5 inputs for 5 array items"
+    );
 
     // Verify that YAML anchors are parsed (even if not fully expanded)
     // The serde_yaml parser handles anchor references but preserves the merge keys
@@ -409,7 +413,10 @@ async fn test_structured_data_yaml_anchors() {
         VariableValue::Object(obj) => {
             assert!(obj.contains_key("name"), "job1 should have name field");
             assert_eq!(obj.get("name").unwrap().to_string(), "job1");
-            assert!(obj.contains_key("command"), "job1 should have command field");
+            assert!(
+                obj.contains_key("command"),
+                "job1 should have command field"
+            );
             // The merge key should have brought in the values
             assert!(obj.contains_key("<<"), "job1 should have merge key");
         }
@@ -422,9 +429,15 @@ async fn test_structured_data_yaml_anchors() {
         VariableValue::Object(obj) => {
             assert!(obj.contains_key("name"), "job2 should have name field");
             assert_eq!(obj.get("name").unwrap().to_string(), "job2");
-            assert!(obj.contains_key("timeout"), "job2 should have timeout field");
+            assert!(
+                obj.contains_key("timeout"),
+                "job2 should have timeout field"
+            );
             assert_eq!(obj.get("timeout").unwrap().to_string(), "60");
-            assert!(obj.contains_key("command"), "job2 should have command field");
+            assert!(
+                obj.contains_key("command"),
+                "job2 should have command field"
+            );
         }
         _ => panic!("Expected job2 data to be an object"),
     }
@@ -435,9 +448,15 @@ async fn test_structured_data_yaml_anchors() {
         VariableValue::Object(obj) => {
             assert!(obj.contains_key("type"), "template should have type field");
             assert_eq!(obj.get("type").unwrap().to_string(), "test");
-            assert!(obj.contains_key("enabled"), "template should have enabled field");
+            assert!(
+                obj.contains_key("enabled"),
+                "template should have enabled field"
+            );
             assert_eq!(obj.get("enabled").unwrap().to_string(), "true");
-            assert!(obj.contains_key("template_name"), "template should have template_name field");
+            assert!(
+                obj.contains_key("template_name"),
+                "template should have template_name field"
+            );
         }
         _ => panic!("Expected template data to be an object"),
     }
@@ -446,7 +465,10 @@ async fn test_structured_data_yaml_anchors() {
     let ref_data = &inputs[4].variables.get("data").unwrap();
     match ref_data {
         VariableValue::Object(obj) => {
-            assert!(obj.contains_key("instance_id"), "reference should have instance_id");
+            assert!(
+                obj.contains_key("instance_id"),
+                "reference should have instance_id"
+            );
             assert_eq!(obj.get("instance_id").unwrap().to_string(), "1");
             assert!(obj.contains_key("<<"), "reference should have merge key");
         }
@@ -516,7 +538,10 @@ async fn test_file_pattern_symlink_handling() {
     // Test symlinked directory traversal
     config.set("patterns".to_string(), json!(["**/*.txt"]));
     let inputs = provider.generate_inputs(&config).await.unwrap();
-    assert!(inputs.len() >= 2, "Should find files in symlinked directories");
+    assert!(
+        inputs.len() >= 2,
+        "Should find files in symlinked directories"
+    );
 
     // Test that broken symlinks don't cause failures
     let broken_symlink = temp_path.join("broken_link.txt");
@@ -832,8 +857,10 @@ fn test_variable_value_complex_types() {
     // The Display implementation uses serde_json which may fail for complex nested structures
     // For now, we'll just verify it produces something (even if empty on error)
     // The actual serialization is tested through the JSON conversion tests
-    assert!(obj_str.is_empty() || obj_str.contains("{"),
-            "Object should either serialize to JSON or be empty on error");
+    assert!(
+        obj_str.is_empty() || obj_str.contains("{"),
+        "Object should either serialize to JSON or be empty on error"
+    );
 
     // Test nested array
     let nested_array = VariableValue::Array(vec![
@@ -965,7 +992,13 @@ async fn test_environment_provider_single_input_mode() {
 
     // Check env_count (should be at least 2, could be more if other TEST_ vars exist)
     assert!(
-        input.variables.get("env_count").unwrap().as_number().unwrap() >= 2,
+        input
+            .variables
+            .get("env_count")
+            .unwrap()
+            .as_number()
+            .unwrap()
+            >= 2,
         "Should have at least 2 TEST_ prefixed variables"
     );
 
@@ -1074,9 +1107,9 @@ async fn test_environment_provider_filter_empty() {
     assert!(inputs.len() >= 1, "Should filter out empty values");
 
     // Verify TEST_FULL is included
-    let has_test_full = inputs.iter().any(|i| {
-        i.variables.get("env_key").unwrap().to_string() == "TEST_FULL"
-    });
+    let has_test_full = inputs
+        .iter()
+        .any(|i| i.variables.get("env_key").unwrap().to_string() == "TEST_FULL");
     assert!(has_test_full, "Should include TEST_FULL");
 
     // Test with filter_empty = false
@@ -1087,10 +1120,13 @@ async fn test_environment_provider_filter_empty() {
     assert!(inputs.len() >= 2, "Should include empty values");
 
     // Verify both TEST_FULL and TEST_EMPTY are included
-    let has_test_empty = inputs.iter().any(|i| {
-        i.variables.get("env_key").unwrap().to_string() == "TEST_EMPTY"
-    });
-    assert!(has_test_empty, "Should include TEST_EMPTY when filter_empty=false");
+    let has_test_empty = inputs
+        .iter()
+        .any(|i| i.variables.get("env_key").unwrap().to_string() == "TEST_EMPTY");
+    assert!(
+        has_test_empty,
+        "Should include TEST_EMPTY when filter_empty=false"
+    );
 
     // Cleanup
     std::env::remove_var("TEST_FULL");
@@ -1139,15 +1175,30 @@ async fn test_generated_sequence() {
     assert_eq!(inputs.len(), 3); // 5, 7, 9
 
     assert_eq!(
-        inputs[0].variables.get("value").unwrap().as_number().unwrap(),
+        inputs[0]
+            .variables
+            .get("value")
+            .unwrap()
+            .as_number()
+            .unwrap(),
         5
     );
     assert_eq!(
-        inputs[1].variables.get("value").unwrap().as_number().unwrap(),
+        inputs[1]
+            .variables
+            .get("value")
+            .unwrap()
+            .as_number()
+            .unwrap(),
         7
     );
     assert_eq!(
-        inputs[2].variables.get("value").unwrap().as_number().unwrap(),
+        inputs[2]
+            .variables
+            .get("value")
+            .unwrap()
+            .as_number()
+            .unwrap(),
         9
     );
 }
@@ -1279,11 +1330,23 @@ async fn test_generated_grid() {
     assert_eq!(inputs.len(), 6); // 3x2 grid
 
     // Check first and last coordinates
-    assert_eq!(inputs[0].variables.get("x").unwrap().as_number().unwrap(), 0);
-    assert_eq!(inputs[0].variables.get("y").unwrap().as_number().unwrap(), 0);
+    assert_eq!(
+        inputs[0].variables.get("x").unwrap().as_number().unwrap(),
+        0
+    );
+    assert_eq!(
+        inputs[0].variables.get("y").unwrap().as_number().unwrap(),
+        0
+    );
 
-    assert_eq!(inputs[5].variables.get("x").unwrap().as_number().unwrap(), 2);
-    assert_eq!(inputs[5].variables.get("y").unwrap().as_number().unwrap(), 1);
+    assert_eq!(
+        inputs[5].variables.get("x").unwrap().as_number().unwrap(),
+        2
+    );
+    assert_eq!(
+        inputs[5].variables.get("y").unwrap().as_number().unwrap(),
+        1
+    );
 }
 
 #[tokio::test]
@@ -1302,7 +1365,12 @@ async fn test_generated_fibonacci() {
     let expected = vec![0, 1, 1, 2, 3, 5, 8, 13];
     for (i, expected_val) in expected.iter().enumerate() {
         assert_eq!(
-            inputs[i].variables.get("value").unwrap().as_number().unwrap(),
+            inputs[i]
+                .variables
+                .get("value")
+                .unwrap()
+                .as_number()
+                .unwrap(),
             *expected_val
         );
     }
@@ -1324,7 +1392,12 @@ async fn test_generated_factorial() {
     let expected = vec![1, 1, 2, 6, 24, 120]; // 0!, 1!, 2!, 3!, 4!, 5!
     for (i, expected_val) in expected.iter().enumerate() {
         assert_eq!(
-            inputs[i].variables.get("value").unwrap().as_number().unwrap(),
+            inputs[i]
+                .variables
+                .get("value")
+                .unwrap()
+                .as_number()
+                .unwrap(),
             *expected_val
         );
     }
@@ -1346,7 +1419,12 @@ async fn test_generated_prime() {
     let expected = vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29];
     for (i, expected_val) in expected.iter().enumerate() {
         assert_eq!(
-            inputs[i].variables.get("value").unwrap().as_number().unwrap(),
+            inputs[i]
+                .variables
+                .get("value")
+                .unwrap()
+                .as_number()
+                .unwrap(),
             *expected_val
         );
     }
@@ -1363,27 +1441,27 @@ async fn test_generated_validation() {
     config.set("generator".to_string(), json!("invalid_generator"));
 
     let validation = provider.validate(&config).await.unwrap();
-    assert!(validation.iter().any(|v| {
-        v.field == "generator" && v.severity == provider::ValidationSeverity::Error
-    }));
+    assert!(validation
+        .iter()
+        .any(|v| { v.field == "generator" && v.severity == provider::ValidationSeverity::Error }));
 
     // Test range generator without parameters (warning)
     let mut config = provider::InputConfig::new();
     config.set("generator".to_string(), json!("range"));
 
     let validation = provider.validate(&config).await.unwrap();
-    assert!(validation.iter().any(|v| {
-        v.field == "config" && v.severity == provider::ValidationSeverity::Warning
-    }));
+    assert!(validation
+        .iter()
+        .any(|v| { v.field == "config" && v.severity == provider::ValidationSeverity::Warning }));
 
     // Test random generator without count (warning)
     let mut config = provider::InputConfig::new();
     config.set("generator".to_string(), json!("random"));
 
     let validation = provider.validate(&config).await.unwrap();
-    assert!(validation.iter().any(|v| {
-        v.field == "count" && v.severity == provider::ValidationSeverity::Warning
-    }));
+    assert!(validation
+        .iter()
+        .any(|v| { v.field == "count" && v.severity == provider::ValidationSeverity::Warning }));
 }
 
 #[tokio::test]
@@ -1436,14 +1514,14 @@ async fn test_malformed_json_input() {
 
     // Test various malformed JSON inputs
     let malformed_jsons = vec![
-        "{invalid json}",           // Invalid JSON syntax
-        "{\"key\": }",               // Missing value
-        "{\"key\": undefined}",      // Undefined is not valid JSON
-        "[1, 2, 3,]",                // Trailing comma
+        "{invalid json}",             // Invalid JSON syntax
+        "{\"key\": }",                // Missing value
+        "{\"key\": undefined}",       // Undefined is not valid JSON
+        "[1, 2, 3,]",                 // Trailing comma
         "{\"key\": 'single quotes'}", // Single quotes not valid in JSON
-        "{'key': 42}",               // Single quotes for keys
-        "{\"key\": NaN}",            // NaN is not valid JSON
-        "{\"a\":1 \"b\":2}",         // Missing comma between items
+        "{'key': 42}",                // Single quotes for keys
+        "{\"key\": NaN}",             // NaN is not valid JSON
+        "{\"a\":1 \"b\":2}",          // Missing comma between items
     ];
 
     for (i, malformed) in malformed_jsons.iter().enumerate() {
@@ -1470,11 +1548,11 @@ async fn test_malformed_yaml_input() {
     // Test various malformed YAML inputs
     let malformed_yamls = vec![
         "key:\n  - item1\n - item2",     // Inconsistent indentation
-        "key: value\n  invalid",          // Invalid indentation
-        "- item\nkey: value",             // Mixed list and dict at root
-        "key: [unclosed",                 // Unclosed bracket
-        "key: {unclosed",                 // Unclosed brace
-        "!!python/object:__main__.Test",  // Potentially dangerous tag
+        "key: value\n  invalid",         // Invalid indentation
+        "- item\nkey: value",            // Mixed list and dict at root
+        "key: [unclosed",                // Unclosed bracket
+        "key: {unclosed",                // Unclosed brace
+        "!!python/object:__main__.Test", // Potentially dangerous tag
     ];
 
     for (i, malformed) in malformed_yamls.iter().enumerate() {
@@ -1506,13 +1584,13 @@ async fn test_malformed_toml_input() {
 
     // Test various malformed TOML inputs
     let malformed_tomls = vec![
-        "[section\nkey = value",        // Unclosed section
-        "key = 'unclosed string",        // Unclosed string
-        "key = value\nkey = other",      // Duplicate keys
-        "123key = value",                // Invalid key starting with number
-        "[.invalid]",                    // Invalid section name
-        "key = 01",                      // Leading zeros not allowed
-        "array = [1, 'mixed', types]",   // Mixed types in array
+        "[section\nkey = value",       // Unclosed section
+        "key = 'unclosed string",      // Unclosed string
+        "key = value\nkey = other",    // Duplicate keys
+        "123key = value",              // Invalid key starting with number
+        "[.invalid]",                  // Invalid section name
+        "key = 01",                    // Leading zeros not allowed
+        "array = [1, 'mixed', types]", // Mixed types in array
     ];
 
     for (i, malformed) in malformed_tomls.iter().enumerate() {
@@ -1541,8 +1619,8 @@ async fn test_malformed_csv_input() {
         "col1,col2\n\"unclosed quote,value2", // Unclosed quote
         "col1,col2\nval1",                    // Inconsistent column count
         "col1,col2\nval1,val2,val3",          // Too many columns
-        "col1,col2\n\n\n",                     // Empty rows
-        "",                                    // Completely empty
+        "col1,col2\n\n\n",                    // Empty rows
+        "",                                   // Completely empty
     ];
 
     for (i, malformed) in malformed_csvs.iter().enumerate() {
@@ -1572,13 +1650,13 @@ async fn test_malformed_xml_input() {
 
     // Test various malformed XML inputs
     let malformed_xmls = vec![
-        "<root>unclosed",                         // Unclosed tag
-        "<root><child></root>",                   // Mismatched tags
-        "<<invalid>>",                            // Invalid tag syntax
-        "<root attr=>content</root>",             // Invalid attribute
-        "<root>&invalid;</root>",                 // Invalid entity
-        "<?xml version='1.0'?><root></root",      // Incomplete closing tag
-        "<root><child attr='unclosed></root>",    // Unclosed attribute
+        "<root>unclosed",                      // Unclosed tag
+        "<root><child></root>",                // Mismatched tags
+        "<<invalid>>",                         // Invalid tag syntax
+        "<root attr=>content</root>",          // Invalid attribute
+        "<root>&invalid;</root>",              // Invalid entity
+        "<?xml version='1.0'?><root></root",   // Incomplete closing tag
+        "<root><child attr='unclosed></root>", // Unclosed attribute
     ];
 
     for (i, malformed) in malformed_xmls.iter().enumerate() {
@@ -1611,11 +1689,11 @@ async fn test_format_auto_detection_edge_cases() {
 
     // Test ambiguous content that could be multiple formats
     let ambiguous_cases = vec![
-        ("key: value", "yaml"),              // Could be YAML or TOML
-        ("123", "text"),                      // Just a number
-        ("true", "text"),                     // Just a boolean
-        ("[1,2,3]", "json"),                  // Array
-        ("null", "text"),                     // Null value
+        ("key: value", "yaml"), // Could be YAML or TOML
+        ("123", "text"),        // Just a number
+        ("true", "text"),       // Just a boolean
+        ("[1,2,3]", "json"),    // Array
+        ("null", "text"),       // Null value
     ];
 
     for (content, _expected_format) in ambiguous_cases {
@@ -1667,7 +1745,10 @@ impl MockStdinProvider {
                         },
                     );
                     input.add_variable("line".to_string(), VariableValue::String(line.to_string()));
-                    input.add_variable("line_number".to_string(), VariableValue::Number(i as i64 + 1));
+                    input.add_variable(
+                        "line_number".to_string(),
+                        VariableValue::Number(i as i64 + 1),
+                    );
                     inputs.push(input);
                 }
             }
@@ -1687,7 +1768,10 @@ impl MockStdinProvider {
                     let mut row_data = HashMap::new();
                     for (j, field) in record.iter().enumerate() {
                         if let Some(header) = headers.get(j) {
-                            row_data.insert(header.to_string(), VariableValue::String(field.to_string()));
+                            row_data.insert(
+                                header.to_string(),
+                                VariableValue::String(field.to_string()),
+                            );
                         }
                     }
 
@@ -1704,7 +1788,10 @@ impl MockStdinProvider {
                     },
                 );
                 input.add_variable("text".to_string(), VariableValue::String(self.data.clone()));
-                input.add_variable("length".to_string(), VariableValue::Number(self.data.len() as i64));
+                input.add_variable(
+                    "length".to_string(),
+                    VariableValue::Number(self.data.len() as i64),
+                );
                 inputs.push(input);
             }
         }
@@ -1759,9 +1846,11 @@ impl MockStdinProvider {
                 }
             }
             serde_json::Value::String(s) => VariableValue::String(s),
-            serde_json::Value::Array(arr) => {
-                VariableValue::Array(arr.into_iter().map(|v| self.json_to_variable_value(v)).collect())
-            }
+            serde_json::Value::Array(arr) => VariableValue::Array(
+                arr.into_iter()
+                    .map(|v| self.json_to_variable_value(v))
+                    .collect(),
+            ),
             serde_json::Value::Object(obj) => {
                 let map = obj
                     .into_iter()
@@ -1806,19 +1895,38 @@ async fn test_mock_stdin_lines() {
     let inputs = mock.generate_test_inputs().await.unwrap();
     assert_eq!(inputs.len(), 3);
 
-    assert_eq!(inputs[0].variables.get("line").unwrap().to_string(), "line one");
-    assert_eq!(inputs[0].variables.get("line_number").unwrap().as_number().unwrap(), 1);
+    assert_eq!(
+        inputs[0].variables.get("line").unwrap().to_string(),
+        "line one"
+    );
+    assert_eq!(
+        inputs[0]
+            .variables
+            .get("line_number")
+            .unwrap()
+            .as_number()
+            .unwrap(),
+        1
+    );
 
-    assert_eq!(inputs[2].variables.get("line").unwrap().to_string(), "line three");
-    assert_eq!(inputs[2].variables.get("line_number").unwrap().as_number().unwrap(), 3);
+    assert_eq!(
+        inputs[2].variables.get("line").unwrap().to_string(),
+        "line three"
+    );
+    assert_eq!(
+        inputs[2]
+            .variables
+            .get("line_number")
+            .unwrap()
+            .as_number()
+            .unwrap(),
+        3
+    );
 }
 
 #[tokio::test]
 async fn test_mock_stdin_csv() {
-    let mock = MockStdinProvider::new(
-        "name,age,city\nAlice,30,NYC\nBob,25,LA",
-        "csv",
-    );
+    let mock = MockStdinProvider::new("name,age,city\nAlice,30,NYC\nBob,25,LA", "csv");
 
     let inputs = mock.generate_test_inputs().await.unwrap();
     assert_eq!(inputs.len(), 2);
@@ -1869,7 +1977,15 @@ async fn test_mock_stdin_empty_input() {
     let inputs = mock.generate_test_inputs().await.unwrap();
     assert_eq!(inputs.len(), 1);
     assert_eq!(inputs[0].variables.get("text").unwrap().to_string(), "");
-    assert_eq!(inputs[0].variables.get("length").unwrap().as_number().unwrap(), 0);
+    assert_eq!(
+        inputs[0]
+            .variables
+            .get("length")
+            .unwrap()
+            .as_number()
+            .unwrap(),
+        0
+    );
 }
 
 #[tokio::test]
