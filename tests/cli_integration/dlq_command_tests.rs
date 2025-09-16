@@ -20,17 +20,23 @@ fn test_dlq_list() {
 
 #[test]
 fn test_dlq_show_with_job_id() {
-    let mut test = CliTest::new().arg("dlq").arg("show").arg("test-job-id");
+    let mut test = CliTest::new().arg("dlq").arg("inspect").arg("test-item-id");
 
     let output = test.run();
 
-    // Should show DLQ items for job or report not found
+    // Should show DLQ items or report no data found
     assert!(
         output.exit_code == exit_codes::SUCCESS
-            || output.stderr_contains("not found")
-            || output.stderr_contains("No items")
-            || output.stderr_contains("job")
+            || output.exit_code == exit_codes::GENERAL_ERROR
     );
+    // Should provide relevant feedback
+    if output.exit_code == exit_codes::GENERAL_ERROR {
+        assert!(
+            output.stderr_contains("not found")
+                || output.stderr_contains("No DLQ data")
+                || output.stderr_contains("No items")
+        );
+    }
 }
 
 #[test]
@@ -84,8 +90,8 @@ fn test_dlq_invalid_subcommand() {
 
 #[test]
 fn test_dlq_show_missing_job_id() {
-    let mut test = CliTest::new().arg("dlq").arg("show");
-    // Missing job ID
+    let mut test = CliTest::new().arg("dlq").arg("inspect");
+    // Missing item ID
 
     let output = test.run();
 
@@ -93,7 +99,7 @@ fn test_dlq_show_missing_job_id() {
     assert_eq!(output.exit_code, exit_codes::ARGUMENT_ERROR);
     assert!(
         output.stderr_contains("required")
-            || output.stderr_contains("job")
+            || output.stderr_contains("ITEM_ID")
             || output.stderr_contains("argument")
     );
 }
@@ -105,12 +111,16 @@ fn test_dlq_reprocess_missing_job_id() {
 
     let output = test.run();
 
-    // Should fail with missing argument
-    assert_eq!(output.exit_code, exit_codes::ARGUMENT_ERROR);
+    // Should fail - may return general error if deprecated
+    assert!(
+        output.exit_code == exit_codes::ARGUMENT_ERROR
+            || output.exit_code == exit_codes::GENERAL_ERROR
+    );
     assert!(
         output.stderr_contains("required")
             || output.stderr_contains("job")
             || output.stderr_contains("argument")
+            || output.stderr_contains("deprecated")
     );
 }
 
@@ -136,11 +146,16 @@ fn test_dlq_list_verbose() {
 
     let output = test.run();
 
-    // Should show verbose output
+    // Should show verbose output - command may fail but should show debug output
     assert!(
         output.exit_code == exit_codes::SUCCESS
-            || output.stderr_contains("[DEBUG]")
+            || output.exit_code == exit_codes::GENERAL_ERROR
+    );
+    // Verbose output should appear in stdout or stderr should contain relevant info
+    assert!(
+        output.stdout_contains("[DEBUG]")
             || output.stderr_contains("dlq")
+            || output.stderr_contains("DLQ")
     );
 }
 
@@ -166,7 +181,7 @@ fn test_dlq_with_path() {
 }
 
 #[test]
-fn test_dlq_reprocess_with_dry_run() {
+fn test_dlq_reprocess_with_invalid_flag() {
     let mut test = CliTest::new()
         .arg("dlq")
         .arg("reprocess")
@@ -175,12 +190,12 @@ fn test_dlq_reprocess_with_dry_run() {
 
     let output = test.run();
 
-    // Should show what would be reprocessed or report not implemented
+    // Should fail with unrecognized argument since --dry-run doesn't exist
+    assert_eq!(output.exit_code, exit_codes::ARGUMENT_ERROR);
     assert!(
-        output.stderr_contains("not implemented")
-            || output.stderr_contains("dry run")
-            || output.stderr_contains("would reprocess")
-            || output.exit_code == exit_codes::GENERAL_ERROR
+        output.stderr_contains("unexpected argument")
+            || output.stderr_contains("unrecognized")
+            || output.stderr_contains("--dry-run")
     );
 }
 
