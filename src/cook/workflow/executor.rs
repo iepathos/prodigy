@@ -1084,7 +1084,7 @@ impl WorkflowExecutor {
 
     /// Determine if workflow should fail based on command result
     /// Evaluate a when condition expression
-    fn evaluate_when_condition(&self, when_expr: &str, context: &WorkflowContext) -> Result<bool> {
+    pub(crate) fn evaluate_when_condition(&self, when_expr: &str, context: &WorkflowContext) -> Result<bool> {
         let evaluator = ExpressionEvaluator::new();
         let mut variable_context = VariableContext::new();
 
@@ -1724,7 +1724,7 @@ impl WorkflowExecutor {
     }
 
     /// Determine command type from a workflow step
-    fn determine_command_type(&self, step: &WorkflowStep) -> Result<CommandType> {
+    pub(crate) fn determine_command_type(&self, step: &WorkflowStep) -> Result<CommandType> {
         // Count how many command fields are specified
         let mut specified_count = 0;
         if step.claude.is_some() {
@@ -1796,7 +1796,7 @@ impl WorkflowExecutor {
     }
 
     /// Get display name for a step
-    fn get_step_display_name(&self, step: &WorkflowStep) -> String {
+    pub(crate) fn get_step_display_name(&self, step: &WorkflowStep) -> String {
         if let Some(claude_cmd) = &step.claude {
             format!("claude: {claude_cmd}")
         } else if let Some(shell_cmd) = &step.shell {
@@ -2778,7 +2778,7 @@ impl WorkflowExecutor {
     }
 
     /// Execute a Claude command
-    async fn execute_claude_command(
+    pub(crate) async fn execute_claude_command(
         &self,
         command: &str,
         env: &ExecutionEnvironment,
@@ -2798,7 +2798,7 @@ impl WorkflowExecutor {
     }
 
     /// Execute a shell command
-    async fn execute_shell_command(
+    pub(crate) async fn execute_shell_command(
         &self,
         command: &str,
         env: &ExecutionEnvironment,
@@ -3123,7 +3123,7 @@ impl WorkflowExecutor {
     }
 
     /// Handle test mode execution
-    fn handle_test_mode_execution(
+    pub(crate) fn handle_test_mode_execution(
         &self,
         step: &WorkflowStep,
         command_type: &CommandType,
@@ -3338,7 +3338,7 @@ impl WorkflowExecutor {
     }
 
     /// Handle the case where no commits were created when expected
-    fn handle_no_commits_error(&self, step: &WorkflowStep) -> Result<()> {
+    pub(crate) fn handle_no_commits_error(&self, step: &WorkflowStep) -> Result<()> {
         let step_display = self.get_step_display_name(step);
         let command_type = self.determine_command_type(step)?;
 
@@ -3539,7 +3539,7 @@ impl WorkflowExecutor {
     }
 
     /// Check if this is the focus tracking test
-    fn is_focus_tracking_test(&self) -> bool {
+    pub(crate) fn is_focus_tracking_test(&self) -> bool {
         self.test_config.as_ref().is_some_and(|c| c.track_focus)
     }
 
