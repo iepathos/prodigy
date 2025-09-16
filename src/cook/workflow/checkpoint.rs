@@ -98,6 +98,22 @@ pub struct CompletedStep {
     pub duration: Duration,
     /// Timestamp when completed
     pub completed_at: DateTime<Utc>,
+    /// Retry state if this step is being retried
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_state: Option<RetryState>,
+}
+
+/// State of a step being retried
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RetryState {
+    /// Current attempt number (1-based)
+    pub current_attempt: usize,
+    /// Maximum attempts allowed
+    pub max_attempts: usize,
+    /// Failure reasons from each attempt
+    pub failure_history: Vec<String>,
+    /// Whether currently in retry loop
+    pub in_retry_loop: bool,
 }
 
 /// MapReduce job checkpoint state

@@ -11,9 +11,10 @@ use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::{SessionManager, SessionUpdate};
 use crate::cook::workflow::checkpoint::{
-    create_checkpoint_with_total_steps, CheckpointManager, CompletedStep as CheckpointCompletedStep,
+    self, create_checkpoint_with_total_steps, CheckpointManager, CompletedStep as CheckpointCompletedStep,
 };
 use crate::cook::workflow::normalized;
+use crate::cook::workflow::normalized::NormalizedWorkflow;
 use crate::cook::workflow::on_failure::{HandlerStrategy, OnFailureConfig};
 use crate::cook::workflow::validation::{ValidationConfig, ValidationResult};
 use crate::session::{format_duration, TimingTracker};
@@ -26,7 +27,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 /// Capture output configuration - either a boolean or a variable name
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -587,6 +588,10 @@ pub struct WorkflowExecutor {
     environment_manager: Option<crate::cook::environment::EnvironmentManager>,
     /// Global environment configuration
     global_environment_config: Option<crate::cook::environment::EnvironmentConfig>,
+    /// Current workflow being executed (for checkpoint context)
+    current_workflow: Option<NormalizedWorkflow>,
+    /// Current step index being executed (for checkpoint context)
+    current_step_index: Option<usize>,
 }
 
 impl WorkflowExecutor {
@@ -594,6 +599,70 @@ impl WorkflowExecutor {
     pub async fn with_command_registry(mut self) -> Self {
         self.command_registry = Some(CommandRegistry::with_defaults().await);
         self
+    }
+
+    /// Save a checkpoint during step execution (e.g., during retries)
+    async fn save_retry_checkpoint(
+        &self,
+        workflow: &NormalizedWorkflow,
+        current_step_index: usize,
+        retry_state: Option<checkpoint::RetryState>,
+        ctx: &WorkflowContext,
+    ) {
+        if let Some(ref checkpoint_manager) = self.checkpoint_manager {
+            if let Some(ref workflow_id) = self.workflow_id {
+                let workflow_hash = format!("{:?}", workflow.steps.len());
+
+                // Create a checkpoint with current retry state
+                let mut checkpoint_steps = self.checkpoint_completed_steps.clone();
+
+                // Add or update the current step with retry state
+                if let Some(retry_state) = retry_state {
+                    let step_name = if current_step_index < workflow.steps.len() {
+                        match &workflow.steps[current_step_index].command {
+                            normalized::StepCommand::Claude(cmd) => format!("claude: {}", cmd),
+                            normalized::StepCommand::Shell(cmd) => format!("shell: {}", cmd),
+                            normalized::StepCommand::Test { command, .. } => format!("test: {}", command),
+                            normalized::StepCommand::Simple(cmd) => cmd.clone(),
+                            _ => "complex command".to_string(),
+                        }
+                    } else {
+                        "unknown step".to_string()
+                    };
+
+                    let retry_step = CheckpointCompletedStep {
+                        step_index: current_step_index,
+                        command: step_name,
+                        success: false,
+                        output: None,
+                        captured_variables: HashMap::new(),
+                        duration: Duration::from_secs(0),
+                        completed_at: chrono::Utc::now(),
+                        retry_state: Some(retry_state),
+                    };
+
+                    // Remove any existing entry for this step and add the new one
+                    checkpoint_steps.retain(|s| s.step_index != current_step_index);
+                    checkpoint_steps.push(retry_step);
+                }
+
+                let checkpoint = create_checkpoint_with_total_steps(
+                    workflow_id.clone(),
+                    workflow,
+                    ctx,
+                    checkpoint_steps,
+                    current_step_index,
+                    workflow_hash,
+                    workflow.steps.len(),
+                );
+
+                if let Err(e) = checkpoint_manager.save_checkpoint(&checkpoint).await {
+                    tracing::warn!("Failed to save retry checkpoint: {}", e);
+                } else {
+                    tracing::debug!("Saved retry checkpoint at step {} attempt", current_step_index);
+                }
+            }
+        }
     }
 
     /// Execute a single workflow step (public for resume functionality)
@@ -1200,7 +1269,7 @@ impl WorkflowExecutor {
                     .await
             }
             CommandType::Test(test_cmd) => {
-                self.execute_test_command(test_cmd, env, ctx, env_vars)
+                self.execute_test_command(test_cmd, env, ctx, env_vars, None, None)
                     .await
             }
             CommandType::Legacy(cmd) => {
@@ -1630,6 +1699,8 @@ impl WorkflowExecutor {
             checkpoint_completed_steps: Vec::new(),
             environment_manager: None,
             global_environment_config: None,
+            current_workflow: None,
+            current_step_index: None,
         }
     }
 
@@ -1686,6 +1757,8 @@ impl WorkflowExecutor {
             checkpoint_completed_steps: Vec::new(),
             environment_manager: None,
             global_environment_config: None,
+            current_workflow: None,
+            current_step_index: None,
         }
     }
 
@@ -1992,6 +2065,11 @@ impl WorkflowExecutor {
 
             // Execute workflow steps
             for (step_index, step) in workflow.steps.iter().enumerate() {
+                // Store current workflow context for checkpoint tracking
+                // TODO: Convert workflow to NormalizedWorkflow for checkpoint tracking
+                // self.current_workflow = Some(workflow.clone());
+                self.current_step_index = Some(step_index);
+
                 let step_display = self.get_step_display_name(step);
                 self.user_interaction.display_progress(&format!(
                     "Executing step {}/{}: {}",
@@ -2108,6 +2186,7 @@ impl WorkflowExecutor {
                     captured_variables: workflow_context.captured_outputs.clone(),
                     duration: command_duration,
                     completed_at: step_completed_at,
+                    retry_state: None,
                 };
                 self.checkpoint_completed_steps.push(checkpoint_step);
 
@@ -2993,12 +3072,18 @@ impl WorkflowExecutor {
         env: &ExecutionEnvironment,
         ctx: &mut WorkflowContext,
         mut env_vars: HashMap<String, String>,
+        workflow: Option<&NormalizedWorkflow>,
+        step_index: Option<usize>,
     ) -> Result<StepResult> {
         use std::fs;
         use tempfile::NamedTempFile;
 
         let (interpolated_test_cmd, resolutions) = ctx.interpolate_with_tracking(&test_cmd.command);
         self.log_variable_resolutions(&resolutions);
+
+        // Track failure history for retry state
+        let mut failure_history: Vec<String> = Vec::new();
+        let max_attempts = test_cmd.on_failure.as_ref().map(|f| f.max_attempts).unwrap_or(1);
 
         // First, execute the test command
         let mut attempt = 0;
@@ -3025,6 +3110,13 @@ impl WorkflowExecutor {
 
             // Tests failed - check if we should retry
             if let Some(debug_config) = &test_cmd.on_failure {
+                // Add failure to history
+                failure_history.push(format!(
+                    "Attempt {}: exit code {}",
+                    attempt,
+                    test_result.exit_code.unwrap_or(-1)
+                ));
+
                 if attempt >= debug_config.max_attempts {
                     self.user_interaction.display_error(&format!(
                         "Tests failed after {} attempts",
@@ -3040,6 +3132,18 @@ impl WorkflowExecutor {
                         // Return the last test result
                         return Ok(test_result);
                     }
+                }
+
+                // Save checkpoint after test failure but before retry
+                if let (Some(workflow), Some(step_index)) = (&self.current_workflow, self.current_step_index) {
+                    let retry_state = checkpoint::RetryState {
+                        current_attempt: attempt as usize,
+                        max_attempts: debug_config.max_attempts as usize,
+                        failure_history: failure_history.clone(),
+                        in_retry_loop: true,
+                    };
+                    self.save_retry_checkpoint(workflow, step_index, Some(retry_state), ctx).await;
+                    tracing::info!("Saved checkpoint for test retry at attempt {}/{}", attempt, debug_config.max_attempts);
                 }
 
                 // Save test output to a temp file if it's too large

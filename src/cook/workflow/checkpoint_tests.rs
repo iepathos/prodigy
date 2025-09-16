@@ -86,6 +86,7 @@ mod tests {
                 captured_variables: HashMap::new(),
                 duration: std::time::Duration::from_secs(1),
                 completed_at: chrono::Utc::now(),
+                retry_state: None,
             }],
             1, // Current step
             "workflow_hash_123".to_string(),
@@ -214,6 +215,7 @@ mod tests {
             )]),
             duration: std::time::Duration::from_secs(1),
             completed_at: chrono::Utc::now(),
+            retry_state: None,
         }];
 
         let checkpoint = create_checkpoint(

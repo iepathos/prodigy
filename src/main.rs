@@ -403,6 +403,40 @@ enum EventCommands {
         #[arg(long)]
         event_type: Option<String>,
     },
+    /// Clean old events based on retention policies
+    Clean {
+        /// Delete events older than specified duration (e.g., "7d", "30d")
+        #[arg(long)]
+        older_than: Option<String>,
+
+        /// Keep only the most recent N events
+        #[arg(long)]
+        max_events: Option<usize>,
+
+        /// Keep only events up to specified size (e.g., "10MB", "1GB")
+        #[arg(long)]
+        max_size: Option<String>,
+
+        /// Preview what would be deleted without actually deleting
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Archive events instead of deleting them
+        #[arg(long)]
+        archive: bool,
+
+        /// Path to archive directory
+        #[arg(long)]
+        archive_path: Option<PathBuf>,
+
+        /// Apply to all jobs instead of current job
+        #[arg(long)]
+        all_jobs: bool,
+
+        /// Specific job ID to clean
+        #[arg(long)]
+        job_id: Option<String>,
+    },
     /// Export events to different format
     Export {
         /// Path to events file
@@ -2048,6 +2082,27 @@ async fn run_events_command(command: EventCommands) -> anyhow::Result<()> {
                 file,
                 job_id,
                 event_type,
+            },
+        },
+        EventCommands::Clean {
+            older_than,
+            max_events,
+            max_size,
+            dry_run,
+            archive,
+            archive_path,
+            all_jobs,
+            job_id,
+        } => EventsArgs {
+            command: EventsCommand::Clean {
+                older_than,
+                max_events,
+                max_size,
+                dry_run,
+                archive,
+                archive_path,
+                all_jobs,
+                job_id,
             },
         },
         EventCommands::Export {

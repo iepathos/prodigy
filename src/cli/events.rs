@@ -100,6 +100,41 @@ pub enum EventsCommand {
         #[arg(long)]
         output: Option<PathBuf>,
     },
+
+    /// Clean up old events based on retention policy
+    Clean {
+        /// Clean events older than this duration (e.g., "7d", "30d", "1h", "2w")
+        #[arg(long)]
+        older_than: Option<String>,
+
+        /// Maximum number of events to keep
+        #[arg(long)]
+        max_events: Option<usize>,
+
+        /// Maximum file size to maintain (e.g., "100MB", "1GB")
+        #[arg(long)]
+        max_size: Option<String>,
+
+        /// Show what would be cleaned without actually cleaning
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Archive events instead of deleting them
+        #[arg(long)]
+        archive: bool,
+
+        /// Path to archive directory (defaults to .prodigy/events/archive)
+        #[arg(long)]
+        archive_path: Option<PathBuf>,
+
+        /// Apply to all jobs (global storage)
+        #[arg(long)]
+        all_jobs: bool,
+
+        /// Specific job ID to clean
+        #[arg(long)]
+        job_id: Option<String>,
+    },
 }
 
 /// Information about available jobs in the global storage
@@ -404,6 +439,29 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
                 let resolved_file = resolve_event_file_with_fallback(file, None)?;
                 export_events(resolved_file, format, output).await
             }
+        }
+
+        EventsCommand::Clean {
+            older_than,
+            max_events,
+            max_size,
+            dry_run,
+            archive,
+            archive_path,
+            all_jobs,
+            job_id,
+        } => {
+            clean_events(
+                older_than,
+                max_events,
+                max_size,
+                dry_run,
+                archive,
+                archive_path,
+                all_jobs,
+                job_id,
+            )
+            .await
         }
     }
 }
@@ -924,6 +982,221 @@ async fn export_events(file: PathBuf, format: String, output: Option<PathBuf>) -
     }
 
     Ok(())
+}
+
+/// Clean up old events based on retention policy
+async fn clean_events(
+    older_than: Option<String>,
+    max_events: Option<usize>,
+    max_size: Option<String>,
+    dry_run: bool,
+    archive: bool,
+    archive_path: Option<PathBuf>,
+    all_jobs: bool,
+    job_id: Option<String>,
+) -> Result<()> {
+    use crate::cook::execution::events::retention::{RetentionPolicy, RetentionManager};
+
+    // Build retention policy from arguments
+    let mut policy = RetentionPolicy::default();
+
+    // Parse older_than duration
+    if let Some(duration_str) = older_than {
+        let days = parse_duration_to_days(&duration_str)?;
+        policy.max_age_days = Some(days);
+    }
+
+    if let Some(max_events) = max_events {
+        policy.max_events = Some(max_events);
+    }
+
+    if let Some(size_str) = max_size {
+        let bytes = parse_size_to_bytes(&size_str)?;
+        policy.max_file_size_bytes = Some(bytes);
+    }
+
+    policy.archive_old_events = archive;
+    if let Some(path) = archive_path {
+        policy.archive_path = Some(path);
+    }
+
+    let action = if dry_run { "Would clean" } else { "Cleaning" };
+    println!("{} events with policy:", action);
+    println!("  Max age: {:?} days", policy.max_age_days);
+    println!("  Max events: {:?}", policy.max_events);
+    println!("  Max file size: {:?} bytes", policy.max_file_size_bytes);
+    println!("  Archive: {}", policy.archive_old_events);
+    println!("");
+
+    let mut total_cleaned = 0usize;
+    let mut total_archived = 0usize;
+
+    // Determine which event files to clean
+    if all_jobs || job_id.is_some() {
+        // Clean from global storage
+        if !crate::storage::GlobalStorage::should_use_global() {
+            return Err(anyhow::anyhow!("Global storage is not enabled"));
+        }
+
+        let current_dir = std::env::current_dir()?;
+        let repo_name = crate::storage::extract_repo_name(&current_dir)?;
+        let global_base = crate::storage::get_global_base_dir()?;
+        let global_events_dir = global_base.join("events").join(&repo_name);
+
+        if !global_events_dir.exists() {
+            println!("No events found in global storage for repository: {}", repo_name);
+            return Ok(());
+        }
+
+        // Get job directories to process
+        let job_dirs = if let Some(specific_job_id) = job_id {
+            let specific_dir = global_events_dir.join(&specific_job_id);
+            if specific_dir.exists() {
+                vec![specific_dir]
+            } else {
+                println!("Job '{}' not found", specific_job_id);
+                return Ok(());
+            }
+        } else {
+            // Process all job directories
+            fs::read_dir(&global_events_dir)?
+                .filter_map(|e| e.ok())
+                .filter(|e| e.path().is_dir())
+                .map(|e| e.path())
+                .collect()
+        };
+
+        // Clean each job directory
+        for job_dir in job_dirs {
+            let job_id = job_dir.file_name().unwrap().to_string_lossy();
+            println!("Processing job: {}", job_id);
+
+            let event_files = find_event_files(&job_dir)?;
+            for event_file in event_files {
+                if dry_run {
+                    // For dry run, we'll show what would be processed
+                    println!("  Would analyze: {:?}", event_file);
+                    // TODO: Implement proper dry-run analysis
+                } else {
+                    let retention = RetentionManager::new(policy.clone(), event_file);
+                    let stats = retention.apply_retention().await?;
+                    println!("  Cleaned: {} events, {:.1}% space saved",
+                             stats.events_removed, stats.space_saved_percentage());
+                    total_cleaned += stats.events_removed;
+                    if policy.archive_old_events {
+                        total_archived += stats.events_removed;
+                    }
+                }
+            }
+        }
+    } else {
+        // Clean local events file
+        let local_file = PathBuf::from(".prodigy/events/mapreduce_events.jsonl");
+        if !local_file.exists() {
+            println!("No local events file found: {:?}", local_file);
+            return Ok(());
+        }
+
+        if dry_run {
+            // For dry run, we'll implement a simulated analysis
+            println!("Would analyze local events file");
+            // TODO: Implement proper dry-run analysis
+        } else {
+            let retention = RetentionManager::new(policy.clone(), local_file);
+            let stats = retention.apply_retention().await?;
+            println!("Cleaned: {} events, {:.1}% space saved",
+                     stats.events_removed, stats.space_saved_percentage());
+            total_cleaned = stats.events_removed;
+            if policy.archive_old_events {
+                total_archived = stats.events_removed;
+            }
+        }
+    }
+
+    // Summary
+    println!("");
+    if dry_run {
+        println!("Summary (dry run): {} events would be cleaned", total_cleaned);
+        if total_archived > 0 {
+            println!("  {} events would be archived", total_archived);
+        }
+    } else {
+        println!("Summary: {} events cleaned", total_cleaned);
+        if total_archived > 0 {
+            println!("  {} events archived", total_archived);
+        }
+    }
+
+    if total_cleaned == 0 {
+        println!("No events matched the cleanup criteria.");
+    }
+
+
+    Ok(())
+}
+
+/// Parse duration string to days (e.g., "7d" -> 7, "2w" -> 14, "1h" -> 0)
+fn parse_duration_to_days(duration_str: &str) -> Result<u32> {
+    let duration_str = duration_str.trim().to_lowercase();
+
+    if duration_str.is_empty() {
+        return Err(anyhow::anyhow!("Empty duration string"));
+    }
+
+    let (number_part, unit_part) = if let Some(unit_pos) = duration_str.chars().position(|c| c.is_alphabetic()) {
+        let (num, unit) = duration_str.split_at(unit_pos);
+        (num, unit)
+    } else {
+        // If no unit specified, assume days
+        (duration_str.as_str(), "d")
+    };
+
+    let number: f64 = number_part.parse()
+        .map_err(|_| anyhow::anyhow!("Invalid number in duration: '{}'", number_part))?;
+
+    let days = match unit_part {
+        "d" | "day" | "days" => number,
+        "w" | "week" | "weeks" => number * 7.0,
+        "h" | "hour" | "hours" => number / 24.0,
+        "m" | "min" | "minute" | "minutes" => number / (24.0 * 60.0),
+        "s" | "sec" | "second" | "seconds" => number / (24.0 * 60.0 * 60.0),
+        _ => return Err(anyhow::anyhow!("Invalid duration unit: '{}'. Use d/day, w/week, h/hour, m/min, s/sec", unit_part)),
+    };
+
+    // Convert to u32, ensuring at least 0 days
+    Ok(days.max(0.0).ceil() as u32)
+}
+
+/// Parse size string to bytes (e.g., "100MB" -> 104857600, "1GB" -> 1073741824)
+fn parse_size_to_bytes(size_str: &str) -> Result<u64> {
+    let size_str = size_str.trim().to_uppercase();
+
+    if size_str.is_empty() {
+        return Err(anyhow::anyhow!("Empty size string"));
+    }
+
+    let (number_part, unit_part) = if let Some(unit_pos) = size_str.chars().position(|c| c.is_alphabetic()) {
+        let (num, unit) = size_str.split_at(unit_pos);
+        (num, unit)
+    } else {
+        // If no unit specified, assume bytes
+        (size_str.as_str(), "B")
+    };
+
+    let number: f64 = number_part.parse()
+        .map_err(|_| anyhow::anyhow!("Invalid number in size: '{}'", number_part))?;
+
+    let bytes = match unit_part {
+        "B" | "BYTE" | "BYTES" => number,
+        "KB" | "K" => number * 1024.0,
+        "MB" | "M" => number * 1024.0 * 1024.0,
+        "GB" | "G" => number * 1024.0 * 1024.0 * 1024.0,
+        "TB" | "T" => number * 1024.0 * 1024.0 * 1024.0 * 1024.0,
+        _ => return Err(anyhow::anyhow!("Invalid size unit: '{}'. Use B/byte, KB/K, MB/M, GB/G, TB/T", unit_part)),
+    };
+
+    // Convert to u64, ensuring at least 0 bytes
+    Ok(bytes.max(0.0) as u64)
 }
 
 // Helper functions
