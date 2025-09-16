@@ -179,15 +179,18 @@ impl DefaultCookOrchestrator {
         }
 
         // Check if this is a temporary workflow (batch/exec commands)
-        let is_temp_workflow = config.command.playbook.to_str()
+        let is_temp_workflow = config
+            .command
+            .playbook
+            .to_str()
             .map(|s| s.contains("/tmp/") || s.contains("/var/folders/") || s.contains("Temp"))
             .unwrap_or(false);
 
         // Only check git if not a temporary workflow or if worktree is requested
-        if !is_temp_workflow || config.command.worktree {
-            if !self.git_operations.is_git_repo().await {
-                anyhow::bail!("Not in a git repository. Please run from a git repository.");
-            }
+        if (!is_temp_workflow || config.command.worktree)
+            && !self.git_operations.is_git_repo().await
+        {
+            anyhow::bail!("Not in a git repository. Please run from a git repository.");
         }
 
         Ok(())

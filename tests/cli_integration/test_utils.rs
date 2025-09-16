@@ -171,7 +171,6 @@ impl CliTest {
         }
     }
 
-
     /// Spawn command for signal testing
     pub fn spawn(&mut self) -> std::process::Child {
         self.command.env("PRODIGY_AUTOMATION", "true");

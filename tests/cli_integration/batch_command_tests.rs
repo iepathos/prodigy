@@ -91,11 +91,11 @@ fn test_batch_with_timeout() {
     // Accept either timeout messages or successful completion (MapReduce may handle timeouts gracefully)
     assert!(
         output.stderr_contains("imeout")
-        || output.stderr_contains("exceeded")
-        || output.stdout_contains("Completed")
-        || output.stdout_contains("Finished")
-        || output.exit_code == exit_codes::SUCCESS
-        || !output.success
+            || output.stderr_contains("exceeded")
+            || output.stdout_contains("Completed")
+            || output.stdout_contains("Finished")
+            || output.exit_code == exit_codes::SUCCESS
+            || !output.success
     );
 }
 
@@ -216,11 +216,11 @@ fn test_batch_with_failing_command() {
     // even if individual items fail (they go to DLQ)
     assert!(
         output.exit_code == exit_codes::GENERAL_ERROR
-        || output.stderr_contains("failed")
-        || output.stderr_contains("error")
-        || output.stdout_contains("failed")
-        || output.stdout_contains("Failed")
-        || output.stdout_contains("0 successful")
+            || output.stderr_contains("failed")
+            || output.stderr_contains("error")
+            || output.stdout_contains("failed")
+            || output.stdout_contains("Failed")
+            || output.stdout_contains("0 successful")
     );
 }
 
@@ -273,7 +273,7 @@ fn test_batch_with_zero_parallel() {
         || output.stdout_contains("rocessing") // Processing or processing
         || output.stdout_contains("atch")      // batch processing
         || output.stdout_contains("ummary")    // Summary from MapReduce
-        || output.exit_code == exit_codes::SUCCESS  // Allow success
+        || output.exit_code == exit_codes::SUCCESS // Allow success
     );
 }
 

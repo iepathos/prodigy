@@ -4,8 +4,7 @@ use super::test_utils::*;
 
 #[test]
 fn test_resume_command_without_workflow_id() {
-    let mut test = CliTest::new()
-        .arg("resume");
+    let mut test = CliTest::new().arg("resume");
 
     let output = test.run();
 
@@ -16,9 +15,7 @@ fn test_resume_command_without_workflow_id() {
 
 #[test]
 fn test_resume_command_with_nonexistent_workflow() {
-    let mut test = CliTest::new()
-        .arg("resume")
-        .arg("nonexistent-workflow-123");
+    let mut test = CliTest::new().arg("resume").arg("nonexistent-workflow-123");
 
     let output = test.run();
 
@@ -58,9 +55,7 @@ fn test_resume_command_with_custom_path() {
 
 #[test]
 fn test_resume_command_help() {
-    let mut test = CliTest::new()
-        .arg("resume")
-        .arg("--help");
+    let mut test = CliTest::new().arg("resume").arg("--help");
 
     let output = test.run();
 
@@ -82,5 +77,9 @@ fn test_resume_command_invalid_arguments() {
 
     // Should fail with unknown argument
     assert_eq!(output.exit_code, exit_codes::ARGUMENT_ERROR);
-    assert!(output.stderr_contains("nrecognized") || output.stderr_contains("nknown") || output.stderr_contains("nexpected"));
+    assert!(
+        output.stderr_contains("nrecognized")
+            || output.stderr_contains("nknown")
+            || output.stderr_contains("nexpected")
+    );
 }
