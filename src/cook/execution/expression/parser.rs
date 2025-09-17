@@ -15,6 +15,7 @@ pub enum Expression {
     // Field access
     Field(Vec<String>), // JSONPath segments (e.g., ["user", "profile", "name"])
     Index(Box<Expression>, Box<Expression>), // Array/object index
+    ArrayWildcard(Box<Expression>, Vec<String>), // Array wildcard access (e.g., items[*].score)
 
     // Comparison operators
     Equal(Box<Expression>, Box<Expression>),
@@ -269,7 +270,7 @@ impl ExpressionParser {
                 _ if ch.is_alphabetic() || ch == '_' => {
                     let mut ident = String::new();
                     while let Some(&ch) = chars.peek() {
-                        if ch.is_alphanumeric() || ch == '_' || ch == '.' || ch == '[' || ch == ']'
+                        if ch.is_alphanumeric() || ch == '_' || ch == '.' || ch == '[' || ch == ']' || ch == '*'
                         {
                             ident.push(ch);
                             chars.next();
@@ -291,6 +292,12 @@ impl ExpressionParser {
                         "starts_with" | "startswith" => tokens.push(Token::StartsWith),
                         "ends_with" | "endswith" => tokens.push(Token::EndsWith),
                         "matches" => tokens.push(Token::Matches),
+                        "length" => tokens.push(Token::Length),
+                        "sum" => tokens.push(Token::Sum),
+                        "count" => tokens.push(Token::Count),
+                        "min" => tokens.push(Token::Min),
+                        "max" => tokens.push(Token::Max),
+                        "avg" => tokens.push(Token::Avg),
                         _ => tokens.push(Token::Identifier(ident)),
                     }
                 }
@@ -338,7 +345,7 @@ impl ExpressionParser {
         }
 
         // Build OR tree from left to right
-        let mut result = parts.into_iter().reduce(|left, right| {
+        let result = parts.into_iter().reduce(|left, right| {
             Expression::Or(Box::new(left), Box::new(right))
         }).ok_or_else(|| anyhow!("Empty OR expression"))?;
 
@@ -369,7 +376,7 @@ impl ExpressionParser {
         }
 
         // Build AND tree from left to right
-        let mut result = parts.into_iter().reduce(|left, right| {
+        let result = parts.into_iter().reduce(|left, right| {
             Expression::And(Box::new(left), Box::new(right))
         }).ok_or_else(|| anyhow!("Empty AND expression"))?;
 
@@ -397,6 +404,26 @@ impl ExpressionParser {
     fn parse_comparison(&self, tokens: &[Token]) -> Result<Expression> {
         if tokens.is_empty() {
             return Err(anyhow!("Empty comparison expression"));
+        }
+
+        // Handle parenthesized expressions first
+        if tokens[0] == Token::LeftParen {
+            // Check if entire expression is parenthesized
+            let mut depth = 1;
+            let mut end = 1;
+            while end < tokens.len() && depth > 0 {
+                match tokens[end] {
+                    Token::LeftParen => depth += 1,
+                    Token::RightParen => depth -= 1,
+                    _ => {}
+                }
+                end += 1;
+            }
+
+            if depth == 0 && end == tokens.len() {
+                // Entire expression is parenthesized, strip parentheses and re-parse
+                return self.parse_or(&tokens[1..end-1]);
+            }
         }
 
         // Handle NOT
@@ -467,10 +494,50 @@ impl ExpressionParser {
             Token::String(s) => Ok(Expression::String(s.clone())),
             Token::Boolean(b) => Ok(Expression::Boolean(*b)),
             Token::Null => Ok(Expression::Null),
+
+            // Aggregate functions with parentheses
+            Token::Length | Token::Sum | Token::Count | Token::Min | Token::Max | Token::Avg => {
+                if tokens.len() >= 3 && tokens[1] == Token::LeftParen {
+                    // Find matching right paren
+                    let mut depth = 1;
+                    let mut end = 2;
+                    while end < tokens.len() && depth > 0 {
+                        match tokens[end] {
+                            Token::LeftParen => depth += 1,
+                            Token::RightParen => depth -= 1,
+                            _ => {}
+                        }
+                        if depth > 0 {
+                            end += 1;
+                        }
+                    }
+                    if depth != 0 {
+                        return Err(anyhow!("Mismatched parentheses in function call"));
+                    }
+                    // Parse the argument
+                    let arg = self.parse_expression(&tokens[2..end], 0)?;
+                    let func_expr = match tokens[0] {
+                        Token::Length => Expression::Length(Box::new(arg)),
+                        Token::Sum => Expression::Sum(Box::new(arg)),
+                        Token::Count => Expression::Count(Box::new(arg)),
+                        Token::Min => Expression::Min(Box::new(arg)),
+                        Token::Max => Expression::Max(Box::new(arg)),
+                        Token::Avg => Expression::Avg(Box::new(arg)),
+                        _ => unreachable!(),
+                    };
+                    Ok(func_expr)
+                } else {
+                    return Err(anyhow!("Expected '(' after function name"));
+                }
+            }
+
             Token::Identifier(name) => {
-                // Parse field path
-                let segments: Vec<String> = name.split('.').map(|s| s.to_string()).collect();
-                Ok(Expression::Field(segments))
+                // Check if this is a special variable
+                if name.starts_with('_') {
+                    return Ok(Expression::Variable(name.clone()));
+                }
+                // Parse field path (including array wildcard support)
+                self.parse_field_path(name)
             }
             Token::LeftParen => {
                 // Find matching right paren
@@ -497,8 +564,28 @@ impl ExpressionParser {
     }
 
 
-    /// Parse a field path (e.g., "user.profile.name" or "items[0].value")
+    /// Parse a field path (e.g., "user.profile.name" or "items[0].value" or "items[*].score")
     fn parse_field_path(&self, path: &str) -> Result<Expression> {
+        // Check for array wildcard notation
+        if path.contains("[*]") {
+            let parts: Vec<&str> = path.splitn(2, "[*]").collect();
+            if parts.len() == 2 {
+                let base = parts[0];
+                let rest = parts[1].trim_start_matches('.');
+
+                let base_segments: Vec<String> = base.split('.').map(|s| s.to_string()).collect();
+                let base_expr = Expression::Field(base_segments);
+
+                let rest_segments: Vec<String> = if rest.is_empty() {
+                    vec![]
+                } else {
+                    rest.split('.').map(|s| s.to_string()).collect()
+                };
+
+                return Ok(Expression::ArrayWildcard(Box::new(base_expr), rest_segments));
+            }
+        }
+
         let segments: Vec<String> = path.split('.').map(|s| s.to_string()).collect();
         Ok(Expression::Field(segments))
     }
@@ -531,6 +618,14 @@ enum Token {
     StartsWith,
     EndsWith,
     Matches,
+
+    // Aggregate Functions
+    Length,
+    Sum,
+    Count,
+    Min,
+    Max,
+    Avg,
 
     // Punctuation
     LeftParen,

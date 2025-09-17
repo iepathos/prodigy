@@ -100,6 +100,17 @@ impl ExpressionValidator {
                 }
                 Ok(())
             }
+
+            // Array wildcard
+            Expression::ArrayWildcard(base, path) => {
+                self.validate_expression(base, depth + 1)?;
+                for segment in path {
+                    if segment.is_empty() {
+                        return Err(anyhow!("Empty field segment in array wildcard path"));
+                    }
+                }
+                Ok(())
+            }
         }
     }
 

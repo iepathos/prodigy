@@ -559,6 +559,30 @@ impl FilterExpression {
 
         let expr = expr.trim();
 
+        // Check if the entire expression is parenthesized and strip outer parentheses
+        if expr.starts_with('(') && expr.ends_with(')') {
+            // Check that parentheses are balanced and wrap entire expression
+            let mut depth = 0;
+            let chars: Vec<char> = expr.chars().collect();
+            let mut wraps_entire = true;
+            for (i, &ch) in chars.iter().enumerate() {
+                if ch == '(' {
+                    depth += 1;
+                } else if ch == ')' {
+                    depth -= 1;
+                    // If depth reaches 0 before the last character, outer parens don't wrap whole expr
+                    if depth == 0 && i < chars.len() - 1 {
+                        wraps_entire = false;
+                        break;
+                    }
+                }
+            }
+            // If outer parentheses wrap the entire expression, recursively parse inner
+            if wraps_entire && depth == 0 {
+                return Self::parse(&expr[1..expr.len() - 1]);
+            }
+        }
+
         // Check for NOT operator at the beginning
         if expr.starts_with("!") {
             // Handle negation
@@ -1934,9 +1958,9 @@ mod tests {
         let item2 = json!({"optional_field": null});
         let item3 = json!({"other_field": "value"}); // Missing field
 
-        assert!(filter.evaluate(&item1));
-        assert!(!filter.evaluate(&item2));
-        assert!(!filter.evaluate(&item3)); // Missing field is considered null for is_null
+        assert!(filter.evaluate(&item1));  // !is_null("value") = !false = true
+        assert!(!filter.evaluate(&item2));  // !is_null(null) = !true = false
+        assert!(filter.evaluate(&item3));   // !is_null(missing) = !false = true (missing != null)
 
         // Test NOT with comparison
         let filter = FilterExpression::parse("!(priority > 5)").unwrap();

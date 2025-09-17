@@ -177,6 +177,9 @@ impl ExpressionOptimizer {
             Expression::Sum(_) | Expression::Min(_) | Expression::Max(_) | Expression::Avg(_) => 10,
             Expression::In(_, values) => 3 + values.len() as u32,
             Expression::Index(_, _) => 3,
+            Expression::ArrayWildcard(base, path) => {
+                self.estimate_complexity(base) + 3 + path.len() as u32
+            }
         }
     }
 }

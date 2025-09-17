@@ -243,16 +243,41 @@ enum NumericPart {
     Number(u64),
 }
 
+/// Evaluation context for special variables
+#[derive(Clone, Debug)]
+pub struct EvaluationContext {
+    pub index: Option<usize>,
+    pub key: Option<String>,
+    pub value: Option<Value>,
+}
+
+impl Default for EvaluationContext {
+    fn default() -> Self {
+        Self {
+            index: None,
+            key: None,
+            value: None,
+        }
+    }
+}
+
 /// Expression evaluator
 #[derive(Clone)]
 pub struct ExpressionEvaluator {
-    // Could add caching or context here
+    context: EvaluationContext,
 }
 
 impl ExpressionEvaluator {
     /// Create a new evaluator
     pub fn new() -> Self {
-        Self {}
+        Self {
+            context: EvaluationContext::default(),
+        }
+    }
+
+    /// Create an evaluator with context
+    pub fn with_context(context: EvaluationContext) -> Self {
+        Self { context }
     }
 
     /// Evaluate an expression and return a boolean result
@@ -509,6 +534,29 @@ impl ExpressionEvaluator {
                 let v = self.evaluate(expr, item)?;
                 Ok(Value::Bool(values.contains(&v)))
             }
+
+            // Array wildcard access
+            Expression::ArrayWildcard(base_expr, path) => {
+                let base = self.evaluate(base_expr, item)?;
+                if let Value::Array(arr) = base {
+                    // Collect values from all array items
+                    let mut results = Vec::new();
+                    for item in &arr {
+                        if path.is_empty() {
+                            // No path after [*], return the item itself
+                            results.push(item.clone());
+                        } else {
+                            // Get the nested field value
+                            if let Some(val) = self.get_field_value(item, path) {
+                                results.push(val);
+                            }
+                        }
+                    }
+                    Ok(Value::Array(results))
+                } else {
+                    Ok(Value::Null)
+                }
+            }
         }
     }
 
@@ -557,9 +605,18 @@ impl ExpressionEvaluator {
     /// Get a special variable value
     fn get_variable_value(&self, name: &str, _item: &Value) -> Result<Value> {
         match name {
-            "_index" => Ok(Value::Number(serde_json::Number::from(0))), // Would need context
-            "_key" => Ok(Value::String("".to_string())),                // Would need context
-            "_value" => Ok(Value::Null),                                // Would need context
+            "_index" => match self.context.index {
+                Some(idx) => Ok(Value::Number(serde_json::Number::from(idx as u64))),
+                None => Ok(Value::Null),
+            },
+            "_key" => match &self.context.key {
+                Some(key) => Ok(Value::String(key.clone())),
+                None => Ok(Value::Null),
+            },
+            "_value" => match &self.context.value {
+                Some(val) => Ok(val.clone()),
+                None => Ok(Value::Null),
+            },
             _ => Ok(Value::Null),
         }
     }
