@@ -1,0 +1,41 @@
+{
+  "workflow_id": "workflow-1758085267242",
+  "execution_state": {
+    "current_step_index": 1,
+    "total_steps": 3,
+    "status": "Running",
+    "start_time": "2025-09-17T05:20:00.891962Z",
+    "last_checkpoint": "2025-09-17T05:20:00.891963Z",
+    "current_iteration": null,
+    "total_iterations": null
+  },
+  "completed_steps": [
+    {
+      "step_index": 0,
+      "command": "claude: /prodigy-implement-spec $ARG",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 1133,
+        "nanos": 640049917
+      },
+      "completed_at": "2025-09-17T05:20:00.891953Z"
+    }
+  ],
+  "variable_state": {
+    "step.files_changed": "8",
+    "step.deletions": "475",
+    "ARG": "76",
+    "step.insertions": "1314",
+    "PROJECT_ROOT": "/Users/glen/.prodigy/worktrees/prodigy/session-d48845ec-5516-4d40-8337-a3ef58eed3d8",
+    "step.commits": "[{\"hash\":\"5d738abffc9268fca7c96ecb78bcd80ec4b29b1c\",\"message\":\"feat: implement spec 76 - retry state management during resume\",\"author\":\"Glen Baker\",\"timestamp\":\"2025-09-17T05:17:26Z\",\"files_changed\":[\"specs/76-retry-state-management-during-resume.md\",\"src/cook/execution/mapreduce.rs\",\"src/cook/mod.rs\",\"src/cook/retry_state.rs\",\"src/cook/retry_state_tests.rs\",\"src/cook/workflow/checkpoint.rs\",\"src/cook/workflow/executor.rs\",\"src/cook/workflow/resume.rs\"],\"insertions\":1314,\"deletions\":475,\"step_name\":\"claude: /prodigy-implement-spec $ARG\",\"agent_id\":null}]"
+  },
+  "mapreduce_state": null,
+  "timestamp": "2025-09-17T05:20:00.891963Z",
+  "version": 1,
+  "workflow_hash": "3",
+  "total_steps": 3,
+  "workflow_name": "args-workflow",
+  "workflow_path": null
+}

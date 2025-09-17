@@ -171,6 +171,16 @@ impl Default for RetryStateManager {
 }
 
 impl RetryStateManager {
+    #[cfg(test)]
+    pub(crate) fn get_command_states(&self) -> Arc<RwLock<HashMap<String, CommandRetryState>>> {
+        self.command_states.clone()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn get_circuit_breakers(&self) -> Arc<RwLock<HashMap<String, CircuitBreakerState>>> {
+        self.circuit_breakers.clone()
+    }
+
     /// Create a new retry state manager
     pub fn new() -> Self {
         Self {

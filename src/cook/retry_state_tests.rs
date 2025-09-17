@@ -2,21 +2,19 @@
 
 use super::retry_state::*;
 use crate::cook::execution::ClaudeExecutor;
-use crate::cook::interaction::UserInteraction;
+use crate::cook::interaction::{UserInteraction, VerbosityLevel};
 use crate::cook::retry_v2::{BackoffStrategy, RetryConfig};
 use crate::cook::session::{SessionManager, SessionState, SessionSummary, SessionUpdate};
 use crate::cook::workflow::checkpoint::{
-    CheckpointManager, CompletedStep, ExecutionState, ResumeContext, WorkflowCheckpoint,
+    CheckpointManager, CompletedStep, ExecutionState, WorkflowCheckpoint,
     WorkflowStatus,
 };
-use crate::cook::workflow::executor::{WorkflowContext, WorkflowExecutor, WorkflowStep};
+// Remove executor imports - module is private
 use anyhow::Result;
 use async_trait::async_trait;
 use chrono::{Duration as ChronoDuration, Utc};
-use serde_json::Value;
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::Arc;
 use std::time::Duration;
 use tempfile::TempDir;
 
@@ -33,7 +31,7 @@ impl ClaudeExecutor for MockClaudeExecutor {
     ) -> Result<crate::cook::execution::ExecutionResult> {
         Ok(crate::cook::execution::ExecutionResult {
             success: true,
-            exit_code: 0,
+            exit_code: Some(0),
             stdout: "Mock execution".to_string(),
             stderr: String::new(),
         })
@@ -53,6 +51,20 @@ struct MockSessionManager;
 
 #[async_trait]
 impl SessionManager for MockSessionManager {
+    async fn save_state(&self, _path: &Path) -> Result<()> {
+        Ok(())
+    }
+
+    async fn load_state(&self, _path: &Path) -> Result<()> {
+        Ok(())
+    }
+
+    async fn load_session(&self, _session_id: &str) -> Result<SessionState> {
+        Ok(SessionState::new(
+            "test".to_string(),
+            std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/tmp"))
+        ))
+    }
     async fn start_session(&self, _session_id: &str) -> Result<()> {
         Ok(())
     }
@@ -63,22 +75,16 @@ impl SessionManager for MockSessionManager {
 
     async fn complete_session(&self) -> Result<SessionSummary> {
         Ok(SessionSummary {
-            session_id: "test".to_string(),
-            total_time: Duration::from_secs(60),
+            iterations: 1,
             files_changed: 0,
-            commits_created: 0,
-            iterations_completed: 1,
         })
     }
 
     fn get_state(&self) -> SessionState {
-        SessionState {
-            session_id: Some("test".to_string()),
-            started_at: Some(std::time::Instant::now()),
-            files_changed: 0,
-            commits_created: 0,
-            iterations_completed: 0,
-        }
+        SessionState::new(
+            "test".to_string(),
+            std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/tmp"))
+        )
     }
 
     async fn save_checkpoint(&self, _state: &SessionState) -> Result<()> {
@@ -113,6 +119,15 @@ impl UserInteraction for MockUserInteraction {
     fn display_success(&self, _message: &str) {}
     fn display_progress(&self, _message: &str) {}
     fn display_metric(&self, _label: &str, _value: &str) {}
+    fn display_action(&self, _message: &str) {}
+    fn display_status(&self, _message: &str) {}
+    fn iteration_start(&self, _current: u32, _total: u32) {}
+    fn iteration_end(&self, _current: u32, _duration: Duration, _success: bool) {}
+    fn step_start(&self, _step: u32, _total: u32, _description: &str) {}
+    fn step_end(&self, _step: u32, _success: bool) {}
+    fn command_output(&self, _output: &str, _verbosity: VerbosityLevel) {}
+    fn debug_output(&self, _message: &str, _min_verbosity: VerbosityLevel) {}
+    fn verbosity(&self) -> VerbosityLevel { VerbosityLevel::Normal }
     fn start_spinner(&self, _message: &str) -> Box<dyn crate::cook::interaction::SpinnerHandle> {
         Box::new(MockSpinnerHandle)
     }
@@ -120,8 +135,9 @@ impl UserInteraction for MockUserInteraction {
 
 struct MockSpinnerHandle;
 impl crate::cook::interaction::SpinnerHandle for MockSpinnerHandle {
-    fn update_message(&self, _message: &str) {}
-    fn finish_with_message(&self, _message: &str) {}
+    fn update_message(&mut self, _message: &str) {}
+    fn success(&mut self, _message: &str) {}
+    fn fail(&mut self, _message: &str) {}
 }
 
 #[tokio::test]
@@ -228,7 +244,7 @@ async fn test_retry_budget_enforcement() {
 
     // Manually expire budget for testing
     {
-        let command_states = manager.command_states.clone();
+        let command_states = manager.get_command_states();
         let mut states = command_states.write().await;
         if let Some(state) = states.get_mut("budget_cmd") {
             state.retry_budget_expires_at = Some(Utc::now() - ChronoDuration::seconds(1));
@@ -403,7 +419,7 @@ async fn test_retry_state_consistency_validation() {
     let manager = RetryStateManager::new();
 
     // Create inconsistent checkpoint state
-    let mut checkpoint = RetryCheckpointState {
+    let checkpoint = RetryCheckpointState {
         command_retry_states: HashMap::from([(
             "bad_cmd".to_string(),
             CommandRetryState {
@@ -475,7 +491,8 @@ async fn test_circuit_breaker_half_open_transition() {
     manager.restore_from_checkpoint(&checkpoint).await.unwrap();
 
     // Check circuit breaker state - should be half-open
-    let breakers = manager.circuit_breakers.read().await;
+    let breakers_arc = manager.get_circuit_breakers();
+    let breakers = breakers_arc.read().await;
     let breaker = breakers.get("test_cmd").unwrap();
     assert_eq!(breaker.state, CircuitState::HalfOpen);
 }

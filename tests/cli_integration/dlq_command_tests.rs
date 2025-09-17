@@ -47,13 +47,11 @@ fn test_dlq_reprocess() {
 
     let output = test.run();
 
-    // Should attempt to reprocess or report not found
-    // Note: Based on PROJECT.md, DLQ reprocessing is not yet implemented
+    // The reprocess command is deprecated in favor of 'retry'
+    assert_eq!(output.exit_code, exit_codes::GENERAL_ERROR);
     assert!(
-        output.exit_code == exit_codes::GENERAL_ERROR
-            || output.stderr_contains("not implemented")
-            || output.stderr_contains("not found")
-            || output.stderr_contains("No items")
+        output.stderr_contains("deprecated")
+            && output.stderr_contains("retry")
     );
 }
 
@@ -110,16 +108,11 @@ fn test_dlq_reprocess_missing_job_id() {
 
     let output = test.run();
 
-    // Should fail - may return general error if deprecated
+    // The reprocess command is deprecated and returns a general error
+    assert_eq!(output.exit_code, exit_codes::GENERAL_ERROR);
     assert!(
-        output.exit_code == exit_codes::ARGUMENT_ERROR
-            || output.exit_code == exit_codes::GENERAL_ERROR
-    );
-    assert!(
-        output.stderr_contains("required")
-            || output.stderr_contains("job")
-            || output.stderr_contains("argument")
-            || output.stderr_contains("deprecated")
+        output.stderr_contains("deprecated")
+            && output.stderr_contains("retry")
     );
 }
 
@@ -208,10 +201,10 @@ fn test_dlq_reprocess_with_max_parallel() {
 
     let output = test.run();
 
-    // Should accept max-parallel option or report not implemented
+    // Should fail with unexpected argument since reprocess doesn't support --max-parallel
+    assert_eq!(output.exit_code, exit_codes::ARGUMENT_ERROR);
     assert!(
-        output.stderr_contains("not implemented")
-            || output.stderr_contains("parallel")
-            || output.exit_code == exit_codes::GENERAL_ERROR
+        output.stderr_contains("unexpected argument")
+            || output.stderr_contains("--max-parallel")
     );
 }
