@@ -1,0 +1,53 @@
+{
+  "workflow_id": "workflow-1758098294140",
+  "execution_state": {
+    "current_step_index": 2,
+    "total_steps": 3,
+    "status": "Running",
+    "start_time": "2025-09-17T09:16:25.462414Z",
+    "last_checkpoint": "2025-09-17T09:16:25.462414Z",
+    "current_iteration": null,
+    "total_iterations": null
+  },
+  "completed_steps": [
+    {
+      "step_index": 0,
+      "command": "claude: /prodigy-implement-spec $ARG",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 2238,
+        "nanos": 902632334
+      },
+      "completed_at": "2025-09-17T09:15:33.082713Z"
+    },
+    {
+      "step_index": 1,
+      "command": "test: just test",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 52,
+        "nanos": 298145875
+      },
+      "completed_at": "2025-09-17T09:16:25.462371Z"
+    }
+  ],
+  "variable_state": {
+    "step.files_changed": "Cargo.toml,specs/61-variable-interpolation.md,src/cook/execution/mapreduce.rs,src/cook/workflow/variables.rs,src/cook/execution/variables_test.rs,src/cook/execution/variables.rs,src/cook/execution/mod.rs",
+    "step.insertions": "426",
+    "step.commits": "c2817dbb4956a42e45ac36d2eff3a9cd3841fc37,838ba9490c93a7de2a9d7025393ec999a8699a55",
+    "step.deletions": "26",
+    "PROJECT_ROOT": "/Users/glen/.prodigy/worktrees/prodigy/session-881a3f44-fabe-42b6-bfe3-09d8fc37749f",
+    "ARG": "61"
+  },
+  "mapreduce_state": null,
+  "timestamp": "2025-09-17T09:16:25.462414Z",
+  "version": 1,
+  "workflow_hash": "3",
+  "total_steps": 3,
+  "workflow_name": "args-workflow",
+  "workflow_path": null
+}

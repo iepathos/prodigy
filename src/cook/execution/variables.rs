@@ -327,6 +327,12 @@ pub struct VariableContext {
     max_recursion_depth: usize,
 }
 
+impl Default for VariableContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VariableContext {
     /// Create a new variable context
     pub fn new() -> Self {
@@ -446,26 +452,21 @@ impl VariableContext {
         }
 
         // Parse the expression to determine type
-        let value = if expr.starts_with("env.") {
+        let value = if let Some(var_name) = expr.strip_prefix("env.") {
             // Environment variable
-            let var_name = &expr[4..];
             let env_var = EnvVariable::new(var_name.to_string());
             env_var.evaluate(self)?
-        } else if expr.starts_with("file:") {
+        } else if let Some(path) = expr.strip_prefix("file:") {
             // File content
-            let path = &expr[5..];
             let file_var = FileVariable::new(path.to_string());
             file_var.evaluate(self)?
-        } else if expr.starts_with("cmd:") {
+        } else if let Some(command) = expr.strip_prefix("cmd:") {
             // Command output
-            let command = &expr[4..];
             let cmd_var = CommandVariable::new(command.to_string());
             cmd_var.evaluate(self)?
-        } else if expr.starts_with("json:") {
+        } else if let Some(remainder) = expr.strip_prefix("json:") {
             // JSON extraction (format: json:path:from:data_source)
             // Split into path and data_source parts
-            let remainder = &expr[5..];
-
             // Find the position of ":from:" separator
             let separator = ":from:";
             if let Some(sep_pos) = remainder.find(separator) {
@@ -498,12 +499,13 @@ impl VariableContext {
                     let json_var = JsonPathVariable::new(json_str, parts[0].to_string());
                     json_var.evaluate(self)?
                 } else {
-                    return Err(anyhow!("Invalid json: expression format. Use json:path:from:data_source"));
+                    return Err(anyhow!(
+                        "Invalid json: expression format. Use json:path:from:data_source"
+                    ));
                 }
             }
-        } else if expr.starts_with("date:") {
+        } else if let Some(format) = expr.strip_prefix("date:") {
             // Date formatting
-            let format = &expr[5..];
             let date_var = DateVariable::new(format.to_string());
             date_var.evaluate(self)?
         } else if expr == "uuid" {
@@ -670,14 +672,11 @@ impl VariableContext {
     /// Import variables from persistence
     pub fn import(&mut self, variables: HashMap<String, Value>) {
         for (key, value) in variables {
-            if key.starts_with("global.") {
-                let var_name = &key[7..];
+            if let Some(var_name) = key.strip_prefix("global.") {
                 self.set_global(var_name, Variable::Static(value));
-            } else if key.starts_with("phase.") {
-                let var_name = &key[6..];
+            } else if let Some(var_name) = key.strip_prefix("phase.") {
                 self.set_phase(var_name, Variable::Static(value));
-            } else if key.starts_with("local.") {
-                let var_name = &key[6..];
+            } else if let Some(var_name) = key.strip_prefix("local.") {
                 self.set_local(var_name, Variable::Static(value));
             } else {
                 // Default to global scope

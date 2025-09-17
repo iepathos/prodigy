@@ -601,7 +601,11 @@ impl VariableStore {
     }
 
     /// Get all variables as a HashMap (flattened, including parent variables)
-    pub fn get_all(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = HashMap<String, CapturedValue>> + Send + '_>> {
+    pub fn get_all(
+        &self,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = HashMap<String, CapturedValue>> + Send + '_>,
+    > {
         Box::pin(async move {
             let mut result = HashMap::new();
 

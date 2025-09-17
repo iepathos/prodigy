@@ -2564,6 +2564,7 @@ impl MapReduceExecutor {
     }
 
     /// Initialize agent context with retry information
+    #[allow(clippy::too_many_arguments)]
     fn initialize_agent_context_with_retry(
         &self,
         item_id: &str,
@@ -2574,26 +2575,26 @@ impl MapReduceExecutor {
         attempt: u32,
         previous_error: Option<String>,
     ) -> AgentContext {
-        let mut context = self.initialize_agent_context(
-            item_id,
-            item,
-            worktree_path,
-            worktree_name,
-            env,
-        );
+        let mut context =
+            self.initialize_agent_context(item_id, item, worktree_path, worktree_name, env);
 
         // Set retry count for internal use
         context.retry_count = attempt - 1; // Convert attempt number to retry count (0-based)
 
         // Add retry-related variables for interpolation
-        context.variables.insert("item.attempt".to_string(), attempt.to_string());
+        context
+            .variables
+            .insert("item.attempt".to_string(), attempt.to_string());
         if let Some(error) = previous_error {
-            context.variables.insert("item.previous_error".to_string(), error);
+            context
+                .variables
+                .insert("item.previous_error".to_string(), error);
         }
 
         context
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn execute_agent_commands_with_retry_info(
         &self,
         item_id: &str,
@@ -2734,6 +2735,7 @@ impl MapReduceExecutor {
         Ok(result)
     }
 
+    #[allow(dead_code)]
     async fn execute_agent_commands(
         &self,
         item_id: &str,
@@ -2870,6 +2872,7 @@ impl MapReduceExecutor {
     }
 
     /// Execute agent commands with enhanced progress tracking and retry info
+    #[allow(clippy::too_many_arguments)]
     async fn execute_agent_commands_with_progress_and_retry(
         &self,
         item_id: &str,
@@ -2953,10 +2956,7 @@ impl MapReduceExecutor {
 
             // Execute the command using the existing pattern
             let result = self
-                .execute_single_step(
-                    &interpolated_step,
-                    &mut context,
-                )
+                .execute_single_step(&interpolated_step, &mut context)
                 .await;
 
             match result {
@@ -2993,6 +2993,7 @@ impl MapReduceExecutor {
     }
 
     /// Execute agent commands with enhanced progress tracking
+    #[allow(dead_code)]
     async fn execute_agent_commands_with_progress(
         &self,
         item_id: &str,
