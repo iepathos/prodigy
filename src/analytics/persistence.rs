@@ -3,7 +3,7 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde_json::json;
-use sqlx::{sqlite::SqlitePool, FromRow, Row};
+use sqlx::{sqlite::SqlitePool, Row};
 use std::path::Path;
 use tracing::{debug, info};
 
@@ -17,7 +17,12 @@ pub struct AnalyticsDatabase {
 impl AnalyticsDatabase {
     /// Create a new database connection
     pub async fn new(database_path: impl AsRef<Path>) -> Result<Self> {
-        let database_url = format!("sqlite://{}", database_path.as_ref().display());
+        // Ensure parent directory exists
+        if let Some(parent) = database_path.as_ref().parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+
+        let database_url = format!("sqlite://{}?mode=rwc", database_path.as_ref().display());
         let pool = SqlitePool::connect(&database_url).await?;
 
         let db = Self { pool };

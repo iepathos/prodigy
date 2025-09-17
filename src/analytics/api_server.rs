@@ -11,7 +11,6 @@ use axum::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tower_http::cors::CorsLayer;
 use tracing::{info, warn};
 
@@ -19,7 +18,6 @@ use super::{
     engine::{AnalyticsEngine, CrossSessionAnalysis, SessionComparison},
     models::{Cost, TimeRange, ToolStats},
     persistence::AnalyticsDatabase,
-    SessionIndex,
 };
 
 /// API server for analytics endpoints

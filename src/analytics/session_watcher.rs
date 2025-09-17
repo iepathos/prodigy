@@ -303,6 +303,7 @@ pub struct TokenCount {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cook::execution::events::EventLogger;
     use tempfile::TempDir;
     use tokio::fs;
 
@@ -319,7 +320,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_session_watcher_initialization() {
-        let event_logger = Arc::new(crate::events::EventLogger::new_in_memory());
+        let event_logger = Arc::new(EventLogger::new(vec![]));
 
         let watcher = SessionWatcher::new(event_logger).unwrap();
         assert!(watcher.claude_projects_path.exists() || true); // Path might not exist in test env
@@ -328,7 +329,7 @@ mod tests {
     #[tokio::test]
     async fn test_discover_sessions() {
         let (_temp_dir, projects_dir) = setup_test_environment().await;
-        let event_logger = Arc::new(crate::events::EventLogger::new_in_memory());
+        let event_logger = Arc::new(EventLogger::new(vec![]));
 
         // Create test project directory with JSONL file
         let project_dir = projects_dir.join("test-project");
@@ -343,14 +344,14 @@ mod tests {
         let watcher = SessionWatcher::new(event_logger).unwrap();
 
         // Parse a specific session file for testing
-        let metadata = watcher.parse_jsonl_session(&jsonl_path).await.unwrap();
+        let metadata = watcher.extract_session_metadata(&jsonl_path).await.unwrap();
         assert!(metadata.total_events > 0);
     }
 
     #[tokio::test]
     async fn test_parse_jsonl_session() {
         let (_temp_dir, projects_dir) = setup_test_environment().await;
-        let event_logger = Arc::new(crate::events::EventLogger::new_in_memory());
+        let event_logger = Arc::new(EventLogger::new(vec![]));
 
         let project_dir = projects_dir.join("test-project");
         fs::create_dir_all(&project_dir).await.unwrap();
@@ -364,7 +365,7 @@ mod tests {
         create_test_jsonl(&jsonl_path, jsonl_content).await;
 
         let watcher = SessionWatcher::new(event_logger).unwrap();
-        let metadata = watcher.parse_jsonl_session(&jsonl_path).await.unwrap();
+        let metadata = watcher.extract_session_metadata(&jsonl_path).await.unwrap();
 
         assert_eq!(metadata.total_events, 4);
         assert_eq!(metadata.total_tokens.input, 100);
@@ -376,7 +377,7 @@ mod tests {
     #[tokio::test]
     async fn test_handle_malformed_jsonl() {
         let (_temp_dir, projects_dir) = setup_test_environment().await;
-        let event_logger = Arc::new(crate::events::EventLogger::new_in_memory());
+        let event_logger = Arc::new(EventLogger::new(vec![]));
 
         let project_dir = projects_dir.join("test-project");
         fs::create_dir_all(&project_dir).await.unwrap();
@@ -390,7 +391,7 @@ This is not valid JSON
         create_test_jsonl(&jsonl_path, jsonl_content).await;
 
         let watcher = SessionWatcher::new(event_logger).unwrap();
-        let metadata = watcher.parse_jsonl_session(&jsonl_path).await.unwrap();
+        let metadata = watcher.extract_session_metadata(&jsonl_path).await.unwrap();
 
         // Should still parse valid lines
         assert_eq!(metadata.total_events, 2);
@@ -399,7 +400,7 @@ This is not valid JSON
     #[tokio::test]
     async fn test_watch_multiple_projects() {
         let (_temp_dir, projects_dir) = setup_test_environment().await;
-        let event_logger = Arc::new(crate::events::EventLogger::new_in_memory());
+        let event_logger = Arc::new(EventLogger::new(vec![]));
 
         // Create multiple project directories
         for i in 1..=3 {
@@ -420,7 +421,7 @@ This is not valid JSON
         // Test that we can parse each session
         for i in 1..=3 {
             let jsonl_path = projects_dir.join(format!("project-{}/session-{}.jsonl", i, i));
-            let metadata = watcher.parse_jsonl_session(&jsonl_path).await.unwrap();
+            let metadata = watcher.extract_session_metadata(&jsonl_path).await.unwrap();
             assert!(metadata.total_events > 0);
         }
     }
@@ -428,7 +429,7 @@ This is not valid JSON
     #[tokio::test]
     async fn test_empty_jsonl_handling() {
         let (_temp_dir, projects_dir) = setup_test_environment().await;
-        let event_logger = Arc::new(crate::events::EventLogger::new_in_memory());
+        let event_logger = Arc::new(EventLogger::new(vec![]));
 
         let project_dir = projects_dir.join("test-project");
         fs::create_dir_all(&project_dir).await.unwrap();
@@ -438,7 +439,7 @@ This is not valid JSON
         create_test_jsonl(&jsonl_path, "").await;
 
         let watcher = SessionWatcher::new(event_logger).unwrap();
-        let metadata = watcher.parse_jsonl_session(&jsonl_path).await.unwrap();
+        let metadata = watcher.extract_session_metadata(&jsonl_path).await.unwrap();
 
         assert_eq!(metadata.total_events, 0);
         assert_eq!(metadata.total_tokens.input, 0);
@@ -449,7 +450,7 @@ This is not valid JSON
     #[tokio::test]
     async fn test_token_accumulation() {
         let (_temp_dir, projects_dir) = setup_test_environment().await;
-        let event_logger = Arc::new(crate::events::EventLogger::new_in_memory());
+        let event_logger = Arc::new(EventLogger::new(vec![]));
 
         let project_dir = projects_dir.join("test-project");
         fs::create_dir_all(&project_dir).await.unwrap();
@@ -463,7 +464,7 @@ This is not valid JSON
         create_test_jsonl(&jsonl_path, jsonl_content).await;
 
         let watcher = SessionWatcher::new(event_logger).unwrap();
-        let metadata = watcher.parse_jsonl_session(&jsonl_path).await.unwrap();
+        let metadata = watcher.extract_session_metadata(&jsonl_path).await.unwrap();
 
         assert_eq!(metadata.total_tokens.input, 450);  // 100 + 150 + 200
         assert_eq!(metadata.total_tokens.output, 750); // 200 + 250 + 300
