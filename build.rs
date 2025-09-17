@@ -93,10 +93,6 @@ fn generate_command_templates() {
 
 #[cfg(not(doc))]
 fn generate_man_pages() {
-    use clap::Command;
-    use std::fs::File;
-    use std::io::Write;
-
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let man_dir = out_dir.join("man");
     fs::create_dir_all(&man_dir).unwrap();
@@ -126,7 +122,7 @@ fn generate_man_pages() {
     for entry in fs::read_dir(&man_dir).unwrap() {
         let entry = entry.unwrap();
         let path = entry.path();
-        if path.extension().map_or(false, |e| e == "1" || e == "gz") {
+        if path.extension().is_some_and(|e| e == "1" || e == "gz") {
             let dest = target_man_dir.join(path.file_name().unwrap());
             fs::copy(&path, &dest).ok();
         }
@@ -151,9 +147,9 @@ fn generate_man_for_command(cmd: &clap::Command, man_dir: &Path, parent: Option<
 
     // Create man page with proper metadata
     let man = Man::new(cmd.clone())
-        .title(&cmd_name.to_uppercase())
+        .title(cmd_name.to_uppercase())
         .section("1")
-        .date(&chrono::Utc::now().format("%Y-%m-%d").to_string())
+        .date(chrono::Utc::now().format("%Y-%m-%d").to_string())
         .source("Prodigy")
         .manual("Prodigy Manual");
 
@@ -163,8 +159,7 @@ fn generate_man_for_command(cmd: &clap::Command, man_dir: &Path, parent: Option<
 
     // Add additional sections if this is the main command
     if parent.is_none() {
-        let additional = format!(
-            r#"
+        let additional = r#"
 .SH EXAMPLES
 .PP
 Run a workflow:
@@ -242,7 +237,7 @@ Report bugs at: <https://github.com/iepathos/prodigy/issues>
 .PP
 Glen Baker <iepathos@gmail.com>
 "#
-        );
+        .to_string();
         buffer.extend_from_slice(additional.as_bytes());
     }
 
