@@ -409,3 +409,44 @@ mod tests {
         assert!(report.percent_change < -5.0);
     }
 }
+
+// Criterion benchmark setup
+use criterion::{criterion_group, criterion_main, Criterion};
+
+fn bench_regression_detection(c: &mut Criterion) {
+    c.bench_function("regression_detection", |b| {
+        let config = RegressionConfig::default();
+        let detector = RegressionDetector::new(config);
+
+        let baseline = BenchmarkResult {
+            name: "test_benchmark".to_string(),
+            group: "test_group".to_string(),
+            mean_ns: 1000.0,
+            median_ns: 950.0,
+            std_dev_ns: 50.0,
+            min_ns: 900.0,
+            max_ns: 1100.0,
+            iterations: 100,
+            timestamp: chrono::Utc::now(),
+        };
+
+        let current = BenchmarkResult {
+            name: "test_benchmark".to_string(),
+            group: "test_group".to_string(),
+            mean_ns: 1100.0,
+            median_ns: 1050.0,
+            std_dev_ns: 55.0,
+            min_ns: 990.0,
+            max_ns: 1210.0,
+            iterations: 100,
+            timestamp: chrono::Utc::now(),
+        };
+
+        b.iter(|| {
+            detector.analyze_regression(&baseline, &current)
+        });
+    });
+}
+
+criterion_group!(benches, bench_regression_detection);
+criterion_main!(benches);

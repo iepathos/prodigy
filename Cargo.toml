@@ -77,7 +77,6 @@ tokio-test = "0.4"
 criterion = { version = "0.7", features = ["html_reports", "async_tokio"] }
 insta = { version = "1.39", features = ["json", "redactions"] }
 tempfile = "3.8"
-rand = "0.8"
 libc = "0.2"
 
 # Benchmark configurations
@@ -91,6 +90,18 @@ harness = false
 
 [[bench]]
 name = "storage_benchmarks"
+harness = false
+
+[[bench]]
+name = "mapreduce_benchmarks"
+harness = false
+
+[[bench]]
+name = "memory_benchmarks"
+harness = false
+
+[[bench]]
+name = "regression"
 harness = false
 
 [lints.rust]

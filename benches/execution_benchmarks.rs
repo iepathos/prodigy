@@ -274,7 +274,7 @@ steps:
                     timestamp: chrono::Utc::now(),
                     version: prodigy::cook::workflow::checkpoint::CHECKPOINT_VERSION,
                     workflow_hash: "test-hash".to_string(),
-                    total_steps: workflow.steps.len(),
+                    total_steps: workflow.commands.len(),
                     workflow_name: Some("benchmark-workflow".to_string()),
                     workflow_path: None,
                     error_recovery_state: None,
@@ -350,7 +350,7 @@ fn bench_workflow_resume_operation(c: &mut Criterion) {
                 let checkpoint = checkpoint_manager.load_checkpoint(&workflow_id).await.unwrap();
 
                 // Simulate resume operations
-                assert_eq!(checkpoint.unwrap().execution_state.current_step_index, 50);
+                assert_eq!(checkpoint.execution_state.current_step_index, 50);
                 black_box(checkpoint);
             },
             BatchSize::SmallInput,
