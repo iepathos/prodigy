@@ -2,15 +2,12 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
     use crate::subprocess::streaming::{
         JsonLineProcessor, LoggingProcessor, PatternMatchProcessor, StreamProcessor,
         StreamingCommandRunner,
     };
     use crate::subprocess::ProcessCommand;
-    use anyhow::Result;
     use regex::Regex;
-    use serde_json::{json, Value};
     use std::time::Duration;
     use tokio::sync::mpsc;
 

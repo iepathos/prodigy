@@ -63,6 +63,7 @@ async fn test_single_validation_success() {
         timeout_seconds: None,
         stdin: None,
         capture_streaming: false,
+        streaming_config: None,
     };
 
     let result = validation_executor
@@ -96,6 +97,7 @@ async fn test_single_validation_failure() {
         timeout_seconds: None,
         stdin: None,
         capture_streaming: false,
+        streaming_config: None,
     };
 
     let result = validation_executor
@@ -142,6 +144,7 @@ async fn test_multiple_validations_all_pass() {
         timeout_seconds: None,
         stdin: None,
         capture_streaming: false,
+        streaming_config: None,
     };
 
     let result = validation_executor
@@ -187,6 +190,7 @@ async fn test_multiple_validations_one_fails() {
         timeout_seconds: None,
         stdin: None,
         capture_streaming: false,
+        streaming_config: None,
     };
 
     let result = validation_executor
@@ -249,6 +253,7 @@ async fn test_validation_with_any_criteria() {
         timeout_seconds: None,
         stdin: None,
         capture_streaming: false,
+        streaming_config: None,
     };
 
     let result = validation_executor
@@ -290,6 +295,7 @@ async fn test_validation_with_expected_output() {
         timeout_seconds: None,
         stdin: None,
         capture_streaming: false,
+        streaming_config: None,
     };
 
     let result = validation_executor
