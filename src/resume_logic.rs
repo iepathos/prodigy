@@ -196,6 +196,7 @@ mod tests {
             workflow_path: None,
             error_recovery_state: None,
             retry_checkpoint_state: None,
+            variable_checkpoint_state: None,
         };
 
         let messages = format_checkpoint_status(&checkpoint);
@@ -257,6 +258,7 @@ mod tests {
             workflow_path: None,
             error_recovery_state: None,
             retry_checkpoint_state: None,
+            variable_checkpoint_state: None,
         };
 
         assert_eq!(calculate_skip_count(&checkpoint, false), 5);

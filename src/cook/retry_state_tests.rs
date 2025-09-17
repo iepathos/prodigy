@@ -389,6 +389,7 @@ async fn test_checkpoint_with_retry_state_integration() {
         workflow_path: None,
         error_recovery_state: None,
         retry_checkpoint_state: Some(retry_state.clone()),
+        variable_checkpoint_state: None,
     };
 
     // Save checkpoint

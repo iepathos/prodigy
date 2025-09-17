@@ -4,6 +4,7 @@
 
 use crate::cook::workflow::executor::WorkflowContext;
 use crate::cook::workflow::normalized::NormalizedWorkflow;
+use crate::cook::workflow::variable_checkpoint::VariableCheckpointState;
 use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -50,6 +51,8 @@ pub struct WorkflowCheckpoint {
     pub error_recovery_state: Option<crate::cook::workflow::error_recovery::ErrorRecoveryState>,
     /// Enhanced retry state for comprehensive persistence
     pub retry_checkpoint_state: Option<crate::cook::retry_state::RetryCheckpointState>,
+    /// Enhanced variable checkpoint state for comprehensive variable persistence
+    pub variable_checkpoint_state: Option<VariableCheckpointState>,
 }
 
 /// Current state of workflow execution
@@ -134,6 +137,10 @@ pub struct MapReduceCheckpoint {
     pub reduce_completed: bool,
     /// Results from completed agents
     pub agent_results: HashMap<String, Value>,
+    /// Total number of original items
+    pub total_items: usize,
+    /// MapReduce aggregate variables (map.successful, map.failed, etc.)
+    pub aggregate_variables: HashMap<String, String>,
 }
 
 /// State of an agent processing an item
@@ -378,6 +385,20 @@ pub fn create_checkpoint_with_total_steps(
         variable_state.insert(key.clone(), Value::String(value.clone()));
     }
 
+    // Create enhanced variable checkpoint state
+    let variable_checkpoint_state = {
+        use crate::cook::workflow::variable_checkpoint::VariableResumeManager;
+        let manager = VariableResumeManager::new();
+        manager
+            .create_checkpoint(
+                &context.variables,
+                &context.captured_outputs,
+                &context.iteration_vars,
+                &context.variable_store,
+            )
+            .ok()
+    };
+
     WorkflowCheckpoint {
         workflow_id,
         execution_state: ExecutionState {
@@ -400,6 +421,7 @@ pub fn create_checkpoint_with_total_steps(
         workflow_path: None,          // Will be set by the executor if available
         error_recovery_state: None,   // Will be set if error handlers are present
         retry_checkpoint_state: None, // Will be set by the executor if retry state exists
+        variable_checkpoint_state,
     }
 }
 

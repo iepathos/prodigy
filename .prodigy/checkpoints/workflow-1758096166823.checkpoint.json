@@ -1,0 +1,53 @@
+{
+  "workflow_id": "workflow-1758096166823",
+  "execution_state": {
+    "current_step_index": 2,
+    "total_steps": 3,
+    "status": "Running",
+    "start_time": "2025-09-17T08:32:26.094839Z",
+    "last_checkpoint": "2025-09-17T08:32:26.094839Z",
+    "current_iteration": null,
+    "total_iterations": null
+  },
+  "completed_steps": [
+    {
+      "step_index": 0,
+      "command": "claude: /prodigy-implement-spec $ARG",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 1710,
+        "nanos": 891898375
+      },
+      "completed_at": "2025-09-17T08:31:17.727646Z"
+    },
+    {
+      "step_index": 1,
+      "command": "test: just test",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 68,
+        "nanos": 337471084
+      },
+      "completed_at": "2025-09-17T08:32:26.094514Z"
+    }
+  ],
+  "variable_state": {
+    "step.deletions": "1",
+    "step.insertions": "3",
+    "step.commits": "67ea83d68c2ac884d06fc668d9654ab2402c1fe4,69e4fc115ff1b5f33e3084d495b78e95f62e2fec",
+    "step.files_changed": "src/cook/workflow/mod.rs,specs/74-variable-substitution-during-resume.md,src/cook/workflow/resume.rs,src/cook/retry_state_tests.rs,src/cook/workflow/variable_checkpoint.rs,src/resume_logic.rs,src/cook/workflow/error_recovery_tests.rs,src/cook/workflow/variable_checkpoint_tests.rs,src/cook/workflow/checkpoint.rs",
+    "ARG": "74",
+    "PROJECT_ROOT": "/Users/glen/.prodigy/worktrees/prodigy/session-700cc944-2a21-43e5-88f2-a63f65226cae"
+  },
+  "mapreduce_state": null,
+  "timestamp": "2025-09-17T08:32:26.094839Z",
+  "version": 1,
+  "workflow_hash": "3",
+  "total_steps": 3,
+  "workflow_name": "args-workflow",
+  "workflow_path": null
+}

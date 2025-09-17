@@ -105,6 +105,7 @@ impl ResumeExecutor {
                     variable_state: HashMap::new(),
                     mapreduce_state: None,
                     timestamp: chrono::Utc::now(),
+                    variable_checkpoint_state: None,
                     version: checkpoint::CHECKPOINT_VERSION,
                     workflow_hash: String::new(),
                     total_steps: 0,
@@ -296,10 +297,102 @@ impl ResumeExecutor {
     }
 
     /// Restore workflow context from checkpoint
-    fn restore_workflow_context(&self, checkpoint: &WorkflowCheckpoint) -> Result<WorkflowContext> {
+    pub fn restore_workflow_context(
+        &self,
+        checkpoint: &WorkflowCheckpoint,
+    ) -> Result<WorkflowContext> {
+        use crate::cook::workflow::variable_checkpoint::VariableResumeManager;
+
         let mut context = WorkflowContext::default();
 
-        // Restore variables
+        // Try to restore from enhanced variable checkpoint state first
+        if let Some(var_checkpoint_state) = &checkpoint.variable_checkpoint_state {
+            let manager = VariableResumeManager::new();
+
+            // Restore variables from enhanced checkpoint
+            match manager.restore_from_checkpoint(var_checkpoint_state) {
+                Ok((mut variables, captured_outputs, iteration_vars)) => {
+                    context.variables = variables.clone();
+                    context.captured_outputs = captured_outputs;
+                    context.iteration_vars = iteration_vars;
+
+                    // Validate environment compatibility
+                    if let Ok(compatibility) =
+                        manager.validate_environment(&var_checkpoint_state.environment_snapshot)
+                    {
+                        if !compatibility.is_compatible {
+                            warn!("Environment has changed since checkpoint creation");
+                            if !compatibility.missing_variables.is_empty() {
+                                warn!(
+                                    "Missing environment variables: {:?}",
+                                    compatibility.missing_variables.keys().collect::<Vec<_>>()
+                                );
+                            }
+                            if !compatibility.changed_variables.is_empty() {
+                                warn!(
+                                    "Changed environment variables: {:?}",
+                                    compatibility.changed_variables.keys().collect::<Vec<_>>()
+                                );
+                            }
+                        }
+                    }
+
+                    // Restore/recalculate MapReduce variables if applicable
+                    if let Some(ref mapreduce_state) = checkpoint.mapreduce_state {
+                        let total_items = mapreduce_state.total_items;
+                        let successful_items = mapreduce_state.completed_items.len();
+                        let failed_items = mapreduce_state.failed_items.len();
+
+                        // Recalculate MapReduce aggregate variables
+                        let mapreduce_vars = manager.recalculate_mapreduce_variables(
+                            total_items,
+                            successful_items,
+                            failed_items,
+                        );
+
+                        // Merge MapReduce variables into context
+                        for (key, value) in mapreduce_vars {
+                            variables.insert(key.clone(), value.clone());
+                            context.variables.insert(key, value);
+                        }
+
+                        // Also restore any saved aggregate variables to ensure consistency
+                        for (key, value) in &mapreduce_state.aggregate_variables {
+                            context.variables.insert(key.clone(), value.clone());
+                        }
+
+                        info!(
+                            "Restored MapReduce variables: total={}, successful={}, failed={}",
+                            total_items, successful_items, failed_items
+                        );
+                    }
+
+                    info!(
+                        "Restored {} variables from enhanced checkpoint",
+                        context.variables.len()
+                    );
+                }
+                Err(e) => {
+                    warn!("Failed to restore from enhanced checkpoint: {}", e);
+                    // Fall back to legacy variable restoration
+                    self.restore_variables_legacy(&mut context, checkpoint)?;
+                }
+            }
+        } else {
+            // Fall back to legacy variable restoration for old checkpoints
+            self.restore_variables_legacy(&mut context, checkpoint)?;
+        }
+
+        Ok(context)
+    }
+
+    /// Legacy variable restoration for backward compatibility
+    fn restore_variables_legacy(
+        &self,
+        context: &mut WorkflowContext,
+        checkpoint: &WorkflowCheckpoint,
+    ) -> Result<()> {
+        // Restore variables from legacy format
         for (key, value) in &checkpoint.variable_state {
             match value {
                 Value::String(s) => {
@@ -334,7 +427,7 @@ impl ResumeExecutor {
             }
         }
 
-        Ok(context)
+        Ok(())
     }
 
     /// Execute workflow from checkpoint with full execution support
