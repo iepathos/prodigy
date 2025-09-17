@@ -1420,8 +1420,8 @@ async fn run_resume_workflow(
                         prodigy::resume_logic::WorkflowFileResult::Found(path) => path,
                         prodigy::resume_logic::WorkflowFileResult::NotFound(paths) => {
                             println!("⚠️  Could not find workflow file automatically.");
-                            println!("   Workflow file was not stored in checkpoint (old checkpoint format).");
-                            println!("   Please re-run the workflow to create a new checkpoint with the workflow path.");
+                            println!("   Please specify the workflow file path explicitly:");
+                            println!("   prodigy resume <workflow_id> <workflow_file_path>");
                             println!(
                                 "   Searched in: {:?}",
                                 paths.iter().map(|p| p.display()).collect::<Vec<_>>()
@@ -1433,8 +1433,8 @@ async fn run_resume_workflow(
                             for path in &paths {
                                 println!("   - {}", path.display());
                             }
-                            println!("   Workflow file was not stored in checkpoint (old checkpoint format).");
-                            println!("   Please re-run the workflow to create a new checkpoint with the workflow path.");
+                            println!("   Please specify the workflow file path explicitly:");
+                            println!("   prodigy resume <workflow_id> <workflow_file_path>");
                             std::process::exit(2); // ARGUMENT_ERROR
                         }
                     }

@@ -87,7 +87,7 @@ mod tests {
             "agent",
             Variable::Static(json!({
                 "id": "agent-001",
-                "worktree": "/tmp/worktree-001"
+                "worktree": "<test-worktree-path>"
             })),
         );
 
@@ -96,7 +96,7 @@ mod tests {
 
         assert_eq!(
             result,
-            "Processing src/main.rs (attempt 2) in /tmp/worktree-001"
+            "Processing src/main.rs (attempt 2) in <test-worktree-path>"
         );
     }
 

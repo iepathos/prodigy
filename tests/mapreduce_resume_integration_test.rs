@@ -25,6 +25,15 @@ use std::sync::Arc;
 use tempfile::TempDir;
 use tokio::sync::Mutex;
 
+/// Create a temporary worktree path for testing
+fn create_test_worktree_path(id: &str) -> PathBuf {
+    let temp_dir = TempDir::new().expect("Failed to create temp directory");
+    let path = temp_dir.path().join(format!("worktree-{}", id));
+    // Keep the path but let TempDir clean up automatically when test completes
+    std::mem::forget(temp_dir);
+    path
+}
+
 /// Mock user interaction for testing
 struct MockUserInteraction {
     default_yes: bool,
@@ -165,7 +174,7 @@ async fn create_partial_job_state(
                 files_modified: vec![],
                 duration: std::time::Duration::from_secs(5),
                 error: None,
-                worktree_path: Some(PathBuf::from(format!("/tmp/worktree-{}", i))),
+                worktree_path: Some(create_test_worktree_path(&i.to_string())),
                 branch_name: None,
                 worktree_session_id: None,
             },
@@ -197,7 +206,7 @@ async fn create_partial_job_state(
                 files_modified: vec![],
                 duration: std::time::Duration::from_secs(3),
                 error: Some("Simulated error".to_string()),
-                worktree_path: Some(PathBuf::from(format!("/tmp/worktree-{}", i))),
+                worktree_path: Some(create_test_worktree_path(&i.to_string())),
                 branch_name: None,
                 worktree_session_id: None,
             },
@@ -606,7 +615,7 @@ async fn test_cross_worktree_coordination() {
                 files_modified: vec![],
                 duration: std::time::Duration::from_secs(1),
                 error: None,
-                worktree_path: Some(PathBuf::from("/tmp/worktree-1")),
+                worktree_path: Some(create_test_worktree_path("1")),
                 branch_name: None,
                 worktree_session_id: None,
             },
@@ -638,7 +647,7 @@ async fn test_cross_worktree_coordination() {
                 files_modified: vec![],
                 duration: std::time::Duration::from_secs(1),
                 error: None,
-                worktree_path: Some(PathBuf::from("/tmp/worktree-2")),
+                worktree_path: Some(create_test_worktree_path("2")),
                 branch_name: None,
                 worktree_session_id: None,
             },
@@ -664,12 +673,24 @@ async fn test_cross_worktree_coordination() {
     let wt1_results = final_state
         .agent_results
         .values()
-        .filter(|r| r.worktree_path == Some(PathBuf::from("/tmp/worktree-1")))
+        .filter(|r| {
+            r.worktree_path
+                .as_ref()
+                .map(|p| p.file_name().and_then(|n| n.to_str()).unwrap_or(""))
+                .unwrap_or("")
+                == "worktree-1"
+        })
         .count();
     let wt2_results = final_state
         .agent_results
         .values()
-        .filter(|r| r.worktree_path == Some(PathBuf::from("/tmp/worktree-2")))
+        .filter(|r| {
+            r.worktree_path
+                .as_ref()
+                .map(|p| p.file_name().and_then(|n| n.to_str()).unwrap_or(""))
+                .unwrap_or("")
+                == "worktree-2"
+        })
         .count();
 
     assert!(wt1_results > 0, "Should have results from worktree 1");

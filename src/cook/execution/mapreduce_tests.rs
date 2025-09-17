@@ -215,7 +215,7 @@ fn test_agent_result_serialization() {
         commits: vec!["abc123".to_string(), "def456".to_string()],
         duration: Duration::from_secs(10),
         error: None,
-        worktree_path: Some(PathBuf::from("/tmp/worktree")),
+        worktree_path: Some(PathBuf::from("<test-worktree-path>")),
         branch_name: Some("prodigy-agent-123-test_item".to_string()),
         worktree_session_id: Some("prodigy-session-123".to_string()),
         files_modified: vec!["src/main.rs".to_string()],

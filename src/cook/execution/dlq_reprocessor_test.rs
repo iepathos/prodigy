@@ -11,6 +11,15 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tempfile::TempDir;
 
+/// Create a temporary worktree path for testing
+fn create_test_worktree_path(id: &str) -> PathBuf {
+    let temp_dir = TempDir::new().expect("Failed to create temp directory");
+    let path = temp_dir.path().join(format!("worktree-{}", id));
+    // Keep the path but let TempDir clean up automatically when test completes
+    std::mem::forget(temp_dir);
+    path
+}
+
 /// Create a test DLQ with sample items
 async fn create_test_dlq_with_items(
     job_id: &str,
@@ -545,7 +554,7 @@ async fn test_integration_end_to_end_dlq_retry_with_mock_failures() {
                 error_signature: format!("error-sig-{}", i % 7),
                 worktree_artifacts: if i % 5 == 0 {
                     Some(WorktreeArtifacts {
-                        worktree_path: PathBuf::from(format!("/tmp/worktree-{}", i)),
+                        worktree_path: create_test_worktree_path(&i.to_string()),
                         branch_name: format!("branch-{}", i),
                         uncommitted_changes: None,
                         error_logs: None,

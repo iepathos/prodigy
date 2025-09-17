@@ -190,7 +190,7 @@ mod tests {
             commits: vec!["abc123".to_string()],
             duration: Duration::from_secs(5),
             error: None,
-            worktree_path: Some(PathBuf::from("/tmp/worktree")),
+            worktree_path: Some(PathBuf::from("<test-worktree-path>")),
             branch_name: Some("feature-1".to_string()),
             worktree_session_id: Some("session-1".to_string()),
             files_modified: vec!["file1.rs".to_string()],
