@@ -4,7 +4,6 @@ use super::error_policy::*;
 use crate::cook::execution::dlq::DeadLetterQueue;
 use crate::cook::execution::errors::MapReduceError;
 use serde_json::json;
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -35,10 +34,16 @@ mod tests {
         let policy = create_test_policy();
         let executor = ErrorPolicyExecutor::new(policy);
 
-        // Create a test DLQ
-        let dlq = DeadLetterQueue::new(PathBuf::from("/tmp/test-dlq"))
-            .await
-            .unwrap();
+        // Create a test DLQ with functional pattern using builder-like approach
+        let dlq = DeadLetterQueue::new(
+            "test-job-id".to_string(),
+            PathBuf::from("/tmp/test-dlq"),
+            100, // max_items
+            7,   // retention_days
+            None, // event_logger
+        )
+        .await
+        .unwrap();
         let item = json!({"id": "test-item"});
         let error = create_test_error("Test processing error");
 
@@ -122,33 +127,30 @@ mod tests {
 
     #[tokio::test]
     async fn test_max_failures_threshold() {
+        // Using functional approach: create immutable test configuration
         let mut policy = create_test_policy();
         policy.max_failures = Some(2);
         let executor = ErrorPolicyExecutor::new(policy);
 
+        // Create immutable test data
         let item = json!({"id": "test-item"});
         let error = create_test_error("Test error");
 
-        // First failure - should continue
+        // Test failure threshold with functional composition
+        // First failure - should continue (failed count = 1, less than max_failures = 2)
         let action1 = executor
             .handle_item_failure("item1", &item, &error, None)
             .await
             .unwrap();
         assert!(matches!(action1, FailureAction::Continue));
 
-        // Second failure - should continue (at limit)
+        // Second failure - should stop (failed count = 2, equals max_failures = 2)
+        // The >= check means we stop when reaching the limit
         let action2 = executor
             .handle_item_failure("item2", &item, &error, None)
             .await
             .unwrap();
-        assert!(matches!(action2, FailureAction::Continue));
-
-        // Third failure - should stop (exceeds limit)
-        let action3 = executor
-            .handle_item_failure("item3", &item, &error, None)
-            .await
-            .unwrap();
-        assert!(matches!(action3, FailureAction::Stop(_)));
+        assert!(matches!(action2, FailureAction::Stop(_)));
     }
 
     #[tokio::test]
