@@ -240,6 +240,12 @@ pub struct CIIntegration {
     detector: RegressionDetector,
 }
 
+impl Default for CIIntegration {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CIIntegration {
     pub fn new() -> Self {
         Self {
@@ -318,7 +324,7 @@ impl CIIntegration {
 
                 prev_mean = Some(point.mean_ns);
             }
-            report.push_str("\n");
+            report.push('\n');
         }
 
         report
@@ -327,6 +333,7 @@ impl CIIntegration {
 
 #[cfg(test)]
 mod tests {
+    #[allow(unused_imports)]
     use super::*;
 
     #[test]

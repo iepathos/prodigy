@@ -1,8 +1,9 @@
 //! Performance benchmarks for storage operations
 
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use prodigy::storage::GlobalStorage;
 use serde_json::json;
+use std::hint::black_box;
 use std::time::Duration;
 use tempfile::TempDir;
 use tokio::runtime::Runtime;

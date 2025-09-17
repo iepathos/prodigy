@@ -13,6 +13,7 @@ use tokio::runtime::Runtime;
 
 /// Simulated work item structure for benchmarking
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 struct WorkItem {
     id: String,
     data: serde_json::Value,
@@ -79,6 +80,7 @@ fn create_work_items(count: usize, size: &str) -> Vec<WorkItem> {
 
 /// Simulated MapReduce job structure
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 struct MapReduceJob {
     job_id: String,
     workflow_id: String,
@@ -153,7 +155,7 @@ fn bench_work_item_distribution(c: &mut Criterion) {
                     |(items, _storage, _temp_dir)| async move {
                         // Simulate work item distribution
                         let chunks: Vec<_> = items
-                            .chunks(items.len() / 10.max(1))
+                            .chunks(items.len() / 10)
                             .map(|chunk| chunk.to_vec())
                             .collect();
                         black_box(chunks);
