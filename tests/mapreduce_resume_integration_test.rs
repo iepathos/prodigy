@@ -3,19 +3,16 @@
 //! Tests end-to-end workflow resumption including cross-worktree coordination
 
 use prodigy::cook::execution::dlq::DeadLetterQueue;
-use prodigy::cook::execution::events::{EventLogger, JsonlEventWriter, MapReduceEvent};
-use prodigy::cook::execution::mapreduce::{
-    AgentResult, AgentStatus, MapPhase, MapReduceConfig, MapReduceExecutor, ReducePhase,
-};
+use prodigy::cook::execution::events::{EventLogger, JsonlEventWriter};
+use prodigy::cook::execution::mapreduce::{AgentResult, AgentStatus, MapReduceConfig, MapReduceExecutor};
 use prodigy::cook::execution::mapreduce_resume::{
-    EnhancedResumeOptions, EnhancedResumeResult, MapReduceResumeManager,
+    EnhancedResumeOptions, EnhancedResumeResult, MapReducePhase, MapReduceResumeManager,
 };
-use prodigy::cook::execution::state::{DefaultJobStateManager, MapReduceJobState};
-use prodigy::cook::execution::ClaudeExecutor;
-use prodigy::cook::interaction::{MockUserInteraction, UserInteraction};
-use prodigy::cook::orchestrator::ExecutionEnvironment;
-use prodigy::cook::session::{MockSessionManager, SessionManager};
-use prodigy::cook::workflow::{CommandType, WorkflowStep};
+use prodigy::cook::execution::state::{DefaultJobStateManager, FailureRecord, MapReduceJobState};
+use prodigy::cook::execution::{ClaudeExecutor, ExecutionResult};
+use prodigy::cook::interaction::{SpinnerHandle, UserInteraction, VerbosityLevel};
+use prodigy::cook::workflow::{CaptureOutput, WorkflowStep};
+use prodigy::testing::mocks::MockSessionManager;
 use prodigy::worktree::WorktreeManager;
 use serde_json::json;
 use std::collections::{HashMap, HashSet};
@@ -23,6 +20,56 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tempfile::TempDir;
 use tokio::sync::Mutex;
+
+/// Mock user interaction for testing
+struct MockUserInteraction {
+    default_yes: bool,
+}
+
+impl MockUserInteraction {
+    fn new() -> Self {
+        Self { default_yes: true }
+    }
+}
+
+struct MockSpinnerHandle;
+
+impl SpinnerHandle for MockSpinnerHandle {
+    fn update(&self, _message: &str) {}
+    fn finish(&self, _message: Option<&str>) {}
+}
+
+#[async_trait::async_trait]
+impl UserInteraction for MockUserInteraction {
+    async fn prompt_yes_no(&self, _message: &str) -> anyhow::Result<bool> {
+        Ok(self.default_yes)
+    }
+
+    async fn prompt_text(&self, _message: &str, _default: Option<&str>) -> anyhow::Result<String> {
+        Ok(String::from("test"))
+    }
+
+    fn display_info(&self, _message: &str) {}
+    fn display_warning(&self, _message: &str) {}
+    fn display_error(&self, _message: &str) {}
+    fn display_progress(&self, _message: &str) {}
+    fn start_spinner(&self, _message: &str) -> Box<dyn SpinnerHandle> {
+        Box::new(MockSpinnerHandle)
+    }
+    fn display_success(&self, _message: &str) {}
+    fn display_action(&self, _message: &str) {}
+    fn display_metric(&self, _label: &str, _value: &str) {}
+    fn display_status(&self, _message: &str) {}
+    fn iteration_start(&self, _current: u32, _total: u32) {}
+    fn iteration_end(&self, _current: u32, _duration: std::time::Duration, _success: bool) {}
+    fn step_start(&self, _step: u32, _total: u32, _description: &str) {}
+    fn step_end(&self, _step: u32, _success: bool) {}
+    fn command_output(&self, _output: &str, _verbosity: VerbosityLevel) {}
+    fn debug_output(&self, _message: &str, _min_verbosity: VerbosityLevel) {}
+    fn verbosity(&self) -> VerbosityLevel {
+        VerbosityLevel::Normal
+    }
+}
 
 /// Mock Claude executor for testing
 struct MockClaudeExecutor {
@@ -45,19 +92,33 @@ impl MockClaudeExecutor {
 
 #[async_trait::async_trait]
 impl ClaudeExecutor for MockClaudeExecutor {
-    async fn execute(
+    async fn execute_claude_command(
         &self,
         command: &str,
-        _working_dir: &std::path::Path,
-        _env_vars: &HashMap<String, String>,
-        _verbose: bool,
-    ) -> anyhow::Result<String> {
+        _project_path: &std::path::Path,
+        _env_vars: HashMap<String, String>,
+    ) -> anyhow::Result<ExecutionResult> {
         let results = self.results.lock().await;
-        if let Some(result) = results.get(command) {
-            Ok(result.clone())
+        let output = if let Some(result) = results.get(command) {
+            result.clone()
         } else {
-            Ok(format!("Mock output for: {}", command))
-        }
+            format!("Mock output for: {}", command)
+        };
+
+        Ok(ExecutionResult {
+            success: true,
+            stdout: output,
+            stderr: String::new(),
+            exit_code: Some(0),
+        })
+    }
+
+    async fn check_claude_cli(&self) -> anyhow::Result<bool> {
+        Ok(true)
+    }
+
+    async fn get_claude_version(&self) -> anyhow::Result<String> {
+        Ok("mock-claude-1.0.0".to_string())
     }
 }
 
@@ -67,6 +128,7 @@ async fn create_partial_job_state(
     completed: usize,
     total: usize,
 ) -> MapReduceJobState {
+
     let config = MapReduceConfig {
         input: "test.json".to_string(),
         json_path: "$.items[*]".to_string(),
@@ -86,81 +148,137 @@ async fn create_partial_job_state(
         agent_results.insert(
             agent_id.clone(),
             AgentResult {
-                agent_id: agent_id.clone(),
-                work_item: json!({"id": i, "value": format!("item-{}", i)}),
+                item_id: agent_id.clone(),
                 status: AgentStatus::Success,
                 output: Some(format!("Processed item {}", i)),
-                error: None,
-                retries: 0,
+                commits: vec![],
+                files_modified: vec![],
                 duration: std::time::Duration::from_secs(5),
-                worktree_path: PathBuf::from(format!("/tmp/worktree-{}", i)),
+                error: None,
+                worktree_path: Some(PathBuf::from(format!("/tmp/worktree-{}", i))),
+                branch_name: None,
+                worktree_session_id: None,
             },
         );
     }
 
     // Add some failed agents for testing recovery
     let failed_count = 2.min(total - completed);
-    let mut failed_agents = HashSet::new();
+    let mut failed_agents = HashMap::new();
     for i in completed..(completed + failed_count) {
         let agent_id = format!("agent-{}", i);
-        failed_agents.insert(agent_id.clone());
+        failed_agents.insert(
+            agent_id.clone(),
+            FailureRecord {
+                item_id: agent_id.clone(),
+                attempts: 1,
+                last_error: "Simulated failure".to_string(),
+                last_attempt: chrono::Utc::now(),
+                worktree_info: None,
+            },
+        );
         agent_results.insert(
             agent_id.clone(),
             AgentResult {
-                agent_id: agent_id.clone(),
-                work_item: json!({"id": i, "value": format!("item-{}", i)}),
+                item_id: agent_id.clone(),
                 status: AgentStatus::Failed("Simulated failure".to_string()),
                 output: None,
-                error: Some("Simulated error".to_string()),
-                retries: 1,
+                commits: vec![],
+                files_modified: vec![],
                 duration: std::time::Duration::from_secs(3),
-                worktree_path: PathBuf::from(format!("/tmp/worktree-{}", i)),
+                error: Some("Simulated error".to_string()),
+                worktree_path: Some(PathBuf::from(format!("/tmp/worktree-{}", i))),
+                branch_name: None,
+                worktree_session_id: None,
             },
         );
     }
 
-    let agent_commands = vec![WorkflowStep {
-        command_type: CommandType::Claude,
-        command: "/process ${item}".to_string(),
-        arguments: None,
+    let agent_template = vec![WorkflowStep {
+        name: None,
+        claude: Some("/process ${item}".to_string()),
+        shell: None,
+        test: None,
+        goal_seek: None,
+        foreach: None,
+        command: None,
+        modular: None,
         outputs: None,
         on_failure: None,
         commit_required: false,
         skip_on_dry_run: false,
+        description: None,
+        id: None,
+        when: None,
         interpolations: vec![],
+        ignore_errors: false,
+        retry: None,
+        timeout: None,
+        environment: None,
+        working_directory: None,
+        capture_output: CaptureOutput::Disabled,
     }];
 
     let reduce_commands = if total > 0 {
         Some(vec![WorkflowStep {
-            command_type: CommandType::Claude,
-            command: "/summarize ${map.results}".to_string(),
-            arguments: None,
+            name: None,
+            claude: Some("/summarize ${map.results}".to_string()),
+            shell: None,
+            test: None,
+            goal_seek: None,
+            foreach: None,
+            command: None,
+            modular: None,
             outputs: None,
             on_failure: None,
             commit_required: false,
             skip_on_dry_run: false,
+            description: None,
+            id: None,
+            when: None,
             interpolations: vec![],
+            ignore_errors: false,
+            retry: None,
+            timeout: None,
+            environment: None,
+            working_directory: None,
+            capture_output: CaptureOutput::Disabled,
         }])
     } else {
         None
     };
 
+    // Create work items
+    let work_items: Vec<serde_json::Value> = (0..total)
+        .map(|i| json!({"id": i, "value": format!("item-{}", i)}))
+        .collect();
+
+    // Create pending items list
+    let pending_items: Vec<String> = (0..total)
+        .map(|i| format!("item_{}", i))
+        .filter(|id| !completed_agents.contains(id))
+        .collect();
+
     MapReduceJobState {
         job_id: job_id.to_string(),
         config,
-        phase: prodigy::cook::execution::state::MapReducePhase::Map,
+        started_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+        work_items,
+        agent_results,
         completed_agents,
         failed_agents,
-        agent_results,
+        pending_items,
+        checkpoint_version: 1,
+        checkpoint_format_version: 1,
+        parent_worktree: None,
+        reduce_phase_state: None,
+        total_items: total,
         successful_count: completed,
         failed_count: failed_count,
-        total_items: total,
-        start_time: chrono::Utc::now(),
-        last_checkpoint: chrono::Utc::now(),
-        checkpoint_version: 1,
-        agent_commands,
+        is_complete: false,
+        agent_template,
         reduce_commands,
-        reduce_phase_state: None,
     }
 }
 
@@ -231,7 +349,7 @@ async fn test_resume_workflow_from_checkpoint() {
         } => {
             assert_eq!(
                 phase,
-                prodigy::cook::execution::state::MapReducePhase::Map
+                MapReducePhase::Map
             );
             assert!(map_phase.is_some());
             // Should have 5 remaining items (7 not completed - 2 failed that might be in DLQ)
@@ -338,13 +456,17 @@ async fn test_resume_completed_workflow() {
 
     // Create fully completed state
     let mut completed_state = create_partial_job_state(job_id, 10, 10).await;
-    completed_state.phase = prodigy::cook::execution::state::MapReducePhase::Complete;
+    completed_state.phase = MapReducePhase::Complete;
 
     // Add reduce phase result
     completed_state.reduce_phase_state = Some(prodigy::cook::execution::state::ReducePhaseState {
-        started_at: chrono::Utc::now(),
+        started: true,
         completed: true,
+        executed_commands: vec!["/summarize".to_string()],
         output: Some(json!({"summary": "All 10 items processed successfully"}).to_string()),
+        error: None,
+        started_at: Some(chrono::Utc::now()),
+        completed_at: Some(chrono::Utc::now()),
     });
 
     state_manager
@@ -404,14 +526,16 @@ async fn test_cross_worktree_coordination() {
         state1.agent_results.insert(
             agent_id.clone(),
             AgentResult {
-                agent_id: agent_id.clone(),
-                work_item: json!({"id": i}),
+                item_id: agent_id.clone(),
                 status: AgentStatus::Success,
                 output: Some(format!("Worktree 1 processed {}", i)),
-                error: None,
-                retries: 0,
+                commits: vec![],
+                files_modified: vec![],
                 duration: std::time::Duration::from_secs(1),
-                worktree_path: PathBuf::from("/tmp/worktree-1"),
+                error: None,
+                worktree_path: Some(PathBuf::from("/tmp/worktree-1")),
+                branch_name: None,
+                worktree_session_id: None,
             },
         );
         state1.successful_count += 1;
@@ -426,14 +550,16 @@ async fn test_cross_worktree_coordination() {
         state2.agent_results.insert(
             agent_id.clone(),
             AgentResult {
-                agent_id: agent_id.clone(),
-                work_item: json!({"id": i}),
+                item_id: agent_id.clone(),
                 status: AgentStatus::Success,
                 output: Some(format!("Worktree 2 processed {}", i)),
-                error: None,
-                retries: 0,
+                commits: vec![],
+                files_modified: vec![],
                 duration: std::time::Duration::from_secs(1),
-                worktree_path: PathBuf::from("/tmp/worktree-2"),
+                error: None,
+                worktree_path: Some(PathBuf::from("/tmp/worktree-2")),
+                branch_name: None,
+                worktree_session_id: None,
             },
         );
         state2.successful_count += 1;
@@ -449,12 +575,12 @@ async fn test_cross_worktree_coordination() {
     let wt1_results: Vec<_> = final_state
         .agent_results
         .values()
-        .filter(|r| r.worktree_path == PathBuf::from("/tmp/worktree-1"))
+        .filter(|r| r.worktree_path == Some(PathBuf::from("/tmp/worktree-1")))
         .count();
     let wt2_results: Vec<_> = final_state
         .agent_results
         .values()
-        .filter(|r| r.worktree_path == PathBuf::from("/tmp/worktree-2"))
+        .filter(|r| r.worktree_path == Some(PathBuf::from("/tmp/worktree-2")))
         .count();
 
     assert!(wt1_results > 0, "Should have results from worktree 1");
@@ -509,7 +635,7 @@ async fn test_force_resume_completed_job() {
 
     // Create completed state
     let mut completed_state = create_partial_job_state(job_id, 5, 5).await;
-    completed_state.phase = prodigy::cook::execution::state::MapReducePhase::Complete;
+    completed_state.phase = MapReducePhase::Complete;
 
     state_manager
         .save_checkpoint(job_id, completed_state.clone())
