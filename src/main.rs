@@ -1435,7 +1435,7 @@ async fn run_resume_workflow(
                                 .map(|p| p.display())
                                 .collect::<Vec<_>>()
                         );
-                        std::process::exit(1);
+                        std::process::exit(2);  // ARGUMENT_ERROR
                     }
                 } else {
                     // If no workflow name, try to find any YAML file
@@ -1458,7 +1458,7 @@ async fn run_resume_workflow(
                         println!("⚠️  Checkpoint doesn't contain workflow file information.");
                         println!("   Found {} YAML files: {:?}", yaml_files.len(), yaml_files);
                         println!("   Please specify the workflow file path with --path");
-                        std::process::exit(1);
+                        std::process::exit(2);  // ARGUMENT_ERROR
                     }
                 };
 
@@ -1575,7 +1575,17 @@ async fn run_resume_workflow(
 fn handle_fatal_error(error: anyhow::Error) -> ! {
     error!("Fatal error: {}", error);
     eprintln!("Error: {error}");
-    std::process::exit(1)
+
+    // Determine exit code based on error type/message
+    let exit_code = if error.to_string().contains("No workflow ID provided") ||
+                       error.to_string().contains("required") ||
+                       error.to_string().contains("Please specify") {
+        2  // ARGUMENT_ERROR
+    } else {
+        1  // GENERAL_ERROR
+    };
+
+    std::process::exit(exit_code)
 }
 
 #[tokio::main]

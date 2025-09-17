@@ -15,21 +15,38 @@ fn create_test_checkpoint(
     total_commands: usize,
     variables: serde_json::Value
 ) {
-    let checkpoint_path = checkpoint_dir.join(format!("{}.json", workflow_id));
+    let checkpoint_path = checkpoint_dir.join(format!("{}.checkpoint.json", workflow_id));
 
+    // Create a properly structured WorkflowCheckpoint
+    let now = chrono::Utc::now();
     let checkpoint = json!({
         "workflow_id": workflow_id,
-        "workflow_path": "test.yaml",
-        "commands_executed": commands_executed,
-        "total_commands": total_commands,
-        "variables": variables,
-        "timestamp": chrono::Utc::now().to_rfc3339(),
-        "status": "interrupted",
-        "last_successful_command": commands_executed.saturating_sub(1),
-        "retry_state": {
-            "attempts": 0,
-            "max_attempts": 3
-        }
+        "execution_state": {
+            "current_step_index": commands_executed,
+            "total_steps": total_commands,
+            "status": "Interrupted",
+            "start_time": now.to_rfc3339(),
+            "last_checkpoint": now.to_rfc3339(),
+            "current_iteration": null,
+            "total_iterations": null
+        },
+        "completed_steps": (0..commands_executed).map(|i| {
+            json!({
+                "step_index": i,
+                "step_name": format!("cmd{}", i + 1),
+                "output": format!("Command {} output", i + 1),
+                "captured_variables": {},
+                "exit_code": 0
+            })
+        }).collect::<Vec<_>>(),
+        "variable_state": variables,
+        "mapreduce_state": null,
+        "timestamp": now.to_rfc3339(),
+        "version": 1,
+        "workflow_hash": "test-hash",
+        "total_steps": total_commands,
+        "workflow_name": "test",
+        "workflow_path": "test.yaml"
     });
 
     fs::create_dir_all(checkpoint_dir).unwrap();
@@ -63,12 +80,13 @@ commands:
 
 #[test]
 fn test_resume_from_early_interruption() {
-    let test_dir = TempDir::new().unwrap();
-    let checkpoint_dir = test_dir.path().join(".prodigy").join("checkpoints");
-    let workflow_dir = test_dir.path();
+    // Create CliTest first to get its temp directory
+    let mut test = CliTest::new();
+    let test_dir = test.temp_path().to_path_buf();
+    let checkpoint_dir = test_dir.join(".prodigy").join("checkpoints");
 
     // Create workflow file
-    let _workflow_path = create_test_workflow(&workflow_dir, "test.yaml");
+    let _workflow_path = create_test_workflow(&test_dir, "test.yaml");
 
     // Create checkpoint after 1 command
     let workflow_id = "resume-early-12345";
@@ -81,11 +99,9 @@ fn test_resume_from_early_interruption() {
     create_test_checkpoint(&checkpoint_dir, workflow_id, 1, 5, variables);
 
     // Resume the workflow
-    let mut test = CliTest::new()
+    test = test
         .arg("resume")
         .arg(workflow_id)
-        .arg("--path")
-        .arg(test_dir.path().to_str().unwrap())
         .env("PRODIGY_TEST_MODE", "true");
 
     let output = test.run();
@@ -230,7 +246,7 @@ commands:
 
     fs::create_dir_all(&checkpoint_dir).unwrap();
     fs::write(
-        checkpoint_dir.join(format!("{}.json", workflow_id)),
+        checkpoint_dir.join(format!("{}.checkpoint.json", workflow_id)),
         serde_json::to_string_pretty(&checkpoint).unwrap()
     ).unwrap();
 
@@ -258,37 +274,64 @@ commands:
 
 #[test]
 fn test_resume_completed_workflow() {
-    let test_dir = TempDir::new().unwrap();
-    let checkpoint_dir = test_dir.path().join(".prodigy").join("checkpoints");
+    // Create CliTest first to get its temp directory
+    let mut test = CliTest::new();
+    let test_dir = test.temp_path().to_path_buf();
+    let checkpoint_dir = test_dir.join(".prodigy").join("checkpoints");
 
     // Create a completed checkpoint
     let workflow_id = "resume-complete-33333";
+    let now = chrono::Utc::now();
     let checkpoint = json!({
         "workflow_id": workflow_id,
-        "workflow_path": "test.yaml",
-        "commands_executed": 5,
-        "total_commands": 5,
-        "variables": {},
-        "timestamp": chrono::Utc::now().to_rfc3339(),
-        "status": "completed"
+        "execution_state": {
+            "current_step_index": 5,
+            "total_steps": 5,
+            "status": "Completed",
+            "start_time": now.to_rfc3339(),
+            "last_checkpoint": now.to_rfc3339(),
+            "current_iteration": null,
+            "total_iterations": null
+        },
+        "completed_steps": (0..5).map(|i| {
+            json!({
+                "step_index": i,
+                "step_name": format!("cmd{}", i + 1),
+                "output": format!("Command {} output", i + 1),
+                "captured_variables": {},
+                "exit_code": 0
+            })
+        }).collect::<Vec<_>>(),
+        "variable_state": {},
+        "mapreduce_state": null,
+        "timestamp": now.to_rfc3339(),
+        "version": 1,
+        "workflow_hash": "test-hash",
+        "total_steps": 5,
+        "workflow_name": "test",
+        "workflow_path": "test.yaml"
     });
 
     fs::create_dir_all(&checkpoint_dir).unwrap();
     fs::write(
-        checkpoint_dir.join(format!("{}.json", workflow_id)),
+        checkpoint_dir.join(format!("{}.checkpoint.json", workflow_id)),
         serde_json::to_string_pretty(&checkpoint).unwrap()
     ).unwrap();
 
     // Try to resume completed workflow
-    let mut test = CliTest::new()
+    test = test
         .arg("resume")
-        .arg(workflow_id)
-        .arg("--path")
-        .arg(test_dir.path().to_str().unwrap());
+        .arg(workflow_id);
 
     let output = test.run();
 
     // Should indicate workflow is already complete
+    if output.exit_code != exit_codes::SUCCESS {
+        eprintln!("Resume test failed:");
+        eprintln!("  Exit code: {}", output.exit_code);
+        eprintln!("  Stdout: {}", output.stdout);
+        eprintln!("  Stderr: {}", output.stderr);
+    }
     assert_eq!(output.exit_code, exit_codes::SUCCESS);
     assert!(output.stdout_contains("already completed") ||
             output.stdout_contains("nothing to resume"));
@@ -373,7 +416,7 @@ commands:
 
     fs::create_dir_all(&checkpoint_dir).unwrap();
     fs::write(
-        checkpoint_dir.join(format!("{}.json", workflow_id)),
+        checkpoint_dir.join(format!("{}.checkpoint.json", workflow_id)),
         serde_json::to_string_pretty(&checkpoint).unwrap()
     ).unwrap();
 
@@ -547,7 +590,7 @@ reduce:
 
     fs::create_dir_all(&checkpoint_dir).unwrap();
     fs::write(
-        checkpoint_dir.join(format!("{}.json", workflow_id)),
+        checkpoint_dir.join(format!("{}.checkpoint.json", workflow_id)),
         serde_json::to_string_pretty(&checkpoint).unwrap()
     ).unwrap();
 

@@ -88,10 +88,15 @@ impl ResumeExecutor {
         if checkpoint.execution_state.status == checkpoint::WorkflowStatus::Completed
             && !options.force
         {
-            return Err(anyhow!(
-                "Workflow {} is already complete. Use --force to re-run.",
-                workflow_id
-            ));
+            // Return success with a message that the workflow is already complete
+            println!("Workflow {} is already completed - nothing to resume", workflow_id);
+            return Ok(ResumeResult {
+                success: true,
+                total_steps_executed: checkpoint.execution_state.current_step_index,
+                skipped_steps: checkpoint.execution_state.current_step_index,
+                new_steps_executed: 0,
+                final_context: WorkflowContext::default(),
+            });
         }
 
         // Build resume context
@@ -267,6 +272,20 @@ impl ResumeExecutor {
         // Validate checkpoint
         if !options.skip_validation {
             self.validate_checkpoint(&checkpoint)?;
+        }
+
+        // Check if workflow is already complete
+        if checkpoint.execution_state.status == checkpoint::WorkflowStatus::Completed
+            && !options.force
+        {
+            println!("Workflow {} is already completed - nothing to resume", workflow_id);
+            return Ok(ResumeResult {
+                success: true,
+                total_steps_executed: checkpoint.execution_state.current_step_index,
+                skipped_steps: checkpoint.execution_state.current_step_index,
+                new_steps_executed: 0,
+                final_context: WorkflowContext::default(),
+            });
         }
 
         // Load the workflow file
