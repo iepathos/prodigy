@@ -15,42 +15,49 @@ fn create_test_checkpoint(
     total_commands: usize,
     variables: serde_json::Value
 ) {
-    let checkpoint_path = checkpoint_dir.join(format!("{}.checkpoint.json", workflow_id));
+    // The checkpoint_dir is .prodigy/checkpoints, but we need to save in .prodigy
+    let session_dir = checkpoint_dir.parent().unwrap();
 
-    // Create a properly structured WorkflowCheckpoint
+    // Create a properly structured SessionState
     let now = chrono::Utc::now();
-    let checkpoint = json!({
-        "workflow_id": workflow_id,
-        "execution_state": {
-            "current_step_index": commands_executed,
+    let session_state = json!({
+        "session_id": workflow_id,
+        "status": "Interrupted",
+        "started_at": now.to_rfc3339(),
+        "worktree_name": format!("prodigy-session-{}", workflow_id),
+        "workflow_state": {
+            "current_step": commands_executed,
             "total_steps": total_commands,
-            "status": "Interrupted",
-            "start_time": now.to_rfc3339(),
-            "last_checkpoint": now.to_rfc3339(),
-            "current_iteration": null,
-            "total_iterations": null
+            "completed_steps": (0..commands_executed).map(|i| {
+                json!({
+                    "index": i,
+                    "name": format!("cmd{}", i + 1),
+                    "output": format!("Command {} output", i + 1),
+                    "exit_code": 0
+                })
+            }).collect::<Vec<_>>(),
+            "variables": variables,
+            "workflow_path": "test.yaml"
         },
-        "completed_steps": (0..commands_executed).map(|i| {
-            json!({
-                "step_index": i,
-                "step_name": format!("cmd{}", i + 1),
-                "output": format!("Command {} output", i + 1),
-                "captured_variables": {},
-                "exit_code": 0
-            })
-        }).collect::<Vec<_>>(),
-        "variable_state": variables,
-        "mapreduce_state": null,
-        "timestamp": now.to_rfc3339(),
-        "version": 1,
-        "workflow_hash": "test-hash",
-        "total_steps": total_commands,
-        "workflow_name": "test",
-        "workflow_path": "test.yaml"
+        "last_checkpoint": {
+            "timestamp": now.to_rfc3339(),
+            "step_index": commands_executed,
+            "last_command": format!("cmd{}", commands_executed),
+            "last_command_type": "Shell"
+        },
+        "is_resumable": true
     });
 
-    fs::create_dir_all(checkpoint_dir).unwrap();
-    fs::write(checkpoint_path, serde_json::to_string_pretty(&checkpoint).unwrap()).unwrap();
+    // Save as both session_state.json and session-specific file
+    fs::create_dir_all(session_dir).unwrap();
+    fs::write(
+        session_dir.join("session_state.json"),
+        serde_json::to_string_pretty(&session_state).unwrap()
+    ).unwrap();
+    fs::write(
+        session_dir.join(format!("{}.json", workflow_id)),
+        serde_json::to_string_pretty(&session_state).unwrap()
+    ).unwrap();
 }
 
 /// Helper to create a test workflow file
@@ -102,6 +109,8 @@ fn test_resume_from_early_interruption() {
     test = test
         .arg("resume")
         .arg(workflow_id)
+        .arg("--path")
+        .arg(test_dir.to_str().unwrap())
         .env("PRODIGY_TEST_MODE", "true");
 
     let output = test.run();
@@ -277,60 +286,64 @@ fn test_resume_completed_workflow() {
     // Create CliTest first to get its temp directory
     let mut test = CliTest::new();
     let test_dir = test.temp_path().to_path_buf();
-    let checkpoint_dir = test_dir.join(".prodigy").join("checkpoints");
+    let session_dir = test_dir.join(".prodigy");
 
-    // Create a completed checkpoint
+    // Create a completed session state in the format SessionTracker expects
     let workflow_id = "resume-complete-33333";
     let now = chrono::Utc::now();
-    let checkpoint = json!({
-        "workflow_id": workflow_id,
-        "execution_state": {
-            "current_step_index": 5,
+    let session_state = json!({
+        "session_id": workflow_id,
+        "status": "Completed",
+        "started_at": now.to_rfc3339(),
+        "completed_at": now.to_rfc3339(),
+        "worktree_name": "prodigy-session-test",
+        "workflow_state": {
+            "current_step": 5,
             "total_steps": 5,
-            "status": "Completed",
-            "start_time": now.to_rfc3339(),
-            "last_checkpoint": now.to_rfc3339(),
-            "current_iteration": null,
-            "total_iterations": null
+            "completed_steps": (0..5).map(|i| {
+                json!({
+                    "index": i,
+                    "name": format!("cmd{}", i + 1),
+                    "output": format!("Command {} output", i + 1),
+                    "exit_code": 0
+                })
+            }).collect::<Vec<_>>(),
+            "variables": {},
+            "workflow_path": "test.yaml"
         },
-        "completed_steps": (0..5).map(|i| {
-            json!({
-                "step_index": i,
-                "step_name": format!("cmd{}", i + 1),
-                "output": format!("Command {} output", i + 1),
-                "captured_variables": {},
-                "exit_code": 0
-            })
-        }).collect::<Vec<_>>(),
-        "variable_state": {},
-        "mapreduce_state": null,
-        "timestamp": now.to_rfc3339(),
-        "version": 1,
-        "workflow_hash": "test-hash",
-        "total_steps": 5,
-        "workflow_name": "test",
-        "workflow_path": "test.yaml"
+        "last_checkpoint": {
+            "timestamp": now.to_rfc3339(),
+            "step_index": 5,
+            "last_command": "test command",
+            "last_command_type": "Shell"
+        },
+        "is_resumable": false
     });
 
-    fs::create_dir_all(&checkpoint_dir).unwrap();
+    // Save as both session_state.json and session-specific file
+    fs::create_dir_all(&session_dir).unwrap();
     fs::write(
-        checkpoint_dir.join(format!("{}.checkpoint.json", workflow_id)),
-        serde_json::to_string_pretty(&checkpoint).unwrap()
+        session_dir.join("session_state.json"),
+        serde_json::to_string_pretty(&session_state).unwrap()
+    ).unwrap();
+    fs::write(
+        session_dir.join(format!("{}.json", workflow_id)),
+        serde_json::to_string_pretty(&session_state).unwrap()
     ).unwrap();
 
     // Try to resume completed workflow
     test = test
         .arg("resume")
-        .arg(workflow_id);
+        .arg(workflow_id)
+        .arg("--path")
+        .arg(test_dir.to_str().unwrap());
 
     let output = test.run();
 
     // Should indicate workflow is already complete
     if output.exit_code != exit_codes::SUCCESS {
-        eprintln!("Resume test failed:");
-        eprintln!("  Exit code: {}", output.exit_code);
-        eprintln!("  Stdout: {}", output.stdout);
-        eprintln!("  Stderr: {}", output.stderr);
+        eprintln!("Test failed - stdout: {}", output.stdout);
+        eprintln!("Test failed - stderr: {}", output.stderr);
     }
     assert_eq!(output.exit_code, exit_codes::SUCCESS);
     assert!(output.stdout_contains("already completed") ||
@@ -453,8 +466,10 @@ fn test_resume_with_checkpoint_cleanup() {
     // Create checkpoint
     create_test_checkpoint(&checkpoint_dir, workflow_id, 4, 5, json!({}));
 
-    let checkpoint_file = checkpoint_dir.join(format!("{}.json", workflow_id));
-    assert!(checkpoint_file.exists(), "Checkpoint should exist before resume");
+    // Session files are saved in .prodigy, not .prodigy/checkpoints
+    let session_dir = checkpoint_dir.parent().unwrap();
+    let session_file = session_dir.join(format!("{}.json", workflow_id));
+    assert!(session_file.exists(), "Session state should exist before resume");
 
     // Resume and complete workflow
     let mut test = CliTest::new()
@@ -471,8 +486,8 @@ fn test_resume_with_checkpoint_cleanup() {
     assert!(output.stdout_contains("Final command executed"));
     assert!(output.stdout_contains("Workflow completed successfully"));
 
-    // Checkpoint should be cleaned up after successful completion
-    assert!(!checkpoint_file.exists(), "Checkpoint should be cleaned up after completion");
+    // Session file should be cleaned up after successful completion
+    assert!(!session_file.exists(), "Session state should be cleaned up after completion");
 }
 
 #[test]
@@ -533,10 +548,11 @@ fn test_resume_multiple_checkpoints() {
     // List available checkpoints (when list command is implemented)
     // This test is a placeholder for when 'prodigy checkpoints list' is added
 
-    // For now, verify checkpoints exist
-    assert!(checkpoint_dir.join("workflow-1.json").exists());
-    assert!(checkpoint_dir.join("workflow-2.json").exists());
-    assert!(checkpoint_dir.join("workflow-3.json").exists());
+    // For now, verify session files exist (in .prodigy, not .prodigy/checkpoints)
+    let session_dir = checkpoint_dir.parent().unwrap();
+    assert!(session_dir.join("workflow-1.json").exists());
+    assert!(session_dir.join("workflow-2.json").exists());
+    assert!(session_dir.join("workflow-3.json").exists());
 }
 
 #[test]
