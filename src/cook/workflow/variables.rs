@@ -600,6 +600,29 @@ impl VariableStore {
         })
     }
 
+    /// Get all variables as a HashMap (flattened, including parent variables)
+    pub fn get_all(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = HashMap<String, CapturedValue>> + Send + '_>> {
+        Box::pin(async move {
+            let mut result = HashMap::new();
+
+            // Get parent variables first (they have lower precedence)
+            if let Some(parent) = &self.parent {
+                let parent_vars = parent.get_all().await;
+                for (k, v) in parent_vars {
+                    result.insert(k, v);
+                }
+            }
+
+            // Override with local variables
+            let vars = self.variables.read().await;
+            for (key, value) in vars.iter() {
+                result.insert(key.clone(), value.clone());
+            }
+
+            result
+        })
+    }
+
     /// Get all variables as JSON for debugging
     pub fn to_json(
         &self,

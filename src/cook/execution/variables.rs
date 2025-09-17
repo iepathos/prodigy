@@ -211,6 +211,49 @@ impl ComputedVariable for DateVariable {
     }
 }
 
+/// Extract a value from JSON using a simple path notation
+/// Supports:
+/// - Simple dot notation: "field.nested.value"
+/// - Array indexing: "items[0]" or "items.0"
+fn extract_json_path(json: &Value, path: &str) -> Option<Value> {
+    let mut current = json;
+
+    // Split path on dots, but handle array notation
+    let parts: Vec<&str> = path.split('.').collect();
+
+    for part in parts {
+        // Check for array indexing notation like "items[0]"
+        if let Some(bracket_pos) = part.find('[') {
+            if let Some(close_bracket) = part.find(']') {
+                let field = &part[..bracket_pos];
+                let index_str = &part[bracket_pos + 1..close_bracket];
+
+                // Navigate to the field first if field is not empty
+                if !field.is_empty() {
+                    current = current.get(field)?;
+                }
+
+                // Then apply the index
+                if let Ok(index) = index_str.parse::<usize>() {
+                    current = current.get(index)?;
+                } else {
+                    return None;
+                }
+            } else {
+                return None;
+            }
+        } else if let Ok(index) = part.parse::<usize>() {
+            // Handle pure numeric indices (for cases like "items.0")
+            current = current.get(index)?;
+        } else {
+            // Regular field access
+            current = current.get(part)?;
+        }
+    }
+
+    Some(current.clone())
+}
+
 /// JSON path extractor
 #[derive(Debug, Clone)]
 pub struct JsonPathVariable {
@@ -228,17 +271,9 @@ impl ComputedVariable for JsonPathVariable {
     fn evaluate(&self, _context: &VariableContext) -> Result<Value> {
         let json: Value = serde_json::from_str(&self.json_str).context("Failed to parse JSON")?;
 
-        // Simple JSON path implementation (could use jsonpath crate for complex paths)
-        let parts: Vec<&str> = self.path.split('.').collect();
-        let mut current = &json;
-
-        for part in parts {
-            current = current
-                .get(part)
-                .ok_or_else(|| anyhow!("Path '{}' not found in JSON", self.path))?;
-        }
-
-        Ok(current.clone())
+        // Use the enhanced JSON path extraction
+        extract_json_path(&json, &self.path)
+            .ok_or_else(|| anyhow!("Path '{}' not found in JSON", self.path))
     }
 
     fn cache_key(&self) -> String {
@@ -427,16 +462,44 @@ impl VariableContext {
             let cmd_var = CommandVariable::new(command.to_string());
             cmd_var.evaluate(self)?
         } else if expr.starts_with("json:") {
-            // JSON extraction (format: json:path:from:data)
-            let parts: Vec<&str> = expr[5..].splitn(2, ':').collect();
-            if parts.len() == 2 {
+            // JSON extraction (format: json:path:from:data_source)
+            // Split into path and data_source parts
+            let remainder = &expr[5..];
+
+            // Find the position of ":from:" separator
+            let separator = ":from:";
+            if let Some(sep_pos) = remainder.find(separator) {
+                let path = &remainder[..sep_pos];
+                let data_source = &remainder[sep_pos + separator.len()..];
+
                 // Resolve the JSON data variable first
-                let json_value = self.resolve_variable(parts[1], depth + 1).await?;
-                let json_str = self.value_to_string(&json_value);
-                let json_var = JsonPathVariable::new(json_str, parts[0].to_string());
-                json_var.evaluate(self)?
+                let json_value = self.resolve_variable(data_source, depth + 1).await?;
+
+                // Handle both string JSON and already-structured data
+                let json_to_query = if json_value.is_string() {
+                    // If it's a string, parse it as JSON
+                    let json_str = self.value_to_string(&json_value);
+                    serde_json::from_str(&json_str)
+                        .context("Failed to parse JSON string from variable")?
+                } else {
+                    // If it's already structured data, use it directly
+                    json_value.clone()
+                };
+
+                // Apply JSONPath to extract the value
+                extract_json_path(&json_to_query, path)
+                    .ok_or_else(|| anyhow!("JSON path '{}' not found in data", path))?
             } else {
-                return Err(anyhow!("Invalid json: expression format"));
+                // Legacy format: json:path:data_source (split on first colon)
+                let parts: Vec<&str> = remainder.splitn(2, ':').collect();
+                if parts.len() == 2 {
+                    let json_value = self.resolve_variable(parts[1], depth + 1).await?;
+                    let json_str = self.value_to_string(&json_value);
+                    let json_var = JsonPathVariable::new(json_str, parts[0].to_string());
+                    json_var.evaluate(self)?
+                } else {
+                    return Err(anyhow!("Invalid json: expression format. Use json:path:from:data_source"));
+                }
             }
         } else if expr.starts_with("date:") {
             // Date formatting

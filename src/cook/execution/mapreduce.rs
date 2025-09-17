@@ -465,9 +465,19 @@ impl AgentContext {
             }
         }
 
-        // Note: We could add structured variables from variable_store here if it had a get_all method
-        // For now, the important map variables are handled through the variables HashMap which contains
-        // map.total, map.successful, map.failed etc. from the reduce phase context
+        // Add structured variables from variable_store
+        let store_vars = self.variable_store.get_all().await;
+        for (key, captured_value) in store_vars {
+            // Convert CapturedValue to Value and add to context
+            let value = captured_value.to_json();
+
+            // map.results and other structured data should be at phase level for reduce phase
+            if key.starts_with("map.") {
+                context.set_phase(key.clone(), Variable::Static(value));
+            } else {
+                context.set_local(key.clone(), Variable::Static(value));
+            }
+        }
 
         // Add shell output as structured data
         if let Some(ref output) = self.shell_output {
@@ -2214,6 +2224,7 @@ impl MapReduceExecutor {
 
             // Execute work item with retries
             let mut attempt = 0;
+            let mut previous_error: Option<String> = None;
             let agent_result = loop {
                 attempt += 1;
 
@@ -2227,19 +2238,23 @@ impl MapReduceExecutor {
                 }
 
                 let result = self
-                    .execute_agent_commands(
+                    .execute_agent_commands_with_retry_info(
                         &item_id,
                         &item,
                         &map_phase.agent_template,
                         &env,
                         agent_index,
                         progress.clone(),
+                        attempt,
+                        previous_error.clone(),
                     )
                     .await;
 
                 match result {
                     Ok(res) => break res,
-                    Err(_e) if attempt <= map_phase.config.retry_on_failure => {
+                    Err(e) if attempt <= map_phase.config.retry_on_failure => {
+                        // Save error for next attempt
+                        previous_error = Some(e.to_string());
                         // Retry on failure
                         tokio::time::sleep(Duration::from_secs(2)).await;
                         continue;
@@ -2376,6 +2391,7 @@ impl MapReduceExecutor {
 
             // Execute work item with retries
             let mut attempt = 0;
+            let mut previous_error: Option<String> = None;
             let agent_result = loop {
                 attempt += 1;
 
@@ -2387,13 +2403,15 @@ impl MapReduceExecutor {
 
                 let start_time = Instant::now();
                 let result = self
-                    .execute_agent_commands_with_progress(
+                    .execute_agent_commands_with_progress_and_retry(
                         &item_id,
                         &item,
                         &map_phase.agent_template,
                         &env,
                         agent_index,
                         tracker.clone(),
+                        attempt,
+                        previous_error.clone(),
                     )
                     .await;
 
@@ -2403,7 +2421,9 @@ impl MapReduceExecutor {
                         tracker.mark_item_completed(&agent_id).await?;
                         break res;
                     }
-                    Err(_e) if attempt <= map_phase.config.retry_on_failure => {
+                    Err(e) if attempt <= map_phase.config.retry_on_failure => {
+                        // Save error for next attempt
+                        previous_error = Some(e.to_string());
                         // Retry on failure
                         tokio::time::sleep(Duration::from_secs(2)).await;
                         continue;
@@ -2543,6 +2563,177 @@ impl MapReduceExecutor {
         context
     }
 
+    /// Initialize agent context with retry information
+    fn initialize_agent_context_with_retry(
+        &self,
+        item_id: &str,
+        item: &Value,
+        worktree_path: PathBuf,
+        worktree_name: String,
+        env: &ExecutionEnvironment,
+        attempt: u32,
+        previous_error: Option<String>,
+    ) -> AgentContext {
+        let mut context = self.initialize_agent_context(
+            item_id,
+            item,
+            worktree_path,
+            worktree_name,
+            env,
+        );
+
+        // Set retry count for internal use
+        context.retry_count = attempt - 1; // Convert attempt number to retry count (0-based)
+
+        // Add retry-related variables for interpolation
+        context.variables.insert("item.attempt".to_string(), attempt.to_string());
+        if let Some(error) = previous_error {
+            context.variables.insert("item.previous_error".to_string(), error);
+        }
+
+        context
+    }
+
+    async fn execute_agent_commands_with_retry_info(
+        &self,
+        item_id: &str,
+        item: &Value,
+        template_steps: &[WorkflowStep],
+        env: &ExecutionEnvironment,
+        agent_index: usize,
+        progress: Arc<ProgressTracker>,
+        attempt: u32,
+        previous_error: Option<String>,
+    ) -> MapReduceResult<AgentResult> {
+        let start_time = Instant::now();
+        let agent_id = generate_agent_id(agent_index, item_id);
+
+        // Log that agent is starting
+        info!(
+            "Agent {} starting to process item: {} (attempt: {})",
+            agent_index, item_id, attempt
+        );
+        self.user_interaction.display_progress(&format!(
+            "Agent {} processing item: {} (attempt: {})",
+            agent_index, item_id, attempt
+        ));
+
+        // Acquire worktree session with error handling
+        let worktree_session = match self.acquire_worktree_session(&agent_id, env).await {
+            Ok(session) => session,
+            Err(e) => {
+                // Log failure asynchronously
+                self.log_agent_failure_async(
+                    env.session_id.clone(),
+                    agent_id.clone(),
+                    e.to_string(),
+                );
+                return Err(e);
+            }
+        };
+        let worktree_name = worktree_session.name.clone();
+        let worktree_path = worktree_session.path.clone();
+        let worktree_session_id = worktree_name.clone();
+
+        // Log agent started event
+        self.event_logger
+            .log(MapReduceEvent::AgentStarted {
+                job_id: env.session_id.clone(),
+                agent_id: agent_id.clone(),
+                item_id: item_id.to_string(),
+                worktree: worktree_name.clone(),
+                attempt,
+            })
+            .await
+            .unwrap_or_else(|e| log::warn!("Failed to log agent started event: {}", e));
+
+        // Create branch name for this agent
+        let branch_name = generate_agent_branch_name(&env.session_id, item_id);
+
+        // Initialize agent context with retry information
+        let mut context = self.initialize_agent_context_with_retry(
+            item_id,
+            item,
+            worktree_path.clone(),
+            worktree_name.clone(),
+            env,
+            attempt,
+            previous_error,
+        );
+
+        // Execute template steps with real command execution
+        let execution_result = self
+            .execute_all_steps(
+                template_steps,
+                &mut context,
+                item_id,
+                agent_index,
+                progress.clone(),
+                &agent_id,
+                env,
+            )
+            .await;
+
+        let (total_output, execution_error) = execution_result;
+
+        // Finalize and create result
+        let result = self
+            .finalize_agent_result(
+                item_id,
+                &worktree_path,
+                &worktree_name,
+                &branch_name,
+                worktree_session_id,
+                env,
+                template_steps,
+                execution_error,
+                total_output,
+                start_time,
+            )
+            .await?;
+
+        // Log agent completed or failed event
+        match &result.status {
+            AgentStatus::Success => {
+                // Convert commits to include agent_id
+                let agent_commits: Vec<String> = result
+                    .commits
+                    .iter()
+                    .map(|c| format!("[{}] {}", agent_id, c))
+                    .collect();
+
+                self.event_logger
+                    .log(MapReduceEvent::AgentCompleted {
+                        job_id: env.session_id.clone(),
+                        agent_id: agent_id.clone(),
+                        commits: agent_commits,
+                        duration: chrono::Duration::from_std(result.duration)
+                            .unwrap_or_else(|_| chrono::Duration::seconds(0)),
+                    })
+                    .await
+                    .unwrap_or_else(|e| log::warn!("Failed to log agent completed event: {}", e));
+            }
+            AgentStatus::Failed(_) => {
+                if let Some(err) = &result.error {
+                    self.event_logger
+                        .log(MapReduceEvent::AgentFailed {
+                            job_id: env.session_id.clone(),
+                            agent_id: agent_id.clone(),
+                            error: err.clone(),
+                            retry_eligible: attempt < 3, // Usually max 3 retries
+                        })
+                        .await
+                        .unwrap_or_else(|e| log::warn!("Failed to log agent failed event: {}", e));
+                }
+            }
+            _ => {
+                // Other statuses (Pending, Running, Timeout, Retrying) don't need special logging
+            }
+        }
+
+        Ok(result)
+    }
+
     async fn execute_agent_commands(
         &self,
         item_id: &str,
@@ -2674,6 +2865,129 @@ impl MapReduceExecutor {
                 log::debug!("Agent {} status: {:?}", agent_id, result.status);
             }
         }
+
+        Ok(result)
+    }
+
+    /// Execute agent commands with enhanced progress tracking and retry info
+    async fn execute_agent_commands_with_progress_and_retry(
+        &self,
+        item_id: &str,
+        item: &Value,
+        template_steps: &[WorkflowStep],
+        env: &ExecutionEnvironment,
+        agent_index: usize,
+        tracker: Arc<EnhancedProgressTracker>,
+        attempt: u32,
+        previous_error: Option<String>,
+    ) -> MapReduceResult<AgentResult> {
+        let start_time = Instant::now();
+        let agent_id = format!("agent_{}", agent_index);
+
+        // Create isolated worktree session for this agent
+        let worktree_session = self.worktree_manager.create_session().await.map_err(|e| {
+            let context = self.create_error_context("worktree_creation");
+            MapReduceError::WorktreeCreationFailed {
+                agent_id: agent_id.clone(),
+                reason: e.to_string(),
+                source: std::io::Error::other(e.to_string()),
+            }
+            .with_context(context)
+            .error
+        })?;
+
+        let worktree_name = worktree_session.name.clone();
+        let worktree_path = worktree_session.path.clone();
+        let worktree_session_id = worktree_name.clone();
+
+        // Create branch name for this agent
+        let branch_name = generate_agent_branch_name(&env.session_id, item_id);
+
+        // Initialize agent context with retry information
+        let mut context = self.initialize_agent_context_with_retry(
+            item_id,
+            item,
+            worktree_path.clone(),
+            worktree_name.clone(),
+            env,
+            attempt,
+            previous_error,
+        );
+
+        // Execute template steps with enhanced progress tracking
+        let mut total_output = String::new();
+        let mut execution_error = None;
+
+        for (step_index, step) in template_steps.iter().enumerate() {
+            // Update progress for current step
+            let progress_percentage =
+                ((step_index as f32 + 1.0) / template_steps.len() as f32) * 100.0;
+            let step_name = step
+                .name
+                .clone()
+                .unwrap_or_else(|| format!("Step {}", step_index + 1));
+
+            tracker
+                .update_agent_state(
+                    &agent_id,
+                    AgentState::Running {
+                        step: step_name.clone(),
+                        progress: progress_percentage,
+                    },
+                )
+                .await?;
+
+            // Interpolate and execute the step
+            let interpolated_step =
+                if context.item_id == "reduce" || context.variables.contains_key("map.total") {
+                    // Use enhanced context for reduce phase or when map variables are present
+                    let var_context = context.to_variable_context().await;
+                    self.interpolate_workflow_step_enhanced(step, &var_context)
+                        .await?
+                } else {
+                    // Use legacy interpolation for backward compatibility
+                    let interp_context = context.to_interpolation_context();
+                    self.interpolate_workflow_step(step, &interp_context)
+                        .await?
+                };
+
+            // Execute the command using the existing pattern
+            let result = self
+                .execute_single_step(
+                    &interpolated_step,
+                    &mut context,
+                )
+                .await;
+
+            match result {
+                Ok(step_result) => {
+                    if !step_result.stdout.is_empty() {
+                        total_output.push_str(&step_result.stdout);
+                        total_output.push('\n');
+                    }
+                }
+                Err(e) => {
+                    execution_error = Some(e.to_string());
+                    break;
+                }
+            }
+        }
+
+        // Create result
+        let result = self
+            .finalize_agent_result(
+                item_id,
+                &worktree_path,
+                &worktree_name,
+                &branch_name,
+                worktree_session_id,
+                env,
+                template_steps,
+                execution_error,
+                total_output,
+                start_time,
+            )
+            .await?;
 
         Ok(result)
     }
