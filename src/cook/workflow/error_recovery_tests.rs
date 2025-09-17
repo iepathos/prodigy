@@ -217,6 +217,7 @@ mod tests {
             workflow_name: Some("Test Workflow".to_string()),
             workflow_path: None,
             error_recovery_state: None,
+            retry_checkpoint_state: None,
         }
     }
 }

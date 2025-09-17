@@ -10,6 +10,7 @@ use crate::cook::execution::ClaudeExecutor;
 use crate::cook::expression::{ExpressionEvaluator, VariableContext};
 use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
+use crate::cook::retry_state::RetryStateManager;
 use crate::cook::session::{SessionManager, SessionUpdate};
 use crate::cook::workflow::checkpoint::{
     self, create_checkpoint_with_total_steps, CheckpointManager,
@@ -599,6 +600,8 @@ pub struct WorkflowExecutor {
     git_operations: Arc<dyn GitOperations>,
     /// Resume context for handling interrupted workflows with error recovery state
     resume_context: Option<ResumeContext>,
+    /// Retry state manager for checkpoint persistence
+    retry_state_manager: Arc<RetryStateManager>,
 }
 
 impl WorkflowExecutor {
@@ -610,6 +613,26 @@ impl WorkflowExecutor {
 
     /// Set the resume context for handling interrupted workflows
     pub fn with_resume_context(mut self, context: ResumeContext) -> Self {
+        // Restore retry state if available in checkpoint
+        if let Some(ref checkpoint) = context.checkpoint {
+            if let Some(retry_checkpoint_state) = checkpoint.retry_checkpoint_state.clone() {
+                // Clone the retry state manager Arc to avoid borrowing issues
+                let retry_manager = self.retry_state_manager.clone();
+
+                // Spawn a task to restore retry state asynchronously
+                tokio::spawn(async move {
+                    if let Err(e) = retry_manager
+                        .restore_from_checkpoint(&retry_checkpoint_state)
+                        .await
+                    {
+                        tracing::warn!("Failed to restore retry state from checkpoint: {}", e);
+                    } else {
+                        tracing::info!("Successfully restored retry state from checkpoint");
+                    }
+                });
+            }
+        }
+
         self.resume_context = Some(context);
         self
     }
@@ -661,7 +684,7 @@ impl WorkflowExecutor {
                     checkpoint_steps.push(retry_step);
                 }
 
-                let checkpoint = create_checkpoint_with_total_steps(
+                let mut checkpoint = create_checkpoint_with_total_steps(
                     workflow_id.clone(),
                     workflow,
                     ctx,
@@ -670,6 +693,13 @@ impl WorkflowExecutor {
                     workflow_hash,
                     workflow.steps.len(),
                 );
+
+                // Add retry state from RetryStateManager
+                if let Ok(retry_checkpoint_state) =
+                    self.retry_state_manager.create_checkpoint_state().await
+                {
+                    checkpoint.retry_checkpoint_state = Some(retry_checkpoint_state);
+                }
 
                 if let Err(e) = checkpoint_manager.save_checkpoint(&checkpoint).await {
                     tracing::warn!("Failed to save retry checkpoint: {}", e);
@@ -1726,6 +1756,7 @@ impl WorkflowExecutor {
             current_step_index: None,
             git_operations: Arc::new(RealGitOperations::new()),
             resume_context: None,
+            retry_state_manager: Arc::new(RetryStateManager::new()),
         }
     }
 
@@ -1786,6 +1817,7 @@ impl WorkflowExecutor {
             current_step_index: None,
             git_operations: Arc::new(RealGitOperations::new()),
             resume_context: None,
+            retry_state_manager: Arc::new(RetryStateManager::new()),
         }
     }
 
@@ -1817,6 +1849,7 @@ impl WorkflowExecutor {
             current_step_index: None,
             git_operations,
             resume_context: None,
+            retry_state_manager: Arc::new(RetryStateManager::new()),
         }
     }
 
@@ -1960,11 +1993,13 @@ impl WorkflowExecutor {
         ctx: &mut WorkflowContext,
         env_vars: HashMap<String, String>,
     ) -> Result<StepResult> {
+        use crate::cook::retry_state::RetryAttempt;
         use crate::cook::retry_v2::RetryExecutor;
 
         let retry_executor = RetryExecutor::new(retry_config.clone());
         let mut attempt = 0;
         let mut last_error = None;
+        let command_id = step_name.to_string();
 
         // Manual retry loop since we can't clone self
         loop {
@@ -1996,6 +2031,7 @@ impl WorkflowExecutor {
             }
 
             // Execute the command
+            let attempt_start = std::time::Instant::now();
             match self
                 .execute_command_by_type(command_type, step, env, ctx, env_vars.clone())
                 .await
@@ -2004,11 +2040,49 @@ impl WorkflowExecutor {
                     if attempt > 1 {
                         self.user_interaction
                             .display_info(&format!("Command succeeded after {} attempts", attempt));
+
+                        // Record successful retry attempt
+                        let retry_attempt = RetryAttempt {
+                            attempt_number: attempt,
+                            executed_at: chrono::Utc::now(),
+                            duration: attempt_start.elapsed(),
+                            success: true,
+                            error: None,
+                            backoff_applied: if attempt > 1 {
+                                retry_executor.calculate_delay(attempt - 1)
+                            } else {
+                                Duration::from_secs(0)
+                            },
+                            exit_code: result.exit_code,
+                        };
+                        let _ = self
+                            .retry_state_manager
+                            .update_retry_state(&command_id, retry_attempt, &retry_config)
+                            .await;
                     }
                     return Ok(result);
                 }
                 Err(err) => {
                     let error_str = err.to_string();
+
+                    // Record failed retry attempt
+                    let retry_attempt = RetryAttempt {
+                        attempt_number: attempt,
+                        executed_at: chrono::Utc::now(),
+                        duration: attempt_start.elapsed(),
+                        success: false,
+                        error: Some(error_str.clone()),
+                        backoff_applied: if attempt > 1 {
+                            retry_executor.calculate_delay(attempt - 1)
+                        } else {
+                            Duration::from_secs(0)
+                        },
+                        exit_code: None,
+                    };
+                    let _ = self
+                        .retry_state_manager
+                        .update_retry_state(&command_id, retry_attempt, &retry_config)
+                        .await;
 
                     // Check if we should retry this error
                     let should_retry = if retry_config.retry_on.is_empty() {

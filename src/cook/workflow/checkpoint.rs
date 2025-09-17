@@ -48,6 +48,8 @@ pub struct WorkflowCheckpoint {
     /// Error recovery state (stored in variable_state as __error_recovery_state)
     #[serde(skip)]
     pub error_recovery_state: Option<crate::cook::workflow::error_recovery::ErrorRecoveryState>,
+    /// Enhanced retry state for comprehensive persistence
+    pub retry_checkpoint_state: Option<crate::cook::retry_state::RetryCheckpointState>,
 }
 
 /// Current state of workflow execution
@@ -160,6 +162,8 @@ pub struct ResumeContext {
     pub start_from_step: usize,
     /// Iteration to resume from
     pub resume_iteration: Option<usize>,
+    /// Original checkpoint for reference
+    pub checkpoint: Option<Box<WorkflowCheckpoint>>,
 }
 
 /// Options for resuming workflow
@@ -393,18 +397,26 @@ pub fn create_checkpoint_with_total_steps(
         workflow_hash,
         total_steps,
         workflow_name: Some(workflow.name.clone()),
-        workflow_path: None,        // Will be set by the executor if available
-        error_recovery_state: None, // Will be set if error handlers are present
+        workflow_path: None,          // Will be set by the executor if available
+        error_recovery_state: None,   // Will be set if error handlers are present
+        retry_checkpoint_state: None, // Will be set by the executor if retry state exists
     }
 }
 
 /// Build resume context from a checkpoint
 pub fn build_resume_context(checkpoint: WorkflowCheckpoint) -> ResumeContext {
+    let completed_steps = checkpoint.completed_steps.clone();
+    let variable_state = checkpoint.variable_state.clone();
+    let mapreduce_state = checkpoint.mapreduce_state.clone();
+    let start_from_step = checkpoint.execution_state.current_step_index;
+    let resume_iteration = checkpoint.execution_state.current_iteration;
+
     ResumeContext {
-        skip_steps: checkpoint.completed_steps,
-        variable_state: checkpoint.variable_state,
-        mapreduce_state: checkpoint.mapreduce_state,
-        start_from_step: checkpoint.execution_state.current_step_index,
-        resume_iteration: checkpoint.execution_state.current_iteration,
+        skip_steps: completed_steps,
+        variable_state,
+        mapreduce_state,
+        start_from_step,
+        resume_iteration,
+        checkpoint: Some(Box::new(checkpoint)),
     }
 }

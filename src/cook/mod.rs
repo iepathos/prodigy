@@ -15,6 +15,7 @@ pub mod input;
 pub mod interaction;
 pub mod orchestrator;
 pub mod retry;
+pub mod retry_state;
 pub mod retry_v2;
 pub mod session;
 pub mod signal_handler;
@@ -25,6 +26,9 @@ mod tests;
 
 #[cfg(test)]
 mod mod_tests;
+
+#[cfg(test)]
+mod retry_state_tests;
 
 use crate::abstractions::git::RealGitOperations;
 use crate::config::{workflow::WorkflowConfig, ConfigLoader};

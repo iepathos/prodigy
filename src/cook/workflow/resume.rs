@@ -111,6 +111,7 @@ impl ResumeExecutor {
                     workflow_name: None,
                     workflow_path: None,
                     error_recovery_state: None,
+                    retry_checkpoint_state: None,
                 };
 
                 let recovery_action = self
