@@ -57,6 +57,9 @@ pub mod shell_failure_tests;
 pub mod state;
 #[cfg(test)]
 pub mod state_tests;
+pub mod variables;
+#[cfg(test)]
+pub mod variables_test;
 
 pub use bridge::{create_legacy_executor, LegacyExecutorBridge};
 pub use claude::{ClaudeExecutor, ClaudeExecutorImpl};
