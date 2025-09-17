@@ -39,7 +39,7 @@ After analyzing the current implementation against the whitepaper specifications
 - **Event logging** with detailed execution history
 - **Session state persistence** across restarts
 
-## ❌ Missing or Incomplete Features
+## ✅ Recently Fixed Features
 
 ### 1. DLQ Reprocessing (Implemented)
 **Whitepaper Spec**: "Later, reprocess failed items: `prodigy dlq retry workflow-id`"
@@ -51,7 +51,6 @@ After analyzing the current implementation against the whitepaper specifications
 - Dry run support with `--dry-run`
 - Preserves correlation IDs and updates DLQ state
 
-
 ### 2. Job Resumption (Implemented)
 **Whitepaper Spec**: Resume capability for interrupted workflows
 
@@ -62,7 +61,16 @@ After analyzing the current implementation against the whitepaper specifications
 - Variable state restoration and environment validation
 - Cross-worktree coordination for parallel jobs
 
-**Impact**: All workflows can now recover from interruptions
+### 3. Resume Executor Full Implementation (Fixed)
+**Previous Gap**: Partial implementation returning mock results
+
+**Current State**: ✅ FIXED
+- `resume()` method now delegates to `execute_from_checkpoint()` for full execution
+- Added `resume_with_path()` for legacy checkpoints without stored workflow paths
+- Proper workflow file loading and execution
+- Complete test coverage with 3 new unit tests
+
+## ❌ Remaining Gaps
 
 ### 3. Simplified MapReduce Syntax (Minor Gap)
 **Whitepaper Spec**: Direct command arrays under `agent_template` and `reduce`

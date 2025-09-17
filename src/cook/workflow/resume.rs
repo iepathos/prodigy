@@ -8,7 +8,7 @@ use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::SessionManager;
 use crate::cook::workflow::checkpoint::{
-    self, CheckpointManager, ResumeContext, ResumeOptions, WorkflowCheckpoint,
+    self, CheckpointManager, ResumeOptions, WorkflowCheckpoint,
 };
 use crate::cook::workflow::error_recovery::{
     on_failure_to_error_handler, RecoveryAction, ResumeError, ResumeErrorRecovery,
@@ -83,160 +83,54 @@ impl ResumeExecutor {
     ) -> Result<ResumeResult> {
         info!("Resuming workflow {}", workflow_id);
 
-        // Load checkpoint with error recovery
-        let checkpoint = match self.checkpoint_manager.load_checkpoint(workflow_id).await {
-            Ok(cp) => cp,
-            Err(e) => {
-                warn!("Failed to load checkpoint: {}", e);
-                // Attempt recovery for checkpoint loading failure
-                // Create a minimal checkpoint for recovery context
-                let temp_checkpoint = WorkflowCheckpoint {
-                    workflow_id: workflow_id.to_string(),
-                    execution_state: checkpoint::ExecutionState {
-                        current_step_index: 0,
-                        total_steps: 0,
-                        status: checkpoint::WorkflowStatus::Failed,
-                        start_time: chrono::Utc::now(),
-                        last_checkpoint: chrono::Utc::now(),
-                        current_iteration: None,
-                        total_iterations: None,
-                    },
-                    completed_steps: Vec::new(),
-                    variable_state: HashMap::new(),
-                    mapreduce_state: None,
-                    timestamp: chrono::Utc::now(),
-                    variable_checkpoint_state: None,
-                    version: checkpoint::CHECKPOINT_VERSION,
-                    workflow_hash: String::new(),
-                    total_steps: 0,
-                    workflow_name: None,
-                    workflow_path: None,
-                    error_recovery_state: None,
-                    retry_checkpoint_state: None,
-                };
-
-                let recovery_action = self
-                    .error_recovery
-                    .handle_resume_error(
-                        &ResumeError::CorruptedCheckpoint(e.to_string()),
-                        &temp_checkpoint,
-                    )
-                    .await?;
-
-                match recovery_action {
-                    RecoveryAction::Continue => {
-                        // Try to load again or use default
-                        return Err(anyhow!("Cannot continue without valid checkpoint"));
-                    }
-                    RecoveryAction::SafeAbort { .. } => {
-                        return Err(anyhow!("Resume aborted due to corrupted checkpoint"));
-                    }
-                    _ => {
-                        return Err(anyhow!("Failed to recover from checkpoint error: {}", e));
-                    }
-                }
-            }
-        };
-
-        // Restore error handlers from checkpoint
-        let error_handlers = self
-            .error_recovery
-            .restore_error_handlers(&checkpoint)
+        // Load checkpoint to get workflow path
+        let checkpoint = self
+            .checkpoint_manager
+            .load_checkpoint(workflow_id)
             .await
-            .context("Failed to restore error handlers")?;
+            .context("Failed to load checkpoint")?;
 
-        if !error_handlers.is_empty() {
-            info!(
-                "Restored {} error handlers from checkpoint",
-                error_handlers.len()
-            );
+        // Get workflow path from checkpoint or error if not available
+        let workflow_path = checkpoint.workflow_path
+            .clone()
+            .ok_or_else(|| anyhow!(
+                "Workflow path not stored in checkpoint. Please use resume_with_path() with explicit path."
+            ))?;
+
+        // Check if the workflow file exists
+        if !workflow_path.exists() {
+            return Err(anyhow!(
+                "Workflow file not found at {:?}. The file may have been moved or deleted.",
+                workflow_path
+            ));
         }
 
-        // Validate checkpoint unless skipped
-        if !options.skip_validation {
-            if let Err(e) = self.validate_checkpoint(&checkpoint) {
-                warn!("Checkpoint validation failed: {}", e);
-                // Attempt recovery for validation failure
-                let recovery_action = self
-                    .error_recovery
-                    .handle_resume_error(
-                        &ResumeError::CorruptedCheckpoint(e.to_string()),
-                        &checkpoint,
-                    )
-                    .await?;
+        // Delegate to execute_from_checkpoint for full execution
+        self.execute_from_checkpoint(workflow_id, &workflow_path, options)
+            .await
+    }
 
-                match recovery_action {
-                    RecoveryAction::Continue => {
-                        warn!("Continuing despite validation errors");
-                    }
-                    RecoveryAction::PartialResume { from_step } => {
-                        warn!("Partial resume from step {}", from_step);
-                        // Will handle this below
-                    }
-                    _ => {
-                        return Err(e);
-                    }
-                }
-            }
-        }
-
-        // Check if workflow is already complete
-        if checkpoint.execution_state.status == checkpoint::WorkflowStatus::Completed
-            && !options.force
-        {
-            // Return success with a message that the workflow is already complete
-            println!(
-                "Workflow {} is already completed - nothing to resume",
-                workflow_id
-            );
-            return Ok(ResumeResult {
-                success: true,
-                total_steps_executed: checkpoint.execution_state.current_step_index,
-                skipped_steps: checkpoint.execution_state.current_step_index,
-                new_steps_executed: 0,
-                final_context: WorkflowContext::default(),
-            });
-        }
-
-        // Build resume context
-        let resume_context = self.build_resume_context(checkpoint.clone(), &options)?;
-
-        // Restore workflow context
-        let workflow_context = self.restore_workflow_context(&checkpoint)?;
-
+    /// Resume a workflow from checkpoint with explicit workflow path
+    /// Use this when the checkpoint doesn't have the workflow path stored (legacy checkpoints)
+    pub async fn resume_with_path(
+        &mut self,
+        workflow_id: &str,
+        workflow_path: &PathBuf,
+        options: ResumeOptions,
+    ) -> Result<ResumeResult> {
         info!(
-            "Resuming from step {} of {}, skipping {} completed steps",
-            resume_context.start_from_step,
-            checkpoint.execution_state.total_steps,
-            resume_context.skip_steps.len()
+            "Resuming workflow {} with explicit path {:?}",
+            workflow_id, workflow_path
         );
 
-        // For now, create a simplified resume result
-        // Full implementation would require loading the workflow from the file
-        let result = ResumeResult {
-            success: true,
-            total_steps_executed: checkpoint.execution_state.current_step_index,
-            skipped_steps: checkpoint.execution_state.current_step_index,
-            new_steps_executed: 0,
-            final_context: workflow_context.clone(),
-        };
-
-        info!(
-            "Workflow {} checkpoint loaded. Full resume would skip {} steps and continue from step {}",
-            workflow_id,
-            resume_context.skip_steps.len(),
-            resume_context.start_from_step
-        );
-
-        // Delete checkpoint on successful completion
-        if result.success {
-            self.checkpoint_manager
-                .delete_checkpoint(workflow_id)
-                .await?;
-            info!("Workflow {} resumed successfully", workflow_id);
+        // Verify the workflow file exists
+        if !workflow_path.exists() {
+            return Err(anyhow!("Workflow file not found at {:?}", workflow_path));
         }
 
-        Ok(result)
+        // Delegate to execute_from_checkpoint for full execution
+        self.execute_from_checkpoint(workflow_id, workflow_path, options)
+            .await
     }
 
     /// Validate checkpoint integrity and compatibility
@@ -262,38 +156,6 @@ impl ResumeExecutor {
         }
 
         Ok(())
-    }
-
-    /// Build resume context from checkpoint and options
-    fn build_resume_context(
-        &self,
-        checkpoint: WorkflowCheckpoint,
-        options: &ResumeOptions,
-    ) -> Result<ResumeContext> {
-        let mut context = checkpoint::build_resume_context(checkpoint);
-
-        // Override start step if specified
-        if let Some(from_step) = options.from_step {
-            if from_step >= context.skip_steps.len() {
-                return Err(anyhow!(
-                    "Cannot resume from step {}: only {} steps completed",
-                    from_step,
-                    context.skip_steps.len()
-                ));
-            }
-            // Adjust skip steps to start from specified step
-            context.skip_steps.truncate(from_step);
-            context.start_from_step = from_step;
-        }
-
-        // Reset failures if requested
-        if options.reset_failures {
-            if let Some(ref mut mapreduce_state) = context.mapreduce_state {
-                mapreduce_state.failed_items.clear();
-            }
-        }
-
-        Ok(context)
     }
 
     /// Restore workflow context from checkpoint
@@ -840,4 +702,186 @@ pub struct ResumableWorkflow {
     pub progress: String,
     pub last_checkpoint: chrono::DateTime<chrono::Utc>,
     pub can_resume: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+    use tokio;
+
+    #[tokio::test]
+    async fn test_resume_with_workflow_path_in_checkpoint() {
+        let temp_dir = TempDir::new().unwrap();
+        let checkpoint_dir = temp_dir.path().join("checkpoints");
+        tokio::fs::create_dir_all(&checkpoint_dir).await.unwrap();
+
+        // Create a test workflow file
+        let workflow_path = temp_dir.path().join("test.yml");
+        tokio::fs::write(&workflow_path, "name: test\nsteps:\n  - shell: echo test")
+            .await
+            .unwrap();
+
+        // Create a checkpoint with workflow path
+        let checkpoint = WorkflowCheckpoint {
+            workflow_id: "test-workflow".to_string(),
+            workflow_path: Some(workflow_path.clone()),
+            execution_state: checkpoint::ExecutionState {
+                current_step_index: 0,
+                total_steps: 1,
+                status: checkpoint::WorkflowStatus::Interrupted,
+                start_time: chrono::Utc::now(),
+                last_checkpoint: chrono::Utc::now(),
+                current_iteration: None,
+                total_iterations: None,
+            },
+            completed_steps: Vec::new(),
+            variable_state: HashMap::new(),
+            mapreduce_state: None,
+            timestamp: chrono::Utc::now(),
+            variable_checkpoint_state: None,
+            version: checkpoint::CHECKPOINT_VERSION,
+            workflow_hash: "test-hash".to_string(),
+            total_steps: 1,
+            workflow_name: Some("test".to_string()),
+            error_recovery_state: None,
+            retry_checkpoint_state: None,
+        };
+
+        // Save checkpoint
+        let checkpoint_manager = Arc::new(CheckpointManager::new(checkpoint_dir));
+        checkpoint_manager
+            .save_checkpoint(&checkpoint)
+            .await
+            .unwrap();
+
+        // Create resume executor
+        let mut executor = ResumeExecutor::new(checkpoint_manager.clone());
+
+        // Test resume - should succeed with workflow path from checkpoint
+        let options = ResumeOptions::default();
+        let result = executor.resume("test-workflow", options).await;
+
+        // Should fail because we don't have executors set up, but it should get past the workflow path check
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(
+            error_msg.contains("executor not configured")
+                || error_msg.contains("not configured for resume")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_resume_without_workflow_path_in_checkpoint() {
+        let temp_dir = TempDir::new().unwrap();
+        let checkpoint_dir = temp_dir.path().join("checkpoints");
+        tokio::fs::create_dir_all(&checkpoint_dir).await.unwrap();
+
+        // Create a checkpoint WITHOUT workflow path (legacy checkpoint)
+        let checkpoint = WorkflowCheckpoint {
+            workflow_id: "legacy-workflow".to_string(),
+            workflow_path: None, // No workflow path stored
+            execution_state: checkpoint::ExecutionState {
+                current_step_index: 0,
+                total_steps: 1,
+                status: checkpoint::WorkflowStatus::Interrupted,
+                start_time: chrono::Utc::now(),
+                last_checkpoint: chrono::Utc::now(),
+                current_iteration: None,
+                total_iterations: None,
+            },
+            completed_steps: Vec::new(),
+            variable_state: HashMap::new(),
+            mapreduce_state: None,
+            timestamp: chrono::Utc::now(),
+            variable_checkpoint_state: None,
+            version: checkpoint::CHECKPOINT_VERSION,
+            workflow_hash: "test-hash".to_string(),
+            total_steps: 1,
+            workflow_name: Some("test".to_string()),
+            error_recovery_state: None,
+            retry_checkpoint_state: None,
+        };
+
+        // Save checkpoint
+        let checkpoint_manager = Arc::new(CheckpointManager::new(checkpoint_dir));
+        checkpoint_manager
+            .save_checkpoint(&checkpoint)
+            .await
+            .unwrap();
+
+        // Create resume executor
+        let mut executor = ResumeExecutor::new(checkpoint_manager.clone());
+
+        // Test resume without path - should fail with helpful error
+        let options = ResumeOptions::default();
+        let result = executor.resume("legacy-workflow", options).await;
+
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("resume_with_path"));
+    }
+
+    #[tokio::test]
+    async fn test_resume_with_path_explicit() {
+        let temp_dir = TempDir::new().unwrap();
+        let checkpoint_dir = temp_dir.path().join("checkpoints");
+        tokio::fs::create_dir_all(&checkpoint_dir).await.unwrap();
+
+        // Create a test workflow file
+        let workflow_path = temp_dir.path().join("test.yml");
+        tokio::fs::write(&workflow_path, "name: test\nsteps:\n  - shell: echo test")
+            .await
+            .unwrap();
+
+        // Create a checkpoint WITHOUT workflow path
+        let checkpoint = WorkflowCheckpoint {
+            workflow_id: "explicit-path-workflow".to_string(),
+            workflow_path: None,
+            execution_state: checkpoint::ExecutionState {
+                current_step_index: 0,
+                total_steps: 1,
+                status: checkpoint::WorkflowStatus::Interrupted,
+                start_time: chrono::Utc::now(),
+                last_checkpoint: chrono::Utc::now(),
+                current_iteration: None,
+                total_iterations: None,
+            },
+            completed_steps: Vec::new(),
+            variable_state: HashMap::new(),
+            mapreduce_state: None,
+            timestamp: chrono::Utc::now(),
+            variable_checkpoint_state: None,
+            version: checkpoint::CHECKPOINT_VERSION,
+            workflow_hash: "test-hash".to_string(),
+            total_steps: 1,
+            workflow_name: Some("test".to_string()),
+            error_recovery_state: None,
+            retry_checkpoint_state: None,
+        };
+
+        // Save checkpoint
+        let checkpoint_manager = Arc::new(CheckpointManager::new(checkpoint_dir));
+        checkpoint_manager
+            .save_checkpoint(&checkpoint)
+            .await
+            .unwrap();
+
+        // Create resume executor
+        let mut executor = ResumeExecutor::new(checkpoint_manager.clone());
+
+        // Test resume_with_path - should work with explicit path
+        let options = ResumeOptions::default();
+        let result = executor
+            .resume_with_path("explicit-path-workflow", &workflow_path, options)
+            .await;
+
+        // Should fail because we don't have executors set up, but it should get past the workflow path check
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(
+            error_msg.contains("executor not configured")
+                || error_msg.contains("not configured for resume")
+        );
+    }
 }
