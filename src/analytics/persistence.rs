@@ -28,7 +28,10 @@ impl AnalyticsDatabase {
         let db = Self { pool };
         db.initialize_schema().await?;
 
-        info!("Analytics database initialized at {}", database_path.as_ref().display());
+        info!(
+            "Analytics database initialized at {}",
+            database_path.as_ref().display()
+        );
         Ok(db)
     }
 
@@ -78,7 +81,7 @@ impl AnalyticsDatabase {
             CREATE INDEX IF NOT EXISTS idx_events_timestamp ON session_events(timestamp);
             CREATE INDEX IF NOT EXISTS idx_tools_session_id ON tool_invocations(session_id);
             CREATE INDEX IF NOT EXISTS idx_tools_name ON tool_invocations(tool_name);
-            "#
+            "#,
         )
         .execute(&self.pool)
         .await?;
@@ -102,7 +105,7 @@ impl AnalyticsDatabase {
                 total_output_tokens = excluded.total_output_tokens,
                 total_cache_tokens = excluded.total_cache_tokens,
                 updated_at = CURRENT_TIMESTAMP
-            "#
+            "#,
         )
         .bind(&session.session_id)
         .bind(&session.project_path)
@@ -123,7 +126,8 @@ impl AnalyticsDatabase {
 
         // Store tool invocations
         for tool in &session.tool_invocations {
-            self.store_tool_invocation(&session.session_id, tool).await?;
+            self.store_tool_invocation(&session.session_id, tool)
+                .await?;
         }
 
         debug!("Session {} persisted", session.session_id);
@@ -137,22 +141,38 @@ impl AnalyticsDatabase {
             SessionEvent::Assistant { content, model, .. } => {
                 ("assistant", json!({"content": content, "model": model}))
             }
-            SessionEvent::ToolUse { tool_name, parameters, .. } => {
-                ("tool_use", json!({"tool_name": tool_name, "parameters": parameters}))
-            }
-            SessionEvent::ToolResult { tool_name, result, duration_ms, .. } => {
-                ("tool_result", json!({"tool_name": tool_name, "result": result, "duration_ms": duration_ms}))
-            }
-            SessionEvent::Error { error_type, message, .. } => {
-                ("error", json!({"error_type": error_type, "message": message}))
-            }
+            SessionEvent::ToolUse {
+                tool_name,
+                parameters,
+                ..
+            } => (
+                "tool_use",
+                json!({"tool_name": tool_name, "parameters": parameters}),
+            ),
+            SessionEvent::ToolResult {
+                tool_name,
+                result,
+                duration_ms,
+                ..
+            } => (
+                "tool_result",
+                json!({"tool_name": tool_name, "result": result, "duration_ms": duration_ms}),
+            ),
+            SessionEvent::Error {
+                error_type,
+                message,
+                ..
+            } => (
+                "error",
+                json!({"error_type": error_type, "message": message}),
+            ),
         };
 
         sqlx::query(
             r#"
             INSERT INTO session_events (session_id, event_type, timestamp, content)
             VALUES (?, ?, ?, ?)
-            "#
+            "#,
         )
         .bind(session_id)
         .bind(event_type)
@@ -171,7 +191,7 @@ impl AnalyticsDatabase {
             INSERT INTO tool_invocations (
                 session_id, tool_name, invoked_at, duration_ms, parameters, result_size
             ) VALUES (?, ?, ?, ?, ?, ?)
-            "#
+            "#,
         )
         .bind(session_id)
         .bind(&tool.name)
@@ -192,7 +212,7 @@ impl AnalyticsDatabase {
             SELECT session_id, project_path, jsonl_path, started_at, completed_at,
                    model, total_input_tokens, total_output_tokens, total_cache_tokens
             FROM sessions WHERE session_id = ?
-            "#
+            "#,
         )
         .bind(session_id)
         .fetch_optional(&self.pool)
@@ -210,7 +230,8 @@ impl AnalyticsDatabase {
             project_path: row.get("project_path"),
             jsonl_path: row.get("jsonl_path"),
             started_at: DateTime::parse_from_rfc3339(row.get("started_at"))?.with_timezone(&Utc),
-            completed_at: row.get::<Option<String>, _>("completed_at")
+            completed_at: row
+                .get::<Option<String>, _>("completed_at")
                 .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
                 .map(|dt| dt.with_timezone(&Utc)),
             model: row.get("model"),
@@ -230,7 +251,7 @@ impl AnalyticsDatabase {
             FROM session_events
             WHERE session_id = ?
             ORDER BY timestamp ASC
-            "#
+            "#,
         )
         .bind(session_id)
         .fetch_all(&self.pool)
@@ -284,7 +305,7 @@ impl AnalyticsDatabase {
             FROM tool_invocations
             WHERE session_id = ?
             ORDER BY invoked_at ASC
-            "#
+            "#,
         )
         .bind(session_id)
         .fetch_all(&self.pool)
@@ -294,7 +315,8 @@ impl AnalyticsDatabase {
         for row in rows {
             tools.push(ToolInvocation {
                 name: row.get("tool_name"),
-                invoked_at: DateTime::parse_from_rfc3339(row.get("invoked_at"))?.with_timezone(&Utc),
+                invoked_at: DateTime::parse_from_rfc3339(row.get("invoked_at"))?
+                    .with_timezone(&Utc),
                 duration_ms: row.get::<Option<i64>, _>("duration_ms").map(|d| d as u64),
                 parameters: serde_json::from_str(row.get("parameters"))?,
                 result_size: row.get::<Option<i64>, _>("result_size").map(|s| s as usize),
@@ -305,13 +327,17 @@ impl AnalyticsDatabase {
     }
 
     /// Query sessions within a time range
-    pub async fn query_sessions(&self, start: DateTime<Utc>, end: DateTime<Utc>) -> Result<Vec<Session>> {
+    pub async fn query_sessions(
+        &self,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+    ) -> Result<Vec<Session>> {
         let rows = sqlx::query(
             r#"
             SELECT session_id FROM sessions
             WHERE started_at >= ? AND started_at <= ?
             ORDER BY started_at DESC
-            "#
+            "#,
         )
         .bind(start.to_rfc3339())
         .bind(end.to_rfc3339())
@@ -337,7 +363,7 @@ impl AnalyticsDatabase {
             r#"
             DELETE FROM sessions
             WHERE started_at < ?
-            "#
+            "#,
         )
         .bind(cutoff.to_rfc3339())
         .execute(&self.pool)
@@ -352,11 +378,23 @@ impl AnalyticsDatabase {
     }
 
     /// Archive sessions to a backup location
-    pub async fn archive_sessions(&self, before: DateTime<Utc>, archive_path: impl AsRef<Path>) -> Result<u64> {
-        let sessions = self.query_sessions(DateTime::parse_from_rfc3339("2000-01-01T00:00:00Z")?.with_timezone(&Utc), before).await?;
+    pub async fn archive_sessions(
+        &self,
+        before: DateTime<Utc>,
+        archive_path: impl AsRef<Path>,
+    ) -> Result<u64> {
+        let sessions = self
+            .query_sessions(
+                DateTime::parse_from_rfc3339("2000-01-01T00:00:00Z")?.with_timezone(&Utc),
+                before,
+            )
+            .await?;
 
         // Create archive file
-        let archive_file = archive_path.as_ref().join(format!("analytics_archive_{}.json", before.format("%Y%m%d")));
+        let archive_file = archive_path.as_ref().join(format!(
+            "analytics_archive_{}.json",
+            before.format("%Y%m%d")
+        ));
         let archive_data = serde_json::to_string_pretty(&sessions)?;
         tokio::fs::write(&archive_file, archive_data).await?;
 
@@ -365,14 +403,18 @@ impl AnalyticsDatabase {
             r#"
             DELETE FROM sessions
             WHERE started_at < ?
-            "#
+            "#,
         )
         .bind(before.to_rfc3339())
         .execute(&self.pool)
         .await?;
 
         let archived = result.rows_affected();
-        info!("Archived {} sessions to {}", archived, archive_file.display());
+        info!(
+            "Archived {} sessions to {}",
+            archived,
+            archive_file.display()
+        );
 
         Ok(archived)
     }

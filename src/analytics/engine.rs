@@ -8,12 +8,14 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info};
 
-use super::models::{Cost, PricingModel, Session, SessionEvent, SessionIndex, TimeRange, ToolStat, ToolStats};
+use super::models::{
+    Cost, PricingModel, Session, SessionEvent, SessionIndex, TimeRange, ToolStat, ToolStats,
+};
 
 /// Analytics engine for processing Claude session data
 pub struct AnalyticsEngine {
     index: Arc<RwLock<SessionIndex>>,
-    metrics: Arc<MetricsCollector>,
+    _metrics: Arc<MetricsCollector>,
     pricing_model: PricingModel,
 }
 
@@ -22,7 +24,7 @@ impl AnalyticsEngine {
     pub fn new(index: Arc<RwLock<SessionIndex>>) -> Self {
         Self {
             index,
-            metrics: Arc::new(MetricsCollector::new()),
+            _metrics: Arc::new(MetricsCollector::new()),
             pricing_model: PricingModel::default(),
         }
     }
@@ -217,7 +219,10 @@ impl AnalyticsEngine {
     }
 
     /// Analyze patterns across multiple sessions
-    pub async fn analyze_cross_session_patterns(&self, session_ids: Vec<String>) -> Result<CrossSessionAnalysis> {
+    pub async fn analyze_cross_session_patterns(
+        &self,
+        session_ids: Vec<String>,
+    ) -> Result<CrossSessionAnalysis> {
         let index = self.index.read().await;
         let mut sessions = Vec::new();
 
@@ -244,7 +249,7 @@ impl AnalyticsEngine {
             }
 
             // Calculate total cost
-            total_cost += self.calculate_cost(&session);
+            total_cost += self.calculate_cost(session);
 
             // Track session duration
             if let Some(completed) = session.completed_at {
@@ -292,7 +297,11 @@ impl AnalyticsEngine {
     }
 
     /// Compare two sessions to identify differences
-    pub async fn compare_sessions(&self, session_id_1: &str, session_id_2: &str) -> Result<SessionComparison> {
+    pub async fn compare_sessions(
+        &self,
+        session_id_1: &str,
+        session_id_2: &str,
+    ) -> Result<SessionComparison> {
         let index = self.index.read().await;
         let session1 = index.get_session(session_id_1).await?;
         let session2 = index.get_session(session_id_2).await?;
@@ -310,8 +319,16 @@ impl AnalyticsEngine {
         let cost_diff = cost2 - cost1;
 
         // Compare tools used
-        let tools1: HashSet<String> = session1.tool_invocations.iter().map(|t| t.name.clone()).collect();
-        let tools2: HashSet<String> = session2.tool_invocations.iter().map(|t| t.name.clone()).collect();
+        let tools1: HashSet<String> = session1
+            .tool_invocations
+            .iter()
+            .map(|t| t.name.clone())
+            .collect();
+        let tools2: HashSet<String> = session2
+            .tool_invocations
+            .iter()
+            .map(|t| t.name.clone())
+            .collect();
 
         let tools_added: Vec<String> = tools2.difference(&tools1).cloned().collect();
         let tools_removed: Vec<String> = tools1.difference(&tools2).cloned().collect();
@@ -327,7 +344,11 @@ impl AnalyticsEngine {
             session_id_2: session_id_2.to_string(),
             token_comparison: token_diff,
             cost_diff,
-            cost_percentage_change: if cost1 > 0.0 { (cost_diff / cost1) * 100.0 } else { 0.0 },
+            cost_percentage_change: if cost1 > 0.0 {
+                (cost_diff / cost1) * 100.0
+            } else {
+                0.0
+            },
             duration_diff_ms,
             tools_added,
             tools_removed,
@@ -388,6 +409,12 @@ impl AnalyticsEngine {
 /// Metrics collector for tracking analytics
 pub struct MetricsCollector {
     metrics: RwLock<HashMap<String, MetricValue>>,
+}
+
+impl Default for MetricsCollector {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MetricsCollector {
@@ -658,25 +685,21 @@ mod tests {
             started_at: Utc::now() - Duration::hours(2),
             completed_at: Some(Utc::now() - Duration::hours(1)),
             model: None,
-            events: vec![
-                SessionEvent::Error {
-                    timestamp: Utc::now(),
-                    error_type: "NetworkError".to_string(),
-                    message: "Connection failed".to_string(),
-                }
-            ],
+            events: vec![SessionEvent::Error {
+                timestamp: Utc::now(),
+                error_type: "NetworkError".to_string(),
+                message: "Connection failed".to_string(),
+            }],
             total_input_tokens: 1000,
             total_output_tokens: 2000,
             total_cache_tokens: 500,
-            tool_invocations: vec![
-                ToolInvocation {
-                    name: "Read".to_string(),
-                    invoked_at: Utc::now(),
-                    duration_ms: Some(100),
-                    parameters: serde_json::json!({}),
-                    result_size: None,
-                },
-            ],
+            tool_invocations: vec![ToolInvocation {
+                name: "Read".to_string(),
+                invoked_at: Utc::now(),
+                duration_ms: Some(100),
+                parameters: serde_json::json!({}),
+                result_size: None,
+            }],
         };
 
         let session2 = Session {
@@ -686,13 +709,11 @@ mod tests {
             started_at: Utc::now() - Duration::hours(1),
             completed_at: Some(Utc::now()),
             model: None,
-            events: vec![
-                SessionEvent::Error {
-                    timestamp: Utc::now(),
-                    error_type: "NetworkError".to_string(),
-                    message: "Timeout".to_string(),
-                }
-            ],
+            events: vec![SessionEvent::Error {
+                timestamp: Utc::now(),
+                error_type: "NetworkError".to_string(),
+                message: "Timeout".to_string(),
+            }],
             total_input_tokens: 1500,
             total_output_tokens: 2500,
             total_cache_tokens: 600,
@@ -719,10 +740,10 @@ mod tests {
         idx.insert_test_session("session2".to_string(), session2);
         drop(idx);
 
-        let analysis = engine.analyze_cross_session_patterns(vec![
-            "session1".to_string(),
-            "session2".to_string(),
-        ]).await.unwrap();
+        let analysis = engine
+            .analyze_cross_session_patterns(vec!["session1".to_string(), "session2".to_string()])
+            .await
+            .unwrap();
 
         assert_eq!(analysis.session_count, 2);
         assert!(analysis.total_cost > 0.0);
@@ -746,15 +767,13 @@ mod tests {
             total_input_tokens: 1000,
             total_output_tokens: 2000,
             total_cache_tokens: 500,
-            tool_invocations: vec![
-                ToolInvocation {
-                    name: "Read".to_string(),
-                    invoked_at: Utc::now(),
-                    duration_ms: Some(100),
-                    parameters: serde_json::json!({}),
-                    result_size: None,
-                },
-            ],
+            tool_invocations: vec![ToolInvocation {
+                name: "Read".to_string(),
+                invoked_at: Utc::now(),
+                duration_ms: Some(100),
+                parameters: serde_json::json!({}),
+                result_size: None,
+            }],
         };
 
         let session2 = Session {
@@ -791,7 +810,10 @@ mod tests {
         idx.insert_test_session("compare2".to_string(), session2);
         drop(idx);
 
-        let comparison = engine.compare_sessions("compare1", "compare2").await.unwrap();
+        let comparison = engine
+            .compare_sessions("compare1", "compare2")
+            .await
+            .unwrap();
 
         assert_eq!(comparison.token_comparison.input_diff, 500);
         assert_eq!(comparison.token_comparison.output_diff, 500);
@@ -817,15 +839,13 @@ mod tests {
             total_input_tokens: 0,
             total_output_tokens: 0,
             total_cache_tokens: 0,
-            tool_invocations: vec![
-                ToolInvocation {
-                    name: "SlowTool".to_string(),
-                    invoked_at: Utc::now(),
-                    duration_ms: Some(10000), // 10 seconds - slow!
-                    parameters: serde_json::json!({}),
-                    result_size: None,
-                },
-            ],
+            tool_invocations: vec![ToolInvocation {
+                name: "SlowTool".to_string(),
+                invoked_at: Utc::now(),
+                duration_ms: Some(10000), // 10 seconds - slow!
+                parameters: serde_json::json!({}),
+                result_size: None,
+            }],
         };
 
         let mut idx = index.write().await;

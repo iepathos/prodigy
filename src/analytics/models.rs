@@ -116,10 +116,7 @@ impl Cost {
     pub fn to_csv_row(&self) -> String {
         format!(
             "{},{},{},{:.4}",
-            self.input_tokens,
-            self.output_tokens,
-            self.cache_tokens,
-            self.estimated_cost_usd
+            self.input_tokens, self.output_tokens, self.cache_tokens, self.estimated_cost_usd
         )
     }
 
@@ -138,18 +135,21 @@ pub struct ToolStats {
 impl ToolStats {
     /// Export tool stats to JSON
     pub fn to_json(&self) -> serde_json::Value {
-        let tools: Vec<serde_json::Value> = self.stats
+        let tools: Vec<serde_json::Value> = self
+            .stats
             .values()
-            .map(|stat| serde_json::json!({
-                "name": stat.name,
-                "total_invocations": stat.total_invocations,
-                "total_duration_ms": stat.total_duration_ms,
-                "average_duration_ms": stat.average_duration_ms,
-                "min_duration_ms": stat.min_duration_ms,
-                "max_duration_ms": stat.max_duration_ms,
-                "failure_count": stat.failure_count,
-                "success_rate": stat.success_rate
-            }))
+            .map(|stat| {
+                serde_json::json!({
+                    "name": stat.name,
+                    "total_invocations": stat.total_invocations,
+                    "total_duration_ms": stat.total_duration_ms,
+                    "average_duration_ms": stat.average_duration_ms,
+                    "min_duration_ms": stat.min_duration_ms,
+                    "max_duration_ms": stat.max_duration_ms,
+                    "failure_count": stat.failure_count,
+                    "success_rate": stat.success_rate
+                })
+            })
             .collect();
 
         serde_json::json!({
@@ -244,6 +244,12 @@ pub struct ReplayEvent {
 pub struct SessionIndex {
     db: Option<std::sync::Arc<super::persistence::AnalyticsDatabase>>,
     cache: HashMap<String, Session>,
+}
+
+impl Default for SessionIndex {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SessionIndex {

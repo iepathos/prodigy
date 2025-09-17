@@ -18,7 +18,7 @@ use crate::cook::execution::events::EventLogger;
 /// Watches Claude session JSONL files for changes and indexes them
 pub struct SessionWatcher {
     claude_projects_path: PathBuf,
-    event_logger: Arc<EventLogger>,
+    _event_logger: Arc<EventLogger>,
     index: Arc<RwLock<SessionIndex>>,
     processed_lines: Arc<RwLock<HashSet<String>>>,
 }
@@ -35,7 +35,7 @@ impl SessionWatcher {
 
         Ok(Self {
             claude_projects_path,
-            event_logger,
+            _event_logger: event_logger,
             index: Arc::new(RwLock::new(SessionIndex::new())),
             processed_lines: Arc::new(RwLock::new(HashSet::new())),
         })
@@ -466,8 +466,8 @@ This is not valid JSON
         let watcher = SessionWatcher::new(event_logger).unwrap();
         let metadata = watcher.extract_session_metadata(&jsonl_path).await.unwrap();
 
-        assert_eq!(metadata.total_tokens.input, 450);  // 100 + 150 + 200
+        assert_eq!(metadata.total_tokens.input, 450); // 100 + 150 + 200
         assert_eq!(metadata.total_tokens.output, 750); // 200 + 250 + 300
-        assert_eq!(metadata.total_tokens.cache, 225);  // 50 + 75 + 100
+        assert_eq!(metadata.total_tokens.cache, 225); // 50 + 75 + 100
     }
 }

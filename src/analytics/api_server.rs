@@ -62,15 +62,30 @@ impl AnalyticsApiServer {
             .route("/api/v1/analytics/sessions/compare", post(compare_sessions))
             .route("/api/v1/analytics/tools/usage", get(get_tool_usage))
             .route("/api/v1/analytics/tools/export", get(export_tool_stats))
-            .route("/api/v1/analytics/costs/projection", get(get_cost_projection))
+            .route(
+                "/api/v1/analytics/costs/projection",
+                get(get_cost_projection),
+            )
             .route("/api/v1/analytics/costs/export", get(export_cost_data))
             .route("/api/v1/analytics/patterns", get(get_usage_patterns))
-            .route("/api/v1/analytics/cross-session", post(analyze_cross_session))
-            .route("/api/v1/analytics/recommendations", get(get_recommendations))
+            .route(
+                "/api/v1/analytics/cross-session",
+                post(analyze_cross_session),
+            )
+            .route(
+                "/api/v1/analytics/recommendations",
+                get(get_recommendations),
+            )
             .route("/api/v1/analytics/bottlenecks", get(get_bottlenecks))
             .route("/api/v1/analytics/stats", get(get_database_stats))
-            .route("/api/v1/analytics/retention/cleanup", post(cleanup_old_sessions))
-            .route("/api/v1/analytics/retention/archive", post(archive_sessions))
+            .route(
+                "/api/v1/analytics/retention/cleanup",
+                post(cleanup_old_sessions),
+            )
+            .route(
+                "/api/v1/analytics/retention/archive",
+                post(archive_sessions),
+            )
             .layer(CorsLayer::permissive())
             .with_state(shared_state)
     }
@@ -93,8 +108,10 @@ struct TimeRangeQuery {
 impl TimeRangeQuery {
     fn to_time_range(&self) -> TimeRange {
         TimeRange {
-            start: self.start.unwrap_or_else(|| Utc::now() - chrono::Duration::days(7)),
-            end: self.end.unwrap_or_else(|| Utc::now()),
+            start: self
+                .start
+                .unwrap_or_else(|| Utc::now() - chrono::Duration::days(7)),
+            end: self.end.unwrap_or_else(Utc::now),
         }
     }
 }
@@ -169,7 +186,11 @@ async fn list_sessions(
 ) -> Result<Json<ApiResponse<Vec<SessionSummary>>>, StatusCode> {
     let time_range = params.to_time_range();
 
-    match state.db.query_sessions(time_range.start, time_range.end).await {
+    match state
+        .db
+        .query_sessions(time_range.start, time_range.end)
+        .await
+    {
         Ok(sessions) => {
             let summaries: Vec<SessionSummary> = sessions
                 .into_iter()
@@ -178,7 +199,9 @@ async fn list_sessions(
                     project_path: s.project_path,
                     started_at: s.started_at,
                     completed_at: s.completed_at,
-                    total_tokens: s.total_input_tokens + s.total_output_tokens + s.total_cache_tokens,
+                    total_tokens: s.total_input_tokens
+                        + s.total_output_tokens
+                        + s.total_cache_tokens,
                     tool_count: s.tool_invocations.len(),
                 })
                 .collect();
@@ -187,7 +210,10 @@ async fn list_sessions(
         }
         Err(e) => {
             warn!("Failed to list sessions: {}", e);
-            Ok(Json(ApiResponse::error(format!("Failed to list sessions: {}", e))))
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to list sessions: {}",
+                e
+            ))))
         }
     }
 }
@@ -197,15 +223,19 @@ async fn get_session(
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, StatusCode> {
     match state.db.get_session(&id).await {
-        Ok(Some(session)) => {
-            Ok(Json(ApiResponse::success(serde_json::to_value(session).unwrap())))
-        }
-        Ok(None) => {
-            Ok(Json(ApiResponse::error(format!("Session {} not found", id))))
-        }
+        Ok(Some(session)) => Ok(Json(ApiResponse::success(
+            serde_json::to_value(session).unwrap(),
+        ))),
+        Ok(None) => Ok(Json(ApiResponse::error(format!(
+            "Session {} not found",
+            id
+        )))),
         Err(e) => {
             warn!("Failed to get session {}: {}", id, e);
-            Ok(Json(ApiResponse::error(format!("Failed to get session: {}", e))))
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to get session: {}",
+                e
+            ))))
         }
     }
 }
@@ -218,7 +248,10 @@ async fn get_session_cost(
         Ok(cost) => Ok(Json(ApiResponse::success(cost))),
         Err(e) => {
             warn!("Failed to calculate cost for session {}: {}", id, e);
-            Ok(Json(ApiResponse::error(format!("Failed to calculate cost: {}", e))))
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to calculate cost: {}",
+                e
+            ))))
         }
     }
 }
@@ -233,10 +266,8 @@ async fn export_session(
     match state.db.get_session(&id).await {
         Ok(Some(session)) => {
             match format {
-                "json" => {
-                    serde_json::to_string_pretty(&session)
-                        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
-                }
+                "json" => serde_json::to_string_pretty(&session)
+                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR),
                 "csv" => {
                     // Export as CSV (simplified - just basic info)
                     Ok(format!(
@@ -244,7 +275,9 @@ async fn export_session(
                         session.session_id,
                         session.project_path,
                         session.started_at,
-                        session.total_input_tokens + session.total_output_tokens + session.total_cache_tokens
+                        session.total_input_tokens
+                            + session.total_output_tokens
+                            + session.total_cache_tokens
                     ))
                 }
                 _ => Err(StatusCode::BAD_REQUEST),
@@ -259,11 +292,18 @@ async fn compare_sessions(
     State(state): State<Arc<ApiState>>,
     Json(request): Json<CompareSessionsRequest>,
 ) -> Result<Json<ApiResponse<SessionComparison>>, StatusCode> {
-    match state.engine.compare_sessions(&request.session_id_1, &request.session_id_2).await {
+    match state
+        .engine
+        .compare_sessions(&request.session_id_1, &request.session_id_2)
+        .await
+    {
         Ok(comparison) => Ok(Json(ApiResponse::success(comparison))),
         Err(e) => {
             warn!("Failed to compare sessions: {}", e);
-            Ok(Json(ApiResponse::error(format!("Failed to compare sessions: {}", e))))
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to compare sessions: {}",
+                e
+            ))))
         }
     }
 }
@@ -278,7 +318,10 @@ async fn get_tool_usage(
         Ok(stats) => Ok(Json(ApiResponse::success(stats))),
         Err(e) => {
             warn!("Failed to analyze tool usage: {}", e);
-            Ok(Json(ApiResponse::error(format!("Failed to analyze tool usage: {}", e))))
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to analyze tool usage: {}",
+                e
+            ))))
         }
     }
 }
@@ -292,13 +335,11 @@ async fn export_tool_stats(
     let format = export.format.as_deref().unwrap_or("json");
 
     match state.engine.analyze_tool_usage(time_range).await {
-        Ok(stats) => {
-            match format {
-                "json" => Ok(stats.to_json().to_string()),
-                "csv" => Ok(stats.to_csv()),
-                _ => Err(StatusCode::BAD_REQUEST),
-            }
-        }
+        Ok(stats) => match format {
+            "json" => Ok(stats.to_json().to_string()),
+            "csv" => Ok(stats.to_csv()),
+            _ => Err(StatusCode::BAD_REQUEST),
+        },
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
 }
@@ -307,12 +348,15 @@ async fn get_cost_projection(
     State(state): State<Arc<ApiState>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, StatusCode> {
     match state.engine.project_costs(30).await {
-        Ok(projection) => {
-            Ok(Json(ApiResponse::success(serde_json::to_value(projection).unwrap())))
-        }
+        Ok(projection) => Ok(Json(ApiResponse::success(
+            serde_json::to_value(projection).unwrap(),
+        ))),
         Err(e) => {
             warn!("Failed to project costs: {}", e);
-            Ok(Json(ApiResponse::error(format!("Failed to project costs: {}", e))))
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to project costs: {}",
+                e
+            ))))
         }
     }
 }
@@ -325,13 +369,11 @@ async fn export_cost_data(
     let format = export.format.as_deref().unwrap_or("json");
 
     match state.engine.calculate_session_cost(&id).await {
-        Ok(cost) => {
-            match format {
-                "json" => Ok(cost.to_json().to_string()),
-                "csv" => Ok(format!("{}\n{}", Cost::csv_header(), cost.to_csv_row())),
-                _ => Err(StatusCode::BAD_REQUEST),
-            }
-        }
+        Ok(cost) => match format {
+            "json" => Ok(cost.to_json().to_string()),
+            "csv" => Ok(format!("{}\n{}", Cost::csv_header(), cost.to_csv_row())),
+            _ => Err(StatusCode::BAD_REQUEST),
+        },
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
 }
@@ -340,12 +382,15 @@ async fn get_usage_patterns(
     State(state): State<Arc<ApiState>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, StatusCode> {
     match state.engine.generate_usage_patterns().await {
-        Ok(patterns) => {
-            Ok(Json(ApiResponse::success(serde_json::to_value(patterns).unwrap())))
-        }
+        Ok(patterns) => Ok(Json(ApiResponse::success(
+            serde_json::to_value(patterns).unwrap(),
+        ))),
         Err(e) => {
             warn!("Failed to generate usage patterns: {}", e);
-            Ok(Json(ApiResponse::error(format!("Failed to generate patterns: {}", e))))
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to generate patterns: {}",
+                e
+            ))))
         }
     }
 }
@@ -354,11 +399,18 @@ async fn analyze_cross_session(
     State(state): State<Arc<ApiState>>,
     Json(request): Json<CrossSessionRequest>,
 ) -> Result<Json<ApiResponse<CrossSessionAnalysis>>, StatusCode> {
-    match state.engine.analyze_cross_session_patterns(request.session_ids).await {
+    match state
+        .engine
+        .analyze_cross_session_patterns(request.session_ids)
+        .await
+    {
         Ok(analysis) => Ok(Json(ApiResponse::success(analysis))),
         Err(e) => {
             warn!("Failed to analyze cross-session patterns: {}", e);
-            Ok(Json(ApiResponse::error(format!("Failed to analyze: {}", e))))
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to analyze: {}",
+                e
+            ))))
         }
     }
 }
@@ -376,7 +428,10 @@ async fn get_recommendations(
         }
         Err(e) => {
             warn!("Failed to get recommendations: {}", e);
-            Ok(Json(ApiResponse::error(format!("Failed to get recommendations: {}", e))))
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to get recommendations: {}",
+                e
+            ))))
         }
     }
 }
@@ -394,7 +449,10 @@ async fn get_bottlenecks(
         }
         Err(e) => {
             warn!("Failed to identify bottlenecks: {}", e);
-            Ok(Json(ApiResponse::error(format!("Failed to identify bottlenecks: {}", e))))
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to identify bottlenecks: {}",
+                e
+            ))))
         }
     }
 }
@@ -403,12 +461,15 @@ async fn get_database_stats(
     State(state): State<Arc<ApiState>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, StatusCode> {
     match state.db.get_stats().await {
-        Ok(stats) => {
-            Ok(Json(ApiResponse::success(serde_json::to_value(stats).unwrap())))
-        }
+        Ok(stats) => Ok(Json(ApiResponse::success(
+            serde_json::to_value(stats).unwrap(),
+        ))),
         Err(e) => {
             warn!("Failed to get database stats: {}", e);
-            Ok(Json(ApiResponse::error(format!("Failed to get stats: {}", e))))
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to get stats: {}",
+                e
+            ))))
         }
     }
 }
@@ -421,7 +482,10 @@ async fn cleanup_old_sessions(
         Ok(deleted_count) => Ok(Json(ApiResponse::success(deleted_count))),
         Err(e) => {
             warn!("Failed to cleanup old sessions: {}", e);
-            Ok(Json(ApiResponse::error(format!("Failed to cleanup: {}", e))))
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to cleanup: {}",
+                e
+            ))))
         }
     }
 }
@@ -430,11 +494,18 @@ async fn archive_sessions(
     State(state): State<Arc<ApiState>>,
     Json(request): Json<ArchiveRequest>,
 ) -> Result<Json<ApiResponse<u64>>, StatusCode> {
-    match state.db.archive_sessions(request.before, request.archive_path).await {
+    match state
+        .db
+        .archive_sessions(request.before, request.archive_path)
+        .await
+    {
         Ok(archived_count) => Ok(Json(ApiResponse::success(archived_count))),
         Err(e) => {
             warn!("Failed to archive sessions: {}", e);
-            Ok(Json(ApiResponse::error(format!("Failed to archive: {}", e))))
+            Ok(Json(ApiResponse::error(format!(
+                "Failed to archive: {}",
+                e
+            ))))
         }
     }
 }
