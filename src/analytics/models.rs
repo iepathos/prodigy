@@ -100,10 +100,86 @@ pub struct Cost {
     pub estimated_cost_usd: f64,
 }
 
+impl Cost {
+    /// Export cost data to JSON
+    pub fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "cache_tokens": self.cache_tokens,
+            "estimated_cost_usd": self.estimated_cost_usd,
+            "total_tokens": self.input_tokens + self.output_tokens + self.cache_tokens
+        })
+    }
+
+    /// Export cost data to CSV format
+    pub fn to_csv_row(&self) -> String {
+        format!(
+            "{},{},{},{:.4}",
+            self.input_tokens,
+            self.output_tokens,
+            self.cache_tokens,
+            self.estimated_cost_usd
+        )
+    }
+
+    /// Get CSV header for cost data
+    pub fn csv_header() -> &'static str {
+        "input_tokens,output_tokens,cache_tokens,estimated_cost_usd"
+    }
+}
+
 /// Statistics for tool usage
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolStats {
     pub stats: HashMap<String, ToolStat>,
+}
+
+impl ToolStats {
+    /// Export tool stats to JSON
+    pub fn to_json(&self) -> serde_json::Value {
+        let tools: Vec<serde_json::Value> = self.stats
+            .values()
+            .map(|stat| serde_json::json!({
+                "name": stat.name,
+                "total_invocations": stat.total_invocations,
+                "total_duration_ms": stat.total_duration_ms,
+                "average_duration_ms": stat.average_duration_ms,
+                "min_duration_ms": stat.min_duration_ms,
+                "max_duration_ms": stat.max_duration_ms,
+                "failure_count": stat.failure_count,
+                "success_rate": stat.success_rate
+            }))
+            .collect();
+
+        serde_json::json!({
+            "tools": tools,
+            "total_tools": self.stats.len()
+        })
+    }
+
+    /// Export tool stats to CSV format
+    pub fn to_csv(&self) -> String {
+        let mut csv = String::from("tool_name,total_invocations,avg_duration_ms,min_duration_ms,max_duration_ms,failure_count,success_rate\n");
+
+        let mut sorted_stats: Vec<_> = self.stats.values().collect();
+        sorted_stats.sort_by(|a, b| b.total_invocations.cmp(&a.total_invocations));
+
+        for stat in sorted_stats {
+            csv.push_str(&format!(
+                "{},{},{},{},{},{},{:.2}\n",
+                stat.name,
+                stat.total_invocations,
+                stat.average_duration_ms,
+                stat.min_duration_ms,
+                stat.max_duration_ms,
+                stat.failure_count,
+                stat.success_rate
+            ));
+        }
+
+        csv
+    }
 }
 
 /// Individual tool statistics
@@ -164,20 +240,31 @@ pub struct ReplayEvent {
     pub metadata: HashMap<String, String>,
 }
 
-/// Session index for efficient querying
+/// Session index for efficient querying with database backend
 pub struct SessionIndex {
-    sessions: HashMap<String, Session>,
+    db: Option<std::sync::Arc<super::persistence::AnalyticsDatabase>>,
+    cache: HashMap<String, Session>,
 }
 
 impl SessionIndex {
     pub fn new() -> Self {
         Self {
-            sessions: HashMap::new(),
+            db: None,
+            cache: HashMap::new(),
+        }
+    }
+
+    /// Create index with database backend
+    pub fn with_database(db: std::sync::Arc<super::persistence::AnalyticsDatabase>) -> Self {
+        Self {
+            db: Some(db),
+            cache: HashMap::new(),
         }
     }
 
     pub async fn add_event(&mut self, session_id: &str, event: SessionEvent) -> anyhow::Result<()> {
-        if let Some(session) = self.sessions.get_mut(session_id) {
+        // Update in-memory cache
+        if let Some(session) = self.cache.get_mut(session_id) {
             session.events.push(event);
         } else {
             // Create new session if not exists
@@ -194,23 +281,61 @@ impl SessionIndex {
                 total_cache_tokens: 0,
                 tool_invocations: Vec::new(),
             };
-            self.sessions.insert(session_id.to_string(), session);
+            self.cache.insert(session_id.to_string(), session.clone());
+
+            // Persist to database if available
+            if let Some(db) = &self.db {
+                db.upsert_session(&session).await?;
+            }
         }
         Ok(())
     }
 
-    pub async fn get_session(&self, session_id: &str) -> anyhow::Result<&Session> {
-        self.sessions
-            .get(session_id)
-            .ok_or_else(|| anyhow::anyhow!("Session {} not found", session_id))
+    pub async fn get_session(&self, session_id: &str) -> anyhow::Result<Session> {
+        // Check cache first
+        if let Some(session) = self.cache.get(session_id) {
+            return Ok(session.clone());
+        }
+
+        // Fall back to database
+        if let Some(db) = &self.db {
+            if let Some(session) = db.get_session(session_id).await? {
+                return Ok(session);
+            }
+        }
+
+        Err(anyhow::anyhow!("Session {} not found", session_id))
     }
 
-    pub async fn query_sessions(&self, time_range: TimeRange) -> anyhow::Result<Vec<&Session>> {
+    pub async fn query_sessions(&self, time_range: TimeRange) -> anyhow::Result<Vec<Session>> {
+        // If database is available, use it
+        if let Some(db) = &self.db {
+            return db.query_sessions(time_range.start, time_range.end).await;
+        }
+
+        // Otherwise use cache
         Ok(self
-            .sessions
+            .cache
             .values()
             .filter(|s| s.started_at >= time_range.start && s.started_at <= time_range.end)
+            .cloned()
             .collect())
+    }
+
+    /// Persist all cached sessions to database
+    pub async fn flush_to_database(&self) -> anyhow::Result<()> {
+        if let Some(db) = &self.db {
+            for session in self.cache.values() {
+                db.upsert_session(session).await?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Insert session directly into cache (for testing)
+    #[cfg(test)]
+    pub fn insert_test_session(&mut self, id: String, session: Session) {
+        self.cache.insert(id, session);
     }
 }
 

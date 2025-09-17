@@ -1,14 +1,14 @@
 //! Analytics engine for Claude session analysis
 
 use anyhow::Result;
-use chrono::{Duration, Timelike, Utc};
+use chrono::{DateTime, Duration, Timelike, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info};
 
-use super::models::{Cost, PricingModel, Session, SessionIndex, TimeRange, ToolStat, ToolStats};
+use super::models::{Cost, PricingModel, Session, SessionEvent, SessionIndex, TimeRange, ToolStat, ToolStats};
 
 /// Analytics engine for processing Claude session data
 pub struct AnalyticsEngine {
@@ -36,7 +36,7 @@ impl AnalyticsEngine {
             input_tokens: session.total_input_tokens(),
             output_tokens: session.total_output_tokens(),
             cache_tokens: session.total_cache_tokens(),
-            estimated_cost_usd: self.calculate_cost(session),
+            estimated_cost_usd: self.calculate_cost(&session),
         };
 
         debug!(
@@ -194,7 +194,7 @@ impl AnalyticsEngine {
         let mut total_tokens = TokenSummary::default();
 
         for session in sessions {
-            total_cost += self.calculate_cost(session);
+            total_cost += self.calculate_cost(&session);
             total_tokens.input += session.total_input_tokens();
             total_tokens.output += session.total_output_tokens();
             total_tokens.cache += session.total_cache_tokens();
@@ -213,6 +213,125 @@ impl AnalyticsEngine {
                 output: (total_tokens.output as f64 / days_in_period) as u64,
                 cache: (total_tokens.cache as f64 / days_in_period) as u64,
             },
+        })
+    }
+
+    /// Analyze patterns across multiple sessions
+    pub async fn analyze_cross_session_patterns(&self, session_ids: Vec<String>) -> Result<CrossSessionAnalysis> {
+        let index = self.index.read().await;
+        let mut sessions = Vec::new();
+
+        for session_id in &session_ids {
+            if let Ok(session) = index.get_session(session_id).await {
+                sessions.push(session);
+            }
+        }
+
+        if sessions.is_empty() {
+            return Ok(CrossSessionAnalysis::default());
+        }
+
+        // Analyze common tools
+        let mut tool_usage = HashMap::new();
+        let mut total_cost = 0.0;
+        let mut total_duration_ms = 0u64;
+        let mut error_patterns = HashMap::new();
+
+        for session in &sessions {
+            // Track tool usage
+            for tool in &session.tool_invocations {
+                *tool_usage.entry(tool.name.clone()).or_insert(0u64) += 1;
+            }
+
+            // Calculate total cost
+            total_cost += self.calculate_cost(&session);
+
+            // Track session duration
+            if let Some(completed) = session.completed_at {
+                let duration = completed - session.started_at;
+                total_duration_ms += duration.num_milliseconds().max(0) as u64;
+            }
+
+            // Track error patterns
+            for event in &session.events {
+                if let SessionEvent::Error { error_type, .. } = event {
+                    *error_patterns.entry(error_type.clone()).or_insert(0u64) += 1;
+                }
+            }
+        }
+
+        // Find most common tools
+        let mut tool_list: Vec<_> = tool_usage.into_iter().collect();
+        tool_list.sort_by(|a, b| b.1.cmp(&a.1));
+        let common_tools: Vec<String> = tool_list
+            .into_iter()
+            .take(10)
+            .map(|(name, _)| name)
+            .collect();
+
+        // Find most common errors
+        let mut error_list: Vec<_> = error_patterns.into_iter().collect();
+        error_list.sort_by(|a, b| b.1.cmp(&a.1));
+        let common_errors: Vec<String> = error_list
+            .into_iter()
+            .take(5)
+            .map(|(error, _)| error)
+            .collect();
+
+        Ok(CrossSessionAnalysis {
+            session_count: sessions.len(),
+            total_cost,
+            average_cost: total_cost / sessions.len() as f64,
+            total_duration_ms,
+            average_duration_ms: total_duration_ms / sessions.len() as u64,
+            common_tools,
+            common_errors,
+            earliest_session: sessions.iter().map(|s| s.started_at).min(),
+            latest_session: sessions.iter().map(|s| s.started_at).max(),
+        })
+    }
+
+    /// Compare two sessions to identify differences
+    pub async fn compare_sessions(&self, session_id_1: &str, session_id_2: &str) -> Result<SessionComparison> {
+        let index = self.index.read().await;
+        let session1 = index.get_session(session_id_1).await?;
+        let session2 = index.get_session(session_id_2).await?;
+
+        // Compare token usage
+        let token_diff = TokenComparison {
+            input_diff: session2.total_input_tokens as i64 - session1.total_input_tokens as i64,
+            output_diff: session2.total_output_tokens as i64 - session1.total_output_tokens as i64,
+            cache_diff: session2.total_cache_tokens as i64 - session1.total_cache_tokens as i64,
+        };
+
+        // Compare costs
+        let cost1 = self.calculate_cost(&session1);
+        let cost2 = self.calculate_cost(&session2);
+        let cost_diff = cost2 - cost1;
+
+        // Compare tools used
+        let tools1: HashSet<String> = session1.tool_invocations.iter().map(|t| t.name.clone()).collect();
+        let tools2: HashSet<String> = session2.tool_invocations.iter().map(|t| t.name.clone()).collect();
+
+        let tools_added: Vec<String> = tools2.difference(&tools1).cloned().collect();
+        let tools_removed: Vec<String> = tools1.difference(&tools2).cloned().collect();
+        let tools_common: Vec<String> = tools1.intersection(&tools2).cloned().collect();
+
+        // Calculate duration difference
+        let duration1 = session1.completed_at.unwrap_or(session1.started_at) - session1.started_at;
+        let duration2 = session2.completed_at.unwrap_or(session2.started_at) - session2.started_at;
+        let duration_diff_ms = (duration2 - duration1).num_milliseconds();
+
+        Ok(SessionComparison {
+            session_id_1: session_id_1.to_string(),
+            session_id_2: session_id_2.to_string(),
+            token_comparison: token_diff,
+            cost_diff,
+            cost_percentage_change: if cost1 > 0.0 { (cost_diff / cost1) * 100.0 } else { 0.0 },
+            duration_diff_ms,
+            tools_added,
+            tools_removed,
+            tools_common,
         })
     }
 
@@ -369,9 +488,46 @@ pub enum Priority {
     Low,
 }
 
+/// Cross-session analysis results
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CrossSessionAnalysis {
+    pub session_count: usize,
+    pub total_cost: f64,
+    pub average_cost: f64,
+    pub total_duration_ms: u64,
+    pub average_duration_ms: u64,
+    pub common_tools: Vec<String>,
+    pub common_errors: Vec<String>,
+    pub earliest_session: Option<DateTime<Utc>>,
+    pub latest_session: Option<DateTime<Utc>>,
+}
+
+/// Session comparison results
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionComparison {
+    pub session_id_1: String,
+    pub session_id_2: String,
+    pub token_comparison: TokenComparison,
+    pub cost_diff: f64,
+    pub cost_percentage_change: f64,
+    pub duration_diff_ms: i64,
+    pub tools_added: Vec<String>,
+    pub tools_removed: Vec<String>,
+    pub tools_common: Vec<String>,
+}
+
+/// Token usage comparison
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenComparison {
+    pub input_diff: i64,
+    pub output_diff: i64,
+    pub cache_diff: i64,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::analytics::models::{Session, SessionEvent, ToolInvocation};
 
     #[tokio::test]
     async fn test_metrics_collector() {
@@ -393,5 +549,326 @@ mod tests {
         // Verify cost calculation
         assert!(cost > 0.0);
         assert_eq!(cost, 3.0 + 7.5 + 0.0375);
+    }
+
+    #[tokio::test]
+    async fn test_analytics_engine_cost_calculation() {
+        let index = Arc::new(RwLock::new(SessionIndex::new()));
+        let engine = AnalyticsEngine::new(index.clone());
+
+        // Add a test session
+        let session = Session {
+            session_id: "test-session".to_string(),
+            project_path: "/test".to_string(),
+            jsonl_path: "/test.jsonl".to_string(),
+            started_at: Utc::now(),
+            completed_at: None,
+            model: Some("claude-3".to_string()),
+            events: vec![],
+            total_input_tokens: 1000,
+            total_output_tokens: 2000,
+            total_cache_tokens: 500,
+            tool_invocations: vec![],
+        };
+
+        let mut idx = index.write().await;
+        idx.insert_test_session("test-session".to_string(), session);
+        drop(idx);
+
+        let cost = engine.calculate_session_cost("test-session").await.unwrap();
+        assert_eq!(cost.input_tokens, 1000);
+        assert_eq!(cost.output_tokens, 2000);
+        assert_eq!(cost.cache_tokens, 500);
+        assert!(cost.estimated_cost_usd > 0.0);
+    }
+
+    #[tokio::test]
+    async fn test_tool_usage_analysis() {
+        let index = Arc::new(RwLock::new(SessionIndex::new()));
+        let engine = AnalyticsEngine::new(index.clone());
+
+        // Create session with tool invocations
+        let session = Session {
+            session_id: "test-tools".to_string(),
+            project_path: "/test".to_string(),
+            jsonl_path: "/test.jsonl".to_string(),
+            started_at: Utc::now() - Duration::hours(1),
+            completed_at: Some(Utc::now()),
+            model: None,
+            events: vec![],
+            total_input_tokens: 0,
+            total_output_tokens: 0,
+            total_cache_tokens: 0,
+            tool_invocations: vec![
+                ToolInvocation {
+                    name: "Read".to_string(),
+                    invoked_at: Utc::now(),
+                    duration_ms: Some(100),
+                    parameters: serde_json::json!({}),
+                    result_size: Some(1024),
+                },
+                ToolInvocation {
+                    name: "Write".to_string(),
+                    invoked_at: Utc::now(),
+                    duration_ms: Some(200),
+                    parameters: serde_json::json!({}),
+                    result_size: Some(2048),
+                },
+                ToolInvocation {
+                    name: "Read".to_string(),
+                    invoked_at: Utc::now(),
+                    duration_ms: Some(150),
+                    parameters: serde_json::json!({}),
+                    result_size: Some(512),
+                },
+            ],
+        };
+
+        let mut idx = index.write().await;
+        idx.insert_test_session("test-tools".to_string(), session);
+        drop(idx);
+
+        let time_range = TimeRange {
+            start: Utc::now() - Duration::days(1),
+            end: Utc::now(),
+        };
+
+        let tool_stats = engine.analyze_tool_usage(time_range).await.unwrap();
+        assert_eq!(tool_stats.stats.len(), 2); // Read and Write
+
+        let read_stat = tool_stats.stats.get("Read").unwrap();
+        assert_eq!(read_stat.total_invocations, 2);
+        assert_eq!(read_stat.average_duration_ms, 125); // (100 + 150) / 2
+
+        let write_stat = tool_stats.stats.get("Write").unwrap();
+        assert_eq!(write_stat.total_invocations, 1);
+        assert_eq!(write_stat.average_duration_ms, 200);
+    }
+
+    #[tokio::test]
+    async fn test_cross_session_analysis() {
+        let index = Arc::new(RwLock::new(SessionIndex::new()));
+        let engine = AnalyticsEngine::new(index.clone());
+
+        // Create multiple sessions
+        let session1 = Session {
+            session_id: "session1".to_string(),
+            project_path: "/test".to_string(),
+            jsonl_path: "/test1.jsonl".to_string(),
+            started_at: Utc::now() - Duration::hours(2),
+            completed_at: Some(Utc::now() - Duration::hours(1)),
+            model: None,
+            events: vec![
+                SessionEvent::Error {
+                    timestamp: Utc::now(),
+                    error_type: "NetworkError".to_string(),
+                    message: "Connection failed".to_string(),
+                }
+            ],
+            total_input_tokens: 1000,
+            total_output_tokens: 2000,
+            total_cache_tokens: 500,
+            tool_invocations: vec![
+                ToolInvocation {
+                    name: "Read".to_string(),
+                    invoked_at: Utc::now(),
+                    duration_ms: Some(100),
+                    parameters: serde_json::json!({}),
+                    result_size: None,
+                },
+            ],
+        };
+
+        let session2 = Session {
+            session_id: "session2".to_string(),
+            project_path: "/test".to_string(),
+            jsonl_path: "/test2.jsonl".to_string(),
+            started_at: Utc::now() - Duration::hours(1),
+            completed_at: Some(Utc::now()),
+            model: None,
+            events: vec![
+                SessionEvent::Error {
+                    timestamp: Utc::now(),
+                    error_type: "NetworkError".to_string(),
+                    message: "Timeout".to_string(),
+                }
+            ],
+            total_input_tokens: 1500,
+            total_output_tokens: 2500,
+            total_cache_tokens: 600,
+            tool_invocations: vec![
+                ToolInvocation {
+                    name: "Write".to_string(),
+                    invoked_at: Utc::now(),
+                    duration_ms: Some(200),
+                    parameters: serde_json::json!({}),
+                    result_size: None,
+                },
+                ToolInvocation {
+                    name: "Read".to_string(),
+                    invoked_at: Utc::now(),
+                    duration_ms: Some(150),
+                    parameters: serde_json::json!({}),
+                    result_size: None,
+                },
+            ],
+        };
+
+        let mut idx = index.write().await;
+        idx.insert_test_session("session1".to_string(), session1);
+        idx.insert_test_session("session2".to_string(), session2);
+        drop(idx);
+
+        let analysis = engine.analyze_cross_session_patterns(vec![
+            "session1".to_string(),
+            "session2".to_string(),
+        ]).await.unwrap();
+
+        assert_eq!(analysis.session_count, 2);
+        assert!(analysis.total_cost > 0.0);
+        assert!(analysis.common_tools.contains(&"Read".to_string()));
+        assert!(analysis.common_errors.contains(&"NetworkError".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_session_comparison() {
+        let index = Arc::new(RwLock::new(SessionIndex::new()));
+        let engine = AnalyticsEngine::new(index.clone());
+
+        let session1 = Session {
+            session_id: "compare1".to_string(),
+            project_path: "/test".to_string(),
+            jsonl_path: "/test1.jsonl".to_string(),
+            started_at: Utc::now() - Duration::hours(2),
+            completed_at: Some(Utc::now() - Duration::hours(1)),
+            model: None,
+            events: vec![],
+            total_input_tokens: 1000,
+            total_output_tokens: 2000,
+            total_cache_tokens: 500,
+            tool_invocations: vec![
+                ToolInvocation {
+                    name: "Read".to_string(),
+                    invoked_at: Utc::now(),
+                    duration_ms: Some(100),
+                    parameters: serde_json::json!({}),
+                    result_size: None,
+                },
+            ],
+        };
+
+        let session2 = Session {
+            session_id: "compare2".to_string(),
+            project_path: "/test".to_string(),
+            jsonl_path: "/test2.jsonl".to_string(),
+            started_at: Utc::now() - Duration::hours(1),
+            completed_at: Some(Utc::now()),
+            model: None,
+            events: vec![],
+            total_input_tokens: 1500,
+            total_output_tokens: 2500,
+            total_cache_tokens: 600,
+            tool_invocations: vec![
+                ToolInvocation {
+                    name: "Write".to_string(),
+                    invoked_at: Utc::now(),
+                    duration_ms: Some(200),
+                    parameters: serde_json::json!({}),
+                    result_size: None,
+                },
+                ToolInvocation {
+                    name: "Read".to_string(),
+                    invoked_at: Utc::now(),
+                    duration_ms: Some(150),
+                    parameters: serde_json::json!({}),
+                    result_size: None,
+                },
+            ],
+        };
+
+        let mut idx = index.write().await;
+        idx.insert_test_session("compare1".to_string(), session1);
+        idx.insert_test_session("compare2".to_string(), session2);
+        drop(idx);
+
+        let comparison = engine.compare_sessions("compare1", "compare2").await.unwrap();
+
+        assert_eq!(comparison.token_comparison.input_diff, 500);
+        assert_eq!(comparison.token_comparison.output_diff, 500);
+        assert_eq!(comparison.token_comparison.cache_diff, 100);
+        assert!(comparison.cost_diff > 0.0);
+        assert!(comparison.tools_added.contains(&"Write".to_string()));
+        assert!(comparison.tools_common.contains(&"Read".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_bottleneck_identification() {
+        let index = Arc::new(RwLock::new(SessionIndex::new()));
+        let engine = AnalyticsEngine::new(index.clone());
+
+        let session = Session {
+            session_id: "bottleneck-test".to_string(),
+            project_path: "/test".to_string(),
+            jsonl_path: "/test.jsonl".to_string(),
+            started_at: Utc::now() - Duration::hours(1),
+            completed_at: Some(Utc::now()),
+            model: None,
+            events: vec![],
+            total_input_tokens: 0,
+            total_output_tokens: 0,
+            total_cache_tokens: 0,
+            tool_invocations: vec![
+                ToolInvocation {
+                    name: "SlowTool".to_string(),
+                    invoked_at: Utc::now(),
+                    duration_ms: Some(10000), // 10 seconds - slow!
+                    parameters: serde_json::json!({}),
+                    result_size: None,
+                },
+            ],
+        };
+
+        let mut idx = index.write().await;
+        idx.insert_test_session("bottleneck-test".to_string(), session);
+        drop(idx);
+
+        let bottlenecks = engine.identify_bottlenecks(5000).await.unwrap();
+        assert!(!bottlenecks.is_empty());
+
+        let slow_tool = &bottlenecks[0];
+        assert_eq!(slow_tool.tool_name, "SlowTool");
+        assert!(matches!(slow_tool.issue_type, IssueType::SlowExecution));
+    }
+
+    #[tokio::test]
+    async fn test_cost_projection() {
+        let index = Arc::new(RwLock::new(SessionIndex::new()));
+        let engine = AnalyticsEngine::new(index.clone());
+
+        // Create sessions over past week
+        for i in 0..7 {
+            let session = Session {
+                session_id: format!("proj-session-{}", i),
+                project_path: "/test".to_string(),
+                jsonl_path: format!("/test{}.jsonl", i),
+                started_at: Utc::now() - Duration::days(i),
+                completed_at: Some(Utc::now() - Duration::days(i) + Duration::hours(1)),
+                model: None,
+                events: vec![],
+                total_input_tokens: 1000,
+                total_output_tokens: 2000,
+                total_cache_tokens: 500,
+                tool_invocations: vec![],
+            };
+
+            let mut idx = index.write().await;
+            idx.insert_test_session(format!("proj-session-{}", i), session);
+        }
+
+        let projection = engine.project_costs(7).await.unwrap();
+        assert!(projection.daily_average > 0.0);
+        assert!(projection.weekly_projection > 0.0);
+        assert!(projection.monthly_projection > 0.0);
+        assert!(projection.annual_projection > 0.0);
     }
 }
