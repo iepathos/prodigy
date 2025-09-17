@@ -3,11 +3,11 @@
 //! Provides real-time progress monitoring for sequential workflows,
 //! including support for resumed workflows with accurate step tracking.
 
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, RwLock};
-use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
 
 /// Progress tracker for sequential workflow execution
 #[derive(Clone)]
@@ -113,11 +113,17 @@ pub enum UpdateType {
     /// Iteration started
     IterationStarted { iteration: usize },
     /// Step started
-    StepStarted { step_index: usize, step_name: String },
+    StepStarted {
+        step_index: usize,
+        step_name: String,
+    },
     /// Step progress
     StepProgress { percentage: f32 },
     /// Step completed
-    StepCompleted { step_index: usize, duration: Duration },
+    StepCompleted {
+        step_index: usize,
+        duration: Duration,
+    },
     /// Step skipped (from resume)
     StepSkipped { step_index: usize, reason: String },
     /// Step failed
@@ -241,7 +247,10 @@ impl SequentialProgressTracker {
             timestamp: Utc::now(),
             update_type: UpdateType::IterationStarted { iteration },
             state: state.clone(),
-            message: Some(format!("Starting iteration {}/{}", iteration, self.max_iterations)),
+            message: Some(format!(
+                "Starting iteration {}/{}",
+                iteration, self.max_iterations
+            )),
         };
 
         self.send_update(update).await;
@@ -262,7 +271,10 @@ impl SequentialProgressTracker {
 
         let update = ProgressUpdate {
             timestamp: Utc::now(),
-            update_type: UpdateType::StepStarted { step_index, step_name },
+            update_type: UpdateType::StepStarted {
+                step_index,
+                step_name,
+            },
             state: state.clone(),
             message: Some(format!(
                 "Step {}/{}: {}",
@@ -321,9 +333,16 @@ impl SequentialProgressTracker {
 
         let update = ProgressUpdate {
             timestamp: Utc::now(),
-            update_type: UpdateType::StepCompleted { step_index, duration },
+            update_type: UpdateType::StepCompleted {
+                step_index,
+                duration,
+            },
             state: state.clone(),
-            message: Some(format!("Completed step {}/{}", step_index + 1, self.total_steps)),
+            message: Some(format!(
+                "Completed step {}/{}",
+                step_index + 1,
+                self.total_steps
+            )),
         };
 
         self.send_update(update).await;
@@ -345,7 +364,11 @@ impl SequentialProgressTracker {
             timestamp: Utc::now(),
             update_type: UpdateType::StepSkipped { step_index, reason },
             state: state.clone(),
-            message: Some(format!("Skipped step {}/{}", step_index + 1, self.total_steps)),
+            message: Some(format!(
+                "Skipped step {}/{}",
+                step_index + 1,
+                self.total_steps
+            )),
         };
 
         self.send_update(update).await;
@@ -359,7 +382,10 @@ impl SequentialProgressTracker {
 
         let update = ProgressUpdate {
             timestamp: Utc::now(),
-            update_type: UpdateType::StepFailed { step_index, error: error.clone() },
+            update_type: UpdateType::StepFailed {
+                step_index,
+                error: error.clone(),
+            },
             state: state.clone(),
             message: Some(format!("Step {} failed: {}", step_index + 1, error)),
         };
@@ -448,6 +474,12 @@ pub struct ProgressDisplay {
     min_update_interval: Duration,
 }
 
+impl Default for ProgressDisplay {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ProgressDisplay {
     /// Create a new progress display
     pub fn new() -> Self {
@@ -515,8 +547,8 @@ mod tests {
         let mut tracker = SequentialProgressTracker::new(
             "calc-id".to_string(),
             "Calc Workflow".to_string(),
-            5,  // 5 steps
-            2,  // 2 iterations
+            5, // 5 steps
+            2, // 2 iterations
         );
 
         // Start first iteration
@@ -539,7 +571,7 @@ mod tests {
             "skip-id".to_string(),
             "Skip Workflow".to_string(),
             5,
-            2,  // 2 iterations total
+            2, // 2 iterations total
             2, // 2 steps already completed
             1, // Starting iteration 1 (not completed yet)
         );

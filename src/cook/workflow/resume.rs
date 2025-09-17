@@ -390,7 +390,10 @@ impl ResumeExecutor {
 
         let mut progress_tracker = SequentialProgressTracker::for_resume(
             workflow_id.to_string(),
-            checkpoint.workflow_name.clone().unwrap_or_else(|| workflow_id.to_string()),
+            checkpoint
+                .workflow_name
+                .clone()
+                .unwrap_or_else(|| workflow_id.to_string()),
             total_steps,
             max_iterations,
             skipped_steps,
@@ -401,11 +404,15 @@ impl ResumeExecutor {
         let mut progress_display = ProgressDisplay::new();
 
         // Set initial phase
-        progress_tracker.update_phase(ExecutionPhase::LoadingCheckpoint).await;
+        progress_tracker
+            .update_phase(ExecutionPhase::LoadingCheckpoint)
+            .await;
         progress_display.force_update(&format!("Loading checkpoint for workflow {}", workflow_id));
 
         // Load the workflow file
-        progress_tracker.update_phase(ExecutionPhase::RestoringState).await;
+        progress_tracker
+            .update_phase(ExecutionPhase::RestoringState)
+            .await;
         progress_display.force_update("Loading workflow file and restoring state...");
 
         let workflow_content = tokio::fs::read_to_string(workflow_path)
@@ -567,10 +574,14 @@ impl ResumeExecutor {
         );
 
         // Update progress to executing phase
-        progress_tracker.update_phase(ExecutionPhase::ExecutingSteps).await;
+        progress_tracker
+            .update_phase(ExecutionPhase::ExecutingSteps)
+            .await;
         progress_display.force_update(&format!(
             "Resuming from step {}/{}. {} steps already completed.",
-            start_from + 1, total_steps, skipped_steps
+            start_from + 1,
+            total_steps,
+            skipped_steps
         ));
 
         // Set progress callback to display updates
@@ -589,7 +600,9 @@ impl ResumeExecutor {
         for (step_index, step) in extended_workflow.steps.iter().enumerate() {
             if step_index < start_from {
                 info!("Skipping completed step {}: {:?}", step_index + 1, step);
-                progress_tracker.skip_step(step_index, "Already completed from checkpoint".to_string()).await;
+                progress_tracker
+                    .skip_step(step_index, "Already completed from checkpoint".to_string())
+                    .await;
                 continue;
             }
 
@@ -604,7 +617,9 @@ impl ResumeExecutor {
             );
 
             // Start step in progress tracker
-            progress_tracker.start_step(step_index, step_name.clone()).await;
+            progress_tracker
+                .start_step(step_index, step_name.clone())
+                .await;
 
             // Update progress display
             let progress_msg = progress_tracker.format_progress().await;
@@ -713,7 +728,9 @@ impl ResumeExecutor {
         }
 
         // Update progress to completed
-        progress_tracker.update_phase(ExecutionPhase::Completed).await;
+        progress_tracker
+            .update_phase(ExecutionPhase::Completed)
+            .await;
         let final_progress = progress_tracker.format_progress().await;
         progress_display.force_update(&final_progress);
 

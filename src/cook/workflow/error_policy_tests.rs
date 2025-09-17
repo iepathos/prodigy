@@ -336,7 +336,7 @@ mod tests {
 
         // Simulate multiple timeout errors
         for _ in 0..3 {
-            let _ = executor.update_metrics(&MapReduceError::Timeout);
+            executor.update_metrics(&MapReduceError::Timeout);
         }
 
         let metrics = executor.get_metrics();

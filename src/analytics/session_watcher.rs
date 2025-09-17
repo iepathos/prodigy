@@ -322,8 +322,8 @@ mod tests {
     async fn test_session_watcher_initialization() {
         let event_logger = Arc::new(EventLogger::new(vec![]));
 
-        let watcher = SessionWatcher::new(event_logger).unwrap();
-        assert!(watcher.claude_projects_path.exists() || true); // Path might not exist in test env
+        let _watcher = SessionWatcher::new(event_logger).unwrap();
+        // Path might not exist in test environment, so we just check that the watcher was created successfully
     }
 
     #[tokio::test]
