@@ -6,10 +6,9 @@ use crate::subprocess::{ProcessCommand, ProcessError, ProcessRunner};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use std::process::Stdio;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
 use tokio::process::Command;
-use tokio::task::JoinHandle;
 
 /// Command runner with streaming support
 pub struct StreamingCommandRunner {
@@ -234,6 +233,7 @@ impl ProcessRunner for StreamingProcessRunner {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
     use crate::subprocess::streaming::processor::LoggingProcessor;
 
     #[tokio::test]
