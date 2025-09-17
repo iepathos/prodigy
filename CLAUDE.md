@@ -174,7 +174,8 @@ Features:
 Prodigy supports several command types in workflows:
 - `claude:` - Execute Claude commands via Claude Code CLI
 - `shell:` - Run shell commands
-- `test:` - **Deprecated** - This command type is deprecated and will show a warning. Use `shell:` instead for running tests
+- `goal_seek:` - Run goal-seeking operations with validation
+- `foreach:` - Iterate over lists with nested commands
 
 ### Variable Interpolation
 Workflows support variable interpolation:
@@ -206,12 +207,15 @@ All changes are tracked via git commits:
 ## Available Commands
 
 Prodigy CLI commands:
-- `prodigy cook` - Execute a workflow
+- `prodigy cook` - Execute a workflow (with `--resume` flag for checkpoint-based resume)
+- `prodigy resume` - Resume an interrupted workflow from checkpoint
 - `prodigy worktree` - Manage git worktrees
 - `prodigy init` - Initialize Claude commands
-- `prodigy resume-job` - Display MapReduce job status (**Note**: Actual job resumption is not yet implemented, this command only prints job status)
+- `prodigy resume-job` - Resume MapReduce jobs with enhanced options
 - `prodigy events` - View execution events
 - `prodigy dlq` - Manage and reprocess failed work items
+- `prodigy checkpoints` - Manage workflow checkpoints
+- `prodigy sessions` - View and manage session state
 
 ## Best Practices
 
@@ -224,9 +228,10 @@ Prodigy CLI commands:
 ## Limitations
 
 - No automatic context analysis or generation
-- Each iteration runs independently (no memory between sessions)
+- Each iteration runs independently (memory preserved via checkpoints and state)
 - Context directory feature is planned but not implemented
 - Limited to Claude commands available in `.claude/commands/`
+- Resume functionality requires workflow files to be present
 
 ## Troubleshooting
 
@@ -238,8 +243,8 @@ Prodigy CLI commands:
 ### MapReduce Failures
 - Check `.prodigy/dlq/` for failed items
 - Reprocess failed items with `prodigy dlq reprocess <job_id>`
-- View job status with `prodigy resume-job` (actual resumption not yet implemented)
-- Review checkpoint in `.prodigy/events/{job_id}/checkpoint.json`
+- Resume MapReduce jobs with `prodigy resume-job <job_id>`
+- Review checkpoint in `~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/`
 
 ### Worktree Problems
 - List worktrees with `prodigy worktree ls`

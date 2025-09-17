@@ -41,25 +41,28 @@ After analyzing the current implementation against the whitepaper specifications
 
 ## ❌ Missing or Incomplete Features
 
-### 1. DLQ Reprocessing (Critical Gap)
+### 1. DLQ Reprocessing (Implemented)
 **Whitepaper Spec**: "Later, reprocess failed items: `prodigy dlq retry workflow-id`"
 
-**Current State**:
-- Command exists but returns: "DLQ reprocessing is not yet implemented"
-- `DlqReprocessor` struct exists but core logic is incomplete
-- No actual retry mechanism for failed items
+**Current State**: ✅ IMPLEMENTED
+- Full DLQ reprocessing with `prodigy dlq reprocess <job_id>`
+- Streaming implementation to handle large queues
+- Configurable parallelism with `--max-parallel`
+- Dry run support with `--dry-run`
+- Preserves correlation IDs and updates DLQ state
 
-**Impact**: Failed items cannot be automatically retried, requiring manual intervention
 
-### 2. Job Resumption (Major Gap)
+### 2. Job Resumption (Implemented)
 **Whitepaper Spec**: Resume capability for interrupted workflows
 
-**Current State**:
-- `prodigy resume-job` command only displays status, doesn't actually resume
-- Checkpoint files are created but not used for resumption
-- State persistence exists but recovery logic is missing
+**Current State**: ✅ IMPLEMENTED
+- Full workflow resumption with `prodigy resume <workflow-id>`
+- MapReduce job resumption with `prodigy resume-job <job-id>`
+- Complete checkpoint-based recovery for all workflow types
+- Variable state restoration and environment validation
+- Cross-worktree coordination for parallel jobs
 
-**Impact**: Long-running workflows cannot recover from interruptions
+**Impact**: All workflows can now recover from interruptions
 
 ### 3. Simplified MapReduce Syntax (Minor Gap)
 **Whitepaper Spec**: Direct command arrays under `agent_template` and `reduce`

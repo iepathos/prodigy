@@ -47,8 +47,15 @@ Claude: "Let me see the new error..."
 - Automatic retry of failed formatting/linting
 - Full subprocess stdout/stderr capture
 - Flexible failure modes per command
-- MapReduce job checkpointing (full resumption coming soon)
+- Complete workflow and MapReduce job checkpoint/resume capability
 - on_success handlers for conditional execution
+
+✨ **Resume Functionality**: Full checkpoint-based workflow resumption
+- Resume interrupted workflows with `prodigy resume`
+- MapReduce jobs fully resumable with `prodigy resume-job`
+- Automatic checkpoint management and validation
+- Cross-worktree coordination for parallel jobs
+- Dead Letter Queue integration for failed items
 
 📊 **Data Pipeline Features**: Advanced filtering and transformation
 - Regex pattern matching: `path matches '\.rs$'`
@@ -260,8 +267,11 @@ prodigy cook workflows/implement.yml --worktree --yes
 # Process multiple files with mapping
 prodigy cook workflows/implement.yml --map "specs/*.md"
 
-# View interrupted session status (full resumption coming soon)
-prodigy resume-job session-abc123
+# Resume an interrupted workflow from checkpoint
+prodigy resume workflow-id
+
+# Resume a MapReduce job with options
+prodigy resume-job job-id --force --max-retries 3
 
 # See detailed progress
 prodigy cook workflows/implement.yml --verbose
@@ -281,7 +291,7 @@ prodigy cook workflows/fix-files-mapreduce.yml --worktree
 # Auto-merge results from parallel agents
 prodigy cook workflows/mapreduce-example.yml --worktree --yes
 
-# View MapReduce job status from checkpoint (full resumption coming soon)
+# Resume MapReduce job from checkpoint
 prodigy resume-job job-id
 
 # Run with custom parallelism limit
@@ -559,7 +569,7 @@ reduce:
 - **Custom Variables**: Capture command output with custom variable names via `capture_output`
 - **Conditional Execution**: on_success and on_failure handlers for both map and reduce phases
 - **Progress Tracking**: Real-time progress bars for parallel agent execution
-- **Job Checkpointing**: Saves progress for MapReduce jobs (full resumption coming soon)
+- **Job Checkpointing**: Saves progress for MapReduce jobs with full resume capability
 
 #### Command Arguments & Error Handling
 
@@ -950,9 +960,10 @@ Each command receives:
 
 - Requires Claude Code CLI to be installed and configured (v0.6.0+)
 - Improvements are limited by Claude's capabilities and context window
-- Each iteration runs independently (no memory between sessions beyond git history and checkpoints)
-- Workflow configuration is intentionally simple (no complex conditionals or plugins)
+- Each iteration runs independently (state preserved via checkpoints and git history)
+- Workflow configuration is intentionally simple (conditionals supported via 'when' clauses)
 - MapReduce jobs require sufficient disk space for multiple worktrees
+- Resume functionality requires workflow files to be present at original paths
 - Some features are experimental and may change in future releases
 
 ## License
