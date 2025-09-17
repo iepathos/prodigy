@@ -17,7 +17,7 @@ pub mod validator;
 use anyhow::Result;
 use serde_json::Value;
 
-pub use evaluator::{CompiledFilter, CompiledSort, ExpressionEvaluator};
+pub use evaluator::{Collation, CompiledFilter, CompiledSort, ExpressionEvaluator};
 pub use optimizer::ExpressionOptimizer;
 pub use parser::{Expression, ExpressionParser};
 pub use validator::ExpressionValidator;
@@ -68,6 +68,20 @@ impl ExpressionEngine {
 
         // Create compiled sort
         Ok(CompiledSort::new(sort_keys))
+    }
+
+    /// Compile a sort expression with custom collation
+    pub fn compile_sort_with_collation(&self, expr: &str, collation: Collation) -> Result<CompiledSort> {
+        // Parse the sort keys
+        let sort_keys = self.parser.parse_sort(expr)?;
+
+        // Validate sort keys
+        for key in &sort_keys {
+            self.validator.validate(&key.expression)?;
+        }
+
+        // Create compiled sort with collation
+        Ok(CompiledSort::with_collation(sort_keys, collation))
     }
 
     /// Evaluate a filter expression directly without compilation

@@ -278,15 +278,18 @@ impl ExpressionParser {
                         }
                     }
 
-                    // Check for keywords
-                    match ident.as_str() {
+                    // Check for keywords (case-insensitive for operators)
+                    match ident.to_lowercase().as_str() {
                         "true" => tokens.push(Token::Boolean(true)),
                         "false" => tokens.push(Token::Boolean(false)),
                         "null" => tokens.push(Token::Null),
                         "in" => tokens.push(Token::In),
+                        "and" => tokens.push(Token::And),
+                        "or" => tokens.push(Token::Or),
+                        "not" => tokens.push(Token::Not),
                         "contains" => tokens.push(Token::Contains),
-                        "starts_with" => tokens.push(Token::StartsWith),
-                        "ends_with" => tokens.push(Token::EndsWith),
+                        "starts_with" | "startswith" => tokens.push(Token::StartsWith),
+                        "ends_with" | "endswith" => tokens.push(Token::EndsWith),
                         "matches" => tokens.push(Token::Matches),
                         _ => tokens.push(Token::Identifier(ident)),
                     }
@@ -303,16 +306,196 @@ impl ExpressionParser {
     /// Parse an expression from tokens
     fn parse_expression(&self, tokens: &[Token], _min_precedence: i32) -> Result<Expression> {
         // Simplified recursive descent parser
-        // In production, use a proper parser generator or more robust implementation
-
         if tokens.is_empty() {
             return Err(anyhow!("Empty expression"));
         }
 
-        // For now, delegate to the existing simple parser
-        // This would be expanded with full expression parsing
-        Ok(Expression::Boolean(true))
+        // Parse OR expressions (lowest precedence)
+        self.parse_or(tokens)
     }
+
+    /// Parse OR expressions
+    fn parse_or(&self, tokens: &[Token]) -> Result<Expression> {
+        // Find all OR positions at this level (not inside parentheses)
+        let or_positions = self.find_operators(tokens, &Token::Or)?;
+
+        if or_positions.is_empty() {
+            return self.parse_and(tokens);
+        }
+
+        // Split by OR and parse each part
+        let mut parts = Vec::new();
+        let mut start = 0;
+        for pos in or_positions {
+            if pos > start {
+                let part_tokens = &tokens[start..pos];
+                parts.push(self.parse_and(part_tokens)?);
+            }
+            start = pos + 1;
+        }
+        if start < tokens.len() {
+            parts.push(self.parse_and(&tokens[start..])?);
+        }
+
+        // Build OR tree from left to right
+        let mut result = parts.into_iter().reduce(|left, right| {
+            Expression::Or(Box::new(left), Box::new(right))
+        }).ok_or_else(|| anyhow!("Empty OR expression"))?;
+
+        Ok(result)
+    }
+
+    /// Parse AND expressions
+    fn parse_and(&self, tokens: &[Token]) -> Result<Expression> {
+        // Find all AND positions at this level
+        let and_positions = self.find_operators(tokens, &Token::And)?;
+
+        if and_positions.is_empty() {
+            return self.parse_comparison(tokens);
+        }
+
+        // Split by AND and parse each part
+        let mut parts = Vec::new();
+        let mut start = 0;
+        for pos in and_positions {
+            if pos > start {
+                let part_tokens = &tokens[start..pos];
+                parts.push(self.parse_comparison(part_tokens)?);
+            }
+            start = pos + 1;
+        }
+        if start < tokens.len() {
+            parts.push(self.parse_comparison(&tokens[start..])?);
+        }
+
+        // Build AND tree from left to right
+        let mut result = parts.into_iter().reduce(|left, right| {
+            Expression::And(Box::new(left), Box::new(right))
+        }).ok_or_else(|| anyhow!("Empty AND expression"))?;
+
+        Ok(result)
+    }
+
+    /// Find operator positions at the current level (not inside parentheses)
+    fn find_operators(&self, tokens: &[Token], op: &Token) -> Result<Vec<usize>> {
+        let mut positions = Vec::new();
+        let mut paren_depth = 0;
+
+        for (i, token) in tokens.iter().enumerate() {
+            match token {
+                Token::LeftParen => paren_depth += 1,
+                Token::RightParen => paren_depth -= 1,
+                _ if paren_depth == 0 && token == op => positions.push(i),
+                _ => {}
+            }
+        }
+
+        Ok(positions)
+    }
+
+    /// Parse comparison expressions
+    fn parse_comparison(&self, tokens: &[Token]) -> Result<Expression> {
+        if tokens.is_empty() {
+            return Err(anyhow!("Empty comparison expression"));
+        }
+
+        // Handle NOT
+        if tokens[0] == Token::Not {
+            let expr = self.parse_comparison(&tokens[1..])?;
+            return Ok(Expression::Not(Box::new(expr)));
+        }
+
+        // Find comparison operator position
+        let mut op_pos = None;
+        let mut paren_depth = 0;
+
+        for (i, token) in tokens.iter().enumerate() {
+            match token {
+                Token::LeftParen => paren_depth += 1,
+                Token::RightParen => paren_depth -= 1,
+                Token::Equal | Token::NotEqual | Token::Greater | Token::Less |
+                Token::GreaterEqual | Token::LessEqual | Token::Contains |
+                Token::StartsWith | Token::EndsWith | Token::Matches
+                    if paren_depth == 0 && op_pos.is_none() => {
+                    op_pos = Some(i);
+                }
+                _ => {}
+            }
+        }
+
+        // If no operator found, it's a primary expression
+        if op_pos.is_none() {
+            return self.parse_primary(tokens);
+        }
+
+        let pos = op_pos.unwrap();
+        let left_tokens = &tokens[..pos];
+        let right_tokens = &tokens[pos + 1..];
+
+        if left_tokens.is_empty() || right_tokens.is_empty() {
+            return Err(anyhow!("Invalid comparison expression"));
+        }
+
+        let left = self.parse_primary(left_tokens)?;
+        let right = self.parse_primary(right_tokens)?;
+
+        let expr = match &tokens[pos] {
+            Token::Equal => Expression::Equal(Box::new(left), Box::new(right)),
+            Token::NotEqual => Expression::NotEqual(Box::new(left), Box::new(right)),
+            Token::Greater => Expression::GreaterThan(Box::new(left), Box::new(right)),
+            Token::Less => Expression::LessThan(Box::new(left), Box::new(right)),
+            Token::GreaterEqual => Expression::GreaterEqual(Box::new(left), Box::new(right)),
+            Token::LessEqual => Expression::LessEqual(Box::new(left), Box::new(right)),
+            Token::Contains => Expression::Contains(Box::new(left), Box::new(right)),
+            Token::StartsWith => Expression::StartsWith(Box::new(left), Box::new(right)),
+            Token::EndsWith => Expression::EndsWith(Box::new(left), Box::new(right)),
+            Token::Matches => Expression::Matches(Box::new(left), Box::new(right)),
+            _ => return Err(anyhow!("Unexpected operator: {:?}", tokens[pos])),
+        };
+
+        Ok(expr)
+    }
+
+    /// Parse primary expressions (literals, identifiers, parenthesized expressions)
+    fn parse_primary(&self, tokens: &[Token]) -> Result<Expression> {
+        if tokens.is_empty() {
+            return Err(anyhow!("Expected expression"));
+        }
+
+        match &tokens[0] {
+            Token::Number(n) => Ok(Expression::Number(*n)),
+            Token::String(s) => Ok(Expression::String(s.clone())),
+            Token::Boolean(b) => Ok(Expression::Boolean(*b)),
+            Token::Null => Ok(Expression::Null),
+            Token::Identifier(name) => {
+                // Parse field path
+                let segments: Vec<String> = name.split('.').map(|s| s.to_string()).collect();
+                Ok(Expression::Field(segments))
+            }
+            Token::LeftParen => {
+                // Find matching right paren
+                let mut depth = 1;
+                let mut end = 1;
+                while end < tokens.len() && depth > 0 {
+                    match tokens[end] {
+                        Token::LeftParen => depth += 1,
+                        Token::RightParen => depth -= 1,
+                        _ => {}
+                    }
+                    if depth > 0 {
+                        end += 1;
+                    }
+                }
+                if depth != 0 {
+                    return Err(anyhow!("Mismatched parentheses"));
+                }
+                // Parse the expression inside parentheses
+                self.parse_expression(&tokens[1..end], 0)
+            }
+            _ => Err(anyhow!("Unexpected token: {:?}", tokens[0])),
+        }
+    }
+
 
     /// Parse a field path (e.g., "user.profile.name" or "items[0].value")
     fn parse_field_path(&self, path: &str) -> Result<Expression> {

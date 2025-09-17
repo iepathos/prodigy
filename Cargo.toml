@@ -79,3 +79,11 @@ insta = { version = "1.39", features = ["json", "redactions"] }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(never)'] }
+
+[[bench]]
+name = "unified_execution_bench"
+harness = false
+
+[[bench]]
+name = "expression_bench"
+harness = false

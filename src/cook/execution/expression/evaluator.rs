@@ -6,6 +6,25 @@ use regex::Regex;
 use serde_json::Value;
 use std::cmp::Ordering;
 
+/// String collation options for locale-specific sorting
+#[derive(Debug, Clone, PartialEq)]
+pub enum Collation {
+    /// Default binary/lexicographic comparison
+    Default,
+    /// Case-insensitive comparison
+    CaseInsensitive,
+    /// Numeric-aware comparison (e.g., "item2" < "item10")
+    Numeric,
+    /// Case-insensitive and numeric-aware
+    CaseInsensitiveNumeric,
+}
+
+impl Default for Collation {
+    fn default() -> Self {
+        Collation::Default
+    }
+}
+
 /// Compiled filter ready for execution
 #[derive(Clone)]
 pub struct CompiledFilter {
@@ -31,12 +50,24 @@ impl CompiledFilter {
 /// Compiled sort specification ready for execution
 pub struct CompiledSort {
     sort_keys: Vec<SortKey>,
+    collation: Collation,
 }
 
 impl CompiledSort {
     /// Create a new compiled sort
     pub fn new(sort_keys: Vec<SortKey>) -> Self {
-        Self { sort_keys }
+        Self {
+            sort_keys,
+            collation: Collation::Default,
+        }
+    }
+
+    /// Create a new compiled sort with custom collation
+    pub fn with_collation(sort_keys: Vec<SortKey>, collation: Collation) -> Self {
+        Self {
+            sort_keys,
+            collation,
+        }
     }
 
     /// Apply the sort to a vector of items
@@ -100,7 +131,7 @@ impl CompiledSort {
                 let b_f64 = b.as_f64().unwrap_or(0.0);
                 a_f64.partial_cmp(&b_f64).unwrap_or(Ordering::Equal)
             }
-            (Value::String(a), Value::String(b)) => a.cmp(b),
+            (Value::String(a), Value::String(b)) => self.compare_strings(a, b),
             (Value::Array(a), Value::Array(b)) => a.len().cmp(&b.len()),
             (Value::Object(a), Value::Object(b)) => a.len().cmp(&b.len()),
             // Different types - use type ordering
@@ -117,6 +148,99 @@ impl CompiledSort {
             }
         }
     }
+
+    /// Compare strings according to the configured collation
+    fn compare_strings(&self, a: &str, b: &str) -> Ordering {
+        match &self.collation {
+            Collation::Default => a.cmp(b),
+            Collation::CaseInsensitive => {
+                a.to_lowercase().cmp(&b.to_lowercase())
+            }
+            Collation::Numeric => {
+                self.natural_compare(a, b)
+            }
+            Collation::CaseInsensitiveNumeric => {
+                self.natural_compare(&a.to_lowercase(), &b.to_lowercase())
+            }
+        }
+    }
+
+    /// Natural/numeric-aware string comparison
+    /// Handles strings like "item2" < "item10" correctly
+    fn natural_compare(&self, a: &str, b: &str) -> Ordering {
+        let a_parts = self.split_numeric_parts(a);
+        let b_parts = self.split_numeric_parts(b);
+
+        for (a_part, b_part) in a_parts.iter().zip(b_parts.iter()) {
+            let ord = match (a_part, b_part) {
+                (NumericPart::Text(a_text), NumericPart::Text(b_text)) => a_text.cmp(b_text),
+                (NumericPart::Number(a_num), NumericPart::Number(b_num)) => a_num.cmp(b_num),
+                (NumericPart::Text(_), NumericPart::Number(_)) => Ordering::Less,
+                (NumericPart::Number(_), NumericPart::Text(_)) => Ordering::Greater,
+            };
+            if ord != Ordering::Equal {
+                return ord;
+            }
+        }
+
+        a_parts.len().cmp(&b_parts.len())
+    }
+
+    /// Split a string into text and numeric parts for natural comparison
+    fn split_numeric_parts(&self, s: &str) -> Vec<NumericPart> {
+        let mut parts = Vec::new();
+        let mut current_text = String::new();
+        let mut current_num = String::new();
+        let mut in_number = false;
+
+        for ch in s.chars() {
+            if ch.is_ascii_digit() {
+                if !in_number {
+                    if !current_text.is_empty() {
+                        parts.push(NumericPart::Text(current_text.clone()));
+                        current_text.clear();
+                    }
+                    in_number = true;
+                }
+                current_num.push(ch);
+            } else {
+                if in_number {
+                    if let Ok(num) = current_num.parse::<u64>() {
+                        parts.push(NumericPart::Number(num));
+                    } else {
+                        parts.push(NumericPart::Text(current_num.clone()));
+                    }
+                    current_num.clear();
+                    in_number = false;
+                }
+                current_text.push(ch);
+            }
+        }
+
+        // Handle remaining parts
+        if in_number && !current_num.is_empty() {
+            if let Ok(num) = current_num.parse::<u64>() {
+                parts.push(NumericPart::Number(num));
+            } else {
+                parts.push(NumericPart::Text(current_num));
+            }
+        } else if !current_text.is_empty() {
+            parts.push(NumericPart::Text(current_text));
+        }
+
+        if parts.is_empty() {
+            parts.push(NumericPart::Text(s.to_string()));
+        }
+
+        parts
+    }
+}
+
+/// Part of a string for natural sorting
+#[derive(Debug)]
+enum NumericPart {
+    Text(String),
+    Number(u64),
 }
 
 /// Expression evaluator
