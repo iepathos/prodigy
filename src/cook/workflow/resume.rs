@@ -11,8 +11,7 @@ use crate::cook::workflow::checkpoint::{
     self, CheckpointManager, ResumeContext, ResumeOptions, WorkflowCheckpoint,
 };
 use crate::cook::workflow::error_recovery::{
-    on_failure_to_error_handler, RecoveryAction, ResumeError,
-    ResumeErrorRecovery,
+    on_failure_to_error_handler, RecoveryAction, ResumeError, ResumeErrorRecovery,
 };
 use crate::cook::workflow::executor::{WorkflowContext, WorkflowExecutor as WorkflowExecutorImpl};
 use anyhow::{anyhow, Context, Result};

@@ -3,9 +3,7 @@
 //! Provides robust error recovery mechanisms for resuming interrupted workflows
 //! with error handlers and failure recovery strategies.
 
-use super::checkpoint::{
-    RetryState as CheckpointRetryState, WorkflowCheckpoint,
-};
+use super::checkpoint::{RetryState as CheckpointRetryState, WorkflowCheckpoint};
 use super::executor::WorkflowContext;
 use super::on_failure::{HandlerCommand, HandlerStrategy, OnFailureConfig};
 use crate::cook::execution::CommandExecutor;

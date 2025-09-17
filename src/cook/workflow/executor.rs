@@ -2128,7 +2128,11 @@ impl WorkflowExecutor {
             for (step_index, step) in workflow.steps.iter().enumerate() {
                 // Check if we should skip this step (already completed in previous run)
                 if let Some(ref resume_ctx) = self.resume_context {
-                    if resume_ctx.skip_steps.iter().any(|s| s.step_index == step_index) {
+                    if resume_ctx
+                        .skip_steps
+                        .iter()
+                        .any(|s| s.step_index == step_index)
+                    {
                         self.user_interaction.display_info(&format!(
                             "Skipping already completed step {}/{}: {}",
                             step_index + 1,
@@ -2139,9 +2143,13 @@ impl WorkflowExecutor {
                     }
 
                     // Check if we have error recovery state stored in variables
-                    if let Some(recovery_state_value) = resume_ctx.variable_state.get("__error_recovery_state") {
+                    if let Some(recovery_state_value) =
+                        resume_ctx.variable_state.get("__error_recovery_state")
+                    {
                         // Parse the error recovery state from JSON
-                        if let Ok(error_recovery_state) = serde_json::from_value::<ErrorRecoveryState>(recovery_state_value.clone()) {
+                        if let Ok(error_recovery_state) = serde_json::from_value::<ErrorRecoveryState>(
+                            recovery_state_value.clone(),
+                        ) {
                             // If this step had an active error handler that wasn't completed,
                             // we need to ensure it gets executed if the step fails again
                             if !error_recovery_state.active_handlers.is_empty() {
@@ -2152,10 +2160,9 @@ impl WorkflowExecutor {
                                 );
                                 // Store error context in workflow variables for handler execution
                                 for (key, value) in error_recovery_state.error_context {
-                                    workflow_context.variables.insert(
-                                        format!("error.{}", key),
-                                        value.to_string()
-                                    );
+                                    workflow_context
+                                        .variables
+                                        .insert(format!("error.{}", key), value.to_string());
                                 }
                             }
                         }

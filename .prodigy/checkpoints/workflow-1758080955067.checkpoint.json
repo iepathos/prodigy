@@ -1,11 +1,11 @@
 {
   "workflow_id": "workflow-1758080955067",
   "execution_state": {
-    "current_step_index": 1,
+    "current_step_index": 2,
     "total_steps": 3,
     "status": "Running",
-    "start_time": "2025-09-17T04:28:47.959071Z",
-    "last_checkpoint": "2025-09-17T04:28:47.959072Z",
+    "start_time": "2025-09-17T04:45:48.825612Z",
+    "last_checkpoint": "2025-09-17T04:45:48.825612Z",
     "current_iteration": null,
     "total_iterations": null
   },
@@ -21,18 +21,33 @@
         "nanos": 875419042
       },
       "completed_at": "2025-09-17T04:28:47.958784Z"
+    },
+    {
+      "step_index": 1,
+      "command": "test: just test",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 1020,
+        "nanos": 824961917
+      },
+      "completed_at": "2025-09-17T04:45:48.825402Z"
     }
   ],
   "variable_state": {
-    "step.files_changed": "1",
-    "step.commits": "[{\"hash\":\"664124bc82d4d7d6f37681f39ea98d4aa3c8f86a\",\"message\":\"fix: complete spec 72 implementation gaps\",\"author\":\"Glen Baker\",\"timestamp\":\"2025-09-17T04:25:54Z\",\"files_changed\":[\"tests/cli_integration/resume_integration_tests.rs\"],\"insertions\":168,\"deletions\":17,\"step_name\":\"claude: /prodigy-complete-spec $ARG --gaps ${validation.gaps}\",\"agent_id\":null}]",
-    "step.insertions": "168",
-    "PROJECT_ROOT": "/Users/glen/.prodigy/worktrees/prodigy/session-5f0af6b3-7474-43ee-8fae-6809a709bb1a",
     "ARG": "72",
-    "step.deletions": "17"
+    "test.exit_code": "100",
+    "step.commits": "[{\"hash\":\"1aad189d8911d3d02f0ab967758c208931513ad5\",\"message\":\"fix: resolve test failures with functional patterns\",\"author\":\"Glen Baker\",\"timestamp\":\"2025-09-17T04:45:11Z\",\"files_changed\":[\".prodigy/checkpoints/workflow-1758080955067.checkpoint.json\",\"src/cook/workflow/resume.rs\",\"test_workflow.yaml\",\"test_workflow2.yaml\",\"test_workflow3.yaml\",\"tests/cli_integration/resume_integration_tests.rs\"],\"insertions\":114,\"deletions\":30,\"step_name\":\"test: just test\",\"agent_id\":null}]",
+    "test.output": "/var/folders/fc/plw0013j1yj8dj00s3gbpdfw0000gn/T/.tmpgUlwBY",
+    "PROJECT_ROOT": "/Users/glen/.prodigy/worktrees/prodigy/session-5f0af6b3-7474-43ee-8fae-6809a709bb1a",
+    "step.deletions": "30",
+    "test.attempt": "1",
+    "step.files_changed": "6",
+    "step.insertions": "114"
   },
   "mapreduce_state": null,
-  "timestamp": "2025-09-17T04:28:47.959072Z",
+  "timestamp": "2025-09-17T04:45:48.825612Z",
   "version": 1,
   "workflow_hash": "3",
   "total_steps": 3,

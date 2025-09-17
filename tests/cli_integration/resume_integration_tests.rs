@@ -901,7 +901,8 @@ commands:
     fs::write(
         checkpoint_dir.join(format!("{}.checkpoint.json", workflow_id)),
         serde_json::to_string_pretty(&checkpoint).unwrap(),
-    ).unwrap();
+    )
+    .unwrap();
 
     // Resume the workflow
     test = test
@@ -913,20 +914,26 @@ commands:
     let output = test.run();
 
     // Workflow should complete successfully with error recovery executed
-    assert_eq!(output.exit_code, exit_codes::SUCCESS,
-        "Workflow should complete successfully after error recovery. Output: {}", output.stdout);
+    assert_eq!(
+        output.exit_code,
+        exit_codes::SUCCESS,
+        "Workflow should complete successfully after error recovery. Output: {}",
+        output.stdout
+    );
 
     // Verify that error handlers were executed
     // Check that error handler was executed (we can't check file creation since we're using claude command)
-    assert!(output.stdout_contains("fix-error")
-        || output.stdout_contains("[TEST MODE]"),
-        "Error handler should have been executed");
+    assert!(
+        output.stdout_contains("fix-error") || output.stdout_contains("[TEST MODE]"),
+        "Error handler should have been executed"
+    );
 
     // Since we're using Claude commands in test mode, the actual files won't be created
     // Just verify that the workflow completed successfully
-    assert!(output.stdout_contains("completed")
-        || output.stdout_contains("successfully"),
-        "Workflow should show successful completion");
+    assert!(
+        output.stdout_contains("completed") || output.stdout_contains("successfully"),
+        "Workflow should show successful completion"
+    );
 }
 
 #[test]
@@ -1120,7 +1127,8 @@ commands:
     fs::write(
         &checkpoint_file,
         serde_json::to_string_pretty(&checkpoint).unwrap(),
-    ).unwrap();
+    )
+    .unwrap();
 
     // Resume the workflow - error handlers should execute
     test = test
