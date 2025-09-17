@@ -48,8 +48,18 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - `prodigy dlq` - Failed item management
 - `prodigy sessions` - Session management
 - `prodigy analytics` - Claude session correlation and analytics ✅
+- **Man Pages**: Comprehensive Unix-style documentation for all commands ✅
 
 ## Recent Additions
+
+### CLI Documentation (Man Pages) ✅
+- **Comprehensive Man Pages**: Auto-generated man pages for all commands and subcommands
+- **Standard Unix Format**: Follows groff/nroff conventions with proper sections
+- **Automatic Generation**: Build-time generation from CLI definitions using clap_mangen
+- **Installation Script**: Easy installation to system or user man directories
+- **Complete Coverage**: NAME, SYNOPSIS, DESCRIPTION, OPTIONS, EXAMPLES, ENVIRONMENT, EXIT STATUS
+- **Compressed Support**: Both uncompressed and gzipped versions generated
+- **Cross-Reference**: SEE ALSO sections link related commands
 
 ### Claude Session Analytics ✅
 - **Session Correlation**: Extract and correlate session IDs with JSONL files
