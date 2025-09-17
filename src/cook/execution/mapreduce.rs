@@ -460,6 +460,7 @@ pub struct MapReduceExecutor {
     new_progress_tracker: Option<Arc<NewProgressTracker>>,
     enable_web_dashboard: bool,
     setup_variables: HashMap<String, String>,
+    retry_state_manager: Arc<crate::cook::retry_state::RetryStateManager>,
 }
 
 /// Summary statistics for map results
@@ -1248,6 +1249,7 @@ impl MapReduceExecutor {
                 .unwrap_or_else(|_| "false".to_string())
                 .eq_ignore_ascii_case("true"),
             setup_variables: HashMap::new(),
+            retry_state_manager: Arc::new(crate::cook::retry_state::RetryStateManager::new()),
         }
     }
 
@@ -4166,6 +4168,7 @@ impl MapReduceExecutor {
             new_progress_tracker: self.new_progress_tracker.clone(),
             enable_web_dashboard: self.enable_web_dashboard,
             setup_variables: self.setup_variables.clone(),
+            retry_state_manager: self.retry_state_manager.clone(),
         }
     }
 
