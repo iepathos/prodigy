@@ -66,6 +66,21 @@ pub struct ErrorHandler {
     pub scope: ErrorHandlerScope,
     /// Strategy for error recovery
     pub strategy: HandlerStrategy,
+    /// Variables to capture from handler execution
+    #[serde(default)]
+    pub capture: HashMap<String, String>,
+    /// Whether handler failure should be fatal
+    #[serde(default)]
+    pub handler_failure_fatal: bool,
+    /// Whether the workflow should fail after handling
+    #[serde(default)]
+    pub fail_workflow: bool,
+    /// Whether to retry the original command after handling
+    #[serde(default)]
+    pub retry_original: bool,
+    /// Maximum retries for the original command
+    #[serde(default)]
+    pub max_retries: u32,
 }
 
 /// Retry configuration for error handlers
@@ -489,22 +504,45 @@ pub fn on_failure_to_error_handler(
         return None;
     }
 
-    let strategy = match on_failure {
-        OnFailureConfig::Detailed(config) => config.strategy.clone(),
-        _ => HandlerStrategy::Recovery,
+    // Extract all available fields from OnFailureConfig
+    let strategy = on_failure.strategy();
+    let handler_failure_fatal = on_failure.handler_failure_fatal();
+    let fail_workflow = on_failure.should_fail_workflow();
+    let max_retries = on_failure.max_retries();
+    let retry_original = on_failure.should_retry();
+    let timeout = on_failure.handler_timeout().map(Duration::from_secs);
+
+    // Extract capture variables if available
+    let capture = match on_failure {
+        OnFailureConfig::Detailed(config) => config.capture.clone(),
+        _ => HashMap::new(),
+    };
+
+    // Build retry config if retries are needed
+    let retry_config = if max_retries > 0 {
+        Some(RetryConfig {
+            max_attempts: max_retries as usize,
+            initial_delay: Duration::from_secs(1),
+            max_delay: Duration::from_secs(60),
+            backoff_multiplier: 2.0,
+        })
+    } else {
+        None
     };
 
     Some(ErrorHandler {
         id: format!("step_{}_handler", step_index),
         condition: None,
         commands,
-        retry_config: None,
-        timeout: match on_failure {
-            OnFailureConfig::Detailed(config) => config.timeout.map(Duration::from_secs),
-            _ => None,
-        },
+        retry_config,
+        timeout,
         scope: ErrorHandlerScope::Step,
         strategy,
+        capture,
+        handler_failure_fatal,
+        fail_workflow,
+        retry_original,
+        max_retries,
     })
 }
 

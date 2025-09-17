@@ -13,7 +13,10 @@ use crate::cook::workflow::checkpoint::{
 use crate::cook::workflow::error_recovery::{
     on_failure_to_error_handler, RecoveryAction, ResumeError, ResumeErrorRecovery,
 };
-use crate::cook::workflow::executor::{WorkflowContext, WorkflowExecutor as WorkflowExecutorImpl};
+use crate::cook::workflow::executor::{
+    WorkflowContext, WorkflowExecutor as WorkflowExecutorImpl, WorkflowStep,
+};
+use crate::cook::workflow::normalized::NormalizedWorkflow;
 use crate::cook::workflow::progress::{ExecutionPhase, ProgressDisplay, SequentialProgressTracker};
 use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
@@ -714,13 +717,118 @@ impl ResumeExecutor {
                             warn!("Continuing despite error in step {}", step_index + 1);
                             continue;
                         }
-                        RecoveryAction::SafeAbort { .. } => {
+                        RecoveryAction::SafeAbort { cleanup_actions } => {
                             error!("Aborting workflow due to unrecoverable error");
+
+                            // Execute cleanup actions if any
+                            if !cleanup_actions.is_empty() {
+                                info!(
+                                    "Executing {} cleanup actions before abort",
+                                    cleanup_actions.len()
+                                );
+                                for action in cleanup_actions {
+                                    // Create a WorkflowStep from the handler command
+                                    let cleanup_step = WorkflowStep {
+                                        name: Some("cleanup".to_string()),
+                                        shell: action.shell.clone(),
+                                        claude: action.claude.clone(),
+                                        test: None,
+                                        goal_seek: None,
+                                        foreach: None,
+                                        command: None,
+                                        handler: None,
+                                        capture: None,
+                                        capture_format: None,
+                                        capture_streams: Default::default(),
+                                        output_file: None,
+                                        timeout: None,
+                                        capture_output:
+                                            crate::cook::workflow::executor::CaptureOutput::Disabled,
+                                        on_failure: None,
+                                        retry: None,
+                                        on_success: None,
+                                        on_exit_code: Default::default(),
+                                        commit_required: false,
+                                        auto_commit: false,
+                                        commit_config: None,
+                                        working_dir: None,
+                                        env: Default::default(),
+                                        validate: None,
+                                        step_validate: None,
+                                        skip_validation: false,
+                                        validation_timeout: None,
+                                        ignore_validation_failure: false,
+                                        when: None,
+                                    };
+
+                                    // Execute the cleanup step
+                                    let _ = executor
+                                        .execute_step(&cleanup_step, &env, &mut workflow_context)
+                                        .await;
+                                }
+                            }
+
                             return Err(e);
                         }
-                        _ => {
-                            // Other recovery actions
-                            return Err(e);
+                        RecoveryAction::Fallback { alternative_path } => {
+                            warn!("Attempting fallback path: {}", alternative_path);
+                            // Load alternative workflow configuration from file
+                            let alt_path = std::path::Path::new(&alternative_path);
+                            let content =
+                                tokio::fs::read_to_string(&alt_path).await.map_err(|err| {
+                                    anyhow!("Failed to read fallback workflow file: {}", err)
+                                })?;
+
+                            let alt_config: WorkflowConfig = serde_yaml::from_str(&content)
+                                .map_err(|err| {
+                                    anyhow!("Failed to parse fallback workflow: {}", err)
+                                })?;
+
+                            // Convert to normalized workflow
+                            let _alt_workflow = NormalizedWorkflow::from_workflow_config(
+                                &alt_config,
+                                crate::cook::workflow::normalized::ExecutionMode::Sequential,
+                            )?;
+
+                            // Execute the fallback workflow from the current step
+                            info!("Executing fallback workflow from step {}", step_index);
+                            // Note: This would need more implementation to properly merge contexts
+                            // For now, we'll just continue with the current workflow
+                            warn!("Fallback workflow execution not fully implemented, continuing with current workflow");
+                            continue;
+                        }
+                        RecoveryAction::PartialResume { from_step } => {
+                            warn!("Performing partial resume from step {}", from_step);
+                            // Jump to the specified step
+                            if from_step < step_index {
+                                // We've already passed this step, continue normally
+                                continue;
+                            } else if from_step > step_index {
+                                // Skip ahead to the specified step
+                                for i in step_index..from_step {
+                                    progress_tracker
+                                        .skip_step(i, "Skipping to recovery point".to_string())
+                                        .await;
+                                }
+                                continue;
+                            }
+                            // If from_step == step_index, just continue normally
+                            continue;
+                        }
+                        RecoveryAction::RequestIntervention { message } => {
+                            error!("Manual intervention required: {}", message);
+
+                            // Save checkpoint with intervention request
+                            self.checkpoint_manager
+                                .save_intervention_request(workflow_id, &message)
+                                .await?;
+
+                            // Return error with intervention message
+                            return Err(anyhow!(
+                                "Workflow suspended for manual intervention: {}. Resume with 'prodigy resume {}' after resolving.",
+                                message,
+                                workflow_id
+                            ));
                         }
                     }
                 }

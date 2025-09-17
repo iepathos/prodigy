@@ -119,6 +119,142 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_error_handler_full_fidelity_conversion() {
+        // Test that all fields are preserved during conversion
+        let on_failure =
+            OnFailureConfig::Detailed(super::super::on_failure::FailureHandlerConfig {
+                commands: vec![HandlerCommand {
+                    shell: Some("echo test".to_string()),
+                    claude: None,
+                    continue_on_error: false,
+                }],
+                strategy: HandlerStrategy::Fallback,
+                timeout: Some(60),
+                capture: {
+                    let mut map = HashMap::new();
+                    map.insert("output".to_string(), "result".to_string());
+                    map
+                },
+                fail_workflow: true,
+                handler_failure_fatal: true,
+            });
+
+        let handler = on_failure_to_error_handler(&on_failure, 0).unwrap();
+
+        // Verify all fields were preserved
+        assert_eq!(handler.id, "step_0_handler");
+        assert_eq!(handler.commands.len(), 1);
+        assert_eq!(handler.strategy, HandlerStrategy::Fallback);
+        assert_eq!(handler.timeout, Some(Duration::from_secs(60)));
+        assert_eq!(handler.capture.len(), 1);
+        assert_eq!(handler.capture.get("output"), Some(&"result".to_string()));
+        assert!(handler.fail_workflow);
+        assert!(handler.handler_failure_fatal);
+        assert_eq!(handler.scope, ErrorHandlerScope::Step);
+    }
+
+    #[tokio::test]
+    async fn test_error_handler_with_retries() {
+        // Test that retry configuration is properly set
+        let on_failure = OnFailureConfig::Advanced {
+            shell: Some("retry-command".to_string()),
+            claude: None,
+            fail_workflow: false,
+            retry_original: true,
+            max_retries: 3,
+        };
+
+        let handler = on_failure_to_error_handler(&on_failure, 1).unwrap();
+
+        // Verify retry configuration
+        assert!(handler.retry_config.is_some());
+        let retry_config = handler.retry_config.unwrap();
+        assert_eq!(retry_config.max_attempts, 3);
+        assert_eq!(retry_config.initial_delay, Duration::from_secs(1));
+        assert_eq!(retry_config.max_delay, Duration::from_secs(60));
+        assert_eq!(retry_config.backoff_multiplier, 2.0);
+        assert!(handler.retry_original);
+        assert_eq!(handler.max_retries, 3);
+    }
+
+    #[tokio::test]
+    async fn test_recovery_action_types() {
+        // Test that all recovery action types can be created and used
+
+        // Test PartialResume
+        let action = RecoveryAction::PartialResume { from_step: 5 };
+        match action {
+            RecoveryAction::PartialResume { from_step } => {
+                assert_eq!(from_step, 5);
+            }
+            _ => panic!("Expected PartialResume"),
+        }
+
+        // Test Fallback
+        let action = RecoveryAction::Fallback {
+            alternative_path: "/path/to/fallback.yaml".to_string(),
+        };
+        match action {
+            RecoveryAction::Fallback { alternative_path } => {
+                assert_eq!(alternative_path, "/path/to/fallback.yaml");
+            }
+            _ => panic!("Expected Fallback"),
+        }
+
+        // Test RequestIntervention
+        let action = RecoveryAction::RequestIntervention {
+            message: "Manual intervention required".to_string(),
+        };
+        match action {
+            RecoveryAction::RequestIntervention { message } => {
+                assert_eq!(message, "Manual intervention required");
+            }
+            _ => panic!("Expected RequestIntervention"),
+        }
+
+        // Test Continue
+        let action = RecoveryAction::Continue;
+        match action {
+            RecoveryAction::Continue => {
+                // Success
+            }
+            _ => panic!("Expected Continue"),
+        }
+
+        // Test SafeAbort
+        let action = RecoveryAction::SafeAbort {
+            cleanup_actions: vec![HandlerCommand {
+                shell: Some("cleanup.sh".to_string()),
+                claude: None,
+                continue_on_error: true,
+            }],
+        };
+        match action {
+            RecoveryAction::SafeAbort { cleanup_actions } => {
+                assert_eq!(cleanup_actions.len(), 1);
+                assert_eq!(cleanup_actions[0].shell, Some("cleanup.sh".to_string()));
+            }
+            _ => panic!("Expected SafeAbort"),
+        }
+
+        // Test Retry
+        let action = RecoveryAction::Retry {
+            delay: Duration::from_secs(5),
+            max_attempts: 3,
+        };
+        match action {
+            RecoveryAction::Retry {
+                delay,
+                max_attempts,
+            } => {
+                assert_eq!(delay, Duration::from_secs(5));
+                assert_eq!(max_attempts, 3);
+            }
+            _ => panic!("Expected Retry"),
+        }
+    }
+
+    #[tokio::test]
     async fn test_save_and_load_recovery_state() {
         let recovery_state = ErrorRecoveryState {
             active_handlers: vec![],
@@ -165,6 +301,11 @@ mod tests {
             timeout: Some(Duration::from_secs(30)),
             scope: ErrorHandlerScope::Step,
             strategy: HandlerStrategy::Recovery,
+            capture: HashMap::new(),
+            handler_failure_fatal: false,
+            fail_workflow: false,
+            retry_original: false,
+            max_retries: 0,
         };
 
         let result = recovery

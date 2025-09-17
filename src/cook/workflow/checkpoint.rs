@@ -247,6 +247,32 @@ impl CheckpointManager {
         Ok(())
     }
 
+    /// Save an intervention request to checkpoint metadata
+    pub async fn save_intervention_request(&self, workflow_id: &str, message: &str) -> Result<()> {
+        // Load existing checkpoint
+        let mut checkpoint = self.load_checkpoint(workflow_id).await?;
+
+        // Add intervention request to variable_state (used as metadata storage)
+        checkpoint.variable_state.insert(
+            "__intervention_required".to_string(),
+            serde_json::Value::String(message.to_string()),
+        );
+        checkpoint.variable_state.insert(
+            "__intervention_timestamp".to_string(),
+            serde_json::Value::String(chrono::Utc::now().to_rfc3339()),
+        );
+
+        // Save updated checkpoint
+        self.save_checkpoint(&checkpoint).await?;
+
+        info!(
+            "Saved intervention request for workflow {}: {}",
+            workflow_id, message
+        );
+
+        Ok(())
+    }
+
     /// Load a checkpoint for resuming
     pub async fn load_checkpoint(&self, workflow_id: &str) -> Result<WorkflowCheckpoint> {
         let checkpoint_path = self.get_checkpoint_path(workflow_id);
