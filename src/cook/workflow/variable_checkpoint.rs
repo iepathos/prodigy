@@ -139,11 +139,13 @@ impl EnvironmentCompatibility {
     /// Add a missing variable
     pub fn add_missing_variable(&mut self, key: String, value: String) {
         self.missing_variables.insert(key, value);
+        self.is_compatible = false; // Missing variables make the environment incompatible
     }
 
     /// Add a changed variable
     pub fn add_changed_variable(&mut self, key: String, old_value: String, new_value: String) {
         self.changed_variables.insert(key, (old_value, new_value));
+        self.is_compatible = false; // Changed variables make the environment incompatible
     }
 
     /// Add a new variable
@@ -266,7 +268,7 @@ impl VariableResumeManager {
                 .unwrap_or_default()
                 .to_string_lossy()
                 .to_string(),
-            working_directory: std::env::current_dir()?,
+            working_directory: std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/")),
         };
 
         // Create metadata
