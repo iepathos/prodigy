@@ -578,7 +578,7 @@ impl ExpressionParser {
         }
     }
 
-    /// Parse a field path (e.g., "user.profile.name" or "items[0].value" or "items[*].score")
+    /// Parse a field path (e.g., "user.profile.name" or "items\[0\].value" or "items\[*\].score")
     fn parse_field_path(&self, path: &str) -> Result<Expression> {
         // Check for array wildcard notation
         if path.contains("[*]") {
