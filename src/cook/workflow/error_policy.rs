@@ -109,7 +109,10 @@ pub enum BackoffStrategy {
     /// Fixed delay between retries
     Fixed { delay: Duration },
     /// Linear increase in delay
-    Linear { initial: Duration, increment: Duration },
+    Linear {
+        initial: Duration,
+        increment: Duration,
+    },
     /// Exponential backoff
     Exponential { initial: Duration, multiplier: f64 },
     /// Fibonacci sequence delays
@@ -295,14 +298,11 @@ impl CircuitBreaker {
         *failures = 0;
         *successes += 1;
 
-        match *state {
-            CircuitState::HalfOpen { .. } => {
-                if *successes >= self.config.success_threshold {
-                    *state = CircuitState::Closed;
-                    info!("Circuit breaker closed after {} successes", successes);
-                }
+        if let CircuitState::HalfOpen { .. } = *state {
+            if *successes >= self.config.success_threshold {
+                *state = CircuitState::Closed;
+                info!("Circuit breaker closed after {} successes", successes);
             }
-            _ => {}
         }
     }
 
@@ -318,14 +318,20 @@ impl CircuitBreaker {
         match *state {
             CircuitState::Closed => {
                 if *failures >= self.config.failure_threshold {
-                    *state = CircuitState::Open { since: Instant::now() };
+                    *state = CircuitState::Open {
+                        since: Instant::now(),
+                    };
                     warn!("Circuit breaker opened after {} failures", failures);
                 }
             }
-            CircuitState::HalfOpen { mut remaining_tests } => {
+            CircuitState::HalfOpen {
+                mut remaining_tests,
+            } => {
                 remaining_tests -= 1;
                 if remaining_tests == 0 {
-                    *state = CircuitState::Open { since: Instant::now() };
+                    *state = CircuitState::Open {
+                        since: Instant::now(),
+                    };
                     warn!("Circuit breaker re-opened after test failures");
                 } else {
                     *state = CircuitState::HalfOpen { remaining_tests };
@@ -347,7 +353,9 @@ pub struct ErrorPolicyExecutor {
 impl ErrorPolicyExecutor {
     /// Create a new error policy executor
     pub fn new(policy: WorkflowErrorPolicy) -> Self {
-        let circuit_breaker = policy.circuit_breaker.as_ref()
+        let circuit_breaker = policy
+            .circuit_breaker
+            .as_ref()
             .map(|config| CircuitBreaker::new(config.clone()));
 
         Self {
@@ -379,7 +387,9 @@ impl ErrorPolicyExecutor {
 
         // Check failure thresholds
         if self.should_stop_on_threshold() {
-            return Ok(FailureAction::Stop("Failure threshold exceeded".to_string()));
+            return Ok(FailureAction::Stop(
+                "Failure threshold exceeded".to_string(),
+            ));
         }
 
         // Apply item failure strategy
@@ -401,9 +411,7 @@ impl ErrorPolicyExecutor {
                 debug!("Skipping failed item: {}", item_id);
                 Ok(FailureAction::Skip)
             }
-            ItemFailureAction::Stop => {
-                Ok(FailureAction::Stop(format!("Item {} failed", item_id)))
-            }
+            ItemFailureAction::Stop => Ok(FailureAction::Stop(format!("Item {} failed", item_id))),
             ItemFailureAction::Custom(handler_name) => {
                 warn!("Custom handler {} not implemented, skipping", handler_name);
                 Ok(FailureAction::Skip)
@@ -450,7 +458,9 @@ impl ErrorPolicyExecutor {
         for (error_type, count) in &metrics.error_types {
             if *count >= 3 {
                 // Check if pattern already exists
-                let exists = metrics.failure_patterns.iter()
+                let exists = metrics
+                    .failure_patterns
+                    .iter()
                     .any(|p| p.pattern_type == *error_type);
 
                 if !exists {
@@ -485,7 +495,10 @@ impl ErrorPolicyExecutor {
         // Check max failures
         if let Some(max_failures) = self.policy.max_failures {
             if metrics.failed >= max_failures {
-                warn!("Max failures reached: {} >= {}", metrics.failed, max_failures);
+                warn!(
+                    "Max failures reached: {} >= {}",
+                    metrics.failed, max_failures
+                );
                 return true;
             }
         }
@@ -493,8 +506,11 @@ impl ErrorPolicyExecutor {
         // Check failure rate threshold
         if let Some(threshold) = self.policy.failure_threshold {
             if metrics.total_items >= 10 && metrics.failure_rate > threshold {
-                warn!("Failure rate exceeded: {:.2}% > {:.2}%",
-                    metrics.failure_rate * 100.0, threshold * 100.0);
+                warn!(
+                    "Failure rate exceeded: {:.2}% > {:.2}%",
+                    metrics.failure_rate * 100.0,
+                    threshold * 100.0
+                );
                 return true;
             }
         }
@@ -539,7 +555,8 @@ impl ErrorPolicyExecutor {
             manual_review_required: false,
         };
 
-        dlq.add(dlq_item).await
+        dlq.add(dlq_item)
+            .await
             .map_err(|e| MapReduceError::DlqError(e.to_string()))?;
 
         info!("Sent failed item {} to DLQ", item_id);

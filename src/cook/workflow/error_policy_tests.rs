@@ -38,8 +38,8 @@ mod tests {
         let dlq = DeadLetterQueue::new(
             "test-job-id".to_string(),
             PathBuf::from("/tmp/test-dlq"),
-            100, // max_items
-            7,   // retention_days
+            100,  // max_items
+            7,    // retention_days
             None, // event_logger
         )
         .await
