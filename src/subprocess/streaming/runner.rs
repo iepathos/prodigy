@@ -85,11 +85,11 @@ impl StreamingCommandRunner {
         let stderr_processors = processors.clone();
 
         let stdout_handle = tokio::spawn(async move {
-            process_stream(stdout, StreamSource::Stdout, &*stdout_processors).await
+            process_stream(stdout, StreamSource::Stdout, &stdout_processors).await
         });
 
         let stderr_handle = tokio::spawn(async move {
-            process_stream(stderr, StreamSource::Stderr, &*stderr_processors).await
+            process_stream(stderr, StreamSource::Stderr, &stderr_processors).await
         });
 
         // Apply timeout if specified
@@ -182,6 +182,12 @@ async fn process_stream(
 /// Streaming runner that implements ProcessRunner trait
 pub struct StreamingProcessRunner;
 
+impl Default for StreamingProcessRunner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StreamingProcessRunner {
     /// Create a new streaming process runner
     pub fn new() -> Self {
@@ -233,8 +239,8 @@ impl ProcessRunner for StreamingProcessRunner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
     use crate::subprocess::streaming::processor::LoggingProcessor;
+    use std::time::Duration;
 
     #[tokio::test]
     async fn test_streaming_echo() {

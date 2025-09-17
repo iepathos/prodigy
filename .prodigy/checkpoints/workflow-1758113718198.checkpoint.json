@@ -1,0 +1,134 @@
+{
+  "workflow_id": "workflow-1758113718198",
+  "execution_state": {
+    "current_step_index": 2,
+    "total_steps": 3,
+    "status": "Running",
+    "start_time": "2025-09-17T13:29:48.198290Z",
+    "last_checkpoint": "2025-09-17T13:29:48.198290Z",
+    "current_iteration": null,
+    "total_iterations": null
+  },
+  "completed_steps": [
+    {
+      "step_index": 0,
+      "command": "claude: /prodigy-implement-spec $ARG",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 2024,
+        "nanos": 505606500
+      },
+      "completed_at": "2025-09-17T13:29:02.686963Z"
+    },
+    {
+      "step_index": 1,
+      "command": "test: just test",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 45,
+        "nanos": 479057125
+      },
+      "completed_at": "2025-09-17T13:29:48.198221Z"
+    }
+  ],
+  "variable_state": {
+    "ARG": "71",
+    "step.files_changed": "src/subprocess/streaming/processor.rs,src/subprocess/streaming/backpressure.rs,.prodigy/ARCHITECTURE.md,src/cook/workflow/step_validation_tests.rs,docs/streaming.md,src/subprocess/streaming/tests.rs,src/subprocess/mod.rs,src/cook/workflow/executor.rs,src/subprocess/streaming/mod.rs,src/cook/execution/runner.rs,specs/71-realtime-streaming-infrastructure.md,src/cook/execution/mod.rs,.prodigy/PROJECT.md,src/subprocess/streaming/runner.rs,src/cook/execution/bridge_tests.rs,src/cook/coordinators/execution.rs,src/subprocess/streaming/types.rs",
+    "PROJECT_ROOT": "/Users/glen/.prodigy/worktrees/prodigy/session-12236a5c-a1b7-41a7-b942-d0b83da93a37",
+    "step.commits": "d3adb5b3e6e41ab9911bf180abb2a3e133308cc7,0ba7f0e27129a8eb7532a660b0b6e3e4fcf0ac59,e52d3f9bba5a2f89f6e10314a07df8a550408a74",
+    "step.deletions": "2",
+    "step.insertions": "2"
+  },
+  "mapreduce_state": null,
+  "timestamp": "2025-09-17T13:29:48.198290Z",
+  "version": 1,
+  "workflow_hash": "3",
+  "total_steps": 3,
+  "workflow_name": "args-workflow",
+  "workflow_path": "/Users/glen/memento-mori/prodigy/workflows/implement.yml",
+  "retry_checkpoint_state": null,
+  "variable_checkpoint_state": {
+    "global_variables": {
+      "step.files_changed": "src/subprocess/streaming/processor.rs,src/subprocess/streaming/backpressure.rs,.prodigy/ARCHITECTURE.md,src/cook/workflow/step_validation_tests.rs,docs/streaming.md,src/subprocess/streaming/tests.rs,src/subprocess/mod.rs,src/cook/workflow/executor.rs,src/subprocess/streaming/mod.rs,src/cook/execution/runner.rs,specs/71-realtime-streaming-infrastructure.md,src/cook/execution/mod.rs,.prodigy/PROJECT.md,src/subprocess/streaming/runner.rs,src/cook/execution/bridge_tests.rs,src/cook/coordinators/execution.rs,src/subprocess/streaming/types.rs",
+      "step.commits": "d3adb5b3e6e41ab9911bf180abb2a3e133308cc7,0ba7f0e27129a8eb7532a660b0b6e3e4fcf0ac59,e52d3f9bba5a2f89f6e10314a07df8a550408a74",
+      "step.deletions": "2",
+      "PROJECT_ROOT": "/Users/glen/.prodigy/worktrees/prodigy/session-12236a5c-a1b7-41a7-b942-d0b83da93a37",
+      "step.insertions": "2",
+      "ARG": "71"
+    },
+    "phase_variables": {},
+    "computed_cache": {},
+    "environment_snapshot": {
+      "variables": {
+        "HOME": "/Users/glen",
+        "OLDPWD": "/Users/glen/memento-mori/prodigy",
+        "NVM_CD_FLAGS": "-q",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x0:0x0",
+        "INFOPATH": "/opt/homebrew/share/info:",
+        "ZSH": "/Users/glen/.oh-my-zsh",
+        "HOMEBREW_REPOSITORY": "/opt/homebrew",
+        "SSH_AUTH_SOCK": "/private/tmp/com.apple.launchd.ye4Ol1VMB1/Listeners",
+        "XPC_SERVICE_NAME": "0",
+        "SHLVL": "1",
+        "GHOSTTY_BIN_DIR": "/Applications/Ghostty.app/Contents/MacOS",
+        "LSCOLORS": "Gxfxcxdxbxegedabagacad",
+        "HOMEBREW_CELLAR": "/opt/homebrew/Cellar",
+        "LS_COLORS": "di=1;36:ln=35:so=32:pi=33:ex=31:bd=34;46:cd=34;43:su=30;41:sg=30;46:tw=30;42:ow=30;43",
+        "PWD": "/Users/glen/memento-mori/prodigy",
+        "BUN_INSTALL": "/Users/glen/.bun",
+        "SHELL": "/bin/zsh",
+        "GHOSTTY_RESOURCES_DIR": "/Applications/Ghostty.app/Contents/Resources/ghostty",
+        "LANG": "en_US.UTF-8",
+        "EDITOR": "hx",
+        "TERM_PROGRAM": "ghostty",
+        "GHOSTTY_SHELL_FEATURES": "cursor,title",
+        "_": "/usr/local/bin/prodigy",
+        "TERMINFO": "/Applications/Ghostty.app/Contents/Resources/terminfo",
+        "NVM_DIR": "/Users/glen/.nvm",
+        "PRODIGY_ARG": "71",
+        "PAGER": "less",
+        "NVM_BIN": "/Users/glen/.nvm/versions/node/v22.18.0/bin",
+        "PYENV_VIRTUALENV_INIT": "1",
+        "XDG_DATA_DIRS": "/usr/local/share:/usr/share:/Applications/Ghostty.app/Contents/Resources/ghostty/..",
+        "__CFBundleIdentifier": "com.mitchellh.ghostty",
+        "TERM_PROGRAM_VERSION": "1.2.0",
+        "COMMAND_MODE": "unix2003",
+        "MANPATH": "/Users/glen/.nvm/versions/node/v22.18.0/share/man::/usr/share/man:/usr/local/share/man:/Applications/Ghostty.app/Contents/Resources/ghostty/../man:",
+        "VISUAL": "hx",
+        "PYENV_SHELL": "zsh",
+        "TERM": "xterm-ghostty",
+        "TMPDIR": "/var/folders/fc/plw0013j1yj8dj00s3gbpdfw0000gn/T/",
+        "USER": "glen",
+        "PYENV_ROOT": "/Users/glen/.pyenv",
+        "XPC_FLAGS": "0x0",
+        "COLORTERM": "truecolor",
+        "HEADSPIN_HOME": "/Users/glen/headspinio",
+        "NVM_INC": "/Users/glen/.nvm/versions/node/v22.18.0/include/node",
+        "PYTHONPATH": ":/Users/glen/headspinio/devtools:/Users/glen/headspinio/platform:/Users/glen/headspinio/common:/Users/glen/headspinio/mar:/Users/glen/headspinio/reports:/Users/glen/headspinio/ops:/Users/glen/headspinio/pbox:/Users/glen/headspinio/loadtests:/Users/glen/headspinio/pushserver:/Users/glen/headspinio/product-error-codes:/Users/glen/headspinio/onpremadmin",
+        "HOMEBREW_PREFIX": "/opt/homebrew",
+        "PATH": "/Users/glen/.bun/bin:/Users/glen/.nvm/versions/node/v22.18.0/bin:/Users/glen/.pyenv/plugins/pyenv-virtualenv/shims:/Users/glen/.pyenv/shims:/Users/glen/.pyenv/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Library/Apple/usr/bin:/Library/Frameworks/Mono.framework/Versions/Current/Commands:/Users/glen/.cargo/bin:/Applications/Ghostty.app/Contents/MacOS:/Users/glen/.foundry/bin:/Users/glen/.antigen/bundles/robbyrussell/oh-my-zsh/lib:/Users/glen/.antigen/bundles/robbyrussell/oh-my-zsh/plugins/git:/Users/glen/.antigen/bundles/robbyrussell/oh-my-zsh/plugins/command-not-found:/Users/glen/.antigen/bundles/robbyrussell/oh-my-zsh/plugins/docker:/Users/glen/.antigen/bundles/robbyrussell/oh-my-zsh/plugins/sudo:/Users/glen/.antigen/bundles/robbyrussell/oh-my-zsh/plugins/dirhistory:/Users/glen/.antigen/bundles/robbyrussell/oh-my-zsh/plugins/history:/Users/glen/.antigen/bundles/robbyrussell/oh-my-zsh/plugins/macos:/Users/glen/.antigen/bundles/zsh-users/zsh-completions:/Users/glen/.antigen/bundles/zsh-users/zsh-autosuggestions:/Users/glen/.antigen/bundles/zsh-users/zsh-syntax-highlighting:/opt/homebrew/bin:/Users/glen/headspinio/devtools/bin:/Users/glen/headspinio/ops/bin:/usr/local/opt/mysql@5.7/bin:/Users/glen/go/bin:/Users/glen/devl/oracli/bin",
+        "LESS": "-R",
+        "LOGNAME": "glen",
+        "DIRHISTORY_SIZE": "30"
+      },
+      "captured_at": "2025-09-17T13:29:48.198264Z",
+      "hostname": "harley",
+      "working_directory": "/Users/glen/memento-mori/prodigy"
+    },
+    "interpolation_history": [],
+    "variable_metadata": {
+      "total_variables": 6,
+      "computed_variables": 0,
+      "total_interpolations": 0,
+      "checkpoint_version": "1.0.0"
+    },
+    "captured_outputs": {},
+    "iteration_vars": {
+      "ITERATION": "1"
+    }
+  }
+}
