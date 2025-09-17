@@ -11,6 +11,13 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+/// Type alias for restored variables (global, captured outputs, iteration vars)
+type RestoredVariables = (
+    HashMap<String, String>,
+    HashMap<String, String>,
+    HashMap<String, String>,
+);
+
 /// Complete variable state for checkpoint persistence
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VariableCheckpointState {
@@ -125,6 +132,12 @@ pub struct EnvironmentCompatibility {
     pub is_compatible: bool,
 }
 
+impl Default for EnvironmentCompatibility {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EnvironmentCompatibility {
     /// Create new compatibility check
     pub fn new() -> Self {
@@ -179,6 +192,12 @@ pub struct InterpolationTestResults {
     pub test_duration: std::time::Duration,
 }
 
+impl Default for InterpolationTestResults {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl InterpolationTestResults {
     /// Create new test results
     pub fn new() -> Self {
@@ -228,17 +247,18 @@ pub struct InterpolationTest {
 }
 
 /// Manager for variable resume operations
-pub struct VariableResumeManager {
-    /// Variable store for restoration
-    variable_store: Option<VariableStore>,
+pub struct VariableResumeManager {}
+
+impl Default for VariableResumeManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl VariableResumeManager {
     /// Create new variable resume manager
     pub fn new() -> Self {
-        Self {
-            variable_store: None,
-        }
+        Self {}
     }
 
     /// Create variable checkpoint state from current context
@@ -295,7 +315,7 @@ impl VariableResumeManager {
     pub fn restore_from_checkpoint(
         &self,
         state: &VariableCheckpointState,
-    ) -> Result<(HashMap<String, String>, HashMap<String, String>, HashMap<String, String>)> {
+    ) -> Result<RestoredVariables> {
         let mut variables = HashMap::new();
         let mut captured_outputs = HashMap::new();
         let iteration_vars = state.iteration_vars.clone();
@@ -376,7 +396,10 @@ impl VariableResumeManager {
         variables.insert("map.total".to_string(), total_items.to_string());
         variables.insert("map.successful".to_string(), successful_items.to_string());
         variables.insert("map.failed".to_string(), failed_items.to_string());
-        variables.insert("map.completed".to_string(), (successful_items + failed_items).to_string());
+        variables.insert(
+            "map.completed".to_string(),
+            (successful_items + failed_items).to_string(),
+        );
 
         // Calculate success rate
         let success_rate = if total_items > 0 {
@@ -384,7 +407,10 @@ impl VariableResumeManager {
         } else {
             0.0
         };
-        variables.insert("map.success_rate".to_string(), format!("{:.2}", success_rate));
+        variables.insert(
+            "map.success_rate".to_string(),
+            format!("{:.2}", success_rate),
+        );
 
         variables
     }

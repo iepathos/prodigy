@@ -389,12 +389,14 @@ pub fn create_checkpoint_with_total_steps(
     let variable_checkpoint_state = {
         use crate::cook::workflow::variable_checkpoint::VariableResumeManager;
         let manager = VariableResumeManager::new();
-        manager.create_checkpoint(
-            &context.variables,
-            &context.captured_outputs,
-            &context.iteration_vars,
-            &context.variable_store,
-        ).ok()
+        manager
+            .create_checkpoint(
+                &context.variables,
+                &context.captured_outputs,
+                &context.iteration_vars,
+                &context.variable_store,
+            )
+            .ok()
     };
 
     WorkflowCheckpoint {
