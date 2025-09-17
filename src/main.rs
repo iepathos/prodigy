@@ -325,6 +325,12 @@ enum Commands {
         #[arg(long)]
         web: Option<u16>,
     },
+    /// Analyze Claude session analytics
+    #[command(name = "analytics")]
+    Analytics {
+        #[command(subcommand)]
+        command: prodigy::cli::analytics_command::AnalyticsCommand,
+    },
 }
 
 #[derive(Subcommand)]
@@ -1241,6 +1247,9 @@ async fn execute_command(command: Option<Commands>) -> anyhow::Result<()> {
             format,
             web,
         }) => run_progress_command(job_id, export, format, web).await,
+        Some(Commands::Analytics { command }) => {
+            prodigy::cli::analytics_command::handle_analytics_command(command).await
+        }
         None => {
             // Display help when no command is provided (following CLI conventions)
             let mut cmd = Cli::command();

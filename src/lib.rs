@@ -11,6 +11,7 @@
 //! ## Modules
 //!
 //! - `abstractions` - Trait-based abstractions for external dependencies (git, Claude CLI)
+//! - `analytics` - Claude session correlation and analytics
 //! - `commands` - Modular command handler architecture for extensible workflow commands
 //! - `config` - Configuration management for the tool
 //! - `cook` - Core cooking command implementation with mapping support
@@ -24,6 +25,7 @@
 //! - `session` - Session state management with event-driven architecture
 //! - `testing` - Testing utilities and fixtures for comprehensive testing
 pub mod abstractions;
+pub mod analytics;
 pub mod cli;
 pub mod commands;
 pub mod config;

@@ -28,6 +28,12 @@ prodigy/
 ├── src/
 │   ├── main.rs                 # CLI entry point
 │   ├── lib.rs                  # Public API
+│   ├── analytics/              # Claude session analytics
+│   │   ├── mod.rs              # Module exports
+│   │   ├── models.rs           # Data models for sessions
+│   │   ├── session_watcher.rs  # JSONL file monitoring
+│   │   ├── engine.rs           # Analytics computation
+│   │   └── replay.rs           # Session replay functionality
 │   ├── config/                 # Configuration management
 │   │   ├── command.rs          # Command parsing and validation
 │   │   ├── loader.rs           # Configuration loading

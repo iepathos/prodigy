@@ -47,8 +47,18 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - `prodigy events` - Event viewing and analysis
 - `prodigy dlq` - Failed item management
 - `prodigy sessions` - Session management
+- `prodigy analytics` - Claude session correlation and analytics ✅
 
 ## Recent Additions
+
+### Claude Session Analytics ✅
+- **Session Correlation**: Extract and correlate session IDs with JSONL files
+- **Analytics Engine**: Calculate costs, tool usage, and performance metrics
+- **Session Replay**: Step through session history with bookmarks and playback
+- **Cost Tracking**: Token usage and cost projections based on Claude pricing
+- **Performance Analysis**: Identify bottlenecks and optimization opportunities
+- **Tool Usage Statistics**: Analyze tool invocation patterns and success rates
+- **Optimization Recommendations**: Automated suggestions for cost and performance
 
 ### Enhanced Retry Strategies ✅
 - **Multiple Backoff Strategies**: Fixed, linear, exponential, fibonacci, custom
