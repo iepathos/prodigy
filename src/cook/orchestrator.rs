@@ -1217,6 +1217,7 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             self.session_manager.clone(),
             self.user_interaction.clone(),
         )
+        .with_workflow_path(config.command.playbook.clone())
         .with_checkpoint_manager(checkpoint_manager, workflow_id);
 
         // Set global environment configuration if present in workflow
@@ -1885,6 +1886,7 @@ impl DefaultCookOrchestrator {
             self.session_manager.clone(),
             self.user_interaction.clone(),
         )
+        .with_workflow_path(config.command.playbook.clone())
         .with_checkpoint_manager(checkpoint_manager, workflow_id);
 
         // Set test config if available
@@ -2076,7 +2078,8 @@ impl DefaultCookOrchestrator {
             self.claude_executor.clone(),
             self.session_manager.clone(),
             self.user_interaction.clone(),
-        );
+        )
+        .with_workflow_path(config.command.playbook.clone());
 
         // Set global environment configuration if present in workflow
         if config.workflow.env.is_some()

@@ -613,6 +613,8 @@ pub struct WorkflowExecutor {
     resume_context: Option<ResumeContext>,
     /// Retry state manager for checkpoint persistence
     retry_state_manager: Arc<RetryStateManager>,
+    /// Path to the workflow file being executed (for checkpoint resume)
+    workflow_path: Option<PathBuf>,
 }
 
 impl WorkflowExecutor {
@@ -704,6 +706,11 @@ impl WorkflowExecutor {
                     workflow_hash,
                     workflow.steps.len(),
                 );
+
+                // Set workflow path if available
+                if let Some(ref path) = self.workflow_path {
+                    checkpoint.workflow_path = Some(path.clone());
+                }
 
                 // Add retry state from RetryStateManager
                 if let Ok(retry_checkpoint_state) =
@@ -1768,7 +1775,14 @@ impl WorkflowExecutor {
             git_operations: Arc::new(RealGitOperations::new()),
             resume_context: None,
             retry_state_manager: Arc::new(RetryStateManager::new()),
+            workflow_path: None,
         }
+    }
+
+    /// Set the workflow file path (for checkpoint resume)
+    pub fn with_workflow_path(mut self, path: PathBuf) -> Self {
+        self.workflow_path = Some(path);
+        self
     }
 
     /// Set the environment configuration for the workflow
@@ -1829,6 +1843,7 @@ impl WorkflowExecutor {
             git_operations: Arc::new(RealGitOperations::new()),
             resume_context: None,
             retry_state_manager: Arc::new(RetryStateManager::new()),
+            workflow_path: None,
         }
     }
 
@@ -1861,6 +1876,7 @@ impl WorkflowExecutor {
             git_operations,
             resume_context: None,
             retry_state_manager: Arc::new(RetryStateManager::new()),
+            workflow_path: None,
         }
     }
 
@@ -2386,7 +2402,7 @@ impl WorkflowExecutor {
                         let workflow_hash = format!("{:?}", workflow.steps.len());
 
                         // Build checkpoint
-                        let checkpoint = create_checkpoint_with_total_steps(
+                        let mut checkpoint = create_checkpoint_with_total_steps(
                             workflow_id.clone(),
                             &normalized::NormalizedWorkflow {
                                 name: workflow.name.clone(),
@@ -2400,6 +2416,11 @@ impl WorkflowExecutor {
                             workflow_hash,
                             workflow.steps.len(), // Pass the actual total steps count
                         );
+
+                        // Set workflow path if available
+                        if let Some(ref path) = self.workflow_path {
+                            checkpoint.workflow_path = Some(path.clone());
+                        }
 
                         // Save checkpoint asynchronously
                         if let Err(e) = checkpoint_manager.save_checkpoint(&checkpoint).await {

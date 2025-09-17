@@ -267,4 +267,34 @@ mod tests {
         assert_ne!(WorkflowStatus::Running, WorkflowStatus::Completed);
         assert_ne!(WorkflowStatus::Failed, WorkflowStatus::Interrupted);
     }
+
+    #[tokio::test]
+    async fn test_checkpoint_workflow_path_persistence() {
+        let (manager, _temp_dir) = create_test_checkpoint_manager();
+        let workflow = create_test_workflow();
+        let context = WorkflowContext::default();
+
+        // Create a checkpoint with workflow path
+        let mut checkpoint = create_checkpoint(
+            "test-workflow-path".to_string(),
+            &workflow,
+            &context,
+            vec![],
+            0,
+            "workflow_hash".to_string(),
+        );
+
+        // Set the workflow path
+        let test_path = std::path::PathBuf::from("/test/workflows/implement.yml");
+        checkpoint.workflow_path = Some(test_path.clone());
+
+        // Save checkpoint
+        manager.save_checkpoint(&checkpoint).await.unwrap();
+
+        // Load checkpoint
+        let loaded = manager.load_checkpoint("test-workflow-path").await.unwrap();
+
+        // Verify workflow path was persisted
+        assert_eq!(loaded.workflow_path, Some(test_path));
+    }
 }
