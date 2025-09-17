@@ -245,8 +245,13 @@ impl CheckpointManager {
             .await
             .context("Failed to read checkpoint file")?;
 
-        let checkpoint: WorkflowCheckpoint =
-            serde_json::from_str(&content).context("Failed to parse checkpoint")?;
+        let checkpoint: WorkflowCheckpoint = match serde_json::from_str(&content) {
+            Ok(cp) => cp,
+            Err(e) => {
+                debug!("Checkpoint parse error: {}", e);
+                return Err(anyhow!("Failed to parse checkpoint: {}", e));
+            }
+        };
 
         // Validate version compatibility
         if checkpoint.version > CHECKPOINT_VERSION {

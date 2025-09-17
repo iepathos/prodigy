@@ -13,73 +13,54 @@ fn create_test_checkpoint(
     workflow_id: &str,
     commands_executed: usize,
     total_commands: usize,
-    _variables: serde_json::Value,
+    variables: serde_json::Value,
 ) {
-    // The checkpoint_dir is .prodigy/checkpoints, but we need to save in .prodigy
-    let session_dir = checkpoint_dir.parent().unwrap();
-    let working_dir = session_dir.parent().unwrap();
+    // The checkpoint_dir is .prodigy/checkpoints
+    let session_dir = checkpoint_dir;
 
-    // Create a properly structured SessionState
+    // Create a properly structured WorkflowCheckpoint
     let now = chrono::Utc::now();
-    let session_state = json!({
-        "session_id": workflow_id,
-        "status": "Interrupted",
-        "started_at": now.to_rfc3339(),
-        "ended_at": null,
-        "iterations_completed": 0,
-        "files_changed": 0,
-        "errors": [],
-        "working_directory": working_dir.to_str().unwrap(),
-        "worktree_name": format!("prodigy-session-{}", workflow_id),
-        "workflow_started_at": now.to_rfc3339(),
-        "current_iteration_started_at": null,
-        "current_iteration_number": null,
-        "iteration_timings": [],
-        "command_timings": [],
-        "workflow_state": {
-            "current_iteration": 0,
-            "current_step": commands_executed,
-            "completed_steps": (0..commands_executed).map(|i| {
-                let step_time = now.to_rfc3339();
-                json!({
-                    "step_index": i,
-                    "command": format!("cmd{}", i + 1),
-                    "success": true,
-                    "output": format!("Command {} output", i + 1),
-                    "duration": {
-                        "secs": 1,
-                        "nanos": 0
-                    },
-                    "error": null,
-                    "started_at": step_time,
-                    "completed_at": step_time,
-                    "exit_code": 0
-                })
-            }).collect::<Vec<_>>(),
-            "workflow_path": "test.yaml",
-            "input_args": [],
-            "map_patterns": [],
-            "using_worktree": false
+    let checkpoint = json!({
+        "workflow_id": workflow_id,
+        "execution_state": {
+            "current_step_index": commands_executed,
+            "total_steps": total_commands,
+            "status": "Interrupted",
+            "start_time": now.to_rfc3339(),
+            "last_checkpoint": now.to_rfc3339(),
+            "current_iteration": null,
+            "total_iterations": null
         },
-        "execution_environment": null,
-        "last_checkpoint": now.to_rfc3339(),
-        "workflow_hash": null,
-        "workflow_type": "Standard",
-        "execution_context": null,  // Simplified - not needed for these tests
-        "checkpoint_version": 1,
-        "last_validated_at": null
+        "completed_steps": (0..commands_executed).map(|i| {
+            json!({
+                "step_index": i,
+                "command": format!("shell: echo 'Command {}'", i + 1),
+                "success": true,
+                "output": format!("Command {} output", i + 1),
+                "captured_variables": {},
+                "duration": {
+                    "secs": 1,
+                    "nanos": 0
+                },
+                "completed_at": now.to_rfc3339(),
+                "retry_state": null
+            })
+        }).collect::<Vec<_>>(),
+        "variable_state": variables,
+        "mapreduce_state": null,
+        "timestamp": now.to_rfc3339(),
+        "version": 1,
+        "workflow_hash": "test-hash-12345",
+        "total_steps": total_commands,
+        "workflow_name": "test-resume-workflow",
+        "workflow_path": null
     });
 
-    // Save as both session_state.json and session-specific file
+    // Save as {workflow_id}.checkpoint.json
     fs::create_dir_all(session_dir).unwrap();
     fs::write(
-        session_dir.join("session_state.json"),
-        serde_json::to_string_pretty(&session_state).unwrap(),
-    )
-    .unwrap();
-    fs::write(
-        session_dir.join(format!("{}.json", workflow_id)),
-        serde_json::to_string_pretty(&session_state).unwrap(),
+        session_dir.join(format!("{}.checkpoint.json", workflow_id)),
+        serde_json::to_string_pretty(&checkpoint).unwrap(),
     )
     .unwrap();
 }
@@ -95,7 +76,7 @@ commands:
     id: cmd1
   - shell: "echo 'Command 2 executed'"
     id: cmd2
-  - claude: "/test-command ${variable1}"
+  - shell: "echo 'Command 3 executed'"
     id: cmd3
   - shell: "echo 'Command 4 executed'"
     id: cmd4
@@ -116,8 +97,8 @@ fn test_resume_from_early_interruption() {
     let test_dir = test.temp_path().to_path_buf();
     let checkpoint_dir = test_dir.join(".prodigy").join("checkpoints");
 
-    // Create workflow file
-    let _workflow_path = create_test_workflow(&test_dir, "test.yaml");
+    // Create workflow file - use a name that matches what resume expects
+    let _workflow_path = create_test_workflow(&test_dir, "workflow.yaml");
 
     // Create checkpoint after 1 command
     let workflow_id = "resume-early-12345";
@@ -128,6 +109,11 @@ fn test_resume_from_early_interruption() {
         }
     });
     create_test_checkpoint(&checkpoint_dir, workflow_id, 1, 5, variables);
+
+    // Verify the checkpoint file was created
+    let checkpoint_file = checkpoint_dir.join(format!("{}.checkpoint.json", workflow_id));
+    assert!(checkpoint_file.exists(), "Checkpoint file should exist at {:?}", checkpoint_file);
+    assert!(checkpoint_dir.exists(), "Checkpoint directory should exist at {:?}", checkpoint_dir);
 
     // Resume the workflow
     test = test
@@ -158,7 +144,7 @@ fn test_resume_from_middle_interruption() {
     let workflow_dir = test_dir.path();
 
     // Create workflow file
-    let _workflow_path = create_test_workflow(&workflow_dir, "test.yaml");
+    let _workflow_path = create_test_workflow(&workflow_dir, "workflow.yaml");
 
     // Create checkpoint after 3 commands
     let workflow_id = "resume-middle-67890";
@@ -410,7 +396,7 @@ fn test_resume_with_force_restart() {
     let workflow_dir = test_dir.path();
 
     // Create workflow and checkpoint
-    let _workflow_path = create_test_workflow(&workflow_dir, "test.yaml");
+    let _workflow_path = create_test_workflow(&workflow_dir, "workflow.yaml");
     let workflow_id = "resume-force-44444";
 
     create_test_checkpoint(&checkpoint_dir, workflow_id, 3, 5, json!({}));
@@ -514,7 +500,7 @@ fn test_resume_with_checkpoint_cleanup() {
     let workflow_dir = test_dir.path();
 
     // Create workflow
-    let _workflow_path = create_test_workflow(&workflow_dir, "test.yaml");
+    let _workflow_path = create_test_workflow(&workflow_dir, "workflow.yaml");
     let workflow_id = "resume-cleanup-66666";
 
     // Create checkpoint

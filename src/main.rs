@@ -1512,8 +1512,9 @@ async fn run_resume_workflow(
                     }
                 }
             }
-            Err(_) => {
+            Err(e) => {
                 // No checkpoint found, try session-based resume
+                debug!("Checkpoint loading failed: {}", e);
                 println!("No checkpoint found, checking for session state...");
             }
         }
