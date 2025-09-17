@@ -633,7 +633,7 @@ pub trait JobStateManager: Send + Sync {
 
 /// Default implementation of JobStateManager using CheckpointManager
 pub struct DefaultJobStateManager {
-    checkpoint_manager: CheckpointManager,
+    pub checkpoint_manager: CheckpointManager,
     active_jobs: RwLock<HashMap<String, MapReduceJobState>>,
     #[allow(dead_code)]
     project_root: Option<PathBuf>,

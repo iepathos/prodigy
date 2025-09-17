@@ -112,6 +112,16 @@ pub enum MapReduceError {
         source: serde_json::Error,
     },
 
+    // Checkpoint and resume errors
+    #[error("Failed to load checkpoint for job {job_id}")]
+    CheckpointLoadFailed { job_id: String, details: String },
+
+    #[error("Failed to save checkpoint for job {job_id}")]
+    CheckpointSaveFailed { job_id: String, details: String },
+
+    #[error("Environment validation failed")]
+    EnvironmentError { details: String },
+
     // Concurrency errors
     #[error("Deadlock detected in job {job_id}")]
     DeadlockDetected {
@@ -323,6 +333,9 @@ impl MapReduceError {
             Self::WorkItemLoadFailed { .. } => "WorkItemLoadFailed",
             Self::InvalidConfiguration { .. } => "InvalidConfiguration",
             Self::InvalidJsonPath { .. } => "InvalidJsonPath",
+            Self::CheckpointLoadFailed { .. } => "CheckpointLoadFailed",
+            Self::CheckpointSaveFailed { .. } => "CheckpointSaveFailed",
+            Self::EnvironmentError { .. } => "EnvironmentError",
             Self::DeadlockDetected { .. } => "DeadlockDetected",
             Self::ConcurrentModification { .. } => "ConcurrentModification",
             Self::General { .. } => "General",

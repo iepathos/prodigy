@@ -46,6 +46,7 @@ prodigy/
 │   │   ├── execution/          # Command execution engine
 │   │   │   ├── mod.rs          # CommandExecutor trait
 │   │   │   ├── mapreduce.rs    # Parallel processing
+│   │   │   ├── mapreduce_resume.rs # Enhanced resume functionality
 │   │   │   ├── foreach.rs      # Simple parallel iteration
 │   │   │   └── claude.rs       # Claude integration
 │   │   ├── goal_seek/          # Goal-seeking primitives

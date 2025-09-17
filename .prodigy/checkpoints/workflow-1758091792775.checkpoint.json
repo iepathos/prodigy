@@ -1,0 +1,56 @@
+{
+  "workflow_id": "workflow-1758091792775",
+  "execution_state": {
+    "current_step_index": 2,
+    "total_steps": 3,
+    "status": "Running",
+    "start_time": "2025-09-17T07:56:14.042942Z",
+    "last_checkpoint": "2025-09-17T07:56:14.042942Z",
+    "current_iteration": null,
+    "total_iterations": null
+  },
+  "completed_steps": [
+    {
+      "step_index": 0,
+      "command": "claude: /prodigy-implement-spec $ARG",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 2222,
+        "nanos": 637613833
+      },
+      "completed_at": "2025-09-17T07:26:55.440480Z"
+    },
+    {
+      "step_index": 1,
+      "command": "test: just test",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 1758,
+        "nanos": 561919916
+      },
+      "completed_at": "2025-09-17T07:56:14.042647Z"
+    }
+  ],
+  "variable_state": {
+    "PROJECT_ROOT": "/Users/glen/.prodigy/worktrees/prodigy/session-1483f64c-7043-4d91-90c0-d7c5b7464a0f",
+    "test.exit_code": "100",
+    "step.commits": "[{\"hash\":\"c269a50b0bf8c015a17369f63fc255e4bd61340c\",\"message\":\"fix: resolve test failures with functional patterns\",\"author\":\"Glen Baker\",\"timestamp\":\"2025-09-17T07:55:19Z\",\"files_changed\":[\"src/cook/execution/mapreduce_resume.rs\",\"src/cook/workflow/executor.rs\"],\"insertions\":16,\"deletions\":4,\"step_name\":\"test: just test\",\"agent_id\":null},{\"hash\":\"524609cac6aa240d50e2ba1ad6ced0b50b7722db\",\"message\":\"fix: resolve test failures with functional patterns\",\"author\":\"Glen Baker\",\"timestamp\":\"2025-09-17T07:48:00Z\",\"files_changed\":[\"src/cook/execution/state.rs\",\"test_output.txt\",\"tests/mapreduce_resume_integration_test.rs\"],\"insertions\":684,\"deletions\":74,\"step_name\":\"test: just test\",\"agent_id\":null},{\"hash\":\"bcb50e5a130547328e9f3d152f75f4e9e8598cd6\",\"message\":\"fix: resolve test failures with functional patterns\",\"author\":\"Glen Baker\",\"timestamp\":\"2025-09-17T07:37:40Z\",\"files_changed\":[\".prodigy/checkpoints/workflow-1758091792775.checkpoint.json\",\"tests/mapreduce_resume_integration_test.rs\"],\"insertions\":230,\"deletions\":63,\"step_name\":\"test: just test\",\"agent_id\":null}]",
+    "ARG": "73",
+    "test.attempt": "3",
+    "step.deletions": "141",
+    "step.insertions": "930",
+    "step.files_changed": "6",
+    "test.output": "/var/folders/fc/plw0013j1yj8dj00s3gbpdfw0000gn/T/.tmpnJ0OqT"
+  },
+  "mapreduce_state": null,
+  "timestamp": "2025-09-17T07:56:14.042942Z",
+  "version": 1,
+  "workflow_hash": "3",
+  "total_steps": 3,
+  "workflow_name": "args-workflow",
+  "workflow_path": null
+}
