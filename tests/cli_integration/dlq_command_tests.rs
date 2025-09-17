@@ -49,10 +49,7 @@ fn test_dlq_reprocess() {
 
     // The reprocess command is deprecated in favor of 'retry'
     assert_eq!(output.exit_code, exit_codes::GENERAL_ERROR);
-    assert!(
-        output.stderr_contains("deprecated")
-            && output.stderr_contains("retry")
-    );
+    assert!(output.stderr_contains("deprecated") && output.stderr_contains("retry"));
 }
 
 #[test]
@@ -110,10 +107,7 @@ fn test_dlq_reprocess_missing_job_id() {
 
     // The reprocess command is deprecated and returns a general error
     assert_eq!(output.exit_code, exit_codes::GENERAL_ERROR);
-    assert!(
-        output.stderr_contains("deprecated")
-            && output.stderr_contains("retry")
-    );
+    assert!(output.stderr_contains("deprecated") && output.stderr_contains("retry"));
 }
 
 #[test]
@@ -204,7 +198,6 @@ fn test_dlq_reprocess_with_max_parallel() {
     // Should fail with unexpected argument since reprocess doesn't support --max-parallel
     assert_eq!(output.exit_code, exit_codes::ARGUMENT_ERROR);
     assert!(
-        output.stderr_contains("unexpected argument")
-            || output.stderr_contains("--max-parallel")
+        output.stderr_contains("unexpected argument") || output.stderr_contains("--max-parallel")
     );
 }

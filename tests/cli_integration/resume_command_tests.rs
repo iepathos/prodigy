@@ -11,7 +11,11 @@ fn test_resume_command_without_workflow_id() {
     // workflow_id is optional - will auto-detect last interrupted
     // Should fail with argument error when no workflow is available
     assert_eq!(output.exit_code, exit_codes::ARGUMENT_ERROR);
-    assert!(output.stderr_contains("No workflow ID provided") || output.stderr_contains("no checkpoints found") || output.stderr_contains("No workflow"));
+    assert!(
+        output.stderr_contains("No workflow ID provided")
+            || output.stderr_contains("no checkpoints found")
+            || output.stderr_contains("No workflow")
+    );
 }
 
 #[test]

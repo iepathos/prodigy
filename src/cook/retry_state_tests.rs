@@ -6,8 +6,7 @@ use crate::cook::interaction::{UserInteraction, VerbosityLevel};
 use crate::cook::retry_v2::{BackoffStrategy, RetryConfig};
 use crate::cook::session::{SessionManager, SessionState, SessionSummary, SessionUpdate};
 use crate::cook::workflow::checkpoint::{
-    CheckpointManager, CompletedStep, ExecutionState, WorkflowCheckpoint,
-    WorkflowStatus,
+    CheckpointManager, CompletedStep, ExecutionState, WorkflowCheckpoint, WorkflowStatus,
 };
 // Remove executor imports - module is private
 use anyhow::Result;
@@ -62,7 +61,7 @@ impl SessionManager for MockSessionManager {
     async fn load_session(&self, _session_id: &str) -> Result<SessionState> {
         Ok(SessionState::new(
             "test".to_string(),
-            std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/tmp"))
+            std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/tmp")),
         ))
     }
     async fn start_session(&self, _session_id: &str) -> Result<()> {
@@ -83,7 +82,7 @@ impl SessionManager for MockSessionManager {
     fn get_state(&self) -> SessionState {
         SessionState::new(
             "test".to_string(),
-            std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/tmp"))
+            std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/tmp")),
         )
     }
 
@@ -127,7 +126,9 @@ impl UserInteraction for MockUserInteraction {
     fn step_end(&self, _step: u32, _success: bool) {}
     fn command_output(&self, _output: &str, _verbosity: VerbosityLevel) {}
     fn debug_output(&self, _message: &str, _min_verbosity: VerbosityLevel) {}
-    fn verbosity(&self) -> VerbosityLevel { VerbosityLevel::Normal }
+    fn verbosity(&self) -> VerbosityLevel {
+        VerbosityLevel::Normal
+    }
     fn start_spinner(&self, _message: &str) -> Box<dyn crate::cook::interaction::SpinnerHandle> {
         Box::new(MockSpinnerHandle)
     }
