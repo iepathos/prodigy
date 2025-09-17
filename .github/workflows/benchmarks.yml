@@ -1,0 +1,161 @@
+name: Performance Benchmarks
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      update_baseline:
+        description: 'Update benchmark baseline'
+        type: boolean
+        default: false
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  benchmark:
+    name: Run Benchmarks
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Need full history for baseline comparison
+
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+
+    - name: Cache cargo dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-bench-
+
+    - name: Cache benchmark baselines
+      uses: actions/cache@v3
+      with:
+        path: .benchmark-baselines
+        key: benchmark-baselines-${{ github.sha }}
+        restore-keys: |
+          benchmark-baselines-
+
+    - name: Set base commit
+      run: |
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          echo "BASE_COMMIT=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
+        else
+          echo "BASE_COMMIT=$(git rev-parse HEAD~1)" >> $GITHUB_ENV
+        fi
+
+    - name: Run benchmarks
+      run: |
+        if [ "${{ github.event.inputs.update_baseline }}" = "true" ]; then
+          ./scripts/benchmark-ci.sh --update-baseline
+        else
+          ./scripts/benchmark-ci.sh
+        fi
+
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: benchmark-results
+        path: .benchmark-results/
+
+    - name: Comment PR with results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+
+          // Read the performance report
+          const reportPath = '.benchmark-results/performance-report-' +
+            process.env.GITHUB_SHA.substring(0, 8) + '.md';
+
+          if (fs.existsSync(reportPath)) {
+            const report = fs.readFileSync(reportPath, 'utf8');
+
+            // Create or update PR comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('Performance Report')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: report,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: report,
+              });
+            }
+          }
+
+    - name: Fail on regression
+      if: failure()
+      run: |
+        echo "❌ Performance regressions detected!"
+        exit 1
+
+  benchmark-schedule:
+    name: Scheduled Baseline Update
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+
+    - name: Run benchmarks and update baseline
+      run: ./scripts/benchmark-ci.sh --update-baseline
+
+    - name: Commit baseline updates
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add .benchmark-baselines/
+        git diff --quiet && git diff --staged --quiet || \
+          git commit -m "chore: update benchmark baselines [skip ci]"
+        git push
+
+# Schedule weekly baseline updates
+# Uncomment to enable:
+# on:
+#   schedule:
+#     - cron: '0 2 * * 1'  # Every Monday at 2 AM UTC

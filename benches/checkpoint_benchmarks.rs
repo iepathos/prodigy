@@ -1,14 +1,14 @@
 //! Performance benchmarks for checkpoint operations
 //! Verifies <5% overhead requirement for checkpoint save/load
 
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
+use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use prodigy::cook::workflow::checkpoint::{
     CheckpointManager, CompletedStep, ExecutionState, WorkflowCheckpoint, WorkflowStatus,
     CHECKPOINT_VERSION,
 };
 use serde_json::json;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::hint::black_box;
 use std::time::Duration;
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
