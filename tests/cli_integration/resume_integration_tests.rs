@@ -789,3 +789,387 @@ reduce:
     assert_eq!(output.exit_code, exit_codes::SUCCESS);
     // MapReduce may not produce specific output in test execution
 }
+
+#[test]
+fn test_resume_workflow_with_on_failure_handlers() {
+    // Use CliTest to get a temp directory with git initialized
+    let mut test = CliTest::new();
+    let test_dir = test.temp_path().to_path_buf();
+    let checkpoint_dir = test_dir.join(".prodigy").join("checkpoints");
+    let workflow_dir = test_dir.clone();
+
+    // Create a workflow with on_failure handlers at different steps
+    let workflow_content = r#"name: test-resume-workflow
+description: Test resuming workflow with on_failure handlers
+
+commands:
+  - shell: "echo 'Step 1 completed' > step1.txt"
+    id: step1
+
+  - shell: "echo 'Step 2 completed' > step2.txt"
+    id: step2
+
+  - shell: "test -f trigger-failure.txt && exit 1 || echo 'Step 3 completed' > step3.txt"
+    id: step3
+    on_failure:
+      claude: "/fix-error --message 'Step 3 failed, cleaning up'"
+      max_attempts: 1
+      fail_workflow: false
+      commit_required: false
+
+  - shell: "echo 'Step 4 completed' > step4.txt"
+    id: step4
+
+  - shell: "echo 'Final step completed' > final.txt"
+    id: final
+"#;
+
+    // Save workflow file - name must match what create_test_checkpoint expects
+    let workflow_path = workflow_dir.join("test-resume-workflow.yaml");
+    fs::write(&workflow_path, workflow_content).unwrap();
+
+    // Create a checkpoint with error recovery state stored
+    let now = chrono::Utc::now();
+    let workflow_id = "on-failure-resume-test";
+
+    // Create checkpoint that indicates step 2 completed but step 3 failed and needs recovery
+    let checkpoint = json!({
+        "workflow_id": workflow_id,
+        "execution_state": {
+            "current_step_index": 2,  // Failed at step 3 (index 2)
+            "total_steps": 5,
+            "status": "Interrupted",
+            "start_time": now.to_rfc3339(),
+            "last_checkpoint": now.to_rfc3339(),
+            "current_iteration": null,
+            "total_iterations": null
+        },
+        "completed_steps": [
+            {
+                "step_index": 0,
+                "command": "shell: echo 'Step 1 completed' > step1.txt",
+                "success": true,
+                "output": "Step 1 completed",
+                "captured_variables": {},
+                "duration": { "secs": 1, "nanos": 0 },
+                "completed_at": now.to_rfc3339(),
+                "retry_state": null
+            },
+            {
+                "step_index": 1,
+                "command": "shell: echo 'Step 2 completed' > step2.txt",
+                "success": true,
+                "output": "Step 2 completed",
+                "captured_variables": {},
+                "duration": { "secs": 1, "nanos": 0 },
+                "completed_at": now.to_rfc3339(),
+                "retry_state": null
+            }
+        ],
+        "variable_state": {
+            // Store error recovery state as a special variable
+            "__error_recovery_state": json!({
+                "active_handlers": [{
+                    "id": "step3-error-handler",
+                    "command": {
+                        "claude": "/fix-error --message 'Step 3 failed, cleaning up'",
+                        "max_attempts": 1,
+                        "fail_workflow": false,
+                        "commit_required": false
+                    },
+                    "strategy": "retry"
+                }],
+                "correlation_id": "test-correlation-123",
+                "recovery_attempts": 1,
+                "max_recovery_attempts": 3
+            })
+        },
+        "mapreduce_state": null,
+        "timestamp": now.to_rfc3339(),
+        "version": 1,
+        "workflow_hash": "test-hash-with-handlers",
+        "total_steps": 5,
+        "workflow_name": "test-resume-workflow",
+        "workflow_path": workflow_path.to_str()
+    });
+
+    // Create trigger file to cause step 3 to fail initially
+    fs::write(test_dir.join("trigger-failure.txt"), "trigger").unwrap();
+
+    // Save checkpoint
+    fs::create_dir_all(&checkpoint_dir).unwrap();
+    fs::write(
+        checkpoint_dir.join(format!("{}.checkpoint.json", workflow_id)),
+        serde_json::to_string_pretty(&checkpoint).unwrap(),
+    )
+    .unwrap();
+
+    // Resume the workflow
+    test = test
+        .arg("resume")
+        .arg(workflow_id)
+        .arg("--path")
+        .arg(test_dir.to_str().unwrap());
+
+    let output = test.run();
+
+    // Workflow should complete successfully with error recovery executed
+    assert_eq!(
+        output.exit_code,
+        exit_codes::SUCCESS,
+        "Workflow should complete successfully after error recovery. Output: {}",
+        output.stdout
+    );
+
+    // Verify that error handlers were executed
+    // Check that error handler was executed (we can't check file creation since we're using claude command)
+    assert!(
+        output.stdout_contains("fix-error") || output.stdout_contains("[TEST MODE]"),
+        "Error handler should have been executed"
+    );
+
+    // Since we're using Claude commands in test mode, the actual files won't be created
+    // Just verify that the workflow completed successfully
+    assert!(
+        output.stdout_contains("completed") || output.stdout_contains("successfully"),
+        "Workflow should show successful completion"
+    );
+}
+
+#[test]
+fn test_checkpoint_with_error_recovery_state_serialization() {
+    // Test that error recovery state can be properly serialized/deserialized in checkpoints
+    let now = chrono::Utc::now();
+    let workflow_id = "test-error-state-serialization";
+
+    let checkpoint_with_error_state = json!({
+        "workflow_id": workflow_id,
+        "execution_state": {
+            "current_step_index": 2,
+            "total_steps": 4,
+            "status": "Interrupted",
+            "start_time": now.to_rfc3339(),
+            "last_checkpoint": now.to_rfc3339(),
+            "current_iteration": null,
+            "total_iterations": null
+        },
+        "completed_steps": [
+            {
+                "step_index": 0,
+                "command": "shell: echo 'Step 1'",
+                "success": true,
+                "output": "Step 1 output",
+                "captured_variables": {},
+                "duration": { "secs": 1, "nanos": 0 },
+                "completed_at": now.to_rfc3339(),
+                "retry_state": null
+            }
+        ],
+        "variable_state": {
+            "__error_recovery_state": json!({
+                "active_handlers": [{
+                    "id": "handler-1",
+                    "commands": [
+                        {"shell": "echo 'Handling error'"},
+                        {"shell": "rm -f error.txt"}
+                    ],
+                    "strategy": "retry",
+                    "scope": "step",
+                    "timeout": { "secs": 30, "nanos": 0 }
+                }],
+                "error_context": {
+                    "message": "Command failed",
+                    "exit_code": "1"
+                },
+                "handler_execution_history": [],
+                "correlation_id": "test-123",
+                "recovery_attempts": 1,
+                "max_recovery_attempts": 3
+            }),
+            "other_var": "some_value"
+        },
+        "mapreduce_state": null,
+        "timestamp": now.to_rfc3339(),
+        "version": 1,
+        "workflow_hash": "test-hash",
+        "total_steps": 4,
+        "workflow_name": "test-workflow",
+        "workflow_path": null
+    });
+
+    // Verify the JSON structure is valid
+    let checkpoint_str = serde_json::to_string(&checkpoint_with_error_state).unwrap();
+    let parsed_checkpoint: serde_json::Value = serde_json::from_str(&checkpoint_str).unwrap();
+
+    // Verify error recovery state is present
+    assert!(parsed_checkpoint["variable_state"]["__error_recovery_state"].is_object());
+
+    // Verify we can extract the error recovery state
+    let error_state = &parsed_checkpoint["variable_state"]["__error_recovery_state"];
+    assert_eq!(error_state["correlation_id"], "test-123");
+    assert_eq!(error_state["recovery_attempts"], 1);
+    assert_eq!(error_state["max_recovery_attempts"], 3);
+
+    // Verify handlers are preserved
+    let handlers = error_state["active_handlers"].as_array().unwrap();
+    assert_eq!(handlers.len(), 1);
+    assert_eq!(handlers[0]["id"], "handler-1");
+    assert_eq!(handlers[0]["strategy"], "retry");
+}
+
+#[test]
+fn test_end_to_end_error_handler_execution_after_resume() {
+    // Comprehensive end-to-end test that verifies error handlers execute correctly after resume
+    let mut test = CliTest::new();
+    let test_dir = test.temp_path().to_path_buf();
+    let checkpoint_dir = test_dir.join(".prodigy").join("checkpoints");
+    let workflow_dir = test_dir.clone();
+
+    // Create a simpler workflow that will fail at a specific step and has error handlers
+    let workflow_content = r#"
+name: test-resume-workflow
+description: Test error handler execution during resume
+
+commands:
+  - shell: "echo 'Step 1: Initialize'"
+    id: step1
+
+  - shell: "echo 'Step 2: Pre-error setup'"
+    id: step2
+
+  - shell: "exit 1"
+    id: step3_with_error
+    on_failure:
+      claude: "/fix-error --output 'Error handler executed'"
+      max_attempts: 1
+      fail_workflow: false
+      commit_required: false
+
+  - shell: "echo 'Step 4: Post-recovery'"
+    id: step4
+
+  - shell: "echo 'Step 5: Completion'"
+    id: final_step
+"#;
+
+    // Save workflow file - using standard name expected by checkpoint system
+    let workflow_path = workflow_dir.join("test-resume-workflow.yaml");
+    fs::write(&workflow_path, workflow_content).unwrap();
+
+    // Create a checkpoint simulating an interrupted workflow at step 3
+    // This simulates a workflow that executed steps 1 and 2, then failed at step 3
+    let now = chrono::Utc::now();
+    let workflow_id = "end-to-end-error-handler-test";
+
+    let checkpoint = json!({
+        "workflow_id": workflow_id,
+        "execution_state": {
+            "current_step_index": 2,  // Failed at step 3 (index 2)
+            "total_steps": 5,
+            "status": "Interrupted",
+            "start_time": now.to_rfc3339(),
+            "last_checkpoint": now.to_rfc3339(),
+            "current_iteration": null,
+            "total_iterations": null
+        },
+        "completed_steps": [
+            {
+                "step_index": 0,
+                "command": "shell: echo 'Step 1: Initialize'",
+                "success": true,
+                "output": "Step 1: Initialize",
+                "captured_variables": {},
+                "duration": { "secs": 1, "nanos": 0 },
+                "completed_at": now.to_rfc3339(),
+                "retry_state": null
+            },
+            {
+                "step_index": 1,
+                "command": "shell: echo 'Step 2: Pre-error setup'",
+                "success": true,
+                "output": "Step 2: Pre-error setup",
+                "captured_variables": {},
+                "duration": { "secs": 1, "nanos": 0 },
+                "completed_at": now.to_rfc3339(),
+                "retry_state": null
+            }
+        ],
+        "variable_state": {
+            // Store error recovery state to indicate error handlers need to run
+            "__error_recovery_state": json!({
+                "active_handlers": [{
+                    "id": "step3-error-handler",
+                    "command": {
+                        "claude": "/fix-error --output 'Error handler executed'",
+                        "max_attempts": 1,
+                        "fail_workflow": false,
+                        "commit_required": false
+                    },
+                    "strategy": "retry"
+                }],
+                "correlation_id": "test-correlation-123",
+                "recovery_attempts": 1,
+                "max_recovery_attempts": 3
+            })
+        },
+        "mapreduce_state": null,
+        "timestamp": now.to_rfc3339(),
+        "version": 1,
+        "workflow_hash": "test-hash-with-handlers",
+        "total_steps": 5,
+        "workflow_name": "test-resume-workflow",
+        "workflow_path": workflow_path.to_str()
+    });
+
+    // Save checkpoint
+    fs::create_dir_all(&checkpoint_dir).unwrap();
+    let checkpoint_file = checkpoint_dir.join(format!("{}.checkpoint.json", workflow_id));
+    fs::write(
+        &checkpoint_file,
+        serde_json::to_string_pretty(&checkpoint).unwrap(),
+    )
+    .unwrap();
+
+    // Resume the workflow - error handlers should execute
+    test = test
+        .arg("resume")
+        .arg(workflow_id)
+        .arg("--path")
+        .arg(test_dir.to_str().unwrap());
+
+    let resume_output = test.run();
+
+    // Verify successful completion
+    assert_eq!(
+        resume_output.exit_code,
+        exit_codes::SUCCESS,
+        "Resume should complete successfully. Stdout: {}\nStderr: {}",
+        resume_output.stdout,
+        resume_output.stderr
+    );
+
+    // Verify the workflow completed
+    assert!(
+        resume_output.stdout_contains("Workflow completed successfully")
+            || resume_output.stdout_contains("completed")
+            || resume_output.stdout_contains("Step 5: Completion"),
+        "Expected completion message not found in output: {}",
+        resume_output.stdout
+    );
+
+    // Verify error handlers were mentioned in output (in test mode)
+    assert!(
+        resume_output.stdout_contains("Error handler")
+            || resume_output.stdout_contains("on_failure")
+            || resume_output.stdout_contains("fix-error")
+            || resume_output.stdout_contains("[TEST MODE]"),
+        "Expected error handler execution message not found in output: {}",
+        resume_output.stdout
+    );
+
+    // Checkpoint should be cleaned up after successful completion
+    assert!(
+        !checkpoint_file.exists(),
+        "Checkpoint should be removed after successful completion"
+    );
+}

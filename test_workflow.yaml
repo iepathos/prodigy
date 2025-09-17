@@ -1,0 +1,6 @@
+name: test-workflow
+commands:
+  - shell: "exit 1"
+    on_failure:
+      - shell: "echo 'Error handler 1'"
+      - shell: "echo 'Error handler 2'"

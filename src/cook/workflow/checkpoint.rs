@@ -45,6 +45,9 @@ pub struct WorkflowCheckpoint {
     pub workflow_name: Option<String>,
     /// Path to workflow file for resume
     pub workflow_path: Option<PathBuf>,
+    /// Error recovery state (stored in variable_state as __error_recovery_state)
+    #[serde(skip)]
+    pub error_recovery_state: Option<crate::cook::workflow::error_recovery::ErrorRecoveryState>,
 }
 
 /// Current state of workflow execution
@@ -390,7 +393,8 @@ pub fn create_checkpoint_with_total_steps(
         workflow_hash,
         total_steps,
         workflow_name: Some(workflow.name.clone()),
-        workflow_path: None, // Will be set by the executor if available
+        workflow_path: None,        // Will be set by the executor if available
+        error_recovery_state: None, // Will be set if error handlers are present
     }
 }
 

@@ -10,12 +10,16 @@ use crate::cook::session::SessionManager;
 use crate::cook::workflow::checkpoint::{
     self, CheckpointManager, ResumeContext, ResumeOptions, WorkflowCheckpoint,
 };
+use crate::cook::workflow::error_recovery::{
+    on_failure_to_error_handler, RecoveryAction, ResumeError, ResumeErrorRecovery,
+};
 use crate::cook::workflow::executor::{WorkflowContext, WorkflowExecutor as WorkflowExecutorImpl};
 use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tracing::info;
+use tracing::{error, info, warn};
 
 /// Result of resuming a workflow
 #[derive(Debug)]
@@ -42,6 +46,8 @@ pub struct ResumeExecutor {
     session_manager: Option<Arc<dyn SessionManager>>,
     /// User interaction
     user_interaction: Option<Arc<dyn UserInteraction>>,
+    /// Error recovery manager
+    error_recovery: ResumeErrorRecovery,
 }
 
 impl ResumeExecutor {
@@ -52,6 +58,7 @@ impl ResumeExecutor {
             claude_executor: None,
             session_manager: None,
             user_interaction: None,
+            error_recovery: ResumeErrorRecovery::new(),
         }
     }
 
@@ -69,19 +76,106 @@ impl ResumeExecutor {
     }
 
     /// Resume a workflow from checkpoint
-    pub async fn resume(&self, workflow_id: &str, options: ResumeOptions) -> Result<ResumeResult> {
+    pub async fn resume(
+        &mut self,
+        workflow_id: &str,
+        options: ResumeOptions,
+    ) -> Result<ResumeResult> {
         info!("Resuming workflow {}", workflow_id);
 
-        // Load checkpoint
-        let checkpoint = self
-            .checkpoint_manager
-            .load_checkpoint(workflow_id)
+        // Load checkpoint with error recovery
+        let checkpoint = match self.checkpoint_manager.load_checkpoint(workflow_id).await {
+            Ok(cp) => cp,
+            Err(e) => {
+                warn!("Failed to load checkpoint: {}", e);
+                // Attempt recovery for checkpoint loading failure
+                // Create a minimal checkpoint for recovery context
+                let temp_checkpoint = WorkflowCheckpoint {
+                    workflow_id: workflow_id.to_string(),
+                    execution_state: checkpoint::ExecutionState {
+                        current_step_index: 0,
+                        total_steps: 0,
+                        status: checkpoint::WorkflowStatus::Failed,
+                        start_time: chrono::Utc::now(),
+                        last_checkpoint: chrono::Utc::now(),
+                        current_iteration: None,
+                        total_iterations: None,
+                    },
+                    completed_steps: Vec::new(),
+                    variable_state: HashMap::new(),
+                    mapreduce_state: None,
+                    timestamp: chrono::Utc::now(),
+                    version: checkpoint::CHECKPOINT_VERSION,
+                    workflow_hash: String::new(),
+                    total_steps: 0,
+                    workflow_name: None,
+                    workflow_path: None,
+                    error_recovery_state: None,
+                };
+
+                let recovery_action = self
+                    .error_recovery
+                    .handle_resume_error(
+                        &ResumeError::CorruptedCheckpoint(e.to_string()),
+                        &temp_checkpoint,
+                    )
+                    .await?;
+
+                match recovery_action {
+                    RecoveryAction::Continue => {
+                        // Try to load again or use default
+                        return Err(anyhow!("Cannot continue without valid checkpoint"));
+                    }
+                    RecoveryAction::SafeAbort { .. } => {
+                        return Err(anyhow!("Resume aborted due to corrupted checkpoint"));
+                    }
+                    _ => {
+                        return Err(anyhow!("Failed to recover from checkpoint error: {}", e));
+                    }
+                }
+            }
+        };
+
+        // Restore error handlers from checkpoint
+        let error_handlers = self
+            .error_recovery
+            .restore_error_handlers(&checkpoint)
             .await
-            .context("Failed to load checkpoint")?;
+            .context("Failed to restore error handlers")?;
+
+        if !error_handlers.is_empty() {
+            info!(
+                "Restored {} error handlers from checkpoint",
+                error_handlers.len()
+            );
+        }
 
         // Validate checkpoint unless skipped
         if !options.skip_validation {
-            self.validate_checkpoint(&checkpoint)?;
+            if let Err(e) = self.validate_checkpoint(&checkpoint) {
+                warn!("Checkpoint validation failed: {}", e);
+                // Attempt recovery for validation failure
+                let recovery_action = self
+                    .error_recovery
+                    .handle_resume_error(
+                        &ResumeError::CorruptedCheckpoint(e.to_string()),
+                        &checkpoint,
+                    )
+                    .await?;
+
+                match recovery_action {
+                    RecoveryAction::Continue => {
+                        warn!("Continuing despite validation errors");
+                    }
+                    RecoveryAction::PartialResume { from_step } => {
+                        warn!("Partial resume from step {}", from_step);
+                        // Will handle this below
+                    }
+                    _ => {
+                        return Err(e);
+                    }
+                }
+            }
         }
 
         // Check if workflow is already complete
@@ -244,7 +338,7 @@ impl ResumeExecutor {
 
     /// Execute workflow from checkpoint with full execution support
     pub async fn execute_from_checkpoint(
-        &self,
+        &mut self,
         workflow_id: &str,
         workflow_path: &PathBuf,
         options: ResumeOptions,
@@ -368,6 +462,26 @@ impl ResumeExecutor {
                     crate::config::WorkflowCommand::WorkflowStep(wf_step) => {
                         step.claude = wf_step.claude;
                         step.shell = wf_step.shell;
+                        // Convert TestDebugConfig to OnFailureConfig
+                        if let Some(test_debug) = wf_step.on_failure {
+                            // Create a HandlerCommand from the TestDebugConfig
+                            let handler_cmd = crate::cook::workflow::on_failure::HandlerCommand {
+                                claude: Some(test_debug.claude),
+                                shell: None,
+                                continue_on_error: false,
+                            };
+
+                            step.on_failure = Some(crate::cook::workflow::on_failure::OnFailureConfig::Detailed(
+                                crate::cook::workflow::on_failure::FailureHandlerConfig {
+                                    commands: vec![handler_cmd],
+                                    strategy: crate::cook::workflow::on_failure::HandlerStrategy::default(),
+                                    timeout: None,
+                                    capture: std::collections::HashMap::new(),
+                                    fail_workflow: test_debug.fail_workflow,
+                                    handler_failure_fatal: false,
+                                }
+                            ));
+                        }
                         // Copy other fields if they exist
                     }
                     _ => {
@@ -447,7 +561,7 @@ impl ResumeExecutor {
                 step
             );
 
-            // Execute the step
+            // Execute the step with error recovery
             match executor
                 .execute_step(step, &env, &mut workflow_context)
                 .await
@@ -457,9 +571,86 @@ impl ResumeExecutor {
                     info!("Step {} completed successfully", step_index + 1);
                 }
                 Err(e) => {
-                    // If step fails, save checkpoint and return error
-                    info!("Step {} failed: {}", step_index + 1, e);
-                    return Err(e);
+                    warn!("Step {} failed: {}", step_index + 1, e);
+
+                    // Check if step has error handler
+                    if let Some(ref on_failure) = step.on_failure {
+                        info!("Executing error handler for step {}", step_index + 1);
+
+                        // Convert OnFailureConfig to ErrorHandler
+                        if let Some(handler) = on_failure_to_error_handler(on_failure, step_index) {
+                            // Execute error handler with resume context
+                            match self
+                                .error_recovery
+                                .execute_error_handler_with_resume_context(
+                                    &handler,
+                                    &e.to_string(),
+                                    &mut workflow_context,
+                                )
+                                .await
+                            {
+                                Ok(true) => {
+                                    info!("Error handler succeeded, continuing workflow");
+                                    steps_executed += 1;
+                                    continue; // Continue to next step
+                                }
+                                Ok(false) => {
+                                    warn!("Error handler failed for step {}", step_index + 1);
+                                    if !on_failure.should_fail_workflow() {
+                                        warn!("Continuing despite handler failure");
+                                        continue;
+                                    }
+                                }
+                                Err(handler_err) => {
+                                    error!("Error executing handler: {}", handler_err);
+                                }
+                            }
+                        }
+                    }
+
+                    // No handler or handler failed - attempt recovery
+                    let recovery_action = self
+                        .error_recovery
+                        .handle_resume_error(&ResumeError::Other(anyhow!("{}", e)), &checkpoint)
+                        .await?;
+
+                    match recovery_action {
+                        RecoveryAction::Retry { delay, .. } => {
+                            warn!("Retrying step {} after {:?}", step_index + 1, delay);
+                            tokio::time::sleep(delay).await;
+                            // Retry the current step
+                            match executor
+                                .execute_step(step, &env, &mut workflow_context)
+                                .await
+                            {
+                                Ok(_) => {
+                                    info!("Retry succeeded for step {}", step_index + 1);
+                                    steps_executed += 1;
+                                    continue;
+                                }
+                                Err(retry_err) => {
+                                    error!(
+                                        "Retry failed for step {}: {}",
+                                        step_index + 1,
+                                        retry_err
+                                    );
+                                    return Err(retry_err);
+                                }
+                            }
+                        }
+                        RecoveryAction::Continue => {
+                            warn!("Continuing despite error in step {}", step_index + 1);
+                            continue;
+                        }
+                        RecoveryAction::SafeAbort { .. } => {
+                            error!("Aborting workflow due to unrecoverable error");
+                            return Err(e);
+                        }
+                        _ => {
+                            // Other recovery actions
+                            return Err(e);
+                        }
+                    }
                 }
             }
         }

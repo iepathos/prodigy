@@ -10,6 +10,9 @@ mod commit_tracking_tests;
 pub mod composition;
 #[cfg(test)]
 mod conditional_tests;
+pub mod error_recovery;
+#[cfg(test)]
+mod error_recovery_tests;
 mod executor;
 #[cfg(test)]
 mod executor_tests;
