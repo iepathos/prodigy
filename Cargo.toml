@@ -74,21 +74,23 @@ vendored-openssl = ["reqwest/native-tls-vendored"]
 assert_cmd = "2.0"
 predicates = "3.1"
 tokio-test = "0.4"
-criterion = { version = "0.7", features = ["html_reports"] }
+criterion = { version = "0.7", features = ["html_reports", "async_tokio"] }
 insta = { version = "1.39", features = ["json", "redactions"] }
+tempfile = "3.8"
+rand = "0.8"
 
-# Benchmarks temporarily disabled - need to update to match new APIs
-# [[bench]]
-# name = "checkpoint_benchmarks"
-# harness = false
+# Benchmark configurations
+[[bench]]
+name = "checkpoint_benchmarks"
+harness = false
+
+[[bench]]
+name = "execution_benchmarks"
+harness = false
+
+[[bench]]
+name = "storage_benchmarks"
+harness = false
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(never)'] }
-
-# [[bench]]
-# name = "unified_execution_bench"
-# harness = false
-
-# [[bench]]
-# name = "expression_bench"
-# harness = false
