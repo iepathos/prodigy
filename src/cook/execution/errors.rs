@@ -139,6 +139,18 @@ pub enum MapReduceError {
         #[source]
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
     },
+
+    // DLQ-related errors
+    #[error("DLQ operation failed: {0}")]
+    DlqError(String),
+
+    // Processing errors
+    #[error("Processing error: {0}")]
+    ProcessingError(String),
+
+    // Timeout errors
+    #[error("Operation timed out")]
+    Timeout,
 }
 
 /// Resource types that can be exhausted
@@ -339,6 +351,9 @@ impl MapReduceError {
             Self::DeadlockDetected { .. } => "DeadlockDetected",
             Self::ConcurrentModification { .. } => "ConcurrentModification",
             Self::General { .. } => "General",
+            Self::DlqError(_) => "DlqError",
+            Self::ProcessingError(_) => "ProcessingError",
+            Self::Timeout => "Timeout",
         }
         .to_string()
     }
