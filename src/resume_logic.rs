@@ -194,6 +194,7 @@ mod tests {
             total_steps: 10,
             workflow_name: None,
             workflow_path: None,
+            error_recovery_state: None,
         };
 
         let messages = format_checkpoint_status(&checkpoint);
@@ -253,6 +254,7 @@ mod tests {
             total_steps: 10,
             workflow_name: None,
             workflow_path: None,
+            error_recovery_state: None,
         };
 
         assert_eq!(calculate_skip_count(&checkpoint, false), 5);

@@ -1452,7 +1452,7 @@ async fn run_resume_workflow(
                 let user_interaction = Arc::new(DefaultUserInteraction::default());
 
                 // Create resume executor with full execution support
-                let resume_executor = ResumeExecutor::new(checkpoint_manager.clone())
+                let mut resume_executor = ResumeExecutor::new(checkpoint_manager.clone())
                     .with_executors(
                         claude_executor.clone(),
                         session_tracker.clone(),
