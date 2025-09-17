@@ -3,6 +3,7 @@
 use crate::cook::execution::mapreduce::MapReduceConfig;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json;
 
 /// All possible events during MapReduce execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -138,6 +139,32 @@ pub enum MapReduceEvent {
         job_id: String,
         patterns: usize,
     },
+
+    // Claude-specific observability events
+    ClaudeToolInvoked {
+        agent_id: String,
+        tool_name: String,
+        tool_id: String,
+        parameters: serde_json::Value,
+        timestamp: DateTime<Utc>,
+    },
+    ClaudeTokenUsage {
+        agent_id: String,
+        input_tokens: u64,
+        output_tokens: u64,
+        cache_tokens: u64,
+    },
+    ClaudeSessionStarted {
+        agent_id: String,
+        session_id: String,
+        model: String,
+        tools: Vec<String>,
+    },
+    ClaudeMessage {
+        agent_id: String,
+        content: String,
+        message_type: String,
+    },
 }
 
 impl MapReduceEvent {
@@ -168,6 +195,11 @@ impl MapReduceEvent {
             | DLQItemsReprocessed { job_id, .. }
             | DLQItemsEvicted { job_id, .. }
             | DLQAnalysisGenerated { job_id, .. } => job_id,
+            // Claude events don't have job_id directly, return "claude" as placeholder
+            ClaudeToolInvoked { .. }
+            | ClaudeTokenUsage { .. }
+            | ClaudeSessionStarted { .. }
+            | ClaudeMessage { .. } => "claude",
         }
     }
 
@@ -182,7 +214,11 @@ impl MapReduceEvent {
             | AgentRetrying { agent_id, .. }
             | WorktreeCreated { agent_id, .. }
             | WorktreeMerged { agent_id, .. }
-            | WorktreeCleaned { agent_id, .. } => Some(agent_id),
+            | WorktreeCleaned { agent_id, .. }
+            | ClaudeToolInvoked { agent_id, .. }
+            | ClaudeTokenUsage { agent_id, .. }
+            | ClaudeSessionStarted { agent_id, .. }
+            | ClaudeMessage { agent_id, .. } => Some(agent_id),
             _ => None,
         }
     }
@@ -214,6 +250,10 @@ impl MapReduceEvent {
             DLQItemsReprocessed { .. } => "dlq_items_reprocessed",
             DLQItemsEvicted { .. } => "dlq_items_evicted",
             DLQAnalysisGenerated { .. } => "dlq_analysis_generated",
+            ClaudeToolInvoked { .. } => "claude_tool_invoked",
+            ClaudeTokenUsage { .. } => "claude_token_usage",
+            ClaudeSessionStarted { .. } => "claude_session_started",
+            ClaudeMessage { .. } => "claude_message",
         }
     }
 }
