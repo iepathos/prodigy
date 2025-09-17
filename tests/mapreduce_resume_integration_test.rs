@@ -2,7 +2,9 @@
 //!
 //! Tests end-to-end workflow resumption including cross-worktree coordination
 
-use prodigy::cook::execution::dlq::DeadLetterQueue;
+use prodigy::cook::execution::dlq::{DeadLetterQueue, DeadLetteredItem};
+use chrono::Utc;
+use prodigy::subprocess::runner::TokioProcessRunner;
 use prodigy::cook::execution::events::{EventLogger, JsonlEventWriter};
 use prodigy::cook::execution::mapreduce::{AgentResult, AgentStatus, MapReduceConfig, MapReduceExecutor};
 use prodigy::cook::execution::mapreduce_resume::{
@@ -30,13 +32,18 @@ impl MockUserInteraction {
     fn new() -> Self {
         Self { default_yes: true }
     }
+
+    fn new_with_default(_default_yes: bool) -> Self {
+        Self { default_yes: true }
+    }
 }
 
 struct MockSpinnerHandle;
 
 impl SpinnerHandle for MockSpinnerHandle {
-    fn update(&self, _message: &str) {}
-    fn finish(&self, _message: Option<&str>) {}
+    fn update_message(&mut self, _message: &str) {}
+    fn success(&mut self, _message: &str) {}
+    fn fail(&mut self, _message: &str) {}
 }
 
 #[async_trait::async_trait]
@@ -202,21 +209,28 @@ async fn create_partial_job_state(
         goal_seek: None,
         foreach: None,
         command: None,
-        modular: None,
-        outputs: None,
-        on_failure: None,
-        commit_required: false,
-        skip_on_dry_run: false,
-        description: None,
-        id: None,
-        when: None,
-        interpolations: vec![],
-        ignore_errors: false,
-        retry: None,
-        timeout: None,
-        environment: None,
-        working_directory: None,
+        handler: None,
+        capture: None,
+        capture_format: None,
+        capture_streams: Default::default(),
+        output_file: None,
         capture_output: CaptureOutput::Disabled,
+        timeout: None,
+        working_dir: None,
+        env: HashMap::new(),
+        on_failure: None,
+        retry: None,
+        on_success: None,
+        on_exit_code: HashMap::new(),
+        commit_required: false,
+        commit_config: None,
+        auto_commit: false,
+        validate: None,
+        step_validate: None,
+        skip_validation: false,
+        validation_timeout: None,
+        ignore_validation_failure: false,
+        when: None,
     }];
 
     let reduce_commands = if total > 0 {
@@ -228,21 +242,28 @@ async fn create_partial_job_state(
             goal_seek: None,
             foreach: None,
             command: None,
-            modular: None,
-            outputs: None,
-            on_failure: None,
-            commit_required: false,
-            skip_on_dry_run: false,
-            description: None,
-            id: None,
-            when: None,
-            interpolations: vec![],
-            ignore_errors: false,
-            retry: None,
-            timeout: None,
-            environment: None,
-            working_directory: None,
+            handler: None,
+            capture: None,
+            capture_format: None,
+            capture_streams: Default::default(),
+            output_file: None,
             capture_output: CaptureOutput::Disabled,
+            timeout: None,
+            working_dir: None,
+            env: HashMap::new(),
+            on_failure: None,
+            retry: None,
+            on_success: None,
+            on_exit_code: HashMap::new(),
+            commit_required: false,
+            commit_config: None,
+            auto_commit: false,
+            validate: None,
+            step_validate: None,
+            skip_validation: false,
+            validation_timeout: None,
+            ignore_validation_failure: false,
+            when: None,
         }])
     } else {
         None
@@ -290,9 +311,10 @@ async fn test_resume_workflow_from_checkpoint() {
     // Create state manager and save initial checkpoint
     let state_manager = Arc::new(DefaultJobStateManager::new(project_root.clone()));
     let job_id = "test-resume-job";
-    let initial_state = create_partial_job_state(job_id, 3, 10).await;
-    state_manager
-        .save_checkpoint(job_id, initial_state.clone())
+    let mut initial_state = create_partial_job_state(job_id, 3, 10).await;
+    initial_state.job_id = job_id.to_string();
+    state_manager.checkpoint_manager
+        .save_checkpoint(&initial_state)
         .await
         .unwrap();
 
@@ -319,8 +341,9 @@ async fn test_resume_workflow_from_checkpoint() {
     // Create mock executor
     let claude_executor = Arc::new(MockClaudeExecutor::new());
     let session_manager = Arc::new(MockSessionManager::new());
-    let user_interaction = Arc::new(MockUserInteraction::new(false));
-    let worktree_manager = Arc::new(WorktreeManager::new(project_root.clone()).await.unwrap());
+    let user_interaction = Arc::new(MockUserInteraction::new());
+    let subprocess = prodigy::subprocess::SubprocessManager::new(Arc::new(TokioProcessRunner));
+    let worktree_manager = Arc::new(WorktreeManager::new(project_root.clone(), subprocess).unwrap());
 
     let executor = Arc::new(
         MapReduceExecutor::new(
@@ -337,13 +360,20 @@ async fn test_resume_workflow_from_checkpoint() {
 
     // Resume the job
     let options = EnhancedResumeOptions::default();
-    let result = resume_manager.resume(job_id, options).await.unwrap();
+    let env = prodigy::cook::orchestrator::ExecutionEnvironment {
+        working_dir: project_root.clone(),
+        project_dir: project_root.clone(),
+        worktree_name: None,
+        session_id: "test-session".to_string(),
+    };
+    let result = resume_manager.resume_job(job_id, options, &env).await.unwrap();
 
     // Verify the resume result
     match result {
         EnhancedResumeResult::ReadyToExecute {
             phase,
             map_phase,
+            reduce_phase: _,
             remaining_items,
             state,
         } => {
@@ -392,29 +422,36 @@ async fn test_resume_with_dlq_recovery() {
 
     // Add failed items to DLQ
     for i in 0..3 {
-        dlq.add_item(
-            prodigy::cook::execution::dlq::DeadLetteredItem {
-                work_item_id: format!("failed-item-{}", i),
-                original_data: json!({"id": 100 + i, "value": format!("dlq-item-{}", i)}),
-                failure_detail: prodigy::cook::execution::dlq::FailureDetail {
-                    error: "Temporary failure".to_string(),
-                    error_type: prodigy::cook::execution::dlq::ErrorType::Retryable,
-                    timestamp: chrono::Utc::now(),
+        dlq.add(DeadLetteredItem {
+                item_id: format!("failed-item-{}", i),
+                item_data: json!({"id": 100 + i, "value": format!("dlq-item-{}", i)}),
+                first_attempt: Utc::now(),
+                last_attempt: Utc::now(),
+                failure_count: 1,
+                failure_history: vec![prodigy::cook::execution::dlq::FailureDetail {
+                    attempt_number: 1,
+                    timestamp: Utc::now(),
+                    error_type: prodigy::cook::execution::dlq::ErrorType::CommandFailed { exit_code: 1 },
+                    error_message: "Temporary failure".to_string(),
+                    stack_trace: None,
                     agent_id: format!("agent-failed-{}", i),
-                    retry_count: 1,
-                    correlation_id: Some(format!("corr-{}", i)),
-                },
-            },
-            true,
-        )
+                    step_failed: "process".to_string(),
+                    duration_ms: 1000,
+                }],
+                error_signature: "temporary-failure".to_string(),
+                worktree_artifacts: None,
+                reprocess_eligible: true,
+                manual_review_required: false,
+            })
         .await
         .unwrap();
     }
 
     // Create initial state with partial completion
-    let initial_state = create_partial_job_state(job_id, 5, 10).await;
-    state_manager
-        .save_checkpoint(job_id, initial_state.clone())
+    let mut initial_state = create_partial_job_state(job_id, 5, 10).await;
+    initial_state.job_id = job_id.to_string();
+    state_manager.checkpoint_manager
+        .save_checkpoint(&initial_state)
         .await
         .unwrap();
 
@@ -431,7 +468,13 @@ async fn test_resume_with_dlq_recovery() {
     // Resume with DLQ items included
     let mut options = EnhancedResumeOptions::default();
     options.include_dlq_items = true;
-    let result = resume_manager.resume(job_id, options).await.unwrap();
+    let env = prodigy::cook::orchestrator::ExecutionEnvironment {
+        working_dir: project_root.clone(),
+        project_dir: project_root.clone(),
+        worktree_name: None,
+        session_id: "test-session".to_string(),
+    };
+    let result = resume_manager.resume_job(job_id, options, &env).await.unwrap();
 
     // Verify DLQ items are included
     match result {
@@ -456,7 +499,7 @@ async fn test_resume_completed_workflow() {
 
     // Create fully completed state
     let mut completed_state = create_partial_job_state(job_id, 10, 10).await;
-    completed_state.phase = MapReducePhase::Complete;
+    // Job is complete when all items are processed
 
     // Add reduce phase result
     completed_state.reduce_phase_state = Some(prodigy::cook::execution::state::ReducePhaseState {
@@ -469,8 +512,9 @@ async fn test_resume_completed_workflow() {
         completed_at: Some(chrono::Utc::now()),
     });
 
-    state_manager
-        .save_checkpoint(job_id, completed_state.clone())
+    completed_state.job_id = job_id.to_string();
+    state_manager.checkpoint_manager
+        .save_checkpoint(&completed_state)
         .await
         .unwrap();
 
@@ -489,7 +533,13 @@ async fn test_resume_completed_workflow() {
 
     // Attempt to resume completed job
     let options = EnhancedResumeOptions::default();
-    let result = resume_manager.resume(job_id, options).await.unwrap();
+    let env = prodigy::cook::orchestrator::ExecutionEnvironment {
+        working_dir: project_root.clone(),
+        project_dir: project_root.clone(),
+        worktree_name: None,
+        session_id: "test-session".to_string(),
+    };
+    let result = resume_manager.resume_job(job_id, options, &env).await.unwrap();
 
     // Verify it returns completion status
     match result {
@@ -512,14 +562,15 @@ async fn test_cross_worktree_coordination() {
     let job_id = "test-cross-worktree";
 
     // Simulate multiple worktrees updating the same job
-    let initial_state = create_partial_job_state(job_id, 2, 10).await;
-    state_manager
-        .save_checkpoint(job_id, initial_state.clone())
+    let mut initial_state = create_partial_job_state(job_id, 2, 10).await;
+    initial_state.job_id = job_id.to_string();
+    state_manager.checkpoint_manager
+        .save_checkpoint(&initial_state)
         .await
         .unwrap();
 
     // Simulate worktree 1 completing items 2-4
-    let mut state1 = state_manager.load_checkpoint(job_id).await.unwrap();
+    let mut state1 = state_manager.checkpoint_manager.load_checkpoint(job_id).await.unwrap();
     for i in 2..5 {
         let agent_id = format!("agent-{}", i);
         state1.completed_agents.insert(agent_id.clone());
@@ -540,10 +591,10 @@ async fn test_cross_worktree_coordination() {
         );
         state1.successful_count += 1;
     }
-    state_manager.save_checkpoint(job_id, state1).await.unwrap();
+    state_manager.checkpoint_manager.save_checkpoint(&state1).await.unwrap();
 
     // Simulate worktree 2 completing items 5-7
-    let mut state2 = state_manager.load_checkpoint(job_id).await.unwrap();
+    let mut state2 = state_manager.checkpoint_manager.load_checkpoint(job_id).await.unwrap();
     for i in 5..8 {
         let agent_id = format!("agent-{}", i);
         state2.completed_agents.insert(agent_id.clone());
@@ -564,20 +615,20 @@ async fn test_cross_worktree_coordination() {
         );
         state2.successful_count += 1;
     }
-    state_manager.save_checkpoint(job_id, state2).await.unwrap();
+    state_manager.checkpoint_manager.save_checkpoint(&state2).await.unwrap();
 
     // Load final state and verify coordination
-    let final_state = state_manager.load_checkpoint(job_id).await.unwrap();
+    let final_state = state_manager.checkpoint_manager.load_checkpoint(job_id).await.unwrap();
     assert_eq!(final_state.completed_agents.len(), 8); // 2 initial + 3 from wt1 + 3 from wt2
     assert_eq!(final_state.successful_count, 8);
 
     // Verify results from both worktrees are present
-    let wt1_results: Vec<_> = final_state
+    let wt1_results = final_state
         .agent_results
         .values()
         .filter(|r| r.worktree_path == Some(PathBuf::from("/tmp/worktree-1")))
         .count();
-    let wt2_results: Vec<_> = final_state
+    let wt2_results = final_state
         .agent_results
         .values()
         .filter(|r| r.worktree_path == Some(PathBuf::from("/tmp/worktree-2")))
@@ -596,9 +647,10 @@ async fn test_resume_with_environment_validation() {
     let job_id = "test-env-validation";
 
     // Create initial state
-    let initial_state = create_partial_job_state(job_id, 3, 5).await;
-    state_manager
-        .save_checkpoint(job_id, initial_state.clone())
+    let mut initial_state = create_partial_job_state(job_id, 3, 5).await;
+    initial_state.job_id = job_id.to_string();
+    state_manager.checkpoint_manager
+        .save_checkpoint(&initial_state)
         .await
         .unwrap();
 
@@ -619,7 +671,13 @@ async fn test_resume_with_environment_validation() {
     let mut options = EnhancedResumeOptions::default();
     options.validate_environment = true;
 
-    let result = resume_manager.resume(job_id, options).await;
+    let env = prodigy::cook::orchestrator::ExecutionEnvironment {
+        working_dir: project_root.clone(),
+        project_dir: project_root.clone(),
+        worktree_name: None,
+        session_id: "test-session".to_string(),
+    };
+    let result = resume_manager.resume_job(job_id, options, &env).await;
 
     // Should succeed with validation
     assert!(result.is_ok(), "Environment validation should pass");
@@ -635,10 +693,11 @@ async fn test_force_resume_completed_job() {
 
     // Create completed state
     let mut completed_state = create_partial_job_state(job_id, 5, 5).await;
-    completed_state.phase = MapReducePhase::Complete;
+    // Job is complete when all items are processed
 
-    state_manager
-        .save_checkpoint(job_id, completed_state.clone())
+    completed_state.job_id = job_id.to_string();
+    state_manager.checkpoint_manager
+        .save_checkpoint(&completed_state)
         .await
         .unwrap();
 
@@ -659,7 +718,13 @@ async fn test_force_resume_completed_job() {
     let mut options = EnhancedResumeOptions::default();
     options.force = true;
 
-    let result = resume_manager.resume(job_id, options).await.unwrap();
+    let env = prodigy::cook::orchestrator::ExecutionEnvironment {
+        working_dir: project_root.clone(),
+        project_dir: project_root.clone(),
+        worktree_name: None,
+        session_id: "test-session".to_string(),
+    };
+    let result = resume_manager.resume_job(job_id, options, &env).await.unwrap();
 
     // Should allow resumption with force flag
     match result {

@@ -1,0 +1,545 @@
+warning: field `project_root` is never read
+   --> src/cook/execution/mapreduce_resume.rs:159:5
+    |
+155 | pub struct MapReduceResumeManager {
+    |            ---------------------- field in this struct
+...
+159 |     project_root: PathBuf,
+    |     ^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: `prodigy` (lib) generated 1 warning
+warning: struct `MockClaudeExecutor` is never constructed
+  --> src/cook/retry_state_tests.rs:21:8
+   |
+21 | struct MockClaudeExecutor;
+   |        ^^^^^^^^^^^^^^^^^^
+
+warning: struct `MockSessionManager` is never constructed
+  --> src/cook/retry_state_tests.rs:49:8
+   |
+49 | struct MockSessionManager;
+   |        ^^^^^^^^^^^^^^^^^^
+
+warning: struct `MockUserInteraction` is never constructed
+   --> src/cook/retry_state_tests.rs:103:8
+    |
+103 | struct MockUserInteraction;
+    |        ^^^^^^^^^^^^^^^^^^^
+
+warning: struct `MockSpinnerHandle` is never constructed
+   --> src/cook/retry_state_tests.rs:137:8
+    |
+137 | struct MockSpinnerHandle;
+    |        ^^^^^^^^^^^^^^^^^
+
+warning: `prodigy` (lib test) generated 5 warnings (1 duplicate)
+   Compiling prodigy v0.1.8 (/Users/glen/.prodigy/worktrees/prodigy/session-1483f64c-7043-4d91-90c0-d7c5b7464a0f)
+error[E0407]: method `update` is not a member of trait `SpinnerHandle`
+  --> tests/mapreduce_resume_integration_test.rs:38:5
+   |
+38 |     fn update(&self, _message: &str) {}
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not a member of trait `SpinnerHandle`
+
+error[E0407]: method `finish` is not a member of trait `SpinnerHandle`
+  --> tests/mapreduce_resume_integration_test.rs:39:5
+   |
+39 |     fn finish(&self, _message: Option<&str>) {}
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not a member of trait `SpinnerHandle`
+
+error[E0046]: not all trait items implemented, missing: `update_message`, `success`, `fail`
+  --> tests/mapreduce_resume_integration_test.rs:37:1
+   |
+37 | impl SpinnerHandle for MockSpinnerHandle {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ missing `update_message`, `success`, `fail` in implementation
+   |
+   = help: implement the missing item: `fn update_message(&mut self, _: &str) { todo!() }`
+   = help: implement the missing item: `fn success(&mut self, _: &str) { todo!() }`
+   = help: implement the missing item: `fn fail(&mut self, _: &str) { todo!() }`
+
+error[E0560]: struct `prodigy::cook::workflow::WorkflowStep` has no field named `modular`
+   --> tests/mapreduce_resume_integration_test.rs:205:9
+    |
+205 |         modular: None,
+    |         ^^^^^^^ `prodigy::cook::workflow::WorkflowStep` does not have this field
+    |
+    = note: available fields are: `handler`, `capture`, `capture_format`, `capture_streams`, `output_file` ... and 11 others
+
+error[E0560]: struct `prodigy::cook::workflow::WorkflowStep` has no field named `outputs`
+   --> tests/mapreduce_resume_integration_test.rs:206:9
+    |
+206 |         outputs: None,
+    |         ^^^^^^^ `prodigy::cook::workflow::WorkflowStep` does not have this field
+    |
+    = note: available fields are: `handler`, `capture`, `capture_format`, `capture_streams`, `output_file` ... and 11 others
+
+error[E0560]: struct `prodigy::cook::workflow::WorkflowStep` has no field named `skip_on_dry_run`
+   --> tests/mapreduce_resume_integration_test.rs:209:9
+    |
+209 |         skip_on_dry_run: false,
+    |         ^^^^^^^^^^^^^^^ `prodigy::cook::workflow::WorkflowStep` does not have this field
+    |
+    = note: available fields are: `handler`, `capture`, `capture_format`, `capture_streams`, `output_file` ... and 11 others
+
+error[E0560]: struct `prodigy::cook::workflow::WorkflowStep` has no field named `description`
+   --> tests/mapreduce_resume_integration_test.rs:210:9
+    |
+210 |         description: None,
+    |         ^^^^^^^^^^^ `prodigy::cook::workflow::WorkflowStep` does not have this field
+    |
+    = note: available fields are: `handler`, `capture`, `capture_format`, `capture_streams`, `output_file` ... and 11 others
+
+error[E0560]: struct `prodigy::cook::workflow::WorkflowStep` has no field named `id`
+   --> tests/mapreduce_resume_integration_test.rs:211:9
+    |
+211 |         id: None,
+    |         ^^ `prodigy::cook::workflow::WorkflowStep` does not have this field
+    |
+    = note: available fields are: `handler`, `capture`, `capture_format`, `capture_streams`, `output_file` ... and 11 others
+
+error[E0560]: struct `prodigy::cook::workflow::WorkflowStep` has no field named `interpolations`
+   --> tests/mapreduce_resume_integration_test.rs:213:9
+    |
+213 |         interpolations: vec![],
+    |         ^^^^^^^^^^^^^^ `prodigy::cook::workflow::WorkflowStep` does not have this field
+    |
+    = note: available fields are: `handler`, `capture`, `capture_format`, `capture_streams`, `output_file` ... and 11 others
+
+error[E0560]: struct `prodigy::cook::workflow::WorkflowStep` has no field named `ignore_errors`
+   --> tests/mapreduce_resume_integration_test.rs:214:9
+    |
+214 |         ignore_errors: false,
+    |         ^^^^^^^^^^^^^ `prodigy::cook::workflow::WorkflowStep` does not have this field
+    |
+    = note: available fields are: `handler`, `capture`, `capture_format`, `capture_streams`, `output_file` ... and 11 others
+
+error[E0560]: struct `prodigy::cook::workflow::WorkflowStep` has no field named `environment`
+   --> tests/mapreduce_resume_integration_test.rs:217:9
+    |
+217 |         environment: None,
+    |         ^^^^^^^^^^^ `prodigy::cook::workflow::WorkflowStep` does not have this field
+    |
+    = note: available fields are: `handler`, `capture`, `capture_format`, `capture_streams`, `output_file` ... and 11 others
+
+error[E0560]: struct `prodigy::cook::workflow::WorkflowStep` has no field named `working_directory`
+   --> tests/mapreduce_resume_integration_test.rs:218:9
+    |
+218 |         working_directory: None,
+    |         ^^^^^^^^^^^^^^^^^ `prodigy::cook::workflow::WorkflowStep` does not have this field
+    |
+    = note: available fields are: `handler`, `capture`, `capture_format`, `capture_streams`, `output_file` ... and 11 others
+
+error[E0560]: struct `prodigy::cook::workflow::WorkflowStep` has no field named `modular`
+   --> tests/mapreduce_resume_integration_test.rs:231:13
+    |
+231 |             modular: None,
+    |             ^^^^^^^ `prodigy::cook::workflow::WorkflowStep` does not have this field
+    |
+    = note: available fields are: `handler`, `capture`, `capture_format`, `capture_streams`, `output_file` ... and 11 others
+
+error[E0560]: struct `prodigy::cook::workflow::WorkflowStep` has no field named `outputs`
+   --> tests/mapreduce_resume_integration_test.rs:232:13
+    |
+232 |             outputs: None,
+    |             ^^^^^^^ `prodigy::cook::workflow::WorkflowStep` does not have this field
+    |
+    = note: available fields are: `handler`, `capture`, `capture_format`, `capture_streams`, `output_file` ... and 11 others
+
+error[E0560]: struct `prodigy::cook::workflow::WorkflowStep` has no field named `skip_on_dry_run`
+   --> tests/mapreduce_resume_integration_test.rs:235:13
+    |
+235 |             skip_on_dry_run: false,
+    |             ^^^^^^^^^^^^^^^ `prodigy::cook::workflow::WorkflowStep` does not have this field
+    |
+    = note: available fields are: `handler`, `capture`, `capture_format`, `capture_streams`, `output_file` ... and 11 others
+
+error[E0560]: struct `prodigy::cook::workflow::WorkflowStep` has no field named `description`
+   --> tests/mapreduce_resume_integration_test.rs:236:13
+    |
+236 |             description: None,
+    |             ^^^^^^^^^^^ `prodigy::cook::workflow::WorkflowStep` does not have this field
+    |
+    = note: available fields are: `handler`, `capture`, `capture_format`, `capture_streams`, `output_file` ... and 11 others
+
+error[E0560]: struct `prodigy::cook::workflow::WorkflowStep` has no field named `id`
+   --> tests/mapreduce_resume_integration_test.rs:237:13
+    |
+237 |             id: None,
+    |             ^^ `prodigy::cook::workflow::WorkflowStep` does not have this field
+    |
+    = note: available fields are: `handler`, `capture`, `capture_format`, `capture_streams`, `output_file` ... and 11 others
+
+error[E0560]: struct `prodigy::cook::workflow::WorkflowStep` has no field named `interpolations`
+   --> tests/mapreduce_resume_integration_test.rs:239:13
+    |
+239 |             interpolations: vec![],
+    |             ^^^^^^^^^^^^^^ `prodigy::cook::workflow::WorkflowStep` does not have this field
+    |
+    = note: available fields are: `handler`, `capture`, `capture_format`, `capture_streams`, `output_file` ... and 11 others
+
+error[E0560]: struct `prodigy::cook::workflow::WorkflowStep` has no field named `ignore_errors`
+   --> tests/mapreduce_resume_integration_test.rs:240:13
+    |
+240 |             ignore_errors: false,
+    |             ^^^^^^^^^^^^^ `prodigy::cook::workflow::WorkflowStep` does not have this field
+    |
+    = note: available fields are: `handler`, `capture`, `capture_format`, `capture_streams`, `output_file` ... and 11 others
+
+error[E0560]: struct `prodigy::cook::workflow::WorkflowStep` has no field named `environment`
+   --> tests/mapreduce_resume_integration_test.rs:243:13
+    |
+243 |             environment: None,
+    |             ^^^^^^^^^^^ `prodigy::cook::workflow::WorkflowStep` does not have this field
+    |
+    = note: available fields are: `handler`, `capture`, `capture_format`, `capture_streams`, `output_file` ... and 11 others
+
+error[E0560]: struct `prodigy::cook::workflow::WorkflowStep` has no field named `working_directory`
+   --> tests/mapreduce_resume_integration_test.rs:244:13
+    |
+244 |             working_directory: None,
+    |             ^^^^^^^^^^^^^^^^^ `prodigy::cook::workflow::WorkflowStep` does not have this field
+    |
+    = note: available fields are: `handler`, `capture`, `capture_format`, `capture_streams`, `output_file` ... and 11 others
+
+error[E0599]: no method named `save_checkpoint` found for struct `Arc<DefaultJobStateManager>` in the current scope
+   --> tests/mapreduce_resume_integration_test.rs:295:10
+    |
+294 | /     state_manager
+295 | |         .save_checkpoint(job_id, initial_state.clone())
+    | |         -^^^^^^^^^^^^^^^ method not found in `Arc<DefaultJobStateManager>`
+    | |_________|
+    |
+
+error[E0061]: this function takes 0 arguments but 1 argument was supplied
+   --> tests/mapreduce_resume_integration_test.rs:322:37
+    |
+322 |     let user_interaction = Arc::new(MockUserInteraction::new(false));
+    |                                     ^^^^^^^^^^^^^^^^^^^^^^^^ ----- unexpected argument of type `bool`
+    |
+note: associated function defined here
+   --> tests/mapreduce_resume_integration_test.rs:30:8
+    |
+30  |     fn new() -> Self {
+    |        ^^^
+help: remove the extra argument
+    |
+322 -     let user_interaction = Arc::new(MockUserInteraction::new(false));
+322 +     let user_interaction = Arc::new(MockUserInteraction::new());
+    |
+
+error[E0061]: this function takes 2 arguments but 1 argument was supplied
+   --> tests/mapreduce_resume_integration_test.rs:323:37
+    |
+323 |     let worktree_manager = Arc::new(WorktreeManager::new(project_root.clone()).await.unwrap());
+    |                                     ^^^^^^^^^^^^^^^^^^^^---------------------- argument #2 of type `SubprocessManager` is missing
+    |
+note: associated function defined here
+   --> /Users/glen/.prodigy/worktrees/prodigy/session-1483f64c-7043-4d91-90c0-d7c5b7464a0f/src/worktree/manager.rs:102:12
+    |
+102 |     pub fn new(repo_path: PathBuf, subprocess: SubprocessManager) -> Result<Self> {
+    |            ^^^
+help: provide the argument
+    |
+323 |     let worktree_manager = Arc::new(WorktreeManager::new(project_root.clone(), /* SubprocessManager */).await.unwrap());
+    |                                                                              +++++++++++++++++++++++++
+
+error[E0277]: `Result<WorktreeManager, anyhow::Error>` is not a future
+   --> tests/mapreduce_resume_integration_test.rs:323:80
+    |
+323 |     let worktree_manager = Arc::new(WorktreeManager::new(project_root.clone()).await.unwrap());
+    |                                     ------------------------------------------ ^^^^^ `Result<WorktreeManager, anyhow::Error>` is not a future
+    |                                     |
+    |                                     this call returns `Result<WorktreeManager, anyhow::Error>`
+    |
+    = help: the trait `Future` is not implemented for `Result<WorktreeManager, anyhow::Error>`
+    = note: Result<WorktreeManager, anyhow::Error> must be a future or must implement `IntoFuture` to be awaited
+    = note: required for `Result<WorktreeManager, anyhow::Error>` to implement `IntoFuture`
+help: remove the `.await`
+    |
+323 -     let worktree_manager = Arc::new(WorktreeManager::new(project_root.clone()).await.unwrap());
+323 +     let worktree_manager = Arc::new(WorktreeManager::new(project_root.clone()).unwrap());
+    |
+
+error[E0599]: no method named `resume` found for struct `MapReduceResumeManager` in the current scope
+   --> tests/mapreduce_resume_integration_test.rs:340:33
+    |
+340 |     let result = resume_manager.resume(job_id, options).await.unwrap();
+    |                                 ^^^^^^
+    |
+help: there is a method `resume_job` with a similar name, but with different arguments
+   --> /Users/glen/.prodigy/worktrees/prodigy/session-1483f64c-7043-4d91-90c0-d7c5b7464a0f/src/cook/execution/mapreduce_resume.rs:197:5
+    |
+197 | /     pub async fn resume_job(
+198 | |         &self,
+199 | |         job_id: &str,
+200 | |         options: EnhancedResumeOptions,
+201 | |         env: &ExecutionEnvironment,
+202 | |     ) -> MRResult<EnhancedResumeResult> {
+    | |_______________________________________^
+
+error[E0027]: pattern does not mention field `reduce_phase`
+   --> tests/mapreduce_resume_integration_test.rs:344:9
+    |
+344 | /         EnhancedResumeResult::ReadyToExecute {
+345 | |             phase,
+346 | |             map_phase,
+347 | |             remaining_items,
+348 | |             state,
+349 | |         } => {
+    | |_________^ missing field `reduce_phase`
+    |
+help: include the missing field in the pattern
+    |
+348 -             state,
+349 -         } => {
+348 +             state, reduce_phase } => {
+    |
+help: if you don't care about this missing field, you can explicitly ignore it
+    |
+348 -             state,
+349 -         } => {
+348 +             state, reduce_phase: _ } => {
+    |
+help: or always ignore missing fields here
+    |
+348 -             state,
+349 -         } => {
+348 +             state, .. } => {
+    |
+
+error[E0599]: no method named `add_item` found for struct `prodigy::cook::execution::dlq::DeadLetterQueue` in the current scope
+   --> tests/mapreduce_resume_integration_test.rs:395:13
+    |
+395 |         dlq.add_item(
+    |         ----^^^^^^^^ method not found in `prodigy::cook::execution::dlq::DeadLetterQueue`
+
+error[E0560]: struct `DeadLetteredItem` has no field named `work_item_id`
+   --> tests/mapreduce_resume_integration_test.rs:397:17
+    |
+397 |                 work_item_id: format!("failed-item-{}", i),
+    |                 ^^^^^^^^^^^^ `DeadLetteredItem` does not have this field
+    |
+    = note: available fields are: `item_id`, `item_data`, `first_attempt`, `last_attempt`, `failure_count` ... and 5 others
+
+error[E0560]: struct `DeadLetteredItem` has no field named `original_data`
+   --> tests/mapreduce_resume_integration_test.rs:398:17
+    |
+398 |                 original_data: json!({"id": 100 + i, "value": format!("dlq-item-{}", i)}),
+    |                 ^^^^^^^^^^^^^ `DeadLetteredItem` does not have this field
+    |
+    = note: available fields are: `item_id`, `item_data`, `first_attempt`, `last_attempt`, `failure_count` ... and 5 others
+
+error[E0560]: struct `DeadLetteredItem` has no field named `failure_detail`
+   --> tests/mapreduce_resume_integration_test.rs:399:17
+    |
+399 |                 failure_detail: prodigy::cook::execution::dlq::FailureDetail {
+    |                 ^^^^^^^^^^^^^^ `DeadLetteredItem` does not have this field
+    |
+    = note: available fields are: `item_id`, `item_data`, `first_attempt`, `last_attempt`, `failure_count` ... and 5 others
+
+error[E0560]: struct `FailureDetail` has no field named `error`
+   --> tests/mapreduce_resume_integration_test.rs:400:21
+    |
+400 |                     error: "Temporary failure".to_string(),
+    |                     ^^^^^ `FailureDetail` does not have this field
+    |
+    = note: available fields are: `attempt_number`, `error_message`, `stack_trace`, `step_failed`, `duration_ms`
+
+error[E0599]: no variant or associated item named `Retryable` found for enum `prodigy::cook::execution::dlq::ErrorType` in the current scope
+   --> tests/mapreduce_resume_integration_test.rs:401:75
+    |
+401 |                     error_type: prodigy::cook::execution::dlq::ErrorType::Retryable,
+    |                                                                           ^^^^^^^^^ variant or associated item not found in `prodigy::cook::execution::dlq::ErrorType`
+
+error[E0560]: struct `FailureDetail` has no field named `retry_count`
+   --> tests/mapreduce_resume_integration_test.rs:404:21
+    |
+404 |                     retry_count: 1,
+    |                     ^^^^^^^^^^^ `FailureDetail` does not have this field
+    |
+    = note: available fields are: `attempt_number`, `error_message`, `stack_trace`, `step_failed`, `duration_ms`
+
+error[E0560]: struct `FailureDetail` has no field named `correlation_id`
+   --> tests/mapreduce_resume_integration_test.rs:405:21
+    |
+405 |                     correlation_id: Some(format!("corr-{}", i)),
+    |                     ^^^^^^^^^^^^^^ `FailureDetail` does not have this field
+    |
+    = note: available fields are: `attempt_number`, `error_message`, `stack_trace`, `step_failed`, `duration_ms`
+
+error[E0599]: no method named `save_checkpoint` found for struct `Arc<DefaultJobStateManager>` in the current scope
+   --> tests/mapreduce_resume_integration_test.rs:417:10
+    |
+416 | /     state_manager
+417 | |         .save_checkpoint(job_id, initial_state.clone())
+    | |         -^^^^^^^^^^^^^^^ method not found in `Arc<DefaultJobStateManager>`
+    | |_________|
+    |
+
+error[E0599]: no method named `resume` found for struct `MapReduceResumeManager` in the current scope
+   --> tests/mapreduce_resume_integration_test.rs:434:33
+    |
+434 |     let result = resume_manager.resume(job_id, options).await.unwrap();
+    |                                 ^^^^^^
+    |
+help: there is a method `resume_job` with a similar name, but with different arguments
+   --> /Users/glen/.prodigy/worktrees/prodigy/session-1483f64c-7043-4d91-90c0-d7c5b7464a0f/src/cook/execution/mapreduce_resume.rs:197:5
+    |
+197 | /     pub async fn resume_job(
+198 | |         &self,
+199 | |         job_id: &str,
+200 | |         options: EnhancedResumeOptions,
+201 | |         env: &ExecutionEnvironment,
+202 | |     ) -> MRResult<EnhancedResumeResult> {
+    | |_______________________________________^
+
+error[E0609]: no field `phase` on type `MapReduceJobState`
+   --> tests/mapreduce_resume_integration_test.rs:459:21
+    |
+459 |     completed_state.phase = MapReducePhase::Complete;
+    |                     ^^^^^ unknown field
+    |
+    = note: available fields are: `job_id`, `config`, `started_at`, `updated_at`, `work_items` ... and 14 others
+
+error[E0599]: no variant or associated item named `Complete` found for enum `MapReducePhase` in the current scope
+   --> tests/mapreduce_resume_integration_test.rs:459:45
+    |
+459 |     completed_state.phase = MapReducePhase::Complete;
+    |                                             ^^^^^^^^ variant or associated item not found in `MapReducePhase`
+
+error[E0599]: no method named `save_checkpoint` found for struct `Arc<DefaultJobStateManager>` in the current scope
+   --> tests/mapreduce_resume_integration_test.rs:473:10
+    |
+472 | /     state_manager
+473 | |         .save_checkpoint(job_id, completed_state.clone())
+    | |         -^^^^^^^^^^^^^^^ method not found in `Arc<DefaultJobStateManager>`
+    | |_________|
+    |
+
+error[E0599]: no method named `resume` found for struct `MapReduceResumeManager` in the current scope
+   --> tests/mapreduce_resume_integration_test.rs:492:33
+    |
+492 |     let result = resume_manager.resume(job_id, options).await.unwrap();
+    |                                 ^^^^^^
+    |
+help: there is a method `resume_job` with a similar name, but with different arguments
+   --> /Users/glen/.prodigy/worktrees/prodigy/session-1483f64c-7043-4d91-90c0-d7c5b7464a0f/src/cook/execution/mapreduce_resume.rs:197:5
+    |
+197 | /     pub async fn resume_job(
+198 | |         &self,
+199 | |         job_id: &str,
+200 | |         options: EnhancedResumeOptions,
+201 | |         env: &ExecutionEnvironment,
+202 | |     ) -> MRResult<EnhancedResumeResult> {
+    | |_______________________________________^
+
+error[E0599]: no method named `save_checkpoint` found for struct `Arc<DefaultJobStateManager>` in the current scope
+   --> tests/mapreduce_resume_integration_test.rs:517:10
+    |
+516 | /     state_manager
+517 | |         .save_checkpoint(job_id, initial_state.clone())
+    | |         -^^^^^^^^^^^^^^^ method not found in `Arc<DefaultJobStateManager>`
+    | |_________|
+    |
+
+error[E0599]: no method named `load_checkpoint` found for struct `Arc<DefaultJobStateManager>` in the current scope
+   --> tests/mapreduce_resume_integration_test.rs:522:36
+    |
+522 |     let mut state1 = state_manager.load_checkpoint(job_id).await.unwrap();
+    |                                    ^^^^^^^^^^^^^^^ method not found in `Arc<DefaultJobStateManager>`
+
+error[E0599]: no method named `save_checkpoint` found for struct `Arc<DefaultJobStateManager>` in the current scope
+   --> tests/mapreduce_resume_integration_test.rs:543:19
+    |
+543 |     state_manager.save_checkpoint(job_id, state1).await.unwrap();
+    |                   ^^^^^^^^^^^^^^^ method not found in `Arc<DefaultJobStateManager>`
+
+error[E0599]: no method named `load_checkpoint` found for struct `Arc<DefaultJobStateManager>` in the current scope
+   --> tests/mapreduce_resume_integration_test.rs:546:36
+    |
+546 |     let mut state2 = state_manager.load_checkpoint(job_id).await.unwrap();
+    |                                    ^^^^^^^^^^^^^^^ method not found in `Arc<DefaultJobStateManager>`
+
+error[E0599]: no method named `save_checkpoint` found for struct `Arc<DefaultJobStateManager>` in the current scope
+   --> tests/mapreduce_resume_integration_test.rs:567:19
+    |
+567 |     state_manager.save_checkpoint(job_id, state2).await.unwrap();
+    |                   ^^^^^^^^^^^^^^^ method not found in `Arc<DefaultJobStateManager>`
+
+error[E0599]: no method named `load_checkpoint` found for struct `Arc<DefaultJobStateManager>` in the current scope
+   --> tests/mapreduce_resume_integration_test.rs:570:37
+    |
+570 |     let final_state = state_manager.load_checkpoint(job_id).await.unwrap();
+    |                                     ^^^^^^^^^^^^^^^ method not found in `Arc<DefaultJobStateManager>`
+
+error[E0599]: no method named `save_checkpoint` found for struct `Arc<DefaultJobStateManager>` in the current scope
+   --> tests/mapreduce_resume_integration_test.rs:601:10
+    |
+600 | /     state_manager
+601 | |         .save_checkpoint(job_id, initial_state.clone())
+    | |         -^^^^^^^^^^^^^^^ method not found in `Arc<DefaultJobStateManager>`
+    | |_________|
+    |
+
+error[E0599]: no method named `resume` found for struct `MapReduceResumeManager` in the current scope
+   --> tests/mapreduce_resume_integration_test.rs:622:33
+    |
+622 |     let result = resume_manager.resume(job_id, options).await;
+    |                                 ^^^^^^
+    |
+help: there is a method `resume_job` with a similar name, but with different arguments
+   --> /Users/glen/.prodigy/worktrees/prodigy/session-1483f64c-7043-4d91-90c0-d7c5b7464a0f/src/cook/execution/mapreduce_resume.rs:197:5
+    |
+197 | /     pub async fn resume_job(
+198 | |         &self,
+199 | |         job_id: &str,
+200 | |         options: EnhancedResumeOptions,
+201 | |         env: &ExecutionEnvironment,
+202 | |     ) -> MRResult<EnhancedResumeResult> {
+    | |_______________________________________^
+
+error[E0609]: no field `phase` on type `MapReduceJobState`
+   --> tests/mapreduce_resume_integration_test.rs:638:21
+    |
+638 |     completed_state.phase = MapReducePhase::Complete;
+    |                     ^^^^^ unknown field
+    |
+    = note: available fields are: `job_id`, `config`, `started_at`, `updated_at`, `work_items` ... and 14 others
+
+error[E0599]: no variant or associated item named `Complete` found for enum `MapReducePhase` in the current scope
+   --> tests/mapreduce_resume_integration_test.rs:638:45
+    |
+638 |     completed_state.phase = MapReducePhase::Complete;
+    |                                             ^^^^^^^^ variant or associated item not found in `MapReducePhase`
+
+error[E0599]: no method named `save_checkpoint` found for struct `Arc<DefaultJobStateManager>` in the current scope
+   --> tests/mapreduce_resume_integration_test.rs:641:10
+    |
+640 | /     state_manager
+641 | |         .save_checkpoint(job_id, completed_state.clone())
+    | |         -^^^^^^^^^^^^^^^ method not found in `Arc<DefaultJobStateManager>`
+    | |_________|
+    |
+
+error[E0599]: no method named `resume` found for struct `MapReduceResumeManager` in the current scope
+   --> tests/mapreduce_resume_integration_test.rs:662:33
+    |
+662 |     let result = resume_manager.resume(job_id, options).await.unwrap();
+    |                                 ^^^^^^
+    |
+help: there is a method `resume_job` with a similar name, but with different arguments
+   --> /Users/glen/.prodigy/worktrees/prodigy/session-1483f64c-7043-4d91-90c0-d7c5b7464a0f/src/cook/execution/mapreduce_resume.rs:197:5
+    |
+197 | /     pub async fn resume_job(
+198 | |         &self,
+199 | |         job_id: &str,
+200 | |         options: EnhancedResumeOptions,
+201 | |         env: &ExecutionEnvironment,
+202 | |     ) -> MRResult<EnhancedResumeResult> {
+    | |_______________________________________^
+
+Some errors have detailed explanations: E0027, E0046, E0061, E0277, E0407, E0560, E0599, E0609.
+For more information about an error, try `rustc --explain E0027`.
+error: could not compile `prodigy` (test "mapreduce_resume_integration_test") due to 53 previous errors
+error: command `/opt/homebrew/bin/cargo test --no-run --message-format json-render-diagnostics` exited with code 101
