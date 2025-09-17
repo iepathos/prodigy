@@ -84,7 +84,14 @@ impl InputProvider for FilePatternInputProvider {
         let mut inputs = Vec::new();
 
         for (index, file_path) in all_files.iter().enumerate() {
-            let metadata = fs::metadata(file_path)?;
+            // Skip broken symlinks and inaccessible files
+            let metadata = match fs::metadata(file_path) {
+                Ok(m) => m,
+                Err(e) => {
+                    eprintln!("Skipping inaccessible file {:?}: {}", file_path, e);
+                    continue;
+                }
+            };
 
             let mut input = ExecutionInput::new(
                 format!("file_{}", index),

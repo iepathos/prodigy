@@ -1658,6 +1658,10 @@ mod tests {
             session_id: "test".to_string(),
         };
 
+        // Save current directory and change to temp dir for test
+        let original_dir = std::env::current_dir().ok();
+        std::env::set_current_dir(temp_dir.path()).unwrap();
+
         // Create test files
         std::fs::write(temp_dir.path().join("file1.txt"), "content1").unwrap();
         std::fs::write(temp_dir.path().join("file2.txt"), "content2").unwrap();
@@ -1700,6 +1704,11 @@ mod tests {
 
         let mut context = WorkflowContext::default();
         let result = executor.execute_step(&step, &env, &mut context).await;
+
+        // Restore original directory if it was available
+        if let Some(dir) = original_dir {
+            let _ = std::env::set_current_dir(dir);
+        }
 
         // Foreach should process all items successfully
         assert!(result.is_ok());

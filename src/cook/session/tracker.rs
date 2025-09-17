@@ -200,16 +200,40 @@ impl SessionManager for SessionTrackerImpl {
             )),
         ];
 
+        // Debug logging in test mode
+        if std::env::var("PRODIGY_TEST_MODE").is_ok() {
+            eprintln!("DEBUG: Looking for session {} in:", session_id);
+            for location in &locations {
+                eprintln!("  - {} (exists: {})", location.display(), location.exists());
+            }
+        }
+
         // Try each location
         for location in locations {
             if location.exists() {
                 if let Ok(json) = fs::read_to_string(&location).await {
+                    if std::env::var("PRODIGY_TEST_MODE").is_ok() {
+                        eprintln!("  Read JSON from {}", location.display());
+                    }
                     if let Ok(state) = serde_json::from_str::<SessionState>(&json) {
+                        if std::env::var("PRODIGY_TEST_MODE").is_ok() {
+                            eprintln!(
+                                "  Parsed session with ID: {} (looking for: {})",
+                                state.session_id, session_id
+                            );
+                        }
                         // Verify this is the right session
                         if state.session_id == session_id {
                             return Ok(state);
                         }
+                    } else if std::env::var("PRODIGY_TEST_MODE").is_ok() {
+                        eprintln!("  Failed to parse JSON from {}", location.display());
+                        if let Err(e) = serde_json::from_str::<SessionState>(&json) {
+                            eprintln!("  Parse error: {}", e);
+                        }
                     }
+                } else if std::env::var("PRODIGY_TEST_MODE").is_ok() {
+                    eprintln!("  Failed to read file: {}", location.display());
                 }
             }
         }
