@@ -10,6 +10,9 @@ mod commit_tracking_tests;
 pub mod composition;
 #[cfg(test)]
 mod conditional_tests;
+pub mod error_policy;
+#[cfg(test)]
+mod error_policy_tests;
 pub mod error_recovery;
 #[cfg(test)]
 mod error_recovery_tests;
@@ -36,6 +39,11 @@ pub use composition::{
     ComposableWorkflow, ComposedWorkflow, CompositionMetadata, Parameter, ParameterDefinitions,
     ParameterType, SubWorkflow, SubWorkflowExecutor, SubWorkflowResult, TemplateRegistry,
     TemplateSource, TemplateStorage, WorkflowComposer, WorkflowImport, WorkflowTemplate,
+};
+pub use error_policy::{
+    BackoffStrategy, CircuitBreaker, CircuitBreakerConfig, CircuitState, ErrorCollectionStrategy,
+    ErrorMetrics, ErrorPolicyExecutor, FailureAction, FailurePattern, ItemFailureAction,
+    RetryConfig, WorkflowErrorPolicy,
 };
 pub use executor::{
     CaptureOutput, CommandType, ExtendedWorkflowConfig, HandlerStep, StepResult, WorkflowContext,

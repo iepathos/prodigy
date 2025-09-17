@@ -3,7 +3,7 @@
 //! Handles parsing of MapReduce workflow YAML files.
 
 use crate::cook::execution::{MapPhase, MapReduceConfig, ReducePhase, SetupPhase};
-use crate::cook::workflow::WorkflowStep;
+use crate::cook::workflow::{WorkflowErrorPolicy, WorkflowStep};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -31,6 +31,35 @@ pub struct MapReduceWorkflowConfig {
     /// Optional reduce phase
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reduce: Option<ReducePhaseYaml>,
+
+    /// Workflow-level error handling policy
+    #[serde(default, skip_serializing_if = "is_default_error_policy")]
+    pub error_policy: WorkflowErrorPolicy,
+
+    /// Action to take when an item fails (convenience field, maps to error_policy.on_item_failure)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_item_failure: Option<String>,
+
+    /// Continue processing after failures (convenience field, maps to error_policy.continue_on_failure)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub continue_on_failure: Option<bool>,
+
+    /// Maximum number of failures before stopping (convenience field, maps to error_policy.max_failures)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_failures: Option<usize>,
+
+    /// Failure rate threshold (convenience field, maps to error_policy.failure_threshold)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failure_threshold: Option<f64>,
+
+    /// Error collection strategy (convenience field, maps to error_policy.error_collection)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_collection: Option<String>,
+}
+
+fn is_default_error_policy(policy: &WorkflowErrorPolicy) -> bool {
+    // Check if the policy equals the default
+    matches!(policy, WorkflowErrorPolicy { .. } if false) // Never skip for now, can optimize later
 }
 
 fn default_mode() -> String {
@@ -261,6 +290,57 @@ where
 }
 
 impl MapReduceWorkflowConfig {
+    /// Get the merged error policy, combining convenience fields with the error_policy field
+    pub fn get_error_policy(&self) -> WorkflowErrorPolicy {
+        use crate::cook::workflow::{ErrorCollectionStrategy, ItemFailureAction};
+
+        let mut policy = self.error_policy.clone();
+
+        // Apply convenience field overrides
+        if let Some(ref action_str) = self.on_item_failure {
+            policy.on_item_failure = match action_str.as_str() {
+                "dlq" => ItemFailureAction::Dlq,
+                "retry" => ItemFailureAction::Retry,
+                "skip" => ItemFailureAction::Skip,
+                "stop" => ItemFailureAction::Stop,
+                custom => ItemFailureAction::Custom(custom.to_string()),
+            };
+        }
+
+        if let Some(continue_on_failure) = self.continue_on_failure {
+            policy.continue_on_failure = continue_on_failure;
+        }
+
+        if let Some(max_failures) = self.max_failures {
+            policy.max_failures = Some(max_failures);
+        }
+
+        if let Some(failure_threshold) = self.failure_threshold {
+            policy.failure_threshold = Some(failure_threshold);
+        }
+
+        if let Some(ref collection_str) = self.error_collection {
+            policy.error_collection = match collection_str.as_str() {
+                "aggregate" => ErrorCollectionStrategy::Aggregate,
+                "immediate" => ErrorCollectionStrategy::Immediate,
+                _ if collection_str.starts_with("batched:") => {
+                    if let Some(size_str) = collection_str.strip_prefix("batched:") {
+                        if let Ok(size) = size_str.parse::<usize>() {
+                            ErrorCollectionStrategy::Batched { size }
+                        } else {
+                            ErrorCollectionStrategy::Aggregate
+                        }
+                    } else {
+                        ErrorCollectionStrategy::Aggregate
+                    }
+                }
+                _ => ErrorCollectionStrategy::Aggregate,
+            };
+        }
+
+        policy
+    }
+
     /// Convert to execution-ready SetupPhase
     pub fn to_setup_phase(&self) -> Option<SetupPhase> {
         self.setup.as_ref().map(|s| SetupPhase {

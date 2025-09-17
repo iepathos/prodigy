@@ -22,7 +22,9 @@ use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::SessionManager;
-use crate::cook::workflow::{CommandType, StepResult, WorkflowStep};
+use crate::cook::workflow::{
+    CommandType, ErrorPolicyExecutor, StepResult, WorkflowErrorPolicy, WorkflowStep,
+};
 use crate::subprocess::SubprocessManager;
 use crate::worktree::{
     WorktreeManager, WorktreePool, WorktreePoolConfig, WorktreeRequest, WorktreeSession,
@@ -534,6 +536,7 @@ pub struct MapReduceExecutor {
     enable_web_dashboard: bool,
     setup_variables: HashMap<String, String>,
     retry_state_manager: Arc<crate::cook::retry_state::RetryStateManager>,
+    error_policy_executor: Option<ErrorPolicyExecutor>,
 }
 
 /// Summary statistics for map results
@@ -1323,7 +1326,13 @@ impl MapReduceExecutor {
                 .eq_ignore_ascii_case("true"),
             setup_variables: HashMap::new(),
             retry_state_manager: Arc::new(crate::cook::retry_state::RetryStateManager::new()),
+            error_policy_executor: None,
         }
+    }
+
+    /// Set the error handling policy for this executor
+    pub fn set_error_policy(&mut self, policy: WorkflowErrorPolicy) {
+        self.error_policy_executor = Some(ErrorPolicyExecutor::new(policy));
     }
 
     /// Initialize worktree pool with given configuration
@@ -4593,6 +4602,7 @@ impl MapReduceExecutor {
             enable_web_dashboard: self.enable_web_dashboard,
             setup_variables: self.setup_variables.clone(),
             retry_state_manager: self.retry_state_manager.clone(),
+            error_policy_executor: None, // Don't clone error policy executor - it's per-job
         }
     }
 
