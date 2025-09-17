@@ -23,6 +23,7 @@ pub mod events;
 pub mod executor;
 #[cfg(test)]
 pub mod executor_tests;
+pub mod expression;
 pub mod foreach;
 #[cfg(test)]
 pub mod foreach_tests;

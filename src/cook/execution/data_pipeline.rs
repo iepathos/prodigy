@@ -554,24 +554,92 @@ impl FilterExpression {
         // "priority > 5"
         // "severity in ['high', 'critical']"
         // "severity == 'high' && priority > 5"
+        // "!is_null(field)"
+        // "!(priority > 5)"
 
         let expr = expr.trim();
 
-        // Check for logical operators (&&, ||)
-        if let Some(and_pos) = expr.find("&&") {
-            let left = Self::parse(&expr[..and_pos])?;
-            let right = Self::parse(&expr[and_pos + 2..])?;
+        // Check if the entire expression is parenthesized and strip outer parentheses
+        if expr.starts_with('(') && expr.ends_with(')') {
+            // Check that parentheses are balanced and wrap entire expression
+            let mut depth = 0;
+            let chars: Vec<char> = expr.chars().collect();
+            let mut wraps_entire = true;
+            for (i, &ch) in chars.iter().enumerate() {
+                if ch == '(' {
+                    depth += 1;
+                } else if ch == ')' {
+                    depth -= 1;
+                    // If depth reaches 0 before the last character, outer parens don't wrap whole expr
+                    if depth == 0 && i < chars.len() - 1 {
+                        wraps_entire = false;
+                        break;
+                    }
+                }
+            }
+            // If outer parentheses wrap the entire expression, recursively parse inner
+            if wraps_entire && depth == 0 {
+                return Self::parse(&expr[1..expr.len() - 1]);
+            }
+        }
+
+        // Check for NOT operator at the beginning
+        if let Some(stripped) = expr.strip_prefix("!") {
+            // Handle negation
+            let inner_expr = stripped.trim();
+            // If it starts with '(' and ends with ')', parse the inner expression
+            let inner = if inner_expr.starts_with('(') && inner_expr.ends_with(')') {
+                Self::parse(&inner_expr[1..inner_expr.len() - 1])?
+            } else {
+                Self::parse(inner_expr)?
+            };
             return Ok(FilterExpression::Logical {
-                op: LogicalOp::And,
+                op: LogicalOp::Not,
+                operands: vec![inner],
+            });
+        }
+
+        // Check for logical operators (&&, ||)
+        // Need to handle parentheses properly, so we do a simple level-aware scan
+        let mut paren_depth = 0;
+        let mut and_pos = None;
+        let mut or_pos = None;
+        let chars: Vec<char> = expr.chars().collect();
+
+        for i in 0..chars.len() {
+            match chars[i] {
+                '(' => paren_depth += 1,
+                ')' => paren_depth -= 1,
+                '&' if paren_depth == 0 && i + 1 < chars.len() && chars[i + 1] == '&' => {
+                    if and_pos.is_none() {
+                        and_pos = Some(i);
+                    }
+                }
+                '|' if paren_depth == 0 && i + 1 < chars.len() && chars[i + 1] == '|' => {
+                    if or_pos.is_none() {
+                        or_pos = Some(i);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // Process OR first (lower precedence than AND)
+        if let Some(pos) = or_pos {
+            let left = Self::parse(&expr[..pos])?;
+            let right = Self::parse(&expr[pos + 2..])?;
+            return Ok(FilterExpression::Logical {
+                op: LogicalOp::Or,
                 operands: vec![left, right],
             });
         }
 
-        if let Some(or_pos) = expr.find("||") {
-            let left = Self::parse(&expr[..or_pos])?;
-            let right = Self::parse(&expr[or_pos + 2..])?;
+        // Then process AND
+        if let Some(pos) = and_pos {
+            let left = Self::parse(&expr[..pos])?;
+            let right = Self::parse(&expr[pos + 2..])?;
             return Ok(FilterExpression::Logical {
-                op: LogicalOp::Or,
+                op: LogicalOp::And,
                 operands: vec![left, right],
             });
         }
@@ -923,6 +991,82 @@ impl FilterExpression {
                 if args.len() == 1 {
                     let val = Self::get_nested_field_with_array(item, &args[0]);
                     return val.is_some() && val != Some(Value::Null);
+                }
+                false
+            }
+            // Type checking functions
+            "is_number" => {
+                if args.len() == 1 {
+                    if let Some(val) = Self::get_nested_field_with_array(item, &args[0]) {
+                        return matches!(val, Value::Number(_));
+                    }
+                }
+                false
+            }
+            "is_string" => {
+                if args.len() == 1 {
+                    if let Some(val) = Self::get_nested_field_with_array(item, &args[0]) {
+                        return matches!(val, Value::String(_));
+                    }
+                }
+                false
+            }
+            "is_bool" => {
+                if args.len() == 1 {
+                    if let Some(val) = Self::get_nested_field_with_array(item, &args[0]) {
+                        return matches!(val, Value::Bool(_));
+                    }
+                }
+                false
+            }
+            "is_array" => {
+                if args.len() == 1 {
+                    if let Some(val) = Self::get_nested_field_with_array(item, &args[0]) {
+                        return matches!(val, Value::Array(_));
+                    }
+                }
+                false
+            }
+            "is_object" => {
+                if args.len() == 1 {
+                    if let Some(val) = Self::get_nested_field_with_array(item, &args[0]) {
+                        return matches!(val, Value::Object(_));
+                    }
+                }
+                false
+            }
+            // Computed field functions
+            "length" => {
+                if args.len() == 2 {
+                    if let Some(val) = Self::get_nested_field_with_array(item, &args[0]) {
+                        let len = match val {
+                            Value::String(s) => s.len() as f64,
+                            Value::Array(arr) => arr.len() as f64,
+                            Value::Object(obj) => obj.len() as f64,
+                            _ => return false,
+                        };
+                        if let Ok(expected) = args[1].parse::<f64>() {
+                            return (len - expected).abs() < f64::EPSILON;
+                        }
+                    }
+                }
+                false
+            }
+            "matches" => {
+                if args.len() == 2 {
+                    if let Some(Value::String(s)) =
+                        Self::get_nested_field_with_array(item, &args[0]).as_ref()
+                    {
+                        // Remove quotes from regex pattern if present
+                        let pattern = args[1].trim_matches('"').trim_matches('\'');
+                        match Regex::new(pattern) {
+                            Ok(re) => return re.is_match(s),
+                            Err(e) => {
+                                warn!("Invalid regex pattern '{}': {}", pattern, e);
+                                return false;
+                            }
+                        }
+                    }
                 }
                 false
             }
@@ -1661,6 +1805,203 @@ mod tests {
         assert_eq!(items[1]["score"], 10); // Highest non-null score
         assert_eq!(items[2]["score"], 5); // Middle score
         assert_eq!(items[3]["score"], 3); // Lowest score
+    }
+
+    #[test]
+    fn test_type_checking_functions() {
+        // Test is_number
+        let filter = FilterExpression::Function {
+            name: "is_number".to_string(),
+            args: vec!["score".to_string()],
+        };
+
+        let item1 = json!({"score": 42});
+        let item2 = json!({"score": "42"});
+        let item3 = json!({"score": null});
+        let item4 = json!({"name": "test"}); // Missing field
+
+        assert!(filter.evaluate(&item1));
+        assert!(!filter.evaluate(&item2));
+        assert!(!filter.evaluate(&item3));
+        assert!(!filter.evaluate(&item4));
+
+        // Test is_string
+        let filter = FilterExpression::Function {
+            name: "is_string".to_string(),
+            args: vec!["name".to_string()],
+        };
+
+        let item1 = json!({"name": "Alice"});
+        let item2 = json!({"name": 123});
+        let item3 = json!({"name": null});
+
+        assert!(filter.evaluate(&item1));
+        assert!(!filter.evaluate(&item2));
+        assert!(!filter.evaluate(&item3));
+
+        // Test is_bool
+        let filter = FilterExpression::Function {
+            name: "is_bool".to_string(),
+            args: vec!["active".to_string()],
+        };
+
+        let item1 = json!({"active": true});
+        let item2 = json!({"active": false});
+        let item3 = json!({"active": "true"});
+        let item4 = json!({"active": 1});
+
+        assert!(filter.evaluate(&item1));
+        assert!(filter.evaluate(&item2));
+        assert!(!filter.evaluate(&item3));
+        assert!(!filter.evaluate(&item4));
+
+        // Test is_array
+        let filter = FilterExpression::Function {
+            name: "is_array".to_string(),
+            args: vec!["tags".to_string()],
+        };
+
+        let item1 = json!({"tags": ["a", "b", "c"]});
+        let item2 = json!({"tags": "a,b,c"});
+        let item3 = json!({"tags": {"a": 1}});
+
+        assert!(filter.evaluate(&item1));
+        assert!(!filter.evaluate(&item2));
+        assert!(!filter.evaluate(&item3));
+
+        // Test is_object
+        let filter = FilterExpression::Function {
+            name: "is_object".to_string(),
+            args: vec!["metadata".to_string()],
+        };
+
+        let item1 = json!({"metadata": {"key": "value"}});
+        let item2 = json!({"metadata": ["key", "value"]});
+        let item3 = json!({"metadata": "key=value"});
+
+        assert!(filter.evaluate(&item1));
+        assert!(!filter.evaluate(&item2));
+        assert!(!filter.evaluate(&item3));
+    }
+
+    #[test]
+    fn test_length_function() {
+        // Test length of string
+        let filter = FilterExpression::Function {
+            name: "length".to_string(),
+            args: vec!["name".to_string(), "5".to_string()],
+        };
+
+        let item1 = json!({"name": "Alice"}); // length 5
+        let item2 = json!({"name": "Bob"}); // length 3
+        let item3 = json!({"name": "Charlie"}); // length 7
+
+        assert!(filter.evaluate(&item1));
+        assert!(!filter.evaluate(&item2));
+        assert!(!filter.evaluate(&item3));
+
+        // Test length of array
+        let filter = FilterExpression::Function {
+            name: "length".to_string(),
+            args: vec!["tags".to_string(), "3".to_string()],
+        };
+
+        let item1 = json!({"tags": ["a", "b", "c"]}); // length 3
+        let item2 = json!({"tags": ["a", "b"]}); // length 2
+        let item3 = json!({"tags": ["a", "b", "c", "d"]}); // length 4
+
+        assert!(filter.evaluate(&item1));
+        assert!(!filter.evaluate(&item2));
+        assert!(!filter.evaluate(&item3));
+    }
+
+    #[test]
+    fn test_matches_regex_function() {
+        // Test email regex
+        let filter = FilterExpression::Function {
+            name: "matches".to_string(),
+            args: vec![
+                "email".to_string(),
+                r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$".to_string(),
+            ],
+        };
+
+        let item1 = json!({"email": "user@example.com"});
+        let item2 = json!({"email": "invalid-email"});
+        let item3 = json!({"email": "another@test.co.uk"});
+
+        assert!(filter.evaluate(&item1));
+        assert!(!filter.evaluate(&item2));
+        assert!(filter.evaluate(&item3));
+
+        // Test file extension regex
+        let filter = FilterExpression::Function {
+            name: "matches".to_string(),
+            args: vec!["filename".to_string(), r"\.rs$".to_string()],
+        };
+
+        let item1 = json!({"filename": "main.rs"});
+        let item2 = json!({"filename": "README.md"});
+        let item3 = json!({"filename": "lib.rs"});
+
+        assert!(filter.evaluate(&item1));
+        assert!(!filter.evaluate(&item2));
+        assert!(filter.evaluate(&item3));
+    }
+
+    #[test]
+    fn test_not_operator() {
+        // Test simple NOT
+        let filter = FilterExpression::parse("!is_null(optional_field)").unwrap();
+
+        let item1 = json!({"optional_field": "value"});
+        let item2 = json!({"optional_field": null});
+        let item3 = json!({"other_field": "value"}); // Missing field
+
+        assert!(filter.evaluate(&item1)); // !is_null("value") = !false = true
+        assert!(!filter.evaluate(&item2)); // !is_null(null) = !true = false
+        assert!(filter.evaluate(&item3)); // !is_null(missing) = !false = true (missing != null)
+
+        // Test NOT with comparison
+        let filter = FilterExpression::parse("!(priority > 5)").unwrap();
+
+        let item1 = json!({"priority": 3});
+        let item2 = json!({"priority": 7});
+        let item3 = json!({"priority": 5});
+
+        assert!(filter.evaluate(&item1));
+        assert!(!filter.evaluate(&item2));
+        assert!(filter.evaluate(&item3));
+
+        // Test NOT with logical operators
+        let filter = FilterExpression::parse("!(status == 'active' && priority > 5)").unwrap();
+
+        let item1 = json!({"status": "active", "priority": 7});
+        let item2 = json!({"status": "active", "priority": 3});
+        let item3 = json!({"status": "pending", "priority": 7});
+
+        assert!(!filter.evaluate(&item1));
+        assert!(filter.evaluate(&item2));
+        assert!(filter.evaluate(&item3));
+    }
+
+    #[test]
+    fn test_complex_expressions_with_parentheses() {
+        // Test complex expression with mixed operators and parentheses
+        let filter = FilterExpression::parse(
+            "(status == 'active' || status == 'pending') && !(priority < 3)",
+        )
+        .unwrap();
+
+        let item1 = json!({"status": "active", "priority": 5});
+        let item2 = json!({"status": "pending", "priority": 7});
+        let item3 = json!({"status": "archived", "priority": 5});
+        let item4 = json!({"status": "active", "priority": 2});
+
+        assert!(filter.evaluate(&item1)); // active AND priority >= 3
+        assert!(filter.evaluate(&item2)); // pending AND priority >= 3
+        assert!(!filter.evaluate(&item3)); // archived (fails first condition)
+        assert!(!filter.evaluate(&item4)); // priority < 3 (fails second condition)
     }
 
     #[test]
