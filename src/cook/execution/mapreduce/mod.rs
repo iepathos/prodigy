@@ -3,6 +3,15 @@
 //! Implements parallel execution of workflow steps across multiple agents
 //! using isolated git worktrees for fault isolation and parallelism.
 
+// Declare the utils module for pure functions
+pub mod utils;
+
+// Import utility functions from utils module
+use utils::{
+    build_agent_context_variables, build_map_results_interpolation_context,
+    calculate_map_result_summary, generate_agent_branch_name, generate_agent_id, truncate_command,
+};
+
 use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};
 use crate::cook::execution::data_pipeline::DataPipeline;
 use crate::cook::execution::dlq::{DeadLetterQueue, DeadLetteredItem, ErrorType, FailureDetail};
@@ -293,15 +302,15 @@ impl ProgressTracker {
             let message = match operation {
                 AgentOperation::Idle => "Idle".to_string(),
                 AgentOperation::Setup(cmd) => {
-                    format!("[setup] {}", Self::truncate_command(&cmd, 40))
+                    format!("[setup] {}", truncate_command(&cmd, 40))
                 }
                 AgentOperation::Claude(cmd) => {
-                    format!("[claude] {}", Self::truncate_command(&cmd, 40))
+                    format!("[claude] {}", truncate_command(&cmd, 40))
                 }
                 AgentOperation::Shell(cmd) => {
-                    format!("[shell] {}", Self::truncate_command(&cmd, 40))
+                    format!("[shell] {}", truncate_command(&cmd, 40))
                 }
-                AgentOperation::Test(cmd) => format!("[test] {}", Self::truncate_command(&cmd, 40)),
+                AgentOperation::Test(cmd) => format!("[test] {}", truncate_command(&cmd, 40)),
                 AgentOperation::Handler(name) => format!("[handler] {}", name),
                 AgentOperation::Retrying(item, attempt) => {
                     format!("Retrying {} (attempt {})", item, attempt)
@@ -310,14 +319,6 @@ impl ProgressTracker {
             };
 
             self.update_agent(agent_index, &message);
-        }
-    }
-
-    fn truncate_command(cmd: &str, max_len: usize) -> String {
-        if cmd.len() <= max_len {
-            cmd.to_string()
-        } else {
-            format!("{}...", &cmd[..max_len - 3])
         }
     }
 
@@ -539,123 +540,12 @@ pub struct MapReduceExecutor {
     error_policy_executor: Option<ErrorPolicyExecutor>,
 }
 
-/// Summary statistics for map results
-#[derive(Debug)]
-struct MapResultSummary {
-    successful: usize,
-    failed: usize,
-    total: usize,
-}
-
-/// Calculate summary statistics from map results (pure function)
-fn calculate_map_result_summary(map_results: &[AgentResult]) -> MapResultSummary {
-    let successful = map_results
-        .iter()
-        .filter(|r| matches!(r.status, AgentStatus::Success))
-        .count();
-
-    let failed = map_results
-        .iter()
-        .filter(|r| matches!(r.status, AgentStatus::Failed(_) | AgentStatus::Timeout))
-        .count();
-
-    MapResultSummary {
-        successful,
-        failed,
-        total: map_results.len(),
-    }
-}
-
-/// Build InterpolationContext with map results (pure function)
-fn build_map_results_interpolation_context(
-    map_results: &[AgentResult],
-    summary: &MapResultSummary,
-) -> Result<InterpolationContext, serde_json::Error> {
-    let mut context = InterpolationContext::new();
-
-    // Add summary statistics
-    context.set(
-        "map",
-        json!({
-            "successful": summary.successful,
-            "failed": summary.failed,
-            "total": summary.total
-        }),
-    );
-
-    // Add complete results as JSON value
-    let results_value = serde_json::to_value(map_results)?;
-    context.set("map.results", results_value);
-
-    // Add individual result access
-    for (index, result) in map_results.iter().enumerate() {
-        let result_value = serde_json::to_value(result)?;
-        context.set(format!("results[{}]", index), result_value);
-    }
-
-    Ok(context)
-}
-
-/// Build AgentContext variables for shell commands (pure function)
-fn build_agent_context_variables(
-    map_results: &[AgentResult],
-    summary: &MapResultSummary,
-) -> Result<HashMap<String, String>, serde_json::Error> {
-    let mut variables = HashMap::new();
-
-    // Add summary statistics as strings for shell command substitution
-    variables.insert("map.successful".to_string(), summary.successful.to_string());
-    variables.insert("map.failed".to_string(), summary.failed.to_string());
-    variables.insert("map.total".to_string(), summary.total.to_string());
-
-    // Add complete results as JSON string for complex access patterns
-    let results_json = serde_json::to_string(map_results)?;
-    variables.insert("map.results_json".to_string(), results_json.clone());
-    variables.insert("map.results".to_string(), results_json);
-
-    // Add individual result summaries for easier access in shell commands
-    for (index, result) in map_results.iter().enumerate() {
-        add_individual_result_variables(&mut variables, index, result);
-    }
-
-    Ok(variables)
-}
-
-/// Generate agent ID from index and item ID (pure function)
-fn generate_agent_id(agent_index: usize, item_id: &str) -> String {
-    format!("agent-{}-{}", agent_index, item_id)
-}
-
-/// Generate branch name for an agent (pure function)
-fn generate_agent_branch_name(session_id: &str, item_id: &str) -> String {
-    format!("prodigy-agent-{}-{}", session_id, item_id)
-}
-
-/// Classify agent status for event logging (pure function)
-#[cfg(test)]
-fn classify_agent_status(status: &AgentStatus) -> AgentEventType {
-    match status {
-        AgentStatus::Success => AgentEventType::Completed,
-        AgentStatus::Failed(_) => AgentEventType::Failed,
-        AgentStatus::Timeout => AgentEventType::TimedOut,
-        AgentStatus::Retrying(_) => AgentEventType::Retrying,
-        _ => AgentEventType::InProgress,
-    }
-}
-
-/// Enum for agent event types
-#[cfg(test)]
-#[derive(Debug, Clone, PartialEq)]
-enum AgentEventType {
-    Completed,
-    Failed,
-    TimedOut,
-    Retrying,
-    InProgress,
-}
-
 #[cfg(test)]
 mod pure_function_tests {
+    use super::utils::{
+        add_individual_result_variables, classify_agent_status, truncate_output, AgentEventType,
+        MapResultSummary,
+    };
     use super::*;
     use serde_json::Value;
     use std::time::Duration;
@@ -1115,47 +1005,6 @@ mod pure_function_tests {
 
         // Before the fix, these would have been "0", "0", "0"
         // After the fix, they correctly show "2", "1", "3"
-    }
-}
-
-/// Add variables for a single agent result (pure function)
-fn add_individual_result_variables(
-    variables: &mut HashMap<String, String>,
-    index: usize,
-    result: &AgentResult,
-) {
-    // Add basic result info
-    variables.insert(format!("result.{}.item_id", index), result.item_id.clone());
-
-    let status_string = match &result.status {
-        AgentStatus::Success => "success".to_string(),
-        AgentStatus::Failed(err) => format!("failed: {}", err),
-        AgentStatus::Timeout => "timeout".to_string(),
-        AgentStatus::Pending => "pending".to_string(),
-        AgentStatus::Running => "running".to_string(),
-        AgentStatus::Retrying(attempt) => format!("retrying: {}", attempt),
-    };
-    variables.insert(format!("result.{}.status", index), status_string);
-
-    // Add output if available (truncated for safety)
-    if let Some(ref output) = result.output {
-        let truncated_output = truncate_output(output, 500);
-        variables.insert(format!("result.{}.output", index), truncated_output);
-    }
-
-    // Add commit count
-    variables.insert(
-        format!("result.{}.commits", index),
-        result.commits.len().to_string(),
-    );
-}
-
-/// Truncate output to safe length (pure function)
-fn truncate_output(output: &str, max_length: usize) -> String {
-    if output.len() > max_length {
-        format!("{}...[truncated]", &output[..max_length])
-    } else {
-        output.to_string()
     }
 }
 
