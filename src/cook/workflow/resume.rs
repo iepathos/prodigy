@@ -14,6 +14,7 @@ use crate::cook::workflow::error_recovery::{
     on_failure_to_error_handler, RecoveryAction, ResumeError, ResumeErrorRecovery,
 };
 use crate::cook::workflow::executor::{WorkflowContext, WorkflowExecutor as WorkflowExecutorImpl};
+use crate::cook::workflow::progress::{ExecutionPhase, ProgressDisplay, SequentialProgressTracker};
 use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -381,7 +382,32 @@ impl ResumeExecutor {
             });
         }
 
+        // Create progress tracker for resume
+        let total_steps = checkpoint.total_steps;
+        let skipped_steps = checkpoint.completed_steps.len();
+        let current_iteration = checkpoint.execution_state.current_iteration.unwrap_or(1);
+        let max_iterations = checkpoint.execution_state.total_iterations.unwrap_or(1);
+
+        let mut progress_tracker = SequentialProgressTracker::for_resume(
+            workflow_id.to_string(),
+            checkpoint.workflow_name.clone().unwrap_or_else(|| workflow_id.to_string()),
+            total_steps,
+            max_iterations,
+            skipped_steps,
+            current_iteration,
+        );
+
+        // Create progress display
+        let mut progress_display = ProgressDisplay::new();
+
+        // Set initial phase
+        progress_tracker.update_phase(ExecutionPhase::LoadingCheckpoint).await;
+        progress_display.force_update(&format!("Loading checkpoint for workflow {}", workflow_id));
+
         // Load the workflow file
+        progress_tracker.update_phase(ExecutionPhase::RestoringState).await;
+        progress_display.force_update("Loading workflow file and restoring state...");
+
         let workflow_content = tokio::fs::read_to_string(workflow_path)
             .await
             .context("Failed to read workflow file")?;
@@ -540,31 +566,69 @@ impl ResumeExecutor {
             total_steps
         );
 
+        // Update progress to executing phase
+        progress_tracker.update_phase(ExecutionPhase::ExecutingSteps).await;
+        progress_display.force_update(&format!(
+            "Resuming from step {}/{}. {} steps already completed.",
+            start_from + 1, total_steps, skipped_steps
+        ));
+
+        // Set progress callback to display updates
+        progress_tracker.set_callback(move |update| {
+            if let Some(ref msg) = update.message {
+                println!("📊 {}", msg);
+            }
+        });
+
+        // Start iteration tracking if needed
+        if current_iteration > 0 {
+            progress_tracker.start_iteration(current_iteration).await;
+        }
+
         // Skip completed steps and execute remaining ones
         for (step_index, step) in extended_workflow.steps.iter().enumerate() {
             if step_index < start_from {
                 info!("Skipping completed step {}: {:?}", step_index + 1, step);
+                progress_tracker.skip_step(step_index, "Already completed from checkpoint".to_string()).await;
                 continue;
             }
 
+            // Get step name for progress display
+            let step_name = get_step_name(step);
+
             info!(
-                "Executing step {}/{}: {:?}",
+                "Executing step {}/{}: {}",
                 step_index + 1,
                 total_steps,
-                step
+                step_name
             );
 
+            // Start step in progress tracker
+            progress_tracker.start_step(step_index, step_name.clone()).await;
+
+            // Update progress display
+            let progress_msg = progress_tracker.format_progress().await;
+            progress_display.update(&progress_msg);
+
             // Execute the step with error recovery
+            let step_start = std::time::Instant::now();
             match executor
                 .execute_step(step, &env, &mut workflow_context)
                 .await
             {
                 Ok(_result) => {
                     steps_executed += 1;
+                    let duration = step_start.elapsed();
                     info!("Step {} completed successfully", step_index + 1);
+
+                    // Update progress tracker
+                    progress_tracker.complete_step(step_index, duration).await;
                 }
                 Err(e) => {
                     warn!("Step {} failed: {}", step_index + 1, e);
+
+                    // Update progress tracker for failure
+                    progress_tracker.fail_step(step_index, e.to_string()).await;
 
                     // Check if step has error handler
                     if let Some(ref on_failure) = step.on_failure {
@@ -648,6 +712,23 @@ impl ResumeExecutor {
             }
         }
 
+        // Update progress to completed
+        progress_tracker.update_phase(ExecutionPhase::Completed).await;
+        let final_progress = progress_tracker.format_progress().await;
+        progress_display.force_update(&final_progress);
+
+        // Show final summary
+        let total_duration = progress_tracker.start_time.elapsed();
+        println!("\n✅ Workflow Resume Complete!");
+        println!("   Total steps: {}", total_steps);
+        println!("   Steps skipped (already completed): {}", start_from);
+        println!("   Steps executed in this session: {}", steps_executed);
+        println!("   Total duration: {:.2}s", total_duration.as_secs_f64());
+        if steps_executed > 0 {
+            let avg_step_time = total_duration.as_secs_f64() / steps_executed as f64;
+            println!("   Average step time: {:.2}s", avg_step_time);
+        }
+
         // Delete checkpoint on successful completion
         self.checkpoint_manager
             .delete_checkpoint(workflow_id)
@@ -702,6 +783,21 @@ pub struct ResumableWorkflow {
     pub progress: String,
     pub last_checkpoint: chrono::DateTime<chrono::Utc>,
     pub can_resume: bool,
+}
+
+/// Helper function to get a display name for a workflow step
+fn get_step_name(step: &crate::cook::workflow::executor::WorkflowStep) -> String {
+    if let Some(ref name) = step.name {
+        name.clone()
+    } else if let Some(ref claude) = step.claude {
+        format!("claude: {}", claude)
+    } else if let Some(ref shell) = step.shell {
+        format!("shell: {}", shell)
+    } else if let Some(ref cmd) = step.command {
+        cmd.clone()
+    } else {
+        "unnamed step".to_string()
+    }
 }
 
 #[cfg(test)]

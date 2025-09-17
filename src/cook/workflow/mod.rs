@@ -21,6 +21,7 @@ mod executor;
 mod executor_tests;
 pub mod normalized;
 mod on_failure;
+pub mod progress;
 pub mod progress_config;
 pub mod resume;
 pub mod step_validation;
