@@ -311,7 +311,9 @@ fn bench_large_workflow_memory(c: &mut Criterion) {
 }
 
 /// Helper function to create a large checkpoint
-fn create_large_checkpoint(num_steps: usize) -> prodigy::cook::workflow::checkpoint::WorkflowCheckpoint {
+fn create_large_checkpoint(
+    num_steps: usize,
+) -> prodigy::cook::workflow::checkpoint::WorkflowCheckpoint {
     use prodigy::cook::workflow::checkpoint::{
         CompletedStep, ExecutionState, WorkflowCheckpoint, WorkflowStatus, CHECKPOINT_VERSION,
     };

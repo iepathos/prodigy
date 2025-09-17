@@ -400,14 +400,16 @@ fn bench_agent_scaling(c: &mut Criterion) {
                     |(job, _storage, temp_dir)| async move {
                         // Simulate agent lifecycle management
                         let contexts: Vec<_> = (0..job.max_parallel)
-                            .map(|i| (
-                                job.job_id.clone(),
-                                job.workflow_id.clone(),
-                                job.correlation_id.clone(),
-                                i,
-                                job.total_agents,
-                                temp_dir.path().to_path_buf(),
-                            ))
+                            .map(|i| {
+                                (
+                                    job.job_id.clone(),
+                                    job.workflow_id.clone(),
+                                    job.correlation_id.clone(),
+                                    i,
+                                    job.total_agents,
+                                    temp_dir.path().to_path_buf(),
+                                )
+                            })
                             .collect();
                         black_box(contexts);
                     },

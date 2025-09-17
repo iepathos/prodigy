@@ -32,30 +32,30 @@ fn bench_storage_write(c: &mut Criterion) {
     group.measurement_time(Duration::from_secs(5));
 
     for size in [10, 100, 1000].iter() {
-        group.bench_with_input(
-            BenchmarkId::new("write_json", size),
-            size,
-            |b, &size| {
-                b.to_async(&rt).iter_batched(
-                    || {
-                        let temp_dir = TempDir::new().unwrap();
-                        let storage = GlobalStorage::new(temp_dir.path()).unwrap();
-                        let data = create_test_json(size);
-                        (storage, data, temp_dir)
-                    },
-                    |(storage, data, _temp_dir)| async move {
-                        let path = storage.get_state_dir("test-job").await.unwrap().join("test.json");
-                        tokio::fs::create_dir_all(path.parent().unwrap())
-                            .await
-                            .unwrap();
-                        tokio::fs::write(path, serde_json::to_string(&data).unwrap())
-                            .await
-                            .unwrap();
-                    },
-                    BatchSize::SmallInput,
-                );
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("write_json", size), size, |b, &size| {
+            b.to_async(&rt).iter_batched(
+                || {
+                    let temp_dir = TempDir::new().unwrap();
+                    let storage = GlobalStorage::new(temp_dir.path()).unwrap();
+                    let data = create_test_json(size);
+                    (storage, data, temp_dir)
+                },
+                |(storage, data, _temp_dir)| async move {
+                    let path = storage
+                        .get_state_dir("test-job")
+                        .await
+                        .unwrap()
+                        .join("test.json");
+                    tokio::fs::create_dir_all(path.parent().unwrap())
+                        .await
+                        .unwrap();
+                    tokio::fs::write(path, serde_json::to_string(&data).unwrap())
+                        .await
+                        .unwrap();
+                },
+                BatchSize::SmallInput,
+            );
+        });
     }
 
     group.finish();
@@ -69,40 +69,44 @@ fn bench_storage_read(c: &mut Criterion) {
     group.measurement_time(Duration::from_secs(5));
 
     for size in [10, 100, 1000].iter() {
-        group.bench_with_input(
-            BenchmarkId::new("read_json", size),
-            size,
-            |b, &size| {
-                b.to_async(&rt).iter_batched(
-                    || {
-                        let temp_dir = TempDir::new().unwrap();
-                        let storage = GlobalStorage::new(temp_dir.path()).unwrap();
-                        let data = create_test_json(size);
-                        let rt_local = Runtime::new().unwrap();
+        group.bench_with_input(BenchmarkId::new("read_json", size), size, |b, &size| {
+            b.to_async(&rt).iter_batched(
+                || {
+                    let temp_dir = TempDir::new().unwrap();
+                    let storage = GlobalStorage::new(temp_dir.path()).unwrap();
+                    let data = create_test_json(size);
+                    let rt_local = Runtime::new().unwrap();
 
-                        // Pre-write data
-                        rt_local.block_on(async {
-                            let path = storage.get_state_dir("test-job").await.unwrap().join("test.json");
-                            tokio::fs::create_dir_all(path.parent().unwrap())
-                                .await
-                                .unwrap();
-                            tokio::fs::write(path, serde_json::to_string(&data).unwrap())
-                                .await
-                                .unwrap();
-                        });
+                    // Pre-write data
+                    rt_local.block_on(async {
+                        let path = storage
+                            .get_state_dir("test-job")
+                            .await
+                            .unwrap()
+                            .join("test.json");
+                        tokio::fs::create_dir_all(path.parent().unwrap())
+                            .await
+                            .unwrap();
+                        tokio::fs::write(path, serde_json::to_string(&data).unwrap())
+                            .await
+                            .unwrap();
+                    });
 
-                        (storage, temp_dir)
-                    },
-                    |(storage, _temp_dir)| async move {
-                        let path = storage.get_state_dir("test-job").await.unwrap().join("test.json");
-                        let content = tokio::fs::read_to_string(path).await.unwrap();
-                        let data: serde_json::Value = serde_json::from_str(&content).unwrap();
-                        black_box(data);
-                    },
-                    BatchSize::SmallInput,
-                );
-            },
-        );
+                    (storage, temp_dir)
+                },
+                |(storage, _temp_dir)| async move {
+                    let path = storage
+                        .get_state_dir("test-job")
+                        .await
+                        .unwrap()
+                        .join("test.json");
+                    let content = tokio::fs::read_to_string(path).await.unwrap();
+                    let data: serde_json::Value = serde_json::from_str(&content).unwrap();
+                    black_box(data);
+                },
+                BatchSize::SmallInput,
+            );
+        });
     }
 
     group.finish();

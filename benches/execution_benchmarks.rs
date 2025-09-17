@@ -282,7 +282,10 @@ steps:
                     variable_checkpoint_state: None,
                 };
 
-                checkpoint_manager.save_checkpoint(&checkpoint).await.unwrap();
+                checkpoint_manager
+                    .save_checkpoint(&checkpoint)
+                    .await
+                    .unwrap();
                 black_box(checkpoint);
             },
             BatchSize::SmallInput,
@@ -341,13 +344,19 @@ fn bench_workflow_resume_operation(c: &mut Criterion) {
 
                 let rt_local = Runtime::new().unwrap();
                 rt_local.block_on(async {
-                    checkpoint_manager.save_checkpoint(&checkpoint).await.unwrap();
+                    checkpoint_manager
+                        .save_checkpoint(&checkpoint)
+                        .await
+                        .unwrap();
                 });
 
                 (checkpoint_manager, checkpoint.workflow_id, temp_dir)
             },
             |(checkpoint_manager, workflow_id, _temp_dir)| async move {
-                let checkpoint = checkpoint_manager.load_checkpoint(&workflow_id).await.unwrap();
+                let checkpoint = checkpoint_manager
+                    .load_checkpoint(&workflow_id)
+                    .await
+                    .unwrap();
 
                 // Simulate resume operations
                 assert_eq!(checkpoint.execution_state.current_step_index, 50);

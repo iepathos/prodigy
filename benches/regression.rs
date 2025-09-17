@@ -87,10 +87,7 @@ impl RegressionDetector {
     }
 
     /// Compare current results against baseline
-    pub fn detect_regressions(
-        &self,
-        current: &BenchmarkBaseline,
-    ) -> Vec<RegressionReport> {
+    pub fn detect_regressions(&self, current: &BenchmarkBaseline) -> Vec<RegressionReport> {
         let Some(baseline) = &self.current_baseline else {
             return vec![];
         };
@@ -213,7 +210,11 @@ impl RegressionReport {
             change_type,
             self.benchmark_name,
             self.percent_change.abs(),
-            if self.is_regression { "slower" } else { "faster" },
+            if self.is_regression {
+                "slower"
+            } else {
+                "faster"
+            },
             self.baseline_mean_ns,
             self.current_mean_ns,
             self.z_score
@@ -249,8 +250,7 @@ impl CIIntegration {
     /// Run regression detection in CI pipeline
     pub fn run_ci_check(&mut self, current_results: BenchmarkBaseline) -> anyhow::Result<bool> {
         // Get base commit (e.g., from environment variable or git)
-        let base_commit = std::env::var("BASE_COMMIT")
-            .unwrap_or_else(|_| "main".to_string());
+        let base_commit = std::env::var("BASE_COMMIT").unwrap_or_else(|_| "main".to_string());
 
         // Load baseline for comparison
         self.detector.load_baseline(&base_commit)?;
@@ -442,9 +442,7 @@ fn bench_regression_detection(c: &mut Criterion) {
             timestamp: chrono::Utc::now(),
         };
 
-        b.iter(|| {
-            detector.analyze_regression(&baseline, &current)
-        });
+        b.iter(|| detector.analyze_regression(&baseline, &current));
     });
 }
 
