@@ -1,0 +1,53 @@
+{
+  "workflow_id": "workflow-1758098210091",
+  "execution_state": {
+    "current_step_index": 2,
+    "total_steps": 3,
+    "status": "Running",
+    "start_time": "2025-09-17T09:37:40.147980Z",
+    "last_checkpoint": "2025-09-17T09:37:40.147980Z",
+    "current_iteration": null,
+    "total_iterations": null
+  },
+  "completed_steps": [
+    {
+      "step_index": 0,
+      "command": "claude: /prodigy-implement-spec $ARG",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 3599,
+        "nanos": 751523125
+      },
+      "completed_at": "2025-09-17T09:36:49.893409Z"
+    },
+    {
+      "step_index": 1,
+      "command": "test: just test",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 50,
+        "nanos": 225319334
+      },
+      "completed_at": "2025-09-17T09:37:40.147958Z"
+    }
+  ],
+  "variable_state": {
+    "step.commits": "32913c6d230046d22c822c8bb6e529fe6c15d16d,a7fe359a52fd1f047fe2e635af991eb9592964fd,30e01f76e00d6e075f396227731b7a0cdd4d0fa2,c8fe735f08d94ccaffa8a4e1ff21b4bce0308a87",
+    "ARG": "75",
+    "step.deletions": "17",
+    "step.insertions": "69",
+    "PROJECT_ROOT": "/Users/glen/.prodigy/worktrees/prodigy/session-41f35991-df46-4222-99b6-259ea419d2b7",
+    "step.files_changed": "benches/memory_benchmarks.rs,scripts/benchmark-ci.sh,benches.disabled/checkpoint_benchmarks.rs,benches.disabled/expression_bench.rs,benches.disabled/unified_execution_bench.rs,specs/75-benchmark-infrastructure-modernization.md,benches/checkpoint_benchmarks.rs,.github/workflows/benchmarks.yml,benches/storage_benchmarks.rs,benches/execution_benchmarks.rs,benches/mapreduce_benchmarks.rs,Cargo.toml,benches/regression.rs"
+  },
+  "mapreduce_state": null,
+  "timestamp": "2025-09-17T09:37:40.147980Z",
+  "version": 1,
+  "workflow_hash": "3",
+  "total_steps": 3,
+  "workflow_name": "args-workflow",
+  "workflow_path": null
+}
