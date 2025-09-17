@@ -17,6 +17,7 @@ use crate::cook::execution::progress::{
 use crate::cook::execution::progress_display::{DisplayMode, MultiProgressDisplay};
 use crate::cook::execution::progress_tracker::ProgressTracker as NewProgressTracker;
 use crate::cook::execution::state::{DefaultJobStateManager, JobStateManager, MapReduceJobState};
+use crate::cook::execution::variables::{Variable, VariableContext};
 use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
@@ -436,6 +437,68 @@ impl AgentContext {
         for (key, value) in &self.iteration_vars {
             context.set(key.clone(), Value::String(value.clone()));
         }
+
+        context
+    }
+
+    /// Convert to enhanced variable context
+    pub async fn to_variable_context(&self) -> VariableContext {
+        let mut context = VariableContext::new();
+
+        // Add all string variables as phase-level variables
+        for (key, value) in &self.variables {
+            // Handle nested map variables specially
+            if key.starts_with("map.") {
+                // Try to parse as a number first
+                if let Ok(num) = value.parse::<f64>() {
+                    context.set_phase(
+                        key.clone(),
+                        Variable::Static(Value::Number(
+                            serde_json::Number::from_f64(num).unwrap_or(0.into()),
+                        )),
+                    );
+                } else {
+                    context.set_phase(key.clone(), Variable::Static(Value::String(value.clone())));
+                }
+            } else {
+                context.set_phase(key.clone(), Variable::Static(Value::String(value.clone())));
+            }
+        }
+
+        // Note: We could add structured variables from variable_store here if it had a get_all method
+        // For now, the important map variables are handled through the variables HashMap which contains
+        // map.total, map.successful, map.failed etc. from the reduce phase context
+
+        // Add shell output as structured data
+        if let Some(ref output) = self.shell_output {
+            context.set_phase(
+                "shell",
+                Variable::Static(json!({
+                    "output": output,
+                    "last_output": output
+                })),
+            );
+        }
+
+        // Add captured outputs
+        for (key, value) in &self.captured_outputs {
+            context.set_local(key.clone(), Variable::Static(Value::String(value.clone())));
+        }
+
+        // Add iteration variables
+        for (key, value) in &self.iteration_vars {
+            context.set_local(key.clone(), Variable::Static(Value::String(value.clone())));
+        }
+
+        // Add environment access
+        context.set_local(
+            "workflow",
+            Variable::Static(json!({
+                "id": self.item_id.clone(),
+                "worktree": self.worktree_name.clone(),
+                "path": self.worktree_path.to_string_lossy()
+            })),
+        );
 
         context
     }
@@ -3114,6 +3177,44 @@ impl MapReduceExecutor {
         Ok(interpolated)
     }
 
+    /// Interpolate workflow step using enhanced variable context
+    async fn interpolate_workflow_step_enhanced(
+        &self,
+        step: &WorkflowStep,
+        context: &VariableContext,
+    ) -> MapReduceResult<WorkflowStep> {
+        // Clone the step to avoid modifying the original
+        let mut interpolated = step.clone();
+
+        // Interpolate all string fields that might contain variables
+        if let Some(name) = &step.name {
+            interpolated.name = Some(context.interpolate(name).await?);
+        }
+
+        if let Some(claude) = &step.claude {
+            interpolated.claude = Some(context.interpolate(claude).await?);
+        }
+
+        if let Some(shell) = &step.shell {
+            interpolated.shell = Some(context.interpolate(shell).await?);
+        }
+
+        if let Some(command) = &step.command {
+            interpolated.command = Some(context.interpolate(command).await?);
+        }
+
+        // Interpolate environment variables
+        let mut interpolated_env = HashMap::new();
+        for (key, value) in &step.env {
+            let interpolated_key = context.interpolate(key).await?;
+            let interpolated_value = context.interpolate(value).await?;
+            interpolated_env.insert(interpolated_key, interpolated_value);
+        }
+        interpolated.env = interpolated_env;
+
+        Ok(interpolated)
+    }
+
     /// Get commits from a worktree
     async fn get_worktree_commits(&self, worktree_path: &Path) -> MapReduceResult<Vec<String>> {
         use tokio::process::Command;
@@ -3313,7 +3414,7 @@ impl MapReduceExecutor {
         self.user_interaction
             .display_progress("Starting reduce phase in parent worktree...");
 
-        // Build interpolation context using pure functions
+        // Build interpolation context using pure functions (kept for compatibility)
         let _interp_context = build_map_results_interpolation_context(map_results, &summary_stats)
             .map_err(|e| {
                 let context = self.create_error_context("build_interpolation_context");
@@ -3583,11 +3684,19 @@ impl MapReduceExecutor {
         step: &WorkflowStep,
         context: &mut AgentContext,
     ) -> MapReduceResult<StepResult> {
-        // Interpolate the step using the agent's context
-        let interp_context = context.to_interpolation_context();
-        let interpolated_step = self
-            .interpolate_workflow_step(step, &interp_context)
-            .await?;
+        // Try to use enhanced variable context if possible, fall back to legacy
+        let interpolated_step =
+            if context.item_id == "reduce" || context.variables.contains_key("map.total") {
+                // Use enhanced context for reduce phase or when map variables are present
+                let var_context = context.to_variable_context().await;
+                self.interpolate_workflow_step_enhanced(step, &var_context)
+                    .await?
+            } else {
+                // Use legacy interpolation for backward compatibility
+                let interp_context = context.to_interpolation_context();
+                self.interpolate_workflow_step(step, &interp_context)
+                    .await?
+            };
 
         // Determine command type
         let command_type = self.determine_command_type(&interpolated_step)?;
