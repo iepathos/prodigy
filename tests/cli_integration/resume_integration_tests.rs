@@ -68,7 +68,7 @@ fn test_resume_from_early_interruption() {
     let workflow_dir = test_dir.path();
 
     // Create workflow file
-    let workflow_path = create_test_workflow(&workflow_dir, "test.yaml");
+    let _workflow_path = create_test_workflow(&workflow_dir, "test.yaml");
 
     // Create checkpoint after 1 command
     let workflow_id = "resume-early-12345";
@@ -105,7 +105,7 @@ fn test_resume_from_middle_interruption() {
     let workflow_dir = test_dir.path();
 
     // Create workflow file
-    let workflow_path = create_test_workflow(&workflow_dir, "test.yaml");
+    let _workflow_path = create_test_workflow(&workflow_dir, "test.yaml");
 
     // Create checkpoint after 3 commands
     let workflow_id = "resume-middle-67890";
@@ -301,7 +301,7 @@ fn test_resume_with_force_restart() {
     let workflow_dir = test_dir.path();
 
     // Create workflow and checkpoint
-    let workflow_path = create_test_workflow(&workflow_dir, "test.yaml");
+    let _workflow_path = create_test_workflow(&workflow_dir, "test.yaml");
     let workflow_id = "resume-force-44444";
 
     create_test_checkpoint(&checkpoint_dir, workflow_id, 3, 5, json!({}));
@@ -404,7 +404,7 @@ fn test_resume_with_checkpoint_cleanup() {
     let workflow_dir = test_dir.path();
 
     // Create workflow
-    let workflow_path = create_test_workflow(&workflow_dir, "test.yaml");
+    let _workflow_path = create_test_workflow(&workflow_dir, "test.yaml");
     let workflow_id = "resume-cleanup-66666";
 
     // Create checkpoint

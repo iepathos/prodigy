@@ -1,0 +1,41 @@
+{
+  "workflow_id": "workflow-1758060428976",
+  "execution_state": {
+    "current_step_index": 1,
+    "total_steps": 3,
+    "status": "Running",
+    "start_time": "2025-09-16T23:12:29.821432Z",
+    "last_checkpoint": "2025-09-16T23:12:29.821432Z",
+    "current_iteration": null,
+    "total_iterations": null
+  },
+  "completed_steps": [
+    {
+      "step_index": 0,
+      "command": "claude: /prodigy-implement-spec $ARG",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 1358,
+        "nanos": 570744250
+      },
+      "completed_at": "2025-09-16T23:12:29.821424Z"
+    }
+  ],
+  "variable_state": {
+    "PROJECT_ROOT": "/Users/glen/.prodigy/worktrees/prodigy/session-108ba5ca-cb7d-460f-9f8f-0307e6332de1",
+    "step.commits": "[{\"hash\":\"9a10d906f2c9f38d7da63b62520ae8b703350414\",\"message\":\"fix: complete spec 69 implementation gaps\",\"author\":\"Glen Baker\",\"timestamp\":\"2025-09-16T22:53:38Z\",\"files_changed\":[\"Cargo.toml\",\"benches/checkpoint_benchmarks.rs\",\"docs/resume-workflows.md\",\"tests/cli_integration/mod.rs\",\"tests/cli_integration/resume_integration_tests.rs\"],\"insertions\":1537,\"deletions\":0,\"step_name\":\"claude: /prodigy-complete-spec $ARG --gaps ${validation.gaps}\",\"agent_id\":null}]",
+    "step.files_changed": "5",
+    "step.deletions": "0",
+    "ARG": "69",
+    "step.insertions": "1537"
+  },
+  "mapreduce_state": null,
+  "timestamp": "2025-09-16T23:12:29.821432Z",
+  "version": 1,
+  "workflow_hash": "3",
+  "total_steps": 3,
+  "workflow_name": "args-workflow",
+  "workflow_path": null
+}
