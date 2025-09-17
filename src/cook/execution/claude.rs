@@ -249,10 +249,8 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
                                         .and_then(|v| v.as_str())
                                         .unwrap_or("unknown")
                                         .to_string();
-                                    let parameters = json
-                                        .get("parameters")
-                                        .cloned()
-                                        .unwrap_or(Value::Null);
+                                    let parameters =
+                                        json.get("parameters").cloned().unwrap_or(Value::Null);
 
                                     let event = MapReduceEvent::ClaudeToolInvoked {
                                         agent_id: agent_id.to_string(),
