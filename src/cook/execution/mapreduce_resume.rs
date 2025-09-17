@@ -418,9 +418,9 @@ impl MapReduceResumeManager {
 
     /// Determine current phase from job state
     fn determine_current_phase(&self, state: &MapReduceJobState) -> MapReducePhase {
-        // If reduce phase has state and is started but not completed
+        // If reduce phase exists and has been started (whether completed or not)
         if let Some(ref reduce_state) = state.reduce_phase_state {
-            if reduce_state.started && !reduce_state.completed {
+            if reduce_state.started {
                 return MapReducePhase::Reduce;
             }
         }

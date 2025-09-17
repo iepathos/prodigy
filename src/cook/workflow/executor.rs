@@ -34,8 +34,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 /// Capture output configuration - either a boolean or a variable name
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(untagged)]
+#[derive(Debug, Clone, PartialEq)]
 #[derive(Default)]
 pub enum CaptureOutput {
     /// Don't capture output
@@ -45,6 +44,19 @@ pub enum CaptureOutput {
     Default,
     /// Capture to a custom variable name
     Variable(String),
+}
+
+impl Serialize for CaptureOutput {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            CaptureOutput::Disabled => serializer.serialize_bool(false),
+            CaptureOutput::Default => serializer.serialize_bool(true),
+            CaptureOutput::Variable(s) => serializer.serialize_str(s),
+        }
+    }
 }
 
 impl CaptureOutput {
