@@ -80,6 +80,11 @@ impl MapReduceEvent {
             | DLQItemsReprocessed { .. }
             | DLQItemsEvicted { .. }
             | DLQAnalysisGenerated { .. } => EventCategory::DeadLetterQueue,
+            // Claude observability events are agent-specific
+            ClaudeToolInvoked { .. }
+            | ClaudeTokenUsage { .. }
+            | ClaudeSessionStarted { .. }
+            | ClaudeMessage { .. } => EventCategory::AgentLifecycle,
         }
     }
 }

@@ -40,6 +40,7 @@ mod tests {
             capture_output: true,
             timeout_seconds: Some(30),
             stdin: Some("input".to_string()),
+            capture_streaming: false,
         };
 
         let unified_context = LegacyExecutorBridge::to_unified_context(&legacy_context);
@@ -253,6 +254,7 @@ mod tests {
             capture_output: true,
             timeout_seconds: None,
             stdin: None,
+            capture_streaming: false,
         };
 
         // This test verifies the command type detection logic compiles

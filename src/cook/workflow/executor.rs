@@ -1072,6 +1072,7 @@ impl WorkflowExecutor {
             capture_output: true,
             timeout_seconds: step.validation_timeout,
             stdin: None,
+            capture_streaming: false,
         };
 
         // Get step name for logging

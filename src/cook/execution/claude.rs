@@ -1,9 +1,12 @@
 //! Claude CLI execution implementation
 
 use super::{CommandExecutor, CommandRunner, ExecutionContext, ExecutionResult};
+use crate::cook::execution::events::{EventLogger, MapReduceEvent};
 use crate::testing::config::TestConfiguration;
 use anyhow::Result;
 use async_trait::async_trait;
+use chrono::Utc;
+use serde_json::Value;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -30,6 +33,7 @@ pub trait ClaudeExecutor: Send + Sync {
 pub struct ClaudeExecutorImpl<R: CommandRunner> {
     runner: R,
     test_config: Option<Arc<TestConfiguration>>,
+    event_logger: Option<Arc<EventLogger>>,
 }
 
 impl<R: CommandRunner> ClaudeExecutorImpl<R> {
@@ -38,6 +42,7 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
         Self {
             runner,
             test_config: None,
+            event_logger: None,
         }
     }
 
@@ -46,7 +51,14 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
         Self {
             runner,
             test_config: Some(test_config),
+            event_logger: None,
         }
+    }
+
+    /// Set the event logger for streaming observability
+    pub fn with_event_logger(mut self, event_logger: Arc<EventLogger>) -> Self {
+        self.event_logger = Some(event_logger);
+        self
     }
 }
 
@@ -64,6 +76,60 @@ impl<R: CommandRunner + 'static> ClaudeExecutor for ClaudeExecutorImpl<R> {
             return self.handle_test_mode_execution(command).await;
         }
 
+        // Check for streaming mode via environment variable
+        let streaming_enabled = env_vars
+            .get("PRODIGY_CLAUDE_STREAMING")
+            .is_some_and(|v| v == "true");
+
+        if streaming_enabled && self.event_logger.is_some() {
+            self.execute_with_streaming(command, project_path, env_vars)
+                .await
+        } else {
+            // Existing --print mode execution
+            self.execute_with_print(command, project_path, env_vars)
+                .await
+        }
+    }
+
+    async fn check_claude_cli(&self) -> Result<bool> {
+        // Always return true in test mode
+        let test_mode = self.test_config.as_ref().map_or(false, |c| c.test_mode);
+        if test_mode {
+            return Ok(true);
+        }
+
+        match self
+            .runner
+            .run_command("claude", &["--version".to_string()])
+            .await
+        {
+            Ok(output) => Ok(output.status.success()),
+            Err(_) => Ok(false),
+        }
+    }
+
+    async fn get_claude_version(&self) -> Result<String> {
+        let output = self
+            .runner
+            .run_command("claude", &["--version".to_string()])
+            .await?;
+
+        if output.status.success() {
+            Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+        } else {
+            anyhow::bail!("Failed to get Claude version")
+        }
+    }
+}
+
+impl<R: CommandRunner> ClaudeExecutorImpl<R> {
+    /// Execute Claude command with --print flag (legacy non-streaming mode)
+    async fn execute_with_print(
+        &self,
+        command: &str,
+        project_path: &Path,
+        env_vars: HashMap<String, String>,
+    ) -> Result<ExecutionResult> {
         let mut context = ExecutionContext::default();
         #[allow(clippy::field_reassign_with_default)]
         {
@@ -101,38 +167,195 @@ impl<R: CommandRunner + 'static> ClaudeExecutor for ClaudeExecutorImpl<R> {
         result
     }
 
-    async fn check_claude_cli(&self) -> Result<bool> {
-        // Always return true in test mode
-        let test_mode = self.test_config.as_ref().map_or(false, |c| c.test_mode);
-        if test_mode {
-            return Ok(true);
-        }
-
-        match self
-            .runner
-            .run_command("claude", &["--version".to_string()])
-            .await
+    /// Execute Claude command with --output-format stream-json for real-time observability
+    async fn execute_with_streaming(
+        &self,
+        command: &str,
+        project_path: &Path,
+        env_vars: HashMap<String, String>,
+    ) -> Result<ExecutionResult> {
+        let mut context = ExecutionContext::default();
+        #[allow(clippy::field_reassign_with_default)]
         {
-            Ok(output) => Ok(output.status.success()),
-            Err(_) => Ok(false),
+            context.working_directory = project_path.to_path_buf();
+            context.env_vars = env_vars.clone();
+            context.capture_streaming = true; // Enable streaming capture
         }
-    }
 
-    async fn get_claude_version(&self) -> Result<String> {
-        let output = self
+        // Check for timeout configuration
+        if let Some(timeout_str) = env_vars.get("PRODIGY_COMMAND_TIMEOUT") {
+            if let Ok(timeout_secs) = timeout_str.parse::<u64>() {
+                context.timeout_seconds = Some(timeout_secs);
+                tracing::debug!("Claude command timeout set to {} seconds", timeout_secs);
+            }
+        }
+
+        // Claude requires some input on stdin
+        context.stdin = Some("".to_string());
+
+        let args = vec![
+            "--output-format".to_string(),
+            "stream-json".to_string(),
+            "--verbose".to_string(),
+            "--dangerously-skip-permissions".to_string(),
+            command.to_string(),
+        ];
+
+        tracing::debug!(
+            "Executing claude command in streaming mode with args: {:?}",
+            args
+        );
+
+        // For now, we'll fall back to non-streaming execution since CommandRunner
+        // doesn't yet support streaming. This will be enhanced when the runner is updated.
+        // TODO: Implement actual streaming support in CommandRunner
+        let result = self
             .runner
-            .run_command("claude", &["--version".to_string()])
-            .await?;
+            .run_with_context("claude", &args, &context)
+            .await;
 
-        if output.status.success() {
-            Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-        } else {
-            anyhow::bail!("Failed to get Claude version")
+        if let Ok(ref exec_result) = result {
+            // Parse the streaming JSON output and emit events
+            self.parse_and_emit_streaming_output(&exec_result.stdout, "agent-default")
+                .await;
+        }
+
+        if let Err(ref e) = result {
+            tracing::error!("Claude streaming command failed: {:?}", e);
+        }
+
+        result
+    }
+
+    /// Parse streaming JSON output and emit Claude events
+    async fn parse_and_emit_streaming_output(&self, output: &str, agent_id: &str) {
+        if let Some(event_logger) = &self.event_logger {
+            for line in output.lines() {
+                if line.trim().is_empty() {
+                    continue;
+                }
+
+                // Try to parse as JSON
+                if let Ok(json) = serde_json::from_str::<Value>(line) {
+                    // Parse different event types from Claude's stream-json format
+                    if let Some(event_type) = json.get("event").and_then(|v| v.as_str()) {
+                        match event_type {
+                            "tool_use" => {
+                                if let Some(tool_name) =
+                                    json.get("tool_name").and_then(|v| v.as_str())
+                                {
+                                    let tool_id = json
+                                        .get("tool_id")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("unknown")
+                                        .to_string();
+                                    let parameters = json
+                                        .get("parameters")
+                                        .cloned()
+                                        .unwrap_or(Value::Null);
+
+                                    let event = MapReduceEvent::ClaudeToolInvoked {
+                                        agent_id: agent_id.to_string(),
+                                        tool_name: tool_name.to_string(),
+                                        tool_id,
+                                        parameters,
+                                        timestamp: Utc::now(),
+                                    };
+
+                                    if let Err(e) = event_logger.log(event).await {
+                                        tracing::warn!("Failed to log Claude tool event: {}", e);
+                                    }
+                                }
+                            }
+                            "token_usage" => {
+                                let input_tokens = json
+                                    .get("input_tokens")
+                                    .and_then(|v| v.as_u64())
+                                    .unwrap_or(0);
+                                let output_tokens = json
+                                    .get("output_tokens")
+                                    .and_then(|v| v.as_u64())
+                                    .unwrap_or(0);
+                                let cache_tokens = json
+                                    .get("cache_read_tokens")
+                                    .and_then(|v| v.as_u64())
+                                    .unwrap_or(0);
+
+                                let event = MapReduceEvent::ClaudeTokenUsage {
+                                    agent_id: agent_id.to_string(),
+                                    input_tokens,
+                                    output_tokens,
+                                    cache_tokens,
+                                };
+
+                                if let Err(e) = event_logger.log(event).await {
+                                    tracing::warn!("Failed to log Claude token usage event: {}", e);
+                                }
+                            }
+                            "session_started" => {
+                                let session_id = json
+                                    .get("session_id")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("unknown")
+                                    .to_string();
+                                let model = json
+                                    .get("model")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("unknown")
+                                    .to_string();
+                                let tools = json
+                                    .get("tools")
+                                    .and_then(|v| v.as_array())
+                                    .map(|arr| {
+                                        arr.iter()
+                                            .filter_map(|v| v.as_str().map(String::from))
+                                            .collect()
+                                    })
+                                    .unwrap_or_default();
+
+                                let event = MapReduceEvent::ClaudeSessionStarted {
+                                    agent_id: agent_id.to_string(),
+                                    session_id,
+                                    model,
+                                    tools,
+                                };
+
+                                if let Err(e) = event_logger.log(event).await {
+                                    tracing::warn!("Failed to log Claude session event: {}", e);
+                                }
+                            }
+                            "message" => {
+                                if let Some(content) = json.get("content").and_then(|v| v.as_str())
+                                {
+                                    let message_type = json
+                                        .get("type")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("text")
+                                        .to_string();
+
+                                    let event = MapReduceEvent::ClaudeMessage {
+                                        agent_id: agent_id.to_string(),
+                                        content: content.to_string(),
+                                        message_type,
+                                    };
+
+                                    if let Err(e) = event_logger.log(event).await {
+                                        tracing::warn!("Failed to log Claude message event: {}", e);
+                                    }
+                                }
+                            }
+                            _ => {
+                                tracing::trace!("Unhandled Claude event type: {}", event_type);
+                            }
+                        }
+                    }
+                } else {
+                    tracing::trace!("Non-JSON line in Claude output: {}", line);
+                }
+            }
         }
     }
-}
 
-impl<R: CommandRunner> ClaudeExecutorImpl<R> {
     /// Handle test mode execution
     async fn handle_test_mode_execution(&self, command: &str) -> Result<ExecutionResult> {
         println!("[TEST MODE] Would execute Claude command: {command}");

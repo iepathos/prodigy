@@ -84,6 +84,8 @@ pub struct ExecutionContext {
     pub timeout_seconds: Option<u64>,
     /// Optional stdin input
     pub stdin: Option<String>,
+    /// Whether to capture streaming output (for Claude observability)
+    pub capture_streaming: bool,
 }
 
 impl Default for ExecutionContext {
@@ -94,6 +96,7 @@ impl Default for ExecutionContext {
             capture_output: true,
             timeout_seconds: None,
             stdin: None,
+            capture_streaming: false,
         }
     }
 }
