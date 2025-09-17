@@ -25,6 +25,9 @@ pub mod step_validation;
 mod step_validation_tests;
 mod traits;
 pub mod validation;
+pub mod variable_checkpoint;
+#[cfg(test)]
+mod variable_checkpoint_tests;
 pub mod variables;
 
 pub use checkpoint::ResumeOptions;
