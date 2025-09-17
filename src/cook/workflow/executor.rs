@@ -34,8 +34,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 /// Capture output configuration - either a boolean or a variable name
-#[derive(Debug, Clone, PartialEq)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum CaptureOutput {
     /// Don't capture output
     #[default]

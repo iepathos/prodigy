@@ -2,11 +2,12 @@
 //!
 //! Tests end-to-end workflow resumption including cross-worktree coordination
 
-use prodigy::cook::execution::dlq::{DeadLetterQueue, DeadLetteredItem};
 use chrono::Utc;
-use prodigy::subprocess::runner::TokioProcessRunner;
+use prodigy::cook::execution::dlq::{DeadLetterQueue, DeadLetteredItem};
 use prodigy::cook::execution::events::{EventLogger, JsonlEventWriter};
-use prodigy::cook::execution::mapreduce::{AgentResult, AgentStatus, MapReduceConfig, MapReduceExecutor};
+use prodigy::cook::execution::mapreduce::{
+    AgentResult, AgentStatus, MapReduceConfig, MapReduceExecutor,
+};
 use prodigy::cook::execution::mapreduce_resume::{
     EnhancedResumeOptions, EnhancedResumeResult, MapReducePhase, MapReduceResumeManager,
 };
@@ -14,6 +15,7 @@ use prodigy::cook::execution::state::{DefaultJobStateManager, FailureRecord, Map
 use prodigy::cook::execution::{ClaudeExecutor, ExecutionResult};
 use prodigy::cook::interaction::{SpinnerHandle, UserInteraction, VerbosityLevel};
 use prodigy::cook::workflow::{CaptureOutput, WorkflowStep};
+use prodigy::subprocess::runner::TokioProcessRunner;
 use prodigy::testing::mocks::MockSessionManager;
 use prodigy::worktree::WorktreeManager;
 use serde_json::json;
@@ -135,7 +137,6 @@ async fn create_partial_job_state(
     completed: usize,
     total: usize,
 ) -> MapReduceJobState {
-
     let config = MapReduceConfig {
         input: "test.json".to_string(),
         json_path: "$.items[*]".to_string(),
@@ -313,7 +314,8 @@ async fn test_resume_workflow_from_checkpoint() {
     let job_id = "test-resume-job";
     let mut initial_state = create_partial_job_state(job_id, 3, 10).await;
     initial_state.job_id = job_id.to_string();
-    state_manager.checkpoint_manager
+    state_manager
+        .checkpoint_manager
         .save_checkpoint(&initial_state)
         .await
         .unwrap();
@@ -343,7 +345,8 @@ async fn test_resume_workflow_from_checkpoint() {
     let session_manager = Arc::new(MockSessionManager::new());
     let user_interaction = Arc::new(MockUserInteraction::new());
     let subprocess = prodigy::subprocess::SubprocessManager::new(Arc::new(TokioProcessRunner));
-    let worktree_manager = Arc::new(WorktreeManager::new(project_root.clone(), subprocess).unwrap());
+    let worktree_manager =
+        Arc::new(WorktreeManager::new(project_root.clone(), subprocess).unwrap());
 
     let executor = Arc::new(
         MapReduceExecutor::new(
@@ -366,7 +369,10 @@ async fn test_resume_workflow_from_checkpoint() {
         worktree_name: None,
         session_id: "test-session".to_string(),
     };
-    let result = resume_manager.resume_job(job_id, options, &env).await.unwrap();
+    let result = resume_manager
+        .resume_job(job_id, options, &env)
+        .await
+        .unwrap();
 
     // Verify the resume result
     match result {
@@ -377,10 +383,7 @@ async fn test_resume_workflow_from_checkpoint() {
             remaining_items,
             state,
         } => {
-            assert_eq!(
-                phase,
-                MapReducePhase::Map
-            );
+            assert_eq!(phase, MapReducePhase::Map);
             assert!(map_phase.is_some());
             // Should have 5 remaining items (7 not completed - 2 failed that might be in DLQ)
             assert!(remaining_items.len() >= 5);
@@ -423,26 +426,28 @@ async fn test_resume_with_dlq_recovery() {
     // Add failed items to DLQ
     for i in 0..3 {
         dlq.add(DeadLetteredItem {
-                item_id: format!("failed-item-{}", i),
-                item_data: json!({"id": 100 + i, "value": format!("dlq-item-{}", i)}),
-                first_attempt: Utc::now(),
-                last_attempt: Utc::now(),
-                failure_count: 1,
-                failure_history: vec![prodigy::cook::execution::dlq::FailureDetail {
-                    attempt_number: 1,
-                    timestamp: Utc::now(),
-                    error_type: prodigy::cook::execution::dlq::ErrorType::CommandFailed { exit_code: 1 },
-                    error_message: "Temporary failure".to_string(),
-                    stack_trace: None,
-                    agent_id: format!("agent-failed-{}", i),
-                    step_failed: "process".to_string(),
-                    duration_ms: 1000,
-                }],
-                error_signature: "temporary-failure".to_string(),
-                worktree_artifacts: None,
-                reprocess_eligible: true,
-                manual_review_required: false,
-            })
+            item_id: format!("failed-item-{}", i),
+            item_data: json!({"id": 100 + i, "value": format!("dlq-item-{}", i)}),
+            first_attempt: Utc::now(),
+            last_attempt: Utc::now(),
+            failure_count: 1,
+            failure_history: vec![prodigy::cook::execution::dlq::FailureDetail {
+                attempt_number: 1,
+                timestamp: Utc::now(),
+                error_type: prodigy::cook::execution::dlq::ErrorType::CommandFailed {
+                    exit_code: 1,
+                },
+                error_message: "Temporary failure".to_string(),
+                stack_trace: None,
+                agent_id: format!("agent-failed-{}", i),
+                step_failed: "process".to_string(),
+                duration_ms: 1000,
+            }],
+            error_signature: "temporary-failure".to_string(),
+            worktree_artifacts: None,
+            reprocess_eligible: true,
+            manual_review_required: false,
+        })
         .await
         .unwrap();
     }
@@ -450,7 +455,8 @@ async fn test_resume_with_dlq_recovery() {
     // Create initial state with partial completion
     let mut initial_state = create_partial_job_state(job_id, 5, 10).await;
     initial_state.job_id = job_id.to_string();
-    state_manager.checkpoint_manager
+    state_manager
+        .checkpoint_manager
         .save_checkpoint(&initial_state)
         .await
         .unwrap();
@@ -474,7 +480,10 @@ async fn test_resume_with_dlq_recovery() {
         worktree_name: None,
         session_id: "test-session".to_string(),
     };
-    let result = resume_manager.resume_job(job_id, options, &env).await.unwrap();
+    let result = resume_manager
+        .resume_job(job_id, options, &env)
+        .await
+        .unwrap();
 
     // Verify DLQ items are included
     match result {
@@ -513,7 +522,8 @@ async fn test_resume_completed_workflow() {
     });
 
     completed_state.job_id = job_id.to_string();
-    state_manager.checkpoint_manager
+    state_manager
+        .checkpoint_manager
         .save_checkpoint(&completed_state)
         .await
         .unwrap();
@@ -539,7 +549,10 @@ async fn test_resume_completed_workflow() {
         worktree_name: None,
         session_id: "test-session".to_string(),
     };
-    let result = resume_manager.resume_job(job_id, options, &env).await.unwrap();
+    let result = resume_manager
+        .resume_job(job_id, options, &env)
+        .await
+        .unwrap();
 
     // Verify it returns completion status
     match result {
@@ -564,13 +577,18 @@ async fn test_cross_worktree_coordination() {
     // Simulate multiple worktrees updating the same job
     let mut initial_state = create_partial_job_state(job_id, 2, 10).await;
     initial_state.job_id = job_id.to_string();
-    state_manager.checkpoint_manager
+    state_manager
+        .checkpoint_manager
         .save_checkpoint(&initial_state)
         .await
         .unwrap();
 
     // Simulate worktree 1 completing items 2-4
-    let mut state1 = state_manager.checkpoint_manager.load_checkpoint(job_id).await.unwrap();
+    let mut state1 = state_manager
+        .checkpoint_manager
+        .load_checkpoint(job_id)
+        .await
+        .unwrap();
     for i in 2..5 {
         let agent_id = format!("agent-{}", i);
         state1.completed_agents.insert(agent_id.clone());
@@ -591,10 +609,18 @@ async fn test_cross_worktree_coordination() {
         );
         state1.successful_count += 1;
     }
-    state_manager.checkpoint_manager.save_checkpoint(&state1).await.unwrap();
+    state_manager
+        .checkpoint_manager
+        .save_checkpoint(&state1)
+        .await
+        .unwrap();
 
     // Simulate worktree 2 completing items 5-7
-    let mut state2 = state_manager.checkpoint_manager.load_checkpoint(job_id).await.unwrap();
+    let mut state2 = state_manager
+        .checkpoint_manager
+        .load_checkpoint(job_id)
+        .await
+        .unwrap();
     for i in 5..8 {
         let agent_id = format!("agent-{}", i);
         state2.completed_agents.insert(agent_id.clone());
@@ -615,10 +641,18 @@ async fn test_cross_worktree_coordination() {
         );
         state2.successful_count += 1;
     }
-    state_manager.checkpoint_manager.save_checkpoint(&state2).await.unwrap();
+    state_manager
+        .checkpoint_manager
+        .save_checkpoint(&state2)
+        .await
+        .unwrap();
 
     // Load final state and verify coordination
-    let final_state = state_manager.checkpoint_manager.load_checkpoint(job_id).await.unwrap();
+    let final_state = state_manager
+        .checkpoint_manager
+        .load_checkpoint(job_id)
+        .await
+        .unwrap();
     assert_eq!(final_state.completed_agents.len(), 8); // 2 initial + 3 from wt1 + 3 from wt2
     assert_eq!(final_state.successful_count, 8);
 
@@ -649,7 +683,8 @@ async fn test_resume_with_environment_validation() {
     // Create initial state
     let mut initial_state = create_partial_job_state(job_id, 3, 5).await;
     initial_state.job_id = job_id.to_string();
-    state_manager.checkpoint_manager
+    state_manager
+        .checkpoint_manager
         .save_checkpoint(&initial_state)
         .await
         .unwrap();
@@ -696,7 +731,8 @@ async fn test_force_resume_completed_job() {
     // Job is complete when all items are processed
 
     completed_state.job_id = job_id.to_string();
-    state_manager.checkpoint_manager
+    state_manager
+        .checkpoint_manager
         .save_checkpoint(&completed_state)
         .await
         .unwrap();
@@ -724,12 +760,14 @@ async fn test_force_resume_completed_job() {
         worktree_name: None,
         session_id: "test-session".to_string(),
     };
-    let result = resume_manager.resume_job(job_id, options, &env).await.unwrap();
+    let result = resume_manager
+        .resume_job(job_id, options, &env)
+        .await
+        .unwrap();
 
     // Should allow resumption with force flag
     match result {
-        EnhancedResumeResult::ReadyToExecute { .. }
-        | EnhancedResumeResult::MapOnlyCompleted(_) => {
+        EnhancedResumeResult::ReadyToExecute { .. } | EnhancedResumeResult::MapOnlyCompleted(_) => {
             // Force flag allows re-execution
         }
         EnhancedResumeResult::FullWorkflowCompleted(_) => {

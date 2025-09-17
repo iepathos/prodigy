@@ -156,7 +156,6 @@ pub struct MapReduceResumeManager {
     state_manager: Arc<dyn JobStateManager>,
     event_logger: Arc<EventLogger>,
     dlq: Arc<DeadLetterQueue>,
-    project_root: PathBuf,
     executor: Option<Arc<MapReduceExecutor>>,
 }
 
@@ -171,7 +170,7 @@ impl MapReduceResumeManager {
         let dlq = Arc::new(
             DeadLetterQueue::new(
                 job_id,
-                project_root.clone(),
+                project_root,
                 1000,                       // max_items
                 30,                         // retention_days
                 Some(event_logger.clone()), // event_logger
@@ -183,7 +182,6 @@ impl MapReduceResumeManager {
             state_manager,
             event_logger,
             dlq,
-            project_root,
             executor: None,
         })
     }
@@ -431,12 +429,11 @@ impl MapReduceResumeManager {
         }
 
         // If all map items are done and reduce hasn't started
-        if state.reduce_commands.is_some() {
-            if state.reduce_phase_state.is_none()
-                || !state.reduce_phase_state.as_ref().unwrap().started
-            {
-                return MapReducePhase::Reduce;
-            }
+        if state.reduce_commands.is_some()
+            && (state.reduce_phase_state.is_none()
+                || !state.reduce_phase_state.as_ref().unwrap().started)
+        {
+            return MapReducePhase::Reduce;
         }
 
         // Default to Map phase
@@ -544,7 +541,9 @@ impl MapReduceResumeManager {
 
         // Prepare reduce phase for execution
         // Note: The reduce commands would need to be stored in state or reconstructed
-        if state.reduce_phase_state.is_some() && !state.reduce_phase_state.as_ref().unwrap().completed {
+        if state.reduce_phase_state.is_some()
+            && !state.reduce_phase_state.as_ref().unwrap().completed
+        {
             Ok(EnhancedResumeResult::ReadyToExecute {
                 phase: MapReducePhase::Reduce,
                 map_phase: None,
@@ -641,9 +640,8 @@ mod tests {
             );
         }
 
-        let pending_items: Vec<String> = (completed..total)
-            .map(|i| format!("item_{}", i))
-            .collect();
+        let pending_items: Vec<String> =
+            (completed..total).map(|i| format!("item_{}", i)).collect();
 
         MapReduceJobState {
             job_id: job_id.to_string(),
@@ -670,8 +668,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_calculate_remaining_items() {
-        use tempfile::TempDir;
         use crate::cook::execution::state::DefaultJobStateManager;
+        use tempfile::TempDir;
 
         let temp_dir = TempDir::new().unwrap();
         let state_manager = Arc::new(DefaultJobStateManager::new(temp_dir.path().to_path_buf()));
@@ -693,7 +691,10 @@ mod tests {
 
         let options = EnhancedResumeOptions::default();
 
-        let remaining = manager.calculate_remaining_items(&mut state, &options).await.unwrap();
+        let remaining = manager
+            .calculate_remaining_items(&mut state, &options)
+            .await
+            .unwrap();
 
         // Should have 2 remaining items (indices 3 and 4) from pending_items
         assert_eq!(remaining.len(), 2, "Should have 2 remaining work items");
@@ -701,8 +702,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_resume_from_map_empty_items() {
-        use tempfile::TempDir;
         use crate::cook::execution::state::DefaultJobStateManager;
+        use tempfile::TempDir;
 
         let temp_dir = TempDir::new().unwrap();
         let state_manager = Arc::new(DefaultJobStateManager::new(temp_dir.path().to_path_buf()));
@@ -727,7 +728,10 @@ mod tests {
         let options = EnhancedResumeOptions::default();
 
         // Test with empty remaining items (map phase complete)
-        let result = manager.resume_from_map(&mut state, vec![], &env, &options).await.unwrap();
+        let result = manager
+            .resume_from_map(&mut state, vec![], &env, &options)
+            .await
+            .unwrap();
 
         match result {
             EnhancedResumeResult::MapOnlyCompleted(map_result) => {
@@ -741,8 +745,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_resume_from_map_with_remaining() {
-        use tempfile::TempDir;
         use crate::cook::execution::state::DefaultJobStateManager;
+        use tempfile::TempDir;
 
         let temp_dir = TempDir::new().unwrap();
         let state_manager = Arc::new(DefaultJobStateManager::new(temp_dir.path().to_path_buf()));
@@ -766,15 +770,20 @@ mod tests {
         };
         let options = EnhancedResumeOptions::default();
 
-        let remaining_items = vec![
-            serde_json::json!({"id": 3}),
-            serde_json::json!({"id": 4}),
-        ];
+        let remaining_items = vec![serde_json::json!({"id": 3}), serde_json::json!({"id": 4})];
 
-        let result = manager.resume_from_map(&mut state, remaining_items.clone(), &env, &options).await.unwrap();
+        let result = manager
+            .resume_from_map(&mut state, remaining_items.clone(), &env, &options)
+            .await
+            .unwrap();
 
         match result {
-            EnhancedResumeResult::ReadyToExecute { phase, map_phase, remaining_items: items, .. } => {
+            EnhancedResumeResult::ReadyToExecute {
+                phase,
+                map_phase,
+                remaining_items: items,
+                ..
+            } => {
                 assert_eq!(phase, MapReducePhase::Map);
                 assert!(map_phase.is_some());
                 assert_eq!(items.len(), 2);
@@ -785,8 +794,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_resume_from_reduce_completed() {
-        use tempfile::TempDir;
         use crate::cook::execution::state::DefaultJobStateManager;
+        use tempfile::TempDir;
 
         let temp_dir = TempDir::new().unwrap();
         let state_manager = Arc::new(DefaultJobStateManager::new(temp_dir.path().to_path_buf()));
@@ -822,7 +831,10 @@ mod tests {
         };
         let options = EnhancedResumeOptions::default();
 
-        let result = manager.resume_from_reduce(&mut state, &env, &options).await.unwrap();
+        let result = manager
+            .resume_from_reduce(&mut state, &env, &options)
+            .await
+            .unwrap();
 
         match result {
             EnhancedResumeResult::FullWorkflowCompleted(full_result) => {
@@ -835,8 +847,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_load_and_validate_state() {
-        use tempfile::TempDir;
         use crate::cook::execution::state::DefaultJobStateManager;
+        use tempfile::TempDir;
 
         let temp_dir = TempDir::new().unwrap();
         let state_manager = Arc::new(DefaultJobStateManager::new(temp_dir.path().to_path_buf()));
@@ -855,12 +867,15 @@ mod tests {
         let test_state = create_test_state("test-job", 5, 10).await;
 
         // Create the job - this creates the initial checkpoint
-        let created_job_id = state_manager.create_job(
-            test_state.config.clone(),
-            test_state.work_items.clone(),
-            test_state.agent_template.clone(),
-            test_state.reduce_commands.clone(),
-        ).await.unwrap();
+        let created_job_id = state_manager
+            .create_job(
+                test_state.config.clone(),
+                test_state.work_items.clone(),
+                test_state.agent_template.clone(),
+                test_state.reduce_commands.clone(),
+            )
+            .await
+            .unwrap();
 
         // Load directly from state manager to verify job was created
         let loaded_from_manager = state_manager.get_job_state(&created_job_id).await.unwrap();
@@ -869,7 +884,9 @@ mod tests {
 
         // Now try to load through resume manager - this might fail if checkpoint isn't complete
         let options = EnhancedResumeOptions::default();
-        let result = manager.load_and_validate_state(&created_job_id, &options).await;
+        let result = manager
+            .load_and_validate_state(&created_job_id, &options)
+            .await;
 
         // The load might fail with validation errors since we haven't fully populated all fields
         // but at least verify the job was created
