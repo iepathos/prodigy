@@ -18,6 +18,7 @@ use std::time::Duration;
 use tempfile::TempDir;
 
 /// Mock ClaudeExecutor for testing
+#[allow(dead_code)]
 struct MockClaudeExecutor;
 
 #[async_trait]
@@ -46,6 +47,7 @@ impl ClaudeExecutor for MockClaudeExecutor {
 }
 
 /// Mock SessionManager for testing
+#[allow(dead_code)]
 struct MockSessionManager;
 
 #[async_trait]
@@ -100,6 +102,7 @@ impl SessionManager for MockSessionManager {
 }
 
 /// Mock UserInteraction for testing
+#[allow(dead_code)]
 struct MockUserInteraction;
 
 #[async_trait]
@@ -134,6 +137,7 @@ impl UserInteraction for MockUserInteraction {
     }
 }
 
+#[allow(dead_code)]
 struct MockSpinnerHandle;
 impl crate::cook::interaction::SpinnerHandle for MockSpinnerHandle {
     fn update_message(&mut self, _message: &str) {}
@@ -223,9 +227,11 @@ async fn test_circuit_breaker_state_transitions() {
 async fn test_retry_budget_enforcement() {
     let manager = RetryStateManager::new();
 
-    let mut config = RetryConfig::default();
-    config.retry_budget = Some(Duration::from_secs(5));
-    config.attempts = 100; // High limit to test budget
+    let config = RetryConfig {
+        retry_budget: Some(Duration::from_secs(5)),
+        attempts: 100, // High limit to test budget
+        ..Default::default()
+    };
 
     // Create initial attempt
     let attempt = RetryAttempt {

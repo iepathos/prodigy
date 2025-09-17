@@ -663,9 +663,11 @@ mod tests {
     async fn test_retry_budget_enforcement() {
         let manager = RetryStateManager::new();
 
-        let mut config = RetryConfig::default();
-        config.retry_budget = Some(Duration::from_secs(5));
-        config.attempts = 100; // High limit to test budget
+        let config = RetryConfig {
+            retry_budget: Some(Duration::from_secs(5)),
+            attempts: 100, // High limit to test budget
+            ..Default::default()
+        };
 
         // Create initial state with budget
         let attempt = RetryAttempt {

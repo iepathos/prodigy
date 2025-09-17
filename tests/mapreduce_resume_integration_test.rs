@@ -35,6 +35,7 @@ impl MockUserInteraction {
         Self { default_yes: true }
     }
 
+    #[allow(dead_code)]
     fn new_with_default(_default_yes: bool) -> Self {
         Self { default_yes: true }
     }
@@ -92,6 +93,7 @@ impl MockClaudeExecutor {
         }
     }
 
+    #[allow(dead_code)]
     fn with_results(results: HashMap<String, String>) -> Self {
         Self {
             results: Arc::new(Mutex::new(results)),
@@ -297,7 +299,7 @@ async fn create_partial_job_state(
         reduce_phase_state: None,
         total_items: total,
         successful_count: completed,
-        failed_count: failed_count,
+        failed_count,
         is_complete: false,
         agent_template,
         reduce_commands,
@@ -472,8 +474,10 @@ async fn test_resume_with_dlq_recovery() {
     .unwrap();
 
     // Resume with DLQ items included
-    let mut options = EnhancedResumeOptions::default();
-    options.include_dlq_items = true;
+    let options = EnhancedResumeOptions {
+        include_dlq_items: true,
+        ..Default::default()
+    };
     let env = prodigy::cook::orchestrator::ExecutionEnvironment {
         working_dir: project_root.clone(),
         project_dir: project_root.clone(),
@@ -703,8 +707,10 @@ async fn test_resume_with_environment_validation() {
     .unwrap();
 
     // Resume with environment validation enabled
-    let mut options = EnhancedResumeOptions::default();
-    options.validate_environment = true;
+    let options = EnhancedResumeOptions {
+        validate_environment: true,
+        ..Default::default()
+    };
 
     let env = prodigy::cook::orchestrator::ExecutionEnvironment {
         working_dir: project_root.clone(),
@@ -751,8 +757,10 @@ async fn test_force_resume_completed_job() {
     .unwrap();
 
     // Force resume even though job is complete
-    let mut options = EnhancedResumeOptions::default();
-    options.force = true;
+    let options = EnhancedResumeOptions {
+        force: true,
+        ..Default::default()
+    };
 
     let env = prodigy::cook::orchestrator::ExecutionEnvironment {
         working_dir: project_root.clone(),
