@@ -13,8 +13,9 @@ use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::{SessionManager, SessionUpdate};
 use crate::cook::workflow::checkpoint::{
     self, create_checkpoint_with_total_steps, CheckpointManager,
-    CompletedStep as CheckpointCompletedStep,
+    CompletedStep as CheckpointCompletedStep, ResumeContext,
 };
+use crate::cook::workflow::error_recovery::ErrorRecoveryState;
 use crate::cook::workflow::normalized;
 use crate::cook::workflow::normalized::NormalizedWorkflow;
 use crate::cook::workflow::on_failure::{HandlerStrategy, OnFailureConfig};
@@ -596,12 +597,20 @@ pub struct WorkflowExecutor {
     current_step_index: Option<usize>,
     /// Git operations abstraction for testing
     git_operations: Arc<dyn GitOperations>,
+    /// Resume context for handling interrupted workflows with error recovery state
+    resume_context: Option<ResumeContext>,
 }
 
 impl WorkflowExecutor {
     /// Sets the command registry for modular command handlers
     pub async fn with_command_registry(mut self) -> Self {
         self.command_registry = Some(CommandRegistry::with_defaults().await);
+        self
+    }
+
+    /// Set the resume context for handling interrupted workflows
+    pub fn with_resume_context(mut self, context: ResumeContext) -> Self {
+        self.resume_context = Some(context);
         self
     }
 
@@ -1716,6 +1725,7 @@ impl WorkflowExecutor {
             current_workflow: None,
             current_step_index: None,
             git_operations: Arc::new(RealGitOperations::new()),
+            resume_context: None,
         }
     }
 
@@ -1775,6 +1785,7 @@ impl WorkflowExecutor {
             current_workflow: None,
             current_step_index: None,
             git_operations: Arc::new(RealGitOperations::new()),
+            resume_context: None,
         }
     }
 
@@ -1805,6 +1816,7 @@ impl WorkflowExecutor {
             current_workflow: None,
             current_step_index: None,
             git_operations,
+            resume_context: None,
         }
     }
 
@@ -2114,6 +2126,42 @@ impl WorkflowExecutor {
 
             // Execute workflow steps
             for (step_index, step) in workflow.steps.iter().enumerate() {
+                // Check if we should skip this step (already completed in previous run)
+                if let Some(ref resume_ctx) = self.resume_context {
+                    if resume_ctx.skip_steps.iter().any(|s| s.step_index == step_index) {
+                        self.user_interaction.display_info(&format!(
+                            "Skipping already completed step {}/{}: {}",
+                            step_index + 1,
+                            workflow.steps.len(),
+                            self.get_step_display_name(step)
+                        ));
+                        continue;
+                    }
+
+                    // Check if we have error recovery state stored in variables
+                    if let Some(recovery_state_value) = resume_ctx.variable_state.get("__error_recovery_state") {
+                        // Parse the error recovery state from JSON
+                        if let Ok(error_recovery_state) = serde_json::from_value::<ErrorRecoveryState>(recovery_state_value.clone()) {
+                            // If this step had an active error handler that wasn't completed,
+                            // we need to ensure it gets executed if the step fails again
+                            if !error_recovery_state.active_handlers.is_empty() {
+                                tracing::info!(
+                                    "Restored {} error handlers for step {}",
+                                    error_recovery_state.active_handlers.len(),
+                                    step_index
+                                );
+                                // Store error context in workflow variables for handler execution
+                                for (key, value) in error_recovery_state.error_context {
+                                    workflow_context.variables.insert(
+                                        format!("error.{}", key),
+                                        value.to_string()
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Store current workflow context for checkpoint tracking
                 // TODO: Convert workflow to NormalizedWorkflow for checkpoint tracking
                 // self.current_workflow = Some(workflow.clone());

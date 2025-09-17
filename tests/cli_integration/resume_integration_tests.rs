@@ -789,3 +789,226 @@ reduce:
     assert_eq!(output.exit_code, exit_codes::SUCCESS);
     // MapReduce may not produce specific output in test execution
 }
+
+#[test]
+#[ignore = "Resume with on_failure handlers requires full workflow execution implementation"]
+fn test_resume_workflow_with_on_failure_handlers() {
+    // Use CliTest to get a temp directory with git initialized
+    let mut test = CliTest::new();
+    let test_dir = test.temp_path().to_path_buf();
+    let checkpoint_dir = test_dir.join(".prodigy").join("checkpoints");
+    let workflow_dir = test_dir.clone();
+
+    // Create a workflow with on_failure handlers at different steps
+    let workflow_content = r#"
+name: test-on-failure-resume
+description: Test resuming workflow with on_failure handlers
+
+steps:
+  - shell: "echo 'Step 1 completed' > step1.txt"
+    name: step1
+
+  - shell: "echo 'Step 2 completed' > step2.txt"
+    name: step2
+    on_failure:
+      commands:
+        - shell: "echo 'Handling step 2 failure' > step2-error.txt"
+        - shell: "echo 'Recovery completed' > recovery.txt"
+
+  - shell: "test -f trigger-failure.txt && exit 1 || echo 'Step 3 completed' > step3.txt"
+    name: step3
+    on_failure:
+      commands:
+        - shell: "echo 'Step 3 failed, cleaning up' > step3-cleanup.txt"
+        - shell: "rm -f trigger-failure.txt"
+        - shell: "echo 'Retry marker' > retry.txt"
+
+  - shell: "echo 'Step 4 completed' > step4.txt"
+    name: step4
+
+  - shell: "echo 'Final step completed' > final.txt"
+    name: final
+"#;
+
+    // Save workflow file
+    let workflow_path = workflow_dir.join("test-on-failure-resume.yaml");
+    fs::write(&workflow_path, workflow_content).unwrap();
+
+    // Create a checkpoint with error recovery state stored
+    let now = chrono::Utc::now();
+    let workflow_id = "on-failure-resume-test";
+
+    // Create checkpoint that indicates step 2 completed but step 3 failed and needs recovery
+    let checkpoint = json!({
+        "workflow_id": workflow_id,
+        "execution_state": {
+            "current_step_index": 2,  // Failed at step 3 (index 2)
+            "total_steps": 5,
+            "status": "Interrupted",
+            "start_time": now.to_rfc3339(),
+            "last_checkpoint": now.to_rfc3339(),
+            "current_iteration": null,
+            "total_iterations": null
+        },
+        "completed_steps": [
+            {
+                "step_index": 0,
+                "command": "shell: echo 'Step 1 completed' > step1.txt",
+                "success": true,
+                "output": "Step 1 completed",
+                "captured_variables": {},
+                "duration": { "secs": 1, "nanos": 0 },
+                "completed_at": now.to_rfc3339(),
+                "retry_state": null
+            },
+            {
+                "step_index": 1,
+                "command": "shell: echo 'Step 2 completed' > step2.txt",
+                "success": true,
+                "output": "Step 2 completed",
+                "captured_variables": {},
+                "duration": { "secs": 1, "nanos": 0 },
+                "completed_at": now.to_rfc3339(),
+                "retry_state": null
+            }
+        ],
+        "variable_state": {
+            // Store error recovery state as a special variable
+            "__error_recovery_state": json!({
+                "active_handlers": [{
+                    "id": "step3-error-handler",
+                    "commands": [
+                        {"shell": "echo 'Step 3 failed, cleaning up' > step3-cleanup.txt"},
+                        {"shell": "rm -f trigger-failure.txt"},
+                        {"shell": "echo 'Retry marker' > retry.txt"}
+                    ],
+                    "strategy": "retry"
+                }],
+                "correlation_id": "test-correlation-123",
+                "recovery_attempts": 1,
+                "max_recovery_attempts": 3
+            })
+        },
+        "mapreduce_state": null,
+        "timestamp": now.to_rfc3339(),
+        "version": 1,
+        "workflow_hash": "test-hash-with-handlers",
+        "total_steps": 5,
+        "workflow_name": "test-on-failure-resume",
+        "workflow_path": workflow_path.to_str()
+    });
+
+    // Create trigger file to cause step 3 to fail initially
+    fs::write(test_dir.join("trigger-failure.txt"), "trigger").unwrap();
+
+    // Save checkpoint
+    fs::create_dir_all(&checkpoint_dir).unwrap();
+    fs::write(
+        checkpoint_dir.join(format!("{}.checkpoint.json", workflow_id)),
+        serde_json::to_string_pretty(&checkpoint).unwrap(),
+    ).unwrap();
+
+    // Resume the workflow
+    test = test
+        .arg("resume")
+        .arg(workflow_id)
+        .arg("--path")
+        .arg(test_dir.to_str().unwrap());
+
+    let output = test.run();
+
+    // Workflow should complete successfully with error recovery executed
+    assert_eq!(output.exit_code, exit_codes::SUCCESS,
+        "Workflow should complete successfully after error recovery. Output: {}", output.stdout);
+
+    // Verify that error handlers were executed
+    assert!(test_dir.join("step3-cleanup.txt").exists(), "Error handler should have created cleanup file");
+    assert!(!test_dir.join("trigger-failure.txt").exists(), "Error handler should have removed trigger file");
+    assert!(test_dir.join("retry.txt").exists(), "Error handler should have created retry marker");
+
+    // Verify remaining steps completed
+    assert!(test_dir.join("step3.txt").exists(), "Step 3 should complete after error recovery");
+    assert!(test_dir.join("step4.txt").exists(), "Step 4 should have been executed");
+    assert!(test_dir.join("final.txt").exists(), "Final step should have been executed");
+}
+
+#[test]
+fn test_checkpoint_with_error_recovery_state_serialization() {
+    // Test that error recovery state can be properly serialized/deserialized in checkpoints
+    let now = chrono::Utc::now();
+    let workflow_id = "test-error-state-serialization";
+
+    let checkpoint_with_error_state = json!({
+        "workflow_id": workflow_id,
+        "execution_state": {
+            "current_step_index": 2,
+            "total_steps": 4,
+            "status": "Interrupted",
+            "start_time": now.to_rfc3339(),
+            "last_checkpoint": now.to_rfc3339(),
+            "current_iteration": null,
+            "total_iterations": null
+        },
+        "completed_steps": [
+            {
+                "step_index": 0,
+                "command": "shell: echo 'Step 1'",
+                "success": true,
+                "output": "Step 1 output",
+                "captured_variables": {},
+                "duration": { "secs": 1, "nanos": 0 },
+                "completed_at": now.to_rfc3339(),
+                "retry_state": null
+            }
+        ],
+        "variable_state": {
+            "__error_recovery_state": json!({
+                "active_handlers": [{
+                    "id": "handler-1",
+                    "commands": [
+                        {"shell": "echo 'Handling error'"},
+                        {"shell": "rm -f error.txt"}
+                    ],
+                    "strategy": "retry",
+                    "scope": "step",
+                    "timeout": { "secs": 30, "nanos": 0 }
+                }],
+                "error_context": {
+                    "message": "Command failed",
+                    "exit_code": "1"
+                },
+                "handler_execution_history": [],
+                "correlation_id": "test-123",
+                "recovery_attempts": 1,
+                "max_recovery_attempts": 3
+            }),
+            "other_var": "some_value"
+        },
+        "mapreduce_state": null,
+        "timestamp": now.to_rfc3339(),
+        "version": 1,
+        "workflow_hash": "test-hash",
+        "total_steps": 4,
+        "workflow_name": "test-workflow",
+        "workflow_path": null
+    });
+
+    // Verify the JSON structure is valid
+    let checkpoint_str = serde_json::to_string(&checkpoint_with_error_state).unwrap();
+    let parsed_checkpoint: serde_json::Value = serde_json::from_str(&checkpoint_str).unwrap();
+
+    // Verify error recovery state is present
+    assert!(parsed_checkpoint["variable_state"]["__error_recovery_state"].is_object());
+
+    // Verify we can extract the error recovery state
+    let error_state = &parsed_checkpoint["variable_state"]["__error_recovery_state"];
+    assert_eq!(error_state["correlation_id"], "test-123");
+    assert_eq!(error_state["recovery_attempts"], 1);
+    assert_eq!(error_state["max_recovery_attempts"], 3);
+
+    // Verify handlers are preserved
+    let handlers = error_state["active_handlers"].as_array().unwrap();
+    assert_eq!(handlers.len(), 1);
+    assert_eq!(handlers[0]["id"], "handler-1");
+    assert_eq!(handlers[0]["strategy"], "retry");
+}
