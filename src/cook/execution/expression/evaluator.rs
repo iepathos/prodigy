@@ -7,9 +7,10 @@ use serde_json::Value;
 use std::cmp::Ordering;
 
 /// String collation options for locale-specific sorting
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum Collation {
     /// Default binary/lexicographic comparison
+    #[default]
     Default,
     /// Case-insensitive comparison
     CaseInsensitive,
@@ -17,12 +18,6 @@ pub enum Collation {
     Numeric,
     /// Case-insensitive and numeric-aware
     CaseInsensitiveNumeric,
-}
-
-impl Default for Collation {
-    fn default() -> Self {
-        Collation::Default
-    }
 }
 
 /// Compiled filter ready for execution
@@ -71,6 +66,7 @@ impl CompiledSort {
     }
 
     /// Apply the sort to a vector of items
+    #[allow(clippy::ptr_arg)]
     pub fn apply(&self, items: &mut Vec<Value>) -> Result<()> {
         let evaluator = ExpressionEvaluator::new();
         items.sort_by(|a, b| self.compare_items(a, b, &evaluator));
@@ -153,12 +149,8 @@ impl CompiledSort {
     fn compare_strings(&self, a: &str, b: &str) -> Ordering {
         match &self.collation {
             Collation::Default => a.cmp(b),
-            Collation::CaseInsensitive => {
-                a.to_lowercase().cmp(&b.to_lowercase())
-            }
-            Collation::Numeric => {
-                self.natural_compare(a, b)
-            }
+            Collation::CaseInsensitive => a.to_lowercase().cmp(&b.to_lowercase()),
+            Collation::Numeric => self.natural_compare(a, b),
             Collation::CaseInsensitiveNumeric => {
                 self.natural_compare(&a.to_lowercase(), &b.to_lowercase())
             }
@@ -244,21 +236,11 @@ enum NumericPart {
 }
 
 /// Evaluation context for special variables
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct EvaluationContext {
     pub index: Option<usize>,
     pub key: Option<String>,
     pub value: Option<Value>,
-}
-
-impl Default for EvaluationContext {
-    fn default() -> Self {
-        Self {
-            index: None,
-            key: None,
-            value: None,
-        }
-    }
 }
 
 /// Expression evaluator

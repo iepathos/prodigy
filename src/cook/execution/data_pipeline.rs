@@ -584,9 +584,9 @@ impl FilterExpression {
         }
 
         // Check for NOT operator at the beginning
-        if expr.starts_with("!") {
+        if let Some(stripped) = expr.strip_prefix("!") {
             // Handle negation
-            let inner_expr = expr[1..].trim();
+            let inner_expr = stripped.trim();
             // If it starts with '(' and ends with ')', parse the inner expression
             let inner = if inner_expr.starts_with('(') && inner_expr.ends_with(')') {
                 Self::parse(&inner_expr[1..inner_expr.len() - 1])?
@@ -1958,9 +1958,9 @@ mod tests {
         let item2 = json!({"optional_field": null});
         let item3 = json!({"other_field": "value"}); // Missing field
 
-        assert!(filter.evaluate(&item1));  // !is_null("value") = !false = true
-        assert!(!filter.evaluate(&item2));  // !is_null(null) = !true = false
-        assert!(filter.evaluate(&item3));   // !is_null(missing) = !false = true (missing != null)
+        assert!(filter.evaluate(&item1)); // !is_null("value") = !false = true
+        assert!(!filter.evaluate(&item2)); // !is_null(null) = !true = false
+        assert!(filter.evaluate(&item3)); // !is_null(missing) = !false = true (missing != null)
 
         // Test NOT with comparison
         let filter = FilterExpression::parse("!(priority > 5)").unwrap();

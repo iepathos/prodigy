@@ -25,6 +25,7 @@ impl ExpressionOptimizer {
     }
 
     /// Constant folding - evaluate constant expressions at compile time
+    #[allow(clippy::only_used_in_recursion)]
     fn constant_folding(&self, expr: Expression) -> Result<Expression> {
         match expr {
             // Fold constant arithmetic
@@ -151,6 +152,7 @@ impl ExpressionOptimizer {
     }
 
     /// Estimate expression complexity for optimization decisions
+    #[allow(clippy::only_used_in_recursion)]
     fn estimate_complexity(&self, expr: &Expression) -> u32 {
         match expr {
             Expression::Number(_)

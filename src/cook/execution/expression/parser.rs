@@ -270,7 +270,12 @@ impl ExpressionParser {
                 _ if ch.is_alphabetic() || ch == '_' => {
                     let mut ident = String::new();
                     while let Some(&ch) = chars.peek() {
-                        if ch.is_alphanumeric() || ch == '_' || ch == '.' || ch == '[' || ch == ']' || ch == '*'
+                        if ch.is_alphanumeric()
+                            || ch == '_'
+                            || ch == '.'
+                            || ch == '['
+                            || ch == ']'
+                            || ch == '*'
                         {
                             ident.push(ch);
                             chars.next();
@@ -345,9 +350,10 @@ impl ExpressionParser {
         }
 
         // Build OR tree from left to right
-        let result = parts.into_iter().reduce(|left, right| {
-            Expression::Or(Box::new(left), Box::new(right))
-        }).ok_or_else(|| anyhow!("Empty OR expression"))?;
+        let result = parts
+            .into_iter()
+            .reduce(|left, right| Expression::Or(Box::new(left), Box::new(right)))
+            .ok_or_else(|| anyhow!("Empty OR expression"))?;
 
         Ok(result)
     }
@@ -376,9 +382,10 @@ impl ExpressionParser {
         }
 
         // Build AND tree from left to right
-        let result = parts.into_iter().reduce(|left, right| {
-            Expression::And(Box::new(left), Box::new(right))
-        }).ok_or_else(|| anyhow!("Empty AND expression"))?;
+        let result = parts
+            .into_iter()
+            .reduce(|left, right| Expression::And(Box::new(left), Box::new(right)))
+            .ok_or_else(|| anyhow!("Empty AND expression"))?;
 
         Ok(result)
     }
@@ -422,7 +429,7 @@ impl ExpressionParser {
 
             if depth == 0 && end == tokens.len() {
                 // Entire expression is parenthesized, strip parentheses and re-parse
-                return self.parse_or(&tokens[1..end-1]);
+                return self.parse_or(&tokens[1..end - 1]);
             }
         }
 
@@ -440,10 +447,18 @@ impl ExpressionParser {
             match token {
                 Token::LeftParen => paren_depth += 1,
                 Token::RightParen => paren_depth -= 1,
-                Token::Equal | Token::NotEqual | Token::Greater | Token::Less |
-                Token::GreaterEqual | Token::LessEqual | Token::Contains |
-                Token::StartsWith | Token::EndsWith | Token::Matches
-                    if paren_depth == 0 && op_pos.is_none() => {
+                Token::Equal
+                | Token::NotEqual
+                | Token::Greater
+                | Token::Less
+                | Token::GreaterEqual
+                | Token::LessEqual
+                | Token::Contains
+                | Token::StartsWith
+                | Token::EndsWith
+                | Token::Matches
+                    if paren_depth == 0 && op_pos.is_none() =>
+                {
                     op_pos = Some(i);
                 }
                 _ => {}
@@ -527,7 +542,7 @@ impl ExpressionParser {
                     };
                     Ok(func_expr)
                 } else {
-                    return Err(anyhow!("Expected '(' after function name"));
+                    Err(anyhow!("Expected '(' after function name"))
                 }
             }
 
@@ -563,7 +578,6 @@ impl ExpressionParser {
         }
     }
 
-
     /// Parse a field path (e.g., "user.profile.name" or "items[0].value" or "items[*].score")
     fn parse_field_path(&self, path: &str) -> Result<Expression> {
         // Check for array wildcard notation
@@ -582,7 +596,10 @@ impl ExpressionParser {
                     rest.split('.').map(|s| s.to_string()).collect()
                 };
 
-                return Ok(Expression::ArrayWildcard(Box::new(base_expr), rest_segments));
+                return Ok(Expression::ArrayWildcard(
+                    Box::new(base_expr),
+                    rest_segments,
+                ));
             }
         }
 
@@ -593,6 +610,7 @@ impl ExpressionParser {
 
 /// Token types for the lexer
 #[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
 enum Token {
     // Literals
     Number(f64),

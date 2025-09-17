@@ -71,7 +71,11 @@ impl ExpressionEngine {
     }
 
     /// Compile a sort expression with custom collation
-    pub fn compile_sort_with_collation(&self, expr: &str, collation: Collation) -> Result<CompiledSort> {
+    pub fn compile_sort_with_collation(
+        &self,
+        expr: &str,
+        collation: Collation,
+    ) -> Result<CompiledSort> {
         // Parse the sort keys
         let sort_keys = self.parser.parse_sort(expr)?;
 

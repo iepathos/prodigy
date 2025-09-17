@@ -59,7 +59,8 @@ fn bench_filter_performance(c: &mut Criterion) {
             BenchmarkId::new("complex_filter", size),
             &items,
             |b, items| {
-                let expr = parse_expression("(score > 50 AND active == true) OR category == \"A\"").unwrap();
+                let expr = parse_expression("(score > 50 AND active == true) OR category == \"A\"")
+                    .unwrap();
                 let evaluator = ExpressionEvaluator::new(expr);
                 b.iter(|| {
                     let filtered: Vec<_> = items
@@ -141,9 +142,7 @@ fn bench_sort_performance(c: &mut Criterion) {
                 let sort_expr = parse_sort_expression("score DESC").unwrap();
                 b.iter(|| {
                     let mut sorted = items.clone();
-                    sorted.sort_by(|a, b| {
-                        sort_expr.compare(black_box(a), black_box(b))
-                    });
+                    sorted.sort_by(|a, b| sort_expr.compare(black_box(a), black_box(b)));
                     black_box(sorted);
                 });
             },
@@ -157,29 +156,21 @@ fn bench_sort_performance(c: &mut Criterion) {
                 let sort_expr = parse_sort_expression("category ASC, score DESC").unwrap();
                 b.iter(|| {
                     let mut sorted = items.clone();
-                    sorted.sort_by(|a, b| {
-                        sort_expr.compare(black_box(a), black_box(b))
-                    });
+                    sorted.sort_by(|a, b| sort_expr.compare(black_box(a), black_box(b)));
                     black_box(sorted);
                 });
             },
         );
 
         // String sort: name ASC
-        group.bench_with_input(
-            BenchmarkId::new("string_sort", size),
-            &items,
-            |b, items| {
-                let sort_expr = parse_sort_expression("name ASC").unwrap();
-                b.iter(|| {
-                    let mut sorted = items.clone();
-                    sorted.sort_by(|a, b| {
-                        sort_expr.compare(black_box(a), black_box(b))
-                    });
-                    black_box(sorted);
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("string_sort", size), &items, |b, items| {
+            let sort_expr = parse_sort_expression("name ASC").unwrap();
+            b.iter(|| {
+                let mut sorted = items.clone();
+                sorted.sort_by(|a, b| sort_expr.compare(black_box(a), black_box(b)));
+                black_box(sorted);
+            });
+        });
 
         // Date string sort: created_at DESC
         group.bench_with_input(
@@ -189,9 +180,7 @@ fn bench_sort_performance(c: &mut Criterion) {
                 let sort_expr = parse_sort_expression("created_at DESC").unwrap();
                 b.iter(|| {
                     let mut sorted = items.clone();
-                    sorted.sort_by(|a, b| {
-                        sort_expr.compare(black_box(a), black_box(b))
-                    });
+                    sorted.sort_by(|a, b| sort_expr.compare(black_box(a), black_box(b)));
                     black_box(sorted);
                 });
             },
@@ -310,7 +299,8 @@ fn bench_expression_parsing(c: &mut Criterion) {
 
     c.bench_function("parse_multi_field_sort", |b| {
         b.iter(|| {
-            let _expr = parse_sort_expression(black_box("category ASC, rating DESC, price ASC, name DESC"));
+            let _expr =
+                parse_sort_expression(black_box("category ASC, rating DESC, price ASC, name DESC"));
         });
     });
 }

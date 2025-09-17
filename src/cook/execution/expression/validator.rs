@@ -20,6 +20,7 @@ impl ExpressionValidator {
     }
 
     /// Recursively validate an expression with depth limit
+    #[allow(clippy::only_used_in_recursion)]
     fn validate_expression(&self, expr: &Expression, depth: usize) -> Result<()> {
         // Prevent stack overflow from deeply nested expressions
         if depth > 100 {
@@ -128,31 +129,31 @@ impl ExpressionValidator {
 
     /// Check if an expression can produce a boolean result
     fn can_produce_boolean(&self, expr: &Expression) -> bool {
-        match expr {
-            Expression::Boolean(_) => true,
-            Expression::Equal(_, _)
-            | Expression::NotEqual(_, _)
-            | Expression::GreaterThan(_, _)
-            | Expression::LessThan(_, _)
-            | Expression::GreaterEqual(_, _)
-            | Expression::LessEqual(_, _)
-            | Expression::And(_, _)
-            | Expression::Or(_, _)
-            | Expression::Not(_)
-            | Expression::Contains(_, _)
-            | Expression::StartsWith(_, _)
-            | Expression::EndsWith(_, _)
-            | Expression::Matches(_, _)
-            | Expression::IsNull(_)
-            | Expression::IsNotNull(_)
-            | Expression::IsNumber(_)
-            | Expression::IsString(_)
-            | Expression::IsBool(_)
-            | Expression::IsArray(_)
-            | Expression::IsObject(_)
-            | Expression::In(_, _) => true,
-            _ => false,
-        }
+        matches!(
+            expr,
+            Expression::Boolean(_)
+                | Expression::Equal(_, _)
+                | Expression::NotEqual(_, _)
+                | Expression::GreaterThan(_, _)
+                | Expression::LessThan(_, _)
+                | Expression::GreaterEqual(_, _)
+                | Expression::LessEqual(_, _)
+                | Expression::And(_, _)
+                | Expression::Or(_, _)
+                | Expression::Not(_)
+                | Expression::Contains(_, _)
+                | Expression::StartsWith(_, _)
+                | Expression::EndsWith(_, _)
+                | Expression::Matches(_, _)
+                | Expression::IsNull(_)
+                | Expression::IsNotNull(_)
+                | Expression::IsNumber(_)
+                | Expression::IsString(_)
+                | Expression::IsBool(_)
+                | Expression::IsArray(_)
+                | Expression::IsObject(_)
+                | Expression::In(_, _)
+        )
     }
 
     /// Get a list of fields accessed by an expression
@@ -165,6 +166,7 @@ impl ExpressionValidator {
     }
 
     /// Recursively collect field names from an expression
+    #[allow(clippy::only_used_in_recursion)]
     fn collect_fields(&self, expr: &Expression, fields: &mut Vec<String>) {
         match expr {
             Expression::Field(path) => {
