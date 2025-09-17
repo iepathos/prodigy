@@ -43,11 +43,11 @@ fn bench_filter_performance(c: &mut Criterion) {
             &items,
             |b, items| {
                 let expr = parse_expression("score > 50").unwrap();
-                let evaluator = ExpressionEvaluator::new(expr);
+                let evaluator = ExpressionEvaluator::new();
                 b.iter(|| {
                     let filtered: Vec<_> = items
                         .iter()
-                        .filter(|item| evaluator.evaluate(black_box(item)).unwrap_or(false))
+                        .filter(|item| evaluator.evaluate_bool(&expr, black_box(item)).unwrap_or(false))
                         .collect();
                     black_box(filtered);
                 });
@@ -61,11 +61,11 @@ fn bench_filter_performance(c: &mut Criterion) {
             |b, items| {
                 let expr = parse_expression("(score > 50 AND active == true) OR category == \"A\"")
                     .unwrap();
-                let evaluator = ExpressionEvaluator::new(expr);
+                let evaluator = ExpressionEvaluator::new();
                 b.iter(|| {
                     let filtered: Vec<_> = items
                         .iter()
-                        .filter(|item| evaluator.evaluate(black_box(item)).unwrap_or(false))
+                        .filter(|item| evaluator.evaluate_bool(&expr, black_box(item)).unwrap_or(false))
                         .collect();
                     black_box(filtered);
                 });
@@ -78,11 +78,11 @@ fn bench_filter_performance(c: &mut Criterion) {
             &items,
             |b, items| {
                 let expr = parse_expression("name CONTAINS \"5\"").unwrap();
-                let evaluator = ExpressionEvaluator::new(expr);
+                let evaluator = ExpressionEvaluator::new();
                 b.iter(|| {
                     let filtered: Vec<_> = items
                         .iter()
-                        .filter(|item| evaluator.evaluate(black_box(item)).unwrap_or(false))
+                        .filter(|item| evaluator.evaluate_bool(&expr, black_box(item)).unwrap_or(false))
                         .collect();
                     black_box(filtered);
                 });
@@ -95,11 +95,11 @@ fn bench_filter_performance(c: &mut Criterion) {
             &items,
             |b, items| {
                 let expr = parse_expression("tags CONTAINS \"tag3\"").unwrap();
-                let evaluator = ExpressionEvaluator::new(expr);
+                let evaluator = ExpressionEvaluator::new();
                 b.iter(|| {
                     let filtered: Vec<_> = items
                         .iter()
-                        .filter(|item| evaluator.evaluate(black_box(item)).unwrap_or(false))
+                        .filter(|item| evaluator.evaluate_bool(&expr, black_box(item)).unwrap_or(false))
                         .collect();
                     black_box(filtered);
                 });
@@ -224,13 +224,13 @@ fn bench_filter_and_sort(c: &mut Criterion) {
     // Scenario 1: Filter available items and sort by price
     group.bench_function("filter_available_sort_price", |b| {
         let filter = parse_expression("available == true AND stock > 0").unwrap();
-        let evaluator = ExpressionEvaluator::new(filter);
+        let evaluator = ExpressionEvaluator::new();
         let sort = parse_sort_expression("price ASC").unwrap();
 
         b.iter(|| {
             let mut result: Vec<_> = items
                 .iter()
-                .filter(|item| evaluator.evaluate(black_box(item)).unwrap_or(false))
+                .filter(|item| evaluator.evaluate_bool(&expr, black_box(item)).unwrap_or(false))
                 .cloned()
                 .collect();
             result.sort_by(|a, b| sort.compare(a, b));
@@ -241,13 +241,13 @@ fn bench_filter_and_sort(c: &mut Criterion) {
     // Scenario 2: Complex filter with multi-field sort
     group.bench_function("complex_filter_multi_sort", |b| {
         let filter = parse_expression("(category == \"electronics\" OR category == \"books\") AND rating >= 4.0 AND price < 100").unwrap();
-        let evaluator = ExpressionEvaluator::new(filter);
+        let evaluator = ExpressionEvaluator::new();
         let sort = parse_sort_expression("rating DESC, reviews DESC, price ASC").unwrap();
 
         b.iter(|| {
             let mut result: Vec<_> = items
                 .iter()
-                .filter(|item| evaluator.evaluate(black_box(item)).unwrap_or(false))
+                .filter(|item| evaluator.evaluate_bool(&expr, black_box(item)).unwrap_or(false))
                 .cloned()
                 .collect();
             result.sort_by(|a, b| sort.compare(a, b));
@@ -258,13 +258,13 @@ fn bench_filter_and_sort(c: &mut Criterion) {
     // Scenario 3: Tag-based filter with string sort
     group.bench_function("tag_filter_name_sort", |b| {
         let filter = parse_expression("tags CONTAINS \"tag5\" AND reviews > 50").unwrap();
-        let evaluator = ExpressionEvaluator::new(filter);
+        let evaluator = ExpressionEvaluator::new();
         let sort = parse_sort_expression("name ASC").unwrap();
 
         b.iter(|| {
             let mut result: Vec<_> = items
                 .iter()
-                .filter(|item| evaluator.evaluate(black_box(item)).unwrap_or(false))
+                .filter(|item| evaluator.evaluate_bool(&expr, black_box(item)).unwrap_or(false))
                 .cloned()
                 .collect();
             result.sort_by(|a, b| sort.compare(a, b));

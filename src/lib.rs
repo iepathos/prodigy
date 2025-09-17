@@ -30,6 +30,7 @@ pub mod config;
 pub mod cook;
 pub mod git;
 pub mod init;
+pub mod resume_logic;
 pub mod scoring;
 pub mod session;
 pub mod simple_state;

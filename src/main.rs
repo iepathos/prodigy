@@ -1399,65 +1399,37 @@ async fn run_resume_workflow(
 
         match checkpoint_result {
             Ok(checkpoint) => {
-                println!("✅ Found checkpoint for workflow: {}", workflow_id);
-                println!(
-                    "   Step progress: {}/{}",
-                    checkpoint.execution_state.current_step_index,
-                    checkpoint.execution_state.total_steps
+                // Use pure functions for formatting
+                for message in prodigy::resume_logic::format_checkpoint_status(&checkpoint) {
+                    println!("{}", message);
+                }
+
+                // Try to find the workflow file using pure functions
+                let possible_paths = prodigy::resume_logic::possible_workflow_paths(
+                    &working_dir,
+                    checkpoint.workflow_name.as_deref(),
                 );
-                println!("   Status: {:?}", checkpoint.execution_state.status);
 
-                // Try to find the workflow file
-                let workflow_path = if let Some(ref name) = checkpoint.workflow_name {
-                    // Try common workflow file names including current directory
-                    let possible_paths = [
-                        working_dir.join(format!("{}.yml", name)),
-                        working_dir.join(format!("{}.yaml", name)),
-                        working_dir.join("workflow.yml"),
-                        working_dir.join("workflow.yaml"),
-                        working_dir.join("playbook.yml"),
-                        working_dir.join("playbook.yaml"),
-                        // Also check for test files
-                        working_dir.join("test_complete_resume.yml"),
-                        working_dir.join("test_checkpoint.yml"),
-                    ];
-
-                    if let Some(found_path) = possible_paths.iter().find(|p| p.exists()) {
-                        found_path.clone()
-                    } else {
-                        // Ask user for the workflow file
+                let workflow_path = match prodigy::resume_logic::find_workflow_file(
+                    &possible_paths,
+                    |p| p.exists(),
+                ) {
+                    prodigy::resume_logic::WorkflowFileResult::Found(path) => path,
+                    prodigy::resume_logic::WorkflowFileResult::NotFound(paths) => {
                         println!("⚠️  Could not find workflow file automatically.");
                         println!("   Please specify the workflow file path with --path");
                         println!(
                             "   Searched in: {:?}",
-                            possible_paths
-                                .iter()
-                                .map(|p| p.display())
-                                .collect::<Vec<_>>()
+                            paths.iter().map(|p| p.display()).collect::<Vec<_>>()
                         );
                         std::process::exit(2); // ARGUMENT_ERROR
                     }
-                } else {
-                    // If no workflow name, try to find any YAML file
-                    let yaml_files: Vec<PathBuf> = std::fs::read_dir(&working_dir)
-                        .unwrap_or_else(|_| panic!("Could not read directory"))
-                        .filter_map(|entry| {
-                            let entry = entry.ok()?;
-                            let path = entry.path();
-                            if path.extension().and_then(|s| s.to_str()) == Some("yml") {
-                                Some(path)
-                            } else {
-                                None
-                            }
-                        })
-                        .collect();
-
-                    if yaml_files.len() == 1 {
-                        yaml_files.into_iter().next().unwrap()
-                    } else {
-                        println!("⚠️  Checkpoint doesn't contain workflow file information.");
-                        println!("   Found {} YAML files: {:?}", yaml_files.len(), yaml_files);
-                        println!("   Please specify the workflow file path with --path");
+                    prodigy::resume_logic::WorkflowFileResult::Multiple(paths) => {
+                        println!("⚠️  Multiple workflow files found:");
+                        for path in &paths {
+                            println!("   - {}", path.display());
+                        }
+                        println!("   Please specify which one to use with --path");
                         std::process::exit(2); // ARGUMENT_ERROR
                     }
                 };
@@ -1487,12 +1459,23 @@ async fn run_resume_workflow(
                         user_interaction.clone(),
                     );
 
-                println!("📂 Resuming workflow from checkpoint...");
-                println!("   Workflow file: {}", workflow_path.display());
+                // Print resume action message
                 println!(
-                    "   Skipping {} completed steps",
-                    checkpoint.execution_state.current_step_index
+                    "{}",
+                    prodigy::resume_logic::format_resume_action(
+                        force,
+                        &checkpoint.execution_state.status
+                    )
                 );
+                println!("   Workflow file: {}", workflow_path.display());
+
+                // Calculate and display skip count
+                let skip_count = prodigy::resume_logic::calculate_skip_count(&checkpoint, force);
+                if skip_count > 0 {
+                    println!("   Skipping {} completed steps", skip_count);
+                } else if force {
+                    println!("   Starting from the beginning (force mode)");
+                }
 
                 // Execute from checkpoint
                 match resume_executor
