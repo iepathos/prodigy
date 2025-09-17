@@ -1526,6 +1526,12 @@ async fn run_resume_workflow(
     match session_tracker.load_session(&workflow_id).await {
         Ok(state) => {
             if !state.is_resumable() && !force {
+                // Check if session is already completed
+                if state.status == prodigy::cook::session::SessionStatus::Completed {
+                    println!("✅ Workflow {} already completed - nothing to resume", workflow_id);
+                    return Ok(());
+                }
+
                 anyhow::bail!(
                     "Session {} is not resumable (status: {:?}). Use --force to override.",
                     workflow_id,

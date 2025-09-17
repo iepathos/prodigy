@@ -13,10 +13,11 @@ fn create_test_checkpoint(
     workflow_id: &str,
     commands_executed: usize,
     total_commands: usize,
-    variables: serde_json::Value
+    _variables: serde_json::Value
 ) {
     // The checkpoint_dir is .prodigy/checkpoints, but we need to save in .prodigy
     let session_dir = checkpoint_dir.parent().unwrap();
+    let working_dir = session_dir.parent().unwrap();
 
     // Create a properly structured SessionState
     let now = chrono::Utc::now();
@@ -24,28 +25,49 @@ fn create_test_checkpoint(
         "session_id": workflow_id,
         "status": "Interrupted",
         "started_at": now.to_rfc3339(),
+        "ended_at": null,
+        "iterations_completed": 0,
+        "files_changed": 0,
+        "errors": [],
+        "working_directory": working_dir.to_str().unwrap(),
         "worktree_name": format!("prodigy-session-{}", workflow_id),
+        "workflow_started_at": now.to_rfc3339(),
+        "current_iteration_started_at": null,
+        "current_iteration_number": null,
+        "iteration_timings": [],
+        "command_timings": [],
         "workflow_state": {
+            "current_iteration": 0,
             "current_step": commands_executed,
-            "total_steps": total_commands,
             "completed_steps": (0..commands_executed).map(|i| {
+                let step_time = now.to_rfc3339();
                 json!({
-                    "index": i,
-                    "name": format!("cmd{}", i + 1),
+                    "step_index": i,
+                    "command": format!("cmd{}", i + 1),
+                    "success": true,
                     "output": format!("Command {} output", i + 1),
+                    "duration": {
+                        "secs": 1,
+                        "nanos": 0
+                    },
+                    "error": null,
+                    "started_at": step_time,
+                    "completed_at": step_time,
                     "exit_code": 0
                 })
             }).collect::<Vec<_>>(),
-            "variables": variables,
-            "workflow_path": "test.yaml"
+            "workflow_path": "test.yaml",
+            "input_args": [],
+            "map_patterns": [],
+            "using_worktree": false
         },
-        "last_checkpoint": {
-            "timestamp": now.to_rfc3339(),
-            "step_index": commands_executed,
-            "last_command": format!("cmd{}", commands_executed),
-            "last_command_type": "Shell"
-        },
-        "is_resumable": true
+        "execution_environment": null,
+        "last_checkpoint": now.to_rfc3339(),
+        "workflow_hash": null,
+        "workflow_type": "Standard",
+        "execution_context": null,  // Simplified - not needed for these tests
+        "checkpoint_version": 1,
+        "last_validated_at": null
     });
 
     // Save as both session_state.json and session-specific file
@@ -295,29 +317,49 @@ fn test_resume_completed_workflow() {
         "session_id": workflow_id,
         "status": "Completed",
         "started_at": now.to_rfc3339(),
-        "completed_at": now.to_rfc3339(),
+        "ended_at": now.to_rfc3339(),  // Changed from completed_at
+        "iterations_completed": 1,
+        "files_changed": 0,
+        "errors": [],
+        "working_directory": test_dir.to_str().unwrap(),
         "worktree_name": "prodigy-session-test",
+        "workflow_started_at": now.to_rfc3339(),
+        "current_iteration_started_at": null,
+        "current_iteration_number": null,
+        "iteration_timings": [],
+        "command_timings": [],
         "workflow_state": {
+            "current_iteration": 0,
             "current_step": 5,
-            "total_steps": 5,
             "completed_steps": (0..5).map(|i| {
+                let step_time = now.to_rfc3339();
                 json!({
-                    "index": i,
-                    "name": format!("cmd{}", i + 1),
+                    "step_index": i,
+                    "command": format!("cmd{}", i + 1),
+                    "success": true,
                     "output": format!("Command {} output", i + 1),
+                    "duration": {
+                        "secs": 1,
+                        "nanos": 0
+                    },
+                    "error": null,
+                    "started_at": step_time,
+                    "completed_at": step_time,
                     "exit_code": 0
                 })
             }).collect::<Vec<_>>(),
-            "variables": {},
-            "workflow_path": "test.yaml"
+            "workflow_path": "test.yaml",
+            "input_args": [],
+            "map_patterns": [],
+            "using_worktree": false
         },
-        "last_checkpoint": {
-            "timestamp": now.to_rfc3339(),
-            "step_index": 5,
-            "last_command": "test command",
-            "last_command_type": "Shell"
-        },
-        "is_resumable": false
+        "execution_environment": null,
+        "last_checkpoint": now.to_rfc3339(),
+        "workflow_hash": null,
+        "workflow_type": "Standard",
+        "execution_context": null,
+        "checkpoint_version": 1,
+        "last_validated_at": null
     });
 
     // Save as both session_state.json and session-specific file
@@ -336,7 +378,8 @@ fn test_resume_completed_workflow() {
         .arg("resume")
         .arg(workflow_id)
         .arg("--path")
-        .arg(test_dir.to_str().unwrap());
+        .arg(test_dir.to_str().unwrap())
+        .env("PRODIGY_TEST_MODE", "true");
 
     let output = test.run();
 
