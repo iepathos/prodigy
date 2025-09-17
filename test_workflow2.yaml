@@ -1,0 +1,8 @@
+name: test-workflow
+commands:
+  - shell: "exit 1"
+    on_failure:
+      claude: "/fix-test"
+      max_attempts: 3
+      fail_workflow: false
+      commit_required: true

@@ -1,0 +1,7 @@
+name: test-workflow
+description: Test
+
+commands:
+  - shell: "echo test"
+    on_failure:
+      - shell: "echo failed"

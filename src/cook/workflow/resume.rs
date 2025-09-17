@@ -463,6 +463,26 @@ impl ResumeExecutor {
                     crate::config::WorkflowCommand::WorkflowStep(wf_step) => {
                         step.claude = wf_step.claude;
                         step.shell = wf_step.shell;
+                        // Convert TestDebugConfig to OnFailureConfig
+                        if let Some(test_debug) = wf_step.on_failure {
+                            // Create a HandlerCommand from the TestDebugConfig
+                            let handler_cmd = crate::cook::workflow::on_failure::HandlerCommand {
+                                claude: Some(test_debug.claude),
+                                shell: None,
+                                continue_on_error: false,
+                            };
+
+                            step.on_failure = Some(crate::cook::workflow::on_failure::OnFailureConfig::Detailed(
+                                crate::cook::workflow::on_failure::FailureHandlerConfig {
+                                    commands: vec![handler_cmd],
+                                    strategy: crate::cook::workflow::on_failure::HandlerStrategy::default(),
+                                    timeout: None,
+                                    capture: std::collections::HashMap::new(),
+                                    fail_workflow: test_debug.fail_workflow,
+                                    handler_failure_fatal: false,
+                                }
+                            ));
+                        }
                         // Copy other fields if they exist
                     }
                     _ => {
