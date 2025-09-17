@@ -39,6 +39,60 @@ impl RealCommandRunner {
     pub fn with_subprocess(subprocess: SubprocessManager) -> Self {
         Self { subprocess }
     }
+
+    /// Create stream processors from configuration
+    fn create_processors(
+        &self,
+        config: &crate::subprocess::streaming::StreamingConfig,
+    ) -> Result<Vec<Box<dyn crate::subprocess::streaming::StreamProcessor>>> {
+        use crate::subprocess::streaming::{
+            JsonLineProcessor, PatternMatchProcessor, ProcessorConfig, StreamProcessor,
+        };
+
+        let mut processors: Vec<Box<dyn StreamProcessor>> = Vec::new();
+
+        for processor_config in &config.processors {
+            match processor_config {
+                ProcessorConfig::JsonLines { emit_events } => {
+                    let (sender, _receiver) = tokio::sync::mpsc::channel(100);
+                    processors.push(Box::new(JsonLineProcessor::new(sender, *emit_events)));
+                }
+                ProcessorConfig::PatternMatcher { patterns } => {
+                    let (sender, _receiver) = tokio::sync::mpsc::channel(100);
+                    processors.push(Box::new(PatternMatchProcessor::new(
+                        patterns.clone(),
+                        sender,
+                    )));
+                }
+                ProcessorConfig::EventEmitter { .. } => {
+                    // TODO: Implement event emitter when event system is ready
+                    tracing::debug!("EventEmitter processor not yet implemented");
+                }
+                ProcessorConfig::Custom { id } => {
+                    tracing::debug!("Custom processor '{}' not available in this context", id);
+                }
+            }
+        }
+
+        // Apply backpressure management if configured
+        if let Some(max_lines) = config.buffer_config.max_lines {
+            use crate::subprocess::streaming::BufferedStreamProcessor;
+
+            processors = processors
+                .into_iter()
+                .map(|processor| {
+                    Box::new(BufferedStreamProcessor::new(
+                        processor,
+                        max_lines,
+                        config.buffer_config.overflow_strategy.clone(),
+                        config.buffer_config.block_timeout,
+                    )) as Box<dyn StreamProcessor>
+                })
+                .collect();
+        }
+
+        Ok(processors)
+    }
 }
 
 impl Default for RealCommandRunner {
@@ -91,10 +145,38 @@ impl CommandRunner for RealCommandRunner {
             builder = builder.stdin(stdin.clone());
         }
 
+        let command = builder.build();
+
+        // Check if streaming is enabled
+        if let Some(streaming_config) = &context.streaming_config {
+            if streaming_config.enabled {
+                // Use streaming runner with the subprocess manager's runner
+                let processors = self.create_processors(streaming_config)?;
+
+                // Create streaming runner using TokioProcessRunner directly for now
+                let streaming_runner = crate::subprocess::streaming::StreamingCommandRunner::new(
+                    Box::new(crate::subprocess::runner::TokioProcessRunner),
+                );
+
+                let output = streaming_runner
+                    .run_streaming(command, processors)
+                    .await
+                    .context(format!("Failed to execute command with streaming: {cmd}"))?;
+
+                return Ok(ExecutionResult {
+                    success: output.status.success(),
+                    stdout: output.stdout.join("\n"),
+                    stderr: output.stderr.join("\n"),
+                    exit_code: output.status.code(),
+                });
+            }
+        }
+
+        // Fall back to batch mode
         let output = self
             .subprocess
             .runner()
-            .run(builder.build())
+            .run(command)
             .await
             .context(format!("Failed to execute command: {cmd}"))?;
 

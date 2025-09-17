@@ -20,6 +20,7 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **Worktree Pool Management**: Sophisticated worktree pooling with allocation strategies ✅
 - **Workflow Composition**: Build complex workflows from reusable components ✅
 - **Environment Management**: Comprehensive environment variable and working directory control ✅
+- **Real-time Streaming Infrastructure**: Line-by-line output capture with stream processors ✅
 
 ### Command Types ✅
 - `claude:` - Execute Claude commands via Claude Code CLI
@@ -60,6 +61,15 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **Complete Coverage**: NAME, SYNOPSIS, DESCRIPTION, OPTIONS, EXAMPLES, ENVIRONMENT, EXIT STATUS
 - **Compressed Support**: Both uncompressed and gzipped versions generated
 - **Cross-Reference**: SEE ALSO sections link related commands
+
+### Real-time Streaming Infrastructure ✅
+- **Line-by-Line Output Capture**: Process command output as it arrives
+- **Stream Processors**: JSON line parsing, pattern matching, logging
+- **Backpressure Management**: Handle fast producers with configurable strategies
+- **Full Backward Compatibility**: Opt-in streaming, batch mode remains default
+- **Integration with CommandRunner**: Seamless ExecutionContext configuration
+- **Rate Limiting**: Prevent downstream system overload
+- **Buffer Management**: Memory-efficient line buffering
 
 ### Claude Session Analytics ✅
 - **Session Correlation**: Extract and correlate session IDs with JSONL files

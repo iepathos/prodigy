@@ -1130,6 +1130,7 @@ impl WorkflowExecutor {
             timeout_seconds: step.validation_timeout,
             stdin: None,
             capture_streaming: false,
+            streaming_config: None,
         };
 
         // Get step name for logging
