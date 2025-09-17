@@ -153,6 +153,10 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **Force Resume Option**: Override complete status to reprocess items
 - **DLQ Integration**: Direct access to Dead Letter Queue for failed items
 - **Verbose Status Display**: Comprehensive job state visualization
+- **Enhanced Resume Manager**: Robust state restoration and work item management ✅
+- **Cross-Worktree Synchronization**: Event log continuation and agent coordination ✅
+- **Phase-Based Resume**: Resume from setup, map, or reduce phases ✅
+- **Environment Validation**: Consistency checks during resume ✅
 
 ## Architecture
 

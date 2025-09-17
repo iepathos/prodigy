@@ -32,6 +32,7 @@ pub mod interpolation;
 pub mod mapreduce;
 #[cfg(test)]
 pub mod mapreduce_integration_tests;
+pub mod mapreduce_resume;
 #[cfg(test)]
 pub mod mapreduce_setup_test;
 #[cfg(test)]
