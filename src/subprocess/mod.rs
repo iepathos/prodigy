@@ -49,6 +49,7 @@ pub mod error;
 pub mod git;
 pub mod mock;
 pub mod runner;
+pub mod streaming;
 
 #[cfg(test)]
 mod tests;

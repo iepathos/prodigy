@@ -90,6 +90,8 @@ pub struct ExecutionContext {
     pub stdin: Option<String>,
     /// Whether to capture streaming output (for Claude observability)
     pub capture_streaming: bool,
+    /// Streaming configuration for real-time output processing
+    pub streaming_config: Option<crate::subprocess::streaming::StreamingConfig>,
 }
 
 impl Default for ExecutionContext {
@@ -101,6 +103,7 @@ impl Default for ExecutionContext {
             timeout_seconds: None,
             stdin: None,
             capture_streaming: false,
+            streaming_config: None,
         }
     }
 }

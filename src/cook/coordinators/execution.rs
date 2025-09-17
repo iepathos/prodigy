@@ -108,6 +108,7 @@ impl ExecutionCoordinator for DefaultExecutionCoordinator {
             timeout_seconds: None,
             stdin: None,
             capture_streaming: false,
+            streaming_config: None,
         };
 
         let output = self

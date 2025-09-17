@@ -28,6 +28,12 @@ prodigy/
 ├── src/
 │   ├── main.rs                 # CLI entry point
 │   ├── lib.rs                  # Public API
+│   ├── subprocess/             # Subprocess management
+│   │   ├── streaming/          # Real-time streaming infrastructure
+│   │   │   ├── processor.rs    # Stream processor trait and implementations
+│   │   │   ├── runner.rs       # Streaming command runner
+│   │   │   ├── backpressure.rs # Backpressure management
+│   │   │   └── types.rs        # Core streaming types
 │   ├── analytics/              # Claude session analytics
 │   │   ├── mod.rs              # Module exports
 │   │   ├── models.rs           # Data models for sessions
