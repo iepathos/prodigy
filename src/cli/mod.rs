@@ -1,5 +1,6 @@
 //! CLI command handlers
 
+pub mod analytics_command;
 pub mod events;
 pub mod workflow_generator;
 pub mod yaml_migrator;
