@@ -213,6 +213,34 @@ The installer will:
 - Optionally add to your PATH
 
 ### From Source
+```bash
+cargo install prodigy
+```
+
+### Man Pages
+Prodigy includes comprehensive man pages for all commands:
+
+```bash
+# Install man pages after building from source
+./scripts/install-man-pages.sh
+
+# View documentation
+man prodigy                  # Main command
+man prodigy-run             # Run workflow
+man prodigy-exec            # Execute single command
+man prodigy-batch           # Process files in parallel
+man prodigy-goal-seek       # Goal-seeking operations
+# ... and more for all subcommands
+```
+
+Man pages are automatically generated during build and include:
+- Complete command descriptions and options
+- Practical examples for each command
+- Environment variables documentation
+- Exit status codes
+- Related commands (SEE ALSO section)
+
+### Development Installation
 
 ```bash
 # Clone and build
