@@ -693,7 +693,7 @@ async fn find_latest_checkpoint(checkpoint_dir: &PathBuf) -> Option<String> {
 
     while let Ok(Some(entry)) = entries.next_entry().await {
         let path = entry.path();
-        if path.is_file() && path.extension().map_or(false, |ext| ext == "json") {
+        if path.is_file() && path.extension().is_some_and(|ext| ext == "json") {
             if let Ok(metadata) = entry.metadata().await {
                 if let Ok(modified) = metadata.modified() {
                     if latest_time.is_none() || modified > latest_time.unwrap() {
@@ -774,7 +774,7 @@ async fn run_checkpoints_command(command: CheckpointCommands) -> anyhow::Result<
 
                 while let Ok(Some(entry)) = entries.next_entry().await {
                     let path = entry.path();
-                    if path.is_file() && path.extension().map_or(false, |ext| ext == "json") {
+                    if path.is_file() && path.extension().is_some_and(|ext| ext == "json") {
                         if let Some(name) = path.file_stem() {
                             let workflow_id = name.to_string_lossy().to_string();
                             if let Ok(checkpoint) =
@@ -847,7 +847,7 @@ async fn run_checkpoints_command(command: CheckpointCommands) -> anyhow::Result<
 
                 while let Ok(Some(entry)) = entries.next_entry().await {
                     let path = entry.path();
-                    if path.is_file() && path.extension().map_or(false, |ext| ext == "json") {
+                    if path.is_file() && path.extension().is_some_and(|ext| ext == "json") {
                         if let Some(name) = path.file_stem() {
                             let workflow_id = name.to_string_lossy().to_string();
                             if let Ok(checkpoint) =
@@ -944,7 +944,7 @@ async fn run_checkpoints_command(command: CheckpointCommands) -> anyhow::Result<
 
                     if !checkpoint.variable_state.is_empty() {
                         println!("\nVariable State:");
-                        for (key, _) in &checkpoint.variable_state {
+                        for key in checkpoint.variable_state.keys() {
                             println!("  {}", key);
                         }
                     }
@@ -1435,7 +1435,7 @@ async fn run_resume_workflow(
                                 .map(|p| p.display())
                                 .collect::<Vec<_>>()
                         );
-                        std::process::exit(2);  // ARGUMENT_ERROR
+                        std::process::exit(2); // ARGUMENT_ERROR
                     }
                 } else {
                     // If no workflow name, try to find any YAML file
@@ -1458,7 +1458,7 @@ async fn run_resume_workflow(
                         println!("⚠️  Checkpoint doesn't contain workflow file information.");
                         println!("   Found {} YAML files: {:?}", yaml_files.len(), yaml_files);
                         println!("   Please specify the workflow file path with --path");
-                        std::process::exit(2);  // ARGUMENT_ERROR
+                        std::process::exit(2); // ARGUMENT_ERROR
                     }
                 };
 
@@ -1528,7 +1528,10 @@ async fn run_resume_workflow(
             if !state.is_resumable() && !force {
                 // Check if session is already completed
                 if state.status == prodigy::cook::session::SessionStatus::Completed {
-                    println!("✅ Workflow {} already completed - nothing to resume", workflow_id);
+                    println!(
+                        "✅ Workflow {} already completed - nothing to resume",
+                        workflow_id
+                    );
                     return Ok(());
                 }
 
@@ -1583,12 +1586,13 @@ fn handle_fatal_error(error: anyhow::Error) -> ! {
     eprintln!("Error: {error}");
 
     // Determine exit code based on error type/message
-    let exit_code = if error.to_string().contains("No workflow ID provided") ||
-                       error.to_string().contains("required") ||
-                       error.to_string().contains("Please specify") {
-        2  // ARGUMENT_ERROR
+    let exit_code = if error.to_string().contains("No workflow ID provided")
+        || error.to_string().contains("required")
+        || error.to_string().contains("Please specify")
+    {
+        2 // ARGUMENT_ERROR
     } else {
-        1  // GENERAL_ERROR
+        1 // GENERAL_ERROR
     };
 
     std::process::exit(exit_code)

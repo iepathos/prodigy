@@ -89,7 +89,10 @@ impl ResumeExecutor {
             && !options.force
         {
             // Return success with a message that the workflow is already complete
-            println!("Workflow {} is already completed - nothing to resume", workflow_id);
+            println!(
+                "Workflow {} is already completed - nothing to resume",
+                workflow_id
+            );
             return Ok(ResumeResult {
                 success: true,
                 total_steps_executed: checkpoint.execution_state.current_step_index,
@@ -278,7 +281,10 @@ impl ResumeExecutor {
         if checkpoint.execution_state.status == checkpoint::WorkflowStatus::Completed
             && !options.force
         {
-            println!("Workflow {} is already completed - nothing to resume", workflow_id);
+            println!(
+                "Workflow {} is already completed - nothing to resume",
+                workflow_id
+            );
             return Ok(ResumeResult {
                 success: true,
                 total_steps_executed: checkpoint.execution_state.current_step_index,

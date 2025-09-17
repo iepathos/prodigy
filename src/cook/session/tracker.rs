@@ -217,7 +217,10 @@ impl SessionManager for SessionTrackerImpl {
                     }
                     if let Ok(state) = serde_json::from_str::<SessionState>(&json) {
                         if std::env::var("PRODIGY_TEST_MODE").is_ok() {
-                            eprintln!("  Parsed session with ID: {} (looking for: {})", state.session_id, session_id);
+                            eprintln!(
+                                "  Parsed session with ID: {} (looking for: {})",
+                                state.session_id, session_id
+                            );
                         }
                         // Verify this is the right session
                         if state.session_id == session_id {

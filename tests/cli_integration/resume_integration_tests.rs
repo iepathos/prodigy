@@ -2,10 +2,10 @@
 // Tests actual resume behavior from different interruption points
 
 use super::test_utils::*;
+use serde_json::json;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
-use serde_json::json;
 
 /// Helper to create a test checkpoint
 fn create_test_checkpoint(
@@ -13,7 +13,7 @@ fn create_test_checkpoint(
     workflow_id: &str,
     commands_executed: usize,
     total_commands: usize,
-    _variables: serde_json::Value
+    _variables: serde_json::Value,
 ) {
     // The checkpoint_dir is .prodigy/checkpoints, but we need to save in .prodigy
     let session_dir = checkpoint_dir.parent().unwrap();
@@ -74,12 +74,14 @@ fn create_test_checkpoint(
     fs::create_dir_all(session_dir).unwrap();
     fs::write(
         session_dir.join("session_state.json"),
-        serde_json::to_string_pretty(&session_state).unwrap()
-    ).unwrap();
+        serde_json::to_string_pretty(&session_state).unwrap(),
+    )
+    .unwrap();
     fs::write(
         session_dir.join(format!("{}.json", workflow_id)),
-        serde_json::to_string_pretty(&session_state).unwrap()
-    ).unwrap();
+        serde_json::to_string_pretty(&session_state).unwrap(),
+    )
+    .unwrap();
 }
 
 /// Helper to create a test workflow file
@@ -138,8 +140,12 @@ fn test_resume_from_early_interruption() {
     let output = test.run();
 
     // Should successfully resume
-    assert_eq!(output.exit_code, exit_codes::SUCCESS,
-               "Resume failed with stderr: {}", output.stderr);
+    assert_eq!(
+        output.exit_code,
+        exit_codes::SUCCESS,
+        "Resume failed with stderr: {}",
+        output.stderr
+    );
     assert!(output.stdout_contains("Resuming workflow from command 2/5"));
     assert!(output.stdout_contains("Command 2 executed"));
     assert!(output.stdout_contains("Final command executed"));
@@ -278,8 +284,9 @@ commands:
     fs::create_dir_all(&checkpoint_dir).unwrap();
     fs::write(
         checkpoint_dir.join(format!("{}.checkpoint.json", workflow_id)),
-        serde_json::to_string_pretty(&checkpoint).unwrap()
-    ).unwrap();
+        serde_json::to_string_pretty(&checkpoint).unwrap(),
+    )
+    .unwrap();
 
     // Create the marker file so retry succeeds
     fs::write("/tmp/retry-test-marker", "test").ok();
@@ -366,12 +373,14 @@ fn test_resume_completed_workflow() {
     fs::create_dir_all(&session_dir).unwrap();
     fs::write(
         session_dir.join("session_state.json"),
-        serde_json::to_string_pretty(&session_state).unwrap()
-    ).unwrap();
+        serde_json::to_string_pretty(&session_state).unwrap(),
+    )
+    .unwrap();
     fs::write(
         session_dir.join(format!("{}.json", workflow_id)),
-        serde_json::to_string_pretty(&session_state).unwrap()
-    ).unwrap();
+        serde_json::to_string_pretty(&session_state).unwrap(),
+    )
+    .unwrap();
 
     // Try to resume completed workflow
     test = test
@@ -389,8 +398,9 @@ fn test_resume_completed_workflow() {
         eprintln!("Test failed - stderr: {}", output.stderr);
     }
     assert_eq!(output.exit_code, exit_codes::SUCCESS);
-    assert!(output.stdout_contains("already completed") ||
-            output.stdout_contains("nothing to resume"));
+    assert!(
+        output.stdout_contains("already completed") || output.stdout_contains("nothing to resume")
+    );
 }
 
 #[test]
@@ -473,8 +483,9 @@ commands:
     fs::create_dir_all(&checkpoint_dir).unwrap();
     fs::write(
         checkpoint_dir.join(format!("{}.checkpoint.json", workflow_id)),
-        serde_json::to_string_pretty(&checkpoint).unwrap()
-    ).unwrap();
+        serde_json::to_string_pretty(&checkpoint).unwrap(),
+    )
+    .unwrap();
 
     // Resume the workflow
     let mut test = CliTest::new()
@@ -512,7 +523,10 @@ fn test_resume_with_checkpoint_cleanup() {
     // Session files are saved in .prodigy, not .prodigy/checkpoints
     let session_dir = checkpoint_dir.parent().unwrap();
     let session_file = session_dir.join(format!("{}.json", workflow_id));
-    assert!(session_file.exists(), "Session state should exist before resume");
+    assert!(
+        session_file.exists(),
+        "Session state should exist before resume"
+    );
 
     // Resume and complete workflow
     let mut test = CliTest::new()
@@ -530,7 +544,10 @@ fn test_resume_with_checkpoint_cleanup() {
     assert!(output.stdout_contains("Workflow completed successfully"));
 
     // Session file should be cleaned up after successful completion
-    assert!(!session_file.exists(), "Session state should be cleaned up after completion");
+    assert!(
+        !session_file.exists(),
+        "Session state should be cleaned up after completion"
+    );
 }
 
 #[test]
@@ -650,8 +667,9 @@ reduce:
     fs::create_dir_all(&checkpoint_dir).unwrap();
     fs::write(
         checkpoint_dir.join(format!("{}.checkpoint.json", workflow_id)),
-        serde_json::to_string_pretty(&checkpoint).unwrap()
-    ).unwrap();
+        serde_json::to_string_pretty(&checkpoint).unwrap(),
+    )
+    .unwrap();
 
     // Resume the workflow
     let mut test = CliTest::new()

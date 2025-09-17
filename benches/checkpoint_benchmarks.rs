@@ -17,7 +17,10 @@ fn create_test_checkpoint(num_variables: usize, num_completed_steps: usize) -> C
     for i in 0..num_variables {
         variables.insert(
             format!("var_{}", i),
-            json!(format!("value_{}_with_some_content_to_make_it_realistic", i)),
+            json!(format!(
+                "value_{}_with_some_content_to_make_it_realistic",
+                i
+            )),
         );
     }
 
@@ -90,10 +93,7 @@ fn benchmark_checkpoint_save(c: &mut Criterion) {
             },
             |(manager, checkpoint, _temp_dir)| {
                 rt.block_on(async {
-                    manager
-                        .save_checkpoint(&checkpoint)
-                        .await
-                        .unwrap();
+                    manager.save_checkpoint(&checkpoint).await.unwrap();
                 });
             },
             BatchSize::SmallInput,
@@ -111,10 +111,7 @@ fn benchmark_checkpoint_save(c: &mut Criterion) {
             },
             |(manager, checkpoint, _temp_dir)| {
                 rt.block_on(async {
-                    manager
-                        .save_checkpoint(&checkpoint)
-                        .await
-                        .unwrap();
+                    manager.save_checkpoint(&checkpoint).await.unwrap();
                 });
             },
             BatchSize::SmallInput,
@@ -132,10 +129,7 @@ fn benchmark_checkpoint_save(c: &mut Criterion) {
             },
             |(manager, checkpoint, _temp_dir)| {
                 rt.block_on(async {
-                    manager
-                        .save_checkpoint(&checkpoint)
-                        .await
-                        .unwrap();
+                    manager.save_checkpoint(&checkpoint).await.unwrap();
                 });
             },
             BatchSize::SmallInput,
@@ -166,10 +160,7 @@ fn benchmark_checkpoint_load(c: &mut Criterion) {
             },
             |(manager, workflow_id, _temp_dir)| {
                 rt.block_on(async {
-                    let _checkpoint = manager
-                        .load_checkpoint(&workflow_id)
-                        .await
-                        .unwrap();
+                    let _checkpoint = manager.load_checkpoint(&workflow_id).await.unwrap();
                 });
             },
             BatchSize::SmallInput,
@@ -190,10 +181,7 @@ fn benchmark_checkpoint_load(c: &mut Criterion) {
             },
             |(manager, workflow_id, _temp_dir)| {
                 rt.block_on(async {
-                    let _checkpoint = manager
-                        .load_checkpoint(&workflow_id)
-                        .await
-                        .unwrap();
+                    let _checkpoint = manager.load_checkpoint(&workflow_id).await.unwrap();
                 });
             },
             BatchSize::SmallInput,
@@ -214,10 +202,7 @@ fn benchmark_checkpoint_load(c: &mut Criterion) {
             },
             |(manager, workflow_id, _temp_dir)| {
                 rt.block_on(async {
-                    let _checkpoint = manager
-                        .load_checkpoint(&workflow_id)
-                        .await
-                        .unwrap();
+                    let _checkpoint = manager.load_checkpoint(&workflow_id).await.unwrap();
                 });
             },
             BatchSize::SmallInput,
@@ -246,10 +231,7 @@ fn benchmark_checkpoint_cleanup(c: &mut Criterion) {
             },
             |(manager, workflow_id, _temp_dir)| {
                 rt.block_on(async {
-                    manager
-                        .cleanup_checkpoint(&workflow_id)
-                        .await
-                        .unwrap();
+                    manager.cleanup_checkpoint(&workflow_id).await.unwrap();
                 });
             },
             BatchSize::SmallInput,
@@ -337,7 +319,7 @@ fn benchmark_execution_overhead(c: &mut Criterion) {
                                     timestamp: chrono::Utc::now(),
                                     output: Some(format!("Output {}", i)),
                                     retry_state: None,
-                                }
+                                },
                             );
                             manager.save_checkpoint(&checkpoint).await.unwrap();
                         }
