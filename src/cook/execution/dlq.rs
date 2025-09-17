@@ -155,6 +155,15 @@ impl DeadLetterQueue {
         })
     }
 
+    /// Load an existing Dead Letter Queue (for reading stats)
+    pub async fn load(
+        job_id: String,
+        base_path: PathBuf,
+    ) -> Result<Self> {
+        // Use default values for max_items and retention when just loading for stats
+        Self::new(job_id, base_path, 1000, 30, None).await
+    }
+
     /// Add a failed item to the DLQ
     pub async fn add(&self, item: DeadLetteredItem) -> Result<()> {
         // Check capacity and evict if necessary
@@ -439,12 +448,22 @@ impl DeadLetterQueue {
             .filter(|item| item.manual_review_required)
             .count();
 
+        // Categorize errors
+        let mut error_categories = HashMap::new();
+        for item in items.values() {
+            // Use error signature as the category
+            *error_categories
+                .entry(item.error_signature.clone())
+                .or_insert(0) += 1;
+        }
+
         Ok(DLQStats {
             total_items: items.len(),
             eligible_for_reprocess,
             requiring_manual_review,
             oldest_item: items.values().map(|i| i.first_attempt).min(),
             newest_item: items.values().map(|i| i.last_attempt).max(),
+            error_categories,
         })
     }
 
@@ -493,6 +512,7 @@ pub struct DLQStats {
     pub requiring_manual_review: usize,
     pub oldest_item: Option<DateTime<Utc>>,
     pub newest_item: Option<DateTime<Utc>>,
+    pub error_categories: HashMap<String, usize>,
 }
 
 impl DLQStorage {

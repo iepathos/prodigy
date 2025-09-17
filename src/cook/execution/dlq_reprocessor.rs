@@ -127,11 +127,51 @@ impl FilterEvaluator {
         Self { expression }
     }
 
+    /// Evaluate string expressions including 'contains' operator
+    fn evaluate_string_expression(&self, field_value: &str, operator: &str, expected_value: &str) -> bool {
+        match operator {
+            "==" => field_value == expected_value,
+            "!=" => field_value != expected_value,
+            "contains" => field_value.contains(expected_value),
+            ">" => field_value > expected_value,
+            ">=" => field_value >= expected_value,
+            "<" => field_value < expected_value,
+            "<=" => field_value <= expected_value,
+            _ => {
+                warn!("Unknown operator: {}", operator);
+                true
+            }
+        }
+    }
+
     /// Check if an item matches the filter expression
     pub fn matches(&self, item: &DeadLetteredItem) -> bool {
         // Parse simple expressions like "item.field == 'value'" or "item.score >= 5"
         if self.expression.is_empty() {
             return true;
+        }
+
+        // Handle compound expressions with && and ||
+        if self.expression.contains("&&") {
+            let parts: Vec<bool> = self.expression
+                .split("&&")
+                .map(|expr| {
+                    let evaluator = FilterEvaluator::new(expr.trim().to_string());
+                    let result = evaluator.matches(item);
+                    debug!("Evaluating sub-expression '{}' = {}", expr.trim(), result);
+                    result
+                })
+                .collect();
+            return parts.iter().all(|&x| x);
+        }
+
+        if self.expression.contains("||") {
+            return self.expression
+                .split("||")
+                .any(|expr| {
+                    let evaluator = FilterEvaluator::new(expr.trim().to_string());
+                    evaluator.matches(item)
+                });
         }
 
         // Simple expression parser for common cases
@@ -167,27 +207,43 @@ impl FilterEvaluator {
                     "<=" => count <= value.parse().unwrap_or(u32::MAX),
                     _ => true,
                 };
+            } else if field_name == "error_signature" {
+                // Handle error_signature field
+                return self.evaluate_string_expression(&item.error_signature, operator, &value);
             } else {
-                // Try to extract from item_data JSON
-                if let Some(obj) = item.item_data.as_object() {
-                    if let Some(val) = obj.get(field_name) {
-                        // Handle different JSON value types
-                        if let Some(s) = val.as_str() {
-                            Some(s.to_string())
-                        } else if let Some(n) = val.as_i64() {
-                            Some(n.to_string())
-                        } else if let Some(n) = val.as_u64() {
-                            Some(n.to_string())
-                        } else if let Some(b) = val.as_bool() {
-                            Some(b.to_string())
+                // Try to extract from item_data JSON, handling nested paths like "metadata.region"
+                let field_parts: Vec<&str> = field_name.split('.').collect();
+                let mut current = &item.item_data;
+                let mut found = false;
+
+                for part in &field_parts {
+                    if let Some(obj) = current.as_object() {
+                        if let Some(val) = obj.get(*part) {
+                            current = val;
+                            found = true;
                         } else {
-                            val.as_f64().map(|f| f.to_string())
+                            found = false;
+                            break;
                         }
                     } else {
-                        None
+                        found = false;
+                        break;
                     }
-                } else {
+                }
+
+                // Convert final value to string if we successfully navigated to it
+                if !found || field_parts.is_empty() {
                     None
+                } else if let Some(s) = current.as_str() {
+                    Some(s.to_string())
+                } else if let Some(n) = current.as_i64() {
+                    Some(n.to_string())
+                } else if let Some(n) = current.as_u64() {
+                    Some(n.to_string())
+                } else if let Some(b) = current.as_bool() {
+                    Some(b.to_string())
+                } else {
+                    current.as_f64().map(|f| f.to_string())
                 }
             }
         } else {
@@ -269,7 +325,12 @@ impl DlqReprocessor {
         let start_time = std::time::Instant::now();
 
         // 1. Load and filter DLQ items
-        let items = self.load_filtered_items(&options.filter).await?;
+        let mut items = self.load_filtered_items(&options.filter).await?;
+
+        // Apply eligibility filter unless forced
+        if !options.force {
+            items.retain(|item| item.reprocess_eligible);
+        }
 
         // 2. Create reprocessing workflow
         let workflow = self.generate_retry_workflow(&items, &options)?;
@@ -609,22 +670,62 @@ impl DlqReprocessor {
     }
 
     /// Get statistics across all DLQs
-    pub async fn get_global_stats(&self, _project_root: &std::path::Path) -> Result<GlobalDLQStats> {
-        // Get stats for the current DLQ
-        let stats = self.dlq.get_stats().await?;
+    pub async fn get_global_stats(&self, project_root: &std::path::Path) -> Result<GlobalDLQStats> {
+        use crate::storage::discover_dlq_job_ids;
 
-        // TODO: In the future, scan additional DLQs from global storage
-        // For now, return stats for just the current DLQ
-        // DeadLetterQueue doesn't have a public load method to load other DLQs
+        // Discover all job IDs with DLQ data
+        let job_ids = discover_dlq_job_ids(project_root).await?;
+
+        let mut all_workflows = Vec::new();
+        let mut total_items = 0;
+        let mut total_eligible = 0;
+        let mut total_review = 0;
+        let mut oldest_overall: Option<DateTime<Utc>> = None;
+        let mut newest_overall: Option<DateTime<Utc>> = None;
+
+        // Collect stats from all DLQs
+        for job_id in &job_ids {
+            // Try to load DLQ for this job
+            let dlq_result = super::dlq::DeadLetterQueue::load(
+                job_id.clone(),
+                project_root.to_path_buf(),
+            ).await;
+
+            if let Ok(dlq) = dlq_result {
+                let stats = dlq.get_stats().await?;
+
+                // Update totals
+                total_items += stats.total_items;
+                total_eligible += stats.eligible_for_reprocess;
+                total_review += stats.requiring_manual_review;
+
+                // Update oldest/newest
+                if let Some(oldest) = stats.oldest_item {
+                    oldest_overall = Some(match oldest_overall {
+                        Some(current) if current < oldest => current,
+                        _ => oldest,
+                    });
+                }
+
+                if let Some(newest) = stats.newest_item {
+                    newest_overall = Some(match newest_overall {
+                        Some(current) if current > newest => current,
+                        _ => newest,
+                    });
+                }
+
+                all_workflows.push((job_id.clone(), stats));
+            }
+        }
 
         Ok(GlobalDLQStats {
-            total_workflows: 1,
-            total_items: stats.total_items,
-            eligible_for_reprocess: stats.eligible_for_reprocess,
-            requiring_manual_review: stats.requiring_manual_review,
-            oldest_item: stats.oldest_item,
-            newest_item: stats.newest_item,
-            workflows: vec![(self.dlq.job_id.clone(), stats)],
+            total_workflows: all_workflows.len(),
+            total_items,
+            eligible_for_reprocess: total_eligible,
+            requiring_manual_review: total_review,
+            oldest_item: oldest_overall,
+            newest_item: newest_overall,
+            workflows: all_workflows,
         })
     }
 
