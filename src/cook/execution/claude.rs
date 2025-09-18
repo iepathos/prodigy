@@ -232,11 +232,11 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
                 "agent-default".to_string(),
                 print_to_console,
             ));
-            Box::new(ClaudeJsonProcessor::new(handler, false))
+            Box::new(ClaudeJsonProcessor::new(handler, print_to_console))
         } else {
             use crate::cook::execution::claude_stream_handler::ConsoleClaudeHandler;
             let handler = Arc::new(ConsoleClaudeHandler::new("agent-default".to_string()));
-            Box::new(ClaudeJsonProcessor::new(handler, false))
+            Box::new(ClaudeJsonProcessor::new(handler, print_to_console))
         };
 
         // Use the streaming interface
