@@ -4,14 +4,22 @@
 //! with proper interpolation and context management.
 
 mod claude;
+pub mod context;
 pub mod executor;
 mod handler;
 pub mod interpolation;
 mod shell;
+pub mod types;
+
+// Test module
+#[cfg(test)]
+mod tests;
 
 // Re-export public types
+pub use context::ExecutionContext;
 pub use executor::{CommandError, CommandExecutor, CommandResult, CommandRouter};
 pub use interpolation::InterpolationEngine;
+pub use types::{collect_command_types, determine_command_type, validate_command_count};
 
 // Re-export implementations
 pub use claude::ClaudeCommandExecutor;

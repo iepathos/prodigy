@@ -1,22 +1,18 @@
 //! Command executor trait and router for MapReduce operations
+//!
+//! This module provides the core abstraction for executing commands
+//! and routing them to appropriate executors.
 
 use crate::cook::execution::errors::{MapReduceError, MapReduceResult};
-use crate::cook::workflow::{CommandType, StepResult, WorkflowStep};
+use crate::cook::workflow::{StepResult, WorkflowStep};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-/// Context for command execution
-#[derive(Clone)]
-pub struct ExecutionContext {
-    pub worktree_path: std::path::PathBuf,
-    pub worktree_name: String,
-    pub item_id: String,
-    pub variables: HashMap<String, String>,
-    pub captured_outputs: HashMap<String, String>,
-    pub environment: HashMap<String, String>,
-}
+// Re-export context types
+pub use super::context::ExecutionContext;
+use super::types;
 
 /// Result from command execution
 #[derive(Debug, Clone)]
@@ -76,7 +72,7 @@ pub trait CommandExecutor: Send + Sync {
     ) -> Result<CommandResult, CommandError>;
 
     /// Check if this executor supports the given command type
-    fn supports(&self, command_type: &CommandType) -> bool;
+    fn supports(&self, command_type: &crate::cook::workflow::CommandType) -> bool;
 }
 
 /// Router for command execution
@@ -103,13 +99,16 @@ impl CommandRouter {
         step: &WorkflowStep,
         context: &ExecutionContext,
     ) -> MapReduceResult<CommandResult> {
-        // Determine command type
-        let command_type = Self::determine_command_type(step)?;
+        // Determine command type using extracted function
+        let command_type = types::determine_command_type(step)?;
 
         // Find executor that supports this command type
         for executor in self.executors.values() {
             if executor.supports(&command_type) {
-                return executor.execute(step, context).await.map_err(|e| e.into());
+                return executor
+                    .execute(step, context)
+                    .await
+                    .map_err(|e| e.into());
             }
         }
 
@@ -118,96 +117,6 @@ impl CommandRouter {
             field: "command_type".to_string(),
             value: format!("{:?}", command_type),
         })
-    }
-
-    /// Determine command type from a workflow step
-    fn determine_command_type(step: &WorkflowStep) -> MapReduceResult<CommandType> {
-        // Collect all specified command types
-        let commands = Self::collect_command_types(step);
-
-        // Validate exactly one command is specified
-        Self::validate_command_count(&commands)?;
-
-        // Extract and return the single command type
-        commands
-            .into_iter()
-            .next()
-            .ok_or_else(|| MapReduceError::InvalidConfiguration {
-                reason: "No valid command found in step".to_string(),
-                field: "command".to_string(),
-                value: "<none>".to_string(),
-            })
-    }
-
-    /// Collect all command types from a workflow step
-    fn collect_command_types(step: &WorkflowStep) -> Vec<CommandType> {
-        let mut commands = Vec::new();
-
-        if let Some(claude) = &step.claude {
-            commands.push(CommandType::Claude(claude.clone()));
-        }
-        if let Some(shell) = &step.shell {
-            commands.push(CommandType::Shell(shell.clone()));
-        }
-        if let Some(handler) = &step.handler {
-            // Convert serde_json::Value to AttributeValue
-            let mut converted_attributes = HashMap::new();
-            for (key, value) in &handler.attributes {
-                let attr_value = match value {
-                    serde_json::Value::String(s) => {
-                        crate::commands::AttributeValue::from(s.clone())
-                    }
-                    serde_json::Value::Bool(b) => crate::commands::AttributeValue::from(*b),
-                    serde_json::Value::Number(n) => {
-                        if let Some(i) = n.as_i64() {
-                            crate::commands::AttributeValue::from(i as i32)
-                        } else if let Some(f) = n.as_f64() {
-                            crate::commands::AttributeValue::from(f)
-                        } else {
-                            crate::commands::AttributeValue::from(n.to_string())
-                        }
-                    }
-                    _ => crate::commands::AttributeValue::from(value.to_string()),
-                };
-                converted_attributes.insert(key.clone(), attr_value);
-            }
-
-            commands.push(CommandType::Handler {
-                handler_name: handler.name.clone(),
-                attributes: converted_attributes,
-            });
-        }
-        if let Some(test) = &step.test {
-            commands.push(CommandType::Test(test.clone()));
-        }
-        if let Some(goal_seek) = &step.goal_seek {
-            commands.push(CommandType::GoalSeek(goal_seek.clone()));
-        }
-        if let Some(foreach) = &step.foreach {
-            commands.push(CommandType::Foreach(foreach.clone()));
-        }
-
-        commands
-    }
-
-    /// Validate that exactly one command is specified
-    fn validate_command_count(commands: &[CommandType]) -> MapReduceResult<()> {
-        match commands.len() {
-            0 => Err(MapReduceError::InvalidConfiguration {
-                reason: "No command type specified in step".to_string(),
-                field: "command".to_string(),
-                value: "<none>".to_string(),
-            }),
-            1 => Ok(()),
-            n => {
-                let types: Vec<String> = commands.iter().map(|c| format!("{:?}", c)).collect();
-                Err(MapReduceError::InvalidConfiguration {
-                    reason: format!("Multiple commands specified in single step: {}", n),
-                    field: "commands".to_string(),
-                    value: types.join(", "),
-                })
-            }
-        }
     }
 }
 

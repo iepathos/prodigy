@@ -12,6 +12,10 @@ pub mod utils;
 // Declare the command module for command execution
 pub mod command;
 
+// Declare map and reduce phase modules
+pub mod map_phase;
+pub mod reduce_phase;
+
 // Import agent types and functionality
 use agent::{
     AgentLifecycleManager, AgentOperation, AgentResultAggregator, DefaultLifecycleManager,
@@ -27,7 +31,7 @@ use utils::{
     calculate_map_result_summary, generate_agent_branch_name, generate_agent_id, truncate_command,
 };
 
-use crate::commands::CommandRegistry;
+use crate::commands::{AttributeValue, CommandRegistry};
 use crate::cook::execution::data_pipeline::DataPipeline;
 use crate::cook::execution::dlq::{DeadLetterQueue, DeadLetteredItem, ErrorType, FailureDetail};
 use crate::cook::execution::errors::{ErrorContext, MapReduceError, MapReduceResult, SpanInfo};
@@ -60,6 +64,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -3383,8 +3388,7 @@ impl MapReduceExecutor {
         let output = Command::new("git")
             .args(["status", "--porcelain"])
             .current_dir(parent_path)
-            .output()
-            .await?;
+            .output()?;
 
         let status = String::from_utf8_lossy(&output.stdout);
         if status.contains("UU ") || status.contains("AA ") || status.contains("DD ") {
@@ -3402,8 +3406,7 @@ impl MapReduceExecutor {
             let check_output = Command::new("cargo")
                 .args(["check", "--quiet"])
                 .current_dir(parent_path)
-                .output()
-                .await?;
+                .output()?;
 
             if !check_output.status.success() {
                 warn!("Parent worktree fails cargo check after merge, but continuing");
