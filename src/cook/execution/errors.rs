@@ -394,6 +394,31 @@ impl From<serde_json::Error> for MapReduceError {
     }
 }
 
+impl From<super::mapreduce::phases::PhaseError> for MapReduceError {
+    fn from(error: super::mapreduce::phases::PhaseError) -> Self {
+        use super::mapreduce::phases::PhaseError;
+        match error {
+            PhaseError::ExecutionFailed { message } => MapReduceError::General {
+                message,
+                source: None,
+            },
+            PhaseError::ValidationError { message } => MapReduceError::ValidationFailed {
+                details: message,
+                source: None,
+            },
+            PhaseError::Timeout { message } => MapReduceError::General {
+                message,
+                source: None,
+            },
+            PhaseError::TransitionError { message } => MapReduceError::General {
+                message,
+                source: None,
+            },
+            PhaseError::MapReduceError(e) => e,
+        }
+    }
+}
+
 /// Aggregated error for batch operations
 #[derive(Debug, Error)]
 #[error("Multiple errors occurred during MapReduce execution")]

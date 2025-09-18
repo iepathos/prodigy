@@ -208,6 +208,7 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - `cook/`: Workflow orchestration and execution
 - `cook/goal_seek/`: Goal-seeking primitives and validators ✅
 - `cook/execution/`: Command execution and MapReduce processing
+- `cook/execution/mapreduce/phases/`: Phase execution orchestration ✅
 - `cook/workflow/`: Workflow parsing and step management
 - `cook/workflow/checkpoint/`: Checkpoint creation and persistence ✅
 - `cook/workflow/resume/`: Resume execution from checkpoints ✅
