@@ -3892,7 +3892,13 @@ impl WorkflowExecutor {
                 .display_progress(&format!("Running validation (Claude): {}", command));
 
             // Execute Claude command for validation
-            let env_vars = HashMap::new();
+            let mut env_vars = HashMap::new();
+            // Enable streaming for validation commands
+            if std::env::var("PRODIGY_CLAUDE_STREAMING").unwrap_or_else(|_| "true".to_string())
+                == "true"
+            {
+                env_vars.insert("PRODIGY_CLAUDE_STREAMING".to_string(), "true".to_string());
+            }
             self.execute_claude_command(&command, env, env_vars).await?
         } else if let Some(shell_cmd) = validation_config
             .shell

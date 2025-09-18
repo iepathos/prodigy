@@ -1960,6 +1960,92 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_validation_with_streaming_enabled() {
+        // Set streaming environment variable
+        std::env::set_var("PRODIGY_CLAUDE_STREAMING", "true");
+
+        let (mut executor, claude_mock, _, _, _) = create_test_executor_with_git_mock().await;
+
+        // Add mock response for implementation step
+        claude_mock.add_response(ExecutionResult {
+            stdout: "Implementation complete".to_string(),
+            stderr: String::new(),
+            exit_code: Some(0),
+            success: true,
+        });
+
+        // Add mock response for validation
+        claude_mock.add_response(ExecutionResult {
+            stdout: r#"{
+                "completion_percentage": 100.0,
+                "status": "complete",
+                "missing": [],
+                "implemented": ["feature1"]
+            }"#
+            .to_string(),
+            stderr: String::new(),
+            exit_code: Some(0),
+            success: true,
+        });
+
+        let temp_dir = TempDir::new().unwrap();
+        let env = ExecutionEnvironment {
+            working_dir: temp_dir.path().to_path_buf(),
+            project_dir: temp_dir.path().to_path_buf(),
+            worktree_name: None,
+            session_id: "validation-streaming-test".to_string(),
+        };
+
+        // Create workflow with validation step
+        let workflow = ExtendedWorkflowConfig {
+            name: "Test Validation Streaming".to_string(),
+            mode: WorkflowMode::Sequential,
+            steps: vec![
+                WorkflowStep {
+                    claude: Some("/prodigy-implement-spec 01".to_string()),
+                    validate: Some(crate::cook::workflow::validation::ValidationConfig {
+                        claude: Some("/prodigy-validate-spec 01".to_string()),
+                        shell: None,
+                        command: None,
+                        threshold: 100.0,
+                        result_file: None,
+                        timeout: None,
+                        expected_schema: None,
+                        on_incomplete: None,
+                    }),
+                    ..Default::default()
+                },
+            ],
+            setup_phase: None,
+            map_phase: None,
+            reduce_phase: None,
+            max_iterations: 1,
+            iterate: false,
+            retry_defaults: None,
+            environment: None,
+        };
+
+        // Execute workflow
+        let result = executor.execute(&workflow, &env).await;
+        assert!(result.is_ok());
+
+        // Verify that both Claude commands were called with streaming flag
+        let calls = claude_mock.get_calls();
+        assert_eq!(calls.len(), 2);
+
+        // Check implementation command
+        let (_cmd, _path, env_vars) = &calls[0];
+        assert_eq!(env_vars.get("PRODIGY_CLAUDE_STREAMING"), Some(&"true".to_string()));
+
+        // Check validation command - this is the key test!
+        let (_cmd, _path, env_vars) = &calls[1];
+        assert_eq!(env_vars.get("PRODIGY_CLAUDE_STREAMING"), Some(&"true".to_string()));
+
+        // Clean up
+        std::env::remove_var("PRODIGY_CLAUDE_STREAMING");
+    }
+
+    #[tokio::test]
     async fn test_workflow_resume_capability() {
         let (mut executor, _, session_mock, _, _) = create_test_executor_with_git_mock().await;
 
