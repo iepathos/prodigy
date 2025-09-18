@@ -16,6 +16,9 @@ pub mod command;
 pub mod map_phase;
 pub mod reduce_phase;
 
+// Declare the resources module for resource management
+pub mod resources;
+
 // Import agent types and functionality
 use agent::{
     AgentLifecycleManager, AgentOperation, AgentResultAggregator, DefaultLifecycleManager,
@@ -52,9 +55,7 @@ use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::SessionManager;
 use crate::cook::workflow::{ErrorPolicyExecutor, StepResult, WorkflowErrorPolicy, WorkflowStep};
 use crate::subprocess::SubprocessManager;
-use crate::worktree::{
-    WorktreeManager, WorktreePool, WorktreePoolConfig, WorktreeRequest, WorktreeSession,
-};
+use crate::worktree::{WorktreeManager, WorktreePool, WorktreePoolConfig};
 // Keep anyhow imports for backwards compatibility with state.rs which still uses anyhow::Result
 use chrono::Utc;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -506,6 +507,7 @@ pub struct MapReduceExecutor {
     error_policy_executor: Option<ErrorPolicyExecutor>,
     agent_lifecycle_manager: Arc<dyn AgentLifecycleManager>,
     agent_result_aggregator: Arc<dyn AgentResultAggregator>,
+    resource_manager: Arc<resources::ResourceManager>,
 }
 
 #[cfg(test)]
@@ -977,48 +979,6 @@ mod pure_function_tests {
 }
 
 impl MapReduceExecutor {
-    /// Acquire worktree session for an agent (extracted for clarity)
-    async fn acquire_worktree_session(
-        &self,
-        agent_id: &str,
-        _env: &ExecutionEnvironment,
-    ) -> MapReduceResult<WorktreeSession> {
-        // Try to use worktree pool first
-        if let Some(pool) = &self.worktree_pool {
-            let handle = pool
-                .acquire(WorktreeRequest::Anonymous)
-                .await
-                .map_err(|e| self.create_worktree_error(agent_id, e.to_string()))?;
-
-            handle
-                .session()
-                .ok_or_else(|| MapReduceError::WorktreeCreationFailed {
-                    agent_id: agent_id.to_string(),
-                    reason: "No session in worktree handle".to_string(),
-                    source: std::io::Error::other("No session in worktree handle"),
-                })
-                .cloned()
-        } else {
-            // Fallback to direct creation
-            self.worktree_manager
-                .create_session()
-                .await
-                .map_err(|e| self.create_worktree_error(agent_id, e.to_string()))
-        }
-    }
-
-    /// Create worktree error with context
-    fn create_worktree_error(&self, agent_id: &str, reason: String) -> MapReduceError {
-        let context = self.create_error_context("worktree_creation");
-        MapReduceError::WorktreeCreationFailed {
-            agent_id: agent_id.to_string(),
-            reason: reason.clone(),
-            source: std::io::Error::other(reason),
-        }
-        .with_context(context)
-        .error
-    }
-
     /// Log agent failure event asynchronously
     fn log_agent_failure_async(&self, job_id: String, agent_id: String, error_msg: String) {
         let event_logger = self.event_logger.clone();
@@ -1164,6 +1124,12 @@ impl MapReduceExecutor {
             step_interpolator,
         ));
 
+        // Create resource manager with worktree manager
+        let resource_manager = Arc::new(resources::ResourceManager::with_worktree_manager(
+            None,
+            worktree_manager.clone(),
+        ));
+
         Self {
             claude_executor,
             session_manager,
@@ -1190,6 +1156,7 @@ impl MapReduceExecutor {
             error_policy_executor: None,
             agent_lifecycle_manager,
             agent_result_aggregator,
+            resource_manager,
         }
     }
 
@@ -1201,8 +1168,14 @@ impl MapReduceExecutor {
     /// Initialize worktree pool with given configuration
     fn initialize_pool(&mut self, config: WorktreePoolConfig) {
         if self.worktree_pool.is_none() {
-            let pool = WorktreePool::new(config, self.worktree_manager.clone());
-            self.worktree_pool = Some(Arc::new(pool));
+            let pool = Arc::new(WorktreePool::new(config, self.worktree_manager.clone()));
+            self.worktree_pool = Some(pool.clone());
+
+            // Update resource manager with the new pool
+            self.resource_manager = Arc::new(resources::ResourceManager::with_worktree_manager(
+                Some(pool),
+                self.worktree_manager.clone(),
+            ));
         }
     }
 
@@ -1505,7 +1478,14 @@ impl MapReduceExecutor {
         }
 
         // Clean up orphaned worktrees from failed agents
-        self.cleanup_orphaned_resources(&state).await;
+        let worktree_names: Vec<String> = state
+            .failed_agents
+            .values()
+            .filter_map(|failure| failure.worktree_info.as_ref().map(|info| info.name.clone()))
+            .collect();
+        self.resource_manager
+            .cleanup_orphaned_resources(&worktree_names)
+            .await;
 
         // Check if job is already complete and not forcing
         if state.is_complete && !options.force {
@@ -1742,47 +1722,6 @@ impl MapReduceExecutor {
         }
 
         Ok(pending_items)
-    }
-
-    /// Clean up orphaned worktrees from failed agents
-    async fn cleanup_orphaned_resources(&self, state: &MapReduceJobState) {
-        // Clean up worktrees from failed agents that may have been left behind
-        for failure in state.failed_agents.values() {
-            if let Some(ref worktree_info) = failure.worktree_info {
-                // Try to clean up using worktree pool if available
-                if let Some(pool) = &self.worktree_pool {
-                    // Try to find and cleanup the worktree by name
-                    if let Err(e) = pool.cleanup_by_name(&worktree_info.name).await {
-                        debug!(
-                            "Failed to cleanup orphaned worktree {}: {}",
-                            worktree_info.name, e
-                        );
-                    } else {
-                        info!(
-                            "Cleaned up orphaned worktree {} from failed agent",
-                            worktree_info.name
-                        );
-                    }
-                } else {
-                    // Direct cleanup using worktree manager if no pool
-                    if let Err(e) = self
-                        .worktree_manager
-                        .cleanup_session(&worktree_info.name, false)
-                        .await
-                    {
-                        debug!(
-                            "Failed to cleanup orphaned worktree {}: {}",
-                            worktree_info.name, e
-                        );
-                    } else {
-                        info!(
-                            "Cleaned up orphaned worktree {} from failed agent",
-                            worktree_info.name
-                        );
-                    }
-                }
-            }
-        }
     }
 
     /// Check if a job can be resumed
@@ -2499,7 +2438,11 @@ impl MapReduceExecutor {
         ));
 
         // Acquire worktree session with error handling
-        let worktree_session = match self.acquire_worktree_session(&agent_id, env).await {
+        let worktree_session = match self
+            .resource_manager
+            .acquire_worktree_session(&agent_id, env)
+            .await
+        {
             Ok(session) => session,
             Err(e) => {
                 // Log failure asynchronously
@@ -2638,7 +2581,11 @@ impl MapReduceExecutor {
         ));
 
         // Acquire worktree session with error handling
-        let worktree_session = match self.acquire_worktree_session(&agent_id, env).await {
+        let worktree_session = match self
+            .resource_manager
+            .acquire_worktree_session(&agent_id, env)
+            .await
+        {
             Ok(session) => session,
             Err(e) => {
                 // Log failure asynchronously
@@ -3889,6 +3836,7 @@ impl MapReduceExecutor {
             error_policy_executor: None, // Don't clone error policy executor - it's per-job
             agent_lifecycle_manager: self.agent_lifecycle_manager.clone(),
             agent_result_aggregator: self.agent_result_aggregator.clone(),
+            resource_manager: self.resource_manager.clone(),
         }
     }
 
