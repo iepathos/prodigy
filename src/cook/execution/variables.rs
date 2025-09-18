@@ -44,12 +44,56 @@ impl std::fmt::Debug for Variable {
 /// Types of aggregate computations
 #[derive(Debug, Clone)]
 pub enum AggregateType {
-    Count { filter: Option<String> },
-    Sum { field: String },
-    Average { field: String },
-    Min { field: String },
-    Max { field: String },
-    Collect { field: String },
+    Count {
+        filter: Option<String>,
+    },
+    Sum {
+        field: String,
+    },
+    Average {
+        field: String,
+    },
+    Min {
+        field: String,
+    },
+    Max {
+        field: String,
+    },
+    Collect {
+        field: String,
+    },
+    // Additional statistical functions
+    Median {
+        field: String,
+    },
+    StdDev {
+        field: String,
+    },
+    Variance {
+        field: String,
+    },
+    // Collection functions
+    Unique {
+        field: String,
+    },
+    Concat {
+        field: String,
+        separator: Option<String>,
+    },
+    Merge {
+        field: String,
+    },
+    Flatten {
+        field: String,
+    },
+    Sort {
+        field: String,
+        descending: bool,
+    },
+    GroupBy {
+        field: String,
+        key: String,
+    },
 }
 
 /// Trait for computed variables that evaluate on demand
@@ -573,15 +617,468 @@ impl VariableContext {
 
     /// Evaluate an aggregate expression
     fn evaluate_aggregate(&self, agg_type: &AggregateType) -> Result<Value> {
-        // This would need access to the collection being aggregated
-        // For now, return a placeholder
         match agg_type {
-            AggregateType::Count { .. } => Ok(Value::Number(0.into())),
-            AggregateType::Sum { .. } => Ok(Value::Number(0.into())),
-            AggregateType::Average { .. } => Ok(Value::Number(0.into())),
-            AggregateType::Min { .. } => Ok(Value::Null),
-            AggregateType::Max { .. } => Ok(Value::Null),
-            AggregateType::Collect { .. } => Ok(Value::Array(vec![])),
+            AggregateType::Count { filter } => self.aggregate_count(filter.as_deref()),
+            AggregateType::Sum { field } => self.aggregate_sum(field),
+            AggregateType::Average { field } => self.aggregate_average(field),
+            AggregateType::Min { field } => self.aggregate_min(field),
+            AggregateType::Max { field } => self.aggregate_max(field),
+            AggregateType::Collect { field } => self.aggregate_collect(field),
+            AggregateType::Median { field } => self.aggregate_median(field),
+            AggregateType::StdDev { field } => self.aggregate_stddev(field),
+            AggregateType::Variance { field } => self.aggregate_variance(field),
+            AggregateType::Unique { field } => self.aggregate_unique(field),
+            AggregateType::Concat { field, separator } => {
+                self.aggregate_concat(field, separator.as_deref())
+            }
+            AggregateType::Merge { field } => self.aggregate_merge(field),
+            AggregateType::Flatten { field } => self.aggregate_flatten(field),
+            AggregateType::Sort { field, descending } => self.aggregate_sort(field, *descending),
+            AggregateType::GroupBy { field, key } => self.aggregate_group_by(field, key),
+        }
+    }
+
+    /// Count items in a collection, optionally filtered
+    fn aggregate_count(&self, filter: Option<&str>) -> Result<Value> {
+        // Look for map.results which is the main collection in MapReduce
+        let collection = self
+            .lookup_variable("map.results")
+            .or_else(|_| self.lookup_variable("map"))
+            .unwrap_or(Value::Array(vec![]));
+
+        match &collection {
+            Value::Array(items) => {
+                let count = if let Some(_filter_expr) = filter {
+                    // TODO: Implement filter expression evaluation
+                    // For now, count all items
+                    items.len()
+                } else {
+                    items.len()
+                };
+                Ok(Value::Number(serde_json::Number::from(count)))
+            }
+            Value::Object(map) => {
+                // If it's a map with a "results" field, use that
+                if let Some(Value::Array(items)) = map.get("results") {
+                    Ok(Value::Number(serde_json::Number::from(items.len())))
+                } else {
+                    // Count the number of keys in the object
+                    Ok(Value::Number(serde_json::Number::from(map.len())))
+                }
+            }
+            _ => Ok(Value::Number(serde_json::Number::from(0))),
+        }
+    }
+
+    /// Sum numeric values from a field in a collection
+    fn aggregate_sum(&self, field: &str) -> Result<Value> {
+        let collection = self.get_collection_for_field(field)?;
+        let field_name = self.extract_field_name(field);
+
+        match &collection {
+            Value::Array(items) => {
+                let sum = items
+                    .iter()
+                    .filter_map(|item| {
+                        self.extract_field_value(item, &field_name)
+                            .and_then(|v| v.as_f64())
+                    })
+                    .sum::<f64>();
+                Ok(Value::Number(
+                    serde_json::Number::from_f64(sum)
+                        .unwrap_or_else(|| serde_json::Number::from(0)),
+                ))
+            }
+            _ => Ok(Value::Number(serde_json::Number::from(0))),
+        }
+    }
+
+    /// Calculate average of numeric values from a field
+    fn aggregate_average(&self, field: &str) -> Result<Value> {
+        let collection = self.get_collection_for_field(field)?;
+        let field_name = self.extract_field_name(field);
+
+        match &collection {
+            Value::Array(items) => {
+                let values: Vec<f64> = items
+                    .iter()
+                    .filter_map(|item| {
+                        self.extract_field_value(item, &field_name)
+                            .and_then(|v| v.as_f64())
+                    })
+                    .collect();
+
+                if values.is_empty() {
+                    Ok(Value::Null)
+                } else {
+                    let avg = values.iter().sum::<f64>() / values.len() as f64;
+                    Ok(Value::Number(
+                        serde_json::Number::from_f64(avg)
+                            .unwrap_or_else(|| serde_json::Number::from(0)),
+                    ))
+                }
+            }
+            _ => Ok(Value::Null),
+        }
+    }
+
+    /// Find minimum value from a field
+    fn aggregate_min(&self, field: &str) -> Result<Value> {
+        let collection = self.get_collection_for_field(field)?;
+        let field_name = self.extract_field_name(field);
+
+        match &collection {
+            Value::Array(items) => {
+                let min_val = items
+                    .iter()
+                    .filter_map(|item| self.extract_field_value(item, &field_name))
+                    .min_by(|a, b| {
+                        // Compare as numbers if possible, otherwise as strings
+                        if let (Some(a_num), Some(b_num)) = (a.as_f64(), b.as_f64()) {
+                            a_num
+                                .partial_cmp(&b_num)
+                                .unwrap_or(std::cmp::Ordering::Equal)
+                        } else {
+                            a.to_string().cmp(&b.to_string())
+                        }
+                    });
+
+                Ok(min_val.cloned().unwrap_or(Value::Null))
+            }
+            _ => Ok(Value::Null),
+        }
+    }
+
+    /// Find maximum value from a field
+    fn aggregate_max(&self, field: &str) -> Result<Value> {
+        let collection = self.get_collection_for_field(field)?;
+        let field_name = self.extract_field_name(field);
+
+        match &collection {
+            Value::Array(items) => {
+                let max_val = items
+                    .iter()
+                    .filter_map(|item| self.extract_field_value(item, &field_name))
+                    .max_by(|a, b| {
+                        // Compare as numbers if possible, otherwise as strings
+                        if let (Some(a_num), Some(b_num)) = (a.as_f64(), b.as_f64()) {
+                            a_num
+                                .partial_cmp(&b_num)
+                                .unwrap_or(std::cmp::Ordering::Equal)
+                        } else {
+                            a.to_string().cmp(&b.to_string())
+                        }
+                    });
+
+                Ok(max_val.cloned().unwrap_or(Value::Null))
+            }
+            _ => Ok(Value::Null),
+        }
+    }
+
+    /// Collect all values from a field into an array
+    fn aggregate_collect(&self, field: &str) -> Result<Value> {
+        let collection = self.get_collection_for_field(field)?;
+        let field_name = self.extract_field_name(field);
+
+        match &collection {
+            Value::Array(items) => {
+                let collected: Vec<Value> = items
+                    .iter()
+                    .filter_map(|item| self.extract_field_value(item, &field_name))
+                    .cloned()
+                    .collect();
+                Ok(Value::Array(collected))
+            }
+            _ => Ok(Value::Array(vec![])),
+        }
+    }
+
+    /// Get the collection to operate on based on the field specification
+    fn get_collection_for_field(&self, field: &str) -> Result<Value> {
+        // Field can be like "map.results.score" or just "score"
+        // If it starts with a collection path, use that collection
+        if field.contains('.') {
+            let parts: Vec<&str> = field.split('.').collect();
+            if parts.len() > 1 {
+                // Try to get the collection from the first parts
+                let collection_path = parts[0..parts.len() - 1].join(".");
+                return self
+                    .lookup_variable(&collection_path)
+                    .or_else(|_| Ok(Value::Array(vec![])));
+            }
+        }
+
+        // Default to map.results for MapReduce context
+        self.lookup_variable("map.results")
+            .or_else(|_| self.lookup_variable("map"))
+            .or_else(|_| Ok(Value::Array(vec![])))
+    }
+
+    /// Extract the field name from a path like "map.results.score" -> "score"
+    fn extract_field_name(&self, field: &str) -> String {
+        field.split('.').next_back().unwrap_or(field).to_string()
+    }
+
+    /// Extract a field value from an item
+    fn extract_field_value<'a>(&self, item: &'a Value, field: &str) -> Option<&'a Value> {
+        match item {
+            Value::Object(map) => map.get(field),
+            _ => None,
+        }
+    }
+
+    /// Calculate median of numeric values
+    fn aggregate_median(&self, field: &str) -> Result<Value> {
+        let collection = self.get_collection_for_field(field)?;
+        let field_name = self.extract_field_name(field);
+
+        match &collection {
+            Value::Array(items) => {
+                let mut values: Vec<f64> = items
+                    .iter()
+                    .filter_map(|item| {
+                        self.extract_field_value(item, &field_name)
+                            .and_then(|v| v.as_f64())
+                    })
+                    .collect();
+
+                if values.is_empty() {
+                    return Ok(Value::Null);
+                }
+
+                values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                let len = values.len();
+                let median = if len % 2 == 0 {
+                    (values[len / 2 - 1] + values[len / 2]) / 2.0
+                } else {
+                    values[len / 2]
+                };
+                Ok(Value::Number(
+                    serde_json::Number::from_f64(median)
+                        .unwrap_or_else(|| serde_json::Number::from(0)),
+                ))
+            }
+            _ => Ok(Value::Null),
+        }
+    }
+
+    /// Calculate standard deviation
+    fn aggregate_stddev(&self, field: &str) -> Result<Value> {
+        let variance = self.aggregate_variance(field)?;
+        match variance {
+            Value::Number(var) => {
+                let val = var.as_f64().unwrap_or(0.0);
+                Ok(Value::Number(
+                    serde_json::Number::from_f64(val.sqrt())
+                        .unwrap_or_else(|| serde_json::Number::from(0)),
+                ))
+            }
+            _ => Ok(Value::Null),
+        }
+    }
+
+    /// Calculate variance
+    fn aggregate_variance(&self, field: &str) -> Result<Value> {
+        let collection = self.get_collection_for_field(field)?;
+        let field_name = self.extract_field_name(field);
+
+        match &collection {
+            Value::Array(items) => {
+                let values: Vec<f64> = items
+                    .iter()
+                    .filter_map(|item| {
+                        self.extract_field_value(item, &field_name)
+                            .and_then(|v| v.as_f64())
+                    })
+                    .collect();
+
+                if values.len() < 2 {
+                    return Ok(Value::Null);
+                }
+
+                let mean = values.iter().sum::<f64>() / values.len() as f64;
+                let variance = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>()
+                    / (values.len() - 1) as f64;
+
+                Ok(Value::Number(
+                    serde_json::Number::from_f64(variance)
+                        .unwrap_or_else(|| serde_json::Number::from(0)),
+                ))
+            }
+            _ => Ok(Value::Null),
+        }
+    }
+
+    /// Get unique values from a field
+    fn aggregate_unique(&self, field: &str) -> Result<Value> {
+        let collection = self.get_collection_for_field(field)?;
+        let field_name = self.extract_field_name(field);
+
+        match &collection {
+            Value::Array(items) => {
+                let mut unique_values = std::collections::HashSet::new();
+                let mut result = Vec::new();
+
+                for item in items {
+                    if let Some(value) = self.extract_field_value(item, &field_name) {
+                        let key = serde_json::to_string(value)?;
+                        if unique_values.insert(key) {
+                            result.push(value.clone());
+                        }
+                    }
+                }
+
+                Ok(Value::Array(result))
+            }
+            _ => Ok(Value::Array(vec![])),
+        }
+    }
+
+    /// Concatenate string values from a field
+    fn aggregate_concat(&self, field: &str, separator: Option<&str>) -> Result<Value> {
+        let collection = self.get_collection_for_field(field)?;
+        let field_name = self.extract_field_name(field);
+        let sep = separator.unwrap_or("");
+
+        match &collection {
+            Value::Array(items) => {
+                let strings: Vec<String> = items
+                    .iter()
+                    .filter_map(|item| {
+                        self.extract_field_value(item, &field_name)
+                            .map(|v| match v {
+                                Value::String(s) => s.clone(),
+                                _ => v.to_string(),
+                            })
+                    })
+                    .collect();
+
+                Ok(Value::String(strings.join(sep)))
+            }
+            _ => Ok(Value::String(String::new())),
+        }
+    }
+
+    /// Merge objects from a field
+    fn aggregate_merge(&self, field: &str) -> Result<Value> {
+        let collection = self.get_collection_for_field(field)?;
+        let field_name = self.extract_field_name(field);
+
+        match &collection {
+            Value::Array(items) => {
+                let mut merged = serde_json::Map::new();
+
+                for item in items {
+                    if let Some(Value::Object(obj)) = self.extract_field_value(item, &field_name) {
+                        for (k, v) in obj {
+                            merged.insert(k.clone(), v.clone());
+                        }
+                    }
+                }
+
+                Ok(Value::Object(merged))
+            }
+            _ => Ok(Value::Object(serde_json::Map::new())),
+        }
+    }
+
+    /// Flatten nested arrays
+    fn aggregate_flatten(&self, field: &str) -> Result<Value> {
+        let collection = self.get_collection_for_field(field)?;
+        let field_name = self.extract_field_name(field);
+
+        match &collection {
+            Value::Array(items) => {
+                let mut flattened = Vec::new();
+
+                for item in items {
+                    match self.extract_field_value(item, &field_name) {
+                        Some(Value::Array(arr)) => {
+                            flattened.extend(arr.clone());
+                        }
+                        Some(value) => {
+                            flattened.push(value.clone());
+                        }
+                        None => {}
+                    }
+                }
+
+                Ok(Value::Array(flattened))
+            }
+            _ => Ok(Value::Array(vec![])),
+        }
+    }
+
+    /// Sort values from a field
+    fn aggregate_sort(&self, field: &str, descending: bool) -> Result<Value> {
+        let collection = self.get_collection_for_field(field)?;
+        let field_name = self.extract_field_name(field);
+
+        match &collection {
+            Value::Array(items) => {
+                let mut values: Vec<Value> = items
+                    .iter()
+                    .filter_map(|item| self.extract_field_value(item, &field_name).cloned())
+                    .collect();
+
+                values.sort_by(|a, b| {
+                    let ordering = if let (Some(a_num), Some(b_num)) = (a.as_f64(), b.as_f64()) {
+                        a_num
+                            .partial_cmp(&b_num)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    } else {
+                        a.to_string().cmp(&b.to_string())
+                    };
+
+                    if descending {
+                        ordering.reverse()
+                    } else {
+                        ordering
+                    }
+                });
+
+                Ok(Value::Array(values))
+            }
+            _ => Ok(Value::Array(vec![])),
+        }
+    }
+
+    /// Group items by a key field
+    fn aggregate_group_by(&self, field: &str, key: &str) -> Result<Value> {
+        // For group_by, the field parameter is the collection path itself
+        // not a field within items, so we get the collection directly
+        let collection = if field.contains('.') {
+            self.lookup_variable(field).unwrap_or(Value::Array(vec![]))
+        } else {
+            self.lookup_variable("map.results")
+                .or_else(|_| self.lookup_variable("map"))
+                .unwrap_or(Value::Array(vec![]))
+        };
+
+        match &collection {
+            Value::Array(items) => {
+                let mut groups: std::collections::HashMap<String, Vec<Value>> =
+                    std::collections::HashMap::new();
+
+                for item in items {
+                    if let Some(key_value) = self.extract_field_value(item, key) {
+                        let key_str = match key_value {
+                            Value::String(s) => s.clone(),
+                            _ => key_value.to_string(),
+                        };
+                        groups.entry(key_str).or_default().push(item.clone());
+                    }
+                }
+
+                let mut result = serde_json::Map::new();
+                for (k, v) in groups {
+                    result.insert(k, Value::Array(v));
+                }
+
+                Ok(Value::Object(result))
+            }
+            _ => Ok(Value::Object(serde_json::Map::new())),
         }
     }
 
@@ -833,5 +1330,369 @@ mod tests {
         context.scope.local.remove("var");
         let result = context.interpolate("Value: ${var}").await.unwrap();
         assert_eq!(result, "Value: phase");
+    }
+
+    #[test]
+    fn test_aggregate_count() {
+        let mut context = VariableContext::new();
+        context.set_global(
+            "map.results",
+            Variable::Static(json!([
+                {"id": 1, "status": "success"},
+                {"id": 2, "status": "failure"},
+                {"id": 3, "status": "success"},
+            ])),
+        );
+
+        let result = context
+            .evaluate_aggregate(&AggregateType::Count { filter: None })
+            .unwrap();
+        assert_eq!(result, json!(3));
+    }
+
+    #[test]
+    fn test_aggregate_sum() {
+        let mut context = VariableContext::new();
+        context.set_global(
+            "map.results",
+            Variable::Static(json!([
+                {"id": 1, "score": 10},
+                {"id": 2, "score": 20},
+                {"id": 3, "score": 30},
+            ])),
+        );
+
+        let result = context
+            .evaluate_aggregate(&AggregateType::Sum {
+                field: "score".to_string(),
+            })
+            .unwrap();
+        assert_eq!(result.as_f64(), Some(60.0));
+    }
+
+    #[test]
+    fn test_aggregate_average() {
+        let mut context = VariableContext::new();
+        context.set_global(
+            "map.results",
+            Variable::Static(json!([
+                {"id": 1, "score": 10},
+                {"id": 2, "score": 20},
+                {"id": 3, "score": 30},
+            ])),
+        );
+
+        let result = context
+            .evaluate_aggregate(&AggregateType::Average {
+                field: "score".to_string(),
+            })
+            .unwrap();
+        assert_eq!(result.as_f64(), Some(20.0));
+    }
+
+    #[test]
+    fn test_aggregate_min_max() {
+        let mut context = VariableContext::new();
+        context.set_global(
+            "map.results",
+            Variable::Static(json!([
+                {"id": 1, "score": 30},
+                {"id": 2, "score": 10},
+                {"id": 3, "score": 20},
+            ])),
+        );
+
+        let min_result = context
+            .evaluate_aggregate(&AggregateType::Min {
+                field: "score".to_string(),
+            })
+            .unwrap();
+        assert_eq!(min_result, json!(10));
+
+        let max_result = context
+            .evaluate_aggregate(&AggregateType::Max {
+                field: "score".to_string(),
+            })
+            .unwrap();
+        assert_eq!(max_result, json!(30));
+    }
+
+    #[test]
+    fn test_aggregate_median() {
+        let mut context = VariableContext::new();
+
+        // Odd number of values
+        context.set_global(
+            "map.results",
+            Variable::Static(json!([
+                {"id": 1, "score": 10},
+                {"id": 2, "score": 30},
+                {"id": 3, "score": 20},
+            ])),
+        );
+
+        let result = context
+            .evaluate_aggregate(&AggregateType::Median {
+                field: "score".to_string(),
+            })
+            .unwrap();
+        assert_eq!(result.as_f64(), Some(20.0));
+
+        // Even number of values
+        context.set_global(
+            "map.results",
+            Variable::Static(json!([
+                {"id": 1, "score": 10},
+                {"id": 2, "score": 20},
+                {"id": 3, "score": 30},
+                {"id": 4, "score": 40},
+            ])),
+        );
+
+        let result = context
+            .evaluate_aggregate(&AggregateType::Median {
+                field: "score".to_string(),
+            })
+            .unwrap();
+        assert_eq!(result.as_f64(), Some(25.0));
+    }
+
+    #[test]
+    fn test_aggregate_variance_stddev() {
+        let mut context = VariableContext::new();
+        context.set_global(
+            "map.results",
+            Variable::Static(json!([
+                {"id": 1, "score": 2},
+                {"id": 2, "score": 4},
+                {"id": 3, "score": 6},
+            ])),
+        );
+
+        let variance = context
+            .evaluate_aggregate(&AggregateType::Variance {
+                field: "score".to_string(),
+            })
+            .unwrap();
+        assert_eq!(variance.as_f64(), Some(4.0)); // Sample variance
+
+        let stddev = context
+            .evaluate_aggregate(&AggregateType::StdDev {
+                field: "score".to_string(),
+            })
+            .unwrap();
+        assert_eq!(stddev.as_f64(), Some(2.0)); // sqrt(4) = 2
+    }
+
+    #[test]
+    fn test_aggregate_unique() {
+        let mut context = VariableContext::new();
+        context.set_global(
+            "map.results",
+            Variable::Static(json!([
+                {"id": 1, "status": "success"},
+                {"id": 2, "status": "failure"},
+                {"id": 3, "status": "success"},
+                {"id": 4, "status": "pending"},
+            ])),
+        );
+
+        let result = context
+            .evaluate_aggregate(&AggregateType::Unique {
+                field: "status".to_string(),
+            })
+            .unwrap();
+
+        if let Value::Array(arr) = result {
+            assert_eq!(arr.len(), 3);
+            let values: Vec<String> = arr
+                .iter()
+                .map(|v| v.as_str().unwrap().to_string())
+                .collect();
+            assert!(values.contains(&"success".to_string()));
+            assert!(values.contains(&"failure".to_string()));
+            assert!(values.contains(&"pending".to_string()));
+        } else {
+            panic!("Expected array result");
+        }
+    }
+
+    #[test]
+    fn test_aggregate_concat() {
+        let mut context = VariableContext::new();
+        context.set_global(
+            "map.results",
+            Variable::Static(json!([
+                {"id": 1, "name": "Alice"},
+                {"id": 2, "name": "Bob"},
+                {"id": 3, "name": "Charlie"},
+            ])),
+        );
+
+        let result = context
+            .evaluate_aggregate(&AggregateType::Concat {
+                field: "name".to_string(),
+                separator: Some(", ".to_string()),
+            })
+            .unwrap();
+        assert_eq!(result, json!("Alice, Bob, Charlie"));
+
+        let result_no_sep = context
+            .evaluate_aggregate(&AggregateType::Concat {
+                field: "name".to_string(),
+                separator: None,
+            })
+            .unwrap();
+        assert_eq!(result_no_sep, json!("AliceBobCharlie"));
+    }
+
+    #[test]
+    fn test_aggregate_merge() {
+        let mut context = VariableContext::new();
+        context.set_global(
+            "map.results",
+            Variable::Static(json!([
+                {"id": 1, "config": {"a": 1, "b": 2}},
+                {"id": 2, "config": {"c": 3, "d": 4}},
+                {"id": 3, "config": {"b": 5}}, // Override b
+            ])),
+        );
+
+        let result = context
+            .evaluate_aggregate(&AggregateType::Merge {
+                field: "config".to_string(),
+            })
+            .unwrap();
+        assert_eq!(result, json!({"a": 1, "b": 5, "c": 3, "d": 4}));
+    }
+
+    #[test]
+    fn test_aggregate_flatten() {
+        let mut context = VariableContext::new();
+        context.set_global(
+            "map.results",
+            Variable::Static(json!([
+                {"id": 1, "tags": ["rust", "async"]},
+                {"id": 2, "tags": ["tokio"]},
+                {"id": 3, "tags": ["serde", "json"]},
+            ])),
+        );
+
+        let result = context
+            .evaluate_aggregate(&AggregateType::Flatten {
+                field: "tags".to_string(),
+            })
+            .unwrap();
+        assert_eq!(result, json!(["rust", "async", "tokio", "serde", "json"]));
+    }
+
+    #[test]
+    fn test_aggregate_sort() {
+        let mut context = VariableContext::new();
+        context.set_global(
+            "map.results",
+            Variable::Static(json!([
+                {"id": 1, "score": 30},
+                {"id": 2, "score": 10},
+                {"id": 3, "score": 20},
+            ])),
+        );
+
+        let asc_result = context
+            .evaluate_aggregate(&AggregateType::Sort {
+                field: "score".to_string(),
+                descending: false,
+            })
+            .unwrap();
+        assert_eq!(asc_result, json!([10, 20, 30]));
+
+        let desc_result = context
+            .evaluate_aggregate(&AggregateType::Sort {
+                field: "score".to_string(),
+                descending: true,
+            })
+            .unwrap();
+        assert_eq!(desc_result, json!([30, 20, 10]));
+    }
+
+    #[test]
+    fn test_aggregate_group_by() {
+        let mut context = VariableContext::new();
+        context.set_global(
+            "map.results",
+            Variable::Static(json!([
+                {"id": 1, "status": "success", "score": 10},
+                {"id": 2, "status": "failure", "score": 5},
+                {"id": 3, "status": "success", "score": 15},
+                {"id": 4, "status": "failure", "score": 3},
+            ])),
+        );
+
+        let result = context
+            .evaluate_aggregate(&AggregateType::GroupBy {
+                field: "map.results".to_string(),
+                key: "status".to_string(),
+            })
+            .unwrap();
+
+        if let Value::Object(groups) = result {
+            assert_eq!(groups.len(), 2);
+            assert!(groups.contains_key("success"));
+            assert!(groups.contains_key("failure"));
+
+            if let Some(Value::Array(success_items)) = groups.get("success") {
+                assert_eq!(success_items.len(), 2);
+            }
+            if let Some(Value::Array(failure_items)) = groups.get("failure") {
+                assert_eq!(failure_items.len(), 2);
+            }
+        } else {
+            panic!("Expected object result");
+        }
+    }
+
+    #[test]
+    fn test_aggregate_with_empty_collection() {
+        let mut context = VariableContext::new();
+        context.set_global("map.results", Variable::Static(json!([])));
+
+        let count = context
+            .evaluate_aggregate(&AggregateType::Count { filter: None })
+            .unwrap();
+        assert_eq!(count, json!(0));
+
+        let sum = context
+            .evaluate_aggregate(&AggregateType::Sum {
+                field: "score".to_string(),
+            })
+            .unwrap();
+        assert_eq!(sum.as_f64(), Some(0.0));
+
+        let avg = context
+            .evaluate_aggregate(&AggregateType::Average {
+                field: "score".to_string(),
+            })
+            .unwrap();
+        assert_eq!(avg, json!(null));
+    }
+
+    #[test]
+    fn test_aggregate_collect() {
+        let mut context = VariableContext::new();
+        context.set_global(
+            "map.results",
+            Variable::Static(json!([
+                {"id": 1, "name": "Alice"},
+                {"id": 2, "name": "Bob"},
+                {"id": 3, "name": "Charlie"},
+            ])),
+        );
+
+        let result = context
+            .evaluate_aggregate(&AggregateType::Collect {
+                field: "name".to_string(),
+            })
+            .unwrap();
+        assert_eq!(result, json!(["Alice", "Bob", "Charlie"]));
     }
 }
