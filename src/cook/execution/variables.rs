@@ -1067,10 +1067,7 @@ impl VariableContext {
                             Value::String(s) => s.clone(),
                             _ => key_value.to_string(),
                         };
-                        groups
-                            .entry(key_str)
-                            .or_default()
-                            .push(item.clone());
+                        groups.entry(key_str).or_default().push(item.clone());
                     }
                 }
 
