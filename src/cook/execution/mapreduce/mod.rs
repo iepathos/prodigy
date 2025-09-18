@@ -28,6 +28,9 @@ pub mod agent_command_executor;
 // Declare the progress module for progress management
 pub mod progress;
 
+// Declare the state management module
+pub mod state;
+
 // Import the PhaseExecutor trait
 use self::phases::PhaseExecutor;
 
@@ -44,6 +47,9 @@ use progress::{operations::AgentOperation, tracker::ProgressTracker};
 
 // Import utility functions from utils module
 use utils::{calculate_map_result_summary, generate_agent_branch_name, generate_agent_id};
+
+// Import state management components
+use self::state::{persistence::DefaultStateStore, StateManager};
 
 use crate::commands::CommandRegistry;
 use crate::cook::execution::data_pipeline::DataPipeline;
@@ -380,6 +386,7 @@ pub struct MapReduceExecutor {
     step_executor: Arc<command::StepExecutor>,
     subprocess: Arc<SubprocessManager>,
     state_manager: Arc<dyn JobStateManager>,
+    enhanced_state_manager: Arc<StateManager>,
     event_logger: Arc<EventLogger>,
     dlq: Option<Arc<DeadLetterQueue>>,
     correlation_id: String,
@@ -1015,6 +1022,11 @@ impl MapReduceExecutor {
             worktree_manager.clone(),
         ));
 
+        // Create enhanced state manager using the existing state manager
+        let enhanced_state_manager = Arc::new(StateManager::new(Arc::new(
+            DefaultStateStore::from_manager(state_manager.clone()),
+        )));
+
         Self {
             claude_executor,
             session_manager,
@@ -1028,6 +1040,7 @@ impl MapReduceExecutor {
             step_executor,
             subprocess: Arc::new(SubprocessManager::production()),
             state_manager,
+            enhanced_state_manager,
             event_logger,
             dlq: None, // Will be initialized per job
             correlation_id: Uuid::new_v4().to_string(),
@@ -1517,60 +1530,48 @@ impl MapReduceExecutor {
 
     /// Validate checkpoint integrity
     fn validate_checkpoint(&self, state: &MapReduceJobState) -> MapReduceResult<()> {
-        let context = self.create_error_context("checkpoint_validation");
-        // Basic validation checks
-        if state.job_id.is_empty() {
-            return Err(MapReduceError::CheckpointCorrupted {
-                job_id: "<empty>".to_string(),
-                version: state.checkpoint_version,
-                details: "Empty job ID in checkpoint".to_string(),
-            }
-            .with_context(context)
-            .error);
-        }
+        // Convert MapReduceJobState to the new JobState format for validation
+        let job_state = state::JobState {
+            id: state.job_id.clone(),
+            phase: if state.is_complete {
+                state::PhaseType::Completed
+            } else if state
+                .reduce_phase_state
+                .as_ref()
+                .map(|r| r.started)
+                .unwrap_or(false)
+            {
+                state::PhaseType::Reduce
+            } else if state.setup_completed {
+                state::PhaseType::Map
+            } else {
+                state::PhaseType::Setup
+            },
+            checkpoint: None,
+            processed_items: state.completed_agents.clone(),
+            failed_items: state.pending_items.clone(),
+            variables: state.variables.clone(),
+            created_at: state.started_at,
+            updated_at: state.updated_at,
+            config: state.config.clone(),
+            agent_results: state.agent_results.clone(),
+            is_complete: state.is_complete,
+            total_items: state.total_items,
+        };
 
-        if state.work_items.is_empty() {
-            let context = self.create_error_context("checkpoint_validation");
-            return Err(MapReduceError::CheckpointCorrupted {
-                job_id: state.job_id.clone(),
-                version: state.checkpoint_version,
-                details: "No work items in checkpoint".to_string(),
-            }
-            .with_context(context)
-            .error);
-        }
-
-        // Verify counts are consistent
-        let total_processed = state.completed_agents.len();
-        if total_processed > state.total_items {
-            let context = self.create_error_context("checkpoint_validation");
-            return Err(MapReduceError::CheckpointCorrupted {
-                job_id: state.job_id.clone(),
-                version: state.checkpoint_version,
-                details: format!(
-                    "Processed count ({}) exceeds total items ({})",
-                    total_processed, state.total_items
-                ),
-            }
-            .with_context(context)
-            .error);
-        }
-
-        // Verify all completed agents have results
-        for agent_id in &state.completed_agents {
-            if !state.agent_results.contains_key(agent_id) {
+        // Use the enhanced state manager's validation
+        self.enhanced_state_manager
+            .validate_checkpoint(&job_state)
+            .map_err(|e| {
                 let context = self.create_error_context("checkpoint_validation");
-                return Err(MapReduceError::CheckpointCorrupted {
+                MapReduceError::CheckpointCorrupted {
                     job_id: state.job_id.clone(),
                     version: state.checkpoint_version,
-                    details: format!("Completed agent {} has no result", agent_id),
+                    details: e.to_string(),
                 }
                 .with_context(context)
-                .error);
-            }
-        }
-
-        Ok(())
+                .error
+            })
     }
 
     /// Calculate pending items for resumption
@@ -1579,6 +1580,42 @@ impl MapReduceExecutor {
         state: &MapReduceJobState,
         max_additional_retries: u32,
     ) -> MapReduceResult<Vec<Value>> {
+        // Convert MapReduceJobState to the new JobState format for calculation
+        let mut job_state = state::JobState {
+            id: state.job_id.clone(),
+            phase: if state.is_complete {
+                state::PhaseType::Completed
+            } else if state
+                .reduce_phase_state
+                .as_ref()
+                .map(|r| r.started)
+                .unwrap_or(false)
+            {
+                state::PhaseType::Reduce
+            } else if state.setup_completed {
+                state::PhaseType::Map
+            } else {
+                state::PhaseType::Setup
+            },
+            checkpoint: None,
+            processed_items: state.completed_agents.clone(),
+            failed_items: Vec::new(),
+            variables: state.variables.clone(),
+            created_at: state.started_at,
+            updated_at: state.updated_at,
+            config: state.config.clone(),
+            agent_results: state.agent_results.clone(),
+            is_complete: state.is_complete,
+            total_items: state.total_items,
+        };
+
+        // Add failed items to the state
+        for (item_id, _) in &state.failed_agents {
+            job_state.failed_items.push(item_id.clone());
+        }
+
+        // Use the enhanced state manager's calculation
+        // We need to provide work items, so let's use the original implementation for now
         let mut pending_items = Vec::new();
 
         // Add never-attempted items
@@ -3458,6 +3495,7 @@ impl MapReduceExecutor {
             step_executor: self.step_executor.clone(),
             subprocess: self.subprocess.clone(),
             state_manager: self.state_manager.clone(),
+            enhanced_state_manager: self.enhanced_state_manager.clone(),
             event_logger: self.event_logger.clone(),
             dlq: self.dlq.clone(),
             correlation_id: self.correlation_id.clone(),
