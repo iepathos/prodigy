@@ -6,6 +6,9 @@ pub mod bridge;
 #[cfg(test)]
 pub mod bridge_tests;
 pub mod claude;
+pub mod claude_stream_handler;
+#[cfg(test)]
+pub mod claude_streaming_test;
 pub mod command;
 #[cfg(test)]
 pub mod command_tests;

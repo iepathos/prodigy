@@ -19,6 +19,19 @@ pub trait CommandRunner: Send + Sync {
         args: &[String],
         context: &ExecutionContext,
     ) -> Result<ExecutionResult>;
+
+    /// Run a command with streaming output processing
+    /// Default implementation falls back to buffered execution
+    async fn run_with_streaming(
+        &self,
+        cmd: &str,
+        args: &[String],
+        context: &ExecutionContext,
+        _output_handler: Box<dyn crate::subprocess::streaming::StreamProcessor>,
+    ) -> Result<ExecutionResult> {
+        // Default implementation falls back to buffered execution
+        self.run_with_context(cmd, args, context).await
+    }
 }
 
 /// Real implementation of command runner
@@ -187,6 +200,54 @@ impl CommandRunner for RealCommandRunner {
             exit_code: output.status.code(),
         })
     }
+
+    async fn run_with_streaming(
+        &self,
+        cmd: &str,
+        args: &[String],
+        context: &ExecutionContext,
+        output_handler: Box<dyn crate::subprocess::streaming::StreamProcessor>,
+    ) -> Result<ExecutionResult> {
+        // Build command with context
+        let mut builder = ProcessCommandBuilder::new(cmd)
+            .args(args)
+            .current_dir(&context.working_directory);
+
+        // Set environment variables
+        for (key, value) in &context.env_vars {
+            builder = builder.env(key, value);
+        }
+
+        // Set timeout if specified
+        if let Some(timeout) = context.timeout_seconds {
+            builder = builder.timeout(std::time::Duration::from_secs(timeout));
+        }
+
+        // Set stdin if specified
+        if let Some(stdin) = &context.stdin {
+            builder = builder.stdin(stdin.clone());
+        }
+
+        let command = builder.build();
+
+        // Create streaming runner
+        let streaming_runner = crate::subprocess::streaming::StreamingCommandRunner::new(Box::new(
+            crate::subprocess::runner::TokioProcessRunner,
+        ));
+
+        // Run with streaming, passing the single output handler
+        let output = streaming_runner
+            .run_streaming(command, vec![output_handler])
+            .await
+            .context(format!("Failed to execute command with streaming: {cmd}"))?;
+
+        Ok(ExecutionResult {
+            success: output.status.success(),
+            stdout: output.stdout.join("\n"),
+            stderr: output.stderr.join("\n"),
+            exit_code: output.status.code(),
+        })
+    }
 }
 
 #[async_trait]
@@ -288,6 +349,38 @@ pub mod tests {
             responses
                 .pop()
                 .ok_or_else(|| anyhow::anyhow!("No mock response configured"))
+        }
+
+        async fn run_with_streaming(
+            &self,
+            _cmd: &str,
+            _args: &[String],
+            _context: &ExecutionContext,
+            output_handler: Box<dyn crate::subprocess::streaming::StreamProcessor>,
+        ) -> Result<ExecutionResult> {
+            // For testing, simulate streaming by sending lines to the processor
+            let result = {
+                let mut responses = self.responses.lock().unwrap();
+                responses.pop()
+            };
+
+            if let Some(result) = result {
+                // Simulate line-by-line processing
+                for line in result.stdout.lines() {
+                    let _ = output_handler
+                        .process_line(line, crate::subprocess::streaming::StreamSource::Stdout)
+                        .await;
+                }
+                for line in result.stderr.lines() {
+                    let _ = output_handler
+                        .process_line(line, crate::subprocess::streaming::StreamSource::Stderr)
+                        .await;
+                }
+                let _ = output_handler.on_complete(result.exit_code).await;
+                Ok(result)
+            } else {
+                anyhow::bail!("No mock response configured")
+            }
         }
     }
 
