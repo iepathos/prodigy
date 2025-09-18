@@ -3,9 +3,10 @@ number: 85
 title: CLI Dry-Run Implementation
 category: foundation
 priority: medium
-status: draft
+status: ready
 dependencies: []
 created: 2025-09-17
+updated: 2025-09-18
 ---
 
 # Specification 85: CLI Dry-Run Implementation
@@ -17,9 +18,15 @@ created: 2025-09-17
 
 ## Context
 
-The CLI events command includes a `--dry-run` flag intended to preview cleanup operations without actually performing them. However, the implementation in `src/cli/events.rs` (lines 1083, 1110) contains TODO comments indicating that proper dry-run analysis is not implemented. Instead, the code simply prints placeholder messages.
+The CLI events command includes a `--dry-run` flag intended to preview cleanup operations without actually performing them. The implementation in `src/cli/events.rs` (lines 1083, 1110) contains TODO comments indicating that proper dry-run analysis is not implemented. Instead, the code simply prints placeholder messages.
 
-This missing functionality prevents users from:
+However, the codebase already has strong foundations:
+- A comprehensive `RetentionManager` in `src/cook/execution/events/retention.rs` that handles policy-based cleanup
+- A `RetentionStats` structure that tracks cleanup operations
+- Existing `UserPrompter` trait in `src/cook/interaction/prompts.rs` for user confirmations
+- Working retention policy implementation with archiving support
+
+This missing dry-run functionality prevents users from:
 - Safely previewing what would be deleted before cleanup
 - Understanding the impact of cleanup operations
 - Validating cleanup criteria before execution
@@ -78,194 +85,176 @@ Implement comprehensive dry-run functionality for CLI commands that modify or de
 
 ## Acceptance Criteria
 
-- [ ] Dry-run mode accurately predicts cleanup operations
-- [ ] File counts and sizes are correctly calculated
-- [ ] Date ranges and job IDs are properly identified
-- [ ] JSON output mode provides machine-readable data
-- [ ] Confirmation prompts work correctly
-- [ ] Large-scale operations show appropriate warnings
-- [ ] Dry-run adds <100ms overhead to command execution
+### Phase 1 (Required)
+- [ ] TODOs in `src/cli/events.rs` are replaced with working code
+- [ ] Dry-run mode shows what would be deleted without actually deleting
+- [ ] Event counts and file sizes are displayed
+- [ ] Dry-run uses existing `RetentionManager` logic
 - [ ] All existing CLI tests pass
-- [ ] New tests validate dry-run accuracy
+
+### Phase 2 (Nice to Have)
+- [ ] JSON output mode provides machine-readable data via `--output-format`
+- [ ] Analysis includes affected job IDs and date ranges
+- [ ] Large-scale operations show appropriate warnings
 - [ ] Documentation includes dry-run usage examples
+
+### Phase 3 (Future Enhancement)
+- [ ] Confirmation prompts for high-risk operations
+- [ ] Risk level assessment and display
+- [ ] Generic dry-run framework for other commands
+- [ ] Dry-run adds <100ms overhead to command execution
 
 ## Technical Details
 
 ### Implementation Approach
 
-1. **Replace TODO Implementation**
+The implementation should leverage the existing `RetentionManager` and extend it with dry-run capabilities:
+
+1. **Extend RetentionManager with Dry-Run Analysis**
    ```rust
-   // Current (lines 1083, 1110)
-   // TODO: Implement proper dry-run analysis
+   // Add to src/cook/execution/events/retention.rs
+   impl RetentionManager {
+       /// Perform dry-run analysis without modifying files
+       pub async fn analyze_retention(&self) -> Result<RetentionAnalysis> {
+           let mut analysis = RetentionAnalysis::default();
 
-   // New implementation
-   fn analyze_cleanup_dry_run(&self, older_than: Duration) -> Result<CleanupAnalysis> {
-       let mut analysis = CleanupAnalysis::default();
-
-       let event_dir = self.get_event_directory()?;
-       let cutoff_time = SystemTime::now() - older_than;
-
-       for entry in WalkDir::new(event_dir) {
-           let entry = entry?;
-           let metadata = entry.metadata()?;
-
-           if metadata.modified()? < cutoff_time {
-               analysis.files_to_delete.push(entry.path().to_path_buf());
-               analysis.total_size += metadata.len();
-               analysis.update_date_range(&metadata);
-               analysis.extract_job_info(entry.path());
+           if !self.events_path.exists() {
+               return Ok(analysis);
            }
-       }
 
-       Ok(analysis)
+           // Get file metadata
+           let metadata = fs::metadata(&self.events_path)?;
+           analysis.original_size_bytes = metadata.len();
+
+           // Analyze what would be cleaned without actually doing it
+           self.analyze_cleanup(&mut analysis).await?;
+
+           Ok(analysis)
+       }
    }
    ```
 
-2. **Generic Dry-Run Framework**
+2. **Replace TODO Implementation in CLI**
+   ```rust
+   // Replace TODO at lines 1083, 1110 in src/cli/events.rs
+   if dry_run {
+       let retention = RetentionManager::new(policy.clone(), event_file);
+       let analysis = retention.analyze_retention().await?;
+
+       // Display analysis based on output format
+       match output_format {
+           OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&analysis)?),
+           OutputFormat::Human => analysis.display_human(),
+       }
+
+       total_cleaned += analysis.events_to_remove;
+       if policy.archive_old_events {
+           total_archived += analysis.events_to_archive;
+       }
+   }
+   ```
+
+3. **Generic Dry-Run Framework (Future Enhancement)**
+
+   While not required for the initial implementation, a generic framework could be added later for reusability across CLI commands:
+
    ```rust
    pub trait DryRunnable {
        type Operation;
        type Analysis;
 
        fn analyze(&self, op: &Self::Operation) -> Result<Self::Analysis>;
-
        fn format_analysis(&self, analysis: &Self::Analysis) -> String;
-
        fn to_json(&self, analysis: &Self::Analysis) -> Result<Value>;
-
-       fn requires_confirmation(&self, analysis: &Self::Analysis) -> bool;
-   }
-
-   pub struct DryRunExecutor<T: DryRunnable> {
-       command: T,
-       output_format: OutputFormat,
-       force: bool,
-   }
-
-   impl<T: DryRunnable> DryRunExecutor<T> {
-       pub async fn execute(&self, op: T::Operation) -> Result<()> {
-           let analysis = self.command.analyze(&op)?;
-
-           match self.output_format {
-               OutputFormat::Human => {
-                   println!("{}", self.command.format_analysis(&analysis));
-               }
-               OutputFormat::Json => {
-                   println!("{}", serde_json::to_string_pretty(
-                       &self.command.to_json(&analysis)?
-                   )?);
-               }
-           }
-
-           if self.command.requires_confirmation(&analysis) && !self.force {
-               if !self.prompt_confirmation()? {
-                   return Ok(());
-               }
-           }
-
-           // Proceed with actual operation if not dry-run
-           Ok(())
-       }
    }
    ```
 
-3. **Detailed Analysis Output**
+   For now, the focus should be on getting dry-run working for the events cleanup command using the existing `RetentionManager`.
+
+4. **Analysis Output Structure**
    ```rust
-   pub struct CleanupAnalysis {
-       pub files_to_delete: Vec<PathBuf>,
-       pub total_size: u64,
-       pub oldest_file: Option<SystemTime>,
-       pub newest_file: Option<SystemTime>,
-       pub affected_jobs: HashSet<String>,
-       pub affected_workflows: HashSet<String>,
+   // Add to src/cook/execution/events/retention.rs
+   pub struct RetentionAnalysis {
+       pub file_path: PathBuf,
+       pub events_total: usize,
+       pub events_retained: usize,
+       pub events_to_remove: usize,
+       pub events_to_archive: usize,
+       pub original_size_bytes: u64,
+       pub projected_size_bytes: u64,
+       pub space_to_save: u64,
        pub warnings: Vec<String>,
    }
 
-   impl CleanupAnalysis {
-       pub fn format_human(&self) -> String {
-           format!(
-               r#"
-   Cleanup Analysis (DRY RUN)
-   ========================
-   Files to delete: {}
-   Total size: {}
-   Date range: {} to {}
-   Affected jobs: {}
-   Affected workflows: {}
+   impl RetentionAnalysis {
+       pub fn display_human(&self) {
+           println!("Cleanup Analysis (DRY RUN)");
+           println!("========================");
+           println!("File: {}", self.file_path.display());
+           println!("Total events: {}", self.events_total);
+           println!("Events to retain: {}", self.events_retained);
+           println!("Events to remove: {}", self.events_to_remove);
+           if self.events_to_archive > 0 {
+               println!("Events to archive: {}", self.events_to_archive);
+           }
+           println!("Space to save: {} bytes", self.space_to_save);
 
-   Warnings:
-   {}
-
-   Files:
-   {}
-               "#,
-               self.files_to_delete.len(),
-               format_bytes(self.total_size),
-               format_time(self.oldest_file),
-               format_time(self.newest_file),
-               self.affected_jobs.len(),
-               self.affected_workflows.len(),
-               self.warnings.join("\n"),
-               self.format_file_list()
-           )
+           if !self.warnings.is_empty() {
+               println!("\nWarnings:");
+               for warning in &self.warnings {
+                   println!("  ⚠️  {}", warning);
+               }
+           }
        }
    }
    ```
 
 ### Architecture Changes
 
-- Add generic `DryRunnable` trait for commands
-- Create `DryRunExecutor` for consistent handling
-- Implement analysis types for different operations
-- Add formatting utilities for human-readable output
+- Extend existing `RetentionManager` with `analyze_retention()` method
+- Add `RetentionAnalysis` struct to `retention.rs`
+- Update CLI to use analysis when `--dry-run` is specified
+- Add `--output-format` flag to support JSON output
 
 ### Data Structures
 
+The implementation will primarily use existing structures with minimal additions:
+
 ```rust
+// Existing in retention.rs
+pub struct RetentionPolicy { ... }
+pub struct RetentionStats { ... }
+
+// New addition for dry-run
+pub struct RetentionAnalysis {
+    // Fields as shown above
+}
+
+// Add to CLI
 pub enum OutputFormat {
     Human,
     Json,
-    Yaml,
-    Table,
-}
-
-pub struct DryRunConfig {
-    pub enabled: bool,
-    pub verbose: bool,
-    pub format: OutputFormat,
-    pub show_warnings: bool,
-    pub require_confirmation: bool,
-}
-
-pub struct OperationImpact {
-    pub files_affected: usize,
-    pub size_affected: u64,
-    pub reversible: bool,
-    pub risk_level: RiskLevel,
-    pub estimated_duration: Duration,
-}
-
-pub enum RiskLevel {
-    Low,
-    Medium,
-    High,
-    Critical,
 }
 ```
 
 ### APIs and Interfaces
 
 ```rust
-pub trait DryRunCommand {
-    fn dry_run(&self, config: &DryRunConfig) -> Result<()>;
-
-    fn analyze_impact(&self) -> Result<OperationImpact>;
-
-    fn format_impact(&self, impact: &OperationImpact) -> String;
+// Extension to RetentionManager
+impl RetentionManager {
+    pub async fn analyze_retention(&self) -> Result<RetentionAnalysis>;
 }
 
-impl DryRunCommand for EventsCleanupCommand {
-    // Implementation
+// CLI command update
+#[derive(Args)]
+pub struct CleanCommand {
+    #[arg(long)]
+    dry_run: bool,
+
+    #[arg(long, default_value = "human")]
+    output_format: Option<String>,
+
+    // ... existing fields
 }
 ```
 
@@ -320,13 +309,30 @@ impl DryRunCommand for EventsCleanupCommand {
 
 ## Implementation Notes
 
-- Start with events cleanup command as the prototype
-- Design for reusability across all CLI commands
-- Consider adding --dry-run to all destructive operations
-- Implement progress bars for long analyses
-- Add color coding for different risk levels
-- Consider implementing a global --dry-run flag
-- Plan for future undo/rollback functionality
+### Minimal Implementation Path
+
+1. **Phase 1: Basic Dry-Run for Events (Priority)**
+   - Add `analyze_retention()` method to existing `RetentionManager`
+   - Replace TODOs in `src/cli/events.rs` (lines 1083, 1110)
+   - Add simple human-readable output
+   - Use existing `RetentionPolicy` and file analysis logic
+
+2. **Phase 2: Enhanced Output (Optional)**
+   - Add `--output-format` flag with JSON support
+   - Include more detailed analysis (affected jobs, date ranges)
+   - Add warnings for large-scale operations
+
+3. **Phase 3: Safety Features (Optional)**
+   - Integrate with existing `UserPrompter` for confirmations
+   - Add risk level assessment
+   - Show preview before actual cleanup in non-dry-run mode
+
+### Key Considerations
+
+- Leverage existing `RetentionManager` - don't reinvent the wheel
+- Keep changes minimal and focused on the events command initially
+- Generic framework can be extracted later if needed for other commands
+- Use existing prompting infrastructure from `src/cook/interaction/prompts.rs`
 
 ## Migration and Compatibility
 
