@@ -441,7 +441,14 @@ impl PhaseExecutor for ReducePhaseExecutor {
         // Validate that we have map results
         if context.map_results.is_none() {
             return Err(PhaseError::ValidationError {
-                message: "Reduce phase requires map results".to_string(),
+                message: "No map results available for reduce phase".to_string(),
+            });
+        }
+
+        // Validate that we have commands to execute
+        if self.reduce_phase.commands.is_empty() {
+            return Err(PhaseError::ValidationError {
+                message: "No reduce commands to execute".to_string(),
             });
         }
 
