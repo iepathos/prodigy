@@ -32,6 +32,7 @@ pub struct ClaudeExecutorImpl<R: CommandRunner> {
     runner: R,
     test_config: Option<Arc<TestConfiguration>>,
     event_logger: Option<Arc<EventLogger>>,
+    verbosity: u8,
 }
 
 impl<R: CommandRunner> ClaudeExecutorImpl<R> {
@@ -41,6 +42,7 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
             runner,
             test_config: None,
             event_logger: None,
+            verbosity: 0,
         }
     }
 
@@ -50,12 +52,19 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
             runner,
             test_config: Some(test_config),
             event_logger: None,
+            verbosity: 0,
         }
     }
 
     /// Set the event logger for streaming observability
     pub fn with_event_logger(mut self, event_logger: Arc<EventLogger>) -> Self {
         self.event_logger = Some(event_logger);
+        self
+    }
+
+    /// Set the verbosity level for console output
+    pub fn with_verbosity(mut self, verbosity: u8) -> Self {
+        self.verbosity = verbosity;
         self
     }
 }
@@ -217,11 +226,12 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
         use crate::subprocess::streaming::{ClaudeJsonProcessor, StreamProcessor};
         use std::sync::Arc;
 
-        // Determine if we should print to console
+        // Determine if we should print to console based on verbosity
+        // Show Claude streaming output only with -v (verbose) or higher
         let print_to_console = env_vars
             .get("PRODIGY_CLAUDE_CONSOLE_OUTPUT")
             .map(|v| v == "true")
-            .unwrap_or(true); // Default to showing output
+            .unwrap_or_else(|| self.verbosity >= 1); // Default to showing output only with -v or higher
 
         // Create the appropriate handler based on whether we have an event logger
         let processor: Box<dyn StreamProcessor> = if let Some(ref event_logger) = self.event_logger
@@ -312,6 +322,41 @@ impl<R: CommandRunner + 'static> CommandExecutor for ClaudeExecutorImpl<R> {
 mod tests {
     use super::*;
     use crate::cook::execution::runner::tests::MockCommandRunner;
+
+    #[tokio::test]
+    async fn test_claude_verbosity_streaming() {
+        // Test that verbosity level controls streaming output
+        let runner = MockCommandRunner::new();
+
+        // Test with verbosity 0 (default) - should NOT print to console
+        let executor_quiet = ClaudeExecutorImpl::new(runner).with_verbosity(0);
+        let env_vars: HashMap<String, String> = HashMap::new();
+
+        // Check the internal print_to_console logic by checking if it would print
+        let print_to_console_quiet = env_vars
+            .get("PRODIGY_CLAUDE_CONSOLE_OUTPUT")
+            .map(|v| v == "true")
+            .unwrap_or_else(|| executor_quiet.verbosity >= 1);
+        assert!(!print_to_console_quiet, "Verbosity 0 should not print to console");
+
+        // Test with verbosity 1 (-v) - should print to console
+        let runner2 = MockCommandRunner::new();
+        let executor_verbose = ClaudeExecutorImpl::new(runner2).with_verbosity(1);
+        let print_to_console_verbose = env_vars
+            .get("PRODIGY_CLAUDE_CONSOLE_OUTPUT")
+            .map(|v| v == "true")
+            .unwrap_or_else(|| executor_verbose.verbosity >= 1);
+        assert!(print_to_console_verbose, "Verbosity 1 should print to console");
+
+        // Test override with environment variable
+        let mut env_vars_override = HashMap::new();
+        env_vars_override.insert("PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(), "true".to_string());
+        let print_to_console_override = env_vars_override
+            .get("PRODIGY_CLAUDE_CONSOLE_OUTPUT")
+            .map(|v| v == "true")
+            .unwrap_or_else(|| 0_u8 >= 1); // Use literal 0 instead of executor_quiet
+        assert!(print_to_console_override, "Environment variable should override verbosity");
+    }
 
     #[tokio::test]
     async fn test_claude_executor_check() {

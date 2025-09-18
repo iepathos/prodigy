@@ -1107,7 +1107,7 @@ async fn run_goal_seek(params: GoalSeekParams) -> anyhow::Result<()> {
 }
 
 /// Execute the appropriate command based on CLI input
-async fn execute_command(command: Option<Commands>) -> anyhow::Result<()> {
+async fn execute_command(command: Option<Commands>, verbose: u8) -> anyhow::Result<()> {
     match command {
         Some(Commands::Run {
             workflow,
@@ -1181,7 +1181,7 @@ async fn execute_command(command: Option<Commands>) -> anyhow::Result<()> {
                 metrics,
                 resume,
                 quiet: false,
-                verbosity: 0,
+                verbosity: verbose,
             };
             prodigy::cook::cook(cook_cmd).await
         }
@@ -1629,7 +1629,7 @@ async fn main() {
 
     init_tracing(cli.verbose);
 
-    let result = execute_command(cli.command).await;
+    let result = execute_command(cli.command, cli.verbose).await;
 
     if let Err(e) = result {
         handle_fatal_error(e);

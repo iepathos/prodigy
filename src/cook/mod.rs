@@ -190,7 +190,8 @@ async fn create_orchestrator(
         };
 
     let claude_executor = Arc::new({
-        let mut executor = execution::claude::ClaudeExecutorImpl::new(command_runner2);
+        let mut executor = execution::claude::ClaudeExecutorImpl::new(command_runner2)
+            .with_verbosity(cmd.verbosity);
         if let Some(logger) = event_logger {
             executor = executor.with_event_logger(logger);
         }

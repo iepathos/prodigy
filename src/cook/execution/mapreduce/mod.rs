@@ -740,7 +740,7 @@ mod pure_function_tests {
             total: 2,
         };
 
-        let context = build_map_results_interpolation_context(&map_results, &summary).unwrap();
+        let context = utils::build_map_results_interpolation_context(&map_results, &summary).unwrap();
 
         // Test that map object is properly structured
         let map_value = context.resolve_path(&["map".to_string()]).unwrap();
@@ -800,7 +800,7 @@ mod pure_function_tests {
             total: 1,
         };
 
-        let variables = build_agent_context_variables(&map_results, &summary).unwrap();
+        let variables = utils::build_agent_context_variables(&map_results, &summary).unwrap();
 
         // Test summary statistics
         assert_eq!(variables.get("map.successful").unwrap(), "1");
@@ -957,7 +957,7 @@ mod pure_function_tests {
 
         // Build interpolation context - this ensures variables are available
         let interp_context =
-            build_map_results_interpolation_context(&map_results, &summary).unwrap();
+            utils::build_map_results_interpolation_context(&map_results, &summary).unwrap();
 
         // Test the exact variables that were failing
         let successful_value = interp_context
@@ -975,7 +975,7 @@ mod pure_function_tests {
         assert_eq!(total_value, Value::Number(3.into()));
 
         // Test shell command variables - this is what was causing substitution errors
-        let shell_variables = build_agent_context_variables(&map_results, &summary).unwrap();
+        let shell_variables = utils::build_agent_context_variables(&map_results, &summary).unwrap();
 
         assert_eq!(shell_variables.get("map.successful").unwrap(), "2");
         assert_eq!(shell_variables.get("map.failed").unwrap(), "1");
