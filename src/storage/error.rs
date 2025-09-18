@@ -64,6 +64,11 @@ impl StorageError {
         Self::Serialization(err.to_string())
     }
 
+    /// Create a deserialization error
+    pub fn deserialization<E: fmt::Display>(err: E) -> Self {
+        Self::Serialization(err.to_string())
+    }
+
     /// Create a database error
     pub fn database<E: fmt::Display>(err: E) -> Self {
         Self::Database(err.to_string())
@@ -102,6 +107,16 @@ impl StorageError {
     /// Create a connection error
     pub fn connection<E: fmt::Display>(msg: E) -> Self {
         Self::Connection(msg.to_string())
+    }
+
+    /// Create an I/O error
+    pub fn io_error<E: fmt::Display>(msg: E) -> Self {
+        Self::Database(msg.to_string())  // Use Database for now as it's closest
+    }
+
+    /// Create an operation error
+    pub fn operation<E: fmt::Display>(msg: E) -> Self {
+        Self::Other(anyhow::anyhow!(msg.to_string()))
     }
 
     /// Check if this is a retryable error

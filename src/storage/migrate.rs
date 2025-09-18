@@ -1,7 +1,7 @@
 //! Storage migration utility for transferring data between backends
 
 use super::error::{StorageError, StorageResult};
-use super::traits::{EventStorage, SessionStorage, StateStorage, UnifiedStorage};
+use super::traits::{CheckpointStorage, DLQStorage, EventStorage, SessionStorage, UnifiedStorage, WorkflowStorage};
 use chrono::{DateTime, Utc};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::sync::Arc;

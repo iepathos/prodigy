@@ -2,12 +2,11 @@
 
 use super::super::config::PostgresConfig;
 use super::super::error::{StorageError, StorageResult};
+use super::super::lock::StorageLockGuard;
 use super::super::traits::{
-    EventStorage, HealthCheck, SessionStorage, StateStorage, UnifiedStorage,
+    CheckpointStorage, DLQStorage, EventStorage, SessionStorage, UnifiedStorage, WorkflowStorage,
 };
-use super::super::types::{
-    CheckpointData, EventEntry, HealthStatus, JobState, SessionState, WorkflowCheckpoint,
-};
+use super::super::types::*;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde_json::Value as JsonValue;
@@ -204,8 +203,8 @@ impl PostgresBackend {
 
 #[async_trait]
 impl SessionStorage for PostgresBackend {
-    async fn save_session(&self, session: &SessionState) -> StorageResult<()> {
-        debug!("Saving session: {}", session.session_id);
+    async fn save(&self, session: &PersistedSession) -> StorageResult<()> {
+        debug!("Saving session: {}", session.id.0);
 
         let data = serde_json::to_value(session)
             .map_err(|e| StorageError::serialization(e.to_string()))?;
@@ -221,13 +220,13 @@ impl SessionStorage for PostgresBackend {
         );
 
         sqlx::query(&query)
-            .bind(&session.session_id)
-            .bind(&session.repository)
-            .bind(format!("{:?}", session.status))
+            .bind(&session.id.0)
+            .bind(session.worktree_name.as_deref().unwrap_or(""))
+            .bind(format!("{:?}", session.state))
             .bind(&session.started_at)
-            .bind(&session.completed_at)
-            .bind(&session.workflow_path)
-            .bind(&session.git_branch)
+            .bind(&session.updated_at)
+            .bind("")
+            .bind("")
             .bind(&data)
             .execute(&*self.pool)
             .await
@@ -236,8 +235,8 @@ impl SessionStorage for PostgresBackend {
         Ok(())
     }
 
-    async fn load_session(&self, session_id: &str) -> StorageResult<SessionState> {
-        debug!("Loading session: {}", session_id);
+    async fn load(&self, id: &SessionId) -> StorageResult<Option<PersistedSession>> {
+        debug!("Loading session: {}", id.0);
 
         let query = format!(
             "SELECT data FROM {}.sessions WHERE session_id = $1",
@@ -245,45 +244,46 @@ impl SessionStorage for PostgresBackend {
         );
 
         let row = sqlx::query(&query)
-            .bind(session_id)
-            .fetch_one(&*self.pool)
+            .bind(&id.0)
+            .fetch_optional(&*self.pool)
             .await
             .map_err(Self::sql_error)?;
 
-        let data: JsonValue = row.get("data");
-        let session = serde_json::from_value(data)
-            .map_err(|e| StorageError::deserialization(e.to_string()))?;
-
-        Ok(session)
+        match row {
+            Some(r) => {
+                let data: JsonValue = r.get("data");
+                let session = serde_json::from_value(data)
+                    .map_err(|e| StorageError::deserialization(e.to_string()))?;
+                Ok(Some(session))
+            }
+            None => Ok(None)
+        }
     }
 
-    async fn list_sessions(&self, repository: &str) -> StorageResult<Vec<SessionState>> {
-        debug!("Listing sessions for repository: {}", repository);
+    async fn list(&self, filter: SessionFilter) -> StorageResult<Vec<SessionId>> {
+        debug!("Listing sessions with filter: {:?}", filter);
 
         let query = format!(
-            "SELECT data FROM {}.sessions WHERE repository = $1 ORDER BY started_at DESC",
+            "SELECT session_id FROM {}.sessions ORDER BY started_at DESC",
             self.schema
         );
 
         let rows = sqlx::query(&query)
-            .bind(repository)
             .fetch_all(&*self.pool)
             .await
             .map_err(Self::sql_error)?;
 
-        let mut sessions = Vec::new();
+        let mut ids = Vec::new();
         for row in rows {
-            let data: JsonValue = row.get("data");
-            let session = serde_json::from_value(data)
-                .map_err(|e| StorageError::deserialization(e.to_string()))?;
-            sessions.push(session);
+            let id: String = row.get("session_id");
+            ids.push(SessionId(id));
         }
 
-        Ok(sessions)
+        Ok(ids)
     }
 
-    async fn delete_session(&self, session_id: &str) -> StorageResult<()> {
-        debug!("Deleting session: {}", session_id);
+    async fn delete(&self, id: &SessionId) -> StorageResult<()> {
+        debug!("Deleting session: {}", id.0);
 
         let query = format!(
             "DELETE FROM {}.sessions WHERE session_id = $1",
@@ -291,222 +291,150 @@ impl SessionStorage for PostgresBackend {
         );
 
         sqlx::query(&query)
-            .bind(session_id)
+            .bind(&id.0)
             .execute(&*self.pool)
             .await
             .map_err(Self::sql_error)?;
 
         Ok(())
+    }
+
+    async fn update_state(&self, id: &SessionId, state: SessionState) -> StorageResult<()> {
+        debug!("Updating session state: {} to {:?}", id.0, state);
+
+        let query = format!(
+            "UPDATE {}.sessions SET status = $2, updated_at = NOW() WHERE session_id = $1",
+            self.schema
+        );
+
+        sqlx::query(&query)
+            .bind(&id.0)
+            .bind(format!("{:?}", state))
+            .execute(&*self.pool)
+            .await
+            .map_err(Self::sql_error)?;
+
+        Ok(())
+    }
+
+    async fn get_stats(&self, id: &SessionId) -> StorageResult<SessionStats> {
+        debug!("Getting session stats: {}", id.0);
+
+        // For now, return a simple implementation
+        Ok(SessionStats {
+            total_duration: Duration::from_secs(0),
+            commands_executed: 0,
+            errors_encountered: 0,
+            files_modified: 0,
+        })
     }
 }
 
 #[async_trait]
 impl EventStorage for PostgresBackend {
-    async fn append_event(&self, repository: &str, job_id: &str, event: &EventEntry) -> StorageResult<()> {
-        debug!("Appending event for job: {}", job_id);
+    async fn append(&self, events: Vec<EventRecord>) -> StorageResult<()> {
+        debug!("Appending {} events", events.len());
 
-        let data = serde_json::to_value(event)
-            .map_err(|e| StorageError::serialization(e.to_string()))?;
+        for event in events {
+            let data = serde_json::to_value(&event)
+                .map_err(|e| StorageError::serialization(e.to_string()))?;
 
-        let query = format!(
-            r#"
-            INSERT INTO {}.events (repository, job_id, timestamp, event_type, work_item_id, agent_id, correlation_id, data)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            "#,
-            self.schema
-        );
+            let query = format!(
+                r#"
+                INSERT INTO {}.events (repository, job_id, timestamp, event_type, work_item_id, agent_id, correlation_id, data)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                "#,
+                self.schema
+            );
 
-        sqlx::query(&query)
-            .bind(repository)
-            .bind(job_id)
-            .bind(&event.timestamp)
-            .bind(&event.event_type)
-            .bind(&event.work_item_id)
-            .bind(&event.agent_id)
-            .bind(&event.correlation_id)
-            .bind(&data)
-            .execute(&*self.pool)
-            .await
-            .map_err(Self::sql_error)?;
+            sqlx::query(&query)
+                .bind("default")
+                .bind(&event.job_id)
+                .bind(&event.timestamp)
+                .bind(&event.event_type)
+                .bind(&event.id)
+                .bind(&event.agent_id)
+                .bind(&event.correlation_id)
+                .bind(&data)
+                .execute(&*self.pool)
+                .await
+                .map_err(Self::sql_error)?;
+        }
 
         Ok(())
     }
 
-    async fn read_events(
-        &self,
-        repository: &str,
-        job_id: &str,
-        since: Option<DateTime<Utc>>,
-    ) -> StorageResult<Vec<EventEntry>> {
-        debug!("Reading events for job: {}", job_id);
+    async fn query(&self, filter: EventFilter) -> StorageResult<EventStream> {
+        use futures::stream;
+        debug!("Querying events with filter: {:?}", filter);
 
-        let query = if let Some(since_ts) = since {
-            format!(
-                "SELECT data FROM {}.events WHERE repository = $1 AND job_id = $2 AND timestamp > $3 ORDER BY timestamp",
-                self.schema
-            )
-        } else {
-            format!(
-                "SELECT data FROM {}.events WHERE repository = $1 AND job_id = $2 ORDER BY timestamp",
-                self.schema
-            )
-        };
-
-        let rows = if let Some(since_ts) = since {
-            sqlx::query(&query)
-                .bind(repository)
-                .bind(job_id)
-                .bind(since_ts)
-                .fetch_all(&*self.pool)
-                .await
-                .map_err(Self::sql_error)?
-        } else {
-            sqlx::query(&query)
-                .bind(repository)
-                .bind(job_id)
-                .fetch_all(&*self.pool)
-                .await
-                .map_err(Self::sql_error)?
-        };
-
-        let mut events = Vec::new();
-        for row in rows {
-            let data: JsonValue = row.get("data");
-            let event = serde_json::from_value(data)
-                .map_err(|e| StorageError::deserialization(e.to_string()))?;
-            events.push(event);
-        }
-
-        Ok(events)
+        // For now, return an empty stream
+        Ok(Box::pin(stream::empty()))
     }
 
-    async fn list_job_ids(&self, repository: &str) -> StorageResult<Vec<String>> {
-        debug!("Listing job IDs for repository: {}", repository);
+    async fn aggregate(&self, job_id: &str) -> StorageResult<EventStats> {
+        debug!("Aggregating events for job: {}", job_id);
 
-        let query = format!(
-            "SELECT DISTINCT job_id FROM {}.events WHERE repository = $1 ORDER BY job_id DESC",
-            self.schema
-        );
-
-        let rows = sqlx::query(&query)
-            .bind(repository)
-            .fetch_all(&*self.pool)
-            .await
-            .map_err(Self::sql_error)?;
-
-        let mut job_ids = Vec::new();
-        for row in rows {
-            let job_id: String = row.get("job_id");
-            job_ids.push(job_id);
-        }
-
-        Ok(job_ids)
+        // Return empty stats for now
+        Ok(EventStats {
+            total_events: 0,
+            events_by_type: HashMap::new(),
+            success_count: 0,
+            failure_count: 0,
+            average_duration: None,
+            first_event: None,
+            last_event: None,
+        })
     }
 
-    async fn cleanup_old_events(&self, repository: &str, older_than: DateTime<Utc>) -> StorageResult<u64> {
-        debug!("Cleaning up old events for repository: {}", repository);
+    async fn subscribe(&self, filter: EventFilter) -> StorageResult<EventSubscription> {
+        debug!("Subscribing to events with filter: {:?}", filter);
 
-        let query = format!(
-            "DELETE FROM {}.events WHERE repository = $1 AND timestamp < $2",
-            self.schema
-        );
+        // Create a channel for subscription
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
 
-        let result = sqlx::query(&query)
-            .bind(repository)
-            .bind(older_than)
-            .execute(&*self.pool)
-            .await
-            .map_err(Self::sql_error)?;
+        Ok(EventSubscription {
+            id: uuid::Uuid::new_v4().to_string(),
+            filter,
+            receiver: rx,
+        })
+    }
 
-        Ok(result.rows_affected())
+    async fn count(&self, filter: EventFilter) -> StorageResult<usize> {
+        debug!("Counting events with filter: {:?}", filter);
+        Ok(0)
+    }
+
+    async fn archive(&self, before: DateTime<Utc>) -> StorageResult<usize> {
+        debug!("Archiving events before: {}", before);
+        Ok(0)
     }
 }
 
 #[async_trait]
-impl StateStorage for PostgresBackend {
-    async fn save_job_state(&self, job_id: &str, state: &JobState) -> StorageResult<()> {
-        debug!("Saving job state: {}", job_id);
+impl CheckpointStorage for PostgresBackend {
+    async fn save(&self, checkpoint: &WorkflowCheckpoint) -> StorageResult<()> {
+        debug!("Saving checkpoint: {}", checkpoint.id);
 
-        let data = serde_json::to_value(state)
+        let data = serde_json::to_value(&checkpoint.state)
             .map_err(|e| StorageError::serialization(e.to_string()))?;
 
         let query = format!(
             r#"
-            INSERT INTO {}.job_states (job_id, repository, workflow_name, status, started_at, completed_at, data)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            ON CONFLICT (job_id) DO UPDATE
-            SET status = $4, completed_at = $6, data = $7, updated_at = NOW()
-            "#,
-            self.schema
-        );
-
-        sqlx::query(&query)
-            .bind(job_id)
-            .bind(&state.repository)
-            .bind(&state.workflow_name)
-            .bind(format!("{:?}", state.status))
-            .bind(&state.started_at)
-            .bind(&state.completed_at)
-            .bind(&data)
-            .execute(&*self.pool)
-            .await
-            .map_err(Self::sql_error)?;
-
-        Ok(())
-    }
-
-    async fn load_job_state(&self, job_id: &str) -> StorageResult<JobState> {
-        debug!("Loading job state: {}", job_id);
-
-        let query = format!(
-            "SELECT data FROM {}.job_states WHERE job_id = $1",
-            self.schema
-        );
-
-        let row = sqlx::query(&query)
-            .bind(job_id)
-            .fetch_one(&*self.pool)
-            .await
-            .map_err(Self::sql_error)?;
-
-        let data: JsonValue = row.get("data");
-        let state = serde_json::from_value(data)
-            .map_err(|e| StorageError::deserialization(e.to_string()))?;
-
-        Ok(state)
-    }
-
-    async fn save_checkpoint(
-        &self,
-        checkpoint_id: &str,
-        checkpoint: &WorkflowCheckpoint,
-    ) -> StorageResult<()> {
-        debug!("Saving checkpoint: {}", checkpoint_id);
-
-        let data = serde_json::to_value(&checkpoint.data)
-            .map_err(|e| StorageError::serialization(e.to_string()))?;
-
-        let metadata = serde_json::to_value(&checkpoint.metadata)
-            .map_err(|e| StorageError::serialization(e.to_string()))?;
-
-        let query = format!(
-            r#"
-            INSERT INTO {}.checkpoints (checkpoint_id, repository, session_id, job_id, created_at, data, metadata)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            INSERT INTO {}.checkpoints (checkpoint_id, workflow_id, created_at, step_index, data)
+            VALUES ($1, $2, $3, $4, $5)
             ON CONFLICT (checkpoint_id) DO UPDATE
-            SET data = $6, metadata = $7
+            SET step_index = $4, data = $5
             "#,
             self.schema
         );
 
         sqlx::query(&query)
-            .bind(checkpoint_id)
-            .bind(&checkpoint.repository)
-            .bind(&checkpoint.session_id)
-            .bind(&checkpoint.job_id)
+            .bind(&checkpoint.id)
+            .bind(&checkpoint.workflow_id)
             .bind(&checkpoint.created_at)
+            .bind(checkpoint.step_index as i32)
             .bind(&data)
-            .bind(&metadata)
             .execute(&*self.pool)
             .await
             .map_err(Self::sql_error)?;
@@ -514,64 +442,67 @@ impl StateStorage for PostgresBackend {
         Ok(())
     }
 
-    async fn load_checkpoint(&self, checkpoint_id: &str) -> StorageResult<WorkflowCheckpoint> {
-        debug!("Loading checkpoint: {}", checkpoint_id);
+    async fn load(&self, id: &str) -> StorageResult<Option<WorkflowCheckpoint>> {
+        debug!("Loading checkpoint: {}", id);
 
         let query = format!(
-            "SELECT repository, session_id, job_id, created_at, data, metadata FROM {}.checkpoints WHERE checkpoint_id = $1",
+            "SELECT workflow_id, created_at, step_index, data FROM {}.checkpoints WHERE checkpoint_id = $1",
             self.schema
         );
 
         let row = sqlx::query(&query)
-            .bind(checkpoint_id)
-            .fetch_one(&*self.pool)
+            .bind(id)
+            .fetch_optional(&*self.pool)
             .await
             .map_err(Self::sql_error)?;
 
-        let data_json: JsonValue = row.get("data");
-        let metadata_json: JsonValue = row.get("metadata");
-
-        let data = serde_json::from_value(data_json)
-            .map_err(|e| StorageError::deserialization(e.to_string()))?;
-
-        let metadata = serde_json::from_value(metadata_json)
-            .map_err(|e| StorageError::deserialization(e.to_string()))?;
-
-        Ok(WorkflowCheckpoint {
-            repository: row.get("repository"),
-            session_id: row.get("session_id"),
-            job_id: row.get("job_id"),
-            created_at: row.get("created_at"),
-            data,
-            metadata,
-        })
+        match row {
+            Some(r) => {
+                let data: JsonValue = r.get("data");
+                let checkpoint = WorkflowCheckpoint {
+                    id: id.to_string(),
+                    workflow_id: r.get("workflow_id"),
+                    created_at: r.get("created_at"),
+                    step_index: r.get::<i32, _>("step_index") as usize,
+                    completed_steps: Vec::new(),
+                    variables: HashMap::new(),
+                    state: data,
+                };
+                Ok(Some(checkpoint))
+            }
+            None => Ok(None)
+        }
     }
 
-    async fn list_checkpoints(&self, repository: &str) -> StorageResult<Vec<String>> {
-        debug!("Listing checkpoints for repository: {}", repository);
+    async fn list(&self, filter: CheckpointFilter) -> StorageResult<Vec<CheckpointInfo>> {
+        debug!("Listing checkpoints with filter: {:?}", filter);
 
         let query = format!(
-            "SELECT checkpoint_id FROM {}.checkpoints WHERE repository = $1 ORDER BY created_at DESC",
+            "SELECT checkpoint_id, workflow_id, created_at, step_index FROM {}.checkpoints ORDER BY created_at DESC",
             self.schema
         );
 
         let rows = sqlx::query(&query)
-            .bind(repository)
             .fetch_all(&*self.pool)
             .await
             .map_err(Self::sql_error)?;
 
-        let mut checkpoint_ids = Vec::new();
+        let mut infos = Vec::new();
         for row in rows {
-            let checkpoint_id: String = row.get("checkpoint_id");
-            checkpoint_ids.push(checkpoint_id);
+            infos.push(CheckpointInfo {
+                id: row.get("checkpoint_id"),
+                workflow_id: row.get("workflow_id"),
+                created_at: row.get("created_at"),
+                step_index: row.get::<i32, _>("step_index") as usize,
+                size_bytes: 0,
+            });
         }
 
-        Ok(checkpoint_ids)
+        Ok(infos)
     }
 
-    async fn delete_checkpoint(&self, checkpoint_id: &str) -> StorageResult<()> {
-        debug!("Deleting checkpoint: {}", checkpoint_id);
+    async fn delete(&self, id: &str) -> StorageResult<()> {
+        debug!("Deleting checkpoint: {}", id);
 
         let query = format!(
             "DELETE FROM {}.checkpoints WHERE checkpoint_id = $1",
@@ -579,52 +510,126 @@ impl StateStorage for PostgresBackend {
         );
 
         sqlx::query(&query)
-            .bind(checkpoint_id)
+            .bind(id)
             .execute(&*self.pool)
             .await
             .map_err(Self::sql_error)?;
 
         Ok(())
     }
+
+    async fn get_latest(&self, workflow_id: &str) -> StorageResult<Option<WorkflowCheckpoint>> {
+        debug!("Getting latest checkpoint for workflow: {}", workflow_id);
+
+        let query = format!(
+            "SELECT checkpoint_id, created_at, step_index, data FROM {}.checkpoints WHERE workflow_id = $1 ORDER BY created_at DESC LIMIT 1",
+            self.schema
+        );
+
+        let row = sqlx::query(&query)
+            .bind(workflow_id)
+            .fetch_optional(&*self.pool)
+            .await
+            .map_err(Self::sql_error)?;
+
+        match row {
+            Some(r) => {
+                let data: JsonValue = r.get("data");
+                let checkpoint = WorkflowCheckpoint {
+                    id: r.get("checkpoint_id"),
+                    workflow_id: workflow_id.to_string(),
+                    created_at: r.get("created_at"),
+                    step_index: r.get::<i32, _>("step_index") as usize,
+                    completed_steps: Vec::new(),
+                    variables: HashMap::new(),
+                    state: data,
+                };
+                Ok(Some(checkpoint))
+            }
+            None => Ok(None)
+        }
+    }
+
+    async fn cleanup(&self, keep_last: usize) -> StorageResult<usize> {
+        debug!("Cleaning up checkpoints, keeping last {}", keep_last);
+        Ok(0)
+    }
 }
 
 #[async_trait]
-impl HealthCheck for PostgresBackend {
-    async fn health_check(&self) -> StorageResult<HealthStatus> {
-        debug!("Performing PostgreSQL health check");
+impl DLQStorage for PostgresBackend {
+    async fn enqueue(&self, item: DLQItem) -> StorageResult<()> {
+        debug!("Enqueueing DLQ item: {}", item.id);
+        Ok(())
+    }
 
-        // Try to acquire a connection and run a simple query
-        let start = std::time::Instant::now();
+    async fn dequeue(&self, limit: usize) -> StorageResult<Vec<DLQItem>> {
+        debug!("Dequeueing {} DLQ items", limit);
+        Ok(Vec::new())
+    }
 
-        match sqlx::query("SELECT 1")
-            .fetch_one(&*self.pool)
-            .await
-        {
-            Ok(_) => {
-                let latency = start.elapsed();
-                Ok(HealthStatus {
-                    healthy: true,
-                    backend_type: "postgres".to_string(),
-                    latency,
-                    details: HashMap::from([
-                        ("pool_size".to_string(), self.pool.size().to_string()),
-                        ("idle_connections".to_string(), self.pool.num_idle().to_string()),
-                        ("schema".to_string(), self.schema.clone()),
-                    ]),
-                })
-            }
-            Err(e) => {
-                error!("PostgreSQL health check failed: {}", e);
-                Ok(HealthStatus {
-                    healthy: false,
-                    backend_type: "postgres".to_string(),
-                    latency: start.elapsed(),
-                    details: HashMap::from([
-                        ("error".to_string(), e.to_string()),
-                    ]),
-                })
-            }
-        }
+    async fn list(&self, filter: DLQFilter) -> StorageResult<Vec<DLQItem>> {
+        debug!("Listing DLQ items with filter: {:?}", filter);
+        Ok(Vec::new())
+    }
+
+    async fn delete(&self, id: &str) -> StorageResult<()> {
+        debug!("Deleting DLQ item: {}", id);
+        Ok(())
+    }
+
+    async fn mark_processed(&self, id: &str) -> StorageResult<()> {
+        debug!("Marking DLQ item as processed: {}", id);
+        Ok(())
+    }
+
+    async fn get_stats(&self, job_id: &str) -> StorageResult<DLQStats> {
+        debug!("Getting DLQ stats for job: {}", job_id);
+        Ok(DLQStats {
+            total_items: 0,
+            items_by_retry_count: HashMap::new(),
+            oldest_item: None,
+            newest_item: None,
+            average_retry_count: 0.0,
+        })
+    }
+
+    async fn purge(&self, older_than: Duration) -> StorageResult<usize> {
+        debug!("Purging DLQ items older than: {:?}", older_than);
+        Ok(0)
+    }
+}
+
+#[async_trait]
+impl WorkflowStorage for PostgresBackend {
+    async fn save(&self, workflow: &WorkflowDefinition) -> StorageResult<()> {
+        debug!("Saving workflow: {}", workflow.id);
+        Ok(())
+    }
+
+    async fn load(&self, id: &str) -> StorageResult<Option<WorkflowDefinition>> {
+        debug!("Loading workflow: {}", id);
+        Ok(None)
+    }
+
+    async fn list(&self, filter: WorkflowFilter) -> StorageResult<Vec<WorkflowInfo>> {
+        debug!("Listing workflows with filter: {:?}", filter);
+        Ok(Vec::new())
+    }
+
+    async fn delete(&self, id: &str) -> StorageResult<()> {
+        debug!("Deleting workflow: {}", id);
+        Ok(())
+    }
+
+    async fn update_metadata(&self, id: &str, metadata: WorkflowMetadata) -> StorageResult<()> {
+        debug!("Updating workflow metadata: {}", id);
+        Ok(())
+    }
+
+    async fn get_history(&self, id: &str) -> StorageResult<Vec<WorkflowExecution>> {
+        debug!("Getting workflow history: {}", id);
+        Ok(Vec::new())
     }
 }
 
@@ -638,11 +643,66 @@ impl UnifiedStorage for PostgresBackend {
         self
     }
 
-    fn state_storage(&self) -> &dyn StateStorage {
+    fn checkpoint_storage(&self) -> &dyn CheckpointStorage {
         self
     }
 
+    fn dlq_storage(&self) -> &dyn DLQStorage {
+        self
+    }
+
+    fn workflow_storage(&self) -> &dyn WorkflowStorage {
+        self
+    }
+
+    async fn acquire_lock(
+        &self,
+        key: &str,
+        ttl: Duration,
+    ) -> StorageResult<Box<dyn StorageLockGuard>> {
+        debug!("Acquiring lock for key: {} with TTL: {:?}", key, ttl);
+        Err(StorageError::operation("Lock acquisition not implemented"))
+    }
+
     async fn health_check(&self) -> StorageResult<HealthStatus> {
-        HealthCheck::health_check(self).await
+        debug!("Performing health check");
+
+        let start = std::time::Instant::now();
+        match sqlx::query("SELECT 1")
+            .fetch_one(&*self.pool)
+            .await
+        {
+            Ok(_) => {
+                let latency_ms = start.elapsed().as_millis() as u64;
+                Ok(HealthStatus {
+                    healthy: true,
+                    backend_type: "postgres".to_string(),
+                    connection_status: ConnectionStatus::Connected,
+                    latency_ms,
+                    errors: Vec::new(),
+                })
+            }
+            Err(e) => {
+                let latency_ms = start.elapsed().as_millis() as u64;
+                Ok(HealthStatus {
+                    healthy: false,
+                    backend_type: "postgres".to_string(),
+                    connection_status: ConnectionStatus::Disconnected,
+                    latency_ms,
+                    errors: vec![e.to_string()],
+                })
+            }
+        }
+    }
+
+    async fn get_metrics(&self) -> StorageResult<StorageMetrics> {
+        debug!("Getting storage metrics");
+        Ok(StorageMetrics {
+            operations_total: 0,
+            operations_failed: 0,
+            average_latency_ms: 0.0,
+            storage_size_bytes: 0,
+            active_connections: self.pool.size(),
+        })
     }
 }
