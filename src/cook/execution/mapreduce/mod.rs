@@ -25,22 +25,28 @@ pub mod phases;
 // Declare the agent command executor module
 pub mod agent_command_executor;
 
+// Declare the progress module for progress management
+pub mod progress;
+
 // Import the PhaseExecutor trait
 use self::phases::PhaseExecutor;
 
 // Import agent types and functionality
 use agent::{
-    AgentLifecycleManager, AgentOperation, AgentResultAggregator, DefaultLifecycleManager,
-    DefaultResultAggregator,
+    AgentLifecycleManager, AgentResultAggregator, DefaultLifecycleManager, DefaultResultAggregator,
 };
 
 // Re-export public types for external use
 pub use agent::{AgentResult, AgentStatus};
 
-// Import utility functions from utils module
-use utils::{
-    calculate_map_result_summary, generate_agent_branch_name, generate_agent_id, truncate_command,
+// Import progress management components
+use progress::{
+    operations::AgentOperation,
+    tracker::ProgressTracker,
 };
+
+// Import utility functions from utils module
+use utils::{calculate_map_result_summary, generate_agent_branch_name, generate_agent_id};
 
 use crate::commands::CommandRegistry;
 use crate::cook::execution::data_pipeline::DataPipeline;
@@ -66,13 +72,11 @@ use crate::subprocess::SubprocessManager;
 use crate::worktree::{WorktreeManager, WorktreePool, WorktreePoolConfig};
 // Keep anyhow imports for backwards compatibility with state.rs which still uses anyhow::Result
 use chrono::Utc;
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, Mutex, RwLock};
@@ -200,132 +204,7 @@ pub struct ResumeResult {
     pub final_results: Vec<AgentResult>,
 }
 
-// AgentOperation is now imported from the agent module
-
-/// Progress tracking for parallel execution
-struct ProgressTracker {
-    #[allow(dead_code)]
-    multi_progress: MultiProgress,
-    overall_bar: ProgressBar,
-    agent_bars: Vec<ProgressBar>,
-    tick_handle: Option<JoinHandle<()>>,
-    is_finished: Arc<AtomicBool>,
-    #[allow(dead_code)]
-    start_time: Instant,
-    agent_operations: Arc<RwLock<Vec<AgentOperation>>>,
-}
-
-impl ProgressTracker {
-    fn new(total_items: usize, max_parallel: usize) -> Self {
-        let multi_progress = MultiProgress::new();
-
-        // Overall progress bar
-        let overall_bar = multi_progress.add(ProgressBar::new(total_items as u64));
-        overall_bar.set_style(
-            ProgressStyle::default_bar()
-                .template(
-                    "{spinner:.green} [{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} {msg}",
-                )
-                .unwrap()
-                .progress_chars("##-"),
-        );
-        overall_bar.set_message("Processing items...");
-
-        // Enable steady tick for timer updates
-        overall_bar.enable_steady_tick(Duration::from_millis(100));
-
-        // Individual agent progress bars
-        let mut agent_bars = Vec::new();
-        let mut agent_operations = Vec::new();
-        for i in 0..max_parallel.min(total_items) {
-            let bar = multi_progress.add(ProgressBar::new(100));
-            bar.set_style(
-                ProgressStyle::default_bar()
-                    .template(&format!("  Agent {:2}: {{msg}}", i + 1))
-                    .unwrap(),
-            );
-            bar.set_message("Idle");
-            agent_bars.push(bar);
-            agent_operations.push(AgentOperation::Idle);
-        }
-
-        Self {
-            multi_progress,
-            overall_bar,
-            agent_bars,
-            tick_handle: None,
-            is_finished: Arc::new(AtomicBool::new(false)),
-            start_time: Instant::now(),
-            agent_operations: Arc::new(RwLock::new(agent_operations)),
-        }
-    }
-
-    fn update_agent(&self, agent_index: usize, message: &str) {
-        if agent_index < self.agent_bars.len() {
-            self.agent_bars[agent_index].set_message(message.to_string());
-        }
-    }
-
-    async fn update_agent_operation(&self, agent_index: usize, operation: AgentOperation) {
-        let mut ops = self.agent_operations.write().await;
-        if agent_index < ops.len() {
-            ops[agent_index] = operation.clone();
-
-            // Format the operation for display
-            let message = match operation {
-                AgentOperation::Idle => "Idle".to_string(),
-                AgentOperation::Setup(cmd) => {
-                    format!("[setup] {}", truncate_command(&cmd, 40))
-                }
-                AgentOperation::Claude(cmd) => {
-                    format!("[claude] {}", truncate_command(&cmd, 40))
-                }
-                AgentOperation::Shell(cmd) => {
-                    format!("[shell] {}", truncate_command(&cmd, 40))
-                }
-                AgentOperation::Test(cmd) => format!("[test] {}", truncate_command(&cmd, 40)),
-                AgentOperation::Handler(name) => format!("[handler] {}", name),
-                AgentOperation::Retrying(item, attempt) => {
-                    format!("Retrying {} (attempt {})", item, attempt)
-                }
-                AgentOperation::Complete => "Complete".to_string(),
-            };
-
-            self.update_agent(agent_index, &message);
-        }
-    }
-
-    fn complete_item(&self) {
-        self.overall_bar.inc(1);
-    }
-
-    fn finish(&self, message: &str) {
-        self.is_finished.store(true, Ordering::Relaxed);
-        self.overall_bar.finish_with_message(message.to_string());
-        for bar in &self.agent_bars {
-            bar.finish_and_clear();
-        }
-    }
-
-    fn start_timer(&mut self) {
-        let is_finished = self.is_finished.clone();
-        let overall_bar = self.overall_bar.clone();
-
-        // Spawn timer update task
-        let handle = tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_millis(100));
-            loop {
-                interval.tick().await;
-                if is_finished.load(Ordering::Relaxed) {
-                    break;
-                }
-                overall_bar.tick();
-            }
-        });
-
-        self.tick_handle = Some(handle);
-    }
-}
+// Note: ProgressTracker and AgentOperation are now imported from the progress module
 
 /// Context for agent-specific command execution
 #[derive(Clone)]
@@ -740,7 +619,8 @@ mod pure_function_tests {
             total: 2,
         };
 
-        let context = utils::build_map_results_interpolation_context(&map_results, &summary).unwrap();
+        let context =
+            utils::build_map_results_interpolation_context(&map_results, &summary).unwrap();
 
         // Test that map object is properly structured
         let map_value = context.resolve_path(&["map".to_string()]).unwrap();
