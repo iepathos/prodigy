@@ -40,10 +40,7 @@ use agent::{
 pub use agent::{AgentResult, AgentStatus};
 
 // Import progress management components
-use progress::{
-    operations::AgentOperation,
-    tracker::ProgressTracker,
-};
+use progress::{operations::AgentOperation, tracker::ProgressTracker};
 
 // Import utility functions from utils module
 use utils::{calculate_map_result_summary, generate_agent_branch_name, generate_agent_id};
