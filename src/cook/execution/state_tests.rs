@@ -998,6 +998,476 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_full_mapreduce_resume_workflow_integration() {
+        let temp_dir = TempDir::new().unwrap();
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        let config = MapReduceConfig {
+            input: "test.json".to_string(),
+            json_path: String::new(),
+            max_parallel: 3,
+            timeout_per_agent: 60,
+            retry_on_failure: 2,
+            max_items: None,
+            offset: None,
+        };
+
+        let work_items = vec![
+            json!({"id": 1, "name": "item1"}),
+            json!({"id": 2, "name": "item2"}),
+            json!({"id": 3, "name": "item3"}),
+            json!({"id": 4, "name": "item4"}),
+            json!({"id": 5, "name": "item5"}),
+        ];
+
+        // Create initial job
+        let job_id = manager
+            .create_job(config.clone(), work_items.clone(), vec![], None)
+            .await
+            .unwrap();
+
+        // Phase 1: Initial processing with partial completion
+        manager
+            .update_agent_result(
+                &job_id,
+                AgentResult {
+                    item_id: "item_0".to_string(),
+                    status: AgentStatus::Success,
+                    output: Some("Processed item1".to_string()),
+                    commits: vec!["commit1".to_string()],
+                    duration: Duration::from_secs(2),
+                    error: None,
+                    worktree_path: Some(PathBuf::from("/worktrees/agent1")),
+                    branch_name: Some("mapreduce-agent-1".to_string()),
+                    worktree_session_id: Some("session-1".to_string()),
+                    files_modified: vec!["file1.rs".to_string()],
+                },
+            )
+            .await
+            .unwrap();
+
+        manager
+            .update_agent_result(
+                &job_id,
+                AgentResult {
+                    item_id: "item_1".to_string(),
+                    status: AgentStatus::Failed("Network error".to_string()),
+                    output: None,
+                    commits: vec![],
+                    duration: Duration::from_secs(1),
+                    error: Some("Network error".to_string()),
+                    worktree_path: Some(PathBuf::from("/worktrees/agent2")),
+                    branch_name: Some("mapreduce-agent-2".to_string()),
+                    worktree_session_id: Some("session-2".to_string()),
+                    files_modified: vec![],
+                },
+            )
+            .await
+            .unwrap();
+
+        // Verify initial state
+        let state1 = manager.get_job_state(&job_id).await.unwrap();
+        assert_eq!(state1.successful_count, 1);
+        assert_eq!(state1.failed_count, 1);
+        assert_eq!(state1.pending_items.len(), 3);
+        assert_eq!(state1.checkpoint_version, 2);
+
+        // Simulate interrupt and resume
+        let resumed_results = manager.resume_job(&job_id).await.unwrap();
+        assert_eq!(resumed_results.len(), 2); // The two completed items
+
+        // Phase 2: Continue processing after resume
+        manager
+            .update_agent_result(
+                &job_id,
+                AgentResult {
+                    item_id: "item_2".to_string(),
+                    status: AgentStatus::Success,
+                    output: Some("Processed item3".to_string()),
+                    commits: vec!["commit2".to_string()],
+                    duration: Duration::from_secs(3),
+                    error: None,
+                    worktree_path: Some(PathBuf::from("/worktrees/agent3")),
+                    branch_name: Some("mapreduce-agent-3".to_string()),
+                    worktree_session_id: Some("session-3".to_string()),
+                    files_modified: vec!["file3.rs".to_string()],
+                },
+            )
+            .await
+            .unwrap();
+
+        // Retry the failed item
+        manager
+            .update_agent_result(
+                &job_id,
+                AgentResult {
+                    item_id: "item_1".to_string(),
+                    status: AgentStatus::Success,
+                    output: Some("Processed item2 on retry".to_string()),
+                    commits: vec!["commit3".to_string()],
+                    duration: Duration::from_secs(2),
+                    error: None,
+                    worktree_path: Some(PathBuf::from("/worktrees/agent4")),
+                    branch_name: Some("mapreduce-agent-4".to_string()),
+                    worktree_session_id: Some("session-4".to_string()),
+                    files_modified: vec!["file2.rs".to_string()],
+                },
+            )
+            .await
+            .unwrap();
+
+        // Verify state after partial resume
+        let state2 = manager.get_job_state(&job_id).await.unwrap();
+        assert_eq!(state2.successful_count, 3);
+        assert_eq!(state2.pending_items.len(), 2); // item_3 and item_4 still pending
+
+        // Phase 3: Complete remaining items
+        manager
+            .update_agent_result(
+                &job_id,
+                AgentResult {
+                    item_id: "item_3".to_string(),
+                    status: AgentStatus::Success,
+                    output: Some("Processed item4".to_string()),
+                    commits: vec!["commit4".to_string()],
+                    duration: Duration::from_secs(2),
+                    error: None,
+                    worktree_path: Some(PathBuf::from("/worktrees/agent5")),
+                    branch_name: Some("mapreduce-agent-5".to_string()),
+                    worktree_session_id: Some("session-5".to_string()),
+                    files_modified: vec!["file4.rs".to_string()],
+                },
+            )
+            .await
+            .unwrap();
+
+        manager
+            .update_agent_result(
+                &job_id,
+                AgentResult {
+                    item_id: "item_4".to_string(),
+                    status: AgentStatus::Success,
+                    output: Some("Processed item5".to_string()),
+                    commits: vec!["commit5".to_string()],
+                    duration: Duration::from_secs(2),
+                    error: None,
+                    worktree_path: Some(PathBuf::from("/worktrees/agent6")),
+                    branch_name: Some("mapreduce-agent-6".to_string()),
+                    worktree_session_id: Some("session-6".to_string()),
+                    files_modified: vec!["file5.rs".to_string()],
+                },
+            )
+            .await
+            .unwrap();
+
+        // Verify map phase completion
+        let state3 = manager.get_job_state(&job_id).await.unwrap();
+        assert_eq!(state3.successful_count, 5);
+        assert_eq!(state3.pending_items.len(), 0);
+        assert!(state3.is_map_phase_complete());
+
+        // Test reduce phase
+        manager.start_reduce_phase(&job_id).await.unwrap();
+
+        let state_with_reduce = manager.get_job_state(&job_id).await.unwrap();
+        assert!(state_with_reduce.reduce_phase_state.is_some());
+        assert!(
+            state_with_reduce
+                .reduce_phase_state
+                .as_ref()
+                .unwrap()
+                .started
+        );
+
+        // Complete reduce phase
+        manager
+            .complete_reduce_phase(&job_id, Some("Aggregated 5 items successfully".to_string()))
+            .await
+            .unwrap();
+
+        // Verify final state
+        let final_state = manager.get_job_state(&job_id).await.unwrap();
+        assert!(final_state.is_complete);
+        assert_eq!(final_state.agent_results.len(), 5);
+        assert!(final_state.reduce_phase_state.as_ref().unwrap().completed);
+        assert_eq!(
+            final_state.reduce_phase_state.as_ref().unwrap().output,
+            Some("Aggregated 5 items successfully".to_string())
+        );
+
+        // Verify all commits are preserved
+        let all_commits: Vec<String> = final_state
+            .agent_results
+            .values()
+            .flat_map(|r| r.commits.clone())
+            .collect();
+        assert_eq!(all_commits.len(), 5);
+        assert!(all_commits.contains(&"commit1".to_string()));
+        assert!(all_commits.contains(&"commit5".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_dlq_restoration_on_resume() {
+        let temp_dir = TempDir::new().unwrap();
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        let config = MapReduceConfig {
+            input: "test.json".to_string(),
+            json_path: String::new(),
+            max_parallel: 2,
+            timeout_per_agent: 60,
+            retry_on_failure: 1,
+            max_items: None,
+            offset: None,
+        };
+
+        let work_items = vec![
+            json!({"id": 1, "critical": true}),
+            json!({"id": 2, "critical": false}),
+            json!({"id": 3, "critical": true}),
+        ];
+
+        // Create job
+        let job_id = manager
+            .create_job(config.clone(), work_items.clone(), vec![], None)
+            .await
+            .unwrap();
+
+        // Process items with failures that would go to DLQ
+        manager
+            .update_agent_result(
+                &job_id,
+                AgentResult {
+                    item_id: "item_0".to_string(),
+                    status: AgentStatus::Failed("Critical failure".to_string()),
+                    output: None,
+                    commits: vec![],
+                    duration: Duration::from_secs(1),
+                    error: Some("Critical failure".to_string()),
+                    worktree_path: None,
+                    branch_name: None,
+                    worktree_session_id: None,
+                    files_modified: vec![],
+                },
+            )
+            .await
+            .unwrap();
+
+        // First retry of item_0
+        manager
+            .update_agent_result(
+                &job_id,
+                AgentResult {
+                    item_id: "item_0".to_string(),
+                    status: AgentStatus::Failed("Still failing".to_string()),
+                    output: None,
+                    commits: vec![],
+                    duration: Duration::from_secs(1),
+                    error: Some("Still failing".to_string()),
+                    worktree_path: None,
+                    branch_name: None,
+                    worktree_session_id: None,
+                    files_modified: vec![],
+                },
+            )
+            .await
+            .unwrap();
+
+        // Process another item successfully
+        manager
+            .update_agent_result(
+                &job_id,
+                AgentResult {
+                    item_id: "item_1".to_string(),
+                    status: AgentStatus::Success,
+                    output: Some("Success".to_string()),
+                    commits: vec!["commit1".to_string()],
+                    duration: Duration::from_secs(1),
+                    error: None,
+                    worktree_path: None,
+                    branch_name: None,
+                    worktree_session_id: None,
+                    files_modified: vec![],
+                },
+            )
+            .await
+            .unwrap();
+
+        // Check state before resume
+        let state_before = manager.get_job_state(&job_id).await.unwrap();
+        assert_eq!(state_before.successful_count, 1);
+        assert_eq!(state_before.failed_count, 2); // Two failures for item_0
+        assert!(state_before.failed_agents.contains_key("item_0"));
+        assert_eq!(
+            state_before.failed_agents.get("item_0").unwrap().attempts,
+            2
+        );
+
+        // Resume job - should restore DLQ state
+        let resumed_results = manager.resume_job(&job_id).await.unwrap();
+        assert_eq!(resumed_results.len(), 2); // One success, one failure
+
+        // Verify DLQ state is preserved
+        let state_after = manager.get_job_state(&job_id).await.unwrap();
+        assert!(state_after.failed_agents.contains_key("item_0"));
+        assert_eq!(state_after.failed_agents.get("item_0").unwrap().attempts, 2);
+
+        // Verify item_0 is not retriable (already exceeded retry limit)
+        let retriable = state_after.get_retriable_items(1);
+        assert!(!retriable.contains(&"item_0".to_string()));
+
+        // Process remaining item
+        manager
+            .update_agent_result(
+                &job_id,
+                AgentResult {
+                    item_id: "item_2".to_string(),
+                    status: AgentStatus::Success,
+                    output: Some("Success".to_string()),
+                    commits: vec!["commit2".to_string()],
+                    duration: Duration::from_secs(1),
+                    error: None,
+                    worktree_path: None,
+                    branch_name: None,
+                    worktree_session_id: None,
+                    files_modified: vec![],
+                },
+            )
+            .await
+            .unwrap();
+
+        // Verify final state
+        let final_state = manager.get_job_state(&job_id).await.unwrap();
+        assert_eq!(final_state.successful_count, 2);
+        assert_eq!(final_state.failed_count, 2); // Two failures for item_0
+        assert!(final_state.is_map_phase_complete());
+    }
+
+    #[tokio::test]
+    async fn test_duplicate_prevention_on_resume() {
+        let temp_dir = TempDir::new().unwrap();
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        let config = MapReduceConfig {
+            input: "test.json".to_string(),
+            json_path: String::new(),
+            max_parallel: 3,
+            timeout_per_agent: 60,
+            retry_on_failure: 2,
+            max_items: None,
+            offset: None,
+        };
+
+        let work_items = vec![json!({"id": 1}), json!({"id": 2}), json!({"id": 3})];
+
+        // Create job
+        let job_id = manager
+            .create_job(config.clone(), work_items, vec![], None)
+            .await
+            .unwrap();
+
+        // Process an item
+        manager
+            .update_agent_result(
+                &job_id,
+                AgentResult {
+                    item_id: "item_0".to_string(),
+                    status: AgentStatus::Success,
+                    output: Some("First execution".to_string()),
+                    commits: vec!["commit1".to_string()],
+                    duration: Duration::from_secs(1),
+                    error: None,
+                    worktree_path: None,
+                    branch_name: None,
+                    worktree_session_id: None,
+                    files_modified: vec!["file1.rs".to_string()],
+                },
+            )
+            .await
+            .unwrap();
+
+        // Get current state
+        let state1 = manager.get_job_state(&job_id).await.unwrap();
+        assert_eq!(state1.successful_count, 1);
+        assert!(state1.completed_agents.contains("item_0"));
+
+        // Try to process the same item again (simulating duplicate execution)
+        manager
+            .update_agent_result(
+                &job_id,
+                AgentResult {
+                    item_id: "item_0".to_string(),
+                    status: AgentStatus::Success,
+                    output: Some("Duplicate execution".to_string()),
+                    commits: vec!["commit2".to_string()],
+                    duration: Duration::from_secs(2),
+                    error: None,
+                    worktree_path: None,
+                    branch_name: None,
+                    worktree_session_id: None,
+                    files_modified: vec!["file2.rs".to_string()],
+                },
+            )
+            .await
+            .unwrap();
+
+        // Verify duplicate was handled correctly
+        let state2 = manager.get_job_state(&job_id).await.unwrap();
+        assert_eq!(state2.successful_count, 2); // Count incremented even for duplicate
+        assert_eq!(state2.completed_agents.len(), 1); // Still just 1 completed
+
+        // The result should be updated to the latest one
+        let result = state2.agent_results.get("item_0").unwrap();
+        assert_eq!(result.output, Some("Duplicate execution".to_string()));
+        assert_eq!(result.commits, vec!["commit2".to_string()]);
+
+        // Process remaining items
+        manager
+            .update_agent_result(
+                &job_id,
+                AgentResult {
+                    item_id: "item_1".to_string(),
+                    status: AgentStatus::Success,
+                    output: Some("Success".to_string()),
+                    commits: vec!["commit3".to_string()],
+                    duration: Duration::from_secs(1),
+                    error: None,
+                    worktree_path: None,
+                    branch_name: None,
+                    worktree_session_id: None,
+                    files_modified: vec![],
+                },
+            )
+            .await
+            .unwrap();
+
+        manager
+            .update_agent_result(
+                &job_id,
+                AgentResult {
+                    item_id: "item_2".to_string(),
+                    status: AgentStatus::Success,
+                    output: Some("Success".to_string()),
+                    commits: vec!["commit4".to_string()],
+                    duration: Duration::from_secs(1),
+                    error: None,
+                    worktree_path: None,
+                    branch_name: None,
+                    worktree_session_id: None,
+                    files_modified: vec![],
+                },
+            )
+            .await
+            .unwrap();
+
+        // Verify final state
+        let final_state = manager.get_job_state(&job_id).await.unwrap();
+        assert_eq!(final_state.successful_count, 4); // 1 original + 1 duplicate + 2 new items
+        assert_eq!(final_state.completed_agents.len(), 3); // Only 3 unique items
+        assert!(final_state.is_map_phase_complete()); // All items processed
+    }
+
+    #[tokio::test]
     #[ignore = "Complex test that depends on internal state management logic"]
     async fn test_interrupt_resume_with_mixed_failures() {
         let temp_dir = TempDir::new().unwrap();

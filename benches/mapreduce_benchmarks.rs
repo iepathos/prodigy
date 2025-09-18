@@ -2,6 +2,10 @@
 //! Measures work item distribution, agent coordination, and cross-worktree synchronization
 
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
+use prodigy::cook::execution::mapreduce::{AgentResult, AgentStatus, MapReduceConfig};
+use prodigy::cook::execution::state::{
+    CheckpointManager, DefaultJobStateManager, JobStateManager, MapReduceJobState,
+};
 use prodigy::cook::workflow::checkpoint::CHECKPOINT_VERSION;
 use prodigy::storage::GlobalStorage;
 use serde_json::json;
@@ -424,6 +428,234 @@ fn bench_agent_scaling(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmark checkpoint save operations to validate <1s overhead requirement
+fn bench_checkpoint_save_performance(c: &mut Criterion) {
+    let rt = Runtime::new().unwrap();
+    let mut group = c.benchmark_group("checkpoint_operations");
+
+    // Test different job sizes to ensure <1s overhead even for large states
+    for num_items in &[10, 100, 500, 1000, 5000] {
+        group.bench_with_input(
+            BenchmarkId::new("save_checkpoint", num_items),
+            num_items,
+            |b, &size| {
+                b.to_async(&rt).iter_batched(
+                    || {
+                        let temp_dir = TempDir::new().unwrap();
+                        let checkpoint_manager =
+                            CheckpointManager::new(temp_dir.path().to_path_buf());
+
+                        let config = MapReduceConfig {
+                            input: "test.json".to_string(),
+                            json_path: String::new(),
+                            max_parallel: 10,
+                            timeout_per_agent: 60,
+                            retry_on_failure: 2,
+                            max_items: Some(size),
+                            offset: None,
+                        };
+
+                        let work_items: Vec<_> = (0..size)
+                            .map(|i| json!({"id": i, "data": format!("item_{}", i)}))
+                            .collect();
+
+                        let mut state = MapReduceJobState::new(
+                            format!("bench-job-{}", uuid::Uuid::new_v4()),
+                            config,
+                            work_items,
+                        );
+
+                        // Simulate partial completion (50% of items)
+                        for i in 0..(size / 2) {
+                            state.update_agent_result(AgentResult {
+                                item_id: format!("item_{}", i),
+                                status: if i % 10 == 0 {
+                                    AgentStatus::Failed("Test error".to_string())
+                                } else {
+                                    AgentStatus::Success
+                                },
+                                output: Some(format!("Result for item {}", i)),
+                                commits: vec![format!("commit_{}", i)],
+                                duration: Duration::from_secs(1),
+                                error: if i % 10 == 0 {
+                                    Some("Test error".to_string())
+                                } else {
+                                    None
+                                },
+                                worktree_path: Some(PathBuf::from(format!("/worktree/{}", i))),
+                                branch_name: Some(format!("branch_{}", i)),
+                                worktree_session_id: Some(format!("session_{}", i)),
+                                files_modified: vec![format!("file_{}.rs", i)],
+                            });
+                        }
+
+                        (checkpoint_manager, state, temp_dir)
+                    },
+                    |(checkpoint_manager, state, _temp_dir)| async move {
+                        // Measure checkpoint save time
+                        checkpoint_manager.save_checkpoint(&state).await.unwrap();
+                    },
+                    BatchSize::SmallInput,
+                );
+            },
+        );
+    }
+
+    group.finish();
+}
+
+/// Benchmark checkpoint load operations
+fn bench_checkpoint_load_performance(c: &mut Criterion) {
+    let rt = Runtime::new().unwrap();
+    let mut group = c.benchmark_group("checkpoint_operations");
+
+    for num_items in &[10, 100, 500, 1000, 5000] {
+        group.bench_with_input(
+            BenchmarkId::new("load_checkpoint", num_items),
+            num_items,
+            |b, &size| {
+                b.to_async(&rt).iter_batched(
+                    || {
+                        let temp_dir = TempDir::new().unwrap();
+                        let checkpoint_manager =
+                            CheckpointManager::new(temp_dir.path().to_path_buf());
+
+                        let config = MapReduceConfig {
+                            input: "test.json".to_string(),
+                            json_path: String::new(),
+                            max_parallel: 10,
+                            timeout_per_agent: 60,
+                            retry_on_failure: 2,
+                            max_items: Some(size),
+                            offset: None,
+                        };
+
+                        let work_items: Vec<_> = (0..size)
+                            .map(|i| json!({"id": i, "data": format!("item_{}", i)}))
+                            .collect();
+
+                        let mut state = MapReduceJobState::new(
+                            format!("bench-job-{}", uuid::Uuid::new_v4()),
+                            config,
+                            work_items,
+                        );
+
+                        // Simulate completion
+                        for i in 0..(size / 2) {
+                            state.update_agent_result(AgentResult {
+                                item_id: format!("item_{}", i),
+                                status: AgentStatus::Success,
+                                output: Some(format!("Result {}", i)),
+                                commits: vec![format!("commit_{}", i)],
+                                duration: Duration::from_secs(1),
+                                error: None,
+                                worktree_path: None,
+                                branch_name: None,
+                                worktree_session_id: None,
+                                files_modified: vec![],
+                            });
+                        }
+
+                        // Save checkpoint first
+                        let job_id = state.job_id.clone();
+                        let rt_local = Runtime::new().unwrap();
+                        rt_local.block_on(async {
+                            checkpoint_manager.save_checkpoint(&state).await.unwrap();
+                        });
+
+                        (checkpoint_manager, job_id, temp_dir)
+                    },
+                    |(checkpoint_manager, job_id, _temp_dir)| async move {
+                        // Measure checkpoint load time
+                        let state = checkpoint_manager.load_checkpoint(&job_id).await.unwrap();
+                        black_box(state);
+                    },
+                    BatchSize::SmallInput,
+                );
+            },
+        );
+    }
+
+    group.finish();
+}
+
+/// Benchmark full job state manager lifecycle with checkpointing
+fn bench_job_state_manager_with_checkpointing(c: &mut Criterion) {
+    let rt = Runtime::new().unwrap();
+    let mut group = c.benchmark_group("job_state_manager");
+    group.measurement_time(Duration::from_secs(10));
+
+    for num_items in &[100, 500, 1000] {
+        group.bench_with_input(
+            BenchmarkId::new("full_lifecycle_with_checkpoints", num_items),
+            num_items,
+            |b, &size| {
+                b.to_async(&rt).iter_batched(
+                    || {
+                        let temp_dir = TempDir::new().unwrap();
+                        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+                        let config = MapReduceConfig {
+                            input: "test.json".to_string(),
+                            json_path: String::new(),
+                            max_parallel: 10,
+                            timeout_per_agent: 60,
+                            retry_on_failure: 2,
+                            max_items: Some(size),
+                            offset: None,
+                        };
+
+                        let work_items: Vec<_> = (0..size)
+                            .map(|i| json!({"id": i, "data": format!("item_{}", i)}))
+                            .collect();
+
+                        (manager, config, work_items, temp_dir)
+                    },
+                    |(manager, config, work_items, _temp_dir)| async move {
+                        // Create job
+                        let job_id = manager
+                            .create_job(config, work_items, vec![], None)
+                            .await
+                            .unwrap();
+
+                        // Simulate processing with periodic checkpointing
+                        for i in 0..10 {
+                            manager
+                                .update_agent_result(
+                                    &job_id,
+                                    AgentResult {
+                                        item_id: format!("item_{}", i),
+                                        status: AgentStatus::Success,
+                                        output: Some(format!("Result {}", i)),
+                                        commits: vec![],
+                                        duration: Duration::from_millis(100),
+                                        error: None,
+                                        worktree_path: None,
+                                        branch_name: None,
+                                        worktree_session_id: None,
+                                        files_modified: vec![],
+                                    },
+                                )
+                                .await
+                                .unwrap();
+                        }
+
+                        // Resume job (loads checkpoint)
+                        let results = manager.resume_job(&job_id).await.unwrap();
+                        black_box(results);
+
+                        // Clean up
+                        manager.cleanup_job(&job_id).await.unwrap();
+                    },
+                    BatchSize::SmallInput,
+                );
+            },
+        );
+    }
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_work_item_distribution,
@@ -432,7 +664,10 @@ criterion_group!(
     bench_cross_worktree_sync,
     bench_work_item_filtering,
     bench_dlq_operations,
-    bench_agent_scaling
+    bench_agent_scaling,
+    bench_checkpoint_save_performance,
+    bench_checkpoint_load_performance,
+    bench_job_state_manager_with_checkpointing
 );
 
 criterion_main!(benches);

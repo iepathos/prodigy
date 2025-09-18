@@ -307,6 +307,11 @@ impl CheckpointManager {
         self.base_dir.join("jobs").join(job_id)
     }
 
+    /// Get the base jobs directory
+    pub fn jobs_dir(&self) -> PathBuf {
+        self.base_dir.join("jobs")
+    }
+
     /// Get the path for a checkpoint file
     fn checkpoint_path(&self, job_id: &str, version: u32) -> PathBuf {
         self.job_dir(job_id)
@@ -602,6 +607,9 @@ pub trait JobStateManager: Send + Sync {
         reduce_commands: Option<Vec<WorkflowStep>>,
     ) -> Result<String>;
 
+    /// List all resumable jobs
+    async fn list_resumable_jobs(&self) -> Result<Vec<ResumableJob>>;
+
     /// Update an agent result
     async fn update_agent_result(&self, job_id: &str, result: AgentResult) -> Result<()>;
 
@@ -713,6 +721,10 @@ impl JobStateManager for DefaultJobStateManager {
         Ok(())
     }
 
+    async fn list_resumable_jobs(&self) -> Result<Vec<ResumableJob>> {
+        self.list_resumable_jobs_internal().await
+    }
+
     async fn get_job_state(&self, job_id: &str) -> Result<MapReduceJobState> {
         let jobs = self.active_jobs.read().await;
 
@@ -804,6 +816,24 @@ impl JobStateManager for DefaultJobStateManager {
     }
 }
 
+#[async_trait::async_trait]
+impl Resumable for DefaultJobStateManager {
+    async fn can_resume(&self, job_id: &str) -> Result<bool> {
+        // Check if checkpoint exists and is valid
+        match self.checkpoint_manager.load_checkpoint(job_id).await {
+            Ok(state) => {
+                // Job can be resumed if it's not complete
+                Ok(!state.is_complete)
+            }
+            Err(_) => Ok(false),
+        }
+    }
+
+    async fn list_resumable_jobs(&self) -> Result<Vec<ResumableJob>> {
+        self.list_resumable_jobs_internal().await
+    }
+}
+
 impl DefaultJobStateManager {
     /// Resume a job from a specific checkpoint version (internal use)
     pub async fn resume_job_from_checkpoint(
@@ -826,11 +856,68 @@ impl DefaultJobStateManager {
 
         Ok(results)
     }
+
+    /// List all resumable jobs by scanning checkpoint directories
+    pub async fn list_resumable_jobs_internal(&self) -> Result<Vec<ResumableJob>> {
+        let jobs_dir = self.checkpoint_manager.jobs_dir();
+
+        if !jobs_dir.exists() {
+            return Ok(Vec::new());
+        }
+
+        let mut resumable_jobs = Vec::new();
+        let mut entries = tokio::fs::read_dir(&jobs_dir).await?;
+
+        while let Some(entry) = entries.next_entry().await? {
+            let path = entry.path();
+            if path.is_dir() {
+                if let Some(job_id) = path.file_name().and_then(|n| n.to_str()) {
+                    // Try to load the latest checkpoint for this job
+                    match self.checkpoint_manager.load_checkpoint(job_id).await {
+                        Ok(state) => {
+                            // Check if job is incomplete
+                            if !state.is_complete {
+                                let checkpoints = self
+                                    .checkpoint_manager
+                                    .list_checkpoints(job_id)
+                                    .await
+                                    .unwrap_or_default();
+
+                                let latest_checkpoint = checkpoints
+                                    .into_iter()
+                                    .max_by_key(|c| c.version)
+                                    .map(|c| c.version)
+                                    .unwrap_or(0);
+
+                                resumable_jobs.push(ResumableJob {
+                                    job_id: job_id.to_string(),
+                                    started_at: state.started_at,
+                                    updated_at: state.updated_at,
+                                    total_items: state.total_items,
+                                    completed_items: state.successful_count,
+                                    failed_items: state.failed_count,
+                                    is_complete: false,
+                                    checkpoint_version: latest_checkpoint,
+                                });
+                            }
+                        }
+                        Err(_) => {
+                            // Skip jobs without valid checkpoints
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(resumable_jobs)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
     use tempfile::TempDir;
 
     #[tokio::test]
@@ -915,6 +1002,59 @@ mod tests {
 
         // Newest should be version 4
         assert_eq!(checkpoints[0].version, 4);
+    }
+
+    #[tokio::test]
+    async fn test_list_resumable_jobs() {
+        let temp_dir = TempDir::new().unwrap();
+        let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
+
+        // Create a test configuration
+        let config = MapReduceConfig {
+            input: "test.json".to_string(),
+            json_path: String::new(),
+            max_parallel: 5,
+            timeout_per_agent: 60,
+            retry_on_failure: 2,
+            max_items: None,
+            offset: None,
+        };
+
+        // Create two jobs: one complete, one incomplete
+        let work_items = vec![json!({"id": 1}), json!({"id": 2})];
+        let template = vec![];
+        let reduce_commands = None;
+
+        // Create first job (incomplete)
+        let job1_id = manager
+            .create_job(
+                config.clone(),
+                work_items.clone(),
+                template.clone(),
+                reduce_commands.clone(),
+            )
+            .await
+            .unwrap();
+
+        // Create second job and mark it complete
+        let job2_id = manager
+            .create_job(config, work_items, template, reduce_commands)
+            .await
+            .unwrap();
+
+        // Mark job2 as complete
+        manager.mark_job_complete(&job2_id).await.unwrap();
+
+        // List resumable jobs (use trait explicitly to avoid ambiguity)
+        use Resumable;
+        let resumable = <DefaultJobStateManager as Resumable>::list_resumable_jobs(&manager)
+            .await
+            .unwrap();
+
+        // Should only find job1 as resumable
+        assert_eq!(resumable.len(), 1);
+        assert_eq!(resumable[0].job_id, job1_id);
+        assert!(!resumable[0].is_complete);
     }
 
     #[tokio::test]
