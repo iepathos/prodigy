@@ -442,7 +442,8 @@ fn bench_checkpoint_save_performance(c: &mut Criterion) {
                 b.to_async(&rt).iter_batched(
                     || {
                         let temp_dir = TempDir::new().unwrap();
-                        let checkpoint_manager = CheckpointManager::new(temp_dir.path().to_path_buf());
+                        let checkpoint_manager =
+                            CheckpointManager::new(temp_dir.path().to_path_buf());
 
                         let config = MapReduceConfig {
                             input: "test.json".to_string(),
@@ -516,7 +517,8 @@ fn bench_checkpoint_load_performance(c: &mut Criterion) {
                 b.to_async(&rt).iter_batched(
                     || {
                         let temp_dir = TempDir::new().unwrap();
-                        let checkpoint_manager = CheckpointManager::new(temp_dir.path().to_path_buf());
+                        let checkpoint_manager =
+                            CheckpointManager::new(temp_dir.path().to_path_buf());
 
                         let config = MapReduceConfig {
                             input: "test.json".to_string(),

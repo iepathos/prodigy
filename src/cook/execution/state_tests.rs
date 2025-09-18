@@ -1171,7 +1171,13 @@ mod tests {
 
         let state_with_reduce = manager.get_job_state(&job_id).await.unwrap();
         assert!(state_with_reduce.reduce_phase_state.is_some());
-        assert!(state_with_reduce.reduce_phase_state.as_ref().unwrap().started);
+        assert!(
+            state_with_reduce
+                .reduce_phase_state
+                .as_ref()
+                .unwrap()
+                .started
+        );
 
         // Complete reduce phase
         manager
@@ -1292,7 +1298,10 @@ mod tests {
         assert_eq!(state_before.successful_count, 1);
         assert_eq!(state_before.failed_count, 2); // Two failures for item_0
         assert!(state_before.failed_agents.contains_key("item_0"));
-        assert_eq!(state_before.failed_agents.get("item_0").unwrap().attempts, 2);
+        assert_eq!(
+            state_before.failed_agents.get("item_0").unwrap().attempts,
+            2
+        );
 
         // Resume job - should restore DLQ state
         let resumed_results = manager.resume_job(&job_id).await.unwrap();
@@ -1349,11 +1358,7 @@ mod tests {
             offset: None,
         };
 
-        let work_items = vec![
-            json!({"id": 1}),
-            json!({"id": 2}),
-            json!({"id": 3}),
-        ];
+        let work_items = vec![json!({"id": 1}), json!({"id": 2}), json!({"id": 3})];
 
         // Create job
         let job_id = manager
