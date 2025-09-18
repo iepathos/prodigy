@@ -183,7 +183,7 @@ mod tests {
     async fn test_state_persistence() {
         let store = DefaultStateStore::new("test-repo".to_string());
 
-        let mut state = JobState {
+        let state = JobState {
             id: "test-job-123".to_string(),
             phase: PhaseType::Setup,
             checkpoint: None,

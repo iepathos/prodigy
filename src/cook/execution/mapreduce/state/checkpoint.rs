@@ -234,12 +234,12 @@ mod tests {
         let job_id = "test-job-checkpoint".to_string();
 
         // Create job
-        let mut state = manager.create_job(&config, job_id.clone()).await.unwrap();
-        state.total_items = 5;
+        let _state = manager.create_job(&config, job_id.clone()).await.unwrap();
 
-        // Add some processed items
+        // Update job with total items
         manager
             .update_state(&job_id, |state| {
+                state.total_items = 5;
                 state.processed_items.insert("item_0".to_string());
                 state.processed_items.insert("item_1".to_string());
 
@@ -302,7 +302,7 @@ mod tests {
         let job_id = "test-job-validation".to_string();
 
         // Create job with invalid state
-        let state = manager.create_job(&config, job_id.clone()).await.unwrap();
+        let _state = manager.create_job(&config, job_id.clone()).await.unwrap();
 
         // Update with inconsistent state
         manager

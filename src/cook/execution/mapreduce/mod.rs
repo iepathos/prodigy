@@ -91,6 +91,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MapReduceConfig {
     /// Input source: either a file path or command to execute
+    #[serde(default)]
     pub input: String,
     /// JSON path expression to extract work items (for JSON files)
     #[serde(default)]
@@ -122,6 +123,20 @@ fn default_timeout() -> u64 {
 
 fn default_retry() -> u32 {
     2
+}
+
+impl Default for MapReduceConfig {
+    fn default() -> Self {
+        Self {
+            input: String::new(),
+            json_path: String::new(),
+            max_parallel: default_max_parallel(),
+            timeout_per_agent: default_timeout(),
+            retry_on_failure: default_retry(),
+            max_items: None,
+            offset: None,
+        }
+    }
 }
 
 /// Setup phase configuration
