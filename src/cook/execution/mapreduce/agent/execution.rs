@@ -4,6 +4,7 @@
 //! It handles command execution, retry logic, progress tracking, and error handling.
 
 use super::types::{AgentHandle, AgentResult, AgentStatus};
+use crate::commands::attributes::AttributeValue;
 use crate::commands::{CommandRegistry, ExecutionContext as CommandExecutionContext};
 use crate::cook::execution::dlq::DeadLetterQueue;
 use crate::cook::execution::interpolation::InterpolationContext;
@@ -13,7 +14,6 @@ use crate::cook::workflow::{StepResult, WorkflowStep};
 use async_trait::async_trait;
 use serde_json::Value;
 use std::collections::HashMap;
-use crate::commands::attributes::AttributeValue;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -172,7 +172,9 @@ impl StandardExecutor {
 
         // Add item as the main variable
         context.variables.insert("item".to_string(), item.clone());
-        context.variables.insert("item_id".to_string(), Value::String(item_id.to_string()));
+        context
+            .variables
+            .insert("item_id".to_string(), Value::String(item_id.to_string()));
 
         // If item is an object, add individual fields
         if let Some(obj) = item.as_object() {
@@ -227,7 +229,7 @@ impl StandardExecutor {
         &self,
         step: &WorkflowStep,
         worktree_path: &Path,
-        env: &ExecutionEnvironment,
+        _env: &ExecutionEnvironment,
         context: &ExecutionContext,
     ) -> ExecutionResult<StepResult> {
         // Create execution context for command
@@ -237,7 +239,10 @@ impl StandardExecutor {
         // Execute based on type
         let result = if let Some(command) = &step.claude {
             let mut attributes = HashMap::new();
-            attributes.insert("command".to_string(), AttributeValue::String(command.clone()));
+            attributes.insert(
+                "command".to_string(),
+                AttributeValue::String(command.clone()),
+            );
 
             let cmd_result = context
                 .command_registry
@@ -245,12 +250,19 @@ impl StandardExecutor {
                 .await;
 
             if !cmd_result.success {
-                return Err(ExecutionError::CommandFailed(cmd_result.stderr.unwrap_or_else(|| "Command failed".to_string())));
+                return Err(ExecutionError::CommandFailed(
+                    cmd_result
+                        .stderr
+                        .unwrap_or_else(|| "Command failed".to_string()),
+                ));
             }
             cmd_result
         } else if let Some(command) = &step.shell {
             let mut attributes = HashMap::new();
-            attributes.insert("command".to_string(), AttributeValue::String(command.clone()));
+            attributes.insert(
+                "command".to_string(),
+                AttributeValue::String(command.clone()),
+            );
 
             let cmd_result = context
                 .command_registry
@@ -258,7 +270,11 @@ impl StandardExecutor {
                 .await;
 
             if !cmd_result.success {
-                return Err(ExecutionError::CommandFailed(cmd_result.stderr.unwrap_or_else(|| "Command failed".to_string())));
+                return Err(ExecutionError::CommandFailed(
+                    cmd_result
+                        .stderr
+                        .unwrap_or_else(|| "Command failed".to_string()),
+                ));
             }
             cmd_result
         } else {
@@ -431,11 +447,13 @@ impl AgentExecutor for EnhancedProgressExecutor {
         // Use enhanced progress tracking if available
         if let Some(progress) = &context.enhanced_progress {
             progress
-                .update_agent_state(&format!("agent-{}", context.agent_index),
+                .update_agent_state(
+                    &format!("agent-{}", context.agent_index),
                     crate::cook::execution::progress::AgentState::Running {
                         step: "Executing".to_string(),
                         progress: 0.0,
-                    })
+                    },
+                )
                 .await
                 .ok();
         }

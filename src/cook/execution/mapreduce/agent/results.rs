@@ -95,6 +95,7 @@ impl AggregatedResults {
 
 /// Trait for aggregating and transforming agent results
 #[async_trait]
+#[allow(clippy::too_many_arguments)]
 pub trait AgentResultAggregator: Send + Sync {
     /// Aggregate multiple agent results into summary statistics
     fn aggregate(&self, results: Vec<AgentResult>) -> AggregatedResults;
@@ -174,17 +175,20 @@ impl AgentResultAggregator for DefaultResultAggregator {
 
         // Add individual successful results
         for (i, result) in results.successful.iter().enumerate() {
-            context.set(&format!("map.successful.{}.item_id", i), json!(result.item_id));
+            context.set(
+                format!("map.successful.{}.item_id", i),
+                json!(result.item_id),
+            );
             if let Some(output) = &result.output {
-                context.set(&format!("map.successful.{}.output", i), json!(output));
+                context.set(format!("map.successful.{}.output", i), json!(output));
             }
         }
 
         // Add individual failed results
         for (i, result) in results.failed.iter().enumerate() {
-            context.set(&format!("map.failed.{}.item_id", i), json!(result.item_id));
+            context.set(format!("map.failed.{}.item_id", i), json!(result.item_id));
             if let Some(error) = &result.error {
-                context.set(&format!("map.failed.{}.error", i), json!(error));
+                context.set(format!("map.failed.{}.error", i), json!(error));
             }
         }
 
@@ -199,10 +203,7 @@ impl AgentResultAggregator for DefaultResultAggregator {
             "map.successful",
             Variable::Static(json!(results.success_count)),
         );
-        context.set_global(
-            "map.failed",
-            Variable::Static(json!(results.failure_count)),
-        );
+        context.set_global("map.failed", Variable::Static(json!(results.failure_count)));
         context.set_global("map.total", Variable::Static(json!(results.total)));
 
         // Add the full results as a structured JSON value

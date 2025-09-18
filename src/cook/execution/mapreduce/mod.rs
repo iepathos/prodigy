@@ -11,8 +11,8 @@ pub mod utils;
 
 // Import agent types and functionality
 use agent::{
-    AgentLifecycleManager, AgentOperation, AgentResultAggregator,
-    DefaultLifecycleManager, DefaultResultAggregator,
+    AgentLifecycleManager, AgentOperation, AgentResultAggregator, DefaultLifecycleManager,
+    DefaultResultAggregator,
 };
 
 // Re-export public types for external use
@@ -3354,6 +3354,7 @@ impl MapReduceExecutor {
     // Git operations and branch management methods have been moved to the agent::lifecycle module
 
     /// Validate the parent worktree state after a merge
+    #[allow(dead_code)]
     async fn validate_parent_state(&self, parent_path: &Path) -> MapReduceResult<()> {
         // Check that there are no merge conflicts
         let output = Command::new("git")

@@ -2,10 +2,10 @@
 
 use super::*;
 use crate::worktree::WorktreeManager;
+use serde_json::json;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
-use serde_json::json;
 
 // Test AgentResult creation and status checking
 #[test]
@@ -40,11 +40,7 @@ fn test_agent_result_failure() {
 
 #[test]
 fn test_agent_result_with_worktree_info() {
-    let mut result = AgentResult::success(
-        "item-1".to_string(),
-        None,
-        Duration::from_secs(5),
-    );
+    let mut result = AgentResult::success("item-1".to_string(), None, Duration::from_secs(5));
 
     result.worktree_path = Some(PathBuf::from("/tmp/worktree"));
     result.branch_name = Some("feature-branch".to_string());
@@ -84,8 +80,16 @@ fn test_aggregated_results() {
 #[test]
 fn test_aggregated_results_json_conversion() {
     let mut results = vec![
-        AgentResult::success("item-1".to_string(), Some("output1".to_string()), Duration::from_secs(5)),
-        AgentResult::failed("item-2".to_string(), "error".to_string(), Duration::from_secs(3)),
+        AgentResult::success(
+            "item-1".to_string(),
+            Some("output1".to_string()),
+            Duration::from_secs(5),
+        ),
+        AgentResult::failed(
+            "item-2".to_string(),
+            "error".to_string(),
+            Duration::from_secs(3),
+        ),
     ];
 
     // Add commits to first result
@@ -119,8 +123,16 @@ async fn test_default_result_aggregator() {
 
     let results = vec![
         AgentResult::success("item-1".to_string(), None, Duration::from_secs(1)),
-        AgentResult::failed("item-2".to_string(), "error".to_string(), Duration::from_secs(1)),
-        AgentResult::success("item-3".to_string(), Some("output".to_string()), Duration::from_secs(2)),
+        AgentResult::failed(
+            "item-2".to_string(),
+            "error".to_string(),
+            Duration::from_secs(1),
+        ),
+        AgentResult::success(
+            "item-3".to_string(),
+            Some("output".to_string()),
+            Duration::from_secs(2),
+        ),
     ];
 
     let aggregated = aggregator.aggregate(results.clone());
@@ -135,8 +147,16 @@ async fn test_aggregator_to_interpolation_context() {
     let aggregator = DefaultResultAggregator::new();
 
     let results = vec![
-        AgentResult::success("item-1".to_string(), Some("output1".to_string()), Duration::from_secs(1)),
-        AgentResult::failed("item-2".to_string(), "error".to_string(), Duration::from_secs(1)),
+        AgentResult::success(
+            "item-1".to_string(),
+            Some("output1".to_string()),
+            Duration::from_secs(1),
+        ),
+        AgentResult::failed(
+            "item-2".to_string(),
+            "error".to_string(),
+            Duration::from_secs(1),
+        ),
     ];
 
     let aggregated = aggregator.aggregate(results.clone());
@@ -155,7 +175,11 @@ async fn test_aggregator_to_variable_context() {
 
     let results = vec![
         AgentResult::success("item-1".to_string(), None, Duration::from_secs(1)),
-        AgentResult::failed("item-2".to_string(), "error".to_string(), Duration::from_secs(1)),
+        AgentResult::failed(
+            "item-2".to_string(),
+            "error".to_string(),
+            Duration::from_secs(1),
+        ),
     ];
 
     let aggregated = aggregator.aggregate(results.clone());
@@ -273,7 +297,10 @@ async fn test_default_lifecycle_manager() {
 
     // Test initialization
     let commands = vec![];
-    let handle = lifecycle_manager.create_agent(config, commands).await.unwrap();
+    let handle = lifecycle_manager
+        .create_agent(config, commands)
+        .await
+        .unwrap();
     assert_eq!(handle.id(), "agent-1");
 
     // Test cleanup (should not fail even if worktree doesn't exist)
@@ -332,7 +359,11 @@ fn test_agent_result_serialization() {
 fn test_aggregated_results_serialization() {
     let results = vec![
         AgentResult::success("item-1".to_string(), None, Duration::from_secs(1)),
-        AgentResult::failed("item-2".to_string(), "error".to_string(), Duration::from_secs(1)),
+        AgentResult::failed(
+            "item-2".to_string(),
+            "error".to_string(),
+            Duration::from_secs(1),
+        ),
     ];
 
     let aggregated = AggregatedResults::from_results(results);
@@ -348,26 +379,18 @@ fn test_aggregated_results_serialization() {
 // Test edge cases
 #[test]
 fn test_agent_result_timeout_status() {
-    let mut result = AgentResult::success(
-        "item-1".to_string(),
-        None,
-        Duration::from_secs(5),
-    );
+    let mut result = AgentResult::success("item-1".to_string(), None, Duration::from_secs(5));
 
     result.status = AgentStatus::Timeout;
 
     assert!(!result.is_success());
-    assert!(result.is_failure());  // Timeout is considered a failure
+    assert!(result.is_failure()); // Timeout is considered a failure
     assert!(matches!(result.status, AgentStatus::Timeout));
 }
 
 #[test]
 fn test_agent_result_retrying_status() {
-    let mut result = AgentResult::success(
-        "item-1".to_string(),
-        None,
-        Duration::from_secs(5),
-    );
+    let mut result = AgentResult::success("item-1".to_string(), None, Duration::from_secs(5));
 
     result.status = AgentStatus::Retrying(2);
 
@@ -448,22 +471,27 @@ async fn test_agent_workflow_integration() {
 
     // Create multiple agent configs
     let configs: Vec<AgentConfig> = (0..3)
-        .map(|i| AgentConfig::new(
-            format!("agent-{}", i),
-            format!("item-{}", i),
-            format!("branch-{}", i),
-            3,
-            Duration::from_secs(60),
-            i,
-            3,
-        ))
+        .map(|i| {
+            AgentConfig::new(
+                format!("agent-{}", i),
+                format!("item-{}", i),
+                format!("branch-{}", i),
+                3,
+                Duration::from_secs(60),
+                i,
+                3,
+            )
+        })
         .collect();
 
     // Initialize agents
     let mut handles = vec![];
     for config in configs {
         let commands = vec![];
-    let handle = lifecycle_manager.create_agent(config, commands).await.unwrap();
+        let handle = lifecycle_manager
+            .create_agent(config, commands)
+            .await
+            .unwrap();
         handles.push(handle);
     }
 
@@ -511,8 +539,8 @@ async fn test_agent_workflow_integration() {
 // Test concurrent agent operations
 #[tokio::test]
 async fn test_concurrent_agent_operations() {
-    use tokio::sync::Mutex;
     use std::sync::Arc;
+    use tokio::sync::Mutex;
 
     let results = Arc::new(Mutex::new(Vec::new()));
 

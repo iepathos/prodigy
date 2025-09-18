@@ -34,6 +34,7 @@ pub type LifecycleResult<T> = Result<T, LifecycleError>;
 
 /// Trait for managing agent lifecycle
 #[async_trait]
+#[allow(clippy::too_many_arguments)]
 pub trait AgentLifecycleManager: Send + Sync {
     /// Create a new agent with a dedicated worktree
     async fn create_agent(
