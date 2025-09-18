@@ -72,6 +72,12 @@ prodigy/
 │   │   │   │   ├── mod.rs      # Main MapReduce executor
 │   │   │   │   ├── agent.rs    # Agent lifecycle management
 │   │   │   │   ├── utils.rs    # Pure utility functions
+│   │   │   │   ├── phases/     # Phase execution orchestration
+│   │   │   │   │   ├── mod.rs  # Phase executor traits and types
+│   │   │   │   │   ├── coordinator.rs # Phase transition orchestration
+│   │   │   │   │   ├── setup.rs # Setup phase executor
+│   │   │   │   │   ├── map.rs  # Map phase orchestrator
+│   │   │   │   │   └── reduce.rs # Reduce phase executor
 │   │   │   │   └── command/    # Command execution abstraction
 │   │   │   │       ├── mod.rs  # Module exports
 │   │   │   │       ├── executor.rs # CommandExecutor trait and router
@@ -178,6 +184,21 @@ pub trait Validator: Send + Sync {
 - `SpecCoverageValidator`: Specification coverage analysis
 - `TestPassValidator`: Test execution validation
 - `OutputQualityValidator`: Code quality metrics
+
+### PhaseExecutor (MapReduce Phases)
+```rust
+#[async_trait]
+pub trait PhaseExecutor: Send + Sync {
+    async fn execute(&self, context: &mut PhaseContext) -> Result<PhaseResult, PhaseError>;
+    fn phase_type(&self) -> PhaseType;
+    fn can_skip(&self, context: &PhaseContext) -> bool;
+    fn validate_context(&self, context: &PhaseContext) -> Result<(), PhaseError>;
+}
+```
+**Implementations**:
+- `SetupPhaseExecutor`: Setup command execution and work item generation
+- `MapPhaseExecutor`: Parallel work item distribution and agent orchestration
+- `ReducePhaseExecutor`: Result aggregation and reduce command execution
 
 ### SessionManager
 ```rust

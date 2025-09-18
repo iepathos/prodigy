@@ -19,6 +19,15 @@ pub mod reduce_phase;
 // Declare the resources module for resource management
 pub mod resources;
 
+// Declare the phases module for phase execution orchestration
+pub mod phases;
+
+// Declare the agent command executor module
+pub mod agent_command_executor;
+
+// Import the PhaseExecutor trait
+use self::phases::PhaseExecutor;
+
 // Import agent types and functionality
 use agent::{
     AgentLifecycleManager, AgentOperation, AgentResultAggregator, DefaultLifecycleManager,
@@ -30,7 +39,6 @@ pub use agent::{AgentResult, AgentStatus};
 
 // Import utility functions from utils module
 use utils::{
-    build_agent_context_variables, build_map_results_interpolation_context,
     calculate_map_result_summary, generate_agent_branch_name, generate_agent_id, truncate_command,
 };
 
@@ -3290,25 +3298,6 @@ impl MapReduceExecutor {
         Ok(())
     }
 
-    /// Get display name for a step
-    fn get_step_display_name(&self, step: &WorkflowStep) -> String {
-        if let Some(claude_cmd) = &step.claude {
-            format!("claude: {claude_cmd}")
-        } else if let Some(shell_cmd) = &step.shell {
-            format!("shell: {shell_cmd}")
-        } else if let Some(test_cmd) = &step.test {
-            format!("test: {}", test_cmd.command)
-        } else if let Some(handler_step) = &step.handler {
-            format!("handler: {}", handler_step.name)
-        } else if let Some(name) = &step.name {
-            name.clone()
-        } else if let Some(command) = &step.command {
-            command.clone()
-        } else {
-            "unnamed step".to_string()
-        }
-    }
-
     /// Execute the reduce phase
     async fn execute_reduce_phase(
         &self,
@@ -3316,270 +3305,99 @@ impl MapReduceExecutor {
         map_results: &[AgentResult],
         env: &ExecutionEnvironment,
     ) -> MapReduceResult<()> {
+        // Display start message and summary
+        self.display_reduce_start(map_results);
+
+        // Create and configure phase context
+        let mut phase_context = self.create_reduce_phase_context(env, map_results);
+
+        // Execute the reduce phase
+        let result = self
+            .run_reduce_executor(reduce_phase, &mut phase_context)
+            .await?;
+
+        // Process the result
+        self.process_reduce_result(result)?;
+
+        // Handle post-reduce worktree instructions
+        self.display_worktree_instructions(env);
+
+        Ok(())
+    }
+
+    /// Display reduce phase start message and summary
+    fn display_reduce_start(&self, map_results: &[AgentResult]) {
         self.user_interaction
             .display_progress("Starting reduce phase...");
-
-        // Calculate summary statistics using pure functions
         let summary_stats = calculate_map_result_summary(map_results);
-        let successful_count = summary_stats.successful;
-        let failed_count = summary_stats.failed;
+        self.display_reduce_summary(&summary_stats);
+    }
 
+    /// Create phase context for reduce execution
+    fn create_reduce_phase_context(
+        &self,
+        env: &ExecutionEnvironment,
+        map_results: &[AgentResult],
+    ) -> phases::PhaseContext {
+        let mut phase_context = phases::PhaseContext::new(env.clone(), self.subprocess.clone());
+        phase_context.map_results = Some(map_results.to_vec());
+        phase_context
+    }
+
+    /// Run the reduce phase executor
+    async fn run_reduce_executor(
+        &self,
+        reduce_phase: &ReducePhase,
+        phase_context: &mut phases::PhaseContext,
+    ) -> MapReduceResult<phases::PhaseResult> {
+        let reduce_executor = phases::ReducePhaseExecutor::new(reduce_phase.clone());
+        reduce_executor.execute(phase_context).await.map_err(|e| {
+            let context = self.create_error_context("reduce_phase_execution");
+            MapReduceError::General {
+                message: format!("Reduce phase failed: {}", e),
+                source: None,
+            }
+            .with_context(context)
+            .error
+        })
+    }
+
+    /// Process the reduce phase result
+    fn process_reduce_result(&self, result: phases::PhaseResult) -> MapReduceResult<()> {
+        if result.success {
+            self.user_interaction
+                .display_success("Reduce phase completed successfully");
+            Ok(())
+        } else {
+            Err(MapReduceError::General {
+                message: result
+                    .error_message
+                    .unwrap_or_else(|| "Reduce phase failed".to_string()),
+                source: None,
+            })
+        }
+    }
+
+    /// Display reduce phase summary statistics
+    fn display_reduce_summary(&self, summary_stats: &utils::MapResultSummary) {
         self.user_interaction.display_info(&format!(
             "All {} successful agents merged to parent worktree",
-            successful_count
+            summary_stats.successful
         ));
 
-        if failed_count > 0 {
+        if summary_stats.failed > 0 {
             self.user_interaction.display_warning(&format!(
                 "{} agents failed and were not merged",
-                failed_count
+                summary_stats.failed
             ));
         }
 
         self.user_interaction
             .display_progress("Starting reduce phase in parent worktree...");
+    }
 
-        // Build interpolation context using pure functions (kept for compatibility)
-        let _interp_context = build_map_results_interpolation_context(map_results, &summary_stats)
-            .map_err(|e| {
-                let context = self.create_error_context("build_interpolation_context");
-                MapReduceError::General {
-                    message: "Failed to build interpolation context from map results".to_string(),
-                    source: Some(Box::new(e)),
-                }
-                .with_context(context)
-                .error
-            })?;
-
-        // Create a context for reduce phase execution in parent worktree
-        let mut reduce_context = AgentContext::new(
-            "reduce".to_string(),
-            env.working_dir.clone(),
-            env.worktree_name
-                .clone()
-                .unwrap_or_else(|| "main".to_string()),
-            env.clone(),
-        );
-
-        // Build and add variables using pure functions
-        let context_variables = build_agent_context_variables(map_results, &summary_stats)
-            .map_err(|e| {
-                let context = self.create_error_context("build_agent_context_variables");
-                MapReduceError::General {
-                    message: "Failed to build agent context variables from map results".to_string(),
-                    source: Some(Box::new(e)),
-                }
-                .with_context(context)
-                .error
-            })?;
-
-        // Transfer variables to reduce context
-        for (key, value) in context_variables {
-            reduce_context.variables.insert(key, value);
-        }
-
-        // Add map results to variable store as structured data for better access
-        {
-            use crate::cook::workflow::variables::CapturedValue;
-
-            // Add summary statistics
-            reduce_context
-                .variable_store
-                .set(
-                    "map.successful",
-                    CapturedValue::Number(summary_stats.successful as f64),
-                )
-                .await;
-            reduce_context
-                .variable_store
-                .set(
-                    "map.failed",
-                    CapturedValue::Number(summary_stats.failed as f64),
-                )
-                .await;
-            reduce_context
-                .variable_store
-                .set(
-                    "map.total",
-                    CapturedValue::Number(summary_stats.total as f64),
-                )
-                .await;
-
-            // Add the full results as a structured JSON value
-            if let Ok(results_value) = serde_json::to_value(map_results) {
-                reduce_context
-                    .variable_store
-                    .set("map.results", CapturedValue::from(results_value))
-                    .await;
-            }
-
-            // Also add individual results for easier access
-            let results_array: Vec<CapturedValue> = map_results
-                .iter()
-                .map(|result| {
-                    if let Ok(result_json) = serde_json::to_value(result) {
-                        CapturedValue::from(result_json)
-                    } else {
-                        CapturedValue::String(format!("{:?}", result))
-                    }
-                })
-                .collect();
-            reduce_context
-                .variable_store
-                .set("map.results_array", CapturedValue::Array(results_array))
-                .await;
-        }
-
-        // Validate that required variables are available for reduce phase
-        self.validate_reduce_variables(&reduce_phase.commands, &reduce_context)?;
-
-        // Execute reduce commands in parent worktree
-        for (step_index, step) in reduce_phase.commands.iter().enumerate() {
-            let step_display = self.get_step_display_name(step);
-            self.user_interaction.display_progress(&format!(
-                "Reduce step {}/{}: {}",
-                step_index + 1,
-                reduce_phase.commands.len(),
-                step_display
-            ));
-
-            // Log available variables for debugging interpolation issues
-            debug!(
-                "Executing reduce step {} with variables: map.successful={}, map.failed={}, map.total={}",
-                step_index + 1,
-                reduce_context.variables.get("map.successful").unwrap_or(&"<missing>".to_string()),
-                reduce_context.variables.get("map.failed").unwrap_or(&"<missing>".to_string()),
-                reduce_context.variables.get("map.total").unwrap_or(&"<missing>".to_string())
-            );
-
-            // Execute the step in parent worktree context
-            let step_result = self.execute_single_step(step, &mut reduce_context).await?;
-
-            if !step_result.success {
-                // Check if there's an on_failure handler
-                if let Some(on_failure) = &step.on_failure {
-                    self.user_interaction.display_warning(&format!(
-                        "Step {} failed, executing on_failure handler...",
-                        step_index + 1
-                    ));
-
-                    // Handle the on_failure configuration
-                    // Store the shell output in context for the handler to use
-                    reduce_context.captured_outputs.insert(
-                        "shell.output".to_string(),
-                        format!("{}\n{}", step_result.stdout, step_result.stderr),
-                    );
-                    reduce_context.variables.insert(
-                        "shell.output".to_string(),
-                        format!("{}\n{}", step_result.stdout, step_result.stderr),
-                    );
-
-                    let error_msg = format!(
-                        "Step failed with exit code {}: {}",
-                        step_result.exit_code.unwrap_or(-1),
-                        step_result.stderr
-                    );
-
-                    // Try to handle the failure
-                    match self
-                        .handle_on_failure(on_failure, step, &mut reduce_context, error_msg)
-                        .await
-                    {
-                        Ok(handled) => {
-                            if !handled {
-                                // on_failure says we should fail
-                                let context = self.create_error_context("reduce_phase_execution");
-                                return Err(MapReduceError::General {
-                                    message: format!(
-                                        "Reduce step {} failed and fail_workflow is true",
-                                        step_index + 1
-                                    ),
-                                    source: None,
-                                }
-                                .with_context(context)
-                                .error);
-                            }
-                            // Otherwise continue to next step
-                        }
-                        Err(handler_err) => {
-                            // Handler itself failed
-                            if on_failure.should_fail_workflow() {
-                                let context = self.create_error_context("reduce_phase_execution");
-                                return Err(MapReduceError::General {
-                                    message: format!(
-                                        "Reduce step {} on_failure handler failed: {}",
-                                        step_index + 1,
-                                        handler_err
-                                    ),
-                                    source: None,
-                                }
-                                .with_context(context)
-                                .error);
-                            }
-                            // Otherwise, log the error but continue
-                            self.user_interaction.display_warning(&format!(
-                                "on_failure handler failed but continuing: {}",
-                                handler_err
-                            ));
-                        }
-                    }
-                } else {
-                    // No on_failure handler, fail immediately
-                    let context = self.create_error_context("reduce_phase_execution");
-                    return Err(MapReduceError::General {
-                        message: format!(
-                            "Reduce step {} failed: {}",
-                            step_index + 1,
-                            step_result.stderr
-                        ),
-                        source: None,
-                    }
-                    .with_context(context)
-                    .error);
-                }
-            } else {
-                // Step succeeded - check if there's an on_success handler
-                if let Some(on_success) = &step.on_success {
-                    self.user_interaction.display_info(&format!(
-                        "Step {} succeeded, executing on_success handler...",
-                        step_index + 1
-                    ));
-
-                    // Store the successful output in context for the handler to use
-                    reduce_context
-                        .captured_outputs
-                        .insert("shell.output".to_string(), step_result.stdout.clone());
-                    reduce_context
-                        .variables
-                        .insert("shell.output".to_string(), step_result.stdout.clone());
-
-                    // Execute the on_success handler
-                    let success_result = self
-                        .execute_single_step(on_success, &mut reduce_context)
-                        .await?;
-
-                    if !success_result.success {
-                        self.user_interaction.display_warning(&format!(
-                            "on_success handler failed for step {}: {}",
-                            step_index + 1,
-                            success_result.stderr
-                        ));
-                        // Note: We don't fail the workflow when on_success handler fails
-                        // This is consistent with typical behavior - on_success is a bonus action
-                    }
-                }
-            }
-
-            // After successful execution, make captured outputs available as variables
-            // for subsequent commands in the reduce phase
-            for (key, value) in reduce_context.captured_outputs.clone() {
-                reduce_context.variables.insert(key, value);
-            }
-        }
-
-        self.user_interaction
-            .display_success("Reduce phase completed successfully");
-
+    /// Display worktree instructions after reduce phase
+    fn display_worktree_instructions(&self, env: &ExecutionEnvironment) {
         // Don't merge here - let the orchestrator's cleanup handle it
         // This prevents double-merge attempts
         if env.worktree_name.is_some() && !self.should_auto_merge(env) {
@@ -3592,8 +3410,6 @@ impl MapReduceExecutor {
             self.user_interaction
                 .display_info("To create a PR: git push origin <branch> && gh pr create");
         }
-
-        Ok(())
     }
 
     /// Check if auto-merge is enabled
@@ -3621,66 +3437,6 @@ impl MapReduceExecutor {
         } else {
             format!("/{name}")
         }
-    }
-
-    /// Find variables referenced in a command that are not available in the context
-    fn find_missing_variables(
-        &self,
-        command: &str,
-        available_vars: &HashMap<String, String>,
-    ) -> Vec<String> {
-        use std::collections::HashSet;
-
-        let mut missing = Vec::new();
-        let mut found_vars = HashSet::new();
-
-        // Simple regex-like pattern matching for ${variable} and $variable patterns
-        // This is a basic implementation - for production use, consider using a proper regex library
-        let chars: Vec<char> = command.chars().collect();
-        let mut i = 0;
-
-        while i < chars.len() {
-            if chars[i] == '$' {
-                if i + 1 < chars.len() && chars[i + 1] == '{' {
-                    // Handle ${variable} pattern
-                    i += 2; // Skip ${
-                    let start = i;
-                    while i < chars.len() && chars[i] != '}' {
-                        i += 1;
-                    }
-                    if i < chars.len() && start < i {
-                        let var_name: String = chars[start..i].iter().collect();
-                        found_vars.insert(var_name);
-                    }
-                } else if i + 1 < chars.len()
-                    && (chars[i + 1].is_alphabetic() || chars[i + 1] == '_')
-                {
-                    // Handle $variable pattern
-                    i += 1;
-                    let start = i;
-                    while i < chars.len()
-                        && (chars[i].is_alphanumeric() || chars[i] == '_' || chars[i] == '.')
-                    {
-                        i += 1;
-                    }
-                    if start < i {
-                        let var_name: String = chars[start..i].iter().collect();
-                        found_vars.insert(var_name);
-                    }
-                    continue; // Don't increment i again
-                }
-            }
-            i += 1;
-        }
-
-        // Check which variables are referenced but not available
-        for var in found_vars {
-            if !available_vars.contains_key(&var) {
-                missing.push(var);
-            }
-        }
-
-        missing
     }
 
     /// Handle on_failure logic for a failed step
@@ -3880,89 +3636,6 @@ impl MapReduceExecutor {
         } else {
             format!("{}...", &s[..max_len - 3])
         }
-    }
-
-    /// Validate that all required variables are available for reduce commands
-    fn validate_reduce_variables(
-        &self,
-        commands: &[WorkflowStep],
-        context: &AgentContext,
-    ) -> MapReduceResult<()> {
-        let mut all_missing_vars = Vec::new();
-
-        for (step_index, step) in commands.iter().enumerate() {
-            let step_name = step.name.as_deref().unwrap_or("unnamed");
-
-            // Check shell commands for variable references
-            if let Some(shell_cmd) = &step.shell {
-                let missing_vars = self.find_missing_variables(shell_cmd, &context.variables);
-                if !missing_vars.is_empty() {
-                    warn!(
-                        "Reduce step {} ('{}') references missing variables: {:?}\n  Command: {}",
-                        step_index + 1,
-                        step_name,
-                        missing_vars,
-                        shell_cmd
-                    );
-                    all_missing_vars.extend(missing_vars);
-                }
-            }
-
-            // Check Claude commands for variable references (these get interpolated)
-            if let Some(claude_cmd) = &step.claude {
-                let missing_vars = self.find_missing_variables(claude_cmd, &context.variables);
-                if !missing_vars.is_empty() {
-                    warn!(
-                        "Reduce step {} ('{}') references missing variables: {:?}\n  Command: {}",
-                        step_index + 1,
-                        step_name,
-                        missing_vars,
-                        claude_cmd
-                    );
-                    all_missing_vars.extend(missing_vars);
-                }
-            }
-
-            // Check legacy commands
-            if let Some(command) = &step.command {
-                let missing_vars = self.find_missing_variables(command, &context.variables);
-                if !missing_vars.is_empty() {
-                    warn!(
-                        "Reduce step {} ('{}') references missing variables: {:?}\n  Command: {}",
-                        step_index + 1,
-                        step_name,
-                        missing_vars,
-                        command
-                    );
-                    all_missing_vars.extend(missing_vars);
-                }
-            }
-        }
-
-        // Log available variables for debugging
-        debug!(
-            "Available variables for reduce phase: {:?}",
-            context.variables.keys().collect::<Vec<_>>()
-        );
-
-        // For now, just warn about missing variables rather than failing
-        // This allows workflows to continue even if some variables might be missing
-        // In the future, we could make this configurable via workflow settings
-        if !all_missing_vars.is_empty() {
-            // Remove duplicates
-            all_missing_vars.sort();
-            all_missing_vars.dedup();
-
-            warn!(
-                "⚠️  Reduce phase validation found potentially missing variables: {:?}\n  \
-                Available variables: {:?}\n  \
-                Commands will still execute but may fail at runtime.",
-                all_missing_vars,
-                context.variables.keys().collect::<Vec<_>>()
-            );
-        }
-
-        Ok(())
     }
 }
 

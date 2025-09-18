@@ -148,6 +148,14 @@ pub enum MapReduceError {
     #[error("Processing error: {0}")]
     ProcessingError(String),
 
+    // Validation errors
+    #[error("Validation failed: {details}")]
+    ValidationFailed {
+        details: String,
+        #[source]
+        source: Option<Box<dyn std::error::Error + Send + Sync>>,
+    },
+
     // Timeout errors
     #[error("Operation timed out")]
     Timeout,
@@ -354,6 +362,7 @@ impl MapReduceError {
             Self::DlqError(_) => "DlqError",
             Self::ProcessingError(_) => "ProcessingError",
             Self::Timeout => "Timeout",
+            Self::ValidationFailed { .. } => "ValidationFailed",
         }
         .to_string()
     }
@@ -390,6 +399,31 @@ impl From<serde_json::Error> for MapReduceError {
         Self::General {
             message: format!("JSON error: {}", err),
             source: Some(Box::new(err)),
+        }
+    }
+}
+
+impl From<super::mapreduce::phases::PhaseError> for MapReduceError {
+    fn from(error: super::mapreduce::phases::PhaseError) -> Self {
+        use super::mapreduce::phases::PhaseError;
+        match error {
+            PhaseError::ExecutionFailed { message } => MapReduceError::General {
+                message,
+                source: None,
+            },
+            PhaseError::ValidationError { message } => MapReduceError::ValidationFailed {
+                details: message,
+                source: None,
+            },
+            PhaseError::Timeout { message } => MapReduceError::General {
+                message,
+                source: None,
+            },
+            PhaseError::TransitionError { message } => MapReduceError::General {
+                message,
+                source: None,
+            },
+            PhaseError::MapReduceError(e) => e,
         }
     }
 }

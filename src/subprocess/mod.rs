@@ -95,6 +95,12 @@ pub struct SubprocessManager {
     runner: Arc<dyn ProcessRunner>,
 }
 
+impl std::fmt::Debug for SubprocessManager {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SubprocessManager").finish()
+    }
+}
+
 impl SubprocessManager {
     /// Create a new subprocess manager with the given process runner
     ///
