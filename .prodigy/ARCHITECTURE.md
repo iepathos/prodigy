@@ -28,6 +28,17 @@ prodigy/
 ├── src/
 │   ├── main.rs                 # CLI entry point
 │   ├── lib.rs                  # Public API
+│   ├── storage/                # Storage abstraction layer
+│   │   ├── mod.rs              # Storage module exports
+│   │   ├── traits.rs           # Core storage traits
+│   │   ├── types.rs            # Storage data types
+│   │   ├── error.rs            # Storage error types
+│   │   ├── config.rs           # Storage configuration
+│   │   ├── factory.rs          # Storage factory
+│   │   ├── lock.rs             # Distributed locking
+│   │   └── backends/           # Storage backend implementations
+│   │       ├── file.rs         # File-based storage
+│   │       └── memory.rs       # In-memory storage (testing)
 │   ├── subprocess/             # Subprocess management
 │   │   ├── streaming/          # Real-time streaming infrastructure
 │   │   │   ├── processor.rs    # Stream processor trait and implementations
@@ -120,6 +131,25 @@ prodigy/
 
 ## Key Traits and Interfaces
 
+### UnifiedStorage
+```rust
+#[async_trait]
+pub trait UnifiedStorage: Send + Sync {
+    fn session_storage(&self) -> &dyn SessionStorage;
+    fn event_storage(&self) -> &dyn EventStorage;
+    fn checkpoint_storage(&self) -> &dyn CheckpointStorage;
+    fn dlq_storage(&self) -> &dyn DLQStorage;
+    fn workflow_storage(&self) -> &dyn WorkflowStorage;
+    async fn acquire_lock(&self, key: &str, ttl: Duration) -> StorageResult<Box<dyn StorageLockGuard>>;
+    async fn health_check(&self) -> StorageResult<HealthStatus>;
+}
+```
+**Implementations**:
+- `FileBackend`: File-based storage (default)
+- `MemoryBackend`: In-memory storage (testing)
+- `PostgresBackend`: PostgreSQL storage (planned)
+- `RedisBackend`: Redis storage (planned)
+
 ### CommandExecutor
 ```rust
 #[async_trait]
@@ -210,9 +240,37 @@ WorkItems → AgentPool → ParallelExecution → ResultAggregation
 
 ## Storage Architecture
 
+### Storage Abstraction Layer
+The storage abstraction layer provides a unified interface for all storage operations, enabling seamless switching between different backends:
+
+- **Trait-Based Design**: All storage operations defined through traits
+- **Multiple Backends**: File, PostgreSQL, Redis, S3, Memory
+- **Distributed Locking**: Coordination for concurrent operations
+- **Streaming Support**: Efficient handling of large datasets
+- **Transaction Support**: Atomic operations where supported
+
+### Backend Implementations
+
+#### File Backend (Default)
+- **Global Storage**: `~/.prodigy/` directory structure
+- **File-Based Locking**: Exclusive file creation for coordination
+- **JSON Serialization**: Human-readable data format
+- **Directory Structure**:
+  - `sessions/`: Session state files
+  - `events/`: Event log files (JSONL)
+  - `checkpoints/`: Workflow checkpoint files
+  - `dlq/`: Dead letter queue items
+  - `workflows/`: Workflow definitions
+  - `locks/`: Lock files for coordination
+
+#### Database Backends (Planned)
+- **PostgreSQL**: Full ACID compliance, complex queries
+- **Redis**: High-performance caching, pub/sub support
+- **S3**: Object storage for large-scale deployments
+
 ### Global Storage (`~/.prodigy/`)
 - **Events**: Cross-worktree event aggregation by repository
-- **State**: MapReduce job checkpoints and session data  
+- **State**: MapReduce job checkpoints and session data
 - **DLQ**: Failed work items for retry analysis
 - **Worktrees**: Isolated git worktrees for parallel sessions
 
