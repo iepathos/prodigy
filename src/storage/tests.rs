@@ -121,7 +121,7 @@ async fn test_event_storage(storage: &dyn EventStorage) -> StorageResult<()> {
     storage.append(events).await?;
 
     // Test aggregate (may return 0 for stub implementations)
-    let stats = storage.aggregate(job_id).await?;
+    let _stats = storage.aggregate(job_id).await?;
     // Don't assert on the exact count as it may be stubbed
 
     Ok(())

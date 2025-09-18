@@ -92,6 +92,11 @@ impl FileBackend {
             .map_err(|e| StorageError::Io(e))?;
         Ok(())
     }
+
+    /// Check if a path exists asynchronously
+    async fn path_exists(&self, path: &Path) -> bool {
+        fs::metadata(path).await.is_ok()
+    }
 }
 
 #[async_trait]
@@ -223,17 +228,19 @@ impl SessionStorage for FileBackend {
 
     async fn load(&self, id: &SessionId) -> StorageResult<Option<PersistedSession>> {
         let path = self.get_path("sessions", &format!("{}.json", id.0));
-        if path.exists() {
-            Ok(Some(self.read_json(&path).await?))
-        } else {
-            Ok(None)
+        match fs::metadata(&path).await {
+            Ok(_) => Ok(Some(self.read_json(&path).await?)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(StorageError::Io(e)),
         }
     }
 
     async fn list(&self, filter: SessionFilter) -> StorageResult<Vec<SessionId>> {
         let sessions_dir = self.base_dir.join("sessions");
-        if !sessions_dir.exists() {
-            return Ok(vec![]);
+        match fs::metadata(&sessions_dir).await {
+            Ok(_) => {},
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]),
+            Err(e) => return Err(StorageError::Io(e)),
         }
 
         let mut sessions = Vec::new();
@@ -283,10 +290,11 @@ impl SessionStorage for FileBackend {
 
     async fn delete(&self, id: &SessionId) -> StorageResult<()> {
         let path = self.get_path("sessions", &format!("{}.json", id.0));
-        if path.exists() {
-            fs::remove_file(path).await?;
+        match fs::remove_file(path).await {
+            Ok(_) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(StorageError::Io(e)),
         }
-        Ok(())
     }
 
     async fn update_state(&self, id: &SessionId, state: SessionState) -> StorageResult<()> {
@@ -325,7 +333,10 @@ impl EventStorage for FileBackend {
     async fn append(&self, events: Vec<EventRecord>) -> StorageResult<()> {
         for event in events {
             let dir = self.get_path("events", &event.job_id);
-            self.ensure_dir(&dir).await?;
+            // Create the directory itself, not just its parent
+            fs::create_dir_all(&dir)
+                .await
+                .map_err(|e| StorageError::Io(e))?;
 
             let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S_%f");
             let file_path = dir.join(format!("event_{}.jsonl", timestamp));
@@ -344,7 +355,7 @@ impl EventStorage for FileBackend {
 
     async fn query(&self, filter: EventFilter) -> StorageResult<EventStream> {
         let events_dir = self.base_dir.join("events");
-        if !events_dir.exists() {
+        if !self.path_exists(&events_dir).await {
             return Ok(Box::pin(stream::empty()));
         }
 
@@ -353,7 +364,7 @@ impl EventStorage for FileBackend {
 
         if let Some(ref job_id) = filter.job_id {
             let job_dir = events_dir.join(job_id);
-            if job_dir.exists() {
+            if self.path_exists(&job_dir).await {
                 let mut entries = fs::read_dir(job_dir).await?;
                 while let Some(entry) = entries.next_entry().await? {
                     if entry.path().extension().and_then(|s| s.to_str()) == Some("jsonl") {
@@ -502,7 +513,7 @@ impl EventStorage for FileBackend {
         let events_dir = self.base_dir.join("events");
         let archive_dir = self.base_dir.join("events_archive");
 
-        if !events_dir.exists() {
+        if !self.path_exists(&events_dir).await {
             return Ok(0);
         }
 
@@ -546,7 +557,7 @@ impl CheckpointStorage for FileBackend {
 
     async fn load(&self, id: &str) -> StorageResult<Option<WorkflowCheckpoint>> {
         let path = self.get_path("checkpoints", &format!("{}.json", id));
-        if path.exists() {
+        if self.path_exists(&path).await {
             Ok(Some(self.read_json(&path).await?))
         } else {
             Ok(None)
@@ -555,7 +566,7 @@ impl CheckpointStorage for FileBackend {
 
     async fn list(&self, filter: CheckpointFilter) -> StorageResult<Vec<CheckpointInfo>> {
         let checkpoints_dir = self.base_dir.join("checkpoints");
-        if !checkpoints_dir.exists() {
+        if !self.path_exists(&checkpoints_dir).await {
             return Ok(vec![]);
         }
 
@@ -613,7 +624,7 @@ impl CheckpointStorage for FileBackend {
 
     async fn delete(&self, id: &str) -> StorageResult<()> {
         let path = self.get_path("checkpoints", &format!("{}.json", id));
-        if path.exists() {
+        if self.path_exists(&path).await {
             fs::remove_file(path).await?;
         }
         Ok(())
@@ -663,7 +674,7 @@ impl DLQStorage for FileBackend {
 
     async fn dequeue(&self, limit: usize) -> StorageResult<Vec<DLQItem>> {
         let dlq_dir = self.base_dir.join("dlq");
-        if !dlq_dir.exists() {
+        if !self.path_exists(&dlq_dir).await {
             return Ok(vec![]);
         }
 
@@ -697,7 +708,7 @@ impl DLQStorage for FileBackend {
 
     async fn list(&self, filter: DLQFilter) -> StorageResult<Vec<DLQItem>> {
         let dlq_dir = self.base_dir.join("dlq");
-        if !dlq_dir.exists() {
+        if !self.path_exists(&dlq_dir).await {
             return Ok(vec![]);
         }
 
@@ -705,7 +716,7 @@ impl DLQStorage for FileBackend {
 
         if let Some(ref job_id) = filter.job_id {
             let job_dir = dlq_dir.join(job_id);
-            if job_dir.exists() {
+            if self.path_exists(&job_dir).await {
                 let mut entries = fs::read_dir(job_dir).await?;
 
                 while let Some(entry) = entries.next_entry().await? {
@@ -760,7 +771,7 @@ impl DLQStorage for FileBackend {
         while let Some(job_entry) = job_entries.next_entry().await? {
             if job_entry.file_type().await?.is_dir() {
                 let item_path = job_entry.path().join(format!("{}.json", id));
-                if item_path.exists() {
+                if self.path_exists(&item_path).await {
                     fs::remove_file(item_path).await?;
                     return Ok(());
                 }
@@ -819,7 +830,7 @@ impl DLQStorage for FileBackend {
         let cutoff = Utc::now() - chrono::Duration::from_std(older_than).unwrap();
         let dlq_dir = self.base_dir.join("dlq");
 
-        if !dlq_dir.exists() {
+        if !self.path_exists(&dlq_dir).await {
             return Ok(0);
         }
 
@@ -858,7 +869,7 @@ impl WorkflowStorage for FileBackend {
 
     async fn load(&self, id: &str) -> StorageResult<Option<WorkflowDefinition>> {
         let path = self.get_path("workflows", &format!("{}.json", id));
-        if path.exists() {
+        if self.path_exists(&path).await {
             Ok(Some(self.read_json(&path).await?))
         } else {
             Ok(None)
@@ -867,7 +878,7 @@ impl WorkflowStorage for FileBackend {
 
     async fn list(&self, filter: WorkflowFilter) -> StorageResult<Vec<WorkflowInfo>> {
         let workflows_dir = self.base_dir.join("workflows");
-        if !workflows_dir.exists() {
+        if !self.path_exists(&workflows_dir).await {
             return Ok(vec![]);
         }
 
@@ -922,7 +933,7 @@ impl WorkflowStorage for FileBackend {
 
     async fn delete(&self, id: &str) -> StorageResult<()> {
         let path = self.get_path("workflows", &format!("{}.json", id));
-        if path.exists() {
+        if self.path_exists(&path).await {
             fs::remove_file(path).await?;
         }
         Ok(())
@@ -981,12 +992,12 @@ impl LockBackend for FileBackend {
 
     async fn exists(&self, key: &str) -> StorageResult<bool> {
         let lock_file = self.get_path("locks", &format!("{}.lock", key));
-        Ok(lock_file.exists())
+        Ok(self.path_exists(&lock_file).await)
     }
 
     async fn force_release(&self, key: &str) -> StorageResult<()> {
         let lock_file = self.get_path("locks", &format!("{}.lock", key));
-        if lock_file.exists() {
+        if self.path_exists(&lock_file).await {
             fs::remove_file(lock_file).await?;
         }
         Ok(())
@@ -994,7 +1005,7 @@ impl LockBackend for FileBackend {
 
     async fn list_locks(&self) -> StorageResult<Vec<StorageLock>> {
         let locks_dir = self.base_dir.join("locks");
-        if !locks_dir.exists() {
+        if !self.path_exists(&locks_dir).await {
             return Ok(vec![]);
         }
 
