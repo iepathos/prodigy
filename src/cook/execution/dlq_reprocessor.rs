@@ -128,7 +128,12 @@ impl FilterEvaluator {
     }
 
     /// Evaluate string expressions including 'contains' operator
-    fn evaluate_string_expression(&self, field_value: &str, operator: &str, expected_value: &str) -> bool {
+    fn evaluate_string_expression(
+        &self,
+        field_value: &str,
+        operator: &str,
+        expected_value: &str,
+    ) -> bool {
         match operator {
             "==" => field_value == expected_value,
             "!=" => field_value != expected_value,
@@ -153,7 +158,8 @@ impl FilterEvaluator {
 
         // Handle compound expressions with && and ||
         if self.expression.contains("&&") {
-            let parts: Vec<bool> = self.expression
+            let parts: Vec<bool> = self
+                .expression
                 .split("&&")
                 .map(|expr| {
                     let evaluator = FilterEvaluator::new(expr.trim().to_string());
@@ -166,12 +172,10 @@ impl FilterEvaluator {
         }
 
         if self.expression.contains("||") {
-            return self.expression
-                .split("||")
-                .any(|expr| {
-                    let evaluator = FilterEvaluator::new(expr.trim().to_string());
-                    evaluator.matches(item)
-                });
+            return self.expression.split("||").any(|expr| {
+                let evaluator = FilterEvaluator::new(expr.trim().to_string());
+                evaluator.matches(item)
+            });
         }
 
         // Simple expression parser for common cases
@@ -705,10 +709,8 @@ impl DlqReprocessor {
         // Collect stats from all DLQs
         for job_id in &job_ids {
             // Try to load DLQ for this job
-            let dlq_result = super::dlq::DeadLetterQueue::load(
-                job_id.clone(),
-                project_root.to_path_buf(),
-            ).await;
+            let dlq_result =
+                super::dlq::DeadLetterQueue::load(job_id.clone(), project_root.to_path_buf()).await;
 
             if let Ok(dlq) = dlq_result {
                 let stats = dlq.get_stats().await?;

@@ -156,10 +156,7 @@ impl DeadLetterQueue {
     }
 
     /// Load an existing Dead Letter Queue (for reading stats)
-    pub async fn load(
-        job_id: String,
-        base_path: PathBuf,
-    ) -> Result<Self> {
+    pub async fn load(job_id: String, base_path: PathBuf) -> Result<Self> {
         // Use default values for max_items and retention when just loading for stats
         Self::new(job_id, base_path, 1000, 30, None).await
     }
