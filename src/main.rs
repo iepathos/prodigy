@@ -1462,10 +1462,19 @@ async fn run_resume_workflow(
                 let resume_session_id = format!("resume-{}", workflow_id);
 
                 // Create event logger for Claude streaming logs
-                let event_logger = match prodigy::storage::create_global_event_logger(&working_dir, &resume_session_id).await {
+                let event_logger = match prodigy::storage::create_global_event_logger(
+                    &working_dir,
+                    &resume_session_id,
+                )
+                .await
+                {
                     Ok(logger) => Some(Arc::new(logger)),
                     Err(e) => {
-                        tracing::warn!("Failed to create event logger for resume session {}: {}", resume_session_id, e);
+                        tracing::warn!(
+                            "Failed to create event logger for resume session {}: {}",
+                            resume_session_id,
+                            e
+                        );
                         None
                     }
                 };
@@ -2010,13 +2019,18 @@ async fn run_resume_job_command(
     let runner = RealCommandRunner::new();
 
     // Create event logger for Claude streaming logs
-    let event_logger = match prodigy::storage::create_global_event_logger(&project_root, &env.session_id).await {
-        Ok(logger) => Some(Arc::new(logger)),
-        Err(e) => {
-            tracing::warn!("Failed to create event logger for resume job session {}: {}", env.session_id, e);
-            None
-        }
-    };
+    let event_logger =
+        match prodigy::storage::create_global_event_logger(&project_root, &env.session_id).await {
+            Ok(logger) => Some(Arc::new(logger)),
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to create event logger for resume job session {}: {}",
+                    env.session_id,
+                    e
+                );
+                None
+            }
+        };
 
     let claude_executor: Arc<dyn ClaudeExecutor> = Arc::new({
         let mut executor = ClaudeExecutorImpl::new(runner);

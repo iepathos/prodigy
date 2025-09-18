@@ -16,6 +16,9 @@ pub mod command;
 pub mod map_phase;
 pub mod reduce_phase;
 
+// Declare the resources module for resource management
+pub mod resources;
+
 // Import agent types and functionality
 use agent::{
     AgentLifecycleManager, AgentOperation, AgentResultAggregator, DefaultLifecycleManager,
@@ -506,6 +509,7 @@ pub struct MapReduceExecutor {
     error_policy_executor: Option<ErrorPolicyExecutor>,
     agent_lifecycle_manager: Arc<dyn AgentLifecycleManager>,
     agent_result_aggregator: Arc<dyn AgentResultAggregator>,
+    resource_manager: Arc<resources::ResourceManager>,
 }
 
 #[cfg(test)]
@@ -981,30 +985,21 @@ impl MapReduceExecutor {
     async fn acquire_worktree_session(
         &self,
         agent_id: &str,
-        _env: &ExecutionEnvironment,
+        env: &ExecutionEnvironment,
     ) -> MapReduceResult<WorktreeSession> {
-        // Try to use worktree pool first
-        if let Some(pool) = &self.worktree_pool {
-            let handle = pool
-                .acquire(WorktreeRequest::Anonymous)
-                .await
-                .map_err(|e| self.create_worktree_error(agent_id, e.to_string()))?;
+        // Delegate to resource manager's worktree manager
+        let worktree_manager = resources::WorktreeResourceManager::with_manager(
+            self.worktree_pool.clone(),
+            self.worktree_manager.clone(),
+        );
+        let session = worktree_manager.acquire_session(agent_id, env).await?;
 
-            handle
-                .session()
-                .ok_or_else(|| MapReduceError::WorktreeCreationFailed {
-                    agent_id: agent_id.to_string(),
-                    reason: "No session in worktree handle".to_string(),
-                    source: std::io::Error::other("No session in worktree handle"),
-                })
-                .cloned()
-        } else {
-            // Fallback to direct creation
-            self.worktree_manager
-                .create_session()
-                .await
-                .map_err(|e| self.create_worktree_error(agent_id, e.to_string()))
-        }
+        // Register the session with the resource manager
+        self.resource_manager
+            .register_session(agent_id.to_string(), session.clone())
+            .await;
+
+        Ok(session)
     }
 
     /// Create worktree error with context
@@ -1164,6 +1159,9 @@ impl MapReduceExecutor {
             step_interpolator,
         ));
 
+        // Create resource manager
+        let resource_manager = Arc::new(resources::ResourceManager::new(None));
+
         Self {
             claude_executor,
             session_manager,
@@ -1190,6 +1188,7 @@ impl MapReduceExecutor {
             error_policy_executor: None,
             agent_lifecycle_manager,
             agent_result_aggregator,
+            resource_manager,
         }
     }
 
@@ -1201,8 +1200,11 @@ impl MapReduceExecutor {
     /// Initialize worktree pool with given configuration
     fn initialize_pool(&mut self, config: WorktreePoolConfig) {
         if self.worktree_pool.is_none() {
-            let pool = WorktreePool::new(config, self.worktree_manager.clone());
-            self.worktree_pool = Some(Arc::new(pool));
+            let pool = Arc::new(WorktreePool::new(config, self.worktree_manager.clone()));
+            self.worktree_pool = Some(pool.clone());
+
+            // Update resource manager with the new pool
+            self.resource_manager = Arc::new(resources::ResourceManager::new(Some(pool)));
         }
     }
 
@@ -1746,41 +1748,34 @@ impl MapReduceExecutor {
 
     /// Clean up orphaned worktrees from failed agents
     async fn cleanup_orphaned_resources(&self, state: &MapReduceJobState) {
-        // Clean up worktrees from failed agents that may have been left behind
-        for failure in state.failed_agents.values() {
-            if let Some(ref worktree_info) = failure.worktree_info {
-                // Try to clean up using worktree pool if available
-                if let Some(pool) = &self.worktree_pool {
-                    // Try to find and cleanup the worktree by name
-                    if let Err(e) = pool.cleanup_by_name(&worktree_info.name).await {
-                        debug!(
-                            "Failed to cleanup orphaned worktree {}: {}",
-                            worktree_info.name, e
-                        );
-                    } else {
-                        info!(
-                            "Cleaned up orphaned worktree {} from failed agent",
-                            worktree_info.name
-                        );
-                    }
-                } else {
-                    // Direct cleanup using worktree manager if no pool
-                    if let Err(e) = self
-                        .worktree_manager
-                        .cleanup_session(&worktree_info.name, false)
-                        .await
-                    {
-                        debug!(
-                            "Failed to cleanup orphaned worktree {}: {}",
-                            worktree_info.name, e
-                        );
-                    } else {
-                        info!(
-                            "Cleaned up orphaned worktree {} from failed agent",
-                            worktree_info.name
-                        );
-                    }
-                }
+        // Collect worktree names that need cleanup
+        let worktree_names: Vec<String> = state
+            .failed_agents
+            .values()
+            .filter_map(|failure| failure.worktree_info.as_ref().map(|info| info.name.clone()))
+            .collect();
+
+        if !worktree_names.is_empty() {
+            // Use resource manager's worktree manager for cleanup
+            let worktree_manager = resources::WorktreeResourceManager::with_manager(
+                self.worktree_pool.clone(),
+                self.worktree_manager.clone(),
+            );
+            worktree_manager
+                .cleanup_orphaned_worktrees(&worktree_names)
+                .await;
+
+            // Register cleanup tasks with the resource manager's cleanup registry
+            for name in worktree_names {
+                let cleanup_task = Box::new(resources::cleanup::WorktreeCleanupTask::new(
+                    name.clone(),
+                    None,
+                ));
+                self.resource_manager
+                    .cleanup_registry
+                    .register(cleanup_task)
+                    .await;
+                info!("Registered cleanup task for orphaned worktree: {}", name);
             }
         }
     }
@@ -3889,6 +3884,7 @@ impl MapReduceExecutor {
             error_policy_executor: None, // Don't clone error policy executor - it's per-job
             agent_lifecycle_manager: self.agent_lifecycle_manager.clone(),
             agent_result_aggregator: self.agent_result_aggregator.clone(),
+            resource_manager: self.resource_manager.clone(),
         }
     }
 
