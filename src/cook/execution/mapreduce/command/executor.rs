@@ -105,10 +105,7 @@ impl CommandRouter {
         // Find executor that supports this command type
         for executor in self.executors.values() {
             if executor.supports(&command_type) {
-                return executor
-                    .execute(step, context)
-                    .await
-                    .map_err(|e| e.into());
+                return executor.execute(step, context).await.map_err(|e| e.into());
             }
         }
 

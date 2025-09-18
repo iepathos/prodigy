@@ -112,12 +112,12 @@ pub fn validate_command_count(commands: &[CommandType]) -> MapReduceResult<()> {
         }),
         1 => Ok(()),
         n => {
-            let types: Vec<String> = commands
-                .iter()
-                .map(|c| format!("{:?}", c))
-                .collect();
+            let types: Vec<String> = commands.iter().map(|c| format!("{:?}", c)).collect();
             Err(MapReduceError::InvalidConfiguration {
-                reason: format!("Multiple command types specified. Multiple commands specified: {}", n),
+                reason: format!(
+                    "Multiple command types specified. Multiple commands specified: {}",
+                    n
+                ),
                 field: "commands".to_string(),
                 value: types.join(", "),
             })

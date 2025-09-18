@@ -21,7 +21,7 @@ impl ClaudeCommandExecutor {
 
     /// Extract Claude command from workflow step
     fn extract_command(step: &WorkflowStep) -> Result<&str, CommandError> {
-        step.claude.as_ref().map(|s| s.as_str()).ok_or_else(|| {
+        step.claude.as_deref().ok_or_else(|| {
             CommandError::InvalidConfiguration("No Claude command in step".to_string())
         })
     }
@@ -43,7 +43,10 @@ impl ClaudeCommandExecutor {
     fn build_env_vars(context: &ExecutionContext) -> HashMap<String, String> {
         let mut env_vars = HashMap::new();
         env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
-        env_vars.insert("PRODIGY_WORKTREE".to_string(), context.worktree_name.clone());
+        env_vars.insert(
+            "PRODIGY_WORKTREE".to_string(),
+            context.worktree_name.clone(),
+        );
         env_vars.insert("PRODIGY_ITEM_ID".to_string(), context.item_id.clone());
 
         // Add context environment variables

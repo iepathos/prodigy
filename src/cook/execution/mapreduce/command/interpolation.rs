@@ -42,7 +42,7 @@ impl InterpolationEngine {
                 chars.next(); // consume '{'
                 let mut var_name = String::new();
 
-                while let Some(ch) = chars.next() {
+                for ch in chars.by_ref() {
                     if ch == '}' {
                         if !var_name.is_empty() {
                             variables.push(var_name);
@@ -190,20 +190,24 @@ impl StepInterpolator {
             let var_context = context.to_variable_context().await;
             interpolate_workflow_step_enhanced(step, &var_context)
                 .await
-                .map_err(|e| crate::cook::execution::errors::MapReduceError::General {
-                    message: format!("Interpolation failed: {}", e),
-                    source: None,
-                })
+                .map_err(
+                    |e| crate::cook::execution::errors::MapReduceError::General {
+                        message: format!("Interpolation failed: {}", e),
+                        source: None,
+                    },
+                )
         } else {
             // Use legacy interpolation for backward compatibility
             let interp_context = context.to_interpolation_context();
             let mut engine = self.engine.lock().await;
             interpolate_workflow_step(step, &interp_context, &mut engine)
                 .await
-                .map_err(|e| crate::cook::execution::errors::MapReduceError::General {
-                    message: format!("Interpolation failed: {}", e),
-                    source: None,
-                })
+                .map_err(
+                    |e| crate::cook::execution::errors::MapReduceError::General {
+                        message: format!("Interpolation failed: {}", e),
+                        source: None,
+                    },
+                )
         }
     }
 }

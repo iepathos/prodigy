@@ -53,8 +53,7 @@ where
     let total_items = work_items.len();
     info!(
         "Executing map phase with {} work items (max parallel: {})",
-        total_items,
-        max_parallel
+        total_items, max_parallel
     );
 
     // Launch agents for each work item
@@ -69,12 +68,7 @@ where
         let context = create_agent_context(&agent_id, &item, index);
 
         futures.push(tokio::spawn(async move {
-            let result = execute_agent_with_pool(
-                context,
-                pool_clone,
-                agent_executor,
-            )
-            .await;
+            let result = execute_agent_with_pool(context, pool_clone, agent_executor).await;
 
             // Update state
             if let Ok(ref agent_result) = result {
@@ -113,7 +107,6 @@ where
     })
 }
 
-
 /// Execute single agent with worktree pool
 async fn execute_agent_with_pool<F>(
     context: AgentContext,
@@ -141,20 +134,18 @@ async fn acquire_worktree_from_pool(
     pool: Arc<WorktreePool>,
     agent_id: &str,
 ) -> MapReduceResult<WorktreeHandle> {
-    pool.acquire(crate::worktree::WorktreeRequest::Named(agent_id.to_string()))
-        .await
-        .map_err(|e| MapReduceError::General {
-            message: format!("Failed to acquire worktree for {}: {}", agent_id, e),
-            source: None,
-        })
+    pool.acquire(crate::worktree::WorktreeRequest::Named(
+        agent_id.to_string(),
+    ))
+    .await
+    .map_err(|e| MapReduceError::General {
+        message: format!("Failed to acquire worktree for {}: {}", agent_id, e),
+        source: None,
+    })
 }
 
 /// Create agent context from work item
-fn create_agent_context(
-    agent_id: &str,
-    item: &Value,
-    index: usize,
-) -> AgentContext {
+fn create_agent_context(agent_id: &str, item: &Value, index: usize) -> AgentContext {
     let mut context = AgentContext::new(
         agent_id.to_string(),
         std::path::PathBuf::from("."),
@@ -169,7 +160,9 @@ fn create_agent_context(
 
     // Add item variables
     context.variables = extract_item_variables(item);
-    context.variables.insert("ITEM_INDEX".to_string(), index.to_string());
+    context
+        .variables
+        .insert("ITEM_INDEX".to_string(), index.to_string());
 
     context
 }

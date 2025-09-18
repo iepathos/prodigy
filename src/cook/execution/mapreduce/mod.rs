@@ -50,9 +50,7 @@ use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::SessionManager;
-use crate::cook::workflow::{
-    ErrorPolicyExecutor, StepResult, WorkflowErrorPolicy, WorkflowStep,
-};
+use crate::cook::workflow::{ErrorPolicyExecutor, StepResult, WorkflowErrorPolicy, WorkflowStep};
 use crate::subprocess::SubprocessManager;
 use crate::worktree::{
     WorktreeManager, WorktreePool, WorktreePoolConfig, WorktreeRequest, WorktreeSession,
@@ -1156,9 +1154,9 @@ impl MapReduceExecutor {
         let interpolation_engine = Arc::new(Mutex::new(InterpolationEngine::new(false)));
 
         // Create the step interpolator
-        let step_interpolator = Arc::new(command::StepInterpolator::new(
-            Arc::new(Mutex::new(command::InterpolationEngine::new(false))),
-        ));
+        let step_interpolator = Arc::new(command::StepInterpolator::new(Arc::new(Mutex::new(
+            command::InterpolationEngine::new(false),
+        ))));
 
         // Create the step executor
         let step_executor = Arc::new(command::StepExecutor::new(
@@ -2815,9 +2813,7 @@ impl MapReduceExecutor {
                 .await?;
 
             // Execute the step (interpolation is handled internally)
-            let result = self
-                .execute_single_step(step, &mut context)
-                .await;
+            let result = self.execute_single_step(step, &mut context).await;
 
             match result {
                 Ok(step_result) => {
@@ -3664,6 +3660,7 @@ impl MapReduceExecutor {
     }
 
     /// Format a legacy command name with leading slash if needed
+    #[cfg(test)]
     pub(crate) fn format_legacy_command(name: &str) -> String {
         if name.starts_with('/') {
             name.to_string()

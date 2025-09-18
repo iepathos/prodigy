@@ -6,10 +6,10 @@
 use super::executor::{CommandRouter, ExecutionContext};
 use super::interpolation::StepInterpolator;
 use super::types::determine_command_type;
-use crate::cook::execution::mapreduce::AgentContext;
 use crate::cook::execution::errors::MapReduceResult;
-use crate::cook::workflow::StepResult;
+use crate::cook::execution::mapreduce::AgentContext;
 use crate::cook::workflow::variables::CommandResult as VarCommandResult;
+use crate::cook::workflow::StepResult;
 use crate::cook::workflow::WorkflowStep;
 use std::sync::Arc;
 
@@ -107,14 +107,19 @@ async fn capture_with_new_format(
 
     context
         .variable_store
-        .capture_command_result(capture_name, command_result, capture_format, capture_streams)
+        .capture_command_result(
+            capture_name,
+            command_result,
+            capture_format,
+            capture_streams,
+        )
         .await
-        .map_err(|e| {
-            crate::cook::execution::errors::MapReduceError::General {
+        .map_err(
+            |e| crate::cook::execution::errors::MapReduceError::General {
                 message: format!("Failed to capture command result: {}", e),
                 source: None,
-            }
-        })?;
+            },
+        )?;
 
     // Also update captured_outputs for backward compatibility
     context

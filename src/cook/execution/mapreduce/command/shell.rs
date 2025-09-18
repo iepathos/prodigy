@@ -58,10 +58,7 @@ impl ShellCommandExecutor {
     }
 
     /// Build result from command output
-    fn build_result(
-        output: std::process::Output,
-        start: Instant,
-    ) -> CommandResult {
+    fn build_result(output: std::process::Output, start: Instant) -> CommandResult {
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 

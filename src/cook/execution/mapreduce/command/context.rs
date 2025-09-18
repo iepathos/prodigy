@@ -18,11 +18,7 @@ pub struct ExecutionContext {
 
 impl ExecutionContext {
     /// Create a new execution context
-    pub fn new(
-        worktree_path: PathBuf,
-        worktree_name: String,
-        item_id: String,
-    ) -> Self {
+    pub fn new(worktree_path: PathBuf, worktree_name: String, item_id: String) -> Self {
         Self {
             worktree_path,
             worktree_name,

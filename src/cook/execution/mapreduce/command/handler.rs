@@ -25,7 +25,10 @@ impl HandlerCommandExecutor {
         let mut exec_context = ExecutionContext::new(context.worktree_path.clone());
 
         // Add standard environment variables
-        exec_context.add_env_var("PRODIGY_WORKTREE".to_string(), context.worktree_name.clone());
+        exec_context.add_env_var(
+            "PRODIGY_WORKTREE".to_string(),
+            context.worktree_name.clone(),
+        );
         exec_context.add_env_var("PRODIGY_ITEM_ID".to_string(), context.item_id.clone());
         exec_context.add_env_var("PRODIGY_AUTOMATION".to_string(), "true".to_string());
 
@@ -70,10 +73,7 @@ impl HandlerCommandExecutor {
     }
 
     /// Convert handler result to command result
-    fn build_result(
-        result: crate::commands::CommandResult,
-        start: Instant,
-    ) -> CommandResult {
+    fn build_result(result: crate::commands::CommandResult, start: Instant) -> CommandResult {
         let stdout = result.stdout.as_ref().cloned().unwrap_or_else(|| {
             result
                 .data

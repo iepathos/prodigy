@@ -42,7 +42,9 @@ mod executor_tests {
 
         fn supports(&self, command_type: &CommandType) -> bool {
             match command_type {
-                CommandType::Shell(cmd) => self.supported_type == "shell" && cmd.starts_with("echo"),
+                CommandType::Shell(cmd) => {
+                    self.supported_type == "shell" && cmd.starts_with("echo")
+                }
                 CommandType::Claude(_cmd) => self.supported_type == "claude",
                 _ => false,
             }

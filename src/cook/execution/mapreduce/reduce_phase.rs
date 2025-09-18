@@ -34,7 +34,10 @@ pub async fn execute<F>(
     step_executor: F,
 ) -> MapReduceResult<ReducePhaseResult>
 where
-    F: Fn(&crate::cook::workflow::WorkflowStep, &mut AgentContext) -> futures::future::BoxFuture<'static, MapReduceResult<StepResult>>
+    F: Fn(
+            &crate::cook::workflow::WorkflowStep,
+            &mut AgentContext,
+        ) -> futures::future::BoxFuture<'static, MapReduceResult<StepResult>>
         + Send
         + Sync,
 {
@@ -116,9 +119,15 @@ fn add_aggregate_statistics(context: &mut AgentContext, results: &[AgentResult])
     let successful = results.iter().filter(|r| r.is_success()).count();
     let failed = total - successful;
 
-    context.variables.insert("map.total".to_string(), total.to_string());
-    context.variables.insert("map.successful".to_string(), successful.to_string());
-    context.variables.insert("map.failed".to_string(), failed.to_string());
+    context
+        .variables
+        .insert("map.total".to_string(), total.to_string());
+    context
+        .variables
+        .insert("map.successful".to_string(), successful.to_string());
+    context
+        .variables
+        .insert("map.failed".to_string(), failed.to_string());
 
     // Calculate success rate
     let success_rate = if total > 0 {
@@ -126,7 +135,9 @@ fn add_aggregate_statistics(context: &mut AgentContext, results: &[AgentResult])
     } else {
         0
     };
-    context.variables.insert("map.success_rate".to_string(), success_rate.to_string());
+    context
+        .variables
+        .insert("map.success_rate".to_string(), success_rate.to_string());
 }
 
 /// Add individual result variables to context
@@ -143,23 +154,20 @@ fn add_individual_results(context: &mut AgentContext, results: &[AgentResult]) {
         // Add result output if available
         if let Some(output) = &result.output {
             let truncated = truncate_output(output, 1000);
-            context.variables.insert(
-                format!("{}.output", prefix),
-                truncated,
-            );
+            context
+                .variables
+                .insert(format!("{}.output", prefix), truncated);
         }
 
         // Add agent ID (use item_id as we don't have agent_id field)
-        context.variables.insert(
-            format!("{}.agent_id", prefix),
-            result.item_id.clone(),
-        );
+        context
+            .variables
+            .insert(format!("{}.agent_id", prefix), result.item_id.clone());
 
         // Add item ID
-        context.variables.insert(
-            format!("{}.item_id", prefix),
-            result.item_id.clone(),
-        );
+        context
+            .variables
+            .insert(format!("{}.item_id", prefix), result.item_id.clone());
     }
 }
 
@@ -181,7 +189,9 @@ fn add_serialized_results(context: &mut AgentContext, results: &[AgentResult]) {
 
     // Store as JSON string
     if let Ok(json_str) = serde_json::to_string(&results_json) {
-        context.variables.insert("map.results".to_string(), json_str);
+        context
+            .variables
+            .insert("map.results".to_string(), json_str);
     }
 
     // Store successful outputs as array
@@ -192,7 +202,9 @@ fn add_serialized_results(context: &mut AgentContext, results: &[AgentResult]) {
         .collect();
 
     if let Ok(outputs_json) = serde_json::to_string(&successful_outputs) {
-        context.variables.insert("map.outputs".to_string(), outputs_json);
+        context
+            .variables
+            .insert("map.outputs".to_string(), outputs_json);
     }
 }
 
@@ -233,9 +245,15 @@ mod tests {
         let context = create_reduce_context(&results, &config);
 
         assert_eq!(context.variables.get("map.total"), Some(&"3".to_string()));
-        assert_eq!(context.variables.get("map.successful"), Some(&"2".to_string()));
+        assert_eq!(
+            context.variables.get("map.successful"),
+            Some(&"2".to_string())
+        );
         assert_eq!(context.variables.get("map.failed"), Some(&"1".to_string()));
-        assert_eq!(context.variables.get("map.success_rate"), Some(&"66".to_string()));
+        assert_eq!(
+            context.variables.get("map.success_rate"),
+            Some(&"66".to_string())
+        );
     }
 
     fn create_test_result(agent_id: &str, success: bool) -> AgentResult {
