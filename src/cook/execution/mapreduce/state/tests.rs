@@ -101,7 +101,7 @@ mod state_tests {
         // Create recovery plan
         let recovery_plan = manager.recover_from_checkpoint(job_id, None).await.unwrap();
         assert_eq!(recovery_plan.skip_items.len(), 5);
-        assert!(recovery_plan.pending_items.len() > 0);
+        assert!(!recovery_plan.pending_items.is_empty());
     }
 
     #[tokio::test]

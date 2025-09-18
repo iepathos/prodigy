@@ -7,6 +7,9 @@ use crate::cook::execution::state::{DefaultJobStateManager, JobStateManager, Map
 use std::sync::Arc;
 use tracing::{debug, error, info};
 
+#[cfg(test)]
+use std::collections::HashMap;
+
 /// Default implementation using the existing JobStateManager
 pub struct DefaultStateStore {
     /// Underlying state manager
@@ -139,52 +142,6 @@ fn map_phase_from_state(state: &MapReduceJobState) -> PhaseType {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::cook::execution::mapreduce::MapReduceConfig;
-    use chrono::Utc;
-    use std::collections::HashMap;
-
-    #[tokio::test]
-    async fn test_state_persistence() {
-        let store = InMemoryStateStore::new();
-
-        let state = JobState {
-            id: "test-job-123".to_string(),
-            phase: PhaseType::Setup,
-            checkpoint: None,
-            processed_items: Default::default(),
-            failed_items: Vec::new(),
-            variables: HashMap::new(),
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-            config: MapReduceConfig::default(),
-            agent_results: HashMap::new(),
-            is_complete: false,
-            total_items: 10,
-        };
-
-        // Save state
-        store.save(&state).await.unwrap();
-
-        // Load state
-        let loaded = store.load(&state.id).await.unwrap().unwrap();
-        assert_eq!(loaded.id, state.id);
-        assert_eq!(loaded.phase, state.phase);
-        assert_eq!(loaded.total_items, state.total_items);
-    }
-
-    #[tokio::test]
-    async fn test_list_jobs() {
-        let store = DefaultStateStore::new("test-repo".to_string());
-
-        // List should work even with no jobs
-        let jobs = store.list().await.unwrap();
-        assert!(jobs.is_empty() || !jobs.is_empty()); // Either case is valid
-    }
-}
-
 /// In-memory state store for testing
 #[cfg(test)]
 pub struct InMemoryStateStore {
@@ -198,6 +155,13 @@ impl InMemoryStateStore {
         Self {
             states: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
         }
+    }
+}
+
+#[cfg(test)]
+impl Default for InMemoryStateStore {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -256,5 +220,51 @@ impl StateStore for InMemoryStateStore {
         states.remove(job_id);
         debug!("Deleted state for job {}", job_id);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cook::execution::mapreduce::MapReduceConfig;
+    use chrono::Utc;
+    use std::collections::HashMap;
+
+    #[tokio::test]
+    async fn test_state_persistence() {
+        let store = InMemoryStateStore::new();
+
+        let state = JobState {
+            id: "test-job-123".to_string(),
+            phase: PhaseType::Setup,
+            checkpoint: None,
+            processed_items: Default::default(),
+            failed_items: Vec::new(),
+            variables: HashMap::new(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            config: MapReduceConfig::default(),
+            agent_results: HashMap::new(),
+            is_complete: false,
+            total_items: 10,
+        };
+
+        // Save state
+        store.save(&state).await.unwrap();
+
+        // Load state
+        let loaded = store.load(&state.id).await.unwrap().unwrap();
+        assert_eq!(loaded.id, state.id);
+        assert_eq!(loaded.phase, state.phase);
+        assert_eq!(loaded.total_items, state.total_items);
+    }
+
+    #[tokio::test]
+    async fn test_list_jobs() {
+        let store = DefaultStateStore::new("test-repo".to_string());
+
+        // List should work even with no jobs
+        let jobs = store.list().await.unwrap();
+        assert!(jobs.is_empty() || !jobs.is_empty()); // Either case is valid
     }
 }
