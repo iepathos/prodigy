@@ -425,6 +425,8 @@ prodigy run workflow.yml --max-parallel 20
 prodigy run workflow.yml -v
 ```
 
+Note: The `-v` flag also enables Claude streaming JSON output for debugging Claude interactions.
+
 3. Review analytics for optimization opportunities:
 ```bash
 prodigy analytics --session <session-id>
@@ -515,6 +517,39 @@ prodigy run workflow.yml -vv
 # View detailed events
 prodigy events --job-id <job-id> --verbose
 ```
+</details>
+
+<details>
+<summary><strong>Verbosity: Controlling Claude streaming output</strong></summary>
+
+Prodigy provides fine-grained control over Claude interaction visibility:
+
+**Default behavior (no flags):**
+```bash
+prodigy run workflow.yml
+# Shows progress and results, but no Claude JSON streaming output
+```
+
+**Verbose mode (-v):**
+```bash
+prodigy run workflow.yml -v
+# Shows Claude streaming JSON output for debugging interactions
+```
+
+**Debug mode (-vv) and trace mode (-vvv):**
+```bash
+prodigy run workflow.yml -vv
+prodigy run workflow.yml -vvv
+# Also shows Claude streaming output plus additional internal logs
+```
+
+**Force Claude output (environment override):**
+```bash
+PRODIGY_CLAUDE_CONSOLE_OUTPUT=true prodigy run workflow.yml
+# Shows Claude streaming output regardless of verbosity level
+```
+
+This allows you to keep normal runs clean while enabling detailed debugging when needed.
 </details>
 
 ### Getting Help

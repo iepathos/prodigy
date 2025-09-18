@@ -103,6 +103,7 @@ Tracks the current cooking session:
 
 When executing Claude commands, Prodigy sets these environment variables:
 - `PRODIGY_AUTOMATION="true"` - Signals automated execution mode
+- `PRODIGY_CLAUDE_STREAMING="true"` - Enables streaming mode for Claude commands (when verbosity >= 1)
 - `PRODIGY_USE_LOCAL_STORAGE="true"` - Force local storage instead of global (optional)
 - `PRODIGY_REMOVE_LOCAL_AFTER_MIGRATION="true"` - Remove local storage after migration (optional)
 
@@ -189,6 +190,26 @@ Commands can specify error handling behavior:
 - `on_failure:` - Commands to run on failure
 - `commit_required:` - Whether a git commit is expected
 
+### Claude Streaming Output Control
+
+Prodigy provides fine-grained control over Claude interaction visibility through verbosity levels:
+
+**Default mode (verbosity = 0):**
+- Clean, minimal output showing only progress and results
+- No Claude JSON streaming output displayed
+- Optimal for production workflows and CI/CD
+
+**Verbose mode (verbosity >= 1, `-v` flag):**
+- Shows Claude streaming JSON output in real-time
+- Enables debugging of Claude interactions
+- Useful for development and troubleshooting
+
+**Environment Override:**
+- Set `PRODIGY_CLAUDE_CONSOLE_OUTPUT=true` to force streaming output regardless of verbosity
+- Useful for debugging specific runs without changing command flags
+
+This design ensures clean output by default while preserving debugging capabilities when needed.
+
 ## Git Integration
 
 ### Worktree Management
@@ -223,7 +244,10 @@ Prodigy CLI commands:
 2. **Error Recovery**: Check DLQ for failed items after MapReduce jobs
 3. **Workflow Design**: Keep workflows simple and focused
 4. **Testing**: Always include test steps in workflows
-5. **Monitoring**: Use `--verbose` flag for detailed execution logs
+5. **Monitoring**: Use verbosity flags for appropriate detail level:
+   - Default: Clean output for production use
+   - `-v`: Claude streaming output for debugging interactions
+   - `-vv`/`-vvv`: Additional internal logs and tracing
 
 ## Limitations
 
@@ -238,7 +262,10 @@ Prodigy CLI commands:
 ### Session Issues
 - Check `.prodigy/session_state.json` for session status
 - View events in `.prodigy/events/` for detailed logs
-- Use `--verbose` flag for more output
+- Use verbosity flags for debugging:
+  - `-v`: Shows Claude streaming output
+  - `-vv`: Adds debug logs
+  - `-vvv`: Adds trace-level logs
 
 ### MapReduce Failures
 - Check `.prodigy/dlq/` for failed items
