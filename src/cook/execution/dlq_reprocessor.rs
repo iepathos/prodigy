@@ -10,6 +10,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 
@@ -126,11 +127,55 @@ impl FilterEvaluator {
         Self { expression }
     }
 
+    /// Evaluate string expressions including 'contains' operator
+    fn evaluate_string_expression(
+        &self,
+        field_value: &str,
+        operator: &str,
+        expected_value: &str,
+    ) -> bool {
+        match operator {
+            "==" => field_value == expected_value,
+            "!=" => field_value != expected_value,
+            "contains" => field_value.contains(expected_value),
+            ">" => field_value > expected_value,
+            ">=" => field_value >= expected_value,
+            "<" => field_value < expected_value,
+            "<=" => field_value <= expected_value,
+            _ => {
+                warn!("Unknown operator: {}", operator);
+                true
+            }
+        }
+    }
+
     /// Check if an item matches the filter expression
     pub fn matches(&self, item: &DeadLetteredItem) -> bool {
         // Parse simple expressions like "item.field == 'value'" or "item.score >= 5"
         if self.expression.is_empty() {
             return true;
+        }
+
+        // Handle compound expressions with && and ||
+        if self.expression.contains("&&") {
+            let parts: Vec<bool> = self
+                .expression
+                .split("&&")
+                .map(|expr| {
+                    let evaluator = FilterEvaluator::new(expr.trim().to_string());
+                    let result = evaluator.matches(item);
+                    debug!("Evaluating sub-expression '{}' = {}", expr.trim(), result);
+                    result
+                })
+                .collect();
+            return parts.iter().all(|&x| x);
+        }
+
+        if self.expression.contains("||") {
+            return self.expression.split("||").any(|expr| {
+                let evaluator = FilterEvaluator::new(expr.trim().to_string());
+                evaluator.matches(item)
+            });
         }
 
         // Simple expression parser for common cases
@@ -166,27 +211,43 @@ impl FilterEvaluator {
                     "<=" => count <= value.parse().unwrap_or(u32::MAX),
                     _ => true,
                 };
+            } else if field_name == "error_signature" {
+                // Handle error_signature field
+                return self.evaluate_string_expression(&item.error_signature, operator, &value);
             } else {
-                // Try to extract from item_data JSON
-                if let Some(obj) = item.item_data.as_object() {
-                    if let Some(val) = obj.get(field_name) {
-                        // Handle different JSON value types
-                        if let Some(s) = val.as_str() {
-                            Some(s.to_string())
-                        } else if let Some(n) = val.as_i64() {
-                            Some(n.to_string())
-                        } else if let Some(n) = val.as_u64() {
-                            Some(n.to_string())
-                        } else if let Some(b) = val.as_bool() {
-                            Some(b.to_string())
+                // Try to extract from item_data JSON, handling nested paths like "metadata.region"
+                let field_parts: Vec<&str> = field_name.split('.').collect();
+                let mut current = &item.item_data;
+                let mut found = false;
+
+                for part in &field_parts {
+                    if let Some(obj) = current.as_object() {
+                        if let Some(val) = obj.get(*part) {
+                            current = val;
+                            found = true;
                         } else {
-                            val.as_f64().map(|f| f.to_string())
+                            found = false;
+                            break;
                         }
                     } else {
-                        None
+                        found = false;
+                        break;
                     }
-                } else {
+                }
+
+                // Convert final value to string if we successfully navigated to it
+                if !found || field_parts.is_empty() {
                     None
+                } else if let Some(s) = current.as_str() {
+                    Some(s.to_string())
+                } else if let Some(n) = current.as_i64() {
+                    Some(n.to_string())
+                } else if let Some(n) = current.as_u64() {
+                    Some(n.to_string())
+                } else if let Some(b) = current.as_bool() {
+                    Some(b.to_string())
+                } else {
+                    current.as_f64().map(|f| f.to_string())
                 }
             }
         } else {
@@ -268,7 +329,12 @@ impl DlqReprocessor {
         let start_time = std::time::Instant::now();
 
         // 1. Load and filter DLQ items
-        let items = self.load_filtered_items(&options.filter).await?;
+        let mut items = self.load_filtered_items(&options.filter).await?;
+
+        // Apply eligibility filter unless forced
+        if !options.force {
+            items.retain(|item| item.reprocess_eligible);
+        }
 
         // 2. Create reprocessing workflow
         let workflow = self.generate_retry_workflow(&items, &options)?;
@@ -394,64 +460,145 @@ impl DlqReprocessor {
         items: &[Value],
         job_id: &str,
         options: &ReprocessOptions,
-        _executor: Arc<MapReduceExecutor>,
+        executor: Arc<MapReduceExecutor>,
     ) -> Result<Vec<Result<Value>>> {
-        let mut results = Vec::new();
+        use futures::stream::{self, StreamExt};
+        use tokio::sync::Semaphore;
 
-        // Process items in batches based on parallelism
-        let batch_size = options.parallel;
-        for chunk in items.chunks(batch_size) {
-            let mut batch_results = Vec::new();
+        let semaphore = Arc::new(Semaphore::new(options.parallel));
+        let executor = Arc::clone(&executor);
 
-            for item in chunk {
-                let mut attempts = 0;
-                loop {
-                    attempts += 1;
+        // Process items concurrently with controlled parallelism
+        let results = stream::iter(items.iter().enumerate())
+            .map(|(index, item)| {
+                let semaphore = Arc::clone(&semaphore);
+                let executor = Arc::clone(&executor);
+                let item = item.clone();
+                let job_id = job_id.to_string();
+                let strategy = options.strategy.clone();
+                let max_retries = options.max_retries;
+                let dlq_reprocessor = self.clone_for_async();
 
-                    // Apply retry strategy delay
-                    if attempts > 1 {
-                        self.apply_retry_delay(&options.strategy, attempts).await;
-                    }
+                async move {
+                    let _permit = semaphore.acquire().await.unwrap();
 
-                    // Attempt to process the item
-                    match self.process_single_item(item, job_id).await {
-                        Ok(result) => {
-                            batch_results.push(Ok(result));
-                            break;
+                    let mut attempts = 0;
+                    loop {
+                        attempts += 1;
+
+                        // Apply retry strategy delay
+                        if attempts > 1 {
+                            dlq_reprocessor.apply_retry_delay(&strategy, attempts).await;
                         }
-                        Err(e) if attempts < options.max_retries => {
-                            warn!("Attempt {} failed for item: {}", attempts, e);
-                            continue;
-                        }
-                        Err(e) => {
-                            error!("Item failed after {} attempts: {}", attempts, e);
-                            batch_results.push(Err(e));
-                            break;
+
+                        // Attempt to process the item
+                        match dlq_reprocessor
+                            .process_single_item(&item, &job_id, executor.clone())
+                            .await
+                        {
+                            Ok(result) => {
+                                info!(
+                                    "Successfully reprocessed item {} after {} attempts",
+                                    index, attempts
+                                );
+                                break Ok(result);
+                            }
+                            Err(e) if attempts < max_retries => {
+                                warn!("Attempt {} failed for item {}: {}", attempts, index, e);
+                                continue;
+                            }
+                            Err(e) => {
+                                error!("Item {} failed after {} attempts: {}", index, attempts, e);
+                                break Err(e);
+                            }
                         }
                     }
                 }
-            }
-
-            results.extend(batch_results);
-        }
+            })
+            .buffer_unordered(options.parallel)
+            .collect::<Vec<_>>()
+            .await;
 
         Ok(results)
     }
 
     /// Process a single item
-    async fn process_single_item(&self, item: &Value, job_id: &str) -> Result<Value> {
-        // This would typically call the MapReduceExecutor to process the item
-        // For now, we'll return a placeholder success
+    async fn process_single_item(
+        &self,
+        item: &Value,
+        job_id: &str,
+        executor: Arc<MapReduceExecutor>,
+    ) -> Result<Value> {
         debug!("Processing item for job {}: {:?}", job_id, item);
 
-        // In a real implementation, this would execute the workflow steps
-        // For now, we'll simulate processing
-        Ok(serde_json::json!({
-            "status": "reprocessed",
-            "original": item,
-            "job_id": job_id,
-            "timestamp": Utc::now().to_rfc3339()
-        }))
+        // Extract workflow-related information if present
+        let has_workflow_context = if let Some(obj) = item.as_object() {
+            obj.contains_key("_workflow_template") || obj.contains_key("_agent_template")
+        } else {
+            false
+        };
+
+        // Log that we have the executor available for future enhancement
+        if has_workflow_context {
+            debug!(
+                "Item has workflow context, executor available for job {}",
+                job_id
+            );
+            // Note: The executor is passed in preparation for future integration
+            // where we can properly execute workflow templates through the MapReduceExecutor.
+            // Currently, we use direct command execution as a fallback.
+            let _ = executor; // Acknowledge the parameter is intentionally reserved for future use
+        }
+
+        // Process the item using direct command execution
+        let command = if let Some(obj) = item.as_object() {
+            obj.get("_original_command")
+                .and_then(|c| c.as_str())
+                .unwrap_or("echo")
+                .to_string()
+        } else {
+            "echo".to_string()
+        };
+
+        let args = if let Some(obj) = item.as_object() {
+            obj.get("_original_args")
+                .and_then(|a| a.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
+                .unwrap_or_else(|| vec!["Reprocessing item".to_string()])
+        } else {
+            vec!["Reprocessing item".to_string()]
+        };
+
+        // Execute the command directly using subprocess
+        use crate::subprocess::{ProcessCommandBuilder, SubprocessManager};
+
+        let subprocess = SubprocessManager::production();
+        let mut process_command = ProcessCommandBuilder::new(&command);
+        process_command = process_command.args(&args);
+        let process_command = process_command.build();
+
+        let start_time = Instant::now();
+        match subprocess.runner().run(process_command).await {
+            Ok(output) => {
+                let duration = start_time.elapsed();
+                Ok(serde_json::json!({
+                    "status": "reprocessed",
+                    "success": output.status.success(),
+                    "stdout": output.stdout,
+                    "stderr": output.stderr,
+                    "exit_code": output.status.code().unwrap_or(-1),
+                    "duration_ms": duration.as_millis(),
+                    "job_id": job_id,
+                    "item": item,
+                    "timestamp": Utc::now().to_rfc3339()
+                }))
+            }
+            Err(e) => Err(anyhow::anyhow!("Failed to process item: {}", e)),
+        }
     }
 
     /// Apply retry delay based on strategy
@@ -535,23 +682,71 @@ impl DlqReprocessor {
         locks.remove(workflow_id);
     }
 
+    /// Clone for async operations (needed for stream processing)
+    fn clone_for_async(&self) -> Self {
+        Self {
+            dlq: Arc::clone(&self.dlq),
+            event_logger: self.event_logger.as_ref().map(Arc::clone),
+            project_root: self.project_root.clone(),
+            reprocessing_locks: Arc::clone(&self.reprocessing_locks),
+        }
+    }
+
     /// Get statistics across all DLQs
-    pub async fn get_global_stats(
-        &self,
-        _project_root: &std::path::Path,
-    ) -> Result<GlobalDLQStats> {
-        // In a real implementation, this would scan all DLQs
-        // For now, return stats for the current DLQ
-        let stats = self.dlq.get_stats().await?;
+    pub async fn get_global_stats(&self, project_root: &std::path::Path) -> Result<GlobalDLQStats> {
+        use crate::storage::discover_dlq_job_ids;
+
+        // Discover all job IDs with DLQ data
+        let job_ids = discover_dlq_job_ids(project_root).await?;
+
+        let mut all_workflows = Vec::new();
+        let mut total_items = 0;
+        let mut total_eligible = 0;
+        let mut total_review = 0;
+        let mut oldest_overall: Option<DateTime<Utc>> = None;
+        let mut newest_overall: Option<DateTime<Utc>> = None;
+
+        // Collect stats from all DLQs
+        for job_id in &job_ids {
+            // Try to load DLQ for this job
+            let dlq_result =
+                super::dlq::DeadLetterQueue::load(job_id.clone(), project_root.to_path_buf()).await;
+
+            if let Ok(dlq) = dlq_result {
+                let stats = dlq.get_stats().await?;
+
+                // Update totals
+                total_items += stats.total_items;
+                total_eligible += stats.eligible_for_reprocess;
+                total_review += stats.requiring_manual_review;
+
+                // Update oldest/newest
+                if let Some(oldest) = stats.oldest_item {
+                    oldest_overall = Some(match oldest_overall {
+                        Some(current) if current < oldest => current,
+                        _ => oldest,
+                    });
+                }
+
+                if let Some(newest) = stats.newest_item {
+                    newest_overall = Some(match newest_overall {
+                        Some(current) if current > newest => current,
+                        _ => newest,
+                    });
+                }
+
+                all_workflows.push((job_id.clone(), stats));
+            }
+        }
 
         Ok(GlobalDLQStats {
-            total_workflows: 1,
-            total_items: stats.total_items,
-            eligible_for_reprocess: stats.eligible_for_reprocess,
-            requiring_manual_review: stats.requiring_manual_review,
-            oldest_item: stats.oldest_item,
-            newest_item: stats.newest_item,
-            workflows: vec![(self.dlq.job_id.clone(), stats)],
+            total_workflows: all_workflows.len(),
+            total_items,
+            eligible_for_reprocess: total_eligible,
+            requiring_manual_review: total_review,
+            oldest_item: oldest_overall,
+            newest_item: newest_overall,
+            workflows: all_workflows,
         })
     }
 
@@ -689,106 +884,130 @@ impl DlqReprocessor {
     /// Execute parallel retry with progress tracking
     async fn execute_parallel_retry(
         &self,
-        _workflow: MapReduceConfig,
+        workflow: MapReduceConfig,
         progress: &ProgressBar,
         options: &ReprocessOptions,
     ) -> Result<Vec<ProcessingResult>> {
+        use futures::stream::{self, StreamExt};
+
+        // Read work items from the input file
+        let work_items_json = std::fs::read_to_string(&workflow.input)?;
+        let work_items: Vec<Value> = serde_json::from_str(&work_items_json)?;
+
         let semaphore = Arc::new(Semaphore::new(options.parallel));
-        let mut handles = Vec::new();
-        let results = Arc::new(RwLock::new(Vec::new()));
 
         // Process each work item with controlled parallelism
-        // In a real implementation, we would read the actual file
-        // For now, simulating with a few items
-        let items_count = 2; // Placeholder
-        for index in 0..items_count {
-            let sem = semaphore.clone();
-            let results = results.clone();
-            let progress = progress.clone();
-            let strategy = options.strategy.clone();
-            let max_retries = options.max_retries;
+        let results = stream::iter(work_items.into_iter().enumerate())
+            .map(|(index, item)| {
+                let semaphore = Arc::clone(&semaphore);
+                let progress = progress.clone();
+                let strategy = options.strategy.clone();
+                let max_retries = options.max_retries;
+                let dlq_reprocessor = self.clone_for_async();
+                let job_id = format!("reprocess_{}", Utc::now().timestamp());
 
-            let handle = tokio::spawn(async move {
-                let _permit = sem.acquire().await.unwrap();
+                async move {
+                    let _permit = semaphore.acquire().await.unwrap();
 
-                // Process with retry logic
-                let mut attempts = 0;
-                let result = loop {
-                    attempts += 1;
+                    // Get item ID from the work item or generate one
+                    let item_id = item
+                        .get("_dlq_item_id")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or(&format!("item_{}", index))
+                        .to_string();
 
-                    // Apply retry delay if not first attempt
-                    if attempts > 1 {
-                        Self::apply_retry_delay_static(&strategy, attempts).await;
+                    // Process with retry logic
+                    let mut attempts = 0;
+                    loop {
+                        attempts += 1;
+
+                        // Apply retry delay if not first attempt
+                        if attempts > 1 {
+                            dlq_reprocessor.apply_retry_delay(&strategy, attempts).await;
+                        }
+
+                        // Process the actual item using subprocess
+                        match dlq_reprocessor
+                            .process_single_item_static(&item, &job_id)
+                            .await
+                        {
+                            Ok(_res) => {
+                                progress.inc(1);
+                                break ProcessingResult::Success { item_id, attempts };
+                            }
+                            Err(_e) if attempts < max_retries => {
+                                continue;
+                            }
+                            Err(e) => {
+                                progress.inc(1);
+                                break ProcessingResult::Failed {
+                                    item_id,
+                                    error: e.to_string(),
+                                    attempts,
+                                };
+                            }
+                        }
                     }
+                }
+            })
+            .buffer_unordered(options.parallel)
+            .collect::<Vec<_>>()
+            .await;
 
-                    // Simulate processing (in real implementation, this would call MapReduceExecutor)
-                    match Self::process_item_static(&format!("item_{}", index), attempts).await {
-                        Ok(_res) => {
-                            progress.inc(1);
-                            break ProcessingResult::Success {
-                                item_id: format!("item_{}", index),
-                                attempts,
-                            };
-                        }
-                        Err(_e) if attempts < max_retries => {
-                            continue;
-                        }
-                        Err(e) => {
-                            progress.inc(1);
-                            break ProcessingResult::Failed {
-                                item_id: format!("item_{}", index),
-                                error: e.to_string(),
-                                attempts,
-                            };
-                        }
-                    }
-                };
-
-                let mut res = results.write().await;
-                res.push(result);
-            });
-
-            handles.push(handle);
-        }
-
-        // Wait for all tasks to complete
-        for handle in handles {
-            handle.await?;
-        }
+        // Clean up temp file
+        let _ = std::fs::remove_file(&workflow.input);
 
         progress.finish_with_message("Reprocessing completed");
-
-        let results = results.read().await;
-        Ok(results.clone())
+        Ok(results)
     }
 
-    /// Static version of apply_retry_delay for use in async closures
-    async fn apply_retry_delay_static(strategy: &RetryStrategy, attempt: u32) {
-        match strategy {
-            RetryStrategy::Immediate => {}
-            RetryStrategy::FixedDelay { delay_ms } => {
-                tokio::time::sleep(tokio::time::Duration::from_millis(*delay_ms)).await;
-            }
-            RetryStrategy::ExponentialBackoff => {
-                let delay_ms = 1000 * (2_u64).pow(attempt.min(10) - 1);
-                tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
-            }
-        }
-    }
+    /// Process a single item (static version for async closures)
+    async fn process_single_item_static(&self, item: &Value, job_id: &str) -> Result<Value> {
+        use crate::subprocess::{ProcessCommandBuilder, SubprocessManager};
 
-    /// Static version of process_item for use in async closures
-    async fn process_item_static(item: &str, attempt: u32) -> Result<Value> {
-        // Simulate processing with occasional failures for testing
-        // Use a simple deterministic approach for now
-        if attempt == 1 && item.contains("1") {
-            anyhow::bail!("Simulated processing failure");
-        }
+        debug!("Processing item for job {}: {:?}", job_id, item);
 
-        Ok(json!({
-            "status": "processed",
-            "attempt": attempt,
-            "timestamp": Utc::now().to_rfc3339()
-        }))
+        // Extract command from the work item
+        let command = item
+            .get("command")
+            .and_then(|c| c.as_str())
+            .unwrap_or("echo")
+            .to_string();
+
+        let args = item
+            .get("args")
+            .and_then(|a| a.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_else(|| vec!["Processing DLQ item".to_string()]);
+
+        // Execute the command
+        let subprocess = SubprocessManager::production();
+        let mut process_command = ProcessCommandBuilder::new(&command);
+        process_command = process_command.args(&args);
+        let process_command = process_command.build();
+
+        let start_time = Instant::now();
+        match subprocess.runner().run(process_command).await {
+            Ok(output) => {
+                if output.status.success() {
+                    Ok(json!({
+                        "status": "processed",
+                        "duration_ms": start_time.elapsed().as_millis(),
+                        "timestamp": Utc::now().to_rfc3339()
+                    }))
+                } else {
+                    anyhow::bail!(
+                        "Command failed with exit code: {}",
+                        output.status.code().unwrap_or(-1)
+                    )
+                }
+            }
+            Err(e) => Err(e.into()),
+        }
     }
 
     /// Update DLQ state based on processing results
