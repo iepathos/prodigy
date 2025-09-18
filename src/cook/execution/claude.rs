@@ -337,7 +337,10 @@ mod tests {
             .get("PRODIGY_CLAUDE_CONSOLE_OUTPUT")
             .map(|v| v == "true")
             .unwrap_or_else(|| executor_quiet.verbosity >= 1);
-        assert!(!print_to_console_quiet, "Verbosity 0 should not print to console");
+        assert!(
+            !print_to_console_quiet,
+            "Verbosity 0 should not print to console"
+        );
 
         // Test with verbosity 1 (-v) - should print to console
         let runner2 = MockCommandRunner::new();
@@ -346,16 +349,25 @@ mod tests {
             .get("PRODIGY_CLAUDE_CONSOLE_OUTPUT")
             .map(|v| v == "true")
             .unwrap_or_else(|| executor_verbose.verbosity >= 1);
-        assert!(print_to_console_verbose, "Verbosity 1 should print to console");
+        assert!(
+            print_to_console_verbose,
+            "Verbosity 1 should print to console"
+        );
 
         // Test override with environment variable
         let mut env_vars_override = HashMap::new();
-        env_vars_override.insert("PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(), "true".to_string());
+        env_vars_override.insert(
+            "PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(),
+            "true".to_string(),
+        );
         let print_to_console_override = env_vars_override
             .get("PRODIGY_CLAUDE_CONSOLE_OUTPUT")
             .map(|v| v == "true")
             .unwrap_or_else(|| 0_u8 >= 1); // Use literal 0 instead of executor_quiet
-        assert!(print_to_console_override, "Environment variable should override verbosity");
+        assert!(
+            print_to_console_override,
+            "Environment variable should override verbosity"
+        );
     }
 
     #[tokio::test]
