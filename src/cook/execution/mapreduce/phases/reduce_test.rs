@@ -20,12 +20,10 @@ fn create_test_environment() -> ExecutionEnvironment {
 
 fn create_test_reduce_phase() -> ReducePhase {
     ReducePhase {
-        commands: vec![
-            WorkflowStep {
-                shell: Some("echo 'Processing results'".to_string()),
-                ..Default::default()
-            },
-        ],
+        commands: vec![WorkflowStep {
+            shell: Some("echo 'Processing results'".to_string()),
+            ..Default::default()
+        }],
     }
 }
 

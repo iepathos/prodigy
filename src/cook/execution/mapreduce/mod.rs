@@ -39,7 +39,6 @@ pub use agent::{AgentResult, AgentStatus};
 
 // Import utility functions from utils module
 use utils::{
-    build_agent_context_variables, build_map_results_interpolation_context,
     calculate_map_result_summary, generate_agent_branch_name, generate_agent_id, truncate_command,
 };
 
@@ -3299,25 +3298,6 @@ impl MapReduceExecutor {
         Ok(())
     }
 
-    /// Get display name for a step
-    fn get_step_display_name(&self, step: &WorkflowStep) -> String {
-        if let Some(claude_cmd) = &step.claude {
-            format!("claude: {claude_cmd}")
-        } else if let Some(shell_cmd) = &step.shell {
-            format!("shell: {shell_cmd}")
-        } else if let Some(test_cmd) = &step.test {
-            format!("test: {}", test_cmd.command)
-        } else if let Some(handler_step) = &step.handler {
-            format!("handler: {}", handler_step.name)
-        } else if let Some(name) = &step.name {
-            name.clone()
-        } else if let Some(command) = &step.command {
-            command.clone()
-        } else {
-            "unnamed step".to_string()
-        }
-    }
-
     /// Execute the reduce phase
     async fn execute_reduce_phase(
         &self,
@@ -3457,66 +3437,6 @@ impl MapReduceExecutor {
         } else {
             format!("/{name}")
         }
-    }
-
-    /// Find variables referenced in a command that are not available in the context
-    fn find_missing_variables(
-        &self,
-        command: &str,
-        available_vars: &HashMap<String, String>,
-    ) -> Vec<String> {
-        use std::collections::HashSet;
-
-        let mut missing = Vec::new();
-        let mut found_vars = HashSet::new();
-
-        // Simple regex-like pattern matching for ${variable} and $variable patterns
-        // This is a basic implementation - for production use, consider using a proper regex library
-        let chars: Vec<char> = command.chars().collect();
-        let mut i = 0;
-
-        while i < chars.len() {
-            if chars[i] == '$' {
-                if i + 1 < chars.len() && chars[i + 1] == '{' {
-                    // Handle ${variable} pattern
-                    i += 2; // Skip ${
-                    let start = i;
-                    while i < chars.len() && chars[i] != '}' {
-                        i += 1;
-                    }
-                    if i < chars.len() && start < i {
-                        let var_name: String = chars[start..i].iter().collect();
-                        found_vars.insert(var_name);
-                    }
-                } else if i + 1 < chars.len()
-                    && (chars[i + 1].is_alphabetic() || chars[i + 1] == '_')
-                {
-                    // Handle $variable pattern
-                    i += 1;
-                    let start = i;
-                    while i < chars.len()
-                        && (chars[i].is_alphanumeric() || chars[i] == '_' || chars[i] == '.')
-                    {
-                        i += 1;
-                    }
-                    if start < i {
-                        let var_name: String = chars[start..i].iter().collect();
-                        found_vars.insert(var_name);
-                    }
-                    continue; // Don't increment i again
-                }
-            }
-            i += 1;
-        }
-
-        // Check which variables are referenced but not available
-        for var in found_vars {
-            if !available_vars.contains_key(&var) {
-                missing.push(var);
-            }
-        }
-
-        missing
     }
 
     /// Handle on_failure logic for a failed step
@@ -3716,89 +3636,6 @@ impl MapReduceExecutor {
         } else {
             format!("{}...", &s[..max_len - 3])
         }
-    }
-
-    /// Validate that all required variables are available for reduce commands
-    fn validate_reduce_variables(
-        &self,
-        commands: &[WorkflowStep],
-        context: &AgentContext,
-    ) -> MapReduceResult<()> {
-        let mut all_missing_vars = Vec::new();
-
-        for (step_index, step) in commands.iter().enumerate() {
-            let step_name = step.name.as_deref().unwrap_or("unnamed");
-
-            // Check shell commands for variable references
-            if let Some(shell_cmd) = &step.shell {
-                let missing_vars = self.find_missing_variables(shell_cmd, &context.variables);
-                if !missing_vars.is_empty() {
-                    warn!(
-                        "Reduce step {} ('{}') references missing variables: {:?}\n  Command: {}",
-                        step_index + 1,
-                        step_name,
-                        missing_vars,
-                        shell_cmd
-                    );
-                    all_missing_vars.extend(missing_vars);
-                }
-            }
-
-            // Check Claude commands for variable references (these get interpolated)
-            if let Some(claude_cmd) = &step.claude {
-                let missing_vars = self.find_missing_variables(claude_cmd, &context.variables);
-                if !missing_vars.is_empty() {
-                    warn!(
-                        "Reduce step {} ('{}') references missing variables: {:?}\n  Command: {}",
-                        step_index + 1,
-                        step_name,
-                        missing_vars,
-                        claude_cmd
-                    );
-                    all_missing_vars.extend(missing_vars);
-                }
-            }
-
-            // Check legacy commands
-            if let Some(command) = &step.command {
-                let missing_vars = self.find_missing_variables(command, &context.variables);
-                if !missing_vars.is_empty() {
-                    warn!(
-                        "Reduce step {} ('{}') references missing variables: {:?}\n  Command: {}",
-                        step_index + 1,
-                        step_name,
-                        missing_vars,
-                        command
-                    );
-                    all_missing_vars.extend(missing_vars);
-                }
-            }
-        }
-
-        // Log available variables for debugging
-        debug!(
-            "Available variables for reduce phase: {:?}",
-            context.variables.keys().collect::<Vec<_>>()
-        );
-
-        // For now, just warn about missing variables rather than failing
-        // This allows workflows to continue even if some variables might be missing
-        // In the future, we could make this configurable via workflow settings
-        if !all_missing_vars.is_empty() {
-            // Remove duplicates
-            all_missing_vars.sort();
-            all_missing_vars.dedup();
-
-            warn!(
-                "⚠️  Reduce phase validation found potentially missing variables: {:?}\n  \
-                Available variables: {:?}\n  \
-                Commands will still execute but may fail at runtime.",
-                all_missing_vars,
-                context.variables.keys().collect::<Vec<_>>()
-            );
-        }
-
-        Ok(())
     }
 }
 

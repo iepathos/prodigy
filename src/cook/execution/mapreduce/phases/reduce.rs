@@ -238,7 +238,7 @@ impl ReducePhaseExecutor {
             // Execute shell command
             use crate::subprocess::ProcessCommandBuilder;
             let command = ProcessCommandBuilder::new("sh")
-                .args(&["-c", cmd])
+                .args(["-c", cmd])
                 .current_dir(&context.environment.working_dir)
                 .build();
 
@@ -258,8 +258,8 @@ impl ReducePhaseExecutor {
                     Some(result.stderr)
                 } else {
                     None
-                    },
-                })
+                },
+            })
         } else {
             // Handle other command types
             Ok(StepResult {

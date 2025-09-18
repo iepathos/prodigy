@@ -72,7 +72,7 @@ impl SetupPhaseExecutor {
             // Execute shell command using subprocess manager
             use crate::subprocess::ProcessCommandBuilder;
             let command = ProcessCommandBuilder::new("sh")
-                .args(&["-c", cmd])
+                .args(["-c", cmd])
                 .current_dir(&context.environment.working_dir)
                 .build();
 
@@ -89,12 +89,13 @@ impl SetupPhaseExecutor {
                 return Err(PhaseError::ExecutionFailed {
                     message: format!(
                         "Command exited with code {:?}: {}",
-                        result.status.code(), result.stderr
-                        ),
-                    });
-                }
+                        result.status.code(),
+                        result.stderr
+                    ),
+                });
+            }
 
-                Ok(result.stdout)
+            Ok(result.stdout)
         } else {
             Err(PhaseError::ExecutionFailed {
                 message: "Only shell commands are supported in setup phase".to_string(),

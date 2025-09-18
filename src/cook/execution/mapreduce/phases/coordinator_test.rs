@@ -4,8 +4,8 @@ use super::*;
 use crate::cook::execution::mapreduce::{MapPhase, MapReduceConfig, ReducePhase, SetupPhase};
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::workflow::WorkflowStep;
-use std::collections::HashMap;
 use crate::subprocess::SubprocessManager;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -20,12 +20,10 @@ fn create_test_environment() -> ExecutionEnvironment {
 
 fn create_test_setup_phase() -> SetupPhase {
     SetupPhase {
-        commands: vec![
-            WorkflowStep {
-                shell: Some("echo 'Setup'".to_string()),
-                ..Default::default()
-            },
-        ],
+        commands: vec![WorkflowStep {
+            shell: Some("echo 'Setup'".to_string()),
+            ..Default::default()
+        }],
         timeout: 60,
         capture_outputs: HashMap::new(),
     }
@@ -51,12 +49,10 @@ fn create_test_map_phase() -> MapPhase {
 
 fn create_test_reduce_phase() -> ReducePhase {
     ReducePhase {
-        commands: vec![
-            WorkflowStep {
-                shell: Some("echo 'Reduce'".to_string()),
-                ..Default::default()
-            },
-        ],
+        commands: vec![WorkflowStep {
+            shell: Some("echo 'Reduce'".to_string()),
+            ..Default::default()
+        }],
     }
 }
 
@@ -82,12 +78,8 @@ fn test_phase_coordinator_creation() {
 fn test_phase_coordinator_creation_without_optional_phases() {
     let map = create_test_map_phase();
 
-    let _coordinator = PhaseCoordinator::new(
-        None,
-        map,
-        None,
-        Arc::new(SubprocessManager::production()),
-    );
+    let _coordinator =
+        PhaseCoordinator::new(None, map, None, Arc::new(SubprocessManager::production()));
 
     // Coordinator should be created successfully without optional phases
     // Note: Private fields cannot be directly accessed in tests
@@ -113,13 +105,9 @@ fn test_phase_coordinator_with_custom_transition_handler() {
     }
 
     let map = create_test_map_phase();
-    let _coordinator = PhaseCoordinator::new(
-        None,
-        map,
-        None,
-        Arc::new(SubprocessManager::production()),
-    )
-    .with_transition_handler(Box::new(TestTransitionHandler));
+    let _coordinator =
+        PhaseCoordinator::new(None, map, None, Arc::new(SubprocessManager::production()))
+            .with_transition_handler(Box::new(TestTransitionHandler));
 
     // Coordinator created with custom handler
     // Note: Private fields cannot be directly accessed in tests

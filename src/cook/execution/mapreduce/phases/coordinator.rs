@@ -153,7 +153,7 @@ impl PhaseCoordinator {
         subprocess_manager: Arc<SubprocessManager>,
     ) -> MapReduceResult<PhaseResult> {
         let mut context = PhaseContext::new(environment, subprocess_manager);
-        let mut workflow_result = None;
+        let mut workflow_result;
 
         // Execute setup phase if present
         if let Some(setup) = &self.setup_executor {

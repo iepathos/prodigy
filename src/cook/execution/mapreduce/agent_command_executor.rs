@@ -5,16 +5,16 @@
 
 use super::{AgentContext, AgentResult, AgentStatus, MapReduceError, MapReduceResult};
 use crate::commands::CommandRegistry;
-use crate::cook::execution::ClaudeExecutor;
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
 use crate::cook::execution::variables::VariableContext;
+use crate::cook::execution::ClaudeExecutor;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::SessionManager;
 use crate::cook::workflow::WorkflowStep;
 use crate::subprocess::SubprocessManager;
 use serde_json;
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tracing::{debug, error, info, warn};
 
@@ -34,10 +34,10 @@ pub struct AgentCommandExecutor {
     command_executor: Arc<dyn ClaudeExecutor>,
     /// Subprocess manager
     subprocess_manager: Arc<SubprocessManager>,
-    /// Session manager
-    session_manager: Arc<dyn SessionManager>,
-    /// Command registry
-    command_registry: Arc<CommandRegistry>,
+    /// Session manager (unused for now)
+    _session_manager: Arc<dyn SessionManager>,
+    /// Command registry (unused for now)
+    _command_registry: Arc<CommandRegistry>,
 }
 
 impl AgentCommandExecutor {
@@ -51,8 +51,8 @@ impl AgentCommandExecutor {
         Self {
             command_executor,
             subprocess_manager,
-            session_manager,
-            command_registry,
+            _session_manager: session_manager,
+            _command_registry: command_registry,
         }
     }
 
@@ -92,7 +92,10 @@ impl AgentCommandExecutor {
         };
 
         // Execute commands
-        match self.execute_all_steps(commands, agent_context, env, job_id).await {
+        match self
+            .execute_all_steps(commands, agent_context, env, job_id)
+            .await
+        {
             Ok(step_results) => {
                 // Collect commits and files modified
                 for step_result in step_results {
@@ -144,15 +147,8 @@ impl AgentCommandExecutor {
         env: &ExecutionEnvironment,
         job_id: &str,
     ) -> MapReduceResult<AgentResult> {
-        self.execute_agent_commands_with_retry_info(
-            agent_context,
-            commands,
-            env,
-            job_id,
-            0,
-            0,
-        )
-        .await
+        self.execute_agent_commands_with_retry_info(agent_context, commands, env, job_id, 0, 0)
+            .await
     }
 
     /// Execute all workflow steps
@@ -170,9 +166,9 @@ impl AgentCommandExecutor {
         for (key, value) in &agent_context.variables {
             variable_context.set_global(
                 key.clone(),
-                crate::cook::execution::variables::Variable::Static(
-                    serde_json::Value::String(value.clone())
-                ),
+                crate::cook::execution::variables::Variable::Static(serde_json::Value::String(
+                    value.clone(),
+                )),
             );
         }
 
@@ -203,9 +199,9 @@ impl AgentCommandExecutor {
             if let Some(output) = &step_result.stdout {
                 variable_context.set_global(
                     "output",
-                    crate::cook::execution::variables::Variable::Static(
-                        serde_json::Value::String(output.clone())
-                    ),
+                    crate::cook::execution::variables::Variable::Static(serde_json::Value::String(
+                        output.clone(),
+                    )),
                 );
             }
 
@@ -235,9 +231,11 @@ impl AgentCommandExecutor {
 
         // Execute based on command type
         let result = if interpolated_command.starts_with("claude:") {
-            self.execute_claude_command(&interpolated_command, env).await?
+            self.execute_claude_command(&interpolated_command, env)
+                .await?
         } else if interpolated_command.starts_with("shell:") {
-            self.execute_shell_command(&interpolated_command, env).await?
+            self.execute_shell_command(&interpolated_command, env)
+                .await?
         } else {
             return Err(MapReduceError::General {
                 message: format!("Unknown command type: {}", interpolated_command),
@@ -269,7 +267,11 @@ impl AgentCommandExecutor {
         Ok(StepResult {
             success: result.success,
             stdout: Some(result.stdout),
-            stderr: if result.stderr.is_empty() { None } else { Some(result.stderr) },
+            stderr: if result.stderr.is_empty() {
+                None
+            } else {
+                Some(result.stderr)
+            },
             commits: None,
             files_changed: None,
         })
@@ -286,11 +288,12 @@ impl AgentCommandExecutor {
         // Execute via subprocess manager
         use crate::subprocess::ProcessCommandBuilder;
         let command = ProcessCommandBuilder::new("sh")
-            .args(&["-c", shell_cmd])
+            .args(["-c", shell_cmd])
             .current_dir(&env.working_dir)
             .build();
 
-        let result = self.subprocess_manager
+        let result = self
+            .subprocess_manager
             .runner()
             .run(command)
             .await

@@ -4,8 +4,8 @@ use super::*;
 use crate::cook::execution::mapreduce::SetupPhase;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::workflow::WorkflowStep;
-use std::collections::HashMap;
 use crate::subprocess::SubprocessManager;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 

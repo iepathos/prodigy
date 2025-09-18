@@ -73,7 +73,7 @@ impl MapPhaseExecutor {
         // 4. Collect results
 
         let mut results = Vec::new();
-        for (index, item) in limited_items.iter().enumerate() {
+        for (index, _item) in limited_items.iter().enumerate() {
             debug!("Processing work item {}", index);
 
             // Simulate agent execution
