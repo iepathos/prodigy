@@ -163,43 +163,38 @@ async fn test_dlq_storage(storage: &dyn DLQStorage) -> StorageResult<()> {
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[tokio::test]
+async fn test_memory_backend() -> StorageResult<()> {
+    let config = MemoryConfig {
+        max_memory: 1024 * 1024 * 100, // 100MB
+        persist_to_disk: false,
+        persistence_path: None,
+    };
+    let storage = MemoryBackend::from_memory_config(&config)?;
+    test_backend(&storage).await?;
+    Ok(())
+}
 
-    #[tokio::test]
-    async fn test_memory_backend() -> StorageResult<()> {
-        let config = MemoryConfig {
-            max_memory: 1024 * 1024 * 100, // 100MB
-            persist_to_disk: false,
-            persistence_path: None,
-        };
-        let storage = MemoryBackend::from_memory_config(&config)?;
-        test_backend(&storage).await?;
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_file_backend() -> StorageResult<()> {
-        let temp_dir = TempDir::new()?;
-        let config = StorageConfig {
-            backend: BackendType::File,
-            connection_pool_size: 10,
-            retry_policy: RetryPolicy::default(),
-            timeout: std::time::Duration::from_secs(30),
-            backend_config: BackendConfig::File(FileConfig {
-                base_dir: temp_dir.path().to_path_buf(),
-                use_global: false,
-                enable_file_locks: true,
-                max_file_size: 1024 * 1024 * 10, // 10MB
-                enable_compression: false,
-            }),
-            enable_locking: true,
-            enable_cache: false,
-            cache_config: CacheConfig::default(),
-        };
-        let storage = FileBackend::new(&config).await?;
-        test_backend(&storage).await?;
-        Ok(())
-    }
+#[tokio::test]
+async fn test_file_backend() -> StorageResult<()> {
+    let temp_dir = TempDir::new()?;
+    let config = StorageConfig {
+        backend: BackendType::File,
+        connection_pool_size: 10,
+        retry_policy: RetryPolicy::default(),
+        timeout: std::time::Duration::from_secs(30),
+        backend_config: BackendConfig::File(FileConfig {
+            base_dir: temp_dir.path().to_path_buf(),
+            use_global: false,
+            enable_file_locks: true,
+            max_file_size: 1024 * 1024 * 10, // 10MB
+            enable_compression: false,
+        }),
+        enable_locking: true,
+        enable_cache: false,
+        cache_config: CacheConfig::default(),
+    };
+    let storage = FileBackend::new(&config).await?;
+    test_backend(&storage).await?;
+    Ok(())
 }

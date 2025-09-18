@@ -2000,22 +2000,20 @@ mod tests {
         let workflow = ExtendedWorkflowConfig {
             name: "Test Validation Streaming".to_string(),
             mode: WorkflowMode::Sequential,
-            steps: vec![
-                WorkflowStep {
-                    claude: Some("/prodigy-implement-spec 01".to_string()),
-                    validate: Some(crate::cook::workflow::validation::ValidationConfig {
-                        claude: Some("/prodigy-validate-spec 01".to_string()),
-                        shell: None,
-                        command: None,
-                        threshold: 100.0,
-                        result_file: None,
-                        timeout: None,
-                        expected_schema: None,
-                        on_incomplete: None,
-                    }),
-                    ..Default::default()
-                },
-            ],
+            steps: vec![WorkflowStep {
+                claude: Some("/prodigy-implement-spec 01".to_string()),
+                validate: Some(crate::cook::workflow::validation::ValidationConfig {
+                    claude: Some("/prodigy-validate-spec 01".to_string()),
+                    shell: None,
+                    command: None,
+                    threshold: 100.0,
+                    result_file: None,
+                    timeout: None,
+                    expected_schema: None,
+                    on_incomplete: None,
+                }),
+                ..Default::default()
+            }],
             setup_phase: None,
             map_phase: None,
             reduce_phase: None,
@@ -2035,11 +2033,17 @@ mod tests {
 
         // Check implementation command
         let (_cmd, _path, env_vars) = &calls[0];
-        assert_eq!(env_vars.get("PRODIGY_CLAUDE_STREAMING"), Some(&"true".to_string()));
+        assert_eq!(
+            env_vars.get("PRODIGY_CLAUDE_STREAMING"),
+            Some(&"true".to_string())
+        );
 
         // Check validation command - this is the key test!
         let (_cmd, _path, env_vars) = &calls[1];
-        assert_eq!(env_vars.get("PRODIGY_CLAUDE_STREAMING"), Some(&"true".to_string()));
+        assert_eq!(
+            env_vars.get("PRODIGY_CLAUDE_STREAMING"),
+            Some(&"true".to_string())
+        );
 
         // Clean up
         std::env::remove_var("PRODIGY_CLAUDE_STREAMING");

@@ -877,7 +877,7 @@ mod tests {
         match result {
             Expression::And(left, right) => {
                 assert!(
-                    optimizer.estimate_complexity(&*left) <= optimizer.estimate_complexity(&*right)
+                    optimizer.estimate_complexity(&left) <= optimizer.estimate_complexity(&right)
                 );
             }
             _ => panic!("Expected And expression"),
