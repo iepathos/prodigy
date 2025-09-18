@@ -2,12 +2,10 @@
 
 use super::*;
 use crate::cook::execution::mapreduce::{MapPhase, MapReduceConfig};
-use crate::cook::execution::AgentResult;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::subprocess::SubprocessManager;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tempfile::TempDir;
 
 fn create_test_environment() -> ExecutionEnvironment {
     ExecutionEnvironment {

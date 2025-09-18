@@ -363,7 +363,7 @@ mod tests {
         let print_to_console_override = env_vars_override
             .get("PRODIGY_CLAUDE_CONSOLE_OUTPUT")
             .map(|v| v == "true")
-            .unwrap_or_else(|| 0_u8 >= 1); // Use literal 0 instead of executor_quiet
+            .unwrap_or(false); // Default to false when env var is not set
         assert!(
             print_to_console_override,
             "Environment variable should override verbosity"

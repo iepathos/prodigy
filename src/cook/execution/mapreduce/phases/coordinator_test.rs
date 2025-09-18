@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+#[allow(dead_code)]
 fn create_test_environment() -> ExecutionEnvironment {
     ExecutionEnvironment {
         working_dir: PathBuf::from("/tmp/test"),

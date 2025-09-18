@@ -53,9 +53,15 @@
 //! The coordinator uses a `PhaseTransitionHandler` to make transition decisions.
 //! You can provide a custom handler to override default behavior:
 //!
-//! ```rust
+//! ```rust,no_run
+//! # use prodigy::cook::execution::mapreduce::phases::coordinator::PhaseCoordinator;
+//! # use prodigy::cook::execution::mapreduce::phases::DefaultTransitionHandler;
+//! # let setup = None;
+//! # let map = unimplemented!();
+//! # let reduce = None;
+//! # let subprocess_mgr = unimplemented!();
 //! let coordinator = PhaseCoordinator::new(setup, map, reduce, subprocess_mgr)
-//!     .with_transition_handler(Box::new(MyCustomHandler));
+//!     .with_transition_handler(Box::new(DefaultTransitionHandler));
 //! ```
 
 use super::{

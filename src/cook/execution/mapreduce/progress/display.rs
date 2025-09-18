@@ -414,7 +414,6 @@ impl ProgressRenderer for NullProgressRenderer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cook::execution::mapreduce::progress::operations::AgentOperation;
 
     #[tokio::test]
     async fn test_terminal_renderer() {

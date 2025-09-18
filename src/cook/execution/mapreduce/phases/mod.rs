@@ -20,6 +20,8 @@
 //!
 //! 2. **Implement PhaseExecutor**: Create a new executor for your phase:
 //!    ```rust
+//!    # use prodigy::cook::execution::mapreduce::phases::{PhaseExecutor, PhaseContext, PhaseResult, PhaseError, PhaseType};
+//!    # use async_trait::async_trait;
 //!    pub struct PostProcessPhaseExecutor {
 //!        // Phase configuration
 //!    }
@@ -28,10 +30,11 @@
 //!    impl PhaseExecutor for PostProcessPhaseExecutor {
 //!        async fn execute(&self, context: &mut PhaseContext) -> Result<PhaseResult, PhaseError> {
 //!            // Implementation
+//!            # unimplemented!()
 //!        }
 //!
 //!        fn phase_type(&self) -> PhaseType {
-//!            PhaseType::PostProcess
+//!            PhaseType::Map  // PhaseType::PostProcess doesn't exist
 //!        }
 //!    }
 //!    ```
@@ -76,15 +79,20 @@
 //! You can customize phase transitions by implementing `PhaseTransitionHandler`:
 //!
 //! ```rust
+//! # use prodigy::cook::execution::mapreduce::phases::{PhaseTransitionHandler, PhaseType, PhaseContext, PhaseError, PhaseTransition, PhaseResult};
 //! struct CustomTransitionHandler;
 //!
 //! impl PhaseTransitionHandler for CustomTransitionHandler {
 //!     fn should_execute(&self, phase: PhaseType, context: &PhaseContext) -> bool {
 //!         // Custom logic to determine if phase should run
 //!         match phase {
-//!             PhaseType::Reduce => !context.map_results.is_empty(),
+//!             PhaseType::Reduce => true, // Simplified for example
 //!             _ => true,
 //!         }
+//!     }
+//!
+//!     fn on_phase_complete(&self, _phase: PhaseType, _result: &PhaseResult) {
+//!         // Custom logic after phase completion
 //!     }
 //!
 //!     fn on_phase_error(&self, phase: PhaseType, error: &PhaseError) -> PhaseTransition {
@@ -254,8 +262,11 @@ pub enum PhaseError {
 /// # Example Implementation
 ///
 /// ```rust
+/// # use prodigy::cook::execution::mapreduce::phases::{PhaseExecutor, PhaseContext, PhaseResult, PhaseError, PhaseType, PhaseMetrics};
+/// # use async_trait::async_trait;
+/// # use serde_json::json;
 /// struct CustomPhaseExecutor {
-///     config: CustomConfig,
+///     // config: CustomConfig,  // Commented out since CustomConfig doesn't exist
 /// }
 ///
 /// #[async_trait]
@@ -284,7 +295,7 @@ pub enum PhaseError {
 ///     }
 ///
 ///     fn phase_type(&self) -> PhaseType {
-///         PhaseType::Custom
+///         PhaseType::Map  // PhaseType::Custom doesn't exist
 ///     }
 /// }
 /// ```
