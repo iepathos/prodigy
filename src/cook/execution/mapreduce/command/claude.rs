@@ -19,6 +19,26 @@ impl ClaudeCommandExecutor {
         Self { claude_executor }
     }
 
+    /// Extract Claude command from workflow step
+    fn extract_command(step: &WorkflowStep) -> Result<&str, CommandError> {
+        step.claude.as_ref().map(|s| s.as_str()).ok_or_else(|| {
+            CommandError::InvalidConfiguration("No Claude command in step".to_string())
+        })
+    }
+
+    /// Execute the Claude command with context
+    async fn execute_command(
+        &self,
+        command: &str,
+        context: &ExecutionContext,
+    ) -> Result<crate::cook::execution::ExecutionResult, CommandError> {
+        let env_vars = Self::build_env_vars(context);
+        self.claude_executor
+            .execute_claude_command(command, &context.worktree_path, env_vars)
+            .await
+            .map_err(|e| CommandError::ExecutionFailed(e.to_string()))
+    }
+
     /// Build environment variables for Claude execution
     fn build_env_vars(context: &ExecutionContext) -> HashMap<String, String> {
         let mut env_vars = HashMap::new();
@@ -58,21 +78,8 @@ impl CommandExecutor for ClaudeCommandExecutor {
         context: &ExecutionContext,
     ) -> Result<CommandResult, CommandError> {
         let start = Instant::now();
-
-        // Extract Claude command
-        let command = step.claude.as_ref().ok_or_else(|| {
-            CommandError::InvalidConfiguration("No Claude command in step".to_string())
-        })?;
-
-        // Build environment variables and execute
-        let env_vars = Self::build_env_vars(context);
-        let result = self
-            .claude_executor
-            .execute_claude_command(command, &context.worktree_path, env_vars)
-            .await
-            .map_err(|e| CommandError::ExecutionFailed(e.to_string()))?;
-
-        // Convert to command result
+        let command = Self::extract_command(step)?;
+        let result = self.execute_command(command, context).await?;
         Ok(Self::build_result(result, start))
     }
 
