@@ -1,10 +1,6 @@
 //! Comprehensive tests for the agent module
 
 use super::*;
-use crate::cook::execution::interpolation::InterpolationContext;
-use crate::cook::execution::variables::{Variable, VariableContext};
-use crate::cook::orchestrator::ExecutionEnvironment;
-use crate::cook::workflow::WorkflowStep;
 use crate::worktree::WorktreeManager;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -127,7 +123,7 @@ async fn test_default_result_aggregator() {
         AgentResult::success("item-3".to_string(), Some("output".to_string()), Duration::from_secs(2)),
     ];
 
-    let aggregated = aggregator.aggregate(&results).await;
+    let aggregated = aggregator.aggregate(results.clone());
 
     assert_eq!(aggregated.success_count, 2);
     assert_eq!(aggregated.failure_count, 1);
@@ -143,7 +139,7 @@ async fn test_aggregator_to_interpolation_context() {
         AgentResult::failed("item-2".to_string(), "error".to_string(), Duration::from_secs(1)),
     ];
 
-    let aggregated = aggregator.aggregate(&results).await;
+    let aggregated = aggregator.aggregate(results.clone());
     let context = aggregator.to_interpolation_context(&aggregated);
 
     // Check that variables were set correctly
@@ -162,7 +158,7 @@ async fn test_aggregator_to_variable_context() {
         AgentResult::failed("item-2".to_string(), "error".to_string(), Duration::from_secs(1)),
     ];
 
-    let aggregated = aggregator.aggregate(&results).await;
+    let aggregated = aggregator.aggregate(results.clone());
     let context = aggregator.to_variable_context(&aggregated).await;
 
     // Verify that the context has the expected global variables
@@ -174,41 +170,37 @@ async fn test_aggregator_to_variable_context() {
 // Test AgentState and status transitions
 #[test]
 fn test_agent_state_transitions() {
-    let mut state = AgentState::new("agent-1".to_string(), "item-1".to_string());
+    let mut state = AgentState::default();
 
-    assert_eq!(state.status, AgentStateStatus::Pending);
+    assert_eq!(state.status, AgentStateStatus::Idle);
 
-    state.status = AgentStateStatus::Running;
-    state.started_at = Some(std::time::SystemTime::now());
-    assert!(matches!(state.status, AgentStateStatus::Running));
+    state.status = AgentStateStatus::Executing;
+    assert!(matches!(state.status, AgentStateStatus::Executing));
 
     state.status = AgentStateStatus::Completed;
-    state.completed_at = Some(std::time::SystemTime::now());
     assert!(matches!(state.status, AgentStateStatus::Completed));
 }
 
 #[test]
 fn test_agent_state_with_error() {
-    let mut state = AgentState::new("agent-1".to_string(), "item-1".to_string());
+    let mut state = AgentState::default();
 
     state.status = AgentStateStatus::Failed("Test error".to_string());
-    state.error = Some("Test error".to_string());
     state.retry_count = 2;
 
     assert!(matches!(state.status, AgentStateStatus::Failed(_)));
-    assert_eq!(state.error, Some("Test error".to_string()));
     assert_eq!(state.retry_count, 2);
 }
 
 // Test AgentOperation enum
 #[test]
 fn test_agent_operation_variants() {
-    let op1 = AgentOperation::Starting;
-    assert!(matches!(op1, AgentOperation::Starting));
+    let op1 = AgentOperation::Idle;
+    assert!(matches!(op1, AgentOperation::Idle));
 
-    let op2 = AgentOperation::Processing("item-1".to_string());
-    if let AgentOperation::Processing(item) = op2 {
-        assert_eq!(item, "item-1");
+    let op2 = AgentOperation::Claude("test command".to_string());
+    if let AgentOperation::Claude(item) = op2 {
+        assert_eq!(item, "test command");
     } else {
         panic!("Expected Processing variant");
     }
@@ -230,7 +222,42 @@ fn test_agent_operation_variants() {
 async fn test_default_lifecycle_manager() {
     let temp_dir = tempfile::tempdir().unwrap();
     let project_root = temp_dir.path().to_path_buf();
-    let worktree_manager = Arc::new(WorktreeManager::new(project_root).await.unwrap());
+
+    // Initialize git repository in temp directory
+    std::process::Command::new("git")
+        .arg("init")
+        .current_dir(&project_root)
+        .output()
+        .expect("Failed to initialize git repository");
+
+    // Configure git user for the test
+    std::process::Command::new("git")
+        .args(["config", "user.email", "test@example.com"])
+        .current_dir(&project_root)
+        .output()
+        .expect("Failed to configure git email");
+
+    std::process::Command::new("git")
+        .args(["config", "user.name", "Test User"])
+        .current_dir(&project_root)
+        .output()
+        .expect("Failed to configure git name");
+
+    // Create initial commit
+    std::fs::write(project_root.join("README.md"), "Test").unwrap();
+    std::process::Command::new("git")
+        .args(["add", "."])
+        .current_dir(&project_root)
+        .output()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["commit", "-m", "Initial commit"])
+        .current_dir(&project_root)
+        .output()
+        .unwrap();
+
+    let subprocess = crate::subprocess::SubprocessManager::production();
+    let worktree_manager = Arc::new(WorktreeManager::new(project_root, subprocess).unwrap());
 
     let lifecycle_manager = DefaultLifecycleManager::new(worktree_manager);
 
@@ -245,11 +272,12 @@ async fn test_default_lifecycle_manager() {
     );
 
     // Test initialization
-    let handle = lifecycle_manager.initialize(config).await.unwrap();
-    assert_eq!(handle.id, "agent-1");
+    let commands = vec![];
+    let handle = lifecycle_manager.create_agent(config, commands).await.unwrap();
+    assert_eq!(handle.id(), "agent-1");
 
     // Test cleanup (should not fail even if worktree doesn't exist)
-    lifecycle_manager.cleanup_agent(&handle).await.unwrap();
+    lifecycle_manager.cleanup_agent(handle).await.unwrap();
 }
 
 // Test helper functions for creating test data
@@ -278,8 +306,8 @@ fn test_batch_agent_results() {
     let success_count = results.iter().filter(|r| r.is_success()).count();
     let failure_count = results.iter().filter(|r| r.is_failure()).count();
 
-    assert_eq!(success_count, 7); // items 1,2,4,5,7,8
-    assert_eq!(failure_count, 3); // items 0,3,6,9
+    assert_eq!(success_count, 6); // items 1,2,4,5,7,8
+    assert_eq!(failure_count, 4); // items 0,3,6,9
     assert_eq!(success_count + failure_count, 10);
 }
 
@@ -329,7 +357,7 @@ fn test_agent_result_timeout_status() {
     result.status = AgentStatus::Timeout;
 
     assert!(!result.is_success());
-    assert!(!result.is_failure());
+    assert!(result.is_failure());  // Timeout is considered a failure
     assert!(matches!(result.status, AgentStatus::Timeout));
 }
 
@@ -378,7 +406,42 @@ fn test_large_aggregation_performance() {
 async fn test_agent_workflow_integration() {
     let temp_dir = tempfile::tempdir().unwrap();
     let project_root = temp_dir.path().to_path_buf();
-    let worktree_manager = Arc::new(WorktreeManager::new(project_root).await.unwrap());
+
+    // Initialize git repository in temp directory
+    std::process::Command::new("git")
+        .arg("init")
+        .current_dir(&project_root)
+        .output()
+        .expect("Failed to initialize git repository");
+
+    // Configure git user for the test
+    std::process::Command::new("git")
+        .args(["config", "user.email", "test@example.com"])
+        .current_dir(&project_root)
+        .output()
+        .expect("Failed to configure git email");
+
+    std::process::Command::new("git")
+        .args(["config", "user.name", "Test User"])
+        .current_dir(&project_root)
+        .output()
+        .expect("Failed to configure git name");
+
+    // Create initial commit
+    std::fs::write(project_root.join("README.md"), "Test").unwrap();
+    std::process::Command::new("git")
+        .args(["add", "."])
+        .current_dir(&project_root)
+        .output()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["commit", "-m", "Initial commit"])
+        .current_dir(&project_root)
+        .output()
+        .unwrap();
+
+    let subprocess = crate::subprocess::SubprocessManager::production();
+    let worktree_manager = Arc::new(WorktreeManager::new(project_root, subprocess).unwrap());
 
     let lifecycle_manager = DefaultLifecycleManager::new(worktree_manager);
     let aggregator = DefaultResultAggregator::new();
@@ -399,7 +462,8 @@ async fn test_agent_workflow_integration() {
     // Initialize agents
     let mut handles = vec![];
     for config in configs {
-        let handle = lifecycle_manager.initialize(config).await.unwrap();
+        let commands = vec![];
+    let handle = lifecycle_manager.create_agent(config, commands).await.unwrap();
         handles.push(handle);
     }
 
@@ -411,13 +475,13 @@ async fn test_agent_workflow_integration() {
             if i % 2 == 0 {
                 AgentResult::success(
                     handle.config.item_id.clone(),
-                    Some(format!("Output from {}", handle.id)),
+                    Some(format!("Output from {}", handle.id())),
                     Duration::from_secs(i as u64 + 1),
                 )
             } else {
                 AgentResult::failed(
                     handle.config.item_id.clone(),
-                    format!("Error from {}", handle.id),
+                    format!("Error from {}", handle.id()),
                     Duration::from_secs(i as u64 + 1),
                 )
             }
@@ -425,7 +489,7 @@ async fn test_agent_workflow_integration() {
         .collect();
 
     // Aggregate results
-    let aggregated = aggregator.aggregate(&results).await;
+    let aggregated = aggregator.aggregate(results.clone());
     assert_eq!(aggregated.total, 3);
     assert_eq!(aggregated.success_count, 2);
     assert_eq!(aggregated.failure_count, 1);
@@ -440,7 +504,7 @@ async fn test_agent_workflow_integration() {
 
     // Cleanup
     for handle in handles {
-        lifecycle_manager.cleanup_agent(&handle).await.unwrap();
+        lifecycle_manager.cleanup_agent(handle).await.unwrap();
     }
 }
 

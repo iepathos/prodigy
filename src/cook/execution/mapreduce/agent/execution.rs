@@ -5,23 +5,20 @@
 
 use super::types::{AgentHandle, AgentResult, AgentStatus};
 use crate::commands::{CommandRegistry, ExecutionContext as CommandExecutionContext};
-use crate::cook::execution::dlq::{DeadLetterQueue, DeadLetteredItem, ErrorType, FailureDetail};
-use crate::cook::execution::events::MapReduceEvent;
+use crate::cook::execution::dlq::DeadLetterQueue;
 use crate::cook::execution::interpolation::InterpolationContext;
 use crate::cook::execution::progress::{AgentProgress, EnhancedProgressTracker};
-use crate::cook::execution::progress_tracker::ProgressTracker as NewProgressTracker;
-use crate::cook::execution::variables::VariableContext;
 use crate::cook::orchestrator::ExecutionEnvironment;
-use crate::cook::workflow::{StepResult, WorkflowErrorPolicy, WorkflowStep};
+use crate::cook::workflow::{StepResult, WorkflowStep};
 use async_trait::async_trait;
-use chrono::Utc;
 use serde_json::Value;
 use std::collections::HashMap;
+use crate::commands::attributes::AttributeValue;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::{mpsc, RwLock};
-use tracing::{debug, error, info, warn};
+use tokio::sync::RwLock;
+use tracing::{error, warn};
 
 /// Error type for execution operations
 #[derive(Debug, thiserror::Error)]
@@ -74,6 +71,7 @@ pub trait AgentExecutor: Send + Sync {
 }
 
 /// Context for agent execution
+#[derive(Clone)]
 pub struct ExecutionContext {
     /// Agent index in the pool
     pub agent_index: usize,
@@ -105,7 +103,7 @@ impl StandardExecutor {
     pub fn new() -> Self {
         Self {
             interpolation_engine: Arc::new(RwLock::new(
-                crate::cook::execution::interpolation::InterpolationEngine::new(),
+                crate::cook::execution::interpolation::InterpolationEngine::new(false),
             )),
         }
     }
@@ -119,8 +117,8 @@ impl StandardExecutor {
         context: &ExecutionContext,
     ) -> ExecutionResult<(String, Vec<String>, Vec<String>)> {
         let mut total_output = String::new();
-        let mut all_commits = Vec::new();
-        let mut all_files = Vec::new();
+        let all_commits = Vec::new();
+        let all_files = Vec::new();
 
         // Build interpolation context
         let interp_context = self.build_interpolation_context(item, &handle.config.item_id);
@@ -173,14 +171,14 @@ impl StandardExecutor {
         let mut context = InterpolationContext::new();
 
         // Add item as the main variable
-        context.add_variable("item", item.to_string());
-        context.add_variable("item_id", item_id.to_string());
+        context.variables.insert("item".to_string(), item.clone());
+        context.variables.insert("item_id".to_string(), Value::String(item_id.to_string()));
 
         // If item is an object, add individual fields
         if let Some(obj) = item.as_object() {
             for (key, value) in obj {
                 let key_path = format!("item.{}", key);
-                context.add_variable(&key_path, value.to_string());
+                context.variables.insert(key_path, value.clone());
             }
         }
 
@@ -234,21 +232,35 @@ impl StandardExecutor {
     ) -> ExecutionResult<StepResult> {
         // Create execution context for command
         let mut exec_context = CommandExecutionContext::new(worktree_path.to_path_buf());
-        exec_context.env = step.env.clone();
+        exec_context.env_vars = step.env.clone();
 
         // Execute based on type
         let result = if let Some(command) = &step.claude {
-            context
+            let mut attributes = HashMap::new();
+            attributes.insert("command".to_string(), AttributeValue::String(command.clone()));
+
+            let cmd_result = context
                 .command_registry
-                .execute("claude", command, exec_context)
-                .await
-                .map_err(|e| ExecutionError::CommandFailed(e.to_string()))?
+                .execute("claude", &exec_context, attributes)
+                .await;
+
+            if !cmd_result.success {
+                return Err(ExecutionError::CommandFailed(cmd_result.stderr.unwrap_or_else(|| "Command failed".to_string())));
+            }
+            cmd_result
         } else if let Some(command) = &step.shell {
-            context
+            let mut attributes = HashMap::new();
+            attributes.insert("command".to_string(), AttributeValue::String(command.clone()));
+
+            let cmd_result = context
                 .command_registry
-                .execute("shell", command, exec_context)
-                .await
-                .map_err(|e| ExecutionError::CommandFailed(e.to_string()))?
+                .execute("shell", &exec_context, attributes)
+                .await;
+
+            if !cmd_result.success {
+                return Err(ExecutionError::CommandFailed(cmd_result.stderr.unwrap_or_else(|| "Command failed".to_string())));
+            }
+            cmd_result
         } else {
             return Err(ExecutionError::CommandFailed(
                 "No command specified in step".to_string(),
@@ -256,10 +268,10 @@ impl StandardExecutor {
         };
 
         Ok(StepResult {
-            success: result.exit_code == 0,
-            stdout: result.stdout,
-            stderr: result.stderr,
-            exit_code: Some(result.exit_code),
+            success: result.exit_code == Some(0),
+            stdout: result.stdout.unwrap_or_default(),
+            stderr: result.stderr.unwrap_or_default(),
+            exit_code: result.exit_code,
         })
     }
 }
@@ -309,7 +321,7 @@ impl AgentExecutor for StandardExecutor {
                     error: None,
                     worktree_path: Some(handle.worktree_path().to_path_buf()),
                     branch_name: Some(handle.config.branch_name.clone()),
-                    worktree_session_id: Some(handle.worktree_session.id.clone()),
+                    worktree_session_id: Some(handle.worktree_session.name.clone()),
                 }
             }
             Err(e) => {
@@ -329,7 +341,7 @@ impl AgentExecutor for StandardExecutor {
                     error: Some(e.to_string()),
                     worktree_path: Some(handle.worktree_path().to_path_buf()),
                     branch_name: Some(handle.config.branch_name.clone()),
-                    worktree_session_id: Some(handle.worktree_session.id.clone()),
+                    worktree_session_id: Some(handle.worktree_session.name.clone()),
                 }
             }
         };
@@ -419,8 +431,13 @@ impl AgentExecutor for EnhancedProgressExecutor {
         // Use enhanced progress tracking if available
         if let Some(progress) = &context.enhanced_progress {
             progress
-                .update_agent_status(context.agent_index, "Executing", None)
-                .await;
+                .update_agent_state(&format!("agent-{}", context.agent_index),
+                    crate::cook::execution::progress::AgentState::Running {
+                        step: "Executing".to_string(),
+                        progress: 0.0,
+                    })
+                .await
+                .ok();
         }
 
         // Delegate to standard executor with progress updates
@@ -431,10 +448,17 @@ impl AgentExecutor for EnhancedProgressExecutor {
 
         // Update final status
         if let Some(progress) = &context.enhanced_progress {
-            let status = if result.is_ok() { "Complete" } else { "Failed" };
+            let state = if result.is_ok() {
+                crate::cook::execution::progress::AgentState::Completed
+            } else {
+                crate::cook::execution::progress::AgentState::Failed {
+                    error: "Execution failed".to_string(),
+                }
+            };
             progress
-                .update_agent_status(context.agent_index, status, None)
-                .await;
+                .update_agent_state(&format!("agent-{}", context.agent_index), state)
+                .await
+                .ok();
         }
 
         result

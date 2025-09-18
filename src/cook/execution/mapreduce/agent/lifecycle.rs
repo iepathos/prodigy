@@ -4,15 +4,14 @@
 //! within the MapReduce framework. It manages worktree creation, branch
 //! operations, and merging results back to the parent.
 
-use super::types::{AgentConfig, AgentHandle, AgentState};
+use super::types::{AgentConfig, AgentHandle};
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::workflow::WorkflowStep;
-use crate::worktree::{WorktreeManager, WorktreeRequest, WorktreeSession};
+use crate::worktree::WorktreeManager;
 use async_trait::async_trait;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::process::Command;
-use tokio::sync::RwLock;
 use tracing::{info, warn};
 
 /// Error type for lifecycle operations
@@ -99,12 +98,11 @@ impl AgentLifecycleManager for DefaultLifecycleManager {
         commands: Vec<WorkflowStep>,
     ) -> LifecycleResult<AgentHandle> {
         // Create a worktree for this agent
-        let worktree_name = format!("mapreduce-agent-{}", config.id);
-        let request = WorktreeRequest::new(worktree_name.clone(), Some(config.branch_name.clone()));
+        let session_id = format!("mapreduce-agent-{}", config.id);
 
         let worktree_session = self
             .worktree_manager
-            .request_worktree(request)
+            .create_session_with_id(&session_id)
             .await
             .map_err(|e| LifecycleError::WorktreeCreation(e.to_string()))?;
 

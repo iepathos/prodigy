@@ -1,242 +1,963 @@
-warning: unused import: `tokio::sync::RwLock`
-  --> src/analytics/api_server.rs:14:5
-   |
-14 | use tokio::sync::RwLock;
-   |     ^^^^^^^^^^^^^^^^^^^
-   |
-   = note: `#[warn(unused_imports)]` on by default
-
-warning: unused import: `SessionIndex`
-  --> src/analytics/api_server.rs:22:5
-   |
-22 |     SessionIndex,
-   |     ^^^^^^^^^^^^
-
-warning: unused import: `FromRow`
- --> src/analytics/persistence.rs:6:32
+   Compiling prodigy v0.1.8 (/Users/glen/.prodigy/worktrees/prodigy/session-f0b7dcae-1d9c-4885-9cc2-c373726eceb5)
+warning: unused imports: `DeadLetteredItem`, `ErrorType`, and `FailureDetail`
+ --> src/cook/execution/mapreduce/agent/execution.rs:8:52
   |
-6 | use sqlx::{sqlite::SqlitePool, FromRow, Row};
-  |                                ^^^^^^^
+8 | use crate::cook::execution::dlq::{DeadLetterQueue, DeadLetteredItem, ErrorType, FailureDetail};
+  |                                                    ^^^^^^^^^^^^^^^^  ^^^^^^^^^  ^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
 
-warning: field `metrics` is never read
-  --> src/analytics/engine.rs:16:5
+warning: unused import: `crate::cook::execution::events::MapReduceEvent`
+ --> src/cook/execution/mapreduce/agent/execution.rs:9:5
+  |
+9 | use crate::cook::execution::events::MapReduceEvent;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::cook::execution::progress_tracker::ProgressTracker as NewProgressTracker`
+  --> src/cook/execution/mapreduce/agent/execution.rs:12:5
    |
-14 | pub struct AnalyticsEngine {
-   |            --------------- field in this struct
-15 |     index: Arc<RwLock<SessionIndex>>,
-16 |     metrics: Arc<MetricsCollector>,
-   |     ^^^^^^^
+12 | use crate::cook::execution::progress_tracker::ProgressTracker as NewProgressTracker;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::cook::execution::variables::VariableContext`
+  --> src/cook/execution/mapreduce/agent/execution.rs:13:5
    |
-   = note: `#[warn(dead_code)]` on by default
+13 | use crate::cook::execution::variables::VariableContext;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-warning: field `event_logger` is never read
-  --> src/analytics/session_watcher.rs:21:5
+warning: unused import: `WorkflowErrorPolicy`
+  --> src/cook/execution/mapreduce/agent/execution.rs:15:41
    |
-19 | pub struct SessionWatcher {
-   |            -------------- field in this struct
-20 |     claude_projects_path: PathBuf,
-21 |     event_logger: Arc<EventLogger>,
-   |     ^^^^^^^^^^^^
+15 | use crate::cook::workflow::{StepResult, WorkflowErrorPolicy, WorkflowStep};
+   |                                         ^^^^^^^^^^^^^^^^^^^
 
-warning: `prodigy` (lib) generated 5 warnings (run `cargo fix --lib -p prodigy` to apply 3 suggestions)
-   Compiling prodigy v0.1.8 (/Users/glen/.prodigy/worktrees/prodigy/session-f98e5275-f54a-4e9a-8bf1-a03d4b1ee6fb)
-error[E0433]: failed to resolve: unresolved import
-   --> src/analytics/session_watcher.rs:322:44
-    |
-322 |         let event_logger = Arc::new(crate::events::EventLogger::new_in_memory());
-    |                                            ^^^^^^ unresolved import
-    |
-help: a similar path exists
-    |
-322 |         let event_logger = Arc::new(crate::cli::events::EventLogger::new_in_memory());
-    |                                            +++++
-help: consider importing this struct through its public re-export
-    |
-305 +     use crate::cook::execution::events::EventLogger;
-    |
-help: if you import `EventLogger`, refer to it directly
-    |
-322 -         let event_logger = Arc::new(crate::events::EventLogger::new_in_memory());
-322 +         let event_logger = Arc::new(EventLogger::new_in_memory());
-    |
+warning: unused import: `chrono::Utc`
+  --> src/cook/execution/mapreduce/agent/execution.rs:17:5
+   |
+17 | use chrono::Utc;
+   |     ^^^^^^^^^^^
 
-error[E0433]: failed to resolve: unresolved import
-   --> src/analytics/session_watcher.rs:331:44
-    |
-331 |         let event_logger = Arc::new(crate::events::EventLogger::new_in_memory());
-    |                                            ^^^^^^ unresolved import
-    |
-help: a similar path exists
-    |
-331 |         let event_logger = Arc::new(crate::cli::events::EventLogger::new_in_memory());
-    |                                            +++++
-help: consider importing this struct through its public re-export
-    |
-305 +     use crate::cook::execution::events::EventLogger;
-    |
-help: if you import `EventLogger`, refer to it directly
-    |
-331 -         let event_logger = Arc::new(crate::events::EventLogger::new_in_memory());
-331 +         let event_logger = Arc::new(EventLogger::new_in_memory());
-    |
+warning: unused import: `std::collections::HashMap`
+  --> src/cook/execution/mapreduce/agent/execution.rs:19:5
+   |
+19 | use std::collections::HashMap;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-error[E0433]: failed to resolve: unresolved import
-   --> src/analytics/session_watcher.rs:353:44
-    |
-353 |         let event_logger = Arc::new(crate::events::EventLogger::new_in_memory());
-    |                                            ^^^^^^ unresolved import
-    |
-help: a similar path exists
-    |
-353 |         let event_logger = Arc::new(crate::cli::events::EventLogger::new_in_memory());
-    |                                            +++++
-help: consider importing this struct through its public re-export
-    |
-305 +     use crate::cook::execution::events::EventLogger;
-    |
-help: if you import `EventLogger`, refer to it directly
-    |
-353 -         let event_logger = Arc::new(crate::events::EventLogger::new_in_memory());
-353 +         let event_logger = Arc::new(EventLogger::new_in_memory());
-    |
+warning: unused import: `mpsc`
+  --> src/cook/execution/mapreduce/agent/execution.rs:23:19
+   |
+23 | use tokio::sync::{mpsc, RwLock};
+   |                   ^^^^
 
-error[E0433]: failed to resolve: unresolved import
-   --> src/analytics/session_watcher.rs:379:44
-    |
-379 |         let event_logger = Arc::new(crate::events::EventLogger::new_in_memory());
-    |                                            ^^^^^^ unresolved import
-    |
-help: a similar path exists
-    |
-379 |         let event_logger = Arc::new(crate::cli::events::EventLogger::new_in_memory());
-    |                                            +++++
-help: consider importing this struct through its public re-export
-    |
-305 +     use crate::cook::execution::events::EventLogger;
-    |
-help: if you import `EventLogger`, refer to it directly
-    |
-379 -         let event_logger = Arc::new(crate::events::EventLogger::new_in_memory());
-379 +         let event_logger = Arc::new(EventLogger::new_in_memory());
-    |
+warning: unused imports: `debug` and `info`
+  --> src/cook/execution/mapreduce/agent/execution.rs:24:15
+   |
+24 | use tracing::{debug, error, info, warn};
+   |               ^^^^^         ^^^^
 
-error[E0433]: failed to resolve: unresolved import
-   --> src/analytics/session_watcher.rs:402:44
-    |
-402 |         let event_logger = Arc::new(crate::events::EventLogger::new_in_memory());
-    |                                            ^^^^^^ unresolved import
-    |
-help: a similar path exists
-    |
-402 |         let event_logger = Arc::new(crate::cli::events::EventLogger::new_in_memory());
-    |                                            +++++
-help: consider importing this struct through its public re-export
-    |
-305 +     use crate::cook::execution::events::EventLogger;
-    |
-help: if you import `EventLogger`, refer to it directly
-    |
-402 -         let event_logger = Arc::new(crate::events::EventLogger::new_in_memory());
-402 +         let event_logger = Arc::new(EventLogger::new_in_memory());
-    |
+warning: unused import: `AgentState`
+ --> src/cook/execution/mapreduce/agent/lifecycle.rs:7:46
+  |
+7 | use super::types::{AgentConfig, AgentHandle, AgentState};
+  |                                              ^^^^^^^^^^
 
-error[E0433]: failed to resolve: unresolved import
-   --> src/analytics/session_watcher.rs:431:44
-    |
-431 |         let event_logger = Arc::new(crate::events::EventLogger::new_in_memory());
-    |                                            ^^^^^^ unresolved import
-    |
-help: a similar path exists
-    |
-431 |         let event_logger = Arc::new(crate::cli::events::EventLogger::new_in_memory());
-    |                                            +++++
-help: consider importing this struct through its public re-export
-    |
-305 +     use crate::cook::execution::events::EventLogger;
-    |
-help: if you import `EventLogger`, refer to it directly
-    |
-431 -         let event_logger = Arc::new(crate::events::EventLogger::new_in_memory());
-431 +         let event_logger = Arc::new(EventLogger::new_in_memory());
-    |
+warning: unused import: `WorktreeSession`
+  --> src/cook/execution/mapreduce/agent/lifecycle.rs:10:57
+   |
+10 | use crate::worktree::{WorktreeManager, WorktreeRequest, WorktreeSession};
+   |                                                         ^^^^^^^^^^^^^^^
 
-error[E0433]: failed to resolve: unresolved import
-   --> src/analytics/session_watcher.rs:452:44
-    |
-452 |         let event_logger = Arc::new(crate::events::EventLogger::new_in_memory());
-    |                                            ^^^^^^ unresolved import
-    |
-help: a similar path exists
-    |
-452 |         let event_logger = Arc::new(crate::cli::events::EventLogger::new_in_memory());
-    |                                            +++++
-help: consider importing this struct through its public re-export
-    |
-305 +     use crate::cook::execution::events::EventLogger;
-    |
-help: if you import `EventLogger`, refer to it directly
-    |
-452 -         let event_logger = Arc::new(crate::events::EventLogger::new_in_memory());
-452 +         let event_logger = Arc::new(EventLogger::new_in_memory());
-    |
+warning: unused import: `tokio::sync::RwLock`
+  --> src/cook/execution/mapreduce/agent/lifecycle.rs:15:5
+   |
+15 | use tokio::sync::RwLock;
+   |     ^^^^^^^^^^^^^^^^^^^
 
-error[E0599]: no method named `parse_jsonl_session` found for struct `session_watcher::SessionWatcher` in the current scope
-   --> src/analytics/session_watcher.rs:346:32
+warning: unused import: `std::collections::HashMap`
+  --> src/cook/execution/mapreduce/agent/results.rs:14:5
+   |
+14 | use std::collections::HashMap;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::sync::Arc`
+  --> src/cook/execution/mapreduce/agent/results.rs:16:5
+   |
+16 | use std::sync::Arc;
+   |     ^^^^^^^^^^^^^^
+
+warning: unused imports: `debug` and `info`
+  --> src/cook/execution/mapreduce/agent/results.rs:18:15
+   |
+18 | use tracing::{debug, info};
+   |               ^^^^^  ^^^^
+
+warning: unused import: `crate::cook::execution::interpolation::InterpolationContext`
+ --> src/cook/execution/mapreduce/agent/tests.rs:4:5
+  |
+4 | use crate::cook::execution::interpolation::InterpolationContext;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `VariableContext` and `Variable`
+ --> src/cook/execution/mapreduce/agent/tests.rs:5:41
+  |
+5 | use crate::cook::execution::variables::{Variable, VariableContext};
+  |                                         ^^^^^^^^  ^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::cook::orchestrator::ExecutionEnvironment`
+ --> src/cook/execution/mapreduce/agent/tests.rs:6:5
+  |
+6 | use crate::cook::orchestrator::ExecutionEnvironment;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::cook::workflow::WorkflowStep`
+ --> src/cook/execution/mapreduce/agent/tests.rs:7:5
+  |
+7 | use crate::cook::workflow::WorkflowStep;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: variable does not need to be mutable
+   --> src/cook/execution/mapreduce/agent/execution.rs:122:13
     |
-19  | pub struct SessionWatcher {
-    | ------------------------- method `parse_jsonl_session` not found for this struct
+122 |         let mut all_commits = Vec::new();
+    |             ----^^^^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: variable does not need to be mutable
+   --> src/cook/execution/mapreduce/agent/execution.rs:123:13
+    |
+123 |         let mut all_files = Vec::new();
+    |             ----^^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+
+error[E0609]: no field `env` on type `commands::context::ExecutionContext`
+   --> src/cook/execution/mapreduce/agent/execution.rs:237:22
+    |
+237 |         exec_context.env = step.env.clone();
+    |                      ^^^ unknown field
+    |
+    = note: available fields are: `working_dir`, `env_vars`, `executor`, `session_id`, `iteration` ... and 3 others
+
+error[E0308]: arguments to this method are incorrect
+   --> src/cook/execution/mapreduce/agent/execution.rs:243:18
+    |
+243 |                 .execute("claude", command, exec_context)
+    |                  ^^^^^^^           ------- expected `&ExecutionContext`, found `&String`
+    |
+    = note: expected reference `&commands::context::ExecutionContext`
+               found reference `&std::string::String`
+note: expected `HashMap<String, AttributeValue>`, found `ExecutionContext`
+   --> src/cook/execution/mapreduce/agent/execution.rs:243:45
+    |
+243 |                 .execute("claude", command, exec_context)
+    |                                             ^^^^^^^^^^^^
+    = note: expected struct `HashMap<std::string::String, AttributeValue>`
+               found struct `commands::context::ExecutionContext`
+note: method defined here
+   --> src/commands/registry.rs:103:18
+    |
+103 |     pub async fn execute(
+    |                  ^^^^^^^
 ...
-346 |         let metadata = watcher.parse_jsonl_session(&jsonl_path).await.unwrap();
-    |                                ^^^^^^^^^^^^^^^^^^^ method not found in `session_watcher::SessionWatcher`
+106 |         context: &ExecutionContext,
+    |         --------------------------
+107 |         attributes: HashMap<String, AttributeValue>,
+    |         -------------------------------------------
 
-error[E0599]: no method named `parse_jsonl_session` found for struct `session_watcher::SessionWatcher` in the current scope
-   --> src/analytics/session_watcher.rs:367:32
+error[E0599]: no method named `map_err` found for struct `commands::result::CommandResult` in the current scope
+   --> src/cook/execution/mapreduce/agent/execution.rs:245:18
     |
-19  | pub struct SessionWatcher {
-    | ------------------------- method `parse_jsonl_session` not found for this struct
-...
-367 |         let metadata = watcher.parse_jsonl_session(&jsonl_path).await.unwrap();
-    |                                ^^^^^^^^^^^^^^^^^^^ method not found in `session_watcher::SessionWatcher`
-
-error[E0599]: no method named `parse_jsonl_session` found for struct `session_watcher::SessionWatcher` in the current scope
-   --> src/analytics/session_watcher.rs:393:32
+241 | /             context
+242 | |                 .command_registry
+243 | |                 .execute("claude", command, exec_context)
+244 | |                 .await
+245 | |                 .map_err(|e| ExecutionError::CommandFailed(e.to_string()))?
+    | |                 -^^^^^^^ method not found in `commands::result::CommandResult`
+    | |_________________|
     |
-19  | pub struct SessionWatcher {
-    | ------------------------- method `parse_jsonl_session` not found for this struct
-...
-393 |         let metadata = watcher.parse_jsonl_session(&jsonl_path).await.unwrap();
-    |                                ^^^^^^^^^^^^^^^^^^^ method not found in `session_watcher::SessionWatcher`
-
-error[E0599]: no method named `parse_jsonl_session` found for struct `session_watcher::SessionWatcher` in the current scope
-   --> src/analytics/session_watcher.rs:423:36
     |
-19  | pub struct SessionWatcher {
-    | ------------------------- method `parse_jsonl_session` not found for this struct
-...
-423 |             let metadata = watcher.parse_jsonl_session(&jsonl_path).await.unwrap();
-    |                                    ^^^^^^^^^^^^^^^^^^^ method not found in `session_watcher::SessionWatcher`
-
-error[E0599]: no method named `parse_jsonl_session` found for struct `session_watcher::SessionWatcher` in the current scope
-   --> src/analytics/session_watcher.rs:441:32
+   ::: src/commands/result.rs:9:1
     |
-19  | pub struct SessionWatcher {
-    | ------------------------- method `parse_jsonl_session` not found for this struct
-...
-441 |         let metadata = watcher.parse_jsonl_session(&jsonl_path).await.unwrap();
-    |                                ^^^^^^^^^^^^^^^^^^^ method not found in `session_watcher::SessionWatcher`
-
-error[E0599]: no method named `parse_jsonl_session` found for struct `session_watcher::SessionWatcher` in the current scope
-   --> src/analytics/session_watcher.rs:466:32
+9   |   pub struct CommandResult {
+    |   ------------------------ method `map_err` not found for this struct
     |
-19  | pub struct SessionWatcher {
-    | ------------------------- method `parse_jsonl_session` not found for this struct
-...
-466 |         let metadata = watcher.parse_jsonl_session(&jsonl_path).await.unwrap();
-    |                                ^^^^^^^^^^^^^^^^^^^ method not found in `session_watcher::SessionWatcher`
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `map_err`, perhaps you need to implement one of them:
+            candidate #1: `TryFutureExt`
+            candidate #2: `TryStreamExt`
+            candidate #3: `http_body_util::BodyExt`
+            candidate #4: `tower::util::ServiceExt`
+            candidate #5: `winnow::parser::Parser`
 
-Some errors have detailed explanations: E0433, E0599.
-For more information about an error, try `rustc --explain E0433`.
-warning: `prodigy` (lib test) generated 3 warnings (3 duplicates)
-error: could not compile `prodigy` (lib test) due to 13 previous errors; 3 warnings emitted
+error[E0308]: arguments to this method are incorrect
+   --> src/cook/execution/mapreduce/agent/execution.rs:249:18
+    |
+249 |                 .execute("shell", command, exec_context)
+    |                  ^^^^^^^          ------- expected `&ExecutionContext`, found `&String`
+    |
+    = note: expected reference `&commands::context::ExecutionContext`
+               found reference `&std::string::String`
+note: expected `HashMap<String, AttributeValue>`, found `ExecutionContext`
+   --> src/cook/execution/mapreduce/agent/execution.rs:249:44
+    |
+249 |                 .execute("shell", command, exec_context)
+    |                                            ^^^^^^^^^^^^
+    = note: expected struct `HashMap<std::string::String, AttributeValue>`
+               found struct `commands::context::ExecutionContext`
+note: method defined here
+   --> src/commands/registry.rs:103:18
+    |
+103 |     pub async fn execute(
+    |                  ^^^^^^^
+...
+106 |         context: &ExecutionContext,
+    |         --------------------------
+107 |         attributes: HashMap<String, AttributeValue>,
+    |         -------------------------------------------
+
+error[E0599]: no method named `map_err` found for struct `commands::result::CommandResult` in the current scope
+   --> src/cook/execution/mapreduce/agent/execution.rs:251:18
+    |
+247 | /             context
+248 | |                 .command_registry
+249 | |                 .execute("shell", command, exec_context)
+250 | |                 .await
+251 | |                 .map_err(|e| ExecutionError::CommandFailed(e.to_string()))?
+    | |                 -^^^^^^^ method not found in `commands::result::CommandResult`
+    | |_________________|
+    |
+    |
+   ::: src/commands/result.rs:9:1
+    |
+9   |   pub struct CommandResult {
+    |   ------------------------ method `map_err` not found for this struct
+    |
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `map_err`, perhaps you need to implement one of them:
+            candidate #1: `TryFutureExt`
+            candidate #2: `TryStreamExt`
+            candidate #3: `http_body_util::BodyExt`
+            candidate #4: `tower::util::ServiceExt`
+            candidate #5: `winnow::parser::Parser`
+
+error[E0308]: arguments to this method are incorrect
+   --> src/cook/execution/mapreduce/agent/execution.rs:243:18
+    |
+243 |                 .execute("claude", command, exec_context)
+    |                  ^^^^^^^           ------- expected `&ExecutionContext`, found `&String`
+    |
+    = note: expected reference `&commands::context::ExecutionContext`
+               found reference `&std::string::String`
+note: expected `HashMap<String, AttributeValue>`, found `ExecutionContext`
+   --> src/cook/execution/mapreduce/agent/execution.rs:243:45
+    |
+243 |                 .execute("claude", command, exec_context)
+    |                                             ^^^^^^^^^^^^
+    = note: expected struct `std::collections::HashMap<std::string::String, attributes::AttributeValue>`
+               found struct `commands::context::ExecutionContext`
+note: method defined here
+   --> src/commands/registry.rs:103:18
+    |
+103 |     pub async fn execute(
+    |                  ^^^^^^^
+...
+106 |         context: &ExecutionContext,
+    |         --------------------------
+107 |         attributes: HashMap<String, AttributeValue>,
+    |         -------------------------------------------
+
+error[E0308]: arguments to this method are incorrect
+   --> src/cook/execution/mapreduce/agent/execution.rs:249:18
+    |
+249 |                 .execute("shell", command, exec_context)
+    |                  ^^^^^^^          ------- expected `&ExecutionContext`, found `&String`
+    |
+    = note: expected reference `&commands::context::ExecutionContext`
+               found reference `&std::string::String`
+note: expected `HashMap<String, AttributeValue>`, found `ExecutionContext`
+   --> src/cook/execution/mapreduce/agent/execution.rs:249:44
+    |
+249 |                 .execute("shell", command, exec_context)
+    |                                            ^^^^^^^^^^^^
+    = note: expected struct `std::collections::HashMap<std::string::String, attributes::AttributeValue>`
+               found struct `commands::context::ExecutionContext`
+note: method defined here
+   --> src/commands/registry.rs:103:18
+    |
+103 |     pub async fn execute(
+    |                  ^^^^^^^
+...
+106 |         context: &ExecutionContext,
+    |         --------------------------
+107 |         attributes: HashMap<String, AttributeValue>,
+    |         -------------------------------------------
+
+error[E0061]: this function takes 1 argument but 0 arguments were supplied
+   --> src/cook/execution/mapreduce/agent/execution.rs:108:17
+    |
+108 |                 crate::cook::execution::interpolation::InterpolationEngine::new(),
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-- argument #1 of type `bool` is missing
+    |
+note: associated function defined here
+   --> src/cook/execution/interpolation.rs:32:12
+    |
+32  |     pub fn new(strict_mode: bool) -> Self {
+    |            ^^^ -----------------
+help: provide the argument
+    |
+108 |                 crate::cook::execution::interpolation::InterpolationEngine::new(/* bool */),
+    |                                                                                 ++++++++++
+
+error[E0599]: no method named `add_variable` found for struct `InterpolationContext` in the current scope
+   --> src/cook/execution/mapreduce/agent/execution.rs:176:17
+    |
+176 |         context.add_variable("item", item.to_string());
+    |                 ^^^^^^^^^^^^ method not found in `InterpolationContext`
+    |
+   ::: src/cook/execution/interpolation.rs:374:1
+    |
+374 | pub struct InterpolationContext {
+    | ------------------------------- method `add_variable` not found for this struct
+
+error[E0599]: no method named `add_variable` found for struct `InterpolationContext` in the current scope
+   --> src/cook/execution/mapreduce/agent/execution.rs:177:17
+    |
+177 |         context.add_variable("item_id", item_id.to_string());
+    |                 ^^^^^^^^^^^^ method not found in `InterpolationContext`
+    |
+   ::: src/cook/execution/interpolation.rs:374:1
+    |
+374 | pub struct InterpolationContext {
+    | ------------------------------- method `add_variable` not found for this struct
+
+error[E0599]: no method named `add_variable` found for struct `InterpolationContext` in the current scope
+   --> src/cook/execution/mapreduce/agent/execution.rs:183:25
+    |
+183 |                 context.add_variable(&key_path, value.to_string());
+    |                         ^^^^^^^^^^^^ method not found in `InterpolationContext`
+    |
+   ::: src/cook/execution/interpolation.rs:374:1
+    |
+374 | pub struct InterpolationContext {
+    | ------------------------------- method `add_variable` not found for this struct
+
+error[E0609]: no field `id` on type `WorktreeSession`
+   --> src/cook/execution/mapreduce/agent/execution.rs:312:71
+    |
+312 |                     worktree_session_id: Some(handle.worktree_session.id.clone()),
+    |                                                                       ^^ unknown field
+    |
+    = note: available fields are: `name`, `branch`, `path`, `created_at`
+
+error[E0609]: no field `id` on type `WorktreeSession`
+   --> src/cook/execution/mapreduce/agent/execution.rs:332:71
+    |
+332 |                     worktree_session_id: Some(handle.worktree_session.id.clone()),
+    |                                                                       ^^ unknown field
+    |
+    = note: available fields are: `name`, `branch`, `path`, `created_at`
+
+error[E0599]: no method named `clone` found for struct `agent::execution::ExecutionContext` in the current scope
+   --> src/cook/execution/mapreduce/agent/execution.rs:363:59
+    |
+77  | pub struct ExecutionContext {
+    | --------------------------- method `clone` not found for this struct
+...
+363 |             match self.execute(handle, item, env, context.clone()).await {
+    |                                                           ^^^^^ method not found in `agent::execution::ExecutionContext`
+    |
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `clone`, perhaps you need to implement one of them:
+            candidate #1: `EventWriter`
+            candidate #2: `Clone`
+
+error[E0599]: no method named `update_agent_status` found for reference `&Arc<EnhancedProgressTracker>` in the current scope
+   --> src/cook/execution/mapreduce/agent/execution.rs:422:18
+    |
+421 | /             progress
+422 | |                 .update_agent_status(context.agent_index, "Executing", None)
+    | |_________________-^^^^^^^^^^^^^^^^^^^
+    |
+help: there is a method `update_agent_state` with a similar name, but with different arguments
+   --> src/cook/execution/progress.rs:456:5
+    |
+456 | /     pub async fn update_agent_state(
+457 | |         &self,
+458 | |         agent_id: &str,
+459 | |         state: AgentState,
+460 | |     ) -> MapReduceResult<()> {
+    | |____________________________^
+
+error[E0599]: no method named `clone` found for struct `agent::execution::ExecutionContext` in the current scope
+   --> src/cook/execution/mapreduce/agent/execution.rs:429:49
+    |
+77  | pub struct ExecutionContext {
+    | --------------------------- method `clone` not found for this struct
+...
+429 |             .execute(handle, item, env, context.clone())
+    |                                                 ^^^^^ method not found in `agent::execution::ExecutionContext`
+    |
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `clone`, perhaps you need to implement one of them:
+            candidate #1: `EventWriter`
+            candidate #2: `Clone`
+
+error[E0599]: no method named `update_agent_status` found for reference `&Arc<EnhancedProgressTracker>` in the current scope
+   --> src/cook/execution/mapreduce/agent/execution.rs:436:18
+    |
+435 | /             progress
+436 | |                 .update_agent_status(context.agent_index, status, None)
+    | |_________________-^^^^^^^^^^^^^^^^^^^
+    |
+help: there is a method `update_agent_state` with a similar name, but with different arguments
+   --> src/cook/execution/progress.rs:456:5
+    |
+456 | /     pub async fn update_agent_state(
+457 | |         &self,
+458 | |         agent_id: &str,
+459 | |         state: AgentState,
+460 | |     ) -> MapReduceResult<()> {
+    | |____________________________^
+
+error[E0599]: no variant or associated item named `new` found for enum `WorktreeRequest` in the current scope
+   --> src/cook/execution/mapreduce/agent/lifecycle.rs:103:40
+    |
+103 |         let request = WorktreeRequest::new(worktree_name.clone(), Some(config.branch_name.clone()));
+    |                                        ^^^ variant or associated item not found in `WorktreeRequest`
+    |
+   ::: src/worktree/pool.rs:163:1
+    |
+163 | pub enum WorktreeRequest {
+    | ------------------------ variant or associated item `new` not found for this enum
+    |
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `new`, perhaps you need to implement one of them:
+            candidate #1: `Bit`
+            candidate #2: `Digest`
+            candidate #3: `KeyInit`
+            candidate #4: `KeyIvInit`
+            candidate #5: `UniformSampler`
+            candidate #6: `VariableOutput`
+            candidate #7: `VariableOutputCore`
+            candidate #8: `Watcher`
+            candidate #9: `futures_intrusive::buffer::ring_buffer::RingBuf`
+            candidate #10: `parking_lot_core::thread_parker::ThreadParkerT`
+
+error[E0599]: no method named `request_worktree` found for struct `Arc<WorktreeManager>` in the current scope
+   --> src/cook/execution/mapreduce/agent/lifecycle.rs:107:14
+    |
+105 |           let worktree_session = self
+    |  ________________________________-
+106 | |             .worktree_manager
+107 | |             .request_worktree(request)
+    | |             -^^^^^^^^^^^^^^^^ method not found in `Arc<WorktreeManager>`
+    | |_____________|
+    |
+
+error[E0599]: no method named `add_variable` found for struct `interpolation::InterpolationContext` in the current scope
+   --> src/cook/execution/mapreduce/agent/execution.rs:176:17
+    |
+176 |         context.add_variable("item", item.to_string());
+    |                 ^^^^^^^^^^^^ method not found in `interpolation::InterpolationContext`
+    |
+   ::: src/cook/execution/interpolation.rs:374:1
+    |
+374 | pub struct InterpolationContext {
+    | ------------------------------- method `add_variable` not found for this struct
+
+error[E0599]: no method named `add_variable` found for struct `interpolation::InterpolationContext` in the current scope
+   --> src/cook/execution/mapreduce/agent/execution.rs:177:17
+    |
+177 |         context.add_variable("item_id", item_id.to_string());
+    |                 ^^^^^^^^^^^^ method not found in `interpolation::InterpolationContext`
+    |
+   ::: src/cook/execution/interpolation.rs:374:1
+    |
+374 | pub struct InterpolationContext {
+    | ------------------------------- method `add_variable` not found for this struct
+
+error[E0599]: no method named `add_variable` found for struct `interpolation::InterpolationContext` in the current scope
+   --> src/cook/execution/mapreduce/agent/execution.rs:183:25
+    |
+183 |                 context.add_variable(&key_path, value.to_string());
+    |                         ^^^^^^^^^^^^ method not found in `interpolation::InterpolationContext`
+    |
+   ::: src/cook/execution/interpolation.rs:374:1
+    |
+374 | pub struct InterpolationContext {
+    | ------------------------------- method `add_variable` not found for this struct
+
+error[E0599]: no method named `clone` found for struct `agent::execution::ExecutionContext` in the current scope
+   --> src/cook/execution/mapreduce/agent/execution.rs:363:59
+    |
+77  | pub struct ExecutionContext {
+    | --------------------------- method `clone` not found for this struct
+...
+363 |             match self.execute(handle, item, env, context.clone()).await {
+    |                                                           ^^^^^ method not found in `agent::execution::ExecutionContext`
+    |
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `clone`, perhaps you need to implement one of them:
+            candidate #1: `event_writer::EventWriter`
+            candidate #2: `Clone`
+
+error[E0599]: no method named `update_agent_status` found for reference `&std::sync::Arc<cook::execution::progress::EnhancedProgressTracker>` in the current scope
+   --> src/cook/execution/mapreduce/agent/execution.rs:422:18
+    |
+421 | /             progress
+422 | |                 .update_agent_status(context.agent_index, "Executing", None)
+    | |_________________-^^^^^^^^^^^^^^^^^^^
+    |
+help: there is a method `update_agent_state` with a similar name, but with different arguments
+   --> src/cook/execution/progress.rs:456:5
+    |
+456 | /     pub async fn update_agent_state(
+457 | |         &self,
+458 | |         agent_id: &str,
+459 | |         state: AgentState,
+460 | |     ) -> MapReduceResult<()> {
+    | |____________________________^
+
+error[E0599]: no method named `clone` found for struct `agent::execution::ExecutionContext` in the current scope
+   --> src/cook/execution/mapreduce/agent/execution.rs:429:49
+    |
+77  | pub struct ExecutionContext {
+    | --------------------------- method `clone` not found for this struct
+...
+429 |             .execute(handle, item, env, context.clone())
+    |                                                 ^^^^^ method not found in `agent::execution::ExecutionContext`
+    |
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `clone`, perhaps you need to implement one of them:
+            candidate #1: `event_writer::EventWriter`
+            candidate #2: `Clone`
+
+error[E0599]: no method named `update_agent_status` found for reference `&std::sync::Arc<cook::execution::progress::EnhancedProgressTracker>` in the current scope
+   --> src/cook/execution/mapreduce/agent/execution.rs:436:18
+    |
+435 | /             progress
+436 | |                 .update_agent_status(context.agent_index, status, None)
+    | |_________________-^^^^^^^^^^^^^^^^^^^
+    |
+help: there is a method `update_agent_state` with a similar name, but with different arguments
+   --> src/cook/execution/progress.rs:456:5
+    |
+456 | /     pub async fn update_agent_state(
+457 | |         &self,
+458 | |         agent_id: &str,
+459 | |         state: AgentState,
+460 | |     ) -> MapReduceResult<()> {
+    | |____________________________^
+
+error[E0599]: no variant or associated item named `new` found for enum `worktree::pool::WorktreeRequest` in the current scope
+   --> src/cook/execution/mapreduce/agent/lifecycle.rs:103:40
+    |
+103 |         let request = WorktreeRequest::new(worktree_name.clone(), Some(config.branch_name.clone()));
+    |                                        ^^^ variant or associated item not found in `worktree::pool::WorktreeRequest`
+    |
+   ::: src/worktree/pool.rs:163:1
+    |
+163 | pub enum WorktreeRequest {
+    | ------------------------ variant or associated item `new` not found for this enum
+    |
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `new`, perhaps you need to implement one of them:
+            candidate #1: `Bit`
+            candidate #2: `KeyInit`
+            candidate #3: `KeyIvInit`
+            candidate #4: `UniformSampler`
+            candidate #5: `VariableOutput`
+            candidate #6: `VariableOutputCore`
+            candidate #7: `futures_intrusive::buffer::ring_buffer::RingBuf`
+            candidate #8: `notify::Watcher`
+            candidate #9: `parking_lot_core::thread_parker::ThreadParkerT`
+            candidate #10: `sha2::Digest`
+
+error[E0599]: no method named `request_worktree` found for struct `std::sync::Arc<worktree::manager::WorktreeManager>` in the current scope
+   --> src/cook/execution/mapreduce/agent/lifecycle.rs:107:14
+    |
+105 |           let worktree_session = self
+    |  ________________________________-
+106 | |             .worktree_manager
+107 | |             .request_worktree(request)
+    | |             -^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<worktree::manager::WorktreeManager>`
+    | |_____________|
+    |
+
+error[E0308]: mismatched types
+   --> src/cook/execution/mapreduce/agent/tests.rs:130:43
+    |
+130 |     let aggregated = aggregator.aggregate(&results).await;
+    |                                 --------- ^^^^^^^^ expected `Vec<AgentResult>`, found `&Vec<AgentResult>`
+    |                                 |
+    |                                 arguments to this method are incorrect
+    |
+    = note: expected struct `Vec<_>`
+            found reference `&Vec<_>`
+note: method defined here
+   --> src/cook/execution/mapreduce/agent/results.rs:103:8
+    |
+103 |     fn aggregate(&self, results: Vec<AgentResult>) -> AggregatedResults;
+    |        ^^^^^^^^^        -------
+help: consider removing the borrow
+    |
+130 -     let aggregated = aggregator.aggregate(&results).await;
+130 +     let aggregated = aggregator.aggregate(results).await;
+    |
+
+error[E0277]: `results::AggregatedResults` is not a future
+   --> src/cook/execution/mapreduce/agent/tests.rs:130:53
+    |
+130 |     let aggregated = aggregator.aggregate(&results).await;
+    |                                                     ^^^^^ `results::AggregatedResults` is not a future
+    |
+    = help: the trait `futures_util::Future` is not implemented for `results::AggregatedResults`
+    = note: results::AggregatedResults must be a future or must implement `IntoFuture` to be awaited
+    = note: required for `results::AggregatedResults` to implement `std::future::IntoFuture`
+help: remove the `.await`
+    |
+130 -     let aggregated = aggregator.aggregate(&results).await;
+130 +     let aggregated = aggregator.aggregate(&results);
+    |
+
+error[E0308]: mismatched types
+   --> src/cook/execution/mapreduce/agent/tests.rs:146:43
+    |
+146 |     let aggregated = aggregator.aggregate(&results).await;
+    |                                 --------- ^^^^^^^^ expected `Vec<AgentResult>`, found `&Vec<AgentResult>`
+    |                                 |
+    |                                 arguments to this method are incorrect
+    |
+    = note: expected struct `Vec<_>`
+            found reference `&Vec<_>`
+note: method defined here
+   --> src/cook/execution/mapreduce/agent/results.rs:103:8
+    |
+103 |     fn aggregate(&self, results: Vec<AgentResult>) -> AggregatedResults;
+    |        ^^^^^^^^^        -------
+help: consider removing the borrow
+    |
+146 -     let aggregated = aggregator.aggregate(&results).await;
+146 +     let aggregated = aggregator.aggregate(results).await;
+    |
+
+error[E0277]: `results::AggregatedResults` is not a future
+   --> src/cook/execution/mapreduce/agent/tests.rs:146:53
+    |
+146 |     let aggregated = aggregator.aggregate(&results).await;
+    |                                                     ^^^^^ `results::AggregatedResults` is not a future
+    |
+    = help: the trait `futures_util::Future` is not implemented for `results::AggregatedResults`
+    = note: results::AggregatedResults must be a future or must implement `IntoFuture` to be awaited
+    = note: required for `results::AggregatedResults` to implement `std::future::IntoFuture`
+help: remove the `.await`
+    |
+146 -     let aggregated = aggregator.aggregate(&results).await;
+146 +     let aggregated = aggregator.aggregate(&results);
+    |
+
+error[E0308]: mismatched types
+   --> src/cook/execution/mapreduce/agent/tests.rs:165:43
+    |
+165 |     let aggregated = aggregator.aggregate(&results).await;
+    |                                 --------- ^^^^^^^^ expected `Vec<AgentResult>`, found `&Vec<AgentResult>`
+    |                                 |
+    |                                 arguments to this method are incorrect
+    |
+    = note: expected struct `Vec<_>`
+            found reference `&Vec<_>`
+note: method defined here
+   --> src/cook/execution/mapreduce/agent/results.rs:103:8
+    |
+103 |     fn aggregate(&self, results: Vec<AgentResult>) -> AggregatedResults;
+    |        ^^^^^^^^^        -------
+help: consider removing the borrow
+    |
+165 -     let aggregated = aggregator.aggregate(&results).await;
+165 +     let aggregated = aggregator.aggregate(results).await;
+    |
+
+error[E0277]: `results::AggregatedResults` is not a future
+   --> src/cook/execution/mapreduce/agent/tests.rs:165:53
+    |
+165 |     let aggregated = aggregator.aggregate(&results).await;
+    |                                                     ^^^^^ `results::AggregatedResults` is not a future
+    |
+    = help: the trait `futures_util::Future` is not implemented for `results::AggregatedResults`
+    = note: results::AggregatedResults must be a future or must implement `IntoFuture` to be awaited
+    = note: required for `results::AggregatedResults` to implement `std::future::IntoFuture`
+help: remove the `.await`
+    |
+165 -     let aggregated = aggregator.aggregate(&results).await;
+165 +     let aggregated = aggregator.aggregate(&results);
+    |
+
+error[E0599]: no function or associated item named `new` found for struct `agent::types::AgentState` in the current scope
+   --> src/cook/execution/mapreduce/agent/tests.rs:177:33
+    |
+177 |     let mut state = AgentState::new("agent-1".to_string(), "item-1".to_string());
+    |                                 ^^^ function or associated item not found in `agent::types::AgentState`
+    |
+   ::: src/cook/execution/mapreduce/agent/types.rs:195:1
+    |
+195 | pub struct AgentState {
+    | --------------------- function or associated item `new` not found for this struct
+    |
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `new`, perhaps you need to implement one of them:
+            candidate #1: `Bit`
+            candidate #2: `KeyInit`
+            candidate #3: `KeyIvInit`
+            candidate #4: `UniformSampler`
+            candidate #5: `VariableOutput`
+            candidate #6: `VariableOutputCore`
+            candidate #7: `futures_intrusive::buffer::ring_buffer::RingBuf`
+            candidate #8: `notify::Watcher`
+            candidate #9: `parking_lot_core::thread_parker::ThreadParkerT`
+            candidate #10: `sha2::Digest`
+
+error[E0599]: no variant or associated item named `Pending` found for enum `agent::types::AgentStateStatus` in the current scope
+   --> src/cook/execution/mapreduce/agent/tests.rs:179:48
+    |
+179 |     assert_eq!(state.status, AgentStateStatus::Pending);
+    |                                                ^^^^^^^ variant or associated item not found in `agent::types::AgentStateStatus`
+    |
+   ::: src/cook/execution/mapreduce/agent/types.rs:212:1
+    |
+212 | pub enum AgentStateStatus {
+    | ------------------------- variant or associated item `Pending` not found for this enum
+
+error[E0599]: no variant or associated item named `Running` found for enum `agent::types::AgentStateStatus` in the current scope
+   --> src/cook/execution/mapreduce/agent/tests.rs:181:38
+    |
+181 |     state.status = AgentStateStatus::Running;
+    |                                      ^^^^^^^ variant or associated item not found in `agent::types::AgentStateStatus`
+    |
+   ::: src/cook/execution/mapreduce/agent/types.rs:212:1
+    |
+212 | pub enum AgentStateStatus {
+    | ------------------------- variant or associated item `Running` not found for this enum
+
+error[E0599]: no variant or associated item named `Running` found for enum `agent::types::AgentStateStatus` in the current scope
+   --> src/cook/execution/mapreduce/agent/tests.rs:183:54
+    |
+183 |     assert!(matches!(state.status, AgentStateStatus::Running));
+    |                                                      ^^^^^^^ variant or associated item not found in `agent::types::AgentStateStatus`
+    |
+   ::: src/cook/execution/mapreduce/agent/types.rs:212:1
+    |
+212 | pub enum AgentStateStatus {
+    | ------------------------- variant or associated item `Running` not found for this enum
+
+error[E0599]: no function or associated item named `new` found for struct `agent::types::AgentState` in the current scope
+   --> src/cook/execution/mapreduce/agent/tests.rs:192:33
+    |
+192 |     let mut state = AgentState::new("agent-1".to_string(), "item-1".to_string());
+    |                                 ^^^ function or associated item not found in `agent::types::AgentState`
+    |
+   ::: src/cook/execution/mapreduce/agent/types.rs:195:1
+    |
+195 | pub struct AgentState {
+    | --------------------- function or associated item `new` not found for this struct
+    |
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `new`, perhaps you need to implement one of them:
+            candidate #1: `Bit`
+            candidate #2: `KeyInit`
+            candidate #3: `KeyIvInit`
+            candidate #4: `UniformSampler`
+            candidate #5: `VariableOutput`
+            candidate #6: `VariableOutputCore`
+            candidate #7: `futures_intrusive::buffer::ring_buffer::RingBuf`
+            candidate #8: `notify::Watcher`
+            candidate #9: `parking_lot_core::thread_parker::ThreadParkerT`
+            candidate #10: `sha2::Digest`
+
+error[E0599]: no variant or associated item named `Starting` found for enum `agent::types::AgentOperation` in the current scope
+   --> src/cook/execution/mapreduce/agent/tests.rs:206:31
+    |
+206 |     let op1 = AgentOperation::Starting;
+    |                               ^^^^^^^^ variant or associated item not found in `agent::types::AgentOperation`
+    |
+   ::: src/cook/execution/mapreduce/agent/types.rs:276:1
+    |
+276 | pub enum AgentOperation {
+    | ----------------------- variant or associated item `Starting` not found for this enum
+
+error[E0599]: no variant or associated item named `Starting` found for enum `agent::types::AgentOperation` in the current scope
+   --> src/cook/execution/mapreduce/agent/tests.rs:207:43
+    |
+207 |     assert!(matches!(op1, AgentOperation::Starting));
+    |                                           ^^^^^^^^ variant or associated item not found in `agent::types::AgentOperation`
+    |
+   ::: src/cook/execution/mapreduce/agent/types.rs:276:1
+    |
+276 | pub enum AgentOperation {
+    | ----------------------- variant or associated item `Starting` not found for this enum
+
+error[E0599]: no variant or associated item named `Processing` found for enum `agent::types::AgentOperation` in the current scope
+   --> src/cook/execution/mapreduce/agent/tests.rs:209:31
+    |
+209 |     let op2 = AgentOperation::Processing("item-1".to_string());
+    |                               ^^^^^^^^^^ variant or associated item not found in `agent::types::AgentOperation`
+    |
+   ::: src/cook/execution/mapreduce/agent/types.rs:276:1
+    |
+276 | pub enum AgentOperation {
+    | ----------------------- variant or associated item `Processing` not found for this enum
+
+error[E0599]: no variant or associated item named `Processing` found for enum `agent::types::AgentOperation` in the current scope
+   --> src/cook/execution/mapreduce/agent/tests.rs:210:28
+    |
+210 |     if let AgentOperation::Processing(item) = op2 {
+    |                            ^^^^^^^^^^ variant or associated item not found in `agent::types::AgentOperation`
+    |
+   ::: src/cook/execution/mapreduce/agent/types.rs:276:1
+    |
+276 | pub enum AgentOperation {
+    | ----------------------- variant or associated item `Processing` not found for this enum
+
+error[E0061]: this function takes 2 arguments but 1 argument was supplied
+   --> src/cook/execution/mapreduce/agent/tests.rs:233:37
+    |
+233 |     let worktree_manager = Arc::new(WorktreeManager::new(project_root).await.unwrap());
+    |                                     ^^^^^^^^^^^^^^^^^^^^-------------- argument #2 of type `subprocess::SubprocessManager` is missing
+    |
+note: associated function defined here
+   --> src/worktree/manager.rs:102:12
+    |
+102 |     pub fn new(repo_path: PathBuf, subprocess: SubprocessManager) -> Result<Self> {
+    |            ^^^                     -----------------------------
+help: provide the argument
+    |
+233 |     let worktree_manager = Arc::new(WorktreeManager::new(project_root, /* subprocess::SubprocessManager */).await.unwrap());
+    |                                                                      +++++++++++++++++++++++++++++++++++++
+
+error[E0277]: `std::result::Result<worktree::manager::WorktreeManager, anyhow::Error>` is not a future
+   --> src/cook/execution/mapreduce/agent/tests.rs:233:72
+    |
+233 |     let worktree_manager = Arc::new(WorktreeManager::new(project_root).await.unwrap());
+    |                                     ---------------------------------- ^^^^^ `std::result::Result<worktree::manager::WorktreeManager, anyhow::Error>` is not a future
+    |                                     |
+    |                                     this call returns `std::result::Result<worktree::manager::WorktreeManager, anyhow::Error>`
+    |
+    = help: the trait `futures_util::Future` is not implemented for `std::result::Result<worktree::manager::WorktreeManager, anyhow::Error>`
+    = note: std::result::Result<worktree::manager::WorktreeManager, anyhow::Error> must be a future or must implement `IntoFuture` to be awaited
+    = note: required for `std::result::Result<worktree::manager::WorktreeManager, anyhow::Error>` to implement `std::future::IntoFuture`
+help: remove the `.await`
+    |
+233 -     let worktree_manager = Arc::new(WorktreeManager::new(project_root).await.unwrap());
+233 +     let worktree_manager = Arc::new(WorktreeManager::new(project_root).unwrap());
+    |
+
+error[E0599]: no method named `initialize` found for struct `lifecycle::DefaultLifecycleManager` in the current scope
+   --> src/cook/execution/mapreduce/agent/tests.rs:248:36
+    |
+248 |     let handle = lifecycle_manager.initialize(config).await.unwrap();
+    |                                    ^^^^^^^^^^ method not found in `lifecycle::DefaultLifecycleManager`
+    |
+   ::: src/cook/execution/mapreduce/agent/lifecycle.rs:83:1
+    |
+83  | pub struct DefaultLifecycleManager {
+    | ---------------------------------- method `initialize` not found for this struct
+    |
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following trait defines an item `initialize`, perhaps you need to implement it:
+            candidate #1: `tokio_stream::stream_ext::collect::sealed::FromStreamPriv`
+
+error[E0061]: this function takes 2 arguments but 1 argument was supplied
+   --> src/cook/execution/mapreduce/agent/tests.rs:381:37
+    |
+381 |     let worktree_manager = Arc::new(WorktreeManager::new(project_root).await.unwrap());
+    |                                     ^^^^^^^^^^^^^^^^^^^^-------------- argument #2 of type `subprocess::SubprocessManager` is missing
+    |
+note: associated function defined here
+   --> src/worktree/manager.rs:102:12
+    |
+102 |     pub fn new(repo_path: PathBuf, subprocess: SubprocessManager) -> Result<Self> {
+    |            ^^^                     -----------------------------
+help: provide the argument
+    |
+381 |     let worktree_manager = Arc::new(WorktreeManager::new(project_root, /* subprocess::SubprocessManager */).await.unwrap());
+    |                                                                      +++++++++++++++++++++++++++++++++++++
+
+error[E0277]: `std::result::Result<worktree::manager::WorktreeManager, anyhow::Error>` is not a future
+   --> src/cook/execution/mapreduce/agent/tests.rs:381:72
+    |
+381 |     let worktree_manager = Arc::new(WorktreeManager::new(project_root).await.unwrap());
+    |                                     ---------------------------------- ^^^^^ `std::result::Result<worktree::manager::WorktreeManager, anyhow::Error>` is not a future
+    |                                     |
+    |                                     this call returns `std::result::Result<worktree::manager::WorktreeManager, anyhow::Error>`
+    |
+    = help: the trait `futures_util::Future` is not implemented for `std::result::Result<worktree::manager::WorktreeManager, anyhow::Error>`
+    = note: std::result::Result<worktree::manager::WorktreeManager, anyhow::Error> must be a future or must implement `IntoFuture` to be awaited
+    = note: required for `std::result::Result<worktree::manager::WorktreeManager, anyhow::Error>` to implement `std::future::IntoFuture`
+help: remove the `.await`
+    |
+381 -     let worktree_manager = Arc::new(WorktreeManager::new(project_root).await.unwrap());
+381 +     let worktree_manager = Arc::new(WorktreeManager::new(project_root).unwrap());
+    |
+
+error[E0599]: no method named `initialize` found for struct `lifecycle::DefaultLifecycleManager` in the current scope
+   --> src/cook/execution/mapreduce/agent/tests.rs:402:40
+    |
+402 |         let handle = lifecycle_manager.initialize(config).await.unwrap();
+    |                                        ^^^^^^^^^^ method not found in `lifecycle::DefaultLifecycleManager`
+    |
+   ::: src/cook/execution/mapreduce/agent/lifecycle.rs:83:1
+    |
+83  | pub struct DefaultLifecycleManager {
+    | ---------------------------------- method `initialize` not found for this struct
+    |
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following trait defines an item `initialize`, perhaps you need to implement it:
+            candidate #1: `tokio_stream::stream_ext::collect::sealed::FromStreamPriv`
+
+error[E0277]: `results::AggregatedResults` is not a future
+   --> src/cook/execution/mapreduce/agent/tests.rs:428:53
+    |
+428 |     let aggregated = aggregator.aggregate(&results).await;
+    |                                                     ^^^^^ `results::AggregatedResults` is not a future
+    |
+    = help: the trait `futures_util::Future` is not implemented for `results::AggregatedResults`
+    = note: results::AggregatedResults must be a future or must implement `IntoFuture` to be awaited
+    = note: required for `results::AggregatedResults` to implement `std::future::IntoFuture`
+help: remove the `.await`
+    |
+428 -     let aggregated = aggregator.aggregate(&results).await;
+428 +     let aggregated = aggregator.aggregate(&results);
+    |
+
+error[E0308]: mismatched types
+   --> src/cook/execution/mapreduce/agent/tests.rs:443:41
+    |
+443 |         lifecycle_manager.cleanup_agent(&handle).await.unwrap();
+    |                           ------------- ^^^^^^^ expected `AgentHandle`, found `&_`
+    |                           |
+    |                           arguments to this method are incorrect
+    |
+    = note: expected struct `AgentHandle`
+            found reference `&_`
+note: method defined here
+   --> src/cook/execution/mapreduce/agent/lifecycle.rs:73:14
+    |
+73  |     async fn cleanup_agent(&self, handle: AgentHandle) -> LifecycleResult<()>;
+    |              ^^^^^^^^^^^^^        ------
+help: consider removing the borrow
+    |
+443 -         lifecycle_manager.cleanup_agent(&handle).await.unwrap();
+443 +         lifecycle_manager.cleanup_agent(handle).await.unwrap();
+    |
+
+Some errors have detailed explanations: E0061, E0308, E0599, E0609.
+For more information about an error, try `rustc --explain E0061`.
+warning: `prodigy` (lib) generated 17 warnings
+error: could not compile `prodigy` (lib) due to 17 previous errors; 17 warnings emitted
+warning: build failed, waiting for other jobs to finish...
+Some errors have detailed explanations: E0061, E0277, E0308, E0599, E0609.
+warning: `prodigy` (lib test) generated 21 warnings (17 duplicates)
+error: could not compile `prodigy` (lib test) due to 40 previous errors; 21 warnings emitted
 error: command `/opt/homebrew/bin/cargo test --no-run --message-format json-render-diagnostics` exited with code 101
->>>>>>> prodigy-session-f98e5275-f54a-4e9a-8bf1-a03d4b1ee6fb

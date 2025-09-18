@@ -11,11 +11,8 @@ use crate::cook::workflow::WorkflowStep;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashMap;
 use std::path::Path;
-use std::sync::Arc;
 use std::time::Instant;
-use tracing::{debug, info};
 
 /// Aggregated results from map phase execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
