@@ -50,6 +50,22 @@ pub fn collect_command_types(step: &WorkflowStep) -> Vec<CommandType> {
         commands.push(CommandType::Foreach(foreach.clone()));
     }
 
+    // Only consider legacy commands (name/command fields) if no other command types are specified
+    if commands.is_empty() {
+        if let Some(name) = &step.name {
+            // Check if the name starts with '/' indicating a legacy command
+            if name.starts_with('/') {
+                commands.push(CommandType::Legacy(name.clone()));
+            } else {
+                // Convert non-slash names to legacy slash commands
+                let command = format!("/{}", name);
+                commands.push(CommandType::Legacy(command));
+            }
+        } else if let Some(command) = &step.command {
+            commands.push(CommandType::Legacy(command.clone()));
+        }
+    }
+
     commands
 }
 
@@ -90,7 +106,7 @@ fn convert_json_to_attribute_value(value: &serde_json::Value) -> AttributeValue 
 pub fn validate_command_count(commands: &[CommandType]) -> MapReduceResult<()> {
     match commands.len() {
         0 => Err(MapReduceError::InvalidConfiguration {
-            reason: "No command type specified in step".to_string(),
+            reason: "No command specified. No command type specified in step".to_string(),
             field: "command".to_string(),
             value: "<none>".to_string(),
         }),
@@ -101,7 +117,7 @@ pub fn validate_command_count(commands: &[CommandType]) -> MapReduceResult<()> {
                 .map(|c| format!("{:?}", c))
                 .collect();
             Err(MapReduceError::InvalidConfiguration {
-                reason: format!("Multiple commands specified in single step: {}", n),
+                reason: format!("Multiple command types specified. Multiple commands specified: {}", n),
                 field: "commands".to_string(),
                 value: types.join(", "),
             })
