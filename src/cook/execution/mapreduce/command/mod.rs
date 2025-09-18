@@ -9,6 +9,7 @@ pub mod executor;
 mod handler;
 pub mod interpolation;
 mod shell;
+pub mod step_executor;
 pub mod types;
 
 // Test module
@@ -18,7 +19,8 @@ mod tests;
 // Re-export public types
 pub use context::ExecutionContext;
 pub use executor::{CommandError, CommandExecutor, CommandResult, CommandRouter};
-pub use interpolation::InterpolationEngine;
+pub use interpolation::{InterpolationEngine, StepInterpolator};
+pub use step_executor::StepExecutor;
 pub use types::{collect_command_types, determine_command_type, validate_command_count};
 
 // Re-export implementations

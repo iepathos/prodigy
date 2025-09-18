@@ -1,9 +1,12 @@
 //! Pure interpolation functions for command execution
 
 use crate::cook::execution::interpolation::InterpolationContext;
+use crate::cook::execution::mapreduce::AgentContext;
 use crate::cook::execution::variables::VariableContext;
 use crate::cook::workflow::WorkflowStep;
 use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 /// Engine for interpolating variables in commands
 pub struct InterpolationEngine {
@@ -162,4 +165,45 @@ pub fn merge_contexts(
     // For now, we just return a clone of the overlay
     // In practice, we'd merge the internal HashMaps
     overlay.clone()
+}
+
+/// Step interpolator that handles both legacy and enhanced interpolation
+pub struct StepInterpolator {
+    engine: Arc<Mutex<InterpolationEngine>>,
+}
+
+impl StepInterpolator {
+    /// Create a new step interpolator
+    pub fn new(engine: Arc<Mutex<InterpolationEngine>>) -> Self {
+        Self { engine }
+    }
+
+    /// Interpolate a workflow step using the appropriate context
+    pub async fn interpolate(
+        &self,
+        step: &WorkflowStep,
+        context: &AgentContext,
+    ) -> Result<WorkflowStep, crate::cook::execution::errors::MapReduceError> {
+        // Decide which interpolation approach to use
+        if context.item_id == "reduce" || context.variables.contains_key("map.total") {
+            // Use enhanced context for reduce phase or when map variables present
+            let var_context = context.to_variable_context().await;
+            interpolate_workflow_step_enhanced(step, &var_context)
+                .await
+                .map_err(|e| crate::cook::execution::errors::MapReduceError::General {
+                    message: format!("Interpolation failed: {}", e),
+                    source: None,
+                })
+        } else {
+            // Use legacy interpolation for backward compatibility
+            let interp_context = context.to_interpolation_context();
+            let mut engine = self.engine.lock().await;
+            interpolate_workflow_step(step, &interp_context, &mut engine)
+                .await
+                .map_err(|e| crate::cook::execution::errors::MapReduceError::General {
+                    message: format!("Interpolation failed: {}", e),
+                    source: None,
+                })
+        }
+    }
 }
