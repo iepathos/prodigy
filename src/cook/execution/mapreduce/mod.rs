@@ -55,9 +55,7 @@ use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::SessionManager;
 use crate::cook::workflow::{ErrorPolicyExecutor, StepResult, WorkflowErrorPolicy, WorkflowStep};
 use crate::subprocess::SubprocessManager;
-use crate::worktree::{
-    WorktreeManager, WorktreePool, WorktreePoolConfig, WorktreeSession,
-};
+use crate::worktree::{WorktreeManager, WorktreePool, WorktreePoolConfig};
 // Keep anyhow imports for backwards compatibility with state.rs which still uses anyhow::Result
 use chrono::Utc;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -1485,7 +1483,9 @@ impl MapReduceExecutor {
             .values()
             .filter_map(|failure| failure.worktree_info.as_ref().map(|info| info.name.clone()))
             .collect();
-        self.resource_manager.cleanup_orphaned_resources(&worktree_names).await;
+        self.resource_manager
+            .cleanup_orphaned_resources(&worktree_names)
+            .await;
 
         // Check if job is already complete and not forcing
         if state.is_complete && !options.force {
@@ -2438,7 +2438,11 @@ impl MapReduceExecutor {
         ));
 
         // Acquire worktree session with error handling
-        let worktree_session = match self.resource_manager.acquire_worktree_session(&agent_id, env).await {
+        let worktree_session = match self
+            .resource_manager
+            .acquire_worktree_session(&agent_id, env)
+            .await
+        {
             Ok(session) => session,
             Err(e) => {
                 // Log failure asynchronously
@@ -2577,7 +2581,11 @@ impl MapReduceExecutor {
         ));
 
         // Acquire worktree session with error handling
-        let worktree_session = match self.resource_manager.acquire_worktree_session(&agent_id, env).await {
+        let worktree_session = match self
+            .resource_manager
+            .acquire_worktree_session(&agent_id, env)
+            .await
+        {
             Ok(session) => session,
             Err(e) => {
                 // Log failure asynchronously

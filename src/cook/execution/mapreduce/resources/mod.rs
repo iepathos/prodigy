@@ -23,8 +23,8 @@ use crate::cook::execution::errors::MapReduceResult;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::worktree::{WorktreeManager, WorktreePool, WorktreeSession};
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use tokio::sync::RwLock;
 
 /// Central resource manager for MapReduce execution
@@ -100,7 +100,8 @@ impl ResourceManager {
         let session = self.worktree_manager.acquire_session(agent_id, env).await?;
 
         // Register with active sessions
-        self.register_session(agent_id.to_string(), session.clone()).await;
+        self.register_session(agent_id.to_string(), session.clone())
+            .await;
 
         // Update metrics
         self.metrics.increment_created();
@@ -139,13 +140,8 @@ impl ResourceManager {
 
             // Register cleanup tasks
             for name in worktree_names {
-                let cleanup_task = Box::new(cleanup::WorktreeCleanupTask::new(
-                    name.clone(),
-                    None,
-                ));
-                self.cleanup_registry
-                    .register(cleanup_task)
-                    .await;
+                let cleanup_task = Box::new(cleanup::WorktreeCleanupTask::new(name.clone(), None));
+                self.cleanup_registry.register(cleanup_task).await;
                 log::info!("Registered cleanup task for orphaned worktree: {}", name);
             }
         }
@@ -208,6 +204,7 @@ impl ResourceMetricsTracker {
         self.created.fetch_add(1, Ordering::Relaxed);
     }
 
+    #[allow(dead_code)]
     fn increment_reused(&self) {
         self.reused.fetch_add(1, Ordering::Relaxed);
     }

@@ -52,6 +52,7 @@ where
     /// Factory function for creating new resources
     factory: Arc<F>,
     /// Maximum pool size
+    #[allow(dead_code)]
     max_size: usize,
     /// Semaphore for limiting concurrent resources
     semaphore: Arc<Semaphore>,
@@ -93,6 +94,7 @@ where
     }
 
     /// Return a resource to the pool
+    #[allow(dead_code)]
     async fn return_to_pool(&self, resource: T) {
         let mut available = self.available.lock().await;
         let mut metrics = self.metrics.lock().await;

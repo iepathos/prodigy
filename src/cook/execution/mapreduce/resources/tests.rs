@@ -34,7 +34,9 @@ mod tests {
     #[tokio::test]
     async fn test_resource_manager_with_worktree_pool() {
         let mock_runner = MockProcessRunner::new();
-        let subprocess = crate::subprocess::SubprocessManager::new(Arc::new(mock_runner) as Arc<dyn ProcessRunner>);
+        let subprocess = crate::subprocess::SubprocessManager::new(
+            Arc::new(mock_runner) as Arc<dyn ProcessRunner>
+        );
         let worktree_manager = WorktreeManager::new(std::path::PathBuf::from("/tmp"), subprocess)
             .ok()
             .map(Arc::new);
@@ -62,7 +64,9 @@ mod tests {
         };
 
         // Register session
-        manager.register_session("agent-1".to_string(), session.clone()).await;
+        manager
+            .register_session("agent-1".to_string(), session.clone())
+            .await;
 
         // Verify registration
         let active = manager.get_active_sessions().await;
@@ -94,10 +98,7 @@ mod tests {
         manager.cleanup_orphaned_resources(&[]).await;
 
         // Test with worktree names
-        let worktree_names = vec![
-            "worktree-1".to_string(),
-            "worktree-2".to_string(),
-        ];
+        let worktree_names = vec!["worktree-1".to_string(), "worktree-2".to_string()];
         manager.cleanup_orphaned_resources(&worktree_names).await;
 
         // Verify cleanup tasks were registered
@@ -116,7 +117,9 @@ mod tests {
                 path: std::path::PathBuf::from(format!("/tmp/test-{}", i)),
                 created_at: chrono::Utc::now(),
             };
-            manager.register_session(format!("agent-{}", i), session).await;
+            manager
+                .register_session(format!("agent-{}", i), session)
+                .await;
         }
 
         // Verify sessions are registered
@@ -148,7 +151,9 @@ mod tests {
                 path: std::path::PathBuf::from(format!("/tmp/test-{}", i)),
                 created_at: chrono::Utc::now(),
             };
-            manager.register_session(format!("agent-{}", i), session).await;
+            manager
+                .register_session(format!("agent-{}", i), session)
+                .await;
         }
 
         let metrics = manager.get_metrics().await;
@@ -209,7 +214,9 @@ mod tests {
         );
 
         // Register context
-        agent_manager.register_context("agent-1".to_string(), context.clone()).await;
+        agent_manager
+            .register_context("agent-1".to_string(), context.clone())
+            .await;
 
         // Verify registration
         let retrieved = agent_manager.get_context("agent-1").await;
@@ -273,7 +280,8 @@ mod tests {
         #[async_trait::async_trait]
         impl CleanupTask for TestCleanupTask {
             async fn cleanup(&self) -> MapReduceResult<()> {
-                self.executed.store(true, std::sync::atomic::Ordering::Relaxed);
+                self.executed
+                    .store(true, std::sync::atomic::Ordering::Relaxed);
                 Ok(())
             }
 
@@ -317,7 +325,9 @@ mod tests {
                     let agent_id = format!("agent-{}-{}", i, j);
 
                     // Register
-                    manager_clone.register_session(agent_id.clone(), session).await;
+                    manager_clone
+                        .register_session(agent_id.clone(), session)
+                        .await;
 
                     // Small delay
                     tokio::time::sleep(Duration::from_millis(1)).await;
@@ -349,7 +359,11 @@ mod tests {
         );
 
         match error {
-            crate::cook::execution::errors::MapReduceError::WorktreeCreationFailed { agent_id, reason, .. } => {
+            crate::cook::execution::errors::MapReduceError::WorktreeCreationFailed {
+                agent_id,
+                reason,
+                ..
+            } => {
                 assert_eq!(agent_id, "test-agent");
                 assert_eq!(reason, "Failed to create worktree");
             }

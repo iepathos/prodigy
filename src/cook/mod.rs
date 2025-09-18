@@ -175,7 +175,7 @@ async fn create_orchestrator(
 
     // Create event logger for Claude streaming logs
     let event_logger =
-        match crate::storage::create_global_event_logger(&project_path, &session_id.to_string())
+        match crate::storage::create_global_event_logger(project_path, &session_id.to_string())
             .await
         {
             Ok(logger) => Some(Arc::new(logger)),

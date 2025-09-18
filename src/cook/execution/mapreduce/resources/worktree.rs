@@ -122,7 +122,7 @@ impl WorktreeResourceManager {
 
     /// Check if a worktree exists
     pub async fn worktree_exists(&self, name: &str) -> bool {
-        if let Some(manager) = &self.worktree_manager {
+        if let Some(_manager) = &self.worktree_manager {
             // Check if worktree exists using git command
             let output = std::process::Command::new("git")
                 .args(["worktree", "list"])

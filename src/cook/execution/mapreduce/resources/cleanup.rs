@@ -41,6 +41,12 @@ pub struct CleanupRegistry {
     tasks: Arc<RwLock<Vec<Box<dyn CleanupTask>>>>,
 }
 
+impl Default for CleanupRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CleanupRegistry {
     /// Create a new cleanup registry
     pub fn new() -> Self {
@@ -63,7 +69,7 @@ impl CleanupRegistry {
         };
 
         // Sort tasks by priority (Critical first)
-        tasks.sort_by(|a, b| a.priority().cmp(&b.priority()));
+        tasks.sort_by_key(|a| a.priority());
 
         let mut errors = Vec::new();
 

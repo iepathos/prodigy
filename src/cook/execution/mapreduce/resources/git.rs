@@ -9,6 +9,12 @@ use tracing::{debug, info, warn};
 /// Handles git operations for MapReduce agents
 pub struct GitOperations {}
 
+impl Default for GitOperations {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GitOperations {
     /// Create a new git operations handler
     pub fn new() -> Self {
