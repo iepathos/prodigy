@@ -5,6 +5,7 @@
 //! into long-running processes while maintaining full backward compatibility.
 
 pub mod backpressure;
+pub mod claude_processor;
 pub mod processor;
 pub mod runner;
 pub mod types;
@@ -13,6 +14,7 @@ pub mod types;
 mod tests;
 
 pub use backpressure::{BufferedStreamProcessor, OverflowStrategy};
+pub use claude_processor::{ClaudeJsonProcessor, ClaudeStreamHandler, LoggingClaudeHandler};
 pub use processor::{JsonLineProcessor, LoggingProcessor, PatternMatchProcessor, StreamProcessor};
 pub use runner::StreamingCommandRunner;
 pub use types::{

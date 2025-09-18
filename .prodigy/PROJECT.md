@@ -21,6 +21,7 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **Workflow Composition**: Build complex workflows from reusable components ✅
 - **Environment Management**: Comprehensive environment variable and working directory control ✅
 - **Real-time Streaming Infrastructure**: Line-by-line output capture with stream processors ✅
+- **Claude Streaming Integration**: Real-time Claude output visibility with tool invocation tracking ✅
 
 ### Command Types ✅
 - `claude:` - Execute Claude commands via Claude Code CLI
@@ -61,6 +62,16 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **Complete Coverage**: NAME, SYNOPSIS, DESCRIPTION, OPTIONS, EXAMPLES, ENVIRONMENT, EXIT STATUS
 - **Compressed Support**: Both uncompressed and gzipped versions generated
 - **Cross-Reference**: SEE ALSO sections link related commands
+
+### Claude Streaming Integration ✅
+- **Real-time Claude Output**: See Claude's tool invocations and messages as they happen
+- **Claude JSON Processor**: Specialized handler for Claude's stream-json format
+- **Event-Based Processing**: Tool invocations, token usage, and session events
+- **Console Display Options**: Configurable real-time output with emojis for tool activity
+- **CommandRunner Extension**: Optional streaming method with fallback to buffered mode
+- **Environment Control**: PRODIGY_CLAUDE_STREAMING=true enables real-time mode
+- **Event Logger Integration**: Automatic MapReduceEvent logging for analytics
+- **Mock Testing Support**: MockCommandRunner extended for streaming scenarios
 
 ### Real-time Streaming Infrastructure ✅
 - **Line-by-Line Output Capture**: Process command output as it arrives
