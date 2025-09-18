@@ -230,7 +230,10 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
                     .await;
             } else {
                 // Still log streaming output to trace for debugging
-                tracing::trace!("Claude streaming output (no event logger): {}", exec_result.stdout);
+                tracing::trace!(
+                    "Claude streaming output (no event logger): {}",
+                    exec_result.stdout
+                );
             }
         }
 
