@@ -9,13 +9,18 @@ pub mod config;
 pub mod error;
 pub mod factory;
 pub mod lock;
+pub mod migrate;
 pub mod traits;
 pub mod types;
+
+#[cfg(test)]
+mod tests;
 
 pub use config::{BackendConfig, BackendType, StorageConfig};
 pub use error::{StorageError, StorageResult};
 pub use factory::StorageFactory;
 pub use lock::{StorageLock, StorageLockGuard};
+pub use migrate::{MigrationConfig, MigrationStats, StorageMigrator};
 pub use traits::{
     CheckpointStorage, DLQStorage, EventStorage, SessionStorage, UnifiedStorage, WorkflowStorage,
 };

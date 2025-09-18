@@ -1,7 +1,7 @@
 //! Storage factory for creating storage instances
 
-use super::backends::{FileBackend, MemoryBackend};
-use super::config::{BackendType, StorageConfig};
+use super::backends::{FileBackend, MemoryBackend, PostgresBackend, RedisBackend, S3Backend};
+use super::config::{BackendConfig, BackendType, StorageConfig};
 use super::error::StorageResult;
 use super::traits::UnifiedStorage;
 
@@ -29,23 +29,34 @@ impl StorageFactory {
                 Ok(Box::new(backend))
             }
             BackendType::Postgres => {
-                // PostgreSQL implementation would go here
-                // For now, return a configuration error
-                Err(super::error::StorageError::configuration(
-                    "PostgreSQL backend not yet implemented",
-                ))
+                if let BackendConfig::Postgres(ref pg_config) = config.backend_config {
+                    let backend = PostgresBackend::new(pg_config).await?;
+                    Ok(Box::new(backend))
+                } else {
+                    Err(super::error::StorageError::configuration(
+                        "Invalid backend configuration for PostgreSQL",
+                    ))
+                }
             }
             BackendType::Redis => {
-                // Redis implementation would go here
-                Err(super::error::StorageError::configuration(
-                    "Redis backend not yet implemented",
-                ))
+                if let BackendConfig::Redis(ref redis_config) = config.backend_config {
+                    let backend = RedisBackend::new(redis_config).await?;
+                    Ok(Box::new(backend))
+                } else {
+                    Err(super::error::StorageError::configuration(
+                        "Invalid backend configuration for Redis",
+                    ))
+                }
             }
             BackendType::S3 => {
-                // S3 implementation would go here
-                Err(super::error::StorageError::configuration(
-                    "S3 backend not yet implemented",
-                ))
+                if let BackendConfig::S3(ref s3_config) = config.backend_config {
+                    let backend = S3Backend::new(s3_config).await?;
+                    Ok(Box::new(backend))
+                } else {
+                    Err(super::error::StorageError::configuration(
+                        "Invalid backend configuration for S3",
+                    ))
+                }
             }
         }
     }
