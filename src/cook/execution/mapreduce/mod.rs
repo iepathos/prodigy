@@ -9,6 +9,9 @@ pub mod agent;
 // Declare the utils module for pure functions
 pub mod utils;
 
+// Declare the command module for command execution
+pub mod command;
+
 // Import agent types and functionality
 use agent::{
     AgentLifecycleManager, AgentOperation, AgentResultAggregator, DefaultLifecycleManager,
@@ -24,7 +27,7 @@ use utils::{
     calculate_map_result_summary, generate_agent_branch_name, generate_agent_id, truncate_command,
 };
 
-use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};
+use crate::commands::CommandRegistry;
 use crate::cook::execution::data_pipeline::DataPipeline;
 use crate::cook::execution::dlq::{DeadLetterQueue, DeadLetteredItem, ErrorType, FailureDetail};
 use crate::cook::execution::errors::{ErrorContext, MapReduceError, MapReduceResult, SpanInfo};
@@ -60,10 +63,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::process::Command;
 use tokio::sync::{mpsc, Mutex, RwLock};
 use tokio::task::JoinHandle;
-use tokio::time::timeout as tokio_timeout;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
@@ -487,6 +488,7 @@ pub struct MapReduceExecutor {
     project_root: PathBuf,
     interpolation_engine: Arc<Mutex<InterpolationEngine>>,
     command_registry: Arc<CommandRegistry>,
+    command_router: Arc<command::CommandRouter>,
     subprocess: Arc<SubprocessManager>,
     state_manager: Arc<dyn JobStateManager>,
     event_logger: Arc<EventLogger>,
@@ -1121,6 +1123,26 @@ impl MapReduceExecutor {
             Arc::new(DefaultLifecycleManager::new(worktree_manager.clone()));
         let agent_result_aggregator = Arc::new(DefaultResultAggregator::new());
 
+        // Create command registry and router
+        let command_registry = Arc::new(CommandRegistry::with_defaults().await);
+
+        // Initialize command router with executors
+        let mut command_router = command::CommandRouter::new();
+        command_router.register(
+            "claude".to_string(),
+            Arc::new(command::ClaudeCommandExecutor::new(claude_executor.clone())),
+        );
+        command_router.register(
+            "shell".to_string(),
+            Arc::new(command::ShellCommandExecutor::new()),
+        );
+        command_router.register(
+            "handler".to_string(),
+            Arc::new(command::HandlerCommandExecutor::new(
+                command_registry.clone(),
+            )),
+        );
+
         Self {
             claude_executor,
             session_manager,
@@ -1129,7 +1151,8 @@ impl MapReduceExecutor {
             worktree_pool: None, // Will be initialized when needed with config
             project_root,
             interpolation_engine: Arc::new(Mutex::new(InterpolationEngine::new(false))),
-            command_registry: Arc::new(CommandRegistry::with_defaults().await),
+            command_registry,
+            command_router: Arc::new(command_router),
             subprocess: Arc::new(SubprocessManager::production()),
             state_manager,
             event_logger,
@@ -3723,64 +3746,27 @@ impl MapReduceExecutor {
                     .await?
             };
 
-        // Determine command type
-        let command_type = self.determine_command_type(&interpolated_step)?;
-
-        // Execute the command based on its type
-        let result = match command_type.clone() {
-            CommandType::Claude(cmd) => self.execute_claude_command(&cmd, context).await?,
-            CommandType::Shell(cmd) => {
-                self.execute_shell_command(&cmd, context, step.timeout)
-                    .await?
-            }
-            CommandType::Handler {
-                handler_name,
-                attributes,
-            } => {
-                self.execute_handler_command(&handler_name, &attributes, context)
-                    .await?
-            }
-            CommandType::Legacy(cmd) => {
-                // Legacy commands use Claude executor
-                self.execute_claude_command(&cmd, context).await?
-            }
-            CommandType::Test(_) => {
-                // Test commands are converted to shell commands
-                if let Some(shell_cmd) = &interpolated_step.shell {
-                    self.execute_shell_command(shell_cmd, context, step.timeout)
-                        .await?
-                } else {
-                    let context = self.create_error_context("execute_single_step");
-                    return Err(MapReduceError::InvalidConfiguration {
-                        reason: "Test commands are not supported in MapReduce".to_string(),
-                        field: "command_type".to_string(),
-                        value: "test".to_string(),
-                    }
-                    .with_context(context)
-                    .error);
-                }
-            }
-            CommandType::GoalSeek(_) => {
-                let context = self.create_error_context("execute_single_step");
-                return Err(MapReduceError::InvalidConfiguration {
-                    reason: "Goal-seeking commands are not supported in MapReduce".to_string(),
-                    field: "command_type".to_string(),
-                    value: "goal_seek".to_string(),
-                }
-                .with_context(context)
-                .error);
-            }
-            CommandType::Foreach(_) => {
-                let context = self.create_error_context("execute_single_step");
-                return Err(MapReduceError::InvalidConfiguration {
-                    reason: "Foreach commands are not supported in MapReduce".to_string(),
-                    field: "command_type".to_string(),
-                    value: "foreach".to_string(),
-                }
-                .with_context(context)
-                .error);
-            }
+        // Create execution context for command router
+        let exec_context = command::executor::ExecutionContext {
+            worktree_path: context.worktree_path.clone(),
+            worktree_name: context.worktree_name.clone(),
+            item_id: context.item_id.clone(),
+            variables: context.variables.clone(),
+            captured_outputs: context.captured_outputs.clone(),
+            environment: HashMap::new(),
         };
+
+        // Use command router to execute the step
+        let command_result = self
+            .command_router
+            .execute(&interpolated_step, &exec_context)
+            .await?;
+
+        // Convert command result to step result
+        let result: StepResult = command_result.into();
+
+        // Determine command type for capture output compatibility
+        let command_type = self.determine_command_type(&interpolated_step)?;
 
         // Capture command output if requested (new capture field)
         if let Some(capture_name) = &step.capture {
@@ -3954,106 +3940,6 @@ impl MapReduceExecutor {
         }
     }
 
-    /// Execute a Claude command with agent context
-    async fn execute_claude_command(
-        &self,
-        command: &str,
-        context: &AgentContext,
-    ) -> MapReduceResult<StepResult> {
-        // Set up environment variables for the command
-        let mut env_vars = HashMap::new();
-        env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
-        env_vars.insert(
-            "PRODIGY_WORKTREE".to_string(),
-            context.worktree_name.clone(),
-        );
-
-        // Execute the Claude command
-        let result = self
-            .claude_executor
-            .execute_claude_command(command, &context.worktree_path, env_vars)
-            .await?;
-
-        Ok(StepResult {
-            success: result.success,
-            exit_code: result.exit_code,
-            stdout: result.stdout,
-            stderr: result.stderr,
-        })
-    }
-
-    /// Execute a shell command with agent context
-    async fn execute_shell_command(
-        &self,
-        command: &str,
-        context: &AgentContext,
-        timeout: Option<u64>,
-    ) -> MapReduceResult<StepResult> {
-        use tokio::time::Duration;
-
-        // Create command
-        let mut cmd = Command::new("sh");
-        cmd.args(["-c", command]);
-
-        // Set working directory to the agent's worktree
-        cmd.current_dir(&context.worktree_path);
-
-        // Set environment variables
-        cmd.env("PRODIGY_WORKTREE", &context.worktree_name);
-        cmd.env("PRODIGY_ITEM_ID", &context.item_id);
-        cmd.env("PRODIGY_AUTOMATION", "true");
-
-        // Execute with optional timeout
-        let output = if let Some(timeout_secs) = timeout {
-            let duration = Duration::from_secs(timeout_secs);
-            match tokio_timeout(duration, cmd.output()).await {
-                Ok(result) => result?,
-                Err(_) => {
-                    return Err(MapReduceError::AgentTimeout(Box::new(
-                        crate::cook::execution::errors::AgentTimeoutError {
-                            job_id: "<unknown>".to_string(),
-                            agent_id: "<unknown>".to_string(),
-                            item_id: "<unknown>".to_string(),
-                            duration_secs: timeout_secs,
-                            last_operation: "shell command execution".to_string(),
-                        },
-                    )));
-                }
-            }
-        } else {
-            cmd.output().await?
-        };
-
-        let result = StepResult {
-            success: output.status.success(),
-            exit_code: output.status.code(),
-            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        };
-
-        // Enhanced error logging for variable substitution failures
-        if !result.success && result.stderr.contains("bad substitution") {
-            // Log detailed information about the substitution failure
-            error!(
-                "Shell command failed with variable substitution error:\n  \
-                Original command: {}\n  \
-                Available variables: {:?}\n  \
-                Error: {}",
-                command,
-                context.variables.keys().collect::<Vec<_>>(),
-                result.stderr
-            );
-
-            // Try to identify which variables were referenced but not available
-            let missing_vars = self.find_missing_variables(command, &context.variables);
-            if !missing_vars.is_empty() {
-                error!("Potentially missing variables: {:?}", missing_vars);
-            }
-        }
-
-        Ok(result)
-    }
-
     /// Find variables referenced in a command that are not available in the context
     fn find_missing_variables(
         &self,
@@ -4112,47 +3998,6 @@ impl MapReduceExecutor {
         }
 
         missing
-    }
-
-    /// Execute a handler command with agent context
-    async fn execute_handler_command(
-        &self,
-        handler_name: &str,
-        attributes: &HashMap<String, AttributeValue>,
-        context: &AgentContext,
-    ) -> MapReduceResult<StepResult> {
-        // Create execution context for the handler
-        let mut exec_context = ExecutionContext::new(context.worktree_path.clone());
-
-        // Add environment variables
-        exec_context.add_env_var(
-            "PRODIGY_WORKTREE".to_string(),
-            context.worktree_name.clone(),
-        );
-        exec_context.add_env_var("PRODIGY_ITEM_ID".to_string(), context.item_id.clone());
-        exec_context.add_env_var("PRODIGY_AUTOMATION".to_string(), "true".to_string());
-
-        // Execute the handler
-        let result = self
-            .command_registry
-            .execute(handler_name, &exec_context, attributes.clone())
-            .await;
-
-        // Convert CommandResult to StepResult
-        Ok(StepResult {
-            success: result.is_success(),
-            exit_code: result.exit_code,
-            stdout: result.stdout.unwrap_or_else(|| {
-                result
-                    .data
-                    .as_ref()
-                    .map(|d| serde_json::to_string_pretty(d).unwrap_or_default())
-                    .unwrap_or_default()
-            }),
-            stderr: result
-                .stderr
-                .unwrap_or_else(|| result.error.unwrap_or_default()),
-        })
     }
 
     /// Handle on_failure logic for a failed step
@@ -4293,6 +4138,7 @@ impl MapReduceExecutor {
             project_root: self.project_root.clone(),
             interpolation_engine: self.interpolation_engine.clone(),
             command_registry: self.command_registry.clone(),
+            command_router: self.command_router.clone(),
             subprocess: self.subprocess.clone(),
             state_manager: self.state_manager.clone(),
             event_logger: self.event_logger.clone(),
