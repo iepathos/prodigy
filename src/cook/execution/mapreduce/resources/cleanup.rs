@@ -2,7 +2,6 @@
 
 use crate::cook::execution::errors::{MapReduceError, MapReduceResult};
 use async_trait::async_trait;
-use std::cmp::Ordering;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info};
