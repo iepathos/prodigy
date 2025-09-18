@@ -91,6 +91,7 @@ dev/
 # prodigy session state files
 .prodigy/session_state.json
 .prodigy/state.json.corrupted.*
+.prodigy/checkpoints/
 .prodigy/mapreduce/
 .prodigy/worktrees/
 .prodigy/context/

@@ -81,11 +81,20 @@ impl<R: CommandRunner + 'static> ClaudeExecutor for ClaudeExecutorImpl<R> {
             .get("PRODIGY_CLAUDE_STREAMING")
             .is_some_and(|v| v == "true");
 
-        if streaming_enabled && self.event_logger.is_some() {
+        tracing::info!(
+            "Claude execution mode: streaming={}, env_var={:?}",
+            streaming_enabled,
+            env_vars.get("PRODIGY_CLAUDE_STREAMING")
+        );
+
+        if streaming_enabled {
+            // Try streaming mode, even without event logger (output will still be captured)
+            tracing::info!("Using streaming mode for Claude command");
             self.execute_with_streaming(command, project_path, env_vars)
                 .await
         } else {
             // Existing --print mode execution
+            tracing::info!("Using print mode for Claude command");
             self.execute_with_print(command, project_path, env_vars)
                 .await
         }
@@ -215,9 +224,14 @@ impl<R: CommandRunner> ClaudeExecutorImpl<R> {
             .await;
 
         if let Ok(ref exec_result) = result {
-            // Parse the streaming JSON output and emit events
-            self.parse_and_emit_streaming_output(&exec_result.stdout, "agent-default")
-                .await;
+            // Parse the streaming JSON output and emit events if logger is available
+            if self.event_logger.is_some() {
+                self.parse_and_emit_streaming_output(&exec_result.stdout, "agent-default")
+                    .await;
+            } else {
+                // Still log streaming output to trace for debugging
+                tracing::trace!("Claude streaming output (no event logger): {}", exec_result.stdout);
+            }
         }
 
         if let Err(ref e) = result {
