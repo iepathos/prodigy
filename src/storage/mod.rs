@@ -1,11 +1,47 @@
-//! Global storage management for events, DLQ, and job state
+//! Storage abstraction layer for container support
 //!
-//! This module provides centralized storage under ~/.prodigy/ to enable
-//! cross-worktree data sharing and persistent job state management.
+//! This module provides a unified storage interface that decouples business logic
+//! from specific storage implementations, enabling seamless support for both
+//! file-based storage (local development) and database-backed storage (containers).
+
+pub mod backends;
+pub mod config;
+pub mod error;
+pub mod factory;
+pub mod lock;
+pub mod migrate;
+pub mod traits;
+pub mod types;
+
+#[cfg(test)]
+mod tests;
+
+pub use config::{BackendConfig, BackendType, StorageConfig};
+pub use error::{StorageError, StorageResult};
+pub use factory::StorageFactory;
+pub use lock::{StorageLock, StorageLockGuard};
+pub use migrate::{MigrationConfig, MigrationStats, StorageMigrator};
+pub use traits::{
+    CheckpointStorage, DLQStorage, EventStorage, SessionStorage, UnifiedStorage, WorkflowStorage,
+};
+pub use types::{
+    CheckpointFilter, DLQFilter, EventFilter, EventStats, EventStream, EventSubscription,
+    HealthStatus, SessionFilter, SessionId, SessionState, WorkflowFilter,
+};
 
 use anyhow::{anyhow, Context, Result};
 use std::path::{Path, PathBuf};
 use tokio::fs;
+
+/// Initialize the storage subsystem from environment configuration
+pub async fn init_from_env() -> StorageResult<Box<dyn UnifiedStorage>> {
+    StorageFactory::from_env().await
+}
+
+/// Initialize the storage subsystem from explicit configuration
+pub async fn init_from_config(config: StorageConfig) -> StorageResult<Box<dyn UnifiedStorage>> {
+    StorageFactory::from_config(&config).await
+}
 
 /// Global storage paths configuration
 pub struct GlobalStorage {
@@ -355,7 +391,7 @@ pub mod migration {
 }
 
 #[cfg(test)]
-mod tests {
+mod mod_tests {
     use super::*;
     use tempfile::TempDir;
 

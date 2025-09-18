@@ -22,6 +22,7 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **Environment Management**: Comprehensive environment variable and working directory control ✅
 - **Real-time Streaming Infrastructure**: Line-by-line output capture with stream processors ✅
 - **Claude Streaming Integration**: Real-time Claude output visibility with tool invocation tracking ✅
+- **Storage Abstraction Layer**: Trait-based storage supporting file and database backends ✅
 
 ### Command Types ✅
 - `claude:` - Execute Claude commands via Claude Code CLI
