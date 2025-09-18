@@ -3,8 +3,20 @@
 //! Implements parallel execution of workflow steps across multiple agents
 //! using isolated git worktrees for fault isolation and parallelism.
 
+// Declare the agent module for agent lifecycle management
+pub mod agent;
+
 // Declare the utils module for pure functions
 pub mod utils;
+
+// Import agent types and functionality
+use agent::{
+    AgentLifecycleManager, AgentOperation, AgentResultAggregator, DefaultLifecycleManager,
+    DefaultResultAggregator,
+};
+
+// Re-export public types for external use
+pub use agent::{AgentResult, AgentStatus};
 
 // Import utility functions from utils module
 use utils::{
@@ -20,8 +32,8 @@ use crate::cook::execution::events::{EventLogger, EventWriter, JsonlEventWriter,
 use crate::cook::execution::input_source::InputSource;
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
 use crate::cook::execution::progress::{
-    AgentProgress, AgentState, CLIProgressViewer, EnhancedProgressTracker, ProgressUpdate,
-    UpdateType,
+    AgentProgress, AgentState as ProgressAgentState, CLIProgressViewer, EnhancedProgressTracker,
+    ProgressUpdate, UpdateType,
 };
 use crate::cook::execution::progress_display::{DisplayMode, MultiProgressDisplay};
 use crate::cook::execution::progress_tracker::ProgressTracker as NewProgressTracker;
@@ -131,48 +143,7 @@ pub struct ReducePhase {
     pub commands: Vec<WorkflowStep>,
 }
 
-/// Status of an agent execution
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum AgentStatus {
-    Pending,
-    Running,
-    Success,
-    Failed(String),
-    Timeout,
-    Retrying(u32),
-}
-
-/// Result from a single agent execution
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AgentResult {
-    /// Unique identifier for the work item
-    pub item_id: String,
-    /// Status of the agent execution
-    pub status: AgentStatus,
-    /// Output from the agent
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub output: Option<String>,
-    /// Git commits created by the agent
-    #[serde(default)]
-    pub commits: Vec<String>,
-    /// Files modified by the agent
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub files_modified: Vec<String>,
-    /// Duration of execution
-    pub duration: Duration,
-    /// Error message if failed
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
-    /// Worktree path used
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub worktree_path: Option<PathBuf>,
-    /// Branch name created for this agent
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub branch_name: Option<String>,
-    /// Worktree session ID for cleanup tracking
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub worktree_session_id: Option<String>,
-}
+// AgentStatus and AgentResult are now imported from the agent module
 
 /// Options for resuming a MapReduce job
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -216,18 +187,7 @@ pub struct ResumeResult {
     pub final_results: Vec<AgentResult>,
 }
 
-/// Agent operation types for detailed status display
-#[derive(Debug, Clone)]
-enum AgentOperation {
-    Idle,
-    Setup(String),
-    Claude(String),
-    Shell(String),
-    Test(String),
-    Handler(String),
-    Retrying(String, u32),
-    Complete,
-}
+// AgentOperation is now imported from the agent module
 
 /// Progress tracking for parallel execution
 struct ProgressTracker {
@@ -538,6 +498,8 @@ pub struct MapReduceExecutor {
     setup_variables: HashMap<String, String>,
     retry_state_manager: Arc<crate::cook::retry_state::RetryStateManager>,
     error_policy_executor: Option<ErrorPolicyExecutor>,
+    agent_lifecycle_manager: Arc<dyn AgentLifecycleManager>,
+    agent_result_aggregator: Arc<dyn AgentResultAggregator>,
 }
 
 #[cfg(test)]
@@ -1154,6 +1116,11 @@ impl MapReduceExecutor {
             Arc::new(EventLogger::new(event_writers))
         };
 
+        // Create agent lifecycle manager and result aggregator
+        let agent_lifecycle_manager =
+            Arc::new(DefaultLifecycleManager::new(worktree_manager.clone()));
+        let agent_result_aggregator = Arc::new(DefaultResultAggregator::new());
+
         Self {
             claude_executor,
             session_manager,
@@ -1176,6 +1143,8 @@ impl MapReduceExecutor {
             setup_variables: HashMap::new(),
             retry_state_manager: Arc::new(crate::cook::retry_state::RetryStateManager::new()),
             error_policy_executor: None,
+            agent_lifecycle_manager,
+            agent_result_aggregator,
         }
     }
 
@@ -2220,7 +2189,7 @@ impl MapReduceExecutor {
                 // No more work
                 let agent_id = format!("agent_{}", agent_index);
                 tracker
-                    .update_agent_state(&agent_id, AgentState::Completed)
+                    .update_agent_state(&agent_id, ProgressAgentState::Completed)
                     .await?;
                 break;
             };
@@ -2232,7 +2201,7 @@ impl MapReduceExecutor {
             let agent_progress = AgentProgress {
                 agent_id: agent_id.clone(),
                 item_id: item_id.clone(),
-                state: AgentState::Initializing,
+                state: ProgressAgentState::Initializing,
                 current_step: "Starting".to_string(),
                 steps_completed: 0,
                 total_steps: map_phase.agent_template.len(),
@@ -2255,7 +2224,7 @@ impl MapReduceExecutor {
 
                 if attempt > 1 {
                     tracker
-                        .update_agent_state(&agent_id, AgentState::Retrying { attempt })
+                        .update_agent_state(&agent_id, ProgressAgentState::Retrying { attempt })
                         .await?;
                 }
 
@@ -2791,7 +2760,7 @@ impl MapReduceExecutor {
             tracker
                 .update_agent_state(
                     &agent_id,
-                    AgentState::Running {
+                    ProgressAgentState::Running {
                         step: step_name.clone(),
                         progress: progress_percentage,
                     },
@@ -2908,7 +2877,7 @@ impl MapReduceExecutor {
             let agent_progress = AgentProgress {
                 agent_id: agent_id.clone(),
                 item_id: item_id.to_string(),
-                state: AgentState::Running {
+                state: ProgressAgentState::Running {
                     step: step_name.clone(),
                     progress: progress_percentage,
                 },
@@ -3221,9 +3190,34 @@ impl MapReduceExecutor {
             .error
         })?;
 
-        // Get commits and modified files
-        let commits = self.get_worktree_commits(worktree_path).await?;
-        let files_modified = self.get_modified_files(worktree_path).await?;
+        // Get commits and modified files using lifecycle manager
+        let commits = self
+            .agent_lifecycle_manager
+            .get_worktree_commits(worktree_path)
+            .await
+            .map_err(|e| {
+                let context = self.create_error_context("get_worktree_commits");
+                MapReduceError::General {
+                    message: format!("Failed to get worktree commits: {}", e),
+                    source: None,
+                }
+                .with_context(context)
+                .error
+            })?;
+
+        let files_modified = self
+            .agent_lifecycle_manager
+            .get_modified_files(worktree_path)
+            .await
+            .map_err(|e| {
+                let context = self.create_error_context("get_modified_files");
+                MapReduceError::General {
+                    message: format!("Failed to get modified files: {}", e),
+                    source: None,
+                }
+                .with_context(context)
+                .error
+            })?;
 
         // Determine status
         let status = execution_error
@@ -3231,8 +3225,9 @@ impl MapReduceExecutor {
             .map(AgentStatus::Failed)
             .unwrap_or(AgentStatus::Success);
 
-        // Handle merge and cleanup
+        // Handle merge and cleanup using lifecycle manager
         let merge_result = self
+            .agent_lifecycle_manager
             .handle_merge_and_cleanup(
                 execution_error.is_none(),
                 env,
@@ -3242,7 +3237,16 @@ impl MapReduceExecutor {
                 template_steps,
                 item_id,
             )
-            .await?;
+            .await
+            .map_err(|e| {
+                let context = self.create_error_context("handle_merge_and_cleanup");
+                MapReduceError::General {
+                    message: format!("Failed to handle merge and cleanup: {}", e),
+                    source: None,
+                }
+                .with_context(context)
+                .error
+            })?;
 
         Ok(AgentResult {
             item_id: item_id.to_string(),
@@ -3264,47 +3268,6 @@ impl MapReduceExecutor {
                 Some(worktree_session_id)
             },
         })
-    }
-
-    /// Handle merging to parent and cleanup
-    #[allow(clippy::too_many_arguments)]
-    async fn handle_merge_and_cleanup(
-        &self,
-        is_successful: bool,
-        env: &ExecutionEnvironment,
-        worktree_path: &Path,
-        worktree_name: &str,
-        branch_name: &str,
-        template_steps: &[WorkflowStep],
-        item_id: &str,
-    ) -> MapReduceResult<bool> {
-        if is_successful && env.worktree_name.is_some() {
-            // Create and checkout branch
-            self.create_agent_branch(worktree_path, branch_name).await?;
-
-            // Try to merge
-            match self.merge_agent_to_parent(branch_name, env).await {
-                Ok(()) => {
-                    info!("Successfully merged agent {} to parent worktree", item_id);
-                    self.worktree_manager
-                        .cleanup_session(worktree_name, true)
-                        .await?;
-                    Ok(true)
-                }
-                Err(e) => {
-                    warn!("Failed to merge agent {} to parent: {}", item_id, e);
-                    Ok(false)
-                }
-            }
-        } else {
-            // Cleanup if no parent or failed
-            if !template_steps.is_empty() {
-                self.worktree_manager
-                    .cleanup_session(worktree_name, true)
-                    .await?;
-            }
-            Ok(false)
-        }
     }
 
     /// Interpolate variables in a workflow step
@@ -3388,121 +3351,10 @@ impl MapReduceExecutor {
         Ok(interpolated)
     }
 
-    /// Get commits from a worktree
-    async fn get_worktree_commits(&self, worktree_path: &Path) -> MapReduceResult<Vec<String>> {
-        use tokio::process::Command;
-
-        let output = Command::new("git")
-            .args(["log", "--format=%H", "HEAD~10..HEAD"])
-            .current_dir(worktree_path)
-            .output()
-            .await?;
-
-        if !output.status.success() {
-            return Ok(vec![]);
-        }
-
-        let commits = String::from_utf8_lossy(&output.stdout)
-            .lines()
-            .map(|s| s.to_string())
-            .collect();
-
-        Ok(commits)
-    }
-
-    /// Get modified files in a worktree
-    async fn get_modified_files(&self, worktree_path: &Path) -> MapReduceResult<Vec<String>> {
-        let output = Command::new("git")
-            .args(["diff", "--name-only", "HEAD~1..HEAD"])
-            .current_dir(worktree_path)
-            .output()
-            .await?;
-
-        if !output.status.success() {
-            return Ok(vec![]);
-        }
-
-        let files = String::from_utf8_lossy(&output.stdout)
-            .lines()
-            .map(|s| s.to_string())
-            .collect();
-
-        Ok(files)
-    }
-
-    /// Create a branch for an agent
-    async fn create_agent_branch(
-        &self,
-        worktree_path: &Path,
-        branch_name: &str,
-    ) -> MapReduceResult<()> {
-        // Create branch from current HEAD
-        let output = Command::new("git")
-            .args(["checkout", "-b", branch_name])
-            .current_dir(worktree_path)
-            .output()
-            .await?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let context = self.create_error_context("create_agent_branch");
-            return Err(MapReduceError::General {
-                message: format!("Failed to create branch {}: {}", branch_name, stderr),
-                source: None,
-            }
-            .with_context(context)
-            .error);
-        }
-
-        Ok(())
-    }
-
-    /// Merge an agent's branch to the parent worktree
-    async fn merge_agent_to_parent(
-        &self,
-        agent_branch: &str,
-        env: &ExecutionEnvironment,
-    ) -> MapReduceResult<()> {
-        // Get parent worktree path (use working_dir if we're in a parent worktree)
-        let parent_worktree_path = if env.worktree_name.is_some() {
-            &env.working_dir
-        } else {
-            // If no parent worktree, use main repository
-            &env.project_dir
-        };
-
-        // Use the /prodigy-merge-worktree command to handle the merge
-        // This provides intelligent conflict resolution
-        let merge_command = format!("/prodigy-merge-worktree {}", agent_branch);
-
-        // Set up environment variables for the merge command
-        let mut env_vars = HashMap::new();
-        env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
-
-        // Execute the merge command
-        let result = self
-            .claude_executor
-            .execute_claude_command(&merge_command, parent_worktree_path, env_vars)
-            .await?;
-
-        if !result.success {
-            let context = self.create_error_context("merge_to_parent");
-            return Err(MapReduceError::WorktreeMergeConflict {
-                agent_id: agent_branch.to_string(), // Use branch name as agent identifier
-                branch: agent_branch.to_string(),
-                conflicts: vec![result.stderr.clone()],
-            }
-            .with_context(context)
-            .error);
-        }
-
-        // Validate parent state after merge (run basic checks)
-        self.validate_parent_state(parent_worktree_path).await?;
-
-        Ok(())
-    }
+    // Git operations and branch management methods have been moved to the agent::lifecycle module
 
     /// Validate the parent worktree state after a merge
+    #[allow(dead_code)]
     async fn validate_parent_state(&self, parent_path: &Path) -> MapReduceResult<()> {
         // Check that there are no merge conflicts
         let output = Command::new("git")
@@ -4452,6 +4304,8 @@ impl MapReduceExecutor {
             setup_variables: self.setup_variables.clone(),
             retry_state_manager: self.retry_state_manager.clone(),
             error_policy_executor: None, // Don't clone error policy executor - it's per-job
+            agent_lifecycle_manager: self.agent_lifecycle_manager.clone(),
+            agent_result_aggregator: self.agent_result_aggregator.clone(),
         }
     }
 
