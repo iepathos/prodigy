@@ -39,6 +39,7 @@ pub use agent::{AgentResult, AgentStatus};
 
 // Import utility functions from utils module
 use utils::{
+    build_agent_context_variables, build_map_results_interpolation_context,
     calculate_map_result_summary, generate_agent_branch_name, generate_agent_id, truncate_command,
 };
 
@@ -3324,56 +3325,77 @@ impl MapReduceExecutor {
         map_results: &[AgentResult],
         env: &ExecutionEnvironment,
     ) -> MapReduceResult<()> {
-        // Use the new phase executor for reduce phase execution
-        // This dramatically simplifies the method from 285 lines to under 50 lines
-        self.user_interaction
-            .display_progress("Starting reduce phase...");
+        // Display start message and summary
+        self.display_reduce_start(map_results);
 
-        // Display summary statistics
-        let summary_stats = calculate_map_result_summary(map_results);
-        self.display_reduce_summary(&summary_stats);
-
-        // Create phase context
-        let mut phase_context =
-            phases::PhaseContext::new(env.clone(), self.subprocess.clone());
-
-        // Set map results in context
-        phase_context.map_results = Some(map_results.to_vec());
-
-        // Create and execute reduce phase executor
-        let reduce_executor = phases::ReducePhaseExecutor::new(reduce_phase.clone());
+        // Create and configure phase context
+        let mut phase_context = self.create_reduce_phase_context(env, map_results);
 
         // Execute the reduce phase
-        let result = reduce_executor
-            .execute(&mut phase_context)
-            .await
-            .map_err(|e| {
-                let context = self.create_error_context("reduce_phase_execution");
-                MapReduceError::General {
-                    message: format!("Reduce phase failed: {}", e),
-                    source: None,
-                }
-                .with_context(context)
-                .error
-            })?;
+        let result = self
+            .run_reduce_executor(reduce_phase, &mut phase_context)
+            .await?;
 
-        // Check result
-        if result.success {
-            self.user_interaction
-                .display_success("Reduce phase completed successfully");
-        } else {
-            return Err(MapReduceError::General {
-                message: result
-                    .error_message
-                    .unwrap_or_else(|| "Reduce phase failed".to_string()),
-                source: None,
-            });
-        }
+        // Process the result
+        self.process_reduce_result(result)?;
 
         // Handle post-reduce worktree instructions
         self.display_worktree_instructions(env);
 
         Ok(())
+    }
+
+    /// Display reduce phase start message and summary
+    fn display_reduce_start(&self, map_results: &[AgentResult]) {
+        self.user_interaction
+            .display_progress("Starting reduce phase...");
+        let summary_stats = calculate_map_result_summary(map_results);
+        self.display_reduce_summary(&summary_stats);
+    }
+
+    /// Create phase context for reduce execution
+    fn create_reduce_phase_context(
+        &self,
+        env: &ExecutionEnvironment,
+        map_results: &[AgentResult],
+    ) -> phases::PhaseContext {
+        let mut phase_context = phases::PhaseContext::new(env.clone(), self.subprocess.clone());
+        phase_context.map_results = Some(map_results.to_vec());
+        phase_context
+    }
+
+    /// Run the reduce phase executor
+    async fn run_reduce_executor(
+        &self,
+        reduce_phase: &ReducePhase,
+        phase_context: &mut phases::PhaseContext,
+    ) -> MapReduceResult<phases::PhaseResult> {
+        let reduce_executor = phases::ReducePhaseExecutor::new(reduce_phase.clone());
+        reduce_executor.execute(phase_context).await.map_err(|e| {
+            let context = self.create_error_context("reduce_phase_execution");
+            MapReduceError::General {
+                message: format!("Reduce phase failed: {}", e),
+                source: None,
+            }
+            .with_context(context)
+            .error
+        })
+    }
+
+    /// Process the reduce phase result
+    fn process_reduce_result(&self, result: phases::PhaseResult) -> MapReduceResult<()> {
+        if result.success {
+            self.user_interaction
+                .display_success("Reduce phase completed successfully");
+            Ok(())
+        } else {
+            Err(MapReduceError::General {
+                message: result
+                    .error_message
+                    .unwrap_or_else(|| "Reduce phase failed".to_string()),
+                source: None,
+            })
+        }
     }
 
     /// Display reduce phase summary statistics
