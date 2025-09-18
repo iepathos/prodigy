@@ -328,6 +328,12 @@ impl StateManager {
     }
 }
 
+impl Default for StateMachine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StateMachine {
     /// Create a new state machine with valid transitions
     pub fn new() -> Self {

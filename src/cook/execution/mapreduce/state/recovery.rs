@@ -2,9 +2,7 @@
 //!
 //! Handles job recovery from checkpoints and calculating pending work.
 
-use super::{
-    JobState, RecoveryPlan, StateError, StateEvent, StateEventType, StateManager,
-};
+use super::{JobState, RecoveryPlan, StateError, StateEvent, StateEventType, StateManager};
 use chrono::Utc;
 use serde_json::Value;
 use tracing::{debug, info};

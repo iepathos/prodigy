@@ -2,9 +2,7 @@
 //!
 //! Handles creating, validating, and managing checkpoints for job recovery.
 
-use super::{
-    Checkpoint, JobState, StateError, StateEvent, StateEventType, StateManager,
-};
+use super::{Checkpoint, JobState, StateError, StateEvent, StateEventType, StateManager};
 use crate::cook::execution::mapreduce::AgentResult;
 use chrono::Utc;
 use sha2::{Digest, Sha256};
@@ -308,7 +306,7 @@ mod tests {
         // Update with inconsistent state
         manager
             .update_state(&job_id, |state| {
-                state.total_items = 5;  // Set total items so we don't fail on count validation
+                state.total_items = 5; // Set total items so we don't fail on count validation
                 state.processed_items.insert("item_0".to_string());
                 // Don't add corresponding agent result - this makes state invalid
                 Ok(())
@@ -318,10 +316,16 @@ mod tests {
 
         let state = manager.get_state(&job_id).await.unwrap().unwrap();
         let result = manager.validate_checkpoint(&state);
-        assert!(result.is_err(), "Expected validation to fail but it succeeded");
+        assert!(
+            result.is_err(),
+            "Expected validation to fail but it succeeded"
+        );
         let error_msg = result.unwrap_err().to_string();
-        assert!(error_msg.contains("has no result"),
-                "Expected error message to contain 'has no result' but got: '{}'", error_msg);
+        assert!(
+            error_msg.contains("has no result"),
+            "Expected error message to contain 'has no result' but got: '{}'",
+            error_msg
+        );
     }
 
     #[tokio::test]

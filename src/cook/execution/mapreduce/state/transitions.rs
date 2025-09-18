@@ -71,10 +71,7 @@ impl StateManager {
     pub async fn mark_job_completed(&self, job_id: &str) -> Result<(), StateError> {
         self.update_state(job_id, |state| {
             // Determine which phase we can complete from
-            let valid_completion = match state.phase {
-                PhaseType::Map | PhaseType::Reduce => true,
-                _ => false,
-            };
+            let valid_completion = matches!(state.phase, PhaseType::Map | PhaseType::Reduce);
 
             if !valid_completion {
                 return Err(StateError::InvalidTransition {

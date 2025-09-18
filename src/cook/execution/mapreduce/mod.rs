@@ -1625,7 +1625,7 @@ impl MapReduceExecutor {
         };
 
         // Add failed items to the state
-        for (item_id, _) in &state.failed_agents {
+        for item_id in state.failed_agents.keys() {
             job_state.failed_items.push(item_id.clone());
         }
 

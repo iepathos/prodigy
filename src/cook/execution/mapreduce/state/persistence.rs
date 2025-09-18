@@ -4,7 +4,6 @@
 
 use super::{JobProgress, JobState, JobSummary, PhaseType, StateError, StateStore};
 use crate::cook::execution::state::{DefaultJobStateManager, JobStateManager, MapReduceJobState};
-use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{debug, error, info};
 
@@ -20,7 +19,8 @@ impl DefaultStateStore {
         use std::path::PathBuf;
         Self {
             state_manager: Arc::new(DefaultJobStateManager::new(PathBuf::from(format!(
-                "~/.prodigy/state/{}", repository_name
+                "~/.prodigy/state/{}",
+                repository_name
             )))),
         }
     }
@@ -99,39 +99,6 @@ impl StateStore for DefaultStateStore {
         // so we'll just log this for now
         info!("Delete requested for job {} (not implemented)", job_id);
         Ok(())
-    }
-}
-
-/// Convert from internal JobState to MapReduceJobState
-fn to_mapreduce_job_state(state: &JobState) -> MapReduceJobState {
-    use crate::cook::workflow::WorkflowStep;
-
-    MapReduceJobState {
-        job_id: state.id.clone(),
-        config: state.config.clone(),
-        started_at: state.created_at,
-        updated_at: state.updated_at,
-        work_items: Vec::new(), // Will be populated from actual work items
-        agent_results: state.agent_results.clone(),
-        completed_agents: state.processed_items.clone(),
-        failed_agents: HashMap::new(), // Will be populated from failed items
-        pending_items: state.failed_items.clone(),
-        checkpoint_version: state.checkpoint.as_ref().map(|c| c.version).unwrap_or(0),
-        checkpoint_format_version: 1,
-        parent_worktree: None,
-        reduce_phase_state: None,
-        total_items: state.total_items,
-        successful_count: state.processed_items.len(),
-        failed_count: state.failed_items.len(),
-        is_complete: state.is_complete,
-        agent_template: Vec::<WorkflowStep>::new(), // Will need to be populated from config
-        reduce_commands: None,
-        variables: state.variables.clone(),
-        setup_output: None,
-        setup_completed: matches!(
-            state.phase,
-            PhaseType::Map | PhaseType::Reduce | PhaseType::Completed
-        ),
     }
 }
 
