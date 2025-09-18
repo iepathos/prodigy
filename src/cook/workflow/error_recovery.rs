@@ -6,7 +6,8 @@
 use super::checkpoint::{RetryState as CheckpointRetryState, WorkflowCheckpoint};
 use super::executor::WorkflowContext;
 use super::on_failure::{HandlerCommand, HandlerStrategy, OnFailureConfig};
-use crate::cook::execution::CommandExecutor;
+use crate::cook::execution::{CommandExecutor, ExecutionContext};
+use crate::cook::expression::{ExpressionEvaluator, VariableContext};
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -289,28 +290,59 @@ impl ResumeErrorRecovery {
             "error.handler".to_string(),
             Value::String(handler.id.clone()),
         );
+        self.recovery_state.error_context.insert(
+            "error.attempt".to_string(),
+            Value::Number(serde_json::Number::from(
+                self.recovery_state.recovery_attempts,
+            )),
+        );
 
-        // Execute handler commands
+        // Check condition if present
+        if let Some(ref condition) = handler.condition {
+            debug!("Evaluating handler condition: {}", condition);
+            if !self.evaluate_handler_condition(condition, workflow_context)? {
+                info!("Handler condition not met, skipping handler");
+                return Ok(false);
+            }
+        }
+
+        // Execute handler commands with timeout if specified
         let start_time = std::time::Instant::now();
         let mut success = true;
 
-        for command in &handler.commands {
-            match self
-                .execute_handler_command(command, workflow_context)
-                .await
-            {
-                Ok(_) => {
-                    debug!("Handler command executed successfully");
-                }
-                Err(e) => {
-                    warn!("Handler command failed: {}", e);
-                    if !command.continue_on_error {
-                        success = false;
-                        break;
+        let handler_future = async {
+            for command in &handler.commands {
+                match self
+                    .execute_handler_command(command, workflow_context)
+                    .await
+                {
+                    Ok(_) => {
+                        debug!("Handler command executed successfully");
+                    }
+                    Err(e) => {
+                        warn!("Handler command failed: {}", e);
+                        if !command.continue_on_error {
+                            success = false;
+                            break;
+                        }
                     }
                 }
             }
-        }
+            success
+        };
+
+        // Apply timeout if specified
+        success = if let Some(timeout) = handler.timeout {
+            match tokio::time::timeout(timeout, handler_future).await {
+                Ok(result) => result,
+                Err(_) => {
+                    error!("Handler {} timed out after {:?}", handler.id, timeout);
+                    false
+                }
+            }
+        } else {
+            handler_future.await
+        };
 
         // Record execution
         let execution = HandlerExecution {
@@ -336,12 +368,20 @@ impl ResumeErrorRecovery {
     /// Extract recovery state from checkpoint
     fn extract_recovery_state(
         &self,
-        _checkpoint: &WorkflowCheckpoint,
+        checkpoint: &WorkflowCheckpoint,
     ) -> Result<Option<ErrorRecoveryState>> {
         // Look for error recovery state in checkpoint metadata
-        // This would be stored as part of the checkpoint extension
-        // For now, return None if not found
-        Ok(None)
+        if let Some(value) = checkpoint.variable_state.get("__error_recovery_state") {
+            match serde_json::from_value::<ErrorRecoveryState>(value.clone()) {
+                Ok(state) => Ok(Some(state)),
+                Err(e) => {
+                    warn!("Failed to deserialize recovery state: {}", e);
+                    Ok(None)
+                }
+            }
+        } else {
+            Ok(None)
+        }
     }
 
     /// Validate that error handlers are still applicable
@@ -350,7 +390,14 @@ impl ResumeErrorRecovery {
             // Validate handler conditions if present
             if let Some(ref condition) = handler.condition {
                 debug!("Validating handler condition: {}", condition);
-                // TODO: Implement condition evaluation
+                // Create a simple context for validation - just check syntax
+                let evaluator = ExpressionEvaluator::new();
+                let context = VariableContext::new();
+                // Try to evaluate to check for syntax errors
+                if let Err(e) = evaluator.evaluate(condition, &context) {
+                    warn!("Handler condition '{}' has syntax error: {}", condition, e);
+                    // Don't fail validation, just warn
+                }
             }
 
             // Validate handler commands are executable
@@ -470,24 +517,141 @@ impl ResumeErrorRecovery {
         })
     }
 
+    /// Evaluate handler condition
+    fn evaluate_handler_condition(
+        &self,
+        condition: &str,
+        workflow_context: &WorkflowContext,
+    ) -> Result<bool> {
+        let evaluator = ExpressionEvaluator::new();
+        let mut var_context = VariableContext::new();
+
+        // Add workflow variables to context
+        for (key, value) in &workflow_context.variables {
+            var_context.set_string(key.clone(), value.clone());
+        }
+
+        // Add error context variables
+        for (key, value) in &self.recovery_state.error_context {
+            match value {
+                Value::String(s) => var_context.set_string(key.clone(), s.clone()),
+                Value::Number(n) => {
+                    if let Some(f) = n.as_f64() {
+                        var_context.set_number(key.clone(), f);
+                    }
+                }
+                Value::Bool(b) => var_context.set_bool(key.clone(), *b),
+                _ => {} // Skip complex types
+            }
+        }
+
+        // Add recovery-specific variables
+        var_context.set_number(
+            "recovery.attempts".to_string(),
+            self.recovery_state.recovery_attempts as f64,
+        );
+        var_context.set_number(
+            "recovery.max_attempts".to_string(),
+            self.recovery_state.max_recovery_attempts as f64,
+        );
+
+        evaluator.evaluate(condition, &var_context)
+    }
+
     /// Execute a handler command
     async fn execute_handler_command(
         &self,
         command: &HandlerCommand,
-        _workflow_context: &mut WorkflowContext,
+        workflow_context: &mut WorkflowContext,
     ) -> Result<()> {
-        if let Some(ref shell_cmd) = command.shell {
-            info!("Executing shell handler: {}", shell_cmd);
-            // TODO: Execute shell command through command executor
-            // For now, just log
-            debug!("Would execute shell command: {}", shell_cmd);
+        // Get command executor if available
+        let executor = self
+            .command_executor
+            .as_ref()
+            .ok_or_else(|| anyhow!("Command executor not configured for error recovery"))?;
+
+        // Prepare execution context with error recovery variables
+        let mut context = ExecutionContext {
+            working_directory: std::env::current_dir()?,
+            capture_output: true,
+            ..ExecutionContext::default()
+        };
+
+        // Add error context variables to environment
+        for (key, value) in &self.recovery_state.error_context {
+            if let Value::String(s) = value {
+                context.env_vars.insert(key.clone(), s.clone());
+            }
         }
 
+        // Execute shell command if present
+        if let Some(ref shell_cmd) = command.shell {
+            info!("Executing shell handler: {}", shell_cmd);
+
+            // Interpolate variables in the command
+            let interpolated_cmd = workflow_context.interpolate(shell_cmd);
+
+            // Execute as a shell command
+            let result = executor
+                .execute(
+                    "sh",
+                    &["-c".to_string(), interpolated_cmd.clone()],
+                    context.clone(),
+                )
+                .await?;
+
+            if !result.success {
+                let error_msg = format!(
+                    "Shell handler command failed: {} (exit code: {:?})",
+                    interpolated_cmd, result.exit_code
+                );
+                if !command.continue_on_error {
+                    return Err(anyhow!(error_msg));
+                }
+                warn!("{}", error_msg);
+            } else {
+                debug!("Shell handler command succeeded");
+                // Capture output if needed
+                if !result.stdout.is_empty() {
+                    workflow_context.variables.insert(
+                        "handler.output".to_string(),
+                        result.stdout.trim().to_string(),
+                    );
+                }
+            }
+        }
+
+        // Execute claude command if present
         if let Some(ref claude_cmd) = command.claude {
             info!("Executing claude handler: {}", claude_cmd);
-            // TODO: Execute claude command through command executor
-            // For now, just log
-            debug!("Would execute claude command: {}", claude_cmd);
+
+            // Interpolate variables in the command
+            let interpolated_cmd = workflow_context.interpolate(claude_cmd);
+
+            // Execute claude command
+            let result = executor
+                .execute("claude", std::slice::from_ref(&interpolated_cmd), context)
+                .await?;
+
+            if !result.success {
+                let error_msg = format!(
+                    "Claude handler command failed: {} (exit code: {:?})",
+                    interpolated_cmd, result.exit_code
+                );
+                if !command.continue_on_error {
+                    return Err(anyhow!(error_msg));
+                }
+                warn!("{}", error_msg);
+            } else {
+                debug!("Claude handler command succeeded");
+                // Capture output if needed
+                if !result.stdout.is_empty() {
+                    workflow_context.variables.insert(
+                        "handler.output".to_string(),
+                        result.stdout.trim().to_string(),
+                    );
+                }
+            }
         }
 
         Ok(())
