@@ -4,6 +4,7 @@
 mod tests {
     use super::super::*;
     use crate::cook::orchestrator::ExecutionEnvironment;
+    use crate::subprocess::{MockProcessRunner, ProcessRunner};
     use crate::worktree::{WorktreeManager, WorktreePool, WorktreeSession};
     use serde_json::json;
     use std::sync::Arc;
@@ -16,6 +17,7 @@ mod tests {
             working_dir: std::path::PathBuf::from("/tmp/test_project"),
             project_dir: std::path::PathBuf::from("/tmp/test_project"),
             worktree_name: Some("test-worktree".to_string()),
+            session_id: "test-session-123".to_string(),
         }
     }
 
@@ -31,7 +33,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_resource_manager_with_worktree_pool() {
-        let subprocess = crate::subprocess::SubprocessManager::new();
+        let mock_runner = MockProcessRunner::new();
+        let subprocess = crate::subprocess::SubprocessManager::new(Arc::new(mock_runner) as Arc<dyn ProcessRunner>);
         let worktree_manager = WorktreeManager::new(std::path::PathBuf::from("/tmp"), subprocess)
             .ok()
             .map(Arc::new);
