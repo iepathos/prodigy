@@ -1459,7 +1459,24 @@ async fn run_resume_workflow(
 
                 // Create executors for resume
                 let command_runner = prodigy::cook::execution::runner::RealCommandRunner::new();
-                let claude_executor = Arc::new(ClaudeExecutorImpl::new(command_runner));
+                let resume_session_id = format!("resume-{}", workflow_id);
+
+                // Create event logger for Claude streaming logs
+                let event_logger = match prodigy::storage::create_global_event_logger(&working_dir, &resume_session_id).await {
+                    Ok(logger) => Some(Arc::new(logger)),
+                    Err(e) => {
+                        tracing::warn!("Failed to create event logger for resume session {}: {}", resume_session_id, e);
+                        None
+                    }
+                };
+
+                let claude_executor = Arc::new({
+                    let mut executor = ClaudeExecutorImpl::new(command_runner);
+                    if let Some(logger) = event_logger {
+                        executor = executor.with_event_logger(logger);
+                    }
+                    executor
+                });
                 let session_tracker = Arc::new(SessionTrackerImpl::new(
                     format!("resume-{}", workflow_id),
                     working_dir.clone(),
@@ -1991,7 +2008,23 @@ async fn run_resume_job_command(
     // Create Claude executor using the cook module's implementation
     use prodigy::cook::execution::{ClaudeExecutor, ClaudeExecutorImpl, RealCommandRunner};
     let runner = RealCommandRunner::new();
-    let claude_executor: Arc<dyn ClaudeExecutor> = Arc::new(ClaudeExecutorImpl::new(runner));
+
+    // Create event logger for Claude streaming logs
+    let event_logger = match prodigy::storage::create_global_event_logger(&project_root, &env.session_id).await {
+        Ok(logger) => Some(Arc::new(logger)),
+        Err(e) => {
+            tracing::warn!("Failed to create event logger for resume job session {}: {}", env.session_id, e);
+            None
+        }
+    };
+
+    let claude_executor: Arc<dyn ClaudeExecutor> = Arc::new({
+        let mut executor = ClaudeExecutorImpl::new(runner);
+        if let Some(logger) = event_logger {
+            executor = executor.with_event_logger(logger);
+        }
+        executor
+    });
 
     // Create session manager using the SessionManagerAdapter
     use prodigy::cook::session::{SessionManager, SessionManagerAdapter};

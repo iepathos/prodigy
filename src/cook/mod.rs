@@ -172,7 +172,23 @@ async fn create_orchestrator(
 
     // Create executors
     let command_executor = Arc::new(command_runner1);
-    let claude_executor = Arc::new(execution::claude::ClaudeExecutorImpl::new(command_runner2));
+
+    // Create event logger for Claude streaming logs
+    let event_logger = match crate::storage::create_global_event_logger(&project_path, &session_id.to_string()).await {
+        Ok(logger) => Some(Arc::new(logger)),
+        Err(e) => {
+            tracing::warn!("Failed to create event logger for session {}: {}", session_id, e);
+            None
+        }
+    };
+
+    let claude_executor = Arc::new({
+        let mut executor = execution::claude::ClaudeExecutorImpl::new(command_runner2);
+        if let Some(logger) = event_logger {
+            executor = executor.with_event_logger(logger);
+        }
+        executor
+    });
 
     // Create environment coordinator
     let _environment_coordinator = Arc::new(coordinators::DefaultEnvironmentCoordinator::new(
