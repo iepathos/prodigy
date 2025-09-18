@@ -188,29 +188,35 @@ async fn test_aggregator_to_variable_context() {
     // Verify that the context has the expected global variables
     // Note: We can't easily check the actual values without exposing internal state,
     // but we can verify the context was created
-    assert_eq!(std::mem::size_of_val(&context) > 0, true);
+    assert!(std::mem::size_of_val(&context) > 0);
 }
 
 // Test AgentState and status transitions
 #[test]
 fn test_agent_state_transitions() {
-    let mut state = AgentState::default();
-
+    let state = AgentState::default();
     assert_eq!(state.status, AgentStateStatus::Idle);
 
-    state.status = AgentStateStatus::Executing;
+    let state = AgentState {
+        status: AgentStateStatus::Executing,
+        ..Default::default()
+    };
     assert!(matches!(state.status, AgentStateStatus::Executing));
 
-    state.status = AgentStateStatus::Completed;
+    let state = AgentState {
+        status: AgentStateStatus::Completed,
+        ..Default::default()
+    };
     assert!(matches!(state.status, AgentStateStatus::Completed));
 }
 
 #[test]
 fn test_agent_state_with_error() {
-    let mut state = AgentState::default();
-
-    state.status = AgentStateStatus::Failed("Test error".to_string());
-    state.retry_count = 2;
+    let state = AgentState {
+        status: AgentStateStatus::Failed("Test error".to_string()),
+        retry_count: 2,
+        ..Default::default()
+    };
 
     assert!(matches!(state.status, AgentStateStatus::Failed(_)));
     assert_eq!(state.retry_count, 2);
