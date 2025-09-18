@@ -81,7 +81,7 @@ impl SessionStorage for RedisBackend {
             .await
             .map_err(|e| StorageError::connection(e.to_string()))?;
 
-        conn.set_ex(&key, value, self.config.default_ttl.as_secs() as usize)
+        conn.set_ex::<_, _, ()>(&key, value, self.config.default_ttl.as_secs())
             .await
             .map_err(|e| StorageError::io_error(e.to_string()))?;
 
@@ -126,7 +126,7 @@ impl SessionStorage for RedisBackend {
             .await
             .map_err(|e| StorageError::connection(e.to_string()))?;
 
-        conn.del(&key)
+        conn.del::<_, ()>(&key)
             .await
             .map_err(|e| StorageError::io_error(e.to_string()))?;
 
@@ -137,9 +137,9 @@ impl SessionStorage for RedisBackend {
         debug!("Updating session state: {} to {:?}", id.0, state);
 
         // Load, update, save
-        if let Some(mut session) = self.load(id).await? {
+        if let Some(mut session) = <Self as SessionStorage>::load(self, id).await? {
             session.state = state;
-            self.save(&session).await?;
+            <Self as SessionStorage>::save(self, &session).await?;
         }
 
         Ok(())
@@ -171,12 +171,12 @@ impl EventStorage for RedisBackend {
             let value = serde_json::to_string(&event)
                 .map_err(|e| StorageError::serialization(e.to_string()))?;
 
-            conn.rpush(&key, &value)
+            conn.rpush::<_, _, ()>(&key, &value)
                 .await
                 .map_err(|e| StorageError::io_error(e.to_string()))?;
 
             // Set TTL
-            conn.expire(&key, self.config.default_ttl.as_secs() as usize)
+            conn.expire::<_, ()>(&key, self.config.default_ttl.as_secs() as i64)
                 .await
                 .map_err(|e| StorageError::io_error(e.to_string()))?;
         }
@@ -202,7 +202,7 @@ impl EventStorage for RedisBackend {
     }
 
     async fn subscribe(&self, filter: EventFilter) -> StorageResult<EventSubscription> {
-        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        let (_tx, rx) = tokio::sync::mpsc::unbounded_channel();
         Ok(EventSubscription {
             id: uuid::Uuid::new_v4().to_string(),
             filter,
@@ -234,7 +234,7 @@ impl CheckpointStorage for RedisBackend {
             .await
             .map_err(|e| StorageError::connection(e.to_string()))?;
 
-        conn.set_ex(&key, value, self.config.default_ttl.as_secs() as usize)
+        conn.set_ex::<_, _, ()>(&key, value, self.config.default_ttl.as_secs())
             .await
             .map_err(|e| StorageError::io_error(e.to_string()))?;
 
@@ -277,7 +277,7 @@ impl CheckpointStorage for RedisBackend {
             .await
             .map_err(|e| StorageError::connection(e.to_string()))?;
 
-        conn.del(&key)
+        conn.del::<_, ()>(&key)
             .await
             .map_err(|e| StorageError::io_error(e.to_string()))?;
 
@@ -308,7 +308,7 @@ impl DLQStorage for RedisBackend {
             .await
             .map_err(|e| StorageError::connection(e.to_string()))?;
 
-        conn.set_ex(&key, value, self.config.default_ttl.as_secs() as usize)
+        conn.set_ex::<_, _, ()>(&key, value, self.config.default_ttl.as_secs())
             .await
             .map_err(|e| StorageError::io_error(e.to_string()))?;
 
@@ -333,7 +333,7 @@ impl DLQStorage for RedisBackend {
             .await
             .map_err(|e| StorageError::connection(e.to_string()))?;
 
-        conn.del(&key)
+        conn.del::<_, ()>(&key)
             .await
             .map_err(|e| StorageError::io_error(e.to_string()))?;
 
@@ -374,7 +374,7 @@ impl WorkflowStorage for RedisBackend {
             .await
             .map_err(|e| StorageError::connection(e.to_string()))?;
 
-        conn.set(&key, value)
+        conn.set::<_, _, ()>(&key, value)
             .await
             .map_err(|e| StorageError::io_error(e.to_string()))?;
 
@@ -417,7 +417,7 @@ impl WorkflowStorage for RedisBackend {
             .await
             .map_err(|e| StorageError::connection(e.to_string()))?;
 
-        conn.del(&key)
+        conn.del::<_, ()>(&key)
             .await
             .map_err(|e| StorageError::io_error(e.to_string()))?;
 

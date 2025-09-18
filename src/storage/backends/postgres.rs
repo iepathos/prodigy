@@ -16,7 +16,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info};
 
 /// PostgreSQL storage backend
 pub struct PostgresBackend {
@@ -130,9 +130,7 @@ impl PostgresBackend {
                 correlation_id UUID,
                 data JSONB NOT NULL,
                 created_at TIMESTAMPTZ DEFAULT NOW(),
-                INDEX idx_events_job (repository, job_id, timestamp),
-                INDEX idx_events_correlation (correlation_id),
-                INDEX idx_events_type (event_type)
+                created_at TIMESTAMPTZ DEFAULT NOW()
             )
             "#,
             self.schema
@@ -141,6 +139,20 @@ impl PostgresBackend {
             .execute(&*self.pool)
             .await
             .map_err(|e| StorageError::io_error(format!("Failed to create events table: {}", e)))?;
+
+        // Create indexes for events table
+        let index_queries = vec![
+            format!("CREATE INDEX IF NOT EXISTS idx_events_job ON {}.events (repository, job_id, timestamp)", self.schema),
+            format!("CREATE INDEX IF NOT EXISTS idx_events_correlation ON {}.events (correlation_id)", self.schema),
+            format!("CREATE INDEX IF NOT EXISTS idx_events_type ON {}.events (event_type)", self.schema),
+        ];
+
+        for query in index_queries {
+            sqlx::query(&query)
+                .execute(&*self.pool)
+                .await
+                .map_err(|e| StorageError::io_error(format!("Failed to create events index: {}", e)))?;
+        }
 
         // Create job_states table
         let query = format!(
@@ -155,7 +167,7 @@ impl PostgresBackend {
                 data JSONB NOT NULL,
                 created_at TIMESTAMPTZ DEFAULT NOW(),
                 updated_at TIMESTAMPTZ DEFAULT NOW(),
-                INDEX idx_job_states_repo (repository, job_id)
+                updated_at TIMESTAMPTZ DEFAULT NOW()
             )
             "#,
             self.schema
@@ -164,6 +176,13 @@ impl PostgresBackend {
             .execute(&*self.pool)
             .await
             .map_err(|e| StorageError::io_error(format!("Failed to create job_states table: {}", e)))?;
+
+        // Create indexes for job_states table
+        let query = format!("CREATE INDEX IF NOT EXISTS idx_job_states_repo ON {}.job_states (repository, job_id)", self.schema);
+        sqlx::query(&query)
+            .execute(&*self.pool)
+            .await
+            .map_err(|e| StorageError::io_error(format!("Failed to create job_states index: {}", e)))?;
 
         // Create checkpoints table
         let query = format!(
@@ -176,8 +195,7 @@ impl PostgresBackend {
                 created_at TIMESTAMPTZ NOT NULL,
                 data JSONB NOT NULL,
                 metadata JSONB,
-                INDEX idx_checkpoints_session (session_id),
-                INDEX idx_checkpoints_job (job_id)
+                updated_at TIMESTAMPTZ DEFAULT NOW()
             )
             "#,
             self.schema
@@ -186,6 +204,19 @@ impl PostgresBackend {
             .execute(&*self.pool)
             .await
             .map_err(|e| StorageError::io_error(format!("Failed to create checkpoints table: {}", e)))?;
+
+        // Create indexes for checkpoints table
+        let index_queries = vec![
+            format!("CREATE INDEX IF NOT EXISTS idx_checkpoints_session ON {}.checkpoints (session_id)", self.schema),
+            format!("CREATE INDEX IF NOT EXISTS idx_checkpoints_job ON {}.checkpoints (job_id)", self.schema),
+        ];
+
+        for query in index_queries {
+            sqlx::query(&query)
+                .execute(&*self.pool)
+                .await
+                .map_err(|e| StorageError::io_error(format!("Failed to create checkpoints index: {}", e)))?;
+        }
 
         info!("PostgreSQL schema initialized successfully");
         Ok(())
@@ -391,7 +422,7 @@ impl EventStorage for PostgresBackend {
         debug!("Subscribing to events with filter: {:?}", filter);
 
         // Create a channel for subscription
-        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        let (_tx, rx) = tokio::sync::mpsc::unbounded_channel();
 
         Ok(EventSubscription {
             id: uuid::Uuid::new_v4().to_string(),
@@ -421,20 +452,29 @@ impl CheckpointStorage for PostgresBackend {
 
         let query = format!(
             r#"
-            INSERT INTO {}.checkpoints (checkpoint_id, workflow_id, created_at, step_index, data)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO {}.checkpoints (checkpoint_id, repository, job_id, created_at, data, metadata)
+            VALUES ($1, $2, $3, $4, $5, $6)
             ON CONFLICT (checkpoint_id) DO UPDATE
-            SET step_index = $4, data = $5
+            SET data = $5, metadata = $6
             "#,
             self.schema
         );
 
+        // Convert string values to JSON values for storage
+        let json_variables: HashMap<String, JsonValue> = checkpoint.variables
+            .iter()
+            .map(|(k, v)| (k.clone(), JsonValue::String(v.clone())))
+            .collect();
+        let metadata = serde_json::to_value(&json_variables)
+            .map_err(|e| StorageError::serialization(e.to_string()))?;
+
         sqlx::query(&query)
             .bind(&checkpoint.id)
+            .bind("default")
             .bind(&checkpoint.workflow_id)
             .bind(&checkpoint.created_at)
-            .bind(checkpoint.step_index as i32)
             .bind(&data)
+            .bind(&metadata)
             .execute(&*self.pool)
             .await
             .map_err(Self::sql_error)?;
@@ -446,7 +486,7 @@ impl CheckpointStorage for PostgresBackend {
         debug!("Loading checkpoint: {}", id);
 
         let query = format!(
-            "SELECT workflow_id, created_at, step_index, data FROM {}.checkpoints WHERE checkpoint_id = $1",
+            "SELECT repository, job_id, created_at, data, metadata FROM {}.checkpoints WHERE checkpoint_id = $1",
             self.schema
         );
 
@@ -459,13 +499,27 @@ impl CheckpointStorage for PostgresBackend {
         match row {
             Some(r) => {
                 let data: JsonValue = r.get("data");
+                let metadata: JsonValue = r.get("metadata");
+                let json_variables: HashMap<String, JsonValue> = serde_json::from_value(metadata)
+                    .unwrap_or_default();
+                // Convert JSON values to strings
+                let variables: HashMap<String, String> = json_variables
+                    .into_iter()
+                    .map(|(k, v)| {
+                        let value_str = match v {
+                            JsonValue::String(s) => s,
+                            _ => v.to_string(),
+                        };
+                        (k, value_str)
+                    })
+                    .collect();
                 let checkpoint = WorkflowCheckpoint {
                     id: id.to_string(),
-                    workflow_id: r.get("workflow_id"),
+                    workflow_id: r.get("job_id"),
                     created_at: r.get("created_at"),
-                    step_index: r.get::<i32, _>("step_index") as usize,
+                    step_index: 0,
                     completed_steps: Vec::new(),
-                    variables: HashMap::new(),
+                    variables,
                     state: data,
                 };
                 Ok(Some(checkpoint))
@@ -478,7 +532,7 @@ impl CheckpointStorage for PostgresBackend {
         debug!("Listing checkpoints with filter: {:?}", filter);
 
         let query = format!(
-            "SELECT checkpoint_id, workflow_id, created_at, step_index FROM {}.checkpoints ORDER BY created_at DESC",
+            "SELECT checkpoint_id, job_id, created_at FROM {}.checkpoints ORDER BY created_at DESC",
             self.schema
         );
 
@@ -491,9 +545,9 @@ impl CheckpointStorage for PostgresBackend {
         for row in rows {
             infos.push(CheckpointInfo {
                 id: row.get("checkpoint_id"),
-                workflow_id: row.get("workflow_id"),
+                workflow_id: row.get("job_id"),
                 created_at: row.get("created_at"),
-                step_index: row.get::<i32, _>("step_index") as usize,
+                step_index: 0,
                 size_bytes: 0,
             });
         }
@@ -522,7 +576,7 @@ impl CheckpointStorage for PostgresBackend {
         debug!("Getting latest checkpoint for workflow: {}", workflow_id);
 
         let query = format!(
-            "SELECT checkpoint_id, created_at, step_index, data FROM {}.checkpoints WHERE workflow_id = $1 ORDER BY created_at DESC LIMIT 1",
+            "SELECT checkpoint_id, created_at, data, metadata FROM {}.checkpoints WHERE job_id = $1 ORDER BY created_at DESC LIMIT 1",
             self.schema
         );
 
@@ -535,13 +589,27 @@ impl CheckpointStorage for PostgresBackend {
         match row {
             Some(r) => {
                 let data: JsonValue = r.get("data");
+                let metadata: JsonValue = r.get("metadata");
+                let json_variables: HashMap<String, JsonValue> = serde_json::from_value(metadata)
+                    .unwrap_or_default();
+                // Convert JSON values to strings
+                let variables: HashMap<String, String> = json_variables
+                    .into_iter()
+                    .map(|(k, v)| {
+                        let value_str = match v {
+                            JsonValue::String(s) => s,
+                            _ => v.to_string(),
+                        };
+                        (k, value_str)
+                    })
+                    .collect();
                 let checkpoint = WorkflowCheckpoint {
                     id: r.get("checkpoint_id"),
                     workflow_id: workflow_id.to_string(),
                     created_at: r.get("created_at"),
-                    step_index: r.get::<i32, _>("step_index") as usize,
+                    step_index: 0,
                     completed_steps: Vec::new(),
-                    variables: HashMap::new(),
+                    variables,
                     state: data,
                 };
                 Ok(Some(checkpoint))
@@ -622,7 +690,7 @@ impl WorkflowStorage for PostgresBackend {
         Ok(())
     }
 
-    async fn update_metadata(&self, id: &str, metadata: WorkflowMetadata) -> StorageResult<()> {
+    async fn update_metadata(&self, id: &str, _metadata: WorkflowMetadata) -> StorageResult<()> {
         debug!("Updating workflow metadata: {}", id);
         Ok(())
     }

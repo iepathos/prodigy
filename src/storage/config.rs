@@ -356,6 +356,21 @@ fn default_cache_ttl() -> Duration {
     Duration::from_secs(3600) // 1 hour
 }
 
+impl Default for StorageConfig {
+    fn default() -> Self {
+        Self {
+            backend: BackendType::default(),
+            connection_pool_size: default_pool_size(),
+            retry_policy: RetryPolicy::default(),
+            timeout: default_timeout(),
+            backend_config: BackendConfig::Memory(MemoryConfig::default()),
+            enable_locking: true,
+            enable_cache: false,
+            cache_config: CacheConfig::default(),
+        }
+    }
+}
+
 impl StorageConfig {
     /// Create configuration from environment variables
     pub fn from_env() -> Result<Self, anyhow::Error> {

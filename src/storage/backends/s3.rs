@@ -27,6 +27,7 @@ impl S3Backend {
         info!("Initializing S3 backend");
 
         // Create AWS config
+        #[allow(deprecated)]
         let aws_config = if let Some(ref endpoint) = config.endpoint {
             aws_config::from_env()
                 .endpoint_url(endpoint)
@@ -136,9 +137,9 @@ impl SessionStorage for S3Backend {
         debug!("Updating session state: {} to {:?}", id.0, state);
 
         // Load, update, save
-        if let Some(mut session) = self.load(id).await? {
+        if let Some(mut session) = <Self as SessionStorage>::load(self, id).await? {
             session.state = state;
-            self.save(&session).await?;
+            <Self as SessionStorage>::save(self, &session).await?;
         }
 
         Ok(())

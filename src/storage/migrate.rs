@@ -2,11 +2,9 @@
 
 use super::error::{StorageError, StorageResult};
 use super::traits::UnifiedStorage;
-use super::types::{SessionFilter, EventFilter, DLQFilter, CheckpointFilter};
+use super::types::{SessionFilter, EventFilter, CheckpointFilter};
 use chrono::{DateTime, Utc};
 use indicatif::{ProgressBar, ProgressStyle};
-use std::sync::Arc;
-use tokio::sync::Semaphore;
 use tracing::{error, info, warn};
 
 /// Migration configuration
@@ -325,7 +323,7 @@ impl StorageMigrator {
     ) -> StorageResult<(u64, u64)> {
         info!("Migrating state data for repository: {}", repository);
 
-        let mut job_states_migrated = 0u64;
+        let job_states_migrated = 0u64;
         let mut checkpoints_migrated = 0u64;
 
         // Migrate checkpoints
@@ -384,7 +382,7 @@ impl StorageMigrator {
         &self,
         source: &dyn UnifiedStorage,
         destination: &dyn UnifiedStorage,
-        repository: &str,
+        _repository: &str,
     ) -> StorageResult<()> {
         info!("Verifying session migration");
 
@@ -674,6 +672,6 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(dest_sessions.len(), 1);
-        assert_eq!(dest_sessions[0].session_id, "new-session");
+        assert_eq!(dest_sessions[0].0, "new-session");
     }
 }
