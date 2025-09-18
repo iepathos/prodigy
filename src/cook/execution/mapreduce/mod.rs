@@ -2823,7 +2823,7 @@ impl MapReduceExecutor {
             let result = self.execute_single_step(step, &mut context).await;
 
             match result {
-                Ok((step_result, _duration)) => {
+                Ok(step_result) => {
                     if !step_result.stdout.is_empty() {
                         total_output.push_str(&step_result.stdout);
                         total_output.push('\n');
@@ -2952,7 +2952,7 @@ impl MapReduceExecutor {
             let result = self.execute_single_step(step, &mut context).await;
 
             match result {
-                Ok((step_result, _duration)) => {
+                Ok(step_result) => {
                     if !step_result.stdout.is_empty() {
                         total_output.push_str(&step_result.stdout);
                         total_output.push('\n');
@@ -3091,7 +3091,7 @@ impl MapReduceExecutor {
         step_index: usize,
     ) -> MapReduceResult<(StepResult, bool)> {
         match self.execute_single_step(step, context).await {
-            Ok((result, _duration)) => Ok((result, true)),
+            Ok(result) => Ok((result, true)),
             Err(e) => {
                 let error_msg = format!("Step {} failed: {}", step_index + 1, e);
                 error!("Agent {} error: {}", item_id, error_msg);
@@ -3177,7 +3177,7 @@ impl MapReduceExecutor {
         }
 
         match self.execute_single_step(on_success, context).await {
-            Ok((result, _duration)) if !result.success => {
+            Ok(result) if !result.success => {
                 warn!(
                     "on_success handler failed for agent {} step {}: {}",
                     item_id,
@@ -3506,8 +3506,7 @@ impl MapReduceExecutor {
             );
 
             // Execute the step in parent worktree context
-            let (step_result, _duration) =
-                self.execute_single_step(step, &mut reduce_context).await?;
+            let step_result = self.execute_single_step(step, &mut reduce_context).await?;
 
             if !step_result.success {
                 // Check if there's an on_failure handler
@@ -3608,7 +3607,7 @@ impl MapReduceExecutor {
                         .insert("shell.output".to_string(), step_result.stdout.clone());
 
                     // Execute the on_success handler
-                    let (success_result, _duration) = self
+                    let success_result = self
                         .execute_single_step(on_success, &mut reduce_context)
                         .await?;
 
@@ -3756,8 +3755,7 @@ impl MapReduceExecutor {
             info!("Executing on_failure handler for agent {}", context.item_id);
 
             // Execute the on_failure handler step
-            let (handler_result, _duration) =
-                self.execute_single_step(&handler_step, context).await?;
+            let handler_result = self.execute_single_step(&handler_step, context).await?;
 
             if !handler_result.success {
                 warn!(
@@ -3789,8 +3787,7 @@ impl MapReduceExecutor {
                     let mut retry_step = original_step.clone();
                     retry_step.on_failure = None;
 
-                    let (retry_result, _duration) =
-                        self.execute_single_step(&retry_step, context).await?;
+                    let retry_result = self.execute_single_step(&retry_step, context).await?;
                     if retry_result.success {
                         self.user_interaction.display_success(&format!(
                             "✅ Retry succeeded for agent {} on attempt {}/{}",
