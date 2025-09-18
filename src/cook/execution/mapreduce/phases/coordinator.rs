@@ -2,6 +2,61 @@
 //!
 //! This module handles phase transitions, state management, and overall
 //! workflow coordination.
+//!
+//! # Phase Transition State Machine
+//!
+//! The coordinator manages a state machine with the following transitions:
+//!
+//! ```text
+//! ┌─────────┐
+//! │  Start  │
+//! └────┬────┘
+//!      │
+//!      v
+//! ┌─────────┐  success   ┌─────────┐  success   ┌─────────┐
+//! │  Setup  │ ─────────> │   Map   │ ─────────> │ Reduce  │
+//! └────┬────┘            └────┬────┘            └────┬────┘
+//!      │ skip                 │                       │ skip/success
+//!      │                      │ error                 v
+//!      │                      │                  ┌──────────┐
+//!      │                      └────────────────> │ Complete │
+//!      │                                         └──────────┘
+//!      │ error                                        ^
+//!      v                                              │
+//! ┌─────────┐                                         │
+//! │  Error  │ <───────────────────────────────────────┘
+//! └─────────┘             error
+//! ```
+//!
+//! ## Transition Rules:
+//!
+//! 1. **Setup Phase**:
+//!    - Executes first if defined
+//!    - Can be skipped if no setup commands exist
+//!    - On success: transitions to Map
+//!    - On error: workflow fails (unless custom handler overrides)
+//!
+//! 2. **Map Phase**:
+//!    - Always executes (cannot be skipped)
+//!    - Processes work items in parallel
+//!    - On success: transitions to Reduce
+//!    - On error: behavior depends on error policy
+//!
+//! 3. **Reduce Phase**:
+//!    - Executes after Map if defined
+//!    - Can be skipped if no reduce commands or no map results
+//!    - On success: workflow completes
+//!    - On error: workflow fails
+//!
+//! ## Custom Transition Handlers
+//!
+//! The coordinator uses a `PhaseTransitionHandler` to make transition decisions.
+//! You can provide a custom handler to override default behavior:
+//!
+//! ```rust
+//! let coordinator = PhaseCoordinator::new(setup, map, reduce, subprocess_mgr)
+//!     .with_transition_handler(Box::new(MyCustomHandler));
+//! ```
 
 use super::{
     DefaultTransitionHandler, PhaseContext, PhaseError, PhaseExecutor, PhaseResult,
@@ -75,6 +130,23 @@ impl PhaseCoordinator {
     }
 
     /// Execute the workflow, coordinating all phases
+    ///
+    /// This method orchestrates the entire MapReduce workflow by:
+    /// 1. Executing phases in order (Setup -> Map -> Reduce)
+    /// 2. Managing transitions based on phase results
+    /// 3. Handling errors according to the transition handler
+    ///
+    /// # State Machine Flow
+    ///
+    /// The execution follows this flow:
+    /// - Setup phase runs first (if defined)
+    /// - Map phase always runs (unless Setup fails)
+    /// - Reduce phase runs last (if defined and Map succeeds)
+    ///
+    /// # Returns
+    ///
+    /// Returns the final `PhaseResult` from the last executed phase,
+    /// or an error if the workflow fails.
     pub async fn execute_workflow(
         &self,
         environment: ExecutionEnvironment,

@@ -3,6 +3,99 @@
 //! This module provides a clean separation between phase orchestration and
 //! implementation details, making it easier to understand phase transitions,
 //! modify execution strategies, and add new phase types.
+//!
+//! # Adding Custom Phase Types
+//!
+//! To add a new custom phase type to the MapReduce workflow:
+//!
+//! 1. **Define the Phase Type**: Add a new variant to the `PhaseType` enum:
+//!    ```rust
+//!    pub enum PhaseType {
+//!        Setup,
+//!        Map,
+//!        Reduce,
+//!        PostProcess, // Your custom phase
+//!    }
+//!    ```
+//!
+//! 2. **Implement PhaseExecutor**: Create a new executor for your phase:
+//!    ```rust
+//!    pub struct PostProcessPhaseExecutor {
+//!        // Phase configuration
+//!    }
+//!
+//!    #[async_trait]
+//!    impl PhaseExecutor for PostProcessPhaseExecutor {
+//!        async fn execute(&self, context: &mut PhaseContext) -> Result<PhaseResult, PhaseError> {
+//!            // Implementation
+//!        }
+//!
+//!        fn phase_type(&self) -> PhaseType {
+//!            PhaseType::PostProcess
+//!        }
+//!    }
+//!    ```
+//!
+//! 3. **Update Coordinator**: Add support in PhaseCoordinator for the new phase
+//!
+//! 4. **Handle Transitions**: Update transition logic to include the new phase
+//!
+//! # Phase Transition State Machine
+//!
+//! The MapReduce workflow follows a deterministic state machine for phase transitions:
+//!
+//! ```text
+//! [Start] → [Setup] → [Map] → [Reduce] → [Complete]
+//!            ↓         ↓        ↓          ↑
+//!         [Skip]    [Skip]   [Skip] -------┘
+//!            ↓         ↓        ↓
+//!         [Error] ← [Error] ← [Error]
+//! ```
+//!
+//! ## Transition Rules:
+//!
+//! - **Setup Phase**:
+//!   - Can be skipped if no setup commands are defined
+//!   - On success: Transitions to Map phase
+//!   - On error: Transitions to Error state (workflow fails)
+//!
+//! - **Map Phase**:
+//!   - Cannot be skipped (core phase of MapReduce)
+//!   - On success: Transitions to Reduce phase
+//!   - On error: Behavior depends on error policy
+//!     - `fail_fast`: Transitions to Error state immediately
+//!     - `continue_on_error`: Continues processing, then moves to Reduce
+//!
+//! - **Reduce Phase**:
+//!   - Can be skipped if no reduce commands are defined OR no map results
+//!   - On success: Transitions to Complete state
+//!   - On error: Transitions to Error state
+//!
+//! ## Custom Transition Handlers:
+//!
+//! You can customize phase transitions by implementing `PhaseTransitionHandler`:
+//!
+//! ```rust
+//! struct CustomTransitionHandler;
+//!
+//! impl PhaseTransitionHandler for CustomTransitionHandler {
+//!     fn should_execute(&self, phase: PhaseType, context: &PhaseContext) -> bool {
+//!         // Custom logic to determine if phase should run
+//!         match phase {
+//!             PhaseType::Reduce => !context.map_results.is_empty(),
+//!             _ => true,
+//!         }
+//!     }
+//!
+//!     fn on_phase_error(&self, phase: PhaseType, error: &PhaseError) -> PhaseTransition {
+//!         // Custom error handling
+//!         match phase {
+//!             PhaseType::Setup => PhaseTransition::Skip(PhaseType::Map),
+//!             _ => PhaseTransition::Error(error.to_string()),
+//!         }
+//!     }
+//! }
+//! ```
 
 pub mod coordinator;
 pub mod map;
@@ -25,10 +118,16 @@ pub use reduce::ReducePhaseExecutor;
 pub use setup::SetupPhaseExecutor;
 
 /// Type of phase in a MapReduce workflow
+///
+/// Each phase has specific responsibilities and transition rules.
+/// The phases execute in order: Setup → Map → Reduce
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PhaseType {
+    /// Initial setup phase for preparing the environment
     Setup,
+    /// Map phase for parallel processing of work items
     Map,
+    /// Reduce phase for aggregating map results
     Reduce,
 }
 
@@ -148,6 +247,47 @@ pub enum PhaseError {
 }
 
 /// Trait for executing a phase in a MapReduce workflow
+///
+/// This is the core abstraction for phase execution. Each phase type
+/// implements this trait to define its execution behavior.
+///
+/// # Example Implementation
+///
+/// ```rust
+/// struct CustomPhaseExecutor {
+///     config: CustomConfig,
+/// }
+///
+/// #[async_trait]
+/// impl PhaseExecutor for CustomPhaseExecutor {
+///     async fn execute(&self, context: &mut PhaseContext) -> Result<PhaseResult, PhaseError> {
+///         // Validate inputs
+///         self.validate_context(context)?;
+///
+///         // Execute phase logic
+///         let start = std::time::Instant::now();
+///         // ... perform work ...
+///
+///         // Return result
+///         Ok(PhaseResult {
+///             phase_type: self.phase_type(),
+///             success: true,
+///             data: Some(json!({"processed": 10})),
+///             error_message: None,
+///             metrics: PhaseMetrics {
+///                 duration_secs: start.elapsed().as_secs_f64(),
+///                 items_processed: 10,
+///                 items_successful: 10,
+///                 items_failed: 0,
+///             },
+///         })
+///     }
+///
+///     fn phase_type(&self) -> PhaseType {
+///         PhaseType::Custom
+///     }
+/// }
+/// ```
 #[async_trait]
 pub trait PhaseExecutor: Send + Sync {
     /// Execute the phase
@@ -157,12 +297,16 @@ pub trait PhaseExecutor: Send + Sync {
     fn phase_type(&self) -> PhaseType;
 
     /// Check if the phase can be skipped
+    ///
+    /// Override this to define skip conditions for your phase
     fn can_skip(&self, _context: &PhaseContext) -> bool {
         // By default, phases cannot be skipped
         false
     }
 
     /// Validate the context before execution
+    ///
+    /// Override this to add phase-specific validation
     fn validate_context(&self, _context: &PhaseContext) -> Result<(), PhaseError> {
         // Default validation passes
         Ok(())
@@ -170,14 +314,31 @@ pub trait PhaseExecutor: Send + Sync {
 }
 
 /// Trait for handling phase transitions
+///
+/// Implement this trait to customize how the workflow transitions between phases.
+/// This allows for dynamic workflow behavior based on runtime conditions.
+///
+/// # State Machine Transitions
+///
+/// The handler controls transitions through these states:
+/// - `Continue(PhaseType)`: Move to the specified phase
+/// - `Skip(PhaseType)`: Skip to a later phase
+/// - `Complete`: Mark workflow as complete
+/// - `Error(String)`: Abort workflow with error
 pub trait PhaseTransitionHandler: Send + Sync {
     /// Determine if a phase should be executed
+    ///
+    /// Return false to skip the phase
     fn should_execute(&self, phase: PhaseType, context: &PhaseContext) -> bool;
 
     /// Handle phase completion
+    ///
+    /// Called after a phase completes successfully
     fn on_phase_complete(&self, phase: PhaseType, result: &PhaseResult);
 
     /// Handle phase error
+    ///
+    /// Determines how to proceed when a phase fails
     fn on_phase_error(&self, phase: PhaseType, error: &PhaseError) -> PhaseTransition;
 }
 
