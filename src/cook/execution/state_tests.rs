@@ -999,8 +999,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_full_mapreduce_resume_workflow_integration() {
-        use crate::cook::execution::mapreduce::ResumeOptions;
-
         let temp_dir = TempDir::new().unwrap();
         let manager = DefaultJobStateManager::new(temp_dir.path().to_path_buf());
 
