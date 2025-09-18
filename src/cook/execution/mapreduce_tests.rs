@@ -794,9 +794,9 @@ mod command_type_tests {
             when: None,
         };
 
-        let commands = MapReduceExecutor::collect_command_types(&step);
+        let commands = crate::cook::execution::mapreduce::command::collect_command_types(&step);
         assert_eq!(commands.len(), 1);
-        matches!(commands[0], CommandType::Claude(_));
+        matches!(commands[0], crate::cook::workflow::CommandType::Claude(_));
     }
 
     #[test]
@@ -833,9 +833,9 @@ mod command_type_tests {
             when: None,
         };
 
-        let commands = MapReduceExecutor::collect_command_types(&step);
+        let commands = crate::cook::execution::mapreduce::command::collect_command_types(&step);
         assert_eq!(commands.len(), 1);
-        matches!(commands[0], CommandType::Shell(_));
+        matches!(commands[0], crate::cook::workflow::CommandType::Shell(_));
     }
 
     #[test]
@@ -872,7 +872,7 @@ mod command_type_tests {
             when: None,
         };
 
-        let commands = MapReduceExecutor::collect_command_types(&step);
+        let commands = crate::cook::execution::mapreduce::command::collect_command_types(&step);
         assert_eq!(commands.len(), 2);
     }
 
@@ -910,7 +910,7 @@ mod command_type_tests {
             when: None,
         };
 
-        let commands = MapReduceExecutor::collect_command_types(&step);
+        let commands = crate::cook::execution::mapreduce::command::collect_command_types(&step);
         assert_eq!(commands.len(), 1);
         if let CommandType::Legacy(cmd) = &commands[0] {
             assert_eq!(cmd, "/legacy-command");
@@ -953,7 +953,7 @@ mod command_type_tests {
             when: None,
         };
 
-        let commands = MapReduceExecutor::collect_command_types(&step);
+        let commands = crate::cook::execution::mapreduce::command::collect_command_types(&step);
         assert_eq!(commands.len(), 1);
         if let CommandType::Legacy(cmd) = &commands[0] {
             assert_eq!(cmd, "/legacy-command");
@@ -965,7 +965,7 @@ mod command_type_tests {
     #[test]
     fn test_validate_command_count_empty() {
         let commands = vec![];
-        let result = MapReduceExecutor::validate_command_count(&commands);
+        let result = crate::cook::execution::mapreduce::command::validate_command_count(&commands);
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
@@ -976,7 +976,7 @@ mod command_type_tests {
     #[test]
     fn test_validate_command_count_single() {
         let commands = vec![CommandType::Shell("echo test".to_string())];
-        let result = MapReduceExecutor::validate_command_count(&commands);
+        let result = crate::cook::execution::mapreduce::command::validate_command_count(&commands);
         assert!(result.is_ok());
     }
 
@@ -986,7 +986,7 @@ mod command_type_tests {
             CommandType::Shell("echo test".to_string()),
             CommandType::Claude("/test".to_string()),
         ];
-        let result = MapReduceExecutor::validate_command_count(&commands);
+        let result = crate::cook::execution::mapreduce::command::validate_command_count(&commands);
         assert!(result.is_err());
         assert!(result
             .unwrap_err()

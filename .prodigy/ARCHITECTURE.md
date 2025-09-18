@@ -57,7 +57,17 @@ prodigy/
 │   │   │   └── secret_store.rs # Secret management
 │   │   ├── execution/          # Command execution engine
 │   │   │   ├── mod.rs          # CommandExecutor trait
-│   │   │   ├── mapreduce.rs    # Parallel processing
+│   │   │   ├── mapreduce/      # MapReduce execution
+│   │   │   │   ├── mod.rs      # Main MapReduce executor
+│   │   │   │   ├── agent.rs    # Agent lifecycle management
+│   │   │   │   ├── utils.rs    # Pure utility functions
+│   │   │   │   └── command/    # Command execution abstraction
+│   │   │   │       ├── mod.rs  # Module exports
+│   │   │   │       ├── executor.rs # CommandExecutor trait and router
+│   │   │   │       ├── claude.rs   # Claude command executor
+│   │   │   │       ├── shell.rs    # Shell command executor
+│   │   │   │       ├── handler.rs  # Handler command executor
+│   │   │   │       └── interpolation.rs # Variable interpolation
 │   │   │   ├── mapreduce_resume.rs # Enhanced resume functionality
 │   │   │   ├── foreach.rs      # Simple parallel iteration
 │   │   │   └── claude.rs       # Claude integration

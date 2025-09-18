@@ -1,0 +1,140 @@
+{
+  "workflow_id": "workflow-1758162100655",
+  "execution_state": {
+    "current_step_index": 2,
+    "total_steps": 3,
+    "status": "Running",
+    "start_time": "2025-09-18T03:57:01.223646Z",
+    "last_checkpoint": "2025-09-18T03:57:01.223646Z",
+    "current_iteration": null,
+    "total_iterations": null
+  },
+  "completed_steps": [
+    {
+      "step_index": 0,
+      "command": "claude: /prodigy-implement-spec $ARG",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 3918,
+        "nanos": 360156209
+      },
+      "completed_at": "2025-09-18T03:42:30.565162Z"
+    },
+    {
+      "step_index": 1,
+      "command": "test: just test",
+      "success": true,
+      "output": null,
+      "captured_variables": {},
+      "duration": {
+        "secs": 861,
+        "nanos": 701951166
+      },
+      "completed_at": "2025-09-18T03:57:01.223600Z"
+    }
+  ],
+  "variable_state": {
+    "step.files_changed": "4",
+    "test.exit_code": "100",
+    "PROJECT_ROOT": "/Users/glen/.prodigy/worktrees/prodigy/session-d182075e-8290-420d-acda-ac40a5b025be",
+    "test.attempt": "2",
+    "ARG": "88",
+    "step.deletions": "964",
+    "test.output": "/var/folders/fc/plw0013j1yj8dj00s3gbpdfw0000gn/T/.tmpOjUIyv",
+    "step.commits": "[{\"hash\":\"540bb74432fbd3a4fc67f097bfbaa10f8f927719\",\"message\":\"fix: resolve test failures with functional patterns\",\"author\":\"Glen Baker\",\"timestamp\":\"2025-09-18T03:51:48Z\",\"files_changed\":[\".prodigy/checkpoints/workflow-1758162100655.checkpoint.json\",\"full_test_output.txt\",\"src/cook/execution/mapreduce/command/types.rs\",\"test_output.txt\"],\"insertions\":1534,\"deletions\":964,\"step_name\":\"test: just test\",\"agent_id\":null}]",
+    "step.insertions": "1534"
+  },
+  "mapreduce_state": null,
+  "timestamp": "2025-09-18T03:57:01.223646Z",
+  "version": 1,
+  "workflow_hash": "3",
+  "total_steps": 3,
+  "workflow_name": "args-workflow",
+  "workflow_path": "/Users/glen/memento-mori/prodigy/workflows/implement.yml",
+  "retry_checkpoint_state": null,
+  "variable_checkpoint_state": {
+    "global_variables": {
+      "test.attempt": "2",
+      "PROJECT_ROOT": "/Users/glen/.prodigy/worktrees/prodigy/session-d182075e-8290-420d-acda-ac40a5b025be",
+      "test.exit_code": "100",
+      "step.insertions": "1534",
+      "test.output": "/var/folders/fc/plw0013j1yj8dj00s3gbpdfw0000gn/T/.tmpOjUIyv",
+      "ARG": "88",
+      "step.commits": "[{\"hash\":\"540bb74432fbd3a4fc67f097bfbaa10f8f927719\",\"message\":\"fix: resolve test failures with functional patterns\",\"author\":\"Glen Baker\",\"timestamp\":\"2025-09-18T03:51:48Z\",\"files_changed\":[\".prodigy/checkpoints/workflow-1758162100655.checkpoint.json\",\"full_test_output.txt\",\"src/cook/execution/mapreduce/command/types.rs\",\"test_output.txt\"],\"insertions\":1534,\"deletions\":964,\"step_name\":\"test: just test\",\"agent_id\":null}]",
+      "step.deletions": "964",
+      "step.files_changed": "4"
+    },
+    "phase_variables": {},
+    "computed_cache": {},
+    "environment_snapshot": {
+      "variables": {
+        "COMMAND_MODE": "unix2003",
+        "USER": "glen",
+        "PWD": "/Users/glen/memento-mori/prodigy",
+        "COLORTERM": "truecolor",
+        "HOMEBREW_REPOSITORY": "/opt/homebrew",
+        "INFOPATH": "/opt/homebrew/share/info:",
+        "TERM_PROGRAM_VERSION": "1.2.0",
+        "SHELL": "/bin/zsh",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x0:0x0",
+        "PAGER": "less",
+        "LESS": "-R",
+        "DIRHISTORY_SIZE": "30",
+        "SHLVL": "1",
+        "TERMINFO": "/Applications/Ghostty.app/Contents/Resources/terminfo",
+        "TERM": "xterm-ghostty",
+        "HOMEBREW_PREFIX": "/opt/homebrew",
+        "ZSH": "/Users/glen/.oh-my-zsh",
+        "OLDPWD": "/Users/glen/memento-mori/prodigy",
+        "NVM_CD_FLAGS": "-q",
+        "LANG": "en_US.UTF-8",
+        "PYTHONPATH": ":/Users/glen/headspinio/devtools:/Users/glen/headspinio/platform:/Users/glen/headspinio/common:/Users/glen/headspinio/mar:/Users/glen/headspinio/reports:/Users/glen/headspinio/ops:/Users/glen/headspinio/pbox:/Users/glen/headspinio/loadtests:/Users/glen/headspinio/pushserver:/Users/glen/headspinio/product-error-codes:/Users/glen/headspinio/onpremadmin",
+        "TERM_PROGRAM": "ghostty",
+        "LOGNAME": "glen",
+        "XPC_SERVICE_NAME": "0",
+        "PYENV_ROOT": "/Users/glen/.pyenv",
+        "VISUAL": "hx",
+        "PYENV_VIRTUALENV_INIT": "1",
+        "GHOSTTY_SHELL_FEATURES": "cursor,title",
+        "LS_COLORS": "di=1;36:ln=35:so=32:pi=33:ex=31:bd=34;46:cd=34;43:su=30;41:sg=30;46:tw=30;42:ow=30;43",
+        "EDITOR": "hx",
+        "NVM_DIR": "/Users/glen/.nvm",
+        "SSH_AUTH_SOCK": "/private/tmp/com.apple.launchd.ye4Ol1VMB1/Listeners",
+        "__CFBundleIdentifier": "com.mitchellh.ghostty",
+        "NVM_INC": "/Users/glen/.nvm/versions/node/v22.18.0/include/node",
+        "XDG_DATA_DIRS": "/usr/local/share:/usr/share:/Applications/Ghostty.app/Contents/Resources/ghostty/..",
+        "_": "/usr/local/bin/prodigy",
+        "GHOSTTY_RESOURCES_DIR": "/Applications/Ghostty.app/Contents/Resources/ghostty",
+        "PRODIGY_ARG": "88",
+        "PATH": "/Users/glen/.bun/bin:/Users/glen/.nvm/versions/node/v22.18.0/bin:/Users/glen/.pyenv/plugins/pyenv-virtualenv/shims:/Users/glen/.pyenv/shims:/Users/glen/.pyenv/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Library/Apple/usr/bin:/Library/Frameworks/Mono.framework/Versions/Current/Commands:/Users/glen/.cargo/bin:/Applications/Ghostty.app/Contents/MacOS:/Users/glen/.foundry/bin:/Users/glen/.antigen/bundles/robbyrussell/oh-my-zsh/lib:/Users/glen/.antigen/bundles/robbyrussell/oh-my-zsh/plugins/git:/Users/glen/.antigen/bundles/robbyrussell/oh-my-zsh/plugins/command-not-found:/Users/glen/.antigen/bundles/robbyrussell/oh-my-zsh/plugins/docker:/Users/glen/.antigen/bundles/robbyrussell/oh-my-zsh/plugins/sudo:/Users/glen/.antigen/bundles/robbyrussell/oh-my-zsh/plugins/dirhistory:/Users/glen/.antigen/bundles/robbyrussell/oh-my-zsh/plugins/history:/Users/glen/.antigen/bundles/robbyrussell/oh-my-zsh/plugins/macos:/Users/glen/.antigen/bundles/zsh-users/zsh-completions:/Users/glen/.antigen/bundles/zsh-users/zsh-autosuggestions:/Users/glen/.antigen/bundles/zsh-users/zsh-syntax-highlighting:/opt/homebrew/bin:/Users/glen/headspinio/devtools/bin:/Users/glen/headspinio/ops/bin:/usr/local/opt/mysql@5.7/bin:/Users/glen/go/bin:/Users/glen/devl/oracli/bin",
+        "BUN_INSTALL": "/Users/glen/.bun",
+        "HOMEBREW_CELLAR": "/opt/homebrew/Cellar",
+        "NVM_BIN": "/Users/glen/.nvm/versions/node/v22.18.0/bin",
+        "LSCOLORS": "Gxfxcxdxbxegedabagacad",
+        "XPC_FLAGS": "0x0",
+        "HOME": "/Users/glen",
+        "TMPDIR": "/var/folders/fc/plw0013j1yj8dj00s3gbpdfw0000gn/T/",
+        "PYENV_SHELL": "zsh",
+        "HEADSPIN_HOME": "/Users/glen/headspinio",
+        "GHOSTTY_BIN_DIR": "/Applications/Ghostty.app/Contents/MacOS",
+        "MANPATH": "/Users/glen/.nvm/versions/node/v22.18.0/share/man::/usr/share/man:/usr/local/share/man:/Applications/Ghostty.app/Contents/Resources/ghostty/../man:"
+      },
+      "captured_at": "2025-09-18T03:57:01.223618Z",
+      "hostname": "harley",
+      "working_directory": "/Users/glen/memento-mori/prodigy"
+    },
+    "interpolation_history": [],
+    "variable_metadata": {
+      "total_variables": 9,
+      "computed_variables": 0,
+      "total_interpolations": 0,
+      "checkpoint_version": "1.0.0"
+    },
+    "captured_outputs": {},
+    "iteration_vars": {
+      "ITERATION": "1"
+    }
+  }
+}

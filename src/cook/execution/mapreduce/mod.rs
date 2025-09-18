@@ -9,6 +9,13 @@ pub mod agent;
 // Declare the utils module for pure functions
 pub mod utils;
 
+// Declare the command module for command execution
+pub mod command;
+
+// Declare map and reduce phase modules
+pub mod map_phase;
+pub mod reduce_phase;
+
 // Import agent types and functionality
 use agent::{
     AgentLifecycleManager, AgentOperation, AgentResultAggregator, DefaultLifecycleManager,
@@ -24,7 +31,7 @@ use utils::{
     calculate_map_result_summary, generate_agent_branch_name, generate_agent_id, truncate_command,
 };
 
-use crate::commands::{AttributeValue, CommandRegistry, ExecutionContext};
+use crate::commands::CommandRegistry;
 use crate::cook::execution::data_pipeline::DataPipeline;
 use crate::cook::execution::dlq::{DeadLetterQueue, DeadLetteredItem, ErrorType, FailureDetail};
 use crate::cook::execution::errors::{ErrorContext, MapReduceError, MapReduceResult, SpanInfo};
@@ -43,9 +50,7 @@ use crate::cook::execution::ClaudeExecutor;
 use crate::cook::interaction::UserInteraction;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::SessionManager;
-use crate::cook::workflow::{
-    CommandType, ErrorPolicyExecutor, StepResult, WorkflowErrorPolicy, WorkflowStep,
-};
+use crate::cook::workflow::{ErrorPolicyExecutor, StepResult, WorkflowErrorPolicy, WorkflowStep};
 use crate::subprocess::SubprocessManager;
 use crate::worktree::{
     WorktreeManager, WorktreePool, WorktreePoolConfig, WorktreeRequest, WorktreeSession,
@@ -57,13 +62,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::process::Command;
 use tokio::sync::{mpsc, Mutex, RwLock};
 use tokio::task::JoinHandle;
-use tokio::time::timeout as tokio_timeout;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
@@ -487,6 +491,8 @@ pub struct MapReduceExecutor {
     project_root: PathBuf,
     interpolation_engine: Arc<Mutex<InterpolationEngine>>,
     command_registry: Arc<CommandRegistry>,
+    command_router: Arc<command::CommandRouter>,
+    step_executor: Arc<command::StepExecutor>,
     subprocess: Arc<SubprocessManager>,
     state_manager: Arc<dyn JobStateManager>,
     event_logger: Arc<EventLogger>,
@@ -1121,6 +1127,43 @@ impl MapReduceExecutor {
             Arc::new(DefaultLifecycleManager::new(worktree_manager.clone()));
         let agent_result_aggregator = Arc::new(DefaultResultAggregator::new());
 
+        // Create command registry and router
+        let command_registry = Arc::new(CommandRegistry::with_defaults().await);
+
+        // Initialize command router with executors
+        let mut command_router = command::CommandRouter::new();
+        command_router.register(
+            "claude".to_string(),
+            Arc::new(command::ClaudeCommandExecutor::new(claude_executor.clone())),
+        );
+        command_router.register(
+            "shell".to_string(),
+            Arc::new(command::ShellCommandExecutor::new()),
+        );
+        command_router.register(
+            "handler".to_string(),
+            Arc::new(command::HandlerCommandExecutor::new(
+                command_registry.clone(),
+            )),
+        );
+
+        // Create the command router Arc
+        let command_router = Arc::new(command_router);
+
+        // Create the interpolation engine Arc
+        let interpolation_engine = Arc::new(Mutex::new(InterpolationEngine::new(false)));
+
+        // Create the step interpolator
+        let step_interpolator = Arc::new(command::StepInterpolator::new(Arc::new(Mutex::new(
+            command::InterpolationEngine::new(false),
+        ))));
+
+        // Create the step executor
+        let step_executor = Arc::new(command::StepExecutor::new(
+            command_router.clone(),
+            step_interpolator,
+        ));
+
         Self {
             claude_executor,
             session_manager,
@@ -1128,8 +1171,10 @@ impl MapReduceExecutor {
             worktree_manager,
             worktree_pool: None, // Will be initialized when needed with config
             project_root,
-            interpolation_engine: Arc::new(Mutex::new(InterpolationEngine::new(false))),
-            command_registry: Arc::new(CommandRegistry::with_defaults().await),
+            interpolation_engine,
+            command_registry,
+            command_router,
+            step_executor,
             subprocess: Arc::new(SubprocessManager::production()),
             state_manager,
             event_logger,
@@ -2767,24 +2812,8 @@ impl MapReduceExecutor {
                 )
                 .await?;
 
-            // Interpolate and execute the step
-            let interpolated_step =
-                if context.item_id == "reduce" || context.variables.contains_key("map.total") {
-                    // Use enhanced context for reduce phase or when map variables are present
-                    let var_context = context.to_variable_context().await;
-                    self.interpolate_workflow_step_enhanced(step, &var_context)
-                        .await?
-                } else {
-                    // Use legacy interpolation for backward compatibility
-                    let interp_context = context.to_interpolation_context();
-                    self.interpolate_workflow_step(step, &interp_context)
-                        .await?
-                };
-
-            // Execute the command using the existing pattern
-            let result = self
-                .execute_single_step(&interpolated_step, &mut context)
-                .await;
+            // Execute the step (interpolation is handled internally)
+            let result = self.execute_single_step(step, &mut context).await;
 
             match result {
                 Ok(step_result) => {
@@ -3270,87 +3299,6 @@ impl MapReduceExecutor {
         })
     }
 
-    /// Interpolate variables in a workflow step
-    async fn interpolate_workflow_step(
-        &self,
-        step: &WorkflowStep,
-        context: &InterpolationContext,
-    ) -> MapReduceResult<WorkflowStep> {
-        let mut engine = self.interpolation_engine.lock().await;
-
-        // Clone the step to avoid modifying the original
-        let mut interpolated = step.clone();
-
-        // Interpolate all string fields that might contain variables
-        if let Some(name) = &step.name {
-            interpolated.name = Some(engine.interpolate(name, context)?);
-        }
-
-        if let Some(claude) = &step.claude {
-            interpolated.claude = Some(engine.interpolate(claude, context)?);
-        }
-
-        if let Some(shell) = &step.shell {
-            interpolated.shell = Some(engine.interpolate(shell, context)?);
-        }
-
-        if let Some(command) = &step.command {
-            interpolated.command = Some(engine.interpolate(command, context)?);
-        }
-
-        // Interpolate environment variables
-        let mut interpolated_env = HashMap::new();
-        for (key, value) in &step.env {
-            let interpolated_key = engine.interpolate(key, context)?;
-            let interpolated_value = engine.interpolate(value, context)?;
-            interpolated_env.insert(interpolated_key, interpolated_value);
-        }
-        interpolated.env = interpolated_env;
-
-        // Note: Handler, on_failure, on_success would need recursive interpolation
-        // which we're not implementing for this initial version
-
-        Ok(interpolated)
-    }
-
-    /// Interpolate workflow step using enhanced variable context
-    async fn interpolate_workflow_step_enhanced(
-        &self,
-        step: &WorkflowStep,
-        context: &VariableContext,
-    ) -> MapReduceResult<WorkflowStep> {
-        // Clone the step to avoid modifying the original
-        let mut interpolated = step.clone();
-
-        // Interpolate all string fields that might contain variables
-        if let Some(name) = &step.name {
-            interpolated.name = Some(context.interpolate(name).await?);
-        }
-
-        if let Some(claude) = &step.claude {
-            interpolated.claude = Some(context.interpolate(claude).await?);
-        }
-
-        if let Some(shell) = &step.shell {
-            interpolated.shell = Some(context.interpolate(shell).await?);
-        }
-
-        if let Some(command) = &step.command {
-            interpolated.command = Some(context.interpolate(command).await?);
-        }
-
-        // Interpolate environment variables
-        let mut interpolated_env = HashMap::new();
-        for (key, value) in &step.env {
-            let interpolated_key = context.interpolate(key).await?;
-            let interpolated_value = context.interpolate(value).await?;
-            interpolated_env.insert(interpolated_key, interpolated_value);
-        }
-        interpolated.env = interpolated_env;
-
-        Ok(interpolated)
-    }
-
     // Git operations and branch management methods have been moved to the agent::lifecycle module
 
     /// Validate the parent worktree state after a merge
@@ -3360,8 +3308,7 @@ impl MapReduceExecutor {
         let output = Command::new("git")
             .args(["status", "--porcelain"])
             .current_dir(parent_path)
-            .output()
-            .await?;
+            .output()?;
 
         let status = String::from_utf8_lossy(&output.stdout);
         if status.contains("UU ") || status.contains("AA ") || status.contains("DD ") {
@@ -3379,8 +3326,7 @@ impl MapReduceExecutor {
             let check_output = Command::new("cargo")
                 .args(["check", "--quiet"])
                 .current_dir(parent_path)
-                .output()
-                .await?;
+                .output()?;
 
             if !check_output.status.success() {
                 warn!("Parent worktree fails cargo check after merge, but continuing");
@@ -3709,349 +3655,18 @@ impl MapReduceExecutor {
         step: &WorkflowStep,
         context: &mut AgentContext,
     ) -> MapReduceResult<StepResult> {
-        // Try to use enhanced variable context if possible, fall back to legacy
-        let interpolated_step =
-            if context.item_id == "reduce" || context.variables.contains_key("map.total") {
-                // Use enhanced context for reduce phase or when map variables are present
-                let var_context = context.to_variable_context().await;
-                self.interpolate_workflow_step_enhanced(step, &var_context)
-                    .await?
-            } else {
-                // Use legacy interpolation for backward compatibility
-                let interp_context = context.to_interpolation_context();
-                self.interpolate_workflow_step(step, &interp_context)
-                    .await?
-            };
-
-        // Determine command type
-        let command_type = self.determine_command_type(&interpolated_step)?;
-
-        // Execute the command based on its type
-        let result = match command_type.clone() {
-            CommandType::Claude(cmd) => self.execute_claude_command(&cmd, context).await?,
-            CommandType::Shell(cmd) => {
-                self.execute_shell_command(&cmd, context, step.timeout)
-                    .await?
-            }
-            CommandType::Handler {
-                handler_name,
-                attributes,
-            } => {
-                self.execute_handler_command(&handler_name, &attributes, context)
-                    .await?
-            }
-            CommandType::Legacy(cmd) => {
-                // Legacy commands use Claude executor
-                self.execute_claude_command(&cmd, context).await?
-            }
-            CommandType::Test(_) => {
-                // Test commands are converted to shell commands
-                if let Some(shell_cmd) = &interpolated_step.shell {
-                    self.execute_shell_command(shell_cmd, context, step.timeout)
-                        .await?
-                } else {
-                    let context = self.create_error_context("execute_single_step");
-                    return Err(MapReduceError::InvalidConfiguration {
-                        reason: "Test commands are not supported in MapReduce".to_string(),
-                        field: "command_type".to_string(),
-                        value: "test".to_string(),
-                    }
-                    .with_context(context)
-                    .error);
-                }
-            }
-            CommandType::GoalSeek(_) => {
-                let context = self.create_error_context("execute_single_step");
-                return Err(MapReduceError::InvalidConfiguration {
-                    reason: "Goal-seeking commands are not supported in MapReduce".to_string(),
-                    field: "command_type".to_string(),
-                    value: "goal_seek".to_string(),
-                }
-                .with_context(context)
-                .error);
-            }
-            CommandType::Foreach(_) => {
-                let context = self.create_error_context("execute_single_step");
-                return Err(MapReduceError::InvalidConfiguration {
-                    reason: "Foreach commands are not supported in MapReduce".to_string(),
-                    field: "command_type".to_string(),
-                    value: "foreach".to_string(),
-                }
-                .with_context(context)
-                .error);
-            }
-        };
-
-        // Capture command output if requested (new capture field)
-        if let Some(capture_name) = &step.capture {
-            let command_result = crate::cook::workflow::variables::CommandResult {
-                stdout: Some(result.stdout.clone()),
-                stderr: Some(result.stderr.clone()),
-                exit_code: result.exit_code.unwrap_or(-1),
-                success: result.success,
-                duration: std::time::Duration::from_secs(0), // TODO: Track actual duration
-            };
-
-            let capture_format = step.capture_format.unwrap_or_default();
-            let capture_streams = &step.capture_streams;
-
-            context
-                .variable_store
-                .capture_command_result(
-                    capture_name,
-                    command_result,
-                    capture_format,
-                    capture_streams,
-                )
-                .await
-                .map_err(|e| {
-                    let context = self.create_error_context("capture_command_result");
-                    MapReduceError::General {
-                        message: format!("Failed to capture command result: {}", e),
-                        source: None,
-                    }
-                    .with_context(context)
-                    .error
-                })?;
-
-            // Also update captured_outputs for backward compatibility
-            context
-                .captured_outputs
-                .insert(capture_name.clone(), result.stdout.clone());
-        }
-
-        // Capture output if requested (deprecated capture_output field)
-        if step.capture_output.is_enabled() && !result.stdout.is_empty() {
-            // Get the variable name for this output (custom or default)
-            if let Some(var_name) = step.capture_output.get_variable_name(&command_type) {
-                // Store with the specified variable name
-                context
-                    .captured_outputs
-                    .insert(var_name, result.stdout.clone());
-            }
-
-            // Also store as generic CAPTURED_OUTPUT for backward compatibility
-            context
-                .captured_outputs
-                .insert("CAPTURED_OUTPUT".to_string(), result.stdout.clone());
-        }
-
-        Ok(result)
-    }
-
-    /// Determine command type from a workflow step
-    fn determine_command_type(&self, step: &WorkflowStep) -> MapReduceResult<CommandType> {
-        // Collect all specified command types
-        let commands = Self::collect_command_types(step);
-
-        // Validate exactly one command is specified
-        Self::validate_command_count(&commands)?;
-
-        // Extract and return the single command type
-        commands.into_iter().next().ok_or_else(|| {
-            let context = self.create_error_context("determine_command_type");
-            MapReduceError::InvalidConfiguration {
-                reason: "No valid command found in step".to_string(),
-                field: "command".to_string(),
-                value: "<none>".to_string(),
-            }
-            .with_context(context)
-            .error
-        })
-    }
-
-    /// Collect all command types from a workflow step
-    pub(crate) fn collect_command_types(step: &WorkflowStep) -> Vec<CommandType> {
-        let mut commands = Vec::new();
-
-        if let Some(handler_step) = &step.handler {
-            let attributes = handler_step
-                .attributes
-                .iter()
-                .map(|(k, v)| (k.clone(), Self::json_to_attribute_value(v.clone())))
-                .collect();
-            commands.push(CommandType::Handler {
-                handler_name: handler_step.name.clone(),
-                attributes,
-            });
-        }
-
-        if let Some(claude_cmd) = &step.claude {
-            commands.push(CommandType::Claude(claude_cmd.clone()));
-        }
-
-        if let Some(shell_cmd) = &step.shell {
-            commands.push(CommandType::Shell(shell_cmd.clone()));
-        }
-
-        if let Some(test_cmd) = &step.test {
-            commands.push(CommandType::Test(test_cmd.clone()));
-        }
-
-        if let Some(name) = &step.name {
-            let command = Self::format_legacy_command(name);
-            commands.push(CommandType::Legacy(command));
-        }
-
-        if let Some(command) = &step.command {
-            commands.push(CommandType::Legacy(command.clone()));
-        }
-
-        commands
-    }
-
-    /// Validate that exactly one command type is specified
-    pub(crate) fn validate_command_count(commands: &[CommandType]) -> MapReduceResult<()> {
-        match commands.len() {
-            0 => Err(MapReduceError::InvalidConfiguration {
-                reason: "No command specified".to_string(),
-                field: "command".to_string(),
-                value: "Use one of: claude, shell, test, handler, or name/command".to_string(),
-            }),
-            1 => Ok(()),
-            _ => Err(MapReduceError::InvalidConfiguration {
-                reason: "Multiple command types specified".to_string(),
-                field: "command".to_string(),
-                value: "Use only one of: claude, shell, test, handler, or name/command".to_string(),
-            }),
-        }
+        // Use the step executor to handle interpolation, execution, and capture
+        self.step_executor.execute(step, context).await
     }
 
     /// Format a legacy command name with leading slash if needed
+    #[cfg(test)]
     pub(crate) fn format_legacy_command(name: &str) -> String {
         if name.starts_with('/') {
             name.to_string()
         } else {
             format!("/{name}")
         }
-    }
-
-    /// Convert serde_json::Value to AttributeValue
-    fn json_to_attribute_value(value: serde_json::Value) -> AttributeValue {
-        match value {
-            serde_json::Value::String(s) => AttributeValue::String(s),
-            serde_json::Value::Number(n) => {
-                if let Some(i) = n.as_i64() {
-                    AttributeValue::Number(i as f64)
-                } else if let Some(f) = n.as_f64() {
-                    AttributeValue::Number(f)
-                } else {
-                    AttributeValue::Number(0.0)
-                }
-            }
-            serde_json::Value::Bool(b) => AttributeValue::Boolean(b),
-            serde_json::Value::Array(arr) => {
-                AttributeValue::Array(arr.into_iter().map(Self::json_to_attribute_value).collect())
-            }
-            serde_json::Value::Object(obj) => {
-                let mut map = HashMap::new();
-                for (k, v) in obj {
-                    map.insert(k, Self::json_to_attribute_value(v));
-                }
-                AttributeValue::Object(map)
-            }
-            serde_json::Value::Null => AttributeValue::Null,
-        }
-    }
-
-    /// Execute a Claude command with agent context
-    async fn execute_claude_command(
-        &self,
-        command: &str,
-        context: &AgentContext,
-    ) -> MapReduceResult<StepResult> {
-        // Set up environment variables for the command
-        let mut env_vars = HashMap::new();
-        env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
-        env_vars.insert(
-            "PRODIGY_WORKTREE".to_string(),
-            context.worktree_name.clone(),
-        );
-
-        // Execute the Claude command
-        let result = self
-            .claude_executor
-            .execute_claude_command(command, &context.worktree_path, env_vars)
-            .await?;
-
-        Ok(StepResult {
-            success: result.success,
-            exit_code: result.exit_code,
-            stdout: result.stdout,
-            stderr: result.stderr,
-        })
-    }
-
-    /// Execute a shell command with agent context
-    async fn execute_shell_command(
-        &self,
-        command: &str,
-        context: &AgentContext,
-        timeout: Option<u64>,
-    ) -> MapReduceResult<StepResult> {
-        use tokio::time::Duration;
-
-        // Create command
-        let mut cmd = Command::new("sh");
-        cmd.args(["-c", command]);
-
-        // Set working directory to the agent's worktree
-        cmd.current_dir(&context.worktree_path);
-
-        // Set environment variables
-        cmd.env("PRODIGY_WORKTREE", &context.worktree_name);
-        cmd.env("PRODIGY_ITEM_ID", &context.item_id);
-        cmd.env("PRODIGY_AUTOMATION", "true");
-
-        // Execute with optional timeout
-        let output = if let Some(timeout_secs) = timeout {
-            let duration = Duration::from_secs(timeout_secs);
-            match tokio_timeout(duration, cmd.output()).await {
-                Ok(result) => result?,
-                Err(_) => {
-                    return Err(MapReduceError::AgentTimeout(Box::new(
-                        crate::cook::execution::errors::AgentTimeoutError {
-                            job_id: "<unknown>".to_string(),
-                            agent_id: "<unknown>".to_string(),
-                            item_id: "<unknown>".to_string(),
-                            duration_secs: timeout_secs,
-                            last_operation: "shell command execution".to_string(),
-                        },
-                    )));
-                }
-            }
-        } else {
-            cmd.output().await?
-        };
-
-        let result = StepResult {
-            success: output.status.success(),
-            exit_code: output.status.code(),
-            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        };
-
-        // Enhanced error logging for variable substitution failures
-        if !result.success && result.stderr.contains("bad substitution") {
-            // Log detailed information about the substitution failure
-            error!(
-                "Shell command failed with variable substitution error:\n  \
-                Original command: {}\n  \
-                Available variables: {:?}\n  \
-                Error: {}",
-                command,
-                context.variables.keys().collect::<Vec<_>>(),
-                result.stderr
-            );
-
-            // Try to identify which variables were referenced but not available
-            let missing_vars = self.find_missing_variables(command, &context.variables);
-            if !missing_vars.is_empty() {
-                error!("Potentially missing variables: {:?}", missing_vars);
-            }
-        }
-
-        Ok(result)
     }
 
     /// Find variables referenced in a command that are not available in the context
@@ -4112,47 +3727,6 @@ impl MapReduceExecutor {
         }
 
         missing
-    }
-
-    /// Execute a handler command with agent context
-    async fn execute_handler_command(
-        &self,
-        handler_name: &str,
-        attributes: &HashMap<String, AttributeValue>,
-        context: &AgentContext,
-    ) -> MapReduceResult<StepResult> {
-        // Create execution context for the handler
-        let mut exec_context = ExecutionContext::new(context.worktree_path.clone());
-
-        // Add environment variables
-        exec_context.add_env_var(
-            "PRODIGY_WORKTREE".to_string(),
-            context.worktree_name.clone(),
-        );
-        exec_context.add_env_var("PRODIGY_ITEM_ID".to_string(), context.item_id.clone());
-        exec_context.add_env_var("PRODIGY_AUTOMATION".to_string(), "true".to_string());
-
-        // Execute the handler
-        let result = self
-            .command_registry
-            .execute(handler_name, &exec_context, attributes.clone())
-            .await;
-
-        // Convert CommandResult to StepResult
-        Ok(StepResult {
-            success: result.is_success(),
-            exit_code: result.exit_code,
-            stdout: result.stdout.unwrap_or_else(|| {
-                result
-                    .data
-                    .as_ref()
-                    .map(|d| serde_json::to_string_pretty(d).unwrap_or_default())
-                    .unwrap_or_default()
-            }),
-            stderr: result
-                .stderr
-                .unwrap_or_else(|| result.error.unwrap_or_default()),
-        })
     }
 
     /// Handle on_failure logic for a failed step
@@ -4293,6 +3867,8 @@ impl MapReduceExecutor {
             project_root: self.project_root.clone(),
             interpolation_engine: self.interpolation_engine.clone(),
             command_registry: self.command_registry.clone(),
+            command_router: self.command_router.clone(),
+            step_executor: self.step_executor.clone(),
             subprocess: self.subprocess.clone(),
             state_manager: self.state_manager.clone(),
             event_logger: self.event_logger.clone(),
@@ -4475,10 +4051,10 @@ mod tests {
             when: None,
         };
 
-        let commands = MapReduceExecutor::collect_command_types(&step);
+        let commands = command::collect_command_types(&step);
 
         assert_eq!(commands.len(), 1);
-        matches!(&commands[0], CommandType::Claude(cmd) if cmd == "test command");
+        matches!(&commands[0], crate::cook::workflow::CommandType::Claude(cmd) if cmd == "test command");
     }
 
     #[test]
@@ -4515,10 +4091,10 @@ mod tests {
             when: None,
         };
 
-        let commands = MapReduceExecutor::collect_command_types(&step);
+        let commands = command::collect_command_types(&step);
 
         assert_eq!(commands.len(), 1);
-        matches!(&commands[0], CommandType::Shell(cmd) if cmd == "echo test");
+        matches!(&commands[0], crate::cook::workflow::CommandType::Shell(cmd) if cmd == "echo test");
     }
 
     #[test]
@@ -4558,10 +4134,10 @@ mod tests {
             when: None,
         };
 
-        let commands = MapReduceExecutor::collect_command_types(&step);
+        let commands = command::collect_command_types(&step);
 
         assert_eq!(commands.len(), 1);
-        matches!(&commands[0], CommandType::Test(cmd) if cmd.command == "cargo test");
+        matches!(&commands[0], crate::cook::workflow::CommandType::Test(cmd) if cmd.command == "cargo test");
     }
 
     #[test]
@@ -4601,10 +4177,10 @@ mod tests {
             when: None,
         };
 
-        let commands = MapReduceExecutor::collect_command_types(&step);
+        let commands = command::collect_command_types(&step);
 
         assert_eq!(commands.len(), 1);
-        matches!(&commands[0], CommandType::Handler { handler_name, .. } if handler_name == "test_handler");
+        matches!(&commands[0], crate::cook::workflow::CommandType::Handler { handler_name, .. } if handler_name == "test_handler");
     }
 
     #[test]
@@ -4641,10 +4217,10 @@ mod tests {
             when: None,
         };
 
-        let commands = MapReduceExecutor::collect_command_types(&step);
+        let commands = command::collect_command_types(&step);
 
         assert_eq!(commands.len(), 1);
-        matches!(&commands[0], CommandType::Legacy(cmd) if cmd == "/test_command");
+        matches!(&commands[0], crate::cook::workflow::CommandType::Legacy(cmd) if cmd == "/test_command");
     }
 
     #[test]
@@ -4681,10 +4257,10 @@ mod tests {
             when: None,
         };
 
-        let commands = MapReduceExecutor::collect_command_types(&step);
+        let commands = command::collect_command_types(&step);
 
         assert_eq!(commands.len(), 1);
-        if let CommandType::Legacy(cmd) = &commands[0] {
+        if let crate::cook::workflow::CommandType::Legacy(cmd) = &commands[0] {
             assert_eq!(cmd, "/test_command");
         } else {
             panic!("Expected Legacy command type");
@@ -4725,7 +4301,7 @@ mod tests {
             when: None,
         };
 
-        let commands = MapReduceExecutor::collect_command_types(&step);
+        let commands = command::collect_command_types(&step);
 
         assert_eq!(commands.len(), 0);
     }
@@ -4766,7 +4342,7 @@ mod tests {
             when: None,
         };
 
-        let commands = MapReduceExecutor::collect_command_types(&step);
+        let commands = command::collect_command_types(&step);
 
         assert_eq!(commands.len(), 2);
     }
