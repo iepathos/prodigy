@@ -42,7 +42,7 @@ impl ExpressionEngine {
     }
 
     /// Compile a filter expression
-    pub fn compile_filter(&self, expr: &str) -> Result<CompiledFilter> {
+    pub fn compile_filter(&mut self, expr: &str) -> Result<CompiledFilter> {
         // Parse the expression
         let ast = self.parser.parse_filter(expr)?;
 
@@ -57,7 +57,7 @@ impl ExpressionEngine {
     }
 
     /// Compile a sort expression
-    pub fn compile_sort(&self, expr: &str) -> Result<CompiledSort> {
+    pub fn compile_sort(&mut self, expr: &str) -> Result<CompiledSort> {
         // Parse the sort keys
         let sort_keys = self.parser.parse_sort(expr)?;
 
@@ -72,7 +72,7 @@ impl ExpressionEngine {
 
     /// Compile a sort expression with custom collation
     pub fn compile_sort_with_collation(
-        &self,
+        &mut self,
         expr: &str,
         collation: Collation,
     ) -> Result<CompiledSort> {
@@ -89,7 +89,7 @@ impl ExpressionEngine {
     }
 
     /// Evaluate a filter expression directly without compilation
-    pub fn evaluate_filter(&self, expr: &str, item: &Value) -> Result<bool> {
+    pub fn evaluate_filter(&mut self, expr: &str, item: &Value) -> Result<bool> {
         let filter = self.compile_filter(expr)?;
         filter.evaluate(item)
     }
@@ -146,7 +146,7 @@ mod tests {
 
     #[test]
     fn test_expression_engine_filter() {
-        let engine = ExpressionEngine::new();
+        let mut engine = ExpressionEngine::new();
         let filter = engine
             .compile_filter("priority > 5 && status == 'active'")
             .unwrap();
@@ -162,7 +162,7 @@ mod tests {
 
     #[test]
     fn test_expression_engine_sort() {
-        let engine = ExpressionEngine::new();
+        let mut engine = ExpressionEngine::new();
         let sort = engine.compile_sort("priority DESC, name ASC").unwrap();
 
         let mut items = vec![
