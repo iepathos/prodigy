@@ -281,7 +281,7 @@ impl ReducePhaseExecutor {
                 on_success: None,
                 timeout: on_failure.timeout(),
                 commit_required: false,
-                capture_output: None,
+                capture_output: Default::default(),
             };
 
             let result = self.execute_single_step(&handler_step, context).await?;
@@ -309,16 +309,16 @@ impl PhaseExecutor for ReducePhaseExecutor {
         let start_time = Instant::now();
 
         // Get map results from context
-        let map_results =
-            context
-                .map_results
-                .as_ref()
-                .ok_or_else(|| PhaseError::ValidationError {
-                    message: "No map results available for reduce phase".to_string(),
-                })?;
+        let map_results = context
+            .map_results
+            .as_ref()
+            .ok_or_else(|| PhaseError::ValidationError {
+                message: "No map results available for reduce phase".to_string(),
+            })?
+            .clone();
 
         // Calculate summary for metrics
-        let summary = calculate_map_result_summary(map_results);
+        let summary = calculate_map_result_summary(&map_results);
 
         info!(
             "Processing reduce phase with {} successful and {} failed map results",
@@ -326,7 +326,7 @@ impl PhaseExecutor for ReducePhaseExecutor {
         );
 
         // Prepare the reduce context with map results
-        self.prepare_reduce_context(map_results, context).await?;
+        self.prepare_reduce_context(&map_results, context).await?;
 
         // Execute reduce commands
         self.execute_reduce_commands(context).await?;

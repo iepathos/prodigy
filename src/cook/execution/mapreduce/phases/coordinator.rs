@@ -46,7 +46,7 @@ impl PhaseCoordinator {
         setup_phase: Option<SetupPhase>,
         map_phase: MapPhase,
         reduce_phase: Option<ReducePhase>,
-        subprocess_manager: Arc<SubprocessManager>,
+        _subprocess_manager: Arc<SubprocessManager>,
     ) -> Self {
         // Create executors for each phase
         let setup_executor = setup_phase.map(|phase| {

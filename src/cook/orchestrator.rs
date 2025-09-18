@@ -78,7 +78,7 @@ impl From<WorkflowType> for crate::cook::session::WorkflowType {
 }
 
 /// Execution environment for cook operations
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ExecutionEnvironment {
     /// Working directory (may be worktree)
     pub working_dir: PathBuf,

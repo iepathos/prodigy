@@ -22,6 +22,9 @@ pub mod resources;
 // Declare the phases module for phase execution orchestration
 pub mod phases;
 
+// Declare the agent command executor module
+pub mod agent_command_executor;
+
 // Import agent types and functionality
 use agent::{
     AgentLifecycleManager, AgentOperation, AgentResultAggregator, DefaultLifecycleManager,

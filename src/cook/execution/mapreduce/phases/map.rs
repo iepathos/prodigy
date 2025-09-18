@@ -26,7 +26,7 @@ impl MapPhaseExecutor {
     async fn parse_work_items(&self, context: &PhaseContext) -> Result<Vec<Value>, PhaseError> {
         // This is a simplified version - in full implementation,
         // this would use InputSource to parse the work items
-        let input = &self.map_phase.input;
+        let input = &self.map_phase.config.input;
 
         // Check if input is a file path
         let work_items_path = context.environment.working_dir.join(input);
@@ -78,15 +78,16 @@ impl MapPhaseExecutor {
 
             // Simulate agent execution
             results.push(AgentResult {
-                agent_id: format!("agent-{}", index),
-                work_item_index: index,
-                work_item: item.clone(),
-                success: true,
+                item_id: format!("item-{}", index),
+                status: crate::cook::execution::mapreduce::AgentStatus::Success,
                 output: Some(format!("Processed item {}", index)),
+                commits: vec![format!("commit-{}", index)],
+                files_modified: Vec::new(),
+                duration: std::time::Duration::from_secs(1),
                 error: None,
-                duration_secs: 1.0,
-                branch_name: format!("agent-branch-{}", index),
-                commit_sha: Some(format!("commit-{}", index)),
+                worktree_path: None,
+                branch_name: Some(format!("agent-branch-{}", index)),
+                worktree_session_id: None,
             });
         }
 
@@ -98,7 +99,7 @@ impl MapPhaseExecutor {
 
     /// Apply filters to work items
     fn apply_filters(&self, items: Vec<Value>) -> Vec<Value> {
-        if let Some(filter) = &self.map_phase.filter {
+        if let Some(_filter) = &self.map_phase.filter {
             // Simplified filter logic
             // Full implementation would use proper expression evaluation
             items
@@ -118,12 +119,12 @@ impl MapPhaseExecutor {
         let mut limited = items;
 
         // Apply offset
-        if let Some(offset) = self.map_phase.offset {
+        if let Some(offset) = self.map_phase.config.offset {
             limited = limited.into_iter().skip(offset).collect();
         }
 
         // Apply max_items
-        if let Some(max_items) = self.map_phase.max_items {
+        if let Some(max_items) = self.map_phase.config.max_items {
             limited = limited.into_iter().take(max_items).collect();
         }
 
@@ -159,8 +160,8 @@ impl PhaseExecutor for MapPhaseExecutor {
         let results = self.distribute_work(work_items.clone(), context).await?;
 
         // Calculate metrics
-        let successful = results.iter().filter(|r| r.success).count();
-        let failed = results.iter().filter(|r| !r.success).count();
+        let successful = results.iter().filter(|r| r.is_success()).count();
+        let failed = results.iter().filter(|r| !r.is_success()).count();
 
         let duration = start_time.elapsed();
         let metrics = PhaseMetrics {
@@ -199,16 +200,16 @@ impl PhaseExecutor for MapPhaseExecutor {
         PhaseType::Map
     }
 
-    fn validate_context(&self, context: &PhaseContext) -> Result<(), PhaseError> {
+    fn validate_context(&self, _context: &PhaseContext) -> Result<(), PhaseError> {
         // Validate that we have a valid input source
-        if self.map_phase.input.is_empty() {
+        if self.map_phase.config.input.is_empty() {
             return Err(PhaseError::ValidationError {
                 message: "Map phase input source is not specified".to_string(),
             });
         }
 
         // Validate max_parallel is reasonable
-        if self.map_phase.max_parallel == 0 {
+        if self.map_phase.config.max_parallel == 0 {
             return Err(PhaseError::ValidationError {
                 message: "max_parallel must be greater than 0".to_string(),
             });

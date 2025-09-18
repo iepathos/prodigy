@@ -157,13 +157,13 @@ pub trait PhaseExecutor: Send + Sync {
     fn phase_type(&self) -> PhaseType;
 
     /// Check if the phase can be skipped
-    fn can_skip(&self, context: &PhaseContext) -> bool {
+    fn can_skip(&self, _context: &PhaseContext) -> bool {
         // By default, phases cannot be skipped
         false
     }
 
     /// Validate the context before execution
-    fn validate_context(&self, context: &PhaseContext) -> Result<(), PhaseError> {
+    fn validate_context(&self, _context: &PhaseContext) -> Result<(), PhaseError> {
         // Default validation passes
         Ok(())
     }
@@ -202,3 +202,12 @@ impl PhaseTransitionHandler for DefaultTransitionHandler {
         PhaseTransition::Error(format!("{}", error))
     }
 }
+
+#[cfg(test)]
+mod coordinator_test;
+#[cfg(test)]
+mod map_test;
+#[cfg(test)]
+mod reduce_test;
+#[cfg(test)]
+mod setup_test;

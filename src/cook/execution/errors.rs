@@ -148,6 +148,14 @@ pub enum MapReduceError {
     #[error("Processing error: {0}")]
     ProcessingError(String),
 
+    // Validation errors
+    #[error("Validation failed: {details}")]
+    ValidationFailed {
+        details: String,
+        #[source]
+        source: Option<Box<dyn std::error::Error + Send + Sync>>,
+    },
+
     // Timeout errors
     #[error("Operation timed out")]
     Timeout,
