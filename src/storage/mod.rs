@@ -391,7 +391,7 @@ pub mod migration {
 }
 
 #[cfg(test)]
-mod tests {
+mod mod_tests {
     use super::*;
     use tempfile::TempDir;
 

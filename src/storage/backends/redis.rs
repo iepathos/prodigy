@@ -49,7 +49,7 @@ impl RedisBackend {
             .map_err(|e| StorageError::connection(format!("Failed to connect to Redis: {}", e)))?;
 
         redis::cmd("PING")
-            .query_async::<_, String>(&mut *conn)
+            .query_async::<String>(&mut conn)
             .await
             .map_err(|e| StorageError::connection(format!("Redis ping failed: {}", e)))?;
 
@@ -472,7 +472,7 @@ impl UnifiedStorage for RedisBackend {
         })?;
 
         match redis::cmd("PING")
-            .query_async::<_, String>(&mut *conn)
+            .query_async::<String>(&mut conn)
             .await
         {
             Ok(_) => {

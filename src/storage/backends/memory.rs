@@ -50,6 +50,19 @@ impl MemoryBackend {
             locks: Arc::new(RwLock::new(HashMap::new())),
         })
     }
+
+    /// Create a new memory backend directly from MemoryConfig (for testing)
+    pub fn from_memory_config(config: &MemoryConfig) -> StorageResult<Self> {
+        Ok(Self {
+            config: config.clone(),
+            sessions: Arc::new(RwLock::new(HashMap::new())),
+            events: Arc::new(RwLock::new(Vec::new())),
+            checkpoints: Arc::new(RwLock::new(HashMap::new())),
+            dlq: Arc::new(RwLock::new(HashMap::new())),
+            workflows: Arc::new(RwLock::new(HashMap::new())),
+            locks: Arc::new(RwLock::new(HashMap::new())),
+        })
+    }
 }
 
 /// Simple lock guard for memory backend

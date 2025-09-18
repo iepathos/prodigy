@@ -2,10 +2,10 @@
 
 use super::*;
 use crate::storage::backends::{FileBackend, MemoryBackend};
-use crate::storage::config::{BackendConfig, FileConfig, MemoryConfig, StorageConfig};
+use crate::storage::config::{BackendConfig, BackendType, FileConfig, MemoryConfig, StorageConfig, RetryPolicy, CacheConfig};
 use crate::storage::error::StorageResult;
 use crate::storage::traits::{
-    CheckpointStorage, DLQStorage, EventStorage, SessionStorage, UnifiedStorage, WorkflowStorage,
+    CheckpointStorage, DLQStorage, EventStorage, SessionStorage, UnifiedStorage,
 };
 use crate::storage::types::*;
 use chrono::Utc;
@@ -169,10 +169,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_memory_backend() -> StorageResult<()> {
-        let config = StorageConfig {
-            backend: BackendConfig::Memory(MemoryConfig::default()),
+        let config = MemoryConfig {
+            max_memory: 1024 * 1024 * 100, // 100MB
+            persist_to_disk: false,
+            persistence_path: None,
         };
-        let storage = MemoryBackend::new(&config.backend).await?;
+        let storage = MemoryBackend::from_memory_config(&config)?;
         test_backend(&storage).await?;
         Ok(())
     }
@@ -181,16 +183,22 @@ mod tests {
     async fn test_file_backend() -> StorageResult<()> {
         let temp_dir = TempDir::new()?;
         let config = StorageConfig {
-            backend: BackendConfig::File(FileConfig {
-                base_path: temp_dir.path().to_path_buf(),
+            backend: BackendType::File,
+            connection_pool_size: 10,
+            retry_policy: RetryPolicy::default(),
+            timeout: std::time::Duration::from_secs(30),
+            backend_config: BackendConfig::File(FileConfig {
+                base_dir: temp_dir.path().to_path_buf(),
+                use_global: false,
+                enable_file_locks: true,
+                max_file_size: 1024 * 1024 * 10, // 10MB
+                enable_compression: false,
             }),
+            enable_locking: true,
+            enable_cache: false,
+            cache_config: CacheConfig::default(),
         };
-        let storage = FileBackend::new(
-            &FileConfig {
-                base_path: temp_dir.path().to_path_buf(),
-            }
-        )
-        .await?;
+        let storage = FileBackend::new(&config).await?;
         test_backend(&storage).await?;
         Ok(())
     }
