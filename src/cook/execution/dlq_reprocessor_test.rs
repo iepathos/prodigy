@@ -311,7 +311,7 @@ async fn test_global_stats() {
     let dlq_file = dlq_dir.join("test-job-6.json");
     std::fs::write(&dlq_file, "{}").unwrap();
 
-    let (dlq, _) = create_test_dlq_with_items("test-job-6").await.unwrap();
+    let (_dlq, _) = create_test_dlq_with_items("test-job-6").await.unwrap();
     let project_root = temp_dir.path().to_path_buf();
 
     // Move DLQ to the correct location
@@ -920,7 +920,7 @@ async fn test_integration_complex_filter_scenarios() {
         force: true,
     };
 
-    let result = reprocessor.reprocess_items(options).await.unwrap();
+    let _result = reprocessor.reprocess_items(options).await.unwrap();
 
     // The simulated implementation may return 0 if items are filtered out
     // The important test here is that the filter logic works correctly, which we verified

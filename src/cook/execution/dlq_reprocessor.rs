@@ -523,11 +523,30 @@ impl DlqReprocessor {
         &self,
         item: &Value,
         job_id: &str,
-        _executor: Arc<MapReduceExecutor>,
+        executor: Arc<MapReduceExecutor>,
     ) -> Result<Value> {
         debug!("Processing item for job {}: {:?}", job_id, item);
 
-        // Extract the original command from the DLQ item if available
+        // Extract workflow-related information if present
+        let has_workflow_context = if let Some(obj) = item.as_object() {
+            obj.contains_key("_workflow_template") || obj.contains_key("_agent_template")
+        } else {
+            false
+        };
+
+        // Log that we have the executor available for future enhancement
+        if has_workflow_context {
+            debug!(
+                "Item has workflow context, executor available for job {}",
+                job_id
+            );
+            // Note: The executor is passed in preparation for future integration
+            // where we can properly execute workflow templates through the MapReduceExecutor.
+            // Currently, we use direct command execution as a fallback.
+            let _ = executor; // Acknowledge the parameter is intentionally reserved for future use
+        }
+
+        // Process the item using direct command execution
         let command = if let Some(obj) = item.as_object() {
             obj.get("_original_command")
                 .and_then(|c| c.as_str())
