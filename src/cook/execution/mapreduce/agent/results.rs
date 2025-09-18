@@ -166,31 +166,28 @@ impl AgentResultAggregator for DefaultResultAggregator {
         let mut context = InterpolationContext::new();
 
         // Add summary statistics
-        context.add_variable("map.successful", results.success_count.to_string());
-        context.add_variable("map.failed", results.failure_count.to_string());
-        context.add_variable("map.total", results.total.to_string());
+        context.set("map.successful", json!(results.success_count));
+        context.set("map.failed", json!(results.failure_count));
+        context.set("map.total", json!(results.total));
 
-        // Add the full results as JSON
-        if let Ok(results_json) = serde_json::to_string(&results.to_json_value()) {
-            context.add_variable("map.results", results_json);
+        // Add the full results as a structured JSON value
+        if let Ok(results_value) = serde_json::to_value(results.to_json_value()) {
+            context.set("map.results", results_value);
         }
 
         // Add individual successful results
         for (i, result) in results.successful.iter().enumerate() {
-            context.add_variable(
-                &format!("map.successful.{}.item_id", i),
-                result.item_id.clone(),
-            );
+            context.set(&format!("map.successful.{}.item_id", i), json!(result.item_id));
             if let Some(output) = &result.output {
-                context.add_variable(&format!("map.successful.{}.output", i), output.clone());
+                context.set(&format!("map.successful.{}.output", i), json!(output));
             }
         }
 
         // Add individual failed results
         for (i, result) in results.failed.iter().enumerate() {
-            context.add_variable(&format!("map.failed.{}.item_id", i), result.item_id.clone());
+            context.set(&format!("map.failed.{}.item_id", i), json!(result.item_id));
             if let Some(error) = &result.error {
-                context.add_variable(&format!("map.failed.{}.error", i), error.clone());
+                context.set(&format!("map.failed.{}.error", i), json!(error));
             }
         }
 
@@ -198,56 +195,39 @@ impl AgentResultAggregator for DefaultResultAggregator {
     }
 
     async fn to_variable_context(&self, results: &AggregatedResults) -> VariableContext {
-        use crate::cook::workflow::variables::CapturedValue;
-
         let mut context = VariableContext::new();
 
         // Add summary statistics
-        context
-            .variable_store
-            .set(
-                "map.successful",
-                CapturedValue::Number(results.success_count as f64),
-            )
-            .await;
-        context
-            .variable_store
-            .set(
-                "map.failed",
-                CapturedValue::Number(results.failure_count as f64),
-            )
-            .await;
-        context
-            .variable_store
-            .set("map.total", CapturedValue::Number(results.total as f64))
-            .await;
+        context.set_global(
+            "map.successful",
+            Variable::Static(json!(results.success_count)),
+        );
+        context.set_global(
+            "map.failed",
+            Variable::Static(json!(results.failure_count)),
+        );
+        context.set_global("map.total", Variable::Static(json!(results.total)));
 
         // Add the full results as a structured JSON value
         if let Ok(results_value) = serde_json::to_value(results.to_json_value()) {
-            context
-                .variable_store
-                .set("map.results", CapturedValue::from(results_value))
-                .await;
+            context.set_global("map.results", Variable::Static(results_value));
         }
 
         // Add individual results for easier access
-        let results_array: Vec<CapturedValue> = results
+        let results_array: Vec<Value> = results
             .successful
             .iter()
             .chain(results.failed.iter())
             .map(|result| {
                 if let Ok(result_json) = serde_json::to_value(result) {
-                    CapturedValue::from(result_json)
+                    result_json
                 } else {
-                    CapturedValue::String(format!("{:?}", result))
+                    json!(format!("{:?}", result))
                 }
             })
             .collect();
 
-        context
-            .variable_store
-            .set("map.results_array", CapturedValue::Array(results_array))
-            .await;
+        context.set_global("map.results_array", Variable::Static(json!(results_array)));
 
         context
     }

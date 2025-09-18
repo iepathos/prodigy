@@ -11,9 +11,12 @@ pub mod utils;
 
 // Import agent types and functionality
 use agent::{
-    AgentLifecycleManager, AgentOperation, AgentResult, AgentResultAggregator, AgentStatus,
+    AgentLifecycleManager, AgentOperation, AgentResultAggregator,
     DefaultLifecycleManager, DefaultResultAggregator,
 };
+
+// Re-export public types for external use
+pub use agent::{AgentResult, AgentStatus};
 
 // Import utility functions from utils module
 use utils::{
@@ -4300,6 +4303,8 @@ impl MapReduceExecutor {
             setup_variables: self.setup_variables.clone(),
             retry_state_manager: self.retry_state_manager.clone(),
             error_policy_executor: None, // Don't clone error policy executor - it's per-job
+            agent_lifecycle_manager: self.agent_lifecycle_manager.clone(),
+            agent_result_aggregator: self.agent_result_aggregator.clone(),
         }
     }
 

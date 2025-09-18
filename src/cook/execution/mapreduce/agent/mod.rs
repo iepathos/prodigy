@@ -24,7 +24,10 @@ pub use lifecycle::{AgentLifecycleManager, DefaultLifecycleManager};
 pub use results::{AgentResultAggregator, AggregatedResults, DefaultResultAggregator};
 
 #[cfg(test)]
-mod tests {
+mod tests;
+
+#[cfg(test)]
+mod basic_tests {
     use super::*;
     use std::time::Duration;
 
