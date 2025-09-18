@@ -19,6 +19,7 @@ use crate::storage::{
 
 /// In-memory storage backend for testing
 pub struct MemoryBackend {
+    #[allow(dead_code)]
     config: MemoryConfig,
     sessions: Arc<RwLock<HashMap<SessionId, PersistedSession>>>,
     events: Arc<RwLock<Vec<EventRecord>>>,
@@ -83,7 +84,7 @@ impl StorageLockGuard for MemoryLockGuard {
     }
 
     async fn extend(&mut self, additional_ttl: Duration) -> StorageResult<()> {
-        self.lock.ttl = self.lock.ttl + additional_ttl;
+        self.lock.ttl += additional_ttl;
         self.locks
             .write()
             .await
@@ -460,10 +461,10 @@ impl CheckpointStorage for MemoryBackend {
         let mut latest: Option<&WorkflowCheckpoint> = None;
 
         for checkpoint in checkpoints.values() {
-            if checkpoint.workflow_id == workflow_id {
-                if latest.is_none() || checkpoint.created_at > latest.unwrap().created_at {
-                    latest = Some(checkpoint);
-                }
+            if checkpoint.workflow_id == workflow_id
+                && (latest.is_none() || checkpoint.created_at > latest.unwrap().created_at)
+            {
+                latest = Some(checkpoint);
             }
         }
 

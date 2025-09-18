@@ -2,7 +2,7 @@
 
 use super::error::{StorageError, StorageResult};
 use super::traits::UnifiedStorage;
-use super::types::{SessionFilter, EventFilter, CheckpointFilter};
+use super::types::{CheckpointFilter, EventFilter, SessionFilter};
 use chrono::{DateTime, Utc};
 use indicatif::{ProgressBar, ProgressStyle};
 use tracing::{error, info, warn};
@@ -47,6 +47,12 @@ pub struct MigrationStats {
 /// Storage migration utility
 pub struct StorageMigrator {
     config: MigrationConfig,
+}
+
+impl Default for StorageMigrator {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl StorageMigrator {
@@ -163,7 +169,10 @@ impl StorageMigrator {
     ) -> StorageResult<u64> {
         info!("Migrating sessions for repository: {}", repository);
 
-        let session_ids = source.session_storage().list(SessionFilter::default()).await?;
+        let session_ids = source
+            .session_storage()
+            .list(SessionFilter::default())
+            .await?;
         let total = session_ids.len() as u64;
 
         if total == 0 {
@@ -217,7 +226,8 @@ impl StorageMigrator {
 
         // Verify if requested
         if self.config.verify && migrated > 0 {
-            self.verify_sessions(source, destination, repository).await?;
+            self.verify_sessions(source, destination, repository)
+                .await?;
         }
 
         Ok(migrated)
@@ -386,21 +396,20 @@ impl StorageMigrator {
     ) -> StorageResult<()> {
         info!("Verifying session migration");
 
-        let source_sessions = source.session_storage().list(SessionFilter::default()).await?;
+        let source_sessions = source
+            .session_storage()
+            .list(SessionFilter::default())
+            .await?;
         let dest_sessions = destination
             .session_storage()
             .list(SessionFilter::default())
             .await?;
 
-        let source_ids: std::collections::HashSet<_> = source_sessions
-            .iter()
-            .map(|s| s.0.clone())
-            .collect();
+        let source_ids: std::collections::HashSet<_> =
+            source_sessions.iter().map(|s| s.0.clone()).collect();
 
-        let dest_ids: std::collections::HashSet<_> = dest_sessions
-            .iter()
-            .map(|s| s.0.clone())
-            .collect();
+        let dest_ids: std::collections::HashSet<_> =
+            dest_sessions.iter().map(|s| s.0.clone()).collect();
 
         let missing: Vec<_> = source_ids.difference(&dest_ids).collect();
 
@@ -463,31 +472,36 @@ impl StorageMigrator {
                     // Append events in batch
                     if !events_batch.is_empty() {
                         let batch_size = events_batch.len();
-                        if destination.event_storage().append(events_batch).await.is_ok() {
+                        if destination
+                            .event_storage()
+                            .append(events_batch)
+                            .await
+                            .is_ok()
+                        {
                             stats.events_migrated += batch_size as u64;
                         }
                     }
                 }
                 Err(e) => {
                     warn!("Failed to read events for job {}: {}", job_id, e);
-                    stats.errors.push(format!("Events for job {}: {}", job_id, e));
+                    stats
+                        .errors
+                        .push(format!("Events for job {}: {}", job_id, e));
                 }
             }
         }
 
         // Migrate recent sessions
-        let session_ids = source.session_storage().list(SessionFilter::default()).await?;
+        let session_ids = source
+            .session_storage()
+            .list(SessionFilter::default())
+            .await?;
         for id in session_ids {
             if let Some(session) = source.session_storage().load(&id).await? {
-                if session.started_at >= since {
-                    if destination
-                        .session_storage()
-                        .save(&session)
-                        .await
-                        .is_ok()
-                    {
-                        stats.sessions_migrated += 1;
-                    }
+                if session.started_at >= since
+                    && destination.session_storage().save(&session).await.is_ok()
+                {
+                    stats.sessions_migrated += 1;
                 }
             }
         }
@@ -506,7 +520,7 @@ impl StorageMigrator {
 /// CLI interface for migration tool
 pub mod cli {
     use super::*;
-    use crate::storage::{factory::StorageFactory, config::StorageConfig};
+    use crate::storage::{config::StorageConfig, factory::StorageFactory};
 
     /// Run migration from command line arguments
     pub async fn run_migration(
@@ -565,7 +579,7 @@ mod tests {
     use crate::storage::{
         backends::MemoryBackend,
         config::{BackendConfig, BackendType, MemoryConfig, StorageConfig},
-        types::{SessionState, SessionId, PersistedSession},
+        types::{PersistedSession, SessionId, SessionState},
     };
     use std::collections::HashMap;
 
@@ -640,22 +654,14 @@ mod tests {
 
         // Add old session
         let old_session = create_test_session("old-session");
-        source
-            .session_storage()
-            .save(&old_session)
-            .await
-            .unwrap();
+        source.session_storage().save(&old_session).await.unwrap();
 
         let cutoff = Utc::now();
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
         // Add new session after cutoff
         let new_session = create_test_session("new-session");
-        source
-            .session_storage()
-            .save(&new_session)
-            .await
-            .unwrap();
+        source.session_storage().save(&new_session).await.unwrap();
 
         // Migrate only recent data
         let migrator = StorageMigrator::new();

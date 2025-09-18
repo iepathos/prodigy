@@ -111,7 +111,7 @@ impl StorageError {
 
     /// Create an I/O error
     pub fn io_error<E: fmt::Display>(msg: E) -> Self {
-        Self::Database(msg.to_string())  // Use Database for now as it's closest
+        Self::Database(msg.to_string()) // Use Database for now as it's closest
     }
 
     /// Create an operation error

@@ -29,10 +29,7 @@ impl S3Backend {
         // Create AWS config
         #[allow(deprecated)]
         let aws_config = if let Some(ref endpoint) = config.endpoint {
-            aws_config::from_env()
-                .endpoint_url(endpoint)
-                .load()
-                .await
+            aws_config::from_env().endpoint_url(endpoint).load().await
         } else {
             aws_config::load_from_env().await
         };
@@ -66,8 +63,8 @@ impl SessionStorage for S3Backend {
         debug!("Saving session: {}", session.id.0);
 
         let key = self.make_key("sessions", &session.id.0);
-        let body = serde_json::to_vec(session)
-            .map_err(|e| StorageError::serialization(e.to_string()))?;
+        let body =
+            serde_json::to_vec(session).map_err(|e| StorageError::serialization(e.to_string()))?;
 
         self.client
             .put_object()
@@ -301,8 +298,8 @@ impl DLQStorage for S3Backend {
         debug!("Enqueueing DLQ item: {}", item.id);
 
         let key = self.make_key("dlq", &item.id);
-        let body = serde_json::to_vec(&item)
-            .map_err(|e| StorageError::serialization(e.to_string()))?;
+        let body =
+            serde_json::to_vec(&item).map_err(|e| StorageError::serialization(e.to_string()))?;
 
         self.client
             .put_object()
@@ -365,8 +362,8 @@ impl WorkflowStorage for S3Backend {
         debug!("Saving workflow: {}", workflow.id);
 
         let key = self.make_key("workflows", &workflow.id);
-        let body = serde_json::to_vec(workflow)
-            .map_err(|e| StorageError::serialization(e.to_string()))?;
+        let body =
+            serde_json::to_vec(workflow).map_err(|e| StorageError::serialization(e.to_string()))?;
 
         self.client
             .put_object()
@@ -398,9 +395,7 @@ impl WorkflowStorage for S3Backend {
                     .body
                     .collect()
                     .await
-                    .map_err(|e| {
-                        StorageError::io_error(format!("Failed to read workflow: {}", e))
-                    })?
+                    .map_err(|e| StorageError::io_error(format!("Failed to read workflow: {}", e)))?
                     .into_bytes();
 
                 let workflow = serde_json::from_slice(&bytes)

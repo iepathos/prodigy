@@ -90,7 +90,11 @@ fn bench_session_operations(c: &mut Criterion) {
             },
             |(backend, session, _temp_dir)| async move {
                 // Save and load session
-                backend.session_storage().save_session(&session).await.unwrap();
+                backend
+                    .session_storage()
+                    .save_session(&session)
+                    .await
+                    .unwrap();
                 let loaded = backend
                     .session_storage()
                     .load_session(&session.session_id)
@@ -257,7 +261,11 @@ fn bench_memory_backend(c: &mut Criterion) {
             |(backend, sessions)| async move {
                 // Save all sessions
                 for session in &sessions {
-                    backend.session_storage().save_session(session).await.unwrap();
+                    backend
+                        .session_storage()
+                        .save_session(session)
+                        .await
+                        .unwrap();
                 }
 
                 // Load all sessions
@@ -405,7 +413,11 @@ fn bench_overhead_verification(c: &mut Criterion) {
                             command_timings: HashMap::new(),
                             metadata: HashMap::new(),
                         };
-                        backend.session_storage().save_session(&session).await.unwrap();
+                        backend
+                            .session_storage()
+                            .save_session(&session)
+                            .await
+                            .unwrap();
                     },
                     BatchSize::SmallInput,
                 );

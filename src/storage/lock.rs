@@ -98,7 +98,7 @@ impl StorageLockGuard for FileLockGuard {
     }
 
     async fn extend(&mut self, additional_ttl: Duration) -> StorageResult<()> {
-        self.lock.ttl = self.lock.ttl + additional_ttl;
+        self.lock.ttl += additional_ttl;
 
         // Update lock file modification time
         let _metadata = tokio::fs::metadata(&self.lock_file).await?;

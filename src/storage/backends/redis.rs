@@ -299,8 +299,8 @@ impl DLQStorage for RedisBackend {
         debug!("Enqueueing DLQ item: {}", item.id);
 
         let key = self.make_key("dlq", &item.id);
-        let value = serde_json::to_string(&item)
-            .map_err(|e| StorageError::serialization(e.to_string()))?;
+        let value =
+            serde_json::to_string(&item).map_err(|e| StorageError::serialization(e.to_string()))?;
 
         let mut conn = self
             .pool
@@ -471,10 +471,7 @@ impl UnifiedStorage for RedisBackend {
             StorageError::connection(format!("Failed to get connection for health check: {}", e))
         })?;
 
-        match redis::cmd("PING")
-            .query_async::<String>(&mut conn)
-            .await
-        {
+        match redis::cmd("PING").query_async::<String>(&mut conn).await {
             Ok(_) => {
                 let latency_ms = start.elapsed().as_millis() as u64;
                 Ok(HealthStatus {

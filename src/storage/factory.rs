@@ -12,7 +12,7 @@ impl StorageFactory {
     /// Create storage from environment configuration
     pub async fn from_env() -> StorageResult<Box<dyn UnifiedStorage>> {
         let config =
-            StorageConfig::from_env().map_err(|e| super::error::StorageError::configuration(e))?;
+            StorageConfig::from_env().map_err(super::error::StorageError::configuration)?;
 
         Self::from_config(&config).await
     }

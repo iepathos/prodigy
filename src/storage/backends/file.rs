@@ -51,7 +51,7 @@ impl FileBackend {
         // Ensure base directory exists
         fs::create_dir_all(&base_dir)
             .await
-            .map_err(|e| StorageError::Io(e))?;
+            .map_err(StorageError::Io)?;
 
         Ok(Self {
             config: file_config,
@@ -68,28 +68,22 @@ impl FileBackend {
     /// Ensure directory exists
     async fn ensure_dir(&self, path: &Path) -> StorageResult<()> {
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)
-                .await
-                .map_err(|e| StorageError::Io(e))?;
+            fs::create_dir_all(parent).await.map_err(StorageError::Io)?;
         }
         Ok(())
     }
 
     /// Read JSON file
     async fn read_json<T: for<'de> Deserialize<'de>>(&self, path: &Path) -> StorageResult<T> {
-        let content = fs::read_to_string(path)
-            .await
-            .map_err(|e| StorageError::Io(e))?;
-        serde_json::from_str(&content).map_err(|e| StorageError::serialization(e))
+        let content = fs::read_to_string(path).await.map_err(StorageError::Io)?;
+        serde_json::from_str(&content).map_err(StorageError::serialization)
     }
 
     /// Write JSON file
     async fn write_json<T: Serialize>(&self, path: &Path, data: &T) -> StorageResult<()> {
         self.ensure_dir(path).await?;
         let content = serde_json::to_string_pretty(data)?;
-        fs::write(path, content)
-            .await
-            .map_err(|e| StorageError::Io(e))?;
+        fs::write(path, content).await.map_err(StorageError::Io)?;
         Ok(())
     }
 
@@ -238,7 +232,7 @@ impl SessionStorage for FileBackend {
     async fn list(&self, filter: SessionFilter) -> StorageResult<Vec<SessionId>> {
         let sessions_dir = self.base_dir.join("sessions");
         match fs::metadata(&sessions_dir).await {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]),
             Err(e) => return Err(StorageError::Io(e)),
         }
@@ -253,22 +247,20 @@ impl SessionStorage for FileBackend {
 
                     // Apply filter if needed
                     if filter.state.is_some() || filter.after.is_some() || filter.before.is_some() {
-                        if let Ok(session) = SessionStorage::load(self, &session_id).await {
-                            if let Some(session) = session {
-                                if let Some(ref state) = filter.state {
-                                    if session.state != *state {
-                                        continue;
-                                    }
+                        if let Ok(Some(session)) = SessionStorage::load(self, &session_id).await {
+                            if let Some(ref state) = filter.state {
+                                if session.state != *state {
+                                    continue;
                                 }
-                                if let Some(after) = filter.after {
-                                    if session.started_at < after {
-                                        continue;
-                                    }
+                            }
+                            if let Some(after) = filter.after {
+                                if session.started_at < after {
+                                    continue;
                                 }
-                                if let Some(before) = filter.before {
-                                    if session.started_at > before {
-                                        continue;
-                                    }
+                            }
+                            if let Some(before) = filter.before {
+                                if session.started_at > before {
+                                    continue;
                                 }
                             }
                         }
@@ -334,9 +326,7 @@ impl EventStorage for FileBackend {
         for event in events {
             let dir = self.get_path("events", &event.job_id);
             // Create the directory itself, not just its parent
-            fs::create_dir_all(&dir)
-                .await
-                .map_err(|e| StorageError::Io(e))?;
+            fs::create_dir_all(&dir).await.map_err(StorageError::Io)?;
 
             let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S_%f");
             let file_path = dir.join(format!("event_{}.jsonl", timestamp));
@@ -578,38 +568,36 @@ impl CheckpointStorage for FileBackend {
                 if name.ends_with(".json") {
                     let id = name.trim_end_matches(".json");
 
-                    if let Ok(checkpoint) = CheckpointStorage::load(self, id).await {
-                        if let Some(checkpoint) = checkpoint {
-                            // Apply filter
-                            if let Some(ref workflow_id) = filter.workflow_id {
-                                if checkpoint.workflow_id != *workflow_id {
-                                    continue;
-                                }
+                    if let Ok(Some(checkpoint)) = CheckpointStorage::load(self, id).await {
+                        // Apply filter
+                        if let Some(ref workflow_id) = filter.workflow_id {
+                            if checkpoint.workflow_id != *workflow_id {
+                                continue;
                             }
-                            if let Some(after) = filter.after {
-                                if checkpoint.created_at < after {
-                                    continue;
-                                }
+                        }
+                        if let Some(after) = filter.after {
+                            if checkpoint.created_at < after {
+                                continue;
                             }
-                            if let Some(before) = filter.before {
-                                if checkpoint.created_at > before {
-                                    continue;
-                                }
+                        }
+                        if let Some(before) = filter.before {
+                            if checkpoint.created_at > before {
+                                continue;
                             }
+                        }
 
-                            let metadata = entry.metadata().await?;
-                            checkpoints.push(CheckpointInfo {
-                                id: checkpoint.id,
-                                workflow_id: checkpoint.workflow_id,
-                                created_at: checkpoint.created_at,
-                                step_index: checkpoint.step_index,
-                                size_bytes: metadata.len() as usize,
-                            });
+                        let metadata = entry.metadata().await?;
+                        checkpoints.push(CheckpointInfo {
+                            id: checkpoint.id,
+                            workflow_id: checkpoint.workflow_id,
+                            created_at: checkpoint.created_at,
+                            step_index: checkpoint.step_index,
+                            size_bytes: metadata.len() as usize,
+                        });
 
-                            if let Some(limit) = filter.limit {
-                                if checkpoints.len() >= limit {
-                                    break;
-                                }
+                        if let Some(limit) = filter.limit {
+                            if checkpoints.len() >= limit {
+                                break;
                             }
                         }
                     }
@@ -890,37 +878,35 @@ impl WorkflowStorage for FileBackend {
                 if name.ends_with(".json") {
                     let id = name.trim_end_matches(".json");
 
-                    if let Ok(workflow) = WorkflowStorage::load(self, id).await {
-                        if let Some(workflow) = workflow {
-                            // Apply filter
-                            if let Some(ref filter_name) = filter.name {
-                                if !workflow.name.contains(filter_name) {
-                                    continue;
-                                }
+                    if let Ok(Some(workflow)) = WorkflowStorage::load(self, id).await {
+                        // Apply filter
+                        if let Some(ref filter_name) = filter.name {
+                            if !workflow.name.contains(filter_name) {
+                                continue;
                             }
-                            if let Some(ref tag) = filter.tag {
-                                if !workflow.metadata.tags.contains(tag) {
-                                    continue;
-                                }
+                        }
+                        if let Some(ref tag) = filter.tag {
+                            if !workflow.metadata.tags.contains(tag) {
+                                continue;
                             }
-                            if let Some(ref author) = filter.author {
-                                if workflow.metadata.author.as_ref() != Some(author) {
-                                    continue;
-                                }
+                        }
+                        if let Some(ref author) = filter.author {
+                            if workflow.metadata.author.as_ref() != Some(author) {
+                                continue;
                             }
+                        }
 
-                            workflows.push(WorkflowInfo {
-                                id: workflow.id,
-                                name: workflow.name,
-                                version: workflow.version,
-                                created_at: workflow.created_at,
-                                execution_count: 0,
-                            });
+                        workflows.push(WorkflowInfo {
+                            id: workflow.id,
+                            name: workflow.name,
+                            version: workflow.version,
+                            created_at: workflow.created_at,
+                            execution_count: 0,
+                        });
 
-                            if let Some(limit) = filter.limit {
-                                if workflows.len() >= limit {
-                                    break;
-                                }
+                        if let Some(limit) = filter.limit {
+                            if workflows.len() >= limit {
+                                break;
                             }
                         }
                     }

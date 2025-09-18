@@ -21,6 +21,7 @@ use tracing::{debug, info};
 /// PostgreSQL storage backend
 pub struct PostgresBackend {
     pool: Arc<PgPool>,
+    #[allow(dead_code)]
     config: PostgresConfig,
     schema: String,
 }
@@ -68,7 +69,9 @@ impl PostgresBackend {
             .test_before_acquire(true)
             .connect_with(connect_options)
             .await
-            .map_err(|e| StorageError::connection(format!("Failed to connect to database: {}", e)))?;
+            .map_err(|e| {
+                StorageError::connection(format!("Failed to connect to database: {}", e))
+            })?;
 
         let backend = Self {
             pool: Arc::new(pool),
@@ -114,7 +117,9 @@ impl PostgresBackend {
         sqlx::query(&query)
             .execute(&*self.pool)
             .await
-            .map_err(|e| StorageError::io_error(format!("Failed to create sessions table: {}", e)))?;
+            .map_err(|e| {
+                StorageError::io_error(format!("Failed to create sessions table: {}", e))
+            })?;
 
         // Create events table
         let query = format!(
@@ -151,7 +156,9 @@ impl PostgresBackend {
             sqlx::query(&query)
                 .execute(&*self.pool)
                 .await
-                .map_err(|e| StorageError::io_error(format!("Failed to create events index: {}", e)))?;
+                .map_err(|e| {
+                    StorageError::io_error(format!("Failed to create events index: {}", e))
+                })?;
         }
 
         // Create job_states table
@@ -175,14 +182,21 @@ impl PostgresBackend {
         sqlx::query(&query)
             .execute(&*self.pool)
             .await
-            .map_err(|e| StorageError::io_error(format!("Failed to create job_states table: {}", e)))?;
+            .map_err(|e| {
+                StorageError::io_error(format!("Failed to create job_states table: {}", e))
+            })?;
 
         // Create indexes for job_states table
-        let query = format!("CREATE INDEX IF NOT EXISTS idx_job_states_repo ON {}.job_states (repository, job_id)", self.schema);
+        let query = format!(
+            "CREATE INDEX IF NOT EXISTS idx_job_states_repo ON {}.job_states (repository, job_id)",
+            self.schema
+        );
         sqlx::query(&query)
             .execute(&*self.pool)
             .await
-            .map_err(|e| StorageError::io_error(format!("Failed to create job_states index: {}", e)))?;
+            .map_err(|e| {
+                StorageError::io_error(format!("Failed to create job_states index: {}", e))
+            })?;
 
         // Create checkpoints table
         let query = format!(
@@ -203,19 +217,29 @@ impl PostgresBackend {
         sqlx::query(&query)
             .execute(&*self.pool)
             .await
-            .map_err(|e| StorageError::io_error(format!("Failed to create checkpoints table: {}", e)))?;
+            .map_err(|e| {
+                StorageError::io_error(format!("Failed to create checkpoints table: {}", e))
+            })?;
 
         // Create indexes for checkpoints table
         let index_queries = vec![
-            format!("CREATE INDEX IF NOT EXISTS idx_checkpoints_session ON {}.checkpoints (session_id)", self.schema),
-            format!("CREATE INDEX IF NOT EXISTS idx_checkpoints_job ON {}.checkpoints (job_id)", self.schema),
+            format!(
+                "CREATE INDEX IF NOT EXISTS idx_checkpoints_session ON {}.checkpoints (session_id)",
+                self.schema
+            ),
+            format!(
+                "CREATE INDEX IF NOT EXISTS idx_checkpoints_job ON {}.checkpoints (job_id)",
+                self.schema
+            ),
         ];
 
         for query in index_queries {
             sqlx::query(&query)
                 .execute(&*self.pool)
                 .await
-                .map_err(|e| StorageError::io_error(format!("Failed to create checkpoints index: {}", e)))?;
+                .map_err(|e| {
+                    StorageError::io_error(format!("Failed to create checkpoints index: {}", e))
+                })?;
         }
 
         info!("PostgreSQL schema initialized successfully");
@@ -254,8 +278,8 @@ impl SessionStorage for PostgresBackend {
             .bind(&session.id.0)
             .bind(session.worktree_name.as_deref().unwrap_or(""))
             .bind(format!("{:?}", session.state))
-            .bind(&session.started_at)
-            .bind(&session.updated_at)
+            .bind(session.started_at)
+            .bind(session.updated_at)
             .bind("")
             .bind("")
             .bind(&data)
@@ -287,7 +311,7 @@ impl SessionStorage for PostgresBackend {
                     .map_err(|e| StorageError::deserialization(e.to_string()))?;
                 Ok(Some(session))
             }
-            None => Ok(None)
+            None => Ok(None),
         }
     }
 
@@ -316,10 +340,7 @@ impl SessionStorage for PostgresBackend {
     async fn delete(&self, id: &SessionId) -> StorageResult<()> {
         debug!("Deleting session: {}", id.0);
 
-        let query = format!(
-            "DELETE FROM {}.sessions WHERE session_id = $1",
-            self.schema
-        );
+        let query = format!("DELETE FROM {}.sessions WHERE session_id = $1", self.schema);
 
         sqlx::query(&query)
             .bind(&id.0)
@@ -381,7 +402,7 @@ impl EventStorage for PostgresBackend {
             sqlx::query(&query)
                 .bind("default")
                 .bind(&event.job_id)
-                .bind(&event.timestamp)
+                .bind(event.timestamp)
                 .bind(&event.event_type)
                 .bind(&event.id)
                 .bind(&event.agent_id)
@@ -461,7 +482,8 @@ impl CheckpointStorage for PostgresBackend {
         );
 
         // Convert string values to JSON values for storage
-        let json_variables: HashMap<String, JsonValue> = checkpoint.variables
+        let json_variables: HashMap<String, JsonValue> = checkpoint
+            .variables
             .iter()
             .map(|(k, v)| (k.clone(), JsonValue::String(v.clone())))
             .collect();
@@ -472,7 +494,7 @@ impl CheckpointStorage for PostgresBackend {
             .bind(&checkpoint.id)
             .bind("default")
             .bind(&checkpoint.workflow_id)
-            .bind(&checkpoint.created_at)
+            .bind(checkpoint.created_at)
             .bind(&data)
             .bind(&metadata)
             .execute(&*self.pool)
@@ -500,8 +522,8 @@ impl CheckpointStorage for PostgresBackend {
             Some(r) => {
                 let data: JsonValue = r.get("data");
                 let metadata: JsonValue = r.get("metadata");
-                let json_variables: HashMap<String, JsonValue> = serde_json::from_value(metadata)
-                    .unwrap_or_default();
+                let json_variables: HashMap<String, JsonValue> =
+                    serde_json::from_value(metadata).unwrap_or_default();
                 // Convert JSON values to strings
                 let variables: HashMap<String, String> = json_variables
                     .into_iter()
@@ -524,7 +546,7 @@ impl CheckpointStorage for PostgresBackend {
                 };
                 Ok(Some(checkpoint))
             }
-            None => Ok(None)
+            None => Ok(None),
         }
     }
 
@@ -590,8 +612,8 @@ impl CheckpointStorage for PostgresBackend {
             Some(r) => {
                 let data: JsonValue = r.get("data");
                 let metadata: JsonValue = r.get("metadata");
-                let json_variables: HashMap<String, JsonValue> = serde_json::from_value(metadata)
-                    .unwrap_or_default();
+                let json_variables: HashMap<String, JsonValue> =
+                    serde_json::from_value(metadata).unwrap_or_default();
                 // Convert JSON values to strings
                 let variables: HashMap<String, String> = json_variables
                     .into_iter()
@@ -614,7 +636,7 @@ impl CheckpointStorage for PostgresBackend {
                 };
                 Ok(Some(checkpoint))
             }
-            None => Ok(None)
+            None => Ok(None),
         }
     }
 
@@ -736,10 +758,7 @@ impl UnifiedStorage for PostgresBackend {
         debug!("Performing health check");
 
         let start = std::time::Instant::now();
-        match sqlx::query("SELECT 1")
-            .fetch_one(&*self.pool)
-            .await
-        {
+        match sqlx::query("SELECT 1").fetch_one(&*self.pool).await {
             Ok(_) => {
                 let latency_ms = start.elapsed().as_millis() as u64;
                 Ok(HealthStatus {

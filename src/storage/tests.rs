@@ -1,6 +1,8 @@
 //! Comprehensive tests for storage backends
 use crate::storage::backends::{FileBackend, MemoryBackend};
-use crate::storage::config::{BackendConfig, BackendType, FileConfig, MemoryConfig, StorageConfig, RetryPolicy, CacheConfig};
+use crate::storage::config::{
+    BackendConfig, BackendType, CacheConfig, FileConfig, MemoryConfig, RetryPolicy, StorageConfig,
+};
 use crate::storage::error::StorageResult;
 use crate::storage::traits::{
     CheckpointStorage, DLQStorage, EventStorage, SessionStorage, UnifiedStorage,

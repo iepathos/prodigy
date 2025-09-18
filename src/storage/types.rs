@@ -11,6 +11,12 @@ use uuid::Uuid;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SessionId(pub String);
 
+impl Default for SessionId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SessionId {
     pub fn new() -> Self {
         Self(format!("session-{}", Uuid::new_v4()))
