@@ -110,6 +110,15 @@ pub struct MapReduceJobState {
     pub agent_template: Vec<WorkflowStep>,
     /// Reduce phase commands (needed for resumption)
     pub reduce_commands: Option<Vec<WorkflowStep>>,
+    /// Workflow variables for interpolation
+    #[serde(default)]
+    pub variables: HashMap<String, Value>,
+    /// Setup phase output if available
+    #[serde(default)]
+    pub setup_output: Option<String>,
+    /// Whether setup phase has been completed
+    #[serde(default)]
+    pub setup_completed: bool,
 }
 
 /// Default checkpoint format version
@@ -147,6 +156,9 @@ impl MapReduceJobState {
             is_complete: false,
             agent_template: vec![],
             reduce_commands: None,
+            variables: HashMap::new(),
+            setup_output: None,
+            setup_completed: false,
         }
     }
 

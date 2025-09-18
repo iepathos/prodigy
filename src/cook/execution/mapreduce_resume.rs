@@ -663,6 +663,9 @@ mod tests {
             is_complete: false,
             agent_template: vec![],
             reduce_commands: None,
+            variables: HashMap::new(),
+            setup_output: None,
+            setup_completed: false,
         }
     }
 
