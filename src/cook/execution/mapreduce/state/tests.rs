@@ -3,32 +3,31 @@
 #[cfg(test)]
 mod state_tests {
     use super::super::*;
-    use crate::cook::execution::mapreduce::state::persistence::DefaultStateStore;
+    use crate::cook::execution::mapreduce::state::persistence::InMemoryStateStore;
     use crate::cook::execution::mapreduce::{AgentResult, AgentStatus, MapReduceConfig};
-    use chrono::Utc;
     use std::sync::Arc;
     use std::time::Duration;
 
     /// Helper function to create a test state manager
     async fn create_test_state_manager() -> Arc<StateManager> {
-        let store = Arc::new(DefaultStateStore::new("test-repo".to_string()));
+        let store = Arc::new(InMemoryStateStore::new());
         Arc::new(StateManager::new(store))
     }
 
     /// Helper function to create a test job with sample data
     async fn create_test_job(manager: &StateManager, job_id: &str) -> JobState {
         let config = MapReduceConfig::default();
-        let mut state = manager
+        let _state = manager
             .create_job(&config, job_id.to_string())
             .await
             .unwrap();
 
-        // Set up some sample data
-        state.total_items = 10;
-
         // Add some processed items
         manager
             .update_state(job_id, |state| {
+                // Set up some sample data
+                state.total_items = 10;
+
                 for i in 0..5 {
                     state.processed_items.insert(format!("item_{}", i));
                     state.agent_results.insert(
@@ -52,7 +51,8 @@ mod state_tests {
             .await
             .unwrap();
 
-        state
+        // Return the updated state from the manager
+        manager.get_state(job_id).await.unwrap().unwrap()
     }
 
     #[tokio::test]
@@ -261,6 +261,22 @@ mod state_tests {
                 // Mark half as processed
                 for i in 0..5 {
                     state.processed_items.insert(format!("item_{}", i));
+                    // Add corresponding agent results to keep state consistent
+                    state.agent_results.insert(
+                        format!("item_{}", i),
+                        AgentResult {
+                            item_id: format!("item_{}", i),
+                            status: AgentStatus::Success,
+                            output: Some(format!("output_{}", i)),
+                            commits: vec![],
+                            duration: Duration::from_secs(1),
+                            error: None,
+                            worktree_path: None,
+                            branch_name: None,
+                            worktree_session_id: None,
+                            files_modified: vec![],
+                        },
+                    );
                 }
 
                 // Mark some as failed

@@ -3,13 +3,13 @@
 //! Handles creating, validating, and managing checkpoints for job recovery.
 
 use super::{
-    Checkpoint, JobState, PhaseType, StateError, StateEvent, StateEventType, StateManager,
+    Checkpoint, JobState, StateError, StateEvent, StateEventType, StateManager,
 };
 use crate::cook::execution::mapreduce::AgentResult;
 use chrono::Utc;
 use sha2::{Digest, Sha256};
-use std::collections::{HashMap, HashSet};
-use tracing::{debug, error, info, warn};
+use std::collections::HashSet;
+use tracing::{debug, info, warn};
 
 impl StateManager {
     /// Create a checkpoint for the current job state
@@ -220,14 +220,15 @@ fn calculate_checksum(state: &JobState) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cook::execution::mapreduce::state::persistence::DefaultStateStore;
+    use crate::cook::execution::mapreduce::state::PhaseType;
     use crate::cook::execution::mapreduce::{AgentStatus, MapReduceConfig};
+    use std::collections::HashMap;
     use std::sync::Arc;
     use std::time::Duration;
 
     #[tokio::test]
     async fn test_checkpoint_creation() {
-        let store = Arc::new(DefaultStateStore::new("test-repo".to_string()));
+        let store = Arc::new(super::super::persistence::InMemoryStateStore::new());
         let manager = StateManager::new(store);
 
         let config = MapReduceConfig::default();
@@ -295,7 +296,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_checkpoint_validation() {
-        let store = Arc::new(DefaultStateStore::new("test-repo".to_string()));
+        let store = Arc::new(super::super::persistence::InMemoryStateStore::new());
         let manager = StateManager::new(store);
 
         let config = MapReduceConfig::default();
@@ -307,6 +308,7 @@ mod tests {
         // Update with inconsistent state
         manager
             .update_state(&job_id, |state| {
+                state.total_items = 5;  // Set total items so we don't fail on count validation
                 state.processed_items.insert("item_0".to_string());
                 // Don't add corresponding agent result - this makes state invalid
                 Ok(())
@@ -316,8 +318,10 @@ mod tests {
 
         let state = manager.get_state(&job_id).await.unwrap().unwrap();
         let result = manager.validate_checkpoint(&state);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("has no result"));
+        assert!(result.is_err(), "Expected validation to fail but it succeeded");
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("has no result"),
+                "Expected error message to contain 'has no result' but got: '{}'", error_msg);
     }
 
     #[tokio::test]

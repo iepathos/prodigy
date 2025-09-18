@@ -3,13 +3,11 @@
 //! Handles job recovery from checkpoints and calculating pending work.
 
 use super::{
-    JobState, PhaseType, RecoveryPlan, StateError, StateEvent, StateEventType, StateManager,
+    JobState, RecoveryPlan, StateError, StateEvent, StateEventType, StateManager,
 };
-use crate::cook::execution::mapreduce::MapReduceConfig;
 use chrono::Utc;
 use serde_json::Value;
-use std::collections::HashSet;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 impl StateManager {
     /// Create a recovery plan from a checkpoint
@@ -94,7 +92,7 @@ impl StateManager {
         }
 
         // Add retriable failed items
-        let max_retries = state.config.retry_on_failure + max_additional_retries;
+        let _max_retries = state.config.retry_on_failure + max_additional_retries;
         for failed_item_id in &state.failed_items {
             // Extract item index from ID
             if let Some(idx) = failed_item_id
@@ -260,21 +258,23 @@ impl Default for ResumeOptions {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cook::execution::mapreduce::state::persistence::DefaultStateStore;
+    use crate::cook::execution::mapreduce::state::persistence::InMemoryStateStore;
+    use crate::cook::execution::mapreduce::state::PhaseType;
     use crate::cook::execution::mapreduce::{AgentResult, AgentStatus, MapReduceConfig};
+    use std::collections::HashSet;
     use std::sync::Arc;
     use std::time::Duration;
 
     #[tokio::test]
     async fn test_recovery_plan_creation() {
-        let store = Arc::new(DefaultStateStore::new("test-repo".to_string()));
+        let store = Arc::new(InMemoryStateStore::new());
         let manager = StateManager::new(store);
 
         let config = MapReduceConfig::default();
         let job_id = "test-job-recovery".to_string();
 
         // Create job with some progress
-        let state = manager.create_job(&config, job_id.clone()).await.unwrap();
+        let _state = manager.create_job(&config, job_id.clone()).await.unwrap();
 
         // Simulate some processing
         manager
@@ -287,6 +287,22 @@ mod tests {
                     "item_0".to_string(),
                     AgentResult {
                         item_id: "item_0".to_string(),
+                        status: AgentStatus::Success,
+                        output: Some("output".to_string()),
+                        commits: vec![],
+                        duration: Duration::from_secs(1),
+                        error: None,
+                        worktree_path: None,
+                        branch_name: None,
+                        worktree_session_id: None,
+                        files_modified: vec![],
+                    },
+                );
+
+                state.agent_results.insert(
+                    "item_1".to_string(),
+                    AgentResult {
+                        item_id: "item_1".to_string(),
                         status: AgentStatus::Success,
                         output: Some("output".to_string()),
                         commits: vec![],
@@ -325,7 +341,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_calculate_pending_items() {
-        let store = Arc::new(DefaultStateStore::new("test-repo".to_string()));
+        let store = Arc::new(InMemoryStateStore::new());
         let manager = StateManager::new(store);
 
         let mut state = JobState {
@@ -358,7 +374,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_mark_items_processed() {
-        let store = Arc::new(DefaultStateStore::new("test-repo".to_string()));
+        let store = Arc::new(InMemoryStateStore::new());
         let manager = StateManager::new(store);
 
         let config = MapReduceConfig::default();
@@ -380,7 +396,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_can_resume_job() {
-        let store = Arc::new(DefaultStateStore::new("test-repo".to_string()));
+        let store = Arc::new(InMemoryStateStore::new());
         let manager = StateManager::new(store);
 
         let config = MapReduceConfig::default();

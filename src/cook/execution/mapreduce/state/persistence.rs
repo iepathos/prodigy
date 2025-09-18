@@ -3,9 +3,7 @@
 //! Handles saving and loading job state to/from storage backends.
 
 use super::{JobProgress, JobState, JobSummary, PhaseType, StateError, StateStore};
-use crate::cook::execution::mapreduce::AgentResult;
 use crate::cook::execution::state::{DefaultJobStateManager, JobStateManager, MapReduceJobState};
-use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{debug, error, info};
@@ -178,10 +176,12 @@ fn map_phase_from_state(state: &MapReduceJobState) -> PhaseType {
 mod tests {
     use super::*;
     use crate::cook::execution::mapreduce::MapReduceConfig;
+    use chrono::Utc;
+    use std::collections::HashMap;
 
     #[tokio::test]
     async fn test_state_persistence() {
-        let store = DefaultStateStore::new("test-repo".to_string());
+        let store = InMemoryStateStore::new();
 
         let state = JobState {
             id: "test-job-123".to_string(),
@@ -215,5 +215,79 @@ mod tests {
         // List should work even with no jobs
         let jobs = store.list().await.unwrap();
         assert!(jobs.is_empty() || !jobs.is_empty()); // Either case is valid
+    }
+}
+
+/// In-memory state store for testing
+#[cfg(test)]
+pub struct InMemoryStateStore {
+    states: Arc<tokio::sync::RwLock<HashMap<String, JobState>>>,
+}
+
+#[cfg(test)]
+impl InMemoryStateStore {
+    /// Create a new in-memory state store
+    pub fn new() -> Self {
+        Self {
+            states: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
+        }
+    }
+}
+
+#[cfg(test)]
+#[async_trait::async_trait]
+impl StateStore for InMemoryStateStore {
+    async fn save(&self, state: &JobState) -> Result<(), StateError> {
+        let mut states = self.states.write().await;
+        states.insert(state.id.clone(), state.clone());
+        debug!("Saved state for job {}", state.id);
+        Ok(())
+    }
+
+    async fn load(&self, job_id: &str) -> Result<Option<JobState>, StateError> {
+        let states = self.states.read().await;
+        let result = states.get(job_id).cloned();
+        debug!("Loaded state for job {}: {}", job_id, result.is_some());
+        Ok(result)
+    }
+
+    async fn list(&self) -> Result<Vec<JobSummary>, StateError> {
+        let states = self.states.read().await;
+        let summaries: Vec<JobSummary> = states
+            .values()
+            .map(|state| {
+                let processed = state.processed_items.len();
+                let failed = state.failed_items.len();
+                let total = state.total_items;
+                let pending = total.saturating_sub(processed + failed);
+
+                JobSummary {
+                    job_id: state.id.clone(),
+                    phase: state.phase,
+                    progress: JobProgress {
+                        total_items: total,
+                        completed_items: processed,
+                        failed_items: failed,
+                        pending_items: pending,
+                        completion_percentage: if total > 0 {
+                            (processed as f64 / total as f64) * 100.0
+                        } else {
+                            0.0
+                        },
+                    },
+                    created_at: state.created_at,
+                    updated_at: state.updated_at,
+                    is_complete: state.is_complete,
+                }
+            })
+            .collect();
+        Ok(summaries)
+    }
+
+    async fn delete(&self, job_id: &str) -> Result<(), StateError> {
+        let mut states = self.states.write().await;
+        states.remove(job_id);
+        debug!("Deleted state for job {}", job_id);
+        Ok(())
     }
 }

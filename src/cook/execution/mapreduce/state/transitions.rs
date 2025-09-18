@@ -203,13 +203,13 @@ impl JobState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cook::execution::mapreduce::state::persistence::DefaultStateStore;
+    use crate::cook::execution::mapreduce::state::persistence::InMemoryStateStore;
     use crate::cook::execution::mapreduce::MapReduceConfig;
     use std::sync::Arc;
 
     #[tokio::test]
     async fn test_valid_transitions() {
-        let store = Arc::new(DefaultStateStore::new("test-repo".to_string()));
+        let store = Arc::new(InMemoryStateStore::new());
         let manager = StateManager::new(store);
 
         let config = MapReduceConfig::default();
@@ -240,7 +240,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_invalid_transitions() {
-        let store = Arc::new(DefaultStateStore::new("test-repo".to_string()));
+        let store = Arc::new(InMemoryStateStore::new());
         let manager = StateManager::new(store);
 
         let config = MapReduceConfig::default();
@@ -266,7 +266,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_terminal_states() {
-        let store = Arc::new(DefaultStateStore::new("test-repo".to_string()));
+        let store = Arc::new(InMemoryStateStore::new());
         let manager = StateManager::new(store);
 
         let config = MapReduceConfig::default();
@@ -296,7 +296,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_valid_transitions() {
-        let store = Arc::new(DefaultStateStore::new("test-repo".to_string()));
+        let store = Arc::new(InMemoryStateStore::new());
         let manager = StateManager::new(store);
 
         let config = MapReduceConfig::default();

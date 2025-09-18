@@ -11,16 +11,15 @@ pub mod transitions;
 #[cfg(test)]
 mod tests;
 
-use crate::cook::execution::errors::{MapReduceError, MapReduceResult};
+use crate::cook::execution::errors::MapReduceError;
 use crate::cook::execution::mapreduce::{AgentResult, MapReduceConfig};
-use crate::cook::execution::state::{JobStateManager, MapReduceJobState};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
+use tracing::error;
 
 /// State manager for MapReduce jobs
 ///
