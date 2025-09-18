@@ -49,7 +49,7 @@ impl SetupPhaseExecutor {
                 .get(&format!("step_{}", index))
             {
                 if capture_index == index {
-                    captured_outputs.insert(format!("setup_output_{}", index), result);
+                    captured_outputs.insert(format!("setup_output_{}", index), result.clone());
                 }
             }
 
@@ -70,23 +70,26 @@ impl SetupPhaseExecutor {
         // In the full implementation, this would delegate to the appropriate executor
         if let Some(cmd) = &step.shell {
             // Execute shell command using subprocess manager
-                let result = context
-                    .subprocess_manager
-                    .execute(
-                        cmd,
-                        &context.environment.working_dir,
-                        Some(context.variables.clone()),
-                    )
-                    .await
-                    .map_err(|e| PhaseError::ExecutionFailed {
-                        message: format!("Shell command failed: {}", e),
-                    })?;
+            use crate::subprocess::ProcessCommandBuilder;
+            let command = ProcessCommandBuilder::new("sh")
+                .args(&["-c", cmd])
+                .current_dir(&context.environment.working_dir)
+                .build();
 
-                if result.exit_code != Some(0) {
-                    return Err(PhaseError::ExecutionFailed {
-                        message: format!(
-                            "Command exited with code {:?}: {}",
-                            result.exit_code, result.stderr
+            let result = context
+                .subprocess_manager
+                .runner()
+                .run(command)
+                .await
+                .map_err(|e| PhaseError::ExecutionFailed {
+                    message: format!("Shell command failed: {}", e),
+                })?;
+
+            if !result.status.success() {
+                return Err(PhaseError::ExecutionFailed {
+                    message: format!(
+                        "Command exited with code {:?}: {}",
+                        result.status.code(), result.stderr
                         ),
                     });
                 }

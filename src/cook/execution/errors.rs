@@ -362,6 +362,7 @@ impl MapReduceError {
             Self::DlqError(_) => "DlqError",
             Self::ProcessingError(_) => "ProcessingError",
             Self::Timeout => "Timeout",
+            Self::ValidationFailed { .. } => "ValidationFailed",
         }
         .to_string()
     }

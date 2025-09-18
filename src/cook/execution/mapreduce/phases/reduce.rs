@@ -13,6 +13,7 @@ use crate::cook::workflow::variables::CapturedValue;
 use crate::cook::workflow::WorkflowStep;
 use async_trait::async_trait;
 use serde_json::json;
+use std::collections::HashMap;
 use std::time::Instant;
 use tracing::{debug, info, warn};
 
@@ -200,7 +201,7 @@ impl ReducePhaseExecutor {
                 // Store success context
                 context.variables.insert(
                     "shell.output".to_string(),
-                    step_result.output.unwrap_or_default(),
+                    step_result.output.clone().unwrap_or_default(),
                 );
 
                 // Execute the on_success handler
@@ -235,25 +236,28 @@ impl ReducePhaseExecutor {
         // In the full implementation, this would delegate to the appropriate executor
         if let Some(cmd) = &step.shell {
             // Execute shell command
-                let result = context
-                    .subprocess_manager
-                    .execute(
-                        cmd,
-                        &context.environment.working_dir,
-                        Some(context.variables.clone()),
-                    )
-                    .await
-                    .map_err(|e| PhaseError::ExecutionFailed {
-                        message: format!("Shell command failed: {}", e),
-                    })?;
+            use crate::subprocess::ProcessCommandBuilder;
+            let command = ProcessCommandBuilder::new("sh")
+                .args(&["-c", cmd])
+                .current_dir(&context.environment.working_dir)
+                .build();
 
-                Ok(StepResult {
-                    success: result.exit_code == Some(0),
-                    output: Some(result.stdout),
-                    error: if result.exit_code != Some(0) {
-                        Some(result.stderr)
-                    } else {
-                        None
+            let result = context
+                .subprocess_manager
+                .runner()
+                .run(command)
+                .await
+                .map_err(|e| PhaseError::ExecutionFailed {
+                    message: format!("Shell command failed: {}", e),
+                })?;
+
+            Ok(StepResult {
+                success: result.status.success(),
+                output: Some(result.stdout),
+                error: if !result.status.success() {
+                    Some(result.stderr)
+                } else {
+                    None
                     },
                 })
         } else {
@@ -273,25 +277,94 @@ impl ReducePhaseExecutor {
         _original_step: &WorkflowStep,
         context: &mut PhaseContext,
     ) -> Result<bool, PhaseError> {
-        // Execute the on_failure commands
-        for command in on_failure.commands() {
-            let handler_step = WorkflowStep {
-                command: command.clone(),
-                on_failure: None,
-                on_success: None,
-                timeout: on_failure.timeout(),
-                commit_required: false,
-                capture_output: Default::default(),
-            };
-
-            let result = self.execute_single_step(&handler_step, context).await?;
-
-            if !result.success && on_failure.should_fail_workflow() {
-                return Ok(false); // Indicate workflow should fail
+        // Handle on_failure based on its variant
+        match on_failure {
+            crate::cook::workflow::OnFailureConfig::IgnoreErrors(_) => {
+                // Just continue, errors are ignored
+                Ok(true)
+            }
+            crate::cook::workflow::OnFailureConfig::SingleCommand(cmd) => {
+                // Execute the single command
+                let handler_step = crate::cook::workflow::WorkflowStep {
+                    command: Some(cmd.clone()),
+                    name: None,
+                    claude: None,
+                    shell: None,
+                    test: None,
+                    goal_seek: None,
+                    foreach: None,
+                    handler: None,
+                    on_failure: None,
+                    on_success: None,
+                    timeout: None,
+                    commit_required: false,
+                    auto_commit: false,
+                    capture: None,
+                    capture_format: None,
+                    capture_streams: Default::default(),
+                    output_file: None,
+                    capture_output: Default::default(),
+                    retry: None,
+                    working_dir: None,
+                    env: HashMap::new(),
+                    on_exit_code: HashMap::new(),
+                    commit_config: None,
+                    validate: None,
+                    step_validate: None,
+                    skip_validation: false,
+                    validation_timeout: None,
+                    ignore_validation_failure: false,
+                    when: None,
+                };
+                let result = self.execute_single_step(&handler_step, context).await?;
+                Ok(result.success)
+            }
+            crate::cook::workflow::OnFailureConfig::MultipleCommands(cmds) => {
+                // Execute multiple commands
+                for cmd in cmds {
+                    let handler_step = crate::cook::workflow::WorkflowStep {
+                        command: Some(cmd.clone()),
+                        name: None,
+                        claude: None,
+                        shell: None,
+                        test: None,
+                        goal_seek: None,
+                        foreach: None,
+                        handler: None,
+                        on_failure: None,
+                        on_success: None,
+                        timeout: None,
+                        commit_required: false,
+                        auto_commit: false,
+                        capture: None,
+                        capture_format: None,
+                        capture_streams: Default::default(),
+                        output_file: None,
+                        capture_output: Default::default(),
+                        retry: None,
+                        working_dir: None,
+                        env: HashMap::new(),
+                        on_exit_code: HashMap::new(),
+                        commit_config: None,
+                        validate: None,
+                        step_validate: None,
+                        skip_validation: false,
+                        validation_timeout: None,
+                        ignore_validation_failure: false,
+                        when: None,
+                    };
+                    let result = self.execute_single_step(&handler_step, context).await?;
+                    if !result.success {
+                        return Ok(false);
+                    }
+                }
+                Ok(true)
+            }
+            _ => {
+                // For other variants, just continue
+                Ok(true)
             }
         }
-
-        Ok(true) // Handler succeeded or we should continue
     }
 }
 

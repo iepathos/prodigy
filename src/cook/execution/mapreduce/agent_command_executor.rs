@@ -6,24 +6,32 @@
 use super::{AgentContext, AgentResult, AgentStatus, MapReduceError, MapReduceResult};
 use crate::commands::CommandRegistry;
 use crate::cook::execution::ClaudeExecutor;
-use crate::cook::execution::errors::ErrorContext;
 use crate::cook::execution::interpolation::{InterpolationContext, InterpolationEngine};
-use crate::cook::execution::progress::{AgentState as ProgressAgentState, UpdateType};
 use crate::cook::execution::variables::VariableContext;
 use crate::cook::orchestrator::ExecutionEnvironment;
 use crate::cook::session::SessionManager;
-use crate::cook::workflow::{ErrorPolicyExecutor, StepResult, WorkflowErrorPolicy, WorkflowStep};
+use crate::cook::workflow::WorkflowStep;
 use crate::subprocess::SubprocessManager;
-use serde_json::Value;
-use std::collections::HashMap;
+use serde_json;
 use std::sync::Arc;
+use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tracing::{debug, error, info, warn};
+
+/// Result from executing a workflow step
+#[derive(Debug, Clone)]
+pub struct StepResult {
+    pub success: bool,
+    pub stdout: Option<String>,
+    pub stderr: Option<String>,
+    pub commits: Option<Vec<String>>,
+    pub files_changed: Option<Vec<String>>,
+}
 
 /// Executor for agent commands
 pub struct AgentCommandExecutor {
     /// Command executor
-    command_executor: Arc<ClaudeExecutor>,
+    command_executor: Arc<dyn ClaudeExecutor>,
     /// Subprocess manager
     subprocess_manager: Arc<SubprocessManager>,
     /// Session manager
@@ -35,7 +43,7 @@ pub struct AgentCommandExecutor {
 impl AgentCommandExecutor {
     /// Create a new agent command executor
     pub fn new(
-        command_executor: Arc<ClaudeExecutor>,
+        command_executor: Arc<dyn ClaudeExecutor>,
         subprocess_manager: Arc<SubprocessManager>,
         session_manager: Arc<dyn SessionManager>,
         command_registry: Arc<CommandRegistry>,
@@ -59,7 +67,7 @@ impl AgentCommandExecutor {
         max_retries: u32,
     ) -> MapReduceResult<AgentResult> {
         let start_time = Instant::now();
-        let agent_id = &agent_context.agent_id;
+        let agent_id = &agent_context.item_id;
 
         info!(
             "Agent {} executing {} commands (attempt {}/{})",
@@ -71,7 +79,7 @@ impl AgentCommandExecutor {
 
         // Initialize result
         let mut result = AgentResult {
-            item_id: agent_context.work_item_id.clone(),
+            item_id: agent_context.item_id.clone(),
             status: AgentStatus::Running,
             output: None,
             commits: Vec::new(),
@@ -79,8 +87,8 @@ impl AgentCommandExecutor {
             duration: Duration::from_secs(0),
             error: None,
             worktree_path: Some(env.working_dir.clone()),
-            branch_name: agent_context.branch_name.clone(),
-            worktree_session_id: agent_context.worktree_session_id.clone(),
+            branch_name: Some(agent_context.worktree_name.clone()),
+            worktree_session_id: None,
         };
 
         // Execute commands
@@ -91,7 +99,7 @@ impl AgentCommandExecutor {
                     if let Some(commits) = step_result.commits {
                         result.commits.extend(commits);
                     }
-                    if let Some(files) = step_result.files_modified {
+                    if let Some(files) = step_result.files_changed {
                         result.files_modified.extend(files);
                     }
                 }
@@ -160,22 +168,30 @@ impl AgentCommandExecutor {
 
         // Initialize with agent variables
         for (key, value) in &agent_context.variables {
-            variable_context.set(key.clone(), value.clone());
+            variable_context.set_global(
+                key.clone(),
+                crate::cook::execution::variables::Variable::Static(
+                    serde_json::Value::String(value.clone())
+                ),
+            );
         }
 
         for (index, step) in steps.iter().enumerate() {
             debug!(
                 "Agent {} executing step {}/{}",
-                agent_context.agent_id,
+                agent_context.item_id,
                 index + 1,
                 steps.len()
             );
 
-            // Create interpolation context
+            // Create interpolation context - convert variables to HashMap
+            let mut vars_map = HashMap::new();
+            // Add item variable for interpolation
+            vars_map.insert("item".to_string(), serde_json::json!({}));
+
             let interp_context = InterpolationContext {
-                variables: variable_context.clone(),
-                work_item: Some(agent_context.work_item.clone()),
-                environment: env.clone(),
+                variables: vars_map,
+                parent: None,
             };
 
             // Execute the step
@@ -184,8 +200,13 @@ impl AgentCommandExecutor {
                 .await?;
 
             // Capture output if configured
-            if let Some(output) = &step_result.output {
-                variable_context.set("output".to_string(), output.clone());
+            if let Some(output) = &step_result.stdout {
+                variable_context.set_global(
+                    "output",
+                    crate::cook::execution::variables::Variable::Static(
+                        serde_json::Value::String(output.clone())
+                    ),
+                );
             }
 
             results.push(step_result);
@@ -203,9 +224,10 @@ impl AgentCommandExecutor {
         _job_id: &str,
     ) -> MapReduceResult<StepResult> {
         // Interpolate the command
-        let interpolation_engine = InterpolationEngine::new();
+        let mut interpolation_engine = InterpolationEngine::new(false);
+        let command_str = step.command.as_deref().unwrap_or("");
         let interpolated_command = interpolation_engine
-            .interpolate(&step.command, context)
+            .interpolate(command_str, context)
             .map_err(|e| MapReduceError::General {
                 message: format!("Failed to interpolate command: {}", e),
                 source: None,
@@ -237,7 +259,7 @@ impl AgentCommandExecutor {
         // Execute via command executor
         let result = self
             .command_executor
-            .execute_claude_command(claude_cmd, &env.working_dir)
+            .execute_claude_command(claude_cmd, &env.working_dir, HashMap::new())
             .await
             .map_err(|e| MapReduceError::General {
                 message: format!("Claude command failed: {}", e),
@@ -246,10 +268,10 @@ impl AgentCommandExecutor {
 
         Ok(StepResult {
             success: result.success,
-            output: result.output,
-            error: result.error,
-            commits: result.commits,
-            files_modified: result.files_changed,
+            stdout: Some(result.stdout),
+            stderr: if result.stderr.is_empty() { None } else { Some(result.stderr) },
+            commits: None,
+            files_changed: None,
         })
     }
 
@@ -262,9 +284,15 @@ impl AgentCommandExecutor {
         let shell_cmd = command.strip_prefix("shell:").unwrap().trim();
 
         // Execute via subprocess manager
-        let git = self.subprocess_manager.git();
-        let result = git
-            .run_in_dir(&env.working_dir, &["sh", "-c", shell_cmd])
+        use crate::subprocess::ProcessCommandBuilder;
+        let command = ProcessCommandBuilder::new("sh")
+            .args(&["-c", shell_cmd])
+            .current_dir(&env.working_dir)
+            .build();
+
+        let result = self.subprocess_manager
+            .runner()
+            .run(command)
             .await
             .map_err(|e| MapReduceError::General {
                 message: format!("Shell command failed: {}", e),
@@ -272,15 +300,15 @@ impl AgentCommandExecutor {
             })?;
 
         Ok(StepResult {
-            success: result.success,
-            output: Some(result.stdout),
-            error: if result.success {
+            success: result.status.success(),
+            stdout: Some(result.stdout),
+            stderr: if result.status.success() {
                 None
             } else {
                 Some(result.stderr)
             },
             commits: None,
-            files_modified: None,
+            files_changed: None,
         })
     }
 }

@@ -25,6 +25,9 @@ pub mod phases;
 // Declare the agent command executor module
 pub mod agent_command_executor;
 
+// Import the PhaseExecutor trait
+use self::phases::PhaseExecutor;
+
 // Import agent types and functionality
 use agent::{
     AgentLifecycleManager, AgentOperation, AgentResultAggregator, DefaultLifecycleManager,
@@ -3332,7 +3335,7 @@ impl MapReduceExecutor {
 
         // Create phase context
         let mut phase_context =
-            phases::PhaseContext::new(env.clone(), self.subprocess_manager.clone());
+            phases::PhaseContext::new(env.clone(), self.subprocess.clone());
 
         // Set map results in context
         phase_context.map_results = Some(map_results.to_vec());

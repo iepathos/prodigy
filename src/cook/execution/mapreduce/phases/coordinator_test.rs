@@ -153,7 +153,7 @@ fn test_default_transition_handler_on_error() {
     };
 
     let transition = handler.on_phase_error(PhaseType::Map, &error);
-    assert!(matches!(transition, PhaseTransition::Continue));
+    assert!(matches!(transition, PhaseTransition::Error(_)));
 }
 
 #[test]
@@ -170,8 +170,8 @@ fn test_default_transition_handler_on_validation_error() {
 #[test]
 fn test_phase_transition_variants() {
     // Test Continue variant
-    let cont = PhaseTransition::Continue;
-    assert!(matches!(cont, PhaseTransition::Continue));
+    let cont = PhaseTransition::Continue(PhaseType::Map);
+    assert!(matches!(cont, PhaseTransition::Continue(_)));
 
     // Test Skip variant
     let skip = PhaseTransition::Skip(PhaseType::Reduce);
