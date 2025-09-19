@@ -2516,10 +2516,11 @@ async fn run_events_command(command: EventCommands) -> anyhow::Result<()> {
                 since,
                 limit,
                 file,
+                output_format: "human".to_string(),
             },
         },
         EventCommands::Stats { file, group_by } => EventsArgs {
-            command: EventsCommand::Stats { file, group_by },
+            command: EventsCommand::Stats { file, group_by, output_format: "human".to_string() },
         },
         EventCommands::Search {
             pattern,
@@ -2562,6 +2563,7 @@ async fn run_events_command(command: EventCommands) -> anyhow::Result<()> {
                 archive_path,
                 all_jobs,
                 job_id,
+                output_format: "human".to_string(),
             },
         },
         EventCommands::Export {

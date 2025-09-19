@@ -9,6 +9,7 @@ use std::fs;
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use tracing::info;
+use crate::cook::interaction::prompts::{UserPrompter, UserPrompterImpl};
 
 /// Event viewer commands
 #[derive(Debug, Args)]
@@ -46,7 +47,7 @@ pub enum EventsCommand {
         #[arg(long, default_value = ".prodigy/events/mapreduce_events.jsonl")]
         file: PathBuf,
 
-        /// Output format (human, json)
+        /// Output format (human, json, yaml, table)
         #[arg(long, default_value = "human")]
         output_format: String,
     },
@@ -61,7 +62,7 @@ pub enum EventsCommand {
         #[arg(long, default_value = "event_type")]
         group_by: String,
 
-        /// Output format (human, json)
+        /// Output format (human, json, yaml, table)
         #[arg(long, default_value = "human")]
         output_format: String,
     },
@@ -144,7 +145,7 @@ pub enum EventsCommand {
         #[arg(long)]
         job_id: Option<String>,
 
-        /// Output format (human, json)
+        /// Output format (human, json, yaml, table)
         #[arg(long, default_value = "human")]
         output_format: String,
     },
@@ -614,20 +615,33 @@ async fn list_events(
             }
         }
 
-        // Format and display event
-        if output_format == "json" {
-            // Collect for JSON output
-            events.push(event);
-        } else {
-            display_event(&event);
+        // Format and display event based on output format
+        match output_format.as_str() {
+            "json" | "yaml" | "table" => {
+                // Collect for formatted output
+                events.push(event);
+            }
+            _ => {
+                // Default to human-readable output
+                display_event(&event);
+            }
         }
         count += 1;
     }
 
-    if output_format == "json" {
-        println!("{}", serde_json::to_string_pretty(&events)?);
-    } else {
-        println!("\nDisplayed {} events", count);
+    match output_format.as_str() {
+        "json" => {
+            println!("{}", serde_json::to_string_pretty(&events)?);
+        }
+        "yaml" => {
+            println!("{}", serde_yaml::to_string(&events)?);
+        }
+        "table" => {
+            display_events_as_table(&events)?;
+        }
+        _ => {
+            println!("\nDisplayed {} events", count);
+        }
     }
     Ok(())
 }
@@ -682,54 +696,91 @@ async fn show_aggregated_stats(group_by: String, output_format: String) -> Resul
         }
     }
 
-    // Display statistics
-    if output_format == "json" {
-        #[derive(Serialize)]
-        struct StatsOutput {
-            group_by: String,
-            stats: Vec<StatEntry>,
-            total: usize,
+    // Display statistics based on output format
+    match output_format.as_str() {
+        "json" => {
+            #[derive(Serialize)]
+            struct StatsOutput {
+                group_by: String,
+                stats: Vec<StatEntry>,
+                total: usize,
+            }
+
+            #[derive(Serialize)]
+            struct StatEntry {
+                key: String,
+                count: usize,
+                percentage: f64,
+            }
+
+            let mut entries = Vec::new();
+            for (key, count) in &stats {
+                let percentage = (*count as f64 / total as f64) * 100.0;
+                entries.push(StatEntry {
+                    key: key.clone(),
+                    count: *count,
+                    percentage,
+                });
+            }
+            entries.sort_by(|a, b| b.count.cmp(&a.count));
+
+            let output = StatsOutput {
+                group_by,
+                stats: entries,
+                total,
+            };
+
+            println!("{}", serde_json::to_string_pretty(&output)?);
         }
+        "yaml" => {
+            #[derive(Serialize)]
+            struct StatsOutput {
+                group_by: String,
+                stats: Vec<StatEntry>,
+                total: usize,
+            }
 
-        #[derive(Serialize)]
-        struct StatEntry {
-            key: String,
-            count: usize,
-            percentage: f64,
+            #[derive(Serialize)]
+            struct StatEntry {
+                key: String,
+                count: usize,
+                percentage: f64,
+            }
+
+            let mut entries = Vec::new();
+            for (key, count) in &stats {
+                let percentage = (*count as f64 / total as f64) * 100.0;
+                entries.push(StatEntry {
+                    key: key.clone(),
+                    count: *count,
+                    percentage,
+                });
+            }
+            entries.sort_by(|a, b| b.count.cmp(&a.count));
+
+            let output = StatsOutput {
+                group_by,
+                stats: entries,
+                total,
+            };
+
+            println!("{}", serde_yaml::to_string(&output)?);
         }
+        _ => {
+            println!("Event Statistics (grouped by {}) - All Jobs", group_by);
+            println!("{}", "=".repeat(50));
 
-        let mut entries = Vec::new();
-        for (key, count) in &stats {
-            let percentage = (*count as f64 / total as f64) * 100.0;
-            entries.push(StatEntry {
-                key: key.clone(),
-                count: *count,
-                percentage,
-            });
+            let mut sorted_stats: Vec<_> = stats.iter().collect();
+            sorted_stats.sort_by(|a, b| b.1.cmp(a.1));
+
+            for (key, count) in sorted_stats {
+                let percentage = (*count as f64 / total as f64) * 100.0;
+                println!("{:<30} {:>6} ({:>5.1}%)", key, count, percentage);
+            }
+
+            println!("{}", "=".repeat(50));
+            println!("Total events: {}", total);
         }
-        entries.sort_by(|a, b| b.count.cmp(&a.count));
-
-        let output = StatsOutput {
-            group_by,
-            stats: entries,
-            total,
-        };
-
-        println!("{}", serde_json::to_string_pretty(&output)?);
-    } else {
-        println!("Event Statistics (grouped by {}) - All Jobs", group_by);
-        println!("{}", "=".repeat(50));
-
-        let mut sorted_stats: Vec<_> = stats.iter().collect();
-        sorted_stats.sort_by(|a, b| b.1.cmp(a.1));
-
-        for (key, count) in sorted_stats {
-            let percentage = (*count as f64 / total as f64) * 100.0;
-            println!("{:<30} {:>6} ({:>5.1}%)", key, count, percentage);
-        }
-
-        println!("{}", "=".repeat(50));
-        println!("Total events: {}", total);
     }
 
     Ok(())
@@ -1117,6 +1168,93 @@ async fn clean_events(
     policy.archive_old_events = archive;
     if let Some(path) = archive_path {
         policy.archive_path = Some(path);
+    }
+
+    // First perform dry-run analysis to show what will be cleaned
+    let mut analysis_total = crate::cook::execution::events::retention::RetentionAnalysis::default();
+
+    // Analyze what would be cleaned to show the user
+    if !dry_run {
+        // Perform analysis first to show user what will be cleaned
+        if all_jobs || job_id.is_some() {
+            // Analyze global storage
+            if !crate::storage::GlobalStorage::should_use_global() {
+                return Err(anyhow::anyhow!("Global storage is not enabled"));
+            }
+
+            let current_dir = std::env::current_dir()?;
+            let repo_name = crate::storage::extract_repo_name(&current_dir)?;
+            let global_base = crate::storage::get_global_base_dir()?;
+            let global_events_dir = global_base.join("events").join(&repo_name);
+
+            if global_events_dir.exists() {
+                let job_dirs = if let Some(ref specific_job_id) = job_id {
+                    let specific_dir = global_events_dir.join(specific_job_id);
+                    if specific_dir.exists() {
+                        vec![specific_dir]
+                    } else {
+                        vec![]
+                    }
+                } else {
+                    fs::read_dir(&global_events_dir)?
+                        .filter_map(|e| e.ok())
+                        .filter(|e| e.path().is_dir())
+                        .map(|e| e.path())
+                        .collect()
+                };
+
+                for job_dir in &job_dirs {
+                    let event_files = find_event_files(job_dir)?;
+                    for event_file in event_files {
+                        let retention = RetentionManager::new(policy.clone(), event_file);
+                        let analysis = retention.analyze_retention().await?;
+                        analysis_total.events_to_remove += analysis.events_to_remove;
+                        analysis_total.space_to_save += analysis.space_to_save;
+                        if policy.archive_old_events {
+                            analysis_total.events_to_archive += analysis.events_to_archive;
+                        }
+                    }
+                }
+            }
+        } else {
+            // Analyze local file
+            let local_file = PathBuf::from(".prodigy/events/mapreduce_events.jsonl");
+            if local_file.exists() {
+                let retention = RetentionManager::new(policy.clone(), local_file);
+                let analysis = retention.analyze_retention().await?;
+                analysis_total = analysis;
+            }
+        }
+
+        // Show user what will be cleaned and ask for confirmation
+        if analysis_total.events_to_remove > 0 {
+            println!("Events cleanup preview:");
+            println!("  Events to remove: {}", analysis_total.events_to_remove);
+            if analysis_total.events_to_archive > 0 {
+                println!("  Events to archive: {}", analysis_total.events_to_archive);
+            }
+            println!("  Space to save: {:.1} MB", analysis_total.space_to_save as f64 / (1024.0 * 1024.0));
+            println!();
+
+            // Ask for confirmation if not in automation mode
+            if std::env::var("PRODIGY_AUTOMATION").unwrap_or_default() != "true" {
+                let prompter = UserPrompterImpl::new();
+                let confirm = prompter
+                    .prompt_yes_no(&format!(
+                        "This will permanently remove {} events. Continue?",
+                        analysis_total.events_to_remove
+                    ))
+                    .await?;
+
+                if !confirm {
+                    println!("Cleanup cancelled.");
+                    return Ok(());
+                }
+            }
+        } else {
+            println!("No events match the cleanup criteria.");
+            return Ok(());
+        }
     }
 
     let action = if dry_run { "Would clean" } else { "Cleaning" };
@@ -1729,6 +1867,62 @@ fn export_as_markdown(events: &[Value]) -> Result<String> {
     }
 
     Ok(md)
+}
+
+/// Display events in a table format
+fn display_events_as_table(events: &[Value]) -> Result<()> {
+    if events.is_empty() {
+        println!("No events to display.");
+        return Ok(());
+    }
+
+    // Print table header
+    println!("{:<20} {:<15} {:<20} {:<15} {:<30}",
+        "Timestamp", "Event Type", "Job ID", "Agent ID", "Details");
+    println!("{}", "-".repeat(100));
+
+    // Print each event as a table row
+    for event in events {
+        let timestamp = extract_timestamp(event)
+            .map(|ts| ts.with_timezone(&Local).format("%Y-%m-%d %H:%M:%S").to_string())
+            .unwrap_or_else(|| "n/a".to_string());
+
+        let event_type = get_event_type(event);
+
+        let job_id = event
+            .get("job_id")
+            .or_else(|| extract_nested_field(event, "job_id"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("n/a");
+
+        let agent_id = event
+            .get("agent_id")
+            .or_else(|| extract_nested_field(event, "agent_id"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("n/a");
+
+        let details = format_event_details(event);
+
+        // Truncate long fields to fit in table
+        let truncate = |s: &str, max_len: usize| -> String {
+            if s.len() > max_len {
+                format!("{}...", &s[..max_len.saturating_sub(3)])
+            } else {
+                s.to_string()
+            }
+        };
+
+        println!("{:<20} {:<15} {:<20} {:<15} {:<30}",
+            truncate(&timestamp, 19),
+            truncate(&event_type, 14),
+            truncate(job_id, 19),
+            truncate(agent_id, 14),
+            truncate(&details, 29)
+        );
+    }
+
+    println!("\nTotal events: {}", events.len());
+    Ok(())
 }
 
 fn format_event_details(event: &Value) -> String {

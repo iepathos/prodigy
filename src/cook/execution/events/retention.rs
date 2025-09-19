@@ -123,6 +123,8 @@ impl RetentionManager {
         let mut events_to_keep = 0usize;
         let mut events_to_remove = 0usize;
         let mut bytes_retained = 0u64;
+        let mut last_progress_report = 0usize;
+        const PROGRESS_REPORT_INTERVAL: usize = 10000;
 
         for line in reader.lines() {
             let line = line?;
@@ -131,6 +133,14 @@ impl RetentionManager {
             }
 
             analysis.events_total += 1;
+
+            // Report progress periodically for large files
+            if analysis.events_total >= last_progress_report + PROGRESS_REPORT_INTERVAL {
+                eprint!("\rAnalyzing events: {} processed...", analysis.events_total);
+                use std::io::Write;
+                std::io::stderr().flush().ok();
+                last_progress_report = analysis.events_total;
+            }
 
             // Parse event to check retention
             if let Ok(event) = serde_json::from_str::<serde_json::Value>(&line) {
@@ -141,6 +151,12 @@ impl RetentionManager {
                     events_to_remove += 1;
                 }
             }
+        }
+
+        // Clear the progress line
+        if last_progress_report > 0 {
+            eprint!("\r{}\r", " ".repeat(50));
+            std::io::stderr().flush().ok();
         }
 
         analysis.events_retained = events_to_keep;
@@ -169,6 +185,14 @@ impl RetentionManager {
         if self.needs_cleanup(analysis.original_size_bytes)? && analysis.events_to_remove == 0 {
             analysis.warnings.push("Cleanup triggered but no events would be removed - consider adjusting retention policy".to_string());
         }
+
+        // Estimate duration based on file size and operations
+        analysis.estimated_duration_secs = self.estimate_operation_duration(
+            analysis.original_size_bytes,
+            analysis.events_total,
+            analysis.events_to_remove,
+            self.policy.archive_old_events
+        );
 
         Ok(analysis)
     }
@@ -404,6 +428,44 @@ impl RetentionManager {
         fs::write(config_path, yaml)?;
         Ok(())
     }
+
+    /// Estimate duration for the operation based on file size and complexity
+    fn estimate_operation_duration(
+        &self,
+        file_size_bytes: u64,
+        total_events: usize,
+        events_to_process: usize,
+        archive_enabled: bool,
+    ) -> f64 {
+        // Base estimates (in seconds)
+        const BASE_OVERHEAD_SECS: f64 = 0.5;
+        const BYTES_PER_SEC_READ: f64 = 50_000_000.0;  // ~50 MB/s read speed
+        const BYTES_PER_SEC_WRITE: f64 = 30_000_000.0;  // ~30 MB/s write speed
+        const EVENTS_PER_SEC_PROCESS: f64 = 10_000.0;  // Processing speed
+        const ARCHIVE_OVERHEAD_FACTOR: f64 = 1.5;  // Archive adds 50% overhead
+
+        // Calculate read time
+        let read_time = (file_size_bytes as f64) / BYTES_PER_SEC_READ;
+
+        // Calculate processing time
+        let processing_time = (total_events as f64) / EVENTS_PER_SEC_PROCESS;
+
+        // Calculate write time (proportional to data retained)
+        let retention_ratio = 1.0 - (events_to_process as f64 / total_events.max(1) as f64);
+        let write_size = (file_size_bytes as f64) * retention_ratio;
+        let write_time = write_size / BYTES_PER_SEC_WRITE;
+
+        // Add archive overhead if enabled
+        let archive_time = if archive_enabled && events_to_process > 0 {
+            let archive_size = (file_size_bytes as f64) * (events_to_process as f64 / total_events.max(1) as f64);
+            (archive_size / BYTES_PER_SEC_WRITE) * ARCHIVE_OVERHEAD_FACTOR
+        } else {
+            0.0
+        };
+
+        // Total estimated time
+        BASE_OVERHEAD_SECS + read_time + processing_time + write_time + archive_time
+    }
 }
 
 /// Statistics from retention operations
@@ -458,6 +520,9 @@ pub struct RetentionAnalysis {
     /// Space that would be saved
     pub space_to_save: u64,
 
+    /// Estimated duration for operation in seconds
+    pub estimated_duration_secs: f64,
+
     /// Any warnings generated during analysis
     pub warnings: Vec<String>,
 }
@@ -485,12 +550,32 @@ impl RetentionAnalysis {
             }
         );
 
+        // Display estimated duration
+        if self.estimated_duration_secs > 0.0 {
+            println!("Estimated time: {}", format_duration(self.estimated_duration_secs));
+        }
+
         if !self.warnings.is_empty() {
             println!("\nWarnings:");
             for warning in &self.warnings {
                 println!("  ⚠️  {}", warning);
             }
         }
+    }
+}
+
+/// Format duration in human-readable form
+fn format_duration(secs: f64) -> String {
+    if secs < 1.0 {
+        format!("{:.0} ms", secs * 1000.0)
+    } else if secs < 60.0 {
+        format!("{:.1} seconds", secs)
+    } else if secs < 3600.0 {
+        let mins = secs / 60.0;
+        format!("{:.1} minutes", mins)
+    } else {
+        let hours = secs / 3600.0;
+        format!("{:.1} hours", hours)
     }
 }
 

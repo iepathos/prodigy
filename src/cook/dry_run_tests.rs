@@ -120,11 +120,14 @@ mod tests {
         use crate::config::workflow::WorkflowConfig;
 
         let workflow = WorkflowConfig {
-            name: "test-workflow".to_string(),
-            ..Default::default()
+            commands: vec![],
+            env: None,
+            secrets: None,
+            env_files: None,
+            profiles: None,
         };
 
-        assert_eq!(workflow.name, "test-workflow");
+        assert!(workflow.commands.is_empty());
         // In dry-run mode, this workflow should be analyzed but not executed
     }
 
@@ -142,6 +145,7 @@ mod tests {
             original_size_bytes: 10000,
             projected_size_bytes: 8000,
             space_to_save: 2000,
+            estimated_duration_secs: 2.5,
             warnings: vec!["Test warning".to_string()],
         };
 
