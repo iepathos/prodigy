@@ -1073,6 +1073,26 @@ impl WorkflowExecutor {
         env: &ExecutionEnvironment,
         ctx: &mut WorkflowContext,
     ) -> Result<()> {
+        // Skip validation execution in dry-run mode
+        if self.dry_run {
+            // Display what validation would be performed
+            if let Some(claude_cmd) = &validation_config.claude {
+                println!("[DRY RUN] Would run validation (Claude): {}", claude_cmd);
+            } else if let Some(shell_cmd) = validation_config
+                .shell
+                .as_ref()
+                .or(validation_config.command.as_ref())
+            {
+                println!("[DRY RUN] Would run validation (shell): {}", shell_cmd);
+            }
+            println!(
+                "[DRY RUN] Validation threshold: {:.1}%",
+                validation_config.threshold
+            );
+            println!("[DRY RUN] Assuming validation would pass");
+            return Ok(());
+        }
+
         // Execute validation
         let validation_result = self.execute_validation(validation_config, env, ctx).await?;
 
@@ -1201,6 +1221,37 @@ impl WorkflowExecutor {
         ctx: &mut WorkflowContext,
         step: &WorkflowStep,
     ) -> Result<super::step_validation::StepValidationResult> {
+        // Skip validation execution in dry-run mode
+        if self.dry_run {
+            // Display what validation would be performed
+            match validation_spec {
+                super::step_validation::StepValidationSpec::Single(cmd) => {
+                    println!("[DRY RUN] Would run step validation: {}", cmd);
+                }
+                super::step_validation::StepValidationSpec::Multiple(cmds) => {
+                    println!("[DRY RUN] Would run step validation commands:");
+                    for cmd in cmds {
+                        println!("[DRY RUN]   - {}", cmd);
+                    }
+                }
+                super::step_validation::StepValidationSpec::Detailed(config) => {
+                    println!("[DRY RUN] Would run detailed step validation commands:");
+                    for cmd in &config.commands {
+                        println!("[DRY RUN]   - {}", cmd.command);
+                    }
+                }
+            }
+            println!("[DRY RUN] Assuming step validation would pass");
+
+            // Return a simulated successful validation result
+            return Ok(super::step_validation::StepValidationResult {
+                passed: true,
+                results: vec![],
+                duration: std::time::Duration::from_secs(0),
+                attempts: 0,
+            });
+        }
+
         // Create a validation executor with the command executor
         let validation_executor = super::step_validation::StepValidationExecutor::new(Arc::new(
             StepValidationCommandExecutor {
@@ -1434,38 +1485,19 @@ impl WorkflowExecutor {
                 self.assumed_commits.push(command_desc.clone());
             }
 
-            // Display validation configuration if present
+            // Simulate validation in dry-run mode since we're returning early
+            // and the normal validation handling after command execution won't be reached
             if let Some(validation_config) = &step.validate {
-                if let Some(claude_cmd) = &validation_config.claude {
-                    println!("[DRY RUN] Would run validation (Claude): {}", claude_cmd);
-                } else if let Some(shell_cmd) = validation_config
-                    .shell
-                    .as_ref()
-                    .or(validation_config.command.as_ref())
-                {
-                    println!("[DRY RUN] Would run validation (shell): {}", shell_cmd);
-                }
-                println!(
-                    "[DRY RUN] Validation threshold: {:.1}%",
-                    validation_config.threshold
-                );
+                self.handle_validation(validation_config, env, ctx)
+                    .await?;
             }
 
-            // Display step validation if present
+            // Simulate step validation in dry-run mode
             if let Some(step_validation) = &step.step_validate {
-                match step_validation {
-                    super::step_validation::StepValidationSpec::Single(cmd) => {
-                        println!("[DRY RUN] Would run step validation: {}", cmd);
-                    }
-                    super::step_validation::StepValidationSpec::Multiple(cmds) => {
-                        println!("[DRY RUN] Would run {} step validations", cmds.len());
-                    }
-                    super::step_validation::StepValidationSpec::Detailed(config) => {
-                        println!(
-                            "[DRY RUN] Would run {} step validations with detailed config",
-                            config.commands.len()
-                        );
-                    }
+                if !step.skip_validation {
+                    let _validation_result = self
+                        .handle_step_validation(step_validation, env, ctx, step)
+                        .await?;
                 }
             }
 
