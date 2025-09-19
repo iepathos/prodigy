@@ -458,7 +458,6 @@ impl GitChangeTracker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
     use tempfile::TempDir;
 
     fn init_test_repo() -> Result<TempDir> {
