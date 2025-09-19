@@ -7,8 +7,8 @@
 - claude: "/prodigy-add-spec $ARG"
   commit_required: true
 
-# Step 2: Extract spec number from the most recent spec file
-- shell: "ls -t specs/*.md | head -1 | sed 's/specs\\///' | sed 's/-.*//' | tr -d '\n'"
+# Step 2: Extract spec number from the most recent spec file (using git context variables)
+- shell: "echo '${step.files_added:specs/*.md}' | head -1 | sed 's/specs\\///' | sed 's/-.*//' | tr -d '\n'"
   capture_output: spec_number
 
 # Step 3: Validate spec completeness and focus

@@ -249,6 +249,86 @@ workflows:
           language: cargo
 ```
 
+#### Git Context Variables
+
+Prodigy automatically tracks git changes during workflow execution and provides context variables for accessing file changes, commits, and statistics:
+
+##### Step-level Variables (Current Step)
+- `${step.files_added}` - Files added in the current step
+- `${step.files_modified}` - Files modified in the current step
+- `${step.files_deleted}` - Files deleted in the current step
+- `${step.files_changed}` - All files changed (added + modified + deleted)
+- `${step.commits}` - Commit hashes created in the current step
+- `${step.commit_count}` - Number of commits in the current step
+- `${step.insertions}` - Lines inserted in the current step
+- `${step.deletions}` - Lines deleted in the current step
+
+##### Workflow-level Variables (Cumulative)
+- `${workflow.files_added}` - All files added across the workflow
+- `${workflow.files_modified}` - All files modified across the workflow
+- `${workflow.files_deleted}` - All files deleted across the workflow
+- `${workflow.files_changed}` - All files changed across the workflow
+- `${workflow.commits}` - All commit hashes across the workflow
+- `${workflow.commit_count}` - Total commits across the workflow
+- `${workflow.insertions}` - Total lines inserted across the workflow
+- `${workflow.deletions}` - Total lines deleted across the workflow
+
+##### Pattern Filtering
+Variables support pattern filtering using glob patterns:
+```yaml
+# Get only markdown files added
+- shell: "echo '${step.files_added:*.md}'"
+
+# Get only Rust source files modified
+- claude: "/review ${step.files_modified:*.rs}"
+
+# Get specific directory changes
+- shell: "echo '${workflow.files_changed:src/*}'"
+```
+
+##### Format Modifiers
+Control output format with modifiers:
+```yaml
+# JSON array format
+- shell: "echo '${step.files_added:json}'"  # ["file1.rs", "file2.rs"]
+
+# Newline-separated (for scripts)
+- shell: "echo '${step.files_added:lines}'" # file1.rs\nfile2.rs
+
+# Comma-separated
+- shell: "echo '${step.files_added:csv}'"   # file1.rs,file2.rs
+
+# Space-separated (default)
+- shell: "echo '${step.files_added}'"       # file1.rs file2.rs
+```
+
+##### Example Usage
+```yaml
+name: code-review-workflow
+steps:
+  # Make changes
+  - claude: "/implement feature X"
+    commit_required: true
+
+  # Review only the changed Rust files
+  - claude: "/review-code ${step.files_modified:*.rs}"
+
+  # Generate changelog for markdown files
+  - shell: "echo 'Changed docs:' && echo '${step.files_added:*.md:lines}'"
+
+  # Conditional execution based on changes
+  - shell: "cargo test"
+    when: "${step.files_modified:*.rs}"  # Only run if Rust files changed
+
+  # Summary at the end
+  - claude: |
+      /summarize-changes
+      Total files changed: ${workflow.files_changed:json}
+      Commits created: ${workflow.commit_count}
+      Lines added: ${workflow.insertions}
+      Lines removed: ${workflow.deletions}
+```
+
 ### Configuration
 
 Prodigy looks for configuration in these locations (in order):

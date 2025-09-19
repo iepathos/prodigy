@@ -16,6 +16,7 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **Error Handling**: Comprehensive failure recovery patterns
 - **Retry Strategies**: Enhanced retry with configurable backoff, jitter, and circuit breakers ✅
 - **Git Integration**: Worktree management and commit tracking
+- **Git Context Variables**: Automatic tracking of file changes exposed as workflow variables ✅
 - **Goal-Seeking Primitives**: Iterative refinement with validation ✅
 - **Worktree Pool Management**: Sophisticated worktree pooling with allocation strategies ✅
 - **Workflow Composition**: Build complex workflows from reusable components ✅
@@ -54,6 +55,16 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **Man Pages**: Comprehensive Unix-style documentation for all commands ✅
 
 ## Recent Additions
+
+### Git Context Variables ✅
+- **Automatic Git Change Tracking**: File changes tracked for each workflow step
+- **Step-Level Variables**: Access files added/modified/deleted per step
+- **Workflow-Level Variables**: Cumulative changes across all steps
+- **Variable Types**: files_added, files_modified, files_deleted, commits, insertions, deletions
+- **Pattern Filtering**: Filter files by glob patterns (e.g., `${step.files_added:*.md}`)
+- **Format Options**: Space-separated (default), newline, JSON array, comma-separated
+- **Lazy Evaluation**: Changes calculated only when variables are used
+- **Non-Git Support**: Gracefully handles workflows outside git repositories
 
 ### CLI Documentation (Man Pages) ✅
 - **Comprehensive Man Pages**: Auto-generated man pages for all commands and subcommands
