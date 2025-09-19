@@ -36,7 +36,7 @@ The dry-run feature is particularly important for operations that delete data, a
 
 ## Objective
 
-Implement comprehensive dry-run functionality for CLI commands that modify or delete data, providing users with detailed previews of operations before execution.
+Implement comprehensive dry-run functionality for CLI commands and workflow execution that modify or delete data, providing users with detailed previews of operations before execution, while properly handling commit requirements in dry-run mode.
 
 ## Requirements
 
@@ -48,19 +48,34 @@ Implement comprehensive dry-run functionality for CLI commands that modify or de
    - Display date ranges of affected events
    - List affected job IDs and workflows
 
-2. **Generic Dry-Run Framework**
+2. **Workflow Execution Dry-Run**
+   - Support dry-run mode for workflow commands (claude, shell, git, etc.)
+   - Handle `commit_required` validation in dry-run mode
+   - Show what commands would execute without actually running them
+   - Display assumed outcomes for validation purposes
+
+3. **Commit Requirement Handling**
+   - When `commit_required: true` and dry-run is active:
+     - Note that commit is required
+     - Display: "Would create commit from: [command]"
+     - Assume commit would be created for validation
+     - Continue workflow execution without failing
+   - Track which commands would have created commits
+   - Show summary of expected commits at end
+
+4. **Generic Dry-Run Framework**
    - Reusable dry-run infrastructure for all CLI commands
    - Consistent output format across commands
    - Detailed vs summary output modes
    - Machine-readable output option (JSON)
 
-3. **Operation Preview**
+5. **Operation Preview**
    - Show exact files/directories to be modified
    - Display before/after state comparisons
    - Estimate operation duration
    - Show space to be freed
 
-4. **Safety Features**
+6. **Safety Features**
    - Require confirmation for destructive operations
    - Show warnings for large-scale changes
    - Highlight irreversible operations
@@ -90,6 +105,9 @@ Implement comprehensive dry-run functionality for CLI commands that modify or de
 - [ ] Dry-run mode shows what would be deleted without actually deleting
 - [ ] Event counts and file sizes are displayed
 - [ ] Dry-run uses existing `RetentionManager` logic
+- [ ] Workflow dry-run handles `commit_required` without failing
+- [ ] ExecutionContext properly propagates dry-run mode
+- [ ] Commands return dry-run results instead of executing
 - [ ] All existing CLI tests pass
 
 ### Phase 2 (Nice to Have)
@@ -108,7 +126,7 @@ Implement comprehensive dry-run functionality for CLI commands that modify or de
 
 ### Implementation Approach
 
-The implementation should leverage the existing `RetentionManager` and extend it with dry-run capabilities:
+The implementation should handle both CLI commands and workflow execution dry-run:
 
 1. **Extend RetentionManager with Dry-Run Analysis**
    ```rust
@@ -134,7 +152,47 @@ The implementation should leverage the existing `RetentionManager` and extend it
    }
    ```
 
-2. **Replace TODO Implementation in CLI**
+2. **Workflow Dry-Run with Commit Handling**
+   ```rust
+   // In src/cook/workflow/executor.rs
+   impl WorkflowExecutor {
+       fn execute_command(&mut self, command: &Command, dry_run: bool) -> Result<()> {
+           if dry_run {
+               // Show what would execute
+               println!("[DRY RUN] Would execute: {}", command);
+
+               // Handle commit_required in dry-run
+               if command.commit_required {
+                   println!("[DRY RUN] Commit required - assuming commit created by: {}",
+                           command.display_name());
+
+                   // Set flag to skip actual commit validation
+                   self.assumed_commits.push(command.clone());
+               }
+
+               // Return success without executing
+               return Ok(());
+           }
+
+           // Normal execution path
+           self.execute_actual_command(command)
+       }
+
+       fn validate_commits(&self, step: &WorkflowStep) -> Result<()> {
+           // Skip validation if dry-run and commit was assumed
+           if self.dry_run && self.assumed_commits.contains(&step.command) {
+               println!("[DRY RUN] Skipping commit validation - assumed commit from: {}",
+                       step.command.display_name());
+               return Ok(());
+           }
+
+           // Normal validation
+           self.validate_actual_commits(step)
+       }
+   }
+   ```
+
+3. **Replace TODO Implementation in CLI**
    ```rust
    // Replace TODO at lines 1083, 1110 in src/cli/events.rs
    if dry_run {
@@ -154,9 +212,43 @@ The implementation should leverage the existing `RetentionManager` and extend it
    }
    ```
 
-3. **Generic Dry-Run Framework (Future Enhancement)**
+4. **ExecutionContext Dry-Run Propagation**
+   ```rust
+   // In src/cook/workflow/executor.rs
+   let mut exec_context = ExecutionContext::new(env.working_dir.clone());
 
-   While not required for the initial implementation, a generic framework could be added later for reusability across CLI commands:
+   // Propagate dry-run mode to context
+   if self.dry_run {
+       exec_context = exec_context.with_dry_run(true);
+   }
+
+   // Commands check context.dry_run to determine behavior
+   ```
+
+5. **Command Handler Updates**
+   ```rust
+   // Example in src/commands/handlers/claude.rs
+   impl ClaudeHandler {
+       async fn execute(&self, context: &ExecutionContext) -> Result<CommandResult> {
+           if context.dry_run {
+               // Return what would happen
+               return CommandResult::success(json!({
+                   "dry_run": true,
+                   "command": "claude",
+                   "prompt": self.prompt,
+                   "message": "Would call Claude API with prompt"
+               }));
+           }
+
+           // Normal execution
+           self.execute_claude_api(context).await
+       }
+   }
+   ```
+
+6. **Generic Dry-Run Framework (Future Enhancement)**
+
+   While not required for the initial implementation, a generic framework could be added later for reusability:
 
    ```rust
    pub trait DryRunnable {
@@ -169,9 +261,7 @@ The implementation should leverage the existing `RetentionManager` and extend it
    }
    ```
 
-   For now, the focus should be on getting dry-run working for the events cleanup command using the existing `RetentionManager`.
-
-4. **Analysis Output Structure**
+7. **Analysis Output Structure**
    ```rust
    // Add to src/cook/execution/events/retention.rs
    pub struct RetentionAnalysis {
@@ -215,6 +305,9 @@ The implementation should leverage the existing `RetentionManager` and extend it
 - Add `RetentionAnalysis` struct to `retention.rs`
 - Update CLI to use analysis when `--dry-run` is specified
 - Add `--output-format` flag to support JSON output
+- Propagate dry-run mode through `ExecutionContext`
+- Update workflow executor to handle `commit_required` in dry-run
+- Track assumed commits for validation purposes
 
 ### Data Structures
 
@@ -230,11 +323,35 @@ pub struct RetentionAnalysis {
     // Fields as shown above
 }
 
+// Add to workflow executor
+pub struct DryRunState {
+    pub assumed_commits: Vec<String>,
+    pub would_execute: Vec<String>,
+    pub skipped_validations: Vec<String>,
+}
+
 // Add to CLI
 pub enum OutputFormat {
     Human,
     Json,
 }
+```
+
+### Dry-Run Output Examples
+
+```text
+# Workflow dry-run with commit_required
+[DRY RUN] Starting workflow: implement-feature
+[DRY RUN] Would execute: claude /implement src/feature.rs
+[DRY RUN] Commit required - assuming commit created by: claude /implement
+[DRY RUN] Would execute: shell cargo test
+[DRY RUN] Would execute: git push origin feature-branch
+[DRY RUN] Skipping commit validation - assumed commit from: claude /implement
+
+Summary:
+- Commands that would execute: 3
+- Assumed commits: 1 (claude /implement)
+- Validations skipped: 1
 ```
 
 ### APIs and Interfaces
@@ -311,27 +428,37 @@ pub struct CleanCommand {
 
 ### Minimal Implementation Path
 
-1. **Phase 1: Basic Dry-Run for Events (Priority)**
+1. **Phase 1a: Workflow Dry-Run (Critical)**
+   - Propagate dry-run mode through `ExecutionContext`
+   - Update command handlers to check `context.dry_run`
+   - Handle `commit_required` by assuming commits in dry-run
+   - Skip commit validation when commits are assumed
+
+2. **Phase 1b: Basic Dry-Run for Events**
    - Add `analyze_retention()` method to existing `RetentionManager`
    - Replace TODOs in `src/cli/events.rs` (lines 1083, 1110)
    - Add simple human-readable output
    - Use existing `RetentionPolicy` and file analysis logic
 
-2. **Phase 2: Enhanced Output (Optional)**
+3. **Phase 2: Enhanced Output (Optional)**
    - Add `--output-format` flag with JSON support
    - Include more detailed analysis (affected jobs, date ranges)
    - Add warnings for large-scale operations
+   - Show summary of assumed commits
 
-3. **Phase 3: Safety Features (Optional)**
+4. **Phase 3: Safety Features (Optional)**
    - Integrate with existing `UserPrompter` for confirmations
    - Add risk level assessment
    - Show preview before actual cleanup in non-dry-run mode
 
 ### Key Considerations
 
+- **Critical**: Must handle `commit_required` in dry-run to prevent workflow failures
+- When dry-run is active and `commit_required: true`, assume success
+- Display clear messaging about what commits would be created
 - Leverage existing `RetentionManager` - don't reinvent the wheel
-- Keep changes minimal and focused on the events command initially
-- Generic framework can be extracted later if needed for other commands
+- Keep changes minimal and focused initially
+- Generic framework can be extracted later if needed
 - Use existing prompting infrastructure from `src/cook/interaction/prompts.rs`
 
 ## Migration and Compatibility
