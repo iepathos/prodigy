@@ -17,6 +17,7 @@ use crate::cook::workflow::checkpoint::{
     CompletedStep as CheckpointCompletedStep, ResumeContext,
 };
 use crate::cook::workflow::error_recovery::ErrorRecoveryState;
+use crate::cook::workflow::git_context::GitChangeTracker;
 use crate::cook::workflow::normalized;
 use crate::cook::workflow::normalized::NormalizedWorkflow;
 use crate::cook::workflow::on_failure::{HandlerStrategy, OnFailureConfig};
@@ -151,6 +152,8 @@ pub struct WorkflowContext {
     pub validation_results: HashMap<String, ValidationResult>,
     /// Variable store for advanced capture functionality
     pub variable_store: Arc<super::variables::VariableStore>,
+    /// Git change tracker for file tracking
+    pub git_tracker: Option<Arc<std::sync::Mutex<GitChangeTracker>>>,
 }
 
 impl Default for WorkflowContext {
@@ -161,6 +164,7 @@ impl Default for WorkflowContext {
             iteration_vars: HashMap::new(),
             validation_results: HashMap::new(),
             variable_store: Arc::new(super::variables::VariableStore::new()),
+            git_tracker: None,
         }
     }
 }
@@ -202,6 +206,87 @@ impl WorkflowContext {
                 "gaps": validation_result.gaps
             });
             context.set(key.clone(), validation_value);
+        }
+
+        // Add git context variables if tracker is available
+        if let Some(ref git_tracker) = self.git_tracker {
+            if let Ok(tracker) = git_tracker.lock() {
+                // Add custom resolver for git variables
+                // We'll need to handle this differently as InterpolationContext
+                // doesn't support lazy evaluation. Instead, we'll add the git
+                // variables directly to the context.
+
+                // Get current step changes
+                if let Some(step_id) = tracker.current_step_id.as_ref() {
+                    if let Some(changes) = tracker.get_step_changes(step_id) {
+                        // Add step.* variables
+                        context.set(
+                            "step.files_added",
+                            Value::String(changes.files_added.join(" ")),
+                        );
+                        context.set(
+                            "step.files_modified",
+                            Value::String(changes.files_modified.join(" ")),
+                        );
+                        context.set(
+                            "step.files_deleted",
+                            Value::String(changes.files_deleted.join(" ")),
+                        );
+                        context.set(
+                            "step.files_changed",
+                            Value::String(changes.files_changed().join(" ")),
+                        );
+                        context.set("step.commits", Value::String(changes.commits.join(" ")));
+                        context.set(
+                            "step.commit_count",
+                            Value::String(changes.commit_count().to_string()),
+                        );
+                        context.set(
+                            "step.insertions",
+                            Value::String(changes.insertions.to_string()),
+                        );
+                        context.set(
+                            "step.deletions",
+                            Value::String(changes.deletions.to_string()),
+                        );
+                    }
+                }
+
+                // Add workflow.* variables for cumulative changes
+                let workflow_changes = tracker.get_workflow_changes();
+                context.set(
+                    "workflow.files_added",
+                    Value::String(workflow_changes.files_added.join(" ")),
+                );
+                context.set(
+                    "workflow.files_modified",
+                    Value::String(workflow_changes.files_modified.join(" ")),
+                );
+                context.set(
+                    "workflow.files_deleted",
+                    Value::String(workflow_changes.files_deleted.join(" ")),
+                );
+                context.set(
+                    "workflow.files_changed",
+                    Value::String(workflow_changes.files_changed().join(" ")),
+                );
+                context.set(
+                    "workflow.commits",
+                    Value::String(workflow_changes.commits.join(" ")),
+                );
+                context.set(
+                    "workflow.commit_count",
+                    Value::String(workflow_changes.commit_count().to_string()),
+                );
+                context.set(
+                    "workflow.insertions",
+                    Value::String(workflow_changes.insertions.to_string()),
+                );
+                context.set(
+                    "workflow.deletions",
+                    Value::String(workflow_changes.deletions.to_string()),
+                );
+            }
         }
 
         context
@@ -2179,6 +2264,14 @@ impl WorkflowExecutor {
         // Initialize workflow context
         let mut workflow_context = WorkflowContext::default();
 
+        // Initialize git change tracker
+        if let Ok(tracker) = GitChangeTracker::new(&env.working_dir) {
+            if tracker.is_active() {
+                workflow_context.git_tracker = Some(Arc::new(std::sync::Mutex::new(tracker)));
+                tracing::debug!("Git change tracker initialized for workflow");
+            }
+        }
+
         // Add any command-line arguments or environment variables
         if let Ok(arg) = std::env::var("PRODIGY_ARG") {
             workflow_context.variables.insert("ARG".to_string(), arg);
@@ -2730,6 +2823,14 @@ impl WorkflowExecutor {
             }
         }
 
+        // Track git changes - begin step
+        let step_id = format!("step_{}", self.completed_steps.len());
+        if let Some(ref git_tracker) = ctx.git_tracker {
+            if let Ok(mut tracker) = git_tracker.lock() {
+                let _ = tracker.begin_step(&step_id);
+            }
+        }
+
         // Initialize CommitTracker for this step using the executor's git operations (enables mocking)
         let git_ops = self.git_operations.clone();
         let working_dir = env.working_dir.clone();
@@ -3002,9 +3103,38 @@ impl WorkflowExecutor {
             );
         }
 
-        // Count files changed
+        // Track git changes - complete step
+        let files_changed_count = if let Some(ref git_tracker) = ctx.git_tracker {
+            if let Ok(mut tracker) = git_tracker.lock() {
+                if let Ok(changes) = tracker.complete_step() {
+                    // Log changes for debugging
+                    tracing::debug!(
+                        "Step git changes: {} added, {} modified, {} deleted, {} commits",
+                        changes.files_added.len(),
+                        changes.files_modified.len(),
+                        changes.files_deleted.len(),
+                        changes.commits.len()
+                    );
+
+                    // Count actual files changed
+                    let count = changes.files_changed().len();
+                    if count > 0 { count } else { 1 }
+                } else {
+                    // Fallback to counting 1 file changed as before
+                    1
+                }
+            } else {
+                // Fallback if we can't get lock
+                1
+            }
+        } else {
+            // No git tracker, use original behavior
+            1
+        };
+
+        // Update session with file count (moved outside of lock scope)
         self.session_manager
-            .update_session(SessionUpdate::AddFilesChanged(1))
+            .update_session(SessionUpdate::AddFilesChanged(files_changed_count))
             .await?;
 
         Ok(result)

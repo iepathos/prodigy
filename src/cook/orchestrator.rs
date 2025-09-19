@@ -1869,6 +1869,7 @@ impl DefaultCookOrchestrator {
             iteration_vars: HashMap::new(),
             validation_results: HashMap::new(),
             variable_store: std::sync::Arc::new(crate::cook::workflow::VariableStore::new()),
+            git_tracker: None,
         };
 
         // Set the ARG environment variable so the executor can pick it up
