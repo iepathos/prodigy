@@ -33,7 +33,10 @@ commands:
     assert!(output.stdout_contains("[DRY RUN]"));
 
     // Verify the file was not created
-    assert!(!Path::new(marker_path).exists(), "Commands should not execute in dry-run mode");
+    assert!(
+        !Path::new(marker_path).exists(),
+        "Commands should not execute in dry-run mode"
+    );
 }
 
 /// Test that cook --dry-run shows what would be executed
@@ -128,7 +131,10 @@ fn test_events_clean_dry_run() {
 
     // Verify file was not modified
     let current_size = fs::metadata(&events_file).unwrap().len();
-    assert_eq!(initial_size, current_size, "File should not be modified in dry-run mode");
+    assert_eq!(
+        initial_size, current_size,
+        "File should not be modified in dry-run mode"
+    );
 
     // Verify original content is intact
     let content = fs::read_to_string(&events_file).unwrap();
@@ -172,7 +178,10 @@ fn test_events_clean_dry_run_max_events() {
 
     // Verify file was not modified
     let content_after = fs::read_to_string(&events_file).unwrap();
-    assert_eq!(events_content, content_after, "File should not be modified in dry-run mode");
+    assert_eq!(
+        events_content, content_after,
+        "File should not be modified in dry-run mode"
+    );
 }
 
 /// Test events clean --dry-run with size limit
@@ -200,7 +209,7 @@ fn test_events_clean_dry_run_max_size() {
         .arg("events")
         .arg("clean")
         .arg("--max-size")
-        .arg("1KB")  // Very small limit to trigger cleanup
+        .arg("1KB") // Very small limit to trigger cleanup
         .arg("--dry-run")
         .arg("--file")
         .arg(events_file.to_str().unwrap())
@@ -211,7 +220,10 @@ fn test_events_clean_dry_run_max_size() {
 
     // Verify file size unchanged
     let current_size = fs::metadata(&events_file).unwrap().len();
-    assert_eq!(file_size, current_size, "File size should not change in dry-run mode");
+    assert_eq!(
+        file_size, current_size,
+        "File size should not change in dry-run mode"
+    );
 }
 
 /// Test cook --dry-run with MapReduce workflow
@@ -325,10 +337,7 @@ fn test_events_clean_dry_run_archive() {
 
     // Create test events
     let old_timestamp = "2020-01-01T00:00:00Z";
-    let events_content = format!(
-        r#"{{"timestamp":"{}","event":"old_event"}}"#,
-        old_timestamp
-    );
+    let events_content = format!(r#"{{"timestamp":"{}","event":"old_event"}}"#, old_timestamp);
     fs::write(&events_file, events_content).unwrap();
 
     let output = test
@@ -349,7 +358,10 @@ fn test_events_clean_dry_run_archive() {
     assert!(output.stdout_contains("archive") || output.stdout_contains("Archive"));
 
     // Verify archive directory was not created
-    assert!(!archive_dir.exists(), "Archive directory should not be created in dry-run mode");
+    assert!(
+        !archive_dir.exists(),
+        "Archive directory should not be created in dry-run mode"
+    );
 }
 
 /// Test cook --dry-run shows correct command count
@@ -364,8 +376,8 @@ commands:
   - shell: "echo 'Command 2'"
   - shell: "echo 'Command 3'"
   - foreach:
-      items: ["a", "b"]
-      commands:
+      foreach: ["a", "b"]
+      do:
         - shell: "echo 'Item ${item}'"
 "#;
     let (test, workflow_path) = test.with_workflow("count_dry", workflow_content);
@@ -403,9 +415,9 @@ commands:
 
     // Should either skip the command or show a warning
     assert!(
-        output.exit_code == exit_codes::SUCCESS ||
-        output.stdout_contains("skip") ||
-        output.stdout_contains("warning") ||
-        output.stdout_contains("commit_required")
+        output.exit_code == exit_codes::SUCCESS
+            || output.stdout_contains("skip")
+            || output.stdout_contains("warning")
+            || output.stdout_contains("commit_required")
     );
 }

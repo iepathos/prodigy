@@ -511,6 +511,10 @@ enum EventCommands {
         /// Specific job ID to clean
         #[arg(long)]
         job_id: Option<String>,
+
+        /// Specific event file to clean (for testing)
+        #[arg(long)]
+        file: Option<PathBuf>,
     },
     /// Export events to different format
     Export {
@@ -2520,7 +2524,11 @@ async fn run_events_command(command: EventCommands) -> anyhow::Result<()> {
             },
         },
         EventCommands::Stats { file, group_by } => EventsArgs {
-            command: EventsCommand::Stats { file, group_by, output_format: "human".to_string() },
+            command: EventsCommand::Stats {
+                file,
+                group_by,
+                output_format: "human".to_string(),
+            },
         },
         EventCommands::Search {
             pattern,
@@ -2553,6 +2561,7 @@ async fn run_events_command(command: EventCommands) -> anyhow::Result<()> {
             archive_path,
             all_jobs,
             job_id,
+            file,
         } => EventsArgs {
             command: EventsCommand::Clean {
                 older_than,
@@ -2563,6 +2572,7 @@ async fn run_events_command(command: EventCommands) -> anyhow::Result<()> {
                 archive_path,
                 all_jobs,
                 job_id,
+                file,
                 output_format: "human".to_string(),
             },
         },

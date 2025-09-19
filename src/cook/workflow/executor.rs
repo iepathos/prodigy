@@ -1342,8 +1342,46 @@ impl WorkflowExecutor {
 
             // Handle commit_required in dry-run mode
             if step.commit_required {
-                println!("[DRY RUN] Commit required - assuming commit created by: {}", command_desc);
+                println!(
+                    "[DRY RUN] commit_required - assuming commit created by: {}",
+                    command_desc
+                );
                 self.assumed_commits.push(command_desc.clone());
+            }
+
+            // Display validation configuration if present
+            if let Some(validation_config) = &step.validate {
+                if let Some(claude_cmd) = &validation_config.claude {
+                    println!("[DRY RUN] Would run validation (Claude): {}", claude_cmd);
+                } else if let Some(shell_cmd) = validation_config
+                    .shell
+                    .as_ref()
+                    .or(validation_config.command.as_ref())
+                {
+                    println!("[DRY RUN] Would run validation (shell): {}", shell_cmd);
+                }
+                println!(
+                    "[DRY RUN] Validation threshold: {:.1}%",
+                    validation_config.threshold
+                );
+            }
+
+            // Display step validation if present
+            if let Some(step_validation) = &step.step_validate {
+                match step_validation {
+                    super::step_validation::StepValidationSpec::Single(cmd) => {
+                        println!("[DRY RUN] Would run step validation: {}", cmd);
+                    }
+                    super::step_validation::StepValidationSpec::Multiple(cmds) => {
+                        println!("[DRY RUN] Would run {} step validations", cmds.len());
+                    }
+                    super::step_validation::StepValidationSpec::Detailed(config) => {
+                        println!(
+                            "[DRY RUN] Would run {} step validations with detailed config",
+                            config.commands.len()
+                        );
+                    }
+                }
             }
 
             // Return success result for dry-run
@@ -1838,7 +1876,10 @@ impl WorkflowExecutor {
 
         println!("\n[DRY RUN] Summary:");
         println!("==================");
-        println!("Commands that would execute: {}", self.completed_steps.len());
+        println!(
+            "Commands that would execute: {}",
+            self.completed_steps.len()
+        );
         println!("Assumed commits: {}", self.assumed_commits.len());
 
         if !self.assumed_commits.is_empty() {
@@ -2222,11 +2263,31 @@ impl WorkflowExecutor {
 
         let workflow_start = Instant::now();
 
+        // Display dry-run mode message
+        if self.dry_run {
+            println!("[DRY RUN] Workflow execution simulation mode");
+            println!("[DRY RUN] No commands will be executed");
+            if workflow.max_iterations > 1 {
+                println!("[DRY RUN] Would run {} iterations", workflow.max_iterations);
+            }
+        }
+
+        // Limit iterations in dry-run mode to prevent hanging with large iteration counts
+        let effective_max_iterations = if self.dry_run && workflow.max_iterations > 10 {
+            println!(
+                "[DRY RUN] Limiting iterations to 10 for simulation (requested: {})",
+                workflow.max_iterations
+            );
+            10
+        } else {
+            workflow.max_iterations
+        };
+
         // Only show workflow info for non-empty workflows
         if !workflow.steps.is_empty() {
             self.user_interaction.display_info(&format!(
                 "Executing workflow: {} (max {} iterations)",
-                workflow.name, workflow.max_iterations
+                workflow.name, effective_max_iterations
             ));
         }
 
@@ -2272,7 +2333,7 @@ impl WorkflowExecutor {
             .update_session(SessionUpdate::StartWorkflow)
             .await?;
 
-        while should_continue && iteration < workflow.max_iterations {
+        while should_continue && iteration < effective_max_iterations {
             iteration += 1;
 
             // Update iteration context
@@ -2282,7 +2343,7 @@ impl WorkflowExecutor {
 
             self.user_interaction.display_progress(&format!(
                 "Starting iteration {}/{}",
-                iteration, workflow.max_iterations
+                iteration, effective_max_iterations
             ));
 
             // Start iteration timing
@@ -2610,7 +2671,7 @@ impl WorkflowExecutor {
                     should_continue = false;
                 } else if self.is_focus_tracking_test() {
                     // In focus tracking test, continue for all iterations
-                    should_continue = iteration < workflow.max_iterations;
+                    should_continue = iteration < effective_max_iterations;
                 } else if test_mode {
                     // In test mode, check for early termination
                     should_continue = !self.should_stop_early_in_test_mode();
@@ -2968,8 +3029,15 @@ impl WorkflowExecutor {
                     step_name.clone()
                 };
 
-                if self.assumed_commits.iter().any(|c| c.contains(&command_desc)) {
-                    println!("[DRY RUN] Skipping commit validation - assumed commit from: {}", step_name);
+                if self
+                    .assumed_commits
+                    .iter()
+                    .any(|c| c.contains(&command_desc))
+                {
+                    println!(
+                        "[DRY RUN] Skipping commit validation - assumed commit from: {}",
+                        step_name
+                    );
                     // Don't fail, continue as if commit was made
                 } else {
                     return Err(anyhow::anyhow!(
@@ -3815,6 +3883,12 @@ impl WorkflowExecutor {
         use crate::worktree::WorktreeManager;
 
         let workflow_start = Instant::now();
+
+        // Display dry-run mode message for MapReduce
+        if self.dry_run {
+            println!("[DRY RUN] MapReduce workflow execution simulation mode");
+            println!("[DRY RUN] No commands will be executed");
+        }
 
         // Don't duplicate the message - it's already shown by the orchestrator
 

@@ -1,5 +1,6 @@
 //! CLI commands for viewing and searching MapReduce events
 
+use crate::cook::interaction::prompts::{UserPrompter, UserPrompterImpl};
 use anyhow::Result;
 use chrono::{DateTime, Local, Utc};
 use clap::{Args, Subcommand};
@@ -9,7 +10,6 @@ use std::fs;
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use tracing::info;
-use crate::cook::interaction::prompts::{UserPrompter, UserPrompterImpl};
 
 /// Event viewer commands
 #[derive(Debug, Args)]
@@ -144,6 +144,10 @@ pub enum EventsCommand {
         /// Specific job ID to clean
         #[arg(long)]
         job_id: Option<String>,
+
+        /// Specific event file to clean (for testing)
+        #[arg(long)]
+        file: Option<PathBuf>,
 
         /// Output format (human, json, yaml, table)
         #[arg(long, default_value = "human")]
@@ -405,11 +409,24 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
             } else {
                 // Resolve the event file and list events
                 let resolved_file = resolve_event_file_with_fallback(file, job_id.as_deref())?;
-                list_events(resolved_file, job_id, event_type, agent_id, since, limit, output_format).await
+                list_events(
+                    resolved_file,
+                    job_id,
+                    event_type,
+                    agent_id,
+                    since,
+                    limit,
+                    output_format,
+                )
+                .await
             }
         }
 
-        EventsCommand::Stats { file, group_by, output_format } => {
+        EventsCommand::Stats {
+            file,
+            group_by,
+            output_format,
+        } => {
             // If no explicit file and using global storage, aggregate all events
             if !file.exists() && crate::storage::GlobalStorage::should_use_global() {
                 show_aggregated_stats(group_by, output_format).await
@@ -465,6 +482,7 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
             archive_path,
             all_jobs,
             job_id,
+            file,
             output_format,
         } => {
             clean_events(
@@ -476,6 +494,7 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
                 archive_path,
                 all_jobs,
                 job_id,
+                file,
                 output_format,
             )
             .await
@@ -1143,6 +1162,7 @@ async fn clean_events(
     archive_path: Option<PathBuf>,
     all_jobs: bool,
     job_id: Option<String>,
+    file: Option<PathBuf>,
     output_format: String,
 ) -> Result<()> {
     use crate::cook::execution::events::retention::{RetentionManager, RetentionPolicy};
@@ -1171,7 +1191,8 @@ async fn clean_events(
     }
 
     // First perform dry-run analysis to show what will be cleaned
-    let mut analysis_total = crate::cook::execution::events::retention::RetentionAnalysis::default();
+    let mut analysis_total =
+        crate::cook::execution::events::retention::RetentionAnalysis::default();
 
     // Analyze what would be cleaned to show the user
     if !dry_run {
@@ -1233,7 +1254,10 @@ async fn clean_events(
             if analysis_total.events_to_archive > 0 {
                 println!("  Events to archive: {}", analysis_total.events_to_archive);
             }
-            println!("  Space to save: {:.1} MB", analysis_total.space_to_save as f64 / (1024.0 * 1024.0));
+            println!(
+                "  Space to save: {:.1} MB",
+                analysis_total.space_to_save as f64 / (1024.0 * 1024.0)
+            );
             println!();
 
             // Ask for confirmation if not in automation mode
@@ -1268,8 +1292,54 @@ async fn clean_events(
     let mut total_cleaned = 0usize;
     let mut total_archived = 0usize;
 
+    // Handle specific file parameter (for testing)
+    if let Some(specific_file) = file {
+        if !specific_file.exists() {
+            return Err(anyhow::anyhow!(
+                "Event file not found: {}",
+                specific_file.display()
+            ));
+        }
+
+        if dry_run {
+            // Perform dry-run analysis
+            let retention = RetentionManager::new(policy.clone(), specific_file.clone());
+            let analysis = retention.analyze_retention().await?;
+
+            println!(
+                "[DRY RUN] Would remove {} events from {}",
+                analysis.events_to_remove,
+                specific_file.display()
+            );
+            if analysis.events_to_archive > 0 {
+                println!(
+                    "[DRY RUN] Would archive {} events",
+                    analysis.events_to_archive
+                );
+            }
+            println!(
+                "[DRY RUN] Would save {:.1} MB",
+                analysis.space_to_save as f64 / (1024.0 * 1024.0)
+            );
+            total_cleaned = analysis.events_to_remove;
+            total_archived = analysis.events_to_archive;
+        } else {
+            let retention = RetentionManager::new(policy.clone(), specific_file.clone());
+            let result = retention.apply_retention().await?;
+            total_cleaned = result.events_removed;
+            total_archived = result.events_archived;
+
+            if total_cleaned > 0 {
+                println!(
+                    "Cleaned {} events from {}",
+                    total_cleaned,
+                    specific_file.display()
+                );
+            }
+        }
+    }
     // Determine which event files to clean
-    if all_jobs || job_id.is_some() {
+    else if all_jobs || job_id.is_some() {
         // Clean from global storage
         if !crate::storage::GlobalStorage::should_use_global() {
             return Err(anyhow::anyhow!("Global storage is not enabled"));
@@ -1877,14 +1947,20 @@ fn display_events_as_table(events: &[Value]) -> Result<()> {
     }
 
     // Print table header
-    println!("{:<20} {:<15} {:<20} {:<15} {:<30}",
-        "Timestamp", "Event Type", "Job ID", "Agent ID", "Details");
+    println!(
+        "{:<20} {:<15} {:<20} {:<15} {:<30}",
+        "Timestamp", "Event Type", "Job ID", "Agent ID", "Details"
+    );
     println!("{}", "-".repeat(100));
 
     // Print each event as a table row
     for event in events {
         let timestamp = extract_timestamp(event)
-            .map(|ts| ts.with_timezone(&Local).format("%Y-%m-%d %H:%M:%S").to_string())
+            .map(|ts| {
+                ts.with_timezone(&Local)
+                    .format("%Y-%m-%d %H:%M:%S")
+                    .to_string()
+            })
             .unwrap_or_else(|| "n/a".to_string());
 
         let event_type = get_event_type(event);
@@ -1912,7 +1988,8 @@ fn display_events_as_table(events: &[Value]) -> Result<()> {
             }
         };
 
-        println!("{:<20} {:<15} {:<20} {:<15} {:<30}",
+        println!(
+            "{:<20} {:<15} {:<20} {:<15} {:<30}",
             truncate(&timestamp, 19),
             truncate(&event_type, 14),
             truncate(job_id, 19),

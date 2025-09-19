@@ -169,16 +169,24 @@ impl RetentionManager {
 
         // Calculate projected sizes
         analysis.projected_size_bytes = bytes_retained;
-        analysis.space_to_save = analysis.original_size_bytes.saturating_sub(analysis.projected_size_bytes);
+        analysis.space_to_save = analysis
+            .original_size_bytes
+            .saturating_sub(analysis.projected_size_bytes);
 
         // Add warnings for large operations
         if analysis.events_to_remove > 10000 {
-            analysis.warnings.push(format!("Large number of events will be removed: {}", analysis.events_to_remove));
+            analysis.warnings.push(format!(
+                "Large number of events will be removed: {}",
+                analysis.events_to_remove
+            ));
         }
 
-        if analysis.space_to_save > 100 * 1024 * 1024 {  // 100MB
-            analysis.warnings.push(format!("Large amount of space will be freed: {:.1} MB",
-                analysis.space_to_save as f64 / (1024.0 * 1024.0)));
+        if analysis.space_to_save > 100 * 1024 * 1024 {
+            // 100MB
+            analysis.warnings.push(format!(
+                "Large amount of space will be freed: {:.1} MB",
+                analysis.space_to_save as f64 / (1024.0 * 1024.0)
+            ));
         }
 
         // Check if cleanup would be effective
@@ -191,7 +199,7 @@ impl RetentionManager {
             analysis.original_size_bytes,
             analysis.events_total,
             analysis.events_to_remove,
-            self.policy.archive_old_events
+            self.policy.archive_old_events,
         );
 
         Ok(analysis)
@@ -439,10 +447,10 @@ impl RetentionManager {
     ) -> f64 {
         // Base estimates (in seconds)
         const BASE_OVERHEAD_SECS: f64 = 0.5;
-        const BYTES_PER_SEC_READ: f64 = 50_000_000.0;  // ~50 MB/s read speed
-        const BYTES_PER_SEC_WRITE: f64 = 30_000_000.0;  // ~30 MB/s write speed
-        const EVENTS_PER_SEC_PROCESS: f64 = 10_000.0;  // Processing speed
-        const ARCHIVE_OVERHEAD_FACTOR: f64 = 1.5;  // Archive adds 50% overhead
+        const BYTES_PER_SEC_READ: f64 = 50_000_000.0; // ~50 MB/s read speed
+        const BYTES_PER_SEC_WRITE: f64 = 30_000_000.0; // ~30 MB/s write speed
+        const EVENTS_PER_SEC_PROCESS: f64 = 10_000.0; // Processing speed
+        const ARCHIVE_OVERHEAD_FACTOR: f64 = 1.5; // Archive adds 50% overhead
 
         // Calculate read time
         let read_time = (file_size_bytes as f64) / BYTES_PER_SEC_READ;
@@ -457,7 +465,8 @@ impl RetentionManager {
 
         // Add archive overhead if enabled
         let archive_time = if archive_enabled && events_to_process > 0 {
-            let archive_size = (file_size_bytes as f64) * (events_to_process as f64 / total_events.max(1) as f64);
+            let archive_size =
+                (file_size_bytes as f64) * (events_to_process as f64 / total_events.max(1) as f64);
             (archive_size / BYTES_PER_SEC_WRITE) * ARCHIVE_OVERHEAD_FACTOR
         } else {
             0.0
@@ -541,7 +550,8 @@ impl RetentionAnalysis {
         }
         println!("Current size: {} bytes", self.original_size_bytes);
         println!("Projected size: {} bytes", self.projected_size_bytes);
-        println!("Space to save: {} bytes ({:.1}%)",
+        println!(
+            "Space to save: {} bytes ({:.1}%)",
             self.space_to_save,
             if self.original_size_bytes > 0 {
                 (self.space_to_save as f64 / self.original_size_bytes as f64) * 100.0
@@ -552,7 +562,10 @@ impl RetentionAnalysis {
 
         // Display estimated duration
         if self.estimated_duration_secs > 0.0 {
-            println!("Estimated time: {}", format_duration(self.estimated_duration_secs));
+            println!(
+                "Estimated time: {}",
+                format_duration(self.estimated_duration_secs)
+            );
         }
 
         if !self.warnings.is_empty() {

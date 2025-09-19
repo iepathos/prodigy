@@ -222,12 +222,14 @@ async fn create_orchestrator(
     ));
 
     // Create workflow executor with dry_run support
-    let workflow_executor: Arc<dyn workflow::WorkflowExecutor> =
-        Arc::new(workflow::WorkflowExecutorImpl::new(
+    let workflow_executor: Arc<dyn workflow::WorkflowExecutor> = Arc::new(
+        workflow::WorkflowExecutorImpl::new(
             claude_executor.clone(),
             session_manager.clone(),
             user_interaction.clone(),
-        ).with_dry_run(cmd.dry_run));
+        )
+        .with_dry_run(cmd.dry_run),
+    );
 
     // Create workflow coordinator
     let _workflow_coordinator = Arc::new(coordinators::DefaultWorkflowCoordinator::new(
