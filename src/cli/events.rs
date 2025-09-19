@@ -3,6 +3,7 @@
 use anyhow::Result;
 use chrono::{DateTime, Local, Utc};
 use clap::{Args, Subcommand};
+use serde::Serialize;
 use serde_json::Value;
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
@@ -44,6 +45,10 @@ pub enum EventsCommand {
         /// Path to events file
         #[arg(long, default_value = ".prodigy/events/mapreduce_events.jsonl")]
         file: PathBuf,
+
+        /// Output format (human, json)
+        #[arg(long, default_value = "human")]
+        output_format: String,
     },
 
     /// Show event statistics
@@ -55,6 +60,10 @@ pub enum EventsCommand {
         /// Group statistics by field (job_id, event_type, agent_id)
         #[arg(long, default_value = "event_type")]
         group_by: String,
+
+        /// Output format (human, json)
+        #[arg(long, default_value = "human")]
+        output_format: String,
     },
 
     /// Search events by pattern
@@ -134,6 +143,10 @@ pub enum EventsCommand {
         /// Specific job ID to clean
         #[arg(long)]
         job_id: Option<String>,
+
+        /// Output format (human, json)
+        #[arg(long, default_value = "human")]
+        output_format: String,
     },
 }
 
@@ -379,6 +392,7 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
             since,
             limit,
             file,
+            output_format,
         } => {
             // If no job_id provided and using global storage, show available jobs
             if job_id.is_none()
@@ -390,17 +404,17 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
             } else {
                 // Resolve the event file and list events
                 let resolved_file = resolve_event_file_with_fallback(file, job_id.as_deref())?;
-                list_events(resolved_file, job_id, event_type, agent_id, since, limit).await
+                list_events(resolved_file, job_id, event_type, agent_id, since, limit, output_format).await
             }
         }
 
-        EventsCommand::Stats { file, group_by } => {
+        EventsCommand::Stats { file, group_by, output_format } => {
             // If no explicit file and using global storage, aggregate all events
             if !file.exists() && crate::storage::GlobalStorage::should_use_global() {
-                show_aggregated_stats(group_by).await
+                show_aggregated_stats(group_by, output_format).await
             } else {
                 let resolved_file = resolve_event_file_with_fallback(file, None)?;
-                show_stats(resolved_file, group_by).await
+                show_stats(resolved_file, group_by, output_format).await
             }
         }
 
@@ -450,6 +464,7 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
             archive_path,
             all_jobs,
             job_id,
+            output_format,
         } => {
             clean_events(
                 older_than,
@@ -460,6 +475,7 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
                 archive_path,
                 all_jobs,
                 job_id,
+                output_format,
             )
             .await
         }
@@ -547,6 +563,7 @@ async fn list_events(
     agent_id: Option<String>,
     since: Option<u64>,
     limit: usize,
+    output_format: String,
 ) -> Result<()> {
     if !file.exists() {
         println!("No events found. Events file does not exist: {:?}", file);
@@ -555,9 +572,10 @@ async fn list_events(
 
     let since_time = since.map(|minutes| Utc::now() - chrono::Duration::minutes(minutes as i64));
 
-    let file = fs::File::open(file)?;
-    let reader = BufReader::new(file);
+    let file_handle = fs::File::open(file)?;
+    let reader = BufReader::new(file_handle);
     let mut count = 0;
+    let mut events = Vec::new();
 
     for line in reader.lines() {
         if count >= limit {
@@ -597,16 +615,25 @@ async fn list_events(
         }
 
         // Format and display event
-        display_event(&event);
+        if output_format == "json" {
+            // Collect for JSON output
+            events.push(event);
+        } else {
+            display_event(&event);
+        }
         count += 1;
     }
 
-    println!("\nDisplayed {} events", count);
+    if output_format == "json" {
+        println!("{}", serde_json::to_string_pretty(&events)?);
+    } else {
+        println!("\nDisplayed {} events", count);
+    }
     Ok(())
 }
 
 /// Show aggregated statistics from all global event files
-async fn show_aggregated_stats(group_by: String) -> Result<()> {
+async fn show_aggregated_stats(group_by: String, output_format: String) -> Result<()> {
     let event_files = get_all_event_files()?;
 
     if event_files.is_empty() {
@@ -656,25 +683,60 @@ async fn show_aggregated_stats(group_by: String) -> Result<()> {
     }
 
     // Display statistics
-    println!("Event Statistics (grouped by {}) - All Jobs", group_by);
-    println!("{}", "=".repeat(50));
+    if output_format == "json" {
+        #[derive(Serialize)]
+        struct StatsOutput {
+            group_by: String,
+            stats: Vec<StatEntry>,
+            total: usize,
+        }
 
-    let mut sorted_stats: Vec<_> = stats.iter().collect();
-    sorted_stats.sort_by(|a, b| b.1.cmp(a.1));
+        #[derive(Serialize)]
+        struct StatEntry {
+            key: String,
+            count: usize,
+            percentage: f64,
+        }
 
-    for (key, count) in sorted_stats {
-        let percentage = (*count as f64 / total as f64) * 100.0;
-        println!("{:<30} {:>6} ({:>5.1}%)", key, count, percentage);
+        let mut entries = Vec::new();
+        for (key, count) in &stats {
+            let percentage = (*count as f64 / total as f64) * 100.0;
+            entries.push(StatEntry {
+                key: key.clone(),
+                count: *count,
+                percentage,
+            });
+        }
+        entries.sort_by(|a, b| b.count.cmp(&a.count));
+
+        let output = StatsOutput {
+            group_by,
+            stats: entries,
+            total,
+        };
+
+        println!("{}", serde_json::to_string_pretty(&output)?);
+    } else {
+        println!("Event Statistics (grouped by {}) - All Jobs", group_by);
+        println!("{}", "=".repeat(50));
+
+        let mut sorted_stats: Vec<_> = stats.iter().collect();
+        sorted_stats.sort_by(|a, b| b.1.cmp(a.1));
+
+        for (key, count) in sorted_stats {
+            let percentage = (*count as f64 / total as f64) * 100.0;
+            println!("{:<30} {:>6} ({:>5.1}%)", key, count, percentage);
+        }
+
+        println!("{}", "=".repeat(50));
+        println!("Total events: {}", total);
     }
-
-    println!("{}", "=".repeat(50));
-    println!("Total events: {}", total);
 
     Ok(())
 }
 
 /// Show event statistics
-async fn show_stats(file: PathBuf, group_by: String) -> Result<()> {
+async fn show_stats(file: PathBuf, group_by: String, output_format: String) -> Result<()> {
     if !file.exists() {
         println!("No events found. Events file does not exist: {:?}", file);
         return Ok(());
@@ -716,19 +778,54 @@ async fn show_stats(file: PathBuf, group_by: String) -> Result<()> {
     }
 
     // Display statistics
-    println!("Event Statistics (grouped by {})", group_by);
-    println!("{}", "=".repeat(50));
+    if output_format == "json" {
+        #[derive(Serialize)]
+        struct StatsOutput {
+            group_by: String,
+            stats: Vec<StatEntry>,
+            total: usize,
+        }
 
-    let mut sorted_stats: Vec<_> = stats.iter().collect();
-    sorted_stats.sort_by(|a, b| b.1.cmp(a.1));
+        #[derive(Serialize)]
+        struct StatEntry {
+            key: String,
+            count: usize,
+            percentage: f64,
+        }
 
-    for (key, count) in sorted_stats {
-        let percentage = (*count as f64 / total as f64) * 100.0;
-        println!("{:<30} {:>6} ({:>5.1}%)", key, count, percentage);
+        let mut entries = Vec::new();
+        for (key, count) in &stats {
+            let percentage = (*count as f64 / total as f64) * 100.0;
+            entries.push(StatEntry {
+                key: key.clone(),
+                count: *count,
+                percentage,
+            });
+        }
+        entries.sort_by(|a, b| b.count.cmp(&a.count));
+
+        let output = StatsOutput {
+            group_by,
+            stats: entries,
+            total,
+        };
+
+        println!("{}", serde_json::to_string_pretty(&output)?);
+    } else {
+        println!("Event Statistics (grouped by {})", group_by);
+        println!("{}", "=".repeat(50));
+
+        let mut sorted_stats: Vec<_> = stats.iter().collect();
+        sorted_stats.sort_by(|a, b| b.1.cmp(a.1));
+
+        for (key, count) in sorted_stats {
+            let percentage = (*count as f64 / total as f64) * 100.0;
+            println!("{:<30} {:>6} ({:>5.1}%)", key, count, percentage);
+        }
+
+        println!("{}", "=".repeat(50));
+        println!("Total events: {}", total);
     }
-
-    println!("{}", "=".repeat(50));
-    println!("Total events: {}", total);
 
     Ok(())
 }
@@ -995,6 +1092,7 @@ async fn clean_events(
     archive_path: Option<PathBuf>,
     all_jobs: bool,
     job_id: Option<String>,
+    output_format: String,
 ) -> Result<()> {
     use crate::cook::execution::events::retention::{RetentionManager, RetentionPolicy};
 
@@ -1083,16 +1181,20 @@ async fn clean_events(
                     let analysis = retention.analyze_retention().await?;
 
                     // Display analysis
-                    println!("  Analyzing: {:?}", event_file);
-                    if analysis.events_to_remove > 0 {
-                        println!("    Would remove {} events", analysis.events_to_remove);
-                        println!("    Would save {} bytes", analysis.space_to_save);
-                        total_cleaned += analysis.events_to_remove;
-                        if policy.archive_old_events {
-                            total_archived += analysis.events_to_archive;
-                        }
+                    if output_format == "json" {
+                        // Aggregate for JSON output later
                     } else {
-                        println!("    No events to remove");
+                        println!("  Analyzing: {:?}", event_file);
+                        if analysis.events_to_remove > 0 {
+                            println!("    Would remove {} events", analysis.events_to_remove);
+                            println!("    Would save {} bytes", analysis.space_to_save);
+                        } else {
+                            println!("    No events to remove");
+                        }
+                    }
+                    total_cleaned += analysis.events_to_remove;
+                    if policy.archive_old_events {
+                        total_archived += analysis.events_to_archive;
                     }
                 } else {
                     let retention = RetentionManager::new(policy.clone(), event_file);
@@ -1122,8 +1224,12 @@ async fn clean_events(
             let retention = RetentionManager::new(policy.clone(), local_file.clone());
             let analysis = retention.analyze_retention().await?;
 
-            // Display full analysis for local file
-            analysis.display_human();
+            // Display analysis based on output format
+            if output_format == "json" {
+                println!("{}", serde_json::to_string_pretty(&analysis)?);
+            } else {
+                analysis.display_human();
+            }
 
             total_cleaned = analysis.events_to_remove;
             if policy.archive_old_events {
@@ -1145,24 +1251,51 @@ async fn clean_events(
     }
 
     // Summary
-    println!();
-    if dry_run {
-        println!(
-            "Summary (dry run): {} events would be cleaned",
-            total_cleaned
-        );
-        if total_archived > 0 {
-            println!("  {} events would be archived", total_archived);
+    if output_format == "json" {
+        #[derive(Serialize)]
+        struct CleanSummary {
+            dry_run: bool,
+            events_cleaned: usize,
+            events_archived: usize,
+            message: String,
         }
-    } else {
-        println!("Summary: {} events cleaned", total_cleaned);
-        if total_archived > 0 {
-            println!("  {} events archived", total_archived);
-        }
-    }
 
-    if total_cleaned == 0 {
-        println!("No events matched the cleanup criteria.");
+        let message = if total_cleaned == 0 {
+            "No events matched the cleanup criteria.".to_string()
+        } else if dry_run {
+            format!("Would clean {} events", total_cleaned)
+        } else {
+            format!("Cleaned {} events", total_cleaned)
+        };
+
+        let summary = CleanSummary {
+            dry_run,
+            events_cleaned: total_cleaned,
+            events_archived: total_archived,
+            message,
+        };
+
+        println!("{}", serde_json::to_string_pretty(&summary)?);
+    } else {
+        println!();
+        if dry_run {
+            println!(
+                "Summary (dry run): {} events would be cleaned",
+                total_cleaned
+            );
+            if total_archived > 0 {
+                println!("  {} events would be archived", total_archived);
+            }
+        } else {
+            println!("Summary: {} events cleaned", total_cleaned);
+            if total_archived > 0 {
+                println!("  {} events archived", total_archived);
+            }
+        }
+
+        if total_cleaned == 0 {
+            println!("No events matched the cleanup criteria.");
+        }
     }
 
     Ok(())

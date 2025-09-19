@@ -30,6 +30,9 @@ mod mod_tests;
 #[cfg(test)]
 mod retry_state_tests;
 
+#[cfg(test)]
+mod dry_run_tests;
+
 use crate::abstractions::git::RealGitOperations;
 use crate::config::{workflow::WorkflowConfig, ConfigLoader};
 use crate::session::SessionId;
