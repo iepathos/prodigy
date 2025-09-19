@@ -1078,9 +1078,22 @@ async fn clean_events(
             let event_files = find_event_files(&job_dir)?;
             for event_file in event_files {
                 if dry_run {
-                    // For dry run, we'll show what would be processed
-                    println!("  Would analyze: {:?}", event_file);
-                    // TODO: Implement proper dry-run analysis
+                    // Perform dry-run analysis
+                    let retention = RetentionManager::new(policy.clone(), event_file.clone());
+                    let analysis = retention.analyze_retention().await?;
+
+                    // Display analysis
+                    println!("  Analyzing: {:?}", event_file);
+                    if analysis.events_to_remove > 0 {
+                        println!("    Would remove {} events", analysis.events_to_remove);
+                        println!("    Would save {} bytes", analysis.space_to_save);
+                        total_cleaned += analysis.events_to_remove;
+                        if policy.archive_old_events {
+                            total_archived += analysis.events_to_archive;
+                        }
+                    } else {
+                        println!("    No events to remove");
+                    }
                 } else {
                     let retention = RetentionManager::new(policy.clone(), event_file);
                     let stats = retention.apply_retention().await?;
@@ -1105,9 +1118,17 @@ async fn clean_events(
         }
 
         if dry_run {
-            // For dry run, we'll implement a simulated analysis
-            println!("Would analyze local events file");
-            // TODO: Implement proper dry-run analysis
+            // Perform dry-run analysis
+            let retention = RetentionManager::new(policy.clone(), local_file.clone());
+            let analysis = retention.analyze_retention().await?;
+
+            // Display full analysis for local file
+            analysis.display_human();
+
+            total_cleaned = analysis.events_to_remove;
+            if policy.archive_old_events {
+                total_archived = analysis.events_to_archive;
+            }
         } else {
             let retention = RetentionManager::new(policy.clone(), local_file);
             let stats = retention.apply_retention().await?;

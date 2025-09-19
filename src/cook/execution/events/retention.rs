@@ -97,6 +97,82 @@ impl RetentionManager {
         Ok(Self::new(policy, events_path))
     }
 
+    /// Perform dry-run analysis without modifying files
+    pub async fn analyze_retention(&self) -> Result<RetentionAnalysis> {
+        let mut analysis = RetentionAnalysis {
+            file_path: self.events_path.clone(),
+            ..Default::default()
+        };
+
+        if !self.events_path.exists() {
+            analysis.warnings.push("File does not exist".to_string());
+            return Ok(analysis);
+        }
+
+        // Get file metadata
+        let metadata = fs::metadata(&self.events_path)?;
+        analysis.original_size_bytes = metadata.len();
+
+        // Calculate cutoff time if age-based retention is configured
+        let cutoff_time = self.calculate_cutoff_time();
+
+        // Read and analyze events
+        let file = fs::File::open(&self.events_path)?;
+        let reader = BufReader::new(file);
+
+        let mut events_to_keep = 0usize;
+        let mut events_to_remove = 0usize;
+        let mut bytes_retained = 0u64;
+
+        for line in reader.lines() {
+            let line = line?;
+            if line.trim().is_empty() {
+                continue;
+            }
+
+            analysis.events_total += 1;
+
+            // Parse event to check retention
+            if let Ok(event) = serde_json::from_str::<serde_json::Value>(&line) {
+                if self.should_retain_event(&event, cutoff_time, events_to_keep) {
+                    events_to_keep += 1;
+                    bytes_retained += line.len() as u64 + 1; // +1 for newline
+                } else {
+                    events_to_remove += 1;
+                }
+            }
+        }
+
+        analysis.events_retained = events_to_keep;
+        analysis.events_to_remove = events_to_remove;
+
+        // Set archive count if archiving is enabled
+        if self.policy.archive_old_events && events_to_remove > 0 {
+            analysis.events_to_archive = events_to_remove;
+        }
+
+        // Calculate projected sizes
+        analysis.projected_size_bytes = bytes_retained;
+        analysis.space_to_save = analysis.original_size_bytes.saturating_sub(analysis.projected_size_bytes);
+
+        // Add warnings for large operations
+        if analysis.events_to_remove > 10000 {
+            analysis.warnings.push(format!("Large number of events will be removed: {}", analysis.events_to_remove));
+        }
+
+        if analysis.space_to_save > 100 * 1024 * 1024 {  // 100MB
+            analysis.warnings.push(format!("Large amount of space will be freed: {:.1} MB",
+                analysis.space_to_save as f64 / (1024.0 * 1024.0)));
+        }
+
+        // Check if cleanup would be effective
+        if self.needs_cleanup(analysis.original_size_bytes)? && analysis.events_to_remove == 0 {
+            analysis.warnings.push("Cleanup triggered but no events would be removed - consider adjusting retention policy".to_string());
+        }
+
+        Ok(analysis)
+    }
+
     /// Apply retention policy to events file
     pub async fn apply_retention(&self) -> Result<RetentionStats> {
         let mut stats = RetentionStats::default();
@@ -353,6 +429,69 @@ pub struct RetentionStats {
 
     /// Path to archive file if created
     pub archive_path: Option<PathBuf>,
+}
+
+/// Analysis result for dry-run operations
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct RetentionAnalysis {
+    /// File path being analyzed
+    pub file_path: PathBuf,
+
+    /// Total number of events in the file
+    pub events_total: usize,
+
+    /// Number of events that would be retained
+    pub events_retained: usize,
+
+    /// Number of events that would be removed
+    pub events_to_remove: usize,
+
+    /// Number of events that would be archived
+    pub events_to_archive: usize,
+
+    /// Original size of the file in bytes
+    pub original_size_bytes: u64,
+
+    /// Projected size after cleanup
+    pub projected_size_bytes: u64,
+
+    /// Space that would be saved
+    pub space_to_save: u64,
+
+    /// Any warnings generated during analysis
+    pub warnings: Vec<String>,
+}
+
+impl RetentionAnalysis {
+    /// Display human-readable analysis results
+    pub fn display_human(&self) {
+        println!("Cleanup Analysis (DRY RUN)");
+        println!("========================");
+        println!("File: {}", self.file_path.display());
+        println!("Total events: {}", self.events_total);
+        println!("Events to retain: {}", self.events_retained);
+        println!("Events to remove: {}", self.events_to_remove);
+        if self.events_to_archive > 0 {
+            println!("Events to archive: {}", self.events_to_archive);
+        }
+        println!("Current size: {} bytes", self.original_size_bytes);
+        println!("Projected size: {} bytes", self.projected_size_bytes);
+        println!("Space to save: {} bytes ({:.1}%)",
+            self.space_to_save,
+            if self.original_size_bytes > 0 {
+                (self.space_to_save as f64 / self.original_size_bytes as f64) * 100.0
+            } else {
+                0.0
+            }
+        );
+
+        if !self.warnings.is_empty() {
+            println!("\nWarnings:");
+            for warning in &self.warnings {
+                println!("  ⚠️  {}", warning);
+            }
+        }
+    }
 }
 
 impl RetentionStats {

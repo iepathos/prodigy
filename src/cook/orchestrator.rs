@@ -1218,7 +1218,8 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             self.user_interaction.clone(),
         )
         .with_workflow_path(config.command.playbook.clone())
-        .with_checkpoint_manager(checkpoint_manager, workflow_id);
+        .with_checkpoint_manager(checkpoint_manager, workflow_id)
+        .with_dry_run(config.command.dry_run);
 
         // Set global environment configuration if present in workflow
         if config.workflow.env.is_some()
@@ -1887,7 +1888,8 @@ impl DefaultCookOrchestrator {
             self.user_interaction.clone(),
         )
         .with_workflow_path(config.command.playbook.clone())
-        .with_checkpoint_manager(checkpoint_manager, workflow_id);
+        .with_checkpoint_manager(checkpoint_manager, workflow_id)
+        .with_dry_run(config.command.dry_run);
 
         // Set test config if available
         if let Some(test_config) = &self.test_config {
@@ -2079,7 +2081,8 @@ impl DefaultCookOrchestrator {
             self.session_manager.clone(),
             self.user_interaction.clone(),
         )
-        .with_workflow_path(config.command.playbook.clone());
+        .with_workflow_path(config.command.playbook.clone())
+        .with_dry_run(config.command.dry_run);
 
         // Set global environment configuration if present in workflow
         if config.workflow.env.is_some()
@@ -2312,8 +2315,16 @@ impl DefaultCookOrchestrator {
         if let Some(before) = head_before {
             let head_after = self.get_current_head(&env.working_dir).await?;
             if head_after == before {
-                // No commits were created
-                return Err(anyhow!("No changes were committed by {}", final_command));
+                // No commits were created (skip error in dry-run mode)
+                if config.command.dry_run {
+                    // In dry-run mode, assume the commit would have been created
+                    self.user_interaction.display_info(&format!(
+                        "[DRY RUN] Assuming commit would be created by {}",
+                        final_command
+                    ));
+                } else {
+                    return Err(anyhow!("No changes were committed by {}", final_command));
+                }
             } else {
                 // Track file changes when commits were made
                 self.session_manager
@@ -2533,6 +2544,7 @@ mod tests {
             resume: None,
             verbosity: 0,
             quiet: false,
+            dry_run: false,
         }
     }
 

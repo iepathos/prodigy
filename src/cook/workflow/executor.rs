@@ -613,6 +613,10 @@ pub struct WorkflowExecutor {
     resume_context: Option<ResumeContext>,
     /// Retry state manager for checkpoint persistence
     retry_state_manager: Arc<RetryStateManager>,
+    /// Dry-run mode - preview commands without executing
+    dry_run: bool,
+    /// Track assumed commits during dry-run for validation
+    assumed_commits: Vec<String>,
     /// Path to the workflow file being executed (for checkpoint resume)
     workflow_path: Option<PathBuf>,
 }
@@ -1319,6 +1323,38 @@ impl WorkflowExecutor {
         ctx: &mut WorkflowContext,
         mut env_vars: HashMap<String, String>,
     ) -> Result<StepResult> {
+        // Handle dry-run mode
+        if self.dry_run {
+            let command_desc = match command_type {
+                CommandType::Claude(cmd) | CommandType::Legacy(cmd) => {
+                    format!("claude: {}", cmd)
+                }
+                CommandType::Shell(cmd) => format!("shell: {}", cmd),
+                CommandType::Test(cmd) => format!("test: {}", cmd.command),
+                CommandType::Handler { handler_name, .. } => {
+                    format!("handler: {}", handler_name)
+                }
+                CommandType::GoalSeek(cfg) => format!("goal_seek: {}", cfg.goal),
+                CommandType::Foreach(cfg) => format!("foreach: {:?}", cfg.input),
+            };
+
+            println!("[DRY RUN] Would execute: {}", command_desc);
+
+            // Handle commit_required in dry-run mode
+            if step.commit_required {
+                println!("[DRY RUN] Commit required - assuming commit created by: {}", command_desc);
+                self.assumed_commits.push(command_desc.clone());
+            }
+
+            // Return success result for dry-run
+            return Ok(StepResult {
+                success: true,
+                stdout: format!("[dry-run] {}", command_desc),
+                stderr: String::new(),
+                exit_code: Some(0),
+            });
+        }
+
         // Add timeout to environment variables if configured for the step
         if let Some(timeout_secs) = step.timeout {
             env_vars.insert(
@@ -1777,6 +1813,8 @@ impl WorkflowExecutor {
             resume_context: None,
             retry_state_manager: Arc::new(RetryStateManager::new()),
             workflow_path: None,
+            dry_run: false,
+            assumed_commits: Vec::new(),
         }
     }
 
@@ -1784,6 +1822,34 @@ impl WorkflowExecutor {
     pub fn with_workflow_path(mut self, path: PathBuf) -> Self {
         self.workflow_path = Some(path);
         self
+    }
+
+    /// Enable dry-run mode for preview without execution
+    pub fn with_dry_run(mut self, dry_run: bool) -> Self {
+        self.dry_run = dry_run;
+        self
+    }
+
+    /// Display dry-run summary at the end of execution
+    pub fn display_dry_run_summary(&self) {
+        if !self.dry_run || self.assumed_commits.is_empty() {
+            return;
+        }
+
+        println!("\n[DRY RUN] Summary:");
+        println!("==================");
+        println!("Commands that would execute: {}", self.completed_steps.len());
+        println!("Assumed commits: {}", self.assumed_commits.len());
+
+        if !self.assumed_commits.is_empty() {
+            println!("\nAssumed commits from:");
+            for commit in &self.assumed_commits {
+                println!("  - {}", commit);
+            }
+        }
+
+        println!("\nNo actual commands were executed.");
+        println!("To run for real, remove the --dry-run flag.");
     }
 
     /// Set the environment configuration for the workflow
@@ -1845,6 +1911,8 @@ impl WorkflowExecutor {
             resume_context: None,
             retry_state_manager: Arc::new(RetryStateManager::new()),
             workflow_path: None,
+            dry_run: false,
+            assumed_commits: Vec::new(),
         }
     }
 
@@ -1878,6 +1946,8 @@ impl WorkflowExecutor {
             resume_context: None,
             retry_state_manager: Arc::new(RetryStateManager::new()),
             workflow_path: None,
+            dry_run: false,
+            assumed_commits: Vec::new(),
         }
     }
 
@@ -2646,6 +2716,9 @@ impl WorkflowExecutor {
             ),
         );
 
+        // Display dry-run summary if applicable
+        self.display_dry_run_summary();
+
         Ok(())
     }
 
@@ -2880,12 +2953,36 @@ impl WorkflowExecutor {
             );
         }
 
-        // Enforce commit_required if configured
+        // Enforce commit_required if configured (skip in dry-run mode when commit was assumed)
         if step.commit_required && tracked_commits.is_empty() && after_head == before_head {
-            return Err(anyhow::anyhow!(
-                "Step '{}' has commit_required=true but no commits were created",
-                step_name
-            ));
+            // Check if this step was executed in dry-run and commit was assumed
+            if self.dry_run {
+                // Build the command description based on which command field is present
+                let command_desc = if let Some(ref cmd) = step.claude {
+                    format!("claude: {}", cmd)
+                } else if let Some(ref cmd) = step.shell {
+                    format!("shell: {}", cmd)
+                } else if let Some(ref cmd) = step.command {
+                    format!("command: {}", cmd)
+                } else {
+                    step_name.clone()
+                };
+
+                if self.assumed_commits.iter().any(|c| c.contains(&command_desc)) {
+                    println!("[DRY RUN] Skipping commit validation - assumed commit from: {}", step_name);
+                    // Don't fail, continue as if commit was made
+                } else {
+                    return Err(anyhow::anyhow!(
+                        "Step '{}' has commit_required=true but no commits were created",
+                        step_name
+                    ));
+                }
+            } else {
+                return Err(anyhow::anyhow!(
+                    "Step '{}' has commit_required=true but no commits were created",
+                    step_name
+                ));
+            }
         }
 
         // Capture command output if requested

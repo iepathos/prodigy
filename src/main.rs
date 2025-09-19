@@ -163,6 +163,10 @@ enum Commands {
         /// Resume an interrupted session
         #[arg(long, value_name = "SESSION_ID", conflicts_with = "worktree")]
         resume: Option<String>,
+
+        /// Dry-run mode - show what would be executed without running
+        #[arg(long, help = "Preview commands without executing them")]
+        dry_run: bool,
     },
     /// Execute goal-seeking operation with iterative refinement
     #[command(name = "goal-seek", alias = "seek")]
@@ -1131,6 +1135,7 @@ async fn execute_command(command: Option<Commands>, verbose: u8) -> anyhow::Resu
                 resume: None,
                 quiet: false,
                 verbosity: 0,
+                dry_run: false,
             };
             prodigy::cook::cook(cook_cmd).await
         }
@@ -1166,6 +1171,7 @@ async fn execute_command(command: Option<Commands>, verbose: u8) -> anyhow::Resu
             auto_accept,
             metrics,
             resume,
+            dry_run,
         }) => {
             check_deprecated_alias();
 
@@ -1182,6 +1188,7 @@ async fn execute_command(command: Option<Commands>, verbose: u8) -> anyhow::Resu
                 resume,
                 quiet: false,
                 verbosity: verbose,
+                dry_run,
             };
             prodigy::cook::cook(cook_cmd).await
         }
@@ -1302,6 +1309,7 @@ async fn run_exec_command(
         resume: None,
         quiet: false,
         verbosity: 0,
+        dry_run: false,
     };
 
     prodigy::cook::cook(cook_cmd).await
@@ -1355,6 +1363,7 @@ async fn run_batch_command(
         resume: None,
         quiet: false,
         verbosity: 0,
+        dry_run: false,
     };
 
     prodigy::cook::cook(cook_cmd).await
@@ -1589,6 +1598,7 @@ async fn run_resume_workflow(
                     resume: Some(workflow_id),
                     quiet: false,
                     verbosity: 0,
+                    dry_run: false,
                 };
 
                 prodigy::cook::cook(cook_cmd).await

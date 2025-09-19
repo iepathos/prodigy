@@ -38,6 +38,7 @@ mod cook_tests {
             resume: None,
             verbosity: 0,
             quiet: false,
+            dry_run: false,
         };
 
         // Run the command (this would require refactoring cook::run to accept injected dependencies)
