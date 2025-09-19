@@ -3118,7 +3118,11 @@ impl WorkflowExecutor {
 
                     // Count actual files changed
                     let count = changes.files_changed().len();
-                    if count > 0 { count } else { 1 }
+                    if count > 0 {
+                        count
+                    } else {
+                        1
+                    }
                 } else {
                     // Fallback to counting 1 file changed as before
                     1
