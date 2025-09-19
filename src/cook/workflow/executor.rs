@@ -1488,8 +1488,7 @@ impl WorkflowExecutor {
             // Simulate validation in dry-run mode since we're returning early
             // and the normal validation handling after command execution won't be reached
             if let Some(validation_config) = &step.validate {
-                self.handle_validation(validation_config, env, ctx)
-                    .await?;
+                self.handle_validation(validation_config, env, ctx).await?;
             }
 
             // Simulate step validation in dry-run mode
