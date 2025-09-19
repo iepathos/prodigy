@@ -30,6 +30,9 @@ mod mod_tests;
 #[cfg(test)]
 mod retry_state_tests;
 
+#[cfg(test)]
+mod dry_run_tests;
+
 use crate::abstractions::git::RealGitOperations;
 use crate::config::{workflow::WorkflowConfig, ConfigLoader};
 use crate::session::SessionId;
@@ -218,13 +221,15 @@ async fn create_orchestrator(
         subprocess.clone(),
     ));
 
-    // Create workflow executor
-    let workflow_executor: Arc<dyn workflow::WorkflowExecutor> =
-        Arc::new(workflow::WorkflowExecutorImpl::new(
+    // Create workflow executor with dry_run support
+    let workflow_executor: Arc<dyn workflow::WorkflowExecutor> = Arc::new(
+        workflow::WorkflowExecutorImpl::new(
             claude_executor.clone(),
             session_manager.clone(),
             user_interaction.clone(),
-        ));
+        )
+        .with_dry_run(cmd.dry_run),
+    );
 
     // Create workflow coordinator
     let _workflow_coordinator = Arc::new(coordinators::DefaultWorkflowCoordinator::new(
@@ -468,6 +473,7 @@ mod cook_tests {
             resume: None,
             verbosity: 0,
             quiet: false,
+            dry_run: false,
         };
         let orchestrator = create_orchestrator(temp_dir.path(), &cmd).await.unwrap();
 
@@ -503,6 +509,7 @@ mod cook_tests {
             resume: None,
             verbosity: 0,
             quiet: false,
+            dry_run: false,
         };
 
         let config = crate::config::Config::default();
@@ -742,6 +749,7 @@ reduce:
             resume: None,
             verbosity: 0,
             quiet: false,
+            dry_run: false,
         };
 
         // Create dummy session and worktree manager (not used in the function)

@@ -698,6 +698,10 @@ pub struct WorkflowExecutor {
     resume_context: Option<ResumeContext>,
     /// Retry state manager for checkpoint persistence
     retry_state_manager: Arc<RetryStateManager>,
+    /// Dry-run mode - preview commands without executing
+    dry_run: bool,
+    /// Track assumed commits during dry-run for validation
+    assumed_commits: Vec<String>,
     /// Path to the workflow file being executed (for checkpoint resume)
     workflow_path: Option<PathBuf>,
 }
@@ -1404,6 +1408,76 @@ impl WorkflowExecutor {
         ctx: &mut WorkflowContext,
         mut env_vars: HashMap<String, String>,
     ) -> Result<StepResult> {
+        // Handle dry-run mode
+        if self.dry_run {
+            let command_desc = match command_type {
+                CommandType::Claude(cmd) | CommandType::Legacy(cmd) => {
+                    format!("claude: {}", cmd)
+                }
+                CommandType::Shell(cmd) => format!("shell: {}", cmd),
+                CommandType::Test(cmd) => format!("test: {}", cmd.command),
+                CommandType::Handler { handler_name, .. } => {
+                    format!("handler: {}", handler_name)
+                }
+                CommandType::GoalSeek(cfg) => format!("goal_seek: {}", cfg.goal),
+                CommandType::Foreach(cfg) => format!("foreach: {:?}", cfg.input),
+            };
+
+            println!("[DRY RUN] Would execute: {}", command_desc);
+
+            // Handle commit_required in dry-run mode
+            if step.commit_required {
+                println!(
+                    "[DRY RUN] commit_required - assuming commit created by: {}",
+                    command_desc
+                );
+                self.assumed_commits.push(command_desc.clone());
+            }
+
+            // Display validation configuration if present
+            if let Some(validation_config) = &step.validate {
+                if let Some(claude_cmd) = &validation_config.claude {
+                    println!("[DRY RUN] Would run validation (Claude): {}", claude_cmd);
+                } else if let Some(shell_cmd) = validation_config
+                    .shell
+                    .as_ref()
+                    .or(validation_config.command.as_ref())
+                {
+                    println!("[DRY RUN] Would run validation (shell): {}", shell_cmd);
+                }
+                println!(
+                    "[DRY RUN] Validation threshold: {:.1}%",
+                    validation_config.threshold
+                );
+            }
+
+            // Display step validation if present
+            if let Some(step_validation) = &step.step_validate {
+                match step_validation {
+                    super::step_validation::StepValidationSpec::Single(cmd) => {
+                        println!("[DRY RUN] Would run step validation: {}", cmd);
+                    }
+                    super::step_validation::StepValidationSpec::Multiple(cmds) => {
+                        println!("[DRY RUN] Would run {} step validations", cmds.len());
+                    }
+                    super::step_validation::StepValidationSpec::Detailed(config) => {
+                        println!(
+                            "[DRY RUN] Would run {} step validations with detailed config",
+                            config.commands.len()
+                        );
+                    }
+                }
+            }
+
+            // Return success result for dry-run
+            return Ok(StepResult {
+                success: true,
+                stdout: format!("[dry-run] {}", command_desc),
+                stderr: String::new(),
+                exit_code: Some(0),
+            });
+        }
+
         // Add timeout to environment variables if configured for the step
         if let Some(timeout_secs) = step.timeout {
             env_vars.insert(
@@ -1862,6 +1936,8 @@ impl WorkflowExecutor {
             resume_context: None,
             retry_state_manager: Arc::new(RetryStateManager::new()),
             workflow_path: None,
+            dry_run: false,
+            assumed_commits: Vec::new(),
         }
     }
 
@@ -1869,6 +1945,37 @@ impl WorkflowExecutor {
     pub fn with_workflow_path(mut self, path: PathBuf) -> Self {
         self.workflow_path = Some(path);
         self
+    }
+
+    /// Enable dry-run mode for preview without execution
+    pub fn with_dry_run(mut self, dry_run: bool) -> Self {
+        self.dry_run = dry_run;
+        self
+    }
+
+    /// Display dry-run summary at the end of execution
+    pub fn display_dry_run_summary(&self) {
+        if !self.dry_run || self.assumed_commits.is_empty() {
+            return;
+        }
+
+        println!("\n[DRY RUN] Summary:");
+        println!("==================");
+        println!(
+            "Commands that would execute: {}",
+            self.completed_steps.len()
+        );
+        println!("Assumed commits: {}", self.assumed_commits.len());
+
+        if !self.assumed_commits.is_empty() {
+            println!("\nAssumed commits from:");
+            for commit in &self.assumed_commits {
+                println!("  - {}", commit);
+            }
+        }
+
+        println!("\nNo actual commands were executed.");
+        println!("To run for real, remove the --dry-run flag.");
     }
 
     /// Set the environment configuration for the workflow
@@ -1930,6 +2037,8 @@ impl WorkflowExecutor {
             resume_context: None,
             retry_state_manager: Arc::new(RetryStateManager::new()),
             workflow_path: None,
+            dry_run: false,
+            assumed_commits: Vec::new(),
         }
     }
 
@@ -1963,6 +2072,8 @@ impl WorkflowExecutor {
             resume_context: None,
             retry_state_manager: Arc::new(RetryStateManager::new()),
             workflow_path: None,
+            dry_run: false,
+            assumed_commits: Vec::new(),
         }
     }
 
@@ -2237,11 +2348,31 @@ impl WorkflowExecutor {
 
         let workflow_start = Instant::now();
 
+        // Display dry-run mode message
+        if self.dry_run {
+            println!("[DRY RUN] Workflow execution simulation mode");
+            println!("[DRY RUN] No commands will be executed");
+            if workflow.max_iterations > 1 {
+                println!("[DRY RUN] Would run {} iterations", workflow.max_iterations);
+            }
+        }
+
+        // Limit iterations in dry-run mode to prevent hanging with large iteration counts
+        let effective_max_iterations = if self.dry_run && workflow.max_iterations > 10 {
+            println!(
+                "[DRY RUN] Limiting iterations to 10 for simulation (requested: {})",
+                workflow.max_iterations
+            );
+            10
+        } else {
+            workflow.max_iterations
+        };
+
         // Only show workflow info for non-empty workflows
         if !workflow.steps.is_empty() {
             self.user_interaction.display_info(&format!(
                 "Executing workflow: {} (max {} iterations)",
-                workflow.name, workflow.max_iterations
+                workflow.name, effective_max_iterations
             ));
         }
 
@@ -2295,7 +2426,7 @@ impl WorkflowExecutor {
             .update_session(SessionUpdate::StartWorkflow)
             .await?;
 
-        while should_continue && iteration < workflow.max_iterations {
+        while should_continue && iteration < effective_max_iterations {
             iteration += 1;
 
             // Update iteration context
@@ -2305,7 +2436,7 @@ impl WorkflowExecutor {
 
             self.user_interaction.display_progress(&format!(
                 "Starting iteration {}/{}",
-                iteration, workflow.max_iterations
+                iteration, effective_max_iterations
             ));
 
             // Start iteration timing
@@ -2633,7 +2764,7 @@ impl WorkflowExecutor {
                     should_continue = false;
                 } else if self.is_focus_tracking_test() {
                     // In focus tracking test, continue for all iterations
-                    should_continue = iteration < workflow.max_iterations;
+                    should_continue = iteration < effective_max_iterations;
                 } else if test_mode {
                     // In test mode, check for early termination
                     should_continue = !self.should_stop_early_in_test_mode();
@@ -2738,6 +2869,9 @@ impl WorkflowExecutor {
                 if iteration == 1 { "" } else { "s" }
             ),
         );
+
+        // Display dry-run summary if applicable
+        self.display_dry_run_summary();
 
         Ok(())
     }
@@ -2981,12 +3115,43 @@ impl WorkflowExecutor {
             );
         }
 
-        // Enforce commit_required if configured
+        // Enforce commit_required if configured (skip in dry-run mode when commit was assumed)
         if step.commit_required && tracked_commits.is_empty() && after_head == before_head {
-            return Err(anyhow::anyhow!(
-                "Step '{}' has commit_required=true but no commits were created",
-                step_name
-            ));
+            // Check if this step was executed in dry-run and commit was assumed
+            if self.dry_run {
+                // Build the command description based on which command field is present
+                let command_desc = if let Some(ref cmd) = step.claude {
+                    format!("claude: {}", cmd)
+                } else if let Some(ref cmd) = step.shell {
+                    format!("shell: {}", cmd)
+                } else if let Some(ref cmd) = step.command {
+                    format!("command: {}", cmd)
+                } else {
+                    step_name.clone()
+                };
+
+                if self
+                    .assumed_commits
+                    .iter()
+                    .any(|c| c.contains(&command_desc))
+                {
+                    println!(
+                        "[DRY RUN] Skipping commit validation - assumed commit from: {}",
+                        step_name
+                    );
+                    // Don't fail, continue as if commit was made
+                } else {
+                    return Err(anyhow::anyhow!(
+                        "Step '{}' has commit_required=true but no commits were created",
+                        step_name
+                    ));
+                }
+            } else {
+                return Err(anyhow::anyhow!(
+                    "Step '{}' has commit_required=true but no commits were created",
+                    step_name
+                ));
+            }
         }
 
         // Capture command output if requested
@@ -3852,6 +4017,12 @@ impl WorkflowExecutor {
         use crate::worktree::WorktreeManager;
 
         let workflow_start = Instant::now();
+
+        // Display dry-run mode message for MapReduce
+        if self.dry_run {
+            println!("[DRY RUN] MapReduce workflow execution simulation mode");
+            println!("[DRY RUN] No commands will be executed");
+        }
 
         // Don't duplicate the message - it's already shown by the orchestrator
 

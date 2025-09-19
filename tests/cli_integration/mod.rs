@@ -8,6 +8,7 @@ pub mod batch_command_tests;
 pub mod configuration_tests;
 pub mod cook_command_tests;
 pub mod dlq_command_tests;
+pub mod dry_run_tests;
 pub mod events_command_tests;
 pub mod exec_command_tests;
 pub mod resume_command_tests;

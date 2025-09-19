@@ -85,4 +85,8 @@ pub struct CookCommand {
     /// Decrease output verbosity (opposite of -v)
     #[arg(short = 'q', long = "quiet", conflicts_with = "verbosity")]
     pub quiet: bool,
+
+    /// Dry-run mode - show what would be executed without running
+    #[arg(long, help = "Preview commands without executing them")]
+    pub dry_run: bool,
 }

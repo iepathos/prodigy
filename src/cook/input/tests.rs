@@ -115,6 +115,7 @@ fn test_legacy_adapter() {
         resume: None,
         verbosity: 0,
         quiet: false,
+        dry_run: false,
     };
 
     let config = LegacyInputAdapter::from_cook_command(&cmd).unwrap();

@@ -163,6 +163,10 @@ enum Commands {
         /// Resume an interrupted session
         #[arg(long, value_name = "SESSION_ID", conflicts_with = "worktree")]
         resume: Option<String>,
+
+        /// Dry-run mode - show what would be executed without running
+        #[arg(long, help = "Preview commands without executing them")]
+        dry_run: bool,
     },
     /// Execute goal-seeking operation with iterative refinement
     #[command(name = "goal-seek", alias = "seek")]
@@ -507,6 +511,10 @@ enum EventCommands {
         /// Specific job ID to clean
         #[arg(long)]
         job_id: Option<String>,
+
+        /// Specific event file to clean (for testing)
+        #[arg(long)]
+        file: Option<PathBuf>,
     },
     /// Export events to different format
     Export {
@@ -1131,6 +1139,7 @@ async fn execute_command(command: Option<Commands>, verbose: u8) -> anyhow::Resu
                 resume: None,
                 quiet: false,
                 verbosity: 0,
+                dry_run: false,
             };
             prodigy::cook::cook(cook_cmd).await
         }
@@ -1166,6 +1175,7 @@ async fn execute_command(command: Option<Commands>, verbose: u8) -> anyhow::Resu
             auto_accept,
             metrics,
             resume,
+            dry_run,
         }) => {
             check_deprecated_alias();
 
@@ -1182,6 +1192,7 @@ async fn execute_command(command: Option<Commands>, verbose: u8) -> anyhow::Resu
                 resume,
                 quiet: false,
                 verbosity: verbose,
+                dry_run,
             };
             prodigy::cook::cook(cook_cmd).await
         }
@@ -1302,6 +1313,7 @@ async fn run_exec_command(
         resume: None,
         quiet: false,
         verbosity: 0,
+        dry_run: false,
     };
 
     prodigy::cook::cook(cook_cmd).await
@@ -1355,6 +1367,7 @@ async fn run_batch_command(
         resume: None,
         quiet: false,
         verbosity: 0,
+        dry_run: false,
     };
 
     prodigy::cook::cook(cook_cmd).await
@@ -1589,6 +1602,7 @@ async fn run_resume_workflow(
                     resume: Some(workflow_id),
                     quiet: false,
                     verbosity: 0,
+                    dry_run: false,
                 };
 
                 prodigy::cook::cook(cook_cmd).await
@@ -2506,10 +2520,15 @@ async fn run_events_command(command: EventCommands) -> anyhow::Result<()> {
                 since,
                 limit,
                 file,
+                output_format: "human".to_string(),
             },
         },
         EventCommands::Stats { file, group_by } => EventsArgs {
-            command: EventsCommand::Stats { file, group_by },
+            command: EventsCommand::Stats {
+                file,
+                group_by,
+                output_format: "human".to_string(),
+            },
         },
         EventCommands::Search {
             pattern,
@@ -2542,6 +2561,7 @@ async fn run_events_command(command: EventCommands) -> anyhow::Result<()> {
             archive_path,
             all_jobs,
             job_id,
+            file,
         } => EventsArgs {
             command: EventsCommand::Clean {
                 older_than,
@@ -2552,6 +2572,8 @@ async fn run_events_command(command: EventCommands) -> anyhow::Result<()> {
                 archive_path,
                 all_jobs,
                 job_id,
+                file,
+                output_format: "human".to_string(),
             },
         },
         EventCommands::Export {
