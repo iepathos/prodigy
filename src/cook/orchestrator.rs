@@ -1116,8 +1116,8 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         let mut working_dir = config.project_path.clone();
         let mut worktree_name = None;
 
-        // Setup worktree if requested
-        if config.command.worktree {
+        // Setup worktree if requested (but not in dry-run mode)
+        if config.command.worktree && !config.command.dry_run {
             let worktree_manager =
                 WorktreeManager::new(config.project_path.clone(), self.subprocess.clone())?;
             // Pass the unified session ID to the worktree manager
@@ -1128,6 +1128,10 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 
             self.user_interaction
                 .display_info(&format!("Created worktree at: {}", working_dir.display()));
+        } else if config.command.worktree && config.command.dry_run {
+            // In dry-run mode with worktree flag, just note that worktree would be created
+            self.user_interaction
+                .display_info("[DRY RUN] Would create worktree for isolated execution");
         }
 
         Ok(ExecutionEnvironment {

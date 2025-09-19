@@ -109,6 +109,11 @@ impl EnvironmentCoordinator for DefaultEnvironmentCoordinator {
             return Ok(None);
         }
 
+        // Skip worktree creation in dry-run mode
+        if command.dry_run {
+            return Ok(None);
+        }
+
         // Create worktree session
         let session = self.worktree_manager.create_session().await?;
 
