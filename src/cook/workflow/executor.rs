@@ -2699,30 +2699,34 @@ impl WorkflowExecutor {
                     .update_session(SessionUpdate::UpdateWorkflowState(workflow_state))
                     .await?;
 
-                // Check for commits if required
-                if let Some(before) = head_before {
-                    let head_after = self.get_current_head(&env.working_dir).await?;
-                    if head_after == before {
-                        // No commits were created - check if auto-commit is enabled
-                        if step.auto_commit {
-                            // Try to create an auto-commit
-                            if let Ok(has_changes) = self.check_for_changes(&env.working_dir).await
-                            {
-                                if has_changes {
-                                    let message =
-                                        self.generate_commit_message(step, &workflow_context);
-                                    if let Err(e) =
-                                        self.create_auto_commit(&env.working_dir, &message).await
-                                    {
-                                        tracing::warn!("Failed to create auto-commit: {}", e);
-                                        if step.commit_required {
-                                            self.handle_no_commits_error(step)?;
+                // Check for commits if required (skip in dry-run mode)
+                if !self.dry_run {
+                    if let Some(before) = head_before {
+                        let head_after = self.get_current_head(&env.working_dir).await?;
+                        if head_after == before {
+                            // No commits were created - check if auto-commit is enabled
+                            if step.auto_commit {
+                                // Try to create an auto-commit
+                                if let Ok(has_changes) = self.check_for_changes(&env.working_dir).await
+                                {
+                                    if has_changes {
+                                        let message =
+                                            self.generate_commit_message(step, &workflow_context);
+                                        if let Err(e) =
+                                            self.create_auto_commit(&env.working_dir, &message).await
+                                        {
+                                            tracing::warn!("Failed to create auto-commit: {}", e);
+                                            if step.commit_required {
+                                                self.handle_no_commits_error(step)?;
+                                            }
+                                        } else {
+                                            any_changes = true;
+                                            self.user_interaction.display_success(&format!(
+                                                "{step_display} auto-committed changes"
+                                            ));
                                         }
-                                    } else {
-                                        any_changes = true;
-                                        self.user_interaction.display_success(&format!(
-                                            "{step_display} auto-committed changes"
-                                        ));
+                                    } else if step.commit_required {
+                                        self.handle_no_commits_error(step)?;
                                     }
                                 } else if step.commit_required {
                                     self.handle_no_commits_error(step)?;
@@ -2730,59 +2734,57 @@ impl WorkflowExecutor {
                             } else if step.commit_required {
                                 self.handle_no_commits_error(step)?;
                             }
-                        } else if step.commit_required {
-                            self.handle_no_commits_error(step)?;
+                        } else {
+                            any_changes = true;
+                            // Track commit metadata if available
+                            if let Ok(commits) = self
+                                .get_commits_between(&env.working_dir, &before, &head_after)
+                                .await
+                            {
+                                let commit_count = commits.len();
+                                let files_changed: std::collections::HashSet<_> = commits
+                                    .iter()
+                                    .flat_map(|c| c.files_changed.iter())
+                                    .collect();
+                                self.user_interaction.display_success(&format!(
+                                    "{step_display} created {} commit{} affecting {} file{}",
+                                    commit_count,
+                                    if commit_count == 1 { "" } else { "s" },
+                                    files_changed.len(),
+                                    if files_changed.len() == 1 { "" } else { "s" }
+                                ));
+
+                                // Store commit info in context for later use
+                                workflow_context.variables.insert(
+                                    "step.commits".to_string(),
+                                    commits
+                                        .iter()
+                                        .map(|c| &c.hash)
+                                        .cloned()
+                                        .collect::<Vec<_>>()
+                                        .join(","),
+                                );
+                                workflow_context.variables.insert(
+                                    "step.files_changed".to_string(),
+                                    files_changed
+                                        .into_iter()
+                                        .map(|p| p.to_string_lossy().to_string())
+                                        .collect::<Vec<_>>()
+                                        .join(","),
+                                );
+                            } else {
+                                self.user_interaction
+                                    .display_success(&format!("{step_display} created commits"));
+                            }
                         }
                     } else {
-                        any_changes = true;
-                        // Track commit metadata if available
-                        if let Ok(commits) = self
-                            .get_commits_between(&env.working_dir, &before, &head_after)
-                            .await
-                        {
-                            let commit_count = commits.len();
-                            let files_changed: std::collections::HashSet<_> = commits
-                                .iter()
-                                .flat_map(|c| c.files_changed.iter())
-                                .collect();
-                            self.user_interaction.display_success(&format!(
-                                "{step_display} created {} commit{} affecting {} file{}",
-                                commit_count,
-                                if commit_count == 1 { "" } else { "s" },
-                                files_changed.len(),
-                                if files_changed.len() == 1 { "" } else { "s" }
-                            ));
-
-                            // Store commit info in context for later use
-                            workflow_context.variables.insert(
-                                "step.commits".to_string(),
-                                commits
-                                    .iter()
-                                    .map(|c| &c.hash)
-                                    .cloned()
-                                    .collect::<Vec<_>>()
-                                    .join(","),
-                            );
-                            workflow_context.variables.insert(
-                                "step.files_changed".to_string(),
-                                files_changed
-                                    .into_iter()
-                                    .map(|p| p.to_string_lossy().to_string())
-                                    .collect::<Vec<_>>()
-                                    .join(","),
-                            );
-                        } else {
-                            self.user_interaction
-                                .display_success(&format!("{step_display} created commits"));
+                        // In test mode or when commit_required is false
+                        if step_result.success {
+                            any_changes = true;
+                        } else if test_mode && step.commit_required && !skip_validation {
+                            // In test mode, if no changes were made and commits were required, fail
+                            self.handle_no_commits_error(step)?;
                         }
-                    }
-                } else {
-                    // In test mode or when commit_required is false
-                    if step_result.success {
-                        any_changes = true;
-                    } else if test_mode && step.commit_required && !skip_validation {
-                        // In test mode, if no changes were made and commits were required, fail
-                        self.handle_no_commits_error(step)?;
                     }
                 }
             }
