@@ -6,7 +6,7 @@ use prodigy::storage::{
     config::{BackendConfig, BackendType, FileConfig, MemoryConfig, StorageConfig},
     factory::StorageFactory,
     traits::UnifiedStorage,
-    types::{PersistedSession, SessionId, SessionState, EventRecord},
+    types::{EventRecord, PersistedSession, SessionId, SessionState},
 };
 use serde_json::json;
 use std::collections::HashMap;
@@ -84,16 +84,8 @@ fn bench_session_operations(c: &mut Criterion) {
             },
             |(backend, session, _temp_dir)| async move {
                 // Save and load session
-                backend
-                    .session_storage()
-                    .save(&session)
-                    .await
-                    .unwrap();
-                let loaded = backend
-                    .session_storage()
-                    .load(&session.id)
-                    .await
-                    .unwrap();
+                backend.session_storage().save(&session).await.unwrap();
+                let loaded = backend.session_storage().load(&session.id).await.unwrap();
                 black_box(loaded);
             },
             BatchSize::SmallInput,
@@ -255,20 +247,12 @@ fn bench_memory_backend(c: &mut Criterion) {
             |(backend, sessions)| async move {
                 // Save all sessions
                 for session in &sessions {
-                    backend
-                        .session_storage()
-                        .save(session)
-                        .await
-                        .unwrap();
+                    backend.session_storage().save(session).await.unwrap();
                 }
 
                 // Load all sessions
                 for session in &sessions {
-                    let loaded = backend
-                        .session_storage()
-                        .load(&session.id)
-                        .await
-                        .unwrap();
+                    let loaded = backend.session_storage().load(&session.id).await.unwrap();
                     black_box(loaded);
                 }
 
@@ -417,11 +401,7 @@ fn bench_overhead_verification(c: &mut Criterion) {
                             worktree_name: None,
                             metadata: HashMap::new(),
                         };
-                        backend
-                            .session_storage()
-                            .save(&session)
-                            .await
-                            .unwrap();
+                        backend.session_storage().save(&session).await.unwrap();
                     },
                     BatchSize::SmallInput,
                 );
