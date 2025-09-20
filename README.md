@@ -3,9 +3,9 @@
 [![CI](https://github.com/iepathos/prodigy/actions/workflows/ci.yml/badge.svg)](https://github.com/iepathos/prodigy/actions/workflows/ci.yml)
 [![Security](https://github.com/iepathos/prodigy/actions/workflows/security.yml/badge.svg)](https://github.com/iepathos/prodigy/actions/workflows/security.yml)
 [![Release](https://github.com/iepathos/prodigy/actions/workflows/release.yml/badge.svg)](https://github.com/iepathos/prodigy/actions/workflows/release.yml)
-[![Crates.io](https://img.shields.io/crates/v/prodigy-cli)](https://crates.io/crates/prodigy-cli)
+[![Crates.io](https://img.shields.io/crates/v/prodigy)](https://crates.io/crates/prodigy)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)](LICENSE)
-[![Downloads](https://img.shields.io/crates/d/prodigy-cli)](https://crates.io/crates/prodigy-cli)
+[![Downloads](https://img.shields.io/crates/d/prodigy)](https://crates.io/crates/prodigy)
 
 > Transform ad-hoc Claude sessions into reproducible development pipelines with parallel execution, automatic retry, and full state management.
 
@@ -53,7 +53,7 @@
 ### Using Cargo (Recommended)
 
 ```bash
-cargo install prodigy-cli
+cargo install prodigy
 ```
 
 ### Using Homebrew (macOS/Linux)
@@ -76,20 +76,6 @@ cargo install --path .
 
 # Optional: Install man pages
 ./scripts/install-man-pages.sh
-```
-
-### From Package Managers
-
-#### Arch Linux (AUR)
-```bash
-# Coming soon
-yay -S prodigy-cli
-```
-
-#### Debian/Ubuntu
-```bash
-# Coming soon - use cargo install for now
-apt install prodigy-cli
 ```
 
 ## Quick Start
