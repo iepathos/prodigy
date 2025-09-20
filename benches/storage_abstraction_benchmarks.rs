@@ -5,11 +5,8 @@ use prodigy::storage::{
     backends::{FileBackend, MemoryBackend},
     config::{BackendConfig, BackendType, FileConfig, MemoryConfig, StorageConfig},
     factory::StorageFactory,
-    traits::{EventStorage, SessionStorage, StateStorage, UnifiedStorage},
-    types::{
-        CheckpointData, EventEntry, JobState, JobStatus, SessionState, SessionStatus,
-        WorkflowCheckpoint,
-    },
+    traits::{SessionStorage, UnifiedStorage},
+    types::{PersistedSession, SessionId, SessionState, EventRecord},
 };
 use serde_json::json;
 use std::collections::HashMap;
@@ -20,36 +17,33 @@ use tokio::runtime::Runtime;
 use uuid::Uuid;
 
 /// Create a test session
-fn create_test_session(id: &str) -> SessionState {
-    SessionState {
-        session_id: id.to_string(),
-        repository: "bench-repo".to_string(),
-        status: SessionStatus::InProgress,
+fn create_test_session(id: &str) -> PersistedSession {
+    PersistedSession {
+        id: SessionId(id.to_string()),
+        state: SessionState::InProgress,
         started_at: chrono::Utc::now(),
-        completed_at: None,
-        workflow_path: Some("/test/workflow.yaml".to_string()),
-        git_branch: Some("test-branch".to_string()),
+        updated_at: chrono::Utc::now(),
         iterations_completed: 0,
         files_changed: 0,
         worktree_name: Some(format!("worktree-{}", id)),
-        iteration_timings: HashMap::new(),
-        command_timings: HashMap::new(),
         metadata: HashMap::new(),
     }
 }
 
 /// Create a test event
-fn create_test_event(job_id: &str, size: usize) -> EventEntry {
-    EventEntry {
+fn create_test_event(job_id: &str, size: usize) -> EventRecord {
+    EventRecord {
+        id: format!("event-{}", Uuid::new_v4()),
         timestamp: chrono::Utc::now(),
         event_type: "benchmark".to_string(),
         job_id: job_id.to_string(),
-        work_item_id: Some(format!("item-{}", Uuid::new_v4())),
+        data: json!({
+            "message": "x".repeat(size),
+            "work_item_id": format!("item-{}", Uuid::new_v4()),
+            "test": "x".repeat(size / 2)
+        }),
+        correlation_id: Some(Uuid::new_v4().to_string()),
         agent_id: Some(format!("agent-{}", Uuid::new_v4())),
-        correlation_id: Some(Uuid::new_v4()),
-        message: Some("x".repeat(size)),
-        data: json!({"test": "x".repeat(size / 2)}),
-        error: None,
     }
 }
 
@@ -92,12 +86,12 @@ fn bench_session_operations(c: &mut Criterion) {
                 // Save and load session
                 backend
                     .session_storage()
-                    .save_session(&session)
+                    .save(&session)
                     .await
                     .unwrap();
                 let loaded = backend
                     .session_storage()
-                    .load_session(&session.session_id)
+                    .load(&session.id)
                     .await
                     .unwrap();
                 black_box(loaded);
@@ -119,7 +113,7 @@ fn bench_session_operations(c: &mut Criterion) {
                 let file_path = temp_dir
                     .path()
                     .join("sessions")
-                    .join(format!("{}.json", session.session_id));
+                    .join(format!("{}.json", session.id.0));
 
                 tokio::fs::create_dir_all(file_path.parent().unwrap())
                     .await
@@ -175,7 +169,7 @@ fn bench_event_operations(c: &mut Criterion) {
                         };
                         let rt_local = Runtime::new().unwrap();
                         let backend = rt_local.block_on(FileBackend::new(&config)).unwrap();
-                        let events: Vec<EventEntry> = (0..100)
+                        let events: Vec<EventRecord> = (0..100)
                             .map(|_| create_test_event("bench-job", size))
                             .collect();
                         (backend, events, temp_dir)
@@ -184,7 +178,7 @@ fn bench_event_operations(c: &mut Criterion) {
                         for event in events {
                             backend
                                 .event_storage()
-                                .append_event("bench-repo", "bench-job", &event)
+                                .append(vec![event.clone()])
                                 .await
                                 .unwrap();
                         }
@@ -199,7 +193,7 @@ fn bench_event_operations(c: &mut Criterion) {
             b.to_async(&rt).iter_batched(
                 || {
                     let temp_dir = TempDir::new().unwrap();
-                    let events: Vec<EventEntry> = (0..100)
+                    let events: Vec<EventRecord> = (0..100)
                         .map(|_| create_test_event("bench-job", size))
                         .collect();
                     (temp_dir, events)
@@ -253,7 +247,7 @@ fn bench_memory_backend(c: &mut Criterion) {
                     cache_config: Default::default(),
                 };
                 let backend = MemoryBackend::new(&config).unwrap();
-                let sessions: Vec<SessionState> = (0..100)
+                let sessions: Vec<PersistedSession> = (0..100)
                     .map(|i| create_test_session(&format!("session-{}", i)))
                     .collect();
                 (backend, sessions)
@@ -263,7 +257,7 @@ fn bench_memory_backend(c: &mut Criterion) {
                 for session in &sessions {
                     backend
                         .session_storage()
-                        .save_session(session)
+                        .save(&session)
                         .await
                         .unwrap();
                 }
@@ -272,7 +266,7 @@ fn bench_memory_backend(c: &mut Criterion) {
                 for session in &sessions {
                     let loaded = backend
                         .session_storage()
-                        .load_session(&session.session_id)
+                        .load(&session.id)
                         .await
                         .unwrap();
                     black_box(loaded);
@@ -281,7 +275,7 @@ fn bench_memory_backend(c: &mut Criterion) {
                 // List sessions
                 let list = backend
                     .session_storage()
-                    .list_sessions("bench-repo")
+                    .list(Default::default())
                     .await
                     .unwrap();
                 black_box(list);
@@ -333,7 +327,21 @@ fn bench_factory_overhead(c: &mut Criterion) {
 
     group.bench_function("factory_create_memory_backend", |b| {
         b.iter(|| {
-            let storage = StorageFactory::create_test_storage();
+            let config = StorageConfig {
+                backend: BackendType::Memory,
+                backend_config: BackendConfig::Memory(MemoryConfig {
+                    max_memory: 1024 * 1024 * 1024, // 1GB
+                    persist_to_disk: false,
+                    persistence_path: None,
+                }),
+                enable_locking: false,
+                enable_cache: false,
+                cache_config: Default::default(),
+                connection_pool_size: 10,
+                retry_policy: Default::default(),
+                timeout: std::time::Duration::from_secs(30),
+            };
+            let storage = MemoryBackend::new(&config).unwrap();
             black_box(storage);
         });
     });
@@ -398,24 +406,19 @@ fn bench_overhead_verification(c: &mut Criterion) {
                         (backend, data, temp_dir)
                     },
                     |(backend, data, _temp_dir)| async move {
-                        let session = SessionState {
-                            session_id: Uuid::new_v4().to_string(),
-                            repository: "bench".to_string(),
-                            status: SessionStatus::InProgress,
+                        let session = PersistedSession {
+                            id: SessionId(Uuid::new_v4().to_string()),
+                            state: SessionState::InProgress,
                             started_at: chrono::Utc::now(),
-                            completed_at: None,
-                            workflow_path: Some(data.clone()),
-                            git_branch: Some(data),
+                            updated_at: chrono::Utc::now(),
                             iterations_completed: 0,
                             files_changed: 0,
                             worktree_name: None,
-                            iteration_timings: HashMap::new(),
-                            command_timings: HashMap::new(),
                             metadata: HashMap::new(),
                         };
                         backend
                             .session_storage()
-                            .save_session(&session)
+                            .save(&session)
                             .await
                             .unwrap();
                     },
@@ -436,26 +439,21 @@ fn bench_overhead_verification(c: &mut Criterion) {
                         (temp_dir, data)
                     },
                     |(temp_dir, data)| async move {
-                        let session = SessionState {
-                            session_id: Uuid::new_v4().to_string(),
-                            repository: "bench".to_string(),
-                            status: SessionStatus::InProgress,
+                        let session = PersistedSession {
+                            id: SessionId(Uuid::new_v4().to_string()),
+                            state: SessionState::InProgress,
                             started_at: chrono::Utc::now(),
-                            completed_at: None,
-                            workflow_path: Some(data.clone()),
-                            git_branch: Some(data),
+                            updated_at: chrono::Utc::now(),
                             iterations_completed: 0,
                             files_changed: 0,
                             worktree_name: None,
-                            iteration_timings: HashMap::new(),
-                            command_timings: HashMap::new(),
                             metadata: HashMap::new(),
                         };
 
                         let file_path = temp_dir
                             .path()
                             .join("sessions")
-                            .join(format!("{}.json", session.session_id));
+                            .join(format!("{}.json", session.id.0));
 
                         tokio::fs::create_dir_all(file_path.parent().unwrap())
                             .await

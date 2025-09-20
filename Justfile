@@ -250,12 +250,14 @@ ci:
      cargo nextest run --all-features && \
      echo "Running doctests..." && \
      cargo test --doc --all-features && \
-     echo "Running clippy..." && \
-     cargo clippy --lib --bins --tests --all-features -- -D warnings && \
+     echo "Running clippy (including benchmarks)..." && \
+     cargo clippy --all-targets --all-features -- -D warnings && \
      echo "Checking formatting..." && \
      cargo fmt --all -- --check && \
      echo "Checking documentation..." && \
      cargo doc --no-deps --document-private-items && \
+     echo "Checking benchmarks compile..." && \
+     cargo check --benches && \
      echo "All CI checks passed!"
 
 # Run compatibility tests only
