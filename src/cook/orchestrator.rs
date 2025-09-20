@@ -1072,6 +1072,16 @@ impl CookOrchestrator for DefaultCookOrchestrator {
                         .await?;
                     self.user_interaction
                         .display_error(&format!("Cook session failed: {e}"));
+
+                    // Display how to resume the session
+                    let state = self.session_manager.get_state();
+                    if state.is_resumable() {
+                        self.user_interaction.display_info(&format!(
+                            "\n💡 To resume this session, run: prodigy cook {} --resume {}",
+                            config.command.playbook.display(),
+                            env.session_id
+                        ));
+                    }
                 }
                 return Err(e);
             }
