@@ -4,7 +4,6 @@ use super::foreach::*;
 use crate::config::command::{
     ForeachConfig, ForeachInput, ParallelConfig, TestCommand, WorkflowStepCommand,
 };
-use std::path::PathBuf;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use tempfile::TempDir;
