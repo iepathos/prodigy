@@ -1107,8 +1107,7 @@ impl WorkflowExecutor {
                 };
                 self.dry_run_potential_handlers.push(format!(
                     "{} (max {} attempts)",
-                    handler_desc,
-                    on_incomplete.max_attempts
+                    handler_desc, on_incomplete.max_attempts
                 ));
             }
 
@@ -2049,7 +2048,10 @@ impl WorkflowExecutor {
         println!("==================");
 
         // Show main commands
-        println!("Main commands that would execute: {}", self.dry_run_commands.len());
+        println!(
+            "Main commands that would execute: {}",
+            self.dry_run_commands.len()
+        );
         if !self.dry_run_commands.is_empty() {
             for cmd in &self.dry_run_commands {
                 println!("  - {}", cmd);
@@ -2058,7 +2060,10 @@ impl WorkflowExecutor {
 
         // Show validation commands
         if !self.dry_run_validations.is_empty() {
-            println!("\nValidation commands that would execute: {}", self.dry_run_validations.len());
+            println!(
+                "\nValidation commands that would execute: {}",
+                self.dry_run_validations.len()
+            );
             for val in &self.dry_run_validations {
                 println!("  - {}", val);
             }
@@ -2790,13 +2795,15 @@ impl WorkflowExecutor {
                             // No commits were created - check if auto-commit is enabled
                             if step.auto_commit {
                                 // Try to create an auto-commit
-                                if let Ok(has_changes) = self.check_for_changes(&env.working_dir).await
+                                if let Ok(has_changes) =
+                                    self.check_for_changes(&env.working_dir).await
                                 {
                                     if has_changes {
                                         let message =
                                             self.generate_commit_message(step, &workflow_context);
-                                        if let Err(e) =
-                                            self.create_auto_commit(&env.working_dir, &message).await
+                                        if let Err(e) = self
+                                            .create_auto_commit(&env.working_dir, &message)
+                                            .await
                                         {
                                             tracing::warn!("Failed to create auto-commit: {}", e);
                                             if step.commit_required {

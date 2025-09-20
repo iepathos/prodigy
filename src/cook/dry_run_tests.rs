@@ -16,7 +16,7 @@ mod tests {
             cook: CookCommand,
         }
 
-        let args = TestCli::parse_from(&["test", "workflow.yaml", "--dry-run"]);
+        let args = TestCli::parse_from(["test", "workflow.yaml", "--dry-run"]);
 
         assert!(args.cook.dry_run);
         assert_eq!(args.cook.playbook, PathBuf::from("workflow.yaml"));
@@ -33,7 +33,7 @@ mod tests {
             cook: CookCommand,
         }
 
-        let args = TestCli::parse_from(&["test", "workflow.yaml", "--dry-run", "-n", "5"]);
+        let args = TestCli::parse_from(["test", "workflow.yaml", "--dry-run", "-n", "5"]);
 
         assert!(args.cook.dry_run);
         assert_eq!(args.cook.max_iterations, 5);
@@ -50,7 +50,7 @@ mod tests {
             cook: CookCommand,
         }
 
-        let args = TestCli::parse_from(&["test", "workflow.yaml", "--dry-run", "--worktree"]);
+        let args = TestCli::parse_from(["test", "workflow.yaml", "--dry-run", "--worktree"]);
 
         assert!(args.cook.dry_run);
         assert!(args.cook.worktree);
@@ -68,7 +68,7 @@ mod tests {
             cook: CookCommand,
         }
 
-        let args = TestCli::parse_from(&["test", "workflow.yaml", "--dry-run", "--yes"]);
+        let args = TestCli::parse_from(["test", "workflow.yaml", "--dry-run", "--yes"]);
 
         assert!(args.cook.dry_run);
         assert!(args.cook.auto_accept);
@@ -85,7 +85,7 @@ mod tests {
             cook: CookCommand,
         }
 
-        let args = TestCli::parse_from(&["test", "workflow.yaml", "--dry-run", "-vv"]);
+        let args = TestCli::parse_from(["test", "workflow.yaml", "--dry-run", "-vv"]);
 
         assert!(args.cook.dry_run);
         assert_eq!(args.cook.verbosity, 2);
