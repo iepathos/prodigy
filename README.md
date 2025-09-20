@@ -168,8 +168,11 @@ prodigy goal-seek --goal "Fix all linting errors" --command "claude: /fix-lint"
 prodigy analytics --session abc123
 
 # Manage worktrees
-prodigy worktree ls
-prodigy worktree clean
+prodigy worktree ls                    # List active worktrees
+prodigy worktree ls --detailed        # Show enhanced session information
+prodigy worktree ls --json            # Output in JSON format
+prodigy worktree ls --detailed --json # Combine detailed info with JSON output
+prodigy worktree clean                # Clean up inactive worktrees
 ```
 
 ### Advanced Workflows

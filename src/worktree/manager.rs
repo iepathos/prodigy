@@ -1613,4 +1613,306 @@ branch refs/heads/main"#;
         assert_eq!(state.last_checkpoint.unwrap().iteration, 2);
         Ok(())
     }
+
+    #[tokio::test]
+    async fn test_list_detailed_empty() {
+        let temp_dir = TempDir::new().unwrap();
+        let subprocess = SubprocessManager::production();
+        let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess).unwrap();
+
+        // Create metadata directory
+        let metadata_dir = manager.base_dir.join(".metadata");
+        std::fs::create_dir_all(&metadata_dir).unwrap();
+
+        let result = manager.list_detailed().await.unwrap();
+        assert_eq!(result.sessions.len(), 0);
+        assert_eq!(result.summary.total, 0);
+    }
+
+    #[tokio::test]
+    async fn test_list_detailed_with_sessions() -> Result<()> {
+        let temp_dir = TempDir::new().unwrap();
+        let subprocess = SubprocessManager::production();
+        let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess).unwrap();
+
+        // Create metadata directory
+        let metadata_dir = manager.base_dir.join(".metadata");
+        std::fs::create_dir_all(&metadata_dir)?;
+
+        // For testing, we'll create minimal JSON representations that match
+        // what the list_detailed method expects to parse
+        let state1_json = serde_json::json!({
+            "session_id": "session-test-1",
+            "status": "in_progress",
+            "branch": "feature-1",
+            "created_at": (chrono::Utc::now() - chrono::Duration::hours(2)).to_rfc3339(),
+            "updated_at": (chrono::Utc::now() - chrono::Duration::minutes(30)).to_rfc3339(),
+            "error": null,
+            "stats": {
+                "files_changed": 5,
+                "commits": 2,
+                "last_commit_sha": null
+            },
+            "worktree_name": "session-test-1",
+            "iterations": { "completed": 0, "max": 5 },
+            "merged": false,
+            "merged_at": null,
+            "merge_prompt_shown": false,
+            "merge_prompt_response": null,
+            "interrupted_at": null,
+            "interruption_type": null,
+            "last_checkpoint": null,
+            "resumable": false
+        });
+
+        let state2_json = serde_json::json!({
+            "session_id": "session-test-2",
+            "status": "completed",
+            "branch": "feature-2",
+            "created_at": (chrono::Utc::now() - chrono::Duration::hours(3)).to_rfc3339(),
+            "updated_at": (chrono::Utc::now() - chrono::Duration::hours(1)).to_rfc3339(),
+            "error": null,
+            "stats": {
+                "files_changed": 10,
+                "commits": 5,
+                "last_commit_sha": null
+            },
+            "worktree_name": "session-test-2",
+            "iterations": { "completed": 0, "max": 5 },
+            "merged": false,
+            "merged_at": null,
+            "merge_prompt_shown": false,
+            "merge_prompt_response": null,
+            "interrupted_at": null,
+            "interruption_type": null,
+            "last_checkpoint": null,
+            "resumable": false
+        });
+
+        let state3_json = serde_json::json!({
+            "session_id": "session-test-3",
+            "status": "failed",
+            "branch": "feature-3",
+            "created_at": (chrono::Utc::now() - chrono::Duration::hours(1)).to_rfc3339(),
+            "updated_at": (chrono::Utc::now() - chrono::Duration::minutes(10)).to_rfc3339(),
+            "error": "Test error message",
+            "stats": {
+                "files_changed": 2,
+                "commits": 1,
+                "last_commit_sha": null
+            },
+            "worktree_name": "session-test-3",
+            "iterations": { "completed": 0, "max": 5 },
+            "merged": false,
+            "merged_at": null,
+            "merge_prompt_shown": false,
+            "merge_prompt_response": null,
+            "interrupted_at": null,
+            "interruption_type": null,
+            "last_checkpoint": null,
+            "resumable": false
+        });
+
+        // Save states to metadata
+        let state1_file = metadata_dir.join("session-test-1.json");
+        let state2_file = metadata_dir.join("session-test-2.json");
+        let state3_file = metadata_dir.join("session-test-3.json");
+
+        std::fs::write(&state1_file, serde_json::to_string(&state1_json)?)?;
+        std::fs::write(&state2_file, serde_json::to_string(&state2_json)?)?;
+        std::fs::write(&state3_file, serde_json::to_string(&state3_json)?)?;
+
+        // Create corresponding worktree directories
+        let wt1_dir = manager.base_dir.join("session-test-1");
+        let wt2_dir = manager.base_dir.join("session-test-2");
+        let wt3_dir = manager.base_dir.join("session-test-3");
+
+        std::fs::create_dir_all(&wt1_dir)?;
+        std::fs::create_dir_all(&wt2_dir)?;
+        std::fs::create_dir_all(&wt3_dir)?;
+
+        // Note: In a real environment we'd have git worktrees set up
+        // For testing, we'll simulate by creating minimal session files
+
+        // Get detailed list
+        let result = manager.list_detailed().await?;
+
+        // Verify summary counts
+        assert_eq!(result.summary.total, 3);
+        assert_eq!(result.summary.in_progress, 1);
+        assert_eq!(result.summary.completed, 1);
+        assert_eq!(result.summary.failed, 1);
+        assert_eq!(result.summary.interrupted, 0);
+
+        // Verify we have the expected sessions
+        assert_eq!(result.sessions.len(), 3);
+
+        // Find each session and verify key fields
+        let session1 = result.sessions.iter()
+            .find(|s| s.session_id == "session-test-1")
+            .expect("Session 1 not found");
+        assert_eq!(session1.status, WorktreeStatus::InProgress);
+        assert_eq!(session1.files_changed, 5);
+        assert_eq!(session1.commits, 2);
+
+        let session2 = result.sessions.iter()
+            .find(|s| s.session_id == "session-test-2")
+            .expect("Session 2 not found");
+        assert_eq!(session2.status, WorktreeStatus::Completed);
+        assert_eq!(session2.files_changed, 10);
+        assert_eq!(session2.commits, 5);
+
+        let session3 = result.sessions.iter()
+            .find(|s| s.session_id == "session-test-3")
+            .expect("Session 3 not found");
+        assert_eq!(session3.status, WorktreeStatus::Failed);
+        assert_eq!(session3.error_summary, Some("Test error message".to_string()));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_list_detailed_with_workflow_info() -> Result<()> {
+        let temp_dir = TempDir::new().unwrap();
+        let subprocess = SubprocessManager::production();
+        let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess).unwrap();
+
+        // Create metadata directory
+        let metadata_dir = manager.base_dir.join(".metadata");
+        std::fs::create_dir_all(&metadata_dir)?;
+
+        // Create a test worktree state as JSON
+        let state_json = serde_json::json!({
+            "session_id": "workflow-session",
+            "status": "in_progress",
+            "branch": "workflow-branch",
+            "created_at": (chrono::Utc::now() - chrono::Duration::hours(1)).to_rfc3339(),
+            "updated_at": (chrono::Utc::now() - chrono::Duration::minutes(5)).to_rfc3339(),
+            "error": null,
+            "stats": {
+                "files_changed": 3,
+                "commits": 1,
+                "last_commit_sha": null
+            },
+            "worktree_name": "workflow-session",
+            "iterations": { "completed": 0, "max": 5 },
+            "merged": false,
+            "merged_at": null,
+            "merge_prompt_shown": false,
+            "merge_prompt_response": null,
+            "interrupted_at": null,
+            "interruption_type": null,
+            "last_checkpoint": null,
+            "resumable": false
+        });
+
+        // Save state
+        let state_file = metadata_dir.join("workflow-session.json");
+        std::fs::write(&state_file, serde_json::to_string(&state_json)?)?;
+
+        // Create worktree directory with session state
+        let wt_dir = manager.base_dir.join("workflow-session");
+        let prodigy_dir = wt_dir.join(".prodigy");
+        std::fs::create_dir_all(&prodigy_dir)?;
+
+        // Create session state with workflow information
+        let session_state = serde_json::json!({
+            "session_id": "workflow-session",
+            "workflow_state": {
+                "workflow_path": "workflows/test.yaml",
+                "input_args": ["arg1", "arg2"],
+                "current_step": 3,
+                "completed_steps": [1, 2, 3, 4, 5]
+            }
+        });
+
+        let session_state_file = prodigy_dir.join("session_state.json");
+        std::fs::write(&session_state_file, serde_json::to_string(&session_state)?)?;
+
+        // Get detailed list
+        let result = manager.list_detailed().await?;
+
+        assert_eq!(result.sessions.len(), 1);
+        let session = &result.sessions[0];
+
+        // Verify workflow information was extracted
+        assert_eq!(session.workflow_path, Some(PathBuf::from("workflows/test.yaml")));
+        assert_eq!(session.workflow_args, vec!["arg1", "arg2"]);
+        assert_eq!(session.current_step, 3);
+        assert_eq!(session.total_steps, Some(5));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_list_detailed_with_mapreduce_info() -> Result<()> {
+        let temp_dir = TempDir::new().unwrap();
+        let subprocess = SubprocessManager::production();
+        let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess).unwrap();
+
+        // Create metadata directory
+        let metadata_dir = manager.base_dir.join(".metadata");
+        std::fs::create_dir_all(&metadata_dir)?;
+
+        // Create a test worktree state as JSON
+        let state_json = serde_json::json!({
+            "session_id": "mapreduce-session",
+            "status": "in_progress",
+            "branch": "mapreduce-branch",
+            "created_at": (chrono::Utc::now() - chrono::Duration::hours(2)).to_rfc3339(),
+            "updated_at": (chrono::Utc::now() - chrono::Duration::minutes(10)).to_rfc3339(),
+            "error": null,
+            "stats": {
+                "files_changed": 0,
+                "commits": 0,
+                "last_commit_sha": null
+            },
+            "worktree_name": "mapreduce-session",
+            "iterations": { "completed": 0, "max": 5 },
+            "merged": false,
+            "merged_at": null,
+            "merge_prompt_shown": false,
+            "merge_prompt_response": null,
+            "interrupted_at": null,
+            "interruption_type": null,
+            "last_checkpoint": null,
+            "resumable": false
+        });
+
+        // Save state
+        let state_file = metadata_dir.join("mapreduce-session.json");
+        std::fs::write(&state_file, serde_json::to_string(&state_json)?)?;
+
+        // Create worktree directory with session state
+        let wt_dir = manager.base_dir.join("mapreduce-session");
+        let prodigy_dir = wt_dir.join(".prodigy");
+        std::fs::create_dir_all(&prodigy_dir)?;
+
+        // Create session state with MapReduce information
+        let session_state = serde_json::json!({
+            "session_id": "mapreduce-session",
+            "workflow_state": {
+                "workflow_path": "mapreduce.yaml"
+            },
+            "mapreduce_state": {
+                "items_processed": 25,
+                "total_items": 100
+            }
+        });
+
+        let session_state_file = prodigy_dir.join("session_state.json");
+        std::fs::write(&session_state_file, serde_json::to_string(&session_state)?)?;
+
+        // Get detailed list
+        let result = manager.list_detailed().await?;
+
+        assert_eq!(result.sessions.len(), 1);
+        let session = &result.sessions[0];
+
+        // Verify MapReduce information was extracted
+        assert_eq!(session.items_processed, Some(25));
+        assert_eq!(session.total_items, Some(100));
+
+        Ok(())
+    }
 }
