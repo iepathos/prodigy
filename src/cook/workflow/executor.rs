@@ -3333,7 +3333,8 @@ impl WorkflowExecutor {
         }
 
         // Handle validation if configured and command succeeded
-        if result.success {
+        // Skip in dry-run mode since validation was already simulated in execute_command_by_type
+        if result.success && !self.dry_run {
             if let Some(validation_config) = &step.validate {
                 self.handle_validation(validation_config, &actual_env, ctx)
                     .await?;
