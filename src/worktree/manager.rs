@@ -1142,6 +1142,7 @@ impl WorktreeManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::subprocess::ProcessCommandBuilder;
     use tempfile::TempDir;
 
     #[test]
@@ -1618,6 +1619,43 @@ branch refs/heads/main"#;
     async fn test_list_detailed_empty() {
         let temp_dir = TempDir::new().unwrap();
         let subprocess = SubprocessManager::production();
+
+        // Initialize a git repository in the temp directory
+        let init_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["init"])
+            .build();
+        subprocess.runner().run(init_command).await.unwrap();
+
+        // Configure user for git (needed for commits)
+        let config_name = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["config", "user.name", "Test User"])
+            .build();
+        subprocess.runner().run(config_name).await.unwrap();
+
+        let config_email = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["config", "user.email", "test@example.com"])
+            .build();
+        subprocess.runner().run(config_email).await.unwrap();
+
+        // Create initial commit (required for worktrees)
+        let initial_file = temp_dir.path().join("README.md");
+        std::fs::write(&initial_file, "# Test Repository").unwrap();
+
+        let add_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["add", "."])
+            .build();
+        subprocess.runner().run(add_command).await.unwrap();
+
+        let commit_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["commit", "-m", "Initial commit"])
+            .build();
+        subprocess.runner().run(commit_command).await.unwrap();
+
         let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess).unwrap();
 
         // Create metadata directory
@@ -1633,6 +1671,43 @@ branch refs/heads/main"#;
     async fn test_list_detailed_with_sessions() -> Result<()> {
         let temp_dir = TempDir::new().unwrap();
         let subprocess = SubprocessManager::production();
+
+        // Initialize a git repository in the temp directory
+        let init_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["init"])
+            .build();
+        subprocess.runner().run(init_command).await?;
+
+        // Configure user for git (needed for commits)
+        let config_name = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["config", "user.name", "Test User"])
+            .build();
+        subprocess.runner().run(config_name).await?;
+
+        let config_email = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["config", "user.email", "test@example.com"])
+            .build();
+        subprocess.runner().run(config_email).await?;
+
+        // Create initial commit (required for worktrees)
+        let initial_file = temp_dir.path().join("README.md");
+        std::fs::write(&initial_file, "# Test Repository")?;
+
+        let add_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["add", "."])
+            .build();
+        subprocess.runner().run(add_command).await?;
+
+        let commit_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["commit", "-m", "Initial commit"])
+            .build();
+        subprocess.runner().run(commit_command).await?;
+
         let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess).unwrap();
 
         // Create metadata directory
@@ -1775,7 +1850,44 @@ branch refs/heads/main"#;
     async fn test_list_detailed_with_workflow_info() -> Result<()> {
         let temp_dir = TempDir::new().unwrap();
         let subprocess = SubprocessManager::production();
-        let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess).unwrap();
+
+        // Initialize a git repository in the temp directory
+        let init_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["init"])
+            .build();
+        subprocess.runner().run(init_command).await?;
+
+        // Configure user for git (needed for commits)
+        let config_name = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["config", "user.name", "Test User"])
+            .build();
+        subprocess.runner().run(config_name).await?;
+
+        let config_email = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["config", "user.email", "test@example.com"])
+            .build();
+        subprocess.runner().run(config_email).await?;
+
+        // Create initial commit (required for worktrees)
+        let initial_file = temp_dir.path().join("README.md");
+        std::fs::write(&initial_file, "# Test Repository")?;
+
+        let add_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["add", "."])
+            .build();
+        subprocess.runner().run(add_command).await?;
+
+        let commit_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["commit", "-m", "Initial commit"])
+            .build();
+        subprocess.runner().run(commit_command).await?;
+
+        let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess.clone()).unwrap();
 
         // Create metadata directory
         let metadata_dir = manager.base_dir.join(".metadata");
@@ -1810,8 +1922,15 @@ branch refs/heads/main"#;
         let state_file = metadata_dir.join("workflow-session.json");
         std::fs::write(&state_file, serde_json::to_string(&state_json)?)?;
 
-        // Create worktree directory with session state
+        // Create actual git worktree
         let wt_dir = manager.base_dir.join("workflow-session");
+        let add_worktree = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["worktree", "add", "-b", "workflow-branch", wt_dir.to_string_lossy().as_ref()])
+            .build();
+        subprocess.runner().run(add_worktree).await?;
+
+        // Create session state directory
         let prodigy_dir = wt_dir.join(".prodigy");
         std::fs::create_dir_all(&prodigy_dir)?;
 
@@ -1848,7 +1967,44 @@ branch refs/heads/main"#;
     async fn test_list_detailed_with_mapreduce_info() -> Result<()> {
         let temp_dir = TempDir::new().unwrap();
         let subprocess = SubprocessManager::production();
-        let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess).unwrap();
+
+        // Initialize a git repository in the temp directory
+        let init_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["init"])
+            .build();
+        subprocess.runner().run(init_command).await?;
+
+        // Configure user for git (needed for commits)
+        let config_name = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["config", "user.name", "Test User"])
+            .build();
+        subprocess.runner().run(config_name).await?;
+
+        let config_email = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["config", "user.email", "test@example.com"])
+            .build();
+        subprocess.runner().run(config_email).await?;
+
+        // Create initial commit (required for worktrees)
+        let initial_file = temp_dir.path().join("README.md");
+        std::fs::write(&initial_file, "# Test Repository")?;
+
+        let add_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["add", "."])
+            .build();
+        subprocess.runner().run(add_command).await?;
+
+        let commit_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["commit", "-m", "Initial commit"])
+            .build();
+        subprocess.runner().run(commit_command).await?;
+
+        let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess.clone()).unwrap();
 
         // Create metadata directory
         let metadata_dir = manager.base_dir.join(".metadata");
@@ -1883,8 +2039,15 @@ branch refs/heads/main"#;
         let state_file = metadata_dir.join("mapreduce-session.json");
         std::fs::write(&state_file, serde_json::to_string(&state_json)?)?;
 
-        // Create worktree directory with session state
+        // Create actual git worktree
         let wt_dir = manager.base_dir.join("mapreduce-session");
+        let add_worktree = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["worktree", "add", "-b", "mapreduce-branch", wt_dir.to_string_lossy().as_ref()])
+            .build();
+        subprocess.runner().run(add_worktree).await?;
+
+        // Create session state directory
         let prodigy_dir = wt_dir.join(".prodigy");
         std::fs::create_dir_all(&prodigy_dir)?;
 
