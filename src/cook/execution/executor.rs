@@ -631,7 +631,7 @@ impl ExecutionMetadata {
                 .unwrap_or_else(|_| "unknown".to_string()),
             process_id: Some(std::process::id()),
             parent_process_id: None,
-            working_directory: std::env::current_dir().unwrap_or_default(),
+            working_directory: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
             environment_hash: String::new(),
             git_commit: None,
             observability_trace_id: None,

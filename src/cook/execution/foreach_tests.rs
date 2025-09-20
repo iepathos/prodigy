@@ -4,8 +4,10 @@ use super::foreach::*;
 use crate::config::command::{
     ForeachConfig, ForeachInput, ParallelConfig, TestCommand, WorkflowStepCommand,
 };
+use std::path::PathBuf;
 use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
+use tempfile::TempDir;
 
 #[cfg(test)]
 mod foreach_execution_tests {
@@ -42,7 +44,10 @@ mod foreach_execution_tests {
             max_items: None,
         };
 
-        let result = execute_foreach(&config).await.unwrap();
+        let temp_dir = TempDir::new().unwrap();
+        let result = execute_foreach_with_dir(&config, Some(temp_dir.path().to_path_buf()))
+            .await
+            .unwrap();
 
         assert_eq!(result.total_items, 2);
         assert_eq!(result.successful_items, 2);
@@ -81,7 +86,10 @@ mod foreach_execution_tests {
             max_items: None,
         };
 
-        let result = execute_foreach(&config).await.unwrap();
+        let temp_dir = TempDir::new().unwrap();
+        let result = execute_foreach_with_dir(&config, Some(temp_dir.path().to_path_buf()))
+            .await
+            .unwrap();
 
         assert_eq!(result.total_items, 3);
         assert_eq!(result.successful_items, 3);
@@ -130,7 +138,10 @@ mod foreach_execution_tests {
         };
 
         let start = std::time::Instant::now();
-        let result = execute_foreach(&config).await.unwrap();
+        let temp_dir = TempDir::new().unwrap();
+        let result = execute_foreach_with_dir(&config, Some(temp_dir.path().to_path_buf()))
+            .await
+            .unwrap();
         let duration = start.elapsed();
 
         assert_eq!(result.total_items, 4);
@@ -183,7 +194,10 @@ mod foreach_execution_tests {
             max_items: Some(3), // Limit to 3 items
         };
 
-        let result = execute_foreach(&config).await.unwrap();
+        let temp_dir = TempDir::new().unwrap();
+        let result = execute_foreach_with_dir(&config, Some(temp_dir.path().to_path_buf()))
+            .await
+            .unwrap();
 
         assert_eq!(result.total_items, 3); // Should process only 3 items
         assert_eq!(result.successful_items, 3);
@@ -226,7 +240,10 @@ mod foreach_execution_tests {
             max_items: None,
         };
 
-        let result = execute_foreach(&config).await.unwrap();
+        let temp_dir = TempDir::new().unwrap();
+        let result = execute_foreach_with_dir(&config, Some(temp_dir.path().to_path_buf()))
+            .await
+            .unwrap();
 
         assert_eq!(result.total_items, 3);
         assert_eq!(result.successful_items, 2);
@@ -309,7 +326,10 @@ mod foreach_execution_tests {
             max_items: None,
         };
 
-        let result = execute_foreach(&config).await.unwrap();
+        let temp_dir = TempDir::new().unwrap();
+        let result = execute_foreach_with_dir(&config, Some(temp_dir.path().to_path_buf()))
+            .await
+            .unwrap();
 
         assert_eq!(result.total_items, 2);
         assert_eq!(result.successful_items, 2);
@@ -347,7 +367,10 @@ mod foreach_execution_tests {
             max_items: None,
         };
 
-        let result = execute_foreach(&config).await.unwrap();
+        let temp_dir = TempDir::new().unwrap();
+        let result = execute_foreach_with_dir(&config, Some(temp_dir.path().to_path_buf()))
+            .await
+            .unwrap();
 
         assert_eq!(result.total_items, 0);
         assert_eq!(result.successful_items, 0);
@@ -430,7 +453,10 @@ mod foreach_execution_tests {
             max_items: None,
         };
 
-        let result = execute_foreach(&config).await.unwrap();
+        let temp_dir = TempDir::new().unwrap();
+        let result = execute_foreach_with_dir(&config, Some(temp_dir.path().to_path_buf()))
+            .await
+            .unwrap();
 
         assert_eq!(result.total_items, 2);
         assert_eq!(result.successful_items, 2);
@@ -471,7 +497,10 @@ mod foreach_execution_tests {
             max_items: None,
         };
 
-        let result = execute_foreach(&config).await.unwrap();
+        let temp_dir = TempDir::new().unwrap();
+        let result = execute_foreach_with_dir(&config, Some(temp_dir.path().to_path_buf()))
+            .await
+            .unwrap();
 
         assert_eq!(result.total_items, 1);
         assert_eq!(result.successful_items, 1);
