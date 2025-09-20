@@ -5,7 +5,7 @@ use prodigy::storage::{
     backends::{FileBackend, MemoryBackend},
     config::{BackendConfig, BackendType, FileConfig, MemoryConfig, StorageConfig},
     factory::StorageFactory,
-    traits::{SessionStorage, UnifiedStorage},
+    traits::UnifiedStorage,
     types::{PersistedSession, SessionId, SessionState, EventRecord},
 };
 use serde_json::json;
@@ -257,7 +257,7 @@ fn bench_memory_backend(c: &mut Criterion) {
                 for session in &sessions {
                     backend
                         .session_storage()
-                        .save(&session)
+                        .save(session)
                         .await
                         .unwrap();
                 }
@@ -350,6 +350,7 @@ fn bench_factory_overhead(c: &mut Criterion) {
 }
 
 /// Calculate overhead percentage
+#[allow(dead_code)]
 fn calculate_overhead(abstraction_time: f64, direct_time: f64) -> f64 {
     ((abstraction_time - direct_time) / direct_time) * 100.0
 }
@@ -405,7 +406,7 @@ fn bench_overhead_verification(c: &mut Criterion) {
                         let data = "x".repeat(size);
                         (backend, data, temp_dir)
                     },
-                    |(backend, data, _temp_dir)| async move {
+                    |(backend, _data, _temp_dir)| async move {
                         let session = PersistedSession {
                             id: SessionId(Uuid::new_v4().to_string()),
                             state: SessionState::InProgress,
@@ -438,7 +439,7 @@ fn bench_overhead_verification(c: &mut Criterion) {
                         let data = "x".repeat(size);
                         (temp_dir, data)
                     },
-                    |(temp_dir, data)| async move {
+                    |(temp_dir, _data)| async move {
                         let session = PersistedSession {
                             id: SessionId(Uuid::new_v4().to_string()),
                             state: SessionState::InProgress,
