@@ -704,6 +704,12 @@ pub struct WorkflowExecutor {
     assumed_commits: Vec<String>,
     /// Path to the workflow file being executed (for checkpoint resume)
     workflow_path: Option<PathBuf>,
+    /// Track dry-run commands that would be executed
+    dry_run_commands: Vec<String>,
+    /// Track dry-run validation commands
+    dry_run_validations: Vec<String>,
+    /// Track potential failure handlers in dry-run
+    dry_run_potential_handlers: Vec<String>,
 }
 
 impl WorkflowExecutor {
@@ -1077,14 +1083,35 @@ impl WorkflowExecutor {
         if self.dry_run {
             // Display what validation would be performed
             if let Some(claude_cmd) = &validation_config.claude {
+                let validation_desc = format!("validation: claude {}", claude_cmd);
                 println!("[DRY RUN] Would run validation (Claude): {}", claude_cmd);
+                self.dry_run_validations.push(validation_desc);
             } else if let Some(shell_cmd) = validation_config
                 .shell
                 .as_ref()
                 .or(validation_config.command.as_ref())
             {
+                let validation_desc = format!("validation: shell {}", shell_cmd);
                 println!("[DRY RUN] Would run validation (shell): {}", shell_cmd);
+                self.dry_run_validations.push(validation_desc);
             }
+
+            // Track potential on_incomplete handler
+            if let Some(on_incomplete) = &validation_config.on_incomplete {
+                let handler_desc = if let Some(claude) = &on_incomplete.claude {
+                    format!("on_incomplete: claude {}", claude)
+                } else if let Some(shell) = &on_incomplete.shell {
+                    format!("on_incomplete: shell {}", shell)
+                } else {
+                    "on_incomplete: unknown".to_string()
+                };
+                self.dry_run_potential_handlers.push(format!(
+                    "{} (max {} attempts)",
+                    handler_desc,
+                    on_incomplete.max_attempts
+                ));
+            }
+
             println!(
                 "[DRY RUN] Validation threshold: {:.1}%",
                 validation_config.threshold
@@ -1475,6 +1502,31 @@ impl WorkflowExecutor {
             };
 
             println!("[DRY RUN] Would execute: {}", command_desc);
+            self.dry_run_commands.push(command_desc.clone());
+
+            // Track potential failure handlers
+            if let Some(on_failure) = &step.on_failure {
+                let handler_desc = match on_failure {
+                    OnFailureConfig::SingleCommand(cmd) => format!("on_failure: {}", cmd),
+                    OnFailureConfig::MultipleCommands(cmds) => {
+                        format!("on_failure: {} commands", cmds.len())
+                    }
+                    OnFailureConfig::Advanced { claude, shell, .. } => {
+                        if let Some(claude) = claude {
+                            format!("on_failure: claude {}", claude)
+                        } else if let Some(shell) = shell {
+                            format!("on_failure: shell {}", shell)
+                        } else {
+                            "on_failure: unknown".to_string()
+                        }
+                    }
+                    OnFailureConfig::Detailed(config) => {
+                        format!("on_failure: {} handler commands", config.commands.len())
+                    }
+                    _ => "on_failure: configured".to_string(),
+                };
+                self.dry_run_potential_handlers.push(handler_desc);
+            }
 
             // Handle commit_required in dry-run mode
             if step.commit_required {
@@ -1969,6 +2021,9 @@ impl WorkflowExecutor {
             workflow_path: None,
             dry_run: false,
             assumed_commits: Vec::new(),
+            dry_run_commands: Vec::new(),
+            dry_run_validations: Vec::new(),
+            dry_run_potential_handlers: Vec::new(),
         }
     }
 
@@ -1986,26 +2041,46 @@ impl WorkflowExecutor {
 
     /// Display dry-run summary at the end of execution
     pub fn display_dry_run_summary(&self) {
-        if !self.dry_run || self.assumed_commits.is_empty() {
+        if !self.dry_run {
             return;
         }
 
         println!("\n[DRY RUN] Summary:");
         println!("==================");
-        println!(
-            "Commands that would execute: {}",
-            self.completed_steps.len()
-        );
-        println!("Assumed commits: {}", self.assumed_commits.len());
 
-        if !self.assumed_commits.is_empty() {
-            println!("\nAssumed commits from:");
-            for commit in &self.assumed_commits {
-                println!("  - {}", commit);
+        // Show main commands
+        println!("Main commands that would execute: {}", self.dry_run_commands.len());
+        if !self.dry_run_commands.is_empty() {
+            for cmd in &self.dry_run_commands {
+                println!("  - {}", cmd);
             }
         }
 
-        println!("\nNo actual commands were executed.");
+        // Show validation commands
+        if !self.dry_run_validations.is_empty() {
+            println!("\nValidation commands that would execute: {}", self.dry_run_validations.len());
+            for val in &self.dry_run_validations {
+                println!("  - {}", val);
+            }
+        }
+
+        // Show potential failure handlers
+        if !self.dry_run_potential_handlers.is_empty() {
+            println!("\nPotential failure handlers (if needed):");
+            for handler in &self.dry_run_potential_handlers {
+                println!("  - {}", handler);
+            }
+        }
+
+        // Show assumed commits
+        if !self.assumed_commits.is_empty() {
+            println!("\nAssumed commits: {}", self.assumed_commits.len());
+            for commit in &self.assumed_commits {
+                println!("  - From: {}", commit);
+            }
+        }
+
+        println!("\nNo actual commands executed or files changed.");
         println!("To run for real, remove the --dry-run flag.");
     }
 
@@ -2070,6 +2145,9 @@ impl WorkflowExecutor {
             workflow_path: None,
             dry_run: false,
             assumed_commits: Vec::new(),
+            dry_run_commands: Vec::new(),
+            dry_run_validations: Vec::new(),
+            dry_run_potential_handlers: Vec::new(),
         }
     }
 
@@ -2105,6 +2183,9 @@ impl WorkflowExecutor {
             workflow_path: None,
             dry_run: false,
             assumed_commits: Vec::new(),
+            dry_run_commands: Vec::new(),
+            dry_run_validations: Vec::new(),
+            dry_run_potential_handlers: Vec::new(),
         }
     }
 
@@ -2473,13 +2554,15 @@ impl WorkflowExecutor {
             // Start iteration timing
             self.timing_tracker.start_iteration();
 
-            // Update session
-            self.session_manager
-                .update_session(SessionUpdate::IncrementIteration)
-                .await?;
-            self.session_manager
-                .update_session(SessionUpdate::StartIteration(iteration))
-                .await?;
+            // Update session (skip in dry-run mode to avoid misleading stats)
+            if !self.dry_run {
+                self.session_manager
+                    .update_session(SessionUpdate::IncrementIteration)
+                    .await?;
+                self.session_manager
+                    .update_session(SessionUpdate::StartIteration(iteration))
+                    .await?;
+            }
 
             // Execute workflow steps
             for (step_index, step) in workflow.steps.iter().enumerate() {

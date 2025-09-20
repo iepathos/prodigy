@@ -392,10 +392,14 @@ impl DefaultCookOrchestrator {
 
             // Complete session
             let summary = self.session_manager.complete_session().await?;
-            self.user_interaction.display_info(&format!(
-                "Session complete: {} iterations, {} files changed",
-                summary.iterations, summary.files_changed
-            ));
+
+            // Don't display misleading session stats in dry-run mode
+            if !config.command.dry_run {
+                self.user_interaction.display_info(&format!(
+                    "Session complete: {} iterations, {} files changed",
+                    summary.iterations, summary.files_changed
+                ));
+            }
         } else {
             return Err(anyhow!(
                 "Session {} has no workflow state to resume",
@@ -1078,10 +1082,14 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 
         // Complete session
         let summary = self.session_manager.complete_session().await?;
-        self.user_interaction.display_info(&format!(
-            "Session complete: {} iterations, {} files changed",
-            summary.iterations, summary.files_changed
-        ));
+
+        // Don't display session stats in dry-run mode (no actual changes)
+        if !config.command.dry_run {
+            self.user_interaction.display_info(&format!(
+                "Session complete: {} iterations, {} files changed",
+                summary.iterations, summary.files_changed
+            ));
+        }
 
         // Display health score if metrics flag is set
         if config.command.metrics {
