@@ -1722,6 +1722,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_complete_workflow_execution() {
+        // Temporarily disable test mode to allow mocks to be called
+        let _test_mode_backup = std::env::var("PRODIGY_TEST_MODE").ok();
+        std::env::remove_var("PRODIGY_TEST_MODE");
+
         let (mut executor, claude_mock, session_mock, user_mock, _) =
             create_test_executor_with_git_mock().await;
 
@@ -1817,6 +1821,11 @@ mod tests {
         assert_eq!(calls.len(), 2);
         assert!(calls[0].0.contains("/prodigy-analyze"));
         assert!(calls[1].0.contains("/prodigy-code-review"));
+
+        // Restore test mode if it was set
+        if let Some(test_mode) = _test_mode_backup {
+            std::env::set_var("PRODIGY_TEST_MODE", test_mode);
+        }
     }
 
     #[tokio::test]
