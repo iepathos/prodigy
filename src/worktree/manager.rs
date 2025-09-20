@@ -405,6 +405,142 @@ impl WorktreeManager {
         Some(WorktreeSession::new(name, branch, canonical_path))
     }
 
+    /// List sessions with detailed information including workflow and progress
+    ///
+    /// This method gathers enhanced session information from both worktree state
+    /// and session state files to provide comprehensive details about each session.
+    ///
+    /// # Returns
+    /// * `Result<DetailedWorktreeList>` - Detailed list of sessions with enhanced info
+    ///
+    /// # Errors
+    /// Returns error if unable to read session information
+    pub async fn list_detailed(&self) -> Result<super::display::DetailedWorktreeList> {
+        use super::display::{DetailedWorktreeList, EnhancedSessionInfo, WorktreeSummary};
+
+        // Get basic session list
+        let sessions = self.list_sessions().await?;
+        let mut enhanced_sessions = Vec::new();
+        let mut summary = WorktreeSummary::default();
+
+        for session in sessions {
+            // Load worktree state
+            let state_file = self
+                .base_dir
+                .join(".metadata")
+                .join(format!("{}.json", session.name));
+
+            if let Ok(state_json) = std::fs::read_to_string(&state_file) {
+                if let Ok(state) = serde_json::from_str::<WorktreeState>(&state_json) {
+                    // Create enhanced info from worktree state
+                    let mut enhanced = EnhancedSessionInfo::from(&state);
+                    enhanced.worktree_path = session.path.clone();
+
+                    // Try to load session state for workflow information
+                    let session_state_path =
+                        session.path.join(".prodigy").join("session_state.json");
+                    if let Ok(session_json) = std::fs::read_to_string(&session_state_path) {
+                        if let Ok(session_state) =
+                            serde_json::from_str::<serde_json::Value>(&session_json)
+                        {
+                            // Extract workflow information from session state
+                            if let Some(workflow_state) = session_state.get("workflow_state") {
+                                if let Some(path) =
+                                    workflow_state.get("workflow_path").and_then(|p| p.as_str())
+                                {
+                                    enhanced.workflow_path = Some(PathBuf::from(path));
+                                }
+
+                                if let Some(args) =
+                                    workflow_state.get("input_args").and_then(|a| a.as_array())
+                                {
+                                    enhanced.workflow_args = args
+                                        .iter()
+                                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                                        .collect();
+                                }
+
+                                if let Some(current_step) =
+                                    workflow_state.get("current_step").and_then(|s| s.as_u64())
+                                {
+                                    enhanced.current_step = current_step as usize;
+                                }
+
+                                if let Some(completed) = workflow_state
+                                    .get("completed_steps")
+                                    .and_then(|s| s.as_array())
+                                {
+                                    enhanced.total_steps = Some(completed.len());
+                                }
+                            }
+
+                            // Extract MapReduce progress if available
+                            if let Some(mapreduce_state) = session_state.get("mapreduce_state") {
+                                if let Some(processed) = mapreduce_state
+                                    .get("items_processed")
+                                    .and_then(|p| p.as_u64())
+                                {
+                                    enhanced.items_processed = Some(processed as u32);
+                                }
+                                if let Some(total) =
+                                    mapreduce_state.get("total_items").and_then(|t| t.as_u64())
+                                {
+                                    enhanced.total_items = Some(total as u32);
+                                }
+                            }
+                        }
+                    }
+
+                    // Try to determine parent branch from git
+                    enhanced.parent_branch = self.get_parent_branch(&session.branch).await.ok();
+
+                    // Update summary counts
+                    summary.total += 1;
+                    match state.status {
+                        WorktreeStatus::InProgress => summary.in_progress += 1,
+                        WorktreeStatus::Interrupted => summary.interrupted += 1,
+                        WorktreeStatus::Failed => summary.failed += 1,
+                        WorktreeStatus::Completed | WorktreeStatus::Merged => {
+                            summary.completed += 1
+                        }
+                        _ => {}
+                    }
+
+                    enhanced_sessions.push(enhanced);
+                }
+            }
+        }
+
+        // Sort by last activity (most recent first)
+        enhanced_sessions.sort_by(|a, b| b.last_activity.cmp(&a.last_activity));
+
+        Ok(DetailedWorktreeList {
+            sessions: enhanced_sessions,
+            summary,
+        })
+    }
+
+    /// Get the parent branch for a given branch
+    async fn get_parent_branch(&self, branch_name: &str) -> Result<String> {
+        let command = ProcessCommandBuilder::new("git")
+            .current_dir(&self.repo_path)
+            .args(["config", "--get", &format!("branch.{}.merge", branch_name)])
+            .build();
+
+        let output = self.subprocess.runner().run(command).await?;
+
+        if output.status.success() && !output.stdout.is_empty() {
+            // Extract branch name from refs/heads/main format
+            let parent = output.stdout.trim();
+            if let Some(name) = parent.strip_prefix("refs/heads/") {
+                return Ok(name.to_string());
+            }
+        }
+
+        // Default to main or master if we can't determine
+        Ok("main".to_string())
+    }
+
     /// List sessions from metadata files
     fn list_metadata_sessions(&self) -> Result<Vec<WorktreeSession>> {
         let metadata_dir = self.base_dir.join(".metadata");
