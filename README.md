@@ -447,38 +447,6 @@ steps:
 ### Common Issues and Solutions
 
 <details>
-<summary><strong>Error: Claude command not found</strong></summary>
-
-Ensure Claude Code CLI is installed and available in PATH:
-```bash
-# Check if Claude is installed
-which claude
-
-# If not installed, follow Claude Code installation guide
-# https://claude.ai/code
-```
-</details>
-
-<details>
-<summary><strong>Error: Workflow fails with "worktree already exists"</strong></summary>
-
-Clean up stale worktrees:
-```bash
-prodigy worktree clean -f
-```
-</details>
-
-<details>
-<summary><strong>Error: "PRODIGY_AUTOMATION not set" when running workflows</strong></summary>
-
-This is expected behavior. Prodigy sets this automatically during workflow execution.
-If you're testing manually, you can set it:
-```bash
-export PRODIGY_AUTOMATION=true
-```
-</details>
-
-<details>
 <summary><strong>Performance: Workflows running slowly</strong></summary>
 
 1. Check parallel execution limits:
@@ -525,23 +493,6 @@ prodigy dlq view <job-id>
 
 # Reprocess failed items
 prodigy dlq reprocess <job-id> --max-parallel 5
-```
-</details>
-
-<details>
-<summary><strong>Git: Merge conflicts after workflow completion</strong></summary>
-
-Prodigy uses isolated worktrees. To resolve:
-```bash
-# List worktrees
-prodigy worktree ls
-
-# Clean completed worktrees
-prodigy worktree clean
-
-# Manual merge if needed
-git worktree remove <path>
-git branch -D <branch>
 ```
 </details>
 
@@ -622,7 +573,7 @@ This allows you to keep normal runs clean while enabling detailed debugging when
 
 - 🐛 [Report Issues](https://github.com/iepathos/prodigy/issues)
 - 💬 [Discussions](https://github.com/iepathos/prodigy/discussions)
-- 📧 [Email Support](mailto:support@prodigy.dev)
+- 📧 [Email Support](mailto:iepathos@gmail.com)
 
 ## Contributing
 
