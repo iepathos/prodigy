@@ -1,12 +1,12 @@
-//! MMM project initialization for Claude Code integration
+//! Prodigy project initialization for Claude Code integration
 //!
-//! This module provides functionality to initialize MMM commands in a project,
+//! This module provides functionality to initialize Prodigy commands in a project,
 //! setting up the necessary directory structure and Claude Code command files
 //! that enable automated code improvement workflows.
 //!
 //! # Key Features
 //!
-//! - **Git Repository Validation**: Ensures MMM is only installed in git repositories
+//! - **Git Repository Validation**: Ensures Prodigy is only installed in git repositories
 //! - **Template Management**: Provides pre-built command templates for common workflows
 //! - **Smart Installation**: Handles existing commands and provides options for selective installation
 //! - **Interactive Mode**: Prompts user for confirmation when conflicts exist
@@ -101,6 +101,43 @@ async fn is_git_repository(path: &Path, subprocess: &SubprocessManager) -> bool 
         .await
         .map(|output| output.status.success())
         .unwrap_or(false)
+}
+
+/// Check if git is installed on the system
+async fn is_git_installed(subprocess: &SubprocessManager) -> bool {
+    use crate::subprocess::ProcessCommandBuilder;
+
+    let command = ProcessCommandBuilder::new("git").arg("--version").build();
+
+    subprocess
+        .runner()
+        .run(command)
+        .await
+        .map(|output| output.status.success())
+        .unwrap_or(false)
+}
+
+/// Initialize a git repository in the specified directory
+async fn initialize_git_repository(path: &Path, subprocess: &SubprocessManager) -> Result<()> {
+    use crate::subprocess::ProcessCommandBuilder;
+
+    let command = ProcessCommandBuilder::new("git")
+        .arg("init")
+        .current_dir(path)
+        .build();
+
+    let output = subprocess
+        .runner()
+        .run(command)
+        .await
+        .context("Failed to run git init")?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(output.stderr.as_bytes());
+        anyhow::bail!("Failed to initialize git repository: {}", stderr);
+    }
+
+    Ok(())
 }
 
 /// Select templates based on command configuration
@@ -329,16 +366,26 @@ async fn validate_project_structure(
         .canonicalize()
         .with_context(|| format!("Failed to resolve path: {}", target_dir.display()))?;
 
-    println!("🚀 Initializing MMM commands in: {}", target_dir.display());
+    println!(
+        "🚀 Initializing Prodigy commands in: {}",
+        target_dir.display()
+    );
 
     // Check if it's a git repository
     if !is_git_repository(&target_dir, subprocess).await {
-        anyhow::bail!(
-            "Error: {} is not a git repository.\n\
-             MMM commands must be installed in a git repository.\n\
-             Run 'git init' first or navigate to a git repository.",
-            target_dir.display()
-        );
+        // Check if git is installed
+        if !is_git_installed(subprocess).await {
+            anyhow::bail!(
+                "Error: git is not installed on your system.\n\
+                 Prodigy requires git to manage workflow history.\n\
+                 Please install git and try again."
+            );
+        }
+
+        // Initialize git repository automatically
+        println!("📦 Directory is not a git repository. Initializing git...");
+        initialize_git_repository(&target_dir, subprocess).await?;
+        println!("✅ Git repository initialized successfully.");
     }
 
     let commands_dir = initialize_directories(&target_dir)?;
@@ -413,6 +460,32 @@ mod tests {
         assert!(is_git_repository(path, &subprocess).await);
     }
 
+    #[tokio::test]
+    async fn test_is_git_installed() {
+        let subprocess = SubprocessManager::production();
+
+        // Git should be installed on test systems
+        assert!(is_git_installed(&subprocess).await);
+    }
+
+    #[tokio::test]
+    async fn test_initialize_git_repository() {
+        let temp_dir = TempDir::new().unwrap();
+        let path = temp_dir.path();
+        let subprocess = SubprocessManager::production();
+
+        // Should not be a git repo initially
+        assert!(!is_git_repository(path, &subprocess).await);
+
+        // Initialize git repository
+        let result = initialize_git_repository(path, &subprocess).await;
+        assert!(result.is_ok());
+
+        // Should now be a git repo
+        assert!(is_git_repository(path, &subprocess).await);
+        assert!(path.join(".git").exists());
+    }
+
     #[test]
     fn test_get_templates() {
         let all_templates = templates::get_all_templates();
@@ -429,7 +502,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_run_init_not_git_repo() {
+    async fn test_run_init_not_git_repo_auto_init() {
         let temp_dir = TempDir::new().unwrap();
         let cmd = InitCommand {
             force: false,
@@ -437,12 +510,16 @@ mod tests {
             path: Some(temp_dir.path().to_path_buf()),
         };
 
+        // Since git is installed on test systems, this should auto-initialize
         let result = run(cmd).await;
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("not a git repository"));
+        assert!(result.is_ok());
+
+        // Verify git repository was created
+        assert!(temp_dir.path().join(".git").exists());
+
+        // Verify commands were installed
+        let commands_dir = temp_dir.path().join(".claude").join("commands");
+        assert!(commands_dir.exists());
     }
 
     #[tokio::test]
@@ -957,9 +1034,12 @@ mod tests {
         };
         let subprocess = SubprocessManager::production();
 
+        // Should now auto-initialize git repository
         let result = validate_project_structure(&cmd, &subprocess).await;
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("git repository"));
+        assert!(result.is_ok());
+
+        // Verify git repository was created
+        assert!(temp_dir.path().join(".git").exists());
     }
 
     #[tokio::test]
