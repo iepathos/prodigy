@@ -5,6 +5,9 @@ use thiserror::Error;
 pub mod codes;
 pub mod helpers;
 
+#[cfg(test)]
+mod tests;
+
 pub use codes::{describe_error_code, ErrorCode};
 pub use helpers::{common, ErrorExt};
 
@@ -468,76 +471,3 @@ impl From<serde_json::Error> for ProdigyError {
 
 // Note: ProdigyError automatically converts to anyhow::Error because it implements std::error::Error
 
-// Conversion from storage module errors
-impl From<crate::storage::error::StorageError> for ProdigyError {
-    fn from(err: crate::storage::error::StorageError) -> Self {
-        use crate::storage::error::StorageError;
-
-        match err {
-            StorageError::Io(io_err) => ProdigyError::from(io_err),
-            StorageError::NotFound(msg) => {
-                ProdigyError::storage_with_code(ErrorCode::STORAGE_NOT_FOUND, msg, None)
-            }
-            StorageError::Lock(msg) => {
-                ProdigyError::storage_with_code(ErrorCode::STORAGE_LOCK_FAILED, msg, None)
-            }
-            StorageError::Serialization(msg) => {
-                ProdigyError::storage_with_code(ErrorCode::STORAGE_SERIALIZATION_ERROR, msg, None)
-            }
-            StorageError::Timeout(duration) => ProdigyError::storage_with_code(
-                ErrorCode::STORAGE_TEMPORARY,
-                format!("Operation timed out after {:?}", duration),
-                None,
-            ),
-            StorageError::Database(msg) => {
-                ProdigyError::storage_with_code(ErrorCode::STORAGE_BACKEND_ERROR, msg, None)
-            }
-            StorageError::Conflict(msg) => {
-                ProdigyError::storage_with_code(ErrorCode::STORAGE_LOCK_BUSY, msg, None)
-            }
-            StorageError::Unavailable(msg) => {
-                ProdigyError::storage_with_code(ErrorCode::STORAGE_TEMPORARY, msg, None)
-            }
-            StorageError::Configuration(msg) => {
-                ProdigyError::config_with_code(ErrorCode::CONFIG_INVALID_VALUE, msg)
-            }
-            StorageError::Transaction(msg) | StorageError::Connection(msg) => {
-                ProdigyError::storage_with_code(ErrorCode::STORAGE_BACKEND_ERROR, msg, None)
-            }
-            StorageError::Other(anyhow_err) => ProdigyError::storage(anyhow_err.to_string()),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_error_creation_and_chaining() {
-        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "test file");
-        let err = ProdigyError::storage("Cannot read file")
-            .with_source(io_err)
-            .with_context("while processing workflow");
-
-        assert_eq!(err.code(), ErrorCode::STORAGE_GENERIC);
-        assert!(err.to_string().contains("[E3000]"));
-        assert!(err.user_message().contains("Cannot read file"));
-    }
-
-    #[test]
-    fn test_error_codes() {
-        let err = ProdigyError::config_with_code(ErrorCode::CONFIG_NOT_FOUND, "Config not found");
-        assert_eq!(err.code(), ErrorCode::CONFIG_NOT_FOUND);
-        assert_eq!(err.exit_code(), 2);
-    }
-
-    #[test]
-    fn test_recoverable_errors() {
-        let recoverable = ProdigyError::execution("Command failed").with_exit_code(1);
-        assert!(recoverable.is_recoverable());
-
-        let fatal = ProdigyError::execution("Command killed").with_exit_code(137);
-        assert!(!fatal.is_recoverable());
-    }
-}

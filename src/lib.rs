@@ -42,3 +42,9 @@ pub mod subprocess;
 pub mod worktree;
 
 pub mod testing;
+
+// Re-export core error types for library consumers
+pub use error::{ProdigyError, ErrorCode};
+
+/// Standard result type for library operations
+pub type LibResult<T> = Result<T, ProdigyError>;

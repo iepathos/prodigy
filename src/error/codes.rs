@@ -81,17 +81,28 @@ impl ErrorCode {
 
     // Git errors (6000-6999)
     pub const GIT_GENERIC: u16 = 6000;
-    pub const GIT_REPO_NOT_FOUND: u16 = 6001;
-    pub const GIT_DIRTY_WORKTREE: u16 = 6002;
+    pub const GIT_NOT_REPO: u16 = 6001;
+    pub const GIT_DIRTY: u16 = 6002;
     pub const GIT_MERGE_CONFLICT: u16 = 6003;
     pub const GIT_BRANCH_NOT_FOUND: u16 = 6004;
-    pub const GIT_CHECKOUT_FAILED: u16 = 6005;
-    pub const GIT_COMMIT_FAILED: u16 = 6006;
-    pub const GIT_PUSH_FAILED: u16 = 6007;
-    pub const GIT_PULL_FAILED: u16 = 6008;
-    pub const GIT_REMOTE_ERROR: u16 = 6009;
-    pub const GIT_WORKTREE_ERROR: u16 = 6010;
-    pub const GIT_AUTH_FAILED: u16 = 6011;
+    pub const GIT_BRANCH_EXISTS: u16 = 6005;
+    pub const GIT_UNCOMMITTED: u16 = 6006;
+    pub const GIT_NOTHING_TO_COMMIT: u16 = 6007;
+    pub const GIT_WORKTREE_EXISTS: u16 = 6008;
+    pub const GIT_WORKTREE_NOT_FOUND: u16 = 6009;
+    pub const GIT_COMMIT_NOT_FOUND: u16 = 6010;
+    pub const GIT_DETACHED_HEAD: u16 = 6011;
+    pub const GIT_COMMAND_FAILED: u16 = 6012;
+    pub const GIT_INVALID_REF: u16 = 6013;
+    pub const GIT_REMOTE_NOT_FOUND: u16 = 6014;
+    pub const GIT_AUTH_FAILED: u16 = 6015;
+    pub const GIT_NETWORK: u16 = 6016;
+    pub const GIT_REPO_LOCKED: u16 = 6017;
+    pub const GIT_INVALID_PATH: u16 = 6018;
+    pub const GIT_PERMISSION: u16 = 6019;
+    pub const GIT_CHECKOUT_FAILED: u16 = 6020;
+    pub const GIT_PUSH_FAILED: u16 = 6021;
+    pub const GIT_PULL_FAILED: u16 = 6022;
 
     // Validation errors (7000-7999)
     pub const VALIDATION_GENERIC: u16 = 7000;
@@ -184,17 +195,28 @@ pub fn describe_error_code(code: u16) -> &'static str {
 
         // Git errors
         6000 => "Generic git error",
-        6001 => "Git repository not found",
-        6002 => "Git worktree has uncommitted changes",
+        6001 => "Not a git repository",
+        6002 => "Working tree is dirty",
         6003 => "Git merge conflict",
         6004 => "Git branch not found",
-        6005 => "Git checkout failed",
-        6006 => "Git commit failed",
-        6007 => "Git push failed",
-        6008 => "Git pull failed",
-        6009 => "Git remote error",
-        6010 => "Git worktree error",
-        6011 => "Git authentication failed",
+        6005 => "Git branch already exists",
+        6006 => "Uncommitted changes present",
+        6007 => "Nothing to commit",
+        6008 => "Git worktree already exists",
+        6009 => "Git worktree not found",
+        6010 => "Git commit not found",
+        6011 => "Repository is in detached HEAD state",
+        6012 => "Git command execution failed",
+        6013 => "Invalid git reference",
+        6014 => "Git remote not found",
+        6015 => "Git authentication failed",
+        6016 => "Git network error",
+        6017 => "Git repository is locked",
+        6018 => "Invalid path for git operation",
+        6019 => "Permission denied for git operation",
+        6020 => "Git checkout failed",
+        6021 => "Git push failed",
+        6022 => "Git pull failed",
 
         // Validation errors
         7000 => "Generic validation error",

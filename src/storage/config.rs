@@ -373,7 +373,7 @@ impl Default for StorageConfig {
 
 impl StorageConfig {
     /// Create configuration from environment variables
-    pub fn from_env() -> Result<Self, anyhow::Error> {
+    pub fn from_env() -> crate::LibResult<Self> {
         // Check for backend type
         let backend = std::env::var("PRODIGY_STORAGE_BACKEND")
             .ok()
@@ -397,7 +397,7 @@ impl StorageConfig {
             BackendType::Postgres => {
                 let connection_string = std::env::var("PRODIGY_POSTGRES_URL")
                     .or_else(|_| std::env::var("DATABASE_URL"))
-                    .map_err(|_| anyhow::anyhow!("PostgreSQL connection string not found"))?;
+                    .map_err(|_| crate::error::ProdigyError::config("PostgreSQL connection string not found"))?;
 
                 BackendConfig::Postgres(PostgresConfig {
                     connection_string,
@@ -412,7 +412,7 @@ impl StorageConfig {
             BackendType::Redis => {
                 let url = std::env::var("PRODIGY_REDIS_URL")
                     .or_else(|_| std::env::var("REDIS_URL"))
-                    .map_err(|_| anyhow::anyhow!("Redis URL not found"))?;
+                    .map_err(|_| crate::error::ProdigyError::config("Redis URL not found"))?;
 
                 BackendConfig::Redis(RedisConfig {
                     url,
@@ -425,7 +425,7 @@ impl StorageConfig {
             }
             BackendType::S3 => BackendConfig::S3(S3Config {
                 bucket: std::env::var("PRODIGY_S3_BUCKET")
-                    .map_err(|_| anyhow::anyhow!("S3 bucket not specified"))?,
+                    .map_err(|_| crate::error::ProdigyError::config("S3 bucket not specified"))?,
                 region: std::env::var("AWS_REGION")
                     .or_else(|_| std::env::var("AWS_DEFAULT_REGION"))
                     .unwrap_or_else(|_| "us-east-1".to_string()),

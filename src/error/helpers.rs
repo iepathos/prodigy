@@ -89,7 +89,7 @@ pub mod common {
     /// Create a git repository not found error
     pub fn git_repo_not_found(path: impl AsRef<std::path::Path>) -> ProdigyError {
         ProdigyError::git(
-            ErrorCode::GIT_REPO_NOT_FOUND,
+            ErrorCode::GIT_NOT_REPO,
             format!("Not a git repository: {}", path.as_ref().display()),
             "repository check",
         )

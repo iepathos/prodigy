@@ -1,11 +1,11 @@
 //! Git output parsers
 
 use super::types::*;
-use anyhow::Result;
+use crate::LibResult;
 use std::path::{Path, PathBuf};
 
 /// Parse git status --porcelain=v2 output
-pub fn parse_status_output(output: &str) -> Result<GitStatus> {
+pub fn parse_status_output(output: &str) -> LibResult<GitStatus> {
     let mut status = GitStatus::new();
 
     for line in output.lines() {
@@ -19,7 +19,7 @@ pub fn parse_status_output(output: &str) -> Result<GitStatus> {
     Ok(status)
 }
 
-fn parse_status_line_entry(status: &mut GitStatus, line: &str) -> Result<()> {
+fn parse_status_line_entry(status: &mut GitStatus, line: &str) -> LibResult<()> {
     match line.chars().next() {
         Some('#') => parse_header_line(status, line),
         Some('1') => parse_status_line(status, line),
@@ -31,7 +31,7 @@ fn parse_status_line_entry(status: &mut GitStatus, line: &str) -> Result<()> {
     }
 }
 
-fn parse_header_line(status: &mut GitStatus, line: &str) -> Result<()> {
+fn parse_header_line(status: &mut GitStatus, line: &str) -> LibResult<()> {
     if let Some(branch_name) = line.strip_prefix("# branch.head ") {
         if branch_name != "(detached)" {
             status.branch = Some(branch_name.to_string());
@@ -43,7 +43,7 @@ fn parse_header_line(status: &mut GitStatus, line: &str) -> Result<()> {
     Ok(())
 }
 
-fn parse_untracked_line(status: &mut GitStatus, line: &str) -> Result<()> {
+fn parse_untracked_line(status: &mut GitStatus, line: &str) -> LibResult<()> {
     if let Some(path) = line.strip_prefix("? ") {
         let path = path.trim();
         if !path.is_empty() {
@@ -53,7 +53,7 @@ fn parse_untracked_line(status: &mut GitStatus, line: &str) -> Result<()> {
     Ok(())
 }
 
-fn parse_status_line(status: &mut GitStatus, line: &str) -> Result<()> {
+fn parse_status_line(status: &mut GitStatus, line: &str) -> LibResult<()> {
     let parts: Vec<&str> = line.split_whitespace().collect();
     if parts.len() < 9 {
         return Ok(());
@@ -98,7 +98,7 @@ fn parse_status_line(status: &mut GitStatus, line: &str) -> Result<()> {
     Ok(())
 }
 
-fn parse_renamed_line(status: &mut GitStatus, line: &str) -> Result<()> {
+fn parse_renamed_line(status: &mut GitStatus, line: &str) -> LibResult<()> {
     let parts: Vec<&str> = line.splitn(10, ' ').collect();
     if parts.len() < 10 {
         return Ok(());
@@ -116,7 +116,7 @@ fn parse_renamed_line(status: &mut GitStatus, line: &str) -> Result<()> {
     Ok(())
 }
 
-fn parse_unmerged_line(status: &mut GitStatus, line: &str) -> Result<()> {
+fn parse_unmerged_line(status: &mut GitStatus, line: &str) -> LibResult<()> {
     let parts: Vec<&str> = line.split_whitespace().collect();
     if parts.len() < 11 {
         return Ok(());
@@ -129,7 +129,7 @@ fn parse_unmerged_line(status: &mut GitStatus, line: &str) -> Result<()> {
 }
 
 /// Parse git diff --numstat output
-pub fn parse_diff_output(output: &str) -> Result<GitDiff> {
+pub fn parse_diff_output(output: &str) -> LibResult<GitDiff> {
     let mut diff = GitDiff::new();
 
     for line in output.lines() {
@@ -169,7 +169,7 @@ pub fn parse_diff_output(output: &str) -> Result<GitDiff> {
 }
 
 /// Parse git worktree list --porcelain output
-pub fn parse_worktree_list(output: &str) -> Result<Vec<WorktreeInfo>> {
+pub fn parse_worktree_list(output: &str) -> LibResult<Vec<WorktreeInfo>> {
     // Split output into blocks separated by empty lines
     let blocks = split_into_worktree_blocks(output);
 
