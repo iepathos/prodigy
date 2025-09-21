@@ -3,30 +3,20 @@
 # Generate a new specification with validation and refinement
 # Usage: prodigy cook spec --args "Description of feature to implement"
 
-# Step 1: Generate initial specification
+# Step 1: Generate initial specification(s)
 - claude: "/prodigy-add-spec $ARG"
   commit_required: true
 
-# Step 2: Extract spec number from the most recent spec file (using git context variables)
-- shell: "echo '${step.files_added:specs/*.md}' | head -1 | sed 's/specs\\///' | sed 's/-.*//' | tr -d '\n'"
-  capture_output: spec_number
-
-# Step 3: Validate spec completeness and focus
-- claude: "/prodigy-validate-spec-completeness ${shell.spec_number} $ARG --output .prodigy/spec-validation.json"
+# Step 2: Validate all created specifications
+- claude: "/prodigy-validate-all-specs ${step.files_added:specs/*.md} --original '$ARG' --output .prodigy/spec-validation.json"
   validate:
     result_file: ".prodigy/spec-validation.json"
-    threshold: 100  # Spec must be 100% complete and focused
+    threshold: 100  # All specs must be 100% complete and focused
     on_incomplete:
-      claude: "/prodigy-refine-spec ${shell.spec_number} $ARG --gaps ${validation.gaps}"
+      claude: "/prodigy-refine-specs ${validation.incomplete_specs} --gaps ${validation.gaps}"
       max_attempts: 5
-      fail_workflow: false  # Continue even if we can't perfect the spec
+      fail_workflow: false  # Continue even if we can't perfect the specs
       commit_required: true  # Require commit for refinements
 
-# Step 4: Final validation after refinements
-- claude: "/prodigy-validate-spec-completeness ${shell.spec_number} $ARG --output .prodigy/final-validation.json"
-  capture_output: final_result
-
-# Step 5: Report result
-- shell: "echo 'Specification ${shell.spec_number} created and validated'"
-- shell: "cat .prodigy/final-validation.json | jq -r '.completion_percentage' | xargs printf 'Completeness: %.0f%%\n'"
-- shell: "cat .prodigy/final-validation.json | jq -r '.focus_analysis.is_focused' | xargs printf 'Is Focused: %s\n'"
+# Step 3: Final reporting
+- claude: "/prodigy-report-specs ${workflow.files_added:specs/*.md}"
