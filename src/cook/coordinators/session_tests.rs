@@ -4,7 +4,6 @@
 mod tests {
     use crate::cook::coordinators::session::{DefaultSessionCoordinator, SessionCoordinator};
     use crate::cook::session::{SessionStatus, SessionUpdate};
-    use crate::simple_state::StateManager;
     use crate::testing::mocks::MockSessionManager;
     use std::sync::Arc;
 
@@ -12,9 +11,7 @@ mod tests {
     async fn test_start_session() {
         // Setup
         let mock_session = Arc::new(MockSessionManager::new());
-        let state_manager = Arc::new(StateManager::new().unwrap());
-
-        let coordinator = DefaultSessionCoordinator::new(mock_session.clone(), state_manager);
+        let coordinator = DefaultSessionCoordinator::new(mock_session.clone());
 
         // Test
         let result = coordinator.start_session("test-session-123").await;
@@ -32,9 +29,7 @@ mod tests {
     async fn test_start_session_failure() {
         // Setup
         let mock_session = Arc::new(MockSessionManager::failing());
-        let state_manager = Arc::new(StateManager::new().unwrap());
-
-        let coordinator = DefaultSessionCoordinator::new(mock_session.clone(), state_manager);
+        let coordinator = DefaultSessionCoordinator::new(mock_session.clone());
 
         // Test
         let result = coordinator.start_session("test-session").await;
@@ -48,9 +43,7 @@ mod tests {
     async fn test_update_status() {
         // Setup
         let mock_session = Arc::new(MockSessionManager::new());
-        let state_manager = Arc::new(StateManager::new().unwrap());
-
-        let coordinator = DefaultSessionCoordinator::new(mock_session.clone(), state_manager);
+        let coordinator = DefaultSessionCoordinator::new(mock_session.clone());
 
         // Start session first
         coordinator.start_session("test-session").await.unwrap();
@@ -79,9 +72,7 @@ mod tests {
     async fn test_track_iteration() {
         // Setup
         let mock_session = Arc::new(MockSessionManager::new());
-        let state_manager = Arc::new(StateManager::new().unwrap());
-
-        let coordinator = DefaultSessionCoordinator::new(mock_session.clone(), state_manager);
+        let coordinator = DefaultSessionCoordinator::new(mock_session.clone());
 
         // Start session first
         coordinator.start_session("test-session").await.unwrap();
@@ -105,9 +96,7 @@ mod tests {
     async fn test_complete_session_success() {
         // Setup
         let mock_session = Arc::new(MockSessionManager::new());
-        let state_manager = Arc::new(StateManager::new().unwrap());
-
-        let coordinator = DefaultSessionCoordinator::new(mock_session.clone(), state_manager);
+        let coordinator = DefaultSessionCoordinator::new(mock_session.clone());
 
         // Start session and track some work
         coordinator.start_session("test-session").await.unwrap();
@@ -129,9 +118,7 @@ mod tests {
     async fn test_complete_session_failure() {
         // Setup
         let mock_session = Arc::new(MockSessionManager::new());
-        let state_manager = Arc::new(StateManager::new().unwrap());
-
-        let coordinator = DefaultSessionCoordinator::new(mock_session.clone(), state_manager);
+        let coordinator = DefaultSessionCoordinator::new(mock_session.clone());
 
         // Start session
         coordinator.start_session("test-session").await.unwrap();
@@ -151,9 +138,7 @@ mod tests {
     async fn test_get_session_info() {
         // Setup
         let mock_session = Arc::new(MockSessionManager::new());
-        let state_manager = Arc::new(StateManager::new().unwrap());
-
-        let coordinator = DefaultSessionCoordinator::new(mock_session.clone(), state_manager);
+        let coordinator = DefaultSessionCoordinator::new(mock_session.clone());
 
         // Test before starting session
         let info = coordinator.get_session_info().await.unwrap();
@@ -176,9 +161,7 @@ mod tests {
     async fn test_resume_session() {
         // Setup
         let mock_session = Arc::new(MockSessionManager::new());
-        let state_manager = Arc::new(StateManager::new().unwrap());
-
-        let coordinator = DefaultSessionCoordinator::new(mock_session.clone(), state_manager);
+        let coordinator = DefaultSessionCoordinator::new(mock_session.clone());
 
         // Start session and track iterations
         coordinator
@@ -210,9 +193,7 @@ mod tests {
     async fn test_session_lifecycle() {
         // Setup
         let mock_session = Arc::new(MockSessionManager::new());
-        let state_manager = Arc::new(StateManager::new().unwrap());
-
-        let coordinator = DefaultSessionCoordinator::new(mock_session.clone(), state_manager);
+        let coordinator = DefaultSessionCoordinator::new(mock_session.clone());
 
         // Full lifecycle test
         // 1. Start
@@ -246,9 +227,7 @@ mod tests {
     async fn test_error_propagation() {
         // Setup with failing mock
         let mock_session = Arc::new(MockSessionManager::failing());
-        let state_manager = Arc::new(StateManager::new().unwrap());
-
-        let coordinator = DefaultSessionCoordinator::new(mock_session.clone(), state_manager);
+        let coordinator = DefaultSessionCoordinator::new(mock_session.clone());
 
         // Test that errors propagate correctly
         assert!(coordinator.start_session("test").await.is_err());

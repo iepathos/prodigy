@@ -34,7 +34,7 @@ mod tests {
     fn test_factory_creates_test_storage() {
         let storage = StorageFactory::create_test_storage().unwrap();
         // The storage should be usable
-        let _ = storage.session_storage();
-        let _ = storage.event_storage();
+        // Storage interface methods have been removed - storage operations now go through unified session manager
+        assert!(storage.base_dir().exists());
     }
 }

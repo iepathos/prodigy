@@ -1,7 +1,6 @@
 //! Session coordinator for managing session lifecycle
 
 use crate::cook::session::{SessionManager, SessionStatus, SessionUpdate};
-use crate::simple_state::StateManager;
 use anyhow::Result;
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -40,17 +39,14 @@ pub trait SessionCoordinator: Send + Sync {
 /// Default implementation of session coordinator
 pub struct DefaultSessionCoordinator {
     session_manager: Arc<dyn SessionManager>,
-    #[allow(dead_code)]
-    state_manager: Arc<StateManager>,
     current_session_id: std::sync::Mutex<Option<String>>,
 }
 
 impl DefaultSessionCoordinator {
     /// Create new session coordinator
-    pub fn new(session_manager: Arc<dyn SessionManager>, state_manager: Arc<StateManager>) -> Self {
+    pub fn new(session_manager: Arc<dyn SessionManager>) -> Self {
         Self {
             session_manager,
-            state_manager,
             current_session_id: std::sync::Mutex::new(None),
         }
     }

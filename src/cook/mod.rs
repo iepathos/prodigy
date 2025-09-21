@@ -36,7 +36,6 @@ mod dry_run_tests;
 use crate::abstractions::git::RealGitOperations;
 use crate::config::{workflow::WorkflowConfig, ConfigLoader};
 use crate::unified_session::SessionId;
-use crate::simple_state::StateManager;
 use anyhow::{anyhow, Context as _, Result};
 use std::path::Path;
 use std::sync::Arc;
@@ -169,7 +168,6 @@ async fn create_orchestrator(
         )
         .await?,
     );
-    let state_manager = Arc::new(StateManager::new()?);
 
     // Create user interaction with verbosity from command args
     let verbosity = interaction::VerbosityLevel::from_args(cmd.verbosity, cmd.quiet);
@@ -215,7 +213,6 @@ async fn create_orchestrator(
     // Create session coordinator
     let _session_coordinator = Arc::new(coordinators::DefaultSessionCoordinator::new(
         session_manager.clone(),
-        state_manager.clone(),
     ));
 
     // Create execution coordinator
@@ -248,7 +245,6 @@ async fn create_orchestrator(
         claude_executor.clone(),
         user_interaction.clone(),
         git_operations,
-        StateManager::new()?,
         (*subprocess).clone(),
     )))
 }

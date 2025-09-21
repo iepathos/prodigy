@@ -4,7 +4,6 @@
 
 use crate::abstractions::git::GitOperations;
 use crate::config::{WorkflowCommand, WorkflowConfig};
-use crate::simple_state::StateManager;
 use crate::testing::config::TestConfiguration;
 use crate::worktree::WorktreeManager;
 use anyhow::{anyhow, Context, Result};
@@ -103,9 +102,6 @@ pub struct DefaultCookOrchestrator {
     user_interaction: Arc<dyn UserInteraction>,
     /// Git operations
     git_operations: Arc<dyn GitOperations>,
-    /// State manager
-    #[allow(dead_code)]
-    state_manager: StateManager,
     /// Subprocess manager
     subprocess: crate::subprocess::SubprocessManager,
     /// Test configuration
@@ -121,7 +117,6 @@ impl DefaultCookOrchestrator {
         claude_executor: Arc<dyn ClaudeExecutor>,
         user_interaction: Arc<dyn UserInteraction>,
         git_operations: Arc<dyn GitOperations>,
-        state_manager: StateManager,
         subprocess: crate::subprocess::SubprocessManager,
     ) -> Self {
         Self {
@@ -130,7 +125,6 @@ impl DefaultCookOrchestrator {
             claude_executor,
             user_interaction,
             git_operations,
-            state_manager,
             subprocess,
             test_config: None,
         }
@@ -224,7 +218,6 @@ impl DefaultCookOrchestrator {
         claude_executor: Arc<dyn ClaudeExecutor>,
         user_interaction: Arc<dyn UserInteraction>,
         git_operations: Arc<dyn GitOperations>,
-        state_manager: StateManager,
         subprocess: crate::subprocess::SubprocessManager,
         test_config: Arc<TestConfiguration>,
     ) -> Self {
@@ -234,7 +227,6 @@ impl DefaultCookOrchestrator {
             claude_executor,
             user_interaction,
             git_operations,
-            state_manager,
             subprocess,
             test_config: Some(test_config),
         }
