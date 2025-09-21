@@ -28,6 +28,11 @@ prodigy/
 ├── src/
 │   ├── main.rs                 # CLI entry point
 │   ├── lib.rs                  # Public API
+│   ├── error/                  # Unified error handling system
+│   │   ├── mod.rs              # Core error types and traits
+│   │   ├── codes.rs            # Error code registry (E0001-E9999)
+│   │   ├── helpers.rs          # Migration helpers and extensions
+│   │   └── migration_example.rs # Migration patterns and examples
 │   ├── storage/                # Storage abstraction layer
 │   │   ├── mod.rs              # Storage module exports
 │   │   ├── traits.rs           # Core storage traits

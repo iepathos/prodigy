@@ -35,13 +35,17 @@
 - Use `futures::stream` for stream processing
 
 ### Error Handling
-- Use `anyhow::Result` for application errors
-- Use `thiserror` for custom error types
+- **Use ProdigyError**: Primary error type for all modules
+- **Error codes**: Use ErrorCode constants for structured errors
+- **User messages**: Provide clear, actionable user messages
+- **Context chaining**: Add context with `.with_context()` and `.with_source()`
+- **Conversion helpers**: Use ErrorExt trait for clean conversions
+- **Recovery patterns**: Check `.is_recoverable()` for retry logic
+- **Migration**: Use helpers module for gradual migration
 - Propagate errors with `?` operator
-- Include context with `.context()` method
 - **Avoid unwrap()**: Use `.expect()` with descriptive message for impossible errors
 - **Prefer map_or()**: Replace `.is_none() || .unwrap()` patterns with `.map_or(true, |v| ...)`
-- **Add context**: Always provide error context for debugging: `.context("Operation failed")?`
+- **Add context**: Always provide error context for debugging: `.with_context("Operation failed")`
 - **Error recovery**: Use match for recoverable errors, `?` for critical ones
 
 ### Testing
