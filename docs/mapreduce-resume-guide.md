@@ -168,11 +168,11 @@ After resume, process DLQ items separately:
 # View DLQ items
 prodigy dlq list mapreduce-20240101-123456
 
-# Reprocess all DLQ items
-prodigy dlq reprocess mapreduce-20240101-123456
+# Retry all DLQ items
+prodigy dlq retry mapreduce-20240101-123456
 
-# Reprocess with custom parallelism
-prodigy dlq reprocess mapreduce-20240101-123456 --max-parallel 10
+# Retry with custom parallelism
+prodigy dlq retry mapreduce-20240101-123456 --max-parallel 10
 ```
 
 ## Performance Considerations
@@ -237,7 +237,7 @@ cat ~/.prodigy/state/{repo}/mapreduce/jobs/{job_id}/latest.json | jq .
 
 ```bash
 # Original job interrupted after processing 50/100 items
-$ prodigy cook analyze-codebase.yaml
+$ prodigy run analyze-codebase.yaml
 [... processes 50 items, then interrupted with Ctrl+C ...]
 
 # Resume from where it left off
@@ -266,7 +266,7 @@ Granting 3 additional retry attempts
 [... retries failed items ...]
 
 # Process DLQ items separately
-$ prodigy dlq reprocess mapreduce-20240101-123456
+$ prodigy dlq retry mapreduce-20240101-123456
 Processing 10 DLQ items...
 ```
 

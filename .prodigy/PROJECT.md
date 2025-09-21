@@ -41,12 +41,11 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **Session Persistence**: Session state and timing data
 
 ### CLI Commands ✅
-- `prodigy run` - Execute workflows (simplified alias for cook) ✅
+- `prodigy run` - Execute workflows (primary command) ✅
 - `prodigy exec` - Execute single command with retry support ✅
 - `prodigy batch` - Process multiple files in parallel ✅
 - `prodigy resume` - Resume interrupted workflows with checkpoint recovery ✅
 - `prodigy resume-job` - Resume MapReduce jobs with detailed progress reporting ✅
-- `prodigy cook` - Execute workflows (original command)
 - `prodigy goal-seek` - Standalone goal-seeking operations ✅
 - `prodigy worktree` - Git worktree management
 - `prodigy init` - Claude command initialization

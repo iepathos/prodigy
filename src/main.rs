@@ -137,57 +137,6 @@ enum Commands {
         command: CheckpointCommands,
     },
 
-    /// [DEPRECATED] Use 'run' instead - Cook your code to perfection
-    #[command(name = "cook", alias = "improve")]
-    Cook {
-        /// Playbook file to execute (required)
-        #[arg(value_name = "PLAYBOOK", help = "Playbook file defining the workflow")]
-        playbook: PathBuf,
-
-        /// Repository path to run in (defaults to current directory)
-        #[arg(
-            short = 'p',
-            long,
-            value_name = "PATH",
-            help = "Repository path to run in"
-        )]
-        path: Option<PathBuf>,
-
-        /// Maximum number of iterations to run (default: 1)
-        #[arg(short = 'n', long, default_value = "1")]
-        max_iterations: u32,
-
-        /// Run in an isolated git worktree for parallel execution
-        #[arg(short = 'w', long)]
-        worktree: bool,
-
-        /// File patterns to map over
-        #[arg(long, value_name = "PATTERN")]
-        map: Vec<String>,
-
-        /// Direct arguments to pass to commands
-        #[arg(long, value_name = "VALUE")]
-        args: Vec<String>,
-
-        /// Stop on first failure when processing multiple files
-        #[arg(long)]
-        fail_fast: bool,
-
-        /// Automatically answer yes to all prompts
-        #[arg(short = 'y', long = "yes")]
-        auto_accept: bool,
-        /// Enable metrics tracking
-        #[arg(long)]
-        metrics: bool,
-
-        /// Resume an interrupted session
-        #[arg(long, value_name = "SESSION_ID", conflicts_with = "worktree")]
-        resume: Option<String>,
-
-        /// Dry-run mode - show what would be executed without running
-        #[arg(long, help = "Preview commands without executing them")]
-        dry_run: bool,
-    },
     /// Execute goal-seeking operation with iterative refinement
     #[command(name = "goal-seek", alias = "seek")]
     GoalSeek {
@@ -576,24 +525,6 @@ enum DlqCommands {
         /// Job ID containing the item
         #[arg(long)]
         job_id: Option<String>,
-    },
-    /// Reprocess items from the DLQ
-    Reprocess {
-        /// Item IDs to reprocess (comma-separated)
-        #[arg(value_delimiter = ',')]
-        item_ids: Vec<String>,
-
-        /// Job ID to reprocess from
-        #[arg(long)]
-        job_id: Option<String>,
-
-        /// Maximum retries for reprocessing
-        #[arg(long, default_value = "2")]
-        max_retries: u32,
-
-        /// Force reprocessing even if not eligible
-        #[arg(long)]
-        force: bool,
     },
     /// Analyze failure patterns in the DLQ
     Analyze {
@@ -1022,17 +953,6 @@ fn init_tracing(verbose: u8) {
     trace!("Full CLI args: {:?}", std::env::args().collect::<Vec<_>>());
 }
 
-/// Check if the deprecated 'improve' alias was used and emit a warning
-fn check_deprecated_alias() {
-    let cli_args: Vec<String> = std::env::args().collect();
-    if cli_args.len() > 1 && cli_args[1] == "improve" {
-        eprintln!(
-            "Note: 'improve' has been renamed to 'cook'. Please use 'prodigy cook' in the future."
-        );
-        eprintln!("The 'improve' alias will be removed in a future version.\n");
-    }
-}
-
 /// Parameters for goal-seeking operation
 struct GoalSeekParams {
     goal: String,
@@ -1196,43 +1116,6 @@ async fn execute_command(command: Option<Commands>, verbose: u8) -> anyhow::Resu
             path,
         }) => run_resume_workflow(workflow_id, force, from_checkpoint, path).await,
         Some(Commands::Checkpoints { command }) => run_checkpoints_command(command).await,
-        Some(Commands::Cook {
-            playbook,
-            path,
-            max_iterations,
-            worktree,
-            map,
-            args,
-            fail_fast,
-            auto_accept,
-            metrics,
-            resume,
-            dry_run,
-        }) => {
-            check_deprecated_alias();
-
-            // Show deprecation warning for cook command
-            eprintln!("⚠️  Warning: 'cook' command is deprecated and will be removed in a future version.");
-            eprintln!("   Please use 'prodigy run' instead.");
-            eprintln!();
-
-            let cook_cmd = prodigy::cook::command::CookCommand {
-                playbook,
-                path,
-                max_iterations,
-                worktree,
-                map,
-                args,
-                fail_fast,
-                auto_accept,
-                metrics,
-                resume,
-                quiet: false,
-                verbosity: verbose,
-                dry_run,
-            };
-            prodigy::cook::cook(cook_cmd).await
-        }
         Some(Commands::GoalSeek {
             goal,
             command,
@@ -2268,14 +2151,6 @@ async fn run_dlq_command(command: DlqCommands) -> anyhow::Result<()> {
 
             dlq.export_items(&output).await?;
             println!("DLQ items exported to {:?} in {} format", output, format);
-        }
-        DlqCommands::Reprocess {
-            item_ids: _,
-            job_id: _,
-            max_retries: _,
-            force: _,
-        } => {
-            anyhow::bail!("This command is deprecated. Please use 'prodigy dlq retry' instead.");
         }
         DlqCommands::Retry {
             workflow_id,

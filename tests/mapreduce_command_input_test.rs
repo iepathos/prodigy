@@ -26,11 +26,9 @@ map:
   input: "ls *.txt"
 
   agent_template:
-    commands:
-      - shell: "echo Processing ${item}"
+    - shell: "echo Processing ${item}"
 
   max_parallel: 2
-  timeout_per_agent: 30
 "#;
 
     let config = parse_mapreduce_workflow(workflow_yaml).unwrap();
@@ -70,8 +68,7 @@ map:
   input: "grep -r 'TODO' . | cut -d: -f1 | sort -u"
 
   agent_template:
-    commands:
-      - shell: "echo Found TODO in ${item}"
+    - shell: "echo Found TODO in ${item}"
 
   max_parallel: 3
 "#;
@@ -111,8 +108,7 @@ map:
   json_path: "$.items[*]"
 
   agent_template:
-    commands:
-      - shell: "echo Processing task ${item.task}"
+    - shell: "echo Processing task ${item.task}"
 
   max_parallel: 2
 "#;
@@ -133,8 +129,7 @@ map:
   input: "this_command_does_not_exist"
 
   agent_template:
-    commands:
-      - shell: "echo Should not reach here"
+    - shell: "echo Should not reach here"
 
   max_parallel: 1
 "#;
@@ -156,8 +151,7 @@ map:
   input: "find ${SEARCH_DIR:-src} -name '*.rs' -type f"
 
   agent_template:
-    commands:
-      - shell: "echo Analyzing ${item}"
+    - shell: "echo Analyzing ${item}"
 
   max_parallel: 5
 "#;
@@ -176,19 +170,17 @@ mode: mapreduce
 
 map:
   input: "sleep 10 && echo 'should timeout'"
-  timeout_per_agent: 1
 
   agent_template:
-    commands:
-      - shell: "echo ${item}"
+    - shell: "echo ${item}"
 
   max_parallel: 1
 "#;
 
     let config = parse_mapreduce_workflow(workflow_yaml).unwrap();
-    assert_eq!(config.map.timeout_per_agent, Some(1));
+    assert_eq!(config.map.input, "sleep 10 && echo 'should timeout'");
 
-    // In actual execution, this should timeout after 1 second
+    // In actual execution, timeout would be handled by overall workflow timeout
 }
 
 /// Test empty command output handling
@@ -205,8 +197,7 @@ map:
   input: "ls *.nonexistent 2>/dev/null || true"
 
   agent_template:
-    commands:
-      - shell: "echo Processing ${item}"
+    - shell: "echo Processing ${item}"
 
   max_parallel: 1
 "#;
