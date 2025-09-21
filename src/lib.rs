@@ -16,7 +16,7 @@
 //! - `config` - Configuration management for the tool
 //! - `cook` - Core cooking command implementation with mapping support
 //! - `git` - Granular, testable git operations layer
-//! - `init` - Initialize MMM commands in projects
+//! - `init` - Initialize Prodigy commands in projects
 //! - `scoring` - Unified project health scoring system
 //! - `simple_state` - Minimal state management with JSON persistence
 //! - `storage` - Global storage management for events, DLQ, and job state
