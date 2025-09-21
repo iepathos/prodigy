@@ -153,7 +153,7 @@ fn bench_work_item_distribution(c: &mut Criterion) {
                     || {
                         let items = create_work_items(num_items, "medium");
                         let temp_dir = TempDir::new().unwrap();
-                        let storage = GlobalStorage::new(temp_dir.path()).unwrap();
+                        let storage = GlobalStorage::new().unwrap();
                         (items, storage, temp_dir)
                     },
                     |(items, _storage, _temp_dir)| async move {
@@ -186,7 +186,7 @@ fn bench_agent_coordination(c: &mut Criterion) {
                     || {
                         let job = create_mapreduce_job(100, max_parallel);
                         let temp_dir = TempDir::new().unwrap();
-                        let storage = GlobalStorage::new(temp_dir.path()).unwrap();
+                        let storage = GlobalStorage::new().unwrap();
                         (job, storage, temp_dir)
                     },
                     |(job, _storage, temp_dir)| async move {
@@ -223,7 +223,7 @@ fn bench_event_logging_throughput(c: &mut Criterion) {
                 b.to_async(&rt).iter_batched(
                     || {
                         let temp_dir = TempDir::new().unwrap();
-                        let storage = GlobalStorage::new(temp_dir.path()).unwrap();
+                        let storage = GlobalStorage::new().unwrap();
                         let events: Vec<_> = (0..num_events)
                             .map(|i| {
                                 json!({
@@ -243,7 +243,7 @@ fn bench_event_logging_throughput(c: &mut Criterion) {
                         // Simulate event logging to storage
                         for event in events {
                             // Write to events directory
-                            let _ = storage.get_events_dir("bench-job").await;
+                            let _ = storage.get_events_dir("test-repo", "bench-job").await;
                             black_box(event);
                         }
                     },
@@ -268,12 +268,12 @@ fn bench_cross_worktree_sync(c: &mut Criterion) {
                 b.to_async(&rt).iter_batched(
                     || {
                         let temp_dir = TempDir::new().unwrap();
-                        let base_storage = GlobalStorage::new(temp_dir.path()).unwrap();
+                        let base_storage = GlobalStorage::new().unwrap();
                         let job_id = format!("sync-job-{}", uuid::Uuid::new_v4());
 
                         // Create multiple storages simulating different worktrees
                         let storages: Vec<_> = (0..num_trees)
-                            .map(|_| GlobalStorage::new(temp_dir.path()).unwrap())
+                            .map(|_| GlobalStorage::new().unwrap())
                             .collect();
 
                         (base_storage, storages, job_id, temp_dir)
@@ -281,12 +281,12 @@ fn bench_cross_worktree_sync(c: &mut Criterion) {
                     |(base_storage, storages, job_id, _temp_dir)| async move {
                         // Simulate cross-worktree event aggregation
                         for (i, storage) in storages.iter().enumerate() {
-                            let _ = storage.get_events_dir(&job_id).await;
+                            let _ = storage.get_events_dir("test-repo", &job_id).await;
                             black_box(i);
                         }
 
                         // Read aggregated events
-                        let _ = base_storage.get_events_dir(&job_id).await;
+                        let _ = base_storage.get_events_dir("test-repo", &job_id).await;
                     },
                     BatchSize::SmallInput,
                 );
@@ -344,14 +344,14 @@ fn bench_dlq_operations(c: &mut Criterion) {
         b.to_async(&rt).iter_batched(
             || {
                 let temp_dir = TempDir::new().unwrap();
-                let storage = GlobalStorage::new(temp_dir.path()).unwrap();
+                let storage = GlobalStorage::new().unwrap();
                 let items = create_work_items(100, "small");
                 (storage, items, temp_dir)
             },
             |(storage, items, _temp_dir)| async move {
                 // Simulate DLQ operations
                 for item in items {
-                    let _ = storage.get_dlq_dir("bench-job").await;
+                    let _ = storage.get_dlq_dir("test-repo", "bench-job").await;
                     black_box(item.data);
                 }
             },
@@ -363,21 +363,21 @@ fn bench_dlq_operations(c: &mut Criterion) {
         b.to_async(&rt).iter_batched(
             || {
                 let temp_dir = TempDir::new().unwrap();
-                let storage = GlobalStorage::new(temp_dir.path()).unwrap();
+                let storage = GlobalStorage::new().unwrap();
                 let items = create_work_items(100, "small");
 
                 let rt_local = Runtime::new().unwrap();
                 rt_local.block_on(async {
                     for _item in items {
-                        let _ = storage.get_dlq_dir("bench-job").await;
+                        let _ = storage.get_dlq_dir("test-repo", "bench-job").await;
                     }
                 });
 
                 (storage, temp_dir)
             },
             |(storage, _temp_dir)| async move {
-                let _ = storage.get_dlq_dir("bench-job").await;
-                let _ = storage.list_dlq_job_ids().await;
+                let _ = storage.get_dlq_dir("test-repo", "bench-job").await;
+                let _ = storage.list_dlq_job_ids("test-repo").await;
             },
             BatchSize::SmallInput,
         );
@@ -400,7 +400,7 @@ fn bench_agent_scaling(c: &mut Criterion) {
                     || {
                         let job = create_mapreduce_job(num_agents * 10, num_agents);
                         let temp_dir = TempDir::new().unwrap();
-                        let storage = GlobalStorage::new(temp_dir.path()).unwrap();
+                        let storage = GlobalStorage::new().unwrap();
                         (job, storage, temp_dir)
                     },
                     |(job, _storage, temp_dir)| async move {

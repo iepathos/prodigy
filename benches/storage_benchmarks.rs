@@ -37,13 +37,13 @@ fn bench_storage_write(c: &mut Criterion) {
             b.to_async(&rt).iter_batched(
                 || {
                     let temp_dir = TempDir::new().unwrap();
-                    let storage = GlobalStorage::new(temp_dir.path()).unwrap();
+                    let storage = GlobalStorage::new().unwrap();
                     let data = create_test_json(size);
                     (storage, data, temp_dir)
                 },
                 |(storage, data, _temp_dir)| async move {
                     let path = storage
-                        .get_state_dir("test-job")
+                        .get_state_dir("test-repo", "test-job")
                         .await
                         .unwrap()
                         .join("test.json");
@@ -74,14 +74,14 @@ fn bench_storage_read(c: &mut Criterion) {
             b.to_async(&rt).iter_batched(
                 || {
                     let temp_dir = TempDir::new().unwrap();
-                    let storage = GlobalStorage::new(temp_dir.path()).unwrap();
+                    let storage = GlobalStorage::new().unwrap();
                     let data = create_test_json(size);
                     let rt_local = Runtime::new().unwrap();
 
                     // Pre-write data
                     rt_local.block_on(async {
                         let path = storage
-                            .get_state_dir("test-job")
+                            .get_state_dir("test-repo", "test-job")
                             .await
                             .unwrap()
                             .join("test.json");
@@ -97,7 +97,7 @@ fn bench_storage_read(c: &mut Criterion) {
                 },
                 |(storage, _temp_dir)| async move {
                     let path = storage
-                        .get_state_dir("test-job")
+                        .get_state_dir("test-repo", "test-job")
                         .await
                         .unwrap()
                         .join("test.json");
@@ -123,15 +123,15 @@ fn bench_directory_operations(c: &mut Criterion) {
             b.to_async(&rt).iter_batched(
                 || {
                     let temp_dir = TempDir::new().unwrap();
-                    let storage = GlobalStorage::new(temp_dir.path()).unwrap();
+                    let storage = GlobalStorage::new().unwrap();
                     (storage, temp_dir)
                 },
                 |(storage, _temp_dir)| async move {
                     // Create typical directory structure
                     let dirs = vec![
-                        storage.get_events_dir("job1").await.unwrap(),
-                        storage.get_dlq_dir("job1").await.unwrap(),
-                        storage.get_state_dir("job1").await.unwrap(),
+                        storage.get_events_dir("test-repo", "job1").await.unwrap(),
+                        storage.get_dlq_dir("test-repo", "job1").await.unwrap(),
+                        storage.get_state_dir("test-repo", "job1").await.unwrap(),
                     ];
 
                     for dir in dirs {
@@ -145,12 +145,12 @@ fn bench_directory_operations(c: &mut Criterion) {
             b.to_async(&rt).iter_batched(
                 || {
                     let temp_dir = TempDir::new().unwrap();
-                    let storage = GlobalStorage::new(temp_dir.path()).unwrap();
+                    let storage = GlobalStorage::new().unwrap();
                     let rt_local = Runtime::new().unwrap();
 
                     // Create files to list
                     rt_local.block_on(async {
-                        let dir = storage.get_state_dir("job1").await.unwrap();
+                        let dir = storage.get_state_dir("test-repo", "job1").await.unwrap();
                         tokio::fs::create_dir_all(&dir).await.unwrap();
                         for i in 0..20 {
                             let path = dir.join(format!("file_{}.json", i));
@@ -163,7 +163,7 @@ fn bench_directory_operations(c: &mut Criterion) {
                     (storage, temp_dir)
                 },
                 |(storage, _temp_dir)| async move {
-                    let dir = storage.get_state_dir("job1").await.unwrap();
+                    let dir = storage.get_state_dir("test-repo", "job1").await.unwrap();
                     let mut entries = tokio::fs::read_dir(dir).await.unwrap();
                     let mut files = vec![];
                     while let Some(entry) = entries.next_entry().await.unwrap() {

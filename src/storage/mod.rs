@@ -395,7 +395,7 @@ mod mod_tests {
 
     #[tokio::test]
     async fn test_global_storage_isolation_between_repos() {
-        let temp_dir = TempDir::new().unwrap();
+        let _temp_dir = TempDir::new().unwrap();
 
         let storage1 = GlobalStorage::new().unwrap();
         let storage2 = GlobalStorage::new().unwrap();
@@ -414,7 +414,7 @@ mod mod_tests {
 
     #[tokio::test]
     async fn test_list_dlq_job_ids() {
-        let temp_dir = TempDir::new().unwrap();
+        let _temp_dir = TempDir::new().unwrap();
         let storage = GlobalStorage::new().unwrap();
         let repo_name = "test-repo";
 

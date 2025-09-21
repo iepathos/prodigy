@@ -67,14 +67,14 @@ fn bench_storage_memory_usage(c: &mut Criterion) {
                 b.to_async(&rt).iter_batched(
                     || {
                         let temp_dir = TempDir::new().unwrap();
-                        let storage = GlobalStorage::new(temp_dir.path()).unwrap();
+                        let storage = GlobalStorage::new().unwrap();
                         let num_events = mb * 1000; // Approximate number of events for target size
                         (storage, num_events, temp_dir)
                     },
                     |(storage, num_events, _temp_dir)| async move {
                         let (_, mem_delta) = measure_memory_delta(|| async {
                             for i in 0..num_events {
-                                let _ = storage.get_events_dir("bench-job").await;
+                                let _ = storage.get_events_dir("test-repo", "bench-job").await;
                                 let event = json!({
                                     "event_id": i,
                                     "timestamp": chrono::Utc::now().to_rfc3339(),
@@ -188,11 +188,11 @@ fn bench_memory_leak_detection(c: &mut Criterion) {
                 // Perform repeated allocations and deallocations
                 for _ in 0..100 {
                     let temp_dir = TempDir::new().unwrap();
-                    let storage = GlobalStorage::new(temp_dir.path()).unwrap();
+                    let storage = GlobalStorage::new().unwrap();
 
                     // Write and read events
                     for i in 0..10 {
-                        let _ = storage.get_events_dir("bench-job").await;
+                        let _ = storage.get_events_dir("test-repo", "bench-job").await;
                         black_box(json!({ "id": i }));
                     }
 
@@ -234,7 +234,7 @@ fn bench_concurrent_memory_usage(c: &mut Criterion) {
                 b.to_async(&rt).iter_batched(
                     || {
                         let temp_dir = TempDir::new().unwrap();
-                        let storage = Arc::new(GlobalStorage::new(temp_dir.path()).unwrap());
+                        let storage = Arc::new(GlobalStorage::new().unwrap());
                         (storage, tasks, temp_dir)
                     },
                     |(storage, tasks, _temp_dir)| async move {
@@ -245,7 +245,9 @@ fn bench_concurrent_memory_usage(c: &mut Criterion) {
                                 let storage_clone = Arc::clone(&storage);
                                 let handle = tokio::spawn(async move {
                                     for j in 0..10 {
-                                        let _ = storage_clone.get_events_dir("bench-job").await;
+                                        let _ = storage_clone
+                                            .get_events_dir("test-repo", "bench-job")
+                                            .await;
                                         black_box(json!({ "task": i, "event": j }));
                                     }
                                 });
