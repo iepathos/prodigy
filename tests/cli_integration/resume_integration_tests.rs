@@ -374,68 +374,76 @@ fn test_resume_completed_workflow() {
     let test_dir = test.temp_path().to_path_buf();
     let session_dir = test_dir.join(".prodigy");
 
-    // Create a completed session state in the format SessionTracker expects
+    // Create a completed session state in the unified session format
     let workflow_id = "resume-complete-33333";
     let now = chrono::Utc::now();
-    let session_state = json!({
-        "session_id": workflow_id,
+
+    // Create unified session in the format expected by UnifiedSessionManager
+    let unified_session = json!({
+        "id": workflow_id,
         "status": "Completed",
-        "started_at": now.to_rfc3339(),
-        "ended_at": now.to_rfc3339(),  // Changed from completed_at
-        "iterations_completed": 1,
-        "files_changed": 0,
-        "errors": [],
-        "working_directory": test_dir.to_str().unwrap(),
-        "worktree_name": "prodigy-session-test",
-        "workflow_started_at": now.to_rfc3339(),
-        "current_iteration_started_at": null,
-        "current_iteration_number": null,
-        "iteration_timings": [],
-        "command_timings": [],
-        "workflow_state": {
-            "current_iteration": 0,
-            "current_step": 5,
-            "completed_steps": (0..5).map(|i| {
-                let step_time = now.to_rfc3339();
-                json!({
-                    "step_index": i,
-                    "command": format!("cmd{}", i + 1),
-                    "success": true,
-                    "output": format!("Command {} output", i + 1),
-                    "duration": {
-                        "secs": 1,
-                        "nanos": 0
-                    },
-                    "error": null,
-                    "started_at": step_time,
-                    "completed_at": step_time,
-                    "exit_code": 0
-                })
-            }).collect::<Vec<_>>(),
-            "workflow_path": "test.yaml",
-            "input_args": [],
-            "map_patterns": [],
-            "using_worktree": false
-        },
-        "execution_environment": null,
-        "last_checkpoint": now.to_rfc3339(),
-        "workflow_hash": null,
         "workflow_type": "Standard",
-        "execution_context": null,
-        "checkpoint_version": 1,
-        "last_validated_at": null
+        "session_type": "Workflow",
+        "created_at": now.to_rfc3339(),
+        "updated_at": now.to_rfc3339(),
+        "started_at": now.to_rfc3339(),
+        "completed_at": now.to_rfc3339(),
+        "metadata": {
+            "iterations_completed": 1,
+            "files_changed": 0,
+            "workflow_path": "test.yaml",
+            "workflow_state": json!({
+                "current_iteration": 0,
+                "current_step": 5,
+                "completed_steps": (0..5).map(|i| {
+                    let step_time = now.to_rfc3339();
+                    json!({
+                        "step_index": i,
+                        "command": format!("cmd{}", i + 1),
+                        "success": true,
+                        "output": format!("Command {} output", i + 1),
+                        "duration": {
+                            "secs": 1,
+                            "nanos": 0
+                        },
+                        "error": null,
+                        "started_at": step_time,
+                        "completed_at": step_time,
+                        "exit_code": 0
+                    })
+                }).collect::<Vec<_>>(),
+                "workflow_path": "test.yaml",
+                "input_args": [],
+                "map_patterns": [],
+                "using_worktree": false
+            })
+        },
+        "checkpoints": [],
+        "error_message": null,
+        "timings": {}
     });
 
-    // Save as both session_state.json and session-specific file
-    fs::create_dir_all(&session_dir).unwrap();
+    // Save in both local sessions directory and in a format that will be migrated properly
+    // First, save in the local .prodigy/sessions directory
+    let sessions_dir = session_dir.join("sessions");
+    fs::create_dir_all(&sessions_dir).unwrap();
     fs::write(
-        session_dir.join("session_state.json"),
-        serde_json::to_string_pretty(&session_state).unwrap(),
+        sessions_dir.join(format!("{}.json", workflow_id)),
+        serde_json::to_string_pretty(&unified_session).unwrap(),
     )
     .unwrap();
+
+    // Also save in the global storage location directly to handle migration
+    // Get the repo name from the temp directory (last component of path)
+    let _repo_name = test_dir.file_name().unwrap().to_str().unwrap();
+    let global_dir = dirs::home_dir()
+        .unwrap()
+        .join(".prodigy")
+        .join("sessions");
+    fs::create_dir_all(&global_dir).unwrap();
     fs::write(
-        session_dir.join(format!("{}.json", workflow_id)),
-        serde_json::to_string_pretty(&session_state).unwrap(),
+        global_dir.join(format!("{}.json", workflow_id)),
+        serde_json::to_string_pretty(&unified_session).unwrap(),
     )
     .unwrap();
 
