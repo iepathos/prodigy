@@ -1,5 +1,5 @@
+use crate::error::{ErrorCode, ProdigyError};
 use std::time::Duration;
-use crate::error::{ProdigyError, ErrorCode};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ProcessError {
@@ -33,19 +33,18 @@ impl From<ProcessError> for ProdigyError {
                 (ErrorCode::EXEC_COMMAND_NOT_FOUND, Some(cmd.clone()), None)
             }
             ProcessError::Timeout(_) => (ErrorCode::EXEC_TIMEOUT, None, None),
-            ProcessError::ExitCode(code) => {
-                (ErrorCode::EXEC_SUBPROCESS_FAILED, None, Some(*code))
-            }
-            ProcessError::Signal(sig) => {
-                (ErrorCode::EXEC_SIGNAL_RECEIVED, None, Some(*sig))
-            }
+            ProcessError::ExitCode(code) => (ErrorCode::EXEC_SUBPROCESS_FAILED, None, Some(*code)),
+            ProcessError::Signal(sig) => (ErrorCode::EXEC_SIGNAL_RECEIVED, None, Some(*sig)),
             ProcessError::Io(_) => (ErrorCode::EXEC_SPAWN_FAILED, None, None),
             ProcessError::Utf8(_) => (ErrorCode::EXEC_OUTPUT_ERROR, None, None),
             ProcessError::MockExpectationNotMet(_) => (ErrorCode::EXEC_GENERIC, None, None),
         };
 
         let mut error = ProdigyError::execution_with_code(code, err.to_string(), command);
-        if let ProdigyError::Execution { exit_code: ex_code, .. } = &mut error {
+        if let ProdigyError::Execution {
+            exit_code: ex_code, ..
+        } = &mut error
+        {
             *ex_code = exit_code;
         }
         error.with_source(err)

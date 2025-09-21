@@ -1,8 +1,8 @@
 //! Git operation error types
 
+use crate::error::{ErrorCode, ProdigyError};
 use std::path::PathBuf;
 use thiserror::Error;
-use crate::error::{ProdigyError, ErrorCode};
 
 /// Git-specific errors
 #[derive(Debug, Error, Clone)]
@@ -108,7 +108,6 @@ impl From<GitError> for ProdigyError {
             GitError::PermissionDenied => (ErrorCode::GIT_PERMISSION, "file access"),
         };
 
-        ProdigyError::git(code, err.to_string(), operation)
-            .with_source(err)
+        ProdigyError::git(code, err.to_string(), operation).with_source(err)
     }
 }

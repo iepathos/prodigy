@@ -1,8 +1,8 @@
 //! Error types for the storage abstraction layer
 
+use crate::error::{ErrorCode, ProdigyError};
 use std::fmt;
 use thiserror::Error;
-use crate::error::{ProdigyError, ErrorCode};
 
 /// Result type for storage operations
 pub type StorageResult<T> = Result<T, StorageError>;
@@ -174,7 +174,6 @@ impl From<StorageError> for ProdigyError {
             StorageError::Other(_) => (ErrorCode::STORAGE_GENERIC, None),
         };
 
-        ProdigyError::storage_with_code(code, err.to_string(), path)
-            .with_source(err)
+        ProdigyError::storage_with_code(code, err.to_string(), path).with_source(err)
     }
 }

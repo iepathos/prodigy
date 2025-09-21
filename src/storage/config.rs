@@ -397,7 +397,9 @@ impl StorageConfig {
             BackendType::Postgres => {
                 let connection_string = std::env::var("PRODIGY_POSTGRES_URL")
                     .or_else(|_| std::env::var("DATABASE_URL"))
-                    .map_err(|_| crate::error::ProdigyError::config("PostgreSQL connection string not found"))?;
+                    .map_err(|_| {
+                        crate::error::ProdigyError::config("PostgreSQL connection string not found")
+                    })?;
 
                 BackendConfig::Postgres(PostgresConfig {
                     connection_string,

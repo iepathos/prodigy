@@ -470,4 +470,3 @@ impl From<serde_json::Error> for ProdigyError {
 }
 
 // Note: ProdigyError automatically converts to anyhow::Error because it implements std::error::Error
-

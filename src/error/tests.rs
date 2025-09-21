@@ -59,8 +59,7 @@ mod tests {
 
     #[test]
     fn test_error_with_context() {
-        let err = ProdigyError::config("Config error")
-            .with_context("Additional context");
+        let err = ProdigyError::config("Config error").with_context("Additional context");
         let err_str = err.to_string();
         assert!(err_str.contains("Config error"));
         assert!(err_str.contains("Additional context"));
@@ -69,8 +68,7 @@ mod tests {
     #[test]
     fn test_error_with_source() {
         let source_err = std::io::Error::new(std::io::ErrorKind::NotFound, "File not found");
-        let err = ProdigyError::storage("Storage error")
-            .with_source(source_err);
+        let err = ProdigyError::storage("Storage error").with_source(source_err);
 
         let err_str = err.to_string();
         assert!(err_str.contains("Storage error"));
@@ -318,11 +316,10 @@ mod tests {
         assert!(!GitError::BranchNotFound("main".to_string()).is_transient());
 
         // Test StorageError retry checks
-        assert!(StorageError::Io(std::io::Error::new(
-            std::io::ErrorKind::TimedOut,
-            "Timeout"
-        ))
-        .is_retryable());
+        assert!(
+            StorageError::Io(std::io::Error::new(std::io::ErrorKind::TimedOut, "Timeout"))
+                .is_retryable()
+        );
         assert!(StorageError::Lock("busy".to_string()).is_retryable());
         assert!(StorageError::Timeout(Duration::from_secs(5)).is_retryable());
         assert!(!StorageError::NotFound("item".to_string()).is_retryable());
