@@ -654,7 +654,14 @@ enum DlqCommands {
 enum WorktreeCommands {
     /// List active Prodigy worktrees
     #[command(alias = "list")]
-    Ls,
+    Ls {
+        /// Output in JSON format
+        #[arg(long)]
+        json: bool,
+        /// Show detailed information for each session
+        #[arg(short = 'd', long)]
+        detailed: bool,
+    },
     /// Merge a worktree's changes to the default branch (main or master)
     Merge {
         /// Name of the worktree to merge
@@ -1650,66 +1657,27 @@ async fn main() {
     }
 }
 
-/// Display a single worktree session with its state and metadata
-fn display_worktree_session(
-    session: &prodigy::worktree::WorktreeSession,
-    worktree_manager: &prodigy::worktree::WorktreeManager,
-) -> anyhow::Result<()> {
-    let state_file = worktree_manager
-        .base_dir
-        .join(".metadata")
-        .join(format!("{}.json", session.name));
-
-    if let Ok(state_json) = std::fs::read_to_string(&state_file) {
-        if let Ok(state) = serde_json::from_str::<prodigy::worktree::WorktreeState>(&state_json) {
-            let status_emoji = match state.status {
-                prodigy::worktree::WorktreeStatus::InProgress => "🔄",
-                prodigy::worktree::WorktreeStatus::Completed => "✅",
-                prodigy::worktree::WorktreeStatus::Merged => "🔀",
-                prodigy::worktree::WorktreeStatus::CleanedUp => "🧹",
-                prodigy::worktree::WorktreeStatus::Failed => "❌",
-                prodigy::worktree::WorktreeStatus::Abandoned => "⚠️",
-                prodigy::worktree::WorktreeStatus::Interrupted => "⏸️",
-            };
-
-            println!(
-                "  {} {} - {:?} ({}/{})",
-                status_emoji,
-                session.name,
-                state.status,
-                state.iterations.completed,
-                state.iterations.max
-            );
-        } else {
-            // Fallback to old display for sessions without valid state
-            display_worktree_session_legacy(session);
-        }
-    } else {
-        // Fallback to old display for sessions without state files
-        display_worktree_session_legacy(session);
-    }
-
-    Ok(())
-}
-
-/// Display a worktree session using legacy format
-fn display_worktree_session_legacy(session: &prodigy::worktree::WorktreeSession) {
-    println!("  {} - {}", session.name, session.path.display());
-}
-
 /// Handle the list command for worktrees
 async fn handle_list_command(
     worktree_manager: &prodigy::worktree::WorktreeManager,
+    json: bool,
+    detailed: bool,
 ) -> anyhow::Result<()> {
-    let sessions = worktree_manager.list_sessions().await?;
-    if sessions.is_empty() {
-        println!("No active Prodigy worktrees found.");
+    use prodigy::worktree::SessionDisplay;
+
+    // Get enhanced session information
+    let detailed_list = worktree_manager.list_detailed().await?;
+
+    // Display in appropriate format
+    if json {
+        let json_output = serde_json::to_string_pretty(&detailed_list.format_json())?;
+        println!("{}", json_output);
+    } else if detailed {
+        println!("{}", detailed_list.format_verbose());
     } else {
-        println!("Active Prodigy worktrees:");
-        for session in sessions {
-            display_worktree_session(&session, worktree_manager)?;
-        }
+        println!("{}", detailed_list.format_default());
     }
+
     Ok(())
 }
 
@@ -2786,7 +2754,9 @@ async fn run_worktree_command(command: WorktreeCommands) -> anyhow::Result<()> {
     let worktree_manager = WorktreeManager::new(std::env::current_dir()?, subprocess)?;
 
     match command {
-        WorktreeCommands::Ls => handle_list_command(&worktree_manager).await,
+        WorktreeCommands::Ls { json, detailed } => {
+            handle_list_command(&worktree_manager, json, detailed).await
+        }
         WorktreeCommands::Merge { name, all } => {
             handle_merge_command(&worktree_manager, name, all).await
         }

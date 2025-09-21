@@ -405,6 +405,142 @@ impl WorktreeManager {
         Some(WorktreeSession::new(name, branch, canonical_path))
     }
 
+    /// List sessions with detailed information including workflow and progress
+    ///
+    /// This method gathers enhanced session information from both worktree state
+    /// and session state files to provide comprehensive details about each session.
+    ///
+    /// # Returns
+    /// * `Result<DetailedWorktreeList>` - Detailed list of sessions with enhanced info
+    ///
+    /// # Errors
+    /// Returns error if unable to read session information
+    pub async fn list_detailed(&self) -> Result<super::display::DetailedWorktreeList> {
+        use super::display::{DetailedWorktreeList, EnhancedSessionInfo, WorktreeSummary};
+
+        // Get basic session list
+        let sessions = self.list_sessions().await?;
+        let mut enhanced_sessions = Vec::new();
+        let mut summary = WorktreeSummary::default();
+
+        for session in sessions {
+            // Load worktree state
+            let state_file = self
+                .base_dir
+                .join(".metadata")
+                .join(format!("{}.json", session.name));
+
+            if let Ok(state_json) = std::fs::read_to_string(&state_file) {
+                if let Ok(state) = serde_json::from_str::<WorktreeState>(&state_json) {
+                    // Create enhanced info from worktree state
+                    let mut enhanced = EnhancedSessionInfo::from(&state);
+                    enhanced.worktree_path = session.path.clone();
+
+                    // Try to load session state for workflow information
+                    let session_state_path =
+                        session.path.join(".prodigy").join("session_state.json");
+                    if let Ok(session_json) = std::fs::read_to_string(&session_state_path) {
+                        if let Ok(session_state) =
+                            serde_json::from_str::<serde_json::Value>(&session_json)
+                        {
+                            // Extract workflow information from session state
+                            if let Some(workflow_state) = session_state.get("workflow_state") {
+                                if let Some(path) =
+                                    workflow_state.get("workflow_path").and_then(|p| p.as_str())
+                                {
+                                    enhanced.workflow_path = Some(PathBuf::from(path));
+                                }
+
+                                if let Some(args) =
+                                    workflow_state.get("input_args").and_then(|a| a.as_array())
+                                {
+                                    enhanced.workflow_args = args
+                                        .iter()
+                                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                                        .collect();
+                                }
+
+                                if let Some(current_step) =
+                                    workflow_state.get("current_step").and_then(|s| s.as_u64())
+                                {
+                                    enhanced.current_step = current_step as usize;
+                                }
+
+                                if let Some(completed) = workflow_state
+                                    .get("completed_steps")
+                                    .and_then(|s| s.as_array())
+                                {
+                                    enhanced.total_steps = Some(completed.len());
+                                }
+                            }
+
+                            // Extract MapReduce progress if available
+                            if let Some(mapreduce_state) = session_state.get("mapreduce_state") {
+                                if let Some(processed) = mapreduce_state
+                                    .get("items_processed")
+                                    .and_then(|p| p.as_u64())
+                                {
+                                    enhanced.items_processed = Some(processed as u32);
+                                }
+                                if let Some(total) =
+                                    mapreduce_state.get("total_items").and_then(|t| t.as_u64())
+                                {
+                                    enhanced.total_items = Some(total as u32);
+                                }
+                            }
+                        }
+                    }
+
+                    // Try to determine parent branch from git
+                    enhanced.parent_branch = self.get_parent_branch(&session.branch).await.ok();
+
+                    // Update summary counts
+                    summary.total += 1;
+                    match state.status {
+                        WorktreeStatus::InProgress => summary.in_progress += 1,
+                        WorktreeStatus::Interrupted => summary.interrupted += 1,
+                        WorktreeStatus::Failed => summary.failed += 1,
+                        WorktreeStatus::Completed | WorktreeStatus::Merged => {
+                            summary.completed += 1
+                        }
+                        _ => {}
+                    }
+
+                    enhanced_sessions.push(enhanced);
+                }
+            }
+        }
+
+        // Sort by last activity (most recent first)
+        enhanced_sessions.sort_by(|a, b| b.last_activity.cmp(&a.last_activity));
+
+        Ok(DetailedWorktreeList {
+            sessions: enhanced_sessions,
+            summary,
+        })
+    }
+
+    /// Get the parent branch for a given branch
+    async fn get_parent_branch(&self, branch_name: &str) -> Result<String> {
+        let command = ProcessCommandBuilder::new("git")
+            .current_dir(&self.repo_path)
+            .args(["config", "--get", &format!("branch.{}.merge", branch_name)])
+            .build();
+
+        let output = self.subprocess.runner().run(command).await?;
+
+        if output.status.success() && !output.stdout.is_empty() {
+            // Extract branch name from refs/heads/main format
+            let parent = output.stdout.trim();
+            if let Some(name) = parent.strip_prefix("refs/heads/") {
+                return Ok(name.to_string());
+            }
+        }
+
+        // Default to main or master if we can't determine
+        Ok("main".to_string())
+    }
+
     /// List sessions from metadata files
     fn list_metadata_sessions(&self) -> Result<Vec<WorktreeSession>> {
         let metadata_dir = self.base_dir.join(".metadata");
@@ -1006,6 +1142,7 @@ impl WorktreeManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::subprocess::ProcessCommandBuilder;
     use tempfile::TempDir;
 
     #[test]
@@ -1475,6 +1612,496 @@ branch refs/heads/main"#;
 
         let state = manager.get_session_state("test-session")?;
         assert_eq!(state.last_checkpoint.unwrap().iteration, 2);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_list_detailed_empty() {
+        let temp_dir = TempDir::new().unwrap();
+        let subprocess = SubprocessManager::production();
+
+        // Initialize a git repository in the temp directory
+        let init_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["init"])
+            .build();
+        subprocess.runner().run(init_command).await.unwrap();
+
+        // Configure user for git (needed for commits)
+        let config_name = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["config", "user.name", "Test User"])
+            .build();
+        subprocess.runner().run(config_name).await.unwrap();
+
+        let config_email = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["config", "user.email", "test@example.com"])
+            .build();
+        subprocess.runner().run(config_email).await.unwrap();
+
+        // Create initial commit (required for worktrees)
+        let initial_file = temp_dir.path().join("README.md");
+        std::fs::write(&initial_file, "# Test Repository").unwrap();
+
+        let add_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["add", "."])
+            .build();
+        subprocess.runner().run(add_command).await.unwrap();
+
+        let commit_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["commit", "-m", "Initial commit"])
+            .build();
+        subprocess.runner().run(commit_command).await.unwrap();
+
+        let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess).unwrap();
+
+        // Create metadata directory
+        let metadata_dir = manager.base_dir.join(".metadata");
+        std::fs::create_dir_all(&metadata_dir).unwrap();
+
+        let result = manager.list_detailed().await.unwrap();
+        assert_eq!(result.sessions.len(), 0);
+        assert_eq!(result.summary.total, 0);
+    }
+
+    #[tokio::test]
+    async fn test_list_detailed_with_sessions() -> Result<()> {
+        let temp_dir = TempDir::new().unwrap();
+        let subprocess = SubprocessManager::production();
+
+        // Initialize a git repository in the temp directory
+        let init_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["init"])
+            .build();
+        subprocess.runner().run(init_command).await?;
+
+        // Configure user for git (needed for commits)
+        let config_name = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["config", "user.name", "Test User"])
+            .build();
+        subprocess.runner().run(config_name).await?;
+
+        let config_email = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["config", "user.email", "test@example.com"])
+            .build();
+        subprocess.runner().run(config_email).await?;
+
+        // Create initial commit (required for worktrees)
+        let initial_file = temp_dir.path().join("README.md");
+        std::fs::write(&initial_file, "# Test Repository")?;
+
+        let add_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["add", "."])
+            .build();
+        subprocess.runner().run(add_command).await?;
+
+        let commit_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["commit", "-m", "Initial commit"])
+            .build();
+        subprocess.runner().run(commit_command).await?;
+
+        let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess).unwrap();
+
+        // Create metadata directory
+        let metadata_dir = manager.base_dir.join(".metadata");
+        std::fs::create_dir_all(&metadata_dir)?;
+
+        // For testing, we'll create minimal JSON representations that match
+        // what the list_detailed method expects to parse
+        let state1_json = serde_json::json!({
+            "session_id": "session-test-1",
+            "status": "in_progress",
+            "branch": "feature-1",
+            "created_at": (chrono::Utc::now() - chrono::Duration::hours(2)).to_rfc3339(),
+            "updated_at": (chrono::Utc::now() - chrono::Duration::minutes(30)).to_rfc3339(),
+            "error": null,
+            "stats": {
+                "files_changed": 5,
+                "commits": 2,
+                "last_commit_sha": null
+            },
+            "worktree_name": "session-test-1",
+            "iterations": { "completed": 0, "max": 5 },
+            "merged": false,
+            "merged_at": null,
+            "merge_prompt_shown": false,
+            "merge_prompt_response": null,
+            "interrupted_at": null,
+            "interruption_type": null,
+            "last_checkpoint": null,
+            "resumable": false
+        });
+
+        let state2_json = serde_json::json!({
+            "session_id": "session-test-2",
+            "status": "completed",
+            "branch": "feature-2",
+            "created_at": (chrono::Utc::now() - chrono::Duration::hours(3)).to_rfc3339(),
+            "updated_at": (chrono::Utc::now() - chrono::Duration::hours(1)).to_rfc3339(),
+            "error": null,
+            "stats": {
+                "files_changed": 10,
+                "commits": 5,
+                "last_commit_sha": null
+            },
+            "worktree_name": "session-test-2",
+            "iterations": { "completed": 0, "max": 5 },
+            "merged": false,
+            "merged_at": null,
+            "merge_prompt_shown": false,
+            "merge_prompt_response": null,
+            "interrupted_at": null,
+            "interruption_type": null,
+            "last_checkpoint": null,
+            "resumable": false
+        });
+
+        let state3_json = serde_json::json!({
+            "session_id": "session-test-3",
+            "status": "failed",
+            "branch": "feature-3",
+            "created_at": (chrono::Utc::now() - chrono::Duration::hours(1)).to_rfc3339(),
+            "updated_at": (chrono::Utc::now() - chrono::Duration::minutes(10)).to_rfc3339(),
+            "error": "Test error message",
+            "stats": {
+                "files_changed": 2,
+                "commits": 1,
+                "last_commit_sha": null
+            },
+            "worktree_name": "session-test-3",
+            "iterations": { "completed": 0, "max": 5 },
+            "merged": false,
+            "merged_at": null,
+            "merge_prompt_shown": false,
+            "merge_prompt_response": null,
+            "interrupted_at": null,
+            "interruption_type": null,
+            "last_checkpoint": null,
+            "resumable": false
+        });
+
+        // Save states to metadata
+        let state1_file = metadata_dir.join("session-test-1.json");
+        let state2_file = metadata_dir.join("session-test-2.json");
+        let state3_file = metadata_dir.join("session-test-3.json");
+
+        std::fs::write(&state1_file, serde_json::to_string(&state1_json)?)?;
+        std::fs::write(&state2_file, serde_json::to_string(&state2_json)?)?;
+        std::fs::write(&state3_file, serde_json::to_string(&state3_json)?)?;
+
+        // Create corresponding worktree directories
+        let wt1_dir = manager.base_dir.join("session-test-1");
+        let wt2_dir = manager.base_dir.join("session-test-2");
+        let wt3_dir = manager.base_dir.join("session-test-3");
+
+        std::fs::create_dir_all(&wt1_dir)?;
+        std::fs::create_dir_all(&wt2_dir)?;
+        std::fs::create_dir_all(&wt3_dir)?;
+
+        // Note: In a real environment we'd have git worktrees set up
+        // For testing, we'll simulate by creating minimal session files
+
+        // Get detailed list
+        let result = manager.list_detailed().await?;
+
+        // Verify summary counts
+        assert_eq!(result.summary.total, 3);
+        assert_eq!(result.summary.in_progress, 1);
+        assert_eq!(result.summary.completed, 1);
+        assert_eq!(result.summary.failed, 1);
+        assert_eq!(result.summary.interrupted, 0);
+
+        // Verify we have the expected sessions
+        assert_eq!(result.sessions.len(), 3);
+
+        // Find each session and verify key fields
+        let session1 = result
+            .sessions
+            .iter()
+            .find(|s| s.session_id == "session-test-1")
+            .expect("Session 1 not found");
+        assert_eq!(session1.status, WorktreeStatus::InProgress);
+        assert_eq!(session1.files_changed, 5);
+        assert_eq!(session1.commits, 2);
+
+        let session2 = result
+            .sessions
+            .iter()
+            .find(|s| s.session_id == "session-test-2")
+            .expect("Session 2 not found");
+        assert_eq!(session2.status, WorktreeStatus::Completed);
+        assert_eq!(session2.files_changed, 10);
+        assert_eq!(session2.commits, 5);
+
+        let session3 = result
+            .sessions
+            .iter()
+            .find(|s| s.session_id == "session-test-3")
+            .expect("Session 3 not found");
+        assert_eq!(session3.status, WorktreeStatus::Failed);
+        assert_eq!(
+            session3.error_summary,
+            Some("Test error message".to_string())
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_list_detailed_with_workflow_info() -> Result<()> {
+        let temp_dir = TempDir::new().unwrap();
+        let subprocess = SubprocessManager::production();
+
+        // Initialize a git repository in the temp directory
+        let init_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["init"])
+            .build();
+        subprocess.runner().run(init_command).await?;
+
+        // Configure user for git (needed for commits)
+        let config_name = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["config", "user.name", "Test User"])
+            .build();
+        subprocess.runner().run(config_name).await?;
+
+        let config_email = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["config", "user.email", "test@example.com"])
+            .build();
+        subprocess.runner().run(config_email).await?;
+
+        // Create initial commit (required for worktrees)
+        let initial_file = temp_dir.path().join("README.md");
+        std::fs::write(&initial_file, "# Test Repository")?;
+
+        let add_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["add", "."])
+            .build();
+        subprocess.runner().run(add_command).await?;
+
+        let commit_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["commit", "-m", "Initial commit"])
+            .build();
+        subprocess.runner().run(commit_command).await?;
+
+        let manager =
+            WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess.clone()).unwrap();
+
+        // Create metadata directory
+        let metadata_dir = manager.base_dir.join(".metadata");
+        std::fs::create_dir_all(&metadata_dir)?;
+
+        // Create a test worktree state as JSON
+        let state_json = serde_json::json!({
+            "session_id": "workflow-session",
+            "status": "in_progress",
+            "branch": "workflow-branch",
+            "created_at": (chrono::Utc::now() - chrono::Duration::hours(1)).to_rfc3339(),
+            "updated_at": (chrono::Utc::now() - chrono::Duration::minutes(5)).to_rfc3339(),
+            "error": null,
+            "stats": {
+                "files_changed": 3,
+                "commits": 1,
+                "last_commit_sha": null
+            },
+            "worktree_name": "workflow-session",
+            "iterations": { "completed": 0, "max": 5 },
+            "merged": false,
+            "merged_at": null,
+            "merge_prompt_shown": false,
+            "merge_prompt_response": null,
+            "interrupted_at": null,
+            "interruption_type": null,
+            "last_checkpoint": null,
+            "resumable": false
+        });
+
+        // Save state
+        let state_file = metadata_dir.join("workflow-session.json");
+        std::fs::write(&state_file, serde_json::to_string(&state_json)?)?;
+
+        // Create actual git worktree
+        let wt_dir = manager.base_dir.join("workflow-session");
+        let add_worktree = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args([
+                "worktree",
+                "add",
+                "-b",
+                "workflow-branch",
+                wt_dir.to_string_lossy().as_ref(),
+            ])
+            .build();
+        subprocess.runner().run(add_worktree).await?;
+
+        // Create session state directory
+        let prodigy_dir = wt_dir.join(".prodigy");
+        std::fs::create_dir_all(&prodigy_dir)?;
+
+        // Create session state with workflow information
+        let session_state = serde_json::json!({
+            "session_id": "workflow-session",
+            "workflow_state": {
+                "workflow_path": "workflows/test.yaml",
+                "input_args": ["arg1", "arg2"],
+                "current_step": 3,
+                "completed_steps": [1, 2, 3, 4, 5]
+            }
+        });
+
+        let session_state_file = prodigy_dir.join("session_state.json");
+        std::fs::write(&session_state_file, serde_json::to_string(&session_state)?)?;
+
+        // Get detailed list
+        let result = manager.list_detailed().await?;
+
+        assert_eq!(result.sessions.len(), 1);
+        let session = &result.sessions[0];
+
+        // Verify workflow information was extracted
+        assert_eq!(
+            session.workflow_path,
+            Some(PathBuf::from("workflows/test.yaml"))
+        );
+        assert_eq!(session.workflow_args, vec!["arg1", "arg2"]);
+        assert_eq!(session.current_step, 3);
+        assert_eq!(session.total_steps, Some(5));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_list_detailed_with_mapreduce_info() -> Result<()> {
+        let temp_dir = TempDir::new().unwrap();
+        let subprocess = SubprocessManager::production();
+
+        // Initialize a git repository in the temp directory
+        let init_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["init"])
+            .build();
+        subprocess.runner().run(init_command).await?;
+
+        // Configure user for git (needed for commits)
+        let config_name = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["config", "user.name", "Test User"])
+            .build();
+        subprocess.runner().run(config_name).await?;
+
+        let config_email = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["config", "user.email", "test@example.com"])
+            .build();
+        subprocess.runner().run(config_email).await?;
+
+        // Create initial commit (required for worktrees)
+        let initial_file = temp_dir.path().join("README.md");
+        std::fs::write(&initial_file, "# Test Repository")?;
+
+        let add_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["add", "."])
+            .build();
+        subprocess.runner().run(add_command).await?;
+
+        let commit_command = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args(["commit", "-m", "Initial commit"])
+            .build();
+        subprocess.runner().run(commit_command).await?;
+
+        let manager =
+            WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess.clone()).unwrap();
+
+        // Create metadata directory
+        let metadata_dir = manager.base_dir.join(".metadata");
+        std::fs::create_dir_all(&metadata_dir)?;
+
+        // Create a test worktree state as JSON
+        let state_json = serde_json::json!({
+            "session_id": "mapreduce-session",
+            "status": "in_progress",
+            "branch": "mapreduce-branch",
+            "created_at": (chrono::Utc::now() - chrono::Duration::hours(2)).to_rfc3339(),
+            "updated_at": (chrono::Utc::now() - chrono::Duration::minutes(10)).to_rfc3339(),
+            "error": null,
+            "stats": {
+                "files_changed": 0,
+                "commits": 0,
+                "last_commit_sha": null
+            },
+            "worktree_name": "mapreduce-session",
+            "iterations": { "completed": 0, "max": 5 },
+            "merged": false,
+            "merged_at": null,
+            "merge_prompt_shown": false,
+            "merge_prompt_response": null,
+            "interrupted_at": null,
+            "interruption_type": null,
+            "last_checkpoint": null,
+            "resumable": false
+        });
+
+        // Save state
+        let state_file = metadata_dir.join("mapreduce-session.json");
+        std::fs::write(&state_file, serde_json::to_string(&state_json)?)?;
+
+        // Create actual git worktree
+        let wt_dir = manager.base_dir.join("mapreduce-session");
+        let add_worktree = ProcessCommandBuilder::new("git")
+            .current_dir(temp_dir.path())
+            .args([
+                "worktree",
+                "add",
+                "-b",
+                "mapreduce-branch",
+                wt_dir.to_string_lossy().as_ref(),
+            ])
+            .build();
+        subprocess.runner().run(add_worktree).await?;
+
+        // Create session state directory
+        let prodigy_dir = wt_dir.join(".prodigy");
+        std::fs::create_dir_all(&prodigy_dir)?;
+
+        // Create session state with MapReduce information
+        let session_state = serde_json::json!({
+            "session_id": "mapreduce-session",
+            "workflow_state": {
+                "workflow_path": "mapreduce.yaml"
+            },
+            "mapreduce_state": {
+                "items_processed": 25,
+                "total_items": 100
+            }
+        });
+
+        let session_state_file = prodigy_dir.join("session_state.json");
+        std::fs::write(&session_state_file, serde_json::to_string(&session_state)?)?;
+
+        // Get detailed list
+        let result = manager.list_detailed().await?;
+
+        assert_eq!(result.sessions.len(), 1);
+        let session = &result.sessions[0];
+
+        // Verify MapReduce information was extracted
+        assert_eq!(session.items_processed, Some(25));
+        assert_eq!(session.total_items, Some(100));
+
         Ok(())
     }
 }
