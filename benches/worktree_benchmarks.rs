@@ -49,10 +49,7 @@ fn create_test_worktree_states_json(count: usize) -> Vec<serde_json::Value> {
 }
 
 /// Setup test environment with worktree states
-async fn setup_test_worktrees(
-    manager: &WorktreeManager,
-    count: usize,
-) -> anyhow::Result<()> {
+async fn setup_test_worktrees(manager: &WorktreeManager, count: usize) -> anyhow::Result<()> {
     let metadata_dir = manager.base_dir.join(".metadata");
     std::fs::create_dir_all(&metadata_dir)?;
 
@@ -99,11 +96,8 @@ fn bench_list_sessions(c: &mut Criterion) {
     group.measurement_time(Duration::from_secs(5));
 
     for count in [10, 50, 100].iter() {
-        group.bench_with_input(
-            BenchmarkId::new("list_basic", count),
-            count,
-            |b, &count| {
-                b.to_async(&rt).iter_batched(
+        group.bench_with_input(BenchmarkId::new("list_basic", count), count, |b, &count| {
+            b.to_async(&rt).iter_batched(
                     || {
                         let temp_dir = TempDir::new().unwrap();
                         let subprocess = SubprocessManager::production();
@@ -120,8 +114,7 @@ fn bench_list_sessions(c: &mut Criterion) {
                     },
                     BatchSize::SmallInput,
                 )
-            },
-        );
+        });
     }
 
     group.finish();
@@ -140,17 +133,13 @@ fn bench_list_detailed(c: &mut Criterion) {
             || {
                 let temp_dir = TempDir::new().unwrap();
                 let subprocess = SubprocessManager::production();
-                let manager = WorktreeManager::new(
-                    temp_dir.path().to_path_buf(),
-                    subprocess,
-                ).unwrap();
+                let manager =
+                    WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess).unwrap();
 
                 rt.block_on(setup_test_worktrees(&manager, 100)).unwrap();
                 (manager, temp_dir)
             },
-            |(manager, _temp_dir)| async move {
-                black_box(manager.list_detailed().await.unwrap())
-            },
+            |(manager, _temp_dir)| async move { black_box(manager.list_detailed().await.unwrap()) },
             BatchSize::SmallInput,
         )
     });
@@ -165,10 +154,9 @@ fn bench_list_detailed(c: &mut Criterion) {
                     || {
                         let temp_dir = TempDir::new().unwrap();
                         let subprocess = SubprocessManager::production();
-                        let manager = WorktreeManager::new(
-                            temp_dir.path().to_path_buf(),
-                            subprocess,
-                        ).unwrap();
+                        let manager =
+                            WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess)
+                                .unwrap();
 
                         rt.block_on(setup_test_worktrees(&manager, count)).unwrap();
                         (manager, temp_dir)
@@ -186,7 +174,9 @@ fn bench_list_detailed(c: &mut Criterion) {
 }
 
 fn bench_display_formatting(c: &mut Criterion) {
-    use prodigy::worktree::display::{EnhancedSessionInfo, DetailedWorktreeList, WorktreeSummary, SessionDisplay};
+    use prodigy::worktree::display::{
+        DetailedWorktreeList, EnhancedSessionInfo, SessionDisplay, WorktreeSummary,
+    };
     use std::path::PathBuf;
 
     let mut group = c.benchmark_group("display_formatting");
@@ -217,7 +207,11 @@ fn bench_display_formatting(c: &mut Criterion) {
             worktree_path: PathBuf::from(format!("/tmp/worktree-{}", i)),
             files_changed: (i % 20) as u32,
             commits: (i % 10) as u32,
-            items_processed: if i % 3 == 0 { Some((i * 10) as u32) } else { None },
+            items_processed: if i % 3 == 0 {
+                Some((i * 10) as u32)
+            } else {
+                None
+            },
             total_items: if i % 3 == 0 { Some(1000) } else { None },
         })
         .collect();
@@ -234,21 +228,15 @@ fn bench_display_formatting(c: &mut Criterion) {
     };
 
     group.bench_function("format_default_100_sessions", |b| {
-        b.iter(|| {
-            black_box(list.format_default())
-        })
+        b.iter(|| black_box(list.format_default()))
     });
 
     group.bench_function("format_verbose_100_sessions", |b| {
-        b.iter(|| {
-            black_box(list.format_verbose())
-        })
+        b.iter(|| black_box(list.format_verbose()))
     });
 
     group.bench_function("format_json_100_sessions", |b| {
-        b.iter(|| {
-            black_box(list.format_json())
-        })
+        b.iter(|| black_box(list.format_json()))
     });
 
     group.finish();

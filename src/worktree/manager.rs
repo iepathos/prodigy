@@ -1823,25 +1823,34 @@ branch refs/heads/main"#;
         assert_eq!(result.sessions.len(), 3);
 
         // Find each session and verify key fields
-        let session1 = result.sessions.iter()
+        let session1 = result
+            .sessions
+            .iter()
             .find(|s| s.session_id == "session-test-1")
             .expect("Session 1 not found");
         assert_eq!(session1.status, WorktreeStatus::InProgress);
         assert_eq!(session1.files_changed, 5);
         assert_eq!(session1.commits, 2);
 
-        let session2 = result.sessions.iter()
+        let session2 = result
+            .sessions
+            .iter()
             .find(|s| s.session_id == "session-test-2")
             .expect("Session 2 not found");
         assert_eq!(session2.status, WorktreeStatus::Completed);
         assert_eq!(session2.files_changed, 10);
         assert_eq!(session2.commits, 5);
 
-        let session3 = result.sessions.iter()
+        let session3 = result
+            .sessions
+            .iter()
             .find(|s| s.session_id == "session-test-3")
             .expect("Session 3 not found");
         assert_eq!(session3.status, WorktreeStatus::Failed);
-        assert_eq!(session3.error_summary, Some("Test error message".to_string()));
+        assert_eq!(
+            session3.error_summary,
+            Some("Test error message".to_string())
+        );
 
         Ok(())
     }
@@ -1887,7 +1896,8 @@ branch refs/heads/main"#;
             .build();
         subprocess.runner().run(commit_command).await?;
 
-        let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess.clone()).unwrap();
+        let manager =
+            WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess.clone()).unwrap();
 
         // Create metadata directory
         let metadata_dir = manager.base_dir.join(".metadata");
@@ -1926,7 +1936,13 @@ branch refs/heads/main"#;
         let wt_dir = manager.base_dir.join("workflow-session");
         let add_worktree = ProcessCommandBuilder::new("git")
             .current_dir(temp_dir.path())
-            .args(["worktree", "add", "-b", "workflow-branch", wt_dir.to_string_lossy().as_ref()])
+            .args([
+                "worktree",
+                "add",
+                "-b",
+                "workflow-branch",
+                wt_dir.to_string_lossy().as_ref(),
+            ])
             .build();
         subprocess.runner().run(add_worktree).await?;
 
@@ -1955,7 +1971,10 @@ branch refs/heads/main"#;
         let session = &result.sessions[0];
 
         // Verify workflow information was extracted
-        assert_eq!(session.workflow_path, Some(PathBuf::from("workflows/test.yaml")));
+        assert_eq!(
+            session.workflow_path,
+            Some(PathBuf::from("workflows/test.yaml"))
+        );
         assert_eq!(session.workflow_args, vec!["arg1", "arg2"]);
         assert_eq!(session.current_step, 3);
         assert_eq!(session.total_steps, Some(5));
@@ -2004,7 +2023,8 @@ branch refs/heads/main"#;
             .build();
         subprocess.runner().run(commit_command).await?;
 
-        let manager = WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess.clone()).unwrap();
+        let manager =
+            WorktreeManager::new(temp_dir.path().to_path_buf(), subprocess.clone()).unwrap();
 
         // Create metadata directory
         let metadata_dir = manager.base_dir.join(".metadata");
@@ -2043,7 +2063,13 @@ branch refs/heads/main"#;
         let wt_dir = manager.base_dir.join("mapreduce-session");
         let add_worktree = ProcessCommandBuilder::new("git")
             .current_dir(temp_dir.path())
-            .args(["worktree", "add", "-b", "mapreduce-branch", wt_dir.to_string_lossy().as_ref()])
+            .args([
+                "worktree",
+                "add",
+                "-b",
+                "mapreduce-branch",
+                wt_dir.to_string_lossy().as_ref(),
+            ])
             .build();
         subprocess.runner().run(add_worktree).await?;
 
