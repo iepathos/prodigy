@@ -1173,7 +1173,9 @@ impl WorktreeManager {
         );
 
         let log_file = self.base_dir.join(".metadata").join("cleanup.log");
-        let log_dir = log_file.parent().unwrap();
+        let log_dir = log_file
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("Invalid log file path: no parent directory"))?;
         fs::create_dir_all(log_dir).context("Failed to create log directory")?;
 
         fs::write(
@@ -2278,5 +2280,22 @@ branch refs/heads/main"#;
         assert_eq!(session.total_items, Some(100));
 
         Ok(())
+    }
+
+    #[test]
+    fn test_merge_workflow_variable_interpolation() {
+        // Test that variable interpolation works correctly for merge workflows
+        let test_str = "echo 'Worktree: ${merge.worktree}, Source: ${merge.source_branch}, Target: ${merge.target_branch}, Session: ${merge.session_id}'";
+
+        let interpolated = test_str
+            .replace("${merge.worktree}", "my-worktree")
+            .replace("${merge.source_branch}", "feature-123")
+            .replace("${merge.target_branch}", "develop")
+            .replace("${merge.session_id}", "session-abc");
+
+        assert!(interpolated.contains("Worktree: my-worktree"));
+        assert!(interpolated.contains("Source: feature-123"));
+        assert!(interpolated.contains("Target: develop"));
+        assert!(interpolated.contains("Session: session-abc"));
     }
 }

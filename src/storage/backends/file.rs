@@ -451,10 +451,13 @@ impl EventStorage for FileBackend {
                     .entry(event.event_type.clone())
                     .or_insert(0) += 1;
 
-                if stats.first_event.is_none() || event.timestamp < stats.first_event.unwrap() {
+                if stats
+                    .first_event
+                    .is_none_or(|first| event.timestamp < first)
+                {
                     stats.first_event = Some(event.timestamp);
                 }
-                if stats.last_event.is_none() || event.timestamp > stats.last_event.unwrap() {
+                if stats.last_event.is_none_or(|last| event.timestamp > last) {
                     stats.last_event = Some(event.timestamp);
                 }
 
@@ -800,10 +803,16 @@ impl DLQStorage for FileBackend {
                     .or_insert(0) += 1;
                 total_retries += item.retry_count;
 
-                if stats.oldest_item.is_none() || item.enqueued_at < stats.oldest_item.unwrap() {
+                if stats
+                    .oldest_item
+                    .is_none_or(|oldest| item.enqueued_at < oldest)
+                {
                     stats.oldest_item = Some(item.enqueued_at);
                 }
-                if stats.newest_item.is_none() || item.enqueued_at > stats.newest_item.unwrap() {
+                if stats
+                    .newest_item
+                    .is_none_or(|newest| item.enqueued_at > newest)
+                {
                     stats.newest_item = Some(item.enqueued_at);
                 }
             }
@@ -815,7 +824,9 @@ impl DLQStorage for FileBackend {
     }
 
     async fn purge(&self, older_than: Duration) -> StorageResult<usize> {
-        let cutoff = Utc::now() - chrono::Duration::from_std(older_than).unwrap();
+        let cutoff = Utc::now()
+            - chrono::Duration::from_std(older_than)
+                .map_err(|e| StorageError::Configuration(format!("Invalid duration: {}", e)))?;
         let dlq_dir = self.base_dir.join("dlq");
 
         if !self.path_exists(&dlq_dir).await {
