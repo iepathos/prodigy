@@ -229,6 +229,87 @@ For each identified issue, document:
    See PRODIGY_EVALUATION_REPORT.md for full analysis.
    ```
 
+   **IMPORTANT**: Never add Claude attribution or emoji to git commits. Keep commits clean and professional.
+
+## Code Quality Standards
+
+### Idiomatic Rust Requirements
+All generated specifications should promote:
+- **Ownership and Borrowing**: Proper use of Rust's ownership system
+- **Error Handling**: Use `Result<T, E>` instead of panics
+- **Pattern Matching**: Exhaustive matching over if-else chains
+- **Iterator Chains**: Prefer iterators over manual loops
+- **Type Safety**: Leverage Rust's type system for correctness
+- **Zero-Cost Abstractions**: Use abstractions that compile to efficient code
+
+### Functional Programming Best Practices
+Specifications should emphasize:
+- **Immutability by Default**: Avoid mutable state where possible
+- **Pure Functions**: Functions without side effects for business logic
+- **Function Composition**: Build complex behavior from simple functions
+- **Higher-Order Functions**: Use map, filter, fold instead of loops
+- **Separation of Concerns**: Pure core with imperative shell pattern
+- **Data Transformation Pipelines**: Chain operations over mutation
+- **Algebraic Data Types**: Use enums for modeling domain logic
+
+### Anti-Patterns to Identify
+Look for and create specs to fix:
+- **Imperative loops** that should be iterator chains
+- **Mutable accumulation** that should be fold/reduce
+- **Side effects in business logic** that should be pure
+- **Complex conditionals** that should be pattern matching
+- **Shared mutable state** that should be message passing
+- **Object-oriented patterns** that should be functional
+- **Inheritance hierarchies** that should be composition
+
+### Example Transformations
+```rust
+// Bad: Imperative with mutation
+let mut result = vec![];
+for item in items {
+    if item.is_valid() {
+        result.push(item.transform());
+    }
+}
+
+// Good: Functional with iterators
+let result: Vec<_> = items
+    .into_iter()
+    .filter(|item| item.is_valid())
+    .map(|item| item.transform())
+    .collect();
+
+// Bad: Mutable state accumulation
+let mut sum = 0;
+for value in values {
+    sum += value;
+}
+
+// Good: Fold/reduce
+let sum = values.iter().sum::<i32>();
+
+// Bad: Side effects mixed with logic
+fn process_data(data: &Data) -> Result<Output> {
+    log::info!("Processing data");
+    let result = transform(data)?;
+    database.save(&result)?;
+    send_notification(&result);
+    Ok(result)
+}
+
+// Good: Pure core with separated I/O
+fn transform_data(data: &Data) -> Result<Output> {
+    transform(data) // Pure function
+}
+
+fn process_data(data: &Data, ctx: &Context) -> Result<Output> {
+    let result = transform_data(data)?; // Pure
+    ctx.save(&result)?;                 // I/O at boundary
+    ctx.notify(&result);                // I/O at boundary
+    Ok(result)
+}
+```
+
 ## Evaluation Checklist
 
 ### Code Quality Issues to Detect

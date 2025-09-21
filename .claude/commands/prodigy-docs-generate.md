@@ -97,7 +97,4 @@ docs: generate [documentation type] documentation
 5. **Quality Check**: Ensure examples compile and follow conventions
 6. **Commit Changes**: Automatically commit with descriptive message
 
-IMPORTANT: Do not put "    
-    🤖 Generated with [Claude Code](https://claude.ai/code)
-    
-    Co-Authored-By: Claude <noreply@anthropic.com>" in the commit it just bloats the messages.
+**IMPORTANT**: Never add Claude attribution or emoji to git commits. Keep commits clean and professional.
