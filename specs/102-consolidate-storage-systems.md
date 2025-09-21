@@ -26,14 +26,15 @@ This redundancy makes it unclear which system to use, increases code complexity,
 
 ## Objective
 
-Consolidate all storage into a single, file-based global storage system (`~/.prodigy/`), removing legacy local storage and deferring container abstractions until actually needed.
+Consolidate all storage into a single, file-based global storage system (default: `~/.prodigy/`), making it configurable so users can set custom paths, while removing legacy local storage and deferring container abstractions until actually needed.
 
 ## Requirements
 
 ### Functional Requirements
-- Migrate all storage operations to use global storage exclusively
+- Migrate all storage operations to use configurable global storage
+- Support custom storage paths via configuration (default: `~/.prodigy/`)
 - Remove legacy local storage code and environment variable support
-- Remove unused container storage abstraction layer
+- Remove unused container storage abstraction layer (PostgreSQL, Redis, S3 backends)
 - Ensure automatic migration from local to global storage for existing users
 - Maintain all current storage functionality (events, DLQ, state, sessions)
 
@@ -45,7 +46,7 @@ Consolidate all storage into a single, file-based global storage system (`~/.pro
 
 ## Acceptance Criteria
 
-- [ ] All storage operations use `~/.prodigy/` exclusively
+- [ ] All storage operations use configurable global storage (default: `~/.prodigy/`)
 - [ ] `PRODIGY_USE_LOCAL_STORAGE` environment variable has no effect
 - [ ] Legacy `.prodigy/` directories automatically migrated on first run
 - [ ] Container storage abstraction code completely removed
@@ -73,10 +74,11 @@ Consolidate all storage into a single, file-based global storage system (`~/.pro
    - Clean up migration code after making it run once
 
 4. **Phase 4: Remove Container Abstractions**
-   - Delete entire `src/storage/backends/` directory
+   - Delete entire `src/storage/backends/` directory (postgres.rs, redis.rs, s3.rs)
    - Remove `src/storage/traits.rs` abstraction layer
    - Delete unused storage factory and configuration
-   - Remove Redis, S3, and PostgreSQL dependencies
+   - Remove container-focused dependencies (sqlx, deadpool-redis, aws-sdk-s3)
+   - Keep only file-based storage with configurable paths
 
 ### Architecture Changes
 
@@ -105,15 +107,31 @@ Remove:
 
 ### APIs and Interfaces
 
-Simplified storage API:
+Simplified storage API with configuration:
 ```rust
+#[derive(Debug, Clone)]
+pub struct StorageConfig {
+    pub base_dir: PathBuf,  // Configurable storage root
+}
+
+impl Default for StorageConfig {
+    fn default() -> Self {
+        Self {
+            base_dir: dirs::home_dir()
+                .unwrap_or_else(|| PathBuf::from("."))
+                .join(".prodigy"),
+        }
+    }
+}
+
 pub struct GlobalStorage {
-    base_dir: PathBuf,
+    config: StorageConfig,
     repo_name: String,
 }
 
 impl GlobalStorage {
     pub fn new(repo_path: &Path) -> Result<Self>
+    pub fn with_config(repo_path: &Path, config: StorageConfig) -> Result<Self>
     pub async fn read_state(&self, job_id: &str) -> Result<State>
     pub async fn write_state(&self, job_id: &str, state: &State) -> Result<()>
     pub async fn read_events(&self, job_id: &str) -> Result<Vec<Event>>
@@ -132,8 +150,9 @@ impl GlobalStorage {
   - DLQ processing
   - Event tracking
 - **External Dependencies to Remove**:
-  - aws-sdk-s3
-  - deadpool-redis
+  - aws-sdk-s3 (S3 backend)
+  - deadpool-redis (Redis backend)
+  - sqlx (PostgreSQL backend)
   - sea-orm (if only used for storage)
 
 ## Testing Strategy
@@ -154,8 +173,19 @@ impl GlobalStorage {
 
 - Ensure migration runs automatically on first use after update
 - Keep migration code initially, remove in subsequent release
-- Consider adding storage location to `prodigy info` command
+- Support multiple configuration methods:
+  - Environment variable: `PRODIGY_STORAGE_DIR=/custom/path`
+  - Config file: `~/.prodigy/config.toml`
+  - CLI flag: `--storage-dir /custom/path`
+- Add storage location to `prodigy info` command
 - Log storage operations at debug level for troubleshooting
+- Validate storage directory permissions on startup
+
+### Configuration Priority (highest to lowest)
+1. CLI flag `--storage-dir`
+2. Environment variable `PRODIGY_STORAGE_DIR`
+3. Config file setting
+4. Default `~/.prodigy/`
 
 ## Migration and Compatibility
 
