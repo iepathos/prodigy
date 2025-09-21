@@ -649,7 +649,7 @@ mod tests {
             .unwrap();
 
         // Get initial state
-        let initial_state = manager.get_job_state(&job_id).await.unwrap();
+        let _initial_state = manager.get_job_state(&job_id).await.unwrap();
 
         // Create resume options
         let resume_options = ResumeOptions {
@@ -707,7 +707,7 @@ mod tests {
             .await
             .unwrap();
 
-        let state = manager.get_job_state(&job_id).await.unwrap();
+        let _state = manager.get_job_state(&job_id).await.unwrap();
 
         // Create resume options with additional retries
         let resume_options = ResumeOptions {

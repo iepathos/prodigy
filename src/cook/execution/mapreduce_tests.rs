@@ -1380,7 +1380,7 @@ mod concurrency_tests {
     #[tokio::test]
     async fn test_agent_timeout_handling() {
         // Test that agent timeouts are properly enforced
-        let config = MapReduceConfig {
+        let _config = MapReduceConfig {
             input: "test.json".to_string(),
             json_path: "$.items[*]".to_string(),
             max_parallel: 2,

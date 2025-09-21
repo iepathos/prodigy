@@ -449,8 +449,6 @@ fn bench_checkpoint_save_performance(c: &mut Criterion) {
                             input: "test.json".to_string(),
                             json_path: String::new(),
                             max_parallel: 10,
-                            timeout_per_agent: 60,
-                            retry_on_failure: 2,
                             max_items: Some(size),
                             offset: None,
                         };
@@ -524,8 +522,6 @@ fn bench_checkpoint_load_performance(c: &mut Criterion) {
                             input: "test.json".to_string(),
                             json_path: String::new(),
                             max_parallel: 10,
-                            timeout_per_agent: 60,
-                            retry_on_failure: 2,
                             max_items: Some(size),
                             offset: None,
                         };
@@ -599,8 +595,6 @@ fn bench_job_state_manager_with_checkpointing(c: &mut Criterion) {
                             input: "test.json".to_string(),
                             json_path: String::new(),
                             max_parallel: 10,
-                            timeout_per_agent: 60,
-                            retry_on_failure: 2,
                             max_items: Some(size),
                             offset: None,
                         };

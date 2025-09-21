@@ -190,6 +190,7 @@ commands:
 }
 
 /// Create a workflow with error
+#[allow(dead_code)]
 pub fn create_failing_workflow(name: &str) -> String {
     format!(
         r#"
