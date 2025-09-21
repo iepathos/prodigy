@@ -79,7 +79,7 @@ Consolidate all session management into a single, unified system that handles al
 2. **Phase 2: Create Unified Manager**
    ```rust
    pub struct SessionManager {
-       storage: GlobalStorage,
+       storage: GlobalStorage,  // Uses configurable storage from spec 102
        active_sessions: HashMap<SessionId, UnifiedSession>,
        lock_manager: LockManager,
    }
@@ -130,6 +130,7 @@ After:
                     │
             ┌───────┴────────┐
             │ GlobalStorage  │
+            │ (Configurable) │
             └────────────────┘
 ```
 
@@ -225,6 +226,9 @@ pub async fn get_active_sessions() -> Result<Vec<SessionId>>
 - Implement lazy loading for checkpoint data
 - Consider using SQLite for session indexing if needed later
 - Ensure graceful handling of corrupted session files
+- Leverage configurable storage paths from spec 102 (via `GlobalStorage`)
+- Session storage will use the same base directory configuration as other storage
+- Future distributed storage support will be behind feature flags per spec 102
 
 ## Migration and Compatibility
 
