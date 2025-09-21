@@ -66,16 +66,24 @@ tokio-stream = "0.1"
 hostname = "0.4"
 nix = { version = "0.30", features = ["signal", "process"] }
 sysinfo = "0.37.0"
-sqlx = { version = "0.8", features = ["sqlite", "postgres", "runtime-tokio-native-tls", "chrono", "uuid", "migrate"] }
-deadpool-redis = "0.18"
-redis = { version = "0.27", features = ["tokio-comp", "connection-manager", "json"] }
-aws-config = "1.5"
-aws-sdk-s3 = "1.60"
+sqlx = { version = "0.8", features = ["sqlite", "postgres", "runtime-tokio-native-tls", "chrono", "uuid", "migrate"], optional = true }
+deadpool-redis = { version = "0.18", optional = true }
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager", "json"], optional = true }
+aws-config = { version = "1.5", optional = true }
+aws-sdk-s3 = { version = "1.60", optional = true }
 
 [features]
 default = []
 # Enable vendored OpenSSL for static linking (useful for musl builds)
 vendored-openssl = ["reqwest/native-tls-vendored"]
+
+# Storage backend features
+postgres = ["dep:sqlx"]
+redis = ["dep:deadpool-redis", "dep:redis"]
+s3 = ["dep:aws-config", "dep:aws-sdk-s3"]
+
+# Distributed storage features (combinations of backends)
+distributed = ["postgres", "redis", "s3"]
 
 [build-dependencies]
 clap = { version = "4.5", features = ["derive"] }

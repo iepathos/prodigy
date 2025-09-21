@@ -350,6 +350,7 @@ enum Commands {
         web: Option<u16>,
     },
     /// Analyze Claude session analytics
+    #[cfg(feature = "postgres")]
     #[command(name = "analytics")]
     Analytics {
         #[command(subcommand)]
@@ -1295,6 +1296,7 @@ async fn execute_command(command: Option<Commands>, verbose: u8) -> anyhow::Resu
             format,
             web,
         }) => run_progress_command(job_id, export, format, web).await,
+        #[cfg(feature = "postgres")]
         Some(Commands::Analytics { command }) => {
             prodigy::cli::analytics_command::handle_analytics_command(command).await
         }
@@ -2177,14 +2179,9 @@ async fn get_dlq_instance(
 ) -> anyhow::Result<prodigy::cook::execution::dlq::DeadLetterQueue> {
     use prodigy::cook::execution::dlq::DeadLetterQueue;
 
-    if prodigy::storage::GlobalStorage::should_use_global() {
-        let storage = prodigy::storage::GlobalStorage::new(project_root)?;
-        let dlq_dir = storage.get_dlq_dir(job_id).await?;
-        DeadLetterQueue::new(job_id.to_string(), dlq_dir, 10000, 30, None).await
-    } else {
-        let dlq_path = project_root.join(".prodigy");
-        DeadLetterQueue::new(job_id.to_string(), dlq_path, 10000, 30, None).await
-    }
+    let storage = prodigy::storage::GlobalStorage::new(project_root)?;
+    let dlq_dir = storage.get_dlq_dir(job_id).await?;
+    DeadLetterQueue::new(job_id.to_string(), dlq_dir, 10000, 30, None).await
 }
 
 fn display_dlq_items(

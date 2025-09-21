@@ -1,5 +1,6 @@
 //! CLI command handlers
 
+#[cfg(feature = "postgres")]
 pub mod analytics_command;
 pub mod events;
 pub mod workflow_generator;

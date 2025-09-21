@@ -1,18 +1,30 @@
 //! SQLite persistence layer for analytics data
 
+#[cfg(feature = "postgres")]
 use anyhow::Result;
+#[cfg(feature = "postgres")]
 use chrono::{DateTime, Utc};
+#[cfg(feature = "postgres")]
 use serde_json::json;
+#[cfg(feature = "postgres")]
 use sqlx::{sqlite::SqlitePool, Row};
+#[cfg(feature = "postgres")]
 use std::path::Path;
+#[cfg(feature = "postgres")]
 use tracing::{debug, info};
 
+#[cfg(feature = "postgres")]
 use super::models::{Session, SessionEvent, ToolInvocation};
 
+#[cfg(feature = "postgres")]
 /// Database connection pool for analytics persistence
 pub struct AnalyticsDatabase {
     pool: SqlitePool,
 }
+
+#[cfg(not(feature = "postgres"))]
+/// Database connection pool for analytics persistence (disabled)
+pub struct AnalyticsDatabase;
 
 impl AnalyticsDatabase {
     /// Create a new database connection

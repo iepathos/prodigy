@@ -16,7 +16,7 @@ pub mod types;
 #[cfg(test)]
 mod tests;
 
-pub use config::{BackendConfig, BackendType, StorageConfig};
+pub use config::{BackendConfig, BackendType};
 pub use error::{StorageError, StorageResult};
 pub use factory::StorageFactory;
 pub use lock::{StorageLock, StorageLockGuard};
@@ -39,14 +39,48 @@ pub async fn init_from_env() -> StorageResult<Box<dyn UnifiedStorage>> {
 }
 
 /// Initialize the storage subsystem from explicit configuration
-pub async fn init_from_config(config: StorageConfig) -> StorageResult<Box<dyn UnifiedStorage>> {
+pub async fn init_from_config(config: config::StorageConfig) -> StorageResult<Box<dyn UnifiedStorage>> {
     StorageFactory::from_config(&config).await
+}
+
+/// Legacy storage configuration for custom paths (deprecated - use config::StorageConfig)
+#[derive(Debug, Clone)]
+pub struct LegacyStorageConfig {
+    /// Base directory for storage (default: ~/.prodigy)
+    pub base_dir: PathBuf,
+}
+
+impl Default for LegacyStorageConfig {
+    fn default() -> Self {
+        Self {
+            base_dir: get_default_storage_dir()
+                .unwrap_or_else(|_| PathBuf::from(".prodigy")),
+        }
+    }
+}
+
+impl LegacyStorageConfig {
+    /// Create config from environment variables
+    pub fn from_env() -> Self {
+        if let Ok(dir) = std::env::var("PRODIGY_STORAGE_DIR") {
+            Self {
+                base_dir: PathBuf::from(dir),
+            }
+        } else {
+            Self::default()
+        }
+    }
+
+    /// Create config with custom base directory
+    pub fn with_base_dir(base_dir: PathBuf) -> Self {
+        Self { base_dir }
+    }
 }
 
 /// Global storage paths configuration
 pub struct GlobalStorage {
-    /// Base directory for all global storage (~/.prodigy)
-    base_dir: PathBuf,
+    /// Storage configuration
+    config: LegacyStorageConfig,
     /// Repository name extracted from project path
     repo_name: String,
 }
@@ -55,10 +89,19 @@ impl GlobalStorage {
     /// Create a new global storage instance for a repository
     pub fn new(repo_path: &Path) -> Result<Self> {
         let repo_name = extract_repo_name(repo_path)?;
-        let base_dir = get_global_base_dir()?;
+        let config = LegacyStorageConfig::from_env();
 
         Ok(Self {
-            base_dir,
+            config,
+            repo_name,
+        })
+    }
+
+    /// Create with custom config
+    pub fn with_config(repo_path: &Path, config: LegacyStorageConfig) -> Result<Self> {
+        let repo_name = extract_repo_name(repo_path)?;
+        Ok(Self {
+            config,
             repo_name,
         })
     }
@@ -66,6 +109,7 @@ impl GlobalStorage {
     /// Get the global events directory for this repository
     pub async fn get_events_dir(&self, job_id: &str) -> Result<PathBuf> {
         let path = self
+            .config
             .base_dir
             .join("events")
             .join(&self.repo_name)
@@ -80,7 +124,7 @@ impl GlobalStorage {
 
     /// Get the global DLQ directory for this repository
     pub async fn get_dlq_dir(&self, job_id: &str) -> Result<PathBuf> {
-        let path = self.base_dir.join("dlq").join(&self.repo_name).join(job_id);
+        let path = self.config.base_dir.join("dlq").join(&self.repo_name).join(job_id);
 
         fs::create_dir_all(&path)
             .await
@@ -92,6 +136,7 @@ impl GlobalStorage {
     /// Get the global state directory for this repository
     pub async fn get_state_dir(&self, job_id: &str) -> Result<PathBuf> {
         let path = self
+            .config
             .base_dir
             .join("state")
             .join(&self.repo_name)
@@ -111,7 +156,7 @@ impl GlobalStorage {
 
     /// List all job IDs with DLQ data for this repository
     pub async fn list_dlq_job_ids(&self) -> Result<Vec<String>> {
-        let dlq_repo_dir = self.base_dir.join("dlq").join(&self.repo_name);
+        let dlq_repo_dir = self.config.base_dir.join("dlq").join(&self.repo_name);
 
         if !dlq_repo_dir.exists() {
             return Ok(vec![]);
@@ -141,15 +186,9 @@ impl GlobalStorage {
         Ok(job_ids)
     }
 
-    /// Check if we should use global storage based on environment
-    pub fn should_use_global() -> bool {
-        // Check for opt-out environment variable
-        if std::env::var("PRODIGY_USE_LOCAL_STORAGE").unwrap_or_default() == "true" {
-            return false;
-        }
-
-        // Default to global storage
-        true
+    /// Get the base directory for storage
+    pub fn base_dir(&self) -> &Path {
+        &self.config.base_dir
     }
 }
 
@@ -174,8 +213,8 @@ pub fn extract_repo_name(repo_path: &Path) -> Result<String> {
         })
 }
 
-/// Get the global base directory (~/.prodigy)
-pub fn get_global_base_dir() -> Result<PathBuf> {
+/// Get the default storage directory (~/.prodigy)
+pub fn get_default_storage_dir() -> Result<PathBuf> {
     // During tests, use a temp directory to avoid filesystem issues
     #[cfg(test)]
     {
@@ -198,38 +237,11 @@ pub fn get_global_base_dir() -> Result<PathBuf> {
     }
 }
 
-/// List DLQ job IDs from local storage (fallback for legacy support)
-pub async fn list_local_dlq_job_ids(project_root: &Path) -> Result<Vec<String>> {
-    let local_dlq_dir = project_root.join(".prodigy").join("dlq");
 
-    if !local_dlq_dir.exists() {
-        return Ok(vec![]);
-    }
-
-    let mut job_ids = Vec::new();
-    let mut entries = fs::read_dir(local_dlq_dir).await?;
-
-    while let Some(entry) = entries.next_entry().await? {
-        if let Some(name) = entry.file_name().to_str() {
-            if name.ends_with(".json") {
-                job_ids.push(name.trim_end_matches(".json").to_string());
-            }
-        }
-    }
-
-    job_ids.sort();
-    job_ids.reverse(); // Most recent first
-    Ok(job_ids)
-}
-
-/// Discover all available DLQ job IDs, checking both global and local storage
+/// Discover all available DLQ job IDs
 pub async fn discover_dlq_job_ids(project_root: &Path) -> Result<Vec<String>> {
-    if GlobalStorage::should_use_global() {
-        let storage = GlobalStorage::new(project_root)?;
-        storage.list_dlq_job_ids().await
-    } else {
-        list_local_dlq_job_ids(project_root).await
-    }
+    let storage = GlobalStorage::new(project_root)?;
+    storage.list_dlq_job_ids().await
 }
 
 /// Create a new event logger with global storage
@@ -279,7 +291,7 @@ pub async fn create_global_dlq(
 pub mod migration {
     use super::*;
     use tokio::fs;
-    use tracing::{info, warn};
+    use tracing::info;
 
     /// Check if a project has local storage that needs migration
     pub async fn has_local_storage(project_path: &Path) -> bool {
@@ -306,7 +318,7 @@ pub mod migration {
         if local_events.exists() {
             migrate_directory(
                 &local_events,
-                &storage.base_dir.join("events").join(&storage.repo_name),
+                &storage.config.base_dir.join("events").join(&storage.repo_name),
             )
             .await?;
         }
@@ -316,7 +328,7 @@ pub mod migration {
         if local_dlq.exists() {
             migrate_directory(
                 &local_dlq,
-                &storage.base_dir.join("dlq").join(&storage.repo_name),
+                &storage.config.base_dir.join("dlq").join(&storage.repo_name),
             )
             .await?;
         }
@@ -326,25 +338,18 @@ pub mod migration {
         if local_state.exists() {
             migrate_directory(
                 &local_state,
-                &storage.base_dir.join("state").join(&storage.repo_name),
+                &storage.config.base_dir.join("state").join(&storage.repo_name),
             )
             .await?;
         }
 
         info!("Migration completed successfully");
 
-        // Optionally remove local directory
-        if std::env::var("PRODIGY_REMOVE_LOCAL_AFTER_MIGRATION").unwrap_or_default() == "true" {
-            fs::remove_dir_all(&local_dir)
-                .await
-                .context("Failed to remove local storage after migration")?;
-            info!("Removed local storage directory");
-        } else {
-            warn!(
-                "Local storage directory preserved at: {}",
-                local_dir.display()
-            );
-        }
+        // Always remove local directory after successful migration
+        fs::remove_dir_all(&local_dir)
+            .await
+            .context("Failed to remove local storage after migration")?;
+        info!("Removed local storage directory after successful migration");
 
         Ok(())
     }
@@ -556,30 +561,6 @@ mod mod_tests {
         assert_eq!(job_ids, vec!["job-3", "job-2", "job-1"]);
     }
 
-    #[tokio::test]
-    async fn test_local_dlq_discovery() {
-        let temp_dir = TempDir::new().unwrap();
-        let project_path = temp_dir.path().join("test-project");
-        std::fs::create_dir(&project_path).unwrap();
-
-        // Initially no job IDs
-        let job_ids = list_local_dlq_job_ids(&project_path).await.unwrap();
-        assert!(job_ids.is_empty());
-
-        // Create local DLQ structure
-        let dlq_dir = project_path.join(".prodigy").join("dlq");
-        fs::create_dir_all(&dlq_dir).await.unwrap();
-
-        // Create job files
-        for i in 1..=3 {
-            let job_file = dlq_dir.join(format!("job-{}.json", i));
-            fs::write(&job_file, "{}").await.unwrap();
-        }
-
-        let job_ids = list_local_dlq_job_ids(&project_path).await.unwrap();
-        assert_eq!(job_ids.len(), 3);
-        assert_eq!(job_ids, vec!["job-3", "job-2", "job-1"]);
-    }
 
     #[tokio::test]
     async fn test_discover_dlq_job_ids() {
@@ -587,23 +568,24 @@ mod mod_tests {
         let project_path = temp_dir.path().join("test-project");
         std::fs::create_dir(&project_path).unwrap();
 
-        // Test with local storage (override global default)
-        std::env::set_var("PRODIGY_USE_LOCAL_STORAGE", "true");
-
+        // Always uses global storage now
         let job_ids = discover_dlq_job_ids(&project_path).await.unwrap();
         assert!(job_ids.is_empty());
 
-        // Create local DLQ structure
-        let dlq_dir = project_path.join(".prodigy").join("dlq");
-        fs::create_dir_all(&dlq_dir).await.unwrap();
-        let job_file = dlq_dir.join("test-job.json");
-        fs::write(&job_file, "{}").await.unwrap();
+        // Create global DLQ structure
+        let storage = GlobalStorage::new(&project_path).unwrap();
 
-        let job_ids = discover_dlq_job_ids(&project_path).await.unwrap();
+        // Create job directory with items
+        let job_dir = storage.get_dlq_dir("test-job").await.unwrap();
+        let items_dir = job_dir.join("items");
+        fs::create_dir_all(&items_dir).await.unwrap();
+
+        // Add an item to make it a valid DLQ job
+        let item_file = items_dir.join("item-1.json");
+        fs::write(&item_file, "{}").await.unwrap();
+
+        let job_ids = storage.list_dlq_job_ids().await.unwrap();
         assert_eq!(job_ids.len(), 1);
         assert_eq!(job_ids[0], "test-job");
-
-        // Clean up environment variable
-        std::env::remove_var("PRODIGY_USE_LOCAL_STORAGE");
     }
 }

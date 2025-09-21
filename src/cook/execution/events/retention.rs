@@ -31,15 +31,9 @@ pub struct RetentionPolicy {
 
 impl Default for RetentionPolicy {
     fn default() -> Self {
-        use crate::storage::GlobalStorage;
-
-        // Use global archive path if global storage is enabled
-        let archive_path = if GlobalStorage::should_use_global() {
-            if let Ok(global_base) = crate::storage::get_global_base_dir() {
-                Some(global_base.join("events").join("archive"))
-            } else {
-                Some(PathBuf::from(".prodigy/events/archive"))
-            }
+        // Use global archive path
+        let archive_path = if let Ok(global_base) = crate::storage::get_default_storage_dir() {
+            Some(global_base.join("events").join("archive"))
         } else {
             Some(PathBuf::from(".prodigy/events/archive"))
         };
@@ -79,15 +73,9 @@ impl RetentionManager {
     pub async fn with_global_storage(repo_path: &Path, job_id: &str) -> Result<Self> {
         use crate::storage::GlobalStorage;
 
-        if GlobalStorage::should_use_global() {
-            let storage = GlobalStorage::new(repo_path)?;
-            let events_path = storage.get_events_dir(job_id).await?;
-            Ok(Self::with_default_policy(events_path))
-        } else {
-            // Fall back to local storage
-            let events_path = repo_path.join(".prodigy").join("events").join(job_id);
-            Ok(Self::with_default_policy(events_path))
-        }
+        let storage = GlobalStorage::new(repo_path)?;
+        let events_path = storage.get_events_dir(job_id).await?;
+        Ok(Self::with_default_policy(events_path))
     }
 
     /// Load policy from configuration file

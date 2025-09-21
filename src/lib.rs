@@ -25,6 +25,7 @@
 //! - `session` - Session state management with event-driven architecture
 //! - `testing` - Testing utilities and fixtures for comprehensive testing
 pub mod abstractions;
+#[cfg(feature = "postgres")]
 pub mod analytics;
 pub mod cli;
 pub mod commands;

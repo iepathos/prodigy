@@ -77,7 +77,7 @@ pub struct FileConfig {
     /// Base directory for storage
     pub base_dir: PathBuf,
 
-    /// Use global storage (~/.prodigy) vs local (.prodigy)
+    /// Use global storage (~/.prodigy) - local storage is deprecated
     #[serde(default = "default_true")]
     pub use_global: bool,
 
@@ -382,18 +382,20 @@ impl StorageConfig {
 
         let backend_config = match backend {
             BackendType::File => BackendConfig::File(FileConfig {
-                base_dir: std::env::var("PRODIGY_STORAGE_PATH")
+                base_dir: std::env::var("PRODIGY_STORAGE_DIR")
+                    .or_else(|_| std::env::var("PRODIGY_STORAGE_PATH"))
                     .map(PathBuf::from)
                     .unwrap_or_else(|_| {
                         dirs::home_dir()
                             .unwrap_or_else(|| PathBuf::from("/tmp"))
                             .join(".prodigy")
                     }),
-                use_global: std::env::var("PRODIGY_USE_LOCAL_STORAGE") != Ok("true".to_string()),
+                use_global: true, // Local storage is deprecated
                 enable_file_locks: true,
                 max_file_size: default_max_file_size(),
                 enable_compression: false,
             }),
+            #[cfg(feature = "postgres")]
             BackendType::Postgres => {
                 let connection_string = std::env::var("PRODIGY_POSTGRES_URL")
                     .or_else(|_| std::env::var("DATABASE_URL"))
@@ -409,6 +411,11 @@ impl StorageConfig {
                     statement_timeout: default_statement_timeout(),
                 })
             }
+            #[cfg(not(feature = "postgres"))]
+            BackendType::Postgres => {
+                return Err(anyhow::anyhow!("PostgreSQL backend not enabled. Enable with --features postgres"));
+            }
+            #[cfg(feature = "redis")]
             BackendType::Redis => {
                 let url = std::env::var("PRODIGY_REDIS_URL")
                     .or_else(|_| std::env::var("REDIS_URL"))
@@ -423,6 +430,11 @@ impl StorageConfig {
                     default_ttl: default_redis_ttl(),
                 })
             }
+            #[cfg(not(feature = "redis"))]
+            BackendType::Redis => {
+                return Err(anyhow::anyhow!("Redis backend not enabled. Enable with --features redis"));
+            }
+            #[cfg(feature = "s3")]
             BackendType::S3 => BackendConfig::S3(S3Config {
                 bucket: std::env::var("PRODIGY_S3_BUCKET")
                     .map_err(|_| anyhow::anyhow!("S3 bucket not specified"))?,
@@ -436,6 +448,10 @@ impl StorageConfig {
                 enable_encryption: false,
                 storage_class: Default::default(),
             }),
+            #[cfg(not(feature = "s3"))]
+            BackendType::S3 => {
+                return Err(anyhow::anyhow!("S3 backend not enabled. Enable with --features s3"));
+            }
             BackendType::Memory => BackendConfig::Memory(Default::default()),
         };
 

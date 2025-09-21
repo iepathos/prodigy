@@ -176,13 +176,9 @@ enum JobStatus {
 
 /// Get list of available jobs from global storage
 fn get_available_jobs() -> Result<Vec<JobInfo>> {
-    if !crate::storage::GlobalStorage::should_use_global() {
-        return Ok(Vec::new());
-    }
-
     let current_dir = std::env::current_dir()?;
     let repo_name = crate::storage::extract_repo_name(&current_dir)?;
-    let global_base = crate::storage::get_global_base_dir()?;
+    let global_base = crate::storage::get_default_storage_dir()?;
     let global_events_dir = global_base.join("events").join(&repo_name);
 
     if !global_events_dir.exists() {
@@ -314,13 +310,9 @@ fn find_event_files(dir: &Path) -> Result<Vec<PathBuf>> {
 
 /// Resolve event file path for a specific job
 fn resolve_job_event_file(job_id: &str) -> Result<PathBuf> {
-    if !crate::storage::GlobalStorage::should_use_global() {
-        return Ok(PathBuf::from(".prodigy/events/mapreduce_events.jsonl"));
-    }
-
     let current_dir = std::env::current_dir()?;
     let repo_name = crate::storage::extract_repo_name(&current_dir)?;
-    let global_base = crate::storage::get_global_base_dir()?;
+    let global_base = crate::storage::get_default_storage_dir()?;
     let job_events_dir = global_base.join("events").join(&repo_name).join(job_id);
 
     if !job_events_dir.exists() {
@@ -343,13 +335,11 @@ fn resolve_event_file_with_fallback(file: PathBuf, job_id: Option<&str>) -> Resu
         return Ok(file);
     }
 
-    // If a job_id is provided and we're using global storage, resolve it
+    // If a job_id is provided, resolve it from global storage
     if let Some(job_id) = job_id {
-        if crate::storage::GlobalStorage::should_use_global() {
-            if let Ok(resolved) = resolve_job_event_file(job_id) {
-                info!("Using global event file: {:?}", resolved);
-                return Ok(resolved);
-            }
+        if let Ok(resolved) = resolve_job_event_file(job_id) {
+            info!("Using global event file: {:?}", resolved);
+            return Ok(resolved);
         }
     }
 
@@ -359,13 +349,11 @@ fn resolve_event_file_with_fallback(file: PathBuf, job_id: Option<&str>) -> Resu
 
 /// Get all event files from global storage for aggregate operations
 fn get_all_event_files() -> Result<Vec<PathBuf>> {
-    if !crate::storage::GlobalStorage::should_use_global() {
-        return Ok(Vec::new());
-    }
+    // Always use global storage for event file aggregation
 
     let current_dir = std::env::current_dir()?;
     let repo_name = crate::storage::extract_repo_name(&current_dir)?;
-    let global_base = crate::storage::get_global_base_dir()?;
+    let global_base = crate::storage::get_default_storage_dir()?;
     let global_events_dir = global_base.join("events").join(&repo_name);
 
     if !global_events_dir.exists() {
@@ -399,11 +387,8 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
             file,
             output_format,
         } => {
-            // If no job_id provided and using global storage, show available jobs
-            if job_id.is_none()
-                && crate::storage::GlobalStorage::should_use_global()
-                && !file.exists()
-            {
+            // If no job_id provided and no explicit file, show available jobs
+            if job_id.is_none() && !file.exists() {
                 display_available_jobs()?;
                 Ok(())
             } else {
@@ -427,8 +412,8 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
             group_by,
             output_format,
         } => {
-            // If no explicit file and using global storage, aggregate all events
-            if !file.exists() && crate::storage::GlobalStorage::should_use_global() {
+            // If no explicit file, aggregate all events from global storage
+            if !file.exists() {
                 show_aggregated_stats(group_by, output_format).await
             } else {
                 let resolved_file = resolve_event_file_with_fallback(file, None)?;
@@ -441,8 +426,8 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
             file,
             fields,
         } => {
-            // If no explicit file and using global storage, search all events
-            if !file.exists() && crate::storage::GlobalStorage::should_use_global() {
+            // If no explicit file, search all events from global storage
+            if !file.exists() {
                 search_aggregated_events(pattern, fields).await
             } else {
                 let resolved_file = resolve_event_file_with_fallback(file, None)?;
@@ -464,8 +449,8 @@ pub async fn execute(args: EventsArgs) -> Result<()> {
             format,
             output,
         } => {
-            // If no explicit file and using global storage, export all events
-            if !file.exists() && crate::storage::GlobalStorage::should_use_global() {
+            // If no explicit file, export all events from global storage
+            if !file.exists() {
                 export_aggregated_events(format, output).await
             } else {
                 let resolved_file = resolve_event_file_with_fallback(file, None)?;
@@ -1199,13 +1184,11 @@ async fn clean_events(
         // Perform analysis first to show user what will be cleaned
         if all_jobs || job_id.is_some() {
             // Analyze global storage
-            if !crate::storage::GlobalStorage::should_use_global() {
-                return Err(anyhow::anyhow!("Global storage is not enabled"));
-            }
+            // Global storage is always enabled in the new architecture
 
             let current_dir = std::env::current_dir()?;
             let repo_name = crate::storage::extract_repo_name(&current_dir)?;
-            let global_base = crate::storage::get_global_base_dir()?;
+            let global_base = crate::storage::get_default_storage_dir()?;
             let global_events_dir = global_base.join("events").join(&repo_name);
 
             if global_events_dir.exists() {
@@ -1341,13 +1324,11 @@ async fn clean_events(
     // Determine which event files to clean
     else if all_jobs || job_id.is_some() {
         // Clean from global storage
-        if !crate::storage::GlobalStorage::should_use_global() {
-            return Err(anyhow::anyhow!("Global storage is not enabled"));
-        }
+        // Global storage is always enabled in the new architecture
 
         let current_dir = std::env::current_dir()?;
         let repo_name = crate::storage::extract_repo_name(&current_dir)?;
-        let global_base = crate::storage::get_global_base_dir()?;
+        let global_base = crate::storage::get_default_storage_dir()?;
         let global_events_dir = global_base.join("events").join(&repo_name);
 
         if !global_events_dir.exists() {

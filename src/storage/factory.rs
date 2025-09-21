@@ -1,7 +1,14 @@
 //! Storage factory for creating storage instances
 
-use super::backends::{FileBackend, MemoryBackend, PostgresBackend, RedisBackend, S3Backend};
-use super::config::{BackendConfig, BackendType, StorageConfig};
+use super::backends::{FileBackend, MemoryBackend};
+
+#[cfg(feature = "postgres")]
+use super::backends::PostgresBackend;
+#[cfg(feature = "redis")]
+use super::backends::RedisBackend;
+#[cfg(feature = "s3")]
+use super::backends::S3Backend;
+use super::config::{BackendType, StorageConfig};
 use super::error::StorageResult;
 use super::traits::UnifiedStorage;
 
@@ -28,6 +35,7 @@ impl StorageFactory {
                 let backend = MemoryBackend::new(config)?;
                 Ok(Box::new(backend))
             }
+            #[cfg(feature = "postgres")]
             BackendType::Postgres => {
                 if let BackendConfig::Postgres(ref pg_config) = config.backend_config {
                     let backend = PostgresBackend::new(pg_config).await?;
@@ -38,6 +46,13 @@ impl StorageFactory {
                     ))
                 }
             }
+            #[cfg(not(feature = "postgres"))]
+            BackendType::Postgres => {
+                Err(super::error::StorageError::configuration(
+                    "PostgreSQL backend not enabled. Enable with --features postgres",
+                ))
+            }
+            #[cfg(feature = "redis")]
             BackendType::Redis => {
                 if let BackendConfig::Redis(ref redis_config) = config.backend_config {
                     let backend = RedisBackend::new(redis_config).await?;
@@ -48,6 +63,13 @@ impl StorageFactory {
                     ))
                 }
             }
+            #[cfg(not(feature = "redis"))]
+            BackendType::Redis => {
+                Err(super::error::StorageError::configuration(
+                    "Redis backend not enabled. Enable with --features redis",
+                ))
+            }
+            #[cfg(feature = "s3")]
             BackendType::S3 => {
                 if let BackendConfig::S3(ref s3_config) = config.backend_config {
                     let backend = S3Backend::new(s3_config).await?;
@@ -57,6 +79,12 @@ impl StorageFactory {
                         "Invalid backend configuration for S3",
                     ))
                 }
+            }
+            #[cfg(not(feature = "s3"))]
+            BackendType::S3 => {
+                Err(super::error::StorageError::configuration(
+                    "S3 backend not enabled. Enable with --features s3",
+                ))
             }
         }
     }

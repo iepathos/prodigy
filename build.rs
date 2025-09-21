@@ -204,11 +204,11 @@ workflows/
 PRODIGY_AUTOMATION
     Set to "true" to enable automation mode
 .PP
-PRODIGY_USE_LOCAL_STORAGE
-    Set to "true" to use local storage instead of global
+PRODIGY_STORAGE_DIR
+    Set custom storage directory path (default: ~/.prodigy)
 .PP
-PRODIGY_REMOVE_LOCAL_AFTER_MIGRATION
-    Set to "true" to remove local storage after migration
+PRODIGY_STORAGE_BACKEND
+    Set storage backend type (file, postgres, redis, s3)
 .SH EXIT STATUS
 .PP
 0
