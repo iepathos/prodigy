@@ -222,6 +222,28 @@ pub mod migration {
             .await?;
         }
 
+        // Migrate checkpoints
+        let local_checkpoints = local_dir.join("checkpoints");
+        if local_checkpoints.exists() {
+            migrate_directory(
+                &local_checkpoints,
+                &storage.base_dir().join("state").join(&repo_name).join("checkpoints"),
+            )
+            .await?;
+        }
+
+        // Migrate session state files
+        let session_state = local_dir.join("session_state.json");
+        if session_state.exists() {
+            let target_dir = storage.base_dir().join("state").join(&repo_name).join("sessions");
+            fs::create_dir_all(&target_dir).await?;
+            fs::copy(
+                &session_state,
+                target_dir.join("session_state.json"),
+            )
+            .await?;
+        }
+
         info!("Migration completed successfully");
 
         // Always remove local directory after successful migration

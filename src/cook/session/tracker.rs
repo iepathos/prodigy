@@ -171,31 +171,55 @@ impl SessionManager for SessionTrackerImpl {
     }
 
     async fn load_session(&self, session_id: &str) -> Result<SessionState> {
+        // Extract repository name for global storage
+        // base_path is usually /path/to/repo/.prodigy
+        let repo_name = if self.base_path.ends_with(".prodigy") {
+            self.base_path
+                .parent()
+                .and_then(|p| p.file_name())
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string()
+        } else {
+            self.base_path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string()
+        };
+
         // Try multiple locations for the session state
         let locations = vec![
             // 1. Standard session_state.json in current .prodigy
             self.base_path.join("session_state.json"),
             // 2. Session-specific file in current .prodigy
             self.get_session_file_path(session_id),
-            // 3. Worktree's .prodigy directory if it exists
+            // 3. Global storage session location
+            PathBuf::from(format!(
+                "{}/.prodigy/state/{}/sessions/session_state.json",
+                std::env::var("HOME").unwrap_or_else(|_| "~".to_string()),
+                repo_name
+            )),
+            // 4. Global storage session-specific file
+            PathBuf::from(format!(
+                "{}/.prodigy/state/{}/sessions/{}.json",
+                std::env::var("HOME").unwrap_or_else(|_| "~".to_string()),
+                repo_name,
+                session_id
+            )),
+            // 5. Worktree's .prodigy directory if it exists
             PathBuf::from(format!(
                 "{}/.prodigy/worktrees/{}/{}/{}.prodigy/session_state.json",
                 std::env::var("HOME").unwrap_or_else(|_| "~".to_string()),
-                self.base_path
-                    .file_name()
-                    .unwrap_or_default()
-                    .to_string_lossy(),
+                repo_name,
                 session_id,
                 session_id
             )),
-            // 4. Global worktree metadata directory
+            // 6. Global worktree metadata directory
             PathBuf::from(format!(
                 "{}/.prodigy/worktrees/{}/{}/.prodigy/session_state.json",
                 std::env::var("HOME").unwrap_or_else(|_| "~".to_string()),
-                self.base_path
-                    .file_name()
-                    .unwrap_or_default()
-                    .to_string_lossy(),
+                repo_name,
                 session_id
             )),
         ];

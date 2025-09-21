@@ -1449,16 +1449,14 @@ async fn run_resume_workflow(
         }
     };
 
-    // Check if checkpoint exists
-    if checkpoint_dir.exists() {
-        // Try to load checkpoint (with optional specific checkpoint)
-        let checkpoint_result = if let Some(ref checkpoint_id) = from_checkpoint {
-            checkpoint_manager.load_checkpoint(checkpoint_id).await
-        } else {
-            checkpoint_manager.load_checkpoint(&workflow_id).await
-        };
+    // Try to load checkpoint (always attempt, even if local dir doesn't exist - might be in global storage)
+    let checkpoint_result = if let Some(ref checkpoint_id) = from_checkpoint {
+        checkpoint_manager.load_checkpoint(checkpoint_id).await
+    } else {
+        checkpoint_manager.load_checkpoint(&workflow_id).await
+    };
 
-        match checkpoint_result {
+    match checkpoint_result {
             Ok(checkpoint) => {
                 // Use pure functions for formatting
                 for message in prodigy::resume_logic::format_checkpoint_status(&checkpoint) {
@@ -1594,7 +1592,6 @@ async fn run_resume_workflow(
                 println!("No checkpoint found, checking for session state...");
             }
         }
-    }
 
     // Fall back to session-based resume
     let session_tracker = SessionTrackerImpl::new("resume".to_string(), working_dir.clone());
