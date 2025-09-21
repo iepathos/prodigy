@@ -737,7 +737,7 @@ async fn find_latest_checkpoint(checkpoint_dir: &PathBuf) -> Option<String> {
         if path.is_file() && path.extension().is_some_and(|ext| ext == "json") {
             if let Ok(metadata) = entry.metadata().await {
                 if let Ok(modified) = metadata.modified() {
-                    if latest_time.map_or(true, |time| modified > time) {
+                    if latest_time.is_none_or(|time| modified > time) {
                         latest_time = Some(modified);
                         if let Some(name) = path.file_stem() {
                             latest_checkpoint = Some(name.to_string_lossy().to_string());

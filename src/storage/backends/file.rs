@@ -453,11 +453,11 @@ impl EventStorage for FileBackend {
 
                 if stats
                     .first_event
-                    .map_or(true, |first| event.timestamp < first)
+                    .is_none_or(|first| event.timestamp < first)
                 {
                     stats.first_event = Some(event.timestamp);
                 }
-                if stats.last_event.map_or(true, |last| event.timestamp > last) {
+                if stats.last_event.is_none_or(|last| event.timestamp > last) {
                     stats.last_event = Some(event.timestamp);
                 }
 
@@ -805,13 +805,13 @@ impl DLQStorage for FileBackend {
 
                 if stats
                     .oldest_item
-                    .map_or(true, |oldest| item.enqueued_at < oldest)
+                    .is_none_or(|oldest| item.enqueued_at < oldest)
                 {
                     stats.oldest_item = Some(item.enqueued_at);
                 }
                 if stats
                     .newest_item
-                    .map_or(true, |newest| item.enqueued_at > newest)
+                    .is_none_or(|newest| item.enqueued_at > newest)
                 {
                     stats.newest_item = Some(item.enqueued_at);
                 }
