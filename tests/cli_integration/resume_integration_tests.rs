@@ -813,9 +813,6 @@ commands:
     id: step3
     on_failure:
       claude: "/fix-error --message 'Step 3 failed, cleaning up'"
-      max_attempts: 1
-      fail_workflow: false
-      commit_required: false
 
   - shell: "echo 'Step 4 completed' > step4.txt"
     id: step4
@@ -872,10 +869,7 @@ commands:
                 "active_handlers": [{
                     "id": "step3-error-handler",
                     "command": {
-                        "claude": "/fix-error --message 'Step 3 failed, cleaning up'",
-                        "max_attempts": 1,
-                        "fail_workflow": false,
-                        "commit_required": false
+                        "claude": "/fix-error --message 'Step 3 failed, cleaning up'"
                     },
                     "strategy": "retry"
                 }],
@@ -1041,9 +1035,6 @@ commands:
     id: step3_with_error
     on_failure:
       claude: "/fix-error --output 'Error handler executed'"
-      max_attempts: 1
-      fail_workflow: false
-      commit_required: false
 
   - shell: "echo 'Step 4: Post-recovery'"
     id: step4
@@ -1100,10 +1091,7 @@ commands:
                 "active_handlers": [{
                     "id": "step3-error-handler",
                     "command": {
-                        "claude": "/fix-error --output 'Error handler executed'",
-                        "max_attempts": 1,
-                        "fail_workflow": false,
-                        "commit_required": false
+                        "claude": "/fix-error --output 'Error handler executed'"
                     },
                     "strategy": "retry"
                 }],

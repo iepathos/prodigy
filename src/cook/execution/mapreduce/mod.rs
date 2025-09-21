@@ -99,12 +99,6 @@ pub struct MapReduceConfig {
     /// Maximum number of parallel agents
     #[serde(default = "default_max_parallel")]
     pub max_parallel: usize,
-    /// Timeout per agent in seconds
-    #[serde(default = "default_timeout")]
-    pub timeout_per_agent: u64,
-    /// Number of retry attempts on failure
-    #[serde(default = "default_retry")]
-    pub retry_on_failure: u32,
     /// Maximum number of items to process
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_items: Option<usize>,
@@ -117,22 +111,12 @@ fn default_max_parallel() -> usize {
     10
 }
 
-fn default_timeout() -> u64 {
-    600 // 10 minutes
-}
-
-fn default_retry() -> u32 {
-    2
-}
-
 impl Default for MapReduceConfig {
     fn default() -> Self {
         Self {
             input: String::new(),
             json_path: String::new(),
             max_parallel: default_max_parallel(),
-            timeout_per_agent: default_timeout(),
-            retry_on_failure: default_retry(),
             max_items: None,
             offset: None,
         }
@@ -1644,7 +1628,7 @@ impl MapReduceExecutor {
         }
 
         // Add retriable failed items
-        let max_retries = state.config.retry_on_failure + max_additional_retries;
+        let max_retries = max_additional_retries;
         for (item_id, failure) in &state.failed_agents {
             if failure.attempts < max_retries {
                 if let Some(idx) = item_id
@@ -1699,7 +1683,7 @@ impl MapReduceExecutor {
                 info!("Executing command for work items: {}", cmd);
 
                 // Use subprocess manager with timeout
-                let timeout = Duration::from_secs(config.timeout_per_agent);
+                let timeout = Duration::from_secs(600); // Default 10 minute timeout
                 InputSource::execute_command(cmd, timeout, &self.subprocess).await?
             }
             InputSource::JsonFile(ref path) => {
@@ -2007,7 +1991,8 @@ impl MapReduceExecutor {
 
                 match result {
                     Ok(res) => break res,
-                    Err(e) if attempt <= map_phase.config.retry_on_failure => {
+                    Err(e) if attempt == 0 => {
+                        // No automatic retries
                         // Save error for next attempt
                         previous_error = Some(e.to_string());
                         // Retry on failure
@@ -2176,7 +2161,8 @@ impl MapReduceExecutor {
                         tracker.mark_item_completed(&agent_id).await?;
                         break res;
                     }
-                    Err(e) if attempt <= map_phase.config.retry_on_failure => {
+                    Err(e) if attempt == 0 => {
+                        // No automatic retries
                         // Save error for next attempt
                         previous_error = Some(e.to_string());
                         // Retry on failure
@@ -3943,8 +3929,6 @@ mod tests {
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
-            timeout_per_agent: 60,
-            retry_on_failure: 2,
             max_items: None,
             offset: None,
         };
@@ -3980,8 +3964,6 @@ mod tests {
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
-            timeout_per_agent: 60,
-            retry_on_failure: 2,
             max_items: None,
             offset: None,
         };
@@ -4021,6 +4003,6 @@ mod tests {
 
         // Check if item is retriable (attempts < retry_on_failure)
         let failed_record = state3.failed_agents.get("item_1").unwrap();
-        assert!(failed_record.attempts < state3.config.retry_on_failure);
+        assert!(failed_record.attempts < 2); // Default retry limit
     }
 }

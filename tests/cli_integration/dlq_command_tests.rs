@@ -47,9 +47,13 @@ fn test_dlq_reprocess() {
 
     let output = test.run();
 
-    // The reprocess command is deprecated in favor of 'retry'
-    assert_eq!(output.exit_code, exit_codes::GENERAL_ERROR);
-    assert!(output.stderr_contains("deprecated") && output.stderr_contains("retry"));
+    // The reprocess command no longer exists - replaced with 'retry'
+    assert_eq!(output.exit_code, exit_codes::ARGUMENT_ERROR);
+    assert!(
+        output.stderr_contains("nvalid")
+            || output.stderr_contains("nrecognized")
+            || output.stderr_contains("Found argument")
+    );
 }
 
 #[test]
@@ -105,9 +109,13 @@ fn test_dlq_reprocess_missing_job_id() {
 
     let output = test.run();
 
-    // The reprocess command is deprecated and returns a general error
-    assert_eq!(output.exit_code, exit_codes::GENERAL_ERROR);
-    assert!(output.stderr_contains("deprecated") && output.stderr_contains("retry"));
+    // The reprocess command no longer exists - gives argument error
+    assert_eq!(output.exit_code, exit_codes::ARGUMENT_ERROR);
+    assert!(
+        output.stderr_contains("nvalid")
+            || output.stderr_contains("nrecognized")
+            || output.stderr_contains("Found argument")
+    );
 }
 
 #[test]
@@ -162,42 +170,5 @@ fn test_dlq_with_path() {
             || output.stdout_contains("dlq")
             || output.stdout_contains("DLQ")
             || output.stderr_contains("dlq")
-    );
-}
-
-#[test]
-fn test_dlq_reprocess_with_invalid_flag() {
-    let mut test = CliTest::new()
-        .arg("dlq")
-        .arg("reprocess")
-        .arg("test-job-id")
-        .arg("--dry-run");
-
-    let output = test.run();
-
-    // Should fail with unrecognized argument since --dry-run doesn't exist
-    assert_eq!(output.exit_code, exit_codes::ARGUMENT_ERROR);
-    assert!(
-        output.stderr_contains("unexpected argument")
-            || output.stderr_contains("unrecognized")
-            || output.stderr_contains("--dry-run")
-    );
-}
-
-#[test]
-fn test_dlq_reprocess_with_max_parallel() {
-    let mut test = CliTest::new()
-        .arg("dlq")
-        .arg("reprocess")
-        .arg("test-job-id")
-        .arg("--max-parallel")
-        .arg("10");
-
-    let output = test.run();
-
-    // Should fail with unexpected argument since reprocess doesn't support --max-parallel
-    assert_eq!(output.exit_code, exit_codes::ARGUMENT_ERROR);
-    assert!(
-        output.stderr_contains("unexpected argument") || output.stderr_contains("--max-parallel")
     );
 }

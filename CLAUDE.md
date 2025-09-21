@@ -203,22 +203,22 @@ Events are logged to `~/.prodigy/events/{repo_name}/{job_id}/` for debugging:
 Failed work items are stored in `~/.prodigy/dlq/{repo_name}/{job_id}/` for review and retry:
 - Contains the original work item data
 - Includes failure reason and timestamp
-- Supports automatic reprocessing via `prodigy dlq reprocess`
+- Supports automatic reprocessing via `prodigy dlq retry`
 - Configurable parallel execution and resource limits
 - Shared across worktrees for centralized failure tracking
 
-#### DLQ Reprocessing
-The `prodigy dlq reprocess` command allows you to retry failed items:
+#### DLQ Retry
+The `prodigy dlq retry` command allows you to retry failed items:
 
 ```bash
-# Reprocess all failed items for a job
-prodigy dlq reprocess <job_id>
+# Retry all failed items for a job
+prodigy dlq retry <job_id>
 
-# Reprocess with custom parallelism (default: 5)
-prodigy dlq reprocess <job_id> --max-parallel 10
+# Retry with custom parallelism (default: 5)
+prodigy dlq retry <job_id> --max-parallel 10
 
-# Dry run to see what would be reprocessed
-prodigy dlq reprocess <job_id> --dry-run
+# Dry run to see what would be retried
+prodigy dlq retry <job_id> --dry-run
 ```
 
 Features:
@@ -287,13 +287,13 @@ All changes are tracked via git commits:
 ## Available Commands
 
 Prodigy CLI commands:
-- `prodigy cook` - Execute a workflow (with `--resume` flag for checkpoint-based resume)
+- `prodigy run` - Execute a workflow (with `--resume` flag for checkpoint-based resume)
 - `prodigy resume` - Resume an interrupted workflow from checkpoint
 - `prodigy worktree` - Manage git worktrees
 - `prodigy init` - Initialize Claude commands
 - `prodigy resume-job` - Resume MapReduce jobs with enhanced options
 - `prodigy events` - View execution events
-- `prodigy dlq` - Manage and reprocess failed work items
+- `prodigy dlq` - Manage and retry failed work items
 - `prodigy checkpoints` - Manage workflow checkpoints
 - `prodigy sessions` - View and manage session state
 
@@ -328,7 +328,7 @@ Prodigy CLI commands:
 
 ### MapReduce Failures
 - Check `.prodigy/dlq/` for failed items
-- Reprocess failed items with `prodigy dlq reprocess <job_id>`
+- Retry failed items with `prodigy dlq retry <job_id>`
 - Resume MapReduce jobs with `prodigy resume-job <job_id>`
 - Review checkpoint in `~/.prodigy/state/{repo_name}/mapreduce/jobs/{job_id}/`
 

@@ -495,7 +495,7 @@ Review and reprocess failed items:
 prodigy dlq view <job-id>
 
 # Reprocess failed items
-prodigy dlq reprocess <job-id> --max-parallel 5
+prodigy dlq retry <job-id> --max-parallel 5
 ```
 </details>
 

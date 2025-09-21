@@ -119,7 +119,7 @@ prodigy/
 ├── tests/                      # Test infrastructure
 │   ├── cli_integration/        # CLI integration tests ✅
 │   │   ├── test_utils.rs       # Test harness and utilities
-│   │   ├── cook_command_tests.rs
+│   │   ├── run_command_tests.rs
 │   │   ├── exec_command_tests.rs
 │   │   ├── batch_command_tests.rs
 │   │   ├── worktree_command_tests.rs

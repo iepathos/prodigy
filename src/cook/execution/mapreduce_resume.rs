@@ -371,8 +371,7 @@ impl MapReduceResumeManager {
         // Add failed items if retry is enabled
         if options.reset_failed_agents {
             for (item_id, failure) in &state.failed_agents {
-                if failure.attempts < state.config.retry_on_failure + options.max_additional_retries
-                {
+                if failure.attempts < options.max_additional_retries {
                     if let Some(item) = state.find_work_item(item_id) {
                         remaining.push(item);
                     }
@@ -606,8 +605,6 @@ mod tests {
             input: "test.json".to_string(),
             json_path: "$.items[*]".to_string(),
             max_parallel: 5,
-            timeout_per_agent: 600,
-            retry_on_failure: 2,
             max_items: None,
             offset: None,
         };

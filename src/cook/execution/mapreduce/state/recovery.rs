@@ -90,7 +90,7 @@ impl StateManager {
         }
 
         // Add retriable failed items
-        let _max_retries = state.config.retry_on_failure + max_additional_retries;
+        let _max_retries = max_additional_retries;
         for failed_item_id in &state.failed_items {
             // Extract item index from ID
             if let Some(idx) = failed_item_id

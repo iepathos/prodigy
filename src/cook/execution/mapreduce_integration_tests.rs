@@ -232,8 +232,6 @@ map:
           fail_workflow: false
   
   max_parallel: 5
-  timeout_per_agent: 600s
-  retry_on_failure: 1
   
   filter: "unified_score.final_score >= 5"
   sort_by: "unified_score.final_score DESC"
@@ -342,16 +340,15 @@ map:
             .contains("${item.file}"));
     }
 
-    /// Test timeout parsing
+    /// Test command timeout parsing
     #[tokio::test]
-    async fn test_timeout_formats() {
+    async fn test_command_timeout() {
         let yaml = r#"
 name: test-timeout
 mode: mapreduce
 
 map:
   input: test.json
-  timeout_per_agent: "10m"
   agent_template:
     commands:
       - shell: "echo test"
@@ -359,7 +356,6 @@ map:
 "#;
 
         let config = parse_mapreduce_workflow(yaml).unwrap();
-        assert_eq!(config.map.timeout_per_agent, Some(600)); // 10 minutes = 600 seconds
         assert_eq!(config.map.agent_template.commands[0].timeout, Some(300));
     }
 

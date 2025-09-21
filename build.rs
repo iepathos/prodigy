@@ -227,7 +227,7 @@ PRODIGY_REMOVE_LOCAL_AFTER_MIGRATION
     Process interrupted (SIGINT)
 .SH SEE ALSO
 .PP
-prodigy-run(1), prodigy-exec(1), prodigy-batch(1), prodigy-cook(1), prodigy-goal-seek(1)
+prodigy-run(1), prodigy-exec(1), prodigy-batch(1), prodigy-goal-seek(1)
 .PP
 Full documentation at: <https://github.com/iepathos/prodigy>
 .SH BUGS
@@ -274,7 +274,6 @@ fn build_cli() -> clap::Command {
             build_exec_subcommand(),
             build_batch_subcommand(),
             build_resume_subcommand(),
-            build_cook_subcommand(),
             build_goal_seek_subcommand(),
             build_worktree_subcommand(),
             build_init_subcommand(),
@@ -403,59 +402,6 @@ fn build_resume_subcommand() -> clap::Command {
             .long("path")
             .help("Working directory")
             .value_parser(clap::value_parser!(PathBuf)))
-}
-
-#[cfg(not(doc))]
-fn build_cook_subcommand() -> clap::Command {
-    use clap::{Arg, Command};
-
-    Command::new("cook")
-        .alias("improve")
-        .about("Cook your code to perfection")
-        .long_about("Execute a workflow playbook to improve code quality through automated Claude commands, with support for MapReduce patterns and iterative refinement.")
-        .arg(Arg::new("playbook")
-            .help("Playbook file defining the workflow")
-            .required(true)
-            .value_parser(clap::value_parser!(PathBuf)))
-        .arg(Arg::new("path")
-            .short('p')
-            .long("path")
-            .help("Repository path to run in")
-            .value_parser(clap::value_parser!(PathBuf)))
-        .arg(Arg::new("max-iterations")
-            .short('n')
-            .long("max-iterations")
-            .help("Maximum number of iterations")
-            .default_value("1"))
-        .arg(Arg::new("worktree")
-            .short('w')
-            .long("worktree")
-            .help("Run in an isolated git worktree")
-            .action(clap::ArgAction::SetTrue))
-        .arg(Arg::new("map")
-            .long("map")
-            .help("File patterns to map over")
-            .action(clap::ArgAction::Append))
-        .arg(Arg::new("args")
-            .long("args")
-            .help("Direct arguments to pass to commands")
-            .action(clap::ArgAction::Append))
-        .arg(Arg::new("fail-fast")
-            .long("fail-fast")
-            .help("Stop on first failure")
-            .action(clap::ArgAction::SetTrue))
-        .arg(Arg::new("yes")
-            .short('y')
-            .long("yes")
-            .help("Automatically answer yes to all prompts")
-            .action(clap::ArgAction::SetTrue))
-        .arg(Arg::new("metrics")
-            .long("metrics")
-            .help("Enable metrics tracking")
-            .action(clap::ArgAction::SetTrue))
-        .arg(Arg::new("resume")
-            .long("resume")
-            .help("Resume an interrupted session"))
 }
 
 #[cfg(not(doc))]
@@ -620,20 +566,6 @@ fn build_dlq_subcommand() -> clap::Command {
                     Arg::new("item_id")
                         .help("Item ID to inspect")
                         .required(true),
-                ),
-            Command::new("reprocess")
-                .about("Reprocess items from the DLQ")
-                .arg(
-                    Arg::new("item_ids")
-                        .help("Item IDs to reprocess")
-                        .required(true)
-                        .value_delimiter(','),
-                )
-                .arg(
-                    Arg::new("max-retries")
-                        .long("max-retries")
-                        .help("Maximum retries")
-                        .default_value("2"),
                 ),
             Command::new("analyze")
                 .about("Analyze failure patterns")

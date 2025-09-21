@@ -102,16 +102,20 @@ impl YamlValidator {
                 issues.push("Map section missing required field 'agent_template'".to_string());
             }
 
-            // Check for deprecated parameters
+            // Reject deprecated parameters
             if map.contains_key("timeout_per_agent") {
-                issues.push("Using deprecated parameter 'timeout_per_agent'".to_string());
-                suggestions
-                    .push("Remove 'timeout_per_agent' - it's no longer supported".to_string());
+                issues.push(
+                    "Error: Deprecated parameter 'timeout_per_agent' is no longer supported"
+                        .to_string(),
+                );
+                suggestions.push("Remove 'timeout_per_agent' from your workflow file. See MIGRATION.md for updated syntax.".to_string());
             }
             if map.contains_key("retry_on_failure") {
-                issues.push("Using deprecated parameter 'retry_on_failure'".to_string());
-                suggestions
-                    .push("Remove 'retry_on_failure' - it's no longer supported".to_string());
+                issues.push(
+                    "Error: Deprecated parameter 'retry_on_failure' is no longer supported"
+                        .to_string(),
+                );
+                suggestions.push("Remove 'retry_on_failure' from your workflow file. See MIGRATION.md for updated syntax.".to_string());
             }
         } else {
             issues.push("Missing required 'map' section for MapReduce workflow".to_string());
@@ -203,18 +207,12 @@ impl YamlValidator {
                 // Check for on_failure with deprecated parameters
                 if let Some(Value::Mapping(on_failure)) = map.get("on_failure") {
                     if on_failure.contains_key("max_attempts") {
-                        issues.push("Using deprecated 'max_attempts' in on_failure".to_string());
-                        suggestions.push(
-                            "Remove 'max_attempts' from on_failure - it's no longer supported"
-                                .to_string(),
-                        );
+                        issues.push("Error: Deprecated parameter 'max_attempts' in on_failure is no longer supported".to_string());
+                        suggestions.push("Remove 'max_attempts' from on_failure. See MIGRATION.md for updated syntax.".to_string());
                     }
                     if on_failure.contains_key("fail_workflow") {
-                        issues.push("Using deprecated 'fail_workflow' in on_failure".to_string());
-                        suggestions.push(
-                            "Remove 'fail_workflow' from on_failure - it's no longer supported"
-                                .to_string(),
-                        );
+                        issues.push("Error: Deprecated parameter 'fail_workflow' in on_failure is no longer supported".to_string());
+                        suggestions.push("Remove 'fail_workflow' from on_failure. See MIGRATION.md for updated syntax.".to_string());
                     }
                 }
 

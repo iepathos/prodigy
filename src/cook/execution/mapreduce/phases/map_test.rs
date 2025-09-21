@@ -21,8 +21,6 @@ fn create_test_config() -> MapReduceConfig {
         input: "test_items.json".to_string(),
         json_path: "$.items[*]".to_string(),
         max_parallel: 5,
-        timeout_per_agent: 60,
-        retry_on_failure: 2,
         max_items: Some(10),
         offset: None,
     }

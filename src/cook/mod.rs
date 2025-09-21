@@ -541,7 +541,6 @@ map:
       - claude: "/fix-item ${item.id}"
       - shell: "echo test"
   max_parallel: 5
-  timeout_per_agent: 600s
 
 reduce:
   commands:
@@ -618,8 +617,6 @@ map:
   
   # Parallelization settings
   max_parallel: 5  # Run up to 5 agents in parallel
-  timeout_per_agent: 600s  # 10 minutes per agent
-  retry_on_failure: 1  # Retry once if an agent fails
   
   # Process high-score items first
   filter: "unified_score.final_score >= 5"  # Only process items with score >= 5

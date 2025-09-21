@@ -17,8 +17,6 @@ mod tests {
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
-            timeout_per_agent: 60,
-            retry_on_failure: 2,
             max_items: Some(10),
             offset: None,
         };
@@ -52,8 +50,6 @@ mod tests {
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
-            timeout_per_agent: 60,
-            retry_on_failure: 2,
             max_items: None,
             offset: None,
         };
@@ -93,8 +89,6 @@ mod tests {
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
-            timeout_per_agent: 60,
-            retry_on_failure: 2,
             max_items: None,
             offset: None,
         };
@@ -172,8 +166,6 @@ mod tests {
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
-            timeout_per_agent: 60,
-            retry_on_failure: 2,
             max_items: None,
             offset: None,
         };
@@ -239,8 +231,6 @@ mod tests {
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
-            timeout_per_agent: 60,
-            retry_on_failure: 2,
             max_items: None,
             offset: None,
         };
@@ -308,8 +298,6 @@ mod tests {
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
-            timeout_per_agent: 60,
-            retry_on_failure: 2,
             max_items: None,
             offset: None,
         };
@@ -346,8 +334,6 @@ mod tests {
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
-            timeout_per_agent: 60,
-            retry_on_failure: 2,
             max_items: None,
             offset: None,
         };
@@ -421,8 +407,6 @@ mod tests {
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
-            timeout_per_agent: 60,
-            retry_on_failure: 3,
             max_items: None,
             offset: None,
         };
@@ -505,8 +489,6 @@ mod tests {
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
-            timeout_per_agent: 60,
-            retry_on_failure: 2,
             max_items: None,
             offset: None,
         };
@@ -538,8 +520,6 @@ mod tests {
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
-            timeout_per_agent: 60,
-            retry_on_failure: 2,
             max_items: None,
             offset: None,
         };
@@ -609,8 +589,6 @@ mod tests {
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
-            timeout_per_agent: 60,
-            retry_on_failure: 2,
             max_items: None,
             offset: None,
         };
@@ -658,8 +636,6 @@ mod tests {
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
-            timeout_per_agent: 60,
-            retry_on_failure: 2,
             max_items: None,
             offset: None,
         };
@@ -674,7 +650,6 @@ mod tests {
 
         // Get initial state
         let initial_state = manager.get_job_state(&job_id).await.unwrap();
-        assert_eq!(initial_state.config.timeout_per_agent, 60);
 
         // Create resume options
         let resume_options = ResumeOptions {
@@ -700,8 +675,6 @@ mod tests {
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
-            timeout_per_agent: 60,
-            retry_on_failure: 1,
             max_items: None,
             offset: None,
         };
@@ -735,7 +708,6 @@ mod tests {
             .unwrap();
 
         let state = manager.get_job_state(&job_id).await.unwrap();
-        assert_eq!(state.config.retry_on_failure, 1);
 
         // Create resume options with additional retries
         let resume_options = ResumeOptions {
@@ -761,8 +733,6 @@ mod tests {
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 5,
-            timeout_per_agent: 60,
-            retry_on_failure: 0,
             max_items: None,
             offset: None,
         };
@@ -775,7 +745,6 @@ mod tests {
             .await
             .unwrap();
 
-        // Mark items as failed (non-retriable due to retry_on_failure: 0)
         manager
             .update_agent_result(
                 &job_id,
@@ -796,7 +765,6 @@ mod tests {
             .unwrap();
 
         let state = manager.get_job_state(&job_id).await.unwrap();
-        // With retry_on_failure: 0, failed items shouldn't be retriable
         let retriable = state.get_retriable_items(0);
         assert_eq!(retriable.len(), 0);
 
@@ -822,8 +790,6 @@ mod tests {
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 2,
-            timeout_per_agent: 60,
-            retry_on_failure: 2,
             max_items: None,
             offset: None,
         };
@@ -1006,8 +972,6 @@ mod tests {
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 3,
-            timeout_per_agent: 60,
-            retry_on_failure: 2,
             max_items: None,
             offset: None,
         };
@@ -1215,8 +1179,6 @@ mod tests {
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 2,
-            timeout_per_agent: 60,
-            retry_on_failure: 1,
             max_items: None,
             offset: None,
         };
@@ -1352,8 +1314,6 @@ mod tests {
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 3,
-            timeout_per_agent: 60,
-            retry_on_failure: 2,
             max_items: None,
             offset: None,
         };
@@ -1477,8 +1437,6 @@ mod tests {
             input: "test.json".to_string(),
             json_path: String::new(),
             max_parallel: 3,
-            timeout_per_agent: 60,
-            retry_on_failure: 2,
             max_items: None,
             offset: None,
         };

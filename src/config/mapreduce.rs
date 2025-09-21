@@ -164,14 +164,6 @@ pub struct MapPhaseYaml {
     #[serde(default = "default_max_parallel")]
     pub max_parallel: usize,
 
-    /// Timeout per agent (can be string like "600s" or number)
-    #[serde(default, deserialize_with = "deserialize_timeout")]
-    pub timeout_per_agent: Option<u64>,
-
-    /// Retry attempts on failure
-    #[serde(default)]
-    pub retry_on_failure: u32,
-
     /// Optional filter expression
     #[serde(skip_serializing_if = "Option::is_none")]
     pub filter: Option<String>,
@@ -376,8 +368,6 @@ impl MapReduceWorkflowConfig {
                 input: self.map.input.clone(),
                 json_path: self.map.json_path.clone(),
                 max_parallel: self.map.max_parallel,
-                timeout_per_agent: self.map.timeout_per_agent.unwrap_or(600),
-                retry_on_failure: self.map.retry_on_failure,
                 max_items: self.map.max_items,
                 offset: self.map.offset,
             },
@@ -428,8 +418,6 @@ map:
       - shell: "cargo test"
   
   max_parallel: 10
-  timeout_per_agent: 600
-  retry_on_failure: 2
 
 reduce:
   commands:
@@ -441,37 +429,6 @@ reduce:
         assert_eq!(config.mode, "mapreduce");
         assert_eq!(config.map.max_parallel, 10);
         assert_eq!(config.map.agent_template.commands.len(), 2);
-    }
-
-    #[test]
-    fn test_parse_timeout_formats() {
-        let yaml = r#"
-name: test
-mode: mapreduce
-map:
-  input: test.json
-  timeout_per_agent: "300s"
-  agent_template:
-    commands:
-      - shell: "echo test"
-"#;
-
-        let config = parse_mapreduce_workflow(yaml).unwrap();
-        assert_eq!(config.map.timeout_per_agent, Some(300));
-
-        let yaml = r#"
-name: test
-mode: mapreduce
-map:
-  input: test.json
-  timeout_per_agent: "5m"
-  agent_template:
-    commands:
-      - shell: "echo test"
-"#;
-
-        let config = parse_mapreduce_workflow(yaml).unwrap();
-        assert_eq!(config.map.timeout_per_agent, Some(300));
     }
 
     #[test]

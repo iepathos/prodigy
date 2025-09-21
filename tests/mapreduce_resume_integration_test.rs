@@ -152,8 +152,6 @@ async fn create_partial_job_state(
         input: "test.json".to_string(),
         json_path: "$.items[*]".to_string(),
         max_parallel: 5,
-        timeout_per_agent: 600,
-        retry_on_failure: 2,
         max_items: None,
         offset: None,
     };

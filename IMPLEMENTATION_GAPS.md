@@ -45,7 +45,7 @@ After analyzing the current implementation against the whitepaper specifications
 **Whitepaper Spec**: "Later, reprocess failed items: `prodigy dlq retry workflow-id`"
 
 **Current State**: ✅ IMPLEMENTED
-- Full DLQ reprocessing with `prodigy dlq reprocess <job_id>`
+- Full DLQ retry with `prodigy dlq retry <job_id>`
 - Streaming implementation to handle large queues
 - Configurable parallelism with `--max-parallel`
 - Dry run support with `--dry-run`
