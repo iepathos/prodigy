@@ -43,8 +43,7 @@ pub struct LegacyStorageConfig {
 impl Default for LegacyStorageConfig {
     fn default() -> Self {
         Self {
-            base_dir: get_default_storage_dir()
-                .unwrap_or_else(|_| PathBuf::from(".prodigy")),
+            base_dir: get_default_storage_dir().unwrap_or_else(|_| PathBuf::from(".prodigy")),
         }
     }
 }
@@ -205,11 +204,7 @@ pub mod migration {
         // Migrate DLQ
         let local_dlq = local_dir.join("dlq");
         if local_dlq.exists() {
-            migrate_directory(
-                &local_dlq,
-                &storage.base_dir().join("dlq").join(&repo_name),
-            )
-            .await?;
+            migrate_directory(&local_dlq, &storage.base_dir().join("dlq").join(&repo_name)).await?;
         }
 
         // Migrate state
@@ -227,7 +222,11 @@ pub mod migration {
         if local_checkpoints.exists() {
             migrate_directory(
                 &local_checkpoints,
-                &storage.base_dir().join("state").join(&repo_name).join("checkpoints"),
+                &storage
+                    .base_dir()
+                    .join("state")
+                    .join(&repo_name)
+                    .join("checkpoints"),
             )
             .await?;
         }
@@ -235,13 +234,13 @@ pub mod migration {
         // Migrate session state files
         let session_state = local_dir.join("session_state.json");
         if session_state.exists() {
-            let target_dir = storage.base_dir().join("state").join(&repo_name).join("sessions");
+            let target_dir = storage
+                .base_dir()
+                .join("state")
+                .join(&repo_name)
+                .join("sessions");
             fs::create_dir_all(&target_dir).await?;
-            fs::copy(
-                &session_state,
-                target_dir.join("session_state.json"),
-            )
-            .await?;
+            fs::copy(&session_state, target_dir.join("session_state.json")).await?;
         }
 
         info!("Migration completed successfully");
@@ -299,9 +298,9 @@ pub mod migration {
 #[cfg(test)]
 mod mod_tests {
     use super::*;
+    use serde_json::json;
     use tempfile::TempDir;
     use tokio::fs;
-    use serde_json::json;
 
     #[test]
     fn test_extract_repo_name() {

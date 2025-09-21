@@ -941,28 +941,29 @@ impl MapReduceExecutor {
 
         // Use global storage for events
         let job_id = format!("mapreduce-{}", chrono::Utc::now().format("%Y%m%d_%H%M%S"));
-        let event_logger = match crate::storage::create_global_event_logger(&project_root, &job_id).await {
-            Ok(logger) => {
-                info!("Using global event storage for job: {}", job_id);
-                Arc::new(logger)
-            }
-            Err(e) => {
-                warn!(
-                    "Failed to create global event logger: {}, using temp directory fallback",
-                    e
-                );
-                // Fallback to temp directory
-                let temp_path = std::env::temp_dir().join("prodigy_events.jsonl");
-                let event_writers: Vec<Box<dyn EventWriter>> = vec![Box::new(
-                    JsonlEventWriter::new(temp_path.clone())
-                        .await
-                        .unwrap_or_else(|_| {
-                            panic!("Failed to create fallback event logger at {:?}", temp_path);
-                        }),
-                )];
-                Arc::new(EventLogger::new(event_writers))
-            }
-        };
+        let event_logger =
+            match crate::storage::create_global_event_logger(&project_root, &job_id).await {
+                Ok(logger) => {
+                    info!("Using global event storage for job: {}", job_id);
+                    Arc::new(logger)
+                }
+                Err(e) => {
+                    warn!(
+                        "Failed to create global event logger: {}, using temp directory fallback",
+                        e
+                    );
+                    // Fallback to temp directory
+                    let temp_path = std::env::temp_dir().join("prodigy_events.jsonl");
+                    let event_writers: Vec<Box<dyn EventWriter>> = vec![Box::new(
+                        JsonlEventWriter::new(temp_path.clone())
+                            .await
+                            .unwrap_or_else(|_| {
+                                panic!("Failed to create fallback event logger at {:?}", temp_path);
+                            }),
+                    )];
+                    Arc::new(EventLogger::new(event_writers))
+                }
+            };
 
         // Create agent lifecycle manager and result aggregator
         let agent_lifecycle_manager =
@@ -1145,7 +1146,10 @@ impl MapReduceExecutor {
                     dlq
                 }
                 Err(e) => {
-                    warn!("Failed to create global DLQ: {}, using temp directory fallback", e);
+                    warn!(
+                        "Failed to create global DLQ: {}, using temp directory fallback",
+                        e
+                    );
                     // Fallback to temp directory
                     let dlq_path = std::env::temp_dir().join("prodigy_dlq");
                     DeadLetterQueue::new(
@@ -1156,12 +1160,10 @@ impl MapReduceExecutor {
                         Some(self.event_logger.clone()),
                     )
                     .await
-                    .map_err(|e| {
-                        MapReduceError::JobInitializationFailed {
-                            job_id: job_id.clone(),
-                            reason: format!("Failed to create DLQ: {}", e),
-                            source: None,
-                        }
+                    .map_err(|e| MapReduceError::JobInitializationFailed {
+                        job_id: job_id.clone(),
+                        reason: format!("Failed to create DLQ: {}", e),
+                        source: None,
                     })?
                 }
             },

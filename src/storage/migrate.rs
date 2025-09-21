@@ -38,7 +38,7 @@ pub struct MigrationStats {
 
 /// Storage migrator - simplified version since we only use GlobalStorage
 pub struct StorageMigrator {
-    config: MigrationConfig,
+    _config: MigrationConfig,
     stats: MigrationStats,
 }
 
@@ -46,7 +46,7 @@ impl StorageMigrator {
     /// Create a new migrator with the given configuration
     pub fn new(config: MigrationConfig) -> Self {
         Self {
-            config,
+            _config: config,
             stats: MigrationStats::default(),
         }
     }

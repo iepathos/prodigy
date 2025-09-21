@@ -1,7 +1,9 @@
 //! Global storage implementation for Prodigy
 
 use super::error::StorageResult;
-use super::types::{CheckpointStorage, DLQStorage, EventStorage, HealthStatus, SessionStorage, WorkflowStorage};
+use super::types::{
+    CheckpointStorage, DLQStorage, EventStorage, HealthStatus, SessionStorage, WorkflowStorage,
+};
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use tokio::fs;
@@ -26,11 +28,7 @@ impl GlobalStorage {
 
     /// Get the global events directory for a repository
     pub async fn get_events_dir(&self, repo_name: &str, job_id: &str) -> Result<PathBuf> {
-        let path = self
-            .base_dir
-            .join("events")
-            .join(repo_name)
-            .join(job_id);
+        let path = self.base_dir.join("events").join(repo_name).join(job_id);
 
         fs::create_dir_all(&path)
             .await
@@ -52,11 +50,7 @@ impl GlobalStorage {
 
     /// Get the global state directory for a repository
     pub async fn get_state_dir(&self, repo_name: &str, job_id: &str) -> Result<PathBuf> {
-        let path = self
-            .base_dir
-            .join("state")
-            .join(repo_name)
-            .join(job_id);
+        let path = self.base_dir.join("state").join(repo_name).join(job_id);
 
         fs::create_dir_all(&path)
             .await
@@ -135,12 +129,14 @@ impl GlobalStorage {
 
 // Storage interface implementations
 struct GlobalSessionStorage {
-    base_dir: PathBuf,
+    _base_dir: PathBuf,
 }
 
 impl GlobalSessionStorage {
     fn new(base_dir: PathBuf) -> Self {
-        Self { base_dir }
+        Self {
+            _base_dir: base_dir,
+        }
     }
 }
 
@@ -150,12 +146,18 @@ impl SessionStorage for GlobalSessionStorage {
         Ok(())
     }
 
-    fn load(&self, _session_id: &super::types::SessionId) -> StorageResult<Option<super::types::SessionState>> {
+    fn load(
+        &self,
+        _session_id: &super::types::SessionId,
+    ) -> StorageResult<Option<super::types::SessionState>> {
         // Implementation would go here
         Ok(None)
     }
 
-    fn list(&self, _filter: Option<&super::types::SessionFilter>) -> StorageResult<Vec<super::types::SessionState>> {
+    fn list(
+        &self,
+        _filter: Option<&super::types::SessionFilter>,
+    ) -> StorageResult<Vec<super::types::SessionState>> {
         // Implementation would go here
         Ok(vec![])
     }
@@ -167,12 +169,14 @@ impl SessionStorage for GlobalSessionStorage {
 }
 
 struct GlobalEventStorage {
-    base_dir: PathBuf,
+    _base_dir: PathBuf,
 }
 
 impl GlobalEventStorage {
     fn new(base_dir: PathBuf) -> Self {
-        Self { base_dir }
+        Self {
+            _base_dir: base_dir,
+        }
     }
 }
 
@@ -187,12 +191,18 @@ impl EventStorage for GlobalEventStorage {
         Ok(vec![])
     }
 
-    fn stream(&self, _filter: &super::types::EventFilter) -> StorageResult<super::types::EventStream> {
+    fn stream(
+        &self,
+        _filter: &super::types::EventFilter,
+    ) -> StorageResult<super::types::EventStream> {
         // Implementation would go here
         unimplemented!("Event streaming not implemented")
     }
 
-    fn subscribe(&self, _filter: &super::types::EventFilter) -> StorageResult<super::types::EventSubscription> {
+    fn subscribe(
+        &self,
+        _filter: &super::types::EventFilter,
+    ) -> StorageResult<super::types::EventSubscription> {
         // Implementation would go here
         unimplemented!("Event subscription not implemented")
     }
@@ -216,12 +226,14 @@ impl EventStorage for GlobalEventStorage {
 }
 
 struct GlobalCheckpointStorage {
-    base_dir: PathBuf,
+    _base_dir: PathBuf,
 }
 
 impl GlobalCheckpointStorage {
     fn new(base_dir: PathBuf) -> Self {
-        Self { base_dir }
+        Self {
+            _base_dir: base_dir,
+        }
     }
 }
 
@@ -253,12 +265,14 @@ impl CheckpointStorage for GlobalCheckpointStorage {
 }
 
 struct GlobalDLQStorage {
-    base_dir: PathBuf,
+    _base_dir: PathBuf,
 }
 
 impl GlobalDLQStorage {
     fn new(base_dir: PathBuf) -> Self {
-        Self { base_dir }
+        Self {
+            _base_dir: base_dir,
+        }
     }
 }
 
@@ -299,12 +313,14 @@ impl DLQStorage for GlobalDLQStorage {
 }
 
 struct GlobalWorkflowStorage {
-    base_dir: PathBuf,
+    _base_dir: PathBuf,
 }
 
 impl GlobalWorkflowStorage {
     fn new(base_dir: PathBuf) -> Self {
-        Self { base_dir }
+        Self {
+            _base_dir: base_dir,
+        }
     }
 }
 
@@ -319,7 +335,10 @@ impl WorkflowStorage for GlobalWorkflowStorage {
         Ok(None)
     }
 
-    fn list(&self, _filter: Option<&super::types::WorkflowFilter>) -> StorageResult<Vec<serde_json::Value>> {
+    fn list(
+        &self,
+        _filter: Option<&super::types::WorkflowFilter>,
+    ) -> StorageResult<Vec<serde_json::Value>> {
         // Implementation would go here
         Ok(vec![])
     }

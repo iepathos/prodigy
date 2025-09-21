@@ -388,13 +388,15 @@ impl CheckpointManager {
             // parent is /path/to/repo/.prodigy
             if parent.ends_with(".prodigy") {
                 // Get the repo directory
-                parent.parent()
+                parent
+                    .parent()
                     .and_then(|p| p.file_name())
                     .and_then(|n| n.to_str())
                     .unwrap_or("unknown")
                     .to_string()
             } else {
-                parent.file_name()
+                parent
+                    .file_name()
                     .and_then(|n| n.to_str())
                     .unwrap_or("unknown")
                     .to_string()

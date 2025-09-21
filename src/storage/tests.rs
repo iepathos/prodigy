@@ -5,9 +5,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-use crate::storage::config::{
-    BackendConfig, BackendType, CacheConfig, RetryPolicy, StorageConfig,
-};
+use crate::storage::config::{BackendConfig, BackendType, CacheConfig, RetryPolicy, StorageConfig};
 use crate::storage::error::StorageResult;
 use crate::storage::types::*;
 use chrono::Utc;

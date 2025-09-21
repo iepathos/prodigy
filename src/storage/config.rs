@@ -160,7 +160,6 @@ pub enum CacheType {
     Memory,
 }
 
-
 // Default value functions for serde
 fn default_pool_size() -> usize {
     10
@@ -177,7 +176,6 @@ fn default_true() -> bool {
 fn default_max_file_size() -> u64 {
     100 * 1024 * 1024 // 100MB
 }
-
 
 fn default_memory_limit() -> u64 {
     1024 * 1024 * 1024 // 1GB
