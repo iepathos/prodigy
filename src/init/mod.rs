@@ -107,9 +107,7 @@ async fn is_git_repository(path: &Path, subprocess: &SubprocessManager) -> bool 
 async fn is_git_installed(subprocess: &SubprocessManager) -> bool {
     use crate::subprocess::ProcessCommandBuilder;
 
-    let command = ProcessCommandBuilder::new("git")
-        .arg("--version")
-        .build();
+    let command = ProcessCommandBuilder::new("git").arg("--version").build();
 
     subprocess
         .runner()
