@@ -278,6 +278,8 @@ pub mod migration {
 mod mod_tests {
     use super::*;
     use tempfile::TempDir;
+    use tokio::fs;
+    use serde_json::json;
 
     #[test]
     fn test_extract_repo_name() {
