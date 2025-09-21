@@ -22,11 +22,11 @@ Prodigy currently has three parallel storage systems that create confusion and m
 2. Global storage (`~/.prodigy/`)
 3. Container storage abstraction layer (`src/storage/`)
 
-This redundancy makes it unclear which system to use, increases code complexity, and creates potential for bugs. The container storage abstraction is over-engineered for current needs and not actively used.
+This redundancy makes it unclear which system to use, increases code complexity, and creates potential for bugs. While the container storage abstraction is well-designed for future distributed deployments (PostgreSQL + Redis), it's premature optimization for current single-machine use cases.
 
 ## Objective
 
-Consolidate all storage into a single, file-based global storage system (default: `~/.prodigy/`), making it configurable so users can set custom paths, while removing legacy local storage and deferring container abstractions until actually needed.
+Consolidate storage to use a single, file-based global storage system (default: `~/.prodigy/`) as the primary implementation, making it configurable so users can set custom paths. Remove legacy local storage while preserving the distributed storage abstraction layer as dormant code for future containerized deployments.
 
 ## Requirements
 
@@ -34,7 +34,8 @@ Consolidate all storage into a single, file-based global storage system (default
 - Migrate all storage operations to use configurable global storage
 - Support custom storage paths via configuration (default: `~/.prodigy/`)
 - Remove legacy local storage code and environment variable support
-- Remove unused container storage abstraction layer (PostgreSQL, Redis, S3 backends)
+- Make file storage the default/only active backend
+- Preserve distributed storage code but make it dormant (not compiled by default)
 - Ensure automatic migration from local to global storage for existing users
 - Maintain all current storage functionality (events, DLQ, state, sessions)
 
@@ -49,7 +50,7 @@ Consolidate all storage into a single, file-based global storage system (default
 - [ ] All storage operations use configurable global storage (default: `~/.prodigy/`)
 - [ ] `PRODIGY_USE_LOCAL_STORAGE` environment variable has no effect
 - [ ] Legacy `.prodigy/` directories automatically migrated on first run
-- [ ] Container storage abstraction code completely removed
+- [ ] Distributed storage code preserved but dormant (behind feature flags)
 - [ ] All tests pass using global storage
 - [ ] Storage-related code reduced by at least 40%
 - [ ] No references to local storage in documentation
@@ -73,37 +74,40 @@ Consolidate all storage into a single, file-based global storage system (default
    - Remove environment variable checks
    - Clean up migration code after making it run once
 
-4. **Phase 4: Remove Container Abstractions**
-   - Delete entire `src/storage/backends/` directory (postgres.rs, redis.rs, s3.rs)
-   - Remove `src/storage/traits.rs` abstraction layer
-   - Delete unused storage factory and configuration
-   - Remove container-focused dependencies (sqlx, deadpool-redis, aws-sdk-s3)
-   - Keep only file-based storage with configurable paths
+4. **Phase 4: Make Distributed Storage Dormant**
+   - Add feature flags for distributed backends: `postgres`, `redis`, `s3`
+   - Move distributed dependencies behind feature flags in Cargo.toml
+   - Ensure distributed storage code compiles but isn't included in default builds
+   - Add documentation about future distributed capabilities
+   - Keep file-based storage as the only default backend
 
 ### Architecture Changes
 
-Simplified storage architecture:
+Storage architecture with future distribution support:
 ```
-Before:
-  StorageFactory -> UnifiedStorage trait -> Multiple backends
-                 -> Local/Global file storage
-
-After:
+Current (Default Build):
   GlobalStorage -> Direct file operations
+
+Future (Feature Flags):
+  StorageFactory -> UnifiedStorage trait -> Multiple backends
+                 -> File (default) | PostgreSQL | Redis | S3
+
+Removed:
+  Local storage (.prodigy/) -> Migrate to Global
 ```
 
 ### Data Structures
 
-Keep only:
+Primary (always compiled):
 - `GlobalStorage` struct for path management
 - Direct file I/O operations
 - Simple JSON serialization
 
-Remove:
-- `UnifiedStorage` trait
-- `StorageConfig` and backend configurations
-- All backend implementations
-- Storage factory pattern
+Preserved (behind feature flags):
+- `UnifiedStorage` trait (for future distributed use)
+- `StorageConfig` and backend configurations (postgres, redis, s3 features)
+- Backend implementations (postgres, redis, s3 features)
+- Storage factory pattern (distributed feature)
 
 ### APIs and Interfaces
 
@@ -149,11 +153,11 @@ impl GlobalStorage {
   - MapReduce execution
   - DLQ processing
   - Event tracking
-- **External Dependencies to Remove**:
-  - aws-sdk-s3 (S3 backend)
-  - deadpool-redis (Redis backend)
-  - sqlx (PostgreSQL backend)
-  - sea-orm (if only used for storage)
+- **External Dependencies to Feature-Gate**:
+  - aws-sdk-s3 (behind `s3` feature)
+  - deadpool-redis (behind `redis` feature)
+  - sqlx (behind `postgres` feature)
+  - sea-orm (remove if only used for storage)
 
 ## Testing Strategy
 
@@ -181,11 +185,29 @@ impl GlobalStorage {
 - Log storage operations at debug level for troubleshooting
 - Validate storage directory permissions on startup
 
+### Feature Flag Strategy
+```toml
+# Default build (single-machine)
+cargo build
+
+# Future distributed build
+cargo build --features postgres,redis
+
+# All storage backends
+cargo build --features postgres,redis,s3
+```
+
 ### Configuration Priority (highest to lowest)
 1. CLI flag `--storage-dir`
 2. Environment variable `PRODIGY_STORAGE_DIR`
 3. Config file setting
 4. Default `~/.prodigy/`
+
+### Future Distributed Architecture (PostgreSQL + Redis)
+When distributed deployment is needed:
+- **PostgreSQL**: Primary durable storage for all data
+- **Redis**: High-speed cache, distributed locking, pub/sub coordination
+- **S3**: Optional for large file archives and cross-region backups
 
 ## Migration and Compatibility
 
