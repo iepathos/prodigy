@@ -1300,8 +1300,8 @@ async fn run_resume_workflow(
     use prodigy::cook::execution::claude::ClaudeExecutorImpl;
     use prodigy::cook::interaction::DefaultUserInteraction;
     use prodigy::cook::session::SessionManager;
-    use prodigy::unified_session::CookSessionAdapter;
     use prodigy::cook::workflow::{CheckpointManager, ResumeExecutor, ResumeOptions};
+    use prodigy::unified_session::CookSessionAdapter;
     use std::sync::Arc;
 
     let working_dir = path.unwrap_or_else(|| std::env::current_dir().unwrap());
@@ -1415,9 +1415,8 @@ async fn run_resume_workflow(
                 executor
             });
             let storage = prodigy::storage::GlobalStorage::new()?;
-            let session_tracker = Arc::new(
-                CookSessionAdapter::new(working_dir.clone(), storage).await?
-            );
+            let session_tracker =
+                Arc::new(CookSessionAdapter::new(working_dir.clone(), storage).await?);
             let user_interaction = Arc::new(DefaultUserInteraction::default());
 
             // Create resume executor with full execution support

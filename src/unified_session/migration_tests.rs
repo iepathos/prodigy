@@ -2,7 +2,7 @@
 
 #[cfg(test)]
 mod migration_integration_tests {
-    use crate::unified_session::migration::{SessionMigrator, MigrationReport};
+    use crate::unified_session::migration::{MigrationReport, SessionMigrator};
     use crate::unified_session::SessionManager;
     use anyhow::Result;
     use serde_json::json;
@@ -322,10 +322,7 @@ mod migration_integration_tests {
             "worktree_name": null  // Old format might not have worktree
         });
 
-        fs::write(
-            legacy_dir.join("session_old.json"),
-            old_format.to_string(),
-        )?;
+        fs::write(legacy_dir.join("session_old.json"), old_format.to_string())?;
 
         // Run migration
         let report = migrator.migrate_from_legacy().await?;
@@ -356,10 +353,7 @@ mod migration_integration_tests {
             "worktree_name": "test-worktree"
         });
 
-        fs::write(
-            legacy_dir.join("session_test.json"),
-            session.to_string(),
-        )?;
+        fs::write(legacy_dir.join("session_test.json"), session.to_string())?;
 
         // Run migration
         let report1 = migrator.migrate_from_legacy().await?;
@@ -446,10 +440,15 @@ mod migration_integration_tests {
         let results: Vec<_> = futures::future::join_all(tasks).await;
 
         // At least one should succeed
-        let successful_count = results.iter()
+        let successful_count = results
+            .iter()
             .filter(|r| r.is_ok())
             .filter_map(|r| r.as_ref().ok())
-            .filter(|r| r.as_ref().map(|report: &MigrationReport| report.is_successful()).unwrap_or(false))
+            .filter(|r| {
+                r.as_ref()
+                    .map(|report: &MigrationReport| report.is_successful())
+                    .unwrap_or(false)
+            })
             .count();
 
         assert!(successful_count >= 1);

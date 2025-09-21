@@ -55,9 +55,7 @@ impl SessionMigrator {
 
             // Look for session JSON files
             if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                let filename = path.file_name()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("");
+                let filename = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
 
                 // Skip non-session files
                 if !filename.starts_with("session_") && filename != "session_state.json" {
@@ -67,7 +65,9 @@ impl SessionMigrator {
                 match self.migrate_single_session(&path).await {
                     Ok(session_id) => {
                         info!("Migrated session: {}", session_id.as_str());
-                        report.successful_migrations.push(session_id.as_str().to_string());
+                        report
+                            .successful_migrations
+                            .push(session_id.as_str().to_string());
                     }
                     Err(e) => {
                         warn!("Failed to migrate session from {}: {}", path.display(), e);
@@ -88,11 +88,11 @@ impl SessionMigrator {
     /// Migrate a single session from old format
     async fn migrate_single_session(&self, path: &Path) -> Result<SessionId> {
         // Read legacy session data
-        let content = std::fs::read_to_string(path)
-            .context("Failed to read legacy session file")?;
+        let content =
+            std::fs::read_to_string(path).context("Failed to read legacy session file")?;
 
-        let legacy_session: LegacySessionState = serde_json::from_str(&content)
-            .context("Failed to parse legacy session data")?;
+        let legacy_session: LegacySessionState =
+            serde_json::from_str(&content).context("Failed to parse legacy session data")?;
 
         // Convert status
         let status = match legacy_session.status.as_str() {
@@ -104,7 +104,8 @@ impl SessionMigrator {
         };
 
         // Extract project name from working directory
-        let project_name = self.project_path
+        let project_name = self
+            .project_path
             .file_name()
             .and_then(|s| s.to_str())
             .unwrap_or("unknown")
@@ -114,14 +115,20 @@ impl SessionMigrator {
         let mut metadata = std::collections::HashMap::new();
         metadata.insert("project_name".to_string(), serde_json::json!(project_name));
         if let Some(worktree_name) = &legacy_session.worktree_name {
-            metadata.insert("worktree_name".to_string(), serde_json::json!(worktree_name));
+            metadata.insert(
+                "worktree_name".to_string(),
+                serde_json::json!(worktree_name),
+            );
         }
         metadata.insert("started_by".to_string(), serde_json::json!("migrated"));
         metadata.insert("tags".to_string(), serde_json::json!(vec!["migrated"]));
-        metadata.insert("description".to_string(), serde_json::json!(format!(
-            "Migrated from legacy session {}",
-            legacy_session.session_id
-        )));
+        metadata.insert(
+            "description".to_string(),
+            serde_json::json!(format!(
+                "Migrated from legacy session {}",
+                legacy_session.session_id
+            )),
+        );
 
         let config = SessionConfig {
             session_type: SessionType::Workflow,
@@ -139,12 +146,24 @@ impl SessionMigrator {
 
         // Add metadata about legacy session
         let mut metadata = std::collections::HashMap::new();
-        metadata.insert("legacy_session_id".to_string(), serde_json::json!(legacy_session.session_id));
-        metadata.insert("iterations_completed".to_string(), serde_json::json!(legacy_session.iterations_completed));
-        metadata.insert("files_changed".to_string(), serde_json::json!(legacy_session.files_changed));
+        metadata.insert(
+            "legacy_session_id".to_string(),
+            serde_json::json!(legacy_session.session_id),
+        );
+        metadata.insert(
+            "iterations_completed".to_string(),
+            serde_json::json!(legacy_session.iterations_completed),
+        );
+        metadata.insert(
+            "files_changed".to_string(),
+            serde_json::json!(legacy_session.files_changed),
+        );
 
         if !legacy_session.errors.is_empty() {
-            metadata.insert("errors".to_string(), serde_json::json!(legacy_session.errors));
+            metadata.insert(
+                "errors".to_string(),
+                serde_json::json!(legacy_session.errors),
+            );
         }
 
         let update = super::SessionUpdate::Metadata(metadata);
@@ -163,7 +182,10 @@ impl SessionMigrator {
         }
 
         std::fs::rename(legacy_dir, &archive_path)?;
-        info!("Archived legacy session directory to {}", archive_path.display());
+        info!(
+            "Archived legacy session directory to {}",
+            archive_path.display()
+        );
 
         Ok(())
     }
@@ -178,17 +200,13 @@ impl SessionMigrator {
 
         // Check if there are any session files
         if let Ok(entries) = std::fs::read_dir(&legacy_dir) {
-            for entry in entries {
-                if let Ok(entry) = entry {
-                    let path = entry.path();
-                    if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                        let filename = path.file_name()
-                            .and_then(|s| s.to_str())
-                            .unwrap_or("");
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                    let filename = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
 
-                        if filename.starts_with("session_") || filename == "session_state.json" {
-                            return true;
-                        }
+                    if filename.starts_with("session_") || filename == "session_state.json" {
+                        return true;
                     }
                 }
             }
@@ -314,10 +332,9 @@ mod tests {
         assert_eq!(report.total_processed(), 2);
         assert_eq!(report.summary(), "Successfully migrated 2 session(s)");
 
-        report.failed_migrations.push((
-            PathBuf::from("failed.json"),
-            "Parse error".to_string(),
-        ));
+        report
+            .failed_migrations
+            .push((PathBuf::from("failed.json"), "Parse error".to_string()));
 
         assert!(!report.is_successful());
         assert_eq!(report.total_processed(), 3);

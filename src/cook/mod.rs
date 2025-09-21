@@ -162,16 +162,11 @@ async fn create_orchestrator(
     let session_id = SessionId::new();
     let storage = crate::storage::GlobalStorage::new()?;
     let storage2 = crate::storage::GlobalStorage::new()?;
-    let unified_manager = Arc::new(
-        crate::unified_session::SessionManager::new(storage2).await?,
-    );
+    let unified_manager = Arc::new(crate::unified_session::SessionManager::new(storage2).await?);
     // Keep the adapter for compatibility with other parts of the code that still need it
     let session_manager = Arc::new(
-        crate::unified_session::CookSessionAdapter::new(
-            project_path.to_path_buf(),
-            storage,
-        )
-        .await?,
+        crate::unified_session::CookSessionAdapter::new(project_path.to_path_buf(), storage)
+            .await?,
     );
 
     // Create user interaction with verbosity from command args

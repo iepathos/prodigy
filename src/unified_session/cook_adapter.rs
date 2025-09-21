@@ -59,11 +59,12 @@ impl CookSessionAdapter {
     }
 
     /// Convert unified session to Cook session state
-    fn unified_to_cook_state(session: &UnifiedSession, working_dir: &std::path::Path) -> CookSessionState {
-        let mut state = CookSessionState::new(
-            session.id.as_str().to_string(),
-            working_dir.to_path_buf()
-        );
+    fn unified_to_cook_state(
+        session: &UnifiedSession,
+        working_dir: &std::path::Path,
+    ) -> CookSessionState {
+        let mut state =
+            CookSessionState::new(session.id.as_str().to_string(), working_dir.to_path_buf());
         state.status = Self::unified_status_to_cook(session.status.clone());
         state.started_at = session.started_at;
 
@@ -88,23 +89,19 @@ impl CookSessionAdapter {
             CookSessionUpdate::IncrementIteration => {
                 // Increment iteration counter through metadata
                 let mut metadata = std::collections::HashMap::new();
-                metadata.insert(
-                    "increment_iteration".to_string(),
-                    serde_json::json!(true),
-                );
+                metadata.insert("increment_iteration".to_string(), serde_json::json!(true));
                 vec![UnifiedSessionUpdate::Metadata(metadata)]
             }
             CookSessionUpdate::AddFilesChanged(count) => {
                 // Store in metadata and we'll accumulate this in workflow_data
                 let mut metadata = std::collections::HashMap::new();
-                metadata.insert(
-                    "files_changed_delta".to_string(),
-                    serde_json::json!(count),
-                );
+                metadata.insert("files_changed_delta".to_string(), serde_json::json!(count));
                 vec![UnifiedSessionUpdate::Metadata(metadata)]
             }
             CookSessionUpdate::UpdateStatus(status) => {
-                vec![UnifiedSessionUpdate::Status(Self::cook_status_to_unified(status))]
+                vec![UnifiedSessionUpdate::Status(Self::cook_status_to_unified(
+                    status,
+                ))]
             }
             CookSessionUpdate::StartIteration(_) | CookSessionUpdate::CompleteIteration => {
                 vec![]
@@ -145,7 +142,9 @@ impl CookSessionManager for CookSessionAdapter {
         if let Some(id) = &*self.current_session.lock().await {
             let unified_updates = Self::cook_update_to_unified(update);
             for unified_update in unified_updates {
-                self.unified_manager.update_session(id, unified_update).await?;
+                self.unified_manager
+                    .update_session(id, unified_update)
+                    .await?;
             }
         }
         Ok(())
@@ -183,10 +182,7 @@ impl CookSessionManager for CookSessionAdapter {
     fn get_state(&self) -> CookSessionState {
         // This is synchronous in the trait but we need async for unified manager
         // Return a default state with working directory
-        CookSessionState::new(
-            "default-session".to_string(),
-            self.working_dir.clone()
-        )
+        CookSessionState::new("default-session".to_string(), self.working_dir.clone())
     }
 
     async fn save_state(&self, _path: &Path) -> Result<()> {

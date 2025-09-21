@@ -1,9 +1,9 @@
 //! Session coordinator for managing session lifecycle
 
-use crate::cook::session::{SessionStatus as CookSessionStatus};
+use crate::cook::session::SessionStatus as CookSessionStatus;
 use crate::unified_session::{
-    SessionManager as UnifiedSessionManager, SessionUpdate as UnifiedSessionUpdate,
-    SessionConfig, SessionId, SessionStatus, SessionType,
+    SessionConfig, SessionId, SessionManager as UnifiedSessionManager, SessionStatus, SessionType,
+    SessionUpdate as UnifiedSessionUpdate,
 };
 use anyhow::Result;
 use async_trait::async_trait;
@@ -51,7 +51,10 @@ pub struct DefaultSessionCoordinator {
 
 impl DefaultSessionCoordinator {
     /// Create new session coordinator
-    pub fn new(unified_manager: Arc<UnifiedSessionManager>, working_dir: std::path::PathBuf) -> Self {
+    pub fn new(
+        unified_manager: Arc<UnifiedSessionManager>,
+        working_dir: std::path::PathBuf,
+    ) -> Self {
         Self {
             unified_manager,
             current_session_id: Mutex::new(None),
@@ -115,10 +118,7 @@ impl SessionCoordinator for DefaultSessionCoordinator {
         if let Some(id) = &*self.current_session_id.lock().await {
             // Increment iteration counter through metadata
             let mut metadata = std::collections::HashMap::new();
-            metadata.insert(
-                "increment_iteration".to_string(),
-                serde_json::json!(true),
-            );
+            metadata.insert("increment_iteration".to_string(), serde_json::json!(true));
             self.unified_manager
                 .update_session(id, UnifiedSessionUpdate::Metadata(metadata))
                 .await?;
@@ -162,7 +162,9 @@ impl SessionCoordinator for DefaultSessionCoordinator {
         let id = SessionId::from_string(session_id.to_string());
         match self.unified_manager.load_session(&id).await {
             Ok(session) => {
-                if session.status == SessionStatus::Running || session.status == SessionStatus::Paused {
+                if session.status == SessionStatus::Running
+                    || session.status == SessionStatus::Paused
+                {
                     *self.current_session_id.lock().await = Some(id);
                     // Return current iteration count from workflow data
                     if let Some(workflow_data) = &session.workflow_data {

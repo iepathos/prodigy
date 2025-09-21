@@ -3,8 +3,8 @@
 #[cfg(test)]
 mod tests {
     use super::super::*;
-    use crate::storage::GlobalStorage;
     use crate::cook::session::SessionManager as CookSessionManager;
+    use crate::storage::GlobalStorage;
     use tempfile::TempDir;
 
     #[tokio::test]
@@ -24,8 +24,14 @@ mod tests {
 
         // Create a session
         let mut metadata = std::collections::HashMap::new();
-        metadata.insert("project_name".to_string(), serde_json::json!("test-project"));
-        metadata.insert("workflow_name".to_string(), serde_json::json!("test-workflow"));
+        metadata.insert(
+            "project_name".to_string(),
+            serde_json::json!("test-project"),
+        );
+        metadata.insert(
+            "workflow_name".to_string(),
+            serde_json::json!("test-workflow"),
+        );
         metadata.insert("started_by".to_string(), serde_json::json!("test-user"));
         metadata.insert("tags".to_string(), serde_json::json!(vec!["test"]));
         metadata.insert("description".to_string(), serde_json::json!("Test session"));
@@ -64,8 +70,14 @@ mod tests {
 
         // Create a workflow session
         let mut metadata = std::collections::HashMap::new();
-        metadata.insert("project_name".to_string(), serde_json::json!("test-project"));
-        metadata.insert("workflow_name".to_string(), serde_json::json!("test-workflow"));
+        metadata.insert(
+            "project_name".to_string(),
+            serde_json::json!("test-project"),
+        );
+        metadata.insert(
+            "workflow_name".to_string(),
+            serde_json::json!("test-workflow"),
+        );
         metadata.insert("started_by".to_string(), serde_json::json!("test-user"));
 
         let config = SessionConfig {
@@ -105,10 +117,19 @@ mod tests {
         // Create multiple sessions
         for i in 0..3 {
             let mut metadata = std::collections::HashMap::new();
-            metadata.insert("project_name".to_string(), serde_json::json!(format!("project-{}", i)));
-            metadata.insert("workflow_name".to_string(), serde_json::json!(format!("workflow-{}", i)));
+            metadata.insert(
+                "project_name".to_string(),
+                serde_json::json!(format!("project-{}", i)),
+            );
+            metadata.insert(
+                "workflow_name".to_string(),
+                serde_json::json!(format!("workflow-{}", i)),
+            );
             metadata.insert("started_by".to_string(), serde_json::json!("test-user"));
-            metadata.insert("tags".to_string(), serde_json::json!(vec![format!("tag-{}", i)]));
+            metadata.insert(
+                "tags".to_string(),
+                serde_json::json!(vec![format!("tag-{}", i)]),
+            );
 
             let config = SessionConfig {
                 session_type: if i == 0 {
@@ -116,8 +137,16 @@ mod tests {
                 } else {
                     SessionType::Workflow
                 },
-                workflow_id: if i == 0 { None } else { Some(format!("workflow-{}", i)) },
-                job_id: if i == 0 { Some(format!("job-{}", i)) } else { None },
+                workflow_id: if i == 0 {
+                    None
+                } else {
+                    Some(format!("workflow-{}", i))
+                },
+                job_id: if i == 0 {
+                    Some(format!("job-{}", i))
+                } else {
+                    None
+                },
                 metadata,
             };
 
@@ -161,18 +190,15 @@ mod tests {
     async fn test_cook_session_adapter() {
         let temp_dir = TempDir::new().unwrap();
         let storage = GlobalStorage::new().unwrap();
-        let adapter = CookSessionAdapter::new(
-            temp_dir.path().to_path_buf(),
-            storage,
-        )
-        .await
-        .unwrap();
+        let adapter = CookSessionAdapter::new(temp_dir.path().to_path_buf(), storage)
+            .await
+            .unwrap();
 
         // Test session lifecycle through adapter
         adapter.start_session("test-session").await.unwrap();
 
         // Update session
-        use crate::cook::session::{SessionUpdate as CookUpdate, SessionStatus as CookStatus};
+        use crate::cook::session::{SessionStatus as CookStatus, SessionUpdate as CookUpdate};
         adapter
             .update_session(CookUpdate::IncrementIteration)
             .await
@@ -198,8 +224,14 @@ mod tests {
 
         // Create a session
         let mut metadata = std::collections::HashMap::new();
-        metadata.insert("project_name".to_string(), serde_json::json!("checkpoint-test"));
-        metadata.insert("workflow_name".to_string(), serde_json::json!("test-workflow"));
+        metadata.insert(
+            "project_name".to_string(),
+            serde_json::json!("checkpoint-test"),
+        );
+        metadata.insert(
+            "workflow_name".to_string(),
+            serde_json::json!("test-workflow"),
+        );
         metadata.insert("started_by".to_string(), serde_json::json!("test-user"));
 
         let config = SessionConfig {
@@ -212,18 +244,12 @@ mod tests {
         let session_id = manager.create_session(config).await.unwrap();
 
         // Create a checkpoint
-        let checkpoint_id = manager
-            .create_checkpoint(&session_id)
-            .await
-            .unwrap();
+        let checkpoint_id = manager.create_checkpoint(&session_id).await.unwrap();
 
         assert!(!checkpoint_id.as_str().is_empty());
 
         // List checkpoints to verify it was created
-        let checkpoints = manager
-            .list_checkpoints(&session_id)
-            .await
-            .unwrap();
+        let checkpoints = manager.list_checkpoints(&session_id).await.unwrap();
 
         assert!(!checkpoints.is_empty());
         // Find the checkpoint we just created
@@ -237,11 +263,20 @@ mod tests {
 
         // Create a MapReduce session
         let mut metadata = std::collections::HashMap::new();
-        metadata.insert("project_name".to_string(), serde_json::json!("mapreduce-test"));
-        metadata.insert("workflow_name".to_string(), serde_json::json!("mapreduce-workflow"));
+        metadata.insert(
+            "project_name".to_string(),
+            serde_json::json!("mapreduce-test"),
+        );
+        metadata.insert(
+            "workflow_name".to_string(),
+            serde_json::json!("mapreduce-workflow"),
+        );
         metadata.insert("started_by".to_string(), serde_json::json!("test-user"));
         metadata.insert("tags".to_string(), serde_json::json!(vec!["mapreduce"]));
-        metadata.insert("description".to_string(), serde_json::json!("Test MapReduce session"));
+        metadata.insert(
+            "description".to_string(),
+            serde_json::json!("Test MapReduce session"),
+        );
 
         let config = SessionConfig {
             session_type: SessionType::MapReduce,
@@ -324,11 +359,20 @@ mod tests {
 
         // Create a session
         let mut metadata = std::collections::HashMap::new();
-        metadata.insert("project_name".to_string(), serde_json::json!("metadata-test"));
-        metadata.insert("workflow_name".to_string(), serde_json::json!("test-workflow"));
+        metadata.insert(
+            "project_name".to_string(),
+            serde_json::json!("metadata-test"),
+        );
+        metadata.insert(
+            "workflow_name".to_string(),
+            serde_json::json!("test-workflow"),
+        );
         metadata.insert("started_by".to_string(), serde_json::json!("test-user"));
         metadata.insert("tags".to_string(), serde_json::json!(vec!["initial"]));
-        metadata.insert("description".to_string(), serde_json::json!("Initial description"));
+        metadata.insert(
+            "description".to_string(),
+            serde_json::json!("Initial description"),
+        );
 
         let config = SessionConfig {
             session_type: SessionType::Workflow,
@@ -341,7 +385,10 @@ mod tests {
 
         // Update metadata
         let mut metadata = std::collections::HashMap::new();
-        metadata.insert("custom_field".to_string(), serde_json::json!("custom_value"));
+        metadata.insert(
+            "custom_field".to_string(),
+            serde_json::json!("custom_value"),
+        );
         metadata.insert("iteration_count".to_string(), serde_json::json!(5));
 
         let update = SessionUpdate::Metadata(metadata);
@@ -350,6 +397,9 @@ mod tests {
         // Load and verify
         let session = manager.load_session(&session_id).await.unwrap();
         assert!(session.metadata.contains_key("project_name"));
-        assert_eq!(session.metadata["project_name"], serde_json::json!("metadata-test"));
+        assert_eq!(
+            session.metadata["project_name"],
+            serde_json::json!("metadata-test")
+        );
     }
 }

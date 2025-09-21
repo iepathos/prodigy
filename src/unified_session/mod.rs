@@ -27,15 +27,14 @@ pub use timing::{format_duration, TimingTracker};
 use anyhow::Result;
 
 /// Create a new session manager with default configuration
-pub async fn create_session_manager(storage: crate::storage::GlobalStorage) -> Result<SessionManager> {
+pub async fn create_session_manager(
+    storage: crate::storage::GlobalStorage,
+) -> Result<SessionManager> {
     SessionManager::new(storage).await
 }
 
 /// Get a session by ID (convenience function)
-pub async fn get_session(
-    manager: &SessionManager,
-    id: &SessionId,
-) -> Result<UnifiedSession> {
+pub async fn get_session(manager: &SessionManager, id: &SessionId) -> Result<UnifiedSession> {
     manager.load_session(id).await
 }
 

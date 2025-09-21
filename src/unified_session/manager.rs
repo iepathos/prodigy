@@ -66,9 +66,10 @@ impl SessionManager {
 
         // Add to active sessions
         {
-            let mut sessions = self.active_sessions.write().map_err(|e| {
-                anyhow!("Failed to acquire write lock on active sessions: {}", e)
-            })?;
+            let mut sessions = self
+                .active_sessions
+                .write()
+                .map_err(|e| anyhow!("Failed to acquire write lock on active sessions: {}", e))?;
             sessions.insert(session_id.clone(), session.clone());
         }
 
@@ -82,9 +83,10 @@ impl SessionManager {
     pub async fn load_session(&self, id: &SessionId) -> Result<UnifiedSession> {
         // Check active sessions first
         {
-            let sessions = self.active_sessions.read().map_err(|e| {
-                anyhow!("Failed to acquire read lock on active sessions: {}", e)
-            })?;
+            let sessions = self
+                .active_sessions
+                .read()
+                .map_err(|e| anyhow!("Failed to acquire read lock on active sessions: {}", e))?;
             if let Some(session) = sessions.get(id) {
                 return Ok(session.clone());
             }
@@ -151,16 +153,20 @@ impl SessionManager {
                     mapreduce.total_items = total;
                 }
             }
-            SessionUpdate::Timing { operation, duration } => {
+            SessionUpdate::Timing {
+                operation,
+                duration,
+            } => {
                 session.timings.insert(operation, duration);
             }
         }
 
         // Update active sessions
         {
-            let mut sessions = self.active_sessions.write().map_err(|e| {
-                anyhow!("Failed to acquire write lock on active sessions: {}", e)
-            })?;
+            let mut sessions = self
+                .active_sessions
+                .write()
+                .map_err(|e| anyhow!("Failed to acquire write lock on active sessions: {}", e))?;
             sessions.insert(id.clone(), session.clone());
         }
 
@@ -172,9 +178,10 @@ impl SessionManager {
     pub async fn delete_session(&self, id: &SessionId) -> Result<()> {
         // Remove from active sessions
         {
-            let mut sessions = self.active_sessions.write().map_err(|e| {
-                anyhow!("Failed to acquire write lock on active sessions: {}", e)
-            })?;
+            let mut sessions = self
+                .active_sessions
+                .write()
+                .map_err(|e| anyhow!("Failed to acquire write lock on active sessions: {}", e))?;
             sessions.remove(id);
         }
 
@@ -201,11 +208,7 @@ impl SessionManager {
     }
 
     /// Complete a session
-    pub async fn complete_session(
-        &self,
-        id: &SessionId,
-        success: bool,
-    ) -> Result<SessionSummary> {
+    pub async fn complete_session(&self, id: &SessionId, success: bool) -> Result<SessionSummary> {
         let status = if success {
             SessionStatus::Completed
         } else {
@@ -254,9 +257,10 @@ impl SessionManager {
 
         // Update active sessions
         {
-            let mut sessions = self.active_sessions.write().map_err(|e| {
-                anyhow!("Failed to acquire write lock on active sessions: {}", e)
-            })?;
+            let mut sessions = self
+                .active_sessions
+                .write()
+                .map_err(|e| anyhow!("Failed to acquire write lock on active sessions: {}", e))?;
             sessions.insert(id.clone(), restored_session.clone());
         }
 
@@ -271,7 +275,10 @@ impl SessionManager {
     }
 
     /// List sessions with optional filter
-    pub async fn list_sessions(&self, filter: Option<SessionFilter>) -> Result<Vec<SessionSummary>> {
+    pub async fn list_sessions(
+        &self,
+        filter: Option<SessionFilter>,
+    ) -> Result<Vec<SessionSummary>> {
         let sessions = self.load_all_sessions().await?;
 
         let filtered = if let Some(filter) = filter {
@@ -321,9 +328,10 @@ impl SessionManager {
 
     /// Get active session IDs
     pub async fn get_active_sessions(&self) -> Result<Vec<SessionId>> {
-        let sessions = self.active_sessions.read().map_err(|e| {
-            anyhow!("Failed to acquire read lock on active sessions: {}", e)
-        })?;
+        let sessions = self
+            .active_sessions
+            .read()
+            .map_err(|e| anyhow!("Failed to acquire read lock on active sessions: {}", e))?;
         Ok(sessions.keys().cloned().collect())
     }
 
@@ -362,9 +370,10 @@ impl SessionManager {
 
         // Add to active sessions cache
         {
-            let mut sessions = self.active_sessions.write().map_err(|e| {
-                anyhow!("Failed to acquire write lock on active sessions: {}", e)
-            })?;
+            let mut sessions = self
+                .active_sessions
+                .write()
+                .map_err(|e| anyhow!("Failed to acquire write lock on active sessions: {}", e))?;
             sessions.insert(id.clone(), session.clone());
         }
 

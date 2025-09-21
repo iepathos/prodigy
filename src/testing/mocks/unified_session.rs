@@ -1,8 +1,8 @@
 //! Mock unified session manager for testing
 
 use crate::unified_session::{
-    SessionUpdate, SessionConfig, SessionId,
-    SessionStatus, SessionSummary, UnifiedSession, SessionType,
+    SessionConfig, SessionId, SessionStatus, SessionSummary, SessionType, SessionUpdate,
+    UnifiedSession,
 };
 use anyhow::Result;
 use std::collections::HashMap;
@@ -77,15 +77,16 @@ impl MockUnifiedSessionManager {
                 UnifiedSession::new_workflow(workflow_id, String::new())
             }
             SessionType::MapReduce => {
-                let job_id = config
-                    .job_id
-                    .unwrap_or_else(|| "test-job".to_string());
+                let job_id = config.job_id.unwrap_or_else(|| "test-job".to_string());
                 UnifiedSession::new_mapreduce(job_id, 0)
             }
         };
 
         let session_id = session.id.clone();
-        self.sessions.lock().unwrap().insert(session_id.clone(), session);
+        self.sessions
+            .lock()
+            .unwrap()
+            .insert(session_id.clone(), session);
         Ok(session_id)
     }
 
@@ -107,7 +108,10 @@ impl MockUnifiedSessionManager {
             return Err(anyhow::anyhow!("Mock failure"));
         }
 
-        self.update_calls.lock().unwrap().push((id.clone(), update.clone()));
+        self.update_calls
+            .lock()
+            .unwrap()
+            .push((id.clone(), update.clone()));
 
         let mut sessions = self.sessions.lock().unwrap();
         if let Some(session) = sessions.get_mut(id) {
@@ -118,15 +122,11 @@ impl MockUnifiedSessionManager {
                 SessionUpdate::Metadata(metadata) => {
                     // Handle special metadata keys
                     for (key, value) in metadata.iter() {
-                        match key.as_str() {
-                            "increment_iteration" => {
-                                if value.as_bool().unwrap_or(false) {
-                                    if let Some(workflow) = &mut session.workflow_data {
-                                        workflow.iterations_completed += 1;
-                                    }
-                                }
+                        if key.as_str() == "increment_iteration" && value.as_bool().unwrap_or(false)
+                        {
+                            if let Some(workflow) = &mut session.workflow_data {
+                                workflow.iterations_completed += 1;
                             }
-                            _ => {}
                         }
                     }
                     session.metadata.extend(metadata);
@@ -148,7 +148,8 @@ impl MockUnifiedSessionManager {
             return Err(anyhow::anyhow!("Mock failure"));
         }
         *self.start_called.lock().unwrap() = true;
-        self.update_session(id, SessionUpdate::Status(SessionStatus::Running)).await
+        self.update_session(id, SessionUpdate::Status(SessionStatus::Running))
+            .await
     }
 
     pub async fn complete_session(&self, id: &SessionId, success: bool) -> Result<SessionSummary> {
@@ -162,7 +163,8 @@ impl MockUnifiedSessionManager {
         } else {
             SessionStatus::Failed
         };
-        self.update_session(id, SessionUpdate::Status(status)).await?;
+        self.update_session(id, SessionUpdate::Status(status))
+            .await?;
 
         let session = self.load_session(id).await?;
         Ok(SessionSummary {

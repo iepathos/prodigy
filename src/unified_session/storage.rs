@@ -1,7 +1,9 @@
 //! Storage adapter for unified sessions
 
 use super::state::{SessionId, UnifiedSession};
-use crate::storage::types::{SessionFilter as StorageSessionFilter, SessionState as StorageSessionState};
+use crate::storage::types::{
+    SessionFilter as StorageSessionFilter, SessionState as StorageSessionState,
+};
 use anyhow::Result;
 
 /// Adapter to bridge unified sessions with storage layer
@@ -15,7 +17,10 @@ impl SessionStorageAdapter {
     }
 
     /// Convert storage session state to unified session
-    pub fn from_storage_state(_state: StorageSessionState, _id: SessionId) -> Result<UnifiedSession> {
+    pub fn from_storage_state(
+        _state: StorageSessionState,
+        _id: SessionId,
+    ) -> Result<UnifiedSession> {
         // This would need proper implementation based on actual storage format
         unimplemented!("Storage state conversion not yet implemented")
     }

@@ -4,8 +4,8 @@
 mod tests {
     use crate::cook::coordinators::session::{DefaultSessionCoordinator, SessionCoordinator};
     use crate::cook::session::SessionStatus;
-    use crate::unified_session::SessionManager as UnifiedSessionManager;
     use crate::storage::GlobalStorage;
+    use crate::unified_session::SessionManager as UnifiedSessionManager;
     use std::path::PathBuf;
     use std::sync::Arc;
     use tempfile::TempDir;
@@ -177,19 +177,13 @@ mod tests {
         let session_id = info.session_id;
 
         // Test resuming
-        let result = coordinator
-            .resume_session(&session_id)
-            .await
-            .unwrap();
+        let result = coordinator.resume_session(&session_id).await.unwrap();
         assert!(result.is_some());
         assert_eq!(result.unwrap(), 3); // Should return iteration count
 
         // Complete session and test resuming again
         coordinator.complete_session(true).await.unwrap();
-        let result = coordinator
-            .resume_session(&session_id)
-            .await
-            .unwrap();
+        let result = coordinator.resume_session(&session_id).await.unwrap();
         assert!(result.is_none()); // Cannot resume completed session
     }
 
