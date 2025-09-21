@@ -55,6 +55,25 @@ pub struct MapReduceWorkflowConfig {
     /// Error collection strategy (convenience field, maps to error_policy.error_collection)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error_collection: Option<String>,
+
+    /// Optional custom merge workflow for worktree integration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub merge: Option<MergeWorkflow>,
+}
+
+/// Custom merge workflow configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MergeWorkflow {
+    /// Commands to execute for merge process
+    pub commands: Vec<WorkflowStep>,
+
+    /// Timeout for the entire merge phase (in seconds)
+    #[serde(default = "default_merge_timeout")]
+    pub timeout: u64,
+}
+
+fn default_merge_timeout() -> u64 {
+    600 // 10 minutes default for merge operations
 }
 
 fn is_default_error_policy(policy: &WorkflowErrorPolicy) -> bool {

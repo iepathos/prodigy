@@ -168,6 +168,7 @@ impl OldSessionManager for SessionManagerAdapter {
                 secrets: None,
                 env_files: None,
                 profiles: None,
+                merge: None,
             },
             execution_mode: ExecutionMode::Direct,
             max_iterations: 10,

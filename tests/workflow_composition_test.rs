@@ -24,6 +24,7 @@ async fn test_basic_workflow_composition() -> Result<()> {
         secrets: None,
         env_files: None,
         profiles: None,
+        merge: None,
     });
 
     assert!(!workflow.uses_composition());
@@ -38,6 +39,7 @@ async fn test_workflow_with_parameters() -> Result<()> {
         secrets: None,
         env_files: None,
         profiles: None,
+        merge: None,
     });
 
     // Add parameter definitions
@@ -82,6 +84,7 @@ async fn test_workflow_with_imports() -> Result<()> {
         secrets: None,
         env_files: None,
         profiles: None,
+        merge: None,
     });
 
     // Add imports
@@ -110,6 +113,7 @@ async fn test_workflow_with_template() -> Result<()> {
         secrets: None,
         env_files: None,
         profiles: None,
+        merge: None,
     });
 
     // Add template usage
@@ -135,6 +139,7 @@ async fn test_workflow_with_sub_workflows() -> Result<()> {
         secrets: None,
         env_files: None,
         profiles: None,
+        merge: None,
     });
 
     // Add sub-workflows
@@ -178,6 +183,7 @@ async fn test_template_registry() -> Result<()> {
         secrets: None,
         env_files: None,
         profiles: None,
+        merge: None,
     });
 
     // Register template
@@ -214,6 +220,7 @@ async fn test_parameter_type_validation() -> Result<()> {
         secrets: None,
         env_files: None,
         profiles: None,
+        merge: None,
     });
 
     workflow.parameters = Some(ParameterDefinitions {
@@ -262,6 +269,7 @@ async fn test_workflow_defaults() -> Result<()> {
         secrets: None,
         env_files: None,
         profiles: None,
+        merge: None,
     });
 
     // Add defaults
@@ -289,6 +297,7 @@ async fn test_workflow_inheritance() -> Result<()> {
         secrets: None,
         env_files: None,
         profiles: None,
+        merge: None,
     });
 
     // Set up inheritance
@@ -306,6 +315,7 @@ async fn test_required_parameters() -> Result<()> {
         secrets: None,
         env_files: None,
         profiles: None,
+        merge: None,
     });
 
     workflow.parameters = Some(ParameterDefinitions {
@@ -353,6 +363,7 @@ async fn test_template_metadata() -> Result<()> {
         secrets: None,
         env_files: None,
         profiles: None,
+        merge: None,
     });
 
     let metadata = TemplateMetadata {
@@ -395,6 +406,7 @@ async fn test_template_search_by_tags() -> Result<()> {
         secrets: None,
         env_files: None,
         profiles: None,
+        merge: None,
     });
     let metadata1 = TemplateMetadata {
         description: Some("Refactoring template".to_string()),
@@ -415,6 +427,7 @@ async fn test_template_search_by_tags() -> Result<()> {
         secrets: None,
         env_files: None,
         profiles: None,
+        merge: None,
     });
     let metadata2 = TemplateMetadata {
         description: Some("Testing template".to_string()),

@@ -6,6 +6,65 @@ This document explains how Prodigy manages sessions and provides information to 
 
 Prodigy is a workflow orchestration tool that executes Claude commands through structured YAML workflows. It manages session state, tracks execution progress, and supports parallel execution through MapReduce patterns.
 
+## Custom Merge Workflows
+
+Prodigy now supports configurable merge workflows that execute when merging worktree changes back to the main branch. This allows you to customize the merge process with your own validation, conflict resolution, and post-merge steps.
+
+### Merge Workflow Configuration
+
+You can define a custom merge workflow in your YAML file using the `merge` block:
+
+```yaml
+# Custom merge workflow
+merge:
+  commands:
+    - shell: "git fetch origin"
+    - shell: "git merge origin/main"  # Merge main into worktree first
+    - shell: "cargo test"              # Run tests
+    - shell: "cargo clippy"            # Run linting
+    - claude: "/prodigy-merge-worktree ${merge.source_branch}"
+    - shell: "echo 'Successfully merged ${merge.worktree}'"
+  timeout: 600  # 10 minutes timeout for merge operations
+```
+
+### Merge-Specific Variables
+
+The following variables are available in merge workflows:
+- `${merge.worktree}` - Name of the worktree being merged
+- `${merge.source_branch}` - Source branch (worktree branch)
+- `${merge.target_branch}` - Target branch (usually main or master)
+- `${merge.session_id}` - Session ID for correlation
+
+### Claude Merge Streaming
+
+The Claude merge command now respects the same verbosity settings as other workflow commands:
+- With `-v` (verbose) or higher, you'll see real-time JSON streaming output from Claude
+- Set `PRODIGY_CLAUDE_CONSOLE_OUTPUT=true` to force streaming output regardless of verbosity
+- This provides full visibility into Claude's merge operations and any tool invocations
+
+### Example Workflows
+
+#### Pre-merge Validation
+```yaml
+merge:
+  commands:
+    - shell: "cargo build --release"
+    - shell: "cargo test --all"
+    - shell: "cargo fmt --check"
+    - claude: "/prodigy-merge-worktree ${merge.source_branch}"
+```
+
+#### Conflict Resolution Strategy
+```yaml
+merge:
+  commands:
+    - shell: "git merge origin/main --no-commit"
+    - claude: "/resolve-conflicts"
+    - shell: "git add -A"
+    - shell: "git commit -m 'Merge main and resolve conflicts'"
+    - claude: "/prodigy-merge-worktree ${merge.source_branch}"
+```
+
 ## MapReduce Workflow Syntax
 
 Prodigy supports MapReduce workflows for massive parallel processing. The syntax follows the specification in the whitepaper:

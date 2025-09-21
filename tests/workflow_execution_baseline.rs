@@ -45,6 +45,7 @@ mod standard_workflow {
             secrets: None,
             env_files: None,
             profiles: None,
+            merge: None,
             commands: vec![WorkflowCommand::Simple("test-command".to_string())],
         };
 
@@ -63,6 +64,7 @@ mod standard_workflow {
             secrets: None,
             env_files: None,
             profiles: None,
+            merge: None,
             commands: vec![WorkflowCommand::Simple("test-command".to_string())],
         };
 
@@ -81,6 +83,7 @@ mod standard_workflow {
             secrets: None,
             env_files: None,
             profiles: None,
+            merge: None,
             commands: vec![WorkflowCommand::Simple("test-command".to_string())],
         };
 
@@ -103,6 +106,7 @@ mod structured_workflow {
             secrets: None,
             env_files: None,
             profiles: None,
+            merge: None,
             commands: vec![
                 // WorkflowCommand doesn't have WithOutput variant in actual code
                 WorkflowCommand::Simple("test-command".to_string()),
@@ -127,6 +131,7 @@ mod args_workflow {
             secrets: None,
             env_files: None,
             profiles: None,
+            merge: None,
             commands: vec![WorkflowCommand::Simple("test-command".to_string())],
         };
 
@@ -150,6 +155,7 @@ mod mapreduce_workflow {
             secrets: None,
             env_files: None,
             profiles: None,
+            merge: None,
         };
 
         // MapReduceWorkflowConfig would be in a separate field
@@ -208,6 +214,7 @@ mod feature_matrix {
             secrets: None,
             env_files: None,
             profiles: None,
+            merge: None,
             commands: vec![WorkflowCommand::Simple("test".to_string())],
         };
 
@@ -232,6 +239,7 @@ mod migration_tests {
             secrets: None,
             env_files: None,
             profiles: None,
+            merge: None,
         };
         let config = create_test_config(workflow);
 

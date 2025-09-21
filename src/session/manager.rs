@@ -353,6 +353,7 @@ mod tests {
                 secrets: None,
                 env_files: None,
                 profiles: None,
+                merge: None,
             },
             execution_mode: crate::session::ExecutionMode::Direct,
             max_iterations: 5,

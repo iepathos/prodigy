@@ -125,13 +125,15 @@ async fn test_list_sessions_with_metadata_fallback() -> Result<()> {
         resumable: false,
     };
 
-    // Save the orphaned state with correct filename format
+    // Save the orphaned state with correct filename format (must start with "session-")
     let state_path = metadata_dir.join("session-orphaned-session.json");
     fs::write(&state_path, serde_json::to_string_pretty(&orphaned_state)?)?;
 
     // Create the worktree directory (simulating a partially cleaned up session)
     let orphaned_dir = manager.base_dir.join("orphaned-session");
     fs::create_dir_all(&orphaned_dir)?;
+    // Create .git file to make it appear as a valid worktree
+    fs::write(orphaned_dir.join(".git"), "gitdir: /fake/path")?;
 
     // Create a normal session
     let normal_session = manager.create_session().await?;
@@ -140,7 +142,11 @@ async fn test_list_sessions_with_metadata_fallback() -> Result<()> {
     let sessions = manager.list_sessions().await?;
 
     // Should find both sessions
-    assert!(sessions.len() >= 2, "Should find at least 2 sessions");
+    assert!(
+        sessions.len() >= 2,
+        "Should find at least 2 sessions, but found {}",
+        sessions.len()
+    );
 
     let has_normal = sessions.iter().any(|s| s.name == normal_session.name);
     let has_orphaned = sessions.iter().any(|s| s.name == "orphaned-session");

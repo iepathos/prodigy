@@ -1,6 +1,9 @@
+use crate::config::mapreduce::MergeWorkflow;
+use crate::cook::execution::{ClaudeExecutor, ClaudeExecutorImpl};
 use crate::subprocess::{ProcessCommandBuilder, SubprocessManager};
 use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use tracing::debug;
@@ -40,6 +43,8 @@ pub struct WorktreeManager {
     pub base_dir: PathBuf,
     pub repo_path: PathBuf,
     subprocess: SubprocessManager,
+    verbosity: u8,
+    custom_merge_workflow: Option<MergeWorkflow>,
 }
 
 impl WorktreeManager {
@@ -101,6 +106,16 @@ impl WorktreeManager {
     /// - Repository path is invalid
     /// - Git repository is not found
     pub fn new(repo_path: PathBuf, subprocess: SubprocessManager) -> Result<Self> {
+        Self::with_config(repo_path, subprocess, 0, None)
+    }
+
+    /// Create a new WorktreeManager with configuration
+    pub fn with_config(
+        repo_path: PathBuf,
+        subprocess: SubprocessManager,
+        verbosity: u8,
+        custom_merge_workflow: Option<MergeWorkflow>,
+    ) -> Result<Self> {
         // Get the repository name from the path
         let repo_name = repo_path
             .file_name()
@@ -151,6 +166,8 @@ impl WorktreeManager {
             base_dir,
             repo_path,
             subprocess,
+            verbosity,
+            custom_merge_workflow,
         })
     }
 
@@ -659,47 +676,69 @@ impl WorktreeManager {
             }
         }
 
-        // Call Claude CLI to handle the merge with automatic conflict resolution
-        println!("🔄 Merging worktree '{name}' into '{target}' using Claude-assisted merge...");
+        // Check if we have a custom merge workflow or use default Claude merge
+        let stdout = if let Some(ref merge_workflow) = self.custom_merge_workflow {
+            // Execute custom merge workflow
+            println!("🔄 Executing custom merge workflow for '{name}' into '{target}'...");
+            self.execute_custom_merge_workflow(merge_workflow, name, worktree_branch, &target)
+                .await?
+        } else {
+            // Use ClaudeStreamingExecutor for transparent logging
+            println!("🔄 Merging worktree '{name}' into '{target}' using Claude-assisted merge...");
 
-        // Execute Claude CLI command
-        let claude_command = ProcessCommandBuilder::new("claude")
-            .current_dir(&self.repo_path)
-            .arg("--dangerously-skip-permissions") // Skip interactive permission prompts
-            .arg("--print") // Output response to stdout for capture
-            .arg(&format!("/prodigy-merge-worktree {worktree_branch}")) // Include branch name in the command
-            .env("PRODIGY_AUTOMATION", "true") // Enable automation mode
-            .build();
+            // Print what we're about to execute
+            eprintln!("Running claude /prodigy-merge-worktree with branch: {worktree_branch}");
 
-        // Print what we're about to execute
-        eprintln!("Running claude /prodigy-merge-worktree with branch: {worktree_branch}");
+            // Create environment variables for Claude execution
+            let mut env_vars = HashMap::new();
+            env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
 
-        let output = self
-            .subprocess
-            .runner()
-            .run(claude_command)
-            .await
-            .context("Failed to execute claude /prodigy-merge-worktree")?;
-
-        if !output.status.success() {
-            let stderr = &output.stderr;
-            let stdout = &output.stdout;
-
-            // Provide detailed error information
-            eprintln!("❌ Claude merge failed for worktree '{name}':");
-            if !stderr.is_empty() {
-                eprintln!("Error output: {stderr}");
-            }
-            if !stdout.is_empty() {
-                eprintln!("Standard output: {stdout}");
+            // Enable streaming if verbosity is high enough
+            if self.verbosity >= 1 {
+                env_vars.insert("PRODIGY_CLAUDE_STREAMING".to_string(), "true".to_string());
             }
 
-            anyhow::bail!("Failed to merge worktree '{name}' - Claude merge failed");
-        }
+            // Check for console output override
+            if std::env::var("PRODIGY_CLAUDE_CONSOLE_OUTPUT").unwrap_or_default() == "true" {
+                env_vars.insert(
+                    "PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(),
+                    "true".to_string(),
+                );
+            }
 
-        // Parse the output for success confirmation
-        let stdout = &output.stdout;
-        println!("{stdout}");
+            // Create Claude executor with streaming support
+            use crate::cook::execution::runner::RealCommandRunner;
+            let command_runner = RealCommandRunner::new();
+            let claude_executor =
+                ClaudeExecutorImpl::new(command_runner).with_verbosity(self.verbosity);
+
+            // Execute the merge command
+            let result = claude_executor
+                .execute_claude_command(
+                    &format!("/prodigy-merge-worktree {worktree_branch}"),
+                    &self.repo_path,
+                    env_vars,
+                )
+                .await
+                .context("Failed to execute claude /prodigy-merge-worktree")?;
+
+            if !result.success {
+                // Provide detailed error information
+                eprintln!("❌ Claude merge failed for worktree '{name}':");
+                if !result.stderr.is_empty() {
+                    eprintln!("Error output: {}", result.stderr);
+                }
+                if !result.stdout.is_empty() {
+                    eprintln!("Standard output: {}", result.stdout);
+                }
+
+                anyhow::bail!("Failed to merge worktree '{name}' - Claude merge failed");
+            }
+
+            // Parse the output for success confirmation
+            println!("{}", result.stdout);
+            result.stdout
+        };
 
         // Verify the merge actually happened by checking if the worktree branch
         // is now merged into the target branch
@@ -1167,6 +1206,107 @@ impl WorktreeManager {
                 .map(|v| v.to_lowercase() == "true")
                 .unwrap_or(false),
         }
+    }
+    /// Execute a custom merge workflow
+    async fn execute_custom_merge_workflow(
+        &self,
+        merge_workflow: &MergeWorkflow,
+        worktree_name: &str,
+        source_branch: &str,
+        target_branch: &str,
+    ) -> Result<String> {
+        // For now, execute each command in the merge workflow directly
+        // We'll use variable interpolation to replace merge-specific variables
+        let mut output = String::new();
+
+        // Create merge context variables for interpolation
+        let mut session_id = String::new();
+        if let Ok(state) = self.load_session_state(worktree_name) {
+            session_id = state.session_id;
+        }
+
+        for command in &merge_workflow.commands {
+            // Perform variable interpolation for merge-specific variables
+            let cmd_str = format!("{:?}", command);
+            let interpolated = cmd_str
+                .replace("${merge.worktree}", worktree_name)
+                .replace("${merge.source_branch}", source_branch)
+                .replace("${merge.target_branch}", target_branch)
+                .replace("${merge.session_id}", &session_id);
+
+            // For now, we'll execute shell commands directly and Claude commands through the executor
+            // This is a simplified implementation - a full implementation would use the workflow executor
+            match command {
+                crate::cook::workflow::WorkflowStep {
+                    shell: Some(shell_cmd),
+                    ..
+                } => {
+                    // Execute shell command
+                    let shell_cmd_interpolated = shell_cmd
+                        .replace("${merge.worktree}", worktree_name)
+                        .replace("${merge.source_branch}", source_branch)
+                        .replace("${merge.target_branch}", target_branch)
+                        .replace("${merge.session_id}", &session_id);
+
+                    let shell_command = ProcessCommandBuilder::new("sh")
+                        .current_dir(&self.repo_path)
+                        .args(["-c", &shell_cmd_interpolated])
+                        .build();
+
+                    let result = self.subprocess.runner().run(shell_command).await?;
+                    if !result.status.success() {
+                        anyhow::bail!(
+                            "Merge workflow shell command failed: {}",
+                            shell_cmd_interpolated
+                        );
+                    }
+                    output.push_str(&result.stdout);
+                }
+                crate::cook::workflow::WorkflowStep {
+                    claude: Some(claude_cmd),
+                    ..
+                } => {
+                    // Execute Claude command with streaming support
+                    let claude_cmd_interpolated = claude_cmd
+                        .replace("${merge.worktree}", worktree_name)
+                        .replace("${merge.source_branch}", source_branch)
+                        .replace("${merge.target_branch}", target_branch)
+                        .replace("${merge.session_id}", &session_id);
+
+                    let mut env_vars = HashMap::new();
+                    env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
+                    if self.verbosity >= 1 {
+                        env_vars.insert("PRODIGY_CLAUDE_STREAMING".to_string(), "true".to_string());
+                    }
+
+                    use crate::cook::execution::runner::RealCommandRunner;
+                    let command_runner = RealCommandRunner::new();
+                    let claude_executor =
+                        ClaudeExecutorImpl::new(command_runner).with_verbosity(self.verbosity);
+
+                    let result = claude_executor
+                        .execute_claude_command(&claude_cmd_interpolated, &self.repo_path, env_vars)
+                        .await?;
+
+                    if !result.success {
+                        anyhow::bail!(
+                            "Merge workflow Claude command failed: {}",
+                            claude_cmd_interpolated
+                        );
+                    }
+                    output.push_str(&result.stdout);
+                }
+                _ => {
+                    // For other command types, just log them for now
+                    eprintln!(
+                        "Skipping unsupported merge workflow command: {}",
+                        interpolated
+                    );
+                }
+            }
+        }
+
+        Ok(output)
     }
 }
 
@@ -1838,7 +1978,11 @@ branch refs/heads/main"#;
         std::fs::create_dir_all(&wt3_dir)?;
 
         // Note: In a real environment we'd have git worktrees set up
-        // For testing, we'll simulate by creating minimal session files
+        // For testing, we'll simulate by creating minimal .git files
+        // to make the directories appear as valid worktrees
+        std::fs::write(wt1_dir.join(".git"), "gitdir: /fake/path")?;
+        std::fs::write(wt2_dir.join(".git"), "gitdir: /fake/path")?;
+        std::fs::write(wt3_dir.join(".git"), "gitdir: /fake/path")?;
 
         // Get detailed list
         let result = manager.list_detailed().await?;
