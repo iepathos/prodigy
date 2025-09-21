@@ -19,6 +19,12 @@ impl GlobalStorage {
         Ok(Self { base_dir })
     }
 
+    /// Create a new global storage instance with a custom base directory (for testing)
+    #[cfg(test)]
+    pub fn new_with_root(base_dir: PathBuf) -> StorageResult<Self> {
+        Ok(Self { base_dir })
+    }
+
     /// Get the base directory for storage
     pub fn base_dir(&self) -> &Path {
         &self.base_dir
