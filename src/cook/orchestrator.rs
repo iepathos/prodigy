@@ -2644,6 +2644,7 @@ mod tests {
                 secrets: None,
                 env_files: None,
                 profiles: None,
+                merge: None,
             },
             mapreduce_config: None,
         };
@@ -2683,6 +2684,7 @@ mod tests {
                 secrets: None,
                 env_files: None,
                 profiles: None,
+                merge: None,
             },
             mapreduce_config: None,
         };
@@ -2707,6 +2709,7 @@ mod tests {
                 secrets: None,
                 env_files: None,
                 profiles: None,
+                merge: None,
             },
             mapreduce_config: None,
         };
@@ -2728,6 +2731,7 @@ mod tests {
                 secrets: None,
                 env_files: None,
                 profiles: None,
+                merge: None,
             },
             mapreduce_config: None,
         };

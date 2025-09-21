@@ -291,6 +291,7 @@ mod tests {
             secrets: None,
             env_files: None,
             profiles: None,
+            merge: None,
         };
 
         let workflow = ComposableWorkflow::from_config(config);
@@ -305,6 +306,7 @@ mod tests {
             secrets: None,
             env_files: None,
             profiles: None,
+            merge: None,
         });
 
         workflow.parameters = Some(ParameterDefinitions {

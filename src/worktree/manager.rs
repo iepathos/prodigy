@@ -1978,7 +1978,11 @@ branch refs/heads/main"#;
         std::fs::create_dir_all(&wt3_dir)?;
 
         // Note: In a real environment we'd have git worktrees set up
-        // For testing, we'll simulate by creating minimal session files
+        // For testing, we'll simulate by creating minimal .git files
+        // to make the directories appear as valid worktrees
+        std::fs::write(wt1_dir.join(".git"), "gitdir: /fake/path")?;
+        std::fs::write(wt2_dir.join(".git"), "gitdir: /fake/path")?;
+        std::fs::write(wt3_dir.join(".git"), "gitdir: /fake/path")?;
 
         // Get detailed list
         let result = manager.list_detailed().await?;

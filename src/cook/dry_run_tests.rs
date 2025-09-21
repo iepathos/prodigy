@@ -101,6 +101,7 @@ mod tests {
             secrets: None,
             env_files: None,
             profiles: None,
+            merge: None,
         };
 
         assert!(workflow.commands.is_empty());

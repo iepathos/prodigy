@@ -526,6 +526,7 @@ mod tests {
             secrets: None,
             env_files: None,
             profiles: None,
+            merge: None,
         };
 
         let normalized =
@@ -577,6 +578,7 @@ mod tests {
             secrets: None,
             env_files: None,
             profiles: None,
+            merge: None,
         };
 
         let normalized =
@@ -600,6 +602,7 @@ mod tests {
             secrets: None,
             env_files: None,
             profiles: None,
+            merge: None,
         };
         assert_eq!(
             NormalizedWorkflow::classify_workflow_type(&standard),
@@ -626,6 +629,7 @@ mod tests {
             secrets: None,
             env_files: None,
             profiles: None,
+            merge: None,
         };
         assert_eq!(
             NormalizedWorkflow::classify_workflow_type(&with_outputs),
