@@ -14,7 +14,7 @@ pub use scenario::*;
 pub use types::*;
 
 use crate::subprocess::{ProcessCommandBuilder, ProcessRunner};
-use anyhow::Result;
+use crate::LibResult;
 use async_trait::async_trait;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -23,69 +23,69 @@ use std::sync::Arc;
 #[async_trait]
 pub trait GitReader: Send + Sync {
     /// Check if a directory is a git repository
-    async fn is_repository(&self, path: &Path) -> Result<bool>;
+    async fn is_repository(&self, path: &Path) -> LibResult<bool>;
 
     /// Get git status for the repository
-    async fn get_status(&self, path: &Path) -> Result<GitStatus>;
+    async fn get_status(&self, path: &Path) -> LibResult<GitStatus>;
 
     /// Get the current branch name
-    async fn get_current_branch(&self, path: &Path) -> Result<String>;
+    async fn get_current_branch(&self, path: &Path) -> LibResult<String>;
 
     /// Get commit message by reference
-    async fn get_commit_message(&self, path: &Path, ref_: &str) -> Result<String>;
+    async fn get_commit_message(&self, path: &Path, ref_: &str) -> LibResult<String>;
 
     /// List all files tracked by git
-    async fn list_files(&self, path: &Path) -> Result<Vec<PathBuf>>;
+    async fn list_files(&self, path: &Path) -> LibResult<Vec<PathBuf>>;
 
     /// Get diff between two references
-    async fn get_diff(&self, path: &Path, from: &str, to: &str) -> Result<GitDiff>;
+    async fn get_diff(&self, path: &Path, from: &str, to: &str) -> LibResult<GitDiff>;
 
     /// Get the last commit message
-    async fn get_last_commit_message(&self, path: &Path) -> Result<String>;
+    async fn get_last_commit_message(&self, path: &Path) -> LibResult<String>;
 
     /// Check if working directory is clean
-    async fn is_clean(&self, path: &Path) -> Result<bool>;
+    async fn is_clean(&self, path: &Path) -> LibResult<bool>;
 }
 
 /// Git write operations
 #[async_trait]
 pub trait GitWriter: Send + Sync {
     /// Initialize a new git repository
-    async fn init_repository(&self, path: &Path) -> Result<()>;
+    async fn init_repository(&self, path: &Path) -> LibResult<()>;
 
     /// Stage specific files
-    async fn stage_files(&self, path: &Path, files: &[PathBuf]) -> Result<()>;
+    async fn stage_files(&self, path: &Path, files: &[PathBuf]) -> LibResult<()>;
 
     /// Stage all changes
-    async fn stage_all(&self, path: &Path) -> Result<()>;
+    async fn stage_all(&self, path: &Path) -> LibResult<()>;
 
     /// Create a commit with message
-    async fn commit(&self, path: &Path, message: &str) -> Result<CommitId>;
+    async fn commit(&self, path: &Path, message: &str) -> LibResult<CommitId>;
 
     /// Create a new branch
-    async fn create_branch(&self, path: &Path, name: &str) -> Result<()>;
+    async fn create_branch(&self, path: &Path, name: &str) -> LibResult<()>;
 
     /// Switch to a branch
-    async fn switch_branch(&self, path: &Path, name: &str) -> Result<()>;
+    async fn switch_branch(&self, path: &Path, name: &str) -> LibResult<()>;
 
     /// Delete a branch
-    async fn delete_branch(&self, path: &Path, name: &str) -> Result<()>;
+    async fn delete_branch(&self, path: &Path, name: &str) -> LibResult<()>;
 }
 
 /// Git worktree operations
 #[async_trait]
 pub trait GitWorktree: Send + Sync {
     /// Create a new worktree
-    async fn create_worktree(&self, repo: &Path, name: &str, path: &Path) -> Result<()>;
+    async fn create_worktree(&self, repo: &Path, name: &str, path: &Path) -> LibResult<()>;
 
     /// Remove a worktree
-    async fn remove_worktree(&self, repo: &Path, name: &str) -> Result<()>;
+    async fn remove_worktree(&self, repo: &Path, name: &str) -> LibResult<()>;
 
     /// List all worktrees
-    async fn list_worktrees(&self, repo: &Path) -> Result<Vec<WorktreeInfo>>;
+    async fn list_worktrees(&self, repo: &Path) -> LibResult<Vec<WorktreeInfo>>;
 
     /// Prune worktrees (remove stale references)
-    async fn prune_worktrees(&self, repo: &Path) -> Result<()>;
+    async fn prune_worktrees(&self, repo: &Path) -> LibResult<()>;
 }
 
 /// Combined trait for all git operations
@@ -107,7 +107,7 @@ impl GitCommandRunner {
         &self,
         path: &Path,
         args: &[&str],
-    ) -> Result<crate::subprocess::ProcessOutput> {
+    ) -> LibResult<crate::subprocess::ProcessOutput> {
         let command = ProcessCommandBuilder::new("git")
             .args(args)
             .current_dir(path)
@@ -122,14 +122,14 @@ impl GitCommandRunner {
 
 #[async_trait]
 impl GitReader for GitCommandRunner {
-    async fn is_repository(&self, path: &Path) -> Result<bool> {
+    async fn is_repository(&self, path: &Path) -> LibResult<bool> {
         let result = self
             .run_git_command(path, &["rev-parse", "--git-dir"])
             .await;
         Ok(result.is_ok() && result.unwrap().status.success())
     }
 
-    async fn get_status(&self, path: &Path) -> Result<GitStatus> {
+    async fn get_status(&self, path: &Path) -> LibResult<GitStatus> {
         let output = self
             .run_git_command(path, &["status", "--porcelain=v2"])
             .await?;
@@ -141,7 +141,7 @@ impl GitReader for GitCommandRunner {
         parsers::parse_status_output(&output.stdout)
     }
 
-    async fn get_current_branch(&self, path: &Path) -> Result<String> {
+    async fn get_current_branch(&self, path: &Path) -> LibResult<String> {
         let output = self
             .run_git_command(path, &["branch", "--show-current"])
             .await?;
@@ -158,7 +158,7 @@ impl GitReader for GitCommandRunner {
         Ok(branch.to_string())
     }
 
-    async fn get_commit_message(&self, path: &Path, ref_: &str) -> Result<String> {
+    async fn get_commit_message(&self, path: &Path, ref_: &str) -> LibResult<String> {
         let output = self
             .run_git_command(path, &["log", "-1", "--pretty=format:%s", ref_])
             .await?;
@@ -170,7 +170,7 @@ impl GitReader for GitCommandRunner {
         Ok(output.stdout.trim().to_string())
     }
 
-    async fn list_files(&self, path: &Path) -> Result<Vec<PathBuf>> {
+    async fn list_files(&self, path: &Path) -> LibResult<Vec<PathBuf>> {
         let output = self.run_git_command(path, &["ls-files"]).await?;
 
         if !output.status.success() {
@@ -184,7 +184,7 @@ impl GitReader for GitCommandRunner {
             .collect())
     }
 
-    async fn get_diff(&self, path: &Path, from: &str, to: &str) -> Result<GitDiff> {
+    async fn get_diff(&self, path: &Path, from: &str, to: &str) -> LibResult<GitDiff> {
         let range = format!("{from}..{to}");
         let output = self
             .run_git_command(path, &["diff", "--numstat", &range])
@@ -197,11 +197,11 @@ impl GitReader for GitCommandRunner {
         parsers::parse_diff_output(&output.stdout)
     }
 
-    async fn get_last_commit_message(&self, path: &Path) -> Result<String> {
+    async fn get_last_commit_message(&self, path: &Path) -> LibResult<String> {
         self.get_commit_message(path, "HEAD").await
     }
 
-    async fn is_clean(&self, path: &Path) -> Result<bool> {
+    async fn is_clean(&self, path: &Path) -> LibResult<bool> {
         let status = self.get_status(path).await?;
         Ok(status.is_clean())
     }
@@ -209,7 +209,7 @@ impl GitReader for GitCommandRunner {
 
 #[async_trait]
 impl GitWriter for GitCommandRunner {
-    async fn init_repository(&self, path: &Path) -> Result<()> {
+    async fn init_repository(&self, path: &Path) -> LibResult<()> {
         let output = self.run_git_command(path, &["init"]).await?;
 
         if !output.status.success() {
@@ -219,7 +219,7 @@ impl GitWriter for GitCommandRunner {
         Ok(())
     }
 
-    async fn stage_files(&self, path: &Path, files: &[PathBuf]) -> Result<()> {
+    async fn stage_files(&self, path: &Path, files: &[PathBuf]) -> LibResult<()> {
         if files.is_empty() {
             return Ok(());
         }
@@ -241,7 +241,7 @@ impl GitWriter for GitCommandRunner {
         Ok(())
     }
 
-    async fn stage_all(&self, path: &Path) -> Result<()> {
+    async fn stage_all(&self, path: &Path) -> LibResult<()> {
         let output = self.run_git_command(path, &["add", "."]).await?;
 
         if !output.status.success() {
@@ -251,7 +251,7 @@ impl GitWriter for GitCommandRunner {
         Ok(())
     }
 
-    async fn commit(&self, path: &Path, message: &str) -> Result<CommitId> {
+    async fn commit(&self, path: &Path, message: &str) -> LibResult<CommitId> {
         let output = self
             .run_git_command(path, &["commit", "-m", message])
             .await?;
@@ -270,7 +270,7 @@ impl GitWriter for GitCommandRunner {
         Ok(CommitId::new(hash))
     }
 
-    async fn create_branch(&self, path: &Path, name: &str) -> Result<()> {
+    async fn create_branch(&self, path: &Path, name: &str) -> LibResult<()> {
         let output = self.run_git_command(path, &["branch", name]).await?;
 
         if !output.status.success() {
@@ -283,7 +283,7 @@ impl GitWriter for GitCommandRunner {
         Ok(())
     }
 
-    async fn switch_branch(&self, path: &Path, name: &str) -> Result<()> {
+    async fn switch_branch(&self, path: &Path, name: &str) -> LibResult<()> {
         let output = self.run_git_command(path, &["checkout", name]).await?;
 
         if !output.status.success() {
@@ -299,7 +299,7 @@ impl GitWriter for GitCommandRunner {
         Ok(())
     }
 
-    async fn delete_branch(&self, path: &Path, name: &str) -> Result<()> {
+    async fn delete_branch(&self, path: &Path, name: &str) -> LibResult<()> {
         let output = self.run_git_command(path, &["branch", "-d", name]).await?;
 
         if !output.status.success() {
@@ -315,7 +315,7 @@ impl GitWriter for GitCommandRunner {
 
 #[async_trait]
 impl GitWorktree for GitCommandRunner {
-    async fn create_worktree(&self, repo: &Path, name: &str, path: &Path) -> Result<()> {
+    async fn create_worktree(&self, repo: &Path, name: &str, path: &Path) -> LibResult<()> {
         let path_str = path.to_string_lossy();
         let output = self
             .run_git_command(repo, &["worktree", "add", "-b", name, &path_str])
@@ -331,7 +331,7 @@ impl GitWorktree for GitCommandRunner {
         Ok(())
     }
 
-    async fn remove_worktree(&self, repo: &Path, name: &str) -> Result<()> {
+    async fn remove_worktree(&self, repo: &Path, name: &str) -> LibResult<()> {
         let output = self
             .run_git_command(repo, &["worktree", "remove", name, "--force"])
             .await?;
@@ -346,7 +346,7 @@ impl GitWorktree for GitCommandRunner {
         Ok(())
     }
 
-    async fn list_worktrees(&self, repo: &Path) -> Result<Vec<WorktreeInfo>> {
+    async fn list_worktrees(&self, repo: &Path) -> LibResult<Vec<WorktreeInfo>> {
         let output = self
             .run_git_command(repo, &["worktree", "list", "--porcelain"])
             .await?;
@@ -358,7 +358,7 @@ impl GitWorktree for GitCommandRunner {
         parsers::parse_worktree_list(&output.stdout)
     }
 
-    async fn prune_worktrees(&self, repo: &Path) -> Result<()> {
+    async fn prune_worktrees(&self, repo: &Path) -> LibResult<()> {
         let output = self.run_git_command(repo, &["worktree", "prune"]).await?;
 
         if !output.status.success() {

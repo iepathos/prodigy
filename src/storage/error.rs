@@ -1,5 +1,6 @@
 //! Error types for the storage abstraction layer
 
+use crate::error::{ErrorCode, ProdigyError};
 use std::fmt;
 use thiserror::Error;
 
@@ -152,5 +153,27 @@ impl From<serde_json::Error> for StorageError {
 impl From<serde_yaml::Error> for StorageError {
     fn from(err: serde_yaml::Error) -> Self {
         Self::serialization(err)
+    }
+}
+
+/// Convert StorageError to ProdigyError
+impl From<StorageError> for ProdigyError {
+    fn from(err: StorageError) -> Self {
+        let (code, path) = match &err {
+            StorageError::Io(_) => (ErrorCode::STORAGE_IO_ERROR, None),
+            StorageError::Serialization(_) => (ErrorCode::STORAGE_SERIALIZATION_ERROR, None),
+            StorageError::Database(_) => (ErrorCode::STORAGE_BACKEND_ERROR, None),
+            StorageError::Lock(_) => (ErrorCode::STORAGE_LOCK_FAILED, None),
+            StorageError::NotFound(_) => (ErrorCode::STORAGE_NOT_FOUND, None),
+            StorageError::Conflict(_) => (ErrorCode::STORAGE_ALREADY_EXISTS, None),
+            StorageError::Unavailable(_) => (ErrorCode::STORAGE_BACKEND_ERROR, None),
+            StorageError::Configuration(_) => (ErrorCode::STORAGE_BACKEND_ERROR, None),
+            StorageError::Transaction(_) => (ErrorCode::STORAGE_BACKEND_ERROR, None),
+            StorageError::Connection(_) => (ErrorCode::STORAGE_BACKEND_ERROR, None),
+            StorageError::Timeout(_) => (ErrorCode::STORAGE_TEMPORARY, None),
+            StorageError::Other(_) => (ErrorCode::STORAGE_GENERIC, None),
+        };
+
+        ProdigyError::storage_with_code(code, err.to_string(), path).with_source(err)
     }
 }

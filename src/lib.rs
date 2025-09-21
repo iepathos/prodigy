@@ -30,6 +30,7 @@ pub mod cli;
 pub mod commands;
 pub mod config;
 pub mod cook;
+pub mod error;
 pub mod git;
 pub mod init;
 pub mod resume_logic;
@@ -41,3 +42,9 @@ pub mod subprocess;
 pub mod worktree;
 
 pub mod testing;
+
+// Re-export core error types for library consumers
+pub use error::{ErrorCode, ProdigyError};
+
+/// Standard result type for library operations
+pub type LibResult<T> = Result<T, ProdigyError>;

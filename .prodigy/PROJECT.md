@@ -13,7 +13,7 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **Shell Commands**: Full shell command support
 - **MapReduce Processing**: Parallel execution across multiple agents with setup phase ✅
 - **Foreach Iteration**: Simple parallel iteration without MapReduce complexity ✅
-- **Error Handling**: Comprehensive failure recovery patterns
+- **Error Handling**: Comprehensive failure recovery patterns with unified error system ✅
 - **Retry Strategies**: Enhanced retry with configurable backoff, jitter, and circuit breakers ✅
 - **Git Integration**: Worktree management and commit tracking
 - **Git Context Variables**: Automatic tracking of file changes exposed as workflow variables ✅
@@ -57,6 +57,16 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **Man Pages**: Comprehensive Unix-style documentation for all commands ✅
 
 ## Recent Additions
+
+### Unified Error Handling System ✅
+- **Structured Error Types**: Hierarchical error categories for all modules
+- **Error Codes**: Machine-readable codes (E0001-E9999) for automation
+- **Context Chaining**: Full error chain with source tracking
+- **User-Friendly Messages**: Separate user and developer error messages
+- **Recovery Detection**: Built-in identification of recoverable errors
+- **Migration Helpers**: Extension traits and macros for easy adoption
+- **Comprehensive Coverage**: 8 error categories covering all operations
+- **Type-Safe Conversions**: Automatic conversion from common error types
 
 ### Git Context Variables ✅
 - **Automatic Git Change Tracking**: File changes tracked for each workflow step

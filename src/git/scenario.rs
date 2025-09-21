@@ -1,7 +1,7 @@
 //! Scenario-based git mocking for comprehensive testing
 
 use super::{error::GitError, types::*, GitReader, GitWorktree, GitWriter};
-use anyhow::Result;
+use crate::LibResult;
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -203,7 +203,7 @@ impl GitScenarioMock {
     }
 
     /// Execute a mock command
-    async fn execute_command(&self, path: &Path, args: &[&str]) -> Result<String> {
+    async fn execute_command(&self, path: &Path, args: &[&str]) -> LibResult<String> {
         self.log_command(path, args).await;
 
         let scenario = self.get_scenario(path).await;
@@ -221,7 +221,7 @@ impl GitScenarioMock {
     }
 
     /// Provide default responses for common commands
-    async fn default_response(&self, path: &Path, args: &[&str]) -> Result<String> {
+    async fn default_response(&self, path: &Path, args: &[&str]) -> LibResult<String> {
         let scenario = self.get_scenario(path).await;
 
         match args {
@@ -352,7 +352,7 @@ fn format_status_output(status: &GitStatus) -> String {
 
 #[async_trait]
 impl GitReader for GitScenarioMock {
-    async fn is_repository(&self, path: &Path) -> Result<bool> {
+    async fn is_repository(&self, path: &Path) -> LibResult<bool> {
         let scenario = self.get_scenario(path).await;
         if scenario.is_repository {
             let _ = self
@@ -371,14 +371,14 @@ impl GitReader for GitScenarioMock {
         }
     }
 
-    async fn get_status(&self, path: &Path) -> Result<GitStatus> {
+    async fn get_status(&self, path: &Path) -> LibResult<GitStatus> {
         let output = self
             .execute_command(path, &["status", "--porcelain=v2"])
             .await?;
         super::parsers::parse_status_output(&output)
     }
 
-    async fn get_current_branch(&self, path: &Path) -> Result<String> {
+    async fn get_current_branch(&self, path: &Path) -> LibResult<String> {
         let output = self
             .execute_command(path, &["branch", "--show-current"])
             .await?;
@@ -390,14 +390,14 @@ impl GitReader for GitScenarioMock {
         }
     }
 
-    async fn get_commit_message(&self, path: &Path, ref_: &str) -> Result<String> {
+    async fn get_commit_message(&self, path: &Path, ref_: &str) -> LibResult<String> {
         let output = self
             .execute_command(path, &["log", "-1", "--pretty=format:%s", ref_])
             .await?;
         Ok(output.trim().to_string())
     }
 
-    async fn list_files(&self, path: &Path) -> Result<Vec<PathBuf>> {
+    async fn list_files(&self, path: &Path) -> LibResult<Vec<PathBuf>> {
         let output = self.execute_command(path, &["ls-files"]).await?;
         Ok(output
             .lines()
@@ -405,7 +405,7 @@ impl GitReader for GitScenarioMock {
             .collect())
     }
 
-    async fn get_diff(&self, path: &Path, from: &str, to: &str) -> Result<GitDiff> {
+    async fn get_diff(&self, path: &Path, from: &str, to: &str) -> LibResult<GitDiff> {
         let range = format!("{from}..{to}");
         let output = self
             .execute_command(path, &["diff", "--numstat", &range])
@@ -413,11 +413,11 @@ impl GitReader for GitScenarioMock {
         super::parsers::parse_diff_output(&output)
     }
 
-    async fn get_last_commit_message(&self, path: &Path) -> Result<String> {
+    async fn get_last_commit_message(&self, path: &Path) -> LibResult<String> {
         self.get_commit_message(path, "HEAD").await
     }
 
-    async fn is_clean(&self, path: &Path) -> Result<bool> {
+    async fn is_clean(&self, path: &Path) -> LibResult<bool> {
         let status = self.get_status(path).await?;
         Ok(status.is_clean())
     }
@@ -425,12 +425,12 @@ impl GitReader for GitScenarioMock {
 
 #[async_trait]
 impl GitWriter for GitScenarioMock {
-    async fn init_repository(&self, path: &Path) -> Result<()> {
+    async fn init_repository(&self, path: &Path) -> LibResult<()> {
         self.execute_command(path, &["init"]).await?;
         Ok(())
     }
 
-    async fn stage_files(&self, path: &Path, files: &[PathBuf]) -> Result<()> {
+    async fn stage_files(&self, path: &Path, files: &[PathBuf]) -> LibResult<()> {
         if files.is_empty() {
             return Ok(());
         }
@@ -447,12 +447,12 @@ impl GitWriter for GitScenarioMock {
         Ok(())
     }
 
-    async fn stage_all(&self, path: &Path) -> Result<()> {
+    async fn stage_all(&self, path: &Path) -> LibResult<()> {
         self.execute_command(path, &["add", "."]).await?;
         Ok(())
     }
 
-    async fn commit(&self, path: &Path, message: &str) -> Result<CommitId> {
+    async fn commit(&self, path: &Path, message: &str) -> LibResult<CommitId> {
         let result = self.execute_command(path, &["commit", "-m", message]).await;
         match result {
             Err(e) if e.to_string().contains("nothing to commit") => {
@@ -466,17 +466,17 @@ impl GitWriter for GitScenarioMock {
         Ok(CommitId::new(hash_output.trim().to_string()))
     }
 
-    async fn create_branch(&self, path: &Path, name: &str) -> Result<()> {
+    async fn create_branch(&self, path: &Path, name: &str) -> LibResult<()> {
         self.execute_command(path, &["branch", name]).await?;
         Ok(())
     }
 
-    async fn switch_branch(&self, path: &Path, name: &str) -> Result<()> {
+    async fn switch_branch(&self, path: &Path, name: &str) -> LibResult<()> {
         self.execute_command(path, &["checkout", name]).await?;
         Ok(())
     }
 
-    async fn delete_branch(&self, path: &Path, name: &str) -> Result<()> {
+    async fn delete_branch(&self, path: &Path, name: &str) -> LibResult<()> {
         self.execute_command(path, &["branch", "-d", name]).await?;
         Ok(())
     }
@@ -484,27 +484,27 @@ impl GitWriter for GitScenarioMock {
 
 #[async_trait]
 impl GitWorktree for GitScenarioMock {
-    async fn create_worktree(&self, repo: &Path, name: &str, path: &Path) -> Result<()> {
+    async fn create_worktree(&self, repo: &Path, name: &str, path: &Path) -> LibResult<()> {
         let path_str = path.to_string_lossy();
         self.execute_command(repo, &["worktree", "add", "-b", name, &path_str])
             .await?;
         Ok(())
     }
 
-    async fn remove_worktree(&self, repo: &Path, name: &str) -> Result<()> {
+    async fn remove_worktree(&self, repo: &Path, name: &str) -> LibResult<()> {
         self.execute_command(repo, &["worktree", "remove", name, "--force"])
             .await?;
         Ok(())
     }
 
-    async fn list_worktrees(&self, repo: &Path) -> Result<Vec<WorktreeInfo>> {
+    async fn list_worktrees(&self, repo: &Path) -> LibResult<Vec<WorktreeInfo>> {
         let output = self
             .execute_command(repo, &["worktree", "list", "--porcelain"])
             .await?;
         super::parsers::parse_worktree_list(&output)
     }
 
-    async fn prune_worktrees(&self, repo: &Path) -> Result<()> {
+    async fn prune_worktrees(&self, repo: &Path) -> LibResult<()> {
         self.execute_command(repo, &["worktree", "prune"]).await?;
         Ok(())
     }

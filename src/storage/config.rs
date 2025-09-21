@@ -222,7 +222,7 @@ impl Default for StorageConfig {
 
 impl StorageConfig {
     /// Create configuration from environment variables
-    pub fn from_env() -> Result<Self, anyhow::Error> {
+    pub fn from_env() -> crate::LibResult<Self> {
         // Check for backend type - now only File or Memory supported
         let backend = std::env::var("PRODIGY_STORAGE_BACKEND")
             .ok()
