@@ -47,9 +47,13 @@ fn test_dlq_reprocess() {
 
     let output = test.run();
 
-    // The reprocess command is deprecated in favor of 'retry'
-    assert_eq!(output.exit_code, exit_codes::GENERAL_ERROR);
-    assert!(output.stderr_contains("deprecated") && output.stderr_contains("retry"));
+    // The reprocess command no longer exists - replaced with 'retry'
+    assert_eq!(output.exit_code, exit_codes::ARGUMENT_ERROR);
+    assert!(
+        output.stderr_contains("nvalid")
+            || output.stderr_contains("nrecognized")
+            || output.stderr_contains("Found argument")
+    );
 }
 
 #[test]
@@ -105,9 +109,13 @@ fn test_dlq_reprocess_missing_job_id() {
 
     let output = test.run();
 
-    // The reprocess command is deprecated and returns a general error
-    assert_eq!(output.exit_code, exit_codes::GENERAL_ERROR);
-    assert!(output.stderr_contains("deprecated") && output.stderr_contains("retry"));
+    // The reprocess command no longer exists - gives argument error
+    assert_eq!(output.exit_code, exit_codes::ARGUMENT_ERROR);
+    assert!(
+        output.stderr_contains("nvalid")
+            || output.stderr_contains("nrecognized")
+            || output.stderr_contains("Found argument")
+    );
 }
 
 #[test]

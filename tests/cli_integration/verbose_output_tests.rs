@@ -7,7 +7,7 @@ fn test_no_verbose_flag() {
     let test = CliTest::new();
     let (test, workflow_path) = test.with_workflow("quiet", &create_test_workflow("quiet"));
 
-    let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
+    let output = test.arg("run").arg(workflow_path.to_str().unwrap()).run();
 
     // Should have minimal output
     assert_eq!(output.exit_code, exit_codes::SUCCESS);
@@ -22,7 +22,7 @@ fn test_verbose_flag_debug() {
 
     let output = test
         .arg("-v")
-        .arg("cook")
+        .arg("run")
         .arg(workflow_path.to_str().unwrap())
         .run();
 
@@ -38,7 +38,7 @@ fn test_verbose_flag_trace() {
 
     let output = test
         .arg("-vv")
-        .arg("cook")
+        .arg("run")
         .arg(workflow_path.to_str().unwrap())
         .run();
 
@@ -54,7 +54,7 @@ fn test_verbose_flag_all() {
 
     let output = test
         .arg("-vvv")
-        .arg("cook")
+        .arg("run")
         .arg(workflow_path.to_str().unwrap())
         .run();
 
@@ -96,7 +96,7 @@ fn test_verbose_with_batch() {
 
 #[test]
 fn test_verbose_error_messages() {
-    let mut test = CliTest::new().arg("-v").arg("cook").arg("nonexistent.yaml");
+    let mut test = CliTest::new().arg("-v").arg("run").arg("nonexistent.yaml");
 
     let output = test.run();
 
@@ -117,7 +117,7 @@ fn test_verbose_with_mapreduce() {
 
     let output = test
         .arg("-vv")
-        .arg("cook")
+        .arg("run")
         .arg(workflow_path.to_str().unwrap())
         .run();
 
@@ -132,7 +132,7 @@ fn test_verbose_timing_information() {
 
     let output = test
         .arg("-v")
-        .arg("cook")
+        .arg("run")
         .arg(workflow_path.to_str().unwrap())
         .run();
 
@@ -147,7 +147,7 @@ fn test_quiet_mode() {
     let (test, workflow_path) = test.with_workflow("quiet", &create_test_workflow("quiet"));
 
     let output = test
-        .arg("cook")
+        .arg("run")
         .arg(workflow_path.to_str().unwrap())
         .env("PRODIGY_QUIET", "true") // If supported
         .run();
@@ -162,7 +162,7 @@ fn test_verbose_environment_variable() {
 
     let output = test
         .env("PRODIGY_VERBOSE", "debug")
-        .arg("cook")
+        .arg("run")
         .arg(workflow_path.to_str().unwrap())
         .run();
 
@@ -184,7 +184,7 @@ commands:
 
     let output = test
         .arg("-v")
-        .arg("cook")
+        .arg("run")
         .arg(workflow_path.to_str().unwrap())
         .run();
 

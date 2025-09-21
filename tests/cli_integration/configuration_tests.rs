@@ -14,7 +14,7 @@ verbose: true
 
     let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
-    let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
+    let output = test.arg("run").arg(workflow_path.to_str().unwrap()).run();
 
     // Config should be applied
     assert_eq!(output.exit_code, exit_codes::SUCCESS);
@@ -31,7 +31,7 @@ default_max_iterations: 5
     let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
     let output = test
-        .arg("cook")
+        .arg("run")
         .arg(workflow_path.to_str().unwrap())
         .arg("-n")
         .arg("10") // Override config value
@@ -50,7 +50,7 @@ fn test_invalid_config_file() {
 
     let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
-    let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
+    let output = test.arg("run").arg(workflow_path.to_str().unwrap()).run();
 
     // Prodigy may ignore invalid config files and continue with defaults
     // The test should verify that either an error is returned OR the workflow runs successfully
@@ -76,7 +76,7 @@ fn test_config_with_environment_variables() {
 
     let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
-    let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
+    let output = test.arg("run").arg(workflow_path.to_str().unwrap()).run();
 
     // Environment variables should be respected
     assert_eq!(output.exit_code, exit_codes::SUCCESS);
@@ -94,7 +94,7 @@ workflow_defaults:
 
     let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
-    let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
+    let output = test.arg("run").arg(workflow_path.to_str().unwrap()).run();
 
     // Workflow defaults should be applied
     assert_eq!(output.exit_code, exit_codes::SUCCESS);
@@ -104,7 +104,7 @@ workflow_defaults:
 fn test_config_with_command_aliases() {
     let config_content = r#"
 command_aliases:
-  c: cook
+  c: run
   e: exec
 "#;
 
@@ -113,7 +113,7 @@ command_aliases:
     // Note: Command aliases might not be supported, but test the config loading
     let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
-    let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
+    let output = test.arg("run").arg(workflow_path.to_str().unwrap()).run();
 
     assert_eq!(output.exit_code, exit_codes::SUCCESS);
 }
@@ -133,7 +133,7 @@ default_max_iterations: 2
     let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
     let output = test
-        .arg("cook")
+        .arg("run")
         .arg(workflow_path.to_str().unwrap())
         .arg("-n")
         .arg("4") // Should take precedence
@@ -154,7 +154,7 @@ mapreduce_defaults:
 
     let (test, workflow_path) = test.with_workflow("mapreduce", &create_mapreduce_workflow("mr"));
 
-    let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
+    let output = test.arg("run").arg(workflow_path.to_str().unwrap()).run();
 
     // MapReduce defaults should be applied
     assert!(output.exit_code == exit_codes::SUCCESS || output.stderr_contains("mapreduce"));
@@ -172,7 +172,7 @@ logging:
 
     let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
-    let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
+    let output = test.arg("run").arg(workflow_path.to_str().unwrap()).run();
 
     // Logging config should be applied
     assert!(
@@ -188,7 +188,7 @@ fn test_missing_config_file() {
     let test = CliTest::new();
     let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
-    let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
+    let output = test.arg("run").arg(workflow_path.to_str().unwrap()).run();
 
     // Should work with defaults
     assert_eq!(output.exit_code, exit_codes::SUCCESS);
@@ -207,7 +207,7 @@ git:
 
     let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
-    let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
+    let output = test.arg("run").arg(workflow_path.to_str().unwrap()).run();
 
     // Git settings should be applied
     assert_eq!(output.exit_code, exit_codes::SUCCESS);
@@ -225,7 +225,7 @@ paths:
 
     let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
-    let output = test.arg("cook").arg(workflow_path.to_str().unwrap()).run();
+    let output = test.arg("run").arg(workflow_path.to_str().unwrap()).run();
 
     // Path settings might affect execution
     assert!(

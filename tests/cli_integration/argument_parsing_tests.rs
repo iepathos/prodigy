@@ -157,7 +157,7 @@ fn test_boolean_flag_variations() {
     let (test, workflow_path) = test.with_workflow("test1", &create_test_workflow("test1"));
 
     let output = test
-        .arg("exec")
+        .arg("run")
         .arg(workflow_path.to_str().unwrap())
         .arg("--yes")
         .run();
@@ -169,7 +169,7 @@ fn test_boolean_flag_variations() {
     let (test, workflow_path) = test.with_workflow("test2", &create_test_workflow("test2"));
 
     let output = test
-        .arg("exec")
+        .arg("run")
         .arg(workflow_path.to_str().unwrap())
         .arg("-y")
         .run();
@@ -183,7 +183,7 @@ fn test_multiple_values_argument() {
     let (test, workflow_path) = test.with_workflow("test", &create_test_workflow("test"));
 
     let output = test
-        .arg("exec")
+        .arg("run")
         .arg(workflow_path.to_str().unwrap())
         .arg("--args")
         .arg("KEY1=value1")
@@ -212,7 +212,7 @@ fn test_subcommand_help() {
 #[test]
 fn test_path_argument_validation() {
     let mut test = CliTest::new()
-        .arg("exec")
+        .arg("run")
         .arg("/nonexistent/path/workflow.yaml");
 
     let output = test.run();

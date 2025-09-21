@@ -5,9 +5,9 @@ use std::fs;
 use std::path::Path;
 use tempfile::TempDir;
 
-/// Test that cook --dry-run doesn't execute commands
+/// Test that run --dry-run doesn't execute commands
 #[test]
-fn test_cook_dry_run_no_execution() {
+fn test_run_dry_run_no_execution() {
     let test = CliTest::new();
 
     // Create a workflow that would create a file if executed
@@ -24,7 +24,7 @@ commands:
     let _ = fs::remove_file(marker_path);
 
     let output = test
-        .arg("cook")
+        .arg("run")
         .arg(workflow_path.to_str().unwrap())
         .arg("--dry-run")
         .run();
@@ -39,9 +39,9 @@ commands:
     );
 }
 
-/// Test that cook --dry-run shows what would be executed
+/// Test that run --dry-run shows what would be executed
 #[test]
-fn test_cook_dry_run_output() {
+fn test_run_dry_run_output() {
     let test = CliTest::new();
 
     let workflow_content = r#"
@@ -54,7 +54,7 @@ commands:
     let (test, workflow_path) = test.with_workflow("dry_run_output", workflow_content);
 
     let output = test
-        .arg("cook")
+        .arg("run")
         .arg(workflow_path.to_str().unwrap())
         .arg("--dry-run")
         .run();
@@ -67,9 +67,9 @@ commands:
     assert!(output.stdout_contains("/test-command"));
 }
 
-/// Test cook --dry-run with iterations
+/// Test run --dry-run with iterations
 #[test]
-fn test_cook_dry_run_with_iterations() {
+fn test_run_dry_run_with_iterations() {
     let test = CliTest::new();
 
     let workflow_content = r#"
@@ -80,7 +80,7 @@ commands:
     let (test, workflow_path) = test.with_workflow("iterations", workflow_content);
 
     let output = test
-        .arg("cook")
+        .arg("run")
         .arg(workflow_path.to_str().unwrap())
         .arg("--dry-run")
         .arg("-n")
@@ -226,9 +226,9 @@ fn test_events_clean_dry_run_max_size() {
     );
 }
 
-/// Test cook --dry-run with MapReduce workflow
+/// Test run --dry-run with MapReduce workflow
 #[test]
-fn test_cook_dry_run_mapreduce() {
+fn test_run_dry_run_mapreduce() {
     let test = CliTest::new();
     let temp_dir = TempDir::new().unwrap();
     let items_file = temp_dir.path().join("items.json");
@@ -256,7 +256,7 @@ reduce:
     let (test, workflow_path) = test.with_workflow("mapreduce_dry", &workflow_content);
 
     let output = test
-        .arg("cook")
+        .arg("run")
         .arg(workflow_path.to_str().unwrap())
         .arg("--dry-run")
         .run();
@@ -267,9 +267,9 @@ reduce:
     assert!(output.stdout_contains("3 items") || output.stdout_contains("items: 3"));
 }
 
-/// Test cook --dry-run doesn't create worktrees
+/// Test run --dry-run doesn't create worktrees
 #[test]
-fn test_cook_dry_run_no_worktree() {
+fn test_run_dry_run_no_worktree() {
     let test = CliTest::new();
 
     let workflow_content = r#"
@@ -281,7 +281,7 @@ commands:
 
     // Run with dry-run and worktree flag
     let output = test
-        .arg("cook")
+        .arg("run")
         .arg(workflow_path.to_str().unwrap())
         .arg("--dry-run")
         .arg("--worktree")
@@ -300,9 +300,9 @@ commands:
     assert!(!output.stdout_contains("Created worktree"));
 }
 
-/// Test cook --dry-run with validation steps
+/// Test run --dry-run with validation steps
 #[test]
-fn test_cook_dry_run_with_validation() {
+fn test_run_dry_run_with_validation() {
     let test = CliTest::new();
 
     let workflow_content = r#"
@@ -316,7 +316,7 @@ commands:
     let (test, workflow_path) = test.with_workflow("validation_dry", workflow_content);
 
     let output = test
-        .arg("cook")
+        .arg("run")
         .arg(workflow_path.to_str().unwrap())
         .arg("--dry-run")
         .run();
@@ -364,9 +364,9 @@ fn test_events_clean_dry_run_archive() {
     );
 }
 
-/// Test cook --dry-run shows correct command count
+/// Test run --dry-run shows correct command count
 #[test]
-fn test_cook_dry_run_command_count() {
+fn test_run_dry_run_command_count() {
     let test = CliTest::new();
 
     let workflow_content = r#"
@@ -383,7 +383,7 @@ commands:
     let (test, workflow_path) = test.with_workflow("count_dry", workflow_content);
 
     let output = test
-        .arg("cook")
+        .arg("run")
         .arg(workflow_path.to_str().unwrap())
         .arg("--dry-run")
         .run();
@@ -396,7 +396,7 @@ commands:
 
 /// Test that --dry-run conflicts with commit_required
 #[test]
-fn test_cook_dry_run_commit_required_conflict() {
+fn test_run_dry_run_commit_required_conflict() {
     let test = CliTest::new();
 
     let workflow_content = r#"
@@ -408,7 +408,7 @@ commands:
     let (test, workflow_path) = test.with_workflow("commit_dry", workflow_content);
 
     let output = test
-        .arg("cook")
+        .arg("run")
         .arg(workflow_path.to_str().unwrap())
         .arg("--dry-run")
         .run();
