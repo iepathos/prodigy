@@ -18,7 +18,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Run a workflow file (alias for cook)
+    /// Run a workflow file
     #[command(name = "run")]
     Run {
         /// Workflow file to execute
@@ -36,13 +36,33 @@ enum Commands {
         #[arg(short = 'w', long)]
         worktree: bool,
 
+        /// File patterns to map over
+        #[arg(long, value_name = "PATTERN")]
+        map: Vec<String>,
+
         /// Direct arguments to pass to commands
         #[arg(long, value_name = "VALUE")]
         args: Vec<String>,
 
+        /// Stop on first failure when processing multiple files
+        #[arg(long)]
+        fail_fast: bool,
+
         /// Automatically answer yes to all prompts
         #[arg(short = 'y', long = "yes")]
         auto_accept: bool,
+
+        /// Enable metrics tracking
+        #[arg(long)]
+        metrics: bool,
+
+        /// Resume an interrupted session
+        #[arg(long, value_name = "SESSION_ID", conflicts_with = "worktree")]
+        resume: Option<String>,
+
+        /// Dry-run mode - show what would be executed without running
+        #[arg(long, help = "Preview commands without executing them")]
+        dry_run: bool,
     },
 
     /// Execute a single command with retry support
@@ -117,7 +137,7 @@ enum Commands {
         command: CheckpointCommands,
     },
 
-    /// Cook your code to perfection (make it better)
+    /// [DEPRECATED] Use 'run' instead - Cook your code to perfection
     #[command(name = "cook", alias = "improve")]
     Cook {
         /// Playbook file to execute (required)
@@ -1129,24 +1149,29 @@ async fn execute_command(command: Option<Commands>, verbose: u8) -> anyhow::Resu
             path,
             max_iterations,
             worktree,
+            map,
             args,
+            fail_fast,
             auto_accept,
+            metrics,
+            resume,
+            dry_run,
         }) => {
-            // Run is an alias for cook with better semantics
+            // Run is the primary command for workflow execution
             let cook_cmd = prodigy::cook::command::CookCommand {
                 playbook: workflow,
                 path,
                 max_iterations,
                 worktree,
-                map: vec![],
+                map,
                 args,
-                fail_fast: false,
+                fail_fast,
                 auto_accept,
-                metrics: false,
-                resume: None,
+                metrics,
+                resume,
                 quiet: false,
-                verbosity: 0,
-                dry_run: false,
+                verbosity: verbose,
+                dry_run,
             };
             prodigy::cook::cook(cook_cmd).await
         }
@@ -1185,6 +1210,11 @@ async fn execute_command(command: Option<Commands>, verbose: u8) -> anyhow::Resu
             dry_run,
         }) => {
             check_deprecated_alias();
+
+            // Show deprecation warning for cook command
+            eprintln!("⚠️  Warning: 'cook' command is deprecated and will be removed in a future version.");
+            eprintln!("   Please use 'prodigy run' instead.");
+            eprintln!();
 
             let cook_cmd = prodigy::cook::command::CookCommand {
                 playbook,
