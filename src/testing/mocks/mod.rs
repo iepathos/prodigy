@@ -8,6 +8,7 @@ pub mod fs;
 pub mod git;
 pub mod session;
 pub mod subprocess;
+pub mod unified_session;
 pub mod workflow;
 pub mod worktree;
 
@@ -17,5 +18,6 @@ pub use fs::*;
 pub use git::*;
 pub use session::*;
 pub use subprocess::{CommandExecutorMock, MockSubprocessManager, MockSubprocessManagerBuilder};
+pub use unified_session::*;
 pub use workflow::*;
 pub use worktree::*;

@@ -35,8 +35,7 @@ mod dry_run_tests;
 
 use crate::abstractions::git::RealGitOperations;
 use crate::config::{workflow::WorkflowConfig, ConfigLoader};
-use crate::session::SessionId;
-use crate::simple_state::StateManager;
+use crate::unified_session::SessionId;
 use anyhow::{anyhow, Context as _, Result};
 use std::path::Path;
 use std::sync::Arc;
@@ -159,13 +158,16 @@ async fn create_orchestrator(
         project_path.to_path_buf(),
         subprocess.as_ref().clone(),
     )?);
-    // Use unified session ID format
+    // Create unified session manager directly
     let session_id = SessionId::new();
-    let session_manager = Arc::new(session::tracker::SessionTrackerImpl::new(
-        session_id.to_string(),
-        project_path.to_path_buf(),
-    ));
-    let state_manager = Arc::new(StateManager::new()?);
+    let storage = crate::storage::GlobalStorage::new()?;
+    let storage2 = crate::storage::GlobalStorage::new()?;
+    let unified_manager = Arc::new(crate::unified_session::SessionManager::new(storage2).await?);
+    // Keep the adapter for compatibility with other parts of the code that still need it
+    let session_manager = Arc::new(
+        crate::unified_session::CookSessionAdapter::new(project_path.to_path_buf(), storage)
+            .await?,
+    );
 
     // Create user interaction with verbosity from command args
     let verbosity = interaction::VerbosityLevel::from_args(cmd.verbosity, cmd.quiet);
@@ -208,10 +210,10 @@ async fn create_orchestrator(
         git_operations.clone(),
     ));
 
-    // Create session coordinator
+    // Create session coordinator using UnifiedSessionManager directly
     let _session_coordinator = Arc::new(coordinators::DefaultSessionCoordinator::new(
-        session_manager.clone(),
-        state_manager.clone(),
+        unified_manager.clone(),
+        project_path.to_path_buf(),
     ));
 
     // Create execution coordinator
@@ -244,7 +246,6 @@ async fn create_orchestrator(
         claude_executor.clone(),
         user_interaction.clone(),
         git_operations,
-        StateManager::new()?,
         (*subprocess).clone(),
     )))
 }

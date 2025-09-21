@@ -1299,8 +1299,9 @@ async fn run_resume_workflow(
 ) -> anyhow::Result<()> {
     use prodigy::cook::execution::claude::ClaudeExecutorImpl;
     use prodigy::cook::interaction::DefaultUserInteraction;
-    use prodigy::cook::session::{SessionManager, SessionTrackerImpl};
+    use prodigy::cook::session::SessionManager;
     use prodigy::cook::workflow::{CheckpointManager, ResumeExecutor, ResumeOptions};
+    use prodigy::unified_session::CookSessionAdapter;
     use std::sync::Arc;
 
     let working_dir = path.unwrap_or_else(|| std::env::current_dir().unwrap());
@@ -1413,10 +1414,9 @@ async fn run_resume_workflow(
                 }
                 executor
             });
-            let session_tracker = Arc::new(SessionTrackerImpl::new(
-                format!("resume-{}", workflow_id),
-                working_dir.clone(),
-            ));
+            let storage = prodigy::storage::GlobalStorage::new()?;
+            let session_tracker =
+                Arc::new(CookSessionAdapter::new(working_dir.clone(), storage).await?);
             let user_interaction = Arc::new(DefaultUserInteraction::default());
 
             // Create resume executor with full execution support
@@ -1471,7 +1471,8 @@ async fn run_resume_workflow(
     }
 
     // Fall back to session-based resume
-    let session_tracker = SessionTrackerImpl::new("resume".to_string(), working_dir.clone());
+    let storage = prodigy::storage::GlobalStorage::new()?;
+    let session_tracker = CookSessionAdapter::new(working_dir.clone(), storage).await?;
 
     // Check if session exists and is resumable
     match session_tracker.load_session(&workflow_id).await {
@@ -1971,12 +1972,12 @@ async fn run_resume_job_command(
         executor
     });
 
-    // Create session manager using the SessionManagerAdapter
-    use prodigy::cook::session::{SessionManager, SessionManagerAdapter};
-
-    // SessionManagerAdapter creates its own internal session manager
-    let session_manager: Arc<dyn SessionManager> =
-        Arc::new(SessionManagerAdapter::new(project_root.clone()));
+    // Use unified session manager through the adapter
+    use prodigy::cook::session::SessionManager;
+    let storage = prodigy::storage::GlobalStorage::new()?;
+    let session_manager: Arc<dyn SessionManager> = Arc::new(
+        prodigy::unified_session::CookSessionAdapter::new(project_root.clone(), storage).await?,
+    );
 
     // Create user interaction handler
     use prodigy::cook::interaction::{DefaultUserInteraction, UserInteraction};
@@ -2502,10 +2503,12 @@ async fn run_events_command(command: EventCommands) -> anyhow::Result<()> {
 }
 
 async fn run_sessions_command(command: SessionCommands) -> anyhow::Result<()> {
-    use prodigy::cook::session::{SessionManager, SessionTrackerImpl};
+    use prodigy::cook::session::SessionManager;
+    use prodigy::unified_session::CookSessionAdapter;
 
     let working_dir = std::env::current_dir()?;
-    let session_tracker = SessionTrackerImpl::new("session-query".to_string(), working_dir.clone());
+    let storage = prodigy::storage::GlobalStorage::new()?;
+    let session_tracker = CookSessionAdapter::new(working_dir.clone(), storage).await?;
 
     match command {
         SessionCommands::List => {

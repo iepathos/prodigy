@@ -272,51 +272,6 @@ pub struct StorageMetrics {
     pub active_connections: u32,
 }
 
-// Storage trait definitions for compatibility
-use super::error::StorageResult;
-
-/// Session storage interface
-pub trait SessionStorage: Send + Sync {
-    fn save(&self, session: &SessionState) -> StorageResult<()>;
-    fn load(&self, session_id: &SessionId) -> StorageResult<Option<SessionState>>;
-    fn list(&self, filter: Option<&SessionFilter>) -> StorageResult<Vec<SessionState>>;
-    fn delete(&self, session_id: &SessionId) -> StorageResult<bool>;
-}
-
-/// Event storage interface
-pub trait EventStorage: Send + Sync {
-    fn append(&self, job_id: &str, event: &serde_json::Value) -> StorageResult<()>;
-    fn query(&self, filter: &EventFilter) -> StorageResult<Vec<serde_json::Value>>;
-    fn stream(&self, filter: &EventFilter) -> StorageResult<EventStream>;
-    fn subscribe(&self, filter: &EventFilter) -> StorageResult<EventSubscription>;
-    fn stats(&self, job_id: &str) -> StorageResult<EventStats>;
-    fn cleanup(&self, retention_days: u32) -> StorageResult<usize>;
-}
-
-/// Checkpoint storage interface
-pub trait CheckpointStorage: Send + Sync {
-    fn save(&self, job_id: &str, checkpoint: &serde_json::Value) -> StorageResult<()>;
-    fn load(&self, job_id: &str) -> StorageResult<Option<serde_json::Value>>;
-    fn list(&self, filter: Option<&CheckpointFilter>) -> StorageResult<Vec<String>>;
-    fn delete(&self, job_id: &str) -> StorageResult<bool>;
-    fn exists(&self, job_id: &str) -> StorageResult<bool>;
-}
-
-/// DLQ storage interface
-pub trait DLQStorage: Send + Sync {
-    fn add(&self, job_id: &str, item: &serde_json::Value, error: &str) -> StorageResult<()>;
-    fn retry(&self, job_id: &str, item_id: &str) -> StorageResult<Option<serde_json::Value>>;
-    fn list(&self, filter: &DLQFilter) -> StorageResult<Vec<serde_json::Value>>;
-    fn delete(&self, job_id: &str, item_id: &str) -> StorageResult<bool>;
-    fn cleanup(&self, retention_days: u32) -> StorageResult<usize>;
-    fn stats(&self, job_id: &str) -> StorageResult<serde_json::Value>;
-}
-
-/// Workflow storage interface
-pub trait WorkflowStorage: Send + Sync {
-    fn save(&self, workflow: &serde_json::Value) -> StorageResult<String>;
-    fn load(&self, workflow_id: &str) -> StorageResult<Option<serde_json::Value>>;
-    fn list(&self, filter: Option<&WorkflowFilter>) -> StorageResult<Vec<serde_json::Value>>;
-    fn delete(&self, workflow_id: &str) -> StorageResult<bool>;
-    fn update_status(&self, workflow_id: &str, status: &str) -> StorageResult<()>;
-}
+// Abstract storage traits have been removed in favor of direct implementations.
+// All storage operations are now handled through unified concrete implementations
+// in the respective modules (unified_session, storage, etc.)
