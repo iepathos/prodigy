@@ -8,6 +8,31 @@ None required - this command performs a full system evaluation
 
 ## Execute
 
+### Phase 0: Vision and Goals Alignment
+
+1. **Review Project Vision**
+   - Read VISION.md to understand core goals and non-goals
+   - Understand design principles and success metrics
+   - Review feature priorities (Must Have, Should Have, Nice to Have)
+   - Note explicitly stated non-goals to avoid
+   - Use vision as north star for all evaluations
+
+2. **Evaluation Context**
+   Evaluate against these core principles from VISION.md:
+   - **Simplicity First**: Single-machine excellence before distributed complexity
+   - **Reliability Above All**: Zero data loss, graceful degradation
+   - **Developer Experience**: 5-minute onboarding, self-documenting
+   - **Functional Programming**: Immutability, pure functions, composition
+   - **Pragmatic Automation**: Human in the loop, transparent operation
+
+3. **Success Metrics to Check**
+   From VISION.md success metrics:
+   - New user to productive in < 5 minutes
+   - Zero panics in production code
+   - < 20 lines per function average
+   - < 2 minute build time
+   - < 20 MB binary size
+
 ### Phase 1: Comprehensive Codebase Analysis
 
 1. **Structural Analysis**
@@ -395,6 +420,28 @@ The evaluation is successful when:
 - Report provides clear improvement roadmap
 - All files are committed to git
 
+## Important Constraints from Vision
+
+### Never Create Specs For
+Based on VISION.md non-goals, never create specifications for:
+- Distributed execution (until single-machine is perfect)
+- Database storage (until file storage proves inadequate)
+- Kubernetes/container orchestration (premature optimization)
+- Microservices architecture (keep monolith)
+- Complex abstractions (prefer simple solutions)
+- General AI framework features
+- IDE/editor functionality
+- Version control features beyond Git integration
+
+### Always Prioritize
+When creating specs, always favor:
+- Removing complexity over adding features
+- File-based solutions over databases
+- Single-machine optimization over distribution
+- Functional patterns over OOP
+- Explicit behavior over magic
+- Boring solutions that work over clever tricks
+
 ## Notes
 
 - Focus on actionable issues with clear solutions
@@ -404,3 +451,4 @@ The evaluation is successful when:
 - Group related issues when they share solutions
 - Keep specifications focused and achievable
 - Don't create specs for issues already being addressed
+- Always check against VISION.md before suggesting improvements
