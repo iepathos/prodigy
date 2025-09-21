@@ -298,12 +298,9 @@ async fn test_retry_strategy_delays() {
 
 #[tokio::test]
 async fn test_global_stats() {
-    // Force use of local storage for this test
-    std::env::set_var("PRODIGY_USE_LOCAL_STORAGE", "true");
-
     let temp_dir = TempDir::new().unwrap();
 
-    // Create .prodigy/dlq structure for local storage
+    // Create .prodigy/dlq structure for testing
     let dlq_dir = temp_dir.path().join(".prodigy").join("dlq");
     std::fs::create_dir_all(&dlq_dir).unwrap();
 
@@ -372,9 +369,6 @@ async fn test_global_stats() {
 
     // Check that error categories are populated
     assert!(!stats.workflows[0].1.error_categories.is_empty());
-
-    // Clean up environment variable
-    std::env::remove_var("PRODIGY_USE_LOCAL_STORAGE");
 }
 
 #[tokio::test]

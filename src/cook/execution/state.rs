@@ -671,13 +671,14 @@ impl DefaultJobStateManager {
 
     /// Create a new job state manager with global storage support
     pub async fn new_with_global(project_root: PathBuf) -> Result<Self> {
-        use crate::storage::GlobalStorage;
+        use crate::storage::{extract_repo_name, GlobalStorage};
 
         // Create global storage instance
-        let storage = GlobalStorage::new(&project_root)?;
+        let storage = GlobalStorage::new()?;
 
         // Use global state directory
-        let global_base_dir = storage.get_state_dir("mapreduce").await?;
+        let repo_name = extract_repo_name(&project_root)?;
+        let global_base_dir = storage.get_state_dir(&repo_name, "mapreduce").await?;
 
         Ok(Self {
             checkpoint_manager: CheckpointManager::new(global_base_dir),

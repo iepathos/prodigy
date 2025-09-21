@@ -71,10 +71,11 @@ impl RetentionManager {
 
     /// Create with global storage support
     pub async fn with_global_storage(repo_path: &Path, job_id: &str) -> Result<Self> {
-        use crate::storage::GlobalStorage;
+        use crate::storage::{extract_repo_name, GlobalStorage};
 
-        let storage = GlobalStorage::new(repo_path)?;
-        let events_path = storage.get_events_dir(job_id).await?;
+        let storage = GlobalStorage::new()?;
+        let repo_name = extract_repo_name(repo_path)?;
+        let events_path = storage.get_events_dir(&repo_name, job_id).await?;
         Ok(Self::with_default_policy(events_path))
     }
 

@@ -10,12 +10,6 @@ use std::time::Duration;
 pub enum BackendType {
     /// File-based storage (default)
     File,
-    /// PostgreSQL database
-    Postgres,
-    /// Redis cache/database
-    Redis,
-    /// Amazon S3 or compatible object storage
-    S3,
     /// Memory storage (for testing)
     Memory,
 }
@@ -65,9 +59,6 @@ pub struct StorageConfig {
 #[serde(untagged)]
 pub enum BackendConfig {
     File(FileConfig),
-    Postgres(PostgresConfig),
-    Redis(RedisConfig),
-    S3(S3Config),
     Memory(MemoryConfig),
 }
 
@@ -92,91 +83,6 @@ pub struct FileConfig {
     /// Compression for archived files
     #[serde(default)]
     pub enable_compression: bool,
-}
-
-/// PostgreSQL configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PostgresConfig {
-    /// Connection string
-    pub connection_string: String,
-
-    /// Schema name
-    #[serde(default = "default_schema")]
-    pub schema: String,
-
-    /// Enable SSL
-    #[serde(default)]
-    pub ssl_mode: SslMode,
-
-    /// Maximum connections
-    #[serde(default = "default_max_connections")]
-    pub max_connections: u32,
-
-    /// Connection timeout
-    #[serde(with = "humantime_serde", default = "default_connection_timeout")]
-    pub connection_timeout: Duration,
-
-    /// Statement timeout
-    #[serde(with = "humantime_serde", default = "default_statement_timeout")]
-    pub statement_timeout: Duration,
-}
-
-/// Redis configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RedisConfig {
-    /// Redis URL
-    pub url: String,
-
-    /// Database number
-    #[serde(default)]
-    pub database: u8,
-
-    /// Key prefix
-    #[serde(default = "default_key_prefix")]
-    pub key_prefix: String,
-
-    /// Enable cluster mode
-    #[serde(default)]
-    pub cluster_mode: bool,
-
-    /// Connection pool size
-    #[serde(default = "default_redis_pool_size")]
-    pub pool_size: usize,
-
-    /// Key expiration TTL
-    #[serde(with = "humantime_serde", default = "default_redis_ttl")]
-    pub default_ttl: Duration,
-}
-
-/// S3 configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct S3Config {
-    /// Bucket name
-    pub bucket: String,
-
-    /// Region
-    pub region: String,
-
-    /// Endpoint URL (for S3-compatible services)
-    pub endpoint: Option<String>,
-
-    /// Access key ID
-    pub access_key_id: Option<String>,
-
-    /// Secret access key
-    pub secret_access_key: Option<String>,
-
-    /// Object key prefix
-    #[serde(default = "default_s3_prefix")]
-    pub prefix: String,
-
-    /// Enable server-side encryption
-    #[serde(default)]
-    pub enable_encryption: bool,
-
-    /// Storage class
-    #[serde(default)]
-    pub storage_class: S3StorageClass,
 }
 
 /// Memory storage configuration (for testing)
@@ -252,32 +158,8 @@ pub struct CacheConfig {
 pub enum CacheType {
     #[default]
     Memory,
-    Redis,
 }
 
-/// SSL mode for PostgreSQL
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum SslMode {
-    #[default]
-    Prefer,
-    Disable,
-    Require,
-    VerifyCa,
-    VerifyFull,
-}
-
-/// S3 storage class
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum S3StorageClass {
-    #[default]
-    Standard,
-    StandardIa,
-    IntelligentTiering,
-    GlacierFlexibleRetrieval,
-    GlacierInstantRetrieval,
-}
 
 // Default value functions for serde
 fn default_pool_size() -> usize {
@@ -296,37 +178,6 @@ fn default_max_file_size() -> u64 {
     100 * 1024 * 1024 // 100MB
 }
 
-fn default_schema() -> String {
-    "prodigy".to_string()
-}
-
-fn default_max_connections() -> u32 {
-    20
-}
-
-fn default_connection_timeout() -> Duration {
-    Duration::from_secs(10)
-}
-
-fn default_statement_timeout() -> Duration {
-    Duration::from_secs(60)
-}
-
-fn default_key_prefix() -> String {
-    "prodigy:".to_string()
-}
-
-fn default_redis_pool_size() -> usize {
-    10
-}
-
-fn default_redis_ttl() -> Duration {
-    Duration::from_secs(86400) // 24 hours
-}
-
-fn default_s3_prefix() -> String {
-    "prodigy/".to_string()
-}
 
 fn default_memory_limit() -> u64 {
     1024 * 1024 * 1024 // 1GB
@@ -374,10 +225,14 @@ impl Default for StorageConfig {
 impl StorageConfig {
     /// Create configuration from environment variables
     pub fn from_env() -> Result<Self, anyhow::Error> {
-        // Check for backend type
+        // Check for backend type - now only File or Memory supported
         let backend = std::env::var("PRODIGY_STORAGE_BACKEND")
             .ok()
-            .and_then(|s| serde_json::from_value(serde_json::Value::String(s)).ok())
+            .and_then(|s| match s.to_lowercase().as_str() {
+                "file" => Some(BackendType::File),
+                "memory" => Some(BackendType::Memory),
+                _ => None,
+            })
             .unwrap_or_default();
 
         let backend_config = match backend {
@@ -390,68 +245,11 @@ impl StorageConfig {
                             .unwrap_or_else(|| PathBuf::from("/tmp"))
                             .join(".prodigy")
                     }),
-                use_global: true, // Local storage is deprecated
+                use_global: true, // Always use global storage
                 enable_file_locks: true,
                 max_file_size: default_max_file_size(),
                 enable_compression: false,
             }),
-            #[cfg(feature = "postgres")]
-            BackendType::Postgres => {
-                let connection_string = std::env::var("PRODIGY_POSTGRES_URL")
-                    .or_else(|_| std::env::var("DATABASE_URL"))
-                    .map_err(|_| anyhow::anyhow!("PostgreSQL connection string not found"))?;
-
-                BackendConfig::Postgres(PostgresConfig {
-                    connection_string,
-                    schema: std::env::var("PRODIGY_POSTGRES_SCHEMA")
-                        .unwrap_or_else(|_| default_schema()),
-                    ssl_mode: Default::default(),
-                    max_connections: default_max_connections(),
-                    connection_timeout: default_connection_timeout(),
-                    statement_timeout: default_statement_timeout(),
-                })
-            }
-            #[cfg(not(feature = "postgres"))]
-            BackendType::Postgres => {
-                return Err(anyhow::anyhow!("PostgreSQL backend not enabled. Enable with --features postgres"));
-            }
-            #[cfg(feature = "redis")]
-            BackendType::Redis => {
-                let url = std::env::var("PRODIGY_REDIS_URL")
-                    .or_else(|_| std::env::var("REDIS_URL"))
-                    .map_err(|_| anyhow::anyhow!("Redis URL not found"))?;
-
-                BackendConfig::Redis(RedisConfig {
-                    url,
-                    database: 0,
-                    key_prefix: default_key_prefix(),
-                    cluster_mode: false,
-                    pool_size: default_redis_pool_size(),
-                    default_ttl: default_redis_ttl(),
-                })
-            }
-            #[cfg(not(feature = "redis"))]
-            BackendType::Redis => {
-                return Err(anyhow::anyhow!("Redis backend not enabled. Enable with --features redis"));
-            }
-            #[cfg(feature = "s3")]
-            BackendType::S3 => BackendConfig::S3(S3Config {
-                bucket: std::env::var("PRODIGY_S3_BUCKET")
-                    .map_err(|_| anyhow::anyhow!("S3 bucket not specified"))?,
-                region: std::env::var("AWS_REGION")
-                    .or_else(|_| std::env::var("AWS_DEFAULT_REGION"))
-                    .unwrap_or_else(|_| "us-east-1".to_string()),
-                endpoint: std::env::var("PRODIGY_S3_ENDPOINT").ok(),
-                access_key_id: std::env::var("AWS_ACCESS_KEY_ID").ok(),
-                secret_access_key: std::env::var("AWS_SECRET_ACCESS_KEY").ok(),
-                prefix: default_s3_prefix(),
-                enable_encryption: false,
-                storage_class: Default::default(),
-            }),
-            #[cfg(not(feature = "s3"))]
-            BackendType::S3 => {
-                return Err(anyhow::anyhow!("S3 backend not enabled. Enable with --features s3"));
-            }
             BackendType::Memory => BackendConfig::Memory(Default::default()),
         };
 

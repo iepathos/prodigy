@@ -1682,11 +1682,34 @@ async fn main() {
 
     init_tracing(cli.verbose);
 
+    // Perform automatic migration from local to global storage if needed
+    if let Err(e) = check_and_migrate_storage().await {
+        error!("Storage migration failed: {}", e);
+        // Continue anyway - migration is best effort
+    }
+
     let result = execute_command(cli.command, cli.verbose).await;
 
     if let Err(e) = result {
         handle_fatal_error(e);
     }
+}
+
+/// Check for local storage and migrate to global if found
+async fn check_and_migrate_storage() -> anyhow::Result<()> {
+    use prodigy::storage::migration;
+    use std::env;
+
+    // Get current directory as project path
+    let project_path = env::current_dir()?;
+
+    // Check if local storage exists
+    if migration::has_local_storage(&project_path).await {
+        debug!("Detected local storage, migrating to global storage");
+        migration::migrate_to_global(&project_path).await?;
+    }
+
+    Ok(())
 }
 
 /// Handle the list command for worktrees
@@ -2178,9 +2201,11 @@ async fn get_dlq_instance(
     project_root: &std::path::Path,
 ) -> anyhow::Result<prodigy::cook::execution::dlq::DeadLetterQueue> {
     use prodigy::cook::execution::dlq::DeadLetterQueue;
+    use prodigy::storage::{extract_repo_name, GlobalStorage};
 
-    let storage = prodigy::storage::GlobalStorage::new(project_root)?;
-    let dlq_dir = storage.get_dlq_dir(job_id).await?;
+    let storage = GlobalStorage::new()?;
+    let repo_name = extract_repo_name(project_root)?;
+    let dlq_dir = storage.get_dlq_dir(&repo_name, job_id).await?;
     DeadLetterQueue::new(job_id.to_string(), dlq_dir, 10000, 30, None).await
 }
 
