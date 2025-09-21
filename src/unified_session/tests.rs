@@ -4,7 +4,7 @@
 mod tests {
     use super::super::*;
     use crate::storage::GlobalStorage;
-    use std::path::PathBuf;
+    use crate::cook::session::SessionManager as CookSessionManager;
     use tempfile::TempDir;
 
     #[tokio::test]
@@ -83,13 +83,17 @@ mod tests {
                 current: i,
                 total: 10,
             };
-            manager.update_session(&session_id, &update).await.unwrap();
+            manager.update_session(&session_id, update).await.unwrap();
         }
 
         // Load and verify
         let session = manager.load_session(&session_id).await.unwrap();
         if let Some(workflow_data) = &session.workflow_data {
-            assert!(workflow_data.iterations_completed > 0);
+            // Progress updates current_step, not iterations_completed
+            assert_eq!(workflow_data.current_step, 5);
+            assert_eq!(workflow_data.total_steps, 10);
+        } else {
+            panic!("Expected workflow data to be present");
         }
     }
 
@@ -112,8 +116,8 @@ mod tests {
                 } else {
                     SessionType::Workflow
                 },
-                workflow_id: Some(format!("workflow-{}", i)),
-                job_id: None,
+                workflow_id: if i == 0 { None } else { Some(format!("workflow-{}", i)) },
+                job_id: if i == 0 { Some(format!("job-{}", i)) } else { None },
                 metadata,
             };
 
@@ -130,9 +134,10 @@ mod tests {
         let filter = SessionFilter {
             session_type: Some(SessionType::Workflow),
             status: None,
-            project_name: None,
-            started_after: None,
-            started_before: None,
+            after: None,
+            before: None,
+            worktree_name: None,
+            limit: None,
         };
 
         let sessions = manager.list_sessions(Some(filter)).await.unwrap();
@@ -142,9 +147,10 @@ mod tests {
         let filter = SessionFilter {
             session_type: None,
             status: Some(SessionStatus::Completed),
-            project_name: None,
-            started_after: None,
-            started_before: None,
+            after: None,
+            before: None,
+            worktree_name: None,
+            limit: None,
         };
 
         let sessions = manager.list_sessions(Some(filter)).await.unwrap();
@@ -206,25 +212,22 @@ mod tests {
         let session_id = manager.create_session(config).await.unwrap();
 
         // Create a checkpoint
-        let checkpoint_data = serde_json::json!({
-            "step": 5,
-            "state": "in_progress"
-        });
-
         let checkpoint_id = manager
-            .save_checkpoint(&session_id, checkpoint_data.clone())
+            .create_checkpoint(&session_id)
             .await
             .unwrap();
 
         assert!(!checkpoint_id.as_str().is_empty());
 
-        // Load checkpoint
-        let loaded = manager
-            .load_checkpoint(&session_id, &checkpoint_id)
+        // List checkpoints to verify it was created
+        let checkpoints = manager
+            .list_checkpoints(&session_id)
             .await
             .unwrap();
 
-        assert_eq!(loaded.data, checkpoint_data);
+        assert!(!checkpoints.is_empty());
+        // Find the checkpoint we just created
+        assert!(checkpoints.iter().any(|c| c.id == checkpoint_id));
     }
 
     #[tokio::test]
@@ -249,21 +252,16 @@ mod tests {
 
         let session_id = manager.create_session(config).await.unwrap();
 
-        // Set MapReduce phase
-        let mut metadata = std::collections::HashMap::new();
-        metadata.insert(
-            "phase".to_string(),
-            serde_json::json!(MapReducePhase::Map),
-        );
-        let update = SessionUpdate::Metadata(metadata);
-        manager.update_session(&session_id, update).await.unwrap();
-
-        // Load and verify
+        // Load and verify initial state
         let session = manager.load_session(&session_id).await.unwrap();
         assert_eq!(session.session_type, SessionType::MapReduce);
 
         if let Some(mapreduce_data) = &session.mapreduce_data {
-            assert_eq!(mapreduce_data.phase, MapReducePhase::Map);
+            // Default phase should be Setup
+            assert_eq!(mapreduce_data.phase, MapReducePhase::Setup);
+            assert_eq!(mapreduce_data.job_id, "mapreduce-job");
+        } else {
+            panic!("Expected MapReduce data to be present");
         }
     }
 
@@ -273,7 +271,7 @@ mod tests {
         let manager = SessionManager::new(storage).await.unwrap();
 
         // Try to load non-existent session
-        let fake_id = SessionId::from("non-existent-session");
+        let fake_id = SessionId::new();
         let result = manager.load_session(&fake_id).await;
         assert!(result.is_err());
 

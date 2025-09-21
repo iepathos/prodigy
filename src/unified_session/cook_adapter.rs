@@ -86,15 +86,19 @@ impl CookSessionAdapter {
     fn cook_update_to_unified(update: CookSessionUpdate) -> Vec<UnifiedSessionUpdate> {
         match update {
             CookSessionUpdate::IncrementIteration => {
-                vec![UnifiedSessionUpdate::Progress {
-                    current: 0,
-                    total: 0,
-                }]
-            }
-            CookSessionUpdate::AddFilesChanged(count) => {
+                // Increment iteration counter through metadata
                 let mut metadata = std::collections::HashMap::new();
                 metadata.insert(
-                    "files_changed".to_string(),
+                    "increment_iteration".to_string(),
+                    serde_json::json!(true),
+                );
+                vec![UnifiedSessionUpdate::Metadata(metadata)]
+            }
+            CookSessionUpdate::AddFilesChanged(count) => {
+                // Store in metadata and we'll accumulate this in workflow_data
+                let mut metadata = std::collections::HashMap::new();
+                metadata.insert(
+                    "files_changed_delta".to_string(),
                     serde_json::json!(count),
                 );
                 vec![UnifiedSessionUpdate::Metadata(metadata)]

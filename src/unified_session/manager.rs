@@ -44,7 +44,7 @@ impl SessionManager {
 
     /// Create a new session
     pub async fn create_session(&self, config: SessionConfig) -> Result<SessionId> {
-        let session = match config.session_type {
+        let mut session = match config.session_type {
             super::state::SessionType::Workflow => {
                 let workflow_id = config
                     .workflow_id
@@ -58,6 +58,9 @@ impl SessionManager {
                 UnifiedSession::new_mapreduce(job_id, 0)
             }
         };
+
+        // Set initial metadata from config
+        session.metadata = config.metadata;
 
         let session_id = session.id.clone();
 
@@ -104,6 +107,26 @@ impl SessionManager {
                 }
             }
             SessionUpdate::Metadata(metadata) => {
+                // Handle special metadata keys
+                for (key, value) in metadata.iter() {
+                    match key.as_str() {
+                        "files_changed_delta" => {
+                            if let Some(count) = value.as_u64() {
+                                if let Some(workflow) = &mut session.workflow_data {
+                                    workflow.files_changed += count as u32;
+                                }
+                            }
+                        }
+                        "increment_iteration" => {
+                            if value.as_bool().unwrap_or(false) {
+                                if let Some(workflow) = &mut session.workflow_data {
+                                    workflow.iterations_completed += 1;
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
                 session.metadata.extend(metadata);
             }
             SessionUpdate::Checkpoint(state) => {
@@ -200,18 +223,17 @@ impl SessionManager {
         let session = self.load_session(id).await?;
         let checkpoint_state = serde_json::to_value(&session)?;
 
-        let checkpoint = Checkpoint {
-            id: CheckpointId::new(),
-            created_at: chrono::Utc::now(),
-            state: checkpoint_state,
-            metadata: HashMap::new(),
-        };
-
-        let checkpoint_id = checkpoint.id.clone();
-        self.update_session(id, SessionUpdate::Checkpoint(serde_json::to_value(checkpoint)?))
+        // Store just the state, the checkpoint object will be created in update_session
+        self.update_session(id, SessionUpdate::Checkpoint(checkpoint_state))
             .await?;
 
-        Ok(checkpoint_id)
+        // Get the session again to retrieve the actual checkpoint ID
+        let updated_session = self.load_session(id).await?;
+        if let Some(checkpoint) = updated_session.checkpoints.last() {
+            Ok(checkpoint.id.clone())
+        } else {
+            Err(anyhow!("Failed to create checkpoint"))
+        }
     }
 
     /// Restore from a checkpoint

@@ -8,29 +8,36 @@ Prodigy is a workflow orchestration tool that executes Claude commands through s
 
 ### 1. Unified Session Management (`src/unified_session/`)
 
-The unified session management system provides a single, consolidated approach to handling all session-related functionality across the application.
+The unified session management system provides a single, consolidated approach to handling all session-related functionality across the application. This replaces the previous multi-module session approach with a centralized, consistent model.
 
 #### Key Components:
 
 - **SessionManager** (`manager.rs`): Central interface for all session operations
   - Creates, updates, and manages session lifecycle
+  - Direct storage integration (no abstract traits)
   - Handles session persistence and recovery
   - Provides filtering and listing capabilities
+  - In-memory cache for active sessions with persistent backing
 
 - **SessionState** (`state.rs`): Session state and metadata
-  - `UnifiedSession`: Core session representation
-  - `SessionStatus`: Running, Completed, Failed, Paused, etc.
+  - `UnifiedSession`: Core session representation for all session types
+  - `SessionStatus`: Running, Completed, Failed, Paused, Initializing
   - `SessionType`: Workflow or MapReduce
+  - `WorkflowSession`: Workflow-specific data (iterations, files changed, steps)
+  - `MapReduceSession`: MapReduce-specific data (items, agents, phases)
   - Support for checkpointing and resumption
+  - Built-in timing tracking
 
-- **CookSessionAdapter** (`cook_adapter.rs`): Bridge between cook module and unified sessions
-  - Implements cook's SessionManager trait
+- **CookSessionAdapter** (`cook_adapter.rs`): Transitional bridge for cook module
+  - Implements cook's existing SessionManager trait
   - Maps cook session operations to unified session operations
-  - Maintains backward compatibility
+  - Handles special metadata keys for incremental updates
+  - Maintains backward compatibility during migration
 
 - **Migration** (`migration.rs`): Handles migration from legacy session formats
   - Auto-detects legacy session data
-  - Migrates to new unified format
+  - One-time migration to new unified format
+  - Preserves historical session data
   - Archives old data after successful migration
 
 - **Timing** (`timing.rs`): Performance tracking utilities
@@ -58,10 +65,10 @@ The cook module handles workflow execution and orchestration.
   - Handles map phase, reduce phase, and aggregation
   - Dead Letter Queue (DLQ) for failed items
 
-- **Session** (`session/`): Cook-specific session abstractions
-  - SessionManager trait definition
-  - Session state and status tracking
-  - Integration with unified session via adapter
+- **Session** (`session/`): Legacy session abstractions (transitional)
+  - SessionManager trait definition (being phased out)
+  - Session state and status tracking (migrating to unified)
+  - Integration via CookSessionAdapter bridge
 
 ### 3. Storage (`src/storage/`)
 
@@ -117,38 +124,45 @@ Simple JSON-based state persistence for project metadata.
 
 ### Unified Session Model
 
-The unified session system consolidates all session management into a single, consistent model:
+The unified session system consolidates all session management into a single, consistent model that serves both workflow and MapReduce executions:
 
 ```rust
 UnifiedSession {
     id: SessionId,
     session_type: SessionType (Workflow | MapReduce),
     status: SessionStatus,
-    metadata: SessionMetadata,
-    started_at: DateTime,
-    ended_at: Option<DateTime>,
+    metadata: HashMap<String, Value>,
+    started_at: DateTime<Utc>,
+    updated_at: DateTime<Utc>,
+    completed_at: Option<DateTime<Utc>>,
+    checkpoints: Vec<Checkpoint>,
+    timings: BTreeMap<String, Duration>,
+    error: Option<String>,
+
+    // Type-specific data
     workflow_data: Option<WorkflowSession>,
     mapreduce_data: Option<MapReduceSession>,
-    checkpoints: Vec<Checkpoint>,
-    error: Option<String>,
 }
 ```
 
 ### Session Lifecycle
 
-1. **Initialization**: Session created with metadata and configuration
-2. **Running**: Active execution with progress tracking
-3. **Checkpointing**: Periodic state saves for resumption
-4. **Completion**: Final state with summary and metrics
-5. **Migration**: Legacy sessions automatically migrated on first run
+1. **Initialization**: Session created with type-specific configuration
+2. **Running**: Active execution with real-time progress tracking
+3. **Updates**: Incremental updates via SessionUpdate enum
+4. **Checkpointing**: State snapshots for fault tolerance
+5. **Completion**: Final state with success/failure status
+6. **Persistence**: Automatic save to GlobalStorage
 
-### Adapter Pattern
+### Direct Integration Model
 
-The `CookSessionAdapter` provides a compatibility layer between the cook module's session abstractions and the unified session system:
+The unified session system is now the primary session management layer:
 
-- Cook module uses its own `SessionManager` trait
-- Adapter implements this trait using unified session operations
-- Allows gradual migration without breaking existing code
+- **Direct Usage**: New code uses `UnifiedSessionManager` directly
+- **No Abstract Traits**: Removed `SessionStorage` trait for simplicity
+- **Cook Compatibility**: `CookSessionAdapter` provides temporary bridge
+- **Single Source of Truth**: All session data flows through unified system
+- **Migration Path**: Legacy sessions auto-migrated on first access
 
 ## Storage Architecture
 
