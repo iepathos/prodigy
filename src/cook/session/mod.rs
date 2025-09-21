@@ -2,12 +2,9 @@
 //!
 //! Handles session state, tracking, and persistence.
 
-pub mod adapter;
 pub mod state;
 pub mod summary;
 pub mod tracker;
-
-pub use adapter::SessionManagerAdapter;
 pub use state::{
     ExecutionContext, ExecutionEnvironment, SessionState, SessionStatus, StepResult, WorkflowState,
     WorkflowType,

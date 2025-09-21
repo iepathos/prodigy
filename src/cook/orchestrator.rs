@@ -19,7 +19,7 @@ use super::execution::{ClaudeExecutor, CommandExecutor};
 use super::interaction::UserInteraction;
 use super::session::{SessionManager, SessionState, SessionStatus, SessionUpdate};
 use super::workflow::{CaptureOutput, ExtendedWorkflowConfig, WorkflowStep};
-use crate::session::{format_duration, TimingTracker};
+use crate::unified_session::{format_duration, TimingTracker};
 use std::time::Instant;
 
 /// Configuration for cook orchestration
@@ -242,7 +242,7 @@ impl DefaultCookOrchestrator {
 
     /// Generate session ID using unified format
     fn generate_session_id(&self) -> String {
-        crate::session::SessionId::new().to_string()
+        crate::unified_session::SessionId::new().to_string()
     }
 
     /// Check prerequisites with config-aware git checking

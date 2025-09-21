@@ -5,8 +5,12 @@
 
 mod cook_adapter;
 mod manager;
+pub mod migration;
 mod state;
 mod storage;
+#[cfg(test)]
+mod tests;
+pub mod timing;
 
 pub use cook_adapter::CookSessionAdapter;
 pub use manager::{SessionManager, SessionUpdate};
@@ -16,6 +20,7 @@ pub use state::{
     UnifiedSession, WorkflowSession,
 };
 pub use storage::SessionStorageAdapter;
+pub use timing::{format_duration, TimingTracker};
 
 use anyhow::Result;
 

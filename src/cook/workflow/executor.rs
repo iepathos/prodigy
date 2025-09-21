@@ -22,7 +22,7 @@ use crate::cook::workflow::normalized;
 use crate::cook::workflow::normalized::NormalizedWorkflow;
 use crate::cook::workflow::on_failure::{HandlerStrategy, OnFailureConfig};
 use crate::cook::workflow::validation::{ValidationConfig, ValidationResult};
-use crate::session::{format_duration, TimingTracker};
+use crate::unified_session::{format_duration, TimingTracker};
 use crate::testing::config::TestConfiguration;
 use anyhow::{anyhow, Context, Result};
 use chrono::Utc;

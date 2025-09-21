@@ -22,7 +22,7 @@
 //! - `storage` - Global storage management for events, DLQ, and job state
 //! - `subprocess` - Unified subprocess abstraction layer for testing
 //! - `worktree` - Git worktree management for parallel sessions
-//! - `session` - Session state management with event-driven architecture
+//! - `unified_session` - Unified session management with event-driven architecture
 //! - `testing` - Testing utilities and fixtures for comprehensive testing
 pub mod abstractions;
 // Analytics module removed - no longer needed without postgres
@@ -35,7 +35,6 @@ pub mod git;
 pub mod init;
 pub mod resume_logic;
 pub mod scoring;
-pub mod session;
 pub mod simple_state;
 pub mod storage;
 pub mod subprocess;

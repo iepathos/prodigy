@@ -35,7 +35,7 @@ mod dry_run_tests;
 
 use crate::abstractions::git::RealGitOperations;
 use crate::config::{workflow::WorkflowConfig, ConfigLoader};
-use crate::session::SessionId;
+use crate::unified_session::SessionId;
 use crate::simple_state::StateManager;
 use anyhow::{anyhow, Context as _, Result};
 use std::path::Path;
