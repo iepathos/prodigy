@@ -159,12 +159,16 @@ async fn create_orchestrator(
         project_path.to_path_buf(),
         subprocess.as_ref().clone(),
     )?);
-    // Use unified session ID format
+    // Use unified session manager through the adapter
     let session_id = SessionId::new();
-    let session_manager = Arc::new(session::tracker::SessionTrackerImpl::new(
-        session_id.to_string(),
-        project_path.to_path_buf(),
-    ));
+    let storage = crate::storage::GlobalStorage::new()?;
+    let session_manager = Arc::new(
+        crate::unified_session::CookSessionAdapter::new(
+            project_path.to_path_buf(),
+            storage,
+        )
+        .await?,
+    );
     let state_manager = Arc::new(StateManager::new()?);
 
     // Create user interaction with verbosity from command args

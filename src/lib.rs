@@ -42,6 +42,7 @@ pub mod subprocess;
 pub mod worktree;
 
 pub mod testing;
+pub mod unified_session;
 
 // Re-export core error types for library consumers
 pub use error::{ErrorCode, ProdigyError};

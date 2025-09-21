@@ -8,7 +8,7 @@ A workflow orchestration tool that executes Claude commands through structured Y
 
 ### Core Features ✅
 - **Workflow Execution**: Sequential and parallel command execution
-- **Session Management**: Persistent state tracking with timing
+- **Unified Session Management**: Single consolidated session system for all operations ✅
 - **Claude Integration**: Direct Claude Code CLI integration with transparent streaming
 - **Shell Commands**: Full shell command support
 - **MapReduce Processing**: Parallel execution across multiple agents with setup phase ✅

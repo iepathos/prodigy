@@ -1971,12 +1971,12 @@ async fn run_resume_job_command(
         executor
     });
 
-    // Create session manager using the SessionManagerAdapter
-    use prodigy::cook::session::{SessionManager, SessionManagerAdapter};
-
-    // SessionManagerAdapter creates its own internal session manager
-    let session_manager: Arc<dyn SessionManager> =
-        Arc::new(SessionManagerAdapter::new(project_root.clone()));
+    // Use unified session manager through the adapter
+    use prodigy::cook::session::SessionManager;
+    let storage = prodigy::storage::GlobalStorage::new()?;
+    let session_manager: Arc<dyn SessionManager> = Arc::new(
+        prodigy::unified_session::CookSessionAdapter::new(project_root.clone(), storage).await?,
+    );
 
     // Create user interaction handler
     use prodigy::cook::interaction::{DefaultUserInteraction, UserInteraction};

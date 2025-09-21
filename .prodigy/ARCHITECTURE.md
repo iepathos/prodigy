@@ -28,6 +28,12 @@ prodigy/
 ├── src/
 │   ├── main.rs                 # CLI entry point
 │   ├── lib.rs                  # Public API
+│   ├── unified_session/        # Unified session management system
+│   │   ├── mod.rs              # Module exports
+│   │   ├── manager.rs          # Core session manager
+│   │   ├── state.rs            # Session state definitions
+│   │   ├── storage.rs          # Storage adapter
+│   │   └── cook_adapter.rs     # Adapter for cook module
 │   ├── error/                  # Unified error handling system
 │   │   ├── mod.rs              # Core error types and traits
 │   │   ├── codes.rs            # Error code registry (E0001-E9999)
@@ -205,15 +211,14 @@ pub trait PhaseExecutor: Send + Sync {
 - `MapPhaseExecutor`: Parallel work item distribution and agent orchestration
 - `ReducePhaseExecutor`: Result aggregation and reduce command execution
 
-### SessionManager
+### UnifiedSessionManager
 ```rust
-#[async_trait]
-pub trait SessionManager: Send + Sync {
-    async fn start_session(&mut self) -> Result<String>;
-    async fn complete_session(&mut self, success: bool) -> Result<()>;
-    async fn track_iteration(&mut self) -> Result<()>;
+pub struct SessionManager {
+    storage: GlobalStorage,
+    active_sessions: Arc<RwLock<HashMap<SessionId, UnifiedSession>>>,
 }
 ```
+Provides unified session management for all operation types (Workflow, MapReduce)
 
 ### EnvironmentManager
 Manages environment variables and working directories for workflow execution:
