@@ -158,9 +158,14 @@ async fn create_orchestrator(
         project_path.to_path_buf(),
         subprocess.as_ref().clone(),
     )?);
-    // Use unified session manager through the adapter
+    // Create unified session manager directly
     let session_id = SessionId::new();
     let storage = crate::storage::GlobalStorage::new()?;
+    let storage2 = crate::storage::GlobalStorage::new()?;
+    let unified_manager = Arc::new(
+        crate::unified_session::SessionManager::new(storage2).await?,
+    );
+    // Keep the adapter for compatibility with other parts of the code that still need it
     let session_manager = Arc::new(
         crate::unified_session::CookSessionAdapter::new(
             project_path.to_path_buf(),
@@ -210,9 +215,10 @@ async fn create_orchestrator(
         git_operations.clone(),
     ));
 
-    // Create session coordinator
+    // Create session coordinator using UnifiedSessionManager directly
     let _session_coordinator = Arc::new(coordinators::DefaultSessionCoordinator::new(
-        session_manager.clone(),
+        unified_manager.clone(),
+        project_path.to_path_buf(),
     ));
 
     // Create execution coordinator

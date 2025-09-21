@@ -6,6 +6,8 @@
 mod cook_adapter;
 mod manager;
 pub mod migration;
+#[cfg(test)]
+mod migration_tests;
 mod state;
 mod storage;
 #[cfg(test)]
