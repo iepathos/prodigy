@@ -111,7 +111,6 @@ fn default_max_parallel() -> usize {
     10
 }
 
-
 impl Default for MapReduceConfig {
     fn default() -> Self {
         Self {
@@ -1992,7 +1991,8 @@ impl MapReduceExecutor {
 
                 match result {
                     Ok(res) => break res,
-                    Err(e) if attempt <= 0 => { // No automatic retries
+                    Err(e) if attempt == 0 => {
+                        // No automatic retries
                         // Save error for next attempt
                         previous_error = Some(e.to_string());
                         // Retry on failure
@@ -2161,7 +2161,8 @@ impl MapReduceExecutor {
                         tracker.mark_item_completed(&agent_id).await?;
                         break res;
                     }
-                    Err(e) if attempt <= 0 => { // No automatic retries
+                    Err(e) if attempt == 0 => {
+                        // No automatic retries
                         // Save error for next attempt
                         previous_error = Some(e.to_string());
                         // Retry on failure

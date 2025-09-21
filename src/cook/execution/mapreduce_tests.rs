@@ -1391,7 +1391,8 @@ mod concurrency_tests {
         let start = std::time::Instant::now();
 
         // Simulate agent that takes too long
-        let result = tokio::time::timeout(Duration::from_secs(1), async { // Use 1 second timeout for test
+        let result = tokio::time::timeout(Duration::from_secs(1), async {
+            // Use 1 second timeout for test
             tokio::time::sleep(Duration::from_secs(5)).await;
             "Should timeout"
         })
