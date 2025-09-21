@@ -3,6 +3,7 @@ use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 use std::fs;
 use std::path::PathBuf;
+use tracing::debug;
 use uuid::Uuid;
 
 use super::{IterationInfo, WorktreeSession, WorktreeState, WorktreeStats, WorktreeStatus};
@@ -298,10 +299,21 @@ impl WorktreeManager {
         for meta_session in metadata_sessions {
             if !sessions.iter().any(|s| s.name == meta_session.name) {
                 // This session exists in metadata but not in Git worktrees
-                // Check if the worktree directory actually exists
+                // Check if the worktree directory actually exists AND is a valid git worktree
                 let worktree_path = self.base_dir.join(&meta_session.name);
                 if worktree_path.exists() {
-                    sessions.push(meta_session);
+                    // Verify it's actually a git worktree by checking for .git file
+                    let git_file = worktree_path.join(".git");
+                    if git_file.exists() {
+                        sessions.push(meta_session);
+                    } else {
+                        // This is a stale metadata entry - the worktree is gone or invalid
+                        // We'll skip it from the list, and it should be cleaned up
+                        debug!(
+                            "Skipping stale metadata entry: {} (not a valid git worktree)",
+                            meta_session.name
+                        );
+                    }
                 }
             }
         }
@@ -847,6 +859,25 @@ impl WorktreeManager {
             if !delete_output.status.success() {
                 let stderr = &delete_output.stderr;
                 eprintln!("Warning: Failed to delete branch {name}: {stderr}");
+            }
+        }
+
+        // Clean up metadata file
+        let metadata_file = self.base_dir.join(".metadata").join(format!("{name}.json"));
+        if metadata_file.exists() {
+            if let Err(e) = fs::remove_file(&metadata_file) {
+                eprintln!("Warning: Failed to remove metadata file for {name}: {e}");
+            }
+        }
+
+        // Also try to remove the worktree directory if it still exists
+        // (in case git worktree remove failed or it wasn't a valid worktree)
+        if worktree_path.exists() && force {
+            if let Err(e) = fs::remove_dir_all(&worktree_path) {
+                eprintln!(
+                    "Warning: Failed to remove worktree directory {}: {e}",
+                    worktree_path_str
+                );
             }
         }
 
