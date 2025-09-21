@@ -861,8 +861,6 @@ impl DlqReprocessor {
             input: temp_file,
             json_path: "$[*]".to_string(),
             max_parallel: options.parallel,
-            timeout_per_agent: options.timeout_per_item,
-            retry_on_failure: options.max_retries,
             max_items: None,
             offset: None,
         })

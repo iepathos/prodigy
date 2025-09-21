@@ -232,8 +232,6 @@ map:
           fail_workflow: false
   
   max_parallel: 5
-  timeout_per_agent: 600s
-  retry_on_failure: 1
   
   filter: "unified_score.final_score >= 5"
   sort_by: "unified_score.final_score DESC"

@@ -368,8 +368,6 @@ impl MapReduceWorkflowConfig {
                 input: self.map.input.clone(),
                 json_path: self.map.json_path.clone(),
                 max_parallel: self.map.max_parallel,
-                timeout_per_agent: 600, // Use default value
-                retry_on_failure: 0,    // No automatic retries
                 max_items: self.map.max_items,
                 offset: self.map.offset,
             },

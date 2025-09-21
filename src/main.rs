@@ -2,10 +2,10 @@ use clap::{CommandFactory, Parser, Subcommand};
 use std::path::PathBuf;
 use tracing::{debug, error, trace};
 
-/// Cook your code to perfection with zero configuration
+/// Execute automated workflows with zero configuration
 #[derive(Parser)]
 #[command(name = "prodigy")]
-#[command(about = "prodigy - Cook your code to perfection automatically", long_about = None)]
+#[command(about = "prodigy - Execute automated workflows with zero configuration", long_about = None)]
 #[command(version)]
 struct Cli {
     /// Enable verbose output (-v for debug, -vv for trace, -vvv for all)
@@ -275,7 +275,7 @@ enum Commands {
         #[command(subcommand)]
         command: DlqCommands,
     },
-    /// Manage cooking sessions
+    /// Manage workflow sessions
     Sessions {
         #[command(subcommand)]
         command: SessionCommands,
@@ -2534,7 +2534,7 @@ async fn run_sessions_command(command: SessionCommands) -> anyhow::Result<()> {
 
                     if state.is_resumable() {
                         println!("\n✅ This session can be resumed with:");
-                        println!("  prodigy cook <workflow> --resume {}", session_id);
+                        println!("  prodigy run <workflow> --resume {}", session_id);
                     } else {
                         println!(
                             "\n❌ This session cannot be resumed (status: {:?})",

@@ -89,15 +89,11 @@ fn test_mapreduce_config_defaults() {
         input: "test.json".to_string(),
         json_path: "$.items[*]".to_string(),
         max_parallel: 5,
-        timeout_per_agent: 300,
-        retry_on_failure: 1,
         max_items: None,
         offset: None,
     };
 
     assert_eq!(config.max_parallel, 5);
-    assert_eq!(config.timeout_per_agent, 300);
-    assert_eq!(config.retry_on_failure, 1);
 }
 
 #[test]
@@ -241,8 +237,6 @@ fn test_map_phase_configuration() {
             input: "items.json".to_string(),
             json_path: "$.items[*]".to_string(),
             max_parallel: 20,
-            timeout_per_agent: 1200,
-            retry_on_failure: 3,
             max_items: None,
             offset: None,
         },
@@ -283,7 +277,6 @@ fn test_map_phase_configuration() {
     };
 
     assert_eq!(map_phase.config.max_parallel, 20);
-    assert_eq!(map_phase.config.timeout_per_agent, 1200);
     assert_eq!(map_phase.agent_template.len(), 1);
     assert_eq!(map_phase.filter, Some("severity == 'high'".to_string()));
     assert_eq!(map_phase.sort_by, Some("priority".to_string()));
@@ -1325,8 +1318,6 @@ mod concurrency_tests {
             input: "test.json".to_string(),
             json_path: "$.items[*]".to_string(),
             max_parallel: 3,
-            timeout_per_agent: 10,
-            retry_on_failure: 0,
             max_items: Some(10),
             offset: None,
         };
@@ -1393,8 +1384,6 @@ mod concurrency_tests {
             input: "test.json".to_string(),
             json_path: "$.items[*]".to_string(),
             max_parallel: 2,
-            timeout_per_agent: 1, // 1 second timeout
-            retry_on_failure: 0,
             max_items: None,
             offset: None,
         };
@@ -1402,7 +1391,7 @@ mod concurrency_tests {
         let start = std::time::Instant::now();
 
         // Simulate agent that takes too long
-        let result = tokio::time::timeout(Duration::from_secs(config.timeout_per_agent), async {
+        let result = tokio::time::timeout(Duration::from_secs(1), async { // Use 1 second timeout for test
             tokio::time::sleep(Duration::from_secs(5)).await;
             "Should timeout"
         })
@@ -1766,8 +1755,6 @@ mod additional_coverage_tests {
                 input: "data.json".to_string(),
                 json_path: "$.items[*]".to_string(),
                 max_parallel: 50,
-                timeout_per_agent: 1200,
-                retry_on_failure: 5,
                 max_items: Some(100),
                 offset: Some(10),
             },
@@ -1989,15 +1976,12 @@ mod integration_tests {
             input: input_file.to_string_lossy().to_string(),
             json_path: "$.items[*]".to_string(),
             max_parallel: 2,
-            timeout_per_agent: 30,
-            retry_on_failure: 1,
             max_items: None,
             offset: None,
         };
 
         // Verify configuration
         assert_eq!(map_config.max_parallel, 2);
-        assert_eq!(map_config.retry_on_failure, 1);
 
         // Test JSON path extraction
         let json_content = std::fs::read_to_string(&input_file).unwrap();
@@ -2047,8 +2031,6 @@ mod integration_tests {
             input: "dummy".to_string(),
             json_path: "$[*]".to_string(),
             max_parallel: 5,
-            timeout_per_agent: 10,
-            retry_on_failure: 0,
             max_items: Some(20),
             offset: Some(10),
         };

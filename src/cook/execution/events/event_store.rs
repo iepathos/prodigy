@@ -377,8 +377,6 @@ mod tests {
                     input: "test.json".to_string(),
                     json_path: "$.items".to_string(),
                     max_parallel: 5,
-                    timeout_per_agent: 300,
-                    retry_on_failure: 2,
                     max_items: None,
                     offset: None,
                 },
