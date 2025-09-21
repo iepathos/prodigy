@@ -39,6 +39,10 @@
 - Use `thiserror` for custom error types
 - Propagate errors with `?` operator
 - Include context with `.context()` method
+- **Avoid unwrap()**: Use `.expect()` with descriptive message for impossible errors
+- **Prefer map_or()**: Replace `.is_none() || .unwrap()` patterns with `.map_or(true, |v| ...)`
+- **Add context**: Always provide error context for debugging: `.context("Operation failed")?`
+- **Error recovery**: Use match for recoverable errors, `?` for critical ones
 
 ### Testing
 - Unit tests in same file with `#[cfg(test)]`

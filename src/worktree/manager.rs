@@ -1173,7 +1173,9 @@ impl WorktreeManager {
         );
 
         let log_file = self.base_dir.join(".metadata").join("cleanup.log");
-        let log_dir = log_file.parent().unwrap();
+        let log_dir = log_file
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("Invalid log file path: no parent directory"))?;
         fs::create_dir_all(log_dir).context("Failed to create log directory")?;
 
         fs::write(

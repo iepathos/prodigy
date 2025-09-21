@@ -669,8 +669,12 @@ impl FilterExpression {
 
         // Check for function calls
         if expr.contains('(') && expr.contains(')') {
-            let open_paren = expr.find('(').unwrap();
-            let close_paren = expr.rfind(')').unwrap();
+            let open_paren = expr.find('(').ok_or_else(|| {
+                anyhow::anyhow!("Invalid expression: missing opening parenthesis")
+            })?;
+            let close_paren = expr.rfind(')').ok_or_else(|| {
+                anyhow::anyhow!("Invalid expression: missing closing parenthesis")
+            })?;
             let name = expr[..open_paren].trim().to_string();
             let args_str = &expr[open_paren + 1..close_paren];
 

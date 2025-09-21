@@ -737,7 +737,7 @@ async fn find_latest_checkpoint(checkpoint_dir: &PathBuf) -> Option<String> {
         if path.is_file() && path.extension().is_some_and(|ext| ext == "json") {
             if let Ok(metadata) = entry.metadata().await {
                 if let Ok(modified) = metadata.modified() {
-                    if latest_time.is_none() || modified > latest_time.unwrap() {
+                    if latest_time.map_or(true, |time| modified > time) {
                         latest_time = Some(modified);
                         if let Some(name) = path.file_stem() {
                             latest_checkpoint = Some(name.to_string_lossy().to_string());
@@ -761,7 +761,9 @@ async fn run_checkpoints_command(command: CheckpointCommands) -> anyhow::Result<
             path,
             verbose,
         } => {
-            let working_dir = path.unwrap_or_else(|| std::env::current_dir().unwrap());
+            let working_dir = path.unwrap_or_else(|| {
+                std::env::current_dir().expect("Failed to get current directory")
+            });
             let checkpoint_dir = working_dir.join(".prodigy").join("checkpoints");
 
             if !checkpoint_dir.exists() {
@@ -852,7 +854,9 @@ async fn run_checkpoints_command(command: CheckpointCommands) -> anyhow::Result<
             force,
             path,
         } => {
-            let working_dir = path.unwrap_or_else(|| std::env::current_dir().unwrap());
+            let working_dir = path.unwrap_or_else(|| {
+                std::env::current_dir().expect("Failed to get current directory")
+            });
             let checkpoint_dir = working_dir.join(".prodigy").join("checkpoints");
 
             if !checkpoint_dir.exists() {
@@ -921,7 +925,9 @@ async fn run_checkpoints_command(command: CheckpointCommands) -> anyhow::Result<
             version: _,
             path,
         } => {
-            let working_dir = path.unwrap_or_else(|| std::env::current_dir().unwrap());
+            let working_dir = path.unwrap_or_else(|| {
+                std::env::current_dir().expect("Failed to get current directory")
+            });
             let checkpoint_dir = working_dir.join(".prodigy").join("checkpoints");
             let checkpoint_manager = CheckpointManager::new(checkpoint_dir);
 
@@ -1715,7 +1721,10 @@ async fn handle_list_command(
 fn classify_merge_type(name: &Option<String>, all: bool) -> MergeType {
     match () {
         _ if all => MergeType::All,
-        _ if name.is_some() => MergeType::Single(name.clone().unwrap()),
+        _ if name.is_some() => MergeType::Single(
+            name.clone()
+                .expect("name should be Some based on condition"),
+        ),
         _ => MergeType::Invalid,
     }
 }
@@ -1936,7 +1945,7 @@ async fn handle_clean_command(
         }
         CleanupAction::All => handle_all_cleanup(worktree_manager, force).await,
         CleanupAction::Single => {
-            let name = name.unwrap(); // Safe because determine_cleanup_action ensures this
+            let name = name.expect("Name should be present based on cleanup action determination");
             handle_single_cleanup(worktree_manager, &name, force).await
         }
         CleanupAction::ShowMergeable => handle_show_mergeable(worktree_manager).await,
@@ -2159,7 +2168,10 @@ async fn resolve_job_id(
             }
 
             if available_jobs.len() == 1 {
-                Ok(available_jobs.into_iter().next().unwrap())
+                Ok(available_jobs
+                    .into_iter()
+                    .next()
+                    .ok_or_else(|| anyhow::anyhow!("No jobs available after filtering"))?)
             } else {
                 println!("Multiple jobs with DLQ data found:");
                 for (i, job_id) in available_jobs.iter().enumerate() {

@@ -519,12 +519,11 @@ impl DefaultCookOrchestrator {
         match workflow_type {
             WorkflowType::MapReduce => {
                 // MapReduce workflows have their own resume mechanism
-                self.execute_mapreduce_workflow(
-                    env,
-                    config,
-                    config.mapreduce_config.as_ref().unwrap(),
-                )
-                .await
+                let mapreduce_config = config.mapreduce_config.as_ref().ok_or_else(|| {
+                    anyhow::anyhow!("MapReduce workflow requires mapreduce configuration")
+                })?;
+                self.execute_mapreduce_workflow(env, config, mapreduce_config)
+                    .await
             }
             WorkflowType::StructuredWithOutputs => {
                 self.execute_structured_workflow_from(env, config, start_iteration, start_step)
@@ -864,12 +863,16 @@ impl DefaultCookOrchestrator {
     ) {
         if step.shell.is_some() && step.on_failure.is_some() {
             // Convert shell command with on_failure to test command for retry logic
-            let test_cmd = crate::config::command::TestCommand {
-                command: step.shell.clone().unwrap(),
-                on_failure: step.on_failure.clone(),
-            };
+            // Safe to use unwrap here as we just checked is_some() above
+            let test_cmd =
+                step.shell
+                    .as_ref()
+                    .map(|shell_cmd| crate::config::command::TestCommand {
+                        command: shell_cmd.clone(),
+                        on_failure: step.on_failure.clone(),
+                    });
             // Clear shell field when converting to test
-            (None, Some(test_cmd), None)
+            (None, test_cmd, None)
         } else if step.on_failure.is_some() {
             // For non-shell commands, convert TestDebugConfig to OnFailureConfig
             let on_failure = step.on_failure.as_ref().map(|debug_config| {
@@ -1221,12 +1224,11 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             WorkflowType::MapReduce => {
                 // Don't show "Executing workflow: default" for MapReduce workflows
                 // The MapReduce executor will show its own appropriate messages
+                let mapreduce_config = config.mapreduce_config.as_ref().ok_or_else(|| {
+                    anyhow::anyhow!("MapReduce workflow requires mapreduce configuration")
+                })?;
                 return self
-                    .execute_mapreduce_workflow(
-                        env,
-                        config,
-                        config.mapreduce_config.as_ref().unwrap(),
-                    )
+                    .execute_mapreduce_workflow(env, config, mapreduce_config)
                     .await;
             }
             WorkflowType::StructuredWithOutputs => {
