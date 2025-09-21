@@ -163,8 +163,6 @@ Tracks the current cooking session:
 When executing Claude commands, Prodigy sets these environment variables:
 - `PRODIGY_AUTOMATION="true"` - Signals automated execution mode
 - `PRODIGY_CLAUDE_STREAMING="true"` - Enables streaming mode for Claude commands (when verbosity >= 1)
-- `PRODIGY_USE_LOCAL_STORAGE="true"` - Force local storage instead of global (optional)
-- `PRODIGY_REMOVE_LOCAL_AFTER_MIGRATION="true"` - Remove local storage after migration (optional)
 
 ## Global Storage Architecture
 
@@ -175,12 +173,10 @@ Prodigy uses a global storage architecture by default, storing all events, state
 - **Centralized monitoring**: All job data accessible from a single location
 - **Efficient storage**: Deduplication across worktrees
 
-### Migration from Local Storage
-When upgrading from an older version:
-- Prodigy automatically detects existing local storage
-- Data is migrated to global storage on first run
-- Set `PRODIGY_REMOVE_LOCAL_AFTER_MIGRATION=true` to remove local storage after migration
-- Use `PRODIGY_USE_LOCAL_STORAGE=true` to continue using local storage
+### Automatic Migration
+- Prodigy automatically detects existing local storage on first run
+- Data is migrated from `.prodigy/` to `~/.prodigy/` automatically
+- Local storage is removed after successful migration
 
 ## MapReduce Features
 

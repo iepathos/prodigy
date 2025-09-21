@@ -923,10 +923,9 @@ impl MapReduceExecutor {
                 }
             };
 
-        // Use global storage if enabled, otherwise fall back to local
-        let event_logger = if crate::storage::GlobalStorage::should_use_global() {
-            // Use global storage for events
-            let job_id = format!("mapreduce-{}", chrono::Utc::now().format("%Y%m%d_%H%M%S"));
+        // Use global storage for events
+        let job_id = format!("mapreduce-{}", chrono::Utc::now().format("%Y%m%d_%H%M%S"));
+        let event_logger =
             match crate::storage::create_global_event_logger(&project_root, &job_id).await {
                 Ok(logger) => {
                     info!("Using global event storage for job: {}", job_id);
@@ -934,44 +933,21 @@ impl MapReduceExecutor {
                 }
                 Err(e) => {
                     warn!(
-                        "Failed to create global event logger: {}, falling back to local",
+                        "Failed to create global event logger: {}, using temp directory fallback",
                         e
                     );
-                    // Fallback to local storage
-                    let state_dir = project_root.join(".prodigy").join("mapreduce");
-                    let events_dir = state_dir.join("events");
+                    // Fallback to temp directory
+                    let temp_path = std::env::temp_dir().join("prodigy_events.jsonl");
                     let event_writers: Vec<Box<dyn EventWriter>> = vec![Box::new(
-                        JsonlEventWriter::new(events_dir.join("global").join("events.jsonl"))
+                        JsonlEventWriter::new(temp_path.clone())
                             .await
                             .unwrap_or_else(|_| {
-                                let temp_path = std::env::temp_dir().join("prodigy_events.jsonl");
-                                warn!("Using temp directory: {:?}", temp_path);
-                                futures::executor::block_on(JsonlEventWriter::new(temp_path))
-                                    .expect("Failed to create fallback event logger")
+                                panic!("Failed to create fallback event logger at {:?}", temp_path);
                             }),
                     )];
                     Arc::new(EventLogger::new(event_writers))
                 }
-            }
-        } else {
-            // Use local storage (legacy mode)
-            let state_dir = project_root.join(".prodigy").join("mapreduce");
-            let events_dir = state_dir.join("events");
-            let event_writers: Vec<Box<dyn EventWriter>> = vec![Box::new(
-                JsonlEventWriter::new(events_dir.join("global").join("events.jsonl"))
-                    .await
-                    .unwrap_or_else(|_| {
-                        let temp_path = std::env::temp_dir().join("prodigy_events.jsonl");
-                        warn!(
-                            "Failed to create event logger in project dir, using temp: {:?}",
-                            temp_path
-                        );
-                        futures::executor::block_on(JsonlEventWriter::new(temp_path))
-                            .expect("Failed to create fallback event logger")
-                    }),
-            )];
-            Arc::new(EventLogger::new(event_writers))
-        };
+            };
 
         // Create agent lifecycle manager and result aggregator
         let agent_lifecycle_manager =
@@ -1140,58 +1116,40 @@ impl MapReduceExecutor {
 
         debug!("Created MapReduce job with ID: {}", job_id);
 
-        // Initialize Dead Letter Queue for this job
+        // Initialize Dead Letter Queue for this job using global storage
         self.dlq = Some(Arc::new(
-            if crate::storage::GlobalStorage::should_use_global() {
-                // Use global storage for DLQ
-                match crate::storage::create_global_dlq(
-                    &self.project_root,
-                    &job_id,
-                    Some(self.event_logger.clone()),
-                )
-                .await
-                {
-                    Ok(dlq) => {
-                        info!("Using global DLQ storage for job: {}", job_id);
-                        dlq
-                    }
-                    Err(e) => {
-                        warn!("Failed to create global DLQ: {}, falling back to local", e);
-                        // Fallback to local storage
-                        let dlq_path = self.project_root.join(".prodigy");
-                        DeadLetterQueue::new(
-                            job_id.clone(),
-                            dlq_path,
-                            1000, // Max 1000 items in DLQ
-                            30,   // 30 days retention
-                            Some(self.event_logger.clone()),
-                        )
-                        .await
-                        .map_err(|e| {
-                            MapReduceError::JobInitializationFailed {
-                                job_id: job_id.clone(),
-                                reason: format!("Failed to create DLQ: {}", e),
-                                source: None,
-                            }
-                        })?
-                    }
+            match crate::storage::create_global_dlq(
+                &self.project_root,
+                &job_id,
+                Some(self.event_logger.clone()),
+            )
+            .await
+            {
+                Ok(dlq) => {
+                    info!("Using global DLQ storage for job: {}", job_id);
+                    dlq
                 }
-            } else {
-                // Use local storage (legacy mode)
-                let dlq_path = self.project_root.join(".prodigy");
-                DeadLetterQueue::new(
-                    job_id.clone(),
-                    dlq_path,
-                    1000, // Max 1000 items in DLQ
-                    30,   // 30 days retention
-                    Some(self.event_logger.clone()),
-                )
-                .await
-                .map_err(|e| MapReduceError::JobInitializationFailed {
-                    job_id: job_id.clone(),
-                    reason: format!("Failed to create local DLQ: {}", e),
-                    source: None,
-                })?
+                Err(e) => {
+                    warn!(
+                        "Failed to create global DLQ: {}, using temp directory fallback",
+                        e
+                    );
+                    // Fallback to temp directory
+                    let dlq_path = std::env::temp_dir().join("prodigy_dlq");
+                    DeadLetterQueue::new(
+                        job_id.clone(),
+                        dlq_path,
+                        1000, // Max 1000 items in DLQ
+                        30,   // 30 days retention
+                        Some(self.event_logger.clone()),
+                    )
+                    .await
+                    .map_err(|e| MapReduceError::JobInitializationFailed {
+                        job_id: job_id.clone(),
+                        reason: format!("Failed to create DLQ: {}", e),
+                        source: None,
+                    })?
+                }
             },
         ));
 

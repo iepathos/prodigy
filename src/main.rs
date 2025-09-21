@@ -298,12 +298,6 @@ enum Commands {
         #[arg(long)]
         web: Option<u16>,
     },
-    /// Analyze Claude session analytics
-    #[command(name = "analytics")]
-    Analytics {
-        #[command(subcommand)]
-        command: prodigy::cli::analytics_command::AnalyticsCommand,
-    },
 }
 
 #[derive(Subcommand)]
@@ -1184,9 +1178,6 @@ async fn execute_command(command: Option<Commands>, verbose: u8) -> anyhow::Resu
             format,
             web,
         }) => run_progress_command(job_id, export, format, web).await,
-        Some(Commands::Analytics { command }) => {
-            prodigy::cli::analytics_command::handle_analytics_command(command).await
-        }
         None => {
             // Display help when no command is provided (following CLI conventions)
             let mut cmd = Cli::command();
@@ -1336,150 +1327,146 @@ async fn run_resume_workflow(
         }
     };
 
-    // Check if checkpoint exists
-    if checkpoint_dir.exists() {
-        // Try to load checkpoint (with optional specific checkpoint)
-        let checkpoint_result = if let Some(ref checkpoint_id) = from_checkpoint {
-            checkpoint_manager.load_checkpoint(checkpoint_id).await
-        } else {
-            checkpoint_manager.load_checkpoint(&workflow_id).await
-        };
+    // Try to load checkpoint (always attempt, even if local dir doesn't exist - might be in global storage)
+    let checkpoint_result = if let Some(ref checkpoint_id) = from_checkpoint {
+        checkpoint_manager.load_checkpoint(checkpoint_id).await
+    } else {
+        checkpoint_manager.load_checkpoint(&workflow_id).await
+    };
 
-        match checkpoint_result {
-            Ok(checkpoint) => {
-                // Use pure functions for formatting
-                for message in prodigy::resume_logic::format_checkpoint_status(&checkpoint) {
-                    println!("{}", message);
-                }
+    match checkpoint_result {
+        Ok(checkpoint) => {
+            // Use pure functions for formatting
+            for message in prodigy::resume_logic::format_checkpoint_status(&checkpoint) {
+                println!("{}", message);
+            }
 
-                // Use workflow path from checkpoint if available, otherwise try to find it
-                let workflow_path = if let Some(ref checkpoint_path) = checkpoint.workflow_path {
-                    // Use the path stored in the checkpoint
-                    checkpoint_path.clone()
-                } else {
-                    // Fallback to searching for the workflow file
-                    let possible_paths = prodigy::resume_logic::possible_workflow_paths(
-                        &working_dir,
-                        checkpoint.workflow_name.as_deref(),
-                    );
-
-                    match prodigy::resume_logic::find_workflow_file(&possible_paths, |p| p.exists())
-                    {
-                        prodigy::resume_logic::WorkflowFileResult::Found(path) => path,
-                        prodigy::resume_logic::WorkflowFileResult::NotFound(paths) => {
-                            println!("⚠️  Could not find workflow file automatically.");
-                            println!("   Please specify the workflow file path explicitly:");
-                            println!("   prodigy resume <workflow_id> <workflow_file_path>");
-                            println!(
-                                "   Searched in: {:?}",
-                                paths.iter().map(|p| p.display()).collect::<Vec<_>>()
-                            );
-                            std::process::exit(2); // ARGUMENT_ERROR
-                        }
-                        prodigy::resume_logic::WorkflowFileResult::Multiple(paths) => {
-                            println!("⚠️  Multiple workflow files found:");
-                            for path in &paths {
-                                println!("   - {}", path.display());
-                            }
-                            println!("   Please specify the workflow file path explicitly:");
-                            println!("   prodigy resume <workflow_id> <workflow_file_path>");
-                            std::process::exit(2); // ARGUMENT_ERROR
-                        }
-                    }
-                };
-
-                // Create resume options
-                let resume_options = ResumeOptions {
-                    force,
-                    from_step: None,
-                    reset_failures: false,
-                    skip_validation: false,
-                };
-
-                // Create executors for resume
-                let command_runner = prodigy::cook::execution::runner::RealCommandRunner::new();
-                let resume_session_id = format!("resume-{}", workflow_id);
-
-                // Create event logger for Claude streaming logs
-                let event_logger = match prodigy::storage::create_global_event_logger(
+            // Use workflow path from checkpoint if available, otherwise try to find it
+            let workflow_path = if let Some(ref checkpoint_path) = checkpoint.workflow_path {
+                // Use the path stored in the checkpoint
+                checkpoint_path.clone()
+            } else {
+                // Fallback to searching for the workflow file
+                let possible_paths = prodigy::resume_logic::possible_workflow_paths(
                     &working_dir,
-                    &resume_session_id,
-                )
-                .await
-                {
-                    Ok(logger) => Some(Arc::new(logger)),
-                    Err(e) => {
-                        tracing::warn!(
-                            "Failed to create event logger for resume session {}: {}",
-                            resume_session_id,
-                            e
-                        );
-                        None
-                    }
-                };
-
-                let claude_executor = Arc::new({
-                    let mut executor = ClaudeExecutorImpl::new(command_runner);
-                    if let Some(logger) = event_logger {
-                        executor = executor.with_event_logger(logger);
-                    }
-                    executor
-                });
-                let session_tracker = Arc::new(SessionTrackerImpl::new(
-                    format!("resume-{}", workflow_id),
-                    working_dir.clone(),
-                ));
-                let user_interaction = Arc::new(DefaultUserInteraction::default());
-
-                // Create resume executor with full execution support
-                let mut resume_executor = ResumeExecutor::new(checkpoint_manager.clone())
-                    .with_executors(
-                        claude_executor.clone(),
-                        session_tracker.clone(),
-                        user_interaction.clone(),
-                    );
-
-                // Print resume action message
-                println!(
-                    "{}",
-                    prodigy::resume_logic::format_resume_action(
-                        force,
-                        &checkpoint.execution_state.status
-                    )
+                    checkpoint.workflow_name.as_deref(),
                 );
-                println!("   Workflow file: {}", workflow_path.display());
 
-                // Calculate and display skip count
-                let skip_count = prodigy::resume_logic::calculate_skip_count(&checkpoint, force);
-                if skip_count > 0 {
-                    println!("   Skipping {} completed steps", skip_count);
-                } else if force {
-                    println!("   Starting from the beginning (force mode)");
-                }
-
-                // Execute from checkpoint
-                match resume_executor
-                    .execute_from_checkpoint(&workflow_id, &workflow_path, resume_options)
-                    .await
-                {
-                    Ok(result) => {
-                        println!("✅ Workflow resumed successfully!");
+                match prodigy::resume_logic::find_workflow_file(&possible_paths, |p| p.exists()) {
+                    prodigy::resume_logic::WorkflowFileResult::Found(path) => path,
+                    prodigy::resume_logic::WorkflowFileResult::NotFound(paths) => {
+                        println!("⚠️  Could not find workflow file automatically.");
+                        println!("   Please specify the workflow file path explicitly:");
+                        println!("   prodigy resume <workflow_id> <workflow_file_path>");
                         println!(
-                            "   Executed {} new steps (skipped {})",
-                            result.new_steps_executed, result.skipped_steps
+                            "   Searched in: {:?}",
+                            paths.iter().map(|p| p.display()).collect::<Vec<_>>()
                         );
-                        return Ok(());
+                        std::process::exit(2); // ARGUMENT_ERROR
                     }
-                    Err(e) => {
-                        return Err(anyhow::anyhow!("Failed to resume workflow: {}", e));
+                    prodigy::resume_logic::WorkflowFileResult::Multiple(paths) => {
+                        println!("⚠️  Multiple workflow files found:");
+                        for path in &paths {
+                            println!("   - {}", path.display());
+                        }
+                        println!("   Please specify the workflow file path explicitly:");
+                        println!("   prodigy resume <workflow_id> <workflow_file_path>");
+                        std::process::exit(2); // ARGUMENT_ERROR
                     }
                 }
+            };
+
+            // Create resume options
+            let resume_options = ResumeOptions {
+                force,
+                from_step: None,
+                reset_failures: false,
+                skip_validation: false,
+            };
+
+            // Create executors for resume
+            let command_runner = prodigy::cook::execution::runner::RealCommandRunner::new();
+            let resume_session_id = format!("resume-{}", workflow_id);
+
+            // Create event logger for Claude streaming logs
+            let event_logger = match prodigy::storage::create_global_event_logger(
+                &working_dir,
+                &resume_session_id,
+            )
+            .await
+            {
+                Ok(logger) => Some(Arc::new(logger)),
+                Err(e) => {
+                    tracing::warn!(
+                        "Failed to create event logger for resume session {}: {}",
+                        resume_session_id,
+                        e
+                    );
+                    None
+                }
+            };
+
+            let claude_executor = Arc::new({
+                let mut executor = ClaudeExecutorImpl::new(command_runner);
+                if let Some(logger) = event_logger {
+                    executor = executor.with_event_logger(logger);
+                }
+                executor
+            });
+            let session_tracker = Arc::new(SessionTrackerImpl::new(
+                format!("resume-{}", workflow_id),
+                working_dir.clone(),
+            ));
+            let user_interaction = Arc::new(DefaultUserInteraction::default());
+
+            // Create resume executor with full execution support
+            let mut resume_executor = ResumeExecutor::new(checkpoint_manager.clone())
+                .with_executors(
+                    claude_executor.clone(),
+                    session_tracker.clone(),
+                    user_interaction.clone(),
+                );
+
+            // Print resume action message
+            println!(
+                "{}",
+                prodigy::resume_logic::format_resume_action(
+                    force,
+                    &checkpoint.execution_state.status
+                )
+            );
+            println!("   Workflow file: {}", workflow_path.display());
+
+            // Calculate and display skip count
+            let skip_count = prodigy::resume_logic::calculate_skip_count(&checkpoint, force);
+            if skip_count > 0 {
+                println!("   Skipping {} completed steps", skip_count);
+            } else if force {
+                println!("   Starting from the beginning (force mode)");
             }
-            Err(e) => {
-                // No checkpoint found, try session-based resume
-                debug!("Checkpoint loading failed: {}", e);
-                println!("No checkpoint found, checking for session state...");
+
+            // Execute from checkpoint
+            match resume_executor
+                .execute_from_checkpoint(&workflow_id, &workflow_path, resume_options)
+                .await
+            {
+                Ok(result) => {
+                    println!("✅ Workflow resumed successfully!");
+                    println!(
+                        "   Executed {} new steps (skipped {})",
+                        result.new_steps_executed, result.skipped_steps
+                    );
+                    return Ok(());
+                }
+                Err(e) => {
+                    return Err(anyhow::anyhow!("Failed to resume workflow: {}", e));
+                }
             }
+        }
+        Err(e) => {
+            // No checkpoint found, try session-based resume
+            debug!("Checkpoint loading failed: {}", e);
+            println!("No checkpoint found, checking for session state...");
         }
     }
 
@@ -1569,11 +1556,34 @@ async fn main() {
 
     init_tracing(cli.verbose);
 
+    // Perform automatic migration from local to global storage if needed
+    if let Err(e) = check_and_migrate_storage().await {
+        error!("Storage migration failed: {}", e);
+        // Continue anyway - migration is best effort
+    }
+
     let result = execute_command(cli.command, cli.verbose).await;
 
     if let Err(e) = result {
         handle_fatal_error(e);
     }
+}
+
+/// Check for local storage and migrate to global if found
+async fn check_and_migrate_storage() -> anyhow::Result<()> {
+    use prodigy::storage::migration;
+    use std::env;
+
+    // Get current directory as project path
+    let project_path = env::current_dir()?;
+
+    // Check if local storage exists
+    if migration::has_local_storage(&project_path).await {
+        debug!("Detected local storage, migrating to global storage");
+        migration::migrate_to_global(&project_path).await?;
+    }
+
+    Ok(())
 }
 
 /// Handle the list command for worktrees
@@ -2071,15 +2081,12 @@ async fn get_dlq_instance(
     project_root: &std::path::Path,
 ) -> anyhow::Result<prodigy::cook::execution::dlq::DeadLetterQueue> {
     use prodigy::cook::execution::dlq::DeadLetterQueue;
+    use prodigy::storage::{extract_repo_name, GlobalStorage};
 
-    if prodigy::storage::GlobalStorage::should_use_global() {
-        let storage = prodigy::storage::GlobalStorage::new(project_root)?;
-        let dlq_dir = storage.get_dlq_dir(job_id).await?;
-        DeadLetterQueue::new(job_id.to_string(), dlq_dir, 10000, 30, None).await
-    } else {
-        let dlq_path = project_root.join(".prodigy");
-        DeadLetterQueue::new(job_id.to_string(), dlq_path, 10000, 30, None).await
-    }
+    let storage = GlobalStorage::new()?;
+    let repo_name = extract_repo_name(project_root)?;
+    let dlq_dir = storage.get_dlq_dir(&repo_name, job_id).await?;
+    DeadLetterQueue::new(job_id.to_string(), dlq_dir, 10000, 30, None).await
 }
 
 fn display_dlq_items(

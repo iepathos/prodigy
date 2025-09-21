@@ -277,13 +277,22 @@ impl CheckpointManager {
     pub async fn load_checkpoint(&self, workflow_id: &str) -> Result<WorkflowCheckpoint> {
         let checkpoint_path = self.get_checkpoint_path(workflow_id);
 
-        if !checkpoint_path.exists() {
-            return Err(anyhow!("No checkpoint found for workflow {}", workflow_id));
-        }
-
-        let content = fs::read_to_string(&checkpoint_path)
-            .await
-            .context("Failed to read checkpoint file")?;
+        // Try local checkpoint first
+        let content = if checkpoint_path.exists() {
+            fs::read_to_string(&checkpoint_path)
+                .await
+                .context("Failed to read checkpoint file")?
+        } else {
+            // Try global storage location
+            let global_checkpoint_path = self.get_global_checkpoint_path(workflow_id).await?;
+            if global_checkpoint_path.exists() {
+                fs::read_to_string(&global_checkpoint_path)
+                    .await
+                    .context("Failed to read global checkpoint file")?
+            } else {
+                return Err(anyhow!("No checkpoint found for workflow {}", workflow_id));
+            }
+        };
 
         let checkpoint: WorkflowCheckpoint = match serde_json::from_str(&content) {
             Ok(cp) => cp,
@@ -369,6 +378,43 @@ impl CheckpointManager {
     fn get_checkpoint_path(&self, workflow_id: &str) -> PathBuf {
         self.storage_path
             .join(format!("{}.checkpoint.json", workflow_id))
+    }
+
+    /// Get the global storage path for a checkpoint file
+    async fn get_global_checkpoint_path(&self, workflow_id: &str) -> Result<PathBuf> {
+        // Extract repository name from the storage path
+        // storage_path is usually /path/to/repo/.prodigy/checkpoints
+        let repo_name = if let Some(parent) = self.storage_path.parent() {
+            // parent is /path/to/repo/.prodigy
+            if parent.ends_with(".prodigy") {
+                // Get the repo directory
+                parent
+                    .parent()
+                    .and_then(|p| p.file_name())
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("unknown")
+                    .to_string()
+            } else {
+                parent
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("unknown")
+                    .to_string()
+            }
+        } else {
+            "unknown".to_string()
+        };
+
+        // Build global checkpoint path
+        let global_base = dirs::home_dir()
+            .ok_or_else(|| anyhow!("Could not determine home directory"))?
+            .join(".prodigy");
+
+        Ok(global_base
+            .join("state")
+            .join(repo_name)
+            .join("checkpoints")
+            .join(format!("{}.checkpoint.json", workflow_id)))
     }
 }
 

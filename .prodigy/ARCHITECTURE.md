@@ -273,7 +273,7 @@ The storage abstraction layer provides a unified interface for all storage opera
 ### Backend Implementations
 
 #### File Backend (Default)
-- **Global Storage**: `~/.prodigy/` directory structure
+- **Configurable Storage**: Base directory configurable via `PRODIGY_STORAGE_DIR` (default: `~/.prodigy/`)
 - **File-Based Locking**: Exclusive file creation for coordination
 - **JSON Serialization**: Human-readable data format
 - **Directory Structure**:
@@ -284,16 +284,20 @@ The storage abstraction layer provides a unified interface for all storage opera
   - `workflows/`: Workflow definitions
   - `locks/`: Lock files for coordination
 
-#### Database Backends (Planned)
-- **PostgreSQL**: Full ACID compliance, complex queries
-- **Redis**: High-performance caching, pub/sub support
-- **S3**: Object storage for large-scale deployments
+#### Database Backends (Feature-Gated)
+Optional backends available through Cargo feature flags:
+- **PostgreSQL** (`--features postgres`): Full ACID compliance, complex queries
+- **Redis** (`--features redis`): High-performance caching, pub/sub support
+- **S3** (`--features s3`): Object storage for large-scale deployments
+- **Distributed** (`--features distributed`): Enables all backend types
 
-### Global Storage (`~/.prodigy/`)
+### Storage Configuration
+- **Default Location**: `~/.prodigy/` (configurable via `PRODIGY_STORAGE_DIR`)
 - **Events**: Cross-worktree event aggregation by repository
 - **State**: MapReduce job checkpoints and session data
 - **DLQ**: Failed work items for retry analysis
 - **Worktrees**: Isolated git worktrees for parallel sessions
+- **Migration**: Automatic migration from legacy local storage (`.prodigy/`) on first run
 
 ### Session State
 ```rust

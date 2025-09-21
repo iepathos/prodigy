@@ -35,10 +35,11 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - `test:` - Test execution (deprecated, use shell instead)
 
 ### Storage Architecture ✅
-- **Global Storage**: Centralized event and state management in `~/.prodigy/`
+- **Configurable Storage**: Configurable storage paths (default `~/.prodigy/`, customizable via `PRODIGY_STORAGE_DIR`)
 - **Event Tracking**: Cross-worktree event aggregation
 - **Dead Letter Queue**: Failed item tracking and recovery
 - **Session Persistence**: Session state and timing data
+- **Distributed Backend Support**: Optional PostgreSQL, Redis, S3 backends via feature flags
 
 ### CLI Commands ✅
 - `prodigy run` - Execute workflows (primary command) ✅
