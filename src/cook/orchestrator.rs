@@ -421,8 +421,20 @@ impl DefaultCookOrchestrator {
 
         // If using a worktree, verify it still exists
         if let Some(ref name) = worktree_name {
-            let worktree_manager =
-                WorktreeManager::new(config.project_path.clone(), self.subprocess.clone())?;
+            // Get merge config from workflow or mapreduce config
+            let merge_config = config.workflow.merge.clone().or_else(|| {
+                config
+                    .mapreduce_config
+                    .as_ref()
+                    .and_then(|m| m.merge.clone())
+            });
+
+            let worktree_manager = WorktreeManager::with_config(
+                config.project_path.clone(),
+                self.subprocess.clone(),
+                config.command.verbosity,
+                merge_config,
+            )?;
 
             // Check if worktree still exists
             // Check if worktree still exists by trying to list sessions
@@ -976,9 +988,19 @@ impl CookOrchestrator for DefaultCookOrchestrator {
         if config.command.worktree {
             // Set up worktree-aware signal handler
             // This allows the worktree state to be marked as interrupted
-            let worktree_manager = Arc::new(WorktreeManager::new(
+            // Get merge config from workflow or mapreduce config
+            let merge_config = config.workflow.merge.clone().or_else(|| {
+                config
+                    .mapreduce_config
+                    .as_ref()
+                    .and_then(|m| m.merge.clone())
+            });
+
+            let worktree_manager = Arc::new(WorktreeManager::with_config(
                 config.project_path.clone(),
                 self.subprocess.clone(),
+                config.command.verbosity,
+                merge_config,
             )?);
             super::signal_handler::setup_interrupt_handlers(
                 worktree_manager,
@@ -1002,7 +1024,9 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 
             // Also update worktree state if using a worktree
             if let Some(ref name) = worktree_name {
-                if let Ok(worktree_manager) = WorktreeManager::new(project_path, subprocess) {
+                if let Ok(worktree_manager) =
+                    WorktreeManager::new(project_path.clone(), subprocess.clone())
+                {
                     let _ = worktree_manager.update_session_state(name, |state| {
                         state.status = crate::worktree::WorktreeStatus::Interrupted;
                         state.interrupted_at = Some(chrono::Utc::now());
@@ -1051,9 +1075,19 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 
                     // Also update worktree state if using a worktree
                     if let Some(ref name) = env.worktree_name {
-                        let worktree_manager = WorktreeManager::new(
+                        // Get merge config from workflow or mapreduce config
+                        let merge_config = config.workflow.merge.clone().or_else(|| {
+                            config
+                                .mapreduce_config
+                                .as_ref()
+                                .and_then(|m| m.merge.clone())
+                        });
+
+                        let worktree_manager = WorktreeManager::with_config(
                             config.project_path.clone(),
                             self.subprocess.clone(),
+                            config.command.verbosity,
+                            merge_config,
                         )?;
                         worktree_manager.update_session_state(name, |state| {
                             state.status = crate::worktree::WorktreeStatus::Interrupted;
@@ -1136,8 +1170,20 @@ impl CookOrchestrator for DefaultCookOrchestrator {
 
         // Setup worktree if requested (but not in dry-run mode)
         if config.command.worktree && !config.command.dry_run {
-            let worktree_manager =
-                WorktreeManager::new(config.project_path.clone(), self.subprocess.clone())?;
+            // Get merge config from workflow or mapreduce config
+            let merge_config = config.workflow.merge.clone().or_else(|| {
+                config
+                    .mapreduce_config
+                    .as_ref()
+                    .and_then(|m| m.merge.clone())
+            });
+
+            let worktree_manager = WorktreeManager::with_config(
+                config.project_path.clone(),
+                self.subprocess.clone(),
+                config.command.verbosity,
+                merge_config,
+            )?;
             // Pass the unified session ID to the worktree manager
             let session = worktree_manager.create_session_with_id(&session_id).await?;
 
@@ -1304,8 +1350,20 @@ impl CookOrchestrator for DefaultCookOrchestrator {
             };
 
             if should_merge {
-                let worktree_manager =
-                    WorktreeManager::new(env.project_dir.clone(), self.subprocess.clone())?;
+                // Get merge config from workflow or mapreduce config
+                let merge_config = config.workflow.merge.clone().or_else(|| {
+                    config
+                        .mapreduce_config
+                        .as_ref()
+                        .and_then(|m| m.merge.clone())
+                });
+
+                let worktree_manager = WorktreeManager::with_config(
+                    env.project_dir.clone(),
+                    self.subprocess.clone(),
+                    config.command.verbosity,
+                    merge_config,
+                )?;
 
                 // merge_session already handles auto-cleanup internally based on PRODIGY_AUTO_CLEANUP env var
                 // We should not duplicate cleanup here to avoid race conditions

@@ -9,7 +9,7 @@ A workflow orchestration tool that executes Claude commands through structured Y
 ### Core Features ✅
 - **Workflow Execution**: Sequential and parallel command execution
 - **Session Management**: Persistent state tracking with timing
-- **Claude Integration**: Direct Claude Code CLI integration
+- **Claude Integration**: Direct Claude Code CLI integration with transparent streaming
 - **Shell Commands**: Full shell command support
 - **MapReduce Processing**: Parallel execution across multiple agents with setup phase ✅
 - **Foreach Iteration**: Simple parallel iteration without MapReduce complexity ✅
@@ -24,6 +24,8 @@ A workflow orchestration tool that executes Claude commands through structured Y
 - **Real-time Streaming Infrastructure**: Line-by-line output capture with stream processors ✅
 - **Claude Streaming Integration**: Real-time Claude output visibility with tool invocation tracking ✅
 - **Storage Abstraction Layer**: Trait-based storage supporting file and database backends ✅
+- **Configurable Merge Workflows**: Custom merge strategies with variable interpolation ✅
+- **Transparent Claude Logging**: Consistent streaming output for all Claude operations ✅
 
 ### Command Types ✅
 - `claude:` - Execute Claude commands via Claude Code CLI

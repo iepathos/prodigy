@@ -1,4 +1,5 @@
 use super::command::WorkflowCommand;
+use super::mapreduce::MergeWorkflow;
 use crate::cook::environment::{EnvProfile, SecretValue};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
@@ -27,6 +28,10 @@ pub struct WorkflowConfig {
     /// Environment profiles for different contexts
     #[serde(skip_serializing_if = "Option::is_none")]
     pub profiles: Option<HashMap<String, EnvProfile>>,
+
+    /// Optional custom merge workflow for worktree integration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub merge: Option<MergeWorkflow>,
 }
 
 impl<'de> Deserialize<'de> for WorkflowConfig {
@@ -50,6 +55,8 @@ impl<'de> Deserialize<'de> for WorkflowConfig {
                 env_files: Option<Vec<PathBuf>>,
                 #[serde(default)]
                 profiles: Option<HashMap<String, EnvProfile>>,
+                #[serde(default)]
+                merge: Option<MergeWorkflow>,
             },
             // Old format: object with commands field only
             WithCommandsField {
@@ -65,6 +72,7 @@ impl<'de> Deserialize<'de> for WorkflowConfig {
                 secrets: None,
                 env_files: None,
                 profiles: None,
+                merge: None,
             }),
             WorkflowConfigHelper::Full {
                 commands,
@@ -72,12 +80,14 @@ impl<'de> Deserialize<'de> for WorkflowConfig {
                 secrets,
                 env_files,
                 profiles,
+                merge,
             } => Ok(WorkflowConfig {
                 commands,
                 env,
                 secrets,
                 env_files,
                 profiles,
+                merge,
             }),
             WorkflowConfigHelper::WithCommandsField { commands } => Ok(WorkflowConfig {
                 commands,
@@ -85,6 +95,7 @@ impl<'de> Deserialize<'de> for WorkflowConfig {
                 secrets: None,
                 env_files: None,
                 profiles: None,
+                merge: None,
             }),
         }
     }

@@ -298,6 +298,7 @@ async fn load_playbook_with_mapreduce(
                             secrets: None,
                             env_files: None,
                             profiles: None,
+                            merge: None,
                         },
                         Some(mapreduce_config),
                     ))
