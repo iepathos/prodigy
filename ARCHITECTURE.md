@@ -4,6 +4,188 @@
 
 Prodigy is a workflow orchestration tool that executes Claude commands through structured YAML workflows. It provides session management, state tracking, and supports parallel execution through MapReduce patterns.
 
+## Architectural Pattern: Functional Core, Imperative Shell
+
+Prodigy follows the "Functional Core, Imperative Shell" pattern to achieve:
+- **Testability**: Pure functions are easy to test without mocks or complex setup
+- **Maintainability**: Clear separation between business logic and I/O operations
+- **Predictability**: Pure functions always produce the same output for the same input
+- **Composability**: Small, focused functions that combine to create complex behavior
+
+### Functional Core (`src/core/`)
+
+The functional core contains all business logic as pure functions:
+
+- **Pure Functions Only**: No side effects, no I/O operations
+- **Data Transformations**: Functions take inputs and return outputs
+- **Immutable Data Flow**: Data is transformed, not mutated
+- **Easy Testing**: No mocks required, just input/output assertions
+
+#### Core Modules:
+
+- **`src/core/config/`**: Configuration validation and transformation logic
+- **`src/core/session/`**: Session state calculations and transitions
+- **`src/core/workflow/`**: Workflow parsing and validation logic
+- **`src/core/mapreduce/`**: MapReduce work distribution calculations
+- **`src/core/validation/`**: Data validation and constraint checking
+
+### Imperative Shell
+
+The imperative shell handles all I/O and side effects, delegating business logic to the core:
+
+- **I/O Operations**: File system, network, database access
+- **Side Effects**: Logging, metrics, external system calls
+- **Thin Layer**: Minimal logic, primarily orchestration
+- **Core Delegation**: Business logic delegated to pure functions
+
+#### Shell Modules:
+
+- **`src/storage/`**: Persistence layer wrapping core data structures
+- **`src/worktree/`**: Git operations wrapping core worktree logic
+- **`src/cook/execution/`**: Command execution wrapping core workflow logic
+- **`src/cli/`**: User interface wrapping core command processing
+
+## Guidelines for Identifying and Refactoring Mixed Functions
+
+### Identifying Mixed Functions
+
+Look for functions that:
+1. **Mix I/O with Logic**: File operations interleaved with business rules
+2. **Have Multiple Responsibilities**: Both calculating and persisting data
+3. **Are Hard to Test**: Require mocks, stubs, or complex test setup
+4. **Have Side Effects**: Modify global state, write files, or make network calls
+5. **Are Large**: Functions over 20 lines often mix concerns
+
+### Refactoring Strategy
+
+#### Step 1: Extract Pure Logic
+
+```rust
+// BEFORE: Mixed function
+fn process_workflow(path: &Path) -> Result<()> {
+    let content = fs::read_to_string(path)?;  // I/O
+    let workflow = serde_yaml::from_str(&content)?;  // Logic
+
+    // Validation logic mixed with I/O
+    if workflow.steps.is_empty() {
+        log::error!("Empty workflow");  // Side effect
+        return Err(anyhow!("Invalid workflow"));
+    }
+
+    fs::write("output.json", serde_json::to_string(&workflow)?)?;  // I/O
+    Ok(())
+}
+
+// AFTER: Separated concerns
+// Pure function in src/core/workflow/
+pub fn validate_workflow(workflow: &Workflow) -> Result<ValidatedWorkflow> {
+    if workflow.steps.is_empty() {
+        return Err(ValidationError::EmptyWorkflow);
+    }
+    Ok(ValidatedWorkflow::from(workflow))
+}
+
+// I/O wrapper in src/cook/workflow/
+fn process_workflow(path: &Path) -> Result<()> {
+    let content = fs::read_to_string(path)?;  // I/O
+    let workflow = serde_yaml::from_str(&content)?;
+
+    let validated = core::workflow::validate_workflow(&workflow)?;  // Pure logic
+
+    log::info!("Workflow validated");  // Side effect
+    fs::write("output.json", serde_json::to_string(&validated)?)?;  // I/O
+    Ok(())
+}
+```
+
+#### Step 2: Create Data Transformation Pipelines
+
+```rust
+// Pure transformation pipeline in core
+pub fn transform_session(
+    session: Session,
+    event: Event
+) -> Result<Session> {
+    session
+        .apply_event(event)
+        .and_then(validate_transition)
+        .map(calculate_metrics)
+        .map(update_timestamps)
+}
+
+// I/O shell uses the pipeline
+async fn handle_event(event: Event) -> Result<()> {
+    let session = storage.load_session()?;  // I/O
+    let updated = core::session::transform_session(session, event)?;  // Pure
+    storage.save_session(updated)?;  // I/O
+    Ok(())
+}
+```
+
+#### Step 3: Extract Complex Conditionals
+
+```rust
+// BEFORE: Complex inline logic
+if item.score > 5 && item.category == "critical" &&
+   (item.retry_count < 3 || item.override_retry) {
+    // process item
+}
+
+// AFTER: Named predicate function
+fn should_process_item(item: &Item) -> bool {
+    is_high_priority(item) && has_retries_available(item)
+}
+
+fn is_high_priority(item: &Item) -> bool {
+    item.score > 5 && item.category == "critical"
+}
+
+fn has_retries_available(item: &Item) -> bool {
+    item.retry_count < 3 || item.override_retry
+}
+```
+
+### Testing Strategy
+
+#### Testing Pure Functions
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_workflow() {
+        // Simple input/output test, no mocks needed
+        let workflow = Workflow { steps: vec![] };
+        let result = validate_workflow(&workflow);
+        assert!(result.is_err());
+    }
+}
+```
+
+#### Testing I/O Wrappers
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_process_workflow() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("workflow.yaml");
+
+        // Test only the I/O orchestration
+        // Business logic is tested in core module tests
+        fs::write(&path, "steps: [test]").unwrap();
+        let result = process_workflow(&path);
+        assert!(result.is_ok());
+    }
+}
+```
+
 ## Core Components
 
 ### 1. Unified Session Management (`src/unified_session/`)
