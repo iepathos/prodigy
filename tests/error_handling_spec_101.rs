@@ -81,9 +81,9 @@ fn test_regex_compilation_errors_handled() -> Result<()> {
 
     // Invalid regex patterns that would previously panic
     let invalid_patterns = vec![
-        "[", // Unclosed bracket
-        "(", // Unclosed paren
-        "*", // Invalid quantifier
+        "[",     // Unclosed bracket
+        "(",     // Unclosed paren
+        "*",     // Invalid quantifier
         "(?P<)", // Invalid named group
     ];
 
@@ -154,11 +154,11 @@ fn test_json_parsing_handles_malformed_input() -> Result<()> {
     use serde_json;
 
     let malformed_inputs = vec![
-        "", // Empty
-        "{", // Unclosed
+        "",                 // Empty
+        "{",                // Unclosed
         "{'key': 'value'}", // Single quotes
-        "{\"key\": }", // Missing value
-        "null", // Not an object when object expected
+        "{\"key\": }",      // Missing value
+        "null",             // Not an object when object expected
     ];
 
     for input in malformed_inputs {

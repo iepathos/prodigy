@@ -1869,7 +1869,9 @@ async fn handle_clean_command(
                 None => {
                     // This should be unreachable based on determine_cleanup_action logic,
                     // but handle gracefully instead of panicking
-                    Err(anyhow::anyhow!("Internal error: cleanup action Single requires a worktree name"))
+                    Err(anyhow::anyhow!(
+                        "Internal error: cleanup action Single requires a worktree name"
+                    ))
                 }
             }
         }

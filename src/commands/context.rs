@@ -53,8 +53,8 @@ impl ExecutionContext {
     /// Creates a context for testing
     #[cfg(test)]
     pub fn test() -> Self {
-        let current_dir = std::env::current_dir()
-            .expect("Failed to get current directory for test context");
+        let current_dir =
+            std::env::current_dir().expect("Failed to get current directory for test context");
         Self::new(current_dir)
     }
 
