@@ -111,11 +111,13 @@ mod tests {
 
     #[test]
     fn test_migration_stats_serialization() {
-        let mut stats = MigrationStats::default();
-        stats.started_at = Some(Utc::now());
-        stats.sessions_migrated = 10;
-        stats.events_migrated = 100;
-        stats.errors_encountered.push("test error".to_string());
+        let stats = MigrationStats {
+            started_at: Some(Utc::now()),
+            sessions_migrated: 10,
+            events_migrated: 100,
+            errors_encountered: vec!["test error".to_string()],
+            ..Default::default()
+        };
 
         // Serialize
         let json = serde_json::to_string(&stats).unwrap();
@@ -208,9 +210,11 @@ mod tests {
 
     #[test]
     fn test_migration_stats_clone() {
-        let mut stats1 = MigrationStats::default();
-        stats1.sessions_migrated = 10;
-        stats1.events_migrated = 100;
+        let stats1 = MigrationStats {
+            sessions_migrated: 10,
+            events_migrated: 100,
+            ..Default::default()
+        };
 
         let stats2 = stats1.clone();
         assert_eq!(stats2.sessions_migrated, 10);

@@ -800,7 +800,7 @@ mod tests {
         };
         let mapreduce = ctx.manager.list_sessions(Some(mapreduce_filter)).await?;
         // Should have at least the 1 mapreduce session we created
-        assert!(mapreduce.len() >= 1);
+        assert!(!mapreduce.is_empty());
         // Check if our created session is in the list
         assert!(mapreduce.iter().any(|s| s.id == id3));
 

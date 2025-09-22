@@ -37,12 +37,14 @@ mod tests {
             dlq_items in 0usize..1000000usize,
             workflows in 0usize..1000000usize,
         ) {
-            let mut stats = MigrationStats::default();
-            stats.sessions_migrated = sessions;
-            stats.events_migrated = events;
-            stats.checkpoints_migrated = checkpoints;
-            stats.dlq_items_migrated = dlq_items;
-            stats.workflows_migrated = workflows;
+            let stats = MigrationStats {
+                sessions_migrated: sessions,
+                events_migrated: events,
+                checkpoints_migrated: checkpoints,
+                dlq_items_migrated: dlq_items,
+                workflows_migrated: workflows,
+                ..Default::default()
+            };
 
             // Total items should be sum of all categories
             let total = sessions + events + checkpoints + dlq_items + workflows;
@@ -90,8 +92,10 @@ mod tests {
         fn test_migration_error_messages(
             errors in prop::collection::vec("[a-zA-Z ]{5,50}", 0..10)
         ) {
-            let mut stats = MigrationStats::default();
-            stats.errors_encountered = errors.clone();
+            let stats = MigrationStats {
+                errors_encountered: errors.clone(),
+                ..Default::default()
+            };
 
             // Number of errors should match
             prop_assert_eq!(stats.errors_encountered.len(), errors.len());
