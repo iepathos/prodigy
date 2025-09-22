@@ -145,8 +145,10 @@ fn test_dlq_list_verbose() {
         output.exit_code == exit_codes::SUCCESS || output.exit_code == exit_codes::GENERAL_ERROR
     );
     // Verbose output should appear in stdout or stderr should contain relevant info
+    // Check for DEBUG without brackets as it may have ANSI color codes
     assert!(
-        output.stdout_contains("[DEBUG]")
+        output.stdout_contains("DEBUG")
+            || output.stderr_contains("DEBUG")
             || output.stderr_contains("dlq")
             || output.stderr_contains("DLQ")
     );

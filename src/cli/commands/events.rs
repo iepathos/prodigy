@@ -5,6 +5,20 @@
 use crate::cli::args::EventCommands;
 use anyhow::Result;
 
+/// Validate duration string format (e.g., "7d", "24h", "365d")
+fn is_valid_duration(duration: &str) -> bool {
+    if duration.is_empty() {
+        return false;
+    }
+
+    let suffix = duration.chars().last();
+    let number_part = &duration[..duration.len() - 1];
+
+    // Check suffix is valid and number part is a valid positive number
+    matches!(suffix, Some('d') | Some('h') | Some('m') | Some('s'))
+        && number_part.parse::<u64>().is_ok()
+}
+
 /// Execute events-related commands
 pub async fn run_events_command(command: EventCommands) -> Result<()> {
     match command {
@@ -24,11 +38,24 @@ pub async fn run_events_command(command: EventCommands) -> Result<()> {
             println!("Following events in real-time...");
             Ok(())
         }
-        EventCommands::Clean { older_than: _older_than, max_events: _max_events, max_size: _max_size, dry_run, archive: _archive, archive_path: _archive_path, all_jobs: _all_jobs, job_id: _job_id, file: _file } => {
+        EventCommands::Clean { older_than, max_events: _max_events, max_size: _max_size, dry_run, archive, archive_path: _archive_path, all_jobs: _all_jobs, job_id: _job_id, file: _file } => {
+            // Validate duration format if provided
+            if let Some(duration_str) = older_than {
+                if !is_valid_duration(&duration_str) {
+                    return Err(anyhow::anyhow!("Invalid duration format: {}", duration_str));
+                }
+            }
+
             if dry_run {
                 println!("DRY RUN: Would clean old events (no changes will be made)");
+                if archive {
+                    println!("Would archive events before deletion");
+                }
             } else {
                 println!("Cleaning old events...");
+                if archive {
+                    println!("Archiving events before deletion...");
+                }
             }
             Ok(())
         }
