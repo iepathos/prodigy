@@ -1250,6 +1250,9 @@ impl WorktreeManager {
                         .replace("${merge.target_branch}", target_branch)
                         .replace("${merge.session_id}", &session_id);
 
+                    // Log shell command execution similar to regular workflow
+                    println!("🔄 Executing merge shell command: {}", shell_cmd_interpolated);
+
                     let shell_command = ProcessCommandBuilder::new("sh")
                         .current_dir(&self.repo_path)
                         .args(["-c", &shell_cmd_interpolated])
@@ -1261,6 +1264,9 @@ impl WorktreeManager {
                             "Merge workflow shell command failed: {}",
                             shell_cmd_interpolated
                         );
+                    }
+                    if !result.stdout.is_empty() {
+                        println!("{}", result.stdout.trim());
                     }
                     output.push_str(&result.stdout);
                 }
@@ -1275,10 +1281,23 @@ impl WorktreeManager {
                         .replace("${merge.target_branch}", target_branch)
                         .replace("${merge.session_id}", &session_id);
 
+                    // Log Claude command execution similar to regular workflow
+                    println!("🔄 Executing merge Claude command: {}", claude_cmd_interpolated);
+
                     let mut env_vars = HashMap::new();
                     env_vars.insert("PRODIGY_AUTOMATION".to_string(), "true".to_string());
+
+                    // Enable streaming if verbosity is high enough
                     if self.verbosity >= 1 {
                         env_vars.insert("PRODIGY_CLAUDE_STREAMING".to_string(), "true".to_string());
+                    }
+
+                    // Check for console output override
+                    if std::env::var("PRODIGY_CLAUDE_CONSOLE_OUTPUT").unwrap_or_default() == "true" {
+                        env_vars.insert(
+                            "PRODIGY_CLAUDE_CONSOLE_OUTPUT".to_string(),
+                            "true".to_string(),
+                        );
                     }
 
                     use crate::cook::execution::runner::RealCommandRunner;
