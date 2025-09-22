@@ -489,7 +489,7 @@ pub fn create_checkpoint_with_total_steps(
         version: CHECKPOINT_VERSION,
         workflow_hash,
         total_steps,
-        workflow_name: Some(workflow.name.clone()),
+        workflow_name: Some(workflow.name.to_string()),
         workflow_path: None,          // Will be set by the executor if available
         error_recovery_state: None,   // Will be set if error handlers are present
         retry_checkpoint_state: None, // Will be set by the executor if retry state exists

@@ -12,69 +12,80 @@ use crate::cook::workflow::{OnFailureConfig, ValidationConfig, WorkflowStep};
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 
 /// Immutable normalized workflow representation
 #[derive(Debug, Clone)]
 pub struct NormalizedWorkflow {
-    pub name: String,
-    pub steps: Vec<NormalizedStep>,
+    pub name: Arc<str>,
+    pub steps: Arc<[NormalizedStep]>,
     pub execution_mode: ExecutionMode,
-    pub variables: HashMap<String, String>,
+    pub variables: Arc<HashMap<String, String>>,
 }
 
 /// Immutable normalized step - preserves ALL fields
 #[derive(Debug, Clone)]
 pub struct NormalizedStep {
-    pub id: String,
+    pub id: Arc<str>,
     pub command: StepCommand,
-    pub validation: Option<ValidationConfig>,
+    pub validation: Option<Arc<ValidationConfig>>,
     pub handlers: StepHandlers,
     pub timeout: Option<Duration>,
     pub working_dir: Option<PathBuf>,
-    pub env: HashMap<String, String>,
-    pub outputs: Option<HashMap<String, OutputDeclaration>>,
+    pub env: Arc<HashMap<String, String>>,
+    pub outputs: Option<Arc<HashMap<String, OutputDeclaration>>>,
     pub commit_required: bool,
-    pub when: Option<String>,
+    pub when: Option<Arc<str>>,
 }
 
 /// Command representation within a normalized step
 #[derive(Debug, Clone)]
 pub enum StepCommand {
-    Claude(String),
-    Shell(String),
+    Claude(Arc<str>),
+    Shell(Arc<str>),
     Test {
-        command: String,
-        on_failure: Option<TestDebugConfig>,
+        command: Arc<str>,
+        on_failure: Option<Arc<TestDebugConfig>>,
     },
-    GoalSeek(crate::cook::goal_seek::GoalSeekConfig),
-    Foreach(crate::config::command::ForeachConfig),
+    GoalSeek(Arc<crate::cook::goal_seek::GoalSeekConfig>),
+    Foreach(Arc<crate::config::command::ForeachConfig>),
     Handler(HandlerConfig),
-    Simple(String),
+    Simple(Arc<str>),
 }
 
 /// Handler configuration
 #[derive(Debug, Clone)]
 pub struct HandlerConfig {
-    pub name: String,
-    pub attributes: HashMap<String, serde_json::Value>,
+    pub name: Arc<str>,
+    pub attributes: Arc<HashMap<String, serde_json::Value>>,
 }
 
 /// Step handlers for conditional execution
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct StepHandlers {
-    pub on_failure: Option<OnFailureConfig>,
-    pub on_success: Option<Box<WorkflowStep>>,
-    pub on_exit_code: HashMap<i32, Box<WorkflowStep>>,
+    pub on_failure: Option<Arc<OnFailureConfig>>,
+    pub on_success: Option<Arc<WorkflowStep>>,
+    pub on_exit_code: Arc<HashMap<i32, Arc<WorkflowStep>>>,
+}
+
+impl Default for StepHandlers {
+    fn default() -> Self {
+        Self {
+            on_failure: None,
+            on_success: None,
+            on_exit_code: Arc::new(HashMap::new()),
+        }
+    }
 }
 
 /// Execution mode for the workflow
 #[derive(Debug, Clone)]
 pub enum ExecutionMode {
     Sequential,
-    WithArguments { args: Vec<String> },
-    WithFilePattern { pattern: String },
-    MapReduce { config: MapReduceConfig },
+    WithArguments { args: Arc<[String]> },
+    WithFilePattern { pattern: Arc<str> },
+    MapReduce { config: Arc<MapReduceConfig> },
 }
 
 /// MapReduce configuration
@@ -82,7 +93,7 @@ pub enum ExecutionMode {
 pub struct MapReduceConfig {
     pub max_iterations: Option<usize>,
     pub max_concurrent: Option<usize>,
-    pub partition_strategy: Option<String>,
+    pub partition_strategy: Option<Arc<str>>,
 }
 
 /// Type classification for workflows
@@ -99,7 +110,7 @@ impl NormalizedWorkflow {
     /// No side effects, no mutations, returns Result for error handling
     pub fn from_workflow_config(config: &WorkflowConfig, mode: ExecutionMode) -> Result<Self> {
         // Use iterator combinators for functional transformation
-        let steps = config
+        let steps: Vec<NormalizedStep> = config
             .commands
             .iter()
             .enumerate()
@@ -107,10 +118,10 @@ impl NormalizedWorkflow {
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self {
-            name: String::new(), // Name should be provided separately
-            steps,
+            name: "".into(), // Name should be provided separately
+            steps: steps.into(),
             execution_mode: mode,
-            variables: HashMap::new(), // Variables should be provided separately
+            variables: Arc::new(HashMap::new()), // Variables should be provided separately
         })
     }
 
@@ -121,79 +132,88 @@ impl NormalizedWorkflow {
             WorkflowCommand::WorkflowStep(step) => {
                 // Determine the command type
                 let command = if let Some(claude) = &step.claude {
-                    StepCommand::Claude(claude.clone())
+                    StepCommand::Claude(Arc::from(claude.as_str()))
                 } else if let Some(shell) = &step.shell {
-                    StepCommand::Shell(shell.clone())
+                    StepCommand::Shell(Arc::from(shell.as_str()))
                 } else if let Some(test) = &step.test {
                     StepCommand::Test {
-                        command: test.command.clone(),
-                        on_failure: test.on_failure.clone(),
+                        command: Arc::from(test.command.as_str()),
+                        on_failure: test.on_failure.as_ref().map(|f| Arc::new(f.clone())),
                     }
                 } else if let Some(goal_seek) = &step.goal_seek {
-                    StepCommand::GoalSeek(goal_seek.clone())
+                    StepCommand::GoalSeek(Arc::new(goal_seek.clone()))
                 } else if let Some(foreach) = &step.foreach {
-                    StepCommand::Foreach(foreach.clone())
+                    StepCommand::Foreach(Arc::new(foreach.clone()))
                 } else {
                     return Err(anyhow!("WorkflowStep must have at least one command type"));
                 };
 
                 // Convert on_failure from TestDebugConfig to OnFailureConfig if needed
-                let on_failure = step
-                    .on_failure
-                    .as_ref()
-                    .map(|tf| OnFailureConfig::Advanced {
+                let on_failure = step.on_failure.as_ref().map(|tf| {
+                    Arc::new(OnFailureConfig::Advanced {
                         claude: Some(tf.claude.clone()),
                         shell: None,
                         fail_workflow: tf.fail_workflow,
                         retry_original: false,
                         max_retries: tf.max_attempts,
-                    });
+                    })
+                });
 
                 // Direct preservation - immutable transformation
                 Ok(NormalizedStep {
-                    id: step.id.clone().unwrap_or_else(|| format!("step-{}", idx)),
+                    id: step
+                        .id
+                        .as_ref()
+                        .map(|s| Arc::from(s.as_str()))
+                        .unwrap_or_else(|| Arc::from(format!("step-{}", idx).as_str())),
                     command,
-                    validation: step.validate.clone(), // PRESERVED
+                    validation: step.validate.as_ref().map(|v| Arc::new(v.clone())), // PRESERVED
                     handlers: StepHandlers {
                         on_failure: on_failure.or_else(|| {
                             step.test.as_ref().and_then(|t| {
-                                t.on_failure.as_ref().map(|tf| OnFailureConfig::Advanced {
-                                    claude: Some(tf.claude.clone()),
-                                    shell: None,
-                                    fail_workflow: tf.fail_workflow,
-                                    retry_original: false,
-                                    max_retries: tf.max_attempts,
+                                t.on_failure.as_ref().map(|tf| {
+                                    Arc::new(OnFailureConfig::Advanced {
+                                        claude: Some(tf.claude.clone()),
+                                        shell: None,
+                                        fail_workflow: tf.fail_workflow,
+                                        retry_original: false,
+                                        max_retries: tf.max_attempts,
+                                    })
                                 })
                             })
                         }),
                         on_success: step
                             .on_success
                             .as_ref()
-                            .map(|s| Box::new(Self::workflow_step_command_to_workflow_step(s))),
-                        on_exit_code: HashMap::new(), // WorkflowStepCommand doesn't have on_exit_code
+                            .map(|s| Arc::new(Self::workflow_step_command_to_workflow_step(s))),
+                        on_exit_code: Arc::new(HashMap::new()), // WorkflowStepCommand doesn't have on_exit_code
                     },
                     timeout: step.timeout.map(Duration::from_secs),
                     working_dir: None, // WorkflowStepCommand doesn't have working_dir field
-                    env: HashMap::new(), // WorkflowStepCommand doesn't have env field
-                    outputs: step.outputs.clone(),
+                    env: Arc::new(HashMap::new()), // WorkflowStepCommand doesn't have env field
+                    outputs: step.outputs.as_ref().map(|o| Arc::new(o.clone())),
                     commit_required: step.commit_required,
-                    when: step.when.clone(),
+                    when: step.when.as_ref().map(|w| Arc::from(w.as_str())),
                 })
             }
             WorkflowCommand::Structured(cmd) => {
                 // Convert structured command
                 Ok(NormalizedStep {
-                    id: cmd.id.clone().unwrap_or_else(|| format!("step-{}", idx)),
+                    id: cmd
+                        .id
+                        .as_ref()
+                        .map(|s| Arc::from(s.as_str()))
+                        .unwrap_or_else(|| Arc::from(format!("step-{}", idx).as_str())),
                     command: StepCommand::Handler(HandlerConfig {
-                        name: cmd.name.clone(),
-                        attributes: cmd.options.clone(),
+                        name: Arc::from(cmd.name.as_str()),
+                        attributes: Arc::new(cmd.options.clone()),
                     }),
                     validation: None, // Structured commands don't have validation
                     handlers: StepHandlers::default(),
                     timeout: cmd.metadata.timeout.map(Duration::from_secs),
                     working_dir: None,
-                    env: cmd.metadata.env.clone(),
-                    outputs: cmd.outputs.clone(),
+                    env: Arc::new(cmd.metadata.env.clone()),
+                    outputs: cmd.outputs.as_ref().map(|o| Arc::new(o.clone())),
                     commit_required: cmd.metadata.commit_required,
                     when: None, // Structured commands don't have when clauses
                 })
@@ -201,13 +221,13 @@ impl NormalizedWorkflow {
             WorkflowCommand::SimpleObject(cmd) => {
                 // Simple object commands have minimal fields
                 Ok(NormalizedStep {
-                    id: format!("step-{}", idx),
-                    command: StepCommand::Simple(cmd.name.clone()),
+                    id: Arc::from(format!("step-{}", idx).as_str()),
+                    command: StepCommand::Simple(Arc::from(cmd.name.as_str())),
                     validation: None,
                     handlers: StepHandlers::default(),
                     timeout: None,
                     working_dir: None,
-                    env: HashMap::new(),
+                    env: Arc::new(HashMap::new()),
                     outputs: None,
                     commit_required: cmd.commit_required.unwrap_or(false),
                     when: None, // SimpleObject commands don't have when clauses
@@ -216,13 +236,13 @@ impl NormalizedWorkflow {
             WorkflowCommand::Simple(cmd) => {
                 // Simple string commands have minimal fields
                 Ok(NormalizedStep {
-                    id: format!("step-{}", idx),
-                    command: StepCommand::Simple(cmd.clone()),
+                    id: Arc::from(format!("step-{}", idx).as_str()),
+                    command: StepCommand::Simple(Arc::from(cmd.as_str())),
                     validation: None,
                     handlers: StepHandlers::default(),
                     timeout: None,
                     working_dir: None,
-                    env: HashMap::new(),
+                    env: Arc::new(HashMap::new()),
                     outputs: None,
                     commit_required: false,
                     when: None, // Simple commands don't have when clauses
@@ -298,7 +318,7 @@ impl NormalizedWorkflow {
         };
 
         Ok(crate::cook::workflow::ExtendedWorkflowConfig {
-            name: self.name.clone(),
+            name: self.name.to_string(),
             mode,
             steps,
             setup_phase: None,  // Would need to be set based on MapReduceConfig
@@ -318,8 +338,8 @@ impl NormalizedWorkflow {
         self.validate_step(step)?;
 
         let (claude, shell, test, goal_seek, foreach) = match &step.command {
-            StepCommand::Claude(cmd) => (Some(cmd.clone()), None, None, None, None),
-            StepCommand::Shell(cmd) => (None, Some(cmd.clone()), None, None, None),
+            StepCommand::Claude(cmd) => (Some(cmd.to_string()), None, None, None, None),
+            StepCommand::Shell(cmd) => (None, Some(cmd.to_string()), None, None, None),
             StepCommand::Test {
                 command,
                 on_failure,
@@ -327,18 +347,18 @@ impl NormalizedWorkflow {
                 None,
                 None,
                 Some(crate::config::command::TestCommand {
-                    command: command.clone(),
-                    on_failure: on_failure.clone(),
+                    command: command.to_string(),
+                    on_failure: on_failure.as_ref().map(|f| (**f).clone()),
                 }),
                 None,
                 None,
             ),
-            StepCommand::GoalSeek(config) => (None, None, None, Some(config.clone()), None),
-            StepCommand::Foreach(config) => (None, None, None, None, Some(config.clone())),
+            StepCommand::GoalSeek(config) => (None, None, None, Some((**config).clone()), None),
+            StepCommand::Foreach(config) => (None, None, None, None, Some((**config).clone())),
             StepCommand::Handler(handler) => {
                 // For handler steps, use the handler field
                 return Ok(WorkflowStep {
-                    name: Some(step.id.clone()),
+                    name: Some(step.id.to_string()),
                     claude: None,
                     shell: None,
                     test: None,
@@ -346,8 +366,8 @@ impl NormalizedWorkflow {
                     foreach: None,
                     command: None,
                     handler: Some(crate::cook::workflow::HandlerStep {
-                        name: handler.name.clone(),
-                        attributes: handler.attributes.clone(),
+                        name: handler.name.to_string(),
+                        attributes: Arc::try_unwrap(handler.attributes.clone()).unwrap_or_else(|arc| (*arc).clone()),
                     }),
                     capture: None,
                     capture_format: None,
@@ -356,32 +376,39 @@ impl NormalizedWorkflow {
                     capture_output: crate::cook::workflow::CaptureOutput::Disabled,
                     timeout: step.timeout.map(|d| d.as_secs()),
                     working_dir: step.working_dir.clone(),
-                    env: step.env.clone(),
-                    on_failure: step.handlers.on_failure.clone(),
+                    env: Arc::try_unwrap(step.env.clone()).unwrap_or_else(|arc| (*arc).clone()),
+                    on_failure: step.handlers.on_failure.as_ref().map(|f| (**f).clone()),
                     retry: None,
-                    on_success: step.handlers.on_success.clone(),
-                    on_exit_code: step.handlers.on_exit_code.clone(),
+                    on_success: step
+                        .handlers
+                        .on_success
+                        .as_ref()
+                        .map(|s| Box::new((**s).clone())),
+                    on_exit_code: step.handlers.on_exit_code
+                        .iter()
+                        .map(|(k, v)| (*k, Box::new((**v).clone())))
+                        .collect(),
                     commit_required: step.commit_required,
                     auto_commit: false,
                     commit_config: None,
-                    validate: step.validation.clone(), // PRESERVED!
+                    validate: step.validation.as_ref().map(|v| (**v).clone()), // PRESERVED!
                     step_validate: None,
                     skip_validation: false,
                     validation_timeout: None,
                     ignore_validation_failure: false,
-                    when: step.when.clone(), // PRESERVED!
+                    when: step.when.as_ref().map(|w| w.to_string()), // PRESERVED!
                 });
             }
             StepCommand::Simple(cmd) => {
                 // For simple commands, use the legacy command field
                 return Ok(WorkflowStep {
-                    name: Some(step.id.clone()),
+                    name: Some(step.id.to_string()),
                     claude: None,
                     shell: None,
                     test: None,
                     goal_seek: None,
                     foreach: None,
-                    command: Some(cmd.clone()),
+                    command: Some(cmd.to_string()),
                     handler: None,
                     capture: None,
                     capture_format: None,
@@ -390,26 +417,33 @@ impl NormalizedWorkflow {
                     capture_output: crate::cook::workflow::CaptureOutput::Disabled,
                     timeout: step.timeout.map(|d| d.as_secs()),
                     working_dir: step.working_dir.clone(),
-                    env: step.env.clone(),
-                    on_failure: step.handlers.on_failure.clone(),
+                    env: Arc::try_unwrap(step.env.clone()).unwrap_or_else(|arc| (*arc).clone()),
+                    on_failure: step.handlers.on_failure.as_ref().map(|f| (**f).clone()),
                     retry: None,
-                    on_success: step.handlers.on_success.clone(),
-                    on_exit_code: step.handlers.on_exit_code.clone(),
+                    on_success: step
+                        .handlers
+                        .on_success
+                        .as_ref()
+                        .map(|s| Box::new((**s).clone())),
+                    on_exit_code: step.handlers.on_exit_code
+                        .iter()
+                        .map(|(k, v)| (*k, Box::new((**v).clone())))
+                        .collect(),
                     commit_required: step.commit_required,
                     auto_commit: false,
                     commit_config: None,
-                    validate: step.validation.clone(), // PRESERVED!
+                    validate: step.validation.as_ref().map(|v| (**v).clone()), // PRESERVED!
                     step_validate: None,
                     skip_validation: false,
                     validation_timeout: None,
                     ignore_validation_failure: false,
-                    when: step.when.clone(), // PRESERVED!
+                    when: step.when.as_ref().map(|w| w.to_string()), // PRESERVED!
                 });
             }
         };
 
         Ok(WorkflowStep {
-            name: Some(step.id.clone()),
+            name: Some(step.id.to_string()),
             claude,
             shell,
             test,
@@ -424,20 +458,23 @@ impl NormalizedWorkflow {
             capture_output: crate::cook::workflow::CaptureOutput::Disabled,
             timeout: step.timeout.map(|d| d.as_secs()),
             working_dir: step.working_dir.clone(),
-            env: step.env.clone(),
-            on_failure: step.handlers.on_failure.clone(),
+            env: Arc::try_unwrap(step.env.clone()).unwrap_or_else(|arc| (*arc).clone()),
+            on_failure: step.handlers.on_failure.as_ref().map(|f| (**f).clone()),
             retry: None,
-            on_success: step.handlers.on_success.clone(),
-            on_exit_code: step.handlers.on_exit_code.clone(),
+            on_success: step.handlers.on_success.as_ref().map(|s| Box::new((**s).clone())),
+            on_exit_code: step.handlers.on_exit_code
+                .iter()
+                .map(|(k, v)| (*k, Box::new((**v).clone())))
+                .collect(),
             commit_required: step.commit_required,
             auto_commit: false,
             commit_config: None,
-            validate: step.validation.clone(), // PRESERVED!
+            validate: step.validation.as_ref().map(|v| (**v).clone()), // PRESERVED!
             step_validate: None,
             skip_validation: false,
             validation_timeout: None,
             ignore_validation_failure: false,
-            when: step.when.clone(), // PRESERVED!
+            when: step.when.as_ref().map(|w| w.to_string()), // PRESERVED!
         })
     }
 
@@ -533,7 +570,7 @@ mod tests {
             NormalizedWorkflow::from_workflow_config(&config, ExecutionMode::Sequential).unwrap();
 
         assert_eq!(normalized.steps.len(), 1);
-        assert_eq!(normalized.steps[0].id, "step-0");
+        assert_eq!(normalized.steps[0].id.as_ref(), "step-0");
         assert!(normalized.steps[0].validation.is_none());
     }
 
@@ -585,7 +622,7 @@ mod tests {
             NormalizedWorkflow::from_workflow_config(&config, ExecutionMode::Sequential).unwrap();
 
         assert_eq!(normalized.steps.len(), 1);
-        assert_eq!(normalized.steps[0].id, "test-step");
+        assert_eq!(normalized.steps[0].id.as_ref(), "test-step");
         assert!(normalized.steps[0].validation.is_some());
 
         // Convert back and verify validation is preserved
@@ -640,21 +677,21 @@ mod tests {
     #[test]
     fn test_step_validation() {
         let workflow = NormalizedWorkflow {
-            name: "test".to_string(),
-            steps: vec![],
+            name: Arc::from("test"),
+            steps: Arc::from(vec![]),
             execution_mode: ExecutionMode::Sequential,
-            variables: HashMap::new(),
+            variables: Arc::new(HashMap::new()),
         };
 
         // Empty ID should fail
         let invalid_step = NormalizedStep {
-            id: String::new(),
-            command: StepCommand::Simple("test".to_string()),
+            id: Arc::from(""),
+            command: StepCommand::Simple(Arc::from("test")),
             validation: None,
             handlers: StepHandlers::default(),
             timeout: None,
             working_dir: None,
-            env: HashMap::new(),
+            env: Arc::new(HashMap::new()),
             outputs: None,
             commit_required: false,
             when: None,
@@ -663,13 +700,13 @@ mod tests {
 
         // Zero timeout should fail
         let invalid_timeout = NormalizedStep {
-            id: "test".to_string(),
-            command: StepCommand::Simple("test".to_string()),
+            id: Arc::from("test"),
+            command: StepCommand::Simple(Arc::from("test")),
             validation: None,
             handlers: StepHandlers::default(),
             timeout: Some(Duration::from_secs(0)),
             working_dir: None,
-            env: HashMap::new(),
+            env: Arc::new(HashMap::new()),
             outputs: None,
             commit_required: false,
             when: None,
@@ -678,13 +715,13 @@ mod tests {
 
         // Valid step should succeed
         let valid_step = NormalizedStep {
-            id: "test".to_string(),
-            command: StepCommand::Simple("test".to_string()),
+            id: Arc::from("test"),
+            command: StepCommand::Simple(Arc::from("test")),
             validation: None,
             handlers: StepHandlers::default(),
             timeout: Some(Duration::from_secs(30)),
             working_dir: None,
-            env: HashMap::new(),
+            env: Arc::new(HashMap::new()),
             outputs: None,
             commit_required: false,
             when: None,

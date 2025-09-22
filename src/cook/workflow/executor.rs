@@ -905,20 +905,20 @@ impl WorkflowExecutor {
                 });
             }
             StepCommand::GoalSeek(config) => {
-                workflow_step.goal_seek = Some(config.clone());
+                workflow_step.goal_seek = Some((**config).clone());
             }
             StepCommand::Handler(handler) => {
                 workflow_step.handler = Some(HandlerStep {
-                    name: handler.name.clone(),
-                    attributes: handler.attributes.clone(),
+                    name: handler.name.to_string(),
+                    attributes: Arc::try_unwrap(handler.attributes.clone()).unwrap_or_else(|arc| (*arc).clone()),
                 });
             }
             StepCommand::Simple(cmd) => {
                 // For simple commands, use the legacy command field
-                workflow_step.command = Some(cmd.clone());
+                workflow_step.command = Some(cmd.to_string());
             }
             StepCommand::Foreach(config) => {
-                workflow_step.foreach = Some(config.clone());
+                workflow_step.foreach = Some((**config).clone());
             }
         }
 
@@ -1290,7 +1290,7 @@ impl WorkflowExecutor {
 
         // Create execution context for validation
         let exec_context = crate::cook::execution::ExecutionContext {
-            working_directory: env.working_dir.clone(),
+            working_directory: env.working_dir.to_path_buf(),
             env_vars: std::collections::HashMap::new(),
             capture_output: true,
             timeout_seconds: step.validation_timeout,
@@ -2513,7 +2513,7 @@ impl WorkflowExecutor {
         let mut workflow_context = WorkflowContext::default();
 
         // Initialize git change tracker
-        if let Ok(tracker) = GitChangeTracker::new(&env.working_dir) {
+        if let Ok(tracker) = GitChangeTracker::new(&**env.working_dir) {
             if tracker.is_active() {
                 workflow_context.git_tracker = Some(Arc::new(std::sync::Mutex::new(tracker)));
                 tracing::debug!("Git change tracker initialized for workflow");
@@ -2955,7 +2955,7 @@ impl WorkflowExecutor {
                         let git_ops = Arc::new(crate::abstractions::git::RealGitOperations::new());
                         let commit_tracker = crate::cook::commit_tracker::CommitTracker::new(
                             git_ops,
-                            env.working_dir.clone(),
+                            env.working_dir.to_path_buf(),
                         );
 
                         // Generate squash message
@@ -3090,7 +3090,7 @@ impl WorkflowExecutor {
 
         // Initialize CommitTracker for this step using the executor's git operations (enables mocking)
         let git_ops = self.git_operations.clone();
-        let working_dir = env.working_dir.clone();
+        let working_dir = env.working_dir.to_path_buf();
         let mut commit_tracker =
             crate::cook::commit_tracker::CommitTracker::new(git_ops, working_dir);
         commit_tracker.initialize().await?;
@@ -3114,7 +3114,7 @@ impl WorkflowExecutor {
                     .await?;
 
                 // Update working directory if overridden
-                let working_dir_override = if env_context.working_dir != env.working_dir {
+                let working_dir_override = if env_context.working_dir != **env.working_dir {
                     Some(env_context.working_dir.clone())
                 } else {
                     None
@@ -3448,7 +3448,7 @@ impl WorkflowExecutor {
         })?;
 
         // Create execution context for the handler
-        let mut exec_context = ExecutionContext::new(env.working_dir.clone());
+        let mut exec_context = ExecutionContext::new(env.working_dir.to_path_buf());
         exec_context.add_env_vars(env_vars);
 
         // Add session information if available
@@ -3540,7 +3540,7 @@ impl WorkflowExecutor {
         cmd.args(["-c", command]);
 
         // Set working directory
-        cmd.current_dir(&env.working_dir);
+        cmd.current_dir(&**env.working_dir);
 
         // Set environment variables
         for (key, value) in env_vars {
@@ -4214,7 +4214,7 @@ impl WorkflowExecutor {
 
         // Create worktree manager
         let worktree_manager = Arc::new(WorktreeManager::new(
-            env.project_dir.clone(),
+            env.project_dir.to_path_buf(),
             self.subprocess.clone(),
         )?);
 
@@ -4224,7 +4224,7 @@ impl WorkflowExecutor {
             self.session_manager.clone(),
             self.user_interaction.clone(),
             worktree_manager,
-            env.working_dir.clone(), // Use working_dir instead of project_dir to handle worktrees correctly
+            env.working_dir.to_path_buf(), // Use working_dir instead of project_dir to handle worktrees correctly
         )
         .await;
 

@@ -67,7 +67,7 @@ impl GitOperations {
         // First fetch the agent branch
         let output = Command::new("git")
             .args(["fetch", "origin", agent_branch])
-            .current_dir(parent_path)
+            .current_dir(&**parent_path)
             .output()
             .await
             .map_err(|e| self.create_git_error("fetch_agent_branch", &e.to_string()))?;
@@ -89,7 +89,7 @@ impl GitOperations {
                 &format!("Merge agent {}", agent_branch),
                 agent_branch,
             ])
-            .current_dir(parent_path)
+            .current_dir(&**parent_path)
             .output()
             .await
             .map_err(|e| self.create_git_error("merge_agent_branch", &e.to_string()))?;
@@ -106,7 +106,7 @@ impl GitOperations {
                         &format!("Merge agent {}", agent_branch),
                         &format!("origin/{}", agent_branch),
                     ])
-                    .current_dir(parent_path)
+                    .current_dir(&**parent_path)
                     .output()
                     .await
                     .map_err(|e| self.create_git_error("merge_origin_branch", &e.to_string()))?;

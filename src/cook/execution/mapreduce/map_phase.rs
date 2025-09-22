@@ -135,7 +135,7 @@ async fn acquire_worktree_from_pool(
     agent_id: &str,
 ) -> MapReduceResult<WorktreeHandle> {
     pool.acquire(crate::worktree::WorktreeRequest::Named(
-        agent_id.to_string(),
+        agent_id.to_string().into(),
     ))
     .await
     .map_err(|e| MapReduceError::General {
@@ -147,14 +147,14 @@ async fn acquire_worktree_from_pool(
 /// Create agent context from work item
 fn create_agent_context(agent_id: &str, item: &Value, index: usize) -> AgentContext {
     let mut context = AgentContext::new(
-        agent_id.to_string(),
+        agent_id.to_string().into(),
         std::path::PathBuf::from("."),
-        agent_id.to_string(),
+        agent_id.to_string().into(),
         crate::cook::orchestrator::ExecutionEnvironment {
-            working_dir: std::path::PathBuf::from("."),
-            project_dir: std::path::PathBuf::from("."),
-            worktree_name: Some(agent_id.to_string()),
-            session_id: format!("agent-session-{}", agent_id),
+            working_dir: Arc::new(std::path::PathBuf::from(".")),
+            project_dir: Arc::new(std::path::PathBuf::from(".")),
+            worktree_name: Some(agent_id.to_string().into()),
+            session_id: format!("agent-session-{}", agent_id).into(),
         },
     );
 

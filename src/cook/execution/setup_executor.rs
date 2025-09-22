@@ -119,7 +119,7 @@ impl SetupPhaseExecutor {
         );
 
         // Track files before setup to detect created files
-        let files_before_setup = std::fs::read_dir(working_dir)
+        let files_before_setup = std::fs::read_dir(&**working_dir)
             .map(|entries| {
                 entries
                     .filter_map(|e| e.ok())
@@ -132,7 +132,7 @@ impl SetupPhaseExecutor {
         let captured_outputs = self.execute(commands, executor, env, context).await?;
 
         // Detect created files
-        let files_after_setup = std::fs::read_dir(working_dir)
+        let files_after_setup = std::fs::read_dir(&**working_dir)
             .map(|entries| {
                 entries
                     .filter_map(|e| e.ok())

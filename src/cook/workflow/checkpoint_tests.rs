@@ -6,6 +6,7 @@ mod tests {
     use crate::cook::workflow::executor::WorkflowContext;
     use crate::cook::workflow::normalized::{NormalizedStep, NormalizedWorkflow, StepCommand};
     use std::collections::HashMap;
+    use std::sync::Arc;
     use tempfile::TempDir;
 
     /// Create a test checkpoint manager with temp directory
@@ -20,47 +21,47 @@ mod tests {
         use std::time::Duration;
 
         NormalizedWorkflow {
-            name: "test-workflow".to_string(),
-            steps: vec![
+            name: Arc::from("test-workflow"),
+            steps: Arc::from(vec![
                 NormalizedStep {
-                    id: "step-1".to_string(),
-                    command: StepCommand::Shell("echo 'Step 1'".to_string()),
+                    id: Arc::from("step-1"),
+                    command: StepCommand::Shell(Arc::from("echo 'Step 1'")),
                     validation: None,
                     handlers: Default::default(),
                     timeout: Some(Duration::from_secs(30)),
                     working_dir: None,
-                    env: HashMap::new(),
+                    env: Arc::new(HashMap::new()),
                     outputs: None,
                     commit_required: false,
                     when: None,
                 },
                 NormalizedStep {
-                    id: "step-2".to_string(),
-                    command: StepCommand::Shell("echo 'Step 2'".to_string()),
+                    id: Arc::from("step-2"),
+                    command: StepCommand::Shell(Arc::from("echo 'Step 2'")),
                     validation: None,
                     handlers: Default::default(),
                     timeout: Some(Duration::from_secs(30)),
                     working_dir: None,
-                    env: HashMap::new(),
+                    env: Arc::new(HashMap::new()),
                     outputs: None,
                     commit_required: false,
                     when: None,
                 },
                 NormalizedStep {
-                    id: "step-3".to_string(),
-                    command: StepCommand::Shell("echo 'Step 3'".to_string()),
+                    id: Arc::from("step-3"),
+                    command: StepCommand::Shell(Arc::from("echo 'Step 3'")),
                     validation: None,
                     handlers: Default::default(),
                     timeout: Some(Duration::from_secs(30)),
                     working_dir: None,
-                    env: HashMap::new(),
+                    env: Arc::new(HashMap::new()),
                     outputs: None,
                     commit_required: false,
                     when: None,
                 },
-            ],
+            ]),
             execution_mode: crate::cook::workflow::normalized::ExecutionMode::Sequential,
-            variables: HashMap::new(),
+            variables: Arc::new(HashMap::new()),
         }
     }
 

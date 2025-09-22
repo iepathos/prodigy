@@ -545,13 +545,13 @@ impl ResumeExecutor {
             working_dir: workflow_path
                 .parent()
                 .unwrap_or_else(|| std::path::Path::new("."))
-                .to_path_buf(),
+                .to_path_buf().into(),
             project_dir: workflow_path
                 .parent()
                 .unwrap_or_else(|| std::path::Path::new("."))
-                .to_path_buf(),
+                .to_path_buf().into(),
             worktree_name: None,
-            session_id: format!("resume-{}", workflow_id),
+            session_id: format!("resume-{}", workflow_id).into(),
         };
 
         // Restore workflow context

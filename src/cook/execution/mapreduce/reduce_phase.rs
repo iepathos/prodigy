@@ -91,13 +91,13 @@ pub fn create_reduce_context(
 ) -> AgentContext {
     let mut context = AgentContext::new(
         "reduce".to_string(),
-        config.parent_worktree_path.clone(),
-        config.parent_worktree_name.clone(),
+        config.parent_worktree_path.clone().into(),
+        config.parent_worktree_name.clone().into(),
         crate::cook::orchestrator::ExecutionEnvironment {
-            working_dir: config.parent_worktree_path.clone(),
-            project_dir: config.parent_worktree_path.clone(),
-            worktree_name: Some(config.parent_worktree_name.clone()),
-            session_id: format!("reduce-session-{}", config.job_id),
+            working_dir: config.parent_worktree_path.clone().into(),
+            project_dir: config.parent_worktree_path.clone().into(),
+            worktree_name: Some(config.parent_worktree_name.clone().into()),
+            session_id: format!("reduce-session-{}", config.job_id).into(),
         },
     );
 

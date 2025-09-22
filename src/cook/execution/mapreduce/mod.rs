@@ -37,6 +37,10 @@ pub mod state;
 // Import the PhaseExecutor trait
 use self::phases::PhaseExecutor;
 
+// Import required types
+
+use crate::cook::execution::dlq::DeadLetterQueue;
+
 // Import agent types and functionality
 use agent::{
     AgentLifecycleManager, AgentResultAggregator, DefaultLifecycleManager, DefaultResultAggregator,
@@ -56,7 +60,7 @@ use self::state::{persistence::DefaultStateStore, StateManager};
 
 use crate::commands::CommandRegistry;
 use crate::cook::execution::data_pipeline::DataPipeline;
-use crate::cook::execution::dlq::{DeadLetterQueue, DeadLetteredItem, ErrorType, FailureDetail};
+use crate::cook::execution::dlq::{DeadLetteredItem, ErrorType, FailureDetail};
 use crate::cook::execution::errors::{ErrorContext, MapReduceError, MapReduceResult, SpanInfo};
 use crate::cook::execution::events::{EventLogger, EventWriter, JsonlEventWriter, MapReduceEvent};
 use crate::cook::execution::input_source::InputSource;
@@ -80,6 +84,7 @@ use crate::worktree::{WorktreeManager, WorktreePool, WorktreePoolConfig};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -261,10 +266,12 @@ impl AgentContext {
     /// Update context with command output
     pub fn update_with_output(&mut self, output: Option<String>) {
         if let Some(out) = output {
-            self.shell_output = Some(out.clone());
+            // Store once and reference where possible to reduce clones
             self.variables
                 .insert("shell.output".to_string(), out.clone());
-            self.variables.insert("shell.last_output".to_string(), out);
+            self.variables
+                .insert("shell.last_output".to_string(), out.clone());
+            self.shell_output = Some(out);
         }
     }
 
@@ -272,9 +279,9 @@ impl AgentContext {
     pub fn to_interpolation_context(&self) -> InterpolationContext {
         let mut context = InterpolationContext::new();
 
-        // Add all variables
+        // Add all variables - reduce cloning by using references
         for (key, value) in &self.variables {
-            context.set(key.clone(), Value::String(value.clone()));
+            context.set(key.clone(), Value::String(value.as_str().into()));
         }
 
         // Add shell output
@@ -288,14 +295,14 @@ impl AgentContext {
             );
         }
 
-        // Add captured outputs
+        // Add captured outputs - reduce cloning by using references
         for (key, value) in &self.captured_outputs {
-            context.set(key.clone(), Value::String(value.clone()));
+            context.set(key.clone(), Value::String(value.as_str().into()));
         }
 
-        // Add iteration variables
+        // Add iteration variables - reduce cloning by using references
         for (key, value) in &self.iteration_vars {
-            context.set(key.clone(), Value::String(value.clone()));
+            context.set(key.clone(), Value::String(value.as_str().into()));
         }
 
         context
@@ -365,7 +372,7 @@ impl AgentContext {
             "workflow",
             Variable::Static(json!({
                 "id": self.item_id.clone(),
-                "worktree": self.worktree_name.clone(),
+                "worktree": Value::String(self.worktree_name.clone()),
                 "path": self.worktree_path.to_string_lossy()
             })),
         );
@@ -1076,6 +1083,8 @@ impl MapReduceExecutor {
         reduce_phase: Option<&ReducePhase>,
         env: &ExecutionEnvironment,
     ) -> MapReduceResult<Vec<AgentResult>> {
+        // Wrap map_phase in Arc for efficient sharing across tasks
+        let map_phase_arc = Arc::new(map_phase.clone());
         self.execute_with_context(map_phase, reduce_phase, env, HashMap::new())
             .await
     }
@@ -1095,6 +1104,12 @@ impl MapReduceExecutor {
 
         // Store setup variables for use in agent execution
         self.setup_variables = setup_variables;
+
+        // Wrap map_phase in Arc for efficient sharing across tasks
+        let map_phase_arc = Arc::new(map_phase.clone());
+
+        // Wrap reduce_phase in Arc for efficient sharing across tasks
+        let reduce_phase_arc = reduce_phase.map(|rp| Arc::new(rp.clone()));
 
         // Load and parse work items with filtering and sorting
         let work_items = self
@@ -1212,7 +1227,7 @@ impl MapReduceExecutor {
 
         // Execute map phase with state tracking
         let map_results = self
-            .execute_map_phase_with_state(&job_id, map_phase, work_items, env)
+            .execute_map_phase_with_state(&job_id, &map_phase_arc, work_items, env)
             .await?;
 
         // Execute reduce phase if specified AND there were items to process
@@ -1235,8 +1250,10 @@ impl MapReduceExecutor {
                     // Mark reduce phase as started
                     self.state_manager.start_reduce_phase(&job_id).await?;
 
-                    self.execute_reduce_phase(reduce_phase, &map_results, env)
-                        .await?;
+                    if let Some(ref reduce_phase_arc) = reduce_phase_arc {
+                        self.execute_reduce_phase(reduce_phase_arc, &map_results, env)
+                            .await?;
+                    }
 
                     // Mark reduce phase as completed
                     self.state_manager
@@ -1293,7 +1310,7 @@ impl MapReduceExecutor {
     async fn execute_map_phase_with_state(
         &self,
         job_id: &str,
-        map_phase: &MapPhase,
+        map_phase: &Arc<MapPhase>,
         work_items: Vec<Value>,
         env: &ExecutionEnvironment,
     ) -> MapReduceResult<Vec<AgentResult>> {
@@ -1403,14 +1420,14 @@ impl MapReduceExecutor {
                     pending_items.len()
                 ));
 
-                // Create a map phase config from the stored state
-                let map_phase = MapPhase {
+                // Create a map phase config from the stored state - use Arc for sharing
+                let map_phase = Arc::new(MapPhase {
                     config: state.config.clone(),
                     agent_template: state.agent_template.clone(),
                     filter: None,
                     sort_by: None,
                     distinct: None,
-                };
+                });
 
                 // Execute remaining items
                 let new_results = self
@@ -1445,10 +1462,10 @@ impl MapReduceExecutor {
                     self.user_interaction
                         .display_info("Map phase complete, executing pending reduce phase");
 
-                    // Create reduce phase from stored commands
-                    let reduce_phase = ReducePhase {
+                    // Create reduce phase from stored commands - use Arc for sharing
+                    let reduce_phase = Arc::new(ReducePhase {
                         commands: reduce_commands.clone(),
-                    };
+                    });
 
                     // Mark reduce phase as started
                     self.state_manager.start_reduce_phase(job_id).await?;
@@ -1704,7 +1721,7 @@ impl MapReduceExecutor {
     /// Execute the map phase with parallel agents
     async fn execute_map_phase(
         &self,
-        map_phase: &MapPhase,
+        map_phase: &Arc<MapPhase>,
         work_items: Vec<Value>,
         env: &ExecutionEnvironment,
     ) -> MapReduceResult<Vec<AgentResult>> {
@@ -1745,20 +1762,37 @@ impl MapReduceExecutor {
         // Results collection
         let results = Arc::new(RwLock::new(Vec::new()));
 
+        // Create shared executor for all worker tasks to reduce cloning
+        let shared_executor = Arc::new(self.clone_executor());
+        let shared_env = Arc::new(env.clone());
+        let event_logger = self.event_logger.clone();
+        let dlq = self.dlq.clone();
+
         // Spawn worker tasks
         let mut workers = Vec::new();
         for agent_index in 0..max_parallel {
             let work_rx = work_rx.clone();
             let results = results.clone();
             let progress = progress.clone();
-            let map_phase = map_phase.clone();
-            let env = env.clone();
-            let executor = self.clone_executor();
+            let map_phase = Arc::clone(map_phase);
+            let env = Arc::clone(&shared_env);
+            let executor = Arc::clone(&shared_executor);
+            let event_logger = event_logger.clone();
+            let dlq = dlq.clone();
 
             let handle: JoinHandle<MapReduceResult<()>> = tokio::spawn(async move {
-                executor
-                    .run_agent(agent_index, work_rx, results, progress, map_phase, env)
-                    .await
+                MapReduceExecutor::run_agent(
+                    executor,
+                    agent_index,
+                    work_rx,
+                    results,
+                    progress,
+                    map_phase,
+                    env,
+                    event_logger,
+                    dlq,
+                )
+                .await
             });
 
             workers.push(handle);
@@ -1795,7 +1829,7 @@ impl MapReduceExecutor {
     /// Execute map phase with enhanced progress tracking
     async fn execute_map_phase_with_enhanced_progress(
         &self,
-        map_phase: &MapPhase,
+        map_phase: &Arc<MapPhase>,
         work_items: Vec<Value>,
         env: &ExecutionEnvironment,
         tracker: Arc<EnhancedProgressTracker>,
@@ -1832,27 +1866,37 @@ impl MapReduceExecutor {
         // Results collection
         let results = Arc::new(RwLock::new(Vec::new()));
 
+        // Create shared executor for all worker tasks to reduce cloning
+        let shared_executor = Arc::new(self.clone_executor());
+        let shared_env = Arc::new(env.clone());
+        let event_logger = self.event_logger.clone();
+        let dlq = self.dlq.clone();
+
         // Spawn worker tasks with enhanced progress tracking
         let mut workers = Vec::new();
         for agent_index in 0..max_parallel {
             let work_rx = work_rx.clone();
             let results = results.clone();
             let tracker = tracker.clone();
-            let map_phase = map_phase.clone();
-            let env = env.clone();
-            let executor = self.clone_executor();
+            let map_phase = Arc::clone(map_phase);
+            let env = Arc::clone(&shared_env);
+            let executor = Arc::clone(&shared_executor);
+            let event_logger = event_logger.clone();
+            let dlq = dlq.clone();
 
             let handle: JoinHandle<MapReduceResult<()>> = tokio::spawn(async move {
-                executor
-                    .run_agent_with_enhanced_progress(
-                        agent_index,
-                        work_rx,
-                        results,
-                        tracker,
-                        map_phase,
-                        env,
-                    )
-                    .await
+                MapReduceExecutor::run_agent_with_enhanced_progress(
+                    executor,
+                    agent_index,
+                    work_rx,
+                    results,
+                    tracker,
+                    map_phase,
+                    env,
+                    event_logger,
+                    dlq,
+                )
+                .await
             });
 
             workers.push(handle);
@@ -1901,13 +1945,15 @@ impl MapReduceExecutor {
 
     /// Run a single agent worker
     async fn run_agent(
-        &self,
+        executor: Arc<MapReduceExecutor>,
         agent_index: usize,
         work_rx: Arc<RwLock<mpsc::Receiver<(usize, Value)>>>,
         results: Arc<RwLock<Vec<AgentResult>>>,
         progress: Arc<ProgressTracker>,
-        map_phase: MapPhase,
-        env: ExecutionEnvironment,
+        map_phase: Arc<MapPhase>,
+        env: Arc<ExecutionEnvironment>,
+        event_logger: Arc<EventLogger>,
+        dlq: Option<Arc<DeadLetterQueue>>,
     ) -> MapReduceResult<()> {
         loop {
             // Get next work item
@@ -1943,7 +1989,7 @@ impl MapReduceExecutor {
                         .await;
                 }
 
-                let result = self
+                let result = executor
                     .execute_agent_commands_with_retry_info(
                         &item_id,
                         &item,
@@ -1982,9 +2028,9 @@ impl MapReduceExecutor {
                         };
 
                         // Log error event with correlation ID
-                        self.event_logger
+                        event_logger
                             .log(MapReduceEvent::AgentFailed {
-                                job_id: env.session_id.clone(),
+                                job_id: env.session_id.to_string(),
                                 agent_id: format!("agent_{}", agent_index),
                                 error: e.to_string(),
                                 retry_eligible: false,
@@ -1995,7 +2041,7 @@ impl MapReduceExecutor {
                             });
 
                         // Add to Dead Letter Queue
-                        if let Some(dlq) = &self.dlq {
+                        if let Some(dlq) = &dlq {
                             let failure_detail = FailureDetail {
                                 attempt_number: attempt,
                                 timestamp: Utc::now(),
@@ -2050,13 +2096,15 @@ impl MapReduceExecutor {
 
     /// Run a single agent worker with enhanced progress tracking
     async fn run_agent_with_enhanced_progress(
-        &self,
+        executor: Arc<MapReduceExecutor>,
         agent_index: usize,
         work_rx: Arc<RwLock<mpsc::Receiver<(usize, Value)>>>,
         results: Arc<RwLock<Vec<AgentResult>>>,
         tracker: Arc<EnhancedProgressTracker>,
-        map_phase: MapPhase,
-        env: ExecutionEnvironment,
+        map_phase: Arc<MapPhase>,
+        env: Arc<ExecutionEnvironment>,
+        event_logger: Arc<EventLogger>,
+        dlq: Option<Arc<DeadLetterQueue>>,
     ) -> MapReduceResult<()> {
         loop {
             // Get next work item
@@ -2109,7 +2157,7 @@ impl MapReduceExecutor {
                 }
 
                 let start_time = Instant::now();
-                let result = self
+                let result = executor
                     .execute_agent_commands_with_progress_and_retry(
                         &item_id,
                         &item,
@@ -2154,7 +2202,7 @@ impl MapReduceExecutor {
                         };
 
                         // Add to Dead Letter Queue
-                        if let Some(dlq) = &self.dlq {
+                        if let Some(dlq) = &dlq {
                             let failure_detail = FailureDetail {
                                 attempt_number: attempt,
                                 timestamp: Utc::now(),
@@ -2209,10 +2257,10 @@ impl MapReduceExecutor {
         if let Value::Object(obj) = item {
             for (key, value) in obj {
                 let str_value = match value {
-                    Value::String(s) => s.clone(),
-                    _ => value.to_string(),
+                    Value::String(s) => Cow::Borrowed(s.as_str()),
+                    _ => Cow::Owned(value.to_string()),
                 };
-                variables.insert(key.clone(), str_value);
+                variables.insert(key.clone(), str_value.into_owned());
             }
         }
         variables
@@ -2244,16 +2292,16 @@ impl MapReduceExecutor {
         env: &ExecutionEnvironment,
     ) -> AgentContext {
         let agent_env = ExecutionEnvironment {
-            working_dir: worktree_path.clone(),
+            working_dir: worktree_path.clone().into(),
             project_dir: env.project_dir.clone(),
-            worktree_name: Some(worktree_name.clone()),
-            session_id: format!("{}-{}", env.session_id, item_id),
+            worktree_name: Some(worktree_name.clone().into()),
+            session_id: format!("{}-{}", env.session_id, item_id).into(),
         };
 
         let mut context = AgentContext::new(
             item_id.to_string(),
             worktree_path,
-            worktree_name.clone(),
+            worktree_name.clone().into(),
             agent_env,
         );
 
@@ -2337,7 +2385,7 @@ impl MapReduceExecutor {
             Err(e) => {
                 // Log failure asynchronously
                 self.log_agent_failure_async(
-                    env.session_id.clone(),
+                    env.session_id.to_string(),
                     agent_id.clone(),
                     e.to_string(),
                 );
@@ -2346,15 +2394,15 @@ impl MapReduceExecutor {
         };
         let worktree_name = worktree_session.name.clone();
         let worktree_path = worktree_session.path.clone();
-        let worktree_session_id = worktree_name.clone();
+        let worktree_session_id = worktree_name.clone().into();
 
         // Log agent started event
         self.event_logger
             .log(MapReduceEvent::AgentStarted {
-                job_id: env.session_id.clone(),
+                job_id: env.session_id.to_string(),
                 agent_id: agent_id.clone(),
                 item_id: item_id.to_string(),
-                worktree: worktree_name.clone(),
+                worktree: worktree_name.clone().into(),
                 attempt,
             })
             .await
@@ -2367,8 +2415,8 @@ impl MapReduceExecutor {
         let mut context = self.initialize_agent_context_with_retry(
             item_id,
             item,
-            worktree_path.clone(),
-            worktree_name.clone(),
+            worktree_path.clone().into(),
+            worktree_name.clone().into(),
             env,
             attempt,
             previous_error,
@@ -2417,7 +2465,7 @@ impl MapReduceExecutor {
 
                 self.event_logger
                     .log(MapReduceEvent::AgentCompleted {
-                        job_id: env.session_id.clone(),
+                        job_id: env.session_id.to_string(),
                         agent_id: agent_id.clone(),
                         commits: agent_commits,
                         duration: chrono::Duration::from_std(result.duration)
@@ -2430,7 +2478,7 @@ impl MapReduceExecutor {
                 if let Some(err) = &result.error {
                     self.event_logger
                         .log(MapReduceEvent::AgentFailed {
-                            job_id: env.session_id.clone(),
+                            job_id: env.session_id.to_string(),
                             agent_id: agent_id.clone(),
                             error: err.clone(),
                             retry_eligible: attempt < 3, // Usually max 3 retries
@@ -2480,7 +2528,7 @@ impl MapReduceExecutor {
             Err(e) => {
                 // Log failure asynchronously
                 self.log_agent_failure_async(
-                    env.session_id.clone(),
+                    env.session_id.to_string(),
                     agent_id.clone(),
                     e.to_string(),
                 );
@@ -2489,15 +2537,15 @@ impl MapReduceExecutor {
         };
         let worktree_name = worktree_session.name.clone();
         let worktree_path = worktree_session.path.clone();
-        let worktree_session_id = worktree_name.clone();
+        let worktree_session_id = worktree_name.clone().into();
 
         // Log agent started event
         self.event_logger
             .log(MapReduceEvent::AgentStarted {
-                job_id: env.session_id.clone(),
+                job_id: env.session_id.to_string(),
                 agent_id: agent_id.clone(),
                 item_id: item_id.to_string(),
-                worktree: worktree_name.clone(),
+                worktree: worktree_name.clone().into(),
                 attempt: 1,
             })
             .await
@@ -2510,8 +2558,8 @@ impl MapReduceExecutor {
         let mut context = self.initialize_agent_context(
             item_id,
             item,
-            worktree_path.clone(),
-            worktree_name.clone(),
+            worktree_path.clone().into(),
+            worktree_name.clone().into(),
             env,
         );
 
@@ -2558,7 +2606,7 @@ impl MapReduceExecutor {
 
                 self.event_logger
                     .log(MapReduceEvent::AgentCompleted {
-                        job_id: env.session_id.clone(),
+                        job_id: env.session_id.to_string(),
                         agent_id: agent_id.clone(),
                         duration: chrono::Duration::from_std(start_time.elapsed())
                             .unwrap_or(chrono::Duration::seconds(0)),
@@ -2570,7 +2618,7 @@ impl MapReduceExecutor {
             AgentStatus::Failed(error) => {
                 self.event_logger
                     .log(MapReduceEvent::AgentFailed {
-                        job_id: env.session_id.clone(),
+                        job_id: env.session_id.to_string(),
                         agent_id: agent_id.clone(),
                         error: error.clone(),
                         retry_eligible: true,
@@ -2617,7 +2665,7 @@ impl MapReduceExecutor {
 
         let worktree_name = worktree_session.name.clone();
         let worktree_path = worktree_session.path.clone();
-        let worktree_session_id = worktree_name.clone();
+        let worktree_session_id = worktree_name.clone().into();
 
         // Create branch name for this agent
         let branch_name = generate_agent_branch_name(&env.session_id, item_id);
@@ -2626,8 +2674,8 @@ impl MapReduceExecutor {
         let mut context = self.initialize_agent_context_with_retry(
             item_id,
             item,
-            worktree_path.clone(),
-            worktree_name.clone(),
+            worktree_path.clone().into(),
+            worktree_name.clone().into(),
             env,
             attempt,
             previous_error,
@@ -2720,7 +2768,7 @@ impl MapReduceExecutor {
 
         let worktree_name = worktree_session.name.clone();
         let worktree_path = worktree_session.path.clone();
-        let worktree_session_id = worktree_name.clone();
+        let worktree_session_id = worktree_name.clone().into();
 
         // Create branch name for this agent
         let branch_name = generate_agent_branch_name(&env.session_id, item_id);
@@ -2729,8 +2777,8 @@ impl MapReduceExecutor {
         let mut context = self.initialize_agent_context(
             item_id,
             item,
-            worktree_path.clone(),
-            worktree_name.clone(),
+            worktree_path.clone().into(),
+            worktree_name.clone().into(),
             env,
         );
 
@@ -2874,7 +2922,7 @@ impl MapReduceExecutor {
             let progress_pct = ((step_index as f32 + 0.5) / template_steps.len() as f32) * 100.0;
             self.event_logger
                 .log(MapReduceEvent::AgentProgress {
-                    job_id: env.session_id.clone(),
+                    job_id: env.session_id.to_string(),
                     agent_id: agent_id.to_string(),
                     step: step_name.clone(),
                     progress_pct,
@@ -3183,7 +3231,7 @@ impl MapReduceExecutor {
     /// Execute the reduce phase
     async fn execute_reduce_phase(
         &self,
-        reduce_phase: &ReducePhase,
+        reduce_phase: &Arc<ReducePhase>,
         map_results: &[AgentResult],
         env: &ExecutionEnvironment,
     ) -> MapReduceResult<()> {

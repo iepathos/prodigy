@@ -86,7 +86,7 @@ impl AgentCommandExecutor {
             files_modified: Vec::new(),
             duration: Duration::from_secs(0),
             error: None,
-            worktree_path: Some(env.working_dir.clone()),
+            worktree_path: Some(env.working_dir.to_path_buf()),
             branch_name: Some(agent_context.worktree_name.clone()),
             worktree_session_id: None,
         };
