@@ -1,0 +1,2091 @@
+warning: unused variable: `command`
+ --> src/cli/commands/dlq.rs:9:30
+  |
+9 | pub async fn run_dlq_command(command: DlqCommands) -> Result<()> {
+  |                              ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_command`
+  |
+  = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `command`
+ --> src/cli/commands/events.rs:9:33
+  |
+9 | pub async fn run_events_command(command: EventCommands) -> Result<()> {
+  |                                 ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_command`
+
+warning: unused variable: `command`
+  --> src/cli/commands/exec.rs:10:5
+   |
+10 |     command: String,
+   |     ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_command`
+
+warning: unused variable: `retry`
+  --> src/cli/commands/exec.rs:11:5
+   |
+11 |     retry: u32,
+   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_retry`
+
+warning: unused variable: `timeout`
+  --> src/cli/commands/exec.rs:12:5
+   |
+12 |     timeout: Option<u64>,
+   |     ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_timeout`
+
+warning: unused variable: `path`
+  --> src/cli/commands/exec.rs:13:5
+   |
+13 |     path: Option<PathBuf>,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_path`
+
+warning: unused variable: `pattern`
+  --> src/cli/commands/exec.rs:23:5
+   |
+23 |     pattern: String,
+   |     ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_pattern`
+
+warning: unused variable: `command`
+  --> src/cli/commands/exec.rs:24:5
+   |
+24 |     command: String,
+   |     ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_command`
+
+warning: unused variable: `parallel`
+  --> src/cli/commands/exec.rs:25:5
+   |
+25 |     parallel: usize,
+   |     ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_parallel`
+
+warning: unused variable: `retry`
+  --> src/cli/commands/exec.rs:26:5
+   |
+26 |     retry: Option<u32>,
+   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_retry`
+
+warning: unused variable: `timeout`
+  --> src/cli/commands/exec.rs:27:5
+   |
+27 |     timeout: Option<u64>,
+   |     ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_timeout`
+
+warning: unused variable: `path`
+  --> src/cli/commands/exec.rs:28:5
+   |
+28 |     path: Option<PathBuf>,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_path`
+
+warning: unused variable: `params`
+  --> src/cli/commands/goal_seek.rs:21:28
+   |
+21 | pub async fn run_goal_seek(params: GoalSeekParams) -> Result<()> {
+   |                            ^^^^^^ help: if this is intentional, prefix it with an underscore: `_params`
+
+warning: unused variable: `job_id`
+  --> src/cli/commands/progress.rs:10:5
+   |
+10 |     job_id: String,
+   |     ^^^^^^ help: if this is intentional, prefix it with an underscore: `_job_id`
+
+warning: unused variable: `export`
+  --> src/cli/commands/progress.rs:11:5
+   |
+11 |     export: Option<PathBuf>,
+   |     ^^^^^^ help: if this is intentional, prefix it with an underscore: `_export`
+
+warning: unused variable: `format`
+  --> src/cli/commands/progress.rs:12:5
+   |
+12 |     format: String,
+   |     ^^^^^^ help: if this is intentional, prefix it with an underscore: `_format`
+
+warning: unused variable: `web`
+  --> src/cli/commands/progress.rs:13:5
+   |
+13 |     web: Option<u16>,
+   |     ^^^ help: if this is intentional, prefix it with an underscore: `_web`
+
+warning: unused variable: `workflow_id`
+  --> src/cli/commands/resume.rs:10:5
+   |
+10 |     workflow_id: Option<String>,
+   |     ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_workflow_id`
+
+warning: unused variable: `force`
+  --> src/cli/commands/resume.rs:11:5
+   |
+11 |     force: bool,
+   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_force`
+
+warning: unused variable: `from_checkpoint`
+  --> src/cli/commands/resume.rs:12:5
+   |
+12 |     from_checkpoint: Option<String>,
+   |     ^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_from_checkpoint`
+
+warning: unused variable: `path`
+  --> src/cli/commands/resume.rs:13:5
+   |
+13 |     path: Option<PathBuf>,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_path`
+
+warning: unused variable: `job_id`
+  --> src/cli/commands/resume.rs:23:5
+   |
+23 |     job_id: String,
+   |     ^^^^^^ help: if this is intentional, prefix it with an underscore: `_job_id`
+
+warning: unused variable: `force`
+  --> src/cli/commands/resume.rs:24:5
+   |
+24 |     force: bool,
+   |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_force`
+
+warning: unused variable: `max_retries`
+  --> src/cli/commands/resume.rs:25:5
+   |
+25 |     max_retries: u32,
+   |     ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_max_retries`
+
+warning: unused variable: `path`
+  --> src/cli/commands/resume.rs:26:5
+   |
+26 |     path: Option<PathBuf>,
+   |     ^^^^ help: if this is intentional, prefix it with an underscore: `_path`
+
+warning: unused variable: `command`
+ --> src/cli/commands/sessions.rs:9:35
+  |
+9 | pub async fn run_sessions_command(command: SessionCommands) -> Result<()> {
+  |                                   ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_command`
+
+warning: unused variable: `command`
+ --> src/cli/commands/worktree.rs:9:35
+  |
+9 | pub async fn run_worktree_command(command: WorktreeCommands) -> Result<()> {
+  |                                   ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_command`
+
+warning: `prodigy` (lib) generated 27 warnings
+warning: `prodigy` (lib test) generated 27 warnings (27 duplicates)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.15s
+────────────
+ Nextest run ID 2499a38f-9bff-415d-874e-43521a6e8e12 with nextest profile: default
+    Starting 2093 tests across 16 binaries (7 tests skipped)
+        PASS [   0.012s] prodigy abstractions::exit_status::tests::test_from_raw_success
+        PASS [   0.011s] prodigy abstractions::exit_status::tests::test_from_raw_failure
+        PASS [   0.015s] prodigy abstractions::claude::tests::test_transient_error_detection
+        PASS [   0.022s] prodigy abstractions::claude::tests::test_mock_claude_unavailable
+        PASS [   0.023s] prodigy abstractions::claude::tests::test_add_success_response
+        PASS [   0.023s] prodigy abstractions::claude::tests::test_add_error_response
+        PASS [   0.024s] prodigy abstractions::claude::tests::test_mock_claude_error_response
+        PASS [   0.025s] prodigy abstractions::claude::tests::test_mock_claude_client
+        PASS [   0.020s] prodigy abstractions::git::tests::test_mock_git_operations
+        PASS [   0.035s] prodigy abstractions::git::real_git_tests::test_git_command_success
+        PASS [   0.024s] prodigy abstractions::git::tests::test_mock_git_error
+        PASS [   0.036s] prodigy abstractions::git::real_git_tests::test_create_worktree_invalid_path
+        PASS [   0.037s] prodigy abstractions::git::real_git_tests::test_git_command_failure
+        PASS [   0.016s] prodigy cli::events::tests::test_build_retention_policy_with_all_options
+        PASS [   0.016s] prodigy cli::events::tests::test_convert_duration_to_days
+        PASS [   0.017s] prodigy cli::events::tests::test_calculate_duration
+        PASS [   0.041s] prodigy abstractions::git::real_git_tests::test_get_current_branch
+        PASS [   0.016s] prodigy cli::events::tests::test_convert_size_to_bytes
+        PASS [   0.011s] prodigy cli::events::tests::test_event_matches_field
+        PASS [   0.011s] prodigy cli::events::tests::test_event_matches_type
+        PASS [   0.013s] prodigy cli::events::tests::test_extract_nested_field
+        PASS [   0.013s] prodigy cli::events::tests::test_format_job_info
+        PASS [   0.014s] prodigy cli::events::tests::test_get_event_type_agent_completed
+        PASS [   0.012s] prodigy cli::events::tests::test_get_event_type_agent_failed
+        PASS [   0.011s] prodigy cli::events::tests::test_get_event_type_empty_object
+        PASS [   0.013s] prodigy cli::events::tests::test_get_event_type_agent_started
+        PASS [   0.012s] prodigy cli::events::tests::test_get_event_type_job_completed
+        PASS [   0.014s] prodigy cli::events::tests::test_get_event_type_agent_progress
+        PASS [   0.010s] prodigy cli::events::tests::test_get_event_type_job_failed
+        PASS [   0.011s] prodigy cli::events::tests::test_get_event_type_job_paused
+        PASS [   0.013s] prodigy cli::events::tests::test_get_event_type_job_resumed
+        PASS [   0.012s] prodigy cli::events::tests::test_get_event_type_job_started
+        PASS [   0.012s] prodigy cli::events::tests::test_get_event_type_multiple_fields
+        PASS [   0.013s] prodigy cli::events::tests::test_get_event_type_metrics_snapshot
+        PASS [   0.011s] prodigy cli::events::tests::test_get_event_type_null_value
+        PASS [   0.013s] prodigy cli::events::tests::test_get_event_type_nested_structure
+        PASS [   0.053s] prodigy abstractions::git::real_git_tests::test_stage_all_changes_and_commit
+        PASS [   0.011s] prodigy cli::events::tests::test_get_event_type_pipeline_started
+        PASS [   0.013s] prodigy cli::events::tests::test_get_event_type_pipeline_stage_completed
+        PASS [   0.013s] prodigy cli::events::tests::test_get_event_type_pipeline_completed
+        PASS [   0.048s] prodigy abstractions::git::tests::test_real_git_operations_is_git_repo
+        PASS [   0.015s] prodigy cli::events::tests::test_get_event_type_unknown
+        PASS [   0.011s] prodigy cli::workflow_generator::tests::test_parse_command_default
+        PASS [   0.012s] prodigy cli::workflow_generator::tests::test_parse_command_claude
+        PASS [   0.016s] prodigy cli::workflow_generator::tests::test_generate_batch_workflow
+        PASS [   0.015s] prodigy cli::workflow_generator::tests::test_generate_exec_workflow
+        PASS [   0.013s] prodigy cli::workflow_generator::tests::test_parse_command_shell
+        PASS [   0.016s] prodigy cli::workflow_generator::tests::test_parse_command_slash
+        PASS [   0.016s] prodigy cli::yaml_migrator::tests::test_migrate_dry_run
+        PASS [   0.017s] prodigy cli::yaml_migrator::tests::test_migrate_mapreduce_already_simplified
+        PASS [   0.017s] prodigy cli::yaml_migrator::tests::test_migrate_mapreduce_with_nested_commands
+        PASS [   0.018s] prodigy cli::yaml_migrator::tests::test_migrate_invalid_yaml
+        PASS [   0.015s] prodigy cli::yaml_migrator::tests::test_migrate_nonexistent_file
+        PASS [   0.015s] prodigy cli::yaml_migrator::tests::test_migrate_preserve_other_fields
+        PASS [   0.013s] prodigy cli::yaml_migrator::tests::test_migrate_regular_workflow_no_changes
+        PASS [   0.012s] prodigy cli::yaml_migrator::tests::test_migrator_creation
+        PASS [   0.012s] prodigy commands::attributes::tests::test_attribute_value_conversions
+        PASS [   0.013s] prodigy commands::attributes::tests::test_schema_defaults
+        PASS [   0.012s] prodigy commands::attributes::tests::test_schema_validation
+        PASS [   0.018s] prodigy cli::yaml_migrator::tests::test_migrate_with_backup
+        PASS [   0.013s] prodigy commands::context::tests::test_context_builder_pattern
+        PASS [   0.011s] prodigy commands::context::tests::test_env_vars
+        PASS [   0.012s] prodigy commands::context::tests::test_metadata
+        PASS [   0.012s] prodigy commands::context::tests::test_path_resolution
+        PASS [   0.014s] prodigy commands::context::tests::test_context_creation
+        PASS [   0.010s] prodigy commands::context::tests::test_with_executor
+        PASS [   0.011s] prodigy commands::handlers::cargo::tests::test_cargo_handler_schema
+        PASS [   0.012s] prodigy commands::handlers::cargo::tests::test_cargo_dry_run
+        PASS [   0.017s] prodigy commands::handlers::cargo::tests::test_cargo_build
+        PASS [   0.015s] prodigy commands::handlers::cargo::tests::test_cargo_test_with_features
+        PASS [   0.012s] prodigy commands::handlers::claude::tests::test_claude_handler_schema
+        PASS [   0.015s] prodigy commands::handlers::claude::tests::test_claude_handler_dry_run
+        PASS [   0.016s] prodigy commands::handlers::claude::tests::test_claude_handler_execute
+        PASS [   0.012s] prodigy commands::handlers::claude::tests::test_execution_timeout
+        PASS [   0.012s] prodigy commands::handlers::claude::tests::test_with_all_optional_parameters
+        PASS [   0.016s] prodigy commands::handlers::claude::tests::test_default_values
+        PASS [   0.016s] prodigy commands::handlers::claude::tests::test_execution_failure
+        PASS [   0.019s] prodigy commands::handlers::claude::tests::test_context_file_not_found
+        PASS [   0.017s] prodigy commands::handlers::claude::tests::test_missing_prompt_attribute
+        PASS [   0.016s] prodigy commands::handlers::claude::tests::test_with_context_files
+        PASS [   0.013s] prodigy commands::handlers::claude::tests::test_with_max_tokens
+        PASS [   0.013s] prodigy commands::handlers::claude::tests::test_with_custom_model
+        PASS [   0.013s] prodigy commands::handlers::claude::tests::test_with_system_prompt
+        PASS [   0.013s] prodigy commands::handlers::file::tests::test_file_dry_run
+        PASS [   0.013s] prodigy commands::handlers::file::tests::test_file_exists
+        PASS [   0.019s] prodigy commands::handlers::claude::tests::test_with_multiple_context_files
+        PASS [   0.012s] prodigy commands::handlers::file::tests::test_file_handler_schema
+        PASS [   0.012s] prodigy commands::handlers::git::tests::test_git_commit_dry_run
+        PASS [   0.012s] prodigy commands::handlers::git::tests::test_git_status
+        PASS [   0.014s] prodigy commands::handlers::git::tests::test_git_handler_schema
+        PASS [   0.016s] prodigy commands::handlers::file::tests::test_file_write_and_read
+        PASS [   0.012s] prodigy commands::handlers::shell::tests::test_custom_shell
+        PASS [   0.013s] prodigy commands::handlers::shell::tests::test_custom_working_directory
+        PASS [   0.016s] prodigy commands::handlers::shell::tests::test_custom_timeout
+        PASS [   0.012s] prodigy commands::handlers::shell::tests::test_execution_failure
+        PASS [   0.014s] prodigy commands::handlers::shell::tests::test_environment_variables
+        PASS [   0.012s] prodigy commands::handlers::shell::tests::test_executor_error
+        PASS [   0.012s] prodigy commands::handlers::shell::tests::test_missing_command_attribute
+        PASS [   0.013s] prodigy commands::handlers::shell::tests::test_non_zero_exit_code
+        PASS [   0.012s] prodigy commands::handlers::shell::tests::test_shell_handler_schema
+        PASS [   0.013s] prodigy commands::handlers::shell::tests::test_shell_handler_execute
+        PASS [   0.015s] prodigy commands::handlers::shell::tests::test_shell_handler_dry_run
+        PASS [   0.012s] prodigy commands::handlers::tests::test_all_handlers
+        PASS [   0.012s] prodigy commands::registry::tests::test_execute_nonexistent_handler
+        PASS [   0.015s] prodigy commands::registry::tests::test_register_sync_from_non_async_context
+        PASS [   0.012s] prodigy commands::result::tests::test_error_result
+        PASS [   0.014s] prodigy commands::result::tests::test_command_error_display
+        PASS [   0.011s] prodigy commands::result::tests::test_from_output
+        PASS [   0.012s] prodigy commands::result::tests::test_success_result
+        PASS [   0.012s] prodigy commands::result::tests::test_to_result
+        PASS [   0.012s] prodigy commands::result::tests::test_with_duration
+        PASS [   0.009s] prodigy commands::tests::test_handler_validation
+        PASS [   0.010s] prodigy config::command::tests::test_analysis_config_defaults
+        PASS [   0.009s] prodigy config::command::tests::test_command_creation
+        PASS [   0.026s] prodigy commands::registry::tests::test_registry_registration
+        PASS [   0.010s] prodigy config::command::tests::test_analysis_config_serialization
+        PASS [   0.026s] prodigy commands::registry::tests::test_registry_get_handler
+        PASS [   0.010s] prodigy config::command::tests::test_analysis_config_with_defaults
+        PASS [   0.028s] prodigy commands::registry::tests::test_registry_execute
+        PASS [   0.009s] prodigy config::command::tests::test_command_from_string
+        PASS [   0.010s] prodigy config::command::tests::test_command_serialization
+        PASS [   0.036s] prodigy commands::registry::tests::test_register_multiple_handlers
+        PASS [   0.025s] prodigy commands::tests::test_command_handler_builder
+        PASS [   0.011s] prodigy config::command::tests::test_command_with_analysis_config
+        PASS [   0.011s] prodigy config::command::tests::test_commit_required_field
+        PASS [   0.010s] prodigy config::command::tests::test_default_cache_duration
+        PASS [   0.010s] prodigy config::command::tests::test_workflow_command_conversion
+        PASS [   0.011s] prodigy config::command::tests::test_conditional_workflow_serialization
+        PASS [   0.012s] prodigy config::command::tests::test_untagged_enum_debug
+        PASS [   0.012s] prodigy config::command::tests::test_workflow_command_with_workflow_step
+        PASS [   0.014s] prodigy config::command::tests::test_commit_required_serialization
+        PASS [   0.014s] prodigy config::command::tests::test_workflow_config_with_new_syntax
+        PASS [   0.015s] prodigy config::command::tests::test_workflow_step_command_parsing
+        PASS [   0.013s] prodigy config::command::tests::test_workflow_step_command_with_when_clause
+        PASS [   0.011s] prodigy config::command_discovery::tests::test_is_cache_valid
+        PASS [   0.013s] prodigy config::command_discovery::tests::test_create_command_file_nonexistent
+        PASS [   0.012s] prodigy config::command_discovery::tests::test_is_command_file
+        PASS [   0.014s] prodigy config::command_discovery::tests::test_create_command_file
+        PASS [   0.014s] prodigy config::command_discovery::tests::test_needs_refresh
+        PASS [   0.010s] prodigy config::command_discovery::tests::test_scan_nonexistent_directory
+        PASS [   0.013s] prodigy config::command_discovery::tests::test_scan_empty_directory
+        PASS [   0.017s] prodigy config::command_discovery::tests::test_process_entry_with_cache
+        PASS [   0.019s] prodigy config::command_discovery::tests::test_multiple_valid_command_files
+        PASS [   0.017s] prodigy config::command_discovery::tests::test_scan_commands_filters_correctly
+        PASS [   0.010s] prodigy config::command_parser::tests::test_parse_command_string_simple
+        PASS [   0.011s] prodigy config::command_parser::tests::test_is_boolean_flag
+        PASS [   0.010s] prodigy config::command_parser::tests::test_parse_command_string_with_variables
+        PASS [   0.010s] prodigy config::command_parser::tests::test_parse_command_with_args
+        PASS [   0.029s] prodigy config::command_discovery::tests::test_cache_invalidation_on_file_update
+        PASS [   0.031s] prodigy config::command_discovery::tests::test_cache_behavior
+        PASS [   0.011s] prodigy config::command_parser::tests::test_parse_empty_command
+        PASS [   0.012s] prodigy config::command_parser::tests::test_parse_option_at_end
+        PASS [   0.016s] prodigy config::command_parser::tests::test_parse_command_with_options
+        PASS [   0.014s] prodigy config::command_parser::tests::test_parse_command_with_variable
+        PASS [   0.013s] prodigy config::command_parser::tests::test_parse_option_before_another_option
+        PASS [   0.013s] prodigy config::command_parser::tests::test_parse_option_boolean_flag
+        PASS [   0.011s] prodigy config::command_parser::tests::test_parse_simple_command
+        PASS [   0.011s] prodigy config::command_parser::tests::test_parse_option_with_value
+        PASS [   0.026s] prodigy config::command_parser::tests::test_expand_variables
+        PASS [   0.016s] prodigy config::command_parser::tests::test_parse_command_with_slash
+        PASS [   0.016s] prodigy config::command_parser::tests::test_parse_complex_command
+        PASS [   0.012s] prodigy config::command_parser::tests::test_validate_and_split_command
+        PASS [   0.011s] prodigy config::command_validator::tests::test_create_max_option
+        PASS [   0.012s] prodigy config::command_validator::tests::test_create_focus_option
+        PASS [   0.011s] prodigy config::command_validator::tests::test_create_metadata
+        PASS [   0.014s] prodigy config::command_validator::tests::test_apply_defaults
+        PASS [   0.010s] prodigy config::command_validator::tests::test_validate_argument_counts_too_many
+        PASS [   0.013s] prodigy config::command_validator::tests::test_registry_initialization
+        PASS [   0.012s] prodigy config::command_validator::tests::test_validate_argument_types_with_variables
+        PASS [   0.013s] prodigy config::command_validator::tests::test_validate_argument_types_integer_validation
+        PASS [   0.013s] prodigy config::command_validator::tests::test_validate_argument_counts_too_few
+        PASS [   0.012s] prodigy config::command_validator::tests::test_validate_command_invalid_name
+        PASS [   0.013s] prodigy config::command_validator::tests::test_validate_command_empty_command
+        PASS [   0.017s] prodigy config::command_validator::tests::test_validate_argument_counts_exact_required
+        PASS [   0.010s] prodigy config::command_validator::tests::test_validate_command_valid
+        PASS [   0.012s] prodigy config::command_validator::tests::test_validate_command_options_valid
+        PASS [   0.014s] prodigy config::command_validator::tests::test_validate_missing_required_args
+        PASS [   0.013s] prodigy config::command_validator::tests::test_validate_option_types
+        PASS [   0.015s] prodigy config::command_validator::tests::test_validate_command_options_invalid_type
+        PASS [   0.011s] prodigy config::command_validator::tests::test_validate_optional_arguments_within_limit
+        PASS [   0.011s] prodigy config::command_validator::tests::test_validate_options_with_unknown_option
+        PASS [   0.012s] prodigy config::command_validator::tests::test_validate_options_type_mismatch
+        PASS [   0.013s] prodigy config::command_validator::tests::test_validate_required_arguments_success
+        PASS [   0.016s] prodigy config::command_validator::tests::test_validate_optional_arguments_exceeds_limit
+        PASS [   0.014s] prodigy config::command_validator::tests::test_validate_required_arguments_failure
+        PASS [   0.016s] prodigy config::command_validator::tests::test_validate_required_arguments_with_variables
+        PASS [   0.013s] prodigy config::command_validator::tests::test_validate_unknown_command
+        PASS [   0.015s] prodigy config::command_validator::tests::test_validate_valid_command
+        PASS [   0.013s] prodigy config::dynamic_registry::tests::test_check_value_type
+        PASS [   0.020s] prodigy config::dynamic_registry::tests::test_apply_definition_defaults_options_already_set
+        PASS [   0.021s] prodigy config::dynamic_registry::tests::test_apply_definition_defaults_no_defaults
+        PASS [   0.021s] prodigy config::dynamic_registry::tests::test_apply_definition_defaults_mixed_options
+        PASS [   0.022s] prodigy config::dynamic_registry::tests::test_apply_definition_defaults_metadata_already_set
+        PASS [   0.018s] prodigy config::dynamic_registry::tests::test_apply_definition_defaults_partial_metadata
+        PASS [   0.014s] prodigy config::dynamic_registry::tests::test_edge_cases_json_values
+        PASS [   0.023s] prodigy config::dynamic_registry::tests::test_apply_definition_defaults_options_with_defaults
+        PASS [   0.025s] prodigy config::dynamic_registry::tests::test_apply_definition_defaults_all_metadata_unset
+        PASS [   0.012s] prodigy config::dynamic_registry::tests::test_get_type_name
+        PASS [   0.024s] prodigy config::dynamic_registry::tests::test_command_discovery_and_validation
+        PASS [   0.012s] prodigy config::dynamic_registry::tests::test_validate_json_value_type_enum
+        PASS [   0.012s] prodigy config::dynamic_registry::tests::test_validate_json_value_type_path
+        PASS [   0.027s] prodigy config::dynamic_registry::tests::test_dynamic_registry_creation
+        PASS [   0.013s] prodigy config::dynamic_registry::tests::test_validate_json_value_type_integer
+        PASS [   0.015s] prodigy config::dynamic_registry::tests::test_validate_json_value_type_boolean
+        PASS [   0.013s] prodigy config::loader::tests::test_concurrent_access
+        PASS [   0.014s] prodigy config::dynamic_registry::tests::test_validate_json_value_type_string
+        PASS [   0.013s] prodigy config::loader::tests::test_load_from_path_nonexistent_file
+        PASS [   0.015s] prodigy config::loader::tests::test_load_from_path_invalid_yaml
+        PASS [   0.025s] prodigy config::dynamic_registry::tests::test_list_commands
+        PASS [   0.015s] prodigy config::loader::tests::test_load_from_path_unsupported_format
+        PASS [   0.025s] prodigy config::dynamic_registry::tests::test_permissive_validation
+        PASS [   0.011s] prodigy config::loader::tests::test_new_creates_default_config
+        PASS [   0.015s] prodigy config::loader::tests::test_load_project_config
+        PASS [   0.015s] prodigy config::loader::tests::test_load_with_default_path
+        PASS [   0.015s] prodigy config::loader::tests::test_load_with_explicit_path_nested_workflow
+        PASS [   0.015s] prodigy config::loader::tests::test_load_with_explicit_path_yaml
+        PASS [   0.013s] prodigy config::mapreduce::merge_workflow_tests::test_deserialize_full_syntax
+        PASS [   0.015s] prodigy config::loader::tests::test_load_with_no_config_uses_defaults
+        PASS [   0.015s] prodigy config::mapreduce::merge_workflow_tests::test_default_timeout
+        PASS [   0.013s] prodigy config::mapreduce::merge_workflow_tests::test_deserialize_simplified_syntax
+        PASS [   0.014s] prodigy config::mapreduce::merge_workflow_tests::test_invalid_merge_syntax_handled_gracefully
+        PASS [   0.016s] prodigy config::mapreduce::merge_workflow_tests::test_empty_merge_workflow
+        PASS [   0.014s] prodigy config::mapreduce::merge_workflow_tests::test_merge_with_variable_interpolation
+        PASS [   0.013s] prodigy config::mapreduce::merge_workflow_tests::test_merge_workflow_with_on_failure
+        PASS [   0.011s] prodigy config::mapreduce::tests::test_nested_agent_template_syntax
+        PASS [   0.013s] prodigy config::mapreduce::merge_workflow_tests::test_no_merge_workflow
+        PASS [   0.011s] prodigy config::mapreduce::tests::test_simplified_agent_template_syntax
+        PASS [   0.012s] prodigy config::mapreduce::tests::test_nested_reduce_syntax
+        PASS [   0.012s] prodigy config::mapreduce::tests::test_parse_basic_mapreduce_workflow
+        PASS [   0.013s] prodigy config::mapreduce::tests::test_mixed_simplified_and_nested_syntax
+        PASS [   0.013s] prodigy config::mapreduce::tests::test_simplified_reduce_syntax
+        PASS [   0.013s] prodigy config::metadata_parser::tests::test_classify_option_type_boolean
+        PASS [   0.014s] prodigy config::metadata_parser::tests::test_classify_option_type_integer
+        PASS [   0.013s] prodigy config::metadata_parser::tests::test_classify_option_type_string
+        PASS [   0.012s] prodigy config::metadata_parser::tests::test_parse_option_line_invalid_format
+        PASS [   0.015s] prodigy config::metadata_parser::tests::test_parse_option_line_valid
+        PASS [   0.013s] prodigy config::metadata_parser::tests::test_parse_option_line_with_colon_in_description
+        PASS [   0.019s] prodigy config::metadata_parser::tests::test_extract_description_multiline
+        PASS [   0.018s] prodigy config::metadata_parser::tests::test_minimal_definition
+        PASS [   0.019s] prodigy config::metadata_parser::tests::test_extract_description_stops_at_section
+        PASS [   0.020s] prodigy config::metadata_parser::tests::test_extract_description_with_empty_lines
+        PASS [   0.021s] prodigy config::metadata_parser::tests::test_parse_frontmatter
+        PASS [   0.018s] prodigy config::metadata_parser::tests::test_parse_options_empty
+        PASS [   0.024s] prodigy config::metadata_parser::tests::test_extract_description_no_title
+        PASS [   0.015s] prodigy config::tests::test_command_metadata_defaults
+        PASS [   0.013s] prodigy config::tests::test_command_serialization_roundtrip
+        PASS [   0.019s] prodigy config::metadata_parser::tests::test_parse_sections
+        PASS [   0.020s] prodigy config::metadata_parser::tests::test_parse_options_multiple
+        PASS [   0.010s] prodigy config::tests::test_get_claude_api_key_config_precedence_over_env
+        PASS [   0.012s] prodigy config::tests::test_config_new_creates_defaults
+        PASS [   0.015s] prodigy config::tests::test_command_validation
+        PASS [   0.016s] prodigy config::tests::test_command_string_parsing
+        PASS [   0.014s] prodigy config::tests::test_get_auto_commit_precedence
+        PASS [   0.012s] prodigy config::tests::test_get_claude_api_key_from_config
+        PASS [   0.012s] prodigy config::tests::test_get_claude_api_key_from_env
+        PASS [   0.013s] prodigy config::tests::test_get_claude_api_key_precedence
+        PASS [   0.012s] prodigy config::tests::test_get_global_prodigy_dir_path_structure
+        PASS [   0.011s] prodigy config::tests::test_get_global_prodigy_dir_success
+        PASS [   0.012s] prodigy config::tests::test_global_config_default
+        PASS [   0.012s] prodigy config::tests::test_merge_env_vars
+        PASS [   0.013s] prodigy config::tests::test_get_spec_dir
+        PASS [   0.012s] prodigy config::tests::test_mixed_workflow_config
+        PASS [   0.012s] prodigy config::tests::test_structured_workflow_config_parsing
+        PASS [   0.015s] prodigy config::tests::test_merge_env_vars_editor_fallback
+        PASS [   0.015s] prodigy config::tests::test_simple_workflow_config_parsing
+        PASS [   0.014s] prodigy cook::commit_tracker::commit_tracker_tests::tests::test_commit_config_serialization
+        PASS [   0.016s] prodigy config::tests::test_variable_expansion
+        PASS [   0.012s] prodigy cook::commit_tracker::commit_tracker_tests::tests::test_commit_tracker_initialization
+        PASS [   0.012s] prodigy cook::commit_tracker::commit_tracker_tests::tests::test_commit_tracking_result
+        PASS [   0.018s] prodigy cook::commit_tracker::commit_tracker_tests::tests::test_commit_message_validation
+        PASS [   0.014s] prodigy cook::commit_tracker::commit_tracker_tests::tests::test_create_auto_commit
+        PASS [   0.014s] prodigy cook::commit_tracker::commit_tracker_tests::tests::test_has_changes_detection
+        PASS [   0.015s] prodigy cook::commit_tracker::commit_tracker_tests::tests::test_get_commits_between
+        PASS [   0.010s] prodigy cook::commit_tracker::tests::test_commit_tracking_result
+        PASS [   0.014s] prodigy cook::commit_tracker::commit_tracker_tests::tests::test_message_template_interpolation
+        PASS [   0.014s] prodigy cook::commit_tracker::commit_tracker_tests::tests::test_squash_commits
+        PASS [   0.013s] prodigy cook::commit_tracker::commit_tracker_tests::tests::test_track_step_commits
+        PASS [   0.012s] prodigy cook::commit_tracker::tests::test_get_current_head
+        PASS [   0.012s] prodigy cook::commit_tracker::tests::test_has_changes
+        PASS [   0.012s] prodigy cook::commit_tracker::tests::test_step_commits_variable_format
+        PASS [   0.015s] prodigy cook::commit_tracker::tests::test_interpolate_template
+        PASS [   0.014s] prodigy cook::commit_tracker::tests::test_validate_message
+        PASS [   0.012s] prodigy cook::common_strings::tests::test_string_interning
+        PASS [   0.014s] prodigy cook::common_strings::tests::test_command_interning_static
+        PASS [   0.012s] prodigy cook::common_strings::tests::test_variable_interning_dynamic
+        PASS [   0.015s] prodigy cook::common_strings::tests::test_interner_clear
+        PASS [   0.017s] prodigy cook::cook_tests::test_load_debtmap_mapreduce_workflow
+        PASS [   0.015s] prodigy cook::cook_tests::test_load_workflow_default
+        PASS [   0.017s] prodigy cook::cook_tests::test_load_mapreduce_workflow
+        PASS [   0.013s] prodigy cook::coordinators::environment_tests::tests::test_verify_git_repository_success
+        PASS [   0.014s] prodigy cook::coordinators::environment_tests::tests::test_verify_git_repository_not_a_repo
+        PASS [   0.013s] prodigy cook::coordinators::execution_tests::tests::test_check_command_available
+        PASS [   0.017s] prodigy cook::cook_tests::test_yaml_error_messages
+        PASS [   0.014s] prodigy cook::coordinators::execution_tests::tests::test_execute_claude_failure
+        PASS [   0.014s] prodigy cook::coordinators::execution_tests::tests::test_execute_claude_success
+        PASS [   0.012s] prodigy cook::coordinators::execution_tests::tests::test_execute_command_failure
+        PASS [   0.011s] prodigy cook::coordinators::execution_tests::tests::test_execute_command_success
+        PASS [   0.011s] prodigy cook::coordinators::execution_tests::tests::test_execute_with_retry
+        PASS [   0.032s] prodigy cook::cook_tests::test_create_orchestrator
+        PASS [   0.019s] prodigy cook::coordinators::session_tests::tests::test_complete_session_failure
+        PASS [   0.013s] prodigy cook::coordinators::session_tests::tests::test_start_session
+        PASS [   0.018s] prodigy cook::coordinators::session_tests::tests::test_get_session_info
+        PASS [   0.012s] prodigy cook::coordinators::workflow::tests::test_convert_to_workflow_step_integration
+        PASS [   0.013s] prodigy cook::coordinators::workflow::tests::test_create_default_workflow_step
+        PASS [   0.019s] prodigy cook::coordinators::session_tests::tests::test_complete_session_success
+        PASS [   0.017s] prodigy cook::coordinators::session_tests::tests::test_track_iteration
+        PASS [   0.019s] prodigy cook::coordinators::session_tests::tests::test_resume_session
+        PASS [   0.018s] prodigy cook::coordinators::session_tests::tests::test_update_status
+        PASS [   0.020s] prodigy cook::coordinators::session_tests::tests::test_session_lifecycle
+        PASS [   0.012s] prodigy cook::coordinators::workflow::tests::test_extract_command_string_simple
+        PASS [   0.013s] prodigy cook::coordinators::workflow::tests::test_extract_command_string_simple_object
+        PASS [   0.017s] prodigy cook::coordinators::workflow::tests::test_extract_command_string_structured
+        PASS [   0.012s] prodigy cook::coordinators::workflow::tests::test_workflow_max_iterations_reached
+        PASS [   0.013s] prodigy cook::coordinators::workflow::tests::test_normalize_command_string_without_slash
+        PASS [   0.013s] prodigy cook::coordinators::workflow::tests::test_extract_workflow_step_command_test
+        PASS [   0.015s] prodigy cook::coordinators::workflow::tests::test_extract_workflow_step_command_priority
+        PASS [   0.014s] prodigy cook::coordinators::workflow::tests::test_normalize_command_string_with_slash
+        PASS [   0.017s] prodigy cook::coordinators::workflow::tests::test_extract_workflow_step_command_empty
+        PASS [   0.014s] prodigy cook::coordinators::workflow::tests::test_workflow_should_continue
+        PASS [   0.018s] prodigy cook::coordinators::workflow::tests::test_extract_workflow_step_command_claude
+        PASS [   0.017s] prodigy cook::coordinators::workflow::tests::test_extract_workflow_step_command_shell
+        PASS [   0.012s] prodigy cook::coordinators::workflow_tests::tests::test_display_progress
+        PASS [   0.011s] prodigy cook::coordinators::workflow_tests::tests::test_execute_workflow_empty_commands
+        PASS [   0.013s] prodigy cook::coordinators::workflow_tests::tests::test_execute_step
+        PASS [   0.012s] prodigy cook::coordinators::workflow_tests::tests::test_execute_workflow_stops_at_max_iterations
+        PASS [   0.011s] prodigy cook::coordinators::workflow_tests::tests::test_should_continue_at_limit
+        PASS [   0.014s] prodigy cook::coordinators::workflow_tests::tests::test_execute_workflow_simple_commands
+        PASS [   0.013s] prodigy cook::coordinators::workflow_tests::tests::test_execute_workflow_with_variables
+        PASS [   0.013s] prodigy cook::coordinators::workflow_tests::tests::test_execute_workflow_workflow_step_commands
+        PASS [   0.013s] prodigy cook::coordinators::workflow_tests::tests::test_execute_workflow_structured_commands
+        PASS [   0.012s] prodigy cook::coordinators::workflow_tests::tests::test_prompt_user
+        PASS [   0.014s] prodigy cook::coordinators::workflow_tests::tests::test_should_continue_beyond_limit
+        PASS [   0.012s] prodigy cook::coordinators::workflow_tests::tests::test_should_continue_within_limit
+        PASS [   0.013s] prodigy cook::coordinators::workflow_tests::tests::test_workflow_context_creation
+        PASS [   0.013s] prodigy cook::dry_run_tests::tests::test_dry_run_flag_in_cook_command
+        PASS [   0.011s] prodigy cook::dry_run_tests::tests::test_dry_run_workflow_config
+        PASS [   0.014s] prodigy cook::coordinators::workflow_tests::tests::test_workflow_context_with_variables
+        PASS [   0.013s] prodigy cook::dry_run_tests::tests::test_dry_run_with_auto_accept
+        PASS [   0.012s] prodigy cook::dry_run_tests::tests::test_retention_analysis_serialization
+        PASS [   0.013s] prodigy cook::dry_run_tests::tests::test_dry_run_with_worktree_flag
+        PASS [   0.015s] prodigy cook::dry_run_tests::tests::test_dry_run_with_iterations
+        PASS [   0.012s] prodigy cook::environment::config::tests::test_env_value_conditional
+        PASS [   0.016s] prodigy cook::dry_run_tests::tests::test_dry_run_with_verbosity
+        PASS [   0.013s] prodigy cook::environment::config::tests::test_env_value_dynamic
+        PASS [   0.012s] prodigy cook::environment::config::tests::test_env_value_static
+        PASS [   0.011s] prodigy cook::environment::manager::tests::test_environment_manager_new
+        PASS [   0.013s] prodigy cook::environment::config::tests::test_step_environment_default
+        PASS [   0.012s] prodigy cook::environment::manager::tests::test_environment_snapshot_restore
+        PASS [   0.014s] prodigy cook::environment::config::tests::test_environment_config_default
+        PASS [   0.012s] prodigy cook::environment::path_resolver::tests::test_expand_home_dir
+        PASS [   0.015s] prodigy cook::environment::manager::tests::test_interpolate_value
+        PASS [   0.015s] prodigy cook::environment::manager::tests::test_setup_environment_basic
+        PASS [   0.012s] prodigy cook::environment::path_resolver::tests::test_join
+        PASS [   0.016s] prodigy cook::environment::path_resolver::tests::test_is_absolute
+        PASS [   0.013s] prodigy cook::environment::path_resolver::tests::test_normalize_separators_unix
+        PASS [   0.013s] prodigy cook::environment::path_resolver::tests::test_normalize_separators_windows
+        PASS [   0.011s] prodigy cook::environment::secret_store::tests::test_env_secret_provider
+        PASS [   0.011s] prodigy cook::environment::tests::test_merge_env_maps
+        PASS [   0.015s] prodigy cook::environment::secret_store::tests::test_default_provider
+        PASS [   0.025s] prodigy cook::environment::path_resolver::tests::test_expand_env_vars
+        PASS [   0.013s] prodigy cook::environment::secret_store::tests::test_mock_secret_provider
+        PASS [   0.016s] prodigy cook::environment::path_resolver::tests::test_resolve_full_path
+        PASS [   0.012s] prodigy cook::environment::tests::test_mask_secrets
+        PASS [   0.013s] prodigy cook::environment::tests::test_needs_path_expansion
+        PASS [   0.016s] prodigy cook::environment::secret_store::tests::test_secret_store_cache
+        PASS [   0.012s] prodigy cook::execution::bridge_tests::tests::test_capture_output_mode_conversion
+        PASS [   0.012s] prodigy cook::execution::bridge_tests::tests::test_command_metadata_creation
+        PASS [   0.013s] prodigy cook::execution::bridge_tests::tests::test_command_request_creation_for_claude
+        PASS [   0.012s] prodigy cook::execution::bridge_tests::tests::test_no_op_observability
+        PASS [   0.013s] prodigy cook::execution::bridge_tests::tests::test_create_legacy_executor
+        PASS [   0.013s] prodigy cook::execution::bridge_tests::tests::test_no_op_observability_methods
+        PASS [   0.013s] prodigy cook::execution::bridge_tests::tests::test_unified_result_conversion
+        PASS [   0.014s] prodigy cook::execution::bridge_tests::tests::test_shell_command_detection
+        PASS [   0.015s] prodigy cook::execution::bridge_tests::tests::test_legacy_context_conversion
+        PASS [   0.013s] prodigy cook::execution::bridge_tests::tests::test_unified_result_conversion_failure
+        PASS [   0.014s] prodigy cook::execution::claude::tests::test_claude_command_execution
+        PASS [   0.013s] prodigy cook::execution::claude::tests::test_claude_executor_check
+        PASS [   0.011s] prodigy cook::execution::claude::tests::test_claude_verbosity_streaming
+        PASS [   0.014s] prodigy cook::execution::claude::tests::test_claude_executor_version
+        PASS [   0.011s] prodigy cook::execution::claude_streaming_test::tests::test_claude_streaming_mode_disabled
+        PASS [   0.014s] prodigy cook::execution::claude_streaming_test::tests::test_claude_processor_json_parsing
+        PASS [   0.011s] prodigy cook::execution::command_tests::tests::test_cleanup_requirements_default
+        PASS [   0.014s] prodigy cook::execution::claude_streaming_test::tests::test_claude_streaming_fallback_on_error
+        PASS [   0.014s] prodigy cook::execution::claude_streaming_test::tests::test_claude_streaming_mode_enabled
+        PASS [   0.014s] prodigy cook::execution::command_tests::tests::test_capture_output_mode_variants
+        PASS [   0.013s] prodigy cook::execution::command_tests::tests::test_command_request_creation
+        PASS [   0.015s] prodigy cook::execution::command_tests::tests::test_command_metadata_creation
+        PASS [   0.011s] prodigy cook::execution::command_tests::tests::test_command_spec_to_executable_shell
+        PASS [   0.011s] prodigy cook::execution::command_tests::tests::test_command_spec_to_executable_test
+        PASS [   0.016s] prodigy cook::execution::command_tests::tests::test_command_spec_to_executable_claude
+        PASS [   0.013s] prodigy cook::execution::command_tests::tests::test_command_spec_with_variable_substitution
+        PASS [   0.012s] prodigy cook::execution::command_tests::tests::test_executable_command_builder
+        PASS [   0.010s] prodigy cook::execution::command_tests::tests::test_executable_command_new
+        PASS [   0.011s] prodigy cook::execution::command_tests::tests::test_executable_command_from_string
+        PASS [   0.014s] prodigy cook::execution::command_tests::tests::test_command_type_equality
+        PASS [   0.014s] prodigy cook::execution::command_tests::tests::test_executable_command_display
+        PASS [   0.011s] prodigy cook::execution::command_tests::tests::test_execution_config_default
+        PASS [   0.011s] prodigy cook::execution::command_tests::tests::test_execution_context_default
+        PASS [   0.013s] prodigy cook::execution::command_tests::tests::test_execution_context_substitute_variables
+        PASS [   0.014s] prodigy cook::execution::command_tests::tests::test_handler_action_to_executable
+        PASS [   0.012s] prodigy cook::execution::command_tests::tests::test_output_format_equality
+        PASS [   0.011s] prodigy cook::execution::command_tests::tests::test_resource_limits
+        PASS [   0.010s] prodigy cook::execution::command_tests::tests::test_validation_config
+        PASS [   0.011s] prodigy cook::execution::command_tests::tests::test_resource_requirements_default
+        PASS [   0.012s] prodigy cook::execution::command_tests::tests::test_retry_config_default
+        PASS [   0.013s] prodigy cook::execution::data_pipeline::tests::test_complex_expressions_with_parentheses
+        PASS [   0.014s] prodigy cook::execution::data_pipeline::tests::test_array_access_in_filter
+        PASS [   0.011s] prodigy cook::execution::data_pipeline::tests::test_date_comparison
+        PASS [   0.014s] prodigy cook::execution::data_pipeline::tests::test_complex_multifield_sorting
+        PASS [   0.012s] prodigy cook::execution::data_pipeline::tests::test_filter_comparison
+        PASS [   0.015s] prodigy cook::execution::data_pipeline::tests::test_deeply_nested_field_filtering
+        PASS [   0.012s] prodigy cook::execution::data_pipeline::tests::test_filter_logical
+        PASS [   0.012s] prodigy cook::execution::data_pipeline::tests::test_filter_in_operator
+        PASS [   0.015s] prodigy cook::execution::data_pipeline::tests::test_distinct_deduplication
+        PASS [   0.014s] prodigy cook::execution::data_pipeline::tests::test_json_path_basic
+        PASS [   0.017s] prodigy cook::execution::data_pipeline::tests::test_filter_regex_matching
+        PASS [   0.013s] prodigy cook::execution::data_pipeline::tests::test_length_function
+        PASS [   0.015s] prodigy cook::execution::data_pipeline::tests::test_json_path_nested
+        PASS [   0.015s] prodigy cook::execution::data_pipeline::tests::test_mapreduce_debtmap_scenario
+        PASS [   0.011s] prodigy cook::execution::data_pipeline::tests::test_nested_field_functions
+        PASS [   0.012s] prodigy cook::execution::data_pipeline::tests::test_nested_field_filtering
+        PASS [   0.012s] prodigy cook::execution::data_pipeline::tests::test_nested_field_with_logical_operators
+        PASS [   0.012s] prodigy cook::execution::data_pipeline::tests::test_not_operator
+        PASS [   0.015s] prodigy cook::execution::data_pipeline::tests::test_nested_field_in_operator
+        PASS [   0.019s] prodigy cook::execution::data_pipeline::tests::test_matches_regex_function
+        PASS [   0.015s] prodigy cook::execution::data_pipeline::tests::test_nested_field_sorting
+        PASS [   0.012s] prodigy cook::execution::data_pipeline::tests::test_null_handling_in_filter
+        PASS [   0.013s] prodigy cook::execution::data_pipeline::tests::test_pipeline_complete
+        PASS [   0.012s] prodigy cook::execution::data_pipeline::tests::test_sort_with_null_position
+        PASS [   0.012s] prodigy cook::execution::data_pipeline::tests::test_sorter_multiple_fields
+        PASS [   0.013s] prodigy cook::execution::data_pipeline::tests::test_sorter_single_field
+        PASS [   0.012s] prodigy cook::execution::data_pipeline::tests::test_type_checking_functions
+        PASS [   0.012s] prodigy cook::execution::dlq_reprocessor::tests::test_filter_evaluator
+        PASS [   0.018s] prodigy cook::execution::dlq_reprocessor::tests::test_retry_strategy
+        PASS [   0.020s] prodigy cook::execution::dlq_reprocessor_test::test_advanced_filter_failure_count
+        PASS [   0.021s] prodigy cook::execution::dlq_reprocessor_test::test_advanced_filter_error_types
+        PASS [   0.021s] prodigy cook::execution::dlq_reprocessor_test::test_advanced_filter_date_range
+        PASS [   0.016s] prodigy cook::execution::dlq_reprocessor_test::test_filter_evaluator_expressions
+        PASS [   0.020s] prodigy cook::execution::dlq_reprocessor_test::test_concurrent_reprocessing_prevention
+        PASS [   0.022s] prodigy cook::execution::dlq_reprocessor_test::test_clear_processed_items
+        PASS [   0.024s] prodigy cook::execution::dlq_reprocessor_test::test_global_stats
+        PASS [   0.016s] prodigy cook::execution::dlq_test::tests::test_dlq_basic_operations
+        PASS [   0.015s] prodigy cook::execution::dlq_test::tests::test_dlq_filtering
+        PASS [   0.020s] prodigy cook::execution::dlq_test::tests::test_dlq_capacity_management
+        PASS [   0.017s] prodigy cook::execution::dlq_test::tests::test_dlq_error_distribution_analysis
+        PASS [   0.010s] prodigy cook::execution::dlq_test::tests::test_error_signature_creation
+        PASS [   0.042s] prodigy cook::execution::dlq_reprocessor_test::test_integration_complex_filter_scenarios
+        PASS [   0.047s] prodigy cook::execution::dlq_reprocessor_test::test_error_recovery_and_resilience
+        PASS [   0.032s] prodigy cook::execution::dlq_reprocessor_test::test_reprocess_items_basic
+        PASS [   0.019s] prodigy cook::execution::dlq_test::tests::test_dlq_persistence
+        PASS [   0.025s] prodigy cook::execution::dlq_test::tests::test_dlq_pattern_analysis
+        PASS [   0.017s] prodigy cook::execution::dlq_test::tests::test_dlq_reprocessing
+        PASS [   0.019s] prodigy cook::execution::dlq_test::tests::test_dlq_purging
+        PASS [   0.012s] prodigy cook::execution::errors::tests::test_error_is_retryable
+        PASS [   0.012s] prodigy cook::execution::errors::tests::test_recovery_hints
+        PASS [   0.013s] prodigy cook::execution::dlq_test::tests::test_should_move_to_dlq
+        PASS [   0.013s] prodigy cook::execution::errors::tests::test_aggregated_error
+        PASS [   0.011s] prodigy cook::execution::errors::tests::test_variant_names
+        PASS [   0.011s] prodigy cook::execution::errors_tests::tests::test_error_display_messages
+        PASS [   0.013s] prodigy cook::execution::errors_tests::tests::test_aggregated_error
+        PASS [   0.013s] prodigy cook::execution::errors_tests::tests::test_contextual_error
+        PASS [   0.010s] prodigy cook::execution::errors_tests::tests::test_from_anyhow_conversion
+        PASS [   0.011s] prodigy cook::execution::errors_tests::tests::test_error_handler_trait
+        PASS [   0.011s] prodigy cook::execution::errors_tests::tests::test_recovery_hints
+        PASS [   0.011s] prodigy cook::execution::errors_tests::tests::test_retryable_errors
+        PASS [   0.012s] prodigy cook::execution::errors_tests::tests::test_variant_names
+        PASS [   0.012s] prodigy cook::execution::events::event_logger::tests::test_correlation_id
+        PASS [   0.014s] prodigy cook::execution::events::event_logger::tests::test_event_logger_basic
+        PASS [   0.014s] prodigy cook::execution::events::event_logger::tests::test_event_logger_with_metadata
+        PASS [   0.011s] prodigy cook::execution::events::event_tests::tests::test_event_category_classification
+        PASS [   0.011s] prodigy cook::execution::events::event_tests::tests::test_event_buffering
+        PASS [   0.010s] prodigy cook::execution::events::event_tests::tests::test_event_logger_logs_events
+        PASS [   0.011s] prodigy cook::execution::events::event_tests::tests::test_event_correlation_id
+        PASS [   0.012s] prodigy cook::execution::events::event_tests::tests::test_event_logger_with_metadata
+        PASS [   0.012s] prodigy cook::execution::events::event_tests::tests::test_event_severity_categorization
+        PASS [   0.010s] prodigy cook::execution::events::retention::tests::test_extract_event_timestamp
+        PASS [   0.011s] prodigy cook::execution::events::retention::tests::test_default_retention_policy
+        PASS [   0.014s] prodigy cook::execution::events::event_tests::tests::test_file_event_writer_creates_directory
+        PASS [   0.013s] prodigy cook::execution::events::event_writer::tests::test_jsonl_writer
+        PASS [   0.015s] prodigy cook::execution::events::event_tests::tests::test_jsonl_file_writer
+        PASS [   0.012s] prodigy cook::execution::events::retention::tests::test_retention_stats_calculations
+        PASS [   0.010s] prodigy cook::execution::executor_tests::tests::test_command_error
+        PASS [   0.010s] prodigy cook::execution::executor_tests::tests::test_command_result_is_retryable
+        PASS [   0.010s] prodigy cook::execution::executor_tests::tests::test_command_result_is_success
+        PASS [   0.010s] prodigy cook::execution::executor_tests::tests::test_command_result_output_text
+        PASS [   0.010s] prodigy cook::execution::executor_tests::tests::test_command_status_failed
+        PASS [   0.012s] prodigy cook::execution::executor_tests::tests::test_command_status_cancelled
+        PASS [   0.011s] prodigy cook::execution::executor_tests::tests::test_command_status_success
+        PASS [   0.012s] prodigy cook::execution::executor_tests::tests::test_command_status_resource_limit_exceeded
+        PASS [   0.029s] prodigy cook::execution::events::retention::tests::test_retention_manager_no_cleanup_needed
+        PASS [   0.010s] prodigy cook::execution::executor_tests::tests::test_command_status_timed_out
+        PASS [   0.012s] prodigy cook::execution::executor_tests::tests::test_estimate_resources_claude
+        PASS [   0.011s] prodigy cook::execution::executor_tests::tests::test_estimate_resources_test
+        PASS [   0.010s] prodigy cook::execution::executor_tests::tests::test_execution_context_builder
+        PASS [   0.013s] prodigy cook::execution::executor_tests::tests::test_estimate_resources_shell_git
+        PASS [   0.012s] prodigy cook::execution::executor_tests::tests::test_execution_context_builder_missing_request
+        PASS [   0.011s] prodigy cook::execution::executor_tests::tests::test_executor_supports_all_types
+        PASS [   0.012s] prodigy cook::execution::executor_tests::tests::test_execution_metadata_creation
+        PASS [   0.012s] prodigy cook::execution::executor_tests::tests::test_executor_capabilities
+        PASS [   0.010s] prodigy cook::execution::executor_tests::tests::test_failure_reason_variants
+        PASS [   0.010s] prodigy cook::execution::executor_tests::tests::test_resource_monitor_check_resources
+        PASS [   0.012s] prodigy cook::execution::executor_tests::tests::test_resource_usage_default
+        PASS [   0.012s] prodigy cook::execution::executor_tests::tests::test_resource_monitor_validate_limits
+        PASS [   0.011s] prodigy cook::execution::executor_tests::tests::test_validation_result
+        PASS [   0.012s] prodigy cook::execution::executor_tests::tests::test_validation_issue_levels
+        PASS [   0.011s] prodigy cook::execution::expression::optimizer::tests::test_constant_folding
+        PASS [   0.012s] prodigy cook::execution::expression::optimizer::tests::test_algebraic_simplification
+        PASS [   0.010s] prodigy cook::execution::expression::optimizer::tests::test_full_optimization
+        PASS [   0.013s] prodigy cook::execution::expression::optimizer::tests::test_dead_code_elimination
+        PASS [   0.011s] prodigy cook::execution::expression::tests::test_expression_engine_filter
+        PASS [   0.011s] prodigy cook::execution::expression::optimizer::tests::test_short_circuit_optimization
+        PASS [   0.012s] prodigy cook::execution::expression::tests::test_expression_engine_sort
+        PASS [   0.012s] prodigy cook::execution::foreach_tests::foreach_execution_tests::test_foreach_empty_input
+        PASS [   0.023s] prodigy cook::execution::foreach_tests::foreach_execution_tests::test_foreach_deprecated_test_command
+        PASS [   0.035s] prodigy cook::execution::foreach::tests::test_foreach_with_interpolation
+        PASS [   0.038s] prodigy cook::execution::foreach::tests::test_basic_foreach_execution
+        PASS [   0.039s] prodigy cook::execution::foreach::tests::test_foreach_parallel_execution
+        PASS [   0.048s] prodigy cook::execution::foreach_tests::foreach_execution_tests::test_foreach_continue_on_error
+        PASS [   0.046s] prodigy cook::execution::foreach_tests::foreach_execution_tests::test_foreach_fail_fast
+        PASS [   0.048s] prodigy cook::execution::foreach_tests::foreach_execution_tests::test_foreach_max_items
+        PASS [   0.018s] prodigy cook::execution::foreach_tests::foreach_item_source_tests::test_command_input_empty_output
+        PASS [   0.019s] prodigy cook::execution::foreach_tests::foreach_item_source_tests::test_command_input_failure
+        PASS [   0.031s] prodigy cook::execution::foreach_tests::foreach_execution_tests::test_foreach_with_list_input
+        PASS [   0.034s] prodigy cook::execution::foreach_tests::foreach_execution_tests::test_foreach_variable_interpolation
+        PASS [   0.204s] prodigy cook::execution::dlq_reprocessor_test::test_integration_end_to_end_dlq_retry_with_mock_failures
+        PASS [   0.016s] prodigy cook::execution::foreach_tests::foreach_item_source_tests::test_command_input_with_spaces
+        PASS [   0.012s] prodigy cook::execution::foreach_tests::foreach_item_source_tests::test_list_input_preservation
+        PASS [   0.010s] prodigy cook::execution::input_source::tests::test_detect_command
+        PASS [   0.064s] prodigy cook::execution::foreach_tests::foreach_execution_tests::test_foreach_multiple_commands
+        PASS [   0.011s] prodigy cook::execution::input_source::tests::test_detect_json_file
+        PASS [   0.011s] prodigy cook::execution::input_source::tests::test_detect_complex_command
+        PASS [   0.051s] prodigy cook::execution::foreach_tests::foreach_execution_tests::test_foreach_with_command_input
+        PASS [   0.016s] prodigy cook::execution::interpolation::mapreduce_variable_tests::test_array_to_string_conversion
+        PASS [   0.016s] prodigy cook::execution::input_source::tests::test_execute_command
+        PASS [   0.015s] prodigy cook::execution::interpolation::mapreduce_variable_tests::test_empty_array_handling
+        PASS [   0.014s] prodigy cook::execution::interpolation::mapreduce_variable_tests::test_mapreduce_interpolation_bug_fix
+        PASS [   0.014s] prodigy cook::execution::interpolation::mapreduce_variable_tests::test_mixed_variable_syntax
+        PASS [   0.015s] prodigy cook::execution::interpolation::mapreduce_variable_tests::test_single_item_array
+        PASS [   0.016s] prodigy cook::execution::interpolation::mapreduce_variable_tests::test_nested_mapreduce_variables
+        PASS [   0.017s] prodigy cook::execution::interpolation::mapreduce_variable_tests::test_unbraced_variable_edge_cases
+        PASS [   0.013s] prodigy cook::execution::interpolation::tests::test_classify_path_char
+        PASS [   0.016s] prodigy cook::execution::interpolation::tests::test_basic_interpolation
+        PASS [   0.013s] prodigy cook::execution::interpolation::tests::test_default_values
+        PASS [   0.019s] prodigy cook::execution::interpolation::tests::test_array_indexing
+        PASS [   0.016s] prodigy cook::execution::interpolation::tests::test_complex_json_interpolation
+        PASS [   0.015s] prodigy cook::execution::interpolation::tests::test_context_inheritance
+        PASS [   0.016s] prodigy cook::execution::interpolation::tests::test_literal_segments
+        PASS [   0.016s] prodigy cook::execution::interpolation::tests::test_mixed_segments
+        PASS [   0.016s] prodigy cook::execution::interpolation::tests::test_nested_property_access
+        PASS [   0.016s] prodigy cook::execution::interpolation::tests::test_parse_path_complex
+        PASS [   0.014s] prodigy cook::execution::interpolation::tests::test_parse_path_dot_in_brackets
+        PASS [   0.015s] prodigy cook::execution::interpolation::tests::test_parse_path_dotted
+        PASS [   0.016s] prodigy cook::execution::interpolation::tests::test_parse_path_simple
+        PASS [   0.016s] prodigy cook::execution::interpolation::tests::test_parse_path_empty_error
+        PASS [   0.015s] prodigy cook::execution::interpolation::tests::test_parse_path_with_brackets
+        PASS [   0.011s] prodigy cook::execution::interpolation::tests::test_shell_escape
+        PASS [   0.012s] prodigy cook::execution::mapreduce::agent::basic_tests::test_agent_operation_display
+        PASS [   0.012s] prodigy cook::execution::mapreduce::agent::basic_tests::test_agent_config_creation
+        PASS [   0.010s] prodigy cook::execution::mapreduce::agent::basic_tests::test_agent_result_creation
+        PASS [   0.011s] prodigy cook::execution::mapreduce::agent::basic_tests::test_agent_result_failure
+        PASS [   0.016s] prodigy cook::execution::interpolation::tests::test_undefined_variable_strict_mode
+        PASS [   0.012s] prodigy cook::execution::mapreduce::agent::basic_tests::test_agent_state_transitions
+        PASS [   0.018s] prodigy cook::execution::interpolation::tests::test_undefined_variable_non_strict
+        PASS [   0.013s] prodigy cook::execution::mapreduce::agent::basic_tests::test_aggregated_results
+        PASS [   0.012s] prodigy cook::execution::mapreduce::agent::tests::test_agent_result_creation
+        PASS [   0.013s] prodigy cook::execution::mapreduce::agent::tests::test_agent_operation_variants
+        PASS [   0.013s] prodigy cook::execution::mapreduce::agent::tests::test_agent_result_failure
+        PASS [   0.014s] prodigy cook::execution::mapreduce::agent::basic_tests::test_aggregated_results_summary
+        PASS [   0.011s] prodigy cook::execution::mapreduce::agent::tests::test_agent_result_serialization
+        PASS [   0.012s] prodigy cook::execution::mapreduce::agent::tests::test_agent_result_retrying_status
+        PASS [   0.011s] prodigy cook::execution::mapreduce::agent::tests::test_agent_result_timeout_status
+        PASS [   0.010s] prodigy cook::execution::mapreduce::agent::tests::test_agent_result_with_worktree_info
+        PASS [   0.011s] prodigy cook::execution::mapreduce::agent::tests::test_agent_state_transitions
+        PASS [   0.012s] prodigy cook::execution::mapreduce::agent::tests::test_aggregated_results_empty
+        PASS [   0.014s] prodigy cook::execution::mapreduce::agent::tests::test_agent_state_with_error
+        PASS [   0.015s] prodigy cook::execution::mapreduce::agent::tests::test_aggregated_results
+        PASS [   0.014s] prodigy cook::execution::mapreduce::agent::tests::test_aggregated_results_serialization
+        PASS [   0.015s] prodigy cook::execution::mapreduce::agent::tests::test_aggregated_results_json_conversion
+        PASS [   0.011s] prodigy cook::execution::mapreduce::agent::tests::test_aggregator_to_interpolation_context
+        PASS [   0.011s] prodigy cook::execution::mapreduce::agent::tests::test_batch_agent_results
+        PASS [   0.022s] prodigy cook::execution::mapreduce::agent::tests::test_aggregator_to_variable_context
+        PASS [   0.020s] prodigy cook::execution::mapreduce::agent::tests::test_large_aggregation_performance
+        PASS [   0.021s] prodigy cook::execution::mapreduce::agent::tests::test_default_result_aggregator
+        PASS [   0.020s] prodigy cook::execution::mapreduce::command::tests::context_tests::test_execution_context_creation
+        PASS [   0.027s] prodigy cook::execution::mapreduce::agent::tests::test_concurrent_agent_operations
+        PASS [   0.022s] prodigy cook::execution::mapreduce::command::tests::context_tests::test_execution_context_with_captured_output
+        PASS [   0.011s] prodigy cook::execution::mapreduce::command::tests::context_tests::test_execution_context_with_variable
+        PASS [   0.012s] prodigy cook::execution::mapreduce::command::tests::context_tests::test_execution_context_with_variables
+        PASS [   0.017s] prodigy cook::execution::mapreduce::command::tests::context_tests::test_execution_context_with_env
+        PASS [   0.012s] prodigy cook::execution::mapreduce::command::tests::executor_tests::test_command_result_to_step_result_conversion
+        PASS [   0.017s] prodigy cook::execution::mapreduce::command::tests::executor_tests::test_command_router_execute_success
+        PASS [   0.019s] prodigy cook::execution::mapreduce::command::tests::types_tests::test_collect_command_types
+        PASS [   0.021s] prodigy cook::execution::mapreduce::command::tests::executor_tests::test_command_router_no_executor_found
+        PASS [   0.018s] prodigy cook::execution::mapreduce::command::tests::types_tests::test_determine_single_command_type
+        PASS [   0.019s] prodigy cook::execution::mapreduce::command::tests::types_tests::test_determine_multiple_command_types
+        PASS [   0.019s] prodigy cook::execution::mapreduce::command::tests::types_tests::test_determine_no_command_type
+        PASS [   0.018s] prodigy cook::execution::mapreduce::command::tests::types_tests::test_validate_command_count_empty
+        PASS [   0.017s] prodigy cook::execution::mapreduce::phases::coordinator_test::test_default_transition_handler_on_error
+        PASS [   0.016s] prodigy cook::execution::mapreduce::phases::coordinator_test::test_default_transition_handler_on_complete
+        PASS [   0.016s] prodigy cook::execution::mapreduce::command::tests::types_tests::test_validate_command_count_success
+        PASS [   0.018s] prodigy cook::execution::mapreduce::command::tests::types_tests::test_validate_command_count_multiple
+        PASS [   0.017s] prodigy cook::execution::mapreduce::phases::coordinator_test::test_default_transition_handler_on_validation_error
+        PASS [   0.014s] prodigy cook::execution::mapreduce::phases::coordinator_test::test_phase_coordinator_creation
+        PASS [   0.010s] prodigy cook::execution::mapreduce::phases::coordinator_test::test_phase_metrics_creation
+        PASS [   0.011s] prodigy cook::execution::mapreduce::phases::coordinator_test::test_phase_coordinator_with_custom_transition_handler
+        PASS [   0.014s] prodigy cook::execution::mapreduce::phases::coordinator_test::test_phase_result_failure
+        PASS [   0.014s] prodigy cook::execution::mapreduce::phases::coordinator_test::test_phase_coordinator_creation_without_optional_phases
+        PASS [   0.015s] prodigy cook::execution::mapreduce::phases::coordinator_test::test_phase_result_success
+        PASS [   0.015s] prodigy cook::execution::mapreduce::phases::coordinator_test::test_phase_transition_variants
+        PASS [   0.013s] prodigy cook::execution::mapreduce::phases::coordinator_test::test_phase_type_equality
+        PASS [   0.013s] prodigy cook::execution::mapreduce::phases::map_test::test_map_phase_executor_creation
+        PASS [   0.015s] prodigy cook::execution::mapreduce::phases::map_test::test_can_skip_default
+        PASS [   0.012s] prodigy cook::execution::mapreduce::phases::map_test::test_phase_type
+        PASS [   0.013s] prodigy cook::execution::mapreduce::phases::map_test::test_validate_context_with_empty_input
+        PASS [   0.013s] prodigy cook::execution::mapreduce::phases::map_test::test_validate_context_with_zero_max_parallel
+        PASS [   0.013s] prodigy cook::execution::mapreduce::phases::reduce_test::test_can_skip_with_empty_commands
+        PASS [   0.012s] prodigy cook::execution::mapreduce::phases::reduce_test::test_can_skip_with_no_map_results
+        PASS [   0.013s] prodigy cook::execution::mapreduce::phases::reduce_test::test_can_skip_with_map_results_and_commands
+        PASS [   0.014s] prodigy cook::execution::mapreduce::phases::reduce_test::test_phase_type
+        PASS [   0.014s] prodigy cook::execution::mapreduce::phases::reduce_test::test_reduce_phase_executor_creation
+        PASS [   0.015s] prodigy cook::execution::mapreduce::phases::reduce_test::test_validate_context_success
+        PASS [   0.013s] prodigy cook::execution::mapreduce::phases::reduce_test::test_validate_context_with_empty_commands
+        PASS [   0.012s] prodigy cook::execution::mapreduce::phases::reduce_test::test_validate_context_without_map_results
+        PASS [   0.013s] prodigy cook::execution::mapreduce::phases::setup_test::test_can_skip_with_commands
+        PASS [   0.012s] prodigy cook::execution::mapreduce::phases::setup_test::test_phase_error_variants
+        PASS [   0.015s] prodigy cook::execution::mapreduce::phases::setup_test::test_can_skip_with_empty_commands
+        PASS [   0.011s] prodigy cook::execution::mapreduce::phases::setup_test::test_phase_type
+        PASS [   0.012s] prodigy cook::execution::mapreduce::phases::setup_test::test_setup_phase_executor_creation
+        PASS [   0.012s] prodigy cook::execution::mapreduce::phases::setup_test::test_setup_phase_with_complex_commands
+        PASS [   0.016s] prodigy cook::execution::mapreduce::phases::setup_test::test_setup_phase_serialization
+        PASS [   0.011s] prodigy cook::execution::mapreduce::phases::setup_test::test_validate_context_with_empty_commands
+        PASS [   0.274s] prodigy cook::execution::foreach_tests::foreach_execution_tests::test_foreach_parallel_execution
+        PASS [   0.014s] prodigy cook::execution::mapreduce::phases::setup_test::test_validate_context_success
+        PASS [   0.016s] prodigy cook::execution::mapreduce::progress::display::tests::test_format_duration
+        PASS [   0.015s] prodigy cook::execution::mapreduce::progress::display::tests::test_format_phase
+        PASS [   0.146s] prodigy cook::execution::mapreduce::agent::tests::test_default_lifecycle_manager
+        PASS [   0.013s] prodigy cook::execution::mapreduce::progress::display::tests::test_terminal_renderer
+        PASS [   0.013s] prodigy cook::execution::mapreduce::progress::operations::tests::test_operation_tracker
+        PASS [   0.014s] prodigy cook::execution::mapreduce::progress::operations::tests::test_agent_operation
+        PASS [   0.015s] prodigy cook::execution::mapreduce::progress::display::tests::test_text_renderer
+        PASS [   0.014s] prodigy cook::execution::mapreduce::progress::operations::tests::test_statistics
+        PASS [   0.012s] prodigy cook::execution::mapreduce::progress::stream::tests::test_progress_streamer
+        PASS [   0.013s] prodigy cook::execution::mapreduce::progress::stream::tests::test_metrics_aggregator
+        PASS [   0.015s] prodigy cook::execution::mapreduce::progress::stream::tests::test_broadcast_subscription
+        PASS [   0.011s] prodigy cook::execution::mapreduce::progress::tracker::tests::test_format_operation
+        PASS [   0.012s] prodigy cook::execution::mapreduce::progress::tracker::tests::test_progress_operations
+        PASS [   0.012s] prodigy cook::execution::mapreduce::progress::tracker::tests::test_progress_tracker_creation
+        PASS [   0.013s] prodigy cook::execution::mapreduce::progress::tests::test_progress_state
+        PASS [   0.011s] prodigy cook::execution::mapreduce::progress::tracker::tests::test_truncate_command
+        PASS [   0.013s] prodigy cook::execution::mapreduce::pure_function_tests::test_add_individual_result_variables_various_statuses
+        PASS [   0.013s] prodigy cook::execution::mapreduce::pure_function_tests::test_build_agent_context_variables
+        PASS [   0.011s] prodigy cook::execution::mapreduce::pure_function_tests::test_calculate_map_result_summary_all_failed
+        PASS [   0.011s] prodigy cook::execution::mapreduce::pure_function_tests::test_calculate_map_result_summary_empty_results
+        PASS [   0.012s] prodigy cook::execution::mapreduce::pure_function_tests::test_calculate_map_result_summary_all_successful
+        PASS [   0.014s] prodigy cook::execution::mapreduce::pure_function_tests::test_build_map_results_interpolation_context
+        PASS [   0.011s] prodigy cook::execution::mapreduce::pure_function_tests::test_calculate_map_result_summary_mixed_results
+        PASS [   0.010s] prodigy cook::execution::mapreduce::pure_function_tests::test_classify_agent_status
+        PASS [   0.010s] prodigy cook::execution::mapreduce::pure_function_tests::test_mapreduce_variable_interpolation_bug_fix
+        PASS [   0.011s] prodigy cook::execution::mapreduce::pure_function_tests::test_generate_agent_id
+        PASS [   0.013s] prodigy cook::execution::mapreduce::pure_function_tests::test_generate_agent_branch_name
+        PASS [   0.012s] prodigy cook::execution::mapreduce::pure_function_tests::test_truncate_output
+        PASS [   0.014s] prodigy cook::execution::mapreduce::reduce_phase::tests::test_aggregate_statistics
+        PASS [   0.013s] prodigy cook::execution::mapreduce::resources::tests::test_agent_context_initialization
+        PASS [   0.010s] prodigy cook::execution::mapreduce::resources::tests::test_cleanup_all_resources
+        PASS [   0.012s] prodigy cook::execution::mapreduce::resources::tests::test_agent_resource_manager
+        PASS [   0.011s] prodigy cook::execution::mapreduce::resources::tests::test_cleanup_orphaned_resources
+        PASS [   0.010s] prodigy cook::execution::mapreduce::resources::tests::test_cleanup_registry_operations
+        PASS [   0.011s] prodigy cook::execution::mapreduce::resources::tests::test_cleanup_task_priority_ordering
+        PASS [   0.011s] prodigy cook::execution::mapreduce::resources::tests::test_resource_guard_cleanup
+        PASS [   0.011s] prodigy cook::execution::mapreduce::resources::tests::test_resource_guard_take
+        PASS [   0.011s] prodigy cook::execution::mapreduce::resources::tests::test_resource_manager_creation
+        PASS [   0.010s] prodigy cook::execution::mapreduce::resources::tests::test_resource_metrics_tracking
+        PASS [   0.012s] prodigy cook::execution::mapreduce::resources::tests::test_resource_manager_with_worktree_pool
+        PASS [   0.011s] prodigy cook::execution::mapreduce::resources::tests::test_session_registration_and_unregistration
+        PASS [   0.009s] prodigy cook::execution::mapreduce::resources::tests::test_worktree_error_creation
+        PASS [   0.012s] prodigy cook::execution::mapreduce::state::checkpoint::tests::test_checkpoint_validation
+        PASS [   0.012s] prodigy cook::execution::mapreduce::state::checkpoint::tests::test_checkpoint_creation
+        PASS [   0.012s] prodigy cook::execution::mapreduce::state::checkpoint::tests::test_checksum_calculation
+        PASS [   0.011s] prodigy cook::execution::mapreduce::state::persistence::tests::test_state_persistence
+        PASS [   0.013s] prodigy cook::execution::mapreduce::state::persistence::tests::test_list_jobs
+        PASS [   0.012s] prodigy cook::execution::mapreduce::state::recovery::tests::test_calculate_pending_items
+        PASS [   0.014s] prodigy cook::execution::mapreduce::state::recovery::tests::test_can_resume_job
+        PASS [   0.013s] prodigy cook::execution::mapreduce::state::recovery::tests::test_mark_items_processed
+        PASS [   0.016s] prodigy cook::execution::mapreduce::state::recovery::tests::test_recovery_plan_creation
+        PASS [   0.041s] prodigy cook::execution::mapreduce::resources::tests::test_resource_manager_stress
+        PASS [   0.016s] prodigy cook::execution::mapreduce::state::tests::state_tests::test_checkpoint_creation_and_recovery
+        PASS [   0.015s] prodigy cook::execution::mapreduce::state::tests::state_tests::test_checkpoint_version_management
+        PASS [   0.025s] prodigy cook::execution::mapreduce::state::tests::state_tests::test_concurrent_state_updates
+        PASS [   0.025s] prodigy cook::execution::mapreduce::state::tests::state_tests::test_failed_items_tracking
+        PASS [   0.025s] prodigy cook::execution::mapreduce::state::tests::state_tests::test_recovery_with_partial_completion
+        PASS [   0.022s] prodigy cook::execution::mapreduce::state::tests::state_tests::test_state_lifecycle
+        PASS [   0.022s] prodigy cook::execution::mapreduce::state::tests::state_tests::test_state_transitions_validation
+        PASS [   0.024s] prodigy cook::execution::mapreduce::state::tests::state_tests::test_terminal_state_restrictions
+        PASS [   0.029s] prodigy cook::execution::mapreduce::state::tests::state_tests::test_state_history
+        PASS [   0.022s] prodigy cook::execution::mapreduce::state::transitions::tests::test_get_valid_transitions
+        PASS [   0.285s] prodigy cook::execution::mapreduce::agent::tests::test_agent_workflow_integration
+        PASS [   0.017s] prodigy cook::execution::mapreduce::state::transitions::tests::test_invalid_transitions
+        PASS [   0.016s] prodigy cook::execution::mapreduce::state::transitions::tests::test_valid_transitions
+        PASS [   0.017s] prodigy cook::execution::mapreduce::state::transitions::tests::test_terminal_states
+        PASS [   0.019s] prodigy cook::execution::mapreduce::state::transitions::tests::test_job_state_helpers
+        PASS [   0.017s] prodigy cook::execution::mapreduce::tests::test_checkpoint_state_validation
+        PASS [   0.015s] prodigy cook::execution::mapreduce::tests::test_collect_command_types_claude
+        PASS [   0.014s] prodigy cook::execution::mapreduce::tests::test_collect_command_types_empty
+        PASS [   0.013s] prodigy cook::execution::mapreduce::tests::test_collect_command_types_handler
+        PASS [   0.015s] prodigy cook::execution::mapreduce::tests::test_collect_command_types_legacy_name
+        PASS [   0.015s] prodigy cook::execution::mapreduce::tests::test_collect_command_types_legacy_name_with_slash
+        PASS [   0.015s] prodigy cook::execution::mapreduce::tests::test_collect_command_types_multiple
+        PASS [   0.018s] prodigy cook::execution::mapreduce::tests::test_collect_command_types_shell
+        PASS [   0.016s] prodigy cook::execution::mapreduce::tests::test_format_legacy_command
+        PASS [   0.018s] prodigy cook::execution::mapreduce::tests::test_collect_command_types_test
+        PASS [   0.014s] prodigy cook::execution::mapreduce::tests::test_truncate_identifier
+        PASS [   0.016s] prodigy cook::execution::mapreduce::tests::test_pending_items_logic
+        PASS [   0.014s] prodigy cook::execution::mapreduce::utils::tests::test_add_individual_result_variables
+        PASS [   0.012s] prodigy cook::execution::mapreduce::utils::tests::test_calculate_map_result_summary_all_failed
+        PASS [   0.016s] prodigy cook::execution::mapreduce::utils::tests::test_build_agent_context_variables
+        PASS [   0.017s] prodigy cook::execution::mapreduce::utils::tests::test_build_map_results_interpolation_context
+        PASS [   0.013s] prodigy cook::execution::mapreduce::utils::tests::test_calculate_map_result_summary_empty
+        PASS [   0.014s] prodigy cook::execution::mapreduce::utils::tests::test_calculate_map_result_summary_all_successful
+        PASS [   0.015s] prodigy cook::execution::mapreduce::utils::tests::test_calculate_map_result_summary_mixed_results
+        PASS [   0.013s] prodigy cook::execution::mapreduce::utils::tests::test_classify_agent_status
+        PASS [   0.013s] prodigy cook::execution::mapreduce::utils::tests::test_generate_agent_id
+        PASS [   0.013s] prodigy cook::execution::mapreduce::utils::tests::test_truncate_command
+        PASS [   0.018s] prodigy cook::execution::mapreduce::utils::tests::test_generate_agent_branch_name
+        PASS [   0.018s] prodigy cook::execution::mapreduce::utils::tests::test_truncate_output
+        PASS [   0.016s] prodigy cook::execution::mapreduce_integration_tests::tests::test_command_timeout
+        PASS [   0.017s] prodigy cook::execution::mapreduce_integration_tests::tests::test_debtmap_workflow_parsing
+        PASS [   0.015s] prodigy cook::execution::mapreduce_integration_tests::tests::test_empty_items_handling
+        PASS [   0.017s] prodigy cook::execution::mapreduce_integration_tests::tests::test_extended_workflow_conversion
+        PASS [   0.014s] prodigy cook::execution::mapreduce_integration_tests::tests::test_map_variable_interpolation
+        PASS [   0.015s] prodigy cook::execution::mapreduce_integration_tests::tests::test_map_on_failure_handlers
+        PASS [   0.013s] prodigy cook::execution::mapreduce_integration_tests::tests::test_missing_input_file_error
+        PASS [   0.014s] prodigy cook::execution::mapreduce_integration_tests::tests::test_reduce_phase_implicit_retry
+        PASS [   0.014s] prodigy cook::execution::mapreduce_integration_tests::tests::test_reduce_phase_on_failure_with_retries
+        PASS [   0.021s] prodigy cook::execution::mapreduce_integration_tests::tests::test_mapreduce_variable_interpolation_integration
+        PASS [   0.016s] prodigy cook::execution::mapreduce_integration_tests::tests::test_reduce_phase_no_retry
+        PASS [   0.013s] prodigy cook::execution::mapreduce_integration_tests::tests::test_reduce_phase_retry_exhaustion
+        PASS [   0.014s] prodigy cook::execution::mapreduce_integration_tests::tests::test_setup_phase_execution
+        PASS [   0.014s] prodigy cook::execution::mapreduce_integration_tests::tests::test_reduce_phase_variable_substitution
+        PASS [   0.014s] prodigy cook::execution::mapreduce_integration_tests::tests::test_setup_runs_in_main_worktree
+        PASS [   0.012s] prodigy cook::execution::mapreduce_resume::tests::test_enhanced_resume_options_default
+        PASS [   0.015s] prodigy cook::execution::mapreduce_integration_tests::tests::test_skip_reduce_on_no_success
+        PASS [   0.013s] prodigy cook::execution::mapreduce_resume::tests::test_calculate_remaining_items
+        PASS [   0.014s] prodigy cook::execution::mapreduce_resume::tests::test_resume_from_map_empty_items
+        PASS [   0.018s] prodigy cook::execution::mapreduce_resume::tests::test_load_and_validate_state
+        PASS [   0.014s] prodigy cook::execution::mapreduce_resume::tests::test_resume_from_map_with_remaining
+        PASS [   0.015s] prodigy cook::execution::mapreduce_resume::tests::test_resume_from_reduce_completed
+        PASS [   0.218s] prodigy cook::execution::mapreduce::progress::tests::test_progress_manager
+        PASS [   0.015s] prodigy cook::execution::mapreduce_resume::tests::test_work_item_serialization
+        PASS [   0.013s] prodigy cook::execution::mapreduce_setup_test::tests::test_setup_phase_variable_capture
+        PASS [   0.014s] prodigy cook::execution::mapreduce_setup_test::tests::test_setup_generates_work_items
+        PASS [   0.014s] prodigy cook::execution::mapreduce_setup_test::tests::test_setup_phase_failure_prevents_map
+        PASS [   0.014s] prodigy cook::execution::mapreduce_tests::additional_coverage_tests::test_agent_result_edge_cases
+        PASS [   0.012s] prodigy cook::execution::mapreduce_tests::additional_coverage_tests::test_map_phase_with_all_options
+        PASS [   0.015s] prodigy cook::execution::mapreduce_tests::additional_coverage_tests::test_resume_options_edge_cases
+        PASS [   0.017s] prodigy cook::execution::mapreduce_tests::additional_coverage_tests::test_large_agent_result_collection
+        PASS [   0.013s] prodigy cook::execution::mapreduce_tests::additional_coverage_tests::test_setup_phase_edge_cases
+        PASS [   0.010s] prodigy cook::execution::mapreduce_tests::command_type_tests::test_collect_command_types_single_claude
+        PASS [   0.011s] prodigy cook::execution::mapreduce_tests::command_type_tests::test_collect_command_types_legacy_without_slash
+        PASS [   0.014s] prodigy cook::execution::mapreduce_tests::command_type_tests::test_collect_command_types_legacy_with_slash
+        PASS [   0.013s] prodigy cook::execution::mapreduce_tests::command_type_tests::test_collect_command_types_multiple
+        PASS [   0.012s] prodigy cook::execution::mapreduce_tests::command_type_tests::test_collect_command_types_single_shell
+        PASS [   0.012s] prodigy cook::execution::mapreduce_tests::command_type_tests::test_format_legacy_command_empty
+        PASS [   0.011s] prodigy cook::execution::mapreduce_tests::command_type_tests::test_validate_command_count_multiple
+        PASS [   0.013s] prodigy cook::execution::mapreduce_tests::command_type_tests::test_format_legacy_command_with_slash
+        PASS [   0.015s] prodigy cook::execution::mapreduce_tests::command_type_tests::test_validate_command_count_empty
+        PASS [   0.014s] prodigy cook::execution::mapreduce_tests::command_type_tests::test_validate_command_count_single
+        PASS [   0.015s] prodigy cook::execution::mapreduce_tests::command_type_tests::test_format_legacy_command_without_slash
+        PASS [   0.018s] prodigy cook::execution::mapreduce_tests::concurrency_tests::test_concurrent_worktree_creation
+        PASS [   0.015s] prodigy cook::execution::mapreduce_tests::dlq_tests::test_dlq_error_type_categorization
+        PASS [   0.025s] prodigy cook::execution::mapreduce_tests::concurrency_tests::test_agent_race_conditions
+        PASS [   0.014s] prodigy cook::execution::mapreduce_tests::dlq_tests::test_dlq_failed_item_tracking
+        PASS [   0.015s] prodigy cook::execution::mapreduce_tests::dlq_tests::test_dlq_failure_detail_serialization
+        PASS [   0.016s] prodigy cook::execution::mapreduce_tests::dlq_tests::test_dlq_persistence_simulation
+        PASS [   0.016s] prodigy cook::execution::mapreduce_tests::integration_tests::test_end_to_end_mapreduce_flow
+        PASS [   0.014s] prodigy cook::execution::mapreduce_tests::integration_tests::test_filter_and_sort_operations
+        PASS [   0.014s] prodigy cook::execution::mapreduce_tests::integration_tests::test_offset_and_limit_processing
+        PASS [   0.015s] prodigy cook::execution::mapreduce_tests::merge_history_tests::test_merge_preserves_commit_structure
+        PASS [   0.012s] prodigy cook::execution::mapreduce_tests::merge_history_tests::test_worktree_merge_scenario
+        PASS [   0.016s] prodigy cook::execution::mapreduce_tests::merge_history_tests::test_multiple_commits_history_format
+        PASS [   0.015s] prodigy cook::execution::mapreduce_tests::recovery_tests::test_recovery_with_partial_results
+        PASS [   0.016s] prodigy cook::execution::mapreduce_tests::recovery_tests::test_checkpoint_data_integrity
+        PASS [   0.012s] prodigy cook::execution::mapreduce_tests::test_agent_result_serialization
+        PASS [   0.017s] prodigy cook::execution::mapreduce_tests::test_agent_context_creation
+        PASS [   0.016s] prodigy cook::execution::mapreduce_tests::test_agent_context_update_with_output
+        PASS [   0.017s] prodigy cook::execution::mapreduce_tests::test_agent_context_to_interpolation_context
+        PASS [   0.012s] prodigy cook::execution::mapreduce_tests::test_agent_status_serialization
+        PASS [   0.013s] prodigy cook::execution::mapreduce_tests::test_custom_capture_output_variables
+        PASS [   0.025s] prodigy cook::execution::mapreduce_tests::test_interpolation_context_hierarchy
+        PASS [   0.027s] prodigy cook::execution::mapreduce_tests::test_interpolation_strict_mode
+        PASS [   0.027s] prodigy cook::execution::mapreduce_tests::test_interpolation_with_arrays
+        PASS [   0.028s] prodigy cook::execution::mapreduce_tests::test_interpolation_with_map_results
+        PASS [   0.028s] prodigy cook::execution::mapreduce_tests::test_interpolation_with_defaults
+        PASS [   0.027s] prodigy cook::execution::mapreduce_tests::test_interpolation_with_shell_output
+        PASS [   0.009s] prodigy cook::execution::mapreduce_tests::test_reduce_phase_complex_variable_substitution
+        PASS [   0.012s] prodigy cook::execution::mapreduce_tests::test_map_phase_configuration
+        PASS [   0.010s] prodigy cook::execution::mapreduce_tests::test_reduce_context_has_map_variables
+        PASS [   0.012s] prodigy cook::execution::mapreduce_tests::test_mapreduce_config_defaults
+        PASS [   0.010s] prodigy cook::execution::mapreduce_tests::test_reduce_phase_configuration
+        PASS [   0.020s] prodigy cook::execution::mapreduce_tests::test_interpolation_with_work_item
+        PASS [   0.067s] prodigy cook::execution::mapreduce_tests::recovery_tests::test_sigint_handling_simulation
+        PASS [   0.010s] prodigy cook::execution::mapreduce_tests::test_resume_options_defaults
+        PASS [   0.011s] prodigy cook::execution::mapreduce_tests::test_reduce_phase_variable_substitution
+        PASS [   0.011s] prodigy cook::execution::output_tests::tests::test_claude_output_formatter_extract_json
+        PASS [   0.012s] prodigy cook::execution::mapreduce_tests::test_resume_result_serialization
+        PASS [   0.012s] prodigy cook::execution::output_tests::tests::test_claude_output_formatter_extract_error
+        PASS [   0.015s] prodigy cook::execution::output_tests::tests::test_claude_output_formatter_format
+        PASS [   0.014s] prodigy cook::execution::output_tests::tests::test_claude_output_formatter_remove_artifacts
+        PASS [   0.015s] prodigy cook::execution::output_tests::tests::test_handler_output_formatter
+        PASS [   0.016s] prodigy cook::execution::output_tests::tests::test_json_output_parser
+        PASS [   0.015s] prodigy cook::execution::output_tests::tests::test_output_processor_creation
+        PASS [   0.015s] prodigy cook::execution::output_tests::tests::test_output_metadata_default
+        PASS [   0.015s] prodigy cook::execution::output_tests::tests::test_output_processor_default
+        PASS [   0.013s] prodigy cook::execution::output_tests::tests::test_output_processor_process_output
+        PASS [   0.015s] prodigy cook::execution::output_tests::tests::test_plain_text_parser
+        PASS [   0.013s] prodigy cook::execution::output_tests::tests::test_process_output_builder
+        PASS [   0.011s] prodigy cook::execution::output_tests::tests::test_processed_output_creation
+        PASS [   0.014s] prodigy cook::execution::output_tests::tests::test_process_output_empty
+        PASS [   0.014s] prodigy cook::execution::output_tests::tests::test_processed_output_default_format
+        PASS [   0.015s] prodigy cook::execution::output_tests::tests::test_process_output_with_all_fields
+        PASS [   0.013s] prodigy cook::execution::output_tests::tests::test_shell_output_formatter_extract_error
+        PASS [   0.015s] prodigy cook::execution::output_tests::tests::test_shell_output_formatter_format
+        PASS [   0.013s] prodigy cook::execution::output_tests::tests::test_test_output_formatter_extract_results
+        PASS [   0.014s] prodigy cook::execution::output_tests::tests::test_test_output_formatter_format
+        PASS [   0.013s] prodigy cook::execution::output_tests::tests::test_yaml_output_parser
+        PASS [   0.016s] prodigy cook::execution::process_tests::process_kill_tests::tests::test_kill_already_dead_process
+        PASS [   0.012s] prodigy cook::execution::process_tests::tests::test_cleanup_handler_creation
+        PASS [   0.015s] prodigy cook::execution::process_tests::process_kill_tests::tests::test_process_id_tracking
+        PASS [   0.011s] prodigy cook::execution::process_tests::tests::test_cleanup_handler_requirements
+        PASS [   0.018s] prodigy cook::execution::process_tests::process_kill_tests::tests::test_process_manager_spawn_with_process_group
+        PASS [   0.010s] prodigy cook::execution::process_tests::tests::test_command_type_specific_stdio
+        PASS [   0.010s] prodigy cook::execution::process_tests::tests::test_executable_command_expected_exit_code
+        PASS [   0.011s] prodigy cook::execution::process_tests::tests::test_executable_command_with_env
+        PASS [   0.011s] prodigy cook::execution::process_tests::tests::test_executable_command_with_working_dir
+        PASS [   1.048s] prodigy cook::cook_tests::test_run_improvement_loop
+        PASS [   0.011s] prodigy cook::execution::process_tests::tests::test_process_id
+        PASS [   0.010s] prodigy cook::execution::process_tests::tests::test_resource_usage_default
+        PASS [   0.012s] prodigy cook::execution::process_tests::tests::test_process_manager_spawn_simple
+        PASS [   0.011s] prodigy cook::execution::process_tests::tests::test_security_context_dangerous_commands
+        PASS [   0.013s] prodigy cook::execution::process_tests::tests::test_security_context_allow_command_injection_shell
+        PASS [   0.011s] prodigy cook::execution::process_tests::tests::test_security_context_path_traversal
+        PASS [   0.010s] prodigy cook::execution::process_tests::tests::test_security_context_validate_command_injection_non_shell
+        PASS [   0.009s] prodigy cook::execution::process_tests::tests::test_security_context_validate_dangerous_command_claude
+        PASS [   0.009s] prodigy cook::execution::process_tests::tests::test_security_context_validate_safe_command
+        PASS [   0.010s] prodigy cook::execution::process_tests::tests::test_security_context_validate_dangerous_command_shell
+        PASS [   0.010s] prodigy cook::execution::process_tests::tests::test_unified_process_creation
+        PASS [   0.011s] prodigy cook::execution::process_tests::tests::test_unified_process_stdout_stderr
+        PASS [   0.012s] prodigy cook::execution::process_tests::tests::test_unified_process_wait
+        PASS [   0.010s] prodigy cook::execution::progress_display_tests::tests::test_json_progress_renderer_agent_progress
+        PASS [   0.010s] prodigy cook::execution::progress_display_tests::tests::test_json_progress_renderer_multiple_events
+        PASS [   0.009s] prodigy cook::execution::progress_display_tests::tests::test_json_progress_renderer_workflow_update
+        PASS [   0.010s] prodigy cook::execution::progress_display_tests::tests::test_json_progress_renderer_phase_progress
+        PASS [   0.228s] prodigy cook::execution::mapreduce_tests::concurrency_tests::test_parallel_agent_execution_limits
+        PASS [   0.009s] prodigy cook::execution::progress_tests::cli_progress_viewer_tests::test_format_duration
+        PASS [   0.010s] prodigy cook::execution::progress_tests::cli_progress_viewer_tests::test_cli_viewer_initialization
+        PASS [   0.009s] prodigy cook::execution::progress_tests::cli_progress_viewer_tests::test_progress_bar_creation
+        PASS [   0.010s] prodigy cook::execution::progress_tests::enhanced_progress_tracker_tests::test_agent_state_transitions
+        PASS [   0.009s] prodigy cook::execution::progress_tests::enhanced_progress_tracker_tests::test_create_snapshot
+        PASS [   0.009s] prodigy cook::execution::progress_tests::enhanced_progress_tracker_tests::test_export_csv_format
+        PASS [   0.009s] prodigy cook::execution::progress_tests::enhanced_progress_tracker_tests::test_export_html_format
+        PASS [   0.010s] prodigy cook::execution::progress_tests::enhanced_progress_tracker_tests::test_export_json_format
+        PASS [   0.010s] prodigy cook::execution::progress_tests::enhanced_progress_tracker_tests::test_mark_item_completed
+        PASS [   0.010s] prodigy cook::execution::progress_tests::enhanced_progress_tracker_tests::test_mark_item_failed
+        PASS [   0.010s] prodigy cook::execution::progress_tests::enhanced_progress_tracker_tests::test_new_tracker_initialization
+        PASS [   0.009s] prodigy cook::execution::progress_tests::enhanced_progress_tracker_tests::test_overall_progress_calculation
+        PASS [   0.010s] prodigy cook::execution::progress_tests::enhanced_progress_tracker_tests::test_update_agent_progress
+        PASS [   0.009s] prodigy cook::execution::progress_tests::progress_reporter_trait_tests::test_enhanced_tracker_implements_trait
+        PASS [   0.011s] prodigy cook::execution::progress_tests::integration_tests::test_complete_workflow_simulation
+        PASS [   0.009s] prodigy cook::execution::progress_tests::progress_reporter_trait_tests::test_trait_implementation
+        PASS [   0.009s] prodigy cook::execution::progress_tests::progress_web_server_tests::test_dashboard_html_exists
+        PASS [   0.009s] prodigy cook::execution::progress_tests::progress_web_server_tests::test_web_server_initialization
+        PASS [   0.013s] prodigy cook::execution::runner::tests::test_command_with_context
+        PASS [   0.009s] prodigy cook::execution::runner::tests::test_mock_command_runner
+        PASS [   0.011s] prodigy cook::execution::runner::tests::test_real_command_runner
+        PASS [   0.010s] prodigy cook::execution::setup_executor::tests::test_setup_executor_captures_output
+        PASS [   0.114s] prodigy cook::execution::process_tests::tests::test_unified_process_kill
+        PASS [   0.169s] prodigy cook::execution::process_tests::process_kill_tests::tests::test_resource_usage_after_kill
+        PASS [   0.011s] prodigy cook::execution::setup_executor::tests::test_setup_executor_timeout
+        PASS [   0.010s] prodigy cook::execution::shell_failure_tests::tests::test_ignore_errors_flag
+        PASS [   0.010s] prodigy cook::execution::shell_failure_tests::tests::test_mixed_commands
+        PASS [   0.011s] prodigy cook::execution::shell_failure_tests::tests::test_on_failure_continue
+        PASS [   0.010s] prodigy cook::execution::shell_failure_tests::tests::test_on_failure_parsing
+        PASS [   0.012s] prodigy cook::execution::shell_failure_tests::tests::test_on_failure_fail_workflow
+        PASS [   0.010s] prodigy cook::execution::shell_failure_tests::tests::test_regular_workflow_shell_failure
+        PASS [   0.013s] prodigy cook::execution::shell_failure_tests::tests::test_on_failure_with_retry
+        PASS [   0.078s] prodigy cook::execution::progress_tests::integration_tests::test_concurrent_agent_updates
+        PASS [   0.015s] prodigy cook::execution::shell_failure_tests::tests::test_shell_command_error_propagation
+        PASS [   0.016s] prodigy cook::execution::shell_failure_tests::tests::test_setup_fails_on_shell_error
+        PASS [   0.017s] prodigy cook::execution::state::tests::test_job_state_manager
+        PASS [   0.221s] prodigy cook::execution::process_tests::process_kill_tests::tests::test_process_group_kill
+        PASS [   0.114s] prodigy cook::execution::progress_tests::enhanced_progress_tracker_tests::test_metrics_recalculation
+        PASS [   0.020s] prodigy cook::execution::state::tests::test_checkpoint_save_and_load
+        PASS [   0.015s] prodigy cook::execution::state_tests::tests::test_agent_result_update
+        PASS [   0.030s] prodigy cook::execution::state::tests::test_checkpoint_cleanup
+        PASS [   0.024s] prodigy cook::execution::state::tests::test_list_resumable_jobs
+        PASS [   0.019s] prodigy cook::execution::state_tests::tests::test_atomic_checkpoint_writes
+        PASS [   0.020s] prodigy cook::execution::state_tests::tests::test_checkpoint_persistence
+        PASS [   0.013s] prodigy cook::execution::state_tests::tests::test_find_work_item
+        PASS [   0.030s] prodigy cook::execution::state_tests::tests::test_checkpoint_cleanup
+        PASS [   0.012s] prodigy cook::execution::state_tests::tests::test_job_state_creation
+        PASS [   0.033s] prodigy cook::execution::state_tests::tests::test_dlq_restoration_on_resume
+        PASS [   0.034s] prodigy cook::execution::state_tests::tests::test_duplicate_prevention_on_resume
+        PASS [   0.014s] prodigy cook::execution::state_tests::tests::test_phase_completion_tracking
+        PASS [   0.027s] prodigy cook::execution::state_tests::tests::test_job_state_manager_lifecycle
+        PASS [   0.016s] prodigy cook::execution::state_tests::tests::test_resume_with_modified_max_parallel
+        PASS [   0.020s] prodigy cook::execution::state_tests::tests::test_resume_with_force_retry_all
+        PASS [   0.042s] prodigy cook::execution::state_tests::tests::test_full_mapreduce_resume_workflow_integration
+        PASS [   0.023s] prodigy cook::execution::state_tests::tests::test_resume_job_functionality
+        PASS [   0.024s] prodigy cook::execution::state_tests::tests::test_resume_with_additional_retries
+        PASS [   0.024s] prodigy cook::execution::state_tests::tests::test_resume_with_partial_completion
+        PASS [   0.022s] prodigy cook::execution::state_tests::tests::test_resume_with_timeout_override
+        PASS [   0.015s] prodigy cook::execution::variables::tests::test_aggregate_average
+        PASS [   0.017s] prodigy cook::execution::variables::tests::test_aggregate_concat
+        PASS [   0.018s] prodigy cook::execution::variables::tests::test_aggregate_collect
+        PASS [   0.019s] prodigy cook::execution::variables::tests::test_aggregate_count
+        PASS [   0.018s] prodigy cook::execution::variables::tests::test_aggregate_flatten
+        PASS [   0.021s] prodigy cook::execution::variables::tests::test_aggregate_group_by
+        PASS [   0.016s] prodigy cook::execution::variables::tests::test_aggregate_sort
+        PASS [   0.018s] prodigy cook::execution::variables::tests::test_aggregate_min_max
+        PASS [   0.016s] prodigy cook::execution::variables::tests::test_aggregate_sum
+        PASS [   0.021s] prodigy cook::execution::variables::tests::test_aggregate_merge
+        PASS [   0.023s] prodigy cook::execution::variables::tests::test_aggregate_median
+        PASS [   0.019s] prodigy cook::execution::variables::tests::test_aggregate_unique
+        PASS [   0.319s] prodigy cook::execution::process_tests::process_kill_tests::tests::test_kill_with_sigterm_then_sigkill
+        PASS [   0.024s] prodigy cook::execution::variables::tests::test_aggregate_variance_stddev
+        PASS [   0.019s] prodigy cook::execution::variables::tests::test_scope_precedence
+        PASS [   0.023s] prodigy cook::execution::variables::tests::test_aggregate_with_empty_collection
+        PASS [   0.021s] prodigy cook::execution::variables::tests::test_nested_variables
+        PASS [   0.023s] prodigy cook::execution::variables::tests::test_environment_variable
+        PASS [   0.024s] prodigy cook::execution::variables::tests::test_basic_interpolation
+        PASS [   0.020s] prodigy cook::execution::variables::tests::test_uuid_generation
+        PASS [   0.030s] prodigy cook::execution::variables_test::tests::test_array_handling
+        PASS [   0.022s] prodigy cook::execution::variables_test::tests::test_complex_mapreduce_scenario
+        PASS [   0.021s] prodigy cook::execution::variables_test::tests::test_date_formatting
+        PASS [   0.028s] prodigy cook::execution::variables_test::tests::test_child_context_inheritance
+        PASS [   0.025s] prodigy cook::execution::variables_test::tests::test_environment_variables
+        PASS [   0.026s] prodigy cook::execution::variables_test::tests::test_item_context_variables
+        PASS [   0.032s] prodigy cook::execution::variables_test::tests::test_file_content_variable
+        PASS [   0.037s] prodigy cook::execution::variables_test::tests::test_command_output_variable
+        PASS [   0.015s] prodigy cook::execution::variables_test::tests::test_undefined_variable_error
+        PASS [   0.018s] prodigy cook::execution::variables_test::tests::test_nested_json_path
+        PASS [   0.025s] prodigy cook::execution::variables_test::tests::test_mapreduce_aggregate_variables
+        PASS [   0.021s] prodigy cook::execution::variables_test::tests::test_phase_variables
+        PASS [   0.020s] prodigy cook::execution::variables_test::tests::test_uuid_generation
+        PASS [   0.018s] prodigy cook::execution::variables_test::tests::test_variable_persistence
+        PASS [   0.012s] prodigy cook::expression::parser::tests::test_parse_comparison
+        PASS [   0.018s] prodigy cook::execution::variables_test::tests::test_variable_scoping
+        PASS [   0.015s] prodigy cook::expression::parser::tests::test_parse_exists
+        PASS [   0.013s] prodigy cook::expression::parser::tests::test_parse_not
+        PASS [   0.013s] prodigy cook::expression::parser::tests::test_parse_parentheses
+        PASS [   0.017s] prodigy cook::expression::parser::tests::test_parse_logical
+        PASS [   0.012s] prodigy cook::expression::parser::tests::test_parse_simple_variable
+        PASS [   0.012s] prodigy cook::expression::parser::tests::test_tokenize_complex
+        PASS [   0.014s] prodigy cook::expression::parser::tests::test_tokenize_simple
+        PASS [   0.012s] prodigy cook::expression::tests::test_comparison
+        PASS [   0.012s] prodigy cook::expression::tests::test_logical_operators
+        PASS [   0.012s] prodigy cook::expression::tests::test_step_result
+        PASS [   0.012s] prodigy cook::expression::tests::test_string_comparison
+        PASS [   0.013s] prodigy cook::expression::tests::test_undefined_variable
+        PASS [   0.013s] prodigy cook::expression::tests::test_variable_exists
+        PASS [   0.017s] prodigy cook::expression::tests::test_simple_boolean
+        PASS [   0.012s] prodigy cook::expression::value::tests::test_value_conversions
+        PASS [   0.014s] prodigy cook::expression::value::tests::test_value_truthiness
+        PASS [   0.068s] prodigy cook::git_ops::tests::test_check_git_status_success
+        PASS [   0.069s] prodigy cook::git_ops::mock_tests::test_stage_all_changes_with_mock
+        PASS [   0.064s] prodigy cook::git_ops::tests::test_get_last_commit_message_no_commits
+        PASS [   0.072s] prodigy cook::git_ops::tests::test_check_git_status_with_changes
+        PASS [   0.094s] prodigy cook::git_ops::mock_tests::test_create_commit_with_mock
+        PASS [   0.115s] prodigy cook::git_ops::tests::test_create_commit_no_staged_changes
+        PASS [   0.062s] prodigy cook::git_ops::tests::test_is_git_repo
+        PASS [   0.013s] prodigy cook::goal_seek::engine::tests::test_convergence_detection
+        PASS [   0.078s] prodigy cook::git_ops::tests::test_git_mutex_prevents_races
+        PASS [   0.078s] prodigy cook::git_ops::tests::test_public_api_functions_in_real_repo
+        PASS [   0.148s] prodigy cook::git_ops::tests::test_get_last_commit_message_success
+        PASS [   0.015s] prodigy cook::goal_seek::engine::tests::test_goal_seek_success
+        PASS [   0.158s] prodigy cook::git_ops::tests::test_create_commit_success
+        PASS [   0.098s] prodigy cook::git_ops::tests::test_mutex_synchronization
+        PASS [   0.024s] prodigy cook::goal_seek::shell_executor::tests::test_shell_executor_echo
+        PASS [   0.026s] prodigy cook::goal_seek::shell_executor::tests::test_shell_executor_failure
+        PASS [   0.022s] prodigy cook::goal_seek::shell_executor::tests::test_shell_executor_score_output
+        PASS [   0.012s] prodigy cook::goal_seek::validator::tests::test_parse_structured_validation
+        PASS [   0.013s] prodigy cook::goal_seek::validators::tests::test_output_quality_validator
+        PASS [   0.023s] prodigy cook::goal_seek::validator::tests::test_extract_score_from_output
+        PASS [   0.031s] prodigy cook::goal_seek::shell_executor::tests::test_shell_executor_with_env
+        PASS [   0.015s] prodigy cook::goal_seek::validators::tests::test_spec_coverage_validator
+        PASS [   0.014s] prodigy cook::goal_seek::validators::tests::test_test_pass_validator
+        PASS [   0.014s] prodigy cook::input::tests::test_arguments_provider
+        PASS [   0.014s] prodigy cook::input::tests::test_arguments_with_key_value_pairs
+        PASS [   0.015s] prodigy cook::input::tests::test_composite_input_source
+        PASS [   0.014s] prodigy cook::input::tests::test_empty_input_source
+        PASS [   0.116s] prodigy cook::git_ops::tests::test_stage_all_changes_no_changes
+        PASS [   0.017s] prodigy cook::input::tests::test_environment_provider_filter_empty
+        PASS [   0.014s] prodigy cook::input::tests::test_environment_provider_single_input_mode
+        PASS [   0.018s] prodigy cook::input::tests::test_environment_provider_multiple_inputs_mode
+        PASS [   0.025s] prodigy cook::input::tests::test_data_format_enum
+        PASS [   0.016s] prodigy cook::input::tests::test_environment_provider_supports
+        PASS [   0.011s] prodigy cook::input::tests::test_execution_input_metadata
+        PASS [   0.015s] prodigy cook::input::tests::test_execution_input_dependencies
+        PASS [   0.012s] prodigy cook::input::tests::test_file_pattern_validation
+        PASS [   0.022s] prodigy cook::input::tests::test_execution_input_helper_functions
+        PASS [   0.020s] prodigy cook::input::tests::test_execution_input_variable_substitution
+        PASS [   0.015s] prodigy cook::input::tests::test_format_auto_detection_edge_cases
+        PASS [   0.012s] prodigy cook::input::tests::test_generated_available_variables
+        PASS [   0.012s] prodigy cook::input::tests::test_generated_factorial
+        PASS [   0.012s] prodigy cook::input::tests::test_generated_fibonacci
+        PASS [   0.030s] prodigy cook::input::tests::test_file_pattern_symlink_handling
+        PASS [   0.012s] prodigy cook::input::tests::test_generated_grid
+        PASS [   0.010s] prodigy cook::input::tests::test_generated_prime
+        PASS [   0.010s] prodigy cook::input::tests::test_generated_random
+        PASS [   0.011s] prodigy cook::input::tests::test_generated_range
+        PASS [   0.010s] prodigy cook::input::tests::test_generated_sequence
+        PASS [   0.011s] prodigy cook::input::tests::test_generated_timestamp
+        PASS [   0.010s] prodigy cook::input::tests::test_generated_uuid
+        PASS [   0.010s] prodigy cook::input::tests::test_generated_validation
+        PASS [   0.009s] prodigy cook::input::tests::test_input_processor_with_transformations
+        PASS [   0.048s] prodigy cook::input::tests::test_file_pattern_with_exclusions
+        PASS [   0.012s] prodigy cook::input::tests::test_input_type_serialization
+        PASS [   0.013s] prodigy cook::input::tests::test_interleaved_merge_strategy
+        PASS [   0.012s] prodigy cook::input::tests::test_malformed_csv_input
+        PASS [   0.013s] prodigy cook::input::tests::test_legacy_adapter
+        PASS [   0.022s] prodigy cook::input::tests::test_input_transformation_helpers
+        PASS [   0.013s] prodigy cook::input::tests::test_malformed_json_input
+        PASS [   0.165s] prodigy cook::git_ops::tests::test_stage_all_changes_success
+        PASS [   0.070s] prodigy cook::input::tests::test_file_pattern_glob_expansion
+        PASS [   0.011s] prodigy cook::input::tests::test_mock_stdin_complex_json
+        PASS [   0.014s] prodigy cook::input::tests::test_malformed_toml_input
+        PASS [   0.013s] prodigy cook::input::tests::test_malformed_xml_input
+        PASS [   0.014s] prodigy cook::input::tests::test_malformed_yaml_input
+        PASS [   0.013s] prodigy cook::input::tests::test_mock_stdin_csv
+        PASS [   0.014s] prodigy cook::input::tests::test_mock_stdin_json
+        PASS [   0.014s] prodigy cook::input::tests::test_mock_stdin_lines
+        PASS [   0.015s] prodigy cook::input::tests::test_mock_stdin_empty_input
+        PASS [   0.015s] prodigy cook::input::tests::test_mock_stdin_text
+        PASS [   0.012s] prodigy cook::input::tests::test_standard_input_automation_mode
+        PASS [   0.016s] prodigy cook::input::tests::test_processor_validation_with_rules
+        PASS [   0.017s] prodigy cook::input::tests::test_processor_empty_source_handling
+        PASS [   0.014s] prodigy cook::input::tests::test_standard_input_format_detection
+        PASS [   0.015s] prodigy cook::input::tests::test_structured_data_format_validation
+        PASS [   0.016s] prodigy cook::input::tests::test_standard_input_supported_formats
+        PASS [   0.010s] prodigy cook::input::tests::test_variable_value_conversions
+        PASS [   0.011s] prodigy cook::input::tests::test_variable_value_complex_types
+        PASS [   0.019s] prodigy cook::input::tests::test_structured_data_validation
+        PASS [   0.016s] prodigy cook::input::tests::test_structured_data_yaml_anchors
+        PASS [   0.016s] prodigy cook::input::tests::test_variable_definition_complete
+        PASS [   0.019s] prodigy cook::input::tests::test_validation_rule_types
+        PASS [   0.011s] prodigy cook::interaction::display::tests::test_command_output_display
+        PASS [   0.013s] prodigy cook::input::tests::test_variable_value_type_conversions
+        PASS [   0.015s] prodigy cook::input::tests::test_variable_value_path_conversion
+        PASS [   0.014s] prodigy cook::interaction::display::tests::test_debug_output
+        PASS [   0.014s] prodigy cook::interaction::display::tests::test_iteration_display
+        PASS [   0.014s] prodigy cook::interaction::display::tests::test_format_duration
+        PASS [   0.011s] prodigy cook::interaction::display::tests::test_mock_display
+        PASS [   0.014s] prodigy cook::interaction::display::tests::test_mock_spinner
+        PASS [   0.012s] prodigy cook::interaction::display::tests::test_progress_display_info
+        PASS [   0.013s] prodigy cook::interaction::display::tests::test_progress_display_progress
+        PASS [   0.011s] prodigy cook::interaction::display::tests::test_progress_display_warning
+        PASS [   0.016s] prodigy cook::interaction::display::tests::test_progress_display_error
+        PASS [   0.012s] prodigy cook::interaction::display::tests::test_spinner_lifecycle
+        PASS [   0.014s] prodigy cook::interaction::display::tests::test_progress_display_success
+        PASS [   0.014s] prodigy cook::interaction::display::tests::test_simple_spinner_handle_fail
+        PASS [   0.014s] prodigy cook::interaction::display::tests::test_step_display
+        PASS [   0.014s] prodigy cook::interaction::display::tests::test_verbosity_filtering
+        PASS [   0.010s] prodigy cook::interaction::prompts::tests::test_format_choice_input_prompt
+        PASS [   0.011s] prodigy cook::interaction::display::tests::test_verbosity_levels
+        PASS [   0.012s] prodigy cook::interaction::prompts::tests::test_format_choice_prompt
+        PASS [   0.011s] prodigy cook::interaction::prompts::tests::test_format_choice_prompt_single
+        PASS [   0.013s] prodigy cook::interaction::prompts::tests::test_format_choice_prompt_empty
+        PASS [   0.012s] prodigy cook::interaction::prompts::tests::test_format_invalid_choice_message
+        PASS [   0.013s] prodigy cook::interaction::prompts::tests::test_mock_prompter_choice
+        PASS [   0.011s] prodigy cook::interaction::prompts::tests::test_mock_prompter_text
+        PASS [   0.012s] prodigy cook::interaction::prompts::tests::test_validate_choice_input_invalid_negative
+        PASS [   0.013s] prodigy cook::interaction::prompts::tests::test_prompt_choice_empty_choices
+        PASS [   0.013s] prodigy cook::interaction::prompts::tests::test_validate_choice_input_empty_choices
+        PASS [   0.015s] prodigy cook::interaction::prompts::tests::test_mock_prompter_yes_no
+        PASS [   0.013s] prodigy cook::interaction::prompts::tests::test_validate_choice_input_invalid_non_numeric
+        PASS [   0.013s] prodigy cook::interaction::prompts::tests::test_validate_choice_input_invalid_out_of_bounds
+        PASS [   0.011s] prodigy cook::interaction::prompts::tests::test_validate_choice_input_single_choice
+        PASS [   0.012s] prodigy cook::interaction::prompts::tests::test_validate_choice_input_invalid_zero
+        PASS [   0.012s] prodigy cook::interaction::prompts::tests::test_validate_choice_input_valid_multi_digit
+        PASS [   0.012s] prodigy cook::interaction::tests::test_default_user_interaction_creation
+        PASS [   0.014s] prodigy cook::interaction::tests::test_display_formatting
+        PASS [   0.015s] prodigy cook::interaction::prompts::tests::test_validate_choice_input_valid_single_digit
+        PASS [   0.015s] prodigy cook::interaction::tests::test_mock_prompts
+        PASS [   0.017s] prodigy cook::interaction::tests::test_error_handling
+        PASS [   0.016s] prodigy cook::interaction::tests::test_mock_user_interaction
+        PASS [   0.018s] prodigy cook::interaction::tests::test_spinner_handle
+        PASS [   0.015s] prodigy cook::mod_tests::core_tests::test_check_for_changes
+        PASS [   0.014s] prodigy cook::mod_tests::core_tests::test_create_session_state
+        PASS [   0.016s] prodigy cook::mod_tests::core_tests::test_create_session_state_with_focus
+        PASS [   0.013s] prodigy cook::mod_tests::core_tests::test_extract_spec_from_git
+        PASS [   0.012s] prodigy cook::mod_tests::core_tests::test_extract_spec_from_git_error
+        PASS [   0.016s] prodigy cook::mod_tests::core_tests::test_ensure_prodigy_directory
+        PASS [   0.012s] prodigy cook::mod_tests::core_tests::test_extract_spec_from_git_no_spec
+        PASS [   0.012s] prodigy cook::mod_tests::core_tests::test_format_session_summary
+        PASS [   0.012s] prodigy cook::mod_tests::core_tests::test_generate_session_id
+        PASS [   0.014s] prodigy cook::mod_tests::core_tests::test_load_playbook_invalid_format
+        PASS [   0.014s] prodigy cook::mod_tests::core_tests::test_handle_worktree_merge
+        PASS [   0.017s] prodigy cook::mod_tests::core_tests::test_git_command_exists
+        PASS [   0.013s] prodigy cook::mod_tests::core_tests::test_load_playbook_nonexistent
+        PASS [   0.012s] prodigy cook::mod_tests::core_tests::test_load_playbook_without_commands_wrapper
+        PASS [   0.017s] prodigy cook::mod_tests::core_tests::test_load_playbook_json
+        PASS [   0.014s] prodigy cook::mod_tests::core_tests::test_load_playbook_yaml
+        PASS [   0.015s] prodigy cook::mod_tests::core_tests::test_run_analysis
+        PASS [   0.011s] prodigy cook::mod_tests::core_tests::test_run_analysis_with_coverage
+        PASS [   0.014s] prodigy cook::mod_tests::core_tests::test_run_single_iteration
+        PASS [   0.011s] prodigy cook::mod_tests::core_tests::test_should_continue_iteration
+        PASS [   0.013s] prodigy cook::mod_tests::core_tests::test_save_checkpoint
+        PASS [   0.012s] prodigy cook::mod_tests::core_tests::test_update_session_metrics
+        PASS [   0.018s] prodigy cook::mod_tests::core_tests::test_run_command_with_timeout
+        PASS [   0.013s] prodigy cook::mod_tests::core_tests::test_validate_arguments
+        PASS [   0.012s] prodigy cook::orchestrator::tests::test_classify_workflow_type_standard
+        PASS [   0.014s] prodigy cook::orchestrator::tests::test_classify_workflow_type_structured_with_outputs
+        PASS [   0.012s] prodigy cook::orchestrator::tests::test_classify_workflow_type_with_map_patterns
+        PASS [   0.012s] prodigy cook::orchestrator::tests::test_classify_workflow_type_with_arguments
+        PASS [   0.013s] prodigy cook::orchestrator::tests::test_convert_command_to_step_simple_command
+        PASS [   0.012s] prodigy cook::orchestrator::tests::test_determine_commit_required_simple_explicit
+        PASS [   0.013s] prodigy cook::orchestrator::tests::test_convert_command_to_step_workflow_step
+        PASS [   0.013s] prodigy cook::orchestrator::tests::test_process_step_failure_config_no_failure
+        PASS [   0.018s] prodigy cook::orchestrator::tests::test_determine_commit_required_structured
+        PASS [   0.011s] prodigy cook::orchestrator::tests::test_process_step_failure_config_shell_with_failure
+        PASS [   0.014s] prodigy cook::orchestrator::tests::test_process_step_failure_config_non_shell_with_failure
+        PASS [   0.018s] prodigy cook::retry::additional_tests::test_check_claude_cli_error_cases
+        PASS [   0.020s] prodigy cook::retry::additional_tests::test_execute_with_retry_io_error_recovery
+        PASS [   0.011s] prodigy cook::retry::additional_tests::test_format_subprocess_error_all_hints
+        PASS [   0.015s] prodigy cook::retry::additional_tests::test_execute_with_retry_verbose_output
+        PASS [   0.011s] prodigy cook::retry::additional_tests::test_format_subprocess_error_with_newlines
+        PASS [   0.011s] prodigy cook::retry::additional_tests::test_is_transient_error_edge_cases
+        PASS [   0.013s] prodigy cook::retry::tests::test_check_claude_cli_fallback
+        PASS [   0.010s] prodigy cook::retry::tests::test_error_formatting
+        PASS [   0.010s] prodigy cook::retry::tests::test_error_formatting_command_not_found
+        PASS [   0.011s] prodigy cook::retry::tests::test_error_formatting_empty_outputs
+        PASS [   0.014s] prodigy cook::retry::tests::test_check_claude_cli_when_missing
+        PASS [   0.010s] prodigy cook::retry::tests::test_error_formatting_no_exit_code
+        PASS [   0.009s] prodigy cook::retry::tests::test_error_formatting_with_stdout_only
+        PASS [   0.010s] prodigy cook::retry::tests::test_error_formatting_rate_limit
+        PASS [   1.017s] prodigy cook::execution::mapreduce_tests::concurrency_tests::test_agent_timeout_handling
+        PASS [   0.014s] prodigy cook::retry::tests::test_execute_with_retry_command_not_found
+        PASS [   0.010s] prodigy cook::retry::tests::test_format_subprocess_error_all_fields
+        PASS [   0.015s] prodigy cook::retry::tests::test_execute_with_retry_non_transient_failure
+        PASS [   0.009s] prodigy cook::retry::tests::test_format_subprocess_error_unauthorized
+        PASS [   0.015s] prodigy cook::retry::tests::test_execute_with_retry_success
+        PASS [   0.010s] prodigy cook::retry::tests::test_format_subprocess_error_unauthorized_variations
+        PASS [   0.009s] prodigy cook::retry::tests::test_transient_error_case_insensitive
+        PASS [   0.009s] prodigy cook::retry::tests::test_is_transient_error_partial_matches
+        PASS [   0.011s] prodigy cook::retry::tests::test_transient_error_detection
+        PASS [   0.011s] prodigy cook::retry_state::tests::test_circuit_breaker_state_transitions
+        PASS [   0.011s] prodigy cook::retry_state::tests::test_retry_state_persistence_and_restoration
+        PASS [   0.011s] prodigy cook::retry_state::tests::test_retry_budget_enforcement
+        PASS [   0.011s] prodigy cook::retry_state_tests::test_backoff_strategy_calculation
+        PASS [   0.014s] prodigy cook::retry_state_tests::test_checkpoint_with_retry_state_integration
+        PASS [   0.009s] prodigy cook::retry_state_tests::test_retry_budget_enforcement
+        PASS [   0.011s] prodigy cook::retry_state_tests::test_circuit_breaker_state_transitions
+        PASS [   0.011s] prodigy cook::retry_state_tests::test_circuit_breaker_half_open_transition
+        PASS [   0.010s] prodigy cook::retry_v2::tests::test_backoff_exponential
+        PASS [   0.011s] prodigy cook::retry_state_tests::test_retry_state_persistence_and_restoration
+        PASS [   0.011s] prodigy cook::retry_state_tests::test_retry_summary_generation
+        PASS [   0.012s] prodigy cook::retry_state_tests::test_retry_state_consistency_validation
+        PASS [   0.012s] prodigy cook::retry_v2::tests::test_backoff_fixed
+        PASS [   0.012s] prodigy cook::retry_v2::tests::test_backoff_linear
+        PASS [   0.012s] prodigy cook::retry_v2::tests::test_backoff_fibonacci
+        PASS [   0.010s] prodigy cook::retry_v2::tests::test_error_matcher_network
+        PASS [   0.010s] prodigy cook::retry_v2::tests::test_error_matcher_rate_limit
+        PASS [   0.010s] prodigy cook::retry_v2::tests::test_error_matcher_timeout
+        PASS [   0.009s] prodigy cook::retry_v2::tests::test_jitter_application
+        PASS [   0.010s] prodigy cook::retry_v2::tests::test_fibonacci_calculation
+        PASS [   0.009s] prodigy cook::retry_v2::tests::test_retry_executor_success
+        PASS [   0.022s] prodigy cook::retry_v2::tests::test_retry_executor_max_attempts_exceeded
+        PASS [   0.023s] prodigy cook::retry_v2::tests::test_retry_with_specific_errors
+        PASS [   0.062s] prodigy cook::retry_v2::tests::test_retry_budget
+        PASS [   0.045s] prodigy cook::retry_v2::tests::test_retry_executor_with_retries
+        PASS [   0.010s] prodigy cook::session::resume_tests::test_execution_environment_serialization
+        PASS [   0.009s] prodigy cook::session::resume_tests::test_get_resume_info
+        PASS [   0.009s] prodigy cook::session::resume_tests::test_session_is_resumable
+        PASS [   0.011s] prodigy cook::session::resume_tests::test_list_resumable_with_worktree_sessions
+        PASS [   0.009s] prodigy cook::session::resume_tests::test_workflow_state_checkpoint
+        PASS [   0.013s] prodigy cook::session::resume_tests::test_session_persistence_across_interruption
+        PASS [   0.013s] prodigy cook::session::resume_tests::test_session_tracker_resume_functions
+        PASS [   0.012s] prodigy cook::session::resume_tests::test_worktree_session_resume
+        PASS [   0.014s] prodigy cook::session::tracker::tests::test_session_state_persistence
+        PASS [   0.012s] prodigy cook::session::tracker::tests::test_session_tracker_basic
+        PASS [   0.012s] prodigy cook::session::tracker::tests::test_session_updates
+        PASS [   0.009s] prodigy cook::signal_handler::signal_handler_tests::integration_tests::test_multiple_signal_handlers_dont_conflict
+        PASS [   0.033s] prodigy cook::session::tracker::tests::test_atomic_save_prevents_corruption
+        PASS [   0.010s] prodigy cook::signal_handler::signal_handler_tests::mock_tests::test_process_manager_cleanup_after_kill
+        PASS [   0.164s] prodigy cook::retry_v2::tests::test_circuit_breaker
+        PASS [   0.066s] prodigy cook::signal_handler::signal_handler_tests::integration_tests::test_signal_handler_thread_spawns
+        PASS [   0.113s] prodigy cook::signal_handler::signal_handler_tests::mock_tests::test_unified_process_kill_terminates_immediately
+        PASS [   0.112s] prodigy cook::signal_handler::signal_handler_tests::subprocess_tests::test_subprocess_timeout_kills_process_group
+        PASS [   0.010s] prodigy cook::signal_handler::signal_handler_tests::tests::test_setup_simple_interrupt_handler_doesnt_panic
+        PASS [   0.067s] prodigy cook::signal_handler::signal_handler_tests::tests::test_process_group_termination
+        PASS [   0.124s] prodigy cook::signal_handler::signal_handler_tests::subprocess_tests::test_subprocess_with_process_group
+        PASS [   0.023s] prodigy cook::signal_handler::signal_tests::test_update_interrupted_state_error_handling
+        PASS [   0.039s] prodigy cook::signal_handler::signal_tests::test_setup_interrupt_handlers
+        PASS [   0.011s] prodigy cook::tests::cook_tests::test_claude_cli_not_available
+        PASS [   0.026s] prodigy cook::signal_handler::tests::test_termination_interrupt
+        PASS [   0.024s] prodigy cook::signal_handler::tests::test_update_interrupted_state
+        PASS [   0.010s] prodigy cook::tests::cook_tests::test_empty_repository
+        PASS [   0.010s] prodigy cook::tests::cook_tests::test_focus_directive
+        PASS [   0.009s] prodigy cook::tests::cook_tests::test_git_operation_failures
+        PASS [   0.009s] prodigy cook::tests::cook_tests::test_invalid_spec_id
+        PASS [   0.009s] prodigy cook::tests::cook_tests::test_multiple_iterations
+        PASS [   0.009s] prodigy cook::tests::cook_tests::test_merge_conflicts
+        PASS [   0.009s] prodigy cook::tests::cook_tests::test_rate_limit_handling
+        PASS [   0.009s] prodigy cook::tests::cook_tests::test_spec_id_extraction
+        PASS [   0.010s] prodigy cook::tests::cook_tests::test_successful_improvement_loop
+        PASS [   0.010s] prodigy cook::tests::cook_tests::test_workflow_configuration
+        PASS [   0.009s] prodigy cook::tests::git_ops_tests::test_concurrent_git_operations
+        PASS [   0.013s] prodigy cook::tests::cook_tests::test_worktree_creation_failure
+        PASS [   0.010s] prodigy cook::tests::git_ops_tests::test_git_command_tracking
+        PASS [   0.009s] prodigy cook::tests::retry_tests::test_comprehensive_transient_errors
+        PASS [   0.009s] prodigy cook::tests::retry_tests::test_error_formatting_edge_cases
+        PASS [   0.010s] prodigy cook::tests::workflow_parsing_tests::test_load_playbook_structure
+        PASS [   0.009s] prodigy cook::tests::workflow_parsing_tests::test_parse_full_default_workflow
+        PASS [   0.111s] prodigy cook::signal_handler::signal_handler_tests::tests::test_signal_terminates_process
+        PASS [   0.010s] prodigy cook::tests::workflow_parsing_tests::test_parse_simple_workflow_yaml
+        PASS [   0.009s] prodigy cook::tests::workflow_parsing_tests::test_parse_structured_workflow_with_outputs
+        PASS [   0.009s] prodigy cook::tests::workflow_parsing_tests::test_parse_workflow_with_multiple_outputs
+        PASS [   0.010s] prodigy cook::tests::workflow_parsing_tests::test_parse_workflow_with_commit_required
+        PASS [   0.010s] prodigy cook::tests::workflow_parsing_tests::test_simplified_output_syntax
+        PASS [   0.011s] prodigy cook::workflow::checkpoint_tests::tests::test_checkpoint_auto_interval
+        PASS [   0.012s] prodigy cook::workflow::checkpoint_tests::tests::test_build_resume_context
+        PASS [   0.016s] prodigy cook::workflow::checkpoint_tests::tests::test_checkpoint_delete
+        PASS [   0.017s] prodigy cook::workflow::checkpoint_tests::tests::test_checkpoint_list
+        PASS [   0.010s] prodigy cook::workflow::checkpoint_tests::tests::test_checkpoint_validation
+        PASS [   0.013s] prodigy cook::workflow::checkpoint_tests::tests::test_checkpoint_save_and_load
+        PASS [   0.014s] prodigy cook::workflow::checkpoint_tests::tests::test_checkpoint_workflow_path_persistence
+        PASS [   0.010s] prodigy cook::workflow::checkpoint_tests::tests::test_workflow_status_equality
+        PASS [   0.011s] prodigy cook::workflow::commit_tracking_tests::tests::test_workflow_commit_config_defaults
+        PASS [   0.011s] prodigy cook::workflow::commit_tracking_tests::tests::test_workflow_commit_tracking_auto_commit
+        PASS [   0.009s] prodigy cook::workflow::composition::composer::tests::test_dependency_resolver
+        PASS [   0.010s] prodigy cook::workflow::commit_tracking_tests::tests::test_workflow_commit_verification
+        PASS [   0.009s] prodigy cook::workflow::composition::composer::tests::test_workflow_composer_creation
+        PASS [   0.009s] prodigy cook::workflow::composition::registry::tests::test_template_metadata
+        PASS [   0.009s] prodigy cook::workflow::composition::sub_workflow::tests::test_sub_workflow_configuration
+        PASS [   0.010s] prodigy cook::workflow::composition::registry::tests::test_template_registry
+        PASS [   0.009s] prodigy cook::workflow::composition::sub_workflow::tests::test_sub_workflow_result
+        PASS [   0.009s] prodigy cook::workflow::composition::tests::test_composable_workflow_creation
+        PASS [   0.009s] prodigy cook::workflow::composition::tests::test_parameter_validation
+        PASS [   0.009s] prodigy cook::workflow::conditional_tests::tests::test_backward_compatibility
+        PASS [   0.009s] prodigy cook::workflow::conditional_tests::tests::test_complex_expressions
+        PASS [   0.008s] prodigy cook::workflow::conditional_tests::tests::test_expression_evaluation_with_context
+        PASS [   0.009s] prodigy cook::workflow::conditional_tests::tests::test_undefined_variables
+        PASS [   0.009s] prodigy cook::workflow::conditional_tests::tests::test_when_clause_parsing
+        PASS [   0.009s] prodigy cook::workflow::conditional_tests::tests::test_when_clause_with_complex_expression
+        PASS [   0.009s] prodigy cook::workflow::conditional_tests::tests::test_workflow_step_with_when_serialization
+        PASS [   0.009s] prodigy cook::workflow::error_policy::tests::test_error_policy_thresholds
+        PASS [   0.009s] prodigy cook::workflow::error_policy_tests::tests::test_continue_on_failure_false
+        PASS [   0.009s] prodigy cook::workflow::error_policy_tests::tests::test_error_collection_aggregate
+        PASS [   0.009s] prodigy cook::workflow::error_policy_tests::tests::test_error_collection_batched
+        PASS [   0.009s] prodigy cook::workflow::error_policy_tests::tests::test_error_metrics_tracking
+        PASS [   0.010s] prodigy cook::workflow::error_policy_tests::tests::test_error_policy_dlq_handling
+        PASS [   0.010s] prodigy cook::workflow::error_policy_tests::tests::test_error_policy_retry_action
+        PASS [   0.009s] prodigy cook::workflow::error_policy_tests::tests::test_error_policy_skip_action
+        PASS [   0.009s] prodigy cook::workflow::error_policy_tests::tests::test_error_policy_stop_action
+        PASS [   0.009s] prodigy cook::workflow::error_policy_tests::tests::test_error_policy_with_circuit_breaker
+        PASS [   0.009s] prodigy cook::workflow::error_policy_tests::tests::test_failure_pattern_detection
+        PASS [   0.009s] prodigy cook::workflow::error_policy_tests::tests::test_failure_rate_threshold
+        PASS [   0.009s] prodigy cook::workflow::error_policy_tests::tests::test_max_failures_threshold
+        PASS [   0.009s] prodigy cook::workflow::error_recovery_tests::tests::test_error_handler_full_fidelity_conversion
+        PASS [   0.009s] prodigy cook::workflow::error_recovery_tests::tests::test_error_handler_with_retries
+        PASS [   0.009s] prodigy cook::workflow::error_recovery_tests::tests::test_error_recovery_state_default
+        PASS [   0.009s] prodigy cook::workflow::error_recovery_tests::tests::test_execute_error_handler_with_context
+        PASS [   0.009s] prodigy cook::workflow::error_recovery_tests::tests::test_handle_corrupted_checkpoint_error
+        PASS [   0.009s] prodigy cook::workflow::error_recovery_tests::tests::test_handle_environment_mismatch_error
+        PASS [   0.009s] prodigy cook::workflow::error_recovery_tests::tests::test_handle_missing_dependency_error
+        PASS [   0.009s] prodigy cook::workflow::error_recovery_tests::tests::test_on_failure_to_error_handler
+        PASS [   0.009s] prodigy cook::workflow::error_recovery_tests::tests::test_recovery_action_types
+        PASS [   0.009s] prodigy cook::workflow::error_recovery_tests::tests::test_recovery_attempt_limit
+        PASS [   0.009s] prodigy cook::workflow::error_recovery_tests::tests::test_restore_error_handlers_from_checkpoint
+        PASS [   0.009s] prodigy cook::workflow::error_recovery_tests::tests::test_resume_error_recovery_new
+        PASS [   0.009s] prodigy cook::workflow::error_recovery_tests::tests::test_save_and_load_recovery_state
+        PASS [   0.023s] prodigy cook::workflow::executor::tests::test_format_variable_value_json_array
+        PASS [   0.023s] prodigy cook::workflow::executor::tests::test_format_variable_value_json_object
+        PASS [   0.160s] prodigy cook::workflow::error_policy::tests::test_circuit_breaker
+        PASS [   0.025s] prodigy cook::workflow::executor::tests::test_format_variable_value_large_array
+        PASS [   0.023s] prodigy cook::workflow::executor::tests::test_format_variable_value_short_string
+        PASS [   0.169s] prodigy cook::workflow::error_policy_tests::tests::test_circuit_breaker_basic
+        PASS [   0.024s] prodigy cook::workflow::executor::tests::test_format_variable_value_truncated
+        PASS [   0.017s] prodigy cook::workflow::executor::tests::test_get_current_head_error_handling
+        PASS [   0.010s] prodigy cook::workflow::executor::tests::test_json_to_attribute_value_static_array
+        PASS [   0.010s] prodigy cook::workflow::executor::tests::test_json_to_attribute_value_static_boolean_false
+        PASS [   0.010s] prodigy cook::workflow::executor::tests::test_json_to_attribute_value_static_boolean_true
+        PASS [   0.009s] prodigy cook::workflow::executor::tests::test_json_to_attribute_value_static_float
+        PASS [   0.063s] prodigy cook::workflow::executor::tests::test_get_current_head_in_regular_repo
+        PASS [   0.010s] prodigy cook::workflow::executor::tests::test_json_to_attribute_value_static_integer
+        PASS [   0.010s] prodigy cook::workflow::executor::tests::test_json_to_attribute_value_static_large_numbers
+        PASS [   0.010s] prodigy cook::workflow::executor::tests::test_json_to_attribute_value_static_nested_array
+        PASS [   0.009s] prodigy cook::workflow::executor::tests::test_json_to_attribute_value_static_nested_object
+        PASS [   0.009s] prodigy cook::workflow::executor::tests::test_json_to_attribute_value_static_null
+        PASS [   0.009s] prodigy cook::workflow::executor::tests::test_json_to_attribute_value_static_object
+        PASS [   0.010s] prodigy cook::workflow::executor::tests::test_json_to_attribute_value_static_string
+        PASS [   0.017s] prodigy cook::workflow::executor::tests::test_variable_interpolation_no_variables
+        PASS [   0.020s] prodigy cook::workflow::executor::tests::test_variable_interpolation_with_tracking
+        PASS [   0.117s] prodigy cook::workflow::executor::tests::test_get_current_head_in_worktree
+        PASS [   0.012s] prodigy cook::workflow::executor_tests::capture_output_tests::test_capture_output_deserialization
+        PASS [   0.018s] prodigy cook::workflow::executor::tests::test_variable_interpolation_with_validation_results
+        PASS [   0.117s] prodigy cook::workflow::executor::tests::test_get_current_head_respects_working_directory
+        PASS [   0.017s] prodigy cook::workflow::executor_tests::capture_output_tests::test_capture_output_variable_interpolation
+        PASS [   0.027s] prodigy cook::workflow::executor_tests::tests::test_complex_variable_interpolation_arrays
+        PASS [   0.023s] prodigy cook::workflow::executor_tests::tests::test_complex_variable_interpolation_defaults
+        PASS [   0.019s] prodigy cook::workflow::executor_tests::tests::test_complex_variable_interpolation_escaping
+        PASS [   0.024s] prodigy cook::workflow::executor_tests::tests::test_complex_variable_interpolation_special_chars
+        PASS [   0.027s] prodigy cook::workflow::executor_tests::tests::test_conditional_workflow_branching
+        PASS [   0.032s] prodigy cook::workflow::executor_tests::tests::test_complex_variable_interpolation_nested
+        PASS [   0.062s] prodigy cook::workflow::executor_tests::tests::test_complete_workflow_execution
+        PASS [   0.017s] prodigy cook::workflow::executor_tests::tests::test_context_interpolation_priority
+        PASS [   0.024s] prodigy cook::workflow::executor_tests::tests::test_determine_command_type_claude
+        PASS [   0.024s] prodigy cook::workflow::executor_tests::tests::test_determine_command_type_foreach
+        PASS [   0.040s] prodigy cook::workflow::executor_tests::tests::test_context_interpolation
+        PASS [   0.023s] prodigy cook::workflow::executor_tests::tests::test_determine_command_type_goal_seek
+        PASS [   0.024s] prodigy cook::workflow::executor_tests::tests::test_determine_command_type_legacy_name
+        PASS [   0.023s] prodigy cook::workflow::executor_tests::tests::test_determine_command_type_multiple_error
+        PASS [   0.023s] prodigy cook::workflow::executor_tests::tests::test_determine_command_type_none_error
+        PASS [   0.024s] prodigy cook::workflow::executor_tests::tests::test_determine_command_type_shell
+        PASS [   0.026s] prodigy cook::workflow::executor_tests::tests::test_determine_command_type_test
+        PASS [   0.027s] prodigy cook::workflow::executor_tests::tests::test_error_recovery_workflow
+        PASS [   0.024s] prodigy cook::workflow::executor_tests::tests::test_execute_claude_command
+        PASS [   0.031s] prodigy cook::workflow::executor_tests::tests::test_execute_shell_command_success
+        PASS [   0.043s] prodigy cook::workflow::executor_tests::tests::test_execute_foreach_command
+        PASS [   0.010s] prodigy cook::workflow::executor_tests::tests::test_foreach_structure_recognized
+        PASS [   0.039s] prodigy cook::workflow::executor_tests::tests::test_execute_step_with_capture_output
+        PASS [   0.041s] prodigy cook::workflow::executor_tests::tests::test_execute_step_with_env_interpolation
+        PASS [   0.024s] prodigy cook::workflow::executor_tests::tests::test_exit_code_handler
+        PASS [   0.024s] prodigy cook::workflow::executor_tests::tests::test_get_step_display_name_claude
+        PASS [   0.023s] prodigy cook::workflow::executor_tests::tests::test_get_step_display_name_shell
+        PASS [   0.024s] prodigy cook::workflow::executor_tests::tests::test_get_step_display_name_test
+        PASS [   0.028s] prodigy cook::workflow::executor_tests::tests::test_get_step_display_name_unnamed
+        PASS [   0.025s] prodigy cook::workflow::executor_tests::tests::test_handle_no_commits_error_general_command
+        PASS [   0.025s] prodigy cook::workflow::executor_tests::tests::test_handle_test_mode_execution_success
+        PASS [   0.024s] prodigy cook::workflow::executor_tests::tests::test_is_test_mode_no_changes_command
+        PASS [   0.038s] prodigy cook::workflow::executor_tests::tests::test_is_focus_tracking_test
+        PASS [   0.033s] prodigy cook::workflow::executor_tests::tests::test_iterative_workflow
+        PASS [   0.035s] prodigy cook::workflow::executor_tests::tests::test_on_failure_abort_strategy
+        PASS [   0.036s] prodigy cook::workflow::executor_tests::tests::test_retry_configuration
+        PASS [   0.044s] prodigy cook::workflow::executor_tests::tests::test_on_failure_handler_execution
+        PASS [   0.036s] prodigy cook::workflow::executor_tests::tests::test_shell_command_with_on_failure_fail_workflow
+        PASS [   0.042s] prodigy cook::workflow::executor_tests::tests::test_shell_command_with_on_failure_retry
+        PASS [   0.043s] prodigy cook::workflow::executor_tests::tests::test_test_command_with_retry
+        PASS [   0.051s] prodigy cook::workflow::executor_tests::tests::test_should_stop_early_in_test_mode
+        PASS [   0.039s] prodigy cook::workflow::executor_tests::tests::test_validation_with_streaming_enabled
+        PASS [   0.036s] prodigy cook::workflow::executor_tests::tests::test_when_clause_executes_step
+        PASS [   0.024s] prodigy cook::workflow::executor_tests::tests::test_when_condition_evaluation
+        PASS [   0.026s] prodigy cook::workflow::executor_tests::tests::test_workflow_execution_single_iteration
+        PASS [   0.036s] prodigy cook::workflow::executor_tests::tests::test_when_clause_skips_step
+        PASS [   0.023s] prodigy cook::workflow::executor_tests::tests::test_workflow_with_validation
+        PASS [   0.053s] prodigy cook::workflow::executor_tests::tests::test_workflow_resume_capability
+        PASS [   0.028s] prodigy cook::workflow::executor_tests::timeout_tests::test_command_completes_within_timeout
+        PASS [   0.041s] prodigy cook::workflow::executor_tests::tests::test_workflow_with_environment_variables
+        PASS [   0.009s] prodigy cook::workflow::git_context::tests::test_filter_files
+        PASS [   0.011s] prodigy cook::workflow::git_context::tests::test_format_file_list
+        PASS [   0.012s] prodigy cook::workflow::git_context::tests::test_non_git_directory
+        PASS [   0.010s] prodigy cook::workflow::git_context::tests::test_step_changes
+        PASS [   0.009s] prodigy cook::workflow::git_context_tests::tests::test_file_filtering
+        PASS [   0.026s] prodigy cook::workflow::git_context::tests::test_tracker_initialization
+        PASS [   0.031s] prodigy cook::workflow::git_context_tests::tests::test_step_tracking
+        PASS [   0.025s] prodigy cook::workflow::git_context_tests::tests::test_tracker_in_git_repo
+        PASS [   0.013s] prodigy cook::workflow::git_context_tests::tests::test_tracker_not_in_git_repo
+        PASS [   0.010s] prodigy cook::workflow::git_context_tests::tests::test_variable_formatting
+        PASS [   0.010s] prodigy cook::workflow::normalized::tests::test_classify_workflow_types
+        PASS [   0.024s] prodigy cook::workflow::git_context_tests::tests::test_variable_resolution
+        PASS [   0.010s] prodigy cook::workflow::normalized::tests::test_normalize_simple_workflow
+        PASS [   0.031s] prodigy cook::workflow::git_context_tests::tests::test_workflow_changes_aggregation
+        PASS [   0.009s] prodigy cook::workflow::normalized::tests::test_preserve_validation
+        PASS [   0.009s] prodigy cook::workflow::normalized::tests::test_step_validation
+        PASS [   0.009s] prodigy cook::workflow::on_failure::tests::test_detailed_config
+        PASS [   0.010s] prodigy cook::workflow::on_failure::tests::test_max_attempts_implies_retry
+        PASS [   0.009s] prodigy cook::workflow::on_failure::tests::test_multiple_commands
+        PASS [   0.009s] prodigy cook::workflow::on_failure::tests::test_parse_advanced
+        PASS [   0.009s] prodigy cook::workflow::on_failure::tests::test_parse_fail_control
+        PASS [   0.009s] prodigy cook::workflow::on_failure::tests::test_parse_handler
+        PASS [   0.009s] prodigy cook::workflow::on_failure::tests::test_parse_ignore_errors
+        PASS [   0.009s] prodigy cook::workflow::on_failure::tests::test_single_command
+        PASS [   0.010s] prodigy cook::workflow::progress::tests::test_progress_calculation
+        PASS [   0.009s] prodigy cook::workflow::progress::tests::test_progress_tracker_creation
+        PASS [   0.009s] prodigy cook::workflow::progress::tests::test_progress_tracker_for_resume
+        PASS [   0.009s] prodigy cook::workflow::progress::tests::test_progress_with_skipped_steps
+        PASS [   0.010s] prodigy cook::workflow::resume::tests::test_resume_with_path_explicit
+        PASS [   0.010s] prodigy cook::workflow::resume::tests::test_resume_with_workflow_path_in_checkpoint
+        PASS [   0.011s] prodigy cook::workflow::resume::tests::test_resume_without_workflow_path_in_checkpoint
+        PASS [   0.009s] prodigy cook::workflow::step_validation::tests::test_detailed_validation_config
+        PASS [   0.010s] prodigy cook::workflow::step_validation::tests::test_parse_claude_validation
+        PASS [   0.009s] prodigy cook::workflow::step_validation::tests::test_parse_multiple_validations
+        PASS [   0.009s] prodigy cook::workflow::step_validation::tests::test_parse_single_validation
+        PASS [   0.009s] prodigy cook::workflow::step_validation::tests::test_success_criteria
+        PASS [   0.009s] prodigy cook::workflow::step_validation_tests::test_claude_validation_command
+        PASS [   0.011s] prodigy cook::workflow::step_validation_tests::test_multiple_validations_all_pass
+        PASS [   0.011s] prodigy cook::workflow::step_validation_tests::test_multiple_validations_one_fails
+        PASS [   0.009s] prodigy cook::workflow::step_validation_tests::test_single_validation_failure
+        PASS [   0.010s] prodigy cook::workflow::step_validation_tests::test_single_validation_success
+        PASS [   0.009s] prodigy cook::workflow::step_validation_tests::test_validation_with_any_criteria
+        PASS [   0.011s] prodigy cook::workflow::step_validation_tests::test_validation_with_expected_output
+        PASS [   0.010s] prodigy cook::workflow::step_validation_tests::test_workflow_step_with_detailed_validation
+        PASS [   0.010s] prodigy cook::workflow::step_validation_tests::test_workflow_step_with_multiple_validations
+        PASS [   0.009s] prodigy cook::workflow::step_validation_tests::test_workflow_step_with_validation
+        PASS [   0.010s] prodigy cook::workflow::validation::tests::test_gaps_summary
+        PASS [   0.009s] prodigy cook::workflow::validation::tests::test_on_incomplete_validation
+        PASS [   0.010s] prodigy cook::workflow::validation::tests::test_validation_config_defaults
+        PASS [   0.010s] prodigy cook::workflow::validation::tests::test_validation_config_shell_field
+        PASS [   0.010s] prodigy cook::workflow::validation::tests::test_validation_config_validation
+        PASS [   0.010s] prodigy cook::workflow::validation::tests::test_validation_config_with_on_incomplete
+        PASS [   0.009s] prodigy cook::workflow::validation::tests::test_validation_result_helpers
+        PASS [   0.009s] prodigy cook::workflow::validation::tests::test_validation_result_serialization
+        PASS [   0.009s] prodigy cook::workflow::variable_checkpoint::tests::test_environment_compatibility
+        PASS [   0.009s] prodigy cook::workflow::variable_checkpoint::tests::test_interpolation_test_results
+        PASS [   0.010s] prodigy cook::workflow::variable_checkpoint::tests::test_mapreduce_variable_recalculation
+        PASS [   0.010s] prodigy cook::workflow::variable_checkpoint_tests::tests::test_environment_compatibility_check
+        PASS [   0.008s] prodigy cook::workflow::variable_checkpoint_tests::tests::test_interpolation_test_results
+        PASS [   0.012s] prodigy cook::workflow::variable_checkpoint_tests::tests::test_full_checkpoint_resume_cycle
+        PASS [   0.009s] prodigy cook::workflow::variable_checkpoint_tests::tests::test_mapreduce_checkpoint_variables
+        PASS [   0.010s] prodigy cook::workflow::variable_checkpoint_tests::tests::test_mapreduce_variable_recalculation
+        PASS [   0.009s] prodigy cook::workflow::variable_checkpoint_tests::tests::test_variable_checkpoint_creation
+        PASS [   0.010s] prodigy cook::workflow::variable_checkpoint_tests::tests::test_variable_preservation_across_interruption
+        PASS [   0.009s] prodigy cook::workflow::variable_checkpoint_tests::tests::test_variable_restoration
+        PASS [   0.009s] prodigy cook::workflow::variables::tests::test_alias_resolution
+        PASS [   0.009s] prodigy cook::workflow::variables::tests::test_boolean_capture_format
+        PASS [   0.009s] prodigy cook::workflow::variables::tests::test_capture_command_result
+        PASS [   0.014s] prodigy cook::workflow::variables::tests::test_complex_nested_interpolation
+        PASS [   0.014s] prodigy cook::workflow::variables::tests::test_interpolation_missing_variable_fallback
+        PASS [   0.014s] prodigy cook::workflow::variables::tests::test_interpolation_with_captured_variables
+        PASS [   0.010s] prodigy cook::workflow::variables::tests::test_json_capture
+        PASS [   0.013s] prodigy cook::workflow::variables::tests::test_interpolation_with_mixed_sources
+        PASS [   0.010s] prodigy cook::workflow::variables::tests::test_lines_capture
+        PASS [   0.009s] prodigy cook::workflow::variables::tests::test_mapreduce_metadata
+        PASS [   0.010s] prodigy cook::workflow::variables::tests::test_number_capture_format
+        PASS [   0.010s] prodigy cook::workflow::variables::tests::test_output_capture
+        PASS [   0.010s] prodigy cook::workflow::variables::tests::test_standard_variables_from_argument
+        PASS [   0.009s] prodigy cook::workflow::variables::tests::test_standard_variables_from_file
+        PASS [   0.010s] prodigy cook::workflow::variables::tests::test_standard_variables_from_json
+        PASS [   0.009s] prodigy cook::workflow::variables::tests::test_variable_override_in_child_store
+        PASS [   0.015s] prodigy cook::workflow::variables::tests::test_variable_interpolation
+        PASS [   0.010s] prodigy cook::workflow::variables::tests::test_variable_store_basic
+        PASS [   0.010s] prodigy cook::workflow::variables::tests::test_variable_store_hierarchy
+        PASS [   0.010s] prodigy cook::workflow::variables::tests::test_variable_store_to_hashmap
+        PASS [   0.010s] prodigy core::config::tests::test_merge_configs
+        PASS [   0.010s] prodigy core::config::tests::test_parse_direct_workflow_config
+        PASS [   0.009s] prodigy core::config::tests::test_parse_project_config
+        PASS [   0.010s] prodigy core::config::tests::test_parse_nested_workflow_config
+        PASS [   0.010s] prodigy core::config::tests::test_validate_config_format
+        PASS [   0.009s] prodigy core::mapreduce::tests::test_aggregate_map_results
+        PASS [   0.009s] prodigy core::mapreduce::tests::test_distribute_work
+        PASS [   0.009s] prodigy core::mapreduce::tests::test_filter_work_items
+        PASS [   0.010s] prodigy core::mapreduce::tests::test_sort_work_items
+        PASS [   0.009s] prodigy core::session::tests::test_apply_error_update
+        PASS [   0.009s] prodigy core::session::tests::test_apply_progress_update
+        PASS [   0.009s] prodigy core::session::tests::test_apply_status_update
+        PASS [   0.010s] prodigy core::session::tests::test_filter_sessions
+        PASS [   0.010s] prodigy core::session::tests::test_format_duration
+        PASS [   0.010s] prodigy core::session::tests::test_generate_session_summary
+        PASS [   0.009s] prodigy core::session::tests::test_increment_iteration
+        PASS [   0.009s] prodigy core::validation::tests::test_validate_command
+        PASS [   0.009s] prodigy core::validation::tests::test_validate_environment
+        PASS [   0.010s] prodigy core::validation::tests::test_validate_iteration_count
+        PASS [   0.009s] prodigy core::validation::tests::test_validate_json_schema
+        PASS [   0.009s] prodigy core::validation::tests::test_validate_paths
+        PASS [   0.010s] prodigy core::validation::tests::test_validate_resource_limits
+        PASS [   0.010s] prodigy core::workflow::tests::test_calculate_step_progress
+        PASS [   0.009s] prodigy core::workflow::tests::test_extract_command_content
+        PASS [   0.013s] prodigy core::workflow::tests::test_extract_variable_names
+        PASS [   0.010s] prodigy core::workflow::tests::test_interpolate_variables
+        PASS [   0.009s] prodigy core::workflow::tests::test_parse_command_type
+        PASS [   0.010s] prodigy core::workflow::tests::test_validate_workflow_structure
+        PASS [   0.009s] prodigy error::codes::tests::test_error_code_descriptions
+        PASS [   0.009s] prodigy error::codes::tests::test_error_code_ranges
+        PASS [   0.009s] prodigy error::helpers::tests::test_common_error_helpers
+        PASS [   0.009s] prodigy error::helpers::tests::test_error_extension_trait
+        PASS [   0.009s] prodigy error::helpers::tests::test_error_macro
+        PASS [   0.008s] prodigy error::tests::test_error_chaining
+        PASS [   0.009s] prodigy error::tests::test_error_code_descriptions
+        PASS [   0.009s] prodigy error::tests::test_error_formatting
+        PASS [   0.009s] prodigy error::tests::test_error_recovery_checks
+        PASS [   0.009s] prodigy error::tests::test_error_with_context
+        PASS [   0.009s] prodigy error::tests::test_error_with_source
+        PASS [   0.010s] prodigy error::tests::test_git_error_conversion
+        PASS [   0.010s] prodigy error::tests::test_lib_result_type
+        PASS [   0.011s] prodigy error::tests::test_process_error_conversion
+        PASS [   0.009s] prodigy error::tests::test_prodigy_error_construction
+        PASS [   0.010s] prodigy error::tests::test_storage_error_conversion
+        PASS [   0.010s] prodigy git::parsers::tests::test_commit_id
+        PASS [   0.009s] prodigy git::parsers::tests::test_git_status_helper_methods
+        PASS [   0.009s] prodigy git::parsers::tests::test_parse_diff_output
+        PASS [   0.009s] prodigy git::parsers::tests::test_parse_single_worktree_block
+        PASS [   0.009s] prodigy git::parsers::tests::test_parse_single_worktree_block_no_worktree_line
+        PASS [   0.010s] prodigy git::parsers::tests::test_parse_status_output_clean
+        PASS [   0.010s] prodigy git::parsers::tests::test_parse_status_output_conflict
+        PASS [   0.009s] prodigy git::parsers::tests::test_parse_status_output_renamed
+        PASS [   0.010s] prodigy git::parsers::tests::test_parse_status_output_with_changes
+        PASS [   0.009s] prodigy git::parsers::tests::test_parse_worktree_list
+        PASS [   0.009s] prodigy git::parsers::tests::test_parse_worktree_list_empty
+        PASS [   0.009s] prodigy git::parsers::tests::test_parse_worktree_list_no_trailing_newline
+        PASS [   0.010s] prodigy git::parsers::tests::test_parse_worktree_list_with_bare_and_locked
+        PASS [   0.009s] prodigy git::parsers::tests::test_parse_worktree_list_with_empty_branch
+        PASS [   0.009s] prodigy git::parsers::tests::test_parse_worktree_property
+        PASS [   0.009s] prodigy git::parsers::tests::test_split_into_worktree_blocks
+        PASS [   0.010s] prodigy git::scenario::tests::test_scenario_mock_clean_repo
+        PASS [   0.010s] prodigy git::scenario::tests::test_scenario_mock_command_logging
+        PASS [   0.010s] prodigy git::scenario::tests::test_scenario_mock_commit_nothing_to_commit
+        PASS [   0.010s] prodigy git::scenario::tests::test_scenario_mock_custom_response
+        PASS [   0.010s] prodigy git::scenario::tests::test_scenario_mock_detached_head
+        PASS [   0.010s] prodigy git::scenario::tests::test_scenario_mock_dirty_repo
+        PASS [   0.010s] prodigy git::scenario::tests::test_scenario_mock_merge_conflict
+        PASS [   0.010s] prodigy git::scenario::tests::test_scenario_mock_non_repository
+        PASS [   0.010s] prodigy git::tests::test_commit_nothing_to_commit
+        PASS [   0.010s] prodigy git::tests::test_commit_success
+        PASS [   0.010s] prodigy git::tests::test_create_branch
+        PASS [   0.010s] prodigy git::tests::test_get_current_branch
+        PASS [   0.010s] prodigy git::tests::test_get_current_branch_detached_head
+        PASS [   0.011s] prodigy git::tests::test_get_status
+        PASS [   0.010s] prodigy git::tests::test_is_clean
+        PASS [   0.010s] prodigy git::tests::test_is_repository_failure
+        PASS [   0.010s] prodigy git::tests::test_is_repository_success
+        PASS [   0.010s] prodigy git::tests::test_list_files
+        PASS [   0.010s] prodigy git::tests::test_stage_all
+        PASS [   0.013s] prodigy git::tests::test_switch_branch
+        PASS [   0.010s] prodigy init::command::tests::test_init_command_combined_options
+        PASS [   0.010s] prodigy init::command::tests::test_init_command_defaults
+        PASS [   0.010s] prodigy init::command::tests::test_init_command_invalid_args
+        PASS [   0.012s] prodigy init::command::tests::test_init_command_help
+        PASS [   0.010s] prodigy init::command::tests::test_init_command_short_flags
+        PASS [   0.010s] prodigy init::command::tests::test_init_command_with_force
+        PASS [   0.010s] prodigy init::command::tests::test_init_command_with_path
+        PASS [   0.011s] prodigy init::command::tests::test_init_command_with_multiple_commands
+        PASS [   0.009s] prodigy init::command::tests::test_init_command_with_single_command
+        PASS [   0.010s] prodigy init::templates::tests::test_get_all_templates_success
+        PASS [   0.010s] prodigy init::templates::tests::test_get_templates_by_names
+        PASS [   0.010s] prodigy init::tests::test_command_exists
+        PASS [   0.009s] prodigy init::tests::test_display_existing_commands_warning_empty
+        PASS [   0.009s] prodigy init::tests::test_display_existing_commands_warning
+        PASS [   0.009s] prodigy init::tests::test_display_existing_commands_warning_single
+        PASS [   0.010s] prodigy init::tests::test_find_existing_commands_empty
+        PASS [   0.012s] prodigy init::tests::test_find_existing_commands
+        PASS [   0.010s] prodigy init::tests::test_get_templates
+        PASS [   0.010s] prodigy init::tests::test_get_user_confirmation_non_tty
+        PASS [   0.011s] prodigy init::tests::test_get_user_confirmation_test_env
+        PASS [   0.010s] prodigy init::tests::test_handle_existing_commands_empty_templates
+        PASS [   0.011s] prodigy init::tests::test_handle_existing_commands_multiple_conflicts
+        PASS [   0.010s] prodigy init::tests::test_handle_existing_commands_no_conflicts
+        PASS [   0.010s] prodigy init::tests::test_handle_existing_commands_no_tty
+        PASS [   0.010s] prodigy init::tests::test_handle_existing_commands_partial_conflicts
+        PASS [   0.010s] prodigy init::tests::test_handle_existing_commands_pattern_matching
+        PASS [   0.010s] prodigy init::tests::test_handle_existing_commands_with_conflicts
+        PASS [   0.037s] prodigy init::tests::test_init_run_success
+        PASS [   0.039s] prodigy init::tests::test_init_run_already_initialized
+        PASS [   0.033s] prodigy init::tests::test_initialize_git_repository
+        PASS [   0.009s] prodigy init::tests::test_is_test_environment
+        PASS [   0.016s] prodigy init::tests::test_is_git_installed
+        PASS [   0.011s] prodigy init::tests::test_needs_user_confirmation
+        PASS [   0.009s] prodigy init::tests::test_process_existing_commands_check_no_existing
+        PASS [   0.028s] prodigy init::tests::test_is_git_repository
+        PASS [   0.010s] prodigy init::tests::test_process_existing_commands_check_with_existing
+        PASS [   0.011s] prodigy init::tests::test_process_existing_commands_pipeline_empty
+        PASS [   0.011s] prodigy init::tests::test_process_existing_commands_pipeline_with_items
+        PASS [   0.011s] prodigy init::tests::test_refactored_handle_existing_commands_empty
+        PASS [   0.010s] prodigy init::tests::test_refactored_handle_existing_commands_no_conflicts
+        PASS [   0.032s] prodigy init::tests::test_run_init_create_commands
+        PASS [   0.035s] prodigy init::tests::test_run_init_force_overwrite
+        PASS [   0.041s] prodigy init::tests::test_run_init_not_git_repo_auto_init
+        PASS [   0.024s] prodigy init::tests::test_run_init_specific_commands
+        PASS [   0.011s] prodigy init::tests::test_should_proceed_with_existing_empty
+        PASS [   0.010s] prodigy init::tests::test_should_proceed_with_existing_non_empty
+        PASS [   0.009s] prodigy init::tests::test_should_proceed_with_installation
+        PASS [   0.030s] prodigy init::tests::test_run_init_with_existing_commands
+        PASS [   0.010s] prodigy init::tests::test_should_process_templates
+        PASS [   0.011s] prodigy init::tests::test_validate_installation_preconditions
+        PASS [   2.020s] prodigy cook::retry::tests::test_execute_with_retry_max_attempts_reached
+        PASS [   0.025s] prodigy init::tests::test_validate_project_structure_with_symlinks
+        PASS [   0.036s] prodigy init::tests::test_validate_project_structure_not_git_repo
+        PASS [   0.021s] prodigy property_tests::tests::test_migration_stats_consistency
+        PASS [   0.018s] prodigy property_tests::tests::test_migration_timestamps_ordering
+        PASS [   0.052s] prodigy property_tests::tests::test_migration_config_valid_batch_sizes
+        PASS [   0.009s] prodigy resume_logic::tests::test_calculate_skip_count_normal
+        PASS [   0.009s] prodigy resume_logic::tests::test_find_workflow_file_multiple
+        PASS [   0.009s] prodigy resume_logic::tests::test_find_workflow_file_none
+        PASS [   0.009s] prodigy resume_logic::tests::test_format_checkpoint_status
+        PASS [   0.009s] prodigy resume_logic::tests::test_find_workflow_file_single
+        PASS [   0.009s] prodigy resume_logic::tests::test_format_resume_action_force
+        PASS [   0.009s] prodigy resume_logic::tests::test_format_resume_action_interrupted
+        PASS [   0.009s] prodigy resume_logic::tests::test_possible_workflow_paths_with_name
+        PASS [   0.010s] prodigy resume_logic::tests::test_possible_workflow_paths_without_name
+        PASS [   0.009s] prodigy resume_logic::tests::test_should_resume_completed_without_force
+        PASS [   0.010s] prodigy resume_logic::tests::test_should_resume_completed_with_force
+        PASS [   0.009s] prodigy scoring::tests::test_complexity_maintainability
+        PASS [   0.009s] prodigy scoring::tests::test_debt_maintainability
+        PASS [   0.009s] prodigy scoring::tests::test_health_score_from_context
+        PASS [   0.009s] prodigy scoring::tests::test_health_score_from_metrics
+        PASS [   0.009s] prodigy scoring::tests::test_improvement_suggestions
+        PASS [   0.009s] prodigy scoring::tests::test_missing_data_handling
+        PASS [   0.009s] prodigy scoring::tests::test_pattern_quality_calculation
+        PASS [   0.009s] prodigy scoring::tests::test_perfect_scores
+        PASS [   0.009s] prodigy scoring::tests::test_poor_scores
+        PASS [   0.009s] prodigy scoring::tests::test_quality_calculation
+        PASS [   0.009s] prodigy scoring::tests::test_score_component_formatting
+        PASS [   0.010s] prodigy storage::config::tests::test_backend_config_untagged_enum
+        PASS [   0.111s] prodigy property_tests::tests::test_migration_error_messages
+        PASS [   0.009s] prodigy storage::config::tests::test_backend_type_default
+        PASS [   0.010s] prodigy storage::config::tests::test_backend_type_deserialization
+        PASS [   0.009s] prodigy storage::config::tests::test_backend_type_serialization
+        PASS [   0.009s] prodigy storage::config::tests::test_cache_config_default
+        PASS [   0.010s] prodigy storage::config::tests::test_cache_config_with_custom_values
+        PASS [   0.009s] prodigy storage::config::tests::test_file_config_defaults
+        PASS [   0.010s] prodigy storage::config::tests::test_default_helper_functions
+        PASS [   0.009s] prodigy storage::config::tests::test_file_config_serialization
+        PASS [   0.009s] prodigy storage::config::tests::test_memory_config_defaults
+        PASS [   0.009s] prodigy storage::config::tests::test_retry_policy_default
+        PASS [   0.009s] prodigy storage::config::tests::test_retry_policy_validation
+        PASS [   0.009s] prodigy storage::config::tests::test_storage_config_default
+        PASS [   0.009s] prodigy storage::config::tests::test_storage_config_from_env_defaults
+        PASS [   0.009s] prodigy storage::config::tests::test_storage_config_from_env_invalid_type
+        PASS [   0.009s] prodigy storage::config::tests::test_storage_config_from_env_file_type
+        PASS [   0.009s] prodigy storage::config::tests::test_storage_config_from_env_memory_type
+        PASS [   0.010s] prodigy storage::config::tests::test_storage_config_serialization
+        PASS [   0.009s] prodigy storage::factory::tests::test_factory_creates_test_storage
+        PASS [   0.009s] prodigy storage::migrate::tests::test_migrate_multiple_repos
+        PASS [   0.010s] prodigy storage::factory::tests::test_factory_creates_global_storage
+        PASS [   0.009s] prodigy storage::migrate::tests::test_migrate_noop
+        PASS [   0.008s] prodigy storage::migrate::tests::test_migrate_with_empty_repository_name
+        PASS [   0.009s] prodigy storage::migrate::tests::test_migrate_updates_timestamps
+        PASS [   0.010s] prodigy storage::migrate::tests::test_migration_config_clone
+        PASS [   0.009s] prodigy storage::migrate::tests::test_migration_config_custom
+        PASS [   0.009s] prodigy storage::migrate::tests::test_migration_stats_clone
+        PASS [   0.009s] prodigy storage::migrate::tests::test_migration_config_default
+        PASS [   0.009s] prodigy storage::migrate::tests::test_migration_stats_default
+        PASS [   0.009s] prodigy storage::migrate::tests::test_migration_stats_serialization
+        PASS [   0.009s] prodigy storage::migrate::tests::test_update_stats
+        PASS [   0.009s] prodigy storage::migrate::tests::test_storage_migrator_creation
+        PASS [   0.010s] prodigy storage::mod_tests::test_cross_worktree_event_aggregation
+        PASS [   0.011s] prodigy storage::mod_tests::test_discover_dlq_job_ids
+        PASS [   0.011s] prodigy storage::mod_tests::test_global_storage_isolation_between_repos
+        PASS [   0.011s] prodigy storage::mod_tests::test_global_storage_paths
+        PASS [   1.029s] prodigy cook::workflow::executor_tests::timeout_tests::test_step_timeout
+        PASS [   0.010s] prodigy subprocess::git::git_error_tests::test_git_command_failure
+        PASS [   0.012s] prodigy storage::mod_tests::test_list_dlq_job_ids
+        PASS [   0.009s] prodigy subprocess::git::git_error_tests::test_git_parse_errors
+        PASS [   0.009s] prodigy subprocess::streaming::claude_processor::tests::test_claude_json_processor
+        PASS [   0.009s] prodigy subprocess::streaming::tests::test_backpressure_drop_oldest
+        PASS [   0.012s] prodigy subprocess::streaming::runner::tests::test_streaming_echo
+        PASS [   0.012s] prodigy subprocess::streaming::tests::test_execution_context_with_streaming
+        PASS [   0.041s] prodigy storage::mod_tests::test_extract_repo_name
+        PASS [   0.011s] prodigy subprocess::streaming::tests::test_json_line_processor
+        PASS [   0.017s] prodigy subprocess::streaming::tests::test_pattern_match_processor
+        PASS [   0.011s] prodigy subprocess::streaming::tests::test_streaming_basic_echo
+        PASS [   0.013s] prodigy subprocess::streaming::tests::test_streaming_multiline_output
+        PASS [   0.011s] prodigy subprocess::streaming::tests::test_streaming_with_stdin
+        PASS [   0.014s] prodigy subprocess::streaming::tests::test_streaming_stderr_capture
+        PASS [   0.010s] prodigy subprocess::streaming_tests::tests::test_mock_streaming
+        PASS [   0.009s] prodigy subprocess::streaming_tests::tests::test_mock_streaming_with_error
+        PASS [   0.013s] prodigy subprocess::streaming_tests::tests::test_streaming_interleaved
+        PASS [   0.012s] prodigy subprocess::streaming_tests::tests::test_streaming_line_by_line
+        PASS [   0.012s] prodigy subprocess::streaming_tests::tests::test_streaming_stderr
+        PASS [   0.010s] prodigy subprocess::streaming_tests::tests::test_streaming_stdout
+        PASS [   0.011s] prodigy subprocess::streaming_tests::tests::test_streaming_with_stdin
+        PASS [   0.009s] prodigy subprocess::tests::subprocess_tests::test_claude_runner
+        PASS [   0.009s] prodigy subprocess::tests::subprocess_tests::test_git_runner
+        PASS [   0.009s] prodigy subprocess::tests::subprocess_tests::test_mock_runner_basic
+        PASS [   0.009s] prodigy subprocess::tests::subprocess_tests::test_mock_runner_multiple_calls
+        PASS [   0.009s] prodigy subprocess::tests::subprocess_tests::test_process_command_builder
+        PASS [   0.010s] prodigy subprocess::tests::subprocess_tests::test_production_runner_command_not_found
+        PASS [   0.012s] prodigy subprocess::tests::subprocess_tests::test_production_runner_failure
+        PASS [   0.010s] prodigy subprocess::tests::subprocess_tests::test_production_runner_success
+        PASS [   0.009s] prodigy subprocess::tests::subprocess_tests::test_subprocess_manager
+        PASS [   0.114s] prodigy subprocess::streaming::runner::tests::test_streaming_with_timeout
+        PASS [   0.009s] prodigy testing::config::tests::test_builder_with_all_options
+        PASS [   0.009s] prodigy testing::config::tests::test_common_configurations
+        PASS [   0.009s] prodigy testing::config::tests::test_default_configuration
+        PASS [   0.009s] prodigy testing::config::tests::test_into_arc
+        PASS [   0.009s] prodigy testing::config::tests::test_should_simulate_no_changes
+        PASS [   0.008s] prodigy testing::helpers::assertions::tests::test_assert_approx_eq
+        PASS [   0.009s] prodigy testing::helpers::assertions::tests::test_assert_contains
+        PASS [   0.009s] prodigy testing::helpers::assertions::tests::test_assert_err_macro
+        PASS [   0.010s] prodigy testing::helpers::assertions::tests::test_assert_file_contains
+        PASS [   0.010s] prodigy testing::helpers::assertions::tests::test_assert_file_exists
+        PASS [   0.009s] prodigy testing::helpers::assertions::tests::test_assert_in_range
+        PASS [   0.012s] prodigy testing::helpers::assertions::tests::test_assert_file_exists_panic
+        PASS [   4.071s] prodigy cook::execution::dlq_reprocessor_test::test_retry_strategy_delays
+        PASS [   0.113s] prodigy subprocess::streaming_tests::tests::test_streaming_with_timeout
+        PASS [   0.010s] prodigy testing::helpers::assertions::tests::test_assert_ok_macro
+        PASS [   0.010s] prodigy testing::helpers::tests::test_count_files
+        PASS [   0.010s] prodigy testing::helpers::tests::test_create_rust_project
+        PASS [   0.010s] prodigy testing::helpers::tests::test_dirs_equal_different_content
+        PASS [   0.010s] prodigy testing::helpers::tests::test_dirs_equal_different_files
+        PASS [   0.009s] prodigy testing::helpers::tests::test_dirs_equal_empty_dirs
+        PASS [   0.011s] prodigy testing::helpers::tests::test_dirs_equal_identical_dirs
+        PASS [   0.010s] prodigy testing::helpers::tests::test_dirs_equal_missing_nested_file
+        PASS [   0.011s] prodigy testing::helpers::tests::test_dirs_equal_nested_structure
+        PASS [   0.010s] prodigy testing::helpers::tests::test_dirs_equal_nonexistent_dir
+        PASS [   0.033s] prodigy testing::helpers::tests::test_create_test_repo
+        PASS [   0.011s] prodigy testing::helpers::tests::test_dirs_equal_with_subdirs_only
+        PASS [   0.010s] prodigy testing::helpers::tests::test_file_contains
+        PASS [   0.114s] prodigy subprocess::tests::subprocess_tests::test_production_runner_timeout
+        PASS [   0.009s] prodigy testing::mocks::claude::tests::test_call_counting
+        PASS [   0.010s] prodigy testing::mocks::claude::tests::test_mock_claude_builder
+        PASS [   0.009s] prodigy testing::mocks::claude::tests::test_mock_claude_fail_after
+        PASS [   0.009s] prodigy testing::mocks::claude::tests::test_mock_claude_unavailable
+        PASS [   0.009s] prodigy testing::mocks::fs::tests::test_mock_fs_basic_operations
+        PASS [   0.009s] prodigy testing::mocks::fs::tests::test_mock_fs_builder
+        PASS [   0.008s] prodigy testing::mocks::fs::tests::test_mock_fs_errors
+        PASS [   0.010s] prodigy testing::mocks::fs::tests::test_mock_fs_list_dir
+        PASS [   0.009s] prodigy testing::mocks::fs::tests::test_mock_fs_project_structure
+        PASS [   0.009s] prodigy testing::mocks::git::tests::test_git_command_type_classify_add
+        PASS [   0.008s] prodigy testing::mocks::git::tests::test_git_command_type_classify_commit
+        PASS [   0.009s] prodigy testing::mocks::git::tests::test_git_command_type_classify_edge_cases
+        PASS [   0.009s] prodigy testing::mocks::git::tests::test_git_command_type_classify_log
+        PASS [   0.009s] prodigy testing::mocks::git::tests::test_git_command_type_classify_other
+        PASS [   0.009s] prodigy testing::mocks::git::tests::test_git_command_type_classify_status
+        PASS [   0.009s] prodigy testing::mocks::git::tests::test_mock_git_builder
+        PASS [   0.010s] prodigy testing::mocks::git::tests::test_git_command_with_classifier
+        PASS [   0.009s] prodigy testing::mocks::git::tests::test_mock_git_commits
+        PASS [   0.010s] prodigy testing::mocks::git::tests::test_mock_git_dirty_status
+        PASS [   0.009s] prodigy testing::mocks::git::tests::test_mock_git_staging
+        PASS [   0.009s] prodigy testing::mocks::subprocess::tests::test_mock_subprocess_default_response
+        PASS [   0.010s] prodigy testing::mocks::subprocess::tests::test_mock_subprocess_builder
+        PASS [   0.010s] prodigy testing::mocks::subprocess::tests::test_mock_subprocess_history
+        PASS [   0.010s] prodigy testing::tests::test_context_creation
+        PASS [   0.009s] prodigy testing::tests::test_mock_builders
+        PASS [   0.010s] prodigy testing::tests::test_fixtures
+        PASS [   0.011s] prodigy testing::tests::test_create_test_file
+        PASS [   0.012s] prodigy unified_session::manager::tests::test_create_mapreduce_session
+        PASS [   0.014s] prodigy unified_session::manager::tests::test_checkpoint_creation_and_restore
+        PASS [   0.010s] prodigy unified_session::manager::tests::test_create_session_missing_job_id
+        PASS [   0.011s] prodigy unified_session::manager::tests::test_create_session_missing_workflow_id
+        PASS [   0.013s] prodigy unified_session::manager::tests::test_create_workflow_session
+        PASS [   0.011s] prodigy unified_session::manager::tests::test_delete_session
+        PASS [   0.011s] prodigy unified_session::manager::tests::test_session_failure
+        PASS [   0.012s] prodigy unified_session::manager::tests::test_session_lifecycle
+        PASS [   0.015s] prodigy unified_session::manager::tests::test_list_sessions
+        PASS [   0.013s] prodigy unified_session::manager::tests::test_session_persistence
+        PASS [   0.012s] prodigy unified_session::manager::tests::test_update_error
+        PASS [   0.011s] prodigy unified_session::manager::tests::test_update_files_changed_delta
+        PASS [   0.011s] prodigy unified_session::manager::tests::test_update_metadata
+        PASS [   0.012s] prodigy unified_session::manager::tests::test_update_progress
+        PASS [   0.010s] prodigy unified_session::migration::tests::test_migration_detection
+        PASS [   0.009s] prodigy unified_session::migration::tests::test_migration_report
+        PASS [   0.011s] prodigy unified_session::migration_tests::migration_integration_tests::test_empty_legacy_directory
+        PASS [   0.014s] prodigy unified_session::migration_tests::migration_integration_tests::test_concurrent_session_access
+        PASS [   0.012s] prodigy unified_session::migration_tests::migration_integration_tests::test_migrate_cook_session_format
+        PASS [   0.012s] prodigy unified_session::migration_tests::migration_integration_tests::test_migrate_corrupted_session
+        PASS [   0.012s] prodigy unified_session::migration_tests::migration_integration_tests::test_migrate_mapreduce_session_format
+        PASS [   0.013s] prodigy unified_session::migration_tests::migration_integration_tests::test_migrate_session_with_checkpoint
+        PASS [   0.011s] prodigy unified_session::migration_tests::migration_integration_tests::test_migrate_with_special_characters
+        PASS [   0.012s] prodigy unified_session::migration_tests::migration_integration_tests::test_migrate_very_old_format
+        PASS [   0.016s] prodigy unified_session::migration_tests::migration_integration_tests::test_migrate_multiple_sessions
+        PASS [   0.013s] prodigy unified_session::migration_tests::migration_integration_tests::test_migration_idempotency
+        PASS [   0.010s] prodigy unified_session::state::tests::test_checkpoint_creation
+        PASS [   0.009s] prodigy unified_session::state::tests::test_mapreduce_phase_equality
+        PASS [   0.010s] prodigy unified_session::state::tests::test_checkpoint_id_creation
+        PASS [   0.012s] prodigy unified_session::migration_tests::migration_integration_tests::test_preserve_metadata_during_migration
+        PASS [   0.009s] prodigy unified_session::state::tests::test_mapreduce_progress_tracking
+        PASS [   0.009s] prodigy unified_session::state::tests::test_session_error_handling
+        PASS [   0.010s] prodigy unified_session::state::tests::test_session_config_creation
+        PASS [   0.010s] prodigy unified_session::state::tests::test_mapreduce_session_phases
+        PASS [   0.009s] prodigy unified_session::state::tests::test_session_filter_default
+        PASS [   0.009s] prodigy unified_session::state::tests::test_session_id_creation
+        PASS [   0.009s] prodigy unified_session::state::tests::test_session_status_equality
+        PASS [   0.010s] prodigy unified_session::state::tests::test_session_id_from_string
+        PASS [   0.009s] prodigy unified_session::state::tests::test_session_summary_with_completed_session
+        PASS [   0.009s] prodigy unified_session::state::tests::test_session_type_equality
+        PASS [   0.010s] prodigy unified_session::state::tests::test_session_with_checkpoints
+        PASS [   0.010s] prodigy unified_session::state::tests::test_unified_session_new_mapreduce
+        PASS [   0.011s] prodigy unified_session::state::tests::test_session_with_timings
+        PASS [   0.012s] prodigy unified_session::state::tests::test_unified_session_duration
+        PASS [   0.011s] prodigy unified_session::state::tests::test_unified_session_new_workflow
+        PASS [   0.011s] prodigy unified_session::state::tests::test_unified_session_serialization
+        PASS [   0.009s] prodigy unified_session::state::tests::test_workflow_session_defaults
+        PASS [   0.010s] prodigy unified_session::state::tests::test_unified_session_to_summary
+        PASS [   0.009s] prodigy unified_session::tests::test_format_duration
+        PASS [   0.011s] prodigy unified_session::tests::test_cook_session_adapter
+        PASS [   0.010s] prodigy unified_session::tests::test_mapreduce_session
+        PASS [   0.010s] prodigy unified_session::tests::test_session_error_handling
+        PASS [   0.011s] prodigy unified_session::tests::test_session_checkpointing
+        PASS [   0.012s] prodigy unified_session::tests::test_session_filtering
+        PASS [   0.011s] prodigy unified_session::tests::test_session_lifecycle
+        PASS [   0.010s] prodigy unified_session::tests::test_session_manager_creation
+        PASS [   0.011s] prodigy unified_session::tests::test_session_metadata_update
+        PASS [   0.009s] prodigy unified_session::timing::tests::test_format_duration
+        PASS [   0.012s] prodigy unified_session::tests::test_session_progress_tracking
+        PASS [   0.009s] prodigy unified_session::timing::tests::test_timing_tracker
+        PASS [   0.009s] prodigy worktree::display::tests::test_detailed_worktree_list_empty
+        PASS [   0.009s] prodigy worktree::display::tests::test_detailed_worktree_list_with_sessions
+        PASS [   0.010s] prodigy worktree::display::tests::test_detailed_worktree_list_format_json
+        PASS [   0.009s] prodigy worktree::display::tests::test_enhanced_session_info_format_default
+        PASS [   0.009s] prodigy worktree::display::tests::test_enhanced_session_info_format_json
+        PASS [   0.009s] prodigy worktree::display::tests::test_enhanced_session_info_with_error
+        PASS [   0.009s] prodigy worktree::display::tests::test_enhanced_session_info_format_verbose
+        PASS [   0.009s] prodigy worktree::display::tests::test_enhanced_session_info_with_mapreduce
+        PASS [   0.009s] prodigy worktree::display::tests::test_format_duration_days
+        PASS [   0.035s] prodigy unified_session::tests::test_timing_tracker
+        PASS [   0.009s] prodigy worktree::display::tests::test_format_duration_hours
+        PASS [   0.009s] prodigy worktree::display::tests::test_format_duration_minutes
+        PASS [   0.009s] prodigy worktree::display::tests::test_format_duration_seconds
+        PASS [   0.009s] prodigy worktree::display::tests::test_format_status
+        PASS [   0.009s] prodigy worktree::display::tests::test_format_time_relative
+        PASS [   0.009s] prodigy worktree::display::tests::test_worktree_summary_default
+        PASS [   0.009s] prodigy worktree::display::tests::test_worktree_state_conversion
+        PASS [   0.010s] prodigy worktree::manager::tests::test_claude_merge_command_construction
+        PASS [   0.009s] prodigy worktree::manager::tests::test_cleanup_config_defaults
+        PASS [   0.011s] prodigy worktree::manager::tests::test_cleanup_session_after_merge_not_merged
+        PASS [   0.011s] prodigy worktree::manager::tests::test_collect_all_states
+        PASS [   0.010s] prodigy worktree::manager::tests::test_filter_sessions_by_status
+        PASS [   0.009s] prodigy worktree::manager::tests::test_get_cleanup_config_from_env
+        PASS [   0.035s] prodigy worktree::manager::tests::test_detect_mergeable_sessions_empty
+        PASS [   0.011s] prodigy worktree::manager::tests::test_load_state_from_file
+        PASS [   0.022s] prodigy worktree::manager::tests::test_merge_session_claude_cli_failure
+        PASS [   0.073s] prodigy worktree::manager::tests::test_list_detailed_empty
+        PASS [   0.017s] prodigy worktree::manager::tests::test_merge_session_success
+        PASS [   0.010s] prodigy worktree::manager::tests::test_merge_workflow_variable_interpolation
+        PASS [   0.011s] prodigy worktree::manager::tests::test_parse_worktree_block_extra_fields
+        PASS [   0.088s] prodigy worktree::manager::tests::test_list_detailed_with_sessions
+        PASS [   0.010s] prodigy worktree::manager::tests::test_parse_worktree_block_missing_branch
+        PASS [   0.010s] prodigy worktree::manager::tests::test_parse_worktree_block_missing_path
+        PASS [   0.009s] prodigy worktree::manager::tests::test_parse_worktree_block_valid
+        PASS [   0.010s] prodigy worktree::manager::tests::test_parse_worktree_output
+        PASS [   0.010s] prodigy worktree::manager::tests::test_parse_worktree_output_empty
+        PASS [   0.010s] prodigy worktree::manager::tests::test_parse_worktree_output_missing_branch
+        PASS [   0.108s] prodigy worktree::manager::tests::test_list_detailed_with_mapreduce_info
+        PASS [   0.105s] prodigy worktree::manager::tests::test_list_detailed_with_workflow_info
+        PASS [   0.010s] prodigy worktree::manager::tests::test_parse_worktree_output_single_entry
+        PASS [   0.010s] prodigy worktree::manager::tests::test_split_into_worktree_blocks
+        PASS [   0.009s] prodigy worktree::manager::tests::test_split_into_worktree_blocks_empty
+        PASS [   0.010s] prodigy worktree::manager::tests::test_split_into_worktree_blocks_single
+        PASS [   0.011s] prodigy worktree::manager::tests::test_update_checkpoint_increments_iteration
+        PASS [   0.011s] prodigy worktree::manager::tests::test_update_checkpoint_success
+        PASS [   0.085s] prodigy worktree::test_state::test_gitignore_creation
+        PASS [   0.159s] prodigy worktree::pool::tests::test_named_worktree
+        PASS [   0.169s] prodigy worktree::pool::tests::test_metrics
+        PASS [   0.242s] prodigy worktree::test_state::test_list_sessions_with_state
+        PASS [   0.090s] prodigy worktree::test_state::test_state_error_handling
+        PASS [   0.248s] prodigy worktree::pool::tests::test_pool_basic_allocation
+        PASS [   0.162s] prodigy worktree::test_state::test_merge_updates_state
+        PASS [   0.010s] prodigy worktree::test_state::test_validate_initial_state_has_error
+        PASS [   0.010s] prodigy worktree::test_state::test_validate_initial_state_already_merged
+        PASS [   0.010s] prodigy worktree::test_state::test_validate_initial_state_non_zero_iterations
+        PASS [   0.010s] prodigy worktree::test_state::test_validate_initial_state_wrong_branch
+        PASS [   0.010s] prodigy worktree::test_state::test_validate_initial_state_valid
+        PASS [   0.009s] prodigy worktree::test_state::test_validate_initial_state_wrong_max_iterations
+        PASS [   0.009s] prodigy worktree::test_state::test_validate_initial_state_wrong_session_id
+        PASS [   0.009s] prodigy worktree::test_state::test_validate_initial_state_wrong_worktree_name
+        PASS [   0.009s] prodigy worktree::test_state::test_validate_initial_state_wrong_status
+        PASS [   0.126s] prodigy worktree::test_state::test_state_file_creation
+        PASS [   0.010s] prodigy worktree::tests::test_filter_sessions_by_status
+        PASS [   0.094s] prodigy worktree::test_state::test_state_updates
+        PASS [   0.106s] prodigy worktree::tests::test_create_session_with_uuid_name
+        PASS [   0.113s] prodigy worktree::tests::test_create_session_with_generated_name
+        PASS [   0.113s] prodigy worktree::tests::test_cleanup_session
+        PASS [   0.057s] prodigy worktree::tests::test_list_interrupted_sessions_empty
+        PASS [   0.011s] prodigy worktree::tests::test_load_state_from_file
+        PASS [   0.154s] prodigy worktree::tests::test_list_interrupted_sessions_all_interrupted
+        PASS [   1.013s] prodigy subprocess::streaming::tests::test_rate_limited_processor
+        PASS [   0.101s] prodigy worktree::tests::test_merge_already_merged
+        PASS [   0.010s] prodigy worktree::tracking_tests::metadata_tests::test_metadata_file_filtering
+        PASS [   0.058s] prodigy worktree::tests::test_worktree_manager_creation
+        PASS [   0.012s] prodigy worktree::tracking_tests::test_auto_merge_environment_variable
+        PASS [   0.158s] prodigy worktree::tests::test_list_interrupted_sessions_none_interrupted
+        PASS [   0.012s] prodigy worktree::tracking_tests::test_mapreduce_branch_patterns
+        PASS [   0.170s] prodigy worktree::tests::test_list_sessions
+        PASS [   0.140s] prodigy worktree::tests::test_merge_session
+        PASS [   0.219s] prodigy worktree::tests::test_list_interrupted_sessions_with_mixed_states
+        PASS [   0.068s] prodigy::claude_streaming_test test_claude_event_variants
+        PASS [   0.083s] prodigy worktree::tracking_tests::test_metadata_sessions_exclude_cleaned_up
+        PASS [   0.131s] prodigy worktree::tracking_tests::test_list_sessions_with_metadata_fallback
+        PASS [   0.160s] prodigy worktree::tracking_tests::test_list_sessions_includes_all_prodigy_branches
+        PASS [   0.477s] prodigy::cli_integration_tests cli_integration::argument_parsing_tests::test_help_flag
+        PASS [   0.498s] prodigy::cli_integration_tests cli_integration::argument_parsing_tests::test_conflicting_arguments
+        FAIL [   0.533s] prodigy::cli_integration_tests cli_integration::argument_parsing_tests::test_argument_with_special_characters
+  stdout ───
+
+    running 1 test
+    test cli_integration::argument_parsing_tests::test_argument_with_special_characters ... FAILED
+
+    failures:
+
+    failures:
+        cli_integration::argument_parsing_tests::test_argument_with_special_characters
+
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 132 filtered out; finished in 0.52s
+
+  stderr ───
+
+    thread 'cli_integration::argument_parsing_tests::test_argument_with_special_characters' panicked at tests/cli_integration/argument_parsing_tests.rs:277:5:
+    assertion `left == right` failed
+      left: 1
+     right: 0
+    note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+  Cancelling due to test failure: 11 tests still running
+        FAIL [   0.552s] prodigy::cli_integration_tests cli_integration::argument_parsing_tests::test_argument_with_spaces
+  stdout ───
+
+    running 1 test
+    test cli_integration::argument_parsing_tests::test_argument_with_spaces ... FAILED
+
+    failures:
+
+    failures:
+        cli_integration::argument_parsing_tests::test_argument_with_spaces
+
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 132 filtered out; finished in 0.54s
+
+  stderr ───
+
+    thread 'cli_integration::argument_parsing_tests::test_argument_with_spaces' panicked at tests/cli_integration/test_utils.rs:257:5:
+    assertion `left == right` failed: Expected exit code 0, got 1. Stdout: 2025-09-22T19:16:33.858399Z ERROR Fatal error: Exec command implementation not yet extracted from main.rs
+    , Stderr: Error: Exec command implementation not yet extracted from main.rs
+
+      left: 1
+     right: 0
+    note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+        PASS [   0.065s] prodigy::cli_integration_tests cli_integration::argument_parsing_tests::test_invalid_command
+        PASS [   0.065s] prodigy::cli_integration_tests cli_integration::argument_parsing_tests::test_invalid_flag_value
+        PASS [   5.735s] prodigy cook::execution::dlq_reprocessor_test::test_performance_large_dlq_processing
+        PASS [   5.016s] prodigy cook::execution::process_tests::tests::test_process_manager_cleanup_registry
+        PASS [   2.142s] prodigy::cli_integration_tests cli_integration::argument_parsing_tests::test_boolean_flag_variations
+        PASS [   6.031s] prodigy cook::retry::tests::test_execute_with_retry_exponential_backoff
+        PASS [   6.032s] prodigy cook::retry::tests::test_execute_with_retry_exhausted_retries
+        PASS [   4.057s] prodigy::claude_streaming_test test_claude_streaming_mode_flag
+        PASS [  10.019s] prodigy cook::retry::additional_tests::test_execute_with_retry_network_timeout
+        PASS [  10.022s] prodigy cook::retry::additional_tests::test_execute_with_retry_signal_interruption
+────────────
+     Summary [  12.225s] 1872/2093 tests run: 1870 passed, 2 failed, 7 skipped
+        FAIL [   0.552s] prodigy::cli_integration_tests cli_integration::argument_parsing_tests::test_argument_with_spaces
+        FAIL [   0.533s] prodigy::cli_integration_tests cli_integration::argument_parsing_tests::test_argument_with_special_characters
+warning: 221/2093 tests were not run due to test failure (run with --no-fail-fast to run all tests, or run with --max-fail)
+error: test run failed
