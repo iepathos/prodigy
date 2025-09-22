@@ -132,8 +132,68 @@ impl ProcessRunner for MockProcessRunner {
         )))
     }
 
-    async fn run_streaming(&self, _command: ProcessCommand) -> Result<ProcessStream, ProcessError> {
-        todo!("Streaming mock support will be implemented as needed")
+    async fn run_streaming(&self, command: ProcessCommand) -> Result<ProcessStream, ProcessError> {
+        use super::runner::{ExitStatus, ProcessStreamFut};
+        use futures::stream::{self, StreamExt};
+
+        let expectations = self.expectations.lock().unwrap();
+
+        // Find matching expectation
+        for expectation in expectations.iter() {
+            if expectation.program == command.program {
+                if let Some(ref matcher) = expectation.args_matcher {
+                    if !matcher(&command.args) {
+                        continue;
+                    }
+                } else if !command.args.is_empty() {
+                    continue;
+                }
+
+                // Create static streams from the expected output
+                let stdout_lines: Vec<String> = expectation
+                    .response
+                    .stdout
+                    .lines()
+                    .map(|s| s.to_string())
+                    .collect();
+
+                let stderr_lines: Vec<String> = expectation
+                    .response
+                    .stderr
+                    .lines()
+                    .map(|s| s.to_string())
+                    .collect();
+
+                // Create stdout stream
+                let stdout_stream = Box::pin(
+                    stream::iter(stdout_lines).map(|line| Ok(line) as Result<String, ProcessError>),
+                ) as ProcessStreamFut;
+
+                // Create stderr stream
+                let stderr_stream = Box::pin(
+                    stream::iter(stderr_lines).map(|line| Ok(line) as Result<String, ProcessError>),
+                ) as ProcessStreamFut;
+
+                // Create status future
+                let status = expectation.response.status.clone();
+                let status_fut = Box::pin(async move { Ok(status) });
+
+                return Ok(ProcessStream {
+                    stdout: stdout_stream,
+                    stderr: stderr_stream,
+                    status: status_fut,
+                });
+            }
+        }
+
+        Err(ProcessError::CommandFailed {
+            command: format!("{} {:?}", command.program, command.args),
+            status: ExitStatus::Error(1),
+            stderr: format!(
+                "No expectation found for command: {} {:?}",
+                command.program, command.args
+            ),
+        })
     }
 }
 

@@ -305,7 +305,179 @@ impl ProcessRunner for TokioProcessRunner {
         Ok(result)
     }
 
-    async fn run_streaming(&self, _command: ProcessCommand) -> Result<ProcessStream, ProcessError> {
-        todo!("Streaming support will be implemented as needed")
+    async fn run_streaming(&self, command: ProcessCommand) -> Result<ProcessStream, ProcessError> {
+        use std::process::Stdio;
+        use tokio::io::{AsyncBufReadExt, BufReader};
+        use tokio::process::Command;
+
+        // Log command execution
+        Self::log_command_start(&command);
+
+        // Build the tokio command
+        let mut cmd = Command::new(&command.program);
+        cmd.args(&command.args);
+
+        // Set environment variables
+        for (key, value) in &command.env {
+            cmd.env(key, value);
+        }
+
+        // Set working directory
+        if let Some(dir) = &command.working_dir {
+            cmd.current_dir(dir);
+        }
+
+        // Configure stdio for streaming
+        cmd.stdin(Stdio::piped());
+        cmd.stdout(Stdio::piped());
+        if command.suppress_stderr {
+            cmd.stderr(Stdio::null());
+        } else {
+            cmd.stderr(Stdio::piped());
+        }
+
+        // Spawn the process
+        let mut child = cmd.spawn().map_err(|e| ProcessError::SpawnFailed {
+            command: format!("{} {}", command.program, command.args.join(" ")),
+            source: e.into(),
+        })?;
+
+        // Handle stdin if provided
+        if let Some(stdin_data) = &command.stdin {
+            if let Some(mut stdin) = child.stdin.take() {
+                use tokio::io::AsyncWriteExt;
+                stdin.write_all(stdin_data.as_bytes()).await.map_err(|e| {
+                    ProcessError::IoError {
+                        command: format!("{} {}", command.program, command.args.join(" ")),
+                        source: e,
+                    }
+                })?;
+                stdin.flush().await.map_err(|e| ProcessError::IoError {
+                    command: format!("{} {}", command.program, command.args.join(" ")),
+                    source: e,
+                })?;
+            }
+        }
+
+        // Take ownership of output streams
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| ProcessError::InternalError {
+                message: "Failed to capture stdout".to_string(),
+            })?;
+
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| ProcessError::InternalError {
+                message: "Failed to capture stderr".to_string(),
+            })?;
+
+        // Create stdout stream
+        let stdout_stream = Box::pin(futures::stream::unfold(
+            BufReader::new(stdout),
+            |mut reader| async move {
+                let mut line = String::new();
+                match reader.read_line(&mut line).await {
+                    Ok(0) => None, // EOF
+                    Ok(_) => {
+                        // Remove trailing newline
+                        if line.ends_with('\n') {
+                            line.pop();
+                            if line.ends_with('\r') {
+                                line.pop();
+                            }
+                        }
+                        Some((Ok(line.clone()), reader))
+                    }
+                    Err(e) => Some((
+                        Err(ProcessError::IoError {
+                            command: String::new(),
+                            source: e,
+                        }),
+                        reader,
+                    )),
+                }
+            },
+        )) as ProcessStreamFut;
+
+        // Create stderr stream
+        let stderr_stream = Box::pin(futures::stream::unfold(
+            BufReader::new(stderr),
+            |mut reader| async move {
+                let mut line = String::new();
+                match reader.read_line(&mut line).await {
+                    Ok(0) => None, // EOF
+                    Ok(_) => {
+                        // Remove trailing newline
+                        if line.ends_with('\n') {
+                            line.pop();
+                            if line.ends_with('\r') {
+                                line.pop();
+                            }
+                        }
+                        Some((Ok(line.clone()), reader))
+                    }
+                    Err(e) => Some((
+                        Err(ProcessError::IoError {
+                            command: String::new(),
+                            source: e,
+                        }),
+                        reader,
+                    )),
+                }
+            },
+        )) as ProcessStreamFut;
+
+        // Create status future
+        let timeout = command.timeout;
+        let program = command.program.clone();
+        let args = command.args.clone();
+
+        let status_fut = Box::pin(async move {
+            let status = if let Some(timeout_duration) = timeout {
+                match tokio::time::timeout(timeout_duration, child.wait()).await {
+                    Ok(Ok(status)) => {
+                        if status.success() {
+                            ExitStatus::Success
+                        } else {
+                            ExitStatus::Error(status.code().unwrap_or(-1))
+                        }
+                    }
+                    Ok(Err(e)) => {
+                        return Err(ProcessError::IoError {
+                            command: format!("{} {}", program, args.join(" ")),
+                            source: e,
+                        })
+                    }
+                    Err(_) => ExitStatus::Timeout,
+                }
+            } else {
+                match child.wait().await {
+                    Ok(status) => {
+                        if status.success() {
+                            ExitStatus::Success
+                        } else {
+                            ExitStatus::Error(status.code().unwrap_or(-1))
+                        }
+                    }
+                    Err(e) => {
+                        return Err(ProcessError::IoError {
+                            command: format!("{} {}", program, args.join(" ")),
+                            source: e,
+                        })
+                    }
+                }
+            };
+
+            Ok(status)
+        });
+
+        Ok(ProcessStream {
+            stdout: stdout_stream,
+            stderr: stderr_stream,
+            status: status_fut,
+        })
     }
 }

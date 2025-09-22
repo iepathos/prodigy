@@ -55,6 +55,9 @@ pub mod streaming;
 mod tests;
 
 #[cfg(test)]
+mod streaming_tests;
+
+#[cfg(test)]
 pub use adapter::MockSubprocessExecutor;
 pub use adapter::{RealSubprocessExecutor, SubprocessError, SubprocessExecutor};
 pub use builder::ProcessCommandBuilder;
