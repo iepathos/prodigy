@@ -144,8 +144,10 @@ impl WorktreeManager {
             }
             #[cfg(not(test))]
             {
-                let home_dir = dirs::home_dir()
-                    .ok_or_else(|| anyhow!("Could not determine home directory"))?;
+                let home_dir = directories::BaseDirs::new()
+                    .ok_or_else(|| anyhow!("Could not determine base directories"))?
+                    .home_dir()
+                    .to_path_buf();
                 home_dir.join(".prodigy").join("worktrees").join(repo_name)
             }
         };

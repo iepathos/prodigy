@@ -54,8 +54,10 @@ pub async fn cook(mut cmd: CookCommand) -> Result<()> {
     let project_path = if let Some(ref path) = cmd.path {
         // Expand tilde notation if present
         let expanded_path = if path.to_string_lossy().starts_with("~/") {
-            let home =
-                dirs::home_dir().ok_or_else(|| anyhow!("Could not determine home directory"))?;
+            let home = directories::BaseDirs::new()
+                .ok_or_else(|| anyhow!("Could not determine base directories"))?
+                .home_dir()
+                .to_path_buf();
             home.join(
                 path.strip_prefix("~/")
                     .context("Failed to strip ~/ prefix")?,

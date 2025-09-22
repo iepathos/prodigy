@@ -406,8 +406,9 @@ impl CheckpointManager {
         };
 
         // Build global checkpoint path
-        let global_base = dirs::home_dir()
-            .ok_or_else(|| anyhow!("Could not determine home directory"))?
+        let global_base = directories::BaseDirs::new()
+            .ok_or_else(|| anyhow!("Could not determine base directories"))?
+            .home_dir()
             .join(".prodigy");
 
         Ok(global_base

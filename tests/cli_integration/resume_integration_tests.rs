@@ -436,7 +436,11 @@ fn test_resume_completed_workflow() {
     // Also save in the global storage location directly to handle migration
     // Get the repo name from the temp directory (last component of path)
     let _repo_name = test_dir.file_name().unwrap().to_str().unwrap();
-    let global_dir = dirs::home_dir().unwrap().join(".prodigy").join("sessions");
+    let global_dir = directories::BaseDirs::new()
+        .unwrap()
+        .home_dir()
+        .join(".prodigy")
+        .join("sessions");
     fs::create_dir_all(&global_dir).unwrap();
     fs::write(
         global_dir.join(format!("{}.json", workflow_id)),

@@ -105,9 +105,9 @@ pub fn get_default_storage_dir() -> Result<PathBuf> {
 
     #[cfg(not(test))]
     {
-        dirs::home_dir()
-            .ok_or_else(|| anyhow!("Could not determine home directory"))
-            .map(|home| home.join(".prodigy"))
+        directories::BaseDirs::new()
+            .ok_or_else(|| anyhow!("Could not determine base directories"))
+            .map(|dirs| dirs.home_dir().join(".prodigy"))
     }
 }
 

@@ -239,9 +239,9 @@ impl StorageConfig {
                     .or_else(|_| std::env::var("PRODIGY_STORAGE_PATH"))
                     .map(PathBuf::from)
                     .unwrap_or_else(|_| {
-                        dirs::home_dir()
-                            .unwrap_or_else(|| PathBuf::from("/tmp"))
-                            .join(".prodigy")
+                        directories::BaseDirs::new()
+                            .map(|dirs| dirs.home_dir().join(".prodigy"))
+                            .unwrap_or_else(|| PathBuf::from("/tmp").join(".prodigy"))
                     }),
                 use_global: true, // Always use global storage
                 enable_file_locks: true,
